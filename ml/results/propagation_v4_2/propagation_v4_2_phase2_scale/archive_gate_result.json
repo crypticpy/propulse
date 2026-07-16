@@ -1,0 +1,3798 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T00:57:59Z",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scope": "archive",
+  "attempt_id": "archive-20260715T233440Z",
+  "months": [
+    "2025-01",
+    "2025-04",
+    "2025-07",
+    "2025-10"
+  ],
+  "december_2024_read": true,
+  "locked_2025_read": true,
+  "prospective_read": false,
+  "rows": 208372533,
+  "datasets": {
+    "2025-01": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-000.parquet",
+      "bytes": 6520489178,
+      "sha256": "3aca1bf1894e1787ded9b5a2d2b7f34ab24cafef9d5b70aa6f6519f2f19f20f9",
+      "rows": 52120942
+    },
+    "2025-04": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-001.parquet",
+      "bytes": 6669249897,
+      "sha256": "7bf67aec2bcac03c9969d4498ba8227925a855caabfcce729d2e324e12f5fcc2",
+      "rows": 52629262
+    },
+    "2025-07": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-002.parquet",
+      "bytes": 5953250070,
+      "sha256": "4d8550686179d9127606c594e41b71d5c41b3bffb3f0b8d743835c28e01df905",
+      "rows": 47444263
+    },
+    "2025-10": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-003.parquet",
+      "bytes": 7091171132,
+      "sha256": "18c293f4b8002a05a72ec241e4c215fb7dca6200be6c58d0cf1b6b1a55dae20c",
+      "rows": 56178066
+    }
+  },
+  "integrity_audit": {
+    "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_integrity_audit.json",
+    "bytes": 6880,
+    "sha256": "26a77ccdf365b08da2e1732e7a96045d01f19f222006b8842ede94fbca94b245"
+  },
+  "bundle_manifest": {
+    "path": "ml/models/archive_v4_2/propagation_v4_2_phase2_scale/serving/serving_manifest.json",
+    "bytes": 13113,
+    "sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821"
+  },
+  "phase3_validation": {
+    "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/phase3_candidate_validation.json",
+    "bytes": 3053,
+    "sha256": "fcdb7a3d57788f4885ff2124ccd82fda11567e9e8b61b9d126e702b826947a5f"
+  },
+  "metrics": {
+    "candidate": {
+      "overall": {
+        "opportunities": 7297815056.0,
+        "weighted_brier": 0.04096767484040412,
+        "rows": 208372533,
+        "weighted_prevalence": 0.09023668850837482,
+        "weighted_log_loss": 0.16258301727352398,
+        "weighted_mae": 0.08909082704552651,
+        "mean_prediction": 0.09446394292769737,
+        "expected_calibration_error": 0.004227252595316316,
+        "maximum_calibration_error": 0.04480223005137551,
+        "bins": [
+          {
+            "bin": 0,
+            "lower": 0.0,
+            "upper": 0.05,
+            "opportunities": 5223684156.0,
+            "mean_prediction": 0.0061848686139371195,
+            "observed_rate": 0.005527566395229812
+          },
+          {
+            "bin": 1,
+            "lower": 0.05,
+            "upper": 0.1,
+            "opportunities": 412402432.25,
+            "mean_prediction": 0.07279188473161922,
+            "observed_rate": 0.06734034241380253
+          },
+          {
+            "bin": 2,
+            "lower": 0.1,
+            "upper": 0.15,
+            "opportunities": 244190583.0,
+            "mean_prediction": 0.12314978585992667,
+            "observed_rate": 0.11780170490849765
+          },
+          {
+            "bin": 3,
+            "lower": 0.15,
+            "upper": 0.2,
+            "opportunities": 182803072.0,
+            "mean_prediction": 0.174109625494447,
+            "observed_rate": 0.16692546611032882
+          },
+          {
+            "bin": 4,
+            "lower": 0.2,
+            "upper": 0.25,
+            "opportunities": 162077136.0,
+            "mean_prediction": 0.2235283199418658,
+            "observed_rate": 0.21399975873216318
+          },
+          {
+            "bin": 5,
+            "lower": 0.25,
+            "upper": 0.3,
+            "opportunities": 137592388.0,
+            "mean_prediction": 0.27447838668418206,
+            "observed_rate": 0.26329907145735415
+          },
+          {
+            "bin": 6,
+            "lower": 0.3,
+            "upper": 0.35,
+            "opportunities": 134992424.25,
+            "mean_prediction": 0.32533378631460946,
+            "observed_rate": 0.30953085872891123
+          },
+          {
+            "bin": 7,
+            "lower": 0.35,
+            "upper": 0.4,
+            "opportunities": 111181299.0,
+            "mean_prediction": 0.37549337745440925,
+            "observed_rate": 0.35775543511143904
+          },
+          {
+            "bin": 8,
+            "lower": 0.4,
+            "upper": 0.45,
+            "opportunities": 115688453.25,
+            "mean_prediction": 0.42514373239163583,
+            "observed_rate": 0.4033029977432082
+          },
+          {
+            "bin": 9,
+            "lower": 0.45,
+            "upper": 0.5,
+            "opportunities": 102085839.0,
+            "mean_prediction": 0.47655537106264195,
+            "observed_rate": 0.4552522412045808
+          },
+          {
+            "bin": 10,
+            "lower": 0.5,
+            "upper": 0.55,
+            "opportunities": 91174704.0,
+            "mean_prediction": 0.5252329790808554,
+            "observed_rate": 0.5021529984895811
+          },
+          {
+            "bin": 11,
+            "lower": 0.55,
+            "upper": 0.6,
+            "opportunities": 91202285.0,
+            "mean_prediction": 0.575106991984341,
+            "observed_rate": 0.5528256885230453
+          },
+          {
+            "bin": 12,
+            "lower": 0.6,
+            "upper": 0.65,
+            "opportunities": 78376741.5,
+            "mean_prediction": 0.6219923371020217,
+            "observed_rate": 0.6070003305763866
+          },
+          {
+            "bin": 13,
+            "lower": 0.65,
+            "upper": 0.7,
+            "opportunities": 64752572.25,
+            "mean_prediction": 0.6733789282558732,
+            "observed_rate": 0.6509704948439327
+          },
+          {
+            "bin": 14,
+            "lower": 0.7,
+            "upper": 0.75,
+            "opportunities": 51401598.5,
+            "mean_prediction": 0.7237605973537288,
+            "observed_rate": 0.7001704820522264
+          },
+          {
+            "bin": 15,
+            "lower": 0.75,
+            "upper": 0.8,
+            "opportunities": 40850964.75,
+            "mean_prediction": 0.7735848794552702,
+            "observed_rate": 0.7514313355353499
+          },
+          {
+            "bin": 16,
+            "lower": 0.8,
+            "upper": 0.85,
+            "opportunities": 24108338.0,
+            "mean_prediction": 0.819922835702599,
+            "observed_rate": 0.791993583298857
+          },
+          {
+            "bin": 17,
+            "lower": 0.85,
+            "upper": 0.9,
+            "opportunities": 17497439.0,
+            "mean_prediction": 0.8739561402780689,
+            "observed_rate": 0.8390401589626916
+          },
+          {
+            "bin": 18,
+            "lower": 0.9,
+            "upper": 0.95,
+            "opportunities": 6490047.75,
+            "mean_prediction": 0.9224890738830965,
+            "observed_rate": 0.8825466653924079
+          },
+          {
+            "bin": 19,
+            "lower": 0.95,
+            "upper": 1.0,
+            "opportunities": 5262582.5,
+            "mean_prediction": 0.9723658359425895,
+            "observed_rate": 0.927563605891214
+          }
+        ]
+      },
+      "slices": {
+        "month": [
+          {
+            "key": "2025-01",
+            "opportunities": 1721635158.0,
+            "weighted_brier": 0.04246630838805516,
+            "rows": 52120942,
+            "weighted_prevalence": 0.0976481522341216,
+            "weighted_log_loss": 0.16934491404298366,
+            "weighted_mae": 0.09292875894781123,
+            "mean_prediction": 0.10126915340896951
+          },
+          {
+            "key": "2025-04",
+            "opportunities": 1927603321.75,
+            "weighted_brier": 0.03826858503907948,
+            "rows": 52629262,
+            "weighted_prevalence": 0.08427227177245343,
+            "weighted_log_loss": 0.15083767865858363,
+            "weighted_mae": 0.08251546849220526,
+            "mean_prediction": 0.08634623999619333
+          },
+          {
+            "key": "2025-07",
+            "opportunities": 1695297088.5,
+            "weighted_brier": 0.039702025315924955,
+            "rows": 47444263,
+            "weighted_prevalence": 0.08163713306583668,
+            "weighted_log_loss": 0.15958890477656543,
+            "weighted_mae": 0.08633324928676618,
+            "mean_prediction": 0.08728662536980537
+          },
+          {
+            "key": "2025-10",
+            "opportunities": 1953279487.75,
+            "weighted_brier": 0.04340886477044602,
+            "rows": 56178066,
+            "weighted_prevalence": 0.09705393835798243,
+            "weighted_log_loss": 0.1708126356234416,
+            "weighted_mae": 0.09459033600223571,
+            "mean_prediction": 0.10270613621017434
+          }
+        ],
+        "day": [
+          {
+            "key": "2025-01-01",
+            "opportunities": 49278282.75,
+            "weighted_brier": 0.043978523366671456,
+            "rows": 1481361,
+            "weighted_prevalence": 0.08741215723472019,
+            "weighted_log_loss": 0.17330100036837898,
+            "weighted_mae": 0.09560734261647261,
+            "mean_prediction": 0.10234478064858757
+          },
+          {
+            "key": "2025-01-02",
+            "opportunities": 53577666.5,
+            "weighted_brier": 0.044431038633125544,
+            "rows": 1648471,
+            "weighted_prevalence": 0.09761057809413928,
+            "weighted_log_loss": 0.17558311912069913,
+            "weighted_mae": 0.0924377312421502,
+            "mean_prediction": 0.09444501349239243
+          },
+          {
+            "key": "2025-01-03",
+            "opportunities": 55082690.25,
+            "weighted_brier": 0.04463119116879512,
+            "rows": 1742840,
+            "weighted_prevalence": 0.10054837508594636,
+            "weighted_log_loss": 0.17735606357606304,
+            "weighted_mae": 0.09754265362795185,
+            "mean_prediction": 0.10736564308013677
+          },
+          {
+            "key": "2025-01-04",
+            "opportunities": 54291137.75,
+            "weighted_brier": 0.044999086789082106,
+            "rows": 1719500,
+            "weighted_prevalence": 0.09950286960048098,
+            "weighted_log_loss": 0.17670080604398447,
+            "weighted_mae": 0.09682215427265917,
+            "mean_prediction": 0.103373869208563
+          },
+          {
+            "key": "2025-01-05",
+            "opportunities": 53527876.5,
+            "weighted_brier": 0.04325629151912725,
+            "rows": 1687856,
+            "weighted_prevalence": 0.09750399868748763,
+            "weighted_log_loss": 0.17188472558908566,
+            "weighted_mae": 0.09433734229249625,
+            "mean_prediction": 0.10196813609122396
+          },
+          {
+            "key": "2025-01-06",
+            "opportunities": 56760576.75,
+            "weighted_brier": 0.04294658713103242,
+            "rows": 1735683,
+            "weighted_prevalence": 0.09743190285676581,
+            "weighted_log_loss": 0.1701290412064061,
+            "weighted_mae": 0.09308999621209933,
+            "mean_prediction": 0.09992639508913134
+          },
+          {
+            "key": "2025-01-07",
+            "opportunities": 52396991.75,
+            "weighted_brier": 0.04303351171760271,
+            "rows": 1636940,
+            "weighted_prevalence": 0.09852063692187062,
+            "weighted_log_loss": 0.17045596982013309,
+            "weighted_mae": 0.09436420420990918,
+            "mean_prediction": 0.1043275002966535
+          },
+          {
+            "key": "2025-01-08",
+            "opportunities": 53583016.5,
+            "weighted_brier": 0.04192343829081017,
+            "rows": 1629297,
+            "weighted_prevalence": 0.09711034092304228,
+            "weighted_log_loss": 0.16688600213433566,
+            "weighted_mae": 0.09174774880588694,
+            "mean_prediction": 0.09977245896897861
+          },
+          {
+            "key": "2025-01-09",
+            "opportunities": 53865418.5,
+            "weighted_brier": 0.041782327483819236,
+            "rows": 1623283,
+            "weighted_prevalence": 0.09621182094779418,
+            "weighted_log_loss": 0.1672281832474923,
+            "weighted_mae": 0.09148338893049664,
+            "mean_prediction": 0.10046514729698013
+          },
+          {
+            "key": "2025-01-10",
+            "opportunities": 53512873.25,
+            "weighted_brier": 0.04304052970022062,
+            "rows": 1643163,
+            "weighted_prevalence": 0.09974056102472502,
+            "weighted_log_loss": 0.17250441468807892,
+            "weighted_mae": 0.0932112982405533,
+            "mean_prediction": 0.10150835998199763
+          },
+          {
+            "key": "2025-01-11",
+            "opportunities": 54348066.0,
+            "weighted_brier": 0.042010215682088084,
+            "rows": 1662944,
+            "weighted_prevalence": 0.09751415993349238,
+            "weighted_log_loss": 0.167688310119741,
+            "weighted_mae": 0.09154699855757678,
+            "mean_prediction": 0.09887846509417592
+          },
+          {
+            "key": "2025-01-12",
+            "opportunities": 55244711.75,
+            "weighted_brier": 0.0411858995137576,
+            "rows": 1643837,
+            "weighted_prevalence": 0.09620437561609686,
+            "weighted_log_loss": 0.16443563454718552,
+            "weighted_mae": 0.09058045108369706,
+            "mean_prediction": 0.09938422291832955
+          },
+          {
+            "key": "2025-01-13",
+            "opportunities": 54727715.75,
+            "weighted_brier": 0.04266357804786106,
+            "rows": 1665589,
+            "weighted_prevalence": 0.10115669773774544,
+            "weighted_log_loss": 0.1709455355826923,
+            "weighted_mae": 0.09287126466154808,
+            "mean_prediction": 0.10133371033236029
+          },
+          {
+            "key": "2025-01-14",
+            "opportunities": 55162490.5,
+            "weighted_brier": 0.041671162481342054,
+            "rows": 1627187,
+            "weighted_prevalence": 0.0969143334817343,
+            "weighted_log_loss": 0.16682128016644648,
+            "weighted_mae": 0.09208586037708749,
+            "mean_prediction": 0.10123131441034924
+          },
+          {
+            "key": "2025-01-15",
+            "opportunities": 53732738.25,
+            "weighted_brier": 0.041525992955978995,
+            "rows": 1612094,
+            "weighted_prevalence": 0.09703739600503238,
+            "weighted_log_loss": 0.16735394273147094,
+            "weighted_mae": 0.0912437549297851,
+            "mean_prediction": 0.09963133562658547
+          },
+          {
+            "key": "2025-01-16",
+            "opportunities": 53850587.0,
+            "weighted_brier": 0.040122720662824234,
+            "rows": 1604771,
+            "weighted_prevalence": 0.09519368841791827,
+            "weighted_log_loss": 0.1619545137186436,
+            "weighted_mae": 0.08907163054943065,
+            "mean_prediction": 0.09903239055939432
+          },
+          {
+            "key": "2025-01-17",
+            "opportunities": 55916336.0,
+            "weighted_brier": 0.03995492826666811,
+            "rows": 1630129,
+            "weighted_prevalence": 0.0931757939218335,
+            "weighted_log_loss": 0.16069037188933444,
+            "weighted_mae": 0.08761269789214968,
+            "mean_prediction": 0.09531894338553491
+          },
+          {
+            "key": "2025-01-18",
+            "opportunities": 54471653.5,
+            "weighted_brier": 0.04183529011260106,
+            "rows": 1653231,
+            "weighted_prevalence": 0.09709705250640134,
+            "weighted_log_loss": 0.16829949473941536,
+            "weighted_mae": 0.09114444604921301,
+            "mean_prediction": 0.09770457865800475
+          },
+          {
+            "key": "2025-01-19",
+            "opportunities": 57126387.25,
+            "weighted_brier": 0.041958502027267724,
+            "rows": 1699831,
+            "weighted_prevalence": 0.0967345436324612,
+            "weighted_log_loss": 0.1668423117862971,
+            "weighted_mae": 0.09117581501547282,
+            "mean_prediction": 0.09791308273109905
+          },
+          {
+            "key": "2025-01-20",
+            "opportunities": 55499084.5,
+            "weighted_brier": 0.04251537442776008,
+            "rows": 1673621,
+            "weighted_prevalence": 0.09829407185987005,
+            "weighted_log_loss": 0.17023053757488804,
+            "weighted_mae": 0.09347598175143669,
+            "mean_prediction": 0.10148066590682925
+          },
+          {
+            "key": "2025-01-21",
+            "opportunities": 55907468.75,
+            "weighted_brier": 0.041820272575486726,
+            "rows": 1700653,
+            "weighted_prevalence": 0.09846058358705428,
+            "weighted_log_loss": 0.16862204712297937,
+            "weighted_mae": 0.09282917708289469,
+            "mean_prediction": 0.10339208036104068
+          },
+          {
+            "key": "2025-01-22",
+            "opportunities": 57074185.25,
+            "weighted_brier": 0.04209601374801419,
+            "rows": 1714417,
+            "weighted_prevalence": 0.0976696027386567,
+            "weighted_log_loss": 0.16804800170314674,
+            "weighted_mae": 0.09193336780232891,
+            "mean_prediction": 0.09960579795977045
+          },
+          {
+            "key": "2025-01-23",
+            "opportunities": 57144454.0,
+            "weighted_brier": 0.042414965016110986,
+            "rows": 1704303,
+            "weighted_prevalence": 0.09790654400162788,
+            "weighted_log_loss": 0.16920365768670598,
+            "weighted_mae": 0.09380589581834672,
+            "mean_prediction": 0.10413217332020444
+          },
+          {
+            "key": "2025-01-24",
+            "opportunities": 57073398.0,
+            "weighted_brier": 0.04150270693935903,
+            "rows": 1691969,
+            "weighted_prevalence": 0.09786717097166704,
+            "weighted_log_loss": 0.16624039492004586,
+            "weighted_mae": 0.09222360807282168,
+            "mean_prediction": 0.10256604869833286
+          },
+          {
+            "key": "2025-01-25",
+            "opportunities": 57930354.0,
+            "weighted_brier": 0.04139929248270016,
+            "rows": 1699476,
+            "weighted_prevalence": 0.09445205530765442,
+            "weighted_log_loss": 0.1655857894813943,
+            "weighted_mae": 0.09242973280081976,
+            "mean_prediction": 0.10143055861477951
+          },
+          {
+            "key": "2025-01-26",
+            "opportunities": 55779978.5,
+            "weighted_brier": 0.04107009276704292,
+            "rows": 1662900,
+            "weighted_prevalence": 0.09461934446604349,
+            "weighted_log_loss": 0.16449473587356547,
+            "weighted_mae": 0.09132478169322814,
+            "mean_prediction": 0.10015205543311757
+          },
+          {
+            "key": "2025-01-27",
+            "opportunities": 54945672.75,
+            "weighted_brier": 0.04239213760104163,
+            "rows": 1679112,
+            "weighted_prevalence": 0.09692666835169472,
+            "weighted_log_loss": 0.16782195390281562,
+            "weighted_mae": 0.0931112572424526,
+            "mean_prediction": 0.10191974199860443
+          },
+          {
+            "key": "2025-01-28",
+            "opportunities": 58373827.75,
+            "weighted_brier": 0.04320015250540298,
+            "rows": 1755856,
+            "weighted_prevalence": 0.10115173576226548,
+            "weighted_log_loss": 0.17231434342794213,
+            "weighted_mae": 0.09461354661016899,
+            "mean_prediction": 0.10412398909624859
+          },
+          {
+            "key": "2025-01-29",
+            "opportunities": 59910745.5,
+            "weighted_brier": 0.04356904953077747,
+            "rows": 1821005,
+            "weighted_prevalence": 0.1011109601365251,
+            "weighted_log_loss": 0.17386413797136283,
+            "weighted_mae": 0.09561376378771123,
+            "mean_prediction": 0.10517356708935792
+          },
+          {
+            "key": "2025-01-30",
+            "opportunities": 60703913.0,
+            "weighted_brier": 0.04375896331134621,
+            "rows": 1826053,
+            "weighted_prevalence": 0.10290980747814396,
+            "weighted_log_loss": 0.17308497944143433,
+            "weighted_mae": 0.09598771132410973,
+            "mean_prediction": 0.10550666123302059
+          },
+          {
+            "key": "2025-01-31",
+            "opportunities": 60834859.5,
+            "weighted_brier": 0.043738278332949895,
+            "rows": 1843570,
+            "weighted_prevalence": 0.10093341302119717,
+            "weighted_log_loss": 0.1729822189761092,
+            "weighted_mae": 0.09503173459577337,
+            "mean_prediction": 0.10287630369838444
+          },
+          {
+            "key": "2025-04-01",
+            "opportunities": 79567664.25,
+            "weighted_brier": 0.04401273691335141,
+            "rows": 2220608,
+            "weighted_prevalence": 0.09541737930305023,
+            "weighted_log_loss": 0.17205403348351225,
+            "weighted_mae": 0.09232131522349855,
+            "mean_prediction": 0.09399789324564219
+          },
+          {
+            "key": "2025-04-02",
+            "opportunities": 64869491.75,
+            "weighted_brier": 0.03774796571849862,
+            "rows": 1764957,
+            "weighted_prevalence": 0.08243289496714763,
+            "weighted_log_loss": 0.14946630026582527,
+            "weighted_mae": 0.08545969125058521,
+            "mean_prediction": 0.09465441854229222
+          },
+          {
+            "key": "2025-04-03",
+            "opportunities": 67850961.0,
+            "weighted_brier": 0.03855227866641954,
+            "rows": 1805028,
+            "weighted_prevalence": 0.08436340348959832,
+            "weighted_log_loss": 0.15298323649962065,
+            "weighted_mae": 0.08382271049017079,
+            "mean_prediction": 0.09021478351786318
+          },
+          {
+            "key": "2025-04-04",
+            "opportunities": 57891246.5,
+            "weighted_brier": 0.0362300932773806,
+            "rows": 1585561,
+            "weighted_prevalence": 0.07871730659660264,
+            "weighted_log_loss": 0.1446249870768107,
+            "weighted_mae": 0.07876215174636608,
+            "mean_prediction": 0.08283680919705039
+          },
+          {
+            "key": "2025-04-05",
+            "opportunities": 51624582.5,
+            "weighted_brier": 0.03536388630596859,
+            "rows": 1464594,
+            "weighted_prevalence": 0.07696703406753944,
+            "weighted_log_loss": 0.14066766944233103,
+            "weighted_mae": 0.07572754461646128,
+            "mean_prediction": 0.07621046861339277
+          },
+          {
+            "key": "2025-04-06",
+            "opportunities": 59550028.75,
+            "weighted_brier": 0.03770165288739021,
+            "rows": 1675833,
+            "weighted_prevalence": 0.08378224334610418,
+            "weighted_log_loss": 0.14904084333087653,
+            "weighted_mae": 0.07941222389379683,
+            "mean_prediction": 0.0801897272112385
+          },
+          {
+            "key": "2025-04-07",
+            "opportunities": 57351045.5,
+            "weighted_brier": 0.0390282286157624,
+            "rows": 1717789,
+            "weighted_prevalence": 0.08841164020279281,
+            "weighted_log_loss": 0.15297560526974502,
+            "weighted_mae": 0.08402006960630798,
+            "mean_prediction": 0.08893801095511457
+          },
+          {
+            "key": "2025-04-08",
+            "opportunities": 62726772.0,
+            "weighted_brier": 0.03864108881464075,
+            "rows": 1801971,
+            "weighted_prevalence": 0.08811457729723443,
+            "weighted_log_loss": 0.15202135903965197,
+            "weighted_mae": 0.08301256677655319,
+            "mean_prediction": 0.08789187284560586
+          },
+          {
+            "key": "2025-04-09",
+            "opportunities": 54081068.5,
+            "weighted_brier": 0.036553415087245404,
+            "rows": 1530674,
+            "weighted_prevalence": 0.07966231288496084,
+            "weighted_log_loss": 0.14525180247351638,
+            "weighted_mae": 0.07869340272111264,
+            "mean_prediction": 0.08149812713977907
+          },
+          {
+            "key": "2025-04-10",
+            "opportunities": 61702737.5,
+            "weighted_brier": 0.03734340058335493,
+            "rows": 1707953,
+            "weighted_prevalence": 0.08183868665470474,
+            "weighted_log_loss": 0.14721988397080865,
+            "weighted_mae": 0.07925565737637234,
+            "mean_prediction": 0.081690863120508
+          },
+          {
+            "key": "2025-04-11",
+            "opportunities": 62191571.75,
+            "weighted_brier": 0.03759170045945275,
+            "rows": 1752890,
+            "weighted_prevalence": 0.08593360562558865,
+            "weighted_log_loss": 0.14880539002095486,
+            "weighted_mae": 0.08145693278506828,
+            "mean_prediction": 0.08622068299264285
+          },
+          {
+            "key": "2025-04-12",
+            "opportunities": 58965215.0,
+            "weighted_brier": 0.03821726034017287,
+            "rows": 1611485,
+            "weighted_prevalence": 0.0812438994753093,
+            "weighted_log_loss": 0.15247797245897607,
+            "weighted_mae": 0.08219973705270499,
+            "mean_prediction": 0.08643994944528993
+          },
+          {
+            "key": "2025-04-13",
+            "opportunities": 60940535.25,
+            "weighted_brier": 0.036685470719989136,
+            "rows": 1626606,
+            "weighted_prevalence": 0.079953908839355,
+            "weighted_log_loss": 0.14551508648771838,
+            "weighted_mae": 0.07990766452486578,
+            "mean_prediction": 0.08474644894439357
+          },
+          {
+            "key": "2025-04-14",
+            "opportunities": 65455810.5,
+            "weighted_brier": 0.03776789647390414,
+            "rows": 1738647,
+            "weighted_prevalence": 0.08374032737704776,
+            "weighted_log_loss": 0.1502391667006853,
+            "weighted_mae": 0.08159189852853327,
+            "mean_prediction": 0.08673240192240225
+          },
+          {
+            "key": "2025-04-15",
+            "opportunities": 64097641.25,
+            "weighted_brier": 0.03877367100996732,
+            "rows": 1745107,
+            "weighted_prevalence": 0.08493813335135791,
+            "weighted_log_loss": 0.15359610254336406,
+            "weighted_mae": 0.08437165143861,
+            "mean_prediction": 0.09033862548292519
+          },
+          {
+            "key": "2025-04-16",
+            "opportunities": 51768848.25,
+            "weighted_brier": 0.038729544205708795,
+            "rows": 1491454,
+            "weighted_prevalence": 0.08527879505219628,
+            "weighted_log_loss": 0.152990681408976,
+            "weighted_mae": 0.08459870646531505,
+            "mean_prediction": 0.09151850189007431
+          },
+          {
+            "key": "2025-04-17",
+            "opportunities": 60002331.0,
+            "weighted_brier": 0.03712922084734143,
+            "rows": 1612231,
+            "weighted_prevalence": 0.07874385746780405,
+            "weighted_log_loss": 0.146302219262876,
+            "weighted_mae": 0.07898494591122775,
+            "mean_prediction": 0.0800857816571155
+          },
+          {
+            "key": "2025-04-18",
+            "opportunities": 65926503.25,
+            "weighted_brier": 0.036987560721608984,
+            "rows": 1698503,
+            "weighted_prevalence": 0.0799149468010045,
+            "weighted_log_loss": 0.14591496648502952,
+            "weighted_mae": 0.07955570940314977,
+            "mean_prediction": 0.08127902969324383
+          },
+          {
+            "key": "2025-04-19",
+            "opportunities": 62275718.75,
+            "weighted_brier": 0.036187159607572426,
+            "rows": 1620334,
+            "weighted_prevalence": 0.07745593462138885,
+            "weighted_log_loss": 0.14247020389939985,
+            "weighted_mae": 0.07941794055646378,
+            "mean_prediction": 0.084101091201738
+          },
+          {
+            "key": "2025-04-20",
+            "opportunities": 65094043.5,
+            "weighted_brier": 0.036905760140385234,
+            "rows": 1730586,
+            "weighted_prevalence": 0.07997974499771243,
+            "weighted_log_loss": 0.14575585836504606,
+            "weighted_mae": 0.07978536526538318,
+            "mean_prediction": 0.08320279713762953
+          },
+          {
+            "key": "2025-04-21",
+            "opportunities": 59557006.5,
+            "weighted_brier": 0.037016583750571354,
+            "rows": 1616271,
+            "weighted_prevalence": 0.07921677527563445,
+            "weighted_log_loss": 0.14585930054190746,
+            "weighted_mae": 0.08086371866379012,
+            "mean_prediction": 0.08582080605402924
+          },
+          {
+            "key": "2025-04-22",
+            "opportunities": 65362625.0,
+            "weighted_brier": 0.03684458829928103,
+            "rows": 1749754,
+            "weighted_prevalence": 0.0831888560167221,
+            "weighted_log_loss": 0.14468002185250445,
+            "weighted_mae": 0.07878207084165527,
+            "mean_prediction": 0.08248243927048227
+          },
+          {
+            "key": "2025-04-23",
+            "opportunities": 68923260.25,
+            "weighted_brier": 0.03767314556645795,
+            "rows": 1861870,
+            "weighted_prevalence": 0.08459771024833376,
+            "weighted_log_loss": 0.14780561778594456,
+            "weighted_mae": 0.08148085937911023,
+            "mean_prediction": 0.08558002485576884
+          },
+          {
+            "key": "2025-04-24",
+            "opportunities": 65141550.5,
+            "weighted_brier": 0.038135883341284385,
+            "rows": 1760429,
+            "weighted_prevalence": 0.08404040060421958,
+            "weighted_log_loss": 0.14918093278889016,
+            "weighted_mae": 0.08208718565654509,
+            "mean_prediction": 0.08528738754477302
+          },
+          {
+            "key": "2025-04-25",
+            "opportunities": 72921129.25,
+            "weighted_brier": 0.039031687113643826,
+            "rows": 1928071,
+            "weighted_prevalence": 0.08874745998259483,
+            "weighted_log_loss": 0.15312621000688248,
+            "weighted_mae": 0.08336790565504172,
+            "mean_prediction": 0.08645593652963755
+          },
+          {
+            "key": "2025-04-26",
+            "opportunities": 74557239.25,
+            "weighted_brier": 0.04074340973440417,
+            "rows": 1995255,
+            "weighted_prevalence": 0.09185415217744936,
+            "weighted_log_loss": 0.16009788562675953,
+            "weighted_mae": 0.08716869953124733,
+            "mean_prediction": 0.0899866017941743
+          },
+          {
+            "key": "2025-04-27",
+            "opportunities": 72878817.75,
+            "weighted_brier": 0.040610648366414884,
+            "rows": 1988130,
+            "weighted_prevalence": 0.09056827763921843,
+            "weighted_log_loss": 0.15873121857650835,
+            "weighted_mae": 0.08739830797765721,
+            "mean_prediction": 0.09089388261120658
+          },
+          {
+            "key": "2025-04-28",
+            "opportunities": 73047622.5,
+            "weighted_brier": 0.03933339129517638,
+            "rows": 1987944,
+            "weighted_prevalence": 0.08635385771795653,
+            "weighted_log_loss": 0.15427037430060161,
+            "weighted_mae": 0.08444176395357451,
+            "mean_prediction": 0.08722703849220699
+          },
+          {
+            "key": "2025-04-29",
+            "opportunities": 72865001.25,
+            "weighted_brier": 0.03982608260363637,
+            "rows": 1991222,
+            "weighted_prevalence": 0.08747360036585465,
+            "weighted_log_loss": 0.15488982889656666,
+            "weighted_mae": 0.08585172964380412,
+            "mean_prediction": 0.08883042544291311
+          },
+          {
+            "key": "2025-04-30",
+            "opportunities": 68415252.75,
+            "weighted_brier": 0.038949806246758235,
+            "rows": 1847505,
+            "weighted_prevalence": 0.08581326186798309,
+            "weighted_log_loss": 0.15326685651346295,
+            "weighted_mae": 0.08442130038543369,
+            "mean_prediction": 0.08840783382630045
+          },
+          {
+            "key": "2025-07-01",
+            "opportunities": 53913856.75,
+            "weighted_brier": 0.04245680707988217,
+            "rows": 1467270,
+            "weighted_prevalence": 0.07742072727898473,
+            "weighted_log_loss": 0.16559607977149743,
+            "weighted_mae": 0.0948019401278169,
+            "mean_prediction": 0.1042283355090732
+          },
+          {
+            "key": "2025-07-02",
+            "opportunities": 57116162.25,
+            "weighted_brier": 0.03945302151418955,
+            "rows": 1562339,
+            "weighted_prevalence": 0.08211866510691551,
+            "weighted_log_loss": 0.1575170449741767,
+            "weighted_mae": 0.0866189602546973,
+            "mean_prediction": 0.0890972622788067
+          },
+          {
+            "key": "2025-07-03",
+            "opportunities": 57991519.5,
+            "weighted_brier": 0.039495761434548714,
+            "rows": 1628548,
+            "weighted_prevalence": 0.08416661681023896,
+            "weighted_log_loss": 0.15680400602732983,
+            "weighted_mae": 0.08757413624269322,
+            "mean_prediction": 0.09219239040695501
+          },
+          {
+            "key": "2025-07-04",
+            "opportunities": 61941847.0,
+            "weighted_brier": 0.03910812531398325,
+            "rows": 1685965,
+            "weighted_prevalence": 0.07908199766790938,
+            "weighted_log_loss": 0.15749439106442195,
+            "weighted_mae": 0.08531571480474599,
+            "mean_prediction": 0.08619241224858673
+          },
+          {
+            "key": "2025-07-05",
+            "opportunities": 57926467.75,
+            "weighted_brier": 0.03871480931377018,
+            "rows": 1615942,
+            "weighted_prevalence": 0.07810593629714285,
+            "weighted_log_loss": 0.15356838111149435,
+            "weighted_mae": 0.0838961721222269,
+            "mean_prediction": 0.08420155446091554
+          },
+          {
+            "key": "2025-07-06",
+            "opportunities": 50880921.0,
+            "weighted_brier": 0.03736942333229873,
+            "rows": 1439318,
+            "weighted_prevalence": 0.07456407874377903,
+            "weighted_log_loss": 0.1488801130412744,
+            "weighted_mae": 0.08080530765265498,
+            "mean_prediction": 0.08019044182942558
+          },
+          {
+            "key": "2025-07-07",
+            "opportunities": 48860029.0,
+            "weighted_brier": 0.03695240640577804,
+            "rows": 1379040,
+            "weighted_prevalence": 0.07674332325918186,
+            "weighted_log_loss": 0.14839263070191167,
+            "weighted_mae": 0.08076841809086693,
+            "mean_prediction": 0.08158342259805317
+          },
+          {
+            "key": "2025-07-08",
+            "opportunities": 49450141.0,
+            "weighted_brier": 0.03823624939032296,
+            "rows": 1387311,
+            "weighted_prevalence": 0.07793963620851961,
+            "weighted_log_loss": 0.1555991563023217,
+            "weighted_mae": 0.08361112781765806,
+            "mean_prediction": 0.08408596768065546
+          },
+          {
+            "key": "2025-07-09",
+            "opportunities": 54101897.75,
+            "weighted_brier": 0.040944385448655626,
+            "rows": 1527897,
+            "weighted_prevalence": 0.08504727544423338,
+            "weighted_log_loss": 0.16335308532817688,
+            "weighted_mae": 0.08822341639552467,
+            "mean_prediction": 0.0897007031708266
+          },
+          {
+            "key": "2025-07-10",
+            "opportunities": 55786585.75,
+            "weighted_brier": 0.04134842608528245,
+            "rows": 1575912,
+            "weighted_prevalence": 0.0852846421059206,
+            "weighted_log_loss": 0.16451041763821048,
+            "weighted_mae": 0.09060396622147768,
+            "mean_prediction": 0.09314102575284688
+          },
+          {
+            "key": "2025-07-11",
+            "opportunities": 53799481.25,
+            "weighted_brier": 0.041666451558971244,
+            "rows": 1549687,
+            "weighted_prevalence": 0.08603369200702098,
+            "weighted_log_loss": 0.1689281036906663,
+            "weighted_mae": 0.09081348445777339,
+            "mean_prediction": 0.09217751191077736
+          },
+          {
+            "key": "2025-07-12",
+            "opportunities": 47657878.0,
+            "weighted_brier": 0.036966074308153046,
+            "rows": 1345313,
+            "weighted_prevalence": 0.07760328733058572,
+            "weighted_log_loss": 0.14831783648428945,
+            "weighted_mae": 0.08235315868887205,
+            "mean_prediction": 0.08594082217062017
+          },
+          {
+            "key": "2025-07-13",
+            "opportunities": 51688762.0,
+            "weighted_brier": 0.03844074726068508,
+            "rows": 1421242,
+            "weighted_prevalence": 0.0778393763812722,
+            "weighted_log_loss": 0.15526288108017963,
+            "weighted_mae": 0.08295051244946583,
+            "mean_prediction": 0.08291587861021589
+          },
+          {
+            "key": "2025-07-14",
+            "opportunities": 54726607.0,
+            "weighted_brier": 0.039775356854153086,
+            "rows": 1502195,
+            "weighted_prevalence": 0.08133539139380594,
+            "weighted_log_loss": 0.16206463875903157,
+            "weighted_mae": 0.08666021634885947,
+            "mean_prediction": 0.08813821087558163
+          },
+          {
+            "key": "2025-07-15",
+            "opportunities": 51294076.75,
+            "weighted_brier": 0.038303302217230495,
+            "rows": 1437963,
+            "weighted_prevalence": 0.07635708152208823,
+            "weighted_log_loss": 0.15521452922704307,
+            "weighted_mae": 0.08212792522863217,
+            "mean_prediction": 0.08119745656969575
+          },
+          {
+            "key": "2025-07-16",
+            "opportunities": 53234768.5,
+            "weighted_brier": 0.041438395511556605,
+            "rows": 1487793,
+            "weighted_prevalence": 0.08534349125609515,
+            "weighted_log_loss": 0.16963291332185138,
+            "weighted_mae": 0.08711132797325613,
+            "mean_prediction": 0.08395221601473389
+          },
+          {
+            "key": "2025-07-17",
+            "opportunities": 50263852.75,
+            "weighted_brier": 0.03750424718229196,
+            "rows": 1393547,
+            "weighted_prevalence": 0.0782149155886185,
+            "weighted_log_loss": 0.15186476975270538,
+            "weighted_mae": 0.08105200611124269,
+            "mean_prediction": 0.08208047498870669
+          },
+          {
+            "key": "2025-07-18",
+            "opportunities": 48037765.5,
+            "weighted_brier": 0.03922152925708957,
+            "rows": 1389265,
+            "weighted_prevalence": 0.08058193297937641,
+            "weighted_log_loss": 0.1590322591765162,
+            "weighted_mae": 0.08508931323146471,
+            "mean_prediction": 0.08694513923394817
+          },
+          {
+            "key": "2025-07-19",
+            "opportunities": 51776309.25,
+            "weighted_brier": 0.0401005088206393,
+            "rows": 1524507,
+            "weighted_prevalence": 0.08307057923407316,
+            "weighted_log_loss": 0.1599869082450037,
+            "weighted_mae": 0.08568238502994699,
+            "mean_prediction": 0.08515978635121765
+          },
+          {
+            "key": "2025-07-20",
+            "opportunities": 57982687.75,
+            "weighted_brier": 0.04169059167736261,
+            "rows": 1650292,
+            "weighted_prevalence": 0.08553587618055875,
+            "weighted_log_loss": 0.1677470166678718,
+            "weighted_mae": 0.08848715444419647,
+            "mean_prediction": 0.08612955756043168
+          },
+          {
+            "key": "2025-07-21",
+            "opportunities": 62990663.75,
+            "weighted_brier": 0.04154939684467041,
+            "rows": 1782213,
+            "weighted_prevalence": 0.0848370644451258,
+            "weighted_log_loss": 0.16666539942553835,
+            "weighted_mae": 0.08933603526410086,
+            "mean_prediction": 0.08852561317017087
+          },
+          {
+            "key": "2025-07-22",
+            "opportunities": 57774546.75,
+            "weighted_brier": 0.04125486434240027,
+            "rows": 1671464,
+            "weighted_prevalence": 0.08522806801595549,
+            "weighted_log_loss": 0.16501923358208734,
+            "weighted_mae": 0.0911383681232935,
+            "mean_prediction": 0.09417791496338289
+          },
+          {
+            "key": "2025-07-23",
+            "opportunities": 51922486.75,
+            "weighted_brier": 0.037854813198616596,
+            "rows": 1454215,
+            "weighted_prevalence": 0.07859469481207003,
+            "weighted_log_loss": 0.15301533212332175,
+            "weighted_mae": 0.08405730738923825,
+            "mean_prediction": 0.08807656510025542
+          },
+          {
+            "key": "2025-07-24",
+            "opportunities": 49897998.25,
+            "weighted_brier": 0.0368899746379553,
+            "rows": 1378867,
+            "weighted_prevalence": 0.07864926725793053,
+            "weighted_log_loss": 0.14988320494008747,
+            "weighted_mae": 0.08194635775250436,
+            "mean_prediction": 0.08527730045663509
+          },
+          {
+            "key": "2025-07-25",
+            "opportunities": 55945843.5,
+            "weighted_brier": 0.038577021695616276,
+            "rows": 1529541,
+            "weighted_prevalence": 0.08136965528100402,
+            "weighted_log_loss": 0.15719466958501535,
+            "weighted_mae": 0.08406126659574212,
+            "mean_prediction": 0.08441465990571324
+          },
+          {
+            "key": "2025-07-26",
+            "opportunities": 55032505.75,
+            "weighted_brier": 0.041081004338477986,
+            "rows": 1555938,
+            "weighted_prevalence": 0.08577350668790872,
+            "weighted_log_loss": 0.16630091341341094,
+            "weighted_mae": 0.08881917548077174,
+            "mean_prediction": 0.0878018528167632
+          },
+          {
+            "key": "2025-07-27",
+            "opportunities": 54397409.0,
+            "weighted_brier": 0.038524696123846194,
+            "rows": 1506659,
+            "weighted_prevalence": 0.07985751674312282,
+            "weighted_log_loss": 0.1537088830306841,
+            "weighted_mae": 0.08434259334793721,
+            "mean_prediction": 0.08463288633428717
+          },
+          {
+            "key": "2025-07-28",
+            "opportunities": 60145154.75,
+            "weighted_brier": 0.0415368829424304,
+            "rows": 1690346,
+            "weighted_prevalence": 0.08733697704884531,
+            "weighted_log_loss": 0.16572968476935454,
+            "weighted_mae": 0.08975979955180687,
+            "mean_prediction": 0.08901144976796116
+          },
+          {
+            "key": "2025-07-29",
+            "opportunities": 58798991.5,
+            "weighted_brier": 0.03975116242869759,
+            "rows": 1609007,
+            "weighted_prevalence": 0.08374400435082292,
+            "weighted_log_loss": 0.15937578364660673,
+            "weighted_mae": 0.08725857226459802,
+            "mean_prediction": 0.08886039791485811
+          },
+          {
+            "key": "2025-07-30",
+            "opportunities": 59980531.0,
+            "weighted_brier": 0.04045097765781664,
+            "rows": 1637496,
+            "weighted_prevalence": 0.08347905422844623,
+            "weighted_log_loss": 0.16315553842187405,
+            "weighted_mae": 0.0876568057761077,
+            "mean_prediction": 0.08698721865574251
+          },
+          {
+            "key": "2025-07-31",
+            "opportunities": 59979341.0,
+            "weighted_brier": 0.0417689385826711,
+            "rows": 1657171,
+            "weighted_prevalence": 0.08462608817259262,
+            "weighted_log_loss": 0.16891124689024628,
+            "weighted_mae": 0.08882621987877085,
+            "mean_prediction": 0.08550026878867303
+          },
+          {
+            "key": "2025-10-01",
+            "opportunities": 54586247.75,
+            "weighted_brier": 0.041603360800663944,
+            "rows": 1484323,
+            "weighted_prevalence": 0.08337565206613785,
+            "weighted_log_loss": 0.1604844558013692,
+            "weighted_mae": 0.09173243869376406,
+            "mean_prediction": 0.10155390364039628
+          },
+          {
+            "key": "2025-10-02",
+            "opportunities": 45736171.5,
+            "weighted_brier": 0.03836898286215251,
+            "rows": 1304657,
+            "weighted_prevalence": 0.08384394395582499,
+            "weighted_log_loss": 0.1512294065423045,
+            "weighted_mae": 0.08550479646157226,
+            "mean_prediction": 0.09313684474277464
+          },
+          {
+            "key": "2025-10-03",
+            "opportunities": 50018171.75,
+            "weighted_brier": 0.036936940074412686,
+            "rows": 1388043,
+            "weighted_prevalence": 0.08245889155274852,
+            "weighted_log_loss": 0.14566436597126156,
+            "weighted_mae": 0.08192870214494226,
+            "mean_prediction": 0.08856284235940176
+          },
+          {
+            "key": "2025-10-04",
+            "opportunities": 57773730.75,
+            "weighted_brier": 0.039904984475550236,
+            "rows": 1574708,
+            "weighted_prevalence": 0.08826376510227359,
+            "weighted_log_loss": 0.15667511611965315,
+            "weighted_mae": 0.0865561346479813,
+            "mean_prediction": 0.09359052242915807
+          },
+          {
+            "key": "2025-10-05",
+            "opportunities": 58615249.25,
+            "weighted_brier": 0.04079824039362513,
+            "rows": 1593794,
+            "weighted_prevalence": 0.08598240329072729,
+            "weighted_log_loss": 0.16165261493757088,
+            "weighted_mae": 0.08950519102357606,
+            "mean_prediction": 0.09713483604790366
+          },
+          {
+            "key": "2025-10-06",
+            "opportunities": 69681103.5,
+            "weighted_brier": 0.0418142925737472,
+            "rows": 1848848,
+            "weighted_prevalence": 0.08858034230184084,
+            "weighted_log_loss": 0.1696775628032885,
+            "weighted_mae": 0.09173099464294968,
+            "mean_prediction": 0.10041301350787527
+          },
+          {
+            "key": "2025-10-07",
+            "opportunities": 65243518.25,
+            "weighted_brier": 0.042683506256420506,
+            "rows": 1818068,
+            "weighted_prevalence": 0.09499014103213234,
+            "weighted_log_loss": 0.16857206172642167,
+            "weighted_mae": 0.09321842654136817,
+            "mean_prediction": 0.10356829073138783
+          },
+          {
+            "key": "2025-10-08",
+            "opportunities": 65017090.75,
+            "weighted_brier": 0.04185907687133657,
+            "rows": 1805261,
+            "weighted_prevalence": 0.09542352523670862,
+            "weighted_log_loss": 0.16475388746670597,
+            "weighted_mae": 0.09080391297344631,
+            "mean_prediction": 0.09995074565844833
+          },
+          {
+            "key": "2025-10-09",
+            "opportunities": 64370835.75,
+            "weighted_brier": 0.04150034136578147,
+            "rows": 1790346,
+            "weighted_prevalence": 0.09280842683481859,
+            "weighted_log_loss": 0.16379071311428456,
+            "weighted_mae": 0.09108467094976919,
+            "mean_prediction": 0.09970593824777804
+          },
+          {
+            "key": "2025-10-10",
+            "opportunities": 66542858.75,
+            "weighted_brier": 0.04319525552342726,
+            "rows": 1881868,
+            "weighted_prevalence": 0.09720886841219457,
+            "weighted_log_loss": 0.170104848982815,
+            "weighted_mae": 0.09390097898289397,
+            "mean_prediction": 0.10258509610610474
+          },
+          {
+            "key": "2025-10-11",
+            "opportunities": 65860124.25,
+            "weighted_brier": 0.04446873534708418,
+            "rows": 1866259,
+            "weighted_prevalence": 0.09882547405002808,
+            "weighted_log_loss": 0.17390209626313602,
+            "weighted_mae": 0.09624963134477527,
+            "mean_prediction": 0.10389478025346693
+          },
+          {
+            "key": "2025-10-12",
+            "opportunities": 59774722.75,
+            "weighted_brier": 0.042153296951134005,
+            "rows": 1704600,
+            "weighted_prevalence": 0.09274284756092825,
+            "weighted_log_loss": 0.16546764871164316,
+            "weighted_mae": 0.093325621571148,
+            "mean_prediction": 0.101018281979049
+          },
+          {
+            "key": "2025-10-13",
+            "opportunities": 63387772.75,
+            "weighted_brier": 0.041337084753202344,
+            "rows": 1772489,
+            "weighted_prevalence": 0.09476240825956454,
+            "weighted_log_loss": 0.16285908220457965,
+            "weighted_mae": 0.09002165327923471,
+            "mean_prediction": 0.09867845768479144
+          },
+          {
+            "key": "2025-10-14",
+            "opportunities": 67712427.0,
+            "weighted_brier": 0.042005666010865333,
+            "rows": 1889593,
+            "weighted_prevalence": 0.09377383563581321,
+            "weighted_log_loss": 0.16542759458505923,
+            "weighted_mae": 0.09142094836993549,
+            "mean_prediction": 0.09847197961010326
+          },
+          {
+            "key": "2025-10-15",
+            "opportunities": 66185926.25,
+            "weighted_brier": 0.042494626926401796,
+            "rows": 1870228,
+            "weighted_prevalence": 0.09587923535330141,
+            "weighted_log_loss": 0.16686447521153114,
+            "weighted_mae": 0.09292279818215542,
+            "mean_prediction": 0.10105349360426862
+          },
+          {
+            "key": "2025-10-16",
+            "opportunities": 65267402.25,
+            "weighted_brier": 0.04275356351199047,
+            "rows": 1875377,
+            "weighted_prevalence": 0.09862592623716689,
+            "weighted_log_loss": 0.16803957719934517,
+            "weighted_mae": 0.09423041552976702,
+            "mean_prediction": 0.10459874772336138
+          },
+          {
+            "key": "2025-10-17",
+            "opportunities": 69079202.25,
+            "weighted_brier": 0.04559403044217087,
+            "rows": 2036761,
+            "weighted_prevalence": 0.10404308049171196,
+            "weighted_log_loss": 0.1778904775950895,
+            "weighted_mae": 0.09857115145884666,
+            "mean_prediction": 0.10770280201552117
+          },
+          {
+            "key": "2025-10-18",
+            "opportunities": 62000457.75,
+            "weighted_brier": 0.04510304140046855,
+            "rows": 1860356,
+            "weighted_prevalence": 0.09879201254768155,
+            "weighted_log_loss": 0.1748352617623069,
+            "weighted_mae": 0.0979441656531766,
+            "mean_prediction": 0.10556353229677283
+          },
+          {
+            "key": "2025-10-19",
+            "opportunities": 59176467.25,
+            "weighted_brier": 0.04352769386545687,
+            "rows": 1710422,
+            "weighted_prevalence": 0.09258048434785536,
+            "weighted_log_loss": 0.16939738045006417,
+            "weighted_mae": 0.0939268238595763,
+            "mean_prediction": 0.09724311963468625
+          },
+          {
+            "key": "2025-10-20",
+            "opportunities": 65572407.5,
+            "weighted_brier": 0.04421891709976347,
+            "rows": 1915802,
+            "weighted_prevalence": 0.10030179233544231,
+            "weighted_log_loss": 0.17249692891765464,
+            "weighted_mae": 0.0954705999986904,
+            "mean_prediction": 0.10161095618375786
+          },
+          {
+            "key": "2025-10-21",
+            "opportunities": 66783449.0,
+            "weighted_brier": 0.04609408737324214,
+            "rows": 2038080,
+            "weighted_prevalence": 0.10589000876549517,
+            "weighted_log_loss": 0.1799143805503357,
+            "weighted_mae": 0.09930312569857466,
+            "mean_prediction": 0.10735826166708445
+          },
+          {
+            "key": "2025-10-22",
+            "opportunities": 66524445.25,
+            "weighted_brier": 0.04529653656488725,
+            "rows": 2000390,
+            "weighted_prevalence": 0.1052117304202548,
+            "weighted_log_loss": 0.17736719676996301,
+            "weighted_mae": 0.09849613606960417,
+            "mean_prediction": 0.10760848687745862
+          },
+          {
+            "key": "2025-10-23",
+            "opportunities": 66874527.75,
+            "weighted_brier": 0.04595671253705341,
+            "rows": 2044247,
+            "weighted_prevalence": 0.10643474039336301,
+            "weighted_log_loss": 0.18050546747143423,
+            "weighted_mae": 0.10012706600846516,
+            "mean_prediction": 0.10921758008640066
+          },
+          {
+            "key": "2025-10-24",
+            "opportunities": 65129505.25,
+            "weighted_brier": 0.04525571185092201,
+            "rows": 1952096,
+            "weighted_prevalence": 0.10308269614868601,
+            "weighted_log_loss": 0.17786658603324773,
+            "weighted_mae": 0.09875762200637392,
+            "mean_prediction": 0.10741223813065022
+          },
+          {
+            "key": "2025-10-25",
+            "opportunities": 64562718.5,
+            "weighted_brier": 0.04587248063395537,
+            "rows": 1937254,
+            "weighted_prevalence": 0.10322156741277863,
+            "weighted_log_loss": 0.18038523224286263,
+            "weighted_mae": 0.09801174039169988,
+            "mean_prediction": 0.10222588612116312
+          },
+          {
+            "key": "2025-10-26",
+            "opportunities": 59797964.5,
+            "weighted_brier": 0.04633383333547237,
+            "rows": 1870414,
+            "weighted_prevalence": 0.10671980314647667,
+            "weighted_log_loss": 0.18258461548284763,
+            "weighted_mae": 0.10015274674309614,
+            "mean_prediction": 0.10731982971465188
+          },
+          {
+            "key": "2025-10-27",
+            "opportunities": 64453666.75,
+            "weighted_brier": 0.04552882917926521,
+            "rows": 1922512,
+            "weighted_prevalence": 0.10457552440179829,
+            "weighted_log_loss": 0.1806237577266243,
+            "weighted_mae": 0.09955268615104904,
+            "mean_prediction": 0.10947278254106015
+          },
+          {
+            "key": "2025-10-28",
+            "opportunities": 67001837.0,
+            "weighted_brier": 0.04625311826287272,
+            "rows": 1977546,
+            "weighted_prevalence": 0.10336676291427652,
+            "weighted_log_loss": 0.18227153961621576,
+            "weighted_mae": 0.10028052869715315,
+            "mean_prediction": 0.10928715709143558
+          },
+          {
+            "key": "2025-10-29",
+            "opportunities": 65339542.75,
+            "weighted_brier": 0.04573505591955285,
+            "rows": 1920348,
+            "weighted_prevalence": 0.10189449940709908,
+            "weighted_log_loss": 0.18092384915006052,
+            "weighted_mae": 0.10026401200449997,
+            "mean_prediction": 0.11023448839228671
+          },
+          {
+            "key": "2025-10-30",
+            "opportunities": 64061696.5,
+            "weighted_brier": 0.04382239779274954,
+            "rows": 1810890,
+            "weighted_prevalence": 0.0964302748366959,
+            "weighted_log_loss": 0.17466272968629684,
+            "weighted_mae": 0.0949798892578876,
+            "mean_prediction": 0.10082829222097978
+          },
+          {
+            "key": "2025-10-31",
+            "opportunities": 61148246.5,
+            "weighted_brier": 0.04321247173708449,
+            "rows": 1712486,
+            "weighted_prevalence": 0.09645483456340813,
+            "weighted_log_loss": 0.17196519885476508,
+            "weighted_mae": 0.094754129937767,
+            "mean_prediction": 0.10427555623144986
+          }
+        ],
+        "week": [
+          {
+            "key": "2025-W01",
+            "opportunities": 265757653.75,
+            "weighted_brier": 0.04426804813307435,
+            "rows": 8280028,
+            "weighted_prevalence": 0.0966935425467497,
+            "weighted_log_loss": 0.1750108420922497,
+            "weighted_mae": 0.09536183639388555,
+            "mean_prediction": 0.1019271856215553
+          },
+          {
+            "key": "2025-W02",
+            "opportunities": 379711654.5,
+            "weighted_brier": 0.04227209198490005,
+            "rows": 11575147,
+            "weighted_prevalence": 0.09752222129910948,
+            "weighted_log_loss": 0.1684620809627539,
+            "weighted_mae": 0.09227963291552524,
+            "mean_prediction": 0.10058248977242178
+          },
+          {
+            "key": "2025-W03",
+            "opportunities": 384987908.25,
+            "weighted_brier": 0.0413919776731778,
+            "rows": 11492832,
+            "weighted_prevalence": 0.09675008539700025,
+            "weighted_log_loss": 0.16612296886187533,
+            "weighted_mae": 0.09074043071832832,
+            "mean_prediction": 0.09886489066700294
+          },
+          {
+            "key": "2025-W04",
+            "opportunities": 396408923.0,
+            "weighted_brier": 0.041830215602638665,
+            "rows": 11847339,
+            "weighted_prevalence": 0.09703177140641711,
+            "weighted_log_loss": 0.16748105513308986,
+            "weighted_mae": 0.09257430534453172,
+            "mean_prediction": 0.10182452449844975
+          },
+          {
+            "key": "2025-W05",
+            "opportunities": 294769018.5,
+            "weighted_brier": 0.04335065266710955,
+            "rows": 8925596,
+            "weighted_prevalence": 0.10067287990783197,
+            "weighted_log_loss": 0.1720884808799383,
+            "weighted_mae": 0.09490610462669494,
+            "mean_prediction": 0.10395367948672349
+          },
+          {
+            "key": "2025-W14",
+            "opportunities": 381353974.75,
+            "weighted_brier": 0.03863779531928276,
+            "rows": 10516581,
+            "weighted_prevalence": 0.08439226317517227,
+            "weighted_log_loss": 0.1528124025482446,
+            "weighted_mae": 0.08332156984267347,
+            "mean_prediction": 0.08717805272194912
+          },
+          {
+            "key": "2025-W15",
+            "opportunities": 417958945.5,
+            "weighted_brier": 0.037731424514758305,
+            "rows": 11749368,
+            "weighted_prevalence": 0.08365147193625504,
+            "weighted_log_loss": 0.14920476761794677,
+            "weighted_mae": 0.08123845552335815,
+            "mean_prediction": 0.08538054132126865
+          },
+          {
+            "key": "2025-W16",
+            "opportunities": 434620896.5,
+            "weighted_brier": 0.03746860776386353,
+            "rows": 11636862,
+            "weighted_prevalence": 0.08136646738521465,
+            "weighted_log_loss": 0.148077868374005,
+            "weighted_mae": 0.08110916328502465,
+            "mean_prediction": 0.08518384274498027
+          },
+          {
+            "key": "2025-W17",
+            "opportunities": 479341628.5,
+            "weighted_brier": 0.03867231281680962,
+            "rows": 12899780,
+            "weighted_prevalence": 0.08632902201607971,
+            "weighted_log_loss": 0.15170697346436482,
+            "weighted_mae": 0.0831900243895602,
+            "mean_prediction": 0.08677435756238658
+          },
+          {
+            "key": "2025-W18",
+            "opportunities": 214327876.5,
+            "weighted_brier": 0.03937844789222695,
+            "rows": 5826671,
+            "weighted_prevalence": 0.0865619736590821,
+            "weighted_log_loss": 0.15416063886384482,
+            "weighted_mae": 0.08491457753829978,
+            "mean_prediction": 0.08814906136026592
+          },
+          {
+            "key": "2025-W27",
+            "opportunities": 339770774.25,
+            "weighted_brier": 0.03943619631854382,
+            "rows": 9399382,
+            "weighted_prevalence": 0.07935372917083672,
+            "weighted_log_loss": 0.15670659059025635,
+            "weighted_mae": 0.08650805366934487,
+            "mean_prediction": 0.08932846413299748
+          },
+          {
+            "key": "2025-W28",
+            "opportunities": 361344774.75,
+            "weighted_brier": 0.03932104132318061,
+            "rows": 10186402,
+            "weighted_prevalence": 0.08112241838914262,
+            "weighted_log_loss": 0.1581374983176254,
+            "weighted_mae": 0.08580883438848602,
+            "mean_prediction": 0.08726820007929925
+          },
+          {
+            "key": "2025-W29",
+            "opportunities": 367316067.5,
+            "weighted_brier": 0.03977576539478504,
+            "rows": 10385562,
+            "weighted_prevalence": 0.08160319314101336,
+            "weighted_log_loss": 0.1610166970526825,
+            "weighted_mae": 0.08527036288029331,
+            "mean_prediction": 0.08484040621580652
+          },
+          {
+            "key": "2025-W30",
+            "opportunities": 387961453.75,
+            "weighted_brier": 0.03949262286351736,
+            "rows": 10878897,
+            "weighted_prevalence": 0.08219861971274511,
+            "weighted_log_loss": 0.15920085036587348,
+            "weighted_mae": 0.08641342119423168,
+            "mean_prediction": 0.08764816474155818
+          },
+          {
+            "key": "2025-W31",
+            "opportunities": 238904018.25,
+            "weighted_brier": 0.04088300864737881,
+            "rows": 6594020,
+            "weighted_prevalence": 0.08480348781241145,
+            "weighted_log_loss": 0.16431834959797462,
+            "weighted_mae": 0.08838182432423448,
+            "mean_prediction": 0.08758454000993036
+          },
+          {
+            "key": "2025-W40",
+            "opportunities": 266729571.0,
+            "weighted_brier": 0.03962889743196187,
+            "rows": 7345525,
+            "weighted_prevalence": 0.08491565039108469,
+            "weighted_log_loss": 0.15554997425938477,
+            "weighted_mae": 0.0872155095782682,
+            "mean_prediction": 0.0949785090660203
+          },
+          {
+            "key": "2025-W41",
+            "opportunities": 456490254.0,
+            "weighted_brier": 0.04252929589538015,
+            "rows": 12715250,
+            "weighted_prevalence": 0.0943482902923049,
+            "weighted_log_loss": 0.16810868688713906,
+            "weighted_mae": 0.09289745560192685,
+            "mean_prediction": 0.10159664662444046
+          },
+          {
+            "key": "2025-W42",
+            "opportunities": 452809655.5,
+            "weighted_brier": 0.043261787761307034,
+            "rows": 13015226,
+            "weighted_prevalence": 0.0970171339466943,
+            "weighted_log_loss": 0.16936277989980297,
+            "weighted_mae": 0.09416102109489977,
+            "mean_prediction": 0.10197995270271164
+          },
+          {
+            "key": "2025-W43",
+            "opportunities": 455245017.75,
+            "weighted_brier": 0.04556738830284022,
+            "rows": 13758283,
+            "weighted_prevalence": 0.10439493052529952,
+            "weighted_log_loss": 0.17868515401681356,
+            "weighted_mae": 0.09860462277072396,
+            "mean_prediction": 0.10611493047104303
+          },
+          {
+            "key": "2025-W44",
+            "opportunities": 322004989.5,
+            "weighted_brier": 0.04494202266518898,
+            "rows": 9343782,
+            "weighted_prevalence": 0.10061741605404534,
+            "weighted_log_loss": 0.17819734497872441,
+            "weighted_mae": 0.09802749260663887,
+            "mean_prediction": 0.10688198503148262
+          }
+        ],
+        "band": [
+          {
+            "key": "10m",
+            "opportunities": 450042507.5,
+            "weighted_brier": 0.03299175192933236,
+            "rows": 15308642,
+            "weighted_prevalence": 0.0640340379402939,
+            "weighted_log_loss": 0.14000531877004266,
+            "weighted_mae": 0.0729986249334261,
+            "mean_prediction": 0.06873210346495363
+          },
+          {
+            "key": "12m",
+            "opportunities": 113488149.25,
+            "weighted_brier": 0.05010181753823448,
+            "rows": 6679377,
+            "weighted_prevalence": 0.11516865933911598,
+            "weighted_log_loss": 0.20647029040364287,
+            "weighted_mae": 0.11404186609259759,
+            "mean_prediction": 0.1286628426841727
+          },
+          {
+            "key": "15m",
+            "opportunities": 381663152.25,
+            "weighted_brier": 0.044009230849689995,
+            "rows": 16011370,
+            "weighted_prevalence": 0.0945776368171785,
+            "weighted_log_loss": 0.17913760351216215,
+            "weighted_mae": 0.09701230107969741,
+            "mean_prediction": 0.10091386769559887
+          },
+          {
+            "key": "160m",
+            "opportunities": 38145597.0,
+            "weighted_brier": 0.04552611743611533,
+            "rows": 2383003,
+            "weighted_prevalence": 0.20829455100676494,
+            "weighted_log_loss": 0.1931015389311001,
+            "weighted_mae": 0.0991661767166861,
+            "mean_prediction": 0.21697422960989546
+          },
+          {
+            "key": "17m",
+            "opportunities": 319256853.5,
+            "weighted_brier": 0.05233439062254278,
+            "rows": 15169525,
+            "weighted_prevalence": 0.11530031257418254,
+            "weighted_log_loss": 0.20983414919405757,
+            "weighted_mae": 0.11527293505236233,
+            "mean_prediction": 0.12460773784005924
+          },
+          {
+            "key": "20m",
+            "opportunities": 2834704841.25,
+            "weighted_brier": 0.03690729767046502,
+            "rows": 60457654,
+            "weighted_prevalence": 0.06904610848785667,
+            "weighted_log_loss": 0.14873684716668006,
+            "weighted_mae": 0.07989574850589443,
+            "mean_prediction": 0.07419136305316275
+          },
+          {
+            "key": "30m",
+            "opportunities": 1046909160.0,
+            "weighted_brier": 0.045094966643084905,
+            "rows": 32565271,
+            "weighted_prevalence": 0.10443873086371697,
+            "weighted_log_loss": 0.1732986838194614,
+            "weighted_mae": 0.09745222996088454,
+            "mean_prediction": 0.10833269004374933
+          },
+          {
+            "key": "40m",
+            "opportunities": 1776958216.0,
+            "weighted_brier": 0.04326331668419268,
+            "rows": 45281187,
+            "weighted_prevalence": 0.10315872278225816,
+            "weighted_log_loss": 0.16688842211253013,
+            "weighted_mae": 0.09352995169217335,
+            "mean_prediction": 0.10418022896494525
+          },
+          {
+            "key": "60m",
+            "opportunities": 15614799.25,
+            "weighted_brier": 0.07486749461465098,
+            "rows": 1586946,
+            "weighted_prevalence": 0.3489460167091165,
+            "weighted_log_loss": 0.30724974170246555,
+            "weighted_mae": 0.16919360769297995,
+            "mean_prediction": 0.3675889696890071
+          },
+          {
+            "key": "80m",
+            "opportunities": 321031780.0,
+            "weighted_brier": 0.04149635715368001,
+            "rows": 12929558,
+            "weighted_prevalence": 0.13073144658762445,
+            "weighted_log_loss": 0.16487119496621144,
+            "weighted_mae": 0.09163519148558305,
+            "mean_prediction": 0.13295840946022375
+          }
+        ],
+        "distance": [
+          {
+            "key": "0-500 km",
+            "opportunities": 490182004.75,
+            "weighted_brier": 0.056240151799471595,
+            "rows": 15805839,
+            "weighted_prevalence": 0.15655474957539228,
+            "weighted_log_loss": 0.2365060179545444,
+            "weighted_mae": 0.1241575064454585,
+            "mean_prediction": 0.1579306580515589
+          },
+          {
+            "key": "10000-25000 km",
+            "opportunities": 921921583.25,
+            "weighted_brier": 0.009957716913325235,
+            "rows": 17056057,
+            "weighted_prevalence": 0.014832916647631809,
+            "weighted_log_loss": 0.04382643930472123,
+            "weighted_mae": 0.021977468501917088,
+            "mean_prediction": 0.016654546489098088
+          },
+          {
+            "key": "1500-3000 km",
+            "opportunities": 840180818.0,
+            "weighted_brier": 0.09545958506195958,
+            "rows": 44951690,
+            "weighted_prevalence": 0.20710746576458974,
+            "weighted_log_loss": 0.3534335110920953,
+            "weighted_mae": 0.20428410264356875,
+            "mean_prediction": 0.21740775102634646
+          },
+          {
+            "key": "3000-6000 km",
+            "opportunities": 1053542682.75,
+            "weighted_brier": 0.03942049335560336,
+            "rows": 28949268,
+            "weighted_prevalence": 0.07546400188787225,
+            "weighted_log_loss": 0.17008410326310966,
+            "weighted_mae": 0.0882477340689137,
+            "mean_prediction": 0.08454161818266616
+          },
+          {
+            "key": "500-1500 km",
+            "opportunities": 1275661737.0,
+            "weighted_brier": 0.0934021063919993,
+            "rows": 59095389,
+            "weighted_prevalence": 0.2187201480669636,
+            "weighted_log_loss": 0.35814972100930975,
+            "weighted_mae": 0.2009622528919451,
+            "mean_prediction": 0.2234894540586677
+          },
+          {
+            "key": "6000-10000 km",
+            "opportunities": 2716326230.25,
+            "weighted_brier": 0.007857079777522688,
+            "rows": 42514290,
+            "weighted_prevalence": 0.013102390134017297,
+            "weighted_log_loss": 0.03576464483044083,
+            "weighted_mae": 0.01769997465731045,
+            "mean_prediction": 0.01464642264775528
+          }
+        ]
+      }
+    },
+    "B2_frozen_v3": {
+      "overall": {
+        "opportunities": 7297815056.0,
+        "weighted_brier": 0.04186089617186164,
+        "rows": 208372533,
+        "weighted_prevalence": 0.09023668850837482,
+        "weighted_log_loss": 0.165861561219986,
+        "weighted_mae": 0.09230856840757723,
+        "mean_prediction": 0.09747523173651362,
+        "expected_calibration_error": 0.007238543228138608,
+        "maximum_calibration_error": 0.04990544969450694,
+        "bins": [
+          {
+            "bin": 0,
+            "lower": 0.0,
+            "upper": 0.05,
+            "opportunities": 5168694111.5,
+            "mean_prediction": 0.0071087581382849934,
+            "observed_rate": 0.00574057960481417
+          },
+          {
+            "bin": 1,
+            "lower": 0.05,
+            "upper": 0.1,
+            "opportunities": 421141971.5,
+            "mean_prediction": 0.071538285277531,
+            "observed_rate": 0.06404036364254899
+          },
+          {
+            "bin": 2,
+            "lower": 0.1,
+            "upper": 0.15,
+            "opportunities": 235682302.25,
+            "mean_prediction": 0.123865001612009,
+            "observed_rate": 0.1110104948493221
+          },
+          {
+            "bin": 3,
+            "lower": 0.15,
+            "upper": 0.2,
+            "opportunities": 176420075.25,
+            "mean_prediction": 0.1738598397099621,
+            "observed_rate": 0.1541408196400823
+          },
+          {
+            "bin": 4,
+            "lower": 0.2,
+            "upper": 0.25,
+            "opportunities": 181152212.0,
+            "mean_prediction": 0.2232457968071358,
+            "observed_rate": 0.20221549378596604
+          },
+          {
+            "bin": 5,
+            "lower": 0.25,
+            "upper": 0.3,
+            "opportunities": 142902638.5,
+            "mean_prediction": 0.27485543652747446,
+            "observed_rate": 0.2492515489838209
+          },
+          {
+            "bin": 6,
+            "lower": 0.3,
+            "upper": 0.35,
+            "opportunities": 119188184.25,
+            "mean_prediction": 0.32409559466956883,
+            "observed_rate": 0.2941404319614845
+          },
+          {
+            "bin": 7,
+            "lower": 0.35,
+            "upper": 0.4,
+            "opportunities": 142269980.0,
+            "mean_prediction": 0.37453593515850603,
+            "observed_rate": 0.33903990848947896
+          },
+          {
+            "bin": 8,
+            "lower": 0.4,
+            "upper": 0.45,
+            "opportunities": 114096188.0,
+            "mean_prediction": 0.4268729979035571,
+            "observed_rate": 0.39029856107024363
+          },
+          {
+            "bin": 9,
+            "lower": 0.45,
+            "upper": 0.5,
+            "opportunities": 119267534.75,
+            "mean_prediction": 0.47324873033462517,
+            "observed_rate": 0.4430741115825738
+          },
+          {
+            "bin": 10,
+            "lower": 0.5,
+            "upper": 0.55,
+            "opportunities": 89481271.25,
+            "mean_prediction": 0.5248994989884207,
+            "observed_rate": 0.48906370449000525
+          },
+          {
+            "bin": 11,
+            "lower": 0.55,
+            "upper": 0.6,
+            "opportunities": 97625730.25,
+            "mean_prediction": 0.570085297214188,
+            "observed_rate": 0.5433077823251417
+          },
+          {
+            "bin": 12,
+            "lower": 0.6,
+            "upper": 0.65,
+            "opportunities": 99044849.0,
+            "mean_prediction": 0.6193130802251298,
+            "observed_rate": 0.6004460363203744
+          },
+          {
+            "bin": 13,
+            "lower": 0.65,
+            "upper": 0.7,
+            "opportunities": 58641037.5,
+            "mean_prediction": 0.6681136528408849,
+            "observed_rate": 0.6610779524492554
+          },
+          {
+            "bin": 14,
+            "lower": 0.7,
+            "upper": 0.75,
+            "opportunities": 54711870.5,
+            "mean_prediction": 0.7226674843645564,
+            "observed_rate": 0.7047121519999943
+          },
+          {
+            "bin": 15,
+            "lower": 0.75,
+            "upper": 0.8,
+            "opportunities": 23998266.5,
+            "mean_prediction": 0.7810255898692328,
+            "observed_rate": 0.7458757073141096
+          },
+          {
+            "bin": 16,
+            "lower": 0.8,
+            "upper": 0.85,
+            "opportunities": 22779572.25,
+            "mean_prediction": 0.8203101929056928,
+            "observed_rate": 0.7816236321118805
+          },
+          {
+            "bin": 17,
+            "lower": 0.85,
+            "upper": 0.9,
+            "opportunities": 17035508.0,
+            "mean_prediction": 0.8737278073392153,
+            "observed_rate": 0.8283026840174065
+          },
+          {
+            "bin": 18,
+            "lower": 0.9,
+            "upper": 0.95,
+            "opportunities": 9190727.75,
+            "mean_prediction": 0.9182618211472464,
+            "observed_rate": 0.8683563714527395
+          },
+          {
+            "bin": 19,
+            "lower": 0.95,
+            "upper": 1.0,
+            "opportunities": 4491025.0,
+            "mean_prediction": 0.9809790639680306,
+            "observed_rate": 0.9397235597664231
+          }
+        ]
+      },
+      "slices": {
+        "month": [
+          {
+            "key": "2025-01",
+            "opportunities": 1721635158.0,
+            "weighted_brier": 0.04347420875355045,
+            "rows": 52120942,
+            "weighted_prevalence": 0.0976481522341216,
+            "weighted_log_loss": 0.17290739319230836,
+            "weighted_mae": 0.09750117593118462,
+            "mean_prediction": 0.10679148152076906
+          },
+          {
+            "key": "2025-04",
+            "opportunities": 1927603321.75,
+            "weighted_brier": 0.03902344107416458,
+            "rows": 52629262,
+            "weighted_prevalence": 0.08427227177245343,
+            "weighted_log_loss": 0.15357523716935964,
+            "weighted_mae": 0.08497819983428231,
+            "mean_prediction": 0.08912176593902164
+          },
+          {
+            "key": "2025-07",
+            "opportunities": 1695297088.5,
+            "weighted_brier": 0.04063997188048948,
+            "rows": 47444263,
+            "weighted_prevalence": 0.08163713306583668,
+            "weighted_log_loss": 0.1631475870184394,
+            "weighted_mae": 0.08869608863123818,
+            "mean_prediction": 0.08901959715153243
+          },
+          {
+            "key": "2025-10",
+            "opportunities": 1953279487.75,
+            "weighted_brier": 0.04429873552688599,
+            "rows": 56178066,
+            "weighted_prevalence": 0.09705393835798243,
+            "weighted_log_loss": 0.1741316524561035,
+            "weighted_mae": 0.09810113094419813,
+            "mean_prediction": 0.1048463212471133
+          }
+        ],
+        "day": [
+          {
+            "key": "2025-01-01",
+            "opportunities": 49278282.75,
+            "weighted_brier": 0.04459565029560733,
+            "rows": 1481361,
+            "weighted_prevalence": 0.08741215723472019,
+            "weighted_log_loss": 0.17627001796512193,
+            "weighted_mae": 0.1007628750852387,
+            "mean_prediction": 0.10368128165861856
+          },
+          {
+            "key": "2025-01-02",
+            "opportunities": 53577666.5,
+            "weighted_brier": 0.04616624675099647,
+            "rows": 1648471,
+            "weighted_prevalence": 0.09761057809413928,
+            "weighted_log_loss": 0.1805832553254373,
+            "weighted_mae": 0.10169222775052336,
+            "mean_prediction": 0.11380463156593654
+          },
+          {
+            "key": "2025-01-03",
+            "opportunities": 55082690.25,
+            "weighted_brier": 0.04638151903000045,
+            "rows": 1742840,
+            "weighted_prevalence": 0.10054837508594636,
+            "weighted_log_loss": 0.18264006738317676,
+            "weighted_mae": 0.10336141333051925,
+            "mean_prediction": 0.11874156666942766
+          },
+          {
+            "key": "2025-01-04",
+            "opportunities": 54291137.75,
+            "weighted_brier": 0.04727903893607473,
+            "rows": 1719500,
+            "weighted_prevalence": 0.09950286960048098,
+            "weighted_log_loss": 0.18395052674861342,
+            "weighted_mae": 0.10643808926532727,
+            "mean_prediction": 0.11860795338469927
+          },
+          {
+            "key": "2025-01-05",
+            "opportunities": 53527876.5,
+            "weighted_brier": 0.04481293113993153,
+            "rows": 1687856,
+            "weighted_prevalence": 0.09750399868748763,
+            "weighted_log_loss": 0.17752439664677927,
+            "weighted_mae": 0.10244629713360352,
+            "mean_prediction": 0.11354119548748655
+          },
+          {
+            "key": "2025-01-06",
+            "opportunities": 56760576.75,
+            "weighted_brier": 0.043889042493523656,
+            "rows": 1735683,
+            "weighted_prevalence": 0.09743190285676581,
+            "weighted_log_loss": 0.17362007478397395,
+            "weighted_mae": 0.09760654375715334,
+            "mean_prediction": 0.10537761272383082
+          },
+          {
+            "key": "2025-01-07",
+            "opportunities": 52396991.75,
+            "weighted_brier": 0.043758888104969494,
+            "rows": 1636940,
+            "weighted_prevalence": 0.09852063692187062,
+            "weighted_log_loss": 0.17341761988501092,
+            "weighted_mae": 0.09876482369733426,
+            "mean_prediction": 0.10964066834432831
+          },
+          {
+            "key": "2025-01-08",
+            "opportunities": 53583016.5,
+            "weighted_brier": 0.04264273410078672,
+            "rows": 1629297,
+            "weighted_prevalence": 0.09711034092304228,
+            "weighted_log_loss": 0.1696395895516856,
+            "weighted_mae": 0.09557602197010091,
+            "mean_prediction": 0.10464717351524673
+          },
+          {
+            "key": "2025-01-09",
+            "opportunities": 53865418.5,
+            "weighted_brier": 0.042546314301167544,
+            "rows": 1623283,
+            "weighted_prevalence": 0.09621182094779418,
+            "weighted_log_loss": 0.17017978812150467,
+            "weighted_mae": 0.09466911871463907,
+            "mean_prediction": 0.10259410285412016
+          },
+          {
+            "key": "2025-01-10",
+            "opportunities": 53512873.25,
+            "weighted_brier": 0.043802940890106466,
+            "rows": 1643163,
+            "weighted_prevalence": 0.09974056102472502,
+            "weighted_log_loss": 0.17526836126528608,
+            "weighted_mae": 0.09604774801950501,
+            "mean_prediction": 0.10404336844638058
+          },
+          {
+            "key": "2025-01-11",
+            "opportunities": 54348066.0,
+            "weighted_brier": 0.04287201669344691,
+            "rows": 1662944,
+            "weighted_prevalence": 0.09751415993349238,
+            "weighted_log_loss": 0.17076617629401297,
+            "weighted_mae": 0.09485680592309675,
+            "mean_prediction": 0.10232882787799934
+          },
+          {
+            "key": "2025-01-12",
+            "opportunities": 55244711.75,
+            "weighted_brier": 0.041944551646300926,
+            "rows": 1643837,
+            "weighted_prevalence": 0.09620437561609686,
+            "weighted_log_loss": 0.16718638642235115,
+            "weighted_mae": 0.09394979144552201,
+            "mean_prediction": 0.10274000029618777
+          },
+          {
+            "key": "2025-01-13",
+            "opportunities": 54727715.75,
+            "weighted_brier": 0.043401679838791986,
+            "rows": 1665589,
+            "weighted_prevalence": 0.10115669773774544,
+            "weighted_log_loss": 0.1736187718320362,
+            "weighted_mae": 0.09731878215952437,
+            "mean_prediction": 0.10822631324323265
+          },
+          {
+            "key": "2025-01-14",
+            "opportunities": 55162490.5,
+            "weighted_brier": 0.04245826407509579,
+            "rows": 1627187,
+            "weighted_prevalence": 0.0969143334817343,
+            "weighted_log_loss": 0.1697127082325015,
+            "weighted_mae": 0.09593816371799564,
+            "mean_prediction": 0.10635038026254037
+          },
+          {
+            "key": "2025-01-15",
+            "opportunities": 53732738.25,
+            "weighted_brier": 0.042370977773092906,
+            "rows": 1612094,
+            "weighted_prevalence": 0.09703739600503238,
+            "weighted_log_loss": 0.1703228847388024,
+            "weighted_mae": 0.09451334566272782,
+            "mean_prediction": 0.1030198655226101
+          },
+          {
+            "key": "2025-01-16",
+            "opportunities": 53850587.0,
+            "weighted_brier": 0.04110807118304419,
+            "rows": 1604771,
+            "weighted_prevalence": 0.09519368841791827,
+            "weighted_log_loss": 0.16555219850675923,
+            "weighted_mae": 0.09387556631496624,
+            "mean_prediction": 0.10466401884131127
+          },
+          {
+            "key": "2025-01-17",
+            "opportunities": 55916336.0,
+            "weighted_brier": 0.041032598880583644,
+            "rows": 1630129,
+            "weighted_prevalence": 0.0931757939218335,
+            "weighted_log_loss": 0.16478717607108606,
+            "weighted_mae": 0.09351947456810326,
+            "mean_prediction": 0.10330427746243462
+          },
+          {
+            "key": "2025-01-18",
+            "opportunities": 54471653.5,
+            "weighted_brier": 0.04285969497624451,
+            "rows": 1653231,
+            "weighted_prevalence": 0.09709705250640134,
+            "weighted_log_loss": 0.17227603600328412,
+            "weighted_mae": 0.09630974224378959,
+            "mean_prediction": 0.1038189565634579
+          },
+          {
+            "key": "2025-01-19",
+            "opportunities": 57126387.25,
+            "weighted_brier": 0.04283272936881458,
+            "rows": 1699831,
+            "weighted_prevalence": 0.0967345436324612,
+            "weighted_log_loss": 0.1699041581647967,
+            "weighted_mae": 0.09525024810981403,
+            "mean_prediction": 0.10252595355486231
+          },
+          {
+            "key": "2025-01-20",
+            "opportunities": 55499084.5,
+            "weighted_brier": 0.04372162331912063,
+            "rows": 1673621,
+            "weighted_prevalence": 0.09829407185987005,
+            "weighted_log_loss": 0.17457382898540016,
+            "weighted_mae": 0.09898635040977459,
+            "mean_prediction": 0.10728392223829403
+          },
+          {
+            "key": "2025-01-21",
+            "opportunities": 55907468.75,
+            "weighted_brier": 0.042945035211323444,
+            "rows": 1700653,
+            "weighted_prevalence": 0.09846058358705428,
+            "weighted_log_loss": 0.1726340064124941,
+            "weighted_mae": 0.0988238585512318,
+            "mean_prediction": 0.11035183959022396
+          },
+          {
+            "key": "2025-01-22",
+            "opportunities": 57074185.25,
+            "weighted_brier": 0.0431314644154499,
+            "rows": 1714417,
+            "weighted_prevalence": 0.0976696027386567,
+            "weighted_log_loss": 0.1717137117075326,
+            "weighted_mae": 0.0971027398510145,
+            "mean_prediction": 0.10608795678113651
+          },
+          {
+            "key": "2025-01-23",
+            "opportunities": 57144454.0,
+            "weighted_brier": 0.043386018197106975,
+            "rows": 1704303,
+            "weighted_prevalence": 0.09790654400162788,
+            "weighted_log_loss": 0.17278121441594996,
+            "weighted_mae": 0.09823668999426066,
+            "mean_prediction": 0.10853443849251085
+          },
+          {
+            "key": "2025-01-24",
+            "opportunities": 57073398.0,
+            "weighted_brier": 0.04251276481409518,
+            "rows": 1691969,
+            "weighted_prevalence": 0.09786717097166704,
+            "weighted_log_loss": 0.17001710481712687,
+            "weighted_mae": 0.09646163872923406,
+            "mean_prediction": 0.10659341066240811
+          },
+          {
+            "key": "2025-01-25",
+            "opportunities": 57930354.0,
+            "weighted_brier": 0.0422999632862053,
+            "rows": 1699476,
+            "weighted_prevalence": 0.09445205530765442,
+            "weighted_log_loss": 0.168730182136009,
+            "weighted_mae": 0.09562876642867821,
+            "mean_prediction": 0.1043153160995103
+          },
+          {
+            "key": "2025-01-26",
+            "opportunities": 55779978.5,
+            "weighted_brier": 0.04185587755054217,
+            "rows": 1662900,
+            "weighted_prevalence": 0.09461934446604349,
+            "weighted_log_loss": 0.16739003832598642,
+            "weighted_mae": 0.09399106074906187,
+            "mean_prediction": 0.10212251414821713
+          },
+          {
+            "key": "2025-01-27",
+            "opportunities": 54945672.75,
+            "weighted_brier": 0.043371851916803435,
+            "rows": 1679112,
+            "weighted_prevalence": 0.09692666835169472,
+            "weighted_log_loss": 0.1712904467898657,
+            "weighted_mae": 0.0963299657849364,
+            "mean_prediction": 0.10506077178845062
+          },
+          {
+            "key": "2025-01-28",
+            "opportunities": 58373827.75,
+            "weighted_brier": 0.04405613842699132,
+            "rows": 1755856,
+            "weighted_prevalence": 0.10115173576226548,
+            "weighted_log_loss": 0.17524407026998448,
+            "weighted_mae": 0.09805437503411953,
+            "mean_prediction": 0.10685787253941921
+          },
+          {
+            "key": "2025-01-29",
+            "opportunities": 59910745.5,
+            "weighted_brier": 0.0444560183372404,
+            "rows": 1821005,
+            "weighted_prevalence": 0.1011109601365251,
+            "weighted_log_loss": 0.17676793499694968,
+            "weighted_mae": 0.09886636670366218,
+            "mean_prediction": 0.10724079898472032
+          },
+          {
+            "key": "2025-01-30",
+            "opportunities": 60703913.0,
+            "weighted_brier": 0.04452224228011194,
+            "rows": 1826053,
+            "weighted_prevalence": 0.10290980747814396,
+            "weighted_log_loss": 0.17565500924326763,
+            "weighted_mae": 0.0987032581029666,
+            "mean_prediction": 0.10714903924871595
+          },
+          {
+            "key": "2025-01-31",
+            "opportunities": 60834859.5,
+            "weighted_brier": 0.04469124827281645,
+            "rows": 1843570,
+            "weighted_prevalence": 0.10093341302119717,
+            "weighted_log_loss": 0.1762054826169459,
+            "weighted_mae": 0.09875991644215502,
+            "mean_prediction": 0.10740607715823466
+          },
+          {
+            "key": "2025-04-01",
+            "opportunities": 79567664.25,
+            "weighted_brier": 0.04484663790357606,
+            "rows": 2220608,
+            "weighted_prevalence": 0.09541737930305023,
+            "weighted_log_loss": 0.17540477555529152,
+            "weighted_mae": 0.09341533329711729,
+            "mean_prediction": 0.08991119134934437
+          },
+          {
+            "key": "2025-04-02",
+            "opportunities": 64869491.75,
+            "weighted_brier": 0.04432824358191581,
+            "rows": 1764957,
+            "weighted_prevalence": 0.08243289496714763,
+            "weighted_log_loss": 0.17074393775345637,
+            "weighted_mae": 0.1053250675014306,
+            "mean_prediction": 0.127283319719487
+          },
+          {
+            "key": "2025-04-03",
+            "opportunities": 67850961.0,
+            "weighted_brier": 0.039487884863002684,
+            "rows": 1805028,
+            "weighted_prevalence": 0.08436340348959832,
+            "weighted_log_loss": 0.15573880560012746,
+            "weighted_mae": 0.0880707046243624,
+            "mean_prediction": 0.09811362614136228
+          },
+          {
+            "key": "2025-04-04",
+            "opportunities": 57891246.5,
+            "weighted_brier": 0.03682603000677337,
+            "rows": 1585561,
+            "weighted_prevalence": 0.07871730659660264,
+            "weighted_log_loss": 0.14707765873687864,
+            "weighted_mae": 0.08204748921248356,
+            "mean_prediction": 0.08646137220222572
+          },
+          {
+            "key": "2025-04-05",
+            "opportunities": 51624582.5,
+            "weighted_brier": 0.035800223762858796,
+            "rows": 1464594,
+            "weighted_prevalence": 0.07696703406753944,
+            "weighted_log_loss": 0.14271475329722197,
+            "weighted_mae": 0.08015066777644007,
+            "mean_prediction": 0.08419397506960863
+          },
+          {
+            "key": "2025-04-06",
+            "opportunities": 59550028.75,
+            "weighted_brier": 0.0379989394791472,
+            "rows": 1675833,
+            "weighted_prevalence": 0.08378224334610418,
+            "weighted_log_loss": 0.15016277487671106,
+            "weighted_mae": 0.08234941738738684,
+            "mean_prediction": 0.08464138918175258
+          },
+          {
+            "key": "2025-04-07",
+            "opportunities": 57351045.5,
+            "weighted_brier": 0.03948573425625449,
+            "rows": 1717789,
+            "weighted_prevalence": 0.08841164020279281,
+            "weighted_log_loss": 0.15473839219983349,
+            "weighted_mae": 0.08612948901732904,
+            "mean_prediction": 0.09061859556035147
+          },
+          {
+            "key": "2025-04-08",
+            "opportunities": 62726772.0,
+            "weighted_brier": 0.039092917939045846,
+            "rows": 1801971,
+            "weighted_prevalence": 0.08811457729723443,
+            "weighted_log_loss": 0.15374880805790891,
+            "weighted_mae": 0.08436058095458003,
+            "mean_prediction": 0.08804592114704742
+          },
+          {
+            "key": "2025-04-09",
+            "opportunities": 54081068.5,
+            "weighted_brier": 0.037117261554441325,
+            "rows": 1530674,
+            "weighted_prevalence": 0.07966231288496084,
+            "weighted_log_loss": 0.1475482427776879,
+            "weighted_mae": 0.08068890863230227,
+            "mean_prediction": 0.08423847960010801
+          },
+          {
+            "key": "2025-04-10",
+            "opportunities": 61702737.5,
+            "weighted_brier": 0.037813363376256105,
+            "rows": 1707953,
+            "weighted_prevalence": 0.08183868665470474,
+            "weighted_log_loss": 0.14897981346735098,
+            "weighted_mae": 0.08022344705026575,
+            "mean_prediction": 0.0823722981759937
+          },
+          {
+            "key": "2025-04-11",
+            "opportunities": 62191571.75,
+            "weighted_brier": 0.038143197712823027,
+            "rows": 1752890,
+            "weighted_prevalence": 0.08593360562558865,
+            "weighted_log_loss": 0.1508286137808453,
+            "weighted_mae": 0.08240550994094745,
+            "mean_prediction": 0.08683821759795693
+          },
+          {
+            "key": "2025-04-12",
+            "opportunities": 58965215.0,
+            "weighted_brier": 0.03858515911516657,
+            "rows": 1611485,
+            "weighted_prevalence": 0.0812438994753093,
+            "weighted_log_loss": 0.15400982842511107,
+            "weighted_mae": 0.0835344314892864,
+            "mean_prediction": 0.08847019092706672
+          },
+          {
+            "key": "2025-04-13",
+            "opportunities": 60940535.25,
+            "weighted_brier": 0.03718308279609405,
+            "rows": 1626606,
+            "weighted_prevalence": 0.079953908839355,
+            "weighted_log_loss": 0.1473687689481312,
+            "weighted_mae": 0.08093553272728808,
+            "mean_prediction": 0.08524730653150978
+          },
+          {
+            "key": "2025-04-14",
+            "opportunities": 65455810.5,
+            "weighted_brier": 0.03842153318741643,
+            "rows": 1738647,
+            "weighted_prevalence": 0.08374032737704776,
+            "weighted_log_loss": 0.1527099585792242,
+            "weighted_mae": 0.08309852185501329,
+            "mean_prediction": 0.08775017457478512
+          },
+          {
+            "key": "2025-04-15",
+            "opportunities": 64097641.25,
+            "weighted_brier": 0.03919712838744859,
+            "rows": 1745107,
+            "weighted_prevalence": 0.08493813335135791,
+            "weighted_log_loss": 0.15533475042486214,
+            "weighted_mae": 0.0858419606453753,
+            "mean_prediction": 0.09166897856877772
+          },
+          {
+            "key": "2025-04-16",
+            "opportunities": 51768848.25,
+            "weighted_brier": 0.039303737686981435,
+            "rows": 1491454,
+            "weighted_prevalence": 0.08527879505219628,
+            "weighted_log_loss": 0.15544534719807682,
+            "weighted_mae": 0.08740245220472287,
+            "mean_prediction": 0.09440928830033937
+          },
+          {
+            "key": "2025-04-17",
+            "opportunities": 60002331.0,
+            "weighted_brier": 0.037724601664175524,
+            "rows": 1612231,
+            "weighted_prevalence": 0.07874385746780405,
+            "weighted_log_loss": 0.14840431506816837,
+            "weighted_mae": 0.07992407314449547,
+            "mean_prediction": 0.08092823025974917
+          },
+          {
+            "key": "2025-04-18",
+            "opportunities": 65926503.25,
+            "weighted_brier": 0.037452532357709824,
+            "rows": 1698503,
+            "weighted_prevalence": 0.0799149468010045,
+            "weighted_log_loss": 0.1476676718590113,
+            "weighted_mae": 0.08040301862837514,
+            "mean_prediction": 0.08196683683182147
+          },
+          {
+            "key": "2025-04-19",
+            "opportunities": 62275718.75,
+            "weighted_brier": 0.036685365790902605,
+            "rows": 1620334,
+            "weighted_prevalence": 0.07745593462138885,
+            "weighted_log_loss": 0.144241176053329,
+            "weighted_mae": 0.07994932396403656,
+            "mean_prediction": 0.08378066150000307
+          },
+          {
+            "key": "2025-04-20",
+            "opportunities": 65094043.5,
+            "weighted_brier": 0.0372044799085569,
+            "rows": 1730586,
+            "weighted_prevalence": 0.07997974499771243,
+            "weighted_log_loss": 0.14698385447107049,
+            "weighted_mae": 0.08021989440174512,
+            "mean_prediction": 0.0823149922337321
+          },
+          {
+            "key": "2025-04-21",
+            "opportunities": 59557006.5,
+            "weighted_brier": 0.03762174978175081,
+            "rows": 1616271,
+            "weighted_prevalence": 0.07921677527563445,
+            "weighted_log_loss": 0.1483188775545605,
+            "weighted_mae": 0.08261256126221624,
+            "mean_prediction": 0.08637709275684118
+          },
+          {
+            "key": "2025-04-22",
+            "opportunities": 65362625.0,
+            "weighted_brier": 0.037317704500813446,
+            "rows": 1749754,
+            "weighted_prevalence": 0.0831888560167221,
+            "weighted_log_loss": 0.14648979992003944,
+            "weighted_mae": 0.0810629543142776,
+            "mean_prediction": 0.08419350945571788
+          },
+          {
+            "key": "2025-04-23",
+            "opportunities": 68923260.25,
+            "weighted_brier": 0.03827339486014096,
+            "rows": 1861870,
+            "weighted_prevalence": 0.08459771024833376,
+            "weighted_log_loss": 0.15007480902584272,
+            "weighted_mae": 0.08359605968023484,
+            "mean_prediction": 0.0879536667624082
+          },
+          {
+            "key": "2025-04-24",
+            "opportunities": 65141550.5,
+            "weighted_brier": 0.03866289597640336,
+            "rows": 1760429,
+            "weighted_prevalence": 0.08404040060421958,
+            "weighted_log_loss": 0.15111020683322682,
+            "weighted_mae": 0.08427325566482982,
+            "mean_prediction": 0.08788967162212243
+          },
+          {
+            "key": "2025-04-25",
+            "opportunities": 72921129.25,
+            "weighted_brier": 0.03948634959747037,
+            "rows": 1928071,
+            "weighted_prevalence": 0.08874745998259483,
+            "weighted_log_loss": 0.15487457710228883,
+            "weighted_mae": 0.08565499871508557,
+            "mean_prediction": 0.0899101924955821
+          },
+          {
+            "key": "2025-04-26",
+            "opportunities": 74557239.25,
+            "weighted_brier": 0.041264442878248424,
+            "rows": 1995255,
+            "weighted_prevalence": 0.09185415217744936,
+            "weighted_log_loss": 0.16202454320395832,
+            "weighted_mae": 0.08909466764561591,
+            "mean_prediction": 0.09267648978417037
+          },
+          {
+            "key": "2025-04-27",
+            "opportunities": 72878817.75,
+            "weighted_brier": 0.04117961955080403,
+            "rows": 1988130,
+            "weighted_prevalence": 0.09056827763921843,
+            "weighted_log_loss": 0.16078395095635672,
+            "weighted_mae": 0.08888444330844322,
+            "mean_prediction": 0.09120210158871216
+          },
+          {
+            "key": "2025-04-28",
+            "opportunities": 73047622.5,
+            "weighted_brier": 0.03998829907011544,
+            "rows": 1987944,
+            "weighted_prevalence": 0.08635385771795653,
+            "weighted_log_loss": 0.15679895306968814,
+            "weighted_mae": 0.08665839612243212,
+            "mean_prediction": 0.08966683315306723
+          },
+          {
+            "key": "2025-04-29",
+            "opportunities": 72865001.25,
+            "weighted_brier": 0.04048982767969139,
+            "rows": 1991222,
+            "weighted_prevalence": 0.08747360036585465,
+            "weighted_log_loss": 0.15743066003902464,
+            "weighted_mae": 0.0877746874126344,
+            "mean_prediction": 0.09050380474384832
+          },
+          {
+            "key": "2025-04-30",
+            "opportunities": 68415252.75,
+            "weighted_brier": 0.0397451566272371,
+            "rows": 1847505,
+            "weighted_prevalence": 0.08581326186798309,
+            "weighted_log_loss": 0.15600970458215585,
+            "weighted_mae": 0.08650484473096678,
+            "mean_prediction": 0.0895461471554353
+          },
+          {
+            "key": "2025-07-01",
+            "opportunities": 53913856.75,
+            "weighted_brier": 0.04360738143858969,
+            "rows": 1467270,
+            "weighted_prevalence": 0.07742072727898473,
+            "weighted_log_loss": 0.17109437447157175,
+            "weighted_mae": 0.09527116280066818,
+            "mean_prediction": 0.09823091156811693
+          },
+          {
+            "key": "2025-07-02",
+            "opportunities": 57116162.25,
+            "weighted_brier": 0.04035922268868295,
+            "rows": 1562339,
+            "weighted_prevalence": 0.08211866510691551,
+            "weighted_log_loss": 0.16140112632759732,
+            "weighted_mae": 0.08902299098242804,
+            "mean_prediction": 0.09149184029229149
+          },
+          {
+            "key": "2025-07-03",
+            "opportunities": 57991519.5,
+            "weighted_brier": 0.04075809260561808,
+            "rows": 1628548,
+            "weighted_prevalence": 0.08416661681023896,
+            "weighted_log_loss": 0.16144225677229077,
+            "weighted_mae": 0.0903944384749453,
+            "mean_prediction": 0.09445572965584949
+          },
+          {
+            "key": "2025-07-04",
+            "opportunities": 61941847.0,
+            "weighted_brier": 0.04015464600631531,
+            "rows": 1685965,
+            "weighted_prevalence": 0.07908199766790938,
+            "weighted_log_loss": 0.1606324286751783,
+            "weighted_mae": 0.08904424177515743,
+            "mean_prediction": 0.09221423709889695
+          },
+          {
+            "key": "2025-07-05",
+            "opportunities": 57926467.75,
+            "weighted_brier": 0.03954607939334107,
+            "rows": 1615942,
+            "weighted_prevalence": 0.07810593629714285,
+            "weighted_log_loss": 0.1565021586644682,
+            "weighted_mae": 0.08673738058702701,
+            "mean_prediction": 0.08834052855082657
+          },
+          {
+            "key": "2025-07-06",
+            "opportunities": 50880921.0,
+            "weighted_brier": 0.038182060415750424,
+            "rows": 1439318,
+            "weighted_prevalence": 0.07456407874377903,
+            "weighted_log_loss": 0.15179197618992107,
+            "weighted_mae": 0.0837079124711401,
+            "mean_prediction": 0.08403085716047505
+          },
+          {
+            "key": "2025-07-07",
+            "opportunities": 48860029.0,
+            "weighted_brier": 0.03811813170418446,
+            "rows": 1379040,
+            "weighted_prevalence": 0.07674332325918186,
+            "weighted_log_loss": 0.15285403204825931,
+            "weighted_mae": 0.08540565617450407,
+            "mean_prediction": 0.08800937558653851
+          },
+          {
+            "key": "2025-07-08",
+            "opportunities": 49450141.0,
+            "weighted_brier": 0.03914092733404205,
+            "rows": 1387311,
+            "weighted_prevalence": 0.07793963620851961,
+            "weighted_log_loss": 0.15916023002454524,
+            "weighted_mae": 0.08672863242324197,
+            "mean_prediction": 0.08786759886102918
+          },
+          {
+            "key": "2025-07-09",
+            "opportunities": 54101897.75,
+            "weighted_brier": 0.04178549045864588,
+            "rows": 1527897,
+            "weighted_prevalence": 0.08504727544423338,
+            "weighted_log_loss": 0.16651799781123047,
+            "weighted_mae": 0.08971346247715306,
+            "mean_prediction": 0.0898303044582595
+          },
+          {
+            "key": "2025-07-10",
+            "opportunities": 55786585.75,
+            "weighted_brier": 0.04225014135263056,
+            "rows": 1575912,
+            "weighted_prevalence": 0.0852846421059206,
+            "weighted_log_loss": 0.16820624099889392,
+            "weighted_mae": 0.09102179411460366,
+            "mean_prediction": 0.0907281004290431
+          },
+          {
+            "key": "2025-07-11",
+            "opportunities": 53799481.25,
+            "weighted_brier": 0.04232944254091236,
+            "rows": 1549687,
+            "weighted_prevalence": 0.08603369200702098,
+            "weighted_log_loss": 0.17156128368109624,
+            "weighted_mae": 0.0916698503179335,
+            "mean_prediction": 0.09135601057845259
+          },
+          {
+            "key": "2025-07-12",
+            "opportunities": 47657878.0,
+            "weighted_brier": 0.037675602501180995,
+            "rows": 1345313,
+            "weighted_prevalence": 0.07760328733058572,
+            "weighted_log_loss": 0.15139138120578985,
+            "weighted_mae": 0.08335826126755354,
+            "mean_prediction": 0.08448791043172209
+          },
+          {
+            "key": "2025-07-13",
+            "opportunities": 51688762.0,
+            "weighted_brier": 0.03906833299195051,
+            "rows": 1421242,
+            "weighted_prevalence": 0.0778393763812722,
+            "weighted_log_loss": 0.15805902957598736,
+            "weighted_mae": 0.08464279067224635,
+            "mean_prediction": 0.08316172006970617
+          },
+          {
+            "key": "2025-07-14",
+            "opportunities": 54726607.0,
+            "weighted_brier": 0.04044584149562462,
+            "rows": 1502195,
+            "weighted_prevalence": 0.08133539139380594,
+            "weighted_log_loss": 0.16462020079648773,
+            "weighted_mae": 0.08846201897587334,
+            "mean_prediction": 0.08863780658214065
+          },
+          {
+            "key": "2025-07-15",
+            "opportunities": 51294076.75,
+            "weighted_brier": 0.03903915887395493,
+            "rows": 1437963,
+            "weighted_prevalence": 0.07635708152208823,
+            "weighted_log_loss": 0.1582098680629748,
+            "weighted_mae": 0.08518124390774628,
+            "mean_prediction": 0.08391072352125707
+          },
+          {
+            "key": "2025-07-16",
+            "opportunities": 53234768.5,
+            "weighted_brier": 0.04201242867003947,
+            "rows": 1487793,
+            "weighted_prevalence": 0.08534349125609515,
+            "weighted_log_loss": 0.1716096821380548,
+            "weighted_mae": 0.09030573472866801,
+            "mean_prediction": 0.08829631846364627
+          },
+          {
+            "key": "2025-07-17",
+            "opportunities": 50263852.75,
+            "weighted_brier": 0.03867113872583799,
+            "rows": 1393547,
+            "weighted_prevalence": 0.0782149155886185,
+            "weighted_log_loss": 0.15620462954485498,
+            "weighted_mae": 0.08606370965017356,
+            "mean_prediction": 0.08739908880576196
+          },
+          {
+            "key": "2025-07-18",
+            "opportunities": 48037765.5,
+            "weighted_brier": 0.04030282137760719,
+            "rows": 1389265,
+            "weighted_prevalence": 0.08058193297937641,
+            "weighted_log_loss": 0.16302971471413918,
+            "weighted_mae": 0.08876892094690161,
+            "mean_prediction": 0.0904502691191352
+          },
+          {
+            "key": "2025-07-19",
+            "opportunities": 51776309.25,
+            "weighted_brier": 0.0409037625030145,
+            "rows": 1524507,
+            "weighted_prevalence": 0.08307057923407316,
+            "weighted_log_loss": 0.16310378687441723,
+            "weighted_mae": 0.08780274183842678,
+            "mean_prediction": 0.08607179571826397
+          },
+          {
+            "key": "2025-07-20",
+            "opportunities": 57982687.75,
+            "weighted_brier": 0.04248490443182888,
+            "rows": 1650292,
+            "weighted_prevalence": 0.08553587618055875,
+            "weighted_log_loss": 0.17023164173818858,
+            "weighted_mae": 0.09036688293614549,
+            "mean_prediction": 0.08760212406624619
+          },
+          {
+            "key": "2025-07-21",
+            "opportunities": 62990663.75,
+            "weighted_brier": 0.04217552023505728,
+            "rows": 1782213,
+            "weighted_prevalence": 0.0848370644451258,
+            "weighted_log_loss": 0.1688482469183104,
+            "weighted_mae": 0.08989010092535732,
+            "mean_prediction": 0.08740149447891649
+          },
+          {
+            "key": "2025-07-22",
+            "opportunities": 57774546.75,
+            "weighted_brier": 0.04229974464310075,
+            "rows": 1671464,
+            "weighted_prevalence": 0.08522806801595549,
+            "weighted_log_loss": 0.16874822036033174,
+            "weighted_mae": 0.09271782445851985,
+            "mean_prediction": 0.09391357713825216
+          },
+          {
+            "key": "2025-07-23",
+            "opportunities": 51922486.75,
+            "weighted_brier": 0.03890720310011956,
+            "rows": 1454215,
+            "weighted_prevalence": 0.07859469481207003,
+            "weighted_log_loss": 0.15739385996821498,
+            "weighted_mae": 0.08732694966216029,
+            "mean_prediction": 0.09130259671470461
+          },
+          {
+            "key": "2025-07-24",
+            "opportunities": 49897998.25,
+            "weighted_brier": 0.038132609718598776,
+            "rows": 1378867,
+            "weighted_prevalence": 0.07864926725793053,
+            "weighted_log_loss": 0.1550282272099131,
+            "weighted_mae": 0.0848522039941916,
+            "mean_prediction": 0.08666075686780177
+          },
+          {
+            "key": "2025-07-25",
+            "opportunities": 55945843.5,
+            "weighted_brier": 0.03973786588610962,
+            "rows": 1529541,
+            "weighted_prevalence": 0.08136965528100402,
+            "weighted_log_loss": 0.16163951289308107,
+            "weighted_mae": 0.08723197792328939,
+            "mean_prediction": 0.0873468116168511
+          },
+          {
+            "key": "2025-07-26",
+            "opportunities": 55032505.75,
+            "weighted_brier": 0.042120152489987905,
+            "rows": 1555938,
+            "weighted_prevalence": 0.08577350668790872,
+            "weighted_log_loss": 0.16994086971088976,
+            "weighted_mae": 0.09210874924588758,
+            "mean_prediction": 0.091425447983103
+          },
+          {
+            "key": "2025-07-27",
+            "opportunities": 54397409.0,
+            "weighted_brier": 0.03951294361849702,
+            "rows": 1506659,
+            "weighted_prevalence": 0.07985751674312282,
+            "weighted_log_loss": 0.1573158140440803,
+            "weighted_mae": 0.08606420109644906,
+            "mean_prediction": 0.08476638459916563
+          },
+          {
+            "key": "2025-07-28",
+            "opportunities": 60145154.75,
+            "weighted_brier": 0.04271453366470303,
+            "rows": 1690346,
+            "weighted_prevalence": 0.08733697704884531,
+            "weighted_log_loss": 0.1699746770144096,
+            "weighted_mae": 0.09120732085968589,
+            "mean_prediction": 0.0890915782402709
+          },
+          {
+            "key": "2025-07-29",
+            "opportunities": 58798991.5,
+            "weighted_brier": 0.04086927300867912,
+            "rows": 1609007,
+            "weighted_prevalence": 0.08374400435082292,
+            "weighted_log_loss": 0.16372701162223188,
+            "weighted_mae": 0.08886235628214917,
+            "mean_prediction": 0.08879405037803709
+          },
+          {
+            "key": "2025-07-30",
+            "opportunities": 59980531.0,
+            "weighted_brier": 0.04150572567368973,
+            "rows": 1637496,
+            "weighted_prevalence": 0.08347905422844623,
+            "weighted_log_loss": 0.1668945552714573,
+            "weighted_mae": 0.09056985020538579,
+            "mean_prediction": 0.09060269715036107
+          },
+          {
+            "key": "2025-07-31",
+            "opportunities": 59979341.0,
+            "weighted_brier": 0.04266813633626943,
+            "rows": 1657171,
+            "weighted_prevalence": 0.08462608817259262,
+            "weighted_log_loss": 0.17219822065193136,
+            "weighted_mae": 0.09130091087866209,
+            "mean_prediction": 0.08895770604207745
+          },
+          {
+            "key": "2025-10-01",
+            "opportunities": 54586247.75,
+            "weighted_brier": 0.04038603081745094,
+            "rows": 1484323,
+            "weighted_prevalence": 0.08337565206613785,
+            "weighted_log_loss": 0.15824070469116966,
+            "weighted_mae": 0.08902857883217113,
+            "mean_prediction": 0.08914374138766547
+          },
+          {
+            "key": "2025-10-02",
+            "opportunities": 45736171.5,
+            "weighted_brier": 0.03960505115104479,
+            "rows": 1304657,
+            "weighted_prevalence": 0.08384394395582499,
+            "weighted_log_loss": 0.1566501666715489,
+            "weighted_mae": 0.09152779745972735,
+            "mean_prediction": 0.09932511270104288
+          },
+          {
+            "key": "2025-10-03",
+            "opportunities": 50018171.75,
+            "weighted_brier": 0.037899006890567404,
+            "rows": 1388043,
+            "weighted_prevalence": 0.08245889155274852,
+            "weighted_log_loss": 0.15029874991022713,
+            "weighted_mae": 0.0872882337355971,
+            "mean_prediction": 0.09346308620762067
+          },
+          {
+            "key": "2025-10-04",
+            "opportunities": 57773730.75,
+            "weighted_brier": 0.040800921308204945,
+            "rows": 1574708,
+            "weighted_prevalence": 0.08826376510227359,
+            "weighted_log_loss": 0.1606273843002172,
+            "weighted_mae": 0.09235191460491271,
+            "mean_prediction": 0.09881221803351159
+          },
+          {
+            "key": "2025-10-05",
+            "opportunities": 58615249.25,
+            "weighted_brier": 0.04168222257663223,
+            "rows": 1593794,
+            "weighted_prevalence": 0.08598240329072729,
+            "weighted_log_loss": 0.16527658048848276,
+            "weighted_mae": 0.09329257340932515,
+            "mean_prediction": 0.09996404340381876
+          },
+          {
+            "key": "2025-10-06",
+            "opportunities": 69681103.5,
+            "weighted_brier": 0.042624928596452345,
+            "rows": 1848848,
+            "weighted_prevalence": 0.08858034230184084,
+            "weighted_log_loss": 0.17272428131705728,
+            "weighted_mae": 0.09446024988698376,
+            "mean_prediction": 0.10089012926376552
+          },
+          {
+            "key": "2025-10-07",
+            "opportunities": 65243518.25,
+            "weighted_brier": 0.043452655605681414,
+            "rows": 1818068,
+            "weighted_prevalence": 0.09499014103213234,
+            "weighted_log_loss": 0.17169690885938924,
+            "weighted_mae": 0.09669143766716813,
+            "mean_prediction": 0.10389129739149232
+          },
+          {
+            "key": "2025-10-08",
+            "opportunities": 65017090.75,
+            "weighted_brier": 0.042609818679310456,
+            "rows": 1805261,
+            "weighted_prevalence": 0.09542352523670862,
+            "weighted_log_loss": 0.1673054503741224,
+            "weighted_mae": 0.09466777728749919,
+            "mean_prediction": 0.10361982905806182
+          },
+          {
+            "key": "2025-10-09",
+            "opportunities": 64370835.75,
+            "weighted_brier": 0.042175291994359904,
+            "rows": 1790346,
+            "weighted_prevalence": 0.09280842683481859,
+            "weighted_log_loss": 0.1662594846968137,
+            "weighted_mae": 0.09394960989014249,
+            "mean_prediction": 0.10148139442905744
+          },
+          {
+            "key": "2025-10-10",
+            "opportunities": 66542858.75,
+            "weighted_brier": 0.04414548917100087,
+            "rows": 1881868,
+            "weighted_prevalence": 0.09720886841219457,
+            "weighted_log_loss": 0.1735114366903375,
+            "weighted_mae": 0.09790247797760476,
+            "mean_prediction": 0.1060839657025247
+          },
+          {
+            "key": "2025-10-11",
+            "opportunities": 65860124.25,
+            "weighted_brier": 0.04540820944473307,
+            "rows": 1866259,
+            "weighted_prevalence": 0.09882547405002808,
+            "weighted_log_loss": 0.17713045104071543,
+            "weighted_mae": 0.09965844165258524,
+            "mean_prediction": 0.10643212044376713
+          },
+          {
+            "key": "2025-10-12",
+            "opportunities": 59774722.75,
+            "weighted_brier": 0.04279649236621007,
+            "rows": 1704600,
+            "weighted_prevalence": 0.09274284756092825,
+            "weighted_log_loss": 0.16813854128022535,
+            "weighted_mae": 0.09632908864301529,
+            "mean_prediction": 0.10339262808077418
+          },
+          {
+            "key": "2025-10-13",
+            "opportunities": 63387772.75,
+            "weighted_brier": 0.04218987986929144,
+            "rows": 1772489,
+            "weighted_prevalence": 0.09476240825956454,
+            "weighted_log_loss": 0.16614561474675907,
+            "weighted_mae": 0.0939874171487378,
+            "mean_prediction": 0.10128044430643883
+          },
+          {
+            "key": "2025-10-14",
+            "opportunities": 67712427.0,
+            "weighted_brier": 0.042946797109527916,
+            "rows": 1889593,
+            "weighted_prevalence": 0.09377383563581321,
+            "weighted_log_loss": 0.16861588520590587,
+            "weighted_mae": 0.09615383817154233,
+            "mean_prediction": 0.10384802911810868
+          },
+          {
+            "key": "2025-10-15",
+            "opportunities": 66185926.25,
+            "weighted_brier": 0.04366953759207274,
+            "rows": 1870228,
+            "weighted_prevalence": 0.09587923535330141,
+            "weighted_log_loss": 0.1710663144484357,
+            "weighted_mae": 0.09749034179786477,
+            "mean_prediction": 0.10523362431341536
+          },
+          {
+            "key": "2025-10-16",
+            "opportunities": 65267402.25,
+            "weighted_brier": 0.043763570536976264,
+            "rows": 1875377,
+            "weighted_prevalence": 0.09862592623716689,
+            "weighted_log_loss": 0.1716926171450684,
+            "weighted_mae": 0.0970316878741378,
+            "mean_prediction": 0.10504743760921724
+          },
+          {
+            "key": "2025-10-17",
+            "opportunities": 69079202.25,
+            "weighted_brier": 0.04708319077990369,
+            "rows": 2036761,
+            "weighted_prevalence": 0.10404308049171196,
+            "weighted_log_loss": 0.18268304751362324,
+            "weighted_mae": 0.10181872507479121,
+            "mean_prediction": 0.1079207510290448
+          },
+          {
+            "key": "2025-10-18",
+            "opportunities": 62000457.75,
+            "weighted_brier": 0.04655315273975906,
+            "rows": 1860356,
+            "weighted_prevalence": 0.09879201254768155,
+            "weighted_log_loss": 0.1794325942968527,
+            "weighted_mae": 0.10217484579838901,
+            "mean_prediction": 0.10733089368530344
+          },
+          {
+            "key": "2025-10-19",
+            "opportunities": 59176467.25,
+            "weighted_brier": 0.04422492375405489,
+            "rows": 1710422,
+            "weighted_prevalence": 0.09258048434785536,
+            "weighted_log_loss": 0.1718675310682663,
+            "weighted_mae": 0.09582090214289253,
+            "mean_prediction": 0.09732615430814957
+          },
+          {
+            "key": "2025-10-20",
+            "opportunities": 65572407.5,
+            "weighted_brier": 0.04523539102100322,
+            "rows": 1915802,
+            "weighted_prevalence": 0.10030179233544231,
+            "weighted_log_loss": 0.17618575756799523,
+            "weighted_mae": 0.098938253523999,
+            "mean_prediction": 0.10403787841319466
+          },
+          {
+            "key": "2025-10-21",
+            "opportunities": 66783449.0,
+            "weighted_brier": 0.04722258345881595,
+            "rows": 2038080,
+            "weighted_prevalence": 0.10589000876549517,
+            "weighted_log_loss": 0.18362210788371605,
+            "weighted_mae": 0.10330338220556183,
+            "mean_prediction": 0.11082974970165621
+          },
+          {
+            "key": "2025-10-22",
+            "opportunities": 66524445.25,
+            "weighted_brier": 0.04647952677240471,
+            "rows": 2000390,
+            "weighted_prevalence": 0.1052117304202548,
+            "weighted_log_loss": 0.18138832062113527,
+            "weighted_mae": 0.10227947813744108,
+            "mean_prediction": 0.11035574289176184
+          },
+          {
+            "key": "2025-10-23",
+            "opportunities": 66874527.75,
+            "weighted_brier": 0.04693784528058702,
+            "rows": 2044247,
+            "weighted_prevalence": 0.10643474039336301,
+            "weighted_log_loss": 0.1837820140101975,
+            "weighted_mae": 0.10312719054330954,
+            "mean_prediction": 0.11068560246980838
+          },
+          {
+            "key": "2025-10-24",
+            "opportunities": 65129505.25,
+            "weighted_brier": 0.046332539694848816,
+            "rows": 1952096,
+            "weighted_prevalence": 0.10308269614868601,
+            "weighted_log_loss": 0.18177057770218868,
+            "weighted_mae": 0.10276533158223877,
+            "mean_prediction": 0.1102749701334336
+          },
+          {
+            "key": "2025-10-25",
+            "opportunities": 64562718.5,
+            "weighted_brier": 0.04680235146328273,
+            "rows": 1937254,
+            "weighted_prevalence": 0.10322156741277863,
+            "weighted_log_loss": 0.18356725573414912,
+            "weighted_mae": 0.10152415360605387,
+            "mean_prediction": 0.10644364476542648
+          },
+          {
+            "key": "2025-10-26",
+            "opportunities": 59797964.5,
+            "weighted_brier": 0.0472735452587232,
+            "rows": 1870414,
+            "weighted_prevalence": 0.10671980314647667,
+            "weighted_log_loss": 0.18600904563080436,
+            "weighted_mae": 0.10406643962346802,
+            "mean_prediction": 0.11174579018633654
+          },
+          {
+            "key": "2025-10-27",
+            "opportunities": 64453666.75,
+            "weighted_brier": 0.04635092106630143,
+            "rows": 1922512,
+            "weighted_prevalence": 0.10457552440179829,
+            "weighted_log_loss": 0.18367580657092258,
+            "weighted_mae": 0.10246194254994595,
+            "mean_prediction": 0.11049443094776024
+          },
+          {
+            "key": "2025-10-28",
+            "opportunities": 67001837.0,
+            "weighted_brier": 0.047153755038021564,
+            "rows": 1977546,
+            "weighted_prevalence": 0.10336676291427652,
+            "weighted_log_loss": 0.1854229427566457,
+            "weighted_mae": 0.10359887212898126,
+            "mean_prediction": 0.111031080452751
+          },
+          {
+            "key": "2025-10-29",
+            "opportunities": 65339542.75,
+            "weighted_brier": 0.04646021560525193,
+            "rows": 1920348,
+            "weighted_prevalence": 0.10189449940709908,
+            "weighted_log_loss": 0.1836908891757315,
+            "weighted_mae": 0.10308262167488846,
+            "mean_prediction": 0.11177758574918567
+          },
+          {
+            "key": "2025-10-30",
+            "opportunities": 64061696.5,
+            "weighted_brier": 0.04472008688677786,
+            "rows": 1810890,
+            "weighted_prevalence": 0.0964302748366959,
+            "weighted_log_loss": 0.1782310131777068,
+            "weighted_mae": 0.09842462211475618,
+            "mean_prediction": 0.10287244566184815
+          },
+          {
+            "key": "2025-10-31",
+            "opportunities": 61148246.5,
+            "weighted_brier": 0.04398918341476234,
+            "rows": 1712486,
+            "weighted_prevalence": 0.09645483456340813,
+            "weighted_log_loss": 0.1749766764855879,
+            "weighted_mae": 0.09872766612852682,
+            "mean_prediction": 0.10654678167934054
+          }
+        ],
+        "week": [
+          {
+            "key": "2025-W01",
+            "opportunities": 265757653.75,
+            "weighted_brier": 0.04587438732213728,
+            "rows": 8280028,
+            "weighted_prevalence": 0.0966935425467497,
+            "weighted_log_loss": 0.18028156918204966,
+            "weighted_mae": 0.10298727336089239,
+            "mean_prediction": 0.11387896621010694
+          },
+          {
+            "key": "2025-W02",
+            "opportunities": 379711654.5,
+            "weighted_brier": 0.04306412432272692,
+            "rows": 11575147,
+            "weighted_prevalence": 0.09752222129910948,
+            "weighted_log_loss": 0.17143016704347472,
+            "weighted_mae": 0.09591786362581053,
+            "mean_prediction": 0.10445978018145953
+          },
+          {
+            "key": "2025-W03",
+            "opportunities": 384987908.25,
+            "weighted_brier": 0.04229662953945708,
+            "rows": 11492832,
+            "weighted_prevalence": 0.09675008539700025,
+            "weighted_log_loss": 0.16944687737888325,
+            "weighted_mae": 0.09524625826047824,
+            "mean_prediction": 0.1045482532067129
+          },
+          {
+            "key": "2025-W04",
+            "opportunities": 396408923.0,
+            "weighted_brier": 0.04283440798306312,
+            "rows": 11847339,
+            "weighted_prevalence": 0.09703177140641711,
+            "weighted_log_loss": 0.17110914571127547,
+            "weighted_mae": 0.09702709573712603,
+            "mean_prediction": 0.10646515996536922
+          },
+          {
+            "key": "2025-W05",
+            "opportunities": 294769018.5,
+            "weighted_brier": 0.04423692291762502,
+            "rows": 8925596,
+            "weighted_prevalence": 0.10067287990783197,
+            "weighted_log_loss": 0.17509987044339922,
+            "weighted_mae": 0.09817721512749655,
+            "mean_prediction": 0.10677381828051025
+          },
+          {
+            "key": "2025-W14",
+            "opportunities": 381353974.75,
+            "weighted_brier": 0.04029353077812555,
+            "rows": 10516581,
+            "weighted_prevalence": 0.08439226317517227,
+            "weighted_log_loss": 0.15844582327610318,
+            "weighted_mae": 0.08924095204903808,
+            "mean_prediction": 0.09560714339199032
+          },
+          {
+            "key": "2025-W15",
+            "opportunities": 417958945.5,
+            "weighted_brier": 0.03821086891791268,
+            "rows": 11749368,
+            "weighted_prevalence": 0.08365147193625504,
+            "weighted_log_loss": 0.15105030646555706,
+            "weighted_mae": 0.08261060282145048,
+            "mean_prediction": 0.08654078790091353
+          },
+          {
+            "key": "2025-W16",
+            "opportunities": 434620896.5,
+            "weighted_brier": 0.03796674647169184,
+            "rows": 11636862,
+            "weighted_prevalence": 0.08136646738521465,
+            "weighted_log_loss": 0.14999252623134443,
+            "weighted_mae": 0.08228626911331012,
+            "mean_prediction": 0.08591940818307656
+          },
+          {
+            "key": "2025-W17",
+            "opportunities": 479341628.5,
+            "weighted_brier": 0.0392066598860336,
+            "rows": 12899780,
+            "weighted_prevalence": 0.08632902201607971,
+            "weighted_log_loss": 0.1537255603648349,
+            "weighted_mae": 0.08519300275558683,
+            "mean_prediction": 0.08876247671240704
+          },
+          {
+            "key": "2025-W18",
+            "opportunities": 214327876.5,
+            "weighted_brier": 0.040081190538108456,
+            "rows": 5826671,
+            "weighted_prevalence": 0.0865619736590821,
+            "weighted_log_loss": 0.15676177962413904,
+            "weighted_mae": 0.08698888653812355,
+            "mean_prediction": 0.08991285422059335
+          },
+          {
+            "key": "2025-W27",
+            "opportunities": 339770774.25,
+            "weighted_brier": 0.040440752479244835,
+            "rows": 9399382,
+            "weighted_prevalence": 0.07935372917083672,
+            "weighted_log_loss": 0.1605319190052654,
+            "weighted_mae": 0.089066780066549,
+            "mean_prediction": 0.09154420004114969
+          },
+          {
+            "key": "2025-W28",
+            "opportunities": 361344774.75,
+            "weighted_brier": 0.0401496824063734,
+            "rows": 10186402,
+            "weighted_prevalence": 0.08112241838914262,
+            "weighted_log_loss": 0.16146992986322964,
+            "weighted_mae": 0.08765224004936889,
+            "mean_prediction": 0.08802273004177406
+          },
+          {
+            "key": "2025-W29",
+            "opportunities": 367316067.5,
+            "weighted_brier": 0.04060131648813302,
+            "rows": 10385562,
+            "weighted_prevalence": 0.08160319314101336,
+            "weighted_log_loss": 0.16405044897653284,
+            "weighted_mae": 0.08819079279685636,
+            "mean_prediction": 0.08747053744873334
+          },
+          {
+            "key": "2025-W30",
+            "opportunities": 387961453.75,
+            "weighted_brier": 0.040503920637887644,
+            "rows": 10878897,
+            "weighted_prevalence": 0.08219861971274511,
+            "weighted_log_loss": 0.16302134338346738,
+            "weighted_mae": 0.08871517000195095,
+            "mean_prediction": 0.08899152884658083
+          },
+          {
+            "key": "2025-W31",
+            "opportunities": 238904018.25,
+            "weighted_brier": 0.041945240233237396,
+            "rows": 6594020,
+            "weighted_prevalence": 0.08480348781241145,
+            "weighted_log_loss": 0.16822193512676561,
+            "weighted_mae": 0.09049362874939473,
+            "mean_prediction": 0.08936413041683097
+          },
+          {
+            "key": "2025-W40",
+            "opportunities": 266729571.0,
+            "weighted_brier": 0.040160450147438846,
+            "rows": 7345525,
+            "weighted_prevalence": 0.08491565039108469,
+            "weighted_log_loss": 0.15854179549435074,
+            "weighted_mae": 0.09078763547193136,
+            "mean_prediction": 0.0961715386231009
+          },
+          {
+            "key": "2025-W41",
+            "opportunities": 456490254.0,
+            "weighted_brier": 0.04332335047845105,
+            "rows": 12715250,
+            "weighted_prevalence": 0.0943482902923049,
+            "weighted_log_loss": 0.17104400171291423,
+            "weighted_mae": 0.09623314998663751,
+            "mean_prediction": 0.10367559785514896
+          },
+          {
+            "key": "2025-W42",
+            "opportunities": 452809655.5,
+            "weighted_brier": 0.04435607387006649,
+            "rows": 13015226,
+            "weighted_prevalence": 0.0970171339466943,
+            "weighted_log_loss": 0.1731237826037076,
+            "weighted_mae": 0.09781757746369733,
+            "mean_prediction": 0.1041098913836371
+          },
+          {
+            "key": "2025-W43",
+            "opportunities": 455245017.75,
+            "weighted_brier": 0.046605706470498665,
+            "rows": 13758283,
+            "weighted_prevalence": 0.10439493052529952,
+            "weighted_log_loss": 0.18228892726401777,
+            "weighted_mae": 0.10227005973434372,
+            "mean_prediction": 0.10917994319881368
+          },
+          {
+            "key": "2025-W44",
+            "opportunities": 322004989.5,
+            "weighted_brier": 0.04576721112281382,
+            "rows": 9343782,
+            "weighted_prevalence": 0.10061741605404534,
+            "weighted_log_loss": 0.18130723324724504,
+            "weighted_mae": 0.10131211319006495,
+            "mean_prediction": 0.10860044822109706
+          }
+        ],
+        "band": [
+          {
+            "key": "10m",
+            "opportunities": 450042507.5,
+            "weighted_brier": 0.034068365647877935,
+            "rows": 15308642,
+            "weighted_prevalence": 0.0640340379402939,
+            "weighted_log_loss": 0.1448090750854576,
+            "weighted_mae": 0.07969258351852657,
+            "mean_prediction": 0.0762685434592598
+          },
+          {
+            "key": "12m",
+            "opportunities": 113488149.25,
+            "weighted_brier": 0.052098996942673434,
+            "rows": 6679377,
+            "weighted_prevalence": 0.11516865933911598,
+            "weighted_log_loss": 0.21447561578167837,
+            "weighted_mae": 0.12512873488882803,
+            "mean_prediction": 0.13919580768229642
+          },
+          {
+            "key": "15m",
+            "opportunities": 381663152.25,
+            "weighted_brier": 0.04480579084896818,
+            "rows": 16011370,
+            "weighted_prevalence": 0.0945776368171785,
+            "weighted_log_loss": 0.1825588792946247,
+            "weighted_mae": 0.10037575413070342,
+            "mean_prediction": 0.10012926785699304
+          },
+          {
+            "key": "160m",
+            "opportunities": 38145597.0,
+            "weighted_brier": 0.04729359173572054,
+            "rows": 2383003,
+            "weighted_prevalence": 0.20829455100676494,
+            "weighted_log_loss": 0.19980067603742738,
+            "weighted_mae": 0.10118417374814843,
+            "mean_prediction": 0.21149042697558987
+          },
+          {
+            "key": "17m",
+            "opportunities": 319256853.5,
+            "weighted_brier": 0.05335445704700117,
+            "rows": 15169525,
+            "weighted_prevalence": 0.11530031257418254,
+            "weighted_log_loss": 0.21390697077877363,
+            "weighted_mae": 0.1205625534293595,
+            "mean_prediction": 0.12705984479521878
+          },
+          {
+            "key": "20m",
+            "opportunities": 2834704841.25,
+            "weighted_brier": 0.037441693555532805,
+            "rows": 60457654,
+            "weighted_prevalence": 0.06904610848785667,
+            "weighted_log_loss": 0.15112120656797629,
+            "weighted_mae": 0.08195175560387975,
+            "mean_prediction": 0.0741930921829596
+          },
+          {
+            "key": "30m",
+            "opportunities": 1046909160.0,
+            "weighted_brier": 0.04655353881051241,
+            "rows": 32565271,
+            "weighted_prevalence": 0.10443873086371697,
+            "weighted_log_loss": 0.1779207503593966,
+            "weighted_mae": 0.10117650723715116,
+            "mean_prediction": 0.11091132367716099
+          },
+          {
+            "key": "40m",
+            "opportunities": 1776958216.0,
+            "weighted_brier": 0.044255234113713106,
+            "rows": 45281187,
+            "weighted_prevalence": 0.10315872278225816,
+            "weighted_log_loss": 0.16995848109413134,
+            "weighted_mae": 0.09684366311048115,
+            "mean_prediction": 0.1108449423397362
+          },
+          {
+            "key": "60m",
+            "opportunities": 15614799.25,
+            "weighted_brier": 0.07869447252625318,
+            "rows": 1586946,
+            "weighted_prevalence": 0.3489460167091165,
+            "weighted_log_loss": 0.3219901154609549,
+            "weighted_mae": 0.1713989183179335,
+            "mean_prediction": 0.39200021608721536
+          },
+          {
+            "key": "80m",
+            "opportunities": 321031780.0,
+            "weighted_brier": 0.04226289592629727,
+            "rows": 12929558,
+            "weighted_prevalence": 0.13073144658762445,
+            "weighted_log_loss": 0.1670854185617144,
+            "weighted_mae": 0.093231111472424,
+            "mean_prediction": 0.1397675077005018
+          }
+        ],
+        "distance": [
+          {
+            "key": "0-500 km",
+            "opportunities": 490182004.75,
+            "weighted_brier": 0.058122241817014524,
+            "rows": 15805839,
+            "weighted_prevalence": 0.15655474957539228,
+            "weighted_log_loss": 0.2423210057497118,
+            "weighted_mae": 0.1315620453327247,
+            "mean_prediction": 0.16849797507164513
+          },
+          {
+            "key": "10000-25000 km",
+            "opportunities": 921921583.25,
+            "weighted_brier": 0.010097785538592684,
+            "rows": 17056057,
+            "weighted_prevalence": 0.014832916647631809,
+            "weighted_log_loss": 0.044677406682976005,
+            "weighted_mae": 0.021768084347081138,
+            "mean_prediction": 0.01634281938711688
+          },
+          {
+            "key": "1500-3000 km",
+            "opportunities": 840180818.0,
+            "weighted_brier": 0.09727937923291292,
+            "rows": 44951690,
+            "weighted_prevalence": 0.20710746576458974,
+            "weighted_log_loss": 0.360070267273492,
+            "weighted_mae": 0.20992670075655312,
+            "mean_prediction": 0.21791437904725827
+          },
+          {
+            "key": "3000-6000 km",
+            "opportunities": 1053542682.75,
+            "weighted_brier": 0.039939240473776734,
+            "rows": 28949268,
+            "weighted_prevalence": 0.07546400188787225,
+            "weighted_log_loss": 0.1728422554617117,
+            "weighted_mae": 0.08952851247977545,
+            "mean_prediction": 0.08421112255534524
+          },
+          {
+            "key": "500-1500 km",
+            "opportunities": 1275661737.0,
+            "weighted_brier": 0.0957023480371835,
+            "rows": 59095389,
+            "weighted_prevalence": 0.2187201480669636,
+            "weighted_log_loss": 0.36560834878577103,
+            "weighted_mae": 0.2102991642267217,
+            "mean_prediction": 0.2351048078259161
+          },
+          {
+            "key": "6000-10000 km",
+            "opportunities": 2716326230.25,
+            "weighted_brier": 0.00802534251819192,
+            "rows": 42514290,
+            "weighted_prevalence": 0.013102390134017297,
+            "weighted_log_loss": 0.03660942091511851,
+            "weighted_mae": 0.018452847209326294,
+            "mean_prediction": 0.015452135093650166
+          }
+        ]
+      }
+    }
+  },
+  "decision": {
+    "gates": [
+      {
+        "id": "A1_integrity_and_scope",
+        "passed": true
+      },
+      {
+        "id": "A2_aggregate_performance",
+        "passed": true,
+        "relative_improvement": 0.02133784541521433,
+        "paired_day": {
+          "delta_lower_95": -0.0010317584843024623,
+          "delta_median": -0.0008884046365094413,
+          "delta_upper_95": -0.0007975794573396458,
+          "skill_lower_95": 0.01916880677749342,
+          "skill_median": 0.021230800416928153,
+          "skill_upper_95": 0.024533941413821675
+        }
+      },
+      {
+        "id": "A3_month_transfer",
+        "passed": true,
+        "month_deltas": {
+          "2025-01": -0.0010079003654952928,
+          "2025-04": -0.0007548560350851066,
+          "2025-07": -0.0009379465645645221,
+          "2025-10": -0.0008898707564399741
+        }
+      },
+      {
+        "id": "A4_band_safety",
+        "passed": true,
+        "relative_regressions": {
+          "10m": -0.03160156638193867,
+          "12m": -0.038334315853269296,
+          "15m": -0.017778059134437196,
+          "160m": -0.03737238460301273,
+          "17m": -0.019118673132776598,
+          "20m": -0.014272748754678433,
+          "30m": -0.031331069660769595,
+          "40m": -0.022413561907089097,
+          "60m": -0.04863083503514798,
+          "80m": -0.018137393470481378
+        }
+      },
+      {
+        "id": "A5_calibration",
+        "passed": true,
+        "ece_delta_vs_b2": -0.0030112906328222918,
+        "high_confidence_gap_delta_vs_b2": -0.005103219643131429
+      },
+      {
+        "id": "A6_operational_contract",
+        "passed": true,
+        "phase3": {
+          "operational": true,
+          "parity": true,
+          "privacy_and_provenance": true,
+          "efficiency": true
+        }
+      }
+    ],
+    "passed": true,
+    "failed_gates": [],
+    "bootstrap": {
+      "delta_lower_95": -0.0010317584843024623,
+      "delta_median": -0.0008884046365094413,
+      "delta_upper_95": -0.0007975794573396458,
+      "skill_lower_95": 0.01916880677749342,
+      "skill_median": 0.021230800416928153,
+      "skill_upper_95": 0.024533941413821675
+    }
+  },
+  "compute": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0",
+    "arrow_cpu_threads": 18,
+    "arrow_io_threads": 6,
+    "xgboost_prediction_threads": 18,
+    "wall_seconds": 1788.4358887080016,
+    "peak_rss_gb": 10.291290283203125,
+    "platform": "macOS-26.5.2-arm64-arm-64bit"
+  }
+}

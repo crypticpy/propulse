@@ -1,0 +1,274 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T00:23:04.347331+00:00",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scope": "archive",
+  "attempt_id": "archive-20260715T233440Z",
+  "months": [
+    "2025-01",
+    "2025-04",
+    "2025-07",
+    "2025-10"
+  ],
+  "december_2024_read": true,
+  "locked_2025_read": true,
+  "prospective_read": false,
+  "datasets": {
+    "2025-01": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-000.parquet",
+      "bytes": 6520489178,
+      "sha256": "3aca1bf1894e1787ded9b5a2d2b7f34ab24cafef9d5b70aa6f6519f2f19f20f9",
+      "rows": 52120942,
+      "time_range": [
+        "2025-01-01 00:00:00+00:00",
+        "2025-01-31 23:00:00+00:00"
+      ],
+      "feature_count": 91
+    },
+    "2025-04": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-001.parquet",
+      "bytes": 6669249897,
+      "sha256": "7bf67aec2bcac03c9969d4498ba8227925a855caabfcce729d2e324e12f5fcc2",
+      "rows": 52629262,
+      "time_range": [
+        "2025-04-01 00:00:00+00:00",
+        "2025-04-30 23:00:00+00:00"
+      ],
+      "feature_count": 91
+    },
+    "2025-07": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-002.parquet",
+      "bytes": 5953250070,
+      "sha256": "4d8550686179d9127606c594e41b71d5c41b3bffb3f0b8d743835c28e01df905",
+      "rows": 47444263,
+      "time_range": [
+        "2025-07-01 00:00:00+00:00",
+        "2025-07-31 23:00:00+00:00"
+      ],
+      "feature_count": 91
+    },
+    "2025-10": {
+      "path": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-003.parquet",
+      "bytes": 7091171132,
+      "sha256": "18c293f4b8002a05a72ec241e4c215fb7dca6200be6c58d0cf1b6b1a55dae20c",
+      "rows": 56178066,
+      "time_range": [
+        "2025-10-01 00:00:00+00:00",
+        "2025-10-31 23:00:00+00:00"
+      ],
+      "feature_count": 91
+    }
+  },
+  "opportunity_manifest": {
+    "path": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_gate_hf_opportunities.json",
+    "bytes": 5054,
+    "sha256": "851226bc3931646b0377c02b025c8ac4b0629a66eb9ff415f9cf4365d1f836eb"
+  },
+  "source_manifest": {
+    "path": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_gate_sources.json",
+    "bytes": 6399,
+    "sha256": "2aa5e7955c89396b2149903abb15a5e3ccc5eb80a996e79f39f4bbf8114968d4"
+  },
+  "checks": [
+    {
+      "name": "source month inventory",
+      "passed": true,
+      "detail": "['2025-01', '2025-04', '2025-07', '2025-10']"
+    },
+    {
+      "name": "opportunity month inventory",
+      "passed": true,
+      "detail": "['2025-01', '2025-04', '2025-07', '2025-10']"
+    },
+    {
+      "name": "2025-01 required feature contract",
+      "passed": true,
+      "detail": "[]"
+    },
+    {
+      "name": "2025-01 nonempty",
+      "passed": true,
+      "detail": "52120942"
+    },
+    {
+      "name": "2025-01 exact month",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-01 test split only",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-01 positive weights",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-01 bounded targets",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-01 no future weather",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-01 exposure reconstruction",
+      "passed": true,
+      "detail": "-0.0018697642424640734"
+    },
+    {
+      "name": "2025-04 required feature contract",
+      "passed": true,
+      "detail": "[]"
+    },
+    {
+      "name": "2025-04 nonempty",
+      "passed": true,
+      "detail": "52629262"
+    },
+    {
+      "name": "2025-04 exact month",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-04 test split only",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-04 positive weights",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-04 bounded targets",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-04 no future weather",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-04 exposure reconstruction",
+      "passed": true,
+      "detail": "-0.0011210636163564087"
+    },
+    {
+      "name": "2025-07 required feature contract",
+      "passed": true,
+      "detail": "[]"
+    },
+    {
+      "name": "2025-07 nonempty",
+      "passed": true,
+      "detail": "47444263"
+    },
+    {
+      "name": "2025-07 exact month",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-07 test split only",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-07 positive weights",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-07 bounded targets",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-07 no future weather",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-07 exposure reconstruction",
+      "passed": true,
+      "detail": "-0.00018275726918704998"
+    },
+    {
+      "name": "2025-10 required feature contract",
+      "passed": true,
+      "detail": "[]"
+    },
+    {
+      "name": "2025-10 nonempty",
+      "passed": true,
+      "detail": "56178066"
+    },
+    {
+      "name": "2025-10 exact month",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-10 test split only",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-10 positive weights",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-10 bounded targets",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-10 no future weather",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2025-10 exposure reconstruction",
+      "passed": true,
+      "detail": "-0.0017311176380479408"
+    }
+  ],
+  "summary": {
+    "checks": 34,
+    "failures": 0
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0"
+  },
+  "passed": true
+}

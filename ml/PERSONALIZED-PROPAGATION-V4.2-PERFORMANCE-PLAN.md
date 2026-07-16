@@ -1,9 +1,9 @@
 # Personalized Propagation V4.2: Performance Recovery and Product Plan
 
-> Status: Phase 0 and Phase 1 completed and validated on the M5. A4, A5, and
-> A2 advance as the three 20M component models; A6 advances as the conditional
-> blend policy. December 2024 and all 2025 outcomes remain inaccessible
-> until the freezes specified below.
+> Status, 2026-07-15: Phases 0-5 are complete on the M5. The frozen 50M A6
+> blend passed untouched December 2024 and the four-month locked 2025 archive.
+> Phase 6 shadow, opt-in, and prospective evidence remains open; the frozen
+> 2026-08-01 through 2026-09-30 window is still in the future and unread.
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > M5 execution: [`PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md`](PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md).
 > Live feature contract: [`NOWCAST-LIVE-FEATURE-PIPELINE.md`](NOWCAST-LIVE-FEATURE-PIPELINE.md).
@@ -12,11 +12,12 @@
 > Compute: Apple M5 Max with 128 GB unified memory. Large artifacts remain on
 > `/Volumes/Projects/PropulseML`; the M3 is limited to source and Git transport.
 
-> Phase 2 status, 2026-07-15: all seven deterministic 20M cohort artifacts are
-> complete and checksum-manifested. A2 has completed all three rolling folds;
-> A4 F1/F2 are complete. A4 F3 and A5 F1 are actively training in the bounded
-> two-worker M5 scheduler; A5 F2/F3, October/November scoring, and the 50M
-> selection remain pending. December 2024 and all 2025 outcomes remain closed.
+> Final retrospective evidence: A6 is a frozen 70% A4 recent-cycle and 30% A5
+> recency-weighted probability blend. It improved weighted Brier versus frozen
+> V3/B2 by 2.354% on October-November development, 2.038% on untouched
+> December, and 2.134% across 208,372,533 locked 2025 rows. All four archive
+> months and every supported HF band improved. See the
+> [combined visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/REPORT.html).
 
 ## Executive decision
 
@@ -556,6 +557,36 @@ A2, A4, and A5 all advanced, and their 20M/50M cohorts use complete UTC month
 files. Phase 1 absolute metrics remain screening evidence, while final claims
 must rest on the corrected Phase 2 models and untouched gates.
 
+### Completed M5 execution and locked evidence
+
+Phase 2 selected A6 at 50M after scoring `110,407,406` identical October and
+November rows. A6 reached `0.04355603` Brier versus `0.04460622` for frozen
+V3/B2, a `2.354%` relative improvement. The 50M policy-selection slice fixed
+the blend at 70% A4 recent-cycle and 30% A5 recency-weighted probability. A4
+and A5 were the only tree models trained at 50M; A2 stopped at 20M. The 100M
+gate rejected both components because the required residual variance or
+rare-regime support was absent. More rows alone are not an approved reason.
+
+The two concurrent 50M fits ran as two nine-thread OpenMP workers and completed
+in about 53 minutes. Their conservative combined peak was `49.6810` GiB,
+well below the 96 GiB ceiling. The selected iterator-fed QuantileDMatrix backend
+was `2.6033x` faster end to end than external memory on the frozen benchmark.
+The single-process prediction benchmark selected all 18 cores and measured a
+`9.5080x` speedup versus one thread with bit-identical predictions. No CUDA,
+Metal tree backend, swap pressure, thermal warning, or performance warning was
+observed. A rented GPU is not justified for this model generation.
+
+After the Phase 3 bundle passed all 16 operational checks, December was opened
+once under attempt `december-20260715T231616Z`. A6 improved Brier by `2.038%`,
+won all 31 qualified UTC days, improved every supported band, and passed all ten
+gates. Only then was the archive opened once under attempt
+`archive-20260715T233440Z`. Across January, April, July, and October 2025, A6
+scored `0.04096767` versus `0.04186090` for B2, a `2.134%` improvement. The
+paired-day upper 95% Brier delta was `-0.00079758`; all four months and every
+supported band improved; all six archive gates passed. The protocol state is
+now `archive_passed`. Neither locked scope was used for fitting, calibration,
+threshold selection, or policy changes.
+
 ## Execution checklist
 
 ### Phase 0: diagnosis
@@ -577,14 +608,15 @@ must rest on the corrected Phase 2 models and untouched gates.
 
 ### Phase 2: scale
 
-- [ ] Train selected candidates at 20M.
-- [ ] Train at most two candidates at 50M.
-- [ ] Decide whether 100M is evidence-justified.
+- [x] Train selected candidates at 20M.
+- [x] Train at most two candidates at 50M.
+- [x] Decide whether 100M is evidence-justified (no: required residual support
+  is absent, despite A5 crossing the learning-curve threshold).
 
 ### Phase 3: package
 
-- [ ] Freeze candidate, scorer, thresholds, service bundle, and environment.
-- [ ] Pass parity, fallback, privacy, latency, and memory checks.
+- [x] Freeze candidate, scorer, thresholds, service bundle, and environment.
+- [x] Pass parity, fallback, privacy, latency, and memory checks.
 - [x] Produce synthetic dry-run report and browser QA.
 
 The synthetic gate report dry run passed the canonical portable builder and
@@ -596,15 +628,15 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 
 ### Phase 4: December gate
 
-- [ ] Verify December was never previously acquired or inspected.
-- [ ] Open, process, and score December exactly once.
-- [ ] Publish all gates and stop or approve archive access.
+- [x] Verify December was never previously acquired or inspected.
+- [x] Open, process, and score December exactly once.
+- [x] Publish all gates and approve archive access.
 
 ### Phase 5: 2025 archive
 
-- [ ] Keep all 2025 outcomes closed until December approval.
-- [ ] Score the four locked months exactly once if legally unlocked.
-- [ ] Publish the final archive decision without tuning.
+- [x] Keep all 2025 outcomes closed until December approval.
+- [x] Score the four locked months exactly once after legal unlock.
+- [x] Publish the final archive decision without tuning.
 
 ### Phase 6: product evidence
 
@@ -612,17 +644,21 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
 - [ ] Release only claims and modes supported by the evidence.
 
+The service bundle, feature builders, station adapter, Band Planner path, and
+ReachMap surface path are implemented and validated. Actual shadow deployment,
+consented outcomes, and the future prospective window cannot be marked complete
+from retrospective archive evidence.
+
 ## Immediate resume instruction
 
 On the M5:
 
-> Read this file, `PERSONALIZED-PROPAGATION-V4-PLAN.md`, and the Phase 1 report.
-> Continue Phase 2 using only already-open data. Do not acquire December 2024
-> or transform any 2025 outcome. Materialize deterministic nested 20M cohorts
-> for A4 recent-cycle, A5 recency-weighted, and A2 long-natural. Use external-
-> memory QuantileDMatrix or an equivalent bounded streaming path, preserve the
-> exact Phase 1 feature and weight contracts, add rolling-month early-stopping
-> sensitivity, and refit A6 only from A4/A5 using the earlier policy-selection
-> fold. Compare full October and November with paired-day uncertainty. Advance
-> at most two component models to 50M; keep A7 rejected unless new pre-evaluation
-> evidence independently satisfies its support and performance gates.
+> Read this file, `PERSONALIZED-PROPAGATION-V4-PLAN.md`, the final retrospective
+> report, and `NOWCAST-LIVE-FEATURE-PIPELINE.md`. The protocol state is
+> `archive_passed`; do not refit or tune A6 from December or 2025. Continue
+> Phase 6 by deploying the frozen bundle in shadow mode, recording event time,
+> receipt time, model/feature versions, freshness, fallbacks, core and
+> deterministic StationCast probabilities, and consented outcomes. Preserve the
+> 2026-08-01 through 2026-09-30 prospective window without inspection or tuning
+> until its preregistered evaluation. Keep FutureCast, learned StationCast, and
+> 6m as separate evidence tracks.

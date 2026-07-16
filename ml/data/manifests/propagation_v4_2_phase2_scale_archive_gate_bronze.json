@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T00:20:41.940453+00:00",
+  "config": {
+    "run_id": "propagation_v4_2_phase2_scale_archive_gate",
+    "archive_namespace": "archive_v4_2_archive",
+    "execution_scope": "locked_archive",
+    "seed": 20260711,
+    "months": [
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
+    "train": {
+      "months": []
+    },
+    "validation": {
+      "months": []
+    },
+    "test": {
+      "months": [
+        "2025-01",
+        "2025-04",
+        "2025-07",
+        "2025-10"
+      ]
+    },
+    "negative_receivers_per_tx_slot": 4,
+    "space_weather_run_id": "propagation_v4_2_phase2_scale_archive_gate",
+    "gates": {
+      "max_exposure_weight_error_fraction": 0.03
+    },
+    "compute": {
+      "duckdb_threads": 18,
+      "duckdb_memory_limit": "80GB",
+      "temp_root": "/Volumes/Projects/PropulseML/tmp/propagation_v4_2_phase2_scale"
+    },
+    "config_path": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_data_config.json"
+  },
+  "months": [
+    {
+      "month": "2025-01",
+      "source": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=01/wsprspots-2025-01.csv.gz",
+      "source_size": 3148313660,
+      "source_sha256": "48cdbaac2d674056d287bb38d0d8ace0513e6976b67752460c9f5ac2e2cf064a",
+      "output": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=01/spots.parquet",
+      "output_size": 3622483547,
+      "rows": 173216142,
+      "unique_rows": 173216142,
+      "min_time": "2025-01-01 00:00:00+00:00",
+      "max_time": "2025-01-31 23:58:00+00:00",
+      "tx_calls": 65755,
+      "rx_calls": 5337,
+      "tx_grids4": 26800,
+      "rx_grids4": 1085,
+      "six_meter_rows": 220712,
+      "seconds": 27.086565732955933
+    },
+    {
+      "month": "2025-04",
+      "source": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=04/wsprspots-2025-04.csv.gz",
+      "source_size": 3064579701,
+      "source_sha256": "d9958a158009e56fb10c4c3ffe33a94c98d53e5995b49771cfe4d675c2d34c73",
+      "output": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=04/spots.parquet",
+      "output_size": 3521590100,
+      "rows": 166776759,
+      "unique_rows": 166776759,
+      "min_time": "2025-04-01 00:00:00+00:00",
+      "max_time": "2025-04-30 23:59:00+00:00",
+      "tx_calls": 91472,
+      "rx_calls": 4977,
+      "tx_grids4": 28716,
+      "rx_grids4": 1017,
+      "six_meter_rows": 127812,
+      "seconds": 26.48598599433899
+    },
+    {
+      "month": "2025-07",
+      "source": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=07/wsprspots-2025-07.csv.gz",
+      "source_size": 2608683723,
+      "source_sha256": "c1146a6cccf25be68873b024c44df5e9df8004a826c11b7fa57a36f1e1eb06ba",
+      "output": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=07/spots.parquet",
+      "output_size": 3002809405,
+      "rows": 141714395,
+      "unique_rows": 141714395,
+      "min_time": "2025-07-01 00:00:00+00:00",
+      "max_time": "2025-07-31 23:58:00+00:00",
+      "tx_calls": 91782,
+      "rx_calls": 4735,
+      "tx_grids4": 28357,
+      "rx_grids4": 1006,
+      "six_meter_rows": 99728,
+      "seconds": 22.007346868515015
+    },
+    {
+      "month": "2025-10",
+      "source": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=10/wsprspots-2025-10.csv.gz",
+      "source_size": 3572498361,
+      "source_sha256": "d2bd00f71d8453510210cef48a8bb119b1199cbc24942e2e8d16a9f04e1762ed",
+      "output": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=10/spots.parquet",
+      "output_size": 4076339006,
+      "rows": 194261201,
+      "unique_rows": 194261201,
+      "min_time": "2025-10-01 00:00:00+00:00",
+      "max_time": "2025-10-31 23:58:00+00:00",
+      "tx_calls": 83157,
+      "rx_calls": 5032,
+      "tx_grids4": 28668,
+      "rx_grids4": 1029,
+      "six_meter_rows": 124610,
+      "seconds": 29.297901153564453
+    }
+  ]
+}

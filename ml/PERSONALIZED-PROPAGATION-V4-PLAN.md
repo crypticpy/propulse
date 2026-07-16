@@ -1,6 +1,9 @@
 # Personalized Propagation V4: Multi-Year Model and Product Execution Plan
 
-> Status: execution in progress; preregistration frozen on 2026-07-12.
+> Status, 2026-07-15: V4.2 performance recovery has completed the 50M model,
+> untouched December 2024 gate, and locked 2025 archive gate. The frozen A6
+> NowCast is approved for shadow integration. Prospective, opt-in StationCast,
+> FutureCast, and release evidence remains in progress.
 > Previous result: [`ARCHIVE-MULTIMONTH-V3-RESULTS.md`](ARCHIVE-MULTIMONTH-V3-RESULTS.md).
 > Primary compute target: Apple M5 Max, 128 GB unified memory, with the external
 > `Projects` SSD for ignored data, models, caches, and reports.
@@ -11,11 +14,12 @@
 
 On the M5, point the coding agent to this file with:
 
-> Read `ml/PERSONALIZED-PROPAGATION-V4-PLAN.md` and execute it in order. Start
-> at Phase 0, update the checklists and run manifest as work completes, preserve
-> every locked-test rule, do not open the 2025 archive test or the 2026
-> prospective test early, and stop at any failed gate rather than tuning around
-> it. Use the external `Projects` drive for all ignored data and model outputs.
+> Read this file and `ml/PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`.
+> Phases 0-5 of the V4.2 recovery are complete and the outcome protocol is
+> `archive_passed`; do not refit from December 2024 or 2025. Resume Phase 6 with
+> frozen-bundle shadow integration, consented evidence instrumentation, and the
+> still-unread 2026 prospective protocol. Use the external `Projects` drive for
+> all ignored data and model outputs.
 
 The agent must also read:
 
@@ -768,24 +772,31 @@ within budget, and a two-year smoke run reproduces expected V3 behavior.
 
 ### Phase 3: core training and locked evaluation
 
-- [ ] Execute B0/B1/B2 and M1-M5 validation experiments (B0, B1, M1, M2,
-  bounded LightGBM, and independent 6m arms are complete; B2 remains blocked,
-  while M3-M5 remain deferred by their preregistered evidence requirements).
-- [x] Select model/calibration using only 2024 development months (M2 at 50M
-  selected; the frozen detailed gate then failed short-path calibration
-  non-regression, so this candidate is not approved for the locked test).
+- [x] Close the evidence-driven experiment matrix. B0/B1, V3/B2, M1/M2,
+  bounded LightGBM, A0-A7 recovery, and independent 6m arms are reported;
+  M3-M5 remain stopped rather than treated as mandatory because their
+  preregistered source/evidence requirements were not met.
+- [x] Select model/calibration using only 2024 development months. The original
+  M2 failure is preserved; V4.2 selected the frozen 50M A6 blend at 70% A4
+  recent-cycle and 30% A5 recency-weighted probability.
 - [x] Run rolling-origin and source-outage validation (all four rolling folds
   have positive Brier skill; packaged stale-history fallback passed).
-- [x] Check all pre-2025 gates (failed on calibrated versus raw M2 for 0-500 km
-  by `0.000153` Brier and 500-1500 km by `0.000287`; 2025 remains closed).
-- [ ] Score the frozen candidates on 2025 once.
-- [x] Decide whether a 100M experiment is scientifically justified (the
-  20M-to-50M relative Brier gain is `1.83%`, materially steeper than V3, but a
-  100M run is deferred until the calibration gate and frozen B2 comparison pass).
+- [x] Check all pre-2025 gates. The original M2 failure remains published;
+  V4.2 A6 passed Phase 3 and all ten untouched December gates before 2025 was
+  opened.
+- [x] Score the frozen candidate and V3/B2 on the four 2025 months exactly once.
+  A6 improved archive Brier by `2.134%`, improved all four months and every
+  supported HF band, and passed all six archive gates.
+- [x] Decide whether a 100M experiment is scientifically justified. It is not:
+  the frozen V4.2 rule requires residual variance or rare-regime support, which
+  was absent. Available memory or one component's learning-curve threshold is
+  not sufficient justification.
 
-**Gate:** V4 must beat climatology and P.533 on 2025 with calibrated gains, and
-must not materially regress critical band/distance/geographic slices. Otherwise
-retain V3/core physics and publish the failed expansion honestly.
+**Gate result:** V4.2 A6 beat the strongest frozen operational statistical
+baseline, V3/B2, with calibrated gains and no supported-band regression on the
+locked archive. Climatology and pinned P.533 remain bounded development
+baselines; P.533 was not recomputed over the full locked archive. Core physics
+remains the explicit stale/missing-source fallback.
 
 ### Phase 4: FutureCast and 6m
 
@@ -818,9 +829,14 @@ fallback tests pass locally and in staging.
 - [ ] Complete the frozen 2026-08-01 through 2026-09-30 evaluation.
 - [ ] Run internal alpha and opt-in beta with evidence-grade outcomes.
 - [ ] Compare core versus StationCast and document selection bias.
-- [ ] Generate all static and animated final-report visuals.
-- [ ] Publish model/data cards, reproduction guide, source registry, and report.
-- [ ] Update README, research pages, changelog, and system health documentation.
+- [x] Generate the complete retrospective visual report with eight interactive
+  charts, four evidence tables, methods, limitations, and responsive browser QA.
+  Prospective/animated ReachMap evidence remains future work.
+- [x] Publish the retrospective model card, data card, reproduction guide,
+  source registry, checksummed evidence, and report in the repository.
+- [ ] Update all public research pages, changelog, and system health
+  documentation after prospective claims are known (the ML README and active
+  execution plans reflect the current retrospective decision).
 - [ ] Tag the open model/research release and deploy the approved product flow.
 
 **Gate:** release only claims supported by the archive, prospective, and beta
@@ -833,8 +849,9 @@ resumable caches is approximately 150-300 GB. Confirm at least 400 GB free on
 the external `Projects` SSD before Phase 1. Keep Git artifacts small; raw and
 large derived files stay ignored with manifests committed.
 
-The M5 Max is the default machine. The M3 may run code/unit/smoke tests and
-report generation on bounded samples. Rent GPU compute only if all of these are
+The M5 Max is the only machine for data, model, test, validation, and report
+execution. The M3 is limited to source editing and Git transport. Rent GPU
+compute only if all of these are
 true:
 
 1. V4 50M passes the scientific gates;

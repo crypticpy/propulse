@@ -2,22 +2,22 @@
   "schema_version": 1,
   "run_id": "propagation_v4_2_phase2_scale",
   "created_at": "2026-07-15T23:14:14.624087+00:00",
-  "protocol_state": "december_passed",
+  "protocol_state": "archive_passed",
   "candidate_frozen": true,
   "december_opened": true,
   "december_attempt_id": "december-20260715T231616Z",
   "december_decision_passed": true,
-  "archive_opened": false,
-  "archive_attempt_id": null,
-  "archive_decision_passed": false,
+  "archive_opened": true,
+  "archive_attempt_id": "archive-20260715T233440Z",
+  "archive_decision_passed": true,
   "prospective_opened": false,
   "release_approved": false,
   "outcome_access": {
     "2024-12": true,
-    "2025-01": false,
-    "2025-04": false,
-    "2025-07": false,
-    "2025-10": false
+    "2025-01": true,
+    "2025-04": true,
+    "2025-07": true,
+    "2025-10": true
   },
   "frozen_artifacts": {
     "config": {
@@ -166,6 +166,11 @@
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_gate_result.json",
       "bytes": 58457,
       "sha256": "9278d8cc706ba85072be3a05664c761b4b0c43d2c465c6140ad68c0261dccf64"
+    },
+    "archive_result": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json",
+      "bytes": 143193,
+      "sha256": "fab36516662aa5af4d834fa1add7429757dc31e2194c89ff41812f7362c2a082"
     }
   },
   "events": [
@@ -424,6 +429,26 @@
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_gate_result.json",
       "bytes": 58457,
       "sha256": "9278d8cc706ba85072be3a05664c761b4b0c43d2c465c6140ad68c0261dccf64"
+    },
+    {
+      "at": "2026-07-15T23:34:50.651243+00:00",
+      "event": "archive_opened",
+      "months": [
+        "2025-01",
+        "2025-04",
+        "2025-07",
+        "2025-10"
+      ],
+      "attempt_id": "archive-20260715T233440Z"
+    },
+    {
+      "at": "2026-07-16T00:57:59.683852+00:00",
+      "event": "archive_decision_recorded",
+      "attempt_id": "archive-20260715T233440Z",
+      "passed": true,
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json",
+      "bytes": 143193,
+      "sha256": "fab36516662aa5af4d834fa1add7429757dc31e2194c89ff41812f7362c2a082"
     }
   ]
 }

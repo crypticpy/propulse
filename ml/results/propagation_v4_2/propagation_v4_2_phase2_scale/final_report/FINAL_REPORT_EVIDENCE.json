@@ -1,0 +1,816 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T00:59:01.608555+00:00",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scope": "combined_research_evidence_through_locked_2025_archive",
+  "prospective_window": [
+    "2026-08-01",
+    "2026-09-30"
+  ],
+  "prospective_read": false,
+  "input_inventory": [
+    {
+      "id": "phase1_evaluation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+      "sha256": "2545e90622eee8b56f7e4652eae9c51a46d73cc82b1ff5882efe1994d44bca95"
+    },
+    {
+      "id": "phase1_policy",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json",
+      "sha256": "77bbbcbeca13b99c70e25a23b5d91403a4bf9f45ef23fd48c9bd19b7ac39719c"
+    },
+    {
+      "id": "phase2_20m",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json",
+      "sha256": "025448137bd7a8297dc98a789355e1f85f26b393e364b71ba09d03b023bb31ec"
+    },
+    {
+      "id": "phase2_50m",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json",
+      "sha256": "235b55c42ef9d364880777f4406079eb87816525b827c489d197c1ba9ad83c30"
+    },
+    {
+      "id": "training_50m",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json",
+      "sha256": "b05b16f7f8ee706570e122603ffd8e06a120e9fe1bcb40586d971ef6ebd6ca38"
+    },
+    {
+      "id": "backend_benchmark",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json",
+      "sha256": "aabf90a893a5118f182edc16c6556cadd9d18858a44623881db466c9e618b7d3"
+    },
+    {
+      "id": "prediction_benchmark",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json",
+      "sha256": "3a7c70abebd228e73856b7b7b3d6c5074acd15cc52f84f7f1b50a6a3621434fc"
+    },
+    {
+      "id": "phase3_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/phase3_candidate_validation.json",
+      "sha256": "fcdb7a3d57788f4885ff2124ccd82fda11567e9e8b61b9d126e702b826947a5f"
+    },
+    {
+      "id": "december_gate",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_gate_result.json",
+      "sha256": "9278d8cc706ba85072be3a05664c761b4b0c43d2c465c6140ad68c0261dccf64"
+    },
+    {
+      "id": "archive_gate",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json",
+      "sha256": "fab36516662aa5af4d834fa1add7429757dc31e2194c89ff41812f7362c2a082"
+    }
+  ],
+  "datasets": {
+    "summary": [
+      {
+        "selected_candidate": "A6_recent_recency_blend",
+        "development_improvement": 0.023543517582647833,
+        "december_improvement": 0.020378720863770128,
+        "archive_improvement": 0.02133784541521433,
+        "archive_months_won": 4,
+        "archive_months_total": 4,
+        "locked_rows": 260474292,
+        "prediction_threads": 18,
+        "prediction_speedup": 9.508024924216908,
+        "backend_speedup": 2.6032760297944684,
+        "path_p95_ms": 13.251829197542973,
+        "prospective_complete": false
+      }
+    ],
+    "phase1_candidates": [
+      {
+        "candidate": "A0 V3 control",
+        "brier": 0.0458864000549648,
+        "delta_vs_b2": 0.001280181012145748,
+        "decision": "stop"
+      },
+      {
+        "candidate": "A1 availability",
+        "brier": 0.045535775633898115,
+        "delta_vs_b2": 0.0009295565910790657,
+        "decision": "stop"
+      },
+      {
+        "candidate": "A2 long natural",
+        "brier": 0.04552942805135886,
+        "delta_vs_b2": 0.000923209008539809,
+        "decision": "advance"
+      },
+      {
+        "candidate": "A3 balanced",
+        "brier": 0.04853705002630232,
+        "delta_vs_b2": 0.00393083098348327,
+        "decision": "stop"
+      },
+      {
+        "candidate": "A4 recent cycle",
+        "brier": 0.04464395287415576,
+        "delta_vs_b2": 3.7733831336712875e-05,
+        "decision": "advance"
+      },
+      {
+        "candidate": "A5 recency weighted",
+        "brier": 0.044987634986707964,
+        "delta_vs_b2": 0.0003814159438889145,
+        "decision": "advance"
+      }
+    ],
+    "learning_curve": [
+      {
+        "candidate": "A4 recent cycle",
+        "scale_millions": 5,
+        "brier": 0.04464395287415576
+      },
+      {
+        "candidate": "A4 recent cycle",
+        "scale_millions": 20,
+        "brier": 0.04395728576563356
+      },
+      {
+        "candidate": "A4 recent cycle",
+        "scale_millions": 50,
+        "brier": 0.04361894110421036
+      },
+      {
+        "candidate": "A5 recency weighted",
+        "scale_millions": 5,
+        "brier": 0.044987634986707964
+      },
+      {
+        "candidate": "A5 recency weighted",
+        "scale_millions": 20,
+        "brier": 0.04427148569011381
+      },
+      {
+        "candidate": "A5 recency weighted",
+        "scale_millions": 50,
+        "brier": 0.043775199773549156
+      },
+      {
+        "candidate": "A6 blend",
+        "scale_millions": 5,
+        "brier": 0.04460489716992895
+      },
+      {
+        "candidate": "A6 blend",
+        "scale_millions": 20,
+        "brier": 0.043916698716980986
+      },
+      {
+        "candidate": "A6 blend",
+        "scale_millions": 50,
+        "brier": 0.043556031740489
+      },
+      {
+        "candidate": "Frozen V3/B2",
+        "scale_millions": 5,
+        "brier": 0.04460621904281905
+      },
+      {
+        "candidate": "Frozen V3/B2",
+        "scale_millions": 20,
+        "brier": 0.04460621904281905
+      },
+      {
+        "candidate": "Frozen V3/B2",
+        "scale_millions": 50,
+        "brier": 0.04460621904281905
+      }
+    ],
+    "phase2_comparison": [
+      {
+        "candidate": "A4 recent cycle",
+        "brier": 0.04361894110421036,
+        "relative_improvement_vs_b2": 0.022133190389012132
+      },
+      {
+        "candidate": "A5 recency weighted",
+        "brier": 0.043775199773549156,
+        "relative_improvement_vs_b2": 0.018630121249957755
+      },
+      {
+        "candidate": "A6 blend",
+        "brier": 0.043556031740489,
+        "relative_improvement_vs_b2": 0.023543517582647833
+      },
+      {
+        "candidate": "Frozen V3/B2",
+        "brier": 0.04460621904281905,
+        "relative_improvement_vs_b2": 0.0
+      }
+    ],
+    "locked_scope": [
+      {
+        "scope": "2024-12",
+        "candidate_brier": 0.043440623903057037,
+        "b2_brier": 0.04434430409817182,
+        "relative_improvement": 0.020378720863770128,
+        "rows": 52101759
+      },
+      {
+        "scope": "2025 aggregate",
+        "candidate_brier": 0.04096767484040412,
+        "b2_brier": 0.04186089617186164,
+        "relative_improvement": 0.02133784541521433,
+        "rows": 208372533
+      },
+      {
+        "scope": "2025-01",
+        "candidate_brier": 0.04246630838805516,
+        "b2_brier": 0.04347420875355045,
+        "relative_improvement": 0.023183869112119893,
+        "rows": 52120942
+      },
+      {
+        "scope": "2025-04",
+        "candidate_brier": 0.03826858503907948,
+        "b2_brier": 0.03902344107416458,
+        "relative_improvement": 0.019343656384645636,
+        "rows": 52629262
+      },
+      {
+        "scope": "2025-07",
+        "candidate_brier": 0.039702025315924955,
+        "b2_brier": 0.04063997188048948,
+        "relative_improvement": 0.023079409782141402,
+        "rows": 47444263
+      },
+      {
+        "scope": "2025-10",
+        "candidate_brier": 0.04340886477044602,
+        "b2_brier": 0.04429873552688599,
+        "relative_improvement": 0.020087949370471092,
+        "rows": 56178066
+      }
+    ],
+    "locked_band": [
+      {
+        "scope": "December 2024",
+        "band": "10m",
+        "relative_regression": -0.0339078230555766
+      },
+      {
+        "scope": "December 2024",
+        "band": "12m",
+        "relative_regression": -0.04269998393369445
+      },
+      {
+        "scope": "December 2024",
+        "band": "15m",
+        "relative_regression": -0.01809817975191197
+      },
+      {
+        "scope": "December 2024",
+        "band": "160m",
+        "relative_regression": -0.03256155033837349
+      },
+      {
+        "scope": "December 2024",
+        "band": "17m",
+        "relative_regression": -0.02436453555298801
+      },
+      {
+        "scope": "December 2024",
+        "band": "20m",
+        "relative_regression": -0.007751608666537124
+      },
+      {
+        "scope": "December 2024",
+        "band": "30m",
+        "relative_regression": -0.0283411377512105
+      },
+      {
+        "scope": "December 2024",
+        "band": "40m",
+        "relative_regression": -0.02580473082682344
+      },
+      {
+        "scope": "December 2024",
+        "band": "60m",
+        "relative_regression": -0.029527209872258875
+      },
+      {
+        "scope": "December 2024",
+        "band": "80m",
+        "relative_regression": -0.005553694319029523
+      },
+      {
+        "scope": "2025 archive",
+        "band": "10m",
+        "relative_regression": -0.03160156638193867
+      },
+      {
+        "scope": "2025 archive",
+        "band": "12m",
+        "relative_regression": -0.038334315853269296
+      },
+      {
+        "scope": "2025 archive",
+        "band": "15m",
+        "relative_regression": -0.017778059134437196
+      },
+      {
+        "scope": "2025 archive",
+        "band": "160m",
+        "relative_regression": -0.03737238460301273
+      },
+      {
+        "scope": "2025 archive",
+        "band": "17m",
+        "relative_regression": -0.019118673132776598
+      },
+      {
+        "scope": "2025 archive",
+        "band": "20m",
+        "relative_regression": -0.014272748754678433
+      },
+      {
+        "scope": "2025 archive",
+        "band": "30m",
+        "relative_regression": -0.031331069660769595
+      },
+      {
+        "scope": "2025 archive",
+        "band": "40m",
+        "relative_regression": -0.022413561907089097
+      },
+      {
+        "scope": "2025 archive",
+        "band": "60m",
+        "relative_regression": -0.04863083503514798
+      },
+      {
+        "scope": "2025 archive",
+        "band": "80m",
+        "relative_regression": -0.018137393470481378
+      }
+    ],
+    "reliability": [
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.0061848686139371195,
+        "observed_rate": 0.005527566395229812
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.07279188473161922,
+        "observed_rate": 0.06734034241380253
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.12314978585992667,
+        "observed_rate": 0.11780170490849765
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.174109625494447,
+        "observed_rate": 0.16692546611032882
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.2235283199418658,
+        "observed_rate": 0.21399975873216318
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.27447838668418206,
+        "observed_rate": 0.26329907145735415
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.32533378631460946,
+        "observed_rate": 0.30953085872891123
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.37549337745440925,
+        "observed_rate": 0.35775543511143904
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.42514373239163583,
+        "observed_rate": 0.4033029977432082
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.47655537106264195,
+        "observed_rate": 0.4552522412045808
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.5252329790808554,
+        "observed_rate": 0.5021529984895811
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.575106991984341,
+        "observed_rate": 0.5528256885230453
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.6219923371020217,
+        "observed_rate": 0.6070003305763866
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.6733789282558732,
+        "observed_rate": 0.6509704948439327
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.7237605973537288,
+        "observed_rate": 0.7001704820522264
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.7735848794552702,
+        "observed_rate": 0.7514313355353499
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.819922835702599,
+        "observed_rate": 0.791993583298857
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.8739561402780689,
+        "observed_rate": 0.8390401589626916
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.9224890738830965,
+        "observed_rate": 0.8825466653924079
+      },
+      {
+        "series": "V4.2 A6",
+        "mean_prediction": 0.9723658359425895,
+        "observed_rate": 0.927563605891214
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.0071087581382849934,
+        "observed_rate": 0.00574057960481417
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.071538285277531,
+        "observed_rate": 0.06404036364254899
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.123865001612009,
+        "observed_rate": 0.1110104948493221
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.1738598397099621,
+        "observed_rate": 0.1541408196400823
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.2232457968071358,
+        "observed_rate": 0.20221549378596604
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.27485543652747446,
+        "observed_rate": 0.2492515489838209
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.32409559466956883,
+        "observed_rate": 0.2941404319614845
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.37453593515850603,
+        "observed_rate": 0.33903990848947896
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.4268729979035571,
+        "observed_rate": 0.39029856107024363
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.47324873033462517,
+        "observed_rate": 0.4430741115825738
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.5248994989884207,
+        "observed_rate": 0.48906370449000525
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.570085297214188,
+        "observed_rate": 0.5433077823251417
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.6193130802251298,
+        "observed_rate": 0.6004460363203744
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.6681136528408849,
+        "observed_rate": 0.6610779524492554
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.7226674843645564,
+        "observed_rate": 0.7047121519999943
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.7810255898692328,
+        "observed_rate": 0.7458757073141096
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.8203101929056928,
+        "observed_rate": 0.7816236321118805
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.8737278073392153,
+        "observed_rate": 0.8283026840174065
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.9182618211472464,
+        "observed_rate": 0.8683563714527395
+      },
+      {
+        "series": "Frozen V3/B2",
+        "mean_prediction": 0.9809790639680306,
+        "observed_rate": 0.9397235597664231
+      },
+      {
+        "series": "Perfect calibration",
+        "mean_prediction": 0.0,
+        "observed_rate": 0.0
+      },
+      {
+        "series": "Perfect calibration",
+        "mean_prediction": 1.0,
+        "observed_rate": 1.0
+      }
+    ],
+    "prediction_threads": [
+      {
+        "threads": 1,
+        "median_seconds": 0.8830479169992032,
+        "speedup_vs_1": 1.0
+      },
+      {
+        "threads": 6,
+        "median_seconds": 0.1740201659995364,
+        "speedup_vs_1": 5.074399923291394
+      },
+      {
+        "threads": 9,
+        "median_seconds": 0.1378855829971144,
+        "speedup_vs_1": 6.404207733724295
+      },
+      {
+        "threads": 12,
+        "median_seconds": 0.11429479101207107,
+        "speedup_vs_1": 7.726055659928906
+      },
+      {
+        "threads": 18,
+        "median_seconds": 0.09287395900173578,
+        "speedup_vs_1": 9.508024924216908
+      }
+    ],
+    "runtime_rows": [
+      {
+        "workload": "50M A4 recent cycle training",
+        "threads": 9,
+        "workers": 2,
+        "wall_minutes": 50.75863675346651,
+        "peak_rss_gib": 24.30657958984375
+      },
+      {
+        "workload": "50M A5 recency weighted training",
+        "threads": 9,
+        "workers": 2,
+        "wall_minutes": 51.34136301596688,
+        "peak_rss_gib": 25.374465942382812
+      },
+      {
+        "workload": "50M development scoring",
+        "threads": 18,
+        "workers": 1,
+        "wall_minutes": 21.36902669375001,
+        "peak_rss_gib": 10.674102783203125
+      },
+      {
+        "workload": "Untouched December scoring",
+        "threads": 18,
+        "workers": 1,
+        "wall_minutes": 7.579373685416795,
+        "peak_rss_gib": 9.332687377929688
+      },
+      {
+        "workload": "Locked 2025 archive scoring",
+        "threads": 18,
+        "workers": 1,
+        "wall_minutes": 29.807264811800028,
+        "peak_rss_gib": 10.291290283203125
+      }
+    ],
+    "experiment_rows": [
+      {
+        "stage": "5M ablation",
+        "candidate": "A0 V3 control",
+        "result": "stop",
+        "evidence": "Brier 0.04588640; delta vs B2 +0.00128018"
+      },
+      {
+        "stage": "5M ablation",
+        "candidate": "A1 availability",
+        "result": "stop",
+        "evidence": "Brier 0.04553578; delta vs B2 +0.00092956"
+      },
+      {
+        "stage": "5M ablation",
+        "candidate": "A2 long natural",
+        "result": "advance",
+        "evidence": "Brier 0.04552943; delta vs B2 +0.00092321"
+      },
+      {
+        "stage": "5M ablation",
+        "candidate": "A3 balanced",
+        "result": "stop",
+        "evidence": "Brier 0.04853705; delta vs B2 +0.00393083"
+      },
+      {
+        "stage": "5M ablation",
+        "candidate": "A4 recent cycle",
+        "result": "advance",
+        "evidence": "Brier 0.04464395; delta vs B2 +0.00003773"
+      },
+      {
+        "stage": "5M ablation",
+        "candidate": "A5 recency weighted",
+        "result": "advance",
+        "evidence": "Brier 0.04498763; delta vs B2 +0.00038142"
+      },
+      {
+        "stage": "Policy selection",
+        "candidate": "A6 blend",
+        "result": "advance",
+        "evidence": "August-only blend selection; final 50M policy is 70% A4 and 30% A5"
+      },
+      {
+        "stage": "50M selection",
+        "candidate": "A6 blend",
+        "result": "selected",
+        "evidence": "Brier 0.04355603; robust B2 win"
+      },
+      {
+        "stage": "100M decision",
+        "candidate": "A4 and A5",
+        "result": "stop",
+        "evidence": "No preregistered residual rare-regime or variance need justified another fit"
+      }
+    ],
+    "gate_rows": [
+      {
+        "scope": "December 2024",
+        "gate": "G1_integrity_and_scope",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G2_overall_performance",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G3_temporal_value",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G4_band_safety",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G5_short_path_materiality",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G6_calibration",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G7_operational_fallback",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G8_serving_parity",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G9_privacy_and_provenance",
+        "status": "pass"
+      },
+      {
+        "scope": "December 2024",
+        "gate": "G10_efficiency",
+        "status": "pass"
+      },
+      {
+        "scope": "2025 archive",
+        "gate": "A1_integrity_and_scope",
+        "status": "pass"
+      },
+      {
+        "scope": "2025 archive",
+        "gate": "A2_aggregate_performance",
+        "status": "pass"
+      },
+      {
+        "scope": "2025 archive",
+        "gate": "A3_month_transfer",
+        "status": "pass"
+      },
+      {
+        "scope": "2025 archive",
+        "gate": "A4_band_safety",
+        "status": "pass"
+      },
+      {
+        "scope": "2025 archive",
+        "gate": "A5_calibration",
+        "status": "pass"
+      },
+      {
+        "scope": "2025 archive",
+        "gate": "A6_operational_contract",
+        "status": "pass"
+      }
+    ],
+    "operational_rows": [
+      {
+        "check": "Offline/service probability parity",
+        "value": 0.0,
+        "limit": "1e-12",
+        "status": "pass"
+      },
+      {
+        "check": "Path API p95",
+        "value": 13.251829197542973,
+        "limit": "50 ms",
+        "status": "pass"
+      },
+      {
+        "check": "4,096-cell surface API p95",
+        "value": 514.1104828071548,
+        "limit": "3,000 ms",
+        "status": "pass"
+      },
+      {
+        "check": "Validation peak RSS",
+        "value": 4.25030517578125,
+        "limit": "32 GiB",
+        "status": "pass"
+      },
+      {
+        "check": "Bundle size",
+        "value": 252.14857864379883,
+        "limit": "256 MiB",
+        "status": "pass"
+      },
+      {
+        "check": "Serving XGBoost threads",
+        "value": 1,
+        "limit": "manifest default 1",
+        "status": "pass"
+      }
+    ]
+  },
+  "frozen_policy": {
+    "candidate": "A6_recent_recency_blend",
+    "components": {
+      "A4_recent_cycle": 0.7000000000000001,
+      "A5_recency_weighted": 0.29999999999999993
+    },
+    "policy_selection_month": "2024-08"
+  },
+  "negative_results": {
+    "A3_long_balanced": "rejected at 5M",
+    "A7_60m_specialist": "rejected for insufficient support and no benefit",
+    "100M": "not scientifically justified by the frozen decision rule",
+    "FutureCast": "withheld pending issued-forecast history",
+    "learned_StationCast": "withheld pending consented prospective outcomes"
+  }
+}

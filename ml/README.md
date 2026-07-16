@@ -1,16 +1,18 @@
 # Propulse ML — Contact Probability Model
 
-> **Status**: Personalized Propagation V4 completed its 50M-row multi-year
-> development run on the 128 GB M5 Max on 2026-07-12. M2 reached `0.044731`
-> October 2024 Brier and `42.50%` skill over climatology; every rolling-origin
-> fold had positive skill. The preregistered detailed gate nevertheless failed
-> because calibration slightly regressed raw M2 at 0-500 km and 500-1500 km.
-> The locked 2025 archive remains unopened and no production replacement is
-> approved. Start with the [visual development report](results/propagation_v4/propagation_v4_multiyear_50m/REPORT.html),
-> [public research article](research/PERSONALIZED-PROPAGATION-V4-RESEARCH.md),
-> frozen [execution plan](PERSONALIZED-PROPAGATION-V4-PLAN.md), and the new
-> [V4.1 calibration recovery preregistration](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md),
-> which is the only approved resume point.
+> **Status, 2026-07-15**: Personalized Propagation V4.2 completed its 50M-row
+> performance recovery, untouched December 2024 gate, and locked four-month
+> 2025 archive on the 128 GiB M5 Max. The frozen A6 blend improved Brier versus
+> frozen V3/B2 by `2.354%` on October-November development, `2.038%` on
+> December, and `2.134%` across `208,372,533` locked 2025 rows. All four archive
+> months and every supported HF band improved. The model is approved for shadow
+> integration, not yet for prospective or learned-personalization claims. Start
+> with the [combined visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/REPORT.html),
+> [model card](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/MODEL_CARD.md),
+> [data card](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/DATA_CARD.md),
+> [V4.2 plan](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md), and
+> [M5 runbook](PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md).
+> The original V4 M2 gate failure remains published rather than overwritten.
 > Archive V3 context remains in its [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md)
 > and [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md).
 > **Created**: 2026-07-11

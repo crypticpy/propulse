@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "scope": "archive",
+  "attempt_id": "archive-20260715T233440Z",
+  "months": [
+    "2025-01",
+    "2025-04",
+    "2025-07",
+    "2025-10"
+  ],
+  "free_gb_before_acquisition": 1391.5014152526855,
+  "data_config": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_data_config.json",
+  "namespace": "archive_v4_2_archive",
+  "datasets": {
+    "2025-01": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-000.parquet",
+    "2025-04": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-001.parquet",
+    "2025-07": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-002.parquet",
+    "2025-10": "ml/data/processed/archive_v4_2_archive/dataset_propagation_v4_2_phase2_scale_archive_gate_hf.parquet/part-003.parquet"
+  },
+  "integrity_audit": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_integrity_audit.json",
+  "opportunity_manifest": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_gate_hf_opportunities.json",
+  "source_manifest": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_gate_sources.json",
+  "passed": true
+}

@@ -3,7 +3,7 @@
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md)  
 > Active method: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md)  
 > Machine: Apple M5 Max, 128 GB unified memory, 18 CPU cores  
-> Repository: `/Users/crypticpy/Projects/propulse`  
+> Repository: `${HOME}/Projects/propulse`
 > Large storage: `/Volumes/Projects/PropulseML`  
 > Branch: `feat/archive-multimonth-v3`
 
@@ -24,15 +24,17 @@
 ## Access from the M3
 
 ```bash
+export PROPULSE_M5_HOST="m5-hostname-or-address"
+export PROPULSE_M5_USER="m5-user"
+export PROPULSE_M5_KEY="${HOME}/.ssh/propulse-m5"
 ssh -o BatchMode=yes -o IdentitiesOnly=yes \
-  -i /Users/aiml/.ssh/id_ed25519_propulse_m5 \
-  crypticpy@192.168.50.117
-cd /Users/crypticpy/Projects/propulse
+  -i "${PROPULSE_M5_KEY}" \
+  "${PROPULSE_M5_USER}@${PROPULSE_M5_HOST}"
+cd "${HOME}/Projects/propulse"
 ```
 
 Use `rsync` for selected source or artifact transfer. Do not encode files as
-base64. On the M5, `node` is `/Users/crypticpy/.local/bin/node` in non-login
-SSH shells.
+base64. On the M5, `node` is `${HOME}/.local/bin/node` in non-login SSH shells.
 
 ## Hardware contract
 
@@ -55,30 +57,30 @@ faster end to end, `7.338326x` faster in the tree-fit stage, identical recorded
 validation log loss, and a conservative two-worker projection of `72.8105`
 GiB.
 
-## Current status, 2026-07-15 13:07 CDT
+## Current status, 2026-07-15 20:00 CDT
 
-The active detached job is:
+Phases 0-5 are complete. The protocol state is `archive_passed`. The frozen
+candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
 
-```text
-parent     45330  train_phase2_scale.py --scale 20000000 --workers 2
-worker     45336  A4_recent_cycle F3_2024_07
-worker     45337  A5_recency_weighted F1_2024_02
-log        ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_parallel.log
-```
+| Evidence | Candidate | Frozen V3/B2 | Relative improvement | Decision |
+|---|---:|---:|---:|---|
+| October-November development | 0.04355603 | 0.04460622 | 2.354% | select A6 |
+| Untouched December 2024 | 0.04344062 | 0.04434430 | 2.038% | 10/10 gates pass |
+| Locked 2025 archive | 0.04096767 | 0.04186090 | 2.134% | 6/6 gates pass |
 
-A2 F1-F3 and A4 F1-F2 are complete. The active pair reached iteration 1,400
-without memory pressure. A5 F2/F3 remain queued. Monitor without restarting:
+The archive evaluation streamed `208,372,533` rows in 29.8 minutes with 18
+XGBoost prediction threads, 18 Arrow CPU threads, six Arrow I/O threads, and
+`10.2913` GiB peak RSS. All four months and every supported HF band improved;
+the paired-day upper 95% Brier delta was `-0.00079758`. No thermal or
+performance warning was observed.
 
-```bash
-ps -p 45330,45336,45337 -o pid,etime,%cpu,rss,command
-tail -n 60 ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_parallel.log
-```
+The comprehensive report and open-research handoff are under
+`ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/`.
+The remaining work is Phase 6 shadow, opt-in, and prospective evidence. Do not
+rerun training, reopen outcome scopes, or tune the frozen policy from December
+or 2025.
 
-The trainer writes an atomic checkpoint after each completed fold. If the
-process stops, rerun the same command; completed folds are checksum-verified
-and reused.
-
-## Complete Phase 2 at 20M
+## Reproduce Phase 2 at 20M
 
 After the parent exits successfully:
 
@@ -103,7 +105,7 @@ artifact before scoring. The scorer writes `evaluation_20m_results.json`; valida
 December and generate the 20M report. Otherwise, at most two component models
 advance.
 
-## Build and execute 50M
+## Reproduce the 50M fit
 
 ```bash
 ml/.venv/bin/python ml/src/archive_v4_2/build_phase2_cohorts.py \
@@ -127,12 +129,12 @@ final selection rule and emits a conservative 100M decision. Do not run 100M
 unless every coded gate passes and the Phase 2 report establishes an unresolved
 rare-regime or variance reason; more rows alone are not a reason.
 
-## Generate and verify the Phase 2 report
+## Reproduce the Phase 2 report
 
 ```bash
 ml/.venv/bin/python ml/src/archive_v4_2/generate_phase2_report.py --profile m5
 
-/Users/crypticpy/.local/bin/node ml/src/archive_v4/package_report.mjs \
+${HOME}/.local/bin/node ml/src/archive_v4/package_report.mjs \
   --input ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/REPORT.artifact.json \
   --output ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/REPORT.html
 ```
@@ -143,7 +145,7 @@ sensitivity, feature gain, cohort checksums, and both M5 backend/thread benchmar
 successful portable-builder receipt must report browser verification at 1,440
 px and 390 px.
 
-## Phase 3 package and contract validation
+## Reproduce Phase 3 packaging and contract validation
 
 Only continue when `evaluation_50m_results.json` has a non-null
 `final_candidate_selection`:
@@ -197,7 +199,10 @@ Raw third-party archives remain under ignored `ml/data/raw` storage. Source
 manifests retain URL, retrieval time, byte count, SHA-256, role, and license or
 acknowledgement note.
 
-## Open and score December exactly once
+## Historical one-shot December commands
+
+This scope is already complete. Do not run `open_outcome_scope.py` again. The
+commands below document the frozen execution and are retained for audit only.
 
 Opening the scope mutates the protocol before download. Preserve the printed
 attempt ID.
@@ -220,7 +225,7 @@ ml/.venv/bin/python ml/src/archive_v4_2/generate_gate_report.py \
   --output-dir ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_report \
   --profile m5
 
-/Users/crypticpy/.local/bin/node ml/src/archive_v4/package_report.mjs \
+${HOME}/.local/bin/node ml/src/archive_v4/package_report.mjs \
   --input ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_report/REPORT.artifact.json \
   --output ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_report/REPORT.html
 ```
@@ -234,7 +239,10 @@ qualified-day wins, no supported-week collapse above 2%, supported-band
 regression at or below 2%, three short-path tolerances, calibration, fallback,
 parity/privacy, and efficiency.
 
-## Open and score the four 2025 months
+## Historical one-shot 2025 archive commands
+
+This scope is already complete. Do not run `open_outcome_scope.py` again. The
+commands below document the frozen execution and are retained for audit only.
 
 Run this section only when the protocol state is `december_passed`.
 
@@ -259,7 +267,7 @@ ml/.venv/bin/python ml/src/archive_v4_2/generate_gate_report.py \
   --output-dir ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_report \
   --profile m5
 
-/Users/crypticpy/.local/bin/node ml/src/archive_v4/package_report.mjs \
+${HOME}/.local/bin/node ml/src/archive_v4/package_report.mjs \
   --input ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_report/REPORT.artifact.json \
   --output ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_report/REPORT.html
 ```
@@ -271,12 +279,24 @@ Publish every month and every failure.
 
 ## Product and prospective phase
 
-Archive approval permits shadow integration, not an immediate performance
-claim. ReachMap consumes the identity-free core surface; StationCast applies
-the existing private virtual-shack chain at inference. The locked prospective
-window is 2026-08-01 through 2026-09-30, which is future-dated as of this
-runbook. Keep the core in shadow mode until opt-in alpha/beta evidence and the
-prospective protocol are complete.
+Archive approval permits shadow integration, not an immediate prospective or
+personalization claim. ReachMap consumes the identity-free core surface;
+StationCast applies the existing private virtual-shack chain at inference. The
+locked prospective window is 2026-08-01 through 2026-09-30, which is
+future-dated as of this runbook. Keep the core in shadow mode until opt-in
+alpha/beta evidence and the prospective protocol are complete.
+
+Resume with:
+
+1. deploy the frozen Phase 3 bundle behind the shadow feature mode;
+2. record issue/valid/receipt time, model and feature versions, source
+   watermarks, freshness, fallback reason, core probability, deterministic
+   StationCast probability, and consent state;
+3. preserve raw prospective events immutably without inspecting the frozen
+   window or fitting from it;
+4. run the preregistered evaluation once after 2026-09-30; and
+5. keep FutureCast, learned StationCast residuals, and 6m disabled unless their
+   separate evidence gates pass.
 
 ## Recovery checks
 

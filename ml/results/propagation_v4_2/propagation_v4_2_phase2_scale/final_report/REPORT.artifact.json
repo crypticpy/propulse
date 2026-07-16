@@ -1,0 +1,1376 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propulse NowCast V4.2: final retrospective research report",
+    "description": "Ablations, learning curve, locked validation, Apple Silicon execution, product contract, and remaining evidence boundaries.",
+    "generatedAt": "2026-07-16T00:59:01.610344+00:00",
+    "cards": [
+      {
+        "id": "archive_skill",
+        "description": "Frozen A6 relative to frozen V3/B2.",
+        "dataset": "summary",
+        "sourceId": "final_evidence",
+        "metrics": [
+          {
+            "label": "2025 Brier improvement",
+            "field": "archive_improvement",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "december_skill",
+        "description": "First untouched one-shot outcome gate.",
+        "dataset": "summary",
+        "sourceId": "final_evidence",
+        "metrics": [
+          {
+            "label": "December improvement",
+            "field": "december_improvement",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "month_wins",
+        "description": "Point improvement across locked quarterly months.",
+        "dataset": "summary",
+        "sourceId": "final_evidence",
+        "metrics": [
+          {
+            "label": "2025 months won",
+            "field": "archive_months_won",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "locked_rows",
+        "description": "December plus four 2025 path-hour rows.",
+        "dataset": "summary",
+        "sourceId": "final_evidence",
+        "metrics": [
+          {
+            "label": "Locked rows",
+            "field": "locked_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "prediction_speedup",
+        "description": "18 threads versus one, with bit-identical predictions.",
+        "dataset": "summary",
+        "sourceId": "final_evidence",
+        "metrics": [
+          {
+            "label": "M5 inference speedup",
+            "field": "prediction_speedup",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "path_latency",
+        "description": "Manifest-default one-thread serving contract.",
+        "dataset": "summary",
+        "sourceId": "final_evidence",
+        "metrics": [
+          {
+            "label": "Path API p95 ms",
+            "field": "path_p95_ms",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "phase1_ablation",
+        "title": "Recency was the useful 5M intervention",
+        "subtitle": "Six controlled 5M candidates on identical October-November 2024 rows; lower Brier is better.",
+        "type": "bar",
+        "dataset": "phase1_candidates",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "learning_curve",
+        "title": "A6 improves from 5M through 50M",
+        "subtitle": "Nested deterministic training cohorts; B2 is a fixed evaluation baseline, not a learning curve.",
+        "type": "line",
+        "dataset": "learning_curve",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "scale_millions",
+            "type": "quantitative",
+            "label": "Training rows (millions)"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          },
+          "color": {
+            "field": "candidate",
+            "type": "nominal",
+            "label": "Candidate"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "phase2_comparison",
+        "title": "The 50M blend is the best development candidate",
+        "subtitle": "October-November 2024, 110,407,406 identical evaluation rows; lower is better.",
+        "type": "bar",
+        "dataset": "phase2_comparison",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "locked_scope",
+        "title": "The gain transfers to every untouched month",
+        "subtitle": "Relative Brier improvement versus frozen V3/B2; positive values improve.",
+        "type": "bar",
+        "dataset": "locked_scope",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "scope",
+            "type": "ordinal",
+            "label": "Locked scope"
+          },
+          "y": {
+            "field": "relative_improvement",
+            "type": "quantitative",
+            "label": "Relative Brier improvement"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "locked_band",
+        "title": "Every supported HF band improves in both locked gates",
+        "subtitle": "Relative candidate Brier regression versus B2; negative values improve.",
+        "type": "bar",
+        "dataset": "locked_band",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "relative_regression",
+            "type": "quantitative",
+            "label": "Relative Brier regression"
+          },
+          "color": {
+            "field": "scope",
+            "type": "nominal",
+            "label": "Scope"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "reliability",
+        "title": "Archive probabilities remain auditable",
+        "subtitle": "Observed opportunity-weighted decode rate versus mean prediction over all four locked 2025 months.",
+        "type": "line",
+        "dataset": "reliability",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "mean_prediction",
+            "type": "quantitative",
+            "label": "Mean prediction"
+          },
+          "y": {
+            "field": "observed_rate",
+            "type": "quantitative",
+            "label": "Observed rate"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Series"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "prediction_threads",
+        "title": "Apple Silicon scoring scales to all 18 cores",
+        "subtitle": "Median time for 100,000 rows; every thread count produced the same prediction SHA-256.",
+        "type": "line",
+        "dataset": "prediction_threads",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "threads",
+            "type": "quantitative",
+            "label": "XGBoost threads"
+          },
+          "y": {
+            "field": "median_seconds",
+            "type": "quantitative",
+            "label": "Median seconds"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "runtime_memory",
+        "title": "Large runs stayed far below the 96 GiB ceiling",
+        "subtitle": "Per-process peak RSS; the two concurrent 50M training processes conservatively sum to 49.68 GiB.",
+        "type": "bar",
+        "dataset": "runtime_rows",
+        "sourceId": "final_evidence",
+        "encodings": {
+          "x": {
+            "field": "workload",
+            "type": "ordinal",
+            "label": "M5 workload"
+          },
+          "y": {
+            "field": "peak_rss_gib",
+            "type": "quantitative",
+            "label": "Peak RSS GiB"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "experiment_table",
+        "title": "Experiment decisions, including stops",
+        "subtitle": "Negative results are retained so the research path is reproducible.",
+        "dataset": "experiment_rows",
+        "sourceId": "final_evidence",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "stage",
+            "label": "Stage",
+            "type": "text"
+          },
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "result",
+            "label": "Decision",
+            "type": "text"
+          },
+          {
+            "field": "evidence",
+            "label": "Evidence",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "gate_table",
+        "title": "Frozen outcome gates",
+        "subtitle": "Every preregistered December and 2025 archive gate passed.",
+        "dataset": "gate_rows",
+        "sourceId": "final_evidence",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "scope",
+            "label": "Scope",
+            "type": "text"
+          },
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "runtime_table",
+        "title": "Measured M5 workload profile",
+        "subtitle": "Native ARM64 XGBoost 3.3 with LLVM OpenMP; wall time and peak RSS are observed values.",
+        "dataset": "runtime_rows",
+        "sourceId": "final_evidence",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "workload",
+            "label": "Workload",
+            "type": "text"
+          },
+          {
+            "field": "workers",
+            "label": "Workers",
+            "type": "number"
+          },
+          {
+            "field": "threads",
+            "label": "Threads each",
+            "type": "number"
+          },
+          {
+            "field": "wall_minutes",
+            "label": "Minutes",
+            "type": "number"
+          },
+          {
+            "field": "peak_rss_gib",
+            "label": "Peak RSS GiB",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "id": "operational_table",
+        "title": "Packaged candidate contract",
+        "subtitle": "Phase 3 measures the production bundle, service path, fallbacks, privacy, and bounded resources.",
+        "dataset": "operational_rows",
+        "sourceId": "final_evidence",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "check",
+            "label": "Check",
+            "type": "text"
+          },
+          {
+            "field": "value",
+            "label": "Measured",
+            "type": "number"
+          },
+          {
+            "field": "limit",
+            "label": "Contract",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "final_evidence",
+        "label": "V4.2 combined reviewed evidence",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the derived, checksum-linked JSON evidence ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propulse NowCast V4.2: final retrospective research report"
+      },
+      {
+        "id": "technical_summary",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "## The 50M recency blend passes both untouched gates\n\nThe frozen **A6 NowCast** combines 70% A4 recent-cycle and 30% A5 recency-weighted probability. It improves weighted Brier by **2.35%** on the October-November development evaluation, **2.04%** on untouched December 2024, and **2.13%** across the locked four-month 2025 archive. It wins all **4 of 4** archive months. This supports shadow product integration; it does not complete the future August-September 2026 prospective or opt-in StationCast studies."
+      },
+      {
+        "id": "cards",
+        "type": "metric-strip",
+        "cardIds": [
+          "archive_skill",
+          "december_skill",
+          "month_wins",
+          "locked_rows",
+          "prediction_speedup",
+          "path_latency"
+        ]
+      },
+      {
+        "id": "findings_heading",
+        "type": "markdown",
+        "body": "## Recency, then scale, produced the useful model"
+      },
+      {
+        "id": "phase1_chart",
+        "type": "chart",
+        "chartId": "phase1_ablation",
+        "layout": "full"
+      },
+      {
+        "id": "phase1_explainer",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "A0 reproduced the older training recipe; A1 isolated availability indicators; A2 and A3 tested long-history sampling; A4 emphasized the current solar cycle; A5 retained long history with recency weights. A3's balanced sampling failed badly. A4, A5, and A2 advanced, while the unsupported 60m specialist A7 stopped. This is evidence that the main recoverable weakness was stale training distribution, not merely missing-value flags."
+      },
+      {
+        "id": "learning_chart",
+        "type": "chart",
+        "chartId": "learning_curve",
+        "layout": "full"
+      },
+      {
+        "id": "phase2_chart",
+        "type": "chart",
+        "chartId": "phase2_comparison",
+        "layout": "full"
+      },
+      {
+        "id": "scale_explainer",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "The 20M stage established stable paired-day wins for A4 and A5. At 50M, A5 improved 1.12% over its 20M version, A4 improved 0.77%, and the frozen 70/30 A6 blend was best overall. A 100M run was rejected because scale alone was not enough: the preregistration also required evidence of residual variance or rare-regime support, and that evidence was absent."
+      },
+      {
+        "id": "experiment_table_block",
+        "type": "table",
+        "tableId": "experiment_table",
+        "layout": "full"
+      },
+      {
+        "id": "locked_heading",
+        "type": "markdown",
+        "body": "## Untouched outcomes confirm temporal transfer"
+      },
+      {
+        "id": "locked_chart",
+        "type": "chart",
+        "chartId": "locked_scope",
+        "layout": "full"
+      },
+      {
+        "id": "band_chart",
+        "type": "chart",
+        "chartId": "locked_band",
+        "layout": "full"
+      },
+      {
+        "id": "gate_explainer",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "December was opened only after the candidate, scorer, environment, baseline, thresholds, and report path were frozen. The archive was opened only after December passed. Candidate and B2 were streamed over identical path-hour rows with opportunity weights. The protocol forbade fitting, calibration, threshold selection, or policy changes from either locked scope. All supported bands improved in both gates, so the aggregate result is not hiding a band-level regression."
+      },
+      {
+        "id": "gate_table_block",
+        "type": "table",
+        "tableId": "gate_table",
+        "layout": "full"
+      },
+      {
+        "id": "calibration_heading",
+        "type": "markdown",
+        "body": "## Probability magnitude remains useful, with known calibration limits"
+      },
+      {
+        "id": "reliability_chart",
+        "type": "chart",
+        "chartId": "reliability",
+        "layout": "full"
+      },
+      {
+        "id": "calibration_explainer",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "Brier score jointly rewards discrimination and calibration. Reliability bins show where predicted probability differs from observed opportunity-weighted decode rate. The candidate passes the preregistered ECE and high-confidence-gap comparisons against B2, but a probability is not a guaranteed QSO: WSPR receiver deployment, listening behavior, interference, mode, and local noise remain part of the observation process."
+      },
+      {
+        "id": "method_heading",
+        "type": "markdown",
+        "body": "## Model and experimental specification"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "The open core is a calibrated XGBoost histogram-tree ensemble over 91 identity-free path features: geometry, solar illumination, prior-completed-hour space weather, band, missingness, and lagged path evidence. A4 trains on the recent solar-cycle distribution. A5 trains on broader history with an 18-month recency half-life. Their calibrated probabilities are blended 70/30 using only the preregistered August 2024 policy-selection slice. Cohorts are deterministic, nested, checksum-manifested, and split by time. The result predicts a WSPR single-decode opportunity under the declared conditions; it is predictive, not causal."
+      },
+      {
+        "id": "data_scope",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "## Scope, sources, and metric definitions\n\n**Primary outcome:** WSPRnet monthly archives ([source](https://www.wsprnet.org/archive/)). **Historical drivers:** NASA OMNI2 ([data](https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/)) and GFZ Hp60 ([data](https://kp.gfz.de/en/hp30-hp60/data)). **Operational parity:** NOAA SWPC JSON ([service](https://services.swpc.noaa.gov/json/)). The metric is opportunity-weighted Brier score, the weighted mean squared error of predicted decode probability; lower is better. Development evaluation is October-November 2024. Locked tests are December 2024 and January, April, July, and October 2025. All daily and monthly boundaries are UTC."
+      },
+      {
+        "id": "compute_heading",
+        "type": "markdown",
+        "body": "## Native Apple Silicon execution is measured, not assumed"
+      },
+      {
+        "id": "thread_chart",
+        "type": "chart",
+        "chartId": "prediction_threads",
+        "layout": "full"
+      },
+      {
+        "id": "memory_chart",
+        "type": "chart",
+        "chartId": "runtime_memory",
+        "layout": "full"
+      },
+      {
+        "id": "runtime_table_block",
+        "type": "table",
+        "tableId": "runtime_table",
+        "layout": "full"
+      },
+      {
+        "id": "compute_explainer",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "The M5 Max path is native ARM64 XGBoost 3.3 linked to LLVM OpenMP. XGBoost has no Metal tree-training backend, so CPU hist is the supported Apple Silicon engine. Independent fits run as two spawned workers with nine XGBoost threads and four Arrow I/O threads each, using all 18 physical cores without nested oversubscription. Single-process building and scoring use 18 CPU and six Arrow I/O threads. Iterator-fed QuantileDMatrix was selected only after it matched validation log loss exactly and ran 2.60x faster end to end than external memory. The 18-thread scorer was 9.51x faster than one thread with bit-identical predictions."
+      },
+      {
+        "id": "product_heading",
+        "type": "markdown",
+        "body": "## The bundle is ready for shadow use, not an unrestricted launch"
+      },
+      {
+        "id": "operational_table_block",
+        "type": "table",
+        "tableId": "operational_table",
+        "layout": "full"
+      },
+      {
+        "id": "product_explainer",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "NowCast remains identity-free and open. StationCast applies the user's private virtual-shack chain and active location deterministically at inference; learned personalization remains disabled. ReachMap can consume the batch probability surface. Fresh source data selects NowCast, while stale or missing freshness selects the physics fallback with reduced confidence and explicit provenance. Service containers default to one prediction thread even though M5 batch research uses 18."
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "## Limitations, uncertainty, and robustness\n\nThe five locked months are strong retrospective evidence, not prospective proof. WSPR observations mix propagation with the changing receiver network and reporting behavior. The locked comparison is against the strongest frozen operational statistical baseline, V3/B2; the pinned P.533 comparison remains a bounded development experiment and was not recomputed over the full locked archive. A station's equipment envelope changes practical reach but has not yet earned a learned residual. FutureCast has no valid training set until genuine issued forecasts accumulate, and 6m remains a separate mechanism model. The result does not justify causal language, guaranteed contacts, or extrapolation beyond supported bands, modes, freshness states, and horizons."
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "sourceId": "final_evidence",
+        "body": "## Recommended next steps\n\n1. Run the frozen core in shadow mode through ReachMap and StationCast while retaining the physics fallback.\n2. Capture issue time, valid time, model version, feature watermark, freshness, fallback reason, core probability, deterministic personalized probability, and opt-in outcomes.\n3. Keep the 2026-08-01 through 2026-09-30 prospective window immutable and untuned, then score it once under the frozen protocol.\n4. Start learned StationCast residuals only after consent, minimum sample size, and selection-bias gates pass.\n5. Do not run 100M or train FutureCast merely because compute is available; require a new scientific question and a new untouched gate."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\n- Does A6 retain at least 1% Brier skill in the frozen 2026 prospective window?\n- Does deterministic StationCast improve calibration for operators with materially different power, antenna gain, loss, and noise envelopes?\n- Which live-source outage patterns most often force physics fallback?\n- After prospective evidence, is there any residual slice where more data, a different loss, or a separate mechanism model is justified?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-16T00:59:01.610344+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "selected_candidate": "A6_recent_recency_blend",
+          "development_improvement": 0.023543517582647833,
+          "december_improvement": 0.020378720863770128,
+          "archive_improvement": 0.02133784541521433,
+          "archive_months_won": 4,
+          "archive_months_total": 4,
+          "locked_rows": 260474292,
+          "prediction_threads": 18,
+          "prediction_speedup": 9.508024924216908,
+          "backend_speedup": 2.6032760297944684,
+          "path_p95_ms": 13.251829197542973,
+          "prospective_complete": false
+        }
+      ],
+      "phase1_candidates": [
+        {
+          "candidate": "A0 V3 control",
+          "brier": 0.0458864000549648,
+          "delta_vs_b2": 0.001280181012145748,
+          "decision": "stop"
+        },
+        {
+          "candidate": "A1 availability",
+          "brier": 0.045535775633898115,
+          "delta_vs_b2": 0.0009295565910790657,
+          "decision": "stop"
+        },
+        {
+          "candidate": "A2 long natural",
+          "brier": 0.04552942805135886,
+          "delta_vs_b2": 0.000923209008539809,
+          "decision": "advance"
+        },
+        {
+          "candidate": "A3 balanced",
+          "brier": 0.04853705002630232,
+          "delta_vs_b2": 0.00393083098348327,
+          "decision": "stop"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "brier": 0.04464395287415576,
+          "delta_vs_b2": 3.7733831336712875e-05,
+          "decision": "advance"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "brier": 0.044987634986707964,
+          "delta_vs_b2": 0.0003814159438889145,
+          "decision": "advance"
+        }
+      ],
+      "learning_curve": [
+        {
+          "candidate": "A4 recent cycle",
+          "scale_millions": 5,
+          "brier": 0.04464395287415576
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "scale_millions": 20,
+          "brier": 0.04395728576563356
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "scale_millions": 50,
+          "brier": 0.04361894110421036
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "scale_millions": 5,
+          "brier": 0.044987634986707964
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "scale_millions": 20,
+          "brier": 0.04427148569011381
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "scale_millions": 50,
+          "brier": 0.043775199773549156
+        },
+        {
+          "candidate": "A6 blend",
+          "scale_millions": 5,
+          "brier": 0.04460489716992895
+        },
+        {
+          "candidate": "A6 blend",
+          "scale_millions": 20,
+          "brier": 0.043916698716980986
+        },
+        {
+          "candidate": "A6 blend",
+          "scale_millions": 50,
+          "brier": 0.043556031740489
+        },
+        {
+          "candidate": "Frozen V3/B2",
+          "scale_millions": 5,
+          "brier": 0.04460621904281905
+        },
+        {
+          "candidate": "Frozen V3/B2",
+          "scale_millions": 20,
+          "brier": 0.04460621904281905
+        },
+        {
+          "candidate": "Frozen V3/B2",
+          "scale_millions": 50,
+          "brier": 0.04460621904281905
+        }
+      ],
+      "phase2_comparison": [
+        {
+          "candidate": "A4 recent cycle",
+          "brier": 0.04361894110421036,
+          "relative_improvement_vs_b2": 0.022133190389012132
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "brier": 0.043775199773549156,
+          "relative_improvement_vs_b2": 0.018630121249957755
+        },
+        {
+          "candidate": "A6 blend",
+          "brier": 0.043556031740489,
+          "relative_improvement_vs_b2": 0.023543517582647833
+        },
+        {
+          "candidate": "Frozen V3/B2",
+          "brier": 0.04460621904281905,
+          "relative_improvement_vs_b2": 0.0
+        }
+      ],
+      "locked_scope": [
+        {
+          "scope": "2024-12",
+          "candidate_brier": 0.043440623903057037,
+          "b2_brier": 0.04434430409817182,
+          "relative_improvement": 0.020378720863770128,
+          "rows": 52101759
+        },
+        {
+          "scope": "2025 aggregate",
+          "candidate_brier": 0.04096767484040412,
+          "b2_brier": 0.04186089617186164,
+          "relative_improvement": 0.02133784541521433,
+          "rows": 208372533
+        },
+        {
+          "scope": "2025-01",
+          "candidate_brier": 0.04246630838805516,
+          "b2_brier": 0.04347420875355045,
+          "relative_improvement": 0.023183869112119893,
+          "rows": 52120942
+        },
+        {
+          "scope": "2025-04",
+          "candidate_brier": 0.03826858503907948,
+          "b2_brier": 0.03902344107416458,
+          "relative_improvement": 0.019343656384645636,
+          "rows": 52629262
+        },
+        {
+          "scope": "2025-07",
+          "candidate_brier": 0.039702025315924955,
+          "b2_brier": 0.04063997188048948,
+          "relative_improvement": 0.023079409782141402,
+          "rows": 47444263
+        },
+        {
+          "scope": "2025-10",
+          "candidate_brier": 0.04340886477044602,
+          "b2_brier": 0.04429873552688599,
+          "relative_improvement": 0.020087949370471092,
+          "rows": 56178066
+        }
+      ],
+      "locked_band": [
+        {
+          "scope": "December 2024",
+          "band": "10m",
+          "relative_regression": -0.0339078230555766
+        },
+        {
+          "scope": "December 2024",
+          "band": "12m",
+          "relative_regression": -0.04269998393369445
+        },
+        {
+          "scope": "December 2024",
+          "band": "15m",
+          "relative_regression": -0.01809817975191197
+        },
+        {
+          "scope": "December 2024",
+          "band": "160m",
+          "relative_regression": -0.03256155033837349
+        },
+        {
+          "scope": "December 2024",
+          "band": "17m",
+          "relative_regression": -0.02436453555298801
+        },
+        {
+          "scope": "December 2024",
+          "band": "20m",
+          "relative_regression": -0.007751608666537124
+        },
+        {
+          "scope": "December 2024",
+          "band": "30m",
+          "relative_regression": -0.0283411377512105
+        },
+        {
+          "scope": "December 2024",
+          "band": "40m",
+          "relative_regression": -0.02580473082682344
+        },
+        {
+          "scope": "December 2024",
+          "band": "60m",
+          "relative_regression": -0.029527209872258875
+        },
+        {
+          "scope": "December 2024",
+          "band": "80m",
+          "relative_regression": -0.005553694319029523
+        },
+        {
+          "scope": "2025 archive",
+          "band": "10m",
+          "relative_regression": -0.03160156638193867
+        },
+        {
+          "scope": "2025 archive",
+          "band": "12m",
+          "relative_regression": -0.038334315853269296
+        },
+        {
+          "scope": "2025 archive",
+          "band": "15m",
+          "relative_regression": -0.017778059134437196
+        },
+        {
+          "scope": "2025 archive",
+          "band": "160m",
+          "relative_regression": -0.03737238460301273
+        },
+        {
+          "scope": "2025 archive",
+          "band": "17m",
+          "relative_regression": -0.019118673132776598
+        },
+        {
+          "scope": "2025 archive",
+          "band": "20m",
+          "relative_regression": -0.014272748754678433
+        },
+        {
+          "scope": "2025 archive",
+          "band": "30m",
+          "relative_regression": -0.031331069660769595
+        },
+        {
+          "scope": "2025 archive",
+          "band": "40m",
+          "relative_regression": -0.022413561907089097
+        },
+        {
+          "scope": "2025 archive",
+          "band": "60m",
+          "relative_regression": -0.04863083503514798
+        },
+        {
+          "scope": "2025 archive",
+          "band": "80m",
+          "relative_regression": -0.018137393470481378
+        }
+      ],
+      "reliability": [
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.0061848686139371195,
+          "observed_rate": 0.005527566395229812
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.07279188473161922,
+          "observed_rate": 0.06734034241380253
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.12314978585992667,
+          "observed_rate": 0.11780170490849765
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.174109625494447,
+          "observed_rate": 0.16692546611032882
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.2235283199418658,
+          "observed_rate": 0.21399975873216318
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.27447838668418206,
+          "observed_rate": 0.26329907145735415
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.32533378631460946,
+          "observed_rate": 0.30953085872891123
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.37549337745440925,
+          "observed_rate": 0.35775543511143904
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.42514373239163583,
+          "observed_rate": 0.4033029977432082
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.47655537106264195,
+          "observed_rate": 0.4552522412045808
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.5252329790808554,
+          "observed_rate": 0.5021529984895811
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.575106991984341,
+          "observed_rate": 0.5528256885230453
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.6219923371020217,
+          "observed_rate": 0.6070003305763866
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.6733789282558732,
+          "observed_rate": 0.6509704948439327
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.7237605973537288,
+          "observed_rate": 0.7001704820522264
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.7735848794552702,
+          "observed_rate": 0.7514313355353499
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.819922835702599,
+          "observed_rate": 0.791993583298857
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.8739561402780689,
+          "observed_rate": 0.8390401589626916
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.9224890738830965,
+          "observed_rate": 0.8825466653924079
+        },
+        {
+          "series": "V4.2 A6",
+          "mean_prediction": 0.9723658359425895,
+          "observed_rate": 0.927563605891214
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.0071087581382849934,
+          "observed_rate": 0.00574057960481417
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.071538285277531,
+          "observed_rate": 0.06404036364254899
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.123865001612009,
+          "observed_rate": 0.1110104948493221
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.1738598397099621,
+          "observed_rate": 0.1541408196400823
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.2232457968071358,
+          "observed_rate": 0.20221549378596604
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.27485543652747446,
+          "observed_rate": 0.2492515489838209
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.32409559466956883,
+          "observed_rate": 0.2941404319614845
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.37453593515850603,
+          "observed_rate": 0.33903990848947896
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.4268729979035571,
+          "observed_rate": 0.39029856107024363
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.47324873033462517,
+          "observed_rate": 0.4430741115825738
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.5248994989884207,
+          "observed_rate": 0.48906370449000525
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.570085297214188,
+          "observed_rate": 0.5433077823251417
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.6193130802251298,
+          "observed_rate": 0.6004460363203744
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.6681136528408849,
+          "observed_rate": 0.6610779524492554
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.7226674843645564,
+          "observed_rate": 0.7047121519999943
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.7810255898692328,
+          "observed_rate": 0.7458757073141096
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.8203101929056928,
+          "observed_rate": 0.7816236321118805
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.8737278073392153,
+          "observed_rate": 0.8283026840174065
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.9182618211472464,
+          "observed_rate": 0.8683563714527395
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.9809790639680306,
+          "observed_rate": 0.9397235597664231
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 0.0,
+          "observed_rate": 0.0
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 1.0,
+          "observed_rate": 1.0
+        }
+      ],
+      "prediction_threads": [
+        {
+          "threads": 1,
+          "median_seconds": 0.8830479169992032,
+          "speedup_vs_1": 1.0
+        },
+        {
+          "threads": 6,
+          "median_seconds": 0.1740201659995364,
+          "speedup_vs_1": 5.074399923291394
+        },
+        {
+          "threads": 9,
+          "median_seconds": 0.1378855829971144,
+          "speedup_vs_1": 6.404207733724295
+        },
+        {
+          "threads": 12,
+          "median_seconds": 0.11429479101207107,
+          "speedup_vs_1": 7.726055659928906
+        },
+        {
+          "threads": 18,
+          "median_seconds": 0.09287395900173578,
+          "speedup_vs_1": 9.508024924216908
+        }
+      ],
+      "runtime_rows": [
+        {
+          "workload": "50M A4 recent cycle training",
+          "threads": 9,
+          "workers": 2,
+          "wall_minutes": 50.75863675346651,
+          "peak_rss_gib": 24.30657958984375
+        },
+        {
+          "workload": "50M A5 recency weighted training",
+          "threads": 9,
+          "workers": 2,
+          "wall_minutes": 51.34136301596688,
+          "peak_rss_gib": 25.374465942382812
+        },
+        {
+          "workload": "50M development scoring",
+          "threads": 18,
+          "workers": 1,
+          "wall_minutes": 21.36902669375001,
+          "peak_rss_gib": 10.674102783203125
+        },
+        {
+          "workload": "Untouched December scoring",
+          "threads": 18,
+          "workers": 1,
+          "wall_minutes": 7.579373685416795,
+          "peak_rss_gib": 9.332687377929688
+        },
+        {
+          "workload": "Locked 2025 archive scoring",
+          "threads": 18,
+          "workers": 1,
+          "wall_minutes": 29.807264811800028,
+          "peak_rss_gib": 10.291290283203125
+        }
+      ],
+      "experiment_rows": [
+        {
+          "stage": "5M ablation",
+          "candidate": "A0 V3 control",
+          "result": "stop",
+          "evidence": "Brier 0.04588640; delta vs B2 +0.00128018"
+        },
+        {
+          "stage": "5M ablation",
+          "candidate": "A1 availability",
+          "result": "stop",
+          "evidence": "Brier 0.04553578; delta vs B2 +0.00092956"
+        },
+        {
+          "stage": "5M ablation",
+          "candidate": "A2 long natural",
+          "result": "advance",
+          "evidence": "Brier 0.04552943; delta vs B2 +0.00092321"
+        },
+        {
+          "stage": "5M ablation",
+          "candidate": "A3 balanced",
+          "result": "stop",
+          "evidence": "Brier 0.04853705; delta vs B2 +0.00393083"
+        },
+        {
+          "stage": "5M ablation",
+          "candidate": "A4 recent cycle",
+          "result": "advance",
+          "evidence": "Brier 0.04464395; delta vs B2 +0.00003773"
+        },
+        {
+          "stage": "5M ablation",
+          "candidate": "A5 recency weighted",
+          "result": "advance",
+          "evidence": "Brier 0.04498763; delta vs B2 +0.00038142"
+        },
+        {
+          "stage": "Policy selection",
+          "candidate": "A6 blend",
+          "result": "advance",
+          "evidence": "August-only blend selection; final 50M policy is 70% A4 and 30% A5"
+        },
+        {
+          "stage": "50M selection",
+          "candidate": "A6 blend",
+          "result": "selected",
+          "evidence": "Brier 0.04355603; robust B2 win"
+        },
+        {
+          "stage": "100M decision",
+          "candidate": "A4 and A5",
+          "result": "stop",
+          "evidence": "No preregistered residual rare-regime or variance need justified another fit"
+        }
+      ],
+      "gate_rows": [
+        {
+          "scope": "December 2024",
+          "gate": "G1_integrity_and_scope",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G2_overall_performance",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G3_temporal_value",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G4_band_safety",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G5_short_path_materiality",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G6_calibration",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G7_operational_fallback",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G8_serving_parity",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G9_privacy_and_provenance",
+          "status": "pass"
+        },
+        {
+          "scope": "December 2024",
+          "gate": "G10_efficiency",
+          "status": "pass"
+        },
+        {
+          "scope": "2025 archive",
+          "gate": "A1_integrity_and_scope",
+          "status": "pass"
+        },
+        {
+          "scope": "2025 archive",
+          "gate": "A2_aggregate_performance",
+          "status": "pass"
+        },
+        {
+          "scope": "2025 archive",
+          "gate": "A3_month_transfer",
+          "status": "pass"
+        },
+        {
+          "scope": "2025 archive",
+          "gate": "A4_band_safety",
+          "status": "pass"
+        },
+        {
+          "scope": "2025 archive",
+          "gate": "A5_calibration",
+          "status": "pass"
+        },
+        {
+          "scope": "2025 archive",
+          "gate": "A6_operational_contract",
+          "status": "pass"
+        }
+      ],
+      "operational_rows": [
+        {
+          "check": "Offline/service probability parity",
+          "value": 0.0,
+          "limit": "1e-12",
+          "status": "pass"
+        },
+        {
+          "check": "Path API p95",
+          "value": 13.251829197542973,
+          "limit": "50 ms",
+          "status": "pass"
+        },
+        {
+          "check": "4,096-cell surface API p95",
+          "value": 514.1104828071548,
+          "limit": "3,000 ms",
+          "status": "pass"
+        },
+        {
+          "check": "Validation peak RSS",
+          "value": 4.25030517578125,
+          "limit": "32 GiB",
+          "status": "pass"
+        },
+        {
+          "check": "Bundle size",
+          "value": 252.14857864379883,
+          "limit": "256 MiB",
+          "status": "pass"
+        },
+        {
+          "check": "Serving XGBoost threads",
+          "value": 1,
+          "limit": "manifest default 1",
+          "status": "pass"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "final_evidence",
+      "label": "V4.2 combined reviewed evidence",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the derived, checksum-linked JSON evidence ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json"
+        ]
+      }
+    }
+  ]
+}

@@ -504,8 +504,10 @@ Generated: {generated_at}
 
 {decision_text}
 
-Candidate Brier: `{candidate_brier:.8f}`  
-Frozen B2 Brier: `{baseline_brier:.8f}`  
+Candidate Brier: `{candidate_brier:.8f}`
+
+Frozen B2 Brier: `{baseline_brier:.8f}`
+
 Relative improvement: `{improvement:.3%}`
 
 ## Gates

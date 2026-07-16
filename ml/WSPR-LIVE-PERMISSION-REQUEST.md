@@ -34,10 +34,13 @@ The proposed WSPR.live use is:
 
 A read-only compatibility test on 2026-07-16 queried one settled hour in one
 request and returned 287,694 valid HF rows. It took 23.1 seconds and the
-streaming client used 57.6 MiB peak memory. Continuous ingest is disabled while
-we confirm permission. WSPR.live would not be the only operational dependency:
-an outage or stale hour makes the model fall back to its physics/weather profile
-rather than retrying aggressively or fabricating data.
+streaming client used 57.6 MiB peak memory. A private, research-only 30-day
+receipt audit began afterward under the same one-request-per-hour, bounded
+retention, and identity-free-output limits. It is not exposed to subscribers
+and cannot enable the learned model while permission is unresolved. WSPR.live
+would not be the only operational dependency: an outage or stale hour makes
+the model fall back to its physics/weather profile rather than retrying
+aggressively or fabricating data.
 
 Would you permit this internal research/shadow use and eventual
 subscriber-facing nonprofit use under those limits? Please also let us know if

@@ -3,6 +3,7 @@
 import { applyRateLimit } from "../_lib/rateLimit";
 import {
   parseResearchHealthPayload,
+  parseResearchAlertWebhookConfig,
   researchAlertWebhookBody,
   verifyResearchHealthSignature,
   type ResearchAlertEvent,
@@ -14,6 +15,7 @@ export const config = {
 
 const SOURCE_KEY = "nowcast-research";
 const STALE_SECONDS = 7200;
+export const MAX_RESEARCH_ALERT_ATTEMPTS = 8;
 
 function allowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
@@ -56,7 +58,7 @@ function serviceHeaders(configValue: SupabaseConfig): Record<string, string> {
   };
 }
 
-async function supabaseJson(
+export async function supabaseJson(
   configValue: SupabaseConfig,
   path: string,
   init: RequestInit,
@@ -86,7 +88,8 @@ function asAlertEvents(value: unknown): ResearchAlertEvent[] {
       Array.isArray(item.alert_names) &&
       item.alert_names.every((name) => typeof name === "string") &&
       typeof item.occurred_at === "string" &&
-      Number.isInteger(item.attempts)
+      Number.isInteger(item.attempts) &&
+      Number(item.attempts) >= 0
     );
   });
 }
@@ -110,42 +113,44 @@ async function patchAlertEvent(
   );
 }
 
-async function deliverPendingAlerts(
+export async function deliverPendingAlerts(
   configValue: SupabaseConfig,
-): Promise<{ configured: boolean; pending: number; delivered: number }> {
-  const webhookUrl = process.env.PROPULSE_RESEARCH_ALERT_WEBHOOK_URL;
-  if (!webhookUrl) return { configured: false, pending: 0, delivered: 0 };
-  let parsed: URL;
-  try {
-    parsed = new URL(webhookUrl);
-  } catch {
-    throw new Error("alert webhook URL is invalid");
-  }
-  if (parsed.protocol !== "https:") {
-    throw new Error("alert webhook must use HTTPS");
+): Promise<{
+  configured: boolean;
+  pending: number;
+  delivered: number;
+  failed: number;
+  exhausted: number;
+}> {
+  const webhook = parseResearchAlertWebhookConfig(process.env);
+  if (!webhook) {
+    return {
+      configured: false,
+      pending: 0,
+      delivered: 0,
+      failed: 0,
+      exhausted: 0,
+    };
   }
   const pending = asAlertEvents(
     await supabaseJson(
       configValue,
-      "propagation_research_alert_outbox?delivered_at=is.null&order=created_at.asc&limit=5&select=event_id,decision,alert_names,occurred_at,attempts",
+      `propagation_research_alert_outbox?delivered_at=is.null&attempts=lt.${MAX_RESEARCH_ALERT_ATTEMPTS}&order=created_at.asc&limit=5&select=event_id,decision,alert_names,occurred_at,attempts`,
       { method: "GET" },
     ),
   );
   let delivered = 0;
+  let failed = 0;
   for (const event of pending) {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    const bearer = process.env.PROPULSE_RESEARCH_ALERT_WEBHOOK_BEARER;
-    if (bearer) headers.Authorization = `Bearer ${bearer}`;
+    if (webhook.bearer) headers.Authorization = `Bearer ${webhook.bearer}`;
+    if (webhook.kind === "generic") headers["Idempotency-Key"] = event.event_id;
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(webhook.url, {
         method: "POST",
         headers,
-        body: JSON.stringify(
-          researchAlertWebhookBody(
-            event,
-            process.env.PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND ?? "generic",
-          ),
-        ),
+        body: JSON.stringify(researchAlertWebhookBody(event, webhook.kind)),
+        redirect: "error",
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) {
@@ -157,13 +162,30 @@ async function deliverPendingAlerts(
       });
       delivered += 1;
     } catch (error) {
+      const lastError =
+        error instanceof Error && /^webhook returned \d{3}$/.test(error.message)
+          ? error.message
+          : error instanceof DOMException && error.name === "TimeoutError"
+            ? "webhook timed out"
+            : "webhook request failed";
       await patchAlertEvent(configValue, event, {
-        last_error:
-          error instanceof Error ? error.message.slice(0, 160) : "webhook failure",
+        last_error: lastError,
       });
+      failed += 1;
     }
   }
-  return { configured: true, pending: pending.length, delivered };
+  const exhaustedRows = await supabaseJson(
+    configValue,
+    `propagation_research_alert_outbox?delivered_at=is.null&attempts=gte.${MAX_RESEARCH_ALERT_ATTEMPTS}&limit=100&select=event_id`,
+    { method: "GET" },
+  );
+  return {
+    configured: true,
+    pending: pending.length,
+    delivered,
+    failed,
+    exhausted: Array.isArray(exhaustedRows) ? exhaustedRows.length : 0,
+  };
 }
 
 async function postHealth(request: Request): Promise<Response> {

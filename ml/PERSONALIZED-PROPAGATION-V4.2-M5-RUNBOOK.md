@@ -219,7 +219,12 @@ The endpoint, ingest secret, preview bypass, and dedicated store are configured
 only for the feature-branch preview. Keep both view flags unset until an alert
 destination is selected. Configure the server-only
 `PROPULSE_RESEARCH_ALERT_WEBHOOK_URL` plus `generic`, `slack`, or `discord`
-kind, and smoke alert plus recovery. Only afterward may
+kind. Generic destinations also require the exact
+`PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST`; only generic destinations may
+use a bearer token. Delivery refuses redirects, uses an idempotency key for
+generic receivers, stores sanitized errors, and stops retrying an event after
+eight attempts. Smoke alert plus recovery and prove an independent off-M5
+stale-heartbeat check before activation. Only afterward may
 `PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED` and
 `VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED` be enabled. These flags expose
 coarse health only; they do not authorize a WSPR source or select NowCast.
@@ -251,6 +256,38 @@ The current evidence passes 8/8 signed-ingest, exact-store, empty-initial-outbox
 disabled-reader, preview-bypass, native-M5, locked-outcome, and identity-free
 gates. It does not exercise a failure/recovery webhook transition.
 
+The twice-hourly watchdog detects worker failure while the M5 is running. It
+cannot detect complete M5 power or network loss from inside that same machine.
+The pre-beta monitor must therefore run outside the M5 and check the private
+heartbeat at an interval materially below the 7,200-second stale boundary.
+[Vercel Hobby cron](https://vercel.com/docs/cron-jobs/usage-and-pricing#hobby-scheduling-limits)
+is not sufficient because it permits only daily schedules; use a Pro cron, an
+external uptime monitor, or a scheduled GitHub workflow with an authenticated
+private monitor endpoint.
+
+The additive monitor migration passed 17/17 rollback gates and 18/18
+deployed-state gates on PostgreSQL 17.6. It never changes the source
+`reported_at`; one stale episode creates one `health_record_recent` alert, and
+the next genuine M5 heartbeat creates recovery. Reproduce its M5-only database
+proof with:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_monitor_migration.py --profile m5
+ml/service/run_m5_research_health_migration.sh --dry-run
+ml/service/run_m5_research_health_migration.sh \
+  --apply --acknowledge-private-migration
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_monitor_migration.py \
+  --profile m5 --verify-deployed
+```
+
+The GitHub workflow requires encrypted repository values for its monitor
+endpoint, independent bearer, and protected-preview bypass. Scheduled and
+manual-dispatch workflows require the file on the default branch. The feature
+branch uses one temporary, path-scoped push trigger for protected-preview
+validation; remove that trigger after its successful run.
+
 The private schema procedure is M5-only and password-safe:
 
 ```bash
@@ -274,10 +311,10 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled target, `2026-07-16T05:00:00Z`, also completed under the
-same bounded profile. The rollup is now `3/3` with zero gaps, `771,970`
-aggregate observations, `207,085` feature cells, and remains `collecting` at
-`3/720`.
+following scheduled targets through `2026-07-16T06:00:00Z` also completed under
+the same bounded profile. The rollup is now `4/4` with zero gaps, `1,022,042`
+aggregate observations, `275,834` feature cells, and remains `collecting` at
+`4/720`.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,

@@ -75,6 +75,8 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
             values["research_health_migration_validation"],
             values["research_health_deployment_validation"],
             values["research_health_endpoint_validation"],
+            values["research_health_monitor_migration_validation"],
+            values["research_health_monitor_deployment_validation"],
             values["operational_weather_validation"],
             values["orchestration_validation"],
             values["wspr_live_connector_validation"],
@@ -85,6 +87,8 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
         health = evidence["research_health"]
         self.assertTrue(health["remote_endpoint_configured"])
         self.assertTrue(health["remote_heartbeat_delivered"])
+        self.assertTrue(health["monitor_migration_deployed"])
+        self.assertFalse(health["external_monitor_invoked"])
         self.assertFalse(health["alert_delivery_configured"])
         self.assertFalse(health["public_view_enabled"])
 

@@ -195,9 +195,9 @@ observations and `67,829` feature cells, used 161 MiB connector peak RSS and the
 same bounded 18-thread finalizer profile, and exited cleanly with no transient
 spool or run directory.
 
-The following scheduled target, `2026-07-16T05:00:00Z`, completed under the
-same bounded profile. The aggregate rollup is now `3/3` expected hours with
-zero gaps, `771,970` observations, and `207,085` feature cells.
+The following scheduled targets through `2026-07-16T06:00:00Z` completed under
+the same bounded profile. The aggregate rollup is now `4/4` expected hours with
+zero gaps, `1,022,042` observations, and `275,834` feature cells.
 
 `check_m5_wspr_research_health.py` is installed as a second LaunchAgent at
 minutes 0 and 30. It evaluates the preregistered 7,200-second freshness limit,
@@ -239,9 +239,29 @@ service key. The endpoint falls back to `SUPABASE_URL` and
 remain false. To activate after alert delivery is proven, configure a Slack,
 Discord, or generic HTTPS destination with
 `PROPULSE_RESEARCH_ALERT_WEBHOOK_URL` and the matching
-`PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND`, smoke both alert and recovery, then
-enable the two view flags. This health path does not enable inference or source
-permission.
+`PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND`. A generic receiver must also set its
+exact `PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST`; a bearer token is valid
+only for that generic mode. Delivery refuses redirects, sends a generic
+idempotency key, sanitizes stored errors, and caps each event at eight attempts.
+Smoke both alert and recovery, prove an independent off-M5 stale-heartbeat
+check, then enable the two view flags. This health path does not enable
+inference or source permission.
+
+The M5 watchdog cannot report total loss of its own power or network. The
+pre-beta design therefore requires an independent monitor to check the private
+heartbeat comfortably inside the 7,200-second stale limit. A once-daily
+[Vercel Hobby cron](https://vercel.com/docs/cron-jobs/usage-and-pricing#hobby-scheduling-limits)
+is too slow; use Vercel Pro cron, an external uptime monitor, or an
+authenticated scheduled GitHub workflow.
+
+The additive `monitor_propagation_research_health` migration passed 17 rollback
+and 18 deployed-state gates on PostgreSQL 17.6. It preserves the last source
+heartbeat timestamp, emits one stale transition, suppresses repeated checks,
+does nothing to fresh or missing state, and lets the next genuine heartbeat
+emit recovery. `research-health-monitor.yml` calls the bearer-protected API at
+minutes 17 and 47 once the workflow is present on the default branch. A
+temporary path-scoped feature-branch push validates the protected preview
+before merge and is removed after its successful run.
 
 Rollback-validate, deploy, and verify the private migration only on the M5:
 
@@ -263,8 +283,8 @@ completion, checks every completed hour against the 7,200-second boundary, and
 tracks gaps, band coverage, one-request ingest, exact M5 concurrency, latency,
 RSS, source rows, and feature cells. It reports `collecting` until the full
 30-day duration exists even when every current operational gate passes. The
-current rollup is `3/3` expected hours, 100% completion, zero gaps, and `3/720`
-required hours through `2026-07-16T05:00:00Z`.
+current rollup is `4/4` expected hours, 100% completion, zero gaps, and `4/720`
+required hours through `2026-07-16T06:00:00Z`.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

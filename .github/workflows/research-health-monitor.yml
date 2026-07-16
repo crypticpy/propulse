@@ -1,0 +1,66 @@
+name: Research health monitor
+
+on:
+  push:
+    branches:
+      - feat/archive-multimonth-v3
+    paths:
+      - .github/workflows/research-health-monitor.yml
+      - api/_lib/researchHealth.ts
+      - api/propagation/research-health.ts
+      - api/propagation/research-health-monitor.ts
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-health-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      MONITOR_ENDPOINT: ${{ secrets.PROPULSE_RESEARCH_HEALTH_MONITOR_ENDPOINT }}
+      MONITOR_SECRET: ${{ secrets.PROPULSE_RESEARCH_HEALTH_MONITOR_SECRET }}
+      PREVIEW_BYPASS: ${{ secrets.PROPULSE_RESEARCH_HEALTH_BYPASS_SECRET }}
+    steps:
+      - name: Check private research heartbeat
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${MONITOR_ENDPOINT}" || -z "${MONITOR_SECRET}" ]]; then
+            echo "Research health monitor secrets are not configured" >&2
+            exit 1
+          fi
+          args=(
+            --fail-with-body
+            --silent
+            --show-error
+            --max-time 20
+            --request POST
+            --header "Authorization: Bearer ${MONITOR_SECRET}"
+            --header "Accept: application/json"
+          )
+          if [[ -n "${PREVIEW_BYPASS}" ]]; then
+            args+=(--header "X-Vercel-Protection-Bypass: ${PREVIEW_BYPASS}")
+          fi
+          curl "${args[@]}" --output /tmp/research-health-monitor.json "${MONITOR_ENDPOINT}"
+          jq -e '
+            type == "object" and
+            (.evaluated | type == "boolean") and
+            (.heartbeatStale == false) and
+            (.heartbeatAgeSeconds | type == "number") and
+            (.alertDelivery.configured | type == "boolean") and
+            (.alertDelivery.failed | type == "number") and
+            (.alertDelivery.exhausted | type == "number") and
+            ((.alertDelivery.configured | not) or (
+              .alertDelivery.failed == 0 and .alertDelivery.exhausted == 0
+            ))
+          ' /tmp/research-health-monitor.json >/dev/null
+          jq '{evaluated, heartbeatStale, stateChanged, heartbeatAgeSeconds, alertDelivery}' \
+            /tmp/research-health-monitor.json

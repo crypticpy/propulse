@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseResearchHealthPayload,
+  parseResearchAlertWebhookConfig,
   researchAlertWebhookBody,
   signResearchHealthBody,
   verifyResearchHealthSignature,
@@ -91,5 +92,61 @@ describe("research health ingest contract", () => {
       decision: "alert",
       alerts: ["health_record_recent"],
     });
+  });
+
+  it("requires an exact safe host for generic alert destinations", () => {
+    expect(
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL: "https://alerts.example.test/propulse",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST: "alerts.example.test",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_BEARER: "test-bearer",
+      }),
+    ).toEqual({
+      url: "https://alerts.example.test/propulse",
+      kind: "generic",
+      bearer: "test-bearer",
+    });
+    expect(() =>
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL: "https://127.0.0.1/alert",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST: "127.0.0.1",
+      }),
+    ).toThrow("not explicitly allowed");
+    expect(() =>
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL: "https://alerts.example.test/propulse",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST: "different.example.test",
+      }),
+    ).toThrow("not explicitly allowed");
+  });
+
+  it("strictly validates provider-specific alert destinations", () => {
+    expect(
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL:
+          "https://hooks.slack.com/services/T000/B000/test-token",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND: "slack",
+      }),
+    ).toMatchObject({ kind: "slack", bearer: null });
+    expect(
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL:
+          "https://discord.com/api/webhooks/123/test-token",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND: "discord",
+      }),
+    ).toMatchObject({ kind: "discord", bearer: null });
+    expect(() =>
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL:
+          "https://example.test/services/T000/B000/test-token",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND: "slack",
+      }),
+    ).toThrow("Slack alert webhook destination is invalid");
+    expect(() =>
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL: "http://discord.com/api/webhooks/1/x",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND: "discord",
+      }),
+    ).toThrow("HTTPS destination contract");
   });
 });

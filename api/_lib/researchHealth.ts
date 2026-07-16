@@ -52,6 +52,16 @@ export interface ResearchAlertEvent {
   attempts: number;
 }
 
+export type ResearchAlertWebhookKind = "generic" | "slack" | "discord";
+
+export interface ResearchAlertWebhookConfig {
+  url: string;
+  kind: ResearchAlertWebhookKind;
+  bearer: string | null;
+}
+
+type AlertWebhookEnvironment = Record<string, string | undefined>;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -239,9 +249,88 @@ export async function verifyResearchHealthSignature(
   return mismatch === 0;
 }
 
+function genericWebhookHostIsUnsafe(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.includes(":")
+  ) {
+    return true;
+  }
+  const parts = host.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) {
+    return false;
+  }
+  const [first, second] = parts;
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && (second === 0 || second === 168)) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+export function parseResearchAlertWebhookConfig(
+  environment: AlertWebhookEnvironment,
+): ResearchAlertWebhookConfig | null {
+  const rawUrl = environment.PROPULSE_RESEARCH_ALERT_WEBHOOK_URL;
+  if (!rawUrl) return null;
+  const rawKind = environment.PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND ?? "generic";
+  if (rawKind !== "generic" && rawKind !== "slack" && rawKind !== "discord") {
+    throw new Error("alert webhook kind is invalid");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("alert webhook URL is invalid");
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.username ||
+    parsed.password ||
+    (parsed.port && parsed.port !== "443") ||
+    parsed.hash
+  ) {
+    throw new Error("alert webhook URL violates the HTTPS destination contract");
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (rawKind === "slack") {
+    const slackHost = hostname === "hooks.slack.com" || hostname === "hooks.slack-gov.com";
+    if (!slackHost || !parsed.pathname.startsWith("/services/")) {
+      throw new Error("Slack alert webhook destination is invalid");
+    }
+  } else if (rawKind === "discord") {
+    const discordHost = hostname === "discord.com" || hostname === "discordapp.com";
+    if (!discordHost || !parsed.pathname.startsWith("/api/webhooks/")) {
+      throw new Error("Discord alert webhook destination is invalid");
+    }
+  } else {
+    const allowedHost = environment.PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST
+      ?.trim()
+      .toLowerCase();
+    if (!allowedHost || allowedHost !== hostname || genericWebhookHostIsUnsafe(hostname)) {
+      throw new Error("generic alert webhook host is not explicitly allowed");
+    }
+  }
+  const bearer = environment.PROPULSE_RESEARCH_ALERT_WEBHOOK_BEARER?.trim() || null;
+  if (bearer && rawKind !== "generic") {
+    throw new Error("alert webhook bearer is only valid for generic destinations");
+  }
+  return { url: parsed.toString(), kind: rawKind, bearer };
+}
+
 export function researchAlertWebhookBody(
   event: ResearchAlertEvent,
-  kind: string,
+  kind: ResearchAlertWebhookKind,
 ): Record<string, unknown> {
   const message =
     event.decision === "healthy"

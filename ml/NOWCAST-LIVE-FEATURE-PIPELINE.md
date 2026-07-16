@@ -96,8 +96,8 @@
 > An automatic identity-free rollup re-verifies every receipt and signed
 > manifest, fixes the duration at 720 expected hours and scheduled completion at
 > 99%. Actual minute-15 calendar events completed without RunAtLoad or manual
-> targets, advancing the operationally healthy rollup to `3/3` expected hours,
-> zero gaps, and `collecting` status at `3/720` through `2026-07-16T05:00:00Z`.
+> targets, advancing the operationally healthy rollup to `4/4` expected hours,
+> zero gaps, and `collecting` status at `4/720` through `2026-07-16T06:00:00Z`.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
@@ -372,8 +372,9 @@ explicitly labeled and does not satisfy the live requirement above.
   M5 publisher boundary, and double-gated product System Health reader.
 - [x] Configure and validate the protected preview endpoint from the M5 with a
   signed aggregate heartbeat, dedicated private store, and public reader off.
-- [ ] Configure an HTTPS alert destination, smoke alert and recovery delivery,
-  then enable the independent server/frontend view flags; keep inference and
+- [ ] Configure an HTTPS alert destination and independent off-M5 stale-
+  heartbeat monitor, smoke alert/recovery and full-M5-outage delivery, then
+  enable the independent server/frontend view flags; keep inference and
   provider gates unchanged.
 - [ ] Complete the 30-day permitted receipt-time research shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.

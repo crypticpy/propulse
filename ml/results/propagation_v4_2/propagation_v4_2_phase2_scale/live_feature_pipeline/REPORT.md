@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T06:55:05.127958+00:00
+Generated: 2026-07-16T07:32:26.270469+00:00
 
 ## Answer first
 
@@ -29,13 +29,18 @@ LaunchAgent is now active: its latest audited receipt passed
 gates, converting `255,536` observations into
 `67,829` path cells with 18 bounded M5 threads.
 The signed progress rollup is operationally healthy at
-`3/720` hours,
+`4/720` hours,
 `100.0%` scheduled completion, and
 `0` gaps; its decision remains `collecting`.
 Subscriber-facing use still requires source confirmation. Remote alert
 configuration/delivery smoke and 30 days of real receipt-time shadow evidence
 also remain open. The signed protected-preview heartbeat passed
 `8/8`
-end-to-end gates; the double-gated public reader remains disabled.
+end-to-end gates. The off-M5 monitor migration passed
+`17/17`
+rollback and
+`18/18`
+deployed-state gates; its external workflow and the double-gated public reader
+remain disabled.
 See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.

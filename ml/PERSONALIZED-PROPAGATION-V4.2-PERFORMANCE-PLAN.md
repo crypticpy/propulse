@@ -685,8 +685,9 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Configure and validate the protected preview health endpoint from the M5
   with a signed aggregate heartbeat, dedicated private store, and public reader
   disabled.
-- [ ] Configure a remote alert destination, smoke alert/recovery delivery, and
-  only then enable the server/frontend view flags.
+- [ ] Configure a remote alert destination and an independent off-M5 stale-
+  heartbeat monitor, smoke alert/recovery and full-M5-outage delivery, and only
+  then enable the server/frontend view flags.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -732,8 +733,12 @@ endpoint, retryable transition outbox, and double-gated System Health reader
 accept no station/path/equipment data. The protected preview endpoint is now
 configured with an independent HMAC secret and automation-bypass header; its
 M5-to-endpoint-to-private-store validation passed 8/8 gates with the public
-reader still disabled. An approved subscriber-facing source, remote webhook
-delivery smoke,
+reader still disabled. The additive off-M5 monitor migration then passed 17/17
+rollback gates and 18/18 deployed-state gates, including preservation of the
+last source timestamp, one stale transition, repeat suppression, and genuine-
+heartbeat recovery. Its authenticated GitHub workflow is implemented but not
+yet invoked against the protected preview. An approved subscriber-facing
+source, remote webhook delivery smoke,
 30-day live coverage, beta outcomes, and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on
@@ -767,11 +772,11 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `3/3`
-expected hours, 100% scheduled completion, zero gaps, and `3/720` required
-hours through target `2026-07-16T05:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `771,970`
-observations and `207,085` feature cells with the same bounded 18-thread
+The automatic duration rollup is operationally healthy at `4/4`
+expected hours, 100% scheduled completion, zero gaps, and `4/720` required
+hours through target `2026-07-16T06:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `1,022,042`
+observations and `275,834` feature cells with the same bounded 18-thread
 profile. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current

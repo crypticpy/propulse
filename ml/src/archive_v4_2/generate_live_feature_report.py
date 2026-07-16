@@ -1132,7 +1132,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "implemented. The M5 now publishes signed aggregate heartbeats through the protected feature preview into the dedicated "
                 "private store. The alert destination, public server flag, and frontend build flag remain unset, so no remote escalation or "
                 "subscriber-visible health state is active. A separate GitHub-hosted runner successfully exercised the protected fresh-heartbeat "
-                "path from outside the M5; its branch-only trigger was removed, and the twice-hourly schedule becomes active when merged to the default branch."
+                "path from outside the M5. Its branch-only trigger was removed, the workflow was merged independently to the default branch, and "
+                "the twice-hourly schedule is active without releasing model or product-surface work."
             ),
         },
         {

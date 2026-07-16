@@ -739,13 +739,14 @@ M5-to-endpoint-to-private-store validation passed 8/8 gates with the public
 reader still disabled. The additive off-M5 monitor migration then passed 17/17
 rollback gates and 18/18 deployed-state gates, including preservation of the
 last source timestamp, one stale transition, repeat suppression, and genuine-
-heartbeat recovery. Its authenticated GitHub workflow then passed a protected-
-preview invocation from a GitHub-hosted runner at immutable run `29480631813`:
-the private heartbeat was fresh at 490 seconds, no transition occurred, no
+heartbeat recovery. Its authenticated GitHub workflow was merged independently
+to `main` in PR `#8`, without the model or product changes, then passed a
+default-branch protected-preview invocation at immutable run `29482048362`:
+the private heartbeat was fresh at 184 seconds, no transition occurred, no
 delivery failed or exhausted retries, and the public reader remained disabled.
-The temporary feature-branch push trigger was removed; the twice-hourly schedule
-activates after the workflow reaches the default branch. An approved subscriber-
-facing source, real stale alert/recovery webhook delivery smoke,
+The temporary feature-branch push trigger was removed and the twice-hourly
+schedule is active. An approved subscriber-facing source, real stale
+alert/recovery webhook delivery smoke,
 30-day live coverage, beta outcomes, and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on

@@ -35,16 +35,18 @@ def evidence(**overrides: object) -> dict[str, object]:
         "runtime": RUNTIME,
         "workflow": WORKFLOW,
         "endpoint_evidence": ENDPOINT,
-        "run_id": 29480631813,
+        "run_id": 29482048362,
         "run_url": (
-            "https://github.com/crypticpy/propulse/actions/runs/29480631813"
+            "https://github.com/crypticpy/propulse/actions/runs/29482048362"
         ),
-        "head_sha": "f60f4dd397d712d531cbe22f3175efc9263fc000",
+        "head_sha": "42255fa855358dc6afbca7b27e018ea2cd7a2c2c",
         "conclusion": "success",
+        "event": "workflow_dispatch",
+        "head_branch": "main",
         "evaluated": True,
         "heartbeat_stale": False,
         "state_changed": False,
-        "heartbeat_age_seconds": 490,
+        "heartbeat_age_seconds": 184,
         "delivery_configured": False,
         "delivery_failed": 0,
         "delivery_exhausted": 0,
@@ -80,6 +82,7 @@ class ResearchHealthExternalMonitorTests(unittest.TestCase):
             )["decision"],
             "fail",
         )
+        self.assertEqual(evidence(head_branch="feature")["decision"], "fail")
 
     def test_temporary_push_trigger_fails_release_gate(self) -> None:
         workflow = WORKFLOW.replace("on:\n", "on:\n  push:\n")

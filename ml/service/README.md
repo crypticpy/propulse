@@ -259,10 +259,11 @@ and 18 deployed-state gates on PostgreSQL 17.6. It preserves the last source
 heartbeat timestamp, emits one stale transition, suppresses repeated checks,
 does nothing to fresh or missing state, and lets the next genuine heartbeat
 emit recovery. `research-health-monitor.yml` calls the bearer-protected API at
-minutes 17 and 47 once the workflow is present on the default branch. GitHub
-Actions run `29480631813` passed the protected-preview fresh path with a
-490-second-old identity-free heartbeat, no transition, and zero failed or
-exhausted deliveries. Its temporary feature-branch push trigger is removed.
+minutes 17 and 47. Monitoring-only PR `#8` placed it on the default branch
+without releasing model or product work. GitHub Actions run `29482048362`
+passed that exact configuration with a 184-second-old identity-free heartbeat,
+no transition, and zero failed or exhausted deliveries. Its temporary feature-
+branch push trigger is removed and the schedule is active.
 The remaining alerting gate is a real destination plus stale alert/recovery and
 full-M5-outage delivery smoke.
 

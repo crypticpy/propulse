@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: research shadow validation report",
     "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
-    "generatedAt": "2026-07-16T07:53:12.544232+00:00",
+    "generatedAt": "2026-07-16T08:06:40.923782+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -448,7 +448,7 @@
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The internal research shadow is active; product authorization and long-window evidence remain open\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The separate private research-health boundary passed **20 of 20** rollback gates and **21 of 21** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. Its protected-preview endpoint then passed **8 of 8** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. The additive off-M5 monitor passed **17 of 17** rollback gates and **18 of 18** deployed-state gates while preserving the source heartbeat timestamp. A GitHub-hosted runner then passed **13 of 13** external-invocation gates against the protected preview, observing a healthy heartbeat **490 seconds** old with no transition and zero failed or exhausted deliveries. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. The corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. The hourly research LaunchAgent is now active and its latest audited receipt passed **28 of 28 independent gates**: **255,536 observations** became **67,829 path cells** with zero consecutive failures, **161.0 MiB** peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written confirmation or an independently permitted source. The signed progress rollup is operationally healthy at **4 of 720 hours** with **0 gaps**; it remains `collecting`, not 30-day evidence."
+        "body": "## The internal research shadow is active; product authorization and long-window evidence remain open\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The separate private research-health boundary passed **20 of 20** rollback gates and **21 of 21** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. Its protected-preview endpoint then passed **8 of 8** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. The additive off-M5 monitor passed **17 of 17** rollback gates and **18 of 18** deployed-state gates while preserving the source heartbeat timestamp. A GitHub-hosted runner then passed **14 of 14** external-invocation gates against the protected preview, observing a healthy heartbeat **184 seconds** old with no transition and zero failed or exhausted deliveries. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. The corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. The hourly research LaunchAgent is now active and its latest audited receipt passed **28 of 28 independent gates**: **255,536 observations** became **67,829 path cells** with zero consecutive failures, **161.0 MiB** peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written confirmation or an independently permitted source. The signed progress rollup is operationally healthy at **4 of 720 hours** with **0 gaps**; it remains `collecting`, not 30-day evidence."
       },
       {
         "id": "cards",
@@ -563,7 +563,7 @@
         "id": "schedule_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an identity-free atomic receipt only after all ten bands pass. The latest audited target, **2026-07-16T04:00:00+00:00**, contained **255,536 observations** and **67,829 feature cells**. An independent validator made 21 exact target-store queries and passed **28 of 28 gates**, including manifest signature/hash linkage, per-band observation and feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume. A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are implemented. The M5 now publishes signed aggregate heartbeats through the protected feature preview into the dedicated private store. The alert destination, public server flag, and frontend build flag remain unset, so no remote escalation or subscriber-visible health state is active. A separate GitHub-hosted runner successfully exercised the protected fresh-heartbeat path from outside the M5; its branch-only trigger was removed, and the twice-hourly schedule becomes active when merged to the default branch."
+        "body": "At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an identity-free atomic receipt only after all ten bands pass. The latest audited target, **2026-07-16T04:00:00+00:00**, contained **255,536 observations** and **67,829 feature cells**. An independent validator made 21 exact target-store queries and passed **28 of 28 gates**, including manifest signature/hash linkage, per-band observation and feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume. A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are implemented. The M5 now publishes signed aggregate heartbeats through the protected feature preview into the dedicated private store. The alert destination, public server flag, and frontend build flag remain unset, so no remote escalation or subscriber-visible health state is active. A separate GitHub-hosted runner successfully exercised the protected fresh-heartbeat path from outside the M5. Its branch-only trigger was removed, the workflow was merged independently to the default branch, and the twice-hourly schedule is active without releasing model or product-surface work."
       },
       {
         "id": "shadow_progress_chart",
@@ -628,7 +628,7 @@
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T07:53:12.544232+00:00",
+    "generatedAt": "2026-07-16T08:06:40.923782+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -668,9 +668,9 @@
           "research_health_monitor_rollback_gates_total": 17,
           "research_health_monitor_deployment_gates_passed": 18,
           "research_health_monitor_deployment_gates_total": 18,
-          "research_health_external_monitor_gates_passed": 13,
-          "research_health_external_monitor_gates_total": 13,
-          "research_health_external_monitor_age_seconds": 490,
+          "research_health_external_monitor_gates_passed": 14,
+          "research_health_external_monitor_gates_total": 14,
+          "research_health_external_monitor_age_seconds": 184,
           "weather_gates_passed": 14,
           "weather_gates_total": 14,
           "weather_feature_count": 14,
@@ -1661,6 +1661,11 @@
         {
           "scope": "Off-M5 external invocation",
           "gate": "immutable head sha recorded",
+          "status": "pass"
+        },
+        {
+          "scope": "Off-M5 external invocation",
+          "gate": "default branch invocation",
           "status": "pass"
         },
         {

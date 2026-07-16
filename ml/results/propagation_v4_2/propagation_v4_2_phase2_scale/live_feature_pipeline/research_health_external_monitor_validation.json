@@ -1,22 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T07:50:47.311070+00:00",
+  "generated_at": "2026-07-16T08:06:25.676897+00:00",
   "scope": "off_m5_protected_preview_fresh_heartbeat_validation",
   "research_only": true,
   "locked_outcomes_read": false,
   "public_view_enabled": false,
   "external_runner": "github_actions",
   "workflow_run": {
-    "id": 29480631813,
-    "url": "https://github.com/crypticpy/propulse/actions/runs/29480631813",
-    "head_sha": "f60f4dd397d712d531cbe22f3175efc9263fc000",
-    "conclusion": "success"
+    "id": 29482048362,
+    "url": "https://github.com/crypticpy/propulse/actions/runs/29482048362",
+    "head_sha": "42255fa855358dc6afbca7b27e018ea2cd7a2c2c",
+    "conclusion": "success",
+    "event": "workflow_dispatch",
+    "head_branch": "main"
   },
   "response": {
     "evaluated": true,
     "heartbeat_stale": false,
     "state_changed": false,
-    "heartbeat_age_seconds": 490,
+    "heartbeat_age_seconds": 184,
     "alert_delivery": {
       "configured": false,
       "failed": 0,
@@ -31,6 +33,7 @@
     "github_workflow_concluded_success": true,
     "github_run_url_exact": true,
     "immutable_head_sha_recorded": true,
+    "default_branch_invocation": true,
     "fresh_heartbeat_evaluated": true,
     "heartbeat_not_stale": true,
     "no_unexpected_state_transition": true,

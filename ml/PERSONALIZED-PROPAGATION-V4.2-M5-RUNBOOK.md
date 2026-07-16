@@ -287,15 +287,16 @@ The GitHub workflow requires encrypted repository values for its monitor
 endpoint, independent bearer, and protected-preview bypass. Those values are
 configured as repository secrets. The protected-preview fresh path passed from
 a GitHub-hosted runner in
-[run 29480631813](https://github.com/crypticpy/propulse/actions/runs/29480631813):
-the response was identity-free, `evaluated=true`, 490 seconds fresh, unchanged,
+[run 29482048362](https://github.com/crypticpy/propulse/actions/runs/29482048362):
+the response was identity-free, `evaluated=true`, 184 seconds fresh, unchanged,
 and had zero failed or exhausted deliveries. The M5-generated
 `research_health_external_monitor_validation.json` records the immutable run
 and commit plus the disabled-reader and privacy gates. The temporary, path-
-scoped feature-branch push trigger was then removed. Scheduled and manual-
-dispatch workflows require the file on the default branch, so the minutes 17
-and 47 schedule becomes active after merge. This fresh-path proof does not
-replace a live stale-alert/recovery webhook smoke.
+scoped feature-branch push trigger was then removed. Monitoring-only
+[PR #8](https://github.com/crypticpy/propulse/pull/8) merged the workflow to the
+default branch without the model or product changes, so the minutes 17 and 47
+schedule is active. This fresh-path proof does not replace a live stale-alert/
+recovery webhook smoke.
 
 The private schema procedure is M5-only and password-safe:
 

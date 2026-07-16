@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T07:53:12.542878+00:00",
+  "generated_at": "2026-07-16T08:06:40.922475+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -63,7 +63,7 @@
     {
       "id": "research_health_external_monitor_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_external_monitor_validation.json",
-      "sha256": "728232ecbf49fb7083310870bed9ed762f32af5164adb06af0cc352130b379db"
+      "sha256": "161d06de441b675ba1390d6ccede76526af3bfef1af20eb2688636640d7e1ede"
     },
     {
       "id": "operational_weather_validation",
@@ -303,6 +303,7 @@
       "github_workflow_concluded_success": true,
       "github_run_url_exact": true,
       "immutable_head_sha_recorded": true,
+      "default_branch_invocation": true,
       "fresh_heartbeat_evaluated": true,
       "heartbeat_not_stale": true,
       "no_unexpected_state_transition": true,
@@ -315,16 +316,18 @@
       "identity_free_evidence": true
     },
     "external_monitor_run": {
-      "id": 29480631813,
-      "url": "https://github.com/crypticpy/propulse/actions/runs/29480631813",
-      "head_sha": "f60f4dd397d712d531cbe22f3175efc9263fc000",
-      "conclusion": "success"
+      "id": 29482048362,
+      "url": "https://github.com/crypticpy/propulse/actions/runs/29482048362",
+      "head_sha": "42255fa855358dc6afbca7b27e018ea2cd7a2c2c",
+      "conclusion": "success",
+      "event": "workflow_dispatch",
+      "head_branch": "main"
     },
     "external_monitor_response": {
       "evaluated": true,
       "heartbeat_stale": false,
       "state_changed": false,
-      "heartbeat_age_seconds": 490,
+      "heartbeat_age_seconds": 184,
       "alert_delivery": {
         "configured": false,
         "failed": 0,
@@ -695,9 +698,9 @@
         "research_health_monitor_rollback_gates_total": 17,
         "research_health_monitor_deployment_gates_passed": 18,
         "research_health_monitor_deployment_gates_total": 18,
-        "research_health_external_monitor_gates_passed": 13,
-        "research_health_external_monitor_gates_total": 13,
-        "research_health_external_monitor_age_seconds": 490,
+        "research_health_external_monitor_gates_passed": 14,
+        "research_health_external_monitor_gates_total": 14,
+        "research_health_external_monitor_age_seconds": 184,
         "weather_gates_passed": 14,
         "weather_gates_total": 14,
         "weather_feature_count": 14,
@@ -1688,6 +1691,11 @@
       {
         "scope": "Off-M5 external invocation",
         "gate": "immutable head sha recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "default branch invocation",
         "status": "pass"
       },
       {

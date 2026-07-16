@@ -91,9 +91,10 @@
 > notification delivery smoke and the expanded independent audit passed 28/28
 > gates. The protected-preview HMAC heartbeat subsequently passed 8/8
 > M5-to-endpoint-to-private-store gates while the public reader remained off.
-> A GitHub-hosted runner then passed the independent protected fresh-heartbeat
-> path at 490 seconds old with zero failed or exhausted deliveries; the real
-> stale alert/recovery webhook smoke remains open.
+> A GitHub-hosted runner then passed the independent default-branch protected
+> fresh-heartbeat path at 184 seconds old with zero failed or exhausted
+> deliveries. Its twice-hourly schedule is active; the real stale alert/recovery
+> webhook smoke remains open.
 > The 30-day clock has started; subscriber permission, remote alert delivery,
 > System Health activation, beta outcomes, and long-window evidence remain open.
 > An automatic identity-free rollup re-verifies every receipt and signed

@@ -50,6 +50,8 @@ def build_evidence(
     run_url: str,
     head_sha: str,
     conclusion: str,
+    event: str,
+    head_branch: str,
     evaluated: bool,
     heartbeat_stale: bool,
     state_changed: bool,
@@ -104,6 +106,8 @@ def build_evidence(
             "url": run_url,
             "head_sha": head_sha,
             "conclusion": conclusion,
+            "event": event,
+            "head_branch": head_branch,
         },
         "response": response,
         "runtime": {
@@ -115,6 +119,9 @@ def build_evidence(
         "github_workflow_concluded_success": conclusion == "success",
         "github_run_url_exact": run_url_exact,
         "immutable_head_sha_recorded": bool(SHA_RE.fullmatch(head_sha)),
+        "default_branch_invocation": (
+            head_branch == "main" and event in {"schedule", "workflow_dispatch"}
+        ),
         "fresh_heartbeat_evaluated": (
             evaluated and 0 <= heartbeat_age_seconds < STALE_SECONDS
         ),
@@ -142,6 +149,10 @@ def main() -> None:
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--conclusion", required=True)
+    parser.add_argument(
+        "--event", choices=("schedule", "workflow_dispatch"), required=True
+    )
+    parser.add_argument("--head-branch", required=True)
     parser.add_argument("--evaluated", type=parse_bool, required=True)
     parser.add_argument("--heartbeat-stale", type=parse_bool, required=True)
     parser.add_argument("--state-changed", type=parse_bool, required=True)
@@ -165,6 +176,8 @@ def main() -> None:
         run_url=args.run_url,
         head_sha=args.head_sha,
         conclusion=args.conclusion,
+        event=args.event,
+        head_branch=args.head_branch,
         evaluated=args.evaluated,
         heartbeat_stale=args.heartbeat_stale,
         state_changed=args.state_changed,

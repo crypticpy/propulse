@@ -7,6 +7,7 @@ import {
   propagationModelVisible,
   type PathPredictionRequest,
   type PropagationPrediction,
+  type ResearchSubjectBinding,
 } from "@/lib/propagation/modelClient";
 import type {
   StationCalculationOptions,
@@ -24,6 +25,7 @@ export interface NowCastBandInput {
     band: string,
     options?: StationCalculationOptions,
   ) => StationFeatureEnvelope | null;
+  researchSubjectBinding?: ResearchSubjectBinding | null;
 }
 
 function bearingDegrees(values: Record<string, number | null>): number {
@@ -82,6 +84,9 @@ export function buildNowCastRequests(
         space_weather: weatherAge,
         path_history: 86_400,
       },
+      ...(input.researchSubjectBinding
+        ? { research_subject_binding: input.researchSubjectBinding }
+        : {}),
     };
   });
 }
@@ -113,6 +118,7 @@ export function useNowCastBandPredictions(
         request.issue_time,
         request.declared_power_watts,
         request.station?.chainFingerprint ?? "core",
+        request.research_subject_binding?.hmac_sha256 ?? "unbound",
         input.weather,
       ] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) => {

@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import json
 import hashlib
+import hmac
 import logging
 import math
 import os
 import sys
 import time
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
+from uuid import uuid4
 
 import joblib
 import numpy as np
@@ -42,6 +44,9 @@ V41 = ROOT / "ml/src/archive_v4_1"
 DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS = 7200
 DEFAULT_XGBOOST_PREDICTION_THREADS = 1
 SHADOW_TELEMETRY_SCHEMA_VERSION = "propagation-shadow-v1"
+RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v1"
+RESEARCH_SUBJECT_SCHEMA_VERSION = "propagation-research-subject-v1"
+RESEARCH_RECEIPT_TTL_SECONDS = 24 * 60 * 60
 INFERENCE_MODES = {"disabled", "shadow", "active"}
 TELEMETRY_BANDS = {
     "160m",
@@ -116,6 +121,19 @@ class PathFeatures(StrictModel):
     station: StationEnvelope | None = None
 
 
+class ResearchSubjectBinding(StrictModel):
+    schema_version: str = Field(pattern="^propagation-research-subject-v1$")
+    expires_at: datetime
+    hmac_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+
+    @field_validator("expires_at")
+    @classmethod
+    def expiry_is_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("research subject expiry must include a UTC offset")
+        return value
+
+
 class PathRequest(StrictModel):
     origin_grid4: str = Field(pattern="^[A-R]{2}[0-9]{2}$")
     issue_time: datetime
@@ -126,6 +144,7 @@ class PathRequest(StrictModel):
     features: PathFeatures
     station: StationEnvelope | None = None
     data_freshness_seconds: dict[str, int] = Field(default_factory=dict)
+    research_subject_binding: ResearchSubjectBinding | None = None
 
     @field_validator("issue_time", "valid_time")
     @classmethod
@@ -160,6 +179,7 @@ class SurfaceRequest(StrictModel):
     cells: list[PathFeatures] = Field(min_length=1, max_length=4096)
     station: StationEnvelope | None = None
     data_freshness_seconds: dict[str, int] = Field(default_factory=dict)
+    research_subject_binding: ResearchSubjectBinding | None = None
 
     @field_validator("issue_time", "valid_time")
     @classmethod
@@ -682,6 +702,67 @@ def log_shadow_telemetry(event: dict[str, Any]) -> None:
     LOGGER.info("propagation_inference %s", json.dumps(event, sort_keys=True))
 
 
+def canonical_research_receipt_payload(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def research_receipt_signature(signed_payload: str, secret: str) -> str:
+    if len(secret) < 32:
+        raise ValueError("research receipt signing secret must be at least 32 characters")
+    return hmac.new(
+        secret.encode(), signed_payload.encode(), hashlib.sha256
+    ).hexdigest()
+
+
+def build_research_receipt(
+    request: PathRequest,
+    response: dict[str, Any],
+    *,
+    core_feature_contract: str,
+    secret: str,
+    issued_at: datetime | None = None,
+    prediction_id: str | None = None,
+) -> dict[str, Any]:
+    now = issued_at or datetime.now(timezone.utc)
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("research receipt issue time must include a UTC offset")
+    payload = {
+        "schema_version": RESEARCH_RECEIPT_SCHEMA_VERSION,
+        "prediction_id": prediction_id or str(uuid4()),
+        "receipt_issued_at": now.isoformat(),
+        "receipt_expires_at": (
+            now + timedelta(seconds=RESEARCH_RECEIPT_TTL_SECONDS)
+        ).isoformat(),
+        "model_version": str(response["model_version"]),
+        "feature_contract": core_feature_contract,
+        "station_feature_contract": str(response["feature_contract"]),
+        "chain_fingerprint": (
+            request.station.chainFingerprint if request.station is not None else "core"
+        ),
+        "origin_grid4": request.origin_grid4,
+        "target_grid4": str(response["target_grid4"]),
+        "issue_time": request.issue_time.isoformat(),
+        "valid_time": request.valid_time.isoformat(),
+        "band": request.band,
+        "mode": request.mode,
+        "declared_power_watts": request.declared_power_watts,
+        "core_probability": float(response["core_probability"]),
+        "personalized_probability": float(response["personalized_probability"]),
+        "confidence": float(response["confidence"]),
+        "ood_flags": list(response["ood_flags"]),
+        "freshness": dict(response["data_freshness"]),
+        "assumptions": list(response["assumptions"]),
+        "research_subject_binding": request.research_subject_binding.model_dump(
+            mode="json"
+        ),
+    }
+    signed_payload = canonical_research_receipt_payload(payload)
+    return {
+        "signed_payload": signed_payload,
+        "hmac_sha256": research_receipt_signature(signed_payload, secret),
+    }
+
+
 def prediction_response(request: PathRequest, runtime: RuntimePrediction) -> dict[str, Any]:
     personalized = runtime.probability
     confidence = runtime.confidence
@@ -726,6 +807,7 @@ def create_app(
     telemetry_sink: Callable[[dict[str, Any]], None] | None = None,
     path_history_provider: PathHistoryProvider | None = None,
     operational_weather_provider: OperationalWeatherProvider | None = None,
+    research_receipt_secret: str | None = None,
 ) -> FastAPI:
     runtime = registry
     if runtime is None:
@@ -735,6 +817,18 @@ def create_app(
         inference_mode
         if inference_mode is not None
         else os.environ.get("PROPULSE_INFERENCE_MODE")
+    )
+    selected_research_receipt_secret = (
+        research_receipt_secret
+        if research_receipt_secret is not None
+        else os.environ.get("PROPULSE_RESEARCH_RECEIPT_SECRET", "")
+    )
+    if selected_research_receipt_secret and len(selected_research_receipt_secret) < 32:
+        raise RuntimeError(
+            "PROPULSE_RESEARCH_RECEIPT_SECRET must be at least 32 characters"
+        )
+    research_receipts_enabled = bool(
+        selected_research_receipt_secret and selected_inference_mode == "active"
     )
     runtime_feature_contract = str(
         getattr(runtime, "core_feature_contract", "unknown")
@@ -774,6 +868,8 @@ def create_app(
             "checked_at": datetime.now(timezone.utc),
             "inference_mode": selected_inference_mode,
             "telemetry_schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
+            "research_receipt_schema_version": RESEARCH_RECEIPT_SCHEMA_VERSION,
+            "research_receipts_enabled": research_receipts_enabled,
             "path_history_provider": history_provider.name,
             "path_history_transform_version": history_provider.transform_version,
             "operational_weather_provider": weather_provider.name,
@@ -810,6 +906,13 @@ def create_app(
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
         response = prediction_response(verified_request, prediction)
+        if research_receipts_enabled and verified_request.research_subject_binding:
+            response["research_receipt"] = build_research_receipt(
+                verified_request,
+                response,
+                core_feature_contract=runtime_feature_contract,
+                secret=selected_research_receipt_secret,
+            )
         if selected_inference_mode != "disabled":
             try:
                 emit_telemetry(shadow_telemetry_event(

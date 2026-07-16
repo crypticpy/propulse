@@ -688,6 +688,19 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Deploy and invoke the authenticated off-M5 monitor from a GitHub-hosted
   runner against the protected preview; verify a fresh identity-free heartbeat,
   zero delivery failures, and a disabled public reader.
+- [x] Implement and deploy the opt-in beta measurement boundary: versioned
+  independently selectable consent, explicit retention acknowledgement,
+  active-only signed prediction receipts, pseudonymous account binding,
+  one attempt per prediction, outcome-after-attempt enforcement, service-role
+  writes, and disabled-by-default product/API gates. Rollback validation passed
+  13/13 gates and deployed-state validation passed 14/14 without reading locked
+  outcomes or collecting real operator data.
+- [x] Pass one uninterrupted native-M5 repository verification: V4 `21/21`,
+  service `69/69`, V4.1 `37/37`, V4.2 `112/112`, and frontend/API `66/66`
+  tests, plus lint, TypeScript, production build, tracked-artifact rules, and
+  bundle budgets. The refreshed visual report passed canonical packaging,
+  source-dialog interaction, and browser QA at 1,440 px and 390 px with eight
+  charts, 13 metrics, and three evidence tables.
 - [ ] Configure a remote alert destination, smoke an actual stale alert plus
   genuine-heartbeat recovery and full-M5-outage delivery, and only then enable
   the server/frontend view flags.
@@ -744,8 +757,11 @@ to `main` in PR `#8`, without the model or product changes, then passed a
 default-branch protected-preview invocation at immutable run `29482048362`:
 the private heartbeat was fresh at 184 seconds, no transition occurred, no
 delivery failed or exhausted retries, and the public reader remained disabled.
+The first real calendar invocation then passed at immutable scheduled run
+`29485741095` on the same `main` commit: the heartbeat was healthy at 2,035
+seconds, no transition occurred, and failed/exhausted deliveries remained zero.
 The temporary feature-branch push trigger was removed and the twice-hourly
-schedule is active. An approved subscriber-facing source, real stale
+schedule is now operationally proven. An approved subscriber-facing source, real stale
 alert/recovery webhook delivery smoke,
 30-day live coverage, beta outcomes, and prospective evidence remain open.
 
@@ -780,11 +796,11 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `4/4`
-expected hours, 100% scheduled completion, zero gaps, and `4/720` required
-hours through target `2026-07-16T06:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `1,022,042`
-observations and `275,834` feature cells with the same bounded 18-thread
+The automatic duration rollup is operationally healthy at `5/5`
+expected hours, 100% scheduled completion, zero gaps, and `5/720` required
+hours through target `2026-07-16T07:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `1,288,941`
+observations and `345,162` feature cells with the same bounded 18-thread
 profile. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current

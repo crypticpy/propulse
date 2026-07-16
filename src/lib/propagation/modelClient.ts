@@ -18,6 +18,18 @@ export interface PathPredictionRequest {
   features: PredictionCell;
   station?: StationFeatureEnvelope;
   data_freshness_seconds?: Record<string, number>;
+  research_subject_binding?: ResearchSubjectBinding;
+}
+
+export interface ResearchSubjectBinding {
+  schema_version: "propagation-research-subject-v1";
+  expires_at: string;
+  hmac_sha256: string;
+}
+
+export interface SignedResearchReceipt {
+  signed_payload: string;
+  hmac_sha256: string;
 }
 
 export interface SurfacePredictionRequest
@@ -41,6 +53,8 @@ export interface PropagationPrediction {
   top_factors: string[];
   assumptions: string[];
   profile: "physics" | "nowcast" | string;
+  /** Present only for active, server-authorized beta outcome collection. */
+  research_receipt?: SignedResearchReceipt;
 }
 
 export interface SurfacePredictionResponse {

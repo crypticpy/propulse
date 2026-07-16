@@ -38,6 +38,10 @@ INPUTS = {
     / "research_health_monitor_deployment_validation.json",
     "research_health_external_monitor_validation": RESULT
     / "research_health_external_monitor_validation.json",
+    "research_participation_migration_validation": RESULT
+    / "research_participation_migration_validation.json",
+    "research_participation_deployment_validation": RESULT
+    / "research_participation_deployment_validation.json",
     "operational_weather_validation": RESULT / "operational_weather_validation.json",
     "orchestration_validation": RESULT / "orchestration_validation.json",
     "wspr_live_connector_validation": RESULT / "wspr_live_connector_validation.json",
@@ -113,6 +117,8 @@ def build_evidence(
     research_health_monitor_migration_validation: dict[str, Any],
     research_health_monitor_deployment_validation: dict[str, Any],
     research_health_external_monitor_validation: dict[str, Any],
+    research_participation_migration_validation: dict[str, Any],
+    research_participation_deployment_validation: dict[str, Any],
     operational_weather_validation: dict[str, Any],
     orchestration_validation: dict[str, Any],
     wspr_live_connector_validation: dict[str, Any],
@@ -171,6 +177,22 @@ def build_evidence(
         raise RuntimeError("research-health monitor deployment validation did not pass")
     if research_health_external_monitor_validation.get("decision") != "pass":
         raise RuntimeError("external research-health monitor validation did not pass")
+    if (
+        research_participation_migration_validation.get("decision") != "pass"
+        or research_participation_migration_validation.get("migration_deployed")
+        is not False
+        or research_participation_migration_validation.get("persistent_changes")
+        is not False
+    ):
+        raise RuntimeError("research participation rollback validation did not pass")
+    if (
+        research_participation_deployment_validation.get("decision") != "pass"
+        or research_participation_deployment_validation.get("migration_deployed")
+        is not True
+        or research_participation_deployment_validation.get("persistent_changes")
+        is not False
+    ):
+        raise RuntimeError("research participation deployment validation did not pass")
     if orchestration_validation.get("decision") != "pass":
         raise RuntimeError("live orchestration validation did not pass")
     if wspr_live_connector_validation.get("decision") != "pass":
@@ -198,6 +220,8 @@ def build_evidence(
             research_health_monitor_migration_validation,
             research_health_monitor_deployment_validation,
             research_health_external_monitor_validation,
+            research_participation_migration_validation,
+            research_participation_deployment_validation,
             operational_weather_validation,
             orchestration_validation,
             wspr_live_connector_validation,
@@ -310,6 +334,23 @@ def build_evidence(
             research_health_external_monitor_validation["response"][
                 "heartbeat_age_seconds"
             ]
+        ),
+        "research_health_external_monitor_event": str(
+            research_health_external_monitor_validation["workflow_run"]["event"]
+        ),
+        "research_participation_rollback_gates_passed": sum(
+            bool(value)
+            for value in research_participation_migration_validation["gates"].values()
+        ),
+        "research_participation_rollback_gates_total": len(
+            research_participation_migration_validation["gates"]
+        ),
+        "research_participation_deployment_gates_passed": sum(
+            bool(value)
+            for value in research_participation_deployment_validation["gates"].values()
+        ),
+        "research_participation_deployment_gates_total": len(
+            research_participation_deployment_validation["gates"]
         ),
         "weather_gates_passed": sum(
             bool(value)
@@ -528,6 +569,16 @@ def build_evidence(
         "status": "pass" if passed else "fail",
     } for name, passed in research_health_external_monitor_validation["gates"].items())
     gate_rows.extend({
+        "scope": "Opt-in outcomes rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_participation_migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Opt-in outcomes deployment",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_participation_deployment_validation["gates"].items())
+    gate_rows.extend({
         "scope": "Trusted operational weather",
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
@@ -661,6 +712,20 @@ def build_evidence(
             ]["alert_delivery"]["configured"],
             "public_view_enabled": False,
             "aggregate_only": True,
+        },
+        "research_participation": {
+            "policy_version": "propagation-research-v1-2026-07-12",
+            "receipt_schema": "propagation-research-receipt-v1",
+            "subject_binding_schema": "propagation-research-subject-v1",
+            "rollback_scope": research_participation_migration_validation["scope"],
+            "rollback_gates": research_participation_migration_validation["gates"],
+            "deployment_scope": research_participation_deployment_validation["scope"],
+            "deployment_gates": research_participation_deployment_validation["gates"],
+            "migration_deployed": True,
+            "frontend_enabled": False,
+            "server_enabled": False,
+            "signed_receipts_enabled": False,
+            "real_consents_or_outcomes_collected": False,
         },
         "transform": {
             "version": transform["transform"]["transform_version"],
@@ -846,6 +911,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "research_health_external_monitor_gates_passed",
                 "GitHub-hosted fresh-heartbeat invocation, privacy, scheduling, and disabled-reader gates.",
             ),
+            (
+                "outcome_boundary_gates",
+                "Outcome boundary gates",
+                "research_participation_deployment_gates_passed",
+                "Deployed consent, account-bound receipt, RLS, replay, and write-authority gates.",
+            ),
         )
     ]
     charts = [
@@ -1005,10 +1076,16 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"The additive off-M5 monitor passed **{summary['research_health_monitor_rollback_gates_passed']} of "
                 f"{summary['research_health_monitor_rollback_gates_total']}** rollback gates and **{summary['research_health_monitor_deployment_gates_passed']} of "
                 f"{summary['research_health_monitor_deployment_gates_total']}** deployed-state gates while preserving the source heartbeat timestamp. "
-                f"A GitHub-hosted runner then passed **{summary['research_health_external_monitor_gates_passed']} of "
+                f"A GitHub-hosted **{summary['research_health_external_monitor_event']}** invocation then passed "
+                f"**{summary['research_health_external_monitor_gates_passed']} of "
                 f"{summary['research_health_external_monitor_gates_total']}** external-invocation gates against the protected preview, "
                 f"observing a healthy heartbeat **{summary['research_health_external_monitor_age_seconds']} seconds** old with no transition "
                 "and zero failed or exhausted deliveries. "
+                f"The opt-in outcome boundary passed **{summary['research_participation_rollback_gates_passed']} of "
+                f"{summary['research_participation_rollback_gates_total']}** rollback gates and **{summary['research_participation_deployment_gates_passed']} of "
+                f"{summary['research_participation_deployment_gates_total']}** deployed-state gates. Active predictions can carry a short-lived "
+                "account-bound signed receipt; the API requires current versioned consent and creates an explicit attempt before accepting any failure. "
+                "Collection remains double-disabled and the signing secret is unset. "
                 f"Trusted operational weather then passed **{summary['weather_gates_passed']} of {summary['weather_gates_total']}** "
                 f"gates with **{summary['weather_feature_count']} causal fields** at **{summary['weather_path_p95_ms']:.2f} ms** cached path p95. "
                 f"Signed hourly orchestration passed **{summary['orchestration_gates_passed']} of {summary['orchestration_gates_total']}** "
@@ -1154,6 +1231,27 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "`collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
             ),
         },
+        {
+            "id": "outcomes_heading",
+            "type": "markdown",
+            "body": "## Beta outcome instrumentation is implemented but intentionally inactive",
+        },
+        {
+            "id": "outcomes_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The participation migration passed **{summary['research_participation_rollback_gates_passed']} of "
+                f"{summary['research_participation_rollback_gates_total']} rollback gates** and **{summary['research_participation_deployment_gates_passed']} of "
+                f"{summary['research_participation_deployment_gates_total']} deployed-state gates** on PostgreSQL 17.6. "
+                "Consent is policy-versioned, independently selectable, retained with explicit retention acknowledgement, and revocable. "
+                "An active path prediction receives a receipt only when the signed-in consenting account supplies a short-lived pseudonymous "
+                "subject binding. The model signs only coarse path and versioned prediction provenance, never raw equipment or exact coordinates. "
+                "The authenticated API verifies the receipt and account binding, enforces one attempt per prediction, and refuses outcomes without "
+                "an explicit attempt. Direct browser inserts and updates are revoked. No real consent or outcome was collected for this validation, "
+                "and both collection gates remain off."
+            ),
+        },
         {"id": "gates", "type": "table", "tableId": "gate_table", "layout": "full"},
         {"id": "method_heading", "type": "markdown", "body": "## Method, data, and execution"},
         {
@@ -1186,6 +1284,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "checks, leaves fresh or missing state unchanged, and lets the next genuine heartbeat emit recovery. "
                 "A GitHub-hosted Ubuntu runner then invoked the protected monitor endpoint at an immutable workflow run and commit, verified a fresh "
                 "identity-free response, and recorded zero failed or exhausted deliveries. The proof did not configure or exercise a webhook. "
+                "A final additive migration revoked browser write authority over consent, attempt, and outcome records while retaining user-scoped "
+                "reads and deletes. Its rollback and deployed-state validators checked the allowed-use constraint, retention acknowledgement, "
+                "one-attempt index, RLS, grants, and ledger. Active-only inference receipts are HMAC-signed and carry a second short-lived "
+                "pseudonymous binding that the product API recomputes for the authenticated account. "
                 "A real hardened NOAA capture separately verified the operational-weather path against A6."
             ),
         },
@@ -1220,7 +1322,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "The signed heartbeat path is active, "
                 "but the product-health reader remains intentionally hidden until alert/recovery delivery and the source release gate pass. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
-                "continues to mix propagation with network behavior, and 6m remains a separate model."
+                "continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic "
+                "and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X "
+                "coverage, selection bias, or core-versus-StationCast prospective lift."
             ),
         },
         {"id": "limit_table_block", "type": "table", "tableId": "limit_table", "layout": "full"},
@@ -1308,11 +1412,19 @@ end-to-end gates. The off-M5 monitor migration passed
 `{summary['research_health_monitor_rollback_gates_passed']}/{summary['research_health_monitor_rollback_gates_total']}`
 rollback and
 `{summary['research_health_monitor_deployment_gates_passed']}/{summary['research_health_monitor_deployment_gates_total']}`
-deployed-state gates. Its GitHub-hosted invocation passed
+deployed-state gates. Its GitHub-hosted
+`{summary['research_health_external_monitor_event']}` invocation passed
 `{summary['research_health_external_monitor_gates_passed']}/{summary['research_health_external_monitor_gates_total']}`
 gates with a fresh heartbeat `{summary['research_health_external_monitor_age_seconds']}`
 seconds old. A real alert destination and alert/recovery smoke remain open;
 the double-gated public reader remains disabled.
+The opt-in outcome boundary passed
+`{summary['research_participation_rollback_gates_passed']}/{summary['research_participation_rollback_gates_total']}`
+rollback and
+`{summary['research_participation_deployment_gates_passed']}/{summary['research_participation_deployment_gates_total']}`
+deployed-state gates. Account-bound signed receipts and explicit attempts now
+protect failure labels, but collection remains disabled and no beta outcomes
+have been gathered.
 See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
@@ -1353,6 +1465,12 @@ def main() -> None:
     research_health_external_monitor_validation = read_json(
         INPUTS["research_health_external_monitor_validation"]
     )
+    research_participation_migration_validation = read_json(
+        INPUTS["research_participation_migration_validation"]
+    )
+    research_participation_deployment_validation = read_json(
+        INPUTS["research_participation_deployment_validation"]
+    )
     operational_weather_validation = read_json(
         INPUTS["operational_weather_validation"]
     )
@@ -1379,6 +1497,8 @@ def main() -> None:
         research_health_monitor_migration_validation,
         research_health_monitor_deployment_validation,
         research_health_external_monitor_validation,
+        research_participation_migration_validation,
+        research_participation_deployment_validation,
         operational_weather_validation,
         orchestration_validation,
         wspr_live_connector_validation,

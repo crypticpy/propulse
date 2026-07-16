@@ -1,6 +1,6 @@
 # Propulse ML — Contact Probability Model
 
-> **Status, 2026-07-15**: Personalized Propagation V4.2 completed its 50M-row
+> **Status, 2026-07-16**: Personalized Propagation V4.2 completed its 50M-row
 > performance recovery, untouched December 2024 gate, and locked four-month
 > 2025 archive on the 128 GiB M5 Max. The frozen A6 blend improved Brier versus
 > frozen V3/B2 by `2.354%` on October-November development, `2.038%` on
@@ -12,6 +12,13 @@
 > [data card](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/DATA_CARD.md),
 > [V4.2 plan](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md), and
 > [M5 runbook](PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md).
+> The server-authoritative live-feature foundation, causal replay, scheduled M5
+> research pipeline, and first real GitHub schedule event now pass their gates;
+> see the [live research report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html).
+> The receipt window is only `5/720` hours, subscriber-facing source permission
+> and remote alert smoke remain open, and opt-in outcome instrumentation is
+> deployed but disabled. These results do not authorize prospective or learned-
+> personalization claims.
 > The original V4 M2 gate failure remains published rather than overwritten.
 > Archive V3 context remains in its [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md)
 > and [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md).

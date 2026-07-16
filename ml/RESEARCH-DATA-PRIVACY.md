@@ -79,3 +79,26 @@ Allowed uses are independently selectable:
   not contain user IDs, callsigns, exact coordinates, or raw equipment JSON.
 - A documented incident process suspends outcome collection and training export
   on any suspected privacy leak.
+
+## Implemented beta boundary
+
+The inactive beta instrumentation uses policy version
+`propagation-research-v1-2026-07-12`. The browser may read its own records but
+cannot insert or update research consent, attempts, or outcomes directly. An
+authenticated, independently gated product API owns those service-role writes.
+
+Active path inference may issue `propagation-research-receipt-v1` only when the
+server signing secret is configured and the request carries a current
+`propagation-research-subject-v1` binding. The binding contains an expiry and
+HMAC, not a user ID; the product API recomputes it for the authenticated user.
+The receipt signs only model/feature versions, grid4 path, band, mode, declared
+power, bounded chain fingerprint, probabilities, confidence, freshness, OOD
+flags, assumptions, and timestamps. Raw equipment and exact coordinates are
+excluded.
+
+The API verifies both signatures, current consent, and the allowed use before
+copying receipt fields into `propagation_predictions`. A unique partial index
+allows one explicit attempt per signed prediction. Every outcome references an
+attempt through the existing composite foreign key, so a prediction view alone
+cannot become either a success or failure. Frontend/API collection flags remain
+off and the signing secret remains unset until the beta gate is approved.

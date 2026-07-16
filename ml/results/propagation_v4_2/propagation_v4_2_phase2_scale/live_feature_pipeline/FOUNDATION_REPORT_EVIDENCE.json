@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T08:06:40.922475+00:00",
+  "generated_at": "2026-07-16T09:15:18.532878+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -63,7 +63,17 @@
     {
       "id": "research_health_external_monitor_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_external_monitor_validation.json",
-      "sha256": "161d06de441b675ba1390d6ccede76526af3bfef1af20eb2688636640d7e1ede"
+      "sha256": "d65ffc9d0a55c01c52f29f562f75e67e246c21738d88d7c40ea3a3629a1847d0"
+    },
+    {
+      "id": "research_participation_migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_participation_migration_validation.json",
+      "sha256": "7382feb050ccdb6d365d33793a93f4d33d1f6c9866d1e4014a3f25b9a82cb1d4"
+    },
+    {
+      "id": "research_participation_deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_participation_deployment_validation.json",
+      "sha256": "f743d535cc2782c5bc3b069bcdd450153f311f967f4f2e618488a0e864bae413"
     },
     {
       "id": "operational_weather_validation",
@@ -93,7 +103,7 @@
     {
       "id": "wspr_research_shadow_progress",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "201d744303765fa2fd2b261ebabcb2f4df70b7f8dffc320a5651d27f2030c276"
+      "sha256": "f723963dd8b538f7cbea2fce1fc26723c7c32ef5f71206f94aaa26e17cb9bdf9"
     }
   ],
   "bundle": {
@@ -316,18 +326,18 @@
       "identity_free_evidence": true
     },
     "external_monitor_run": {
-      "id": 29482048362,
-      "url": "https://github.com/crypticpy/propulse/actions/runs/29482048362",
+      "id": 29485741095,
+      "url": "https://github.com/crypticpy/propulse/actions/runs/29485741095",
       "head_sha": "42255fa855358dc6afbca7b27e018ea2cd7a2c2c",
       "conclusion": "success",
-      "event": "workflow_dispatch",
+      "event": "schedule",
       "head_branch": "main"
     },
     "external_monitor_response": {
       "evaluated": true,
       "heartbeat_stale": false,
       "state_changed": false,
-      "heartbeat_age_seconds": 184,
+      "heartbeat_age_seconds": 2035,
       "alert_delivery": {
         "configured": false,
         "failed": 0,
@@ -342,6 +352,49 @@
     "alert_delivery_configured": false,
     "public_view_enabled": false,
     "aggregate_only": true
+  },
+  "research_participation": {
+    "policy_version": "propagation-research-v1-2026-07-12",
+    "receipt_schema": "propagation-research-receipt-v1",
+    "subject_binding_schema": "propagation-research-subject-v1",
+    "rollback_scope": "research_participation_target_postgres_rollback_validation",
+    "rollback_gates": {
+      "retention_acknowledgement_column_present": true,
+      "allowed_uses_constraint_validated": true,
+      "allowed_uses_are_strictly_enumerated": true,
+      "one_attempt_per_signed_prediction": true,
+      "exact_user_read_delete_policies_present": true,
+      "browser_insert_update_revoked": true,
+      "service_role_write_boundary_present": true,
+      "research_tables_rls_enabled": true,
+      "rollback_restored_original_boundary": true,
+      "persistent_test_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "deployment_scope": "research_participation_target_postgres_deployment_validation",
+    "deployment_gates": {
+      "retention_acknowledgement_column_present": true,
+      "allowed_uses_constraint_validated": true,
+      "allowed_uses_are_strictly_enumerated": true,
+      "one_attempt_per_signed_prediction": true,
+      "exact_user_read_delete_policies_present": true,
+      "browser_insert_update_revoked": true,
+      "service_role_write_boundary_present": true,
+      "research_tables_rls_enabled": true,
+      "deployment_ledger_exact": true,
+      "rollback_restored_original_boundary": true,
+      "persistent_test_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "migration_deployed": true,
+    "frontend_enabled": false,
+    "server_enabled": false,
+    "signed_receipts_enabled": false,
+    "real_consents_or_outcomes_collected": false
   },
   "transform": {
     "version": "wspr-opportunity-duckdb-v1",
@@ -613,38 +666,38 @@
     "decision": "collecting",
     "operational_status": "healthy",
     "window": {
-      "completed_hours": 4,
+      "completed_hours": 5,
       "completion_rate": 1.0,
-      "continuous_completed_hours": 4,
-      "expected_hours": 4,
-      "last_completed_target_hour": "2026-07-16T06:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T06:00:00+00:00",
+      "continuous_completed_hours": 5,
+      "expected_hours": 5,
+      "last_completed_target_hour": "2026-07-16T07:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T07:00:00+00:00",
       "minimum_hours": 720,
       "missing_hours": 0,
       "start_target_hour": "2026-07-16T03:00:00+00:00"
     },
     "totals": {
-      "feature_cells": 275834,
+      "feature_cells": 345162,
       "records_by_band": {
-        "10m": 12824,
-        "12m": 5900,
-        "15m": 26945,
-        "160m": 12371,
-        "17m": 30489,
-        "20m": 300850,
-        "30m": 201918,
-        "40m": 331818,
-        "60m": 12258,
-        "80m": 86669
+        "10m": 18745,
+        "12m": 7859,
+        "15m": 36371,
+        "160m": 14436,
+        "17m": 40282,
+        "20m": 388615,
+        "30m": 254030,
+        "40m": 410832,
+        "60m": 14215,
+        "80m": 103556
       },
-      "source_records": 1022042
+      "source_records": 1288941
     },
     "performance": {
       "completion_latency_max_seconds": 1681.07353,
-      "completion_latency_p95_seconds": 1653.2326899999998,
+      "completion_latency_p95_seconds": 1669.9439364,
       "connector_peak_rss_max_mib": 161.0,
-      "connector_wall_p95_seconds": 66.36339319999999,
-      "finalizer_wall_p95_seconds": 490.0273114999999
+      "connector_wall_p95_seconds": 65.80472119999999,
+      "finalizer_wall_p95_seconds": 638.0479232
     },
     "gates": {
       "all_receipts_and_manifests_valid": true,
@@ -700,7 +753,12 @@
         "research_health_monitor_deployment_gates_total": 18,
         "research_health_external_monitor_gates_passed": 14,
         "research_health_external_monitor_gates_total": 14,
-        "research_health_external_monitor_age_seconds": 184,
+        "research_health_external_monitor_age_seconds": 2035,
+        "research_health_external_monitor_event": "schedule",
+        "research_participation_rollback_gates_passed": 13,
+        "research_participation_rollback_gates_total": 13,
+        "research_participation_deployment_gates_passed": 14,
+        "research_participation_deployment_gates_total": 14,
         "weather_gates_passed": 14,
         "weather_gates_total": 14,
         "weather_feature_count": 14,
@@ -725,7 +783,7 @@
         "schedule_finalizer_seconds": 171.515254,
         "schedule_peak_rss_mib": 161.0,
         "schedule_target_hour": "2026-07-16T04:00:00+00:00",
-        "shadow_completed_hours": 4,
+        "shadow_completed_hours": 5,
         "shadow_required_hours": 720,
         "shadow_completion_rate_percent": 100.0,
         "shadow_missing_hours": 0
@@ -919,12 +977,12 @@
       {
         "window": "30-day receipt shadow",
         "state": "Completed",
-        "hours": 4
+        "hours": 5
       },
       {
         "window": "30-day receipt shadow",
         "state": "Remaining",
-        "hours": 716
+        "hours": 715
       }
     ],
     "gate_rows": [
@@ -1749,6 +1807,141 @@
         "status": "pass"
       },
       {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "retention acknowledgement column present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "allowed uses constraint validated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "allowed uses are strictly enumerated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "one attempt per signed prediction",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "exact user read delete policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "browser insert update revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "service role write boundary present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "research tables rls enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "rollback restored original boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "persistent test changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "retention acknowledgement column present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "allowed uses constraint validated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "allowed uses are strictly enumerated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "one attempt per signed prediction",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "exact user read delete policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "browser insert update revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "service role write boundary present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "research tables rls enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "deployment ledger exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "rollback restored original boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "persistent test changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
         "scope": "Trusted operational weather",
         "gate": "target snapshot verified",
         "status": "pass"
@@ -2180,7 +2373,7 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "4 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        "evidence_limit": "5 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
       }
     ]
   }

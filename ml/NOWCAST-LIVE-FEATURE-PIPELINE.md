@@ -93,15 +93,17 @@
 > M5-to-endpoint-to-private-store gates while the public reader remained off.
 > A GitHub-hosted runner then passed the independent default-branch protected
 > fresh-heartbeat path at 184 seconds old with zero failed or exhausted
-> deliveries. Its twice-hourly schedule is active; the real stale alert/recovery
+> deliveries. The first real calendar event also passed at immutable scheduled
+> run `29485741095`: the heartbeat was healthy at 2,035 seconds with no state
+> change and zero failed or exhausted deliveries. The real stale alert/recovery
 > webhook smoke remains open.
 > The 30-day clock has started; subscriber permission, remote alert delivery,
 > System Health activation, beta outcomes, and long-window evidence remain open.
 > An automatic identity-free rollup re-verifies every receipt and signed
 > manifest, fixes the duration at 720 expected hours and scheduled completion at
 > 99%. Actual minute-15 calendar events completed without RunAtLoad or manual
-> targets, advancing the operationally healthy rollup to `4/4` expected hours,
-> zero gaps, and `collecting` status at `4/720` through `2026-07-16T06:00:00Z`.
+> targets, advancing the operationally healthy rollup to `5/5` expected hours,
+> zero gaps, and `collecting` status at `5/720` through `2026-07-16T07:00:00Z`.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
@@ -384,6 +386,10 @@ explicitly labeled and does not satisfy the live requirement above.
   server/frontend view flags; keep inference and provider gates unchanged.
 - [ ] Complete the 30-day permitted receipt-time research shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.
+- [x] Deploy the inactive beta outcome boundary with versioned opt-in consent,
+  account-bound signed prediction receipts, explicit attempts, and no
+  viewed-prediction negatives. Collection remains off until authorization and
+  beta approval.
 - [x] Add explicit frontend/service shadow execution with aggregate-only
   telemetry and hidden model UI; requests remain on physics until the complete
   causal H-1/H-2/H-3/H-24 history window exists.

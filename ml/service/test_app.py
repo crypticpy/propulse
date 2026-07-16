@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import unittest
 from datetime import timedelta
 
@@ -23,6 +24,7 @@ from app import (
     blend_probabilities,
     create_app,
     model_feature_value,
+    research_receipt_signature,
     resolve_inference_mode,
     resolve_xgboost_prediction_threads,
 )
@@ -148,6 +150,11 @@ def request_payload():
             "warningCodes": [],
             "assumptions": ["local_noise_not_measured"],
         },
+        "research_subject_binding": {
+            "schema_version": "propagation-research-subject-v1",
+            "expires_at": "2026-07-12T10:00:00Z",
+            "hmac_sha256": "a" * 64,
+        },
         "data_freshness_seconds": {"path_history": 60},
     }
 
@@ -169,6 +176,80 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(body["core_probability"], 0.4)
         self.assertGreater(body["personalized_probability"], body["core_probability"])
         self.assertEqual(body["model_version"], "v4-test")
+        self.assertNotIn("research_receipt", body)
+
+    def test_active_path_emits_a_signed_minimized_research_receipt(self):
+        secret = "test-research-receipt-secret-at-least-32-chars"
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="active",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
+            research_receipt_secret=secret,
+        ))
+        response = client.post("/v1/propagation/path", json=request_payload())
+        self.assertEqual(response.status_code, 200)
+        receipt = response.json()["research_receipt"]
+        payload = json.loads(receipt["signed_payload"])
+
+        self.assertEqual(payload["schema_version"], "propagation-research-receipt-v1")
+        self.assertEqual(payload["model_version"], "v4-test")
+        self.assertEqual(payload["feature_contract"], "archive-v4-features-test-v1")
+        self.assertEqual(payload["station_feature_contract"], "station-chain-v1")
+        self.assertEqual(payload["chain_fingerprint"], "fixture:test")
+        self.assertEqual(payload["origin_grid4"], "EM10")
+        self.assertEqual(payload["target_grid4"], "IO91")
+        self.assertNotIn("station", payload)
+        self.assertNotIn("values", payload)
+        self.assertNotIn("callsign", str(payload).lower())
+        self.assertEqual(
+            payload["research_subject_binding"]["schema_version"],
+            "propagation-research-subject-v1",
+        )
+        self.assertEqual(
+            receipt["hmac_sha256"],
+            research_receipt_signature(receipt["signed_payload"], secret),
+        )
+
+        health = client.get("/v1/propagation/health").json()
+        self.assertTrue(health["research_receipts_enabled"])
+        self.assertEqual(
+            health["research_receipt_schema_version"],
+            "propagation-research-receipt-v1",
+        )
+
+    def test_shadow_mode_never_emits_research_receipts(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
+            research_receipt_secret="test-research-receipt-secret-at-least-32-chars",
+        ))
+        response = client.post("/v1/propagation/path", json=request_payload())
+        self.assertNotIn("research_receipt", response.json())
+        self.assertFalse(client.get("/v1/propagation/health").json()["research_receipts_enabled"])
+
+    def test_active_path_without_subject_binding_never_emits_a_receipt(self):
+        payload = request_payload()
+        del payload["research_subject_binding"]
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="active",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
+            research_receipt_secret="test-research-receipt-secret-at-least-32-chars",
+        ))
+        response = client.post("/v1/propagation/path", json=payload)
+        self.assertNotIn("research_receipt", response.json())
+
+    def test_research_receipt_secret_fails_closed_when_too_short(self):
+        with self.assertRaisesRegex(RuntimeError, "at least 32 characters"):
+            create_app(
+                self.registry,
+                inference_mode="active",
+                research_receipt_secret="short",
+            )
 
     def test_missing_model_features_match_training_imputation(self):
         self.assertEqual(model_feature_value(None), 0.0)

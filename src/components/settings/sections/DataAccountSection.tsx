@@ -14,6 +14,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { ResearchParticipationSettings } from "@/components/settings/ResearchParticipationSettings";
 
 /** Format an ISO timestamp for display in the sync status line */
 function formatSyncTime(ts: string | null): string {
@@ -304,6 +305,8 @@ export function DataAccountSection() {
       )}
 
       {isSupabaseConfigured && <div className="border-t border-white/10" />}
+
+      <ResearchParticipationSettings />
 
       {/* ── 1. Export / Import Settings ─────────────────────────── */}
       <div className="space-y-4">

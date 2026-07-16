@@ -22,6 +22,8 @@ import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { BrainCircuit, Loader2, TriangleAlert } from "lucide-react";
+import { ResearchAttemptControl } from "@/components/propagation/ResearchAttemptControl";
+import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 
 /**
  * Band Planner Page
@@ -119,12 +121,14 @@ export function BandPlanner() {
     }),
     [currentKp, currentFlux, currentBz],
   );
+  const researchParticipation = useResearchParticipation();
   const modelNowCast = useNowCastBandPredictions({
     origin: stationCast.location,
     target: targetCoords,
     weather: modelWeather,
     weatherUpdatedAt: bandDataUpdatedAt,
     deriveEnvelope: stationCast.deriveEnvelope,
+    researchSubjectBinding: researchParticipation.state?.subjectBinding,
   });
 
   // Parse target grid and calculate coordinates
@@ -611,6 +615,7 @@ export function BandPlanner() {
                             <span>{prediction.profile === "physics" ? "Physics fallback" : "Nowcast"}</span>
                             <span>{Math.round(prediction.confidence * 100)}% conf.</span>
                           </div>
+                          <ResearchAttemptControl prediction={prediction} />
                         </div>
                       );
                     })}

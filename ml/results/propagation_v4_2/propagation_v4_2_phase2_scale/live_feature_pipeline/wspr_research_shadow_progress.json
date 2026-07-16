@@ -13,45 +13,45 @@
     "scheduled_completion_rate_at_least_99_percent": true,
     "secret_file_owner_only": true
   },
-  "generated_at": "2026-07-16T07:30:05.158515+00:00",
+  "generated_at": "2026-07-16T08:57:38.627667+00:00",
   "integrity_errors": {},
   "locked_outcomes_read": false,
   "missing_target_hours_sample": [],
   "operational_status": "healthy",
   "performance": {
     "completion_latency_max_seconds": 1681.07353,
-    "completion_latency_p95_seconds": 1653.2326899999998,
+    "completion_latency_p95_seconds": 1669.9439364,
     "connector_peak_rss_max_mib": 161.0,
-    "connector_wall_p95_seconds": 66.36339319999999,
-    "finalizer_wall_p95_seconds": 490.0273114999999
+    "connector_wall_p95_seconds": 65.80472119999999,
+    "finalizer_wall_p95_seconds": 638.0479232
   },
   "research_only": true,
   "schema_version": 1,
   "scope": "wspr_research_shadow_progress",
   "subscriber_facing_authorized": false,
   "totals": {
-    "feature_cells": 275834,
+    "feature_cells": 345162,
     "records_by_band": {
-      "10m": 12824,
-      "12m": 5900,
-      "15m": 26945,
-      "160m": 12371,
-      "17m": 30489,
-      "20m": 300850,
-      "30m": 201918,
-      "40m": 331818,
-      "60m": 12258,
-      "80m": 86669
+      "10m": 18745,
+      "12m": 7859,
+      "15m": 36371,
+      "160m": 14436,
+      "17m": 40282,
+      "20m": 388615,
+      "30m": 254030,
+      "40m": 410832,
+      "60m": 14215,
+      "80m": 103556
     },
-    "source_records": 1022042
+    "source_records": 1288941
   },
   "window": {
-    "completed_hours": 4,
+    "completed_hours": 5,
     "completion_rate": 1.0,
-    "continuous_completed_hours": 4,
-    "expected_hours": 4,
-    "last_completed_target_hour": "2026-07-16T06:00:00+00:00",
-    "latest_settled_target_hour": "2026-07-16T06:00:00+00:00",
+    "continuous_completed_hours": 5,
+    "expected_hours": 5,
+    "last_completed_target_hour": "2026-07-16T07:00:00+00:00",
+    "latest_settled_target_hour": "2026-07-16T07:00:00+00:00",
     "minimum_hours": 720,
     "missing_hours": 0,
     "start_target_hour": "2026-07-16T03:00:00+00:00"

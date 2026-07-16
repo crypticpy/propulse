@@ -78,6 +78,8 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
             values["research_health_monitor_migration_validation"],
             values["research_health_monitor_deployment_validation"],
             values["research_health_external_monitor_validation"],
+            values["research_participation_migration_validation"],
+            values["research_participation_deployment_validation"],
             values["operational_weather_validation"],
             values["orchestration_validation"],
             values["wspr_live_connector_validation"],
@@ -92,6 +94,11 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
         self.assertTrue(health["external_monitor_invoked"])
         self.assertFalse(health["alert_delivery_configured"])
         self.assertFalse(health["public_view_enabled"])
+        participation = evidence["research_participation"]
+        self.assertTrue(participation["migration_deployed"])
+        self.assertFalse(participation["frontend_enabled"])
+        self.assertFalse(participation["server_enabled"])
+        self.assertFalse(participation["real_consents_or_outcomes_collected"])
 
 
 if __name__ == "__main__":

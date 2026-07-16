@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T08:06:25.676897+00:00",
+  "generated_at": "2026-07-16T09:15:02.155013+00:00",
   "scope": "off_m5_protected_preview_fresh_heartbeat_validation",
   "research_only": true,
   "locked_outcomes_read": false,
   "public_view_enabled": false,
   "external_runner": "github_actions",
   "workflow_run": {
-    "id": 29482048362,
-    "url": "https://github.com/crypticpy/propulse/actions/runs/29482048362",
+    "id": 29485741095,
+    "url": "https://github.com/crypticpy/propulse/actions/runs/29485741095",
     "head_sha": "42255fa855358dc6afbca7b27e018ea2cd7a2c2c",
     "conclusion": "success",
-    "event": "workflow_dispatch",
+    "event": "schedule",
     "head_branch": "main"
   },
   "response": {
     "evaluated": true,
     "heartbeat_stale": false,
     "state_changed": false,
-    "heartbeat_age_seconds": 184,
+    "heartbeat_age_seconds": 2035,
     "alert_delivery": {
       "configured": false,
       "failed": 0,

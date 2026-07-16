@@ -9,6 +9,11 @@ describe("buildNowCastRequests", () => {
         target: { grid: "IO91aa", lat: 51.5, lon: -0.1 },
         weather: { kp: 2, f107: 145 },
         weatherUpdatedAt: Date.parse("2026-07-12T11:55:00Z"),
+        researchSubjectBinding: {
+          schema_version: "propagation-research-subject-v1",
+          expires_at: "2026-07-12T14:00:00Z",
+          hmac_sha256: "a".repeat(64),
+        },
         deriveEnvelope: (band, options) => ({
           featureContract: "station-chain-v1",
           chainFingerprint: `fixture:${band}`,
@@ -47,5 +52,10 @@ describe("buildNowCastRequests", () => {
     expect(requests[0].data_freshness_seconds?.path_history).toBeGreaterThan(7200);
     expect(requests[0].station).not.toHaveProperty("radioId");
     expect(requests[0].features.values.power_bin_dbm).toBe(45);
+    expect(requests[0].research_subject_binding).toEqual({
+      schema_version: "propagation-research-subject-v1",
+      expires_at: "2026-07-12T14:00:00Z",
+      hmac_sha256: "a".repeat(64),
+    });
   });
 });

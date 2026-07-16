@@ -8,4 +8,5 @@ interface ImportMetaEnv {
   readonly VITE_PROPAGATION_V4_MODE?: "off" | "shadow" | "active";
   readonly VITE_PROPAGATION_V4_ENABLED?: string;
   readonly VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED?: string;
+  readonly VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED?: string;
 }

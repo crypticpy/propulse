@@ -38,6 +38,23 @@ fingerprints, or raw equipment fields. Telemetry failure does not fail a
 prediction. The default sink writes structured JSON to the service logger;
 production storage must retain the same allowlisted schema.
 
+Opt-in beta outcomes use a separate active-only receipt boundary. Configure the
+same independent 32+ character secret in the inference service and product API
+only after beta approval:
+
+```bash
+export PROPULSE_RESEARCH_RECEIPT_SECRET="server-only-random-secret"
+```
+
+The path endpoint emits no research receipt in disabled or shadow mode, without
+a current pseudonymous subject binding, or without that secret. A receipt HMAC
+protects coarse prediction provenance and the subject binding ties it to the
+authenticated consenting account without exposing a user ID to the model. The
+product API, not the browser, verifies and persists the receipt. Surface calls
+never emit receipts. Both `VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED` and
+`PROPULSE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED` remain false until the beta
+release gate passes.
+
 Endpoints are `/v1/propagation/path`, `/surface`, `/models`, and `/health`.
 When recent path history is older than two hours, inference selects the physics
 profile and returns an explicit stale-data OOD flag. Missing freshness is stale,

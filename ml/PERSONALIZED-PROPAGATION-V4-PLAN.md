@@ -819,7 +819,11 @@ uncertainty; 6m passes both event and quiet-day tests.
   feature flag while preserving an explicit fallback.
 - [x] Add ReachMap to PropSphere across globe, flat, and azimuthal views.
 - [x] Add issue/valid time, freshness, confidence, and assumptions UI.
-- [ ] Instrument attempts/outcomes with opt-in consent.
+- [x] Instrument attempts/outcomes with opt-in consent behind independent
+  disabled-by-default frontend/server gates. Active path inference can issue a
+  short-lived HMAC receipt bound to the authenticated consenting account;
+  failures require an explicit server-recorded attempt. The additive database
+  boundary is deployed, but no real beta collection is enabled or claimed.
 
 **Gate:** contract, parity, privacy, RLS, accessibility, rendering, load, and
 fallback tests pass locally and in staging.

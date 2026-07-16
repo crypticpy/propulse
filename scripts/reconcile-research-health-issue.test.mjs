@@ -7,6 +7,7 @@ import {
 
 const REPOSITORY = "crypticpy/propulse";
 const TOKEN = "github-actions-token-with-test-length";
+const MARKER = "<!-- propulse-research-health-monitor -->";
 
 function monitor(overrides = {}) {
   return {
@@ -74,7 +75,7 @@ describe("research health GitHub issue destination", () => {
 
   it("does not duplicate or spam an unchanged open incident", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
-      json([{ number: 42, title: RESEARCH_HEALTH_ISSUE_TITLE }]),
+      json([{ number: 42, title: "renamed", body: MARKER }]),
     );
     const result = await reconcileResearchHealthIssue({
       payload: monitor({ heartbeatStale: true }),
@@ -90,7 +91,7 @@ describe("research health GitHub issue destination", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        json([{ number: 42, title: RESEARCH_HEALTH_ISSUE_TITLE }]),
+        json([{ number: 42, title: "renamed", body: MARKER }]),
       )
       .mockResolvedValueOnce(json({ id: 1 }, 201))
       .mockResolvedValueOnce(json({ number: 42, state: "closed" }));
@@ -131,7 +132,7 @@ describe("research health GitHub issue destination", () => {
 
   it("does not spam a continuing endpoint-outage incident", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
-      json([{ number: 7, title: RESEARCH_HEALTH_ISSUE_TITLE }]),
+      json([{ number: 7, title: "renamed", body: MARKER }]),
     );
     const result = await reconcileResearchHealthIssue({
       payload: { monitorUnavailable: true },
@@ -141,5 +142,35 @@ describe("research health GitHub issue destination", () => {
     });
     expect(result.action).toBe("unchanged");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports safe GitHub diagnostics without echoing response bodies", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response("sensitive upstream detail", {
+        status: 403,
+        headers: {
+          "x-github-request-id": "REQUEST-123",
+          "x-ratelimit-remaining": "0",
+        },
+      }),
+    );
+    await expect(
+      reconcileResearchHealthIssue({
+        payload: monitor(),
+        repository: REPOSITORY,
+        token: "x",
+        fetchImpl: fetchMock,
+      }),
+    ).rejects.toThrow(
+      "GitHub issue request failed with 403; request_id=REQUEST-123; rate_limit_remaining=0",
+    );
+    await expect(
+      reconcileResearchHealthIssue({
+        payload: monitor(),
+        repository: REPOSITORY,
+        token: "",
+        fetchImpl: fetchMock,
+      }),
+    ).rejects.toThrow("GITHUB_TOKEN is unavailable");
   });
 });

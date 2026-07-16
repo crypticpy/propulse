@@ -86,7 +86,12 @@ async function githubJson(fetchImpl, token, url, init = {}) {
   headers.set("X-GitHub-Api-Version", "2022-11-28");
   const response = await fetchImpl(url, { ...init, headers });
   if (!response.ok) {
-    throw new Error(`GitHub issue request failed with ${response.status}`);
+    const requestId = response.headers.get("x-github-request-id") ?? "unavailable";
+    const rateLimit =
+      response.headers.get("x-ratelimit-remaining") ?? "unavailable";
+    throw new Error(
+      `GitHub issue request failed with ${response.status}; request_id=${requestId}; rate_limit_remaining=${rateLimit}`,
+    );
   }
   return response.status === 204 ? null : response.json();
 }
@@ -99,7 +104,8 @@ function openMonitorIssue(rows) {
         typeof row === "object" &&
         row !== null &&
         !("pull_request" in row) &&
-        row.title === RESEARCH_HEALTH_ISSUE_TITLE &&
+        typeof row.body === "string" &&
+        row.body.includes(ISSUE_MARKER) &&
         Number.isInteger(row.number),
     ) ?? null
   );
@@ -137,7 +143,7 @@ export async function reconcileResearchHealthIssue({
   fetchImpl = fetch,
 }) {
   validateRepository(repository);
-  if (typeof token !== "string" || token.length < 20) {
+  if (typeof token !== "string" || token.length === 0) {
     throw new Error("GITHUB_TOKEN is unavailable");
   }
   const status = normalizeMonitorPayload(payload);

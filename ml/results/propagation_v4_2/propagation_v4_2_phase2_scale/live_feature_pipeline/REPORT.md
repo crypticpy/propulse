@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: live-feature foundation and replay report
 
-Generated: 2026-07-16T03:27:35.983589+00:00
+Generated: 2026-07-16T03:46:42.549038+00:00
 
 ## Answer first
 
@@ -18,7 +18,10 @@ The six-migration schema is deployed, and trusted operational weather passed
 `14/14` real-bundle gates.
 Signed hourly orchestration passed `9/9`
 gates with `18` bounded M5 threads.
-Live WSPR remains disabled pending source authorization, an authorized
-connector, activation of the signed production scheduler, and 30 days
-of real receipt-time shadow evidence. See `REPORT.html` for charts,
+The research-only connector passed `8/8`
+gates with `287,694` real observations in one bounded request
+at `57.6` MiB peak RSS. Continuous WSPR ingest remains
+disabled pending deliberate research scheduling; subscriber-facing use still
+requires source confirmation. The signed scheduler and 30 days of real
+receipt-time shadow evidence also remain open. See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.

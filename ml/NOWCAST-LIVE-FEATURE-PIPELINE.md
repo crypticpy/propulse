@@ -69,6 +69,13 @@
 > finalizes. The runner is tested but cannot be activated until a WSPR source is
 > authorized and its connector emits the required manifest.
 
+> Research connector update, 2026-07-16: the disabled-by-default WSPR.live
+> connector passed 8/8 real-source gates on the M5. One settled-hour request
+> streamed 287,694 valid rows across all ten HF bands in 23.11 seconds at 57.63
+> MiB peak RSS, removed its Projects-volume spool, and made no target write.
+> This validates the current source schema and bounded streaming path; it does
+> not authorize subscriber-facing use or start the 30-day evidence window.
+
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
 > Dst object schema, preserves Bx and proton temperature, and stores per-source
@@ -322,6 +329,8 @@ explicitly labeled and does not satisfy the live requirement above.
   remove browser weather/freshness claims, and pass real A6 target validation.
 - [x] Add the HMAC completion-manifest runner for bounded all-band finalization
   and prune-after-success orchestration; activation awaits an authorized source.
+- [x] Implement and real-source validate the double-gated WSPR.live research
+  connector without writing the target feature store.
 - [x] Add service-role-only batched path-history lookup and make the trusted
   model backend reject browser-provided lag values and freshness.
 - [x] Validate the real A6 bundle, fail-closed service behavior, aggregate-only

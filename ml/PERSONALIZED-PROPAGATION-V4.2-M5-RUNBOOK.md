@@ -135,6 +135,23 @@ watermark, and is safe to retry. The runner limits
 prunes only after every band succeeds. Use `--workers 2 --threads-per-band 9`
 on the M5; size both values to the production allocation elsewhere.
 
+The disabled-by-default WSPR.live research candidate is
+`ml/service/wspr_live_connector.py`. It uses one bounded streaming request per
+completed hour and spools to `/Volumes/Projects/PropulseML`, so source volume
+does not become Python heap. It may be exercised only with both
+`PROPULSE_WSPR_LIVE_RESEARCH_ENABLED=true` and
+`--acknowledge-research-only`; that is suitable for internal receipt-time
+research under the published free-project terms, not subscriber-facing use.
+Written confirmation or an independently permitted source remains the release
+gate.
+
+The real research dry-run passed all 8 gates for UTC hour
+`2026-07-16T02:00:00Z`: one request streamed `287,694` rows across every HF band
+in `23.1142` seconds at `57.625` MiB peak RSS, removed its transient spool, and
+performed no target write. Aggregate evidence is
+`live_feature_pipeline/wspr_live_connector_validation.json`. The send-ready
+source request is [`WSPR-LIVE-PERMISSION-REQUEST.md`](WSPR-LIVE-PERMISSION-REQUEST.md).
+
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,
 `1.1201` GiB peak RSS, identity-free telemetry, and forged browser freshness

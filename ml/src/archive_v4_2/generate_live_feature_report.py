@@ -28,6 +28,7 @@ INPUTS = {
     "deployment_validation": RESULT / "deployment_validation.json",
     "operational_weather_validation": RESULT / "operational_weather_validation.json",
     "orchestration_validation": RESULT / "orchestration_validation.json",
+    "wspr_live_connector_validation": RESULT / "wspr_live_connector_validation.json",
 }
 
 
@@ -91,6 +92,7 @@ def build_evidence(
     deployment_validation: dict[str, Any],
     operational_weather_validation: dict[str, Any],
     orchestration_validation: dict[str, Any],
+    wspr_live_connector_validation: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
         raise RuntimeError("transform parity did not pass")
@@ -113,6 +115,8 @@ def build_evidence(
         raise RuntimeError("operational-weather deployment validation did not pass")
     if orchestration_validation.get("decision") != "pass":
         raise RuntimeError("live orchestration validation did not pass")
+    if wspr_live_connector_validation.get("decision") != "pass":
+        raise RuntimeError("WSPR.live research connector validation did not pass")
     if any(
         value.get("locked_outcomes_read")
         for value in (
@@ -123,6 +127,7 @@ def build_evidence(
             deployment_validation,
             operational_weather_validation,
             orchestration_validation,
+            wspr_live_connector_validation,
         )
     ):
         raise RuntimeError("live-feature work must not read locked outcomes")
@@ -201,6 +206,20 @@ def build_evidence(
         "orchestration_threads": int(
             orchestration_validation["execution"]["maximum_compute_threads"]
         ),
+        "connector_gates_passed": sum(
+            bool(value)
+            for value in wspr_live_connector_validation["gates"].values()
+        ),
+        "connector_gates_total": len(wspr_live_connector_validation["gates"]),
+        "connector_rows": int(
+            wspr_live_connector_validation["source_record_count"]
+        ),
+        "connector_requests": int(
+            wspr_live_connector_validation["source_request_count"]
+        ),
+        "connector_peak_rss_mib": float(
+            wspr_live_connector_validation["performance"]["peak_rss_mib"]
+        ),
     }]
     parity_rows = []
     for month in event_replays:
@@ -249,6 +268,12 @@ def build_evidence(
             "limit_ms": 3000,
         },
     ]
+    source_band_rows = [
+        {"band": band, "observations": int(observations)}
+        for band, observations in wspr_live_connector_validation[
+            "records_by_band"
+        ].items()
+    ]
     gate_rows = [{
         "scope": "Foundation",
         "gate": name.replace("_", " "),
@@ -278,15 +303,20 @@ def build_evidence(
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
     } for name, passed in orchestration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Research source connector",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in wspr_live_connector_validation["gates"].items())
     blocker_rows = [
         {
             "remaining_work": work,
             "status": "required before live NowCast",
         }
         for work in (
-            "written source authorization or a self-operated source",
-            "authorized provider connector",
-            "activate the signed hourly finalizer/pruning runner and monitoring",
+            "written subscriber-facing source authorization or a self-operated source",
+            "deliberately schedule the validated research-only connector",
+            "activate the signed hourly finalizer/pruning runner and monitoring internally",
             "30-day real receipt-time shadow coverage and calibration evidence",
         )
     ]
@@ -297,7 +327,7 @@ def build_evidence(
     ]
     limit_rows.append({
         "evidence_limit": (
-            "the schema is deployed and smoke-verified, but no authorized live source or production scheduler is active"
+            "the schema is deployed and a one-hour research query passed, but no continuous source or scheduler is active"
         )
     })
     return {
@@ -350,12 +380,23 @@ def build_evidence(
             "execution": orchestration_validation["execution"],
             "gates": orchestration_validation["gates"],
         },
+        "research_connector": {
+            "provider": wspr_live_connector_validation["provider"],
+            "research_only": wspr_live_connector_validation["research_only"],
+            "target_hour": wspr_live_connector_validation["target_hour"],
+            "source_checkpoint_sha256": wspr_live_connector_validation[
+                "source_checkpoint_sha256"
+            ],
+            "performance": wspr_live_connector_validation["performance"],
+            "gates": wspr_live_connector_validation["gates"],
+        },
         "datasets": {
             "summary": summary,
             "parity_rows": parity_rows,
             "flow_rows": flow_rows,
             "receipt_rows": receipt_rows,
             "latency_rows": latency_rows,
+            "source_band_rows": source_band_rows,
             "gate_rows": gate_rows,
             "blocker_rows": blocker_rows,
             "limit_rows": limit_rows,
@@ -456,6 +497,16 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "y": {"field": "p95_ms", "type": "quantitative", "label": "p95 milliseconds"},
             },
         ),
+        chart(
+            "source_band_coverage",
+            "One settled research hour covers every HF band",
+            f"A single bounded WSPR.live request streamed {summary['connector_rows']:,} archive-compatible observations without a target write.",
+            "source_band_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "Band"},
+                "y": {"field": "observations", "type": "quantitative", "label": "Observations"},
+            },
+        ),
     ]
     tables = [
         {
@@ -487,7 +538,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         {
             "id": "blocker_table",
             "title": "Required work before live NowCast",
-            "subtitle": "The private store and trusted weather path are ready, but no live WSPR source is authorized.",
+            "subtitle": "The internal research connector is validated; continuous collection and subscriber-facing permission remain open.",
             "dataset": "blocker_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
@@ -524,7 +575,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"gates with **{summary['weather_feature_count']} causal fields** at **{summary['weather_path_p95_ms']:.2f} ms** cached path p95. "
                 f"Signed hourly orchestration passed **{summary['orchestration_gates_passed']} of {summary['orchestration_gates_total']}** "
                 f"gates while allocating all **{summary['orchestration_threads']} M5 CPU threads** without oversubscription. "
-                "The schema and weather path are ready for authorized-source integration; no live WSPR provider is approved."
+                f"A real research-only source dry-run then passed **{summary['connector_gates_passed']} of {summary['connector_gates_total']}** "
+                f"gates, streaming **{summary['connector_rows']:,} observations** in **{summary['connector_requests']} request** "
+                f"at **{summary['connector_peak_rss_mib']:.1f} MiB peak RSS**. Continuous ingest is not scheduled, and "
+                "subscriber-facing WSPR use still requires written confirmation or an independently permitted source."
             ),
         },
         {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
@@ -578,6 +632,21 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             ),
         },
         {"id": "latency_chart", "type": "chart", "chartId": "latency", "layout": "full"},
+        {"id": "source_heading", "type": "markdown", "body": "## The research connector matches the live source schema"},
+        {"id": "source_chart", "type": "chart", "chartId": "source_band_coverage", "layout": "full"},
+        {
+            "id": "source_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "The disabled-by-default connector queried one exact settled UTC hour from "
+                "[WSPR.live](https://wspr.live/), covering all ten HF bands in one HTTP request. It applied the "
+                "same grid, callsign, power, and SNR filters as the archive builder, streamed canonical rows through "
+                "the M5 Projects volume, checksum-linked the completed response, and removed the spool after validation. "
+                "No database write occurred. This establishes technical compatibility and bounded memory behavior, not "
+                "subscriber-facing permission, continuous completeness, or a production availability guarantee."
+            ),
+        },
         {"id": "gates", "type": "table", "tableId": "gate_table", "layout": "full"},
         {"id": "method_heading", "type": "markdown", "body": "## Method, data, and execution"},
         {
@@ -594,8 +663,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction "
                 "on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, "
                 "and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then "
-                "deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. No external live "
-                "WSPR provider was queried. A real hardened NOAA capture separately verified the operational-weather path against A6."
+                "deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, "
+                "research-only WSPR.live hour was queried after the connector was double-gated; it was not ingested or exposed to users. "
+                "A real hardened NOAA capture separately verified the operational-weather path against A6."
             ),
         },
         {
@@ -623,7 +693,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
-                "does not prove an authorized connector, continuous hourly execution, or the monitoring loop. Trusted weather "
+                "plus one successful source hour does not prove continuous hourly execution, provider completeness, permission for "
+                "subscriber-facing use, or the monitoring loop. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
@@ -636,9 +707,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "sourceId": "live_feature_evidence",
             "body": (
                 "## Next steps\n\n"
-                "1. Obtain written authorization for a live WSPR source or operate a source we control.\n"
-                "2. Implement the authorized connector without changing the shared transform.\n"
-                "3. Activate the signed completion-manifest finalizer/pruner and production monitoring for that connector.\n"
+                "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
+                "2. Deliberately schedule the validated research-only connector for internal evidence.\n"
+                "3. Activate the signed completion-manifest finalizer/pruner and internal monitoring for that connector.\n"
                 "4. Run at least 30 days of identity-free real receipt-time shadow traffic and continuous weather freshness before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
@@ -691,9 +762,12 @@ The six-migration schema is deployed, and trusted operational weather passed
 `{summary['weather_gates_passed']}/{summary['weather_gates_total']}` real-bundle gates.
 Signed hourly orchestration passed `{summary['orchestration_gates_passed']}/{summary['orchestration_gates_total']}`
 gates with `{summary['orchestration_threads']}` bounded M5 threads.
-Live WSPR remains disabled pending source authorization, an authorized
-connector, activation of the signed production scheduler, and 30 days
-of real receipt-time shadow evidence. See `REPORT.html` for charts,
+The research-only connector passed `{summary['connector_gates_passed']}/{summary['connector_gates_total']}`
+gates with `{summary['connector_rows']:,}` real observations in one bounded request
+at `{summary['connector_peak_rss_mib']:.1f}` MiB peak RSS. Continuous WSPR ingest remains
+disabled pending deliberate research scheduling; subscriber-facing use still
+requires source confirmation. The signed scheduler and 30 days of real
+receipt-time shadow evidence also remain open. See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
 
@@ -719,6 +793,9 @@ def main() -> None:
         INPUTS["operational_weather_validation"]
     )
     orchestration_validation = read_json(INPUTS["orchestration_validation"])
+    wspr_live_connector_validation = read_json(
+        INPUTS["wspr_live_connector_validation"]
+    )
     evidence = build_evidence(
         transform,
         foundation,
@@ -727,6 +804,7 @@ def main() -> None:
         deployment_validation,
         operational_weather_validation,
         orchestration_validation,
+        wspr_live_connector_validation,
     )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

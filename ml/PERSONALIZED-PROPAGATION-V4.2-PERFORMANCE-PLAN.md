@@ -666,6 +666,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   NOAA capture against A6, and reject browser weather/freshness forgery.
 - [x] Add an HMAC completion-manifest runner that finalizes all ten HF bands
   with bounded multicore concurrency and prunes only after total success.
+- [x] Implement a disabled-by-default, disk-streaming WSPR.live research
+  connector and validate one real settled hour without target writes.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -706,6 +708,16 @@ p95. The signed hourly runner is implemented and refuses CPU oversubscription,
 partial-band manifests, timestamp gaps, tampering, and prune-before-success. An
 authorized provider connector, runner activation/monitoring, real receipt-time
 capture, and live coverage evidence remain open.
+
+The research connector subsequently passed all 8 real-source dry-run gates on
+the M5. One exact-hour request returned `287,694` archive-compatible rows across
+all ten HF bands in `23.1142` seconds at `57.625` MiB peak RSS. The canonical
+spool was written to the fast Projects volume, checksum-linked, and removed;
+the target feature store was not written. This establishes source-schema and
+streaming compatibility only. Continuous internal collection is still disabled,
+and [the prepared request](WSPR-LIVE-PERMISSION-REQUEST.md) must receive written
+confirmation before subscriber-facing use unless an independently permitted
+source replaces WSPR.live.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,

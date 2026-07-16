@@ -119,6 +119,29 @@ allocated CPU count. An external scheduler may retry the same signed manifest;
 feature and watermark keys are idempotent, and the local lock prevents
 overlapping runs in one instance.
 
+For internal research shadow only, `wspr_live_connector.py` implements the
+public WSPR.live candidate without loading an hour into memory. It makes one
+exact-hour query across the ten HF bands, applies the archive's grid/call/power/
+SNR filters at the source, streams canonical JSONL to a private spool, ingests
+idempotently by WSPR spot ID, and writes the scheduler manifest only after the
+complete HTTP response and private-store writes succeed. Use the fast Projects
+volume for the transient spool on the M5:
+
+```bash
+export PROPULSE_WSPR_LIVE_RESEARCH_ENABLED=true
+ml/.venv/bin/python ml/service/wspr_live_connector.py \
+  --acknowledge-research-only \
+  --spool-dir /Volumes/Projects/PropulseML/live_wspr_spool \
+  --manifest-output /Volumes/Projects/PropulseML/live_wspr_manifests/hour.json
+```
+
+The connector defaults to the latest hour with a ten-minute settlement delay,
+uses one source request per run, rejects partial/malformed/empty responses, and
+never emits callsigns or locators in its result. The explicit environment flag
+and CLI acknowledgement do not grant subscriber-facing permission. Keep this
+path internal until the source operator confirms the nonprofit,
+donation-supported, derivative-model use in writing.
+
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature
 contract; weights must be non-negative and sum to one. Each component is scored

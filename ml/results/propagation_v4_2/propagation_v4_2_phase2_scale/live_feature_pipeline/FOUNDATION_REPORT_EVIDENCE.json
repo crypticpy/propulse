@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T03:27:35.983589+00:00",
+  "generated_at": "2026-07-16T03:46:42.549038+00:00",
   "scope": "live_feature_foundation_replay_schema_weather_and_orchestration_pre_provider",
   "decision": "foundation_replay_schema_weather_and_orchestration_pass_provider_pending",
   "source_authorized": false,
@@ -42,6 +42,11 @@
       "id": "orchestration_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/orchestration_validation.json",
       "sha256": "3d827eee8ae3ef3e991a8614727d7b77bf771ab2cb565c2ea1e4e9452c5275e9"
+    },
+    {
+      "id": "wspr_live_connector_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_live_connector_validation.json",
+      "sha256": "c9cf98375bf2ba639ced86d35712461276162b4811b96407746db9e93cca42c1"
     }
   ],
   "bundle": {
@@ -248,6 +253,26 @@
       "locked_outcomes_unread": true
     }
   },
+  "research_connector": {
+    "provider": "wspr.live-research-v1",
+    "research_only": true,
+    "target_hour": "2026-07-16T02:00:00+00:00",
+    "source_checkpoint_sha256": "424a1a3b7ba27f2fa50581ee4c043471fd72b1f53448cf2c27170f5701f28f6a",
+    "performance": {
+      "elapsed_seconds": 23.114187,
+      "peak_rss_mib": 57.625
+    },
+    "gates": {
+      "all_hf_bands_observed": true,
+      "checkpoint_sha256": true,
+      "disk_spool_removed": true,
+      "no_target_write_in_dry_run": true,
+      "nonempty_completed_hour": true,
+      "one_bounded_source_request": true,
+      "research_only": true,
+      "streaming_peak_rss_below_512_mib": true
+    }
+  },
   "datasets": {
     "summary": [
       {
@@ -282,7 +307,12 @@
         "weather_path_p95_ms": 2.906167006585747,
         "orchestration_gates_passed": 9,
         "orchestration_gates_total": 9,
-        "orchestration_threads": 18
+        "orchestration_threads": 18,
+        "connector_gates_passed": 8,
+        "connector_gates_total": 8,
+        "connector_rows": 287694,
+        "connector_requests": 1,
+        "connector_peak_rss_mib": 57.625
       }
     ],
     "parity_rows": [
@@ -373,6 +403,48 @@
         "request": "288-cell surface",
         "p95_ms": 10.589041994535364,
         "limit_ms": 3000
+      }
+    ],
+    "source_band_rows": [
+      {
+        "band": "10m",
+        "observations": 6176
+      },
+      {
+        "band": "12m",
+        "observations": 3339
+      },
+      {
+        "band": "15m",
+        "observations": 13385
+      },
+      {
+        "band": "160m",
+        "observations": 5072
+      },
+      {
+        "band": "17m",
+        "observations": 12740
+      },
+      {
+        "band": "20m",
+        "observations": 85869
+      },
+      {
+        "band": "30m",
+        "observations": 52009
+      },
+      {
+        "band": "40m",
+        "observations": 78583
+      },
+      {
+        "band": "60m",
+        "observations": 3831
+      },
+      {
+        "band": "80m",
+        "observations": 26690
       }
     ],
     "gate_rows": [
@@ -820,19 +892,59 @@
         "scope": "Signed hourly orchestration",
         "gate": "locked outcomes unread",
         "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "all hf bands observed",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "checkpoint sha256",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "disk spool removed",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "no target write in dry run",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "nonempty completed hour",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "one bounded source request",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "research only",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "streaming peak rss below 512 mib",
+        "status": "pass"
       }
     ],
     "blocker_rows": [
       {
-        "remaining_work": "written source authorization or a self-operated source",
+        "remaining_work": "written subscriber-facing source authorization or a self-operated source",
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "authorized provider connector",
+        "remaining_work": "deliberately schedule the validated research-only connector",
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "activate the signed hourly finalizer/pruning runner and monitoring",
+        "remaining_work": "activate the signed hourly finalizer/pruning runner and monitoring internally",
         "status": "required before live NowCast"
       },
       {
@@ -851,7 +963,7 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "the schema is deployed and smoke-verified, but no authorized live source or production scheduler is active"
+        "evidence_limit": "the schema is deployed and a one-hour research query passed, but no continuous source or scheduler is active"
       }
     ]
   }

@@ -811,7 +811,11 @@ remains the explicit stale/missing-source fallback.
 - [ ] Train and validate direct horizon models against persistence/baselines.
 - [x] Build separate 6m mechanism features and models (development-only;
   unsupported mechanism families remain experimental and unreleased).
-- [ ] Freeze only the horizons/mechanisms that pass.
+- [x] Freeze the current 6m release decision as `withheld`. The decision
+  checksum-locks the three experimental model/calibrator pairs, releases no
+  mechanism, preserves the unread locked archive, and records the missing
+  independent mechanism, NWP, event-catalog, and prospective evidence.
+- [ ] Freeze only FutureCast horizons that pass after issued history matures.
 
 **Gate:** every released horizon has positive held-out Brier skill and reliable
 uncertainty; 6m passes both event and quiet-day tests.

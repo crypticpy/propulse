@@ -259,6 +259,21 @@ month/day Parquet partitions with DuckDB or Polars lazy scans on the M5, then
 fit separate direct-horizon models with the same bounded multicore XGBoost
 policy used by V4.2. Do not recursively feed predictions into later horizons.
 
+The independent 6m development candidates are not a substitute for FutureCast
+or HF NowCast. Reproduce the current release decision with:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4/freeze_6m_release.py
+```
+
+The M5 decision is `withheld`: no 6m mechanism is product-servable. It verifies
+and records six hashes for the auroral, F2/TEP, and tropospheric experimental
+model/calibrator pairs; meteor scatter, sporadic E, and unknown remain
+unsupported. Development event and quiet-slice skill is recorded but cannot
+replace independent event catalogs, GIRO/NWP parity, or locked/prospective
+tests. A future 6m version must produce a new decision rather than modifying
+this evidence.
+
 The endpoint, ingest secret, preview bypass, and dedicated store are configured
 only for the feature-branch preview. Keep both view flags unset until an alert
 destination is selected. Configure the server-only

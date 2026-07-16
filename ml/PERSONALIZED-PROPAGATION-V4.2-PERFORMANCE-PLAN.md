@@ -699,7 +699,7 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   writes, and disabled-by-default product/API gates. Rollback validation passed
   13/13 gates and deployed-state validation passed 14/14 without reading locked
   outcomes or collecting real operator data.
-- [x] Pass one uninterrupted native-M5 repository verification: V4 `30/30`,
+- [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
   service `73/73`, V4.1 `37/37`, V4.2 `112/112`, and frontend/API `68/68`
   tests, plus lint, TypeScript, production build, tracked-artifact rules, and
   bundle budgets. The refreshed visual report passed canonical packaging,

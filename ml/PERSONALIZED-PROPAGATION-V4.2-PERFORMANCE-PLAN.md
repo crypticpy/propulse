@@ -796,11 +796,11 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `5/5`
-expected hours, 100% scheduled completion, zero gaps, and `5/720` required
-hours through target `2026-07-16T07:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `1,288,941`
-observations and `345,162` feature cells with the same bounded 18-thread
+The automatic duration rollup is operationally healthy at `6/6`
+expected hours, 100% scheduled completion, zero gaps, and `6/720` required
+hours through target `2026-07-16T08:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `1,541,169`
+observations and `411,955` feature cells with the same bounded 18-thread
 profile. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T09:15:18.532878+00:00",
+  "generated_at": "2026-07-16T09:31:52.924743+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -103,7 +103,7 @@
     {
       "id": "wspr_research_shadow_progress",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "f723963dd8b538f7cbea2fce1fc26723c7c32ef5f71206f94aaa26e17cb9bdf9"
+      "sha256": "2151f84e4a30831b5b0f871d026c1932794156e6e16ca08b759b472afc8a53f0"
     }
   ],
   "bundle": {
@@ -666,38 +666,38 @@
     "decision": "collecting",
     "operational_status": "healthy",
     "window": {
-      "completed_hours": 5,
+      "completed_hours": 6,
       "completion_rate": 1.0,
-      "continuous_completed_hours": 5,
-      "expected_hours": 5,
-      "last_completed_target_hour": "2026-07-16T07:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T07:00:00+00:00",
+      "continuous_completed_hours": 6,
+      "expected_hours": 6,
+      "last_completed_target_hour": "2026-07-16T08:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T08:00:00+00:00",
       "minimum_hours": 720,
       "missing_hours": 0,
       "start_target_hour": "2026-07-16T03:00:00+00:00"
     },
     "totals": {
-      "feature_cells": 345162,
+      "feature_cells": 411955,
       "records_by_band": {
-        "10m": 18745,
-        "12m": 7859,
-        "15m": 36371,
-        "160m": 14436,
-        "17m": 40282,
-        "20m": 388615,
-        "30m": 254030,
-        "40m": 410832,
-        "60m": 14215,
-        "80m": 103556
+        "10m": 26864,
+        "12m": 10470,
+        "15m": 48144,
+        "160m": 16338,
+        "17m": 50510,
+        "20m": 467905,
+        "30m": 301928,
+        "40m": 482977,
+        "60m": 15642,
+        "80m": 120391
       },
-      "source_records": 1288941
+      "source_records": 1541169
     },
     "performance": {
-      "completion_latency_max_seconds": 1681.07353,
-      "completion_latency_p95_seconds": 1669.9439364,
+      "completion_latency_max_seconds": 1699.534892,
+      "completion_latency_p95_seconds": 1694.9195515,
       "connector_peak_rss_max_mib": 161.0,
-      "connector_wall_p95_seconds": 65.80472119999999,
-      "finalizer_wall_p95_seconds": 638.0479232
+      "connector_wall_p95_seconds": 67.79352275,
+      "finalizer_wall_p95_seconds": 712.26287975
     },
     "gates": {
       "all_receipts_and_manifests_valid": true,
@@ -783,7 +783,7 @@
         "schedule_finalizer_seconds": 171.515254,
         "schedule_peak_rss_mib": 161.0,
         "schedule_target_hour": "2026-07-16T04:00:00+00:00",
-        "shadow_completed_hours": 5,
+        "shadow_completed_hours": 6,
         "shadow_required_hours": 720,
         "shadow_completion_rate_percent": 100.0,
         "shadow_missing_hours": 0
@@ -977,12 +977,12 @@
       {
         "window": "30-day receipt shadow",
         "state": "Completed",
-        "hours": 5
+        "hours": 6
       },
       {
         "window": "30-day receipt shadow",
         "state": "Remaining",
-        "hours": 715
+        "hours": 714
       }
     ],
     "gate_rows": [
@@ -2373,7 +2373,7 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "5 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        "evidence_limit": "6 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
       }
     ]
   }

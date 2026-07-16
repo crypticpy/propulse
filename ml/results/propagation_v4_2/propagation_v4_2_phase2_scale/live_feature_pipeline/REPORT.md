@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T09:15:18.532878+00:00
+Generated: 2026-07-16T09:31:52.924743+00:00
 
 ## Answer first
 
@@ -29,7 +29,7 @@ LaunchAgent is now active: its latest audited receipt passed
 gates, converting `255,536` observations into
 `67,829` path cells with 18 bounded M5 threads.
 The signed progress rollup is operationally healthy at
-`5/720` hours,
+`6/720` hours,
 `100.0%` scheduled completion, and
 `0` gaps; its decision remains `collecting`.
 Subscriber-facing use still requires source confirmation. Remote alert

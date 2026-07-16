@@ -102,8 +102,8 @@
 > An automatic identity-free rollup re-verifies every receipt and signed
 > manifest, fixes the duration at 720 expected hours and scheduled completion at
 > 99%. Actual minute-15 calendar events completed without RunAtLoad or manual
-> targets, advancing the operationally healthy rollup to `5/5` expected hours,
-> zero gaps, and `collecting` status at `5/720` through `2026-07-16T07:00:00Z`.
+> targets, advancing the operationally healthy rollup to `6/6` expected hours,
+> zero gaps, and `collecting` status at `6/720` through `2026-07-16T08:00:00Z`.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto

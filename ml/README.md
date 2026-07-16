@@ -15,7 +15,7 @@
 > The server-authoritative live-feature foundation, causal replay, scheduled M5
 > research pipeline, and first real GitHub schedule event now pass their gates;
 > see the [live research report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html).
-> The receipt window is only `5/720` hours, subscriber-facing source permission
+> The receipt window is only `6/720` hours, subscriber-facing source permission
 > and remote alert smoke remain open, and opt-in outcome instrumentation is
 > deployed but disabled. These results do not authorize prospective or learned-
 > personalization claims.

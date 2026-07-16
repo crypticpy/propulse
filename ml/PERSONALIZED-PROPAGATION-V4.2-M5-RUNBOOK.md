@@ -321,10 +321,11 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T06:00:00Z` also completed under
-the same bounded profile. The rollup is now `4/4` with zero gaps, `1,022,042`
-aggregate observations, `275,834` feature cells, and remains `collecting` at
-`4/720`.
+following scheduled targets through `2026-07-16T08:00:00Z` also completed under
+the same bounded profile. The rollup is now `6/6` with zero gaps, `1,541,169`
+aggregate observations, `411,955` feature cells, and remains `collecting` at
+`6/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,

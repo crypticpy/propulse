@@ -1,11 +1,12 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T04:06:41.046892+00:00",
-  "scope": "live_feature_foundation_replay_schema_weather_and_orchestration_pre_provider",
-  "decision": "foundation_replay_schema_weather_and_orchestration_pass_provider_pending",
+  "generated_at": "2026-07-16T04:42:43.698000+00:00",
+  "scope": "live_feature_foundation_replay_and_active_research_shadow",
+  "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
   "migration_deployed": true,
-  "provider_connector_enabled": false,
+  "provider_connector_enabled": true,
+  "provider_connector_mode": "internal_research_only",
   "provider_connector_validated": true,
   "locked_outcomes_read": false,
   "input_inventory": [
@@ -53,6 +54,11 @@
       "id": "wspr_live_hour_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_live_hour_validation.json",
       "sha256": "e7012d9e12b20ae8aeecda10354c39c691e19a7a8e0346c5cb872bdba0b2959a"
+    },
+    {
+      "id": "wspr_research_schedule_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_schedule_validation.json",
+      "sha256": "066fd06a5bc76200e7d014158f853a1f6b86677bfc9f3062da3b4deadc518eab"
     }
   ],
   "bundle": {
@@ -305,6 +311,60 @@
       "locked_outcomes_unread": true
     }
   },
+  "research_schedule": {
+    "provider": "wspr.live-research-v1",
+    "research_only": true,
+    "subscriber_facing_authorized": false,
+    "target_hour": "2026-07-16T03:00:00+00:00",
+    "source_record_count": 261006,
+    "feature_cell_count": 69980,
+    "connector": {
+      "elapsed_seconds": 37.961483,
+      "peak_rss_mib": 152.297,
+      "source_request_count": 1
+    },
+    "finalizer": {
+      "maximum_compute_threads": 18,
+      "threads_per_band": 9,
+      "wall_seconds": 149.460603,
+      "workers": 2
+    },
+    "health": {
+      "status": "healthy",
+      "continuous_completed_hours": 1,
+      "consecutive_failures": 0,
+      "freshness_seconds": 2441
+    },
+    "schedule": {
+      "label": "org.propulse.wspr-research",
+      "minute": 15,
+      "run_at_load": true,
+      "runtime_storage": "internal_owner_only",
+      "large_ml_storage": "projects_volume"
+    },
+    "gates": {
+      "signed_manifest_v2_accepted": true,
+      "receipt_complete_research_only": true,
+      "receipt_identity_free": true,
+      "receipt_manifest_hash_linked": true,
+      "receipt_manifest_counts_exact": true,
+      "receipt_gates_all_pass": true,
+      "all_hf_bands_present": true,
+      "target_observation_counts_exact": true,
+      "target_watermarks_complete_and_exact": true,
+      "target_feature_total_exact": true,
+      "health_matches_latest_receipt": true,
+      "m5_multicore_bounded": true,
+      "transient_spool_removed": true,
+      "launchd_job_loaded_and_clean_exit": true,
+      "launchd_hourly_and_restart_enabled": true,
+      "launchd_runtime_internal_and_exact": true,
+      "launchd_research_gate_explicit": true,
+      "launchd_owner_only_and_secret_free": true,
+      "launchd_logs_on_internal_home": true,
+      "locked_outcomes_unread": true
+    }
+  },
   "datasets": {
     "summary": [
       {
@@ -347,7 +407,15 @@
         "connector_peak_rss_mib": 57.625,
         "live_hour_gates_passed": 10,
         "live_hour_gates_total": 10,
-        "live_hour_feature_cells": 75055
+        "live_hour_feature_cells": 75055,
+        "schedule_gates_passed": 20,
+        "schedule_gates_total": 20,
+        "schedule_source_rows": 261006,
+        "schedule_feature_cells": 69980,
+        "schedule_continuous_hours": 1,
+        "schedule_connector_seconds": 37.961483,
+        "schedule_finalizer_seconds": 149.460603,
+        "schedule_peak_rss_mib": 152.297
       }
     ],
     "parity_rows": [
@@ -480,6 +548,58 @@
       {
         "band": "80m",
         "observations": 26690
+      }
+    ],
+    "schedule_band_rows": [
+      {
+        "band": "10m",
+        "observations": 3830
+      },
+      {
+        "band": "12m",
+        "observations": 1960
+      },
+      {
+        "band": "15m",
+        "observations": 8323
+      },
+      {
+        "band": "160m",
+        "observations": 4689
+      },
+      {
+        "band": "17m",
+        "observations": 9401
+      },
+      {
+        "band": "20m",
+        "observations": 77164
+      },
+      {
+        "band": "30m",
+        "observations": 49354
+      },
+      {
+        "band": "40m",
+        "observations": 77470
+      },
+      {
+        "band": "60m",
+        "observations": 3419
+      },
+      {
+        "band": "80m",
+        "observations": 25396
+      }
+    ],
+    "schedule_stage_rows": [
+      {
+        "stage": "Source observations",
+        "count": 261006
+      },
+      {
+        "stage": "Path-hour feature cells",
+        "count": 69980
       }
     ],
     "gate_rows": [
@@ -1022,6 +1142,106 @@
         "scope": "Real target source hour",
         "gate": "locked outcomes unread",
         "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "signed manifest v2 accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt complete research only",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt identity free",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt manifest hash linked",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt manifest counts exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt gates all pass",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "all hf bands present",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "target observation counts exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "target watermarks complete and exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "target feature total exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "health matches latest receipt",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "m5 multicore bounded",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "transient spool removed",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd job loaded and clean exit",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd hourly and restart enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd runtime internal and exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd research gate explicit",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd owner only and secret free",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd logs on internal home",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "locked outcomes unread",
+        "status": "pass"
       }
     ],
     "blocker_rows": [
@@ -1030,15 +1250,11 @@
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "deliberately schedule the validated research-only connector",
-        "status": "required before live NowCast"
-      },
-      {
-        "remaining_work": "activate hourly monitoring, alerting, and restart recovery internally",
-        "status": "required before live NowCast"
-      },
-      {
         "remaining_work": "30-day real receipt-time shadow coverage and calibration evidence",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "opt-in beta outcome evidence and frozen prospective evaluation",
         "status": "required before live NowCast"
       }
     ],
@@ -1047,13 +1263,10 @@
         "evidence_limit": "archive receipt timestamps are unavailable, so receipt delays are synthetic"
       },
       {
-        "evidence_limit": "authorized provider connector is not enabled"
-      },
-      {
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "one full research hour passed after an invalidated pagination defect, but continuous collection is not active"
+        "evidence_limit": "the hourly research schedule is active, but only its first completed hour has independent exact-count evidence"
       }
     ]
   }

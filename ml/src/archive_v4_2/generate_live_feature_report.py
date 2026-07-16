@@ -30,6 +30,8 @@ INPUTS = {
     "orchestration_validation": RESULT / "orchestration_validation.json",
     "wspr_live_connector_validation": RESULT / "wspr_live_connector_validation.json",
     "wspr_live_hour_validation": RESULT / "wspr_live_hour_validation.json",
+    "wspr_research_schedule_validation": RESULT
+    / "wspr_research_schedule_validation.json",
 }
 
 
@@ -95,6 +97,7 @@ def build_evidence(
     orchestration_validation: dict[str, Any],
     wspr_live_connector_validation: dict[str, Any],
     wspr_live_hour_validation: dict[str, Any],
+    wspr_research_schedule_validation: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
         raise RuntimeError("transform parity did not pass")
@@ -121,6 +124,8 @@ def build_evidence(
         raise RuntimeError("WSPR.live research connector validation did not pass")
     if wspr_live_hour_validation.get("decision") != "pass":
         raise RuntimeError("real WSPR.live target-hour validation did not pass")
+    if wspr_research_schedule_validation.get("decision") != "pass":
+        raise RuntimeError("active WSPR research schedule validation did not pass")
     if any(
         value.get("locked_outcomes_read")
         for value in (
@@ -133,6 +138,7 @@ def build_evidence(
             orchestration_validation,
             wspr_live_connector_validation,
             wspr_live_hour_validation,
+            wspr_research_schedule_validation,
         )
     ):
         raise RuntimeError("live-feature work must not read locked outcomes")
@@ -232,6 +238,33 @@ def build_evidence(
         "live_hour_feature_cells": int(
             wspr_live_hour_validation["feature_cell_count"]
         ),
+        "schedule_gates_passed": sum(
+            bool(value)
+            for value in wspr_research_schedule_validation["gates"].values()
+        ),
+        "schedule_gates_total": len(
+            wspr_research_schedule_validation["gates"]
+        ),
+        "schedule_source_rows": int(
+            wspr_research_schedule_validation["source_record_count"]
+        ),
+        "schedule_feature_cells": int(
+            wspr_research_schedule_validation["feature_cell_count"]
+        ),
+        "schedule_continuous_hours": int(
+            wspr_research_schedule_validation["health"][
+                "continuous_completed_hours"
+            ]
+        ),
+        "schedule_connector_seconds": float(
+            wspr_research_schedule_validation["connector"]["elapsed_seconds"]
+        ),
+        "schedule_finalizer_seconds": float(
+            wspr_research_schedule_validation["finalizer"]["wall_seconds"]
+        ),
+        "schedule_peak_rss_mib": float(
+            wspr_research_schedule_validation["connector"]["peak_rss_mib"]
+        ),
     }]
     parity_rows = []
     for month in event_replays:
@@ -286,6 +319,22 @@ def build_evidence(
             "records_by_band"
         ].items()
     ]
+    schedule_band_rows = [
+        {"band": band, "observations": int(observations)}
+        for band, observations in wspr_research_schedule_validation[
+            "records_by_band"
+        ].items()
+    ]
+    schedule_stage_rows = [
+        {
+            "stage": "Source observations",
+            "count": int(wspr_research_schedule_validation["source_record_count"]),
+        },
+        {
+            "stage": "Path-hour feature cells",
+            "count": int(wspr_research_schedule_validation["feature_cell_count"]),
+        },
+    ]
     gate_rows = [{
         "scope": "Foundation",
         "gate": name.replace("_", " "),
@@ -325,6 +374,11 @@ def build_evidence(
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
     } for name, passed in wspr_live_hour_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Active research schedule",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in wspr_research_schedule_validation["gates"].items())
     blocker_rows = [
         {
             "remaining_work": work,
@@ -332,29 +386,33 @@ def build_evidence(
         }
         for work in (
             "written subscriber-facing source authorization or a self-operated source",
-            "deliberately schedule the validated research-only connector",
-            "activate hourly monitoring, alerting, and restart recovery internally",
             "30-day real receipt-time shadow coverage and calibration evidence",
+            "opt-in beta outcome evidence and frozen prospective evaluation",
         )
     ]
     limit_rows = [
         {"evidence_limit": value}
         for value in replay["remaining_limits"]
-        if value != "target Postgres migration is not deployed"
+        if value
+        not in {
+            "target Postgres migration is not deployed",
+            "authorized provider connector is not enabled",
+        }
     ]
     limit_rows.append({
         "evidence_limit": (
-            "one full research hour passed after an invalidated pagination defect, but continuous collection is not active"
+            "the hourly research schedule is active, but only its first completed hour has independent exact-count evidence"
         )
     })
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "scope": "live_feature_foundation_replay_schema_weather_and_orchestration_pre_provider",
-        "decision": "foundation_replay_schema_weather_and_orchestration_pass_provider_pending",
+        "scope": "live_feature_foundation_replay_and_active_research_shadow",
+        "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
         "source_authorized": False,
         "migration_deployed": True,
-        "provider_connector_enabled": False,
+        "provider_connector_enabled": True,
+        "provider_connector_mode": "internal_research_only",
         "provider_connector_validated": True,
         "locked_outcomes_read": False,
         "input_inventory": [
@@ -429,6 +487,25 @@ def build_evidence(
             ],
             "gates": wspr_live_hour_validation["gates"],
         },
+        "research_schedule": {
+            "provider": wspr_research_schedule_validation["provider"],
+            "research_only": wspr_research_schedule_validation["research_only"],
+            "subscriber_facing_authorized": wspr_research_schedule_validation[
+                "subscriber_facing_authorized"
+            ],
+            "target_hour": wspr_research_schedule_validation["target_hour"],
+            "source_record_count": wspr_research_schedule_validation[
+                "source_record_count"
+            ],
+            "feature_cell_count": wspr_research_schedule_validation[
+                "feature_cell_count"
+            ],
+            "connector": wspr_research_schedule_validation["connector"],
+            "finalizer": wspr_research_schedule_validation["finalizer"],
+            "health": wspr_research_schedule_validation["health"],
+            "schedule": wspr_research_schedule_validation["schedule"],
+            "gates": wspr_research_schedule_validation["gates"],
+        },
         "datasets": {
             "summary": summary,
             "parity_rows": parity_rows,
@@ -436,6 +513,8 @@ def build_evidence(
             "receipt_rows": receipt_rows,
             "latency_rows": latency_rows,
             "source_band_rows": source_band_rows,
+            "schedule_band_rows": schedule_band_rows,
+            "schedule_stage_rows": schedule_stage_rows,
             "gate_rows": gate_rows,
             "blocker_rows": blocker_rows,
             "limit_rows": limit_rows,
@@ -490,6 +569,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "288-cell p95 ms",
                 "surface_p95_ms",
                 "One-thread XGBoost serving contract.",
+            ),
+            (
+                "scheduled_rows",
+                "Scheduled source rows",
+                "schedule_source_rows",
+                "First independently audited hourly LaunchAgent receipt.",
             ),
         )
     ]
@@ -546,6 +631,26 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "y": {"field": "observations", "type": "quantitative", "label": "Observations"},
             },
         ),
+        chart(
+            "scheduled_band_coverage",
+            "The first scheduled hour is complete across all ten HF bands",
+            f"Exact target-store counts sum to {summary['schedule_source_rows']:,} observations; no raw station identity enters this report.",
+            "schedule_band_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "Band"},
+                "y": {"field": "observations", "type": "quantitative", "label": "Observations"},
+            },
+        ),
+        chart(
+            "scheduled_pipeline",
+            "The active hourly pipeline remains bounded",
+            f"The source stage completed in {summary['schedule_connector_seconds']:.1f} seconds and finalization in {summary['schedule_finalizer_seconds']:.1f} seconds.",
+            "schedule_stage_rows",
+            {
+                "x": {"field": "stage", "type": "ordinal", "label": "Scheduled stage"},
+                "y": {"field": "count", "type": "quantitative", "label": "Rows or cells"},
+            },
+        ),
     ]
     tables = [
         {
@@ -577,7 +682,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         {
             "id": "blocker_table",
             "title": "Required work before live NowCast",
-            "subtitle": "One end-to-end research hour is exact; continuous collection and subscriber-facing permission remain open.",
+            "subtitle": "The internal hourly shadow is active; source permission, duration, beta outcomes, and prospective evidence remain open.",
             "dataset": "blocker_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
@@ -599,7 +704,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "type": "markdown",
             "sourceId": "live_feature_evidence",
             "body": (
-                "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\n"
+                "## The internal research shadow is active; product authorization and long-window evidence remain open\n\n"
                 f"Across **{summary['replay_hours']} stratified hours** and **{summary['replay_spots']:,} open-month spots**, "
                 f"the shared DuckDB transform produced **{summary['replay_opportunity_cells']:,}** opportunity cells and "
                 f"**{summary['replay_path_cells']:,}** path-hour cells with **zero directional differences** from the "
@@ -616,10 +721,14 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"gates while allocating all **{summary['orchestration_threads']} M5 CPU threads** without oversubscription. "
                 f"A real research-only source dry-run then passed **{summary['connector_gates_passed']} of {summary['connector_gates_total']}** "
                 f"gates, streaming **{summary['connector_rows']:,} observations** in **{summary['connector_requests']} request** "
-                f"at **{summary['connector_peak_rss_mib']:.1f} MiB peak RSS**. Continuous ingest is not scheduled, and "
+                f"at **{summary['connector_peak_rss_mib']:.1f} MiB peak RSS**. "
                 f"the corrected end-to-end target hour passed **{summary['live_hour_gates_passed']} of {summary['live_hour_gates_total']}** "
                 f"gates with **{summary['live_hour_feature_cells']:,} path cells** after its truncated first version was invalidated. "
-                "subscriber-facing WSPR use still requires written confirmation or an independently permitted source."
+                f"The hourly research LaunchAgent is now active and its first receipt passed **{summary['schedule_gates_passed']} of "
+                f"{summary['schedule_gates_total']} independent gates**: **{summary['schedule_source_rows']:,} observations** became "
+                f"**{summary['schedule_feature_cells']:,} path cells** with zero consecutive failures, **{summary['schedule_peak_rss_mib']:.1f} MiB** "
+                "peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written "
+                "confirmation or an independently permitted source, and one scheduled hour is not 30-day evidence."
             ),
         },
         {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
@@ -691,6 +800,38 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "end-to-end hour, not subscriber-facing permission, continuous completeness, or an availability guarantee."
             ),
         },
+        {
+            "id": "schedule_heading",
+            "type": "markdown",
+            "body": "## The research-only hourly schedule is active and independently audited",
+        },
+        {
+            "id": "schedule_band_chart",
+            "type": "chart",
+            "chartId": "scheduled_band_coverage",
+            "layout": "full",
+        },
+        {
+            "id": "schedule_pipeline_chart",
+            "type": "chart",
+            "chartId": "scheduled_pipeline",
+            "layout": "full",
+        },
+        {
+            "id": "schedule_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an "
+                f"identity-free atomic receipt only after all ten bands pass. Its first scheduled hour contained "
+                f"**{summary['schedule_source_rows']:,} observations** and **{summary['schedule_feature_cells']:,} feature cells**. "
+                f"An independent validator made 21 exact target-store queries and passed **{summary['schedule_gates_passed']} of "
+                f"{summary['schedule_gates_total']} gates**, including manifest signature/hash linkage, per-band observation and "
+                "feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only "
+                "permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk "
+                "because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume."
+            ),
+        },
         {"id": "gates", "type": "table", "tableId": "gate_table", "layout": "full"},
         {"id": "method_heading", "type": "markdown", "body": "## Method, data, and execution"},
         {
@@ -710,6 +851,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, "
                 "research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling "
                 "store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. "
+                "A launchd-driven second hour then exercised the receipt-based restart boundary, internal transient runtime, "
+                "exact target-store audit, and identity-free health record. "
                 "A real hardened NOAA capture separately verified the operational-weather path against A6."
             ),
         },
@@ -738,8 +881,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
-                "plus one corrected source hour does not prove continuous hourly execution, long-window provider completeness, permission for "
-                "subscriber-facing use, or the monitoring loop. Trusted weather "
+                "plus one corrected source hour and one scheduled receipt do not prove 30-day provider completeness, permission for "
+                "subscriber-facing use, outage recovery under a real failure, or alert delivery. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
@@ -753,9 +896,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "body": (
                 "## Next steps\n\n"
                 "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
-                "2. Deliberately schedule the validated research-only connector and signed finalizer for internal evidence.\n"
-                "3. Add hourly health, pagination/count, retention, restart, and fallback alerts.\n"
-                "4. Run at least 30 days of identity-free real receipt-time shadow traffic and continuous weather freshness before allowing verified fresh history to "
+                "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
+                "3. Add alert thresholds and delivery so failures reach an operator rather than only updating the local health file.\n"
+                "4. Run opt-in beta outcome collection before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
         },
@@ -767,7 +910,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "version": 1,
             "surface": "report",
             "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
-            "description": "Multi-hour transform parity, causal receipt replay, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
+            "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
             "generatedAt": generated_at,
             "cards": cards,
             "charts": charts,
@@ -809,13 +952,16 @@ Signed hourly orchestration passed `{summary['orchestration_gates_passed']}/{sum
 gates with `{summary['orchestration_threads']}` bounded M5 threads.
 The research-only connector passed `{summary['connector_gates_passed']}/{summary['connector_gates_total']}`
 gates with `{summary['connector_rows']:,}` real observations in one bounded request
-at `{summary['connector_peak_rss_mib']:.1f}` MiB peak RSS. Continuous WSPR ingest remains
-disabled pending deliberate research scheduling. The corrected end-to-end target
+at `{summary['connector_peak_rss_mib']:.1f}` MiB peak RSS. The corrected end-to-end target
 hour passed `{summary['live_hour_gates_passed']}/{summary['live_hour_gates_total']}`
 gates and published `{summary['live_hour_feature_cells']:,}` aggregate path cells;
-the truncated first watermark version is explicitly failed. Subscriber-facing use
-still requires source confirmation. Monitoring and 30 days of real
-receipt-time shadow evidence also remain open. See `REPORT.html` for charts,
+the truncated first watermark version is explicitly failed. The hourly research
+LaunchAgent is now active: its first receipt passed
+`{summary['schedule_gates_passed']}/{summary['schedule_gates_total']}` independent
+gates, converting `{summary['schedule_source_rows']:,}` observations into
+`{summary['schedule_feature_cells']:,}` path cells with 18 bounded M5 threads.
+Subscriber-facing use still requires source confirmation. Alert delivery and 30
+days of real receipt-time shadow evidence also remain open. See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
 
@@ -845,6 +991,9 @@ def main() -> None:
         INPUTS["wspr_live_connector_validation"]
     )
     wspr_live_hour_validation = read_json(INPUTS["wspr_live_hour_validation"])
+    wspr_research_schedule_validation = read_json(
+        INPUTS["wspr_research_schedule_validation"]
+    )
     evidence = build_evidence(
         transform,
         foundation,
@@ -855,6 +1004,7 @@ def main() -> None:
         orchestration_validation,
         wspr_live_connector_validation,
         wspr_live_hour_validation,
+        wspr_research_schedule_validation,
     )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

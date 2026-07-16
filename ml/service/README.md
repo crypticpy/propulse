@@ -153,13 +153,41 @@ On the M5, `run_m5_wspr_research_hour.sh` joins the connector and signed runner
 without exposing server credentials or the HMAC secret in process arguments.
 It loads the ignored `.env.local`, maps the server-only feature-store variables,
 and reads the signing secret from the login keychain service
-`propulse-wspr-completion-v1`. Non-interactive SSH may instead use the
-owner-readable-only Projects-volume file
-`PropulseML/secrets/wspr_completion_secret`. The caller must still explicitly export
+`propulse-wspr-completion-v1`. Non-interactive runs may instead use the
+owner-readable-only `secrets/wspr_completion_secret` file beneath the configured
+runtime root.
+
+The caller must still explicitly export
 `PROPULSE_WSPR_LIVE_RESEARCH_ENABLED=true`. It uses 5,000-row bounded pages and
 the native 2-by-9 finalizer profile. The corrected manual target hour has passed
-ingest, finalization, count, watermark, cleanup, and fallback checks; keep the
-hourly schedule disabled until monitoring and restart recovery are installed.
+ingest, finalization, count, watermark, cleanup, and fallback checks. The
+receipt-based monitoring and restart boundary is now installed on the M5 for
+internal research only.
+
+`run_m5_wspr_research_catchup.py` is that recovery boundary. It reads only
+identity-free completed receipts, starts with the latest settled hour when no
+state exists, processes contiguous missing hours in order, refuses gaps above
+24 hours, uses a nonblocking process lock, and writes
+`live_wspr_health.json` with freshness, consecutive failures, and continuous
+completed hours. Each successful hour has an atomic aggregate receipt and a
+checksum-linked completed manifest in the configured runtime root; raw identities do
+not enter the receipt.
+
+After manual validation, install the research-only launchd job with
+`install_m5_wspr_research_launchd.py --install --acknowledge-research-only`.
+It runs at minute 15 and on load, uses the native M5 Python environment, sets an
+owner-only umask, writes small launch logs to `~/Library/Logs/Propulse`, and
+deliberately does not contain credentials or the signing secret. Receipts,
+health, manifests, and transient source artifacts use
+`~/Library/Application Support/PropulseML`, because macOS blocks LaunchAgents
+from opening removable-volume paths. Large ML datasets remain on Projects and
+raw rolling rows remain in the private target store. Use the same command with
+`--uninstall` to stop and remove it. The first scheduled receipt, for
+`2026-07-16T03:00:00Z`, independently matched `261,006` target observations and
+`69,980` feature cells across all ten bands, with zero health failures. Audit
+the latest receipt, target counts, health record, plist, and thread bound with
+`validate_wspr_research_schedule.py`; the generated evidence contains no station
+identity or secret material.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

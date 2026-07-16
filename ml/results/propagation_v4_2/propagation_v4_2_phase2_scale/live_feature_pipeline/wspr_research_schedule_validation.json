@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T04:42:43.578322+00:00",
+  "scope": "active_wspr_research_schedule_validation",
+  "decision": "pass",
+  "locked_outcomes_read": false,
+  "research_only": true,
+  "subscriber_facing_authorized": false,
+  "provider": "wspr.live-research-v1",
+  "target_hour": "2026-07-16T03:00:00+00:00",
+  "source_record_count": 261006,
+  "records_by_band": {
+    "10m": 3830,
+    "12m": 1960,
+    "15m": 8323,
+    "160m": 4689,
+    "17m": 9401,
+    "20m": 77164,
+    "30m": 49354,
+    "40m": 77470,
+    "60m": 3419,
+    "80m": 25396
+  },
+  "feature_cell_count": 69980,
+  "connector": {
+    "elapsed_seconds": 37.961483,
+    "peak_rss_mib": 152.297,
+    "source_request_count": 1
+  },
+  "finalizer": {
+    "maximum_compute_threads": 18,
+    "threads_per_band": 9,
+    "wall_seconds": 149.460603,
+    "workers": 2
+  },
+  "health": {
+    "status": "healthy",
+    "continuous_completed_hours": 1,
+    "consecutive_failures": 0,
+    "freshness_seconds": 2441
+  },
+  "schedule": {
+    "label": "org.propulse.wspr-research",
+    "minute": 15,
+    "run_at_load": true,
+    "runtime_storage": "internal_owner_only",
+    "large_ml_storage": "projects_volume"
+  },
+  "execution": {
+    "target_requests": 21,
+    "validation_wall_seconds": 1.9085185000149067
+  },
+  "gates": {
+    "signed_manifest_v2_accepted": true,
+    "receipt_complete_research_only": true,
+    "receipt_identity_free": true,
+    "receipt_manifest_hash_linked": true,
+    "receipt_manifest_counts_exact": true,
+    "receipt_gates_all_pass": true,
+    "all_hf_bands_present": true,
+    "target_observation_counts_exact": true,
+    "target_watermarks_complete_and_exact": true,
+    "target_feature_total_exact": true,
+    "health_matches_latest_receipt": true,
+    "m5_multicore_bounded": true,
+    "transient_spool_removed": true,
+    "launchd_job_loaded_and_clean_exit": true,
+    "launchd_hourly_and_restart_enabled": true,
+    "launchd_runtime_internal_and_exact": true,
+    "launchd_research_gate_explicit": true,
+    "launchd_owner_only_and_secret_free": true,
+    "launchd_logs_on_internal_home": true,
+    "locked_outcomes_unread": true
+  }
+}

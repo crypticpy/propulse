@@ -4,8 +4,8 @@
     "version": 1,
     "surface": "report",
     "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
-    "description": "Multi-hour transform parity, causal receipt replay, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
-    "generatedAt": "2026-07-16T04:06:41.047711+00:00",
+    "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
+    "generatedAt": "2026-07-16T04:42:43.698898+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -81,6 +81,19 @@
           {
             "label": "288-cell p95 ms",
             "field": "surface_p95_ms",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "scheduled_rows",
+        "description": "First independently audited hourly LaunchAgent receipt.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "Scheduled source rows",
+            "field": "schedule_source_rows",
             "format": "number"
           }
         ]
@@ -206,6 +219,50 @@
         },
         "valueFormat": "number",
         "layout": "full"
+      },
+      {
+        "id": "scheduled_band_coverage",
+        "title": "The first scheduled hour is complete across all ten HF bands",
+        "subtitle": "Exact target-store counts sum to 261,006 observations; no raw station identity enters this report.",
+        "type": "bar",
+        "dataset": "schedule_band_rows",
+        "sourceId": "live_feature_evidence",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "observations",
+            "type": "quantitative",
+            "label": "Observations"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "scheduled_pipeline",
+        "title": "The active hourly pipeline remains bounded",
+        "subtitle": "The source stage completed in 38.0 seconds and finalization in 149.5 seconds.",
+        "type": "bar",
+        "dataset": "schedule_stage_rows",
+        "sourceId": "live_feature_evidence",
+        "encodings": {
+          "x": {
+            "field": "stage",
+            "type": "ordinal",
+            "label": "Scheduled stage"
+          },
+          "y": {
+            "field": "count",
+            "type": "quantitative",
+            "label": "Rows or cells"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
       }
     ],
     "tables": [
@@ -254,7 +311,7 @@
       {
         "id": "blocker_table",
         "title": "Required work before live NowCast",
-        "subtitle": "One end-to-end research hour is exact; continuous collection and subscriber-facing permission remain open.",
+        "subtitle": "The internal hourly shadow is active; source permission, duration, beta outcomes, and prospective evidence remain open.",
         "dataset": "blocker_rows",
         "sourceId": "live_feature_evidence",
         "density": "dense",
@@ -299,7 +356,7 @@
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. Continuous ingest is not scheduled, and the corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. subscriber-facing WSPR use still requires written confirmation or an independently permitted source."
+        "body": "## The internal research shadow is active; product authorization and long-window evidence remain open\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. the corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. The hourly research LaunchAgent is now active and its first receipt passed **20 of 20 independent gates**: **261,006 observations** became **69,980 path cells** with zero consecutive failures, **152.3 MiB** peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written confirmation or an independently permitted source, and one scheduled hour is not 30-day evidence."
       },
       {
         "id": "cards",
@@ -310,7 +367,8 @@
           "replay_spots",
           "receipt_rows",
           "path_latency",
-          "surface_latency"
+          "surface_latency",
+          "scheduled_rows"
         ]
       },
       {
@@ -388,6 +446,29 @@
         "body": "The disabled-by-default connector queried one exact settled UTC hour from [WSPR.live](https://wspr.live/), covering all ten HF bands in one HTTP request. It applied the same grid, callsign, power, and SNR filters as the archive builder, streamed canonical rows through the M5 Projects volume, checksum-linked the completed response, and removed the spool after validation. The first target finalization then exposed a PostgREST 1,000-row response cap. All ten affected watermarks were marked failed, pagination was repaired to continue until an empty page, and manifest v2 added signed per-band counts that block watermark publication on any mismatch. The corrected run matched all 287,694 source rows and published 75,055 aggregate cells. This establishes one exact end-to-end hour, not subscriber-facing permission, continuous completeness, or an availability guarantee."
       },
       {
+        "id": "schedule_heading",
+        "type": "markdown",
+        "body": "## The research-only hourly schedule is active and independently audited"
+      },
+      {
+        "id": "schedule_band_chart",
+        "type": "chart",
+        "chartId": "scheduled_band_coverage",
+        "layout": "full"
+      },
+      {
+        "id": "schedule_pipeline_chart",
+        "type": "chart",
+        "chartId": "scheduled_pipeline",
+        "layout": "full"
+      },
+      {
+        "id": "schedule_explainer",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an identity-free atomic receipt only after all ten bands pass. Its first scheduled hour contained **261,006 observations** and **69,980 feature cells**. An independent validator made 21 exact target-store queries and passed **20 of 20 gates**, including manifest signature/hash linkage, per-band observation and feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume."
+      },
+      {
         "id": "gates",
         "type": "table",
         "tableId": "gate_table",
@@ -402,7 +483,7 @@
         "id": "method",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. A real hardened NOAA capture separately verified the operational-weather path against A6."
+        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. A launchd-driven second hour then exercised the receipt-based restart boundary, internal transient runtime, exact target-store audit, and identity-free health record. A real hardened NOAA capture separately verified the operational-weather path against A6."
       },
       {
         "id": "compute",
@@ -414,7 +495,7 @@
         "id": "limits",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus one corrected source hour does not prove continuous hourly execution, long-window provider completeness, permission for subscriber-facing use, or the monitoring loop. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus one corrected source hour and one scheduled receipt do not prove 30-day provider completeness, permission for subscriber-facing use, outage recovery under a real failure, or alert delivery. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
       },
       {
         "id": "limit_table_block",
@@ -432,13 +513,13 @@
         "id": "next",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Next steps\n\n1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n2. Deliberately schedule the validated research-only connector and signed finalizer for internal evidence.\n3. Add hourly health, pagination/count, retention, restart, and fallback alerts.\n4. Run at least 30 days of identity-free real receipt-time shadow traffic and continuous weather freshness before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+        "body": "## Next steps\n\n1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n3. Add alert thresholds and delivery so failures reach an operator rather than only updating the local health file.\n4. Run opt-in beta outcome collection before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
       }
     ]
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T04:06:41.047711+00:00",
+    "generatedAt": "2026-07-16T04:42:43.698898+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -482,7 +563,15 @@
           "connector_peak_rss_mib": 57.625,
           "live_hour_gates_passed": 10,
           "live_hour_gates_total": 10,
-          "live_hour_feature_cells": 75055
+          "live_hour_feature_cells": 75055,
+          "schedule_gates_passed": 20,
+          "schedule_gates_total": 20,
+          "schedule_source_rows": 261006,
+          "schedule_feature_cells": 69980,
+          "schedule_continuous_hours": 1,
+          "schedule_connector_seconds": 37.961483,
+          "schedule_finalizer_seconds": 149.460603,
+          "schedule_peak_rss_mib": 152.297
         }
       ],
       "parity_rows": [
@@ -615,6 +704,58 @@
         {
           "band": "80m",
           "observations": 26690
+        }
+      ],
+      "schedule_band_rows": [
+        {
+          "band": "10m",
+          "observations": 3830
+        },
+        {
+          "band": "12m",
+          "observations": 1960
+        },
+        {
+          "band": "15m",
+          "observations": 8323
+        },
+        {
+          "band": "160m",
+          "observations": 4689
+        },
+        {
+          "band": "17m",
+          "observations": 9401
+        },
+        {
+          "band": "20m",
+          "observations": 77164
+        },
+        {
+          "band": "30m",
+          "observations": 49354
+        },
+        {
+          "band": "40m",
+          "observations": 77470
+        },
+        {
+          "band": "60m",
+          "observations": 3419
+        },
+        {
+          "band": "80m",
+          "observations": 25396
+        }
+      ],
+      "schedule_stage_rows": [
+        {
+          "stage": "Source observations",
+          "count": 261006
+        },
+        {
+          "stage": "Path-hour feature cells",
+          "count": 69980
         }
       ],
       "gate_rows": [
@@ -1157,6 +1298,106 @@
           "scope": "Real target source hour",
           "gate": "locked outcomes unread",
           "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "signed manifest v2 accepted",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "receipt complete research only",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "receipt identity free",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "receipt manifest hash linked",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "receipt manifest counts exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "receipt gates all pass",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "all hf bands present",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "target observation counts exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "target watermarks complete and exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "target feature total exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "health matches latest receipt",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "m5 multicore bounded",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "transient spool removed",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "launchd job loaded and clean exit",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "launchd hourly and restart enabled",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "launchd runtime internal and exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "launchd research gate explicit",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "launchd owner only and secret free",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "launchd logs on internal home",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "locked outcomes unread",
+          "status": "pass"
         }
       ],
       "blocker_rows": [
@@ -1165,15 +1406,11 @@
           "status": "required before live NowCast"
         },
         {
-          "remaining_work": "deliberately schedule the validated research-only connector",
-          "status": "required before live NowCast"
-        },
-        {
-          "remaining_work": "activate hourly monitoring, alerting, and restart recovery internally",
-          "status": "required before live NowCast"
-        },
-        {
           "remaining_work": "30-day real receipt-time shadow coverage and calibration evidence",
+          "status": "required before live NowCast"
+        },
+        {
+          "remaining_work": "opt-in beta outcome evidence and frozen prospective evaluation",
           "status": "required before live NowCast"
         }
       ],
@@ -1182,13 +1419,10 @@
           "evidence_limit": "archive receipt timestamps are unavailable, so receipt delays are synthetic"
         },
         {
-          "evidence_limit": "authorized provider connector is not enabled"
-        },
-        {
           "evidence_limit": "30-day real receipt-time shadow coverage is still required"
         },
         {
-          "evidence_limit": "one full research hour passed after an invalidated pagination defect, but continuous collection is not active"
+          "evidence_limit": "the hourly research schedule is active, but only its first completed hour has independent exact-count evidence"
         }
       ]
     }

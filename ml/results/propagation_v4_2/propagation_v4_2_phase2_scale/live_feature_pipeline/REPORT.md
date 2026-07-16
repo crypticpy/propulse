@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: live-feature foundation and replay report
 
-Generated: 2026-07-16T04:06:41.046892+00:00
+Generated: 2026-07-16T04:42:43.698000+00:00
 
 ## Answer first
 
@@ -20,11 +20,14 @@ Signed hourly orchestration passed `10/10`
 gates with `18` bounded M5 threads.
 The research-only connector passed `8/8`
 gates with `287,694` real observations in one bounded request
-at `57.6` MiB peak RSS. Continuous WSPR ingest remains
-disabled pending deliberate research scheduling. The corrected end-to-end target
+at `57.6` MiB peak RSS. The corrected end-to-end target
 hour passed `10/10`
 gates and published `75,055` aggregate path cells;
-the truncated first watermark version is explicitly failed. Subscriber-facing use
-still requires source confirmation. Monitoring and 30 days of real
-receipt-time shadow evidence also remain open. See `REPORT.html` for charts,
+the truncated first watermark version is explicitly failed. The hourly research
+LaunchAgent is now active: its first receipt passed
+`20/20` independent
+gates, converting `261,006` observations into
+`69,980` path cells with 18 bounded M5 threads.
+Subscriber-facing use still requires source confirmation. Alert delivery and 30
+days of real receipt-time shadow evidence also remain open. See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.

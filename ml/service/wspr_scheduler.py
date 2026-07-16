@@ -9,6 +9,8 @@ import hmac
 import json
 import os
 import re
+import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -34,6 +36,24 @@ def completion_signature(payload: dict[str, Any], secret: str) -> str:
     unsigned = {key: value for key, value in payload.items() if key != "manifest_hmac_sha256"}
     canonical = json.dumps(unsigned, sort_keys=True, separators=(",", ":"))
     return hmac.new(secret.encode(), canonical.encode(), hashlib.sha256).hexdigest()
+
+
+def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(value, handle, ensure_ascii=True, sort_keys=True, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def aware_utc(value: str | datetime, label: str) -> datetime:
@@ -239,6 +259,7 @@ def main() -> None:
     parser.add_argument("--threads-per-band", type=int, default=4)
     parser.add_argument("--page-size", type=int, default=5000)
     parser.add_argument("--retention-hours", type=int, default=30)
+    parser.add_argument("--result-output", type=Path)
     parser.add_argument(
         "--lock-file",
         type=Path,
@@ -276,6 +297,7 @@ def main() -> None:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise RuntimeError("another WSPR finalizer run is active") from error
+        started = time.perf_counter()
         result = run_completed_hour(
             manifest,
             finalizer=finalizer,
@@ -284,9 +306,12 @@ def main() -> None:
             threads_per_band=args.threads_per_band,
             retention_hours=args.retention_hours,
         )
+        result["wall_seconds"] = round(time.perf_counter() - started, 6)
     result["completion_manifest_sha256"] = hashlib.sha256(
         args.completion_manifest.read_bytes()
     ).hexdigest()
+    if args.result_output is not None:
+        write_json_atomic(args.result_output, result)
     print(json.dumps(result, indent=2))
 
 

@@ -670,6 +670,9 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   connector and validate one real settled hour without target writes.
 - [x] Run and audit one end-to-end private target hour, invalidate the discovered
   capped-pagination version, and pass the corrected manifest-v2 hour exactly.
+- [x] Activate the research-only receipt-driven M5 hourly schedule and
+  independently audit its first exact all-band receipt, target counts, health,
+  secret-free launchd boundary, and 18-thread limit.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -679,14 +682,15 @@ The service bundle, feature builders, station adapter, Band Planner path, and
 ReachMap surface path are implemented and validated. Explicit frontend and
 service shadow execution plus privacy-bounded aggregate telemetry are now
 implemented. The current shadow path correctly selects the physics fallback
-because authorized, replay-equivalent live WSPR lag features do not yet exist.
+until a complete H-1/H-2/H-3/H-24 causal window exists; the active internal
+research schedule has only begun accumulating that window.
 The real A6 bundle also passed a local M5 HTTP smoke deployment with six
 one-thread workers, allowlisted CORS, explicit fallback, and a persisted
 `propagation-shadow-v1` event. Phase 6 remains open until a durable beta
-deployment exists, a permitted source passes the live pipeline gates, and real
-opt-in shadow receipts are collected. Consented outcomes and the future
-prospective window also cannot be marked complete from retrospective archive
-evidence.
+deployment exists, subscriber-facing source terms are confirmed, 30-day
+receipt evidence passes, and real opt-in shadow outcomes are collected.
+Consented outcomes and the future prospective window also cannot be marked
+complete from retrospective archive evidence.
 
 The live-feature foundation now has a server-authoritative safety boundary:
 client lag values and freshness cannot select NowCast. The shared frozen
@@ -708,16 +712,16 @@ smoke rows were removed. Trusted operational weather then passed all 14 target
 gates against the real A6 bundle with 14 causal fields and 2.91 ms cached path
 p95. The signed hourly runner is implemented and refuses CPU oversubscription,
 partial-band manifests, timestamp gaps, tampering, and prune-before-success. An
-authorized provider connector, runner activation/monitoring, real receipt-time
-capture, and live coverage evidence remain open.
+approved subscriber-facing source, alert delivery, 30-day live coverage, beta
+outcomes, and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on
 the M5. One exact-hour request returned `287,694` archive-compatible rows across
 all ten HF bands in `23.1142` seconds at `57.625` MiB peak RSS. The canonical
 spool was written to the fast Projects volume, checksum-linked, and removed;
 the target feature store was not written. This establishes source-schema and
-streaming compatibility only. Continuous internal collection is still disabled,
-and [the prepared request](WSPR-LIVE-PERMISSION-REQUEST.md) must receive written
+streaming compatibility only. Internal research collection is now active, but
+[the prepared request](WSPR-LIVE-PERMISSION-REQUEST.md) must receive written
 confirmation before subscriber-facing use unless an independently permitted
 source replaces WSPR.live.
 
@@ -730,6 +734,16 @@ count. The corrected M5 run matched all `287,694` observations exactly and
 published `75,055` path cells. A separate target audit passed `10/10` gates,
 including exact observation/feature counts, one failed plus one corrected
 version, and fail-closed lookup while H-1/H-2/H-3/H-24 are incomplete.
+
+The M5 research LaunchAgent then completed its first scheduled target hour,
+`2026-07-16T03:00:00Z`. Its identity-free receipt covers `261,006` exact
+observations and `69,980` feature cells across all ten bands. Source streaming
+took 37.96 seconds at 152.297 MiB peak RSS; bounded finalization took 149.46
+seconds with two workers and nine native threads each. An independent audit
+made 21 target queries and passed all `20/20` manifest, receipt, exact-count,
+watermark, health, cleanup, launchd, privacy, storage, and multicore gates. This
+starts the 30-day internal shadow; one completed hour is not long-window or
+subscriber-facing evidence.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,

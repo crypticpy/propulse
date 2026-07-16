@@ -41,13 +41,33 @@ unset SUPABASE_SERVICE_ROLE_KEY VITE_SUPABASE_ANON_KEY
 SPOOL_DIR="${ARTIFACT_ROOT}/live_wspr_spool"
 MANIFEST_DIR="${ARTIFACT_ROOT}/live_wspr_manifests"
 MANIFEST="${MANIFEST_DIR}/latest.json"
-mkdir -p "${SPOOL_DIR}" "${MANIFEST_DIR}"
+RECEIPT_DIR="${ARTIFACT_ROOT}/live_wspr_receipts"
+COMPLETED_MANIFEST_DIR="${MANIFEST_DIR}/completed"
+mkdir -p "${SPOOL_DIR}" "${MANIFEST_DIR}" "${RECEIPT_DIR}" \
+  "${COMPLETED_MANIFEST_DIR}"
+RUN_DIR="$(mktemp -d "${ARTIFACT_ROOT}/live_wspr_run.XXXXXX")"
+CONNECTOR_RESULT="${RUN_DIR}/connector.json"
+SCHEDULER_RESULT="${RUN_DIR}/scheduler.json"
+RUN_STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+cleanup_run_dir() {
+  rm -f "${CONNECTOR_RESULT}" "${SCHEDULER_RESULT}" 2>/dev/null || true
+  rmdir "${RUN_DIR}" 2>/dev/null || true
+}
+trap cleanup_run_dir EXIT
+
+TARGET_ARGUMENTS=()
+if [[ -n "${PROPULSE_WSPR_TARGET_HOUR:-}" ]]; then
+  TARGET_ARGUMENTS=(--target-hour "${PROPULSE_WSPR_TARGET_HOUR}")
+fi
 
 /usr/bin/caffeinate -dimsu "${ROOT}/ml/.venv/bin/python" \
   "${ROOT}/ml/service/wspr_live_connector.py" \
   --acknowledge-research-only \
+  "${TARGET_ARGUMENTS[@]}" \
   --spool-dir "${SPOOL_DIR}" \
   --manifest-output "${MANIFEST}" \
+  --result-output "${CONNECTOR_RESULT}" \
   --page-size 5000
 
 /usr/bin/caffeinate -dimsu "${ROOT}/ml/.venv/bin/python" \
@@ -56,4 +76,15 @@ mkdir -p "${SPOOL_DIR}" "${MANIFEST_DIR}"
   --workers 2 \
   --threads-per-band 9 \
   --page-size 5000 \
-  --retention-hours 30
+  --retention-hours 30 \
+  --result-output "${SCHEDULER_RESULT}"
+
+"${ROOT}/ml/.venv/bin/python" \
+  "${ROOT}/ml/service/write_wspr_run_receipt.py" \
+  --connector-result "${CONNECTOR_RESULT}" \
+  --scheduler-result "${SCHEDULER_RESULT}" \
+  --manifest "${MANIFEST}" \
+  --receipt-dir "${RECEIPT_DIR}" \
+  --completed-manifest-dir "${COMPLETED_MANIFEST_DIR}" \
+  --started-at "${RUN_STARTED}" \
+  --cleanup-dir "${RUN_DIR}"

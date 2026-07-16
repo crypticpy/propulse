@@ -284,6 +284,7 @@ def main() -> None:
     parser.add_argument("--spool-dir", type=Path, required=True)
     parser.add_argument("--manifest-output", type=Path)
     parser.add_argument("--evidence-output", type=Path)
+    parser.add_argument("--result-output", type=Path)
     parser.add_argument("--page-size", type=int, default=1000)
     parser.add_argument("--max-rows", type=int, default=2_000_000)
     parser.add_argument("--acknowledge-research-only", action="store_true")
@@ -386,6 +387,8 @@ def main() -> None:
             "gates": gates,
         }
         write_json_atomic(args.evidence_output, evidence)
+    if args.result_output is not None:
+        write_json_atomic(args.result_output, result)
     print(json.dumps(result, ensure_ascii=True, sort_keys=True, indent=2))
 
 

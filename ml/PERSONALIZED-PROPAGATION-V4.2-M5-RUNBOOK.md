@@ -153,9 +153,9 @@ performed no target write. Aggregate evidence is
 source request is [`WSPR-LIVE-PERMISSION-REQUEST.md`](WSPR-LIVE-PERMISSION-REQUEST.md).
 
 For a deliberately enabled internal hour, store the HMAC secret in the M5 login
-keychain under service `propulse-wspr-completion-v1`. Non-interactive SSH can
-instead use a `0600` secret at
-`/Volumes/Projects/PropulseML/secrets/wspr_completion_secret`. Then invoke
+keychain under service `propulse-wspr-completion-v1`. Non-interactive runs can
+instead use a `0600` secret under the configured runtime root's `secrets/`
+directory. Then invoke
 `ml/service/run_m5_wspr_research_hour.sh` with
 `PROPULSE_WSPR_LIVE_RESEARCH_ENABLED=true`. The wrapper keeps secrets out of
 arguments, maps the ignored service credentials, uses 5,000-row request pages,
@@ -169,7 +169,38 @@ signed per-band counts, pagination continues until empty, and count mismatch
 fails before feature or watermark publication. The corrected hour matched
 `287,694` observations, wrote `75,055` feature cells, and passed `10/10` target
 gates. `wspr_live_hour_validation.json` is the aggregate audit. Continuous
-scheduling still requires the monitoring/restart wrapper and remains disabled.
+scheduling uses the receipt-driven monitoring/restart wrapper described below.
+
+The scheduling implementation uses identity-free atomic run receipts as its
+state. `run_m5_wspr_research_catchup.py` processes contiguous missing settled
+hours in order, refuses more than 24 hours of automatic catch-up, locks against
+overlap, and updates `live_wspr_health.json`. The launchd installer runs that
+boundary at minute 15 and on load with an owner-only umask. Small launch logs
+stay under `~/Library/Logs/Propulse`. Because LaunchAgents cannot open
+removable-volume paths in this context, operational receipts, manifests, health,
+locks, secret, and transient spools use
+`~/Library/Application Support/PropulseML`; large ML datasets remain on the
+Projects volume. Installation remains a deliberate research-only action:
+
+```bash
+ml/.venv/bin/python ml/service/install_m5_wspr_research_launchd.py \
+  --install --acknowledge-research-only
+```
+
+The research-only job is active. Its first scheduled target hour,
+`2026-07-16T03:00:00Z`, completed with `261,006` exact observations and `69,980`
+feature cells across ten bands. The connector used `152.297` MiB peak RSS; two
+finalizers used nine threads each, for 18 bounded native M5 threads. The
+independent schedule audit passed `20/20` gates and is stored as
+`wspr_research_schedule_validation.json`. Re-run it with the server-only target
+environment and signing secret loaded out of process arguments:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/validate_wspr_research_schedule.py
+```
+
+This starts the 30-day internal receipt-time shadow; it does not grant
+subscriber-facing source authorization or complete the long-window gate.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import hashlib
 import logging
+import math
 import os
 import sys
 import time
@@ -19,6 +20,13 @@ import xgboost as xgb
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from path_history import (
+    PATH_LAGS,
+    PathHistoryProvider,
+    VerifiedPathHistory,
+    path_history_provider_from_environment,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -112,6 +120,13 @@ class PathRequest(StrictModel):
     station: StationEnvelope | None = None
     data_freshness_seconds: dict[str, int] = Field(default_factory=dict)
 
+    @field_validator("issue_time", "valid_time")
+    @classmethod
+    def timestamps_are_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamps must include a UTC offset")
+        return value
+
     @field_validator("valid_time")
     @classmethod
     def valid_after_issue(cls, value: datetime, info: Any) -> datetime:
@@ -138,6 +153,21 @@ class SurfaceRequest(StrictModel):
     cells: list[PathFeatures] = Field(min_length=1, max_length=4096)
     station: StationEnvelope | None = None
     data_freshness_seconds: dict[str, int] = Field(default_factory=dict)
+
+    @field_validator("issue_time", "valid_time")
+    @classmethod
+    def timestamps_are_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamps must include a UTC offset")
+        return value
+
+    @field_validator("valid_time")
+    @classmethod
+    def valid_after_issue(cls, value: datetime, info: Any) -> datetime:
+        issue = info.data.get("issue_time")
+        if issue is not None and value < issue:
+            raise ValueError("valid_time must be on or after issue_time")
+        return value
 
     @field_validator("data_freshness_seconds")
     @classmethod
@@ -426,6 +456,81 @@ def path_history_is_stale(
     return age is None or age > threshold
 
 
+def verified_path_history(
+    provider: PathHistoryProvider,
+    *,
+    issue_time: datetime,
+    band: str,
+    origin_grid4: str,
+    target_grid4s: list[str],
+) -> dict[str, VerifiedPathHistory]:
+    try:
+        snapshots = provider.lookup(
+            issue_time=issue_time,
+            band=band,
+            origin_grid4=origin_grid4,
+            target_grid4s=target_grid4s,
+        )
+    except RuntimeError:
+        LOGGER.warning("verified path-history provider lookup failed; using fallback")
+        return {}
+    expected_targets = set(target_grid4s)
+    if set(snapshots) != expected_targets:
+        return {}
+    for target, snapshot in snapshots.items():
+        if (
+            snapshot.target_grid4 != target
+            or snapshot.provider != provider.name
+            or snapshot.transform_version != provider.transform_version
+            or snapshot.available_at > issue_time
+            or snapshot.source_watermark > issue_time
+            or snapshot.source_watermark > snapshot.available_at
+            or snapshot.quality_flags
+        ):
+            return {}
+    return snapshots
+
+
+def apply_verified_path_history(
+    provider: PathHistoryProvider,
+    *,
+    issue_time: datetime,
+    band: str,
+    origin_grid4: str,
+    cells: list[PathFeatures],
+    client_freshness: dict[str, int],
+) -> tuple[list[PathFeatures], dict[str, int]]:
+    targets = [cell.target_grid4 for cell in cells]
+    snapshots = verified_path_history(
+        provider,
+        issue_time=issue_time,
+        band=band,
+        origin_grid4=origin_grid4,
+        target_grid4s=targets,
+    )
+    freshness = {
+        key: value
+        for key, value in client_freshness.items()
+        if key != "path_history"
+    }
+    if snapshots:
+        freshness["path_history"] = max(
+            math.ceil((issue_time - snapshot.source_watermark).total_seconds())
+            for snapshot in snapshots.values()
+        )
+    verified_cells = []
+    for cell in cells:
+        values = dict(cell.values)
+        for lag in PATH_LAGS:
+            values[f"path_success_prev{lag}"] = 0.0
+            values[f"path_prev{lag}_available"] = 0
+        snapshot = snapshots.get(cell.target_grid4)
+        if snapshot is not None:
+            values.update(snapshot.feature_values())
+        verified_cells.append(cell.model_copy(update={"values": values}))
+    return verified_cells, freshness
+
+
 def resolve_inference_mode(configured: str | None) -> str:
     mode = (configured or "disabled").strip().lower()
     if mode == "off":
@@ -458,6 +563,8 @@ def shadow_telemetry_event(
     inference_mode: str,
     request_kind: str,
     feature_contract: str,
+    path_history_provider: str,
+    path_history_transform_version: str,
     stale_history: bool,
     latency_ms: float,
 ) -> dict[str, Any]:
@@ -480,6 +587,8 @@ def shadow_telemetry_event(
         "model_version": str(responses[0]["model_version"]),
         "feature_contract": feature_contract,
         "station_feature_contract": str(responses[0]["feature_contract"]),
+        "path_history_provider": path_history_provider,
+        "path_history_transform_version": path_history_transform_version,
         "profile_counts": dict(sorted(profiles.items())),
         "source_freshness": {
             "path_history_seconds": path_history_age,
@@ -510,6 +619,11 @@ def prediction_response(request: PathRequest, runtime: RuntimePrediction) -> dic
     personalized = runtime.probability
     confidence = runtime.confidence
     assumptions = ["core_estimand_is_single_wspr_decode"]
+    assumptions.append(
+        "path_history_server_verified"
+        if runtime.profile == "nowcast"
+        else "path_history_stale_or_unavailable_physics_fallback"
+    )
     if request.station is not None:
         adjustment = apply_station_physics_adapter(
             runtime.probability,
@@ -543,6 +657,7 @@ def create_app(
     registry: Predictor | None = None,
     inference_mode: str | None = None,
     telemetry_sink: Callable[[dict[str, Any]], None] | None = None,
+    path_history_provider: PathHistoryProvider | None = None,
 ) -> FastAPI:
     runtime = registry
     if runtime is None:
@@ -555,6 +670,11 @@ def create_app(
     )
     runtime_feature_contract = str(
         getattr(runtime, "core_feature_contract", "unknown")
+    )
+    history_provider = (
+        path_history_provider
+        if path_history_provider is not None
+        else path_history_provider_from_environment()
     )
     emit_telemetry = telemetry_sink or log_shadow_telemetry
     app = FastAPI(title="Propulse Propagation API", version="1.0.0")
@@ -581,6 +701,8 @@ def create_app(
             "checked_at": datetime.now(timezone.utc),
             "inference_mode": selected_inference_mode,
             "telemetry_schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
+            "path_history_provider": history_provider.name,
+            "path_history_transform_version": history_provider.transform_version,
         }
 
     @app.get("/v1/propagation/models")
@@ -590,20 +712,34 @@ def create_app(
     @app.post("/v1/propagation/path")
     def path(request: PathRequest) -> dict[str, Any]:
         started = time.perf_counter()
-        stale = path_history_is_stale(runtime, request.data_freshness_seconds)
+        features, freshness = apply_verified_path_history(
+            history_provider,
+            issue_time=request.issue_time,
+            band=request.band,
+            origin_grid4=request.origin_grid4,
+            cells=[request.features],
+            client_freshness=request.data_freshness_seconds,
+        )
+        verified_request = request.model_copy(update={
+            "features": features[0],
+            "data_freshness_seconds": freshness,
+        })
+        stale = path_history_is_stale(runtime, freshness)
         try:
-            prediction = runtime.predict(request.features.values, request.band, stale)
+            prediction = runtime.predict(features[0].values, request.band, stale)
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
-        response = prediction_response(request, prediction)
+        response = prediction_response(verified_request, prediction)
         if selected_inference_mode != "disabled":
             try:
                 emit_telemetry(shadow_telemetry_event(
-                    request,
+                    verified_request,
                     [response],
                     inference_mode=selected_inference_mode,
                     request_kind="path",
                     feature_contract=runtime_feature_contract,
+                    path_history_provider=history_provider.name,
+                    path_history_transform_version=history_provider.transform_version,
                     stale_history=stale,
                     latency_ms=(time.perf_counter() - started) * 1000,
                 ))
@@ -614,23 +750,35 @@ def create_app(
     @app.post("/v1/propagation/surface")
     def surface(request: SurfaceRequest) -> dict[str, Any]:
         started = time.perf_counter()
-        stale = path_history_is_stale(runtime, request.data_freshness_seconds)
+        cells, freshness = apply_verified_path_history(
+            history_provider,
+            issue_time=request.issue_time,
+            band=request.band,
+            origin_grid4=request.origin_grid4,
+            cells=request.cells,
+            client_freshness=request.data_freshness_seconds,
+        )
+        verified_request = request.model_copy(update={
+            "cells": cells,
+            "data_freshness_seconds": freshness,
+        })
+        stale = path_history_is_stale(runtime, freshness)
         predictions = []
         try:
             if hasattr(runtime, "predict_many"):
                 runtime_predictions = runtime.predict_many(
-                    [cell.values for cell in request.cells],
-                    [request.band] * len(request.cells),
+                    [cell.values for cell in cells],
+                    [request.band] * len(cells),
                     stale,
                 )
             else:
                 runtime_predictions = [
                     runtime.predict(cell.values, request.band, stale)
-                    for cell in request.cells
+                    for cell in cells
                 ]
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
-        for cell, prediction in zip(request.cells, runtime_predictions):
+        for cell, prediction in zip(cells, runtime_predictions):
             path_request = PathRequest(
                 origin_grid4=request.origin_grid4,
                 issue_time=request.issue_time,
@@ -640,17 +788,19 @@ def create_app(
                 declared_power_watts=request.declared_power_watts,
                 features=cell,
                 station=cell.station or request.station,
-                data_freshness_seconds=request.data_freshness_seconds,
+                data_freshness_seconds=freshness,
             )
             predictions.append(prediction_response(path_request, prediction))
         if selected_inference_mode != "disabled":
             try:
                 emit_telemetry(shadow_telemetry_event(
-                    request,
+                    verified_request,
                     predictions,
                     inference_mode=selected_inference_mode,
                     request_kind="surface",
                     feature_contract=runtime_feature_contract,
+                    path_history_provider=history_provider.name,
+                    path_history_transform_version=history_provider.transform_version,
                     stale_history=stale,
                     latency_ms=(time.perf_counter() - started) * 1000,
                 ))

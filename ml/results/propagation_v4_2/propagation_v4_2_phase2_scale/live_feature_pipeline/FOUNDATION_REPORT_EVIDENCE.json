@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T02:11:01.641835+00:00",
+  "scope": "live_feature_foundation_pre_provider",
+  "decision": "foundation_pass_provider_pending",
+  "source_authorized": false,
+  "migration_deployed": false,
+  "provider_connector_enabled": false,
+  "locked_outcomes_read": false,
+  "input_inventory": [
+    {
+      "id": "transform_parity",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/transform_parity.json",
+      "sha256": "06e4284f10611a027dc5cea300cf9d47fa594f8719d07dba403637aca071c641"
+    },
+    {
+      "id": "foundation_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/foundation_validation.json",
+      "sha256": "efc80719e741e2428f9730c02bd565032ce15c815954a30b461f878895c1dc5b"
+    }
+  ],
+  "bundle": {
+    "model_version": "propagation_v4_2_phase2_scale-phase3-candidate-50000000",
+    "core_feature_contract": "archive-v4-features-v1",
+    "manifest_sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821",
+    "xgboost_prediction_threads": 1
+  },
+  "migration": {
+    "path": "supabase/migrations/20260716000000_wspr_live_feature_store.sql",
+    "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212"
+  },
+  "transform": {
+    "version": "wspr-opportunity-duckdb-v1",
+    "target_hour": "2024-10-15T17:00:00+00:00",
+    "source_hashes": {
+      "bronze": {
+        "path": "data/bronze/archive_v3/wspr/year=2024/month=10/spots.parquet",
+        "bytes": 3977216940,
+        "sha256": "f897af8507b68851bf93eaac26a76b008554dce9bcfd3e65c0b2a60e9178fcaf"
+      },
+      "opportunities": {
+        "path": "data/processed/archive_v3/opportunities/task=hf/year=2024/month=10/part.parquet",
+        "bytes": 475161901,
+        "sha256": "82eabb82addd723a0df0f22ae76119e9f604cd345e1042b63905bfe82eaec4b8"
+      }
+    },
+    "compute": {
+      "machine": "arm64",
+      "visible_cpus": 18,
+      "duckdb_threads": 18,
+      "peak_rss_gib": 0.7232208251953125,
+      "wall_seconds": 2.1766207089967793
+    }
+  },
+  "datasets": {
+    "summary": [
+      {
+        "exact_differences": 0,
+        "opportunity_cells": 88466,
+        "lag_cells": 78478,
+        "transform_wall_seconds": 2.1766207089967793,
+        "path_p95_ms": 3.3913749939529225,
+        "surface_p95_ms": 10.589041994535364,
+        "visible_cpus": 18,
+        "foundation_gates_passed": 14,
+        "foundation_gates_total": 14
+      }
+    ],
+    "parity_rows": [
+      {
+        "cell_type": "Opportunity path/power/hour",
+        "implementation": "Historical builder",
+        "cells": 88466
+      },
+      {
+        "cell_type": "Opportunity path/power/hour",
+        "implementation": "Shared live transform",
+        "cells": 88466
+      },
+      {
+        "cell_type": "Path/hour after power aggregation",
+        "implementation": "Historical builder",
+        "cells": 78478
+      },
+      {
+        "cell_type": "Path/hour after power aggregation",
+        "implementation": "Shared live transform",
+        "cells": 78478
+      }
+    ],
+    "flow_rows": [
+      {
+        "stage": "Open-hour input spots",
+        "rows": 302903
+      },
+      {
+        "stage": "Deterministic sampled rows",
+        "rows": 343936
+      },
+      {
+        "stage": "Opportunity cells",
+        "rows": 88466
+      },
+      {
+        "stage": "Power-aggregated lag cells",
+        "rows": 78478
+      }
+    ],
+    "latency_rows": [
+      {
+        "request": "Single path",
+        "p95_ms": 3.3913749939529225,
+        "limit_ms": 50
+      },
+      {
+        "request": "288-cell surface",
+        "p95_ms": 10.589041994535364,
+        "limit_ms": 3000
+      }
+    ],
+    "gate_rows": [
+      {
+        "gate": "open hour transform exact",
+        "status": "pass"
+      },
+      {
+        "gate": "real bundle loaded",
+        "status": "pass"
+      },
+      {
+        "gate": "client freshness forgery blocked",
+        "status": "pass"
+      },
+      {
+        "gate": "surface forgery blocked",
+        "status": "pass"
+      },
+      {
+        "gate": "server provider unavailable by default",
+        "status": "pass"
+      },
+      {
+        "gate": "serving thread contract",
+        "status": "pass"
+      },
+      {
+        "gate": "telemetry identity free",
+        "status": "pass"
+      },
+      {
+        "gate": "path latency",
+        "status": "pass"
+      },
+      {
+        "gate": "surface latency",
+        "status": "pass"
+      },
+      {
+        "gate": "rolling observation rls",
+        "status": "pass"
+      },
+      {
+        "gate": "sparse feature export revoked",
+        "status": "pass"
+      },
+      {
+        "gate": "lookup service role only",
+        "status": "pass"
+      },
+      {
+        "gate": "four atomic watermarks",
+        "status": "pass"
+      },
+      {
+        "gate": "minimum rolling retention",
+        "status": "pass"
+      }
+    ],
+    "blocker_rows": [
+      {
+        "remaining_work": "written source authorization or self-operated source",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "migration deployment and syntax validation against target Postgres",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "authorized provider connector",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "multi-hour event-time and receipt-time replay",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "30-day live shadow coverage and calibration evidence",
+        "status": "required before live NowCast"
+      }
+    ]
+  }
+}

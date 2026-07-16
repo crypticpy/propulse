@@ -53,6 +53,30 @@ parity, and live receipt-time gate satisfy
 PSK Reporter, RBN, and DX Cluster activity must not be relabeled as V4.2 WSPR
 history to make the NowCast profile appear live.
 
+Recent path history is server-authoritative. The service always removes the
+browser's `path_success_prev*`, `path_prev*_available`, and `path_history`
+freshness claims, then replaces them from the service-role-only feature store.
+No configured provider, a lookup outage, incomplete target coverage, a future
+timestamp, a transform/provider mismatch, or any quality flag fails closed to
+the physics profile. A browser cannot select NowCast by submitting a small
+freshness age.
+
+Enable the provider only after its source is approved and the migration has
+been deployed. These variables are all-or-nothing; partial configuration fails
+startup:
+
+```bash
+export PROPULSE_FEATURE_STORE_URL="https://project.supabase.co"
+export PROPULSE_FEATURE_STORE_SERVICE_KEY="server-only-service-role-key"
+export PROPULSE_WSPR_PROVIDER="approved-provider-id"
+export PROPULSE_PATH_TRANSFORM_VERSION="wspr-opportunity-duckdb-v1"
+```
+
+The service key must never use a `VITE_` prefix or enter client configuration.
+The RPC accepts 1-4,096 target grids in one call and returns nothing unless the
+H-1, H-2, H-3, and H-24 band watermarks were all complete, transform-matched,
+quality-clean, and available by issue time.
+
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature
 contract; weights must be non-negative and sum to one. Each component is scored

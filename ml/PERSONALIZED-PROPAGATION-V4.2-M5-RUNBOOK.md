@@ -97,6 +97,55 @@ ml/.venv/bin/uvicorn app:app --app-dir ml/service \
   --host 127.0.0.1 --port 8000 --workers 6
 ```
 
+Client-supplied path lags and freshness are never trusted. With no verified
+server feature provider, health reports `path_history_provider=unavailable` and
+every request selects physics. The provider requires the URL, server-only
+service key, approved source identifier, and frozen transform version together;
+do not configure them before authorization and replay gates pass.
+
+The shared-transform extraction was checked only on open October 2024 data:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/validate_live_transform_parity.py \
+  --bronze /path/to/open-october-bronze.parquet \
+  --opportunities /path/to/open-october-hf-opportunities.parquet \
+  --target-hour 2024-10-15T17:00:00Z --threads 18
+```
+
+Evidence is stored at
+`ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/transform_parity.json`.
+Do not substitute December or 2025 paths in this command.
+
+The generic ingest and finalizer CLIs are `ml/service/wspr_ingest.py` and
+`ml/service/wspr_finalizer.py`. They do not contain a provider connector. The
+finalizer requires an explicit completed-source signal and an event-time
+watermark at the end of the target hour, writes feature pages first, and commits
+the version watermark last; incomplete or degraded hours cannot be returned by
+the lookup RPC. Use all 18 DuckDB threads for M5 replay, but size production
+threads to its CPU allocation.
+
+The pre-provider foundation validation passed all 14 gates against the real A6
+bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,
+`1.1201` GiB peak RSS, identity-free telemetry, and forged browser freshness
+blocked. Reproduce and package its interactive report only on the M5:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/validate_live_feature_foundation.py \
+  --bundle /path/to/approved/serving_manifest.json
+
+ml/.venv/bin/python ml/src/archive_v4_2/generate_live_feature_report.py \
+  --profile m5
+
+${HOME}/.local/bin/node ml/src/archive_v4/package_report.mjs \
+  --input ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.artifact.json \
+  --output ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html
+```
+
+The packaged report passed validation, packaging, source-dialog interaction,
+and browser checks at 1,440 px and 390 px. This does not replace target-Postgres
+migration validation or live-source replay. Foundation evidence records the
+exact migration SHA-256 as well as the serving-manifest SHA-256.
+
 ## Reproduce Phase 2 at 20M
 
 After the parent exits successfully:

@@ -1,0 +1,497 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propulse NowCast V4.2: live-feature foundation report",
+    "description": "Exact transform parity, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
+    "generatedAt": "2026-07-16T02:11:01.642302+00:00",
+    "cards": [
+      {
+        "id": "exact_diff",
+        "description": "Directional row and lag-cell differences; zero is required.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "Parity differences",
+            "field": "exact_differences",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "opportunity_cells",
+        "description": "Exact open-hour path/power/hour cells.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "Opportunity cells",
+            "field": "opportunity_cells",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "lag_cells",
+        "description": "Path/hour cells after aggregation across power bins.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "Lag cells",
+            "field": "lag_cells",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "transform_wall",
+        "description": "One open archive hour on 18 M5 DuckDB threads.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "Transform seconds",
+            "field": "transform_wall_seconds",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "path_latency",
+        "description": "Real A6 bundle with unavailable server provider.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "Path p95 ms",
+            "field": "path_p95_ms",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "surface_latency",
+        "description": "One-thread XGBoost serving contract.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "288-cell p95 ms",
+            "field": "surface_p95_ms",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "parity",
+        "title": "The shared live transform exactly reproduces the archive builder",
+        "subtitle": "An open October 2024 hour; paired counts must be identical for both intermediate representations.",
+        "type": "bar",
+        "dataset": "parity_rows",
+        "sourceId": "live_feature_evidence",
+        "encodings": {
+          "x": {
+            "field": "cell_type",
+            "type": "ordinal",
+            "label": "Cell representation"
+          },
+          "y": {
+            "field": "cells",
+            "type": "quantitative",
+            "label": "Cells"
+          },
+          "color": {
+            "field": "implementation",
+            "type": "nominal",
+            "label": "Implementation"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "flow",
+        "title": "One open hour stays bounded through each transform stage",
+        "subtitle": "Counts describe different intermediate objects and are shown to make materialization scale explicit.",
+        "type": "bar",
+        "dataset": "flow_rows",
+        "sourceId": "live_feature_evidence",
+        "encodings": {
+          "x": {
+            "field": "stage",
+            "type": "ordinal",
+            "label": "Pipeline stage"
+          },
+          "y": {
+            "field": "rows",
+            "type": "quantitative",
+            "label": "Rows or cells"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "latency",
+        "title": "Fail-closed shadow requests remain well inside service limits",
+        "subtitle": "Measured on the real A6 bundle; missing verified path history selects physics fallback.",
+        "type": "bar",
+        "dataset": "latency_rows",
+        "sourceId": "live_feature_evidence",
+        "encodings": {
+          "x": {
+            "field": "request",
+            "type": "ordinal",
+            "label": "Request"
+          },
+          "y": {
+            "field": "p95_ms",
+            "type": "quantitative",
+            "label": "p95 milliseconds"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "gate_table",
+        "title": "Foundation validation gates",
+        "subtitle": "The real bundle, service fallback, privacy, transform, and migration contract all pass.",
+        "dataset": "gate_rows",
+        "sourceId": "live_feature_evidence",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "blocker_table",
+        "title": "Required work before live NowCast",
+        "subtitle": "A passing foundation does not authorize a provider or deploy the private store.",
+        "dataset": "blocker_rows",
+        "sourceId": "live_feature_evidence",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "remaining_work",
+            "label": "Remaining work",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "live_feature_evidence",
+        "label": "V4.2 live-feature foundation evidence",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the checksum-linked evidence in ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propulse NowCast V4.2: live-feature foundation report"
+      },
+      {
+        "id": "answer",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "## The production-shaped foundation passes, but live WSPR is not enabled\n\nThe shared DuckDB transform produced **88,466** opportunity cells and **78,478** power-aggregated lag cells with **zero directional differences** from the historical builder. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. This approves the foundation for authorized-source integration. It does not claim that the private migration is deployed or that a live provider is approved."
+      },
+      {
+        "id": "cards",
+        "type": "metric-strip",
+        "cardIds": [
+          "exact_diff",
+          "opportunity_cells",
+          "lag_cells",
+          "transform_wall",
+          "path_latency",
+          "surface_latency"
+        ]
+      },
+      {
+        "id": "findings",
+        "type": "markdown",
+        "body": "## Exact feature semantics are the primary result"
+      },
+      {
+        "id": "parity_chart",
+        "type": "chart",
+        "chartId": "parity",
+        "layout": "full"
+      },
+      {
+        "id": "parity_explainer",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "The live and archive paths now call the same versioned transform. It reconstructs deterministic receiver opportunities from transmitter slots, then sums successes and opportunities across power bins before creating path-hour lag rates. Exact equality includes counts, successes, opportunity mass, sampled rows, and both cell sets. The parity test used only an already-open October 2024 hour and did not inspect December, 2025, or prospective outcomes."
+      },
+      {
+        "id": "flow_chart",
+        "type": "chart",
+        "chartId": "flow",
+        "layout": "full"
+      },
+      {
+        "id": "architecture_heading",
+        "type": "markdown",
+        "body": "## Server authority prevents client-side freshness forgery"
+      },
+      {
+        "id": "architecture",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "**Authorized connector -> private rolling observations -> bounded hourly DuckDB finalizer -> versioned path-hour cells and atomic watermarks -> service-role-only batched lookup -> A6 service.**\n\nThe browser may request a path or surface but cannot supply trusted lag values or mark them fresh. The API deletes client lag features, obtains a complete matching server snapshot, and activates NowCast only when provider, transform version, watermark, availability time, and quality flags all pass. Missing, partial, future, stale, or degraded data fails closed to the physics profile."
+      },
+      {
+        "id": "latency_chart",
+        "type": "chart",
+        "chartId": "latency",
+        "layout": "full"
+      },
+      {
+        "id": "gates",
+        "type": "table",
+        "tableId": "gate_table",
+        "layout": "full"
+      },
+      {
+        "id": "method_heading",
+        "type": "markdown",
+        "body": "## Method, data, and execution"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "The parity fixture is one open WSPRnet archive hour ([archive](https://www.wsprnet.org/archive/)), checksum-linked to its bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields and checks the private migration's RLS, grants, retention, and four-lag watermark joins. No external live WSPR provider was queried."
+      },
+      {
+        "id": "compute",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "## Apple Silicon execution\n\nAll evidence was generated on native ARM64 with **18 M5 CPU cores**. The open-hour transform used 18 DuckDB threads. Research training remains two spawned XGBoost fits with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one XGBoost thread each to avoid oversubscription under concurrent traffic."
+      },
+      {
+        "id": "limits",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence and fail-closed service test, not a live-source quality study. One open hour proves exact semantics for that fixture but not provider completeness, late arrival behavior, outage recovery, or 30-day shadow calibration. Static migration inspection is not a substitute for applying it to the target Postgres version. Operational weather inputs also need the same server-authoritative treatment before active forecasts. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
+      },
+      {
+        "id": "blockers",
+        "type": "table",
+        "tableId": "blocker_table",
+        "layout": "full"
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "## Next steps\n\n1. Obtain written authorization for a live WSPR source or operate a source we control.\n2. Review and apply the private migration against the target Postgres environment.\n3. Implement the authorized connector without changing the shared transform.\n4. Replay multi-hour event-time and receipt-time fixtures, including duplicates, late arrivals, degraded hours, corrections, and pruning.\n5. Run at least 30 days of identity-free shadow traffic before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-16T02:11:01.642302+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "exact_differences": 0,
+          "opportunity_cells": 88466,
+          "lag_cells": 78478,
+          "transform_wall_seconds": 2.1766207089967793,
+          "path_p95_ms": 3.3913749939529225,
+          "surface_p95_ms": 10.589041994535364,
+          "visible_cpus": 18,
+          "foundation_gates_passed": 14,
+          "foundation_gates_total": 14
+        }
+      ],
+      "parity_rows": [
+        {
+          "cell_type": "Opportunity path/power/hour",
+          "implementation": "Historical builder",
+          "cells": 88466
+        },
+        {
+          "cell_type": "Opportunity path/power/hour",
+          "implementation": "Shared live transform",
+          "cells": 88466
+        },
+        {
+          "cell_type": "Path/hour after power aggregation",
+          "implementation": "Historical builder",
+          "cells": 78478
+        },
+        {
+          "cell_type": "Path/hour after power aggregation",
+          "implementation": "Shared live transform",
+          "cells": 78478
+        }
+      ],
+      "flow_rows": [
+        {
+          "stage": "Open-hour input spots",
+          "rows": 302903
+        },
+        {
+          "stage": "Deterministic sampled rows",
+          "rows": 343936
+        },
+        {
+          "stage": "Opportunity cells",
+          "rows": 88466
+        },
+        {
+          "stage": "Power-aggregated lag cells",
+          "rows": 78478
+        }
+      ],
+      "latency_rows": [
+        {
+          "request": "Single path",
+          "p95_ms": 3.3913749939529225,
+          "limit_ms": 50
+        },
+        {
+          "request": "288-cell surface",
+          "p95_ms": 10.589041994535364,
+          "limit_ms": 3000
+        }
+      ],
+      "gate_rows": [
+        {
+          "gate": "open hour transform exact",
+          "status": "pass"
+        },
+        {
+          "gate": "real bundle loaded",
+          "status": "pass"
+        },
+        {
+          "gate": "client freshness forgery blocked",
+          "status": "pass"
+        },
+        {
+          "gate": "surface forgery blocked",
+          "status": "pass"
+        },
+        {
+          "gate": "server provider unavailable by default",
+          "status": "pass"
+        },
+        {
+          "gate": "serving thread contract",
+          "status": "pass"
+        },
+        {
+          "gate": "telemetry identity free",
+          "status": "pass"
+        },
+        {
+          "gate": "path latency",
+          "status": "pass"
+        },
+        {
+          "gate": "surface latency",
+          "status": "pass"
+        },
+        {
+          "gate": "rolling observation rls",
+          "status": "pass"
+        },
+        {
+          "gate": "sparse feature export revoked",
+          "status": "pass"
+        },
+        {
+          "gate": "lookup service role only",
+          "status": "pass"
+        },
+        {
+          "gate": "four atomic watermarks",
+          "status": "pass"
+        },
+        {
+          "gate": "minimum rolling retention",
+          "status": "pass"
+        }
+      ],
+      "blocker_rows": [
+        {
+          "remaining_work": "written source authorization or self-operated source",
+          "status": "required before live NowCast"
+        },
+        {
+          "remaining_work": "migration deployment and syntax validation against target Postgres",
+          "status": "required before live NowCast"
+        },
+        {
+          "remaining_work": "authorized provider connector",
+          "status": "required before live NowCast"
+        },
+        {
+          "remaining_work": "multi-hour event-time and receipt-time replay",
+          "status": "required before live NowCast"
+        },
+        {
+          "remaining_work": "30-day live shadow coverage and calibration evidence",
+          "status": "required before live NowCast"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "live_feature_evidence",
+      "label": "V4.2 live-feature foundation evidence",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the checksum-linked evidence in ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json"
+        ]
+      }
+    }
+  ]
+}

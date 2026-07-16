@@ -19,6 +19,27 @@
 > not beta, receipt-time, coverage, calibration, or source-authorization
 > evidence.
 
+> Feature-foundation update, 2026-07-15: the frozen opportunity SQL is now a
+> shared `wspr-opportunity-duckdb-v1` library used by the historical builder.
+> On the M5 it reproduced an open October 2024 hour exactly: 302,903 bronze
+> spots, 88,466 opportunity cells and 78,478 lag cells, zero bidirectional row
+> differences, identical successes/opportunities/sampled rows, 18 DuckDB
+> threads, 0.72 GiB peak RSS, and 2.18 seconds. A private rolling schema,
+> complete-watermark RPC, and
+> server-only PostgREST provider are implemented but not deployed. The service
+> now ignores browser-provided path lags/freshness and fails closed to physics
+> unless that verified provider supplies every requested target.
+
+> Foundation-validation update, 2026-07-15: all 14 pre-provider gates passed
+> against the real checksum-verified A6 bundle on native ARM64. A forged browser
+> request with 0.999 lag values and zero claimed freshness remained on physics
+> fallback; aggregate telemetry contained no grid or station fields. Path p95
+> was 3.39 ms and a 288-cell surface p95 was 10.59 ms with the manifest-default
+> one-thread serving contract. The interactive report is
+> [`live_feature_pipeline/REPORT.html`](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html)
+> and passed browser verification at 1,440 px and 390 px. Source authorization,
+> migration deployment, multi-hour replay, and live shadow evidence remain open.
+
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
 > Dst object schema, preserves Bx and proton temperature, and stores per-source
@@ -140,8 +161,10 @@ and backend replay parity passes.
 3. **Hourly exposure transform**
    At a recorded cutoff after each UTC hour, run the same positive/activity,
    deterministic receiver-sampling, inverse-weighting, and grid-path aggregate
-   logic as the training pipeline. Never revise a feature snapshot used by an
-   issued prediction; corrections create a new `available_at` version.
+   logic as the training pipeline. A `complete` watermark must cover the entire
+   target hour; feature pages are written first and the watermark is committed
+   last. Never revise a feature snapshot used by an issued prediction;
+   corrections create a new `available_at` version.
 4. **Feature store**
    Store hourly path cells keyed by `(target_hour, band, tx_grid4, rx_grid4,
    available_at, transform_version)`, including successes, opportunities,
@@ -246,16 +269,24 @@ shadow capture with receipt timestamps is required before product enablement.
 ## Implementation Sequence
 
 - [ ] Obtain and record source authorization or select a self-operated source.
-- [ ] Extract the archive opportunity transform into one versioned library used
-  by historical builds and hourly micro-batches.
-- [ ] Add rolling bronze and hourly feature-store migrations with RLS/service
+- [x] Extract the archive opportunity transform into one versioned DuckDB
+  library, switch the historical builder to it, and prove exact open-hour
+  parity on the M5.
+- [x] Use the shared transform and power-bin aggregation from a bounded hourly
+  micro-batch finalizer that commits the completeness watermark last.
+- [x] Add rolling bronze and hourly feature-store migrations with RLS/service
   policies, retention, and sparse-export protection.
-- [ ] Build idempotent ingest, hourly finalizer, watermarks, and health metrics.
+- [ ] Connect an authorized source to the implemented idempotent ingest,
+  bounded hourly finalizer, atomic watermarks, and health metrics; no provider
+  connector is present or enabled yet.
 - [x] Build and M5-test the pure `solar_snapshots` operational-weather
   builder with source observation/receipt times and legal rolling features.
 - [ ] Deploy the provenance migration and expose the builder through one
   trusted backend response; do not assemble model weather in React pages.
-- [ ] Add batched path-history lookup to the trusted model backend.
+- [x] Add service-role-only batched path-history lookup and make the trusted
+  model backend reject browser-provided lag values and freshness.
+- [x] Validate the real A6 bundle, fail-closed service behavior, aggregate-only
+  telemetry, migration contract, and responsive visual report on the M5.
 - [ ] Add open-month event-time replay, then a receipt-time live shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.
 - [x] Add explicit frontend/service shadow execution with aggregate-only

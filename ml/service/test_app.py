@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import copy
 import unittest
+from datetime import timedelta
 
 import numpy as np
 from fastapi.testclient import TestClient
+
+from path_history import (
+    DEFAULT_PATH_TRANSFORM_VERSION,
+    UnavailablePathHistoryProvider,
+    VerifiedPathHistory,
+)
 
 from app import (
     RuntimePrediction,
@@ -23,8 +30,10 @@ class FakeRegistry:
         self.path_history_stale_after_seconds = 7200
         self.feature_contract = "station-chain-v1"
         self.core_feature_contract = "archive-v4-features-test-v1"
+        self.last_values = []
 
     def predict(self, values, band, stale_history):
+        self.last_values.append(dict(values))
         return RuntimePrediction(
             probability=0.4,
             confidence=0.8,
@@ -46,6 +55,40 @@ class FakeRegistry:
 
     def health(self):
         return {"status": "ok", "model_version": "v4-test"}
+
+
+class FakePathHistoryProvider:
+    name = "approved-fixture"
+    transform_version = DEFAULT_PATH_TRANSFORM_VERSION
+
+    def __init__(self, age_seconds=60, quality_flags=(), future_available=False):
+        self.age_seconds = age_seconds
+        self.quality_flags = tuple(quality_flags)
+        self.future_available = future_available
+        self.lookups = []
+
+    def lookup(self, *, issue_time, band, origin_grid4, target_grid4s):
+        self.lookups.append((issue_time, band, origin_grid4, list(target_grid4s)))
+        available_at = issue_time + timedelta(seconds=1) if self.future_available else issue_time
+        return {
+            target: VerifiedPathHistory(
+                target_grid4=target,
+                path_success_prev1=0.1,
+                path_success_prev2=0.2,
+                path_success_prev3=0.3,
+                path_success_prev24=0.4,
+                path_prev1_available=1,
+                path_prev2_available=1,
+                path_prev3_available=1,
+                path_prev24_available=1,
+                source_watermark=issue_time - timedelta(seconds=self.age_seconds),
+                available_at=available_at,
+                provider=self.name,
+                transform_version=self.transform_version,
+                quality_flags=self.quality_flags,
+            )
+            for target in target_grid4s
+        }
 
 
 def request_payload():
@@ -92,7 +135,11 @@ def request_payload():
 class ServiceTests(unittest.TestCase):
     def setUp(self):
         self.registry = FakeRegistry()
-        self.client = TestClient(create_app(self.registry, inference_mode="disabled"))
+        self.client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+            path_history_provider=UnavailablePathHistoryProvider(),
+        ))
 
     def test_path_applies_station_envelope(self):
         response = self.client.post("/v1/propagation/path", json=request_payload())
@@ -131,7 +178,11 @@ class ServiceTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "disabled, shadow, or active"):
             resolve_inference_mode("maybe")
-        client = TestClient(create_app(self.registry, inference_mode="shadow"))
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+        ))
         body = client.get("/v1/propagation/health").json()
         self.assertEqual(body["inference_mode"], "shadow")
         self.assertEqual(body["telemetry_schema_version"], "propagation-shadow-v1")
@@ -158,15 +209,51 @@ class ServiceTests(unittest.TestCase):
 
     def test_stale_history_selects_physics_fallback(self):
         payload = request_payload()
-        payload["data_freshness_seconds"]["path_history"] = 7200
-        response = self.client.post("/v1/propagation/path", json=payload)
+        fresh_client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+            path_history_provider=FakePathHistoryProvider(age_seconds=7200),
+        ))
+        response = fresh_client.post("/v1/propagation/path", json=payload)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["profile"], "nowcast")
 
-        payload["data_freshness_seconds"]["path_history"] = 7201
+        stale_client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+            path_history_provider=FakePathHistoryProvider(age_seconds=7201),
+        ))
+        response = stale_client.post("/v1/propagation/path", json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["profile"], "physics")
+
+    def test_client_cannot_forge_fresh_path_history(self):
+        payload = request_payload()
+        payload["features"]["values"].update({
+            "path_success_prev1": 0.99,
+            "path_prev1_available": 1,
+        })
+        payload["data_freshness_seconds"]["path_history"] = 0
         response = self.client.post("/v1/propagation/path", json=payload)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["profile"], "physics")
+        self.assertNotIn("path_history", response.json()["data_freshness"])
+        self.assertEqual(self.registry.last_values[-1]["path_success_prev1"], 0.0)
+        self.assertEqual(self.registry.last_values[-1]["path_prev1_available"], 0)
+
+    def test_future_or_flagged_server_snapshot_fails_closed(self):
+        for provider in (
+            FakePathHistoryProvider(future_available=True),
+            FakePathHistoryProvider(quality_flags=("coverage_low",)),
+        ):
+            client = TestClient(create_app(
+                self.registry,
+                inference_mode="disabled",
+                path_history_provider=provider,
+            ))
+            response = client.post("/v1/propagation/path", json=request_payload())
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["profile"], "physics")
 
     def test_missing_or_invalid_freshness_never_selects_nowcast(self):
         payload = request_payload()
@@ -221,6 +308,7 @@ class ServiceTests(unittest.TestCase):
             self.registry,
             inference_mode="shadow",
             telemetry_sink=events.append,
+            path_history_provider=FakePathHistoryProvider(),
         ))
         path_payload = request_payload()
         path_payload["band"] = "private-band-value"
@@ -246,6 +334,11 @@ class ServiceTests(unittest.TestCase):
             events[1]["feature_contract"], "archive-v4-features-test-v1"
         )
         self.assertEqual(events[1]["station_feature_contract"], "station-chain-v1")
+        self.assertEqual(events[1]["path_history_provider"], "approved-fixture")
+        self.assertEqual(
+            events[1]["path_history_transform_version"],
+            DEFAULT_PATH_TRANSFORM_VERSION,
+        )
         self.assertEqual(events[1]["profile_counts"], {"nowcast": 2})
         self.assertEqual(
             events[1]["core_probability_summary"],

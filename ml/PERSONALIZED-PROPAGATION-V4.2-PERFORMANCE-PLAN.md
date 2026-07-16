@@ -660,6 +660,24 @@ opt-in shadow receipts are collected. Consented outcomes and the future
 prospective window also cannot be marked complete from retrospective archive
 evidence.
 
+The live-feature foundation now has a server-authoritative safety boundary:
+client lag values and freshness cannot select NowCast. The shared frozen
+DuckDB transform reproduced 88,466 open October opportunity cells and 78,478
+lag cells exactly from 302,903 bronze spots. The private rolling schema,
+idempotent source-agnostic ingest boundary, bounded watermark-last finalizer,
+and batched causal lookup contract are implemented. Migration deployment, an
+authorized provider connector, multi-hour event/receipt replay, and live
+coverage evidence remain open.
+
+The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
+the M5. Malicious browser lag/freshness values remained on physics fallback,
+telemetry contained no grid or station-envelope fields, path p95 was 3.39 ms,
+and 288-cell surface p95 was 10.59 ms. The interactive foundation report passed
+the canonical portable builder and browser verification at 1,440 px and 390 px.
+Its evidence is isolated under
+`results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/`;
+it does not alter the frozen retrospective report or approve a live source.
+
 ## Immediate resume instruction
 
 On the M5:

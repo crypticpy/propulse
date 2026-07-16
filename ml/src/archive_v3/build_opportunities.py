@@ -4,10 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
 import duckdb
+
+LIVE_FEATURES = Path(__file__).resolve().parents[1] / "propagation_live"
+sys.path.insert(0, str(LIVE_FEATURES))
+from opportunity_transform import (  # noqa: E402
+    materialize_opportunity_cells,
+    transform_metadata,
+)
 
 from common import (
     MANIFESTS,
@@ -33,89 +41,24 @@ def build_month(
     if not source.exists():
         raise FileNotFoundError(source)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    band_filter = "band = '6m'" if task == "6m" else "band <> '6m'"
     started = time.time()
+    source_literal = str(source).replace("'", "''")
     con.execute(
         f"""
-        CREATE OR REPLACE TEMP TABLE positives AS
-        SELECT DISTINCT slot_epoch, target_hour, band,
-               tx_call, tx_grid4, rx_call, rx_grid4, power_bin_dbm,
-               min(snr_db) OVER (
-                 PARTITION BY slot_epoch, band, tx_call, rx_call
-               ) AS snr_db
-        FROM read_parquet('{source}')
-        WHERE {band_filter};
-
-        CREATE OR REPLACE TEMP TABLE tx_active AS
-        SELECT slot_epoch, target_hour, band, tx_call, tx_grid4, power_bin_dbm,
-               min(snr_db) AS best_any_snr
-        FROM positives GROUP BY ALL;
-
-        CREATE OR REPLACE TEMP TABLE rx_active AS
-        SELECT slot_epoch, band, rx_call, rx_grid4,
-               row_number() OVER (
-                 PARTITION BY slot_epoch, band ORDER BY rx_call, rx_grid4
-               ) AS rx_number,
-               count(*) OVER (PARTITION BY slot_epoch, band) AS receiver_count
-        FROM (SELECT DISTINCT slot_epoch, band, rx_call, rx_grid4 FROM positives);
-
-        CREATE OR REPLACE TEMP TABLE tx_with_receiver_count AS
-        SELECT tx.*, counts.receiver_count,
-               least(counts.receiver_count, {receiver_samples})::INTEGER AS sample_count
-        FROM tx_active tx
-        JOIN (
-          SELECT slot_epoch, band, max(receiver_count) AS receiver_count
-          FROM rx_active GROUP BY 1, 2
-        ) counts USING (slot_epoch, band);
-
-        CREATE OR REPLACE TEMP TABLE sampled_negatives AS
-        WITH candidate AS (
-          SELECT tx.slot_epoch, tx.target_hour, tx.band,
-                 tx.tx_call, tx.tx_grid4, tx.power_bin_dbm,
-                 rx.rx_call, rx.rx_grid4,
-                 tx.receiver_count::DOUBLE / tx.sample_count AS inclusion_weight
-          FROM tx_with_receiver_count tx
-          JOIN range(0, {receiver_samples}) samples(sample_index)
-            ON samples.sample_index < tx.sample_count
-          JOIN rx_active rx
-            ON rx.slot_epoch = tx.slot_epoch AND rx.band = tx.band
-           AND rx.rx_number = 1 + (
-             (hash(tx.slot_epoch, tx.band, tx.tx_call) + samples.sample_index)
-             % tx.receiver_count
-           )
-          WHERE tx.tx_call <> rx.rx_call
-        )
-        SELECT DISTINCT candidate.*
-        FROM candidate
-        ANTI JOIN positives p
-          ON p.slot_epoch = candidate.slot_epoch AND p.band = candidate.band
-         AND p.tx_call = candidate.tx_call AND p.rx_call = candidate.rx_call;
-
+        CREATE OR REPLACE TEMP VIEW wspr_source AS
+        SELECT * FROM read_parquet('{source_literal}')
+        """
+    )
+    materialize_opportunity_cells(
+        con,
+        source_relation="wspr_source",
+        task=task,
+        receiver_samples=receiver_samples,
+    )
+    con.execute(
+        f"""
         COPY (
-          WITH weighted AS (
-            SELECT target_hour, band, tx_grid4, rx_grid4, power_bin_dbm,
-                   1.0::DOUBLE AS inclusion_weight, 1::UTINYINT AS decoded,
-                   snr_db
-            FROM positives
-            UNION ALL
-            SELECT target_hour, band, tx_grid4, rx_grid4, power_bin_dbm,
-                   inclusion_weight, 0::UTINYINT AS decoded,
-                   NULL::FLOAT AS snr_db
-            FROM sampled_negatives
-          )
-          SELECT target_hour, band, tx_grid4, rx_grid4, power_bin_dbm,
-                 sum(inclusion_weight * decoded)::DOUBLE AS successes,
-                 sum(inclusion_weight)::DOUBLE AS opportunities,
-                 sum(inclusion_weight * decoded) / sum(inclusion_weight) AS success_rate,
-                 (sum(decoded) > 0)::UTINYINT AS any_success,
-                 count(*)::INTEGER AS sampled_rows,
-                 count(*) FILTER (decoded=1)::INTEGER AS positive_rows,
-                 avg(snr_db) FILTER (decoded=1)::FLOAT AS mean_positive_snr,
-                 min(snr_db) FILTER (decoded=1)::FLOAT AS min_positive_snr,
-                 max(snr_db) FILTER (decoded=1)::FLOAT AS max_positive_snr
-          FROM weighted
-          WHERE tx_grid4 <> rx_grid4
-          GROUP BY ALL
+          SELECT * FROM opportunity_cells
         ) TO '{destination}' (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 250000);
         """
     )
@@ -171,6 +114,7 @@ def build_month(
         "min_time": stats[9],
         "max_time": stats[10],
         "receiver_samples_per_tx_slot": receiver_samples,
+        "transform": transform_metadata(receiver_samples),
         "seconds": time.time() - started,
     }
 

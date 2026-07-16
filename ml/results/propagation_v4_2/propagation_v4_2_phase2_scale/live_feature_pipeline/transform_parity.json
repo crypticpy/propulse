@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T01:50:36.046748+00:00",
+  "scope": "open_development_transform_parity",
+  "locked_outcomes_read": false,
+  "target_hour": "2024-10-15T17:00:00+00:00",
+  "inputs": {
+    "bronze": {
+      "path": "data/bronze/archive_v3/wspr/year=2024/month=10/spots.parquet",
+      "bytes": 3977216940,
+      "sha256": "f897af8507b68851bf93eaac26a76b008554dce9bcfd3e65c0b2a60e9178fcaf"
+    },
+    "opportunities": {
+      "path": "data/processed/archive_v3/opportunities/task=hf/year=2024/month=10/part.parquet",
+      "bytes": 475161901,
+      "sha256": "82eabb82addd723a0df0f22ae76119e9f604cd345e1042b63905bfe82eaec4b8"
+    }
+  },
+  "transform": {
+    "transform_version": "wspr-opportunity-duckdb-v1",
+    "duckdb_version": "1.5.4",
+    "hash_engine": "duckdb_hash",
+    "lag_aggregation": "sum_across_power_bins",
+    "receiver_samples_per_tx_slot": 4
+  },
+  "compute": {
+    "machine": "arm64",
+    "visible_cpus": 18,
+    "duckdb_threads": 18,
+    "peak_rss_gib": 0.7232208251953125,
+    "wall_seconds": 2.1766207089967793
+  },
+  "parity": {
+    "input_spot_rows": 302903,
+    "expected_rows": 88466,
+    "actual_rows": 88466,
+    "actual_minus_expected_rows": 0,
+    "expected_minus_actual_rows": 0,
+    "actual_successes": 295612.0,
+    "expected_successes": 295612.0,
+    "actual_opportunities": 3271562.0,
+    "expected_opportunities": 3271562.0,
+    "actual_sampled_rows": 343936,
+    "expected_sampled_rows": 343936,
+    "actual_lag_cells": 78478,
+    "expected_lag_cells": 78478,
+    "actual_minus_expected_lag_cells": 0,
+    "expected_minus_actual_lag_cells": 0,
+    "exact": true
+  },
+  "decision": "pass"
+}

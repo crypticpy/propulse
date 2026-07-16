@@ -12,6 +12,7 @@ import resource
 import sys
 import tempfile
 import time
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,11 @@ sys.path.insert(0, str(MODULE))
 sys.path.insert(0, str(SERVICE))
 
 from app import ModelRegistry, create_app  # noqa: E402
+from path_history import (  # noqa: E402
+    DEFAULT_PATH_TRANSFORM_VERSION,
+    UnavailablePathHistoryProvider,
+    VerifiedPathHistory,
+)
 from m5_runtime import configure_arrow_threads  # noqa: E402
 from package_phase3_candidate import selected_components  # noqa: E402
 from phase2_core import Phase2Error, validate_config  # noqa: E402
@@ -65,6 +71,39 @@ PRIVATE_KEYS = (
     "raw_shack",
     "exact_location",
 )
+
+
+class ValidationPathHistoryProvider:
+    name = "phase3-validation-fixture"
+    transform_version = DEFAULT_PATH_TRANSFORM_VERSION
+
+    def __init__(self, values: dict[str, float], age_seconds: int) -> None:
+        self.values = values
+        self.age_seconds = age_seconds
+
+    def lookup(
+        self, *, issue_time, band, origin_grid4, target_grid4s
+    ) -> dict[str, VerifiedPathHistory]:
+        fields = {}
+        for lag in (1, 2, 3, 24):
+            available = int(self.values.get(f"path_prev{lag}_available", 0))
+            fields[f"path_success_prev{lag}"] = (
+                float(self.values.get(f"path_success_prev{lag}", 0))
+                if available
+                else 0.0
+            )
+            fields[f"path_prev{lag}_available"] = available
+        return {
+            target: VerifiedPathHistory(
+                target_grid4=target,
+                source_watermark=issue_time - timedelta(seconds=self.age_seconds),
+                available_at=issue_time,
+                provider=self.name,
+                transform_version=self.transform_version,
+                **fields,
+            )
+            for target in target_grid4s
+        }
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -284,8 +323,23 @@ def main() -> None:
         registry.predict_many(repeated_rows, repeated_bands, False)
         engine_batch_times.append(time.perf_counter() - started)
 
-    client = TestClient(create_app(registry))
     stale_after = int(phase3["stale_path_history_seconds"])
+    client = TestClient(create_app(
+        registry,
+        path_history_provider=ValidationPathHistoryProvider(
+            rows[0], stale_after
+        ),
+    ))
+    stale_client = TestClient(create_app(
+        registry,
+        path_history_provider=ValidationPathHistoryProvider(
+            rows[0], stale_after + 1
+        ),
+    ))
+    unavailable_client = TestClient(create_app(
+        registry,
+        path_history_provider=UnavailablePathHistoryProvider(),
+    ))
     path_payload = {
         "origin_grid4": "AA00",
         "issue_time": "2026-07-15T00:00:00Z",
@@ -301,13 +355,13 @@ def main() -> None:
         **path_payload,
         "data_freshness_seconds": {"path_history": stale_after + 1},
     }
-    stale_response = client.post("/v1/propagation/path", json=stale_payload)
+    stale_response = stale_client.post("/v1/propagation/path", json=stale_payload)
     unknown_freshness_payload = {
         key: value
         for key, value in path_payload.items()
         if key != "data_freshness_seconds"
     }
-    unknown_freshness_response = client.post(
+    unknown_freshness_response = unavailable_client.post(
         "/v1/propagation/path", json=unknown_freshness_payload
     )
     unknown_freshness_fallback = (

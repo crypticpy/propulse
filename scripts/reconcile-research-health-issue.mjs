@@ -17,7 +17,7 @@ export function normalizeMonitorPayload(payload) {
   if (typeof payload !== "object" || payload === null) {
     return {
       healthy: false,
-      stateChanged: true,
+      stateChanged: false,
       heartbeatAgeSeconds: null,
       deliveryFailed: 0,
       deliveryExhausted: 0,
@@ -28,7 +28,7 @@ export function normalizeMonitorPayload(payload) {
   if (value.monitorUnavailable === true) {
     return {
       healthy: false,
-      stateChanged: true,
+      stateChanged: false,
       heartbeatAgeSeconds: null,
       deliveryFailed: 0,
       deliveryExhausted: 0,
@@ -58,6 +58,7 @@ export function normalizeMonitorPayload(payload) {
     finiteNonnegative(delivery.exhausted);
   const reasons = [];
   if (!schemaValid) reasons.push("monitor response invalid");
+  if (value.evaluated !== true) reasons.push("monitor evaluation incomplete");
   if (value.heartbeatStale === true) reasons.push("M5 heartbeat stale");
   if (deliveryFailed > 0) reasons.push("alert delivery failed");
   if (deliveryExhausted > 0) reasons.push("alert delivery retries exhausted");

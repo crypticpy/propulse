@@ -1,43 +1,43 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T05:19:26.696995+00:00",
+  "generated_at": "2026-07-16T12:41:43.938865+00:00",
   "scope": "active_wspr_research_schedule_validation",
   "decision": "pass",
   "locked_outcomes_read": false,
   "research_only": true,
   "subscriber_facing_authorized": false,
   "provider": "wspr.live-research-v1",
-  "target_hour": "2026-07-16T04:00:00+00:00",
-  "source_record_count": 255536,
+  "target_hour": "2026-07-16T11:00:00+00:00",
+  "source_record_count": 216184,
   "records_by_band": {
-    "10m": 2450,
-    "12m": 1218,
-    "15m": 5117,
-    "160m": 2959,
-    "17m": 7267,
-    "20m": 72843,
-    "30m": 50200,
-    "40m": 86683,
-    "60m": 3577,
-    "80m": 23222
+    "10m": 6842,
+    "12m": 2469,
+    "15m": 11172,
+    "160m": 929,
+    "17m": 10303,
+    "20m": 69068,
+    "30m": 40655,
+    "40m": 64526,
+    "60m": 930,
+    "80m": 9290
   },
-  "feature_cell_count": 67829,
+  "feature_cell_count": 60923,
   "connector": {
-    "elapsed_seconds": 40.774455,
-    "peak_rss_mib": 161.0,
+    "elapsed_seconds": 87.391896,
+    "peak_rss_mib": 106.391,
     "source_request_count": 1
   },
   "finalizer": {
     "maximum_compute_threads": 18,
     "threads_per_band": 9,
-    "wall_seconds": 171.515254,
+    "wall_seconds": 114.341591,
     "workers": 2
   },
   "health": {
     "status": "healthy",
-    "continuous_completed_hours": 2,
+    "continuous_completed_hours": 9,
     "consecutive_failures": 0,
-    "freshness_seconds": 1116
+    "freshness_seconds": 1106
   },
   "schedule": {
     "label": "org.propulse.wspr-research",
@@ -59,20 +59,26 @@
       "stale_seconds": 7200
     },
     "observations": {
-      "continuous_completed_hours": 2,
-      "dynamic_freshness_seconds": 1163,
-      "health_record_age_seconds": 46,
-      "last_completed_target_hour": "2026-07-16T04:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T04:00:00+00:00",
-      "runtime_bytes": 9108,
-      "shadow_completed_hours": 2,
+      "continuous_completed_hours": 9,
+      "dynamic_freshness_seconds": 1800,
+      "health_record_age_seconds": 693,
+      "last_completed_target_hour": "2026-07-16T11:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T11:00:00+00:00",
+      "runtime_bytes": 109110,
+      "shadow_completed_hours": 9,
       "shadow_completion_rate": 1.0,
-      "shadow_expected_hours": 2
+      "shadow_expected_hours": 9,
+      "shadow_missing_hours": 0,
+      "shadow_required_hours": 720
     },
     "delivery": {
       "local_notification_enabled": true,
       "notification_attempted": false,
       "notification_delivered": false,
+      "remote_attempted": true,
+      "remote_configured": true,
+      "remote_delivered": true,
+      "remote_error_type": null,
       "state_changed": false
     },
     "delivery_test": {
@@ -83,7 +89,7 @@
   },
   "execution": {
     "target_requests": 21,
-    "validation_wall_seconds": 2.1440757079981267
+    "validation_wall_seconds": 1.5098163340007886
   },
   "gates": {
     "signed_manifest_v2_accepted": true,

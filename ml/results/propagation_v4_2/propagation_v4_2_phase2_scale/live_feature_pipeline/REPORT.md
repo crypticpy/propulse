@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T10:59:04.784230+00:00
+Generated: 2026-07-16T12:42:19.058752+00:00
 
 ## Answer first
 
@@ -28,15 +28,18 @@ gates and published `75,055` aggregate path cells;
 the truncated first watermark version is explicitly failed. The hourly research
 LaunchAgent is now active: its latest audited receipt passed
 `28/28` independent
-gates, converting `255,536` observations into
-`67,829` path cells with 18 bounded M5 threads.
+gates, converting `216,184` observations into
+`60,923` path cells with 18 bounded M5 threads.
+Keyset pagination completed the latest finalizer in
+`114.3` seconds using
+`2 x 9`
+bounded threads.
 The signed progress rollup is operationally healthy at
-`7/720` hours,
+`9/720` hours,
 `100.0%` scheduled completion, and
 `0` gaps; its decision remains `collecting`.
-Subscriber-facing use still requires source confirmation. Remote alert
-configuration/delivery smoke and 30 days of real receipt-time shadow evidence
-also remain open. The signed protected-preview heartbeat passed
+Subscriber-facing use still requires source confirmation, and 30 days of real
+receipt-time shadow evidence remain open. The signed protected-preview heartbeat passed
 `8/8`
 end-to-end gates. The off-M5 monitor migration passed
 `17/17`
@@ -46,8 +49,12 @@ deployed-state gates. Its GitHub-hosted
 `schedule` invocation passed
 `14/14`
 gates with a fresh heartbeat `2035`
-seconds old. A real alert destination and alert/recovery smoke remain open;
-the double-gated public reader remains disabled.
+seconds old. Outbox hardening then passed
+`19/19`
+deployed-state gates. A real stale run at `10,227`
+seconds opened issue `#10`, and a genuine
+`25`-second heartbeat closed it. A literal
+full-M5 power-loss proof remains open; the double-gated public reader remains disabled.
 The opt-in outcome boundary passed
 `13/13`
 rollback and
@@ -58,7 +65,7 @@ have been gathered.
 The separate first-party prospective collector is operational with
 `4/4`
 sources current. Its readiness state remains warming at
-`0.00/24`
+`1.14/24`
 gap-free hours because the first settled startup aggregates were empty. The
 frozen August-September outcomes remain unread.
 See `REPORT.html` for charts,

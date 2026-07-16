@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T12:28:33.842146+00:00",
+  "scope": "research_health_incident_delivery",
+  "research_only": true,
+  "locked_outcomes_read": false,
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "power_source": "AC Power"
+  },
+  "stale_run": {
+    "id": 29494058601,
+    "conclusion": "failure",
+    "event": "workflow_dispatch",
+    "url": "https://github.com/crypticpy/propulse/actions/runs/29494058601"
+  },
+  "recovery_run": {
+    "id": 29497729210,
+    "conclusion": "success",
+    "event": "workflow_dispatch",
+    "head_sha": "c5e315523056223bc2063b80a60e36aae5cf1026",
+    "url": "https://github.com/crypticpy/propulse/actions/runs/29497729210"
+  },
+  "incident": {
+    "number": 10,
+    "state": "closed",
+    "url": "https://github.com/crypticpy/propulse/issues/10",
+    "created_at": "2026-07-16T11:20:33+00:00",
+    "closed_at": "2026-07-16T12:20:08+00:00",
+    "stale_heartbeat_age_seconds": 10227,
+    "recovery_heartbeat_age_seconds": 25,
+    "matching_incident_count": 1
+  },
+  "gates": {
+    "stale_run_failed_closed": true,
+    "stale_age_exceeded_boundary": true,
+    "single_durable_incident": true,
+    "incident_opened_by_stale_run": true,
+    "issue_template_identity_free": true,
+    "recovery_run_succeeded": true,
+    "genuine_recovery_comment_exact": true,
+    "recovery_age_inside_boundary": true,
+    "incident_closed_by_recovery_run": true
+  },
+  "decision": "pass",
+  "privacy": {
+    "station_identity_read": false,
+    "secret_values_written": false,
+    "private_endpoint_written": false
+  }
+}

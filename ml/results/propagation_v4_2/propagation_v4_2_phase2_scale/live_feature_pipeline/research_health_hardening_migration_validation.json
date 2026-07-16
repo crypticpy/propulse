@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T12:29:16.294277+00:00",
+  "research_only": true,
+  "migration": {
+    "path": "supabase/migrations/20260716012000_research_health_hardening.sql",
+    "sha256": "0760c2fff581ff218fae3ddf65544fa20708482db22f5d99c8358d2823915eee",
+    "deployed": false,
+    "server_version": "17.6"
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11"
+  },
+  "elapsed_seconds": 2.529129,
+  "gates": {
+    "migration_sql_executed_or_deployed": true,
+    "security_definer_search_paths_locked": true,
+    "claim_and_complete_service_role_only": true,
+    "initial_alert_recorded": true,
+    "event_id_collision_rejected": true,
+    "collision_rolls_back_health_state": true,
+    "duplicate_alert_name_rejected": true,
+    "unsupported_alert_name_rejected": true,
+    "upper_counter_rejected": true,
+    "direct_invalid_alert_rejected": true,
+    "direct_counter_overflow_rejected": true,
+    "single_active_lease_enforced": true,
+    "stale_lease_token_rejected": true,
+    "success_completion_exact": true,
+    "recovery_transition_recorded": true,
+    "failure_claim_exact": true,
+    "failure_completion_exact": true,
+    "failed_delivery_remains_retryable": true
+  },
+  "passed": true,
+  "privacy": {
+    "station_identity_read": false,
+    "locked_outcomes_read": false,
+    "secret_values_written": false
+  }
+}

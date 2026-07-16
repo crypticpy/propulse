@@ -38,6 +38,12 @@ INPUTS = {
     / "research_health_monitor_deployment_validation.json",
     "research_health_external_monitor_validation": RESULT
     / "research_health_external_monitor_validation.json",
+    "research_health_hardening_migration_validation": RESULT
+    / "research_health_hardening_migration_validation.json",
+    "research_health_hardening_deployment_validation": RESULT
+    / "research_health_hardening_deployment_validation.json",
+    "research_health_incident_delivery_validation": RESULT
+    / "research_health_incident_delivery_validation.json",
     "research_participation_migration_validation": RESULT
     / "research_participation_migration_validation.json",
     "research_participation_deployment_validation": RESULT
@@ -119,6 +125,9 @@ def build_evidence(
     research_health_monitor_migration_validation: dict[str, Any],
     research_health_monitor_deployment_validation: dict[str, Any],
     research_health_external_monitor_validation: dict[str, Any],
+    research_health_hardening_migration_validation: dict[str, Any],
+    research_health_hardening_deployment_validation: dict[str, Any],
+    research_health_incident_delivery_validation: dict[str, Any],
     research_participation_migration_validation: dict[str, Any],
     research_participation_deployment_validation: dict[str, Any],
     operational_weather_validation: dict[str, Any],
@@ -181,6 +190,24 @@ def build_evidence(
     if research_health_external_monitor_validation.get("decision") != "pass":
         raise RuntimeError("external research-health monitor validation did not pass")
     if (
+        research_health_hardening_migration_validation.get("passed") is not True
+        or research_health_hardening_migration_validation.get("migration", {}).get(
+            "deployed"
+        )
+        is not False
+    ):
+        raise RuntimeError("research-health hardening rollback validation did not pass")
+    if (
+        research_health_hardening_deployment_validation.get("passed") is not True
+        or research_health_hardening_deployment_validation.get("migration", {}).get(
+            "deployed"
+        )
+        is not True
+    ):
+        raise RuntimeError("research-health hardening deployment validation did not pass")
+    if research_health_incident_delivery_validation.get("decision") != "pass":
+        raise RuntimeError("research-health incident delivery validation did not pass")
+    if (
         research_participation_migration_validation.get("decision") != "pass"
         or research_participation_migration_validation.get("migration_deployed")
         is not False
@@ -233,6 +260,9 @@ def build_evidence(
             research_health_monitor_migration_validation,
             research_health_monitor_deployment_validation,
             research_health_external_monitor_validation,
+            research_health_hardening_migration_validation,
+            research_health_hardening_deployment_validation,
+            research_health_incident_delivery_validation,
             research_participation_migration_validation,
             research_participation_deployment_validation,
             operational_weather_validation,
@@ -352,6 +382,52 @@ def build_evidence(
         "research_health_external_monitor_event": str(
             research_health_external_monitor_validation["workflow_run"]["event"]
         ),
+        "research_health_hardening_rollback_gates_passed": sum(
+            bool(value)
+            for value in research_health_hardening_migration_validation[
+                "gates"
+            ].values()
+        ),
+        "research_health_hardening_rollback_gates_total": len(
+            research_health_hardening_migration_validation["gates"]
+        ),
+        "research_health_hardening_deployment_gates_passed": sum(
+            bool(value)
+            for value in research_health_hardening_deployment_validation[
+                "gates"
+            ].values()
+        ),
+        "research_health_hardening_deployment_gates_total": len(
+            research_health_hardening_deployment_validation["gates"]
+        ),
+        "incident_stale_age_seconds": int(
+            research_health_incident_delivery_validation["incident"][
+                "stale_heartbeat_age_seconds"
+            ]
+        ),
+        "incident_recovery_age_seconds": int(
+            research_health_incident_delivery_validation["incident"][
+                "recovery_heartbeat_age_seconds"
+            ]
+        ),
+        "incident_issue_number": int(
+            research_health_incident_delivery_validation["incident"]["number"]
+        ),
+        "incident_stale_run_id": int(
+            research_health_incident_delivery_validation["stale_run"]["id"]
+        ),
+        "incident_recovery_run_id": int(
+            research_health_incident_delivery_validation["recovery_run"]["id"]
+        ),
+        "incident_gates_passed": sum(
+            bool(value)
+            for value in research_health_incident_delivery_validation[
+                "gates"
+            ].values()
+        ),
+        "incident_gates_total": len(
+            research_health_incident_delivery_validation["gates"]
+        ),
         "research_participation_rollback_gates_passed": sum(
             bool(value)
             for value in research_participation_migration_validation["gates"].values()
@@ -429,6 +505,12 @@ def build_evidence(
         "schedule_finalizer_seconds": float(
             wspr_research_schedule_validation["finalizer"]["wall_seconds"]
         ),
+        "schedule_finalizer_workers": int(
+            wspr_research_schedule_validation["finalizer"]["workers"]
+        ),
+        "schedule_threads_per_band": int(
+            wspr_research_schedule_validation["finalizer"]["threads_per_band"]
+        ),
         "schedule_peak_rss_mib": float(
             wspr_research_schedule_validation["connector"]["peak_rss_mib"]
         ),
@@ -444,6 +526,12 @@ def build_evidence(
         ),
         "shadow_missing_hours": int(
             wspr_research_shadow_progress["window"]["missing_hours"]
+        ),
+        "shadow_source_records": int(
+            wspr_research_shadow_progress["totals"]["source_records"]
+        ),
+        "shadow_feature_cells": int(
+            wspr_research_shadow_progress["totals"]["feature_cells"]
         ),
         "prospective_sources_current": sum(
             bool(prospective_capture_readiness["gates"].get(f"{source}_current"))
@@ -565,6 +653,16 @@ def build_evidence(
             ),
         },
     ]
+    incident_age_rows = [
+        {
+            "state": "Stale monitor run",
+            "heartbeat_age_seconds": summary[0]["incident_stale_age_seconds"],
+        },
+        {
+            "state": "Genuine recovery run",
+            "heartbeat_age_seconds": summary[0]["incident_recovery_age_seconds"],
+        },
+    ]
     gate_rows = [{
         "scope": "Foundation",
         "gate": name.replace("_", " "),
@@ -614,6 +712,21 @@ def build_evidence(
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
     } for name, passed in research_health_external_monitor_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Health outbox hardening rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_hardening_migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Health outbox hardening deployment",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_hardening_deployment_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Live stale and recovery incident",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_incident_delivery_validation["gates"].items())
     gate_rows.extend({
         "scope": "Opt-in outcomes rollback",
         "gate": name.replace("_", " "),
@@ -670,9 +783,9 @@ def build_evidence(
         }
         for work in (
             "written subscriber-facing source authorization or a self-operated source",
-            "remote alert-destination failure/recovery delivery smoke",
             "30-day real receipt-time shadow coverage and calibration evidence",
             "24-hour gap-free first-party capture preflight with nonempty settled aggregates",
+            "literal full-M5 power-loss delivery proof before exposing System Health",
             "opt-in beta outcome evidence and frozen prospective evaluation",
         )
     ]
@@ -694,6 +807,11 @@ def build_evidence(
         "evidence_limit": (
             f"The first-party collector is operational with {summary[0]['prospective_sources_current']}/{summary[0]['prospective_sources_required']} sources current, "
             f"but has only {summary[0]['prospective_continuity_hours']:.2f}/24 required gap-free preflight hours"
+        )
+    })
+    limit_rows.append({
+        "evidence_limit": (
+            "A real stale heartbeat opened and genuine recovery closed one durable GitHub incident, but the stale episode was not caused by physically powering off the M5"
         )
     })
     return {
@@ -760,14 +878,39 @@ def build_evidence(
             "external_monitor_response": research_health_external_monitor_validation[
                 "response"
             ],
+            "hardening_rollback": {
+                "migration": research_health_hardening_migration_validation[
+                    "migration"
+                ],
+                "gates": research_health_hardening_migration_validation["gates"],
+            },
+            "hardening_deployment": {
+                "migration": research_health_hardening_deployment_validation[
+                    "migration"
+                ],
+                "gates": research_health_hardening_deployment_validation["gates"],
+            },
+            "incident_delivery": {
+                "stale_run": research_health_incident_delivery_validation[
+                    "stale_run"
+                ],
+                "recovery_run": research_health_incident_delivery_validation[
+                    "recovery_run"
+                ],
+                "incident": research_health_incident_delivery_validation["incident"],
+                "gates": research_health_incident_delivery_validation["gates"],
+            },
             "monitor_migration_deployed": True,
             "external_monitor_invoked": True,
             "migration_deployed": True,
             "remote_endpoint_configured": True,
             "remote_heartbeat_delivered": True,
-            "alert_delivery_configured": research_health_external_monitor_validation[
+            "external_webhook_configured": research_health_external_monitor_validation[
                 "response"
             ]["alert_delivery"]["configured"],
+            "github_issue_delivery_configured": True,
+            "stale_recovery_delivery_proven": True,
+            "literal_full_m5_outage_proven": False,
             "public_view_enabled": False,
             "aggregate_only": True,
         },
@@ -880,6 +1023,7 @@ def build_evidence(
             "schedule_stage_rows": schedule_stage_rows,
             "shadow_progress_rows": shadow_progress_rows,
             "prospective_progress_rows": prospective_progress_rows,
+            "incident_age_rows": incident_age_rows,
             "gate_rows": gate_rows,
             "blocker_rows": blocker_rows,
             "limit_rows": limit_rows,
@@ -976,6 +1120,18 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "External monitor gates",
                 "research_health_external_monitor_gates_passed",
                 "GitHub-hosted fresh-heartbeat invocation, privacy, scheduling, and disabled-reader gates.",
+            ),
+            (
+                "health_hardening_gates",
+                "Outbox hardening gates",
+                "research_health_hardening_deployment_gates_passed",
+                "Atomic lease, collision rollback, counter, grant, and retry invariants on PostgreSQL 17.6.",
+            ),
+            (
+                "incident_delivery_gates",
+                "Incident delivery gates",
+                "incident_gates_passed",
+                "One real stale episode opened one durable issue and genuine heartbeat recovery closed it.",
             ),
             (
                 "outcome_boundary_gates",
@@ -1080,6 +1236,16 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "color": {"field": "state", "type": "nominal", "label": "State"},
             },
         ),
+        chart(
+            "incident_age",
+            "The off-M5 monitor detected staleness and then genuine recovery",
+            f"Heartbeat age fell from {summary['incident_stale_age_seconds']:,} seconds during the failed-closed run to {summary['incident_recovery_age_seconds']} seconds after publisher recovery.",
+            "incident_age_rows",
+            {
+                "x": {"field": "state", "type": "ordinal", "label": "Monitor state"},
+                "y": {"field": "heartbeat_age_seconds", "type": "quantitative", "label": "Heartbeat age, seconds"},
+            },
+        ),
     ]
     tables = [
         {
@@ -1158,6 +1324,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"{summary['research_health_external_monitor_gates_total']}** external-invocation gates against the protected preview, "
                 f"observing a healthy heartbeat **{summary['research_health_external_monitor_age_seconds']} seconds** old with no transition "
                 "and zero failed or exhausted deliveries. "
+                f"The hardened atomic outbox then passed **{summary['research_health_hardening_rollback_gates_passed']} of "
+                f"{summary['research_health_hardening_rollback_gates_total']}** rollback gates and **{summary['research_health_hardening_deployment_gates_passed']} of "
+                f"{summary['research_health_hardening_deployment_gates_total']}** deployed-state gates. A real stale monitor run at "
+                f"**{summary['incident_stale_age_seconds']:,} seconds** opened exactly one identity-free GitHub issue; a genuine "
+                f"**{summary['incident_recovery_age_seconds']}-second** heartbeat closed it, passing **{summary['incident_gates_passed']} of "
+                f"{summary['incident_gates_total']}** delivery gates. This proves off-M5 stale/recovery delivery, but not a literal M5 power-loss test. "
                 f"The opt-in outcome boundary passed **{summary['research_participation_rollback_gates_passed']} of "
                 f"{summary['research_participation_rollback_gates_total']}** rollback gates and **{summary['research_participation_deployment_gates_passed']} of "
                 f"{summary['research_participation_deployment_gates_total']}** deployed-state gates. Active predictions can carry a short-lived "
@@ -1175,10 +1347,14 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"The hourly research LaunchAgent is now active and its latest audited receipt passed **{summary['schedule_gates_passed']} of "
                 f"{summary['schedule_gates_total']} independent gates**: **{summary['schedule_source_rows']:,} observations** became "
                 f"**{summary['schedule_feature_cells']:,} path cells** with zero consecutive failures, **{summary['schedule_peak_rss_mib']:.1f} MiB** "
-                "peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written "
+                f"peak connector RSS, and all 18 M5 compute threads bounded as {summary['schedule_finalizer_workers']} workers by "
+                f"{summary['schedule_threads_per_band']} threads. Keyset pagination completed finalization in "
+                f"**{summary['schedule_finalizer_seconds']:.1f} seconds** without the deep-offset database failures seen earlier. "
+                "Subscriber-facing WSPR use still requires written "
                 "confirmation or an independently permitted source. The signed progress rollup is operationally healthy at "
                 f"**{summary['shadow_completed_hours']} of {summary['shadow_required_hours']} hours** with "
-                f"**{summary['shadow_missing_hours']} gaps**; it remains `collecting`, not 30-day evidence."
+                f"**{summary['shadow_missing_hours']} gaps**, **{summary['shadow_source_records']:,} observations**, and "
+                f"**{summary['shadow_feature_cells']:,} feature cells**; it remains `collecting`, not 30-day evidence."
             ),
         },
         {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
@@ -1246,8 +1422,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "same grid, callsign, power, and SNR filters as the archive builder, streamed canonical rows through "
                 "the M5 Projects volume, checksum-linked the completed response, and removed the spool after validation. "
                 "The first target finalization then exposed a PostgREST 1,000-row response cap. All ten affected watermarks "
-                "were marked failed, pagination was repaired to continue until an empty page, and manifest v2 added signed "
-                "per-band counts that block watermark publication on any mismatch. The corrected run matched all 287,694 "
+                "were marked failed, pagination was repaired, and manifest v2 added signed per-band counts that block watermark "
+                "publication on any mismatch. Later deep `OFFSET` pages caused target HTTP 500 responses, so the finalizer now uses "
+                "monotonic `id` keyset pagination backed by a covering source/target/band/id index. Bounded retry is limited to transient "
+                "transport, 408, 425, 429, and 5xx failures; contract and JSON errors still fail immediately. The corrected run matched all 287,694 "
                 f"source rows and published {summary['live_hour_feature_cells']:,} aggregate cells. This establishes one exact "
                 "end-to-end hour, not subscriber-facing permission, continuous completeness, or an availability guarantee."
             ),
@@ -1285,11 +1463,36 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, "
                 "job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. "
                 "Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are "
-                "implemented. The M5 now publishes signed aggregate heartbeats through the protected feature preview into the dedicated "
-                "private store. The alert destination, public server flag, and frontend build flag remain unset, so no remote escalation or "
-                "subscriber-visible health state is active. A separate GitHub-hosted runner successfully exercised the protected fresh-heartbeat "
-                "path from outside the M5. Its branch-only trigger was removed, the workflow was merged independently to the default branch, and "
-                "the twice-hourly schedule is active without releasing model or product-surface work."
+                "implemented. The outbox now claims events atomically with a lease token, rejects stale completion, rolls back event-id collisions, "
+                "and leaves failed delivery retryable. The M5 publishes signed aggregate heartbeats through the protected production endpoint into "
+                "the dedicated private store. A GitHub-hosted runner detected one real stale episode, opened a single aggregate-only issue, and closed "
+                "it only after a genuine fresh heartbeat. The public server and frontend flags remain unset, so no subscriber-visible health state is active."
+            ),
+        },
+        {
+            "id": "incident_heading",
+            "type": "markdown",
+            "body": "## Off-M5 stale detection and genuine recovery now have durable proof",
+        },
+        {
+            "id": "incident_chart",
+            "type": "chart",
+            "chartId": "incident_age",
+            "layout": "full",
+        },
+        {
+            "id": "incident_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"Workflow run [{summary['incident_stale_run_id']}](https://github.com/crypticpy/propulse/actions/runs/{summary['incident_stale_run_id']}) "
+                f"observed a **{summary['incident_stale_age_seconds']:,}-second** heartbeat, failed closed, and opened exactly one durable "
+                f"[issue #{summary['incident_issue_number']}](https://github.com/crypticpy/propulse/issues/{summary['incident_issue_number']}). "
+                f"Recovery run [{summary['incident_recovery_run_id']}](https://github.com/crypticpy/propulse/actions/runs/{summary['incident_recovery_run_id']}) "
+                f"observed a genuine **{summary['incident_recovery_age_seconds']}-second** heartbeat, added the exact recovery comment, and closed the issue. "
+                f"All **{summary['incident_gates_passed']} of {summary['incident_gates_total']}** incident-delivery gates passed without station identity or secrets. "
+                "This proves the off-M5 control path and durable stale/recovery lifecycle. It does not claim a literal full-device power-loss test: the "
+                "staleness was caused by missing publisher configuration, so a controlled M5 shutdown remains a separate pre-public-health-view gate."
             ),
         },
         {
@@ -1388,8 +1591,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "A separate additive migration established a service-role-only stale-heartbeat transition for off-M5 monitors. Rollback and "
                 "deployed-state tests proved that it preserves the last source timestamp, emits one alert per stale episode, ignores repeated "
                 "checks, leaves fresh or missing state unchanged, and lets the next genuine heartbeat emit recovery. "
-                "A GitHub-hosted Ubuntu runner then invoked the protected monitor endpoint at an immutable workflow run and commit, verified a fresh "
-                "identity-free response, and recorded zero failed or exhausted deliveries. The proof did not configure or exercise a webhook. "
+                "A GitHub-hosted Ubuntu runner first invoked the protected monitor endpoint at an immutable workflow run and commit, verified a fresh "
+                "identity-free response, and recorded zero failed or exhausted deliveries. A hardening migration then added atomic outbox claims, "
+                "lease-token completion, collision rollback, and retry invariants. Finally, a real stale run opened one aggregate-only GitHub issue and "
+                "the next genuine heartbeat closed it. This proves durable off-M5 incident delivery and recovery, but not a literal M5 power-off event. "
                 "A final additive migration revoked browser write authority over consent, attempt, and outcome records while retaining user-scoped "
                 "reads and deletes. Its rollback and deployed-state validators checked the allowed-use constraint, retention acknowledgement, "
                 "one-attempt index, RLS, grants, and ledger. Active-only inference receipts are HMAC-signed and carry a second short-lived "
@@ -1409,7 +1614,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training "
                 "backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one "
                 "XGBoost thread each to avoid oversubscription under concurrent traffic. The hourly runner uses "
-                "two concurrent band finalizers with nine DuckDB threads each on this M5 and rejects any larger product."
+                f"two concurrent band finalizers with nine DuckDB threads each on this M5 and rejects any larger product. The latest "
+                f"keyset-paginated finalizer completed in **{summary['schedule_finalizer_seconds']:.1f} seconds**. These settings deliberately use "
+                "the 12 performance and six efficiency cores while bounding nested parallelism; more threads are not assumed to mean faster work."
             ),
         },
         {
@@ -1422,11 +1629,11 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
-                f"plus one corrected source hour and {summary['shadow_completed_hours']} scheduled receipts do not prove 30-day provider completeness, permission for "
-                "subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The off-M5 protected fresh-heartbeat path "
-                "has been invoked successfully, but a real stale transition, alert destination, webhook delivery, and recovery still require live smoke. "
-                "The signed heartbeat path is active, "
-                "but the product-health reader remains intentionally hidden until alert/recovery delivery and the source release gate pass. Trusted weather "
+                f"plus {summary['shadow_completed_hours']} scheduled receipts do not prove 30-day provider completeness or permission for "
+                "subscriber-facing use. The off-M5 path has detected a real stale heartbeat, opened one durable issue, and closed it on genuine recovery. "
+                "That episode came from missing publisher configuration, not a controlled device shutdown; literal full-M5 power-loss delivery therefore "
+                "remains unproven. The signed heartbeat path is active, but the product-health reader remains intentionally hidden until that outage proof, "
+                "beta readiness, and the source release gate pass. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic "
                 "and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X "
@@ -1445,7 +1652,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
                 "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
                 "3. Let the new first-party capture pass its 24-hour gap-free preflight, then audit nonempty settled band/path cells and keep it green through the prospective window.\n"
-                "4. Configure a user-approved HTTPS alert destination, smoke alert/recovery and full-M5-outage delivery through the proven off-M5 workflow, then enable the server and frontend health-view flags before beta.\n"
+                "4. Run a controlled full-M5 shutdown while the off-M5 workflow remains active; verify the existing incident lifecycle, then consider enabling the server and frontend health-view flags for beta.\n"
                 "5. Run opt-in beta outcome collection before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
@@ -1510,13 +1717,16 @@ LaunchAgent is now active: its latest audited receipt passed
 `{summary['schedule_gates_passed']}/{summary['schedule_gates_total']}` independent
 gates, converting `{summary['schedule_source_rows']:,}` observations into
 `{summary['schedule_feature_cells']:,}` path cells with 18 bounded M5 threads.
+Keyset pagination completed the latest finalizer in
+`{summary['schedule_finalizer_seconds']:.1f}` seconds using
+`{summary['schedule_finalizer_workers']} x {summary['schedule_threads_per_band']}`
+bounded threads.
 The signed progress rollup is operationally healthy at
 `{summary['shadow_completed_hours']}/{summary['shadow_required_hours']}` hours,
 `{summary['shadow_completion_rate_percent']:.1f}%` scheduled completion, and
 `{summary['shadow_missing_hours']}` gaps; its decision remains `collecting`.
-Subscriber-facing use still requires source confirmation. Remote alert
-configuration/delivery smoke and 30 days of real receipt-time shadow evidence
-also remain open. The signed protected-preview heartbeat passed
+Subscriber-facing use still requires source confirmation, and 30 days of real
+receipt-time shadow evidence remain open. The signed protected-preview heartbeat passed
 `{summary['research_health_endpoint_gates_passed']}/{summary['research_health_endpoint_gates_total']}`
 end-to-end gates. The off-M5 monitor migration passed
 `{summary['research_health_monitor_rollback_gates_passed']}/{summary['research_health_monitor_rollback_gates_total']}`
@@ -1526,8 +1736,12 @@ deployed-state gates. Its GitHub-hosted
 `{summary['research_health_external_monitor_event']}` invocation passed
 `{summary['research_health_external_monitor_gates_passed']}/{summary['research_health_external_monitor_gates_total']}`
 gates with a fresh heartbeat `{summary['research_health_external_monitor_age_seconds']}`
-seconds old. A real alert destination and alert/recovery smoke remain open;
-the double-gated public reader remains disabled.
+seconds old. Outbox hardening then passed
+`{summary['research_health_hardening_deployment_gates_passed']}/{summary['research_health_hardening_deployment_gates_total']}`
+deployed-state gates. A real stale run at `{summary['incident_stale_age_seconds']:,}`
+seconds opened issue `#{summary['incident_issue_number']}`, and a genuine
+`{summary['incident_recovery_age_seconds']}`-second heartbeat closed it. A literal
+full-M5 power-loss proof remains open; the double-gated public reader remains disabled.
 The opt-in outcome boundary passed
 `{summary['research_participation_rollback_gates_passed']}/{summary['research_participation_rollback_gates_total']}`
 rollback and
@@ -1581,6 +1795,24 @@ def main() -> None:
     research_health_external_monitor_validation = read_json(
         INPUTS["research_health_external_monitor_validation"]
     )
+    research_health_hardening_migration_validation = read_json(
+        INPUTS["research_health_hardening_migration_validation"]
+    )
+    research_health_hardening_deployment_validation = read_json(
+        INPUTS["research_health_hardening_deployment_validation"]
+    )
+    research_health_incident_delivery_validation = read_json(
+        INPUTS["research_health_incident_delivery_validation"]
+    )
+    research_health_hardening_migration_validation = read_json(
+        INPUTS["research_health_hardening_migration_validation"]
+    )
+    research_health_hardening_deployment_validation = read_json(
+        INPUTS["research_health_hardening_deployment_validation"]
+    )
+    research_health_incident_delivery_validation = read_json(
+        INPUTS["research_health_incident_delivery_validation"]
+    )
     research_participation_migration_validation = read_json(
         INPUTS["research_participation_migration_validation"]
     )
@@ -1616,6 +1848,9 @@ def main() -> None:
         research_health_monitor_migration_validation,
         research_health_monitor_deployment_validation,
         research_health_external_monitor_validation,
+        research_health_hardening_migration_validation,
+        research_health_hardening_deployment_validation,
+        research_health_incident_delivery_validation,
         research_participation_migration_validation,
         research_participation_deployment_validation,
         operational_weather_validation,

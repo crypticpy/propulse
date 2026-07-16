@@ -34,7 +34,12 @@ cd "${HOME}/Projects/propulse"
 ```
 
 Use `rsync` for selected source or artifact transfer. Do not encode files as
-base64. On the M5, `node` is `${HOME}/.local/bin/node` in non-login SSH shells.
+base64. On the M5, prepend
+`$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin` in non-login SSH shells;
+`node` is `${HOME}/.local/bin/node` and `gh` is `/opt/homebrew/bin/gh`. Git HTTPS
+credentials and the GitHub CLI token are independent: verify both
+`git ls-remote` and `gh auth status` before relying on M5-side GitHub API
+automation.
 
 ## Hardware contract
 
@@ -67,6 +72,13 @@ candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
 | October-November development | 0.04355603 | 0.04460622 | 2.354% | select A6 |
 | Untouched December 2024 | 0.04344062 | 0.04434430 | 2.038% | 10/10 gates pass |
 | Locked 2025 archive | 0.04096767 | 0.04186090 | 2.134% | 6/6 gates pass |
+
+The internal WSPR shadow is operationally healthy through target
+`2026-07-16T11:00:00Z`: `9/9` expected hours, zero gaps, `2,199,427`
+observations, and `590,320` feature cells. This is `9/720` duration evidence,
+not a 30-day pass. The latest finalizer used two workers with nine native
+threads each and completed in 114.34 seconds after keyset pagination replaced
+deep OFFSET scans.
 
 The archive evaluation streamed `208,372,533` rows in 29.8 minutes with 18
 XGBoost prediction threads, 18 Arrow CPU threads, six Arrow I/O threads, and
@@ -274,17 +286,18 @@ replace independent event catalogs, GIRO/NWP parity, or locked/prospective
 tests. A future 6m version must produce a new decision rather than modifying
 this evidence.
 
-The endpoint, ingest secret, preview bypass, and dedicated store are configured
-only for the feature-branch preview. Keep both view flags unset until an alert
-destination is selected. Configure the server-only
+The production endpoint, independent ingest secret, and dedicated store are
+configured at `https://propulse.cloud`. Keep both view flags unset until the
+remaining outage and beta gates pass. An optional external webhook can use the server-only
 `PROPULSE_RESEARCH_ALERT_WEBHOOK_URL` plus `generic`, `slack`, or `discord`
 kind. Generic destinations also require the exact
 `PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST`; only generic destinations may
 use a bearer token. Delivery refuses redirects, uses an idempotency key for
 generic receivers, stores sanitized errors, and stops retrying an event after
-eight attempts. Use the proven independent off-M5 runner to smoke an actual
-stale alert plus genuine-heartbeat recovery before activation. Only afterward
-may
+eight attempts. The independent off-M5 GitHub runner already proved an actual
+stale-to-recovery issue lifecycle. Before activation, perform the stronger
+controlled full-device shutdown proof while the off-M5 runner remains active.
+Only afterward may
 `PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED` and
 `VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED` be enabled. These flags expose
 coarse health only; they do not authorize a WSPR source or select NowCast.
@@ -312,9 +325,11 @@ ml/.venv/bin/python \
   ml/src/archive_v4_2/validate_research_health_endpoint.py --profile m5
 ```
 
-The current evidence passes 8/8 signed-ingest, exact-store, empty-initial-outbox,
+The original endpoint evidence passes 8/8 signed-ingest, exact-store, empty-initial-outbox,
 disabled-reader, preview-bypass, native-M5, locked-outcome, and identity-free
-gates. It does not exercise a failure/recovery webhook transition.
+gates. Production incident evidence now separately exercises durable stale and
+recovery delivery through the GitHub issue path; no optional webhook is
+configured.
 
 The twice-hourly watchdog detects worker failure while the M5 is running. It
 cannot detect complete M5 power or network loss from inside that same machine.
@@ -343,8 +358,8 @@ ml/.venv/bin/python \
 ```
 
 The GitHub workflow requires encrypted repository values for its monitor
-endpoint, independent bearer, and protected-preview bypass. Those values are
-configured as repository secrets. The protected-preview fresh path passed from
+endpoint and independent bearer. Those values are configured as repository
+secrets. The protected-preview fresh path passed from
 a GitHub-hosted runner in
 [run 29482048362](https://github.com/crypticpy/propulse/actions/runs/29482048362):
 the response was identity-free, `evaluated=true`, 184 seconds fresh, unchanged,
@@ -354,8 +369,45 @@ and commit plus the disabled-reader and privacy gates. The temporary, path-
 scoped feature-branch push trigger was then removed. Monitoring-only
 [PR #8](https://github.com/crypticpy/propulse/pull/8) merged the workflow to the
 default branch without the model or product changes, so the minutes 17 and 47
-schedule is active. This fresh-path proof does not replace a live stale-alert/
-recovery webhook smoke.
+schedule is active.
+
+Production [PR #11](https://github.com/crypticpy/propulse/pull/11) added bounded
+body reads, timestamp-bound HMAC replay checks, monitor rate limiting before
+authentication, terminal-dot SSRF normalization, and a leased atomic outbox.
+Its database hardening passed 18/18 rollback gates and 19/19 deployed-state
+gates on PostgreSQL 17.6. Reproduce both modes on the M5:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_hardening_migration.py \
+  --profile m5
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_hardening_migration.py \
+  --profile m5 --verify-deployed
+```
+
+The real stale run
+[`29494058601`](https://github.com/crypticpy/propulse/actions/runs/29494058601)
+failed closed at a 10,227-second heartbeat and opened exactly one aggregate-only
+[issue #10](https://github.com/crypticpy/propulse/issues/10). Genuine recovery
+run [`29497729210`](https://github.com/crypticpy/propulse/actions/runs/29497729210)
+observed 25 seconds, posted the exact recovery transition, and closed the same
+issue. The nine-gate incident validator proves privacy and lifecycle integrity.
+`gh` is installed at `/opt/homebrew/bin/gh`; noninteractive SSH shells must add
+`/opt/homebrew/bin` to `PATH`. Git HTTPS keychain authentication and the `gh`
+API token are separate, so verify `gh auth status` before collecting new issue
+or workflow receipts and run `gh auth login -h github.com` if that API token is
+stale:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_incident_delivery.py \
+  --profile m5 --evidence-dir /path/to/owner-only-gh-json
+```
+
+This stale episode came from missing publisher configuration, not a physical
+shutdown. Do not record the literal full-M5-outage gate as passed until a
+controlled shutdown is observed and recovered by the external workflow.
 
 The private schema procedure is M5-only and password-safe:
 
@@ -380,11 +432,15 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T09:00:00Z` also completed under
-the same bounded profile. The rollup is now `7/7` with zero gaps, `1,763,891`
-aggregate observations, `470,851` feature cells, and remains `collecting` at
-`7/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+following scheduled targets through `2026-07-16T11:00:00Z` also completed under
+the same bounded profile. The rollup is now `9/9` with zero gaps, `2,199,427`
+aggregate observations, `590,320` feature cells, and remains `collecting` at
+`9/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
 remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
+Deep OFFSET pages later returned target HTTP 500 responses; monotonic-id keyset
+pagination plus the covering `(source, target_hour, band, id)` index removed
+that database access pattern. The latest `11:00Z` finalizer completed in 114.34
+seconds with the exact two-by-nine profile.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,
@@ -404,7 +460,8 @@ ${HOME}/.local/bin/node ml/src/archive_v4/package_report.mjs \
 ```
 
 The packaged report passed validation, packaging, source-dialog interaction,
-and browser checks at 1,440 px and 390 px. This does not replace target-Postgres
+and browser checks at 1,440 px and 390 px with 53 blocks, 10 charts, 16 metrics,
+and three evidence tables. This does not replace target-Postgres
 migration validation or live-source replay. Foundation evidence records the
 exact migration SHA-256 as well as the serving-manifest SHA-256.
 
@@ -671,7 +728,7 @@ only after the aggregate RPC returns. The owner-only watchdog runs at minutes
 Build, migration, and installation commands are M5-only:
 
 ```bash
-export PATH="${HOME}/.local/bin:${PATH}"
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:${PATH}"
 npm --prefix collector run typecheck
 npx vitest run collector/src/aggregator/hourly.test.ts \
   collector/src/collectors/rbn.test.ts
@@ -697,8 +754,10 @@ The first cycle on `2026-07-16T10:30Z` completed PSK Reporter, RBN, and DX
 Cluster concurrently with `2,554`, `15,115`, and `133` attempted rows,
 respectively, in under four seconds wall time and no stderr. The startup 09:00
 UTC band/path watermarks are causal but contain zero rows because collection
-started later; the readiness clock therefore remains `warming` at `0/24`
-hours. Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
+started later; zero-row startup watermarks therefore did not begin the evidence
+clock. The first nonempty settled hour wrote ten band rows and 2,246 path rows;
+the latest preserved receipt remains `warming` at `1.14/24` gap-free hours.
+Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The
 five-minute weather poll separately validates upstream observation times

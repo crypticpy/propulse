@@ -75,8 +75,7 @@ BEGIN
       'alert',
       ARRAY['health_record_recent']::text[],
       p_observed_at
-    )
-    ON CONFLICT (event_id) DO NOTHING;
+    );
   END IF;
 
   RETURN NEXT;

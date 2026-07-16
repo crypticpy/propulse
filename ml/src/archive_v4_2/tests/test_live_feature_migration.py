@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 MODULE = Path(__file__).resolve().parents[1]
+ROOT = MODULE.parents[2]
 sys.path.insert(0, str(MODULE))
 
 from validate_live_feature_migration import (  # noqa: E402
@@ -49,6 +50,18 @@ class LiveFeatureMigrationTests(unittest.TestCase):
     def test_deployment_ledger_contract_has_six_ordered_versions(self) -> None:
         self.assertEqual(len(EXPECTED_VERSIONS), 6)
         self.assertEqual(EXPECTED_VERSIONS, tuple(sorted(EXPECTED_VERSIONS)))
+
+    def test_finalize_pagination_index_matches_the_keyset_query(self) -> None:
+        migration = (
+            ROOT
+            / "supabase/migrations/20260716011000_wspr_finalize_pagination.sql"
+        ).read_text()
+
+        self.assertIn(
+            "(source, target_hour, band, id)",
+            migration,
+        )
+        self.assertIn("INCLUDE (received_at)", migration)
 
 
 if __name__ == "__main__":

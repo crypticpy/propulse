@@ -70,6 +70,15 @@ describe("research health ingest contract", () => {
     await expect(
       verifyResearchHealthSignature(
         body,
+        String(NOW_SECONDS - 1),
+        `v1=${signature}`,
+        SECRET,
+        NOW_SECONDS,
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      verifyResearchHealthSignature(
+        body,
         String(NOW_SECONDS - 301),
         `v1=${signature}`,
         SECRET,
@@ -110,6 +119,12 @@ describe("research health ingest contract", () => {
       parseResearchAlertWebhookConfig({
         PROPULSE_RESEARCH_ALERT_WEBHOOK_URL: "https://127.0.0.1/alert",
         PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST: "127.0.0.1",
+      }),
+    ).toThrow("not explicitly allowed");
+    expect(() =>
+      parseResearchAlertWebhookConfig({
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_URL: "https://127.0.0.1./alert",
+        PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST: "127.0.0.1.",
       }),
     ).toThrow("not explicitly allowed");
     expect(() =>

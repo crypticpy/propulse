@@ -21,6 +21,14 @@
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
 > receipt remains `warming` until nonempty aggregates sustain 24 gap-free hours.
+> Research-shadow status, 2026-07-16T12:23Z: `9/9` expected WSPR hours are
+> complete with zero gaps (`9/720` duration gate), `2,199,427` observations,
+> and `590,320` feature cells. The latest keyset-paginated finalizer used the
+> exact `2 x 9` native-thread profile and completed in 114.34 seconds.
+> Incident-delivery status: a real `10,227`-second stale heartbeat opened one
+> aggregate-only GitHub issue and a genuine `25`-second heartbeat closed it.
+> The public health view remains disabled until a literal M5 power-loss proof
+> and the remaining beta/release gates pass.
 
 > Final retrospective evidence: A6 is a frozen 70% A4 recent-cycle and 30% A5
 > recency-weighted probability blend. It improved weighted Brier versus frozen
@@ -718,18 +726,24 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [ ] Pass the first-party prospective capture preflight: both settled
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
-  gap-free for 24 hours. The initial status is honestly `warming` at `0/24`
-  hours; the August-September outcomes remain unread.
+  gap-free for 24 hours. The first nonempty settled aggregates now exist and
+  the latest preserved receipt is honestly `warming` at `1.14/24` hours; the
+  August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `77/77`, V4.1 `37/37`, V4.2 `112/112`, and
-  frontend/API/collector `72/72` tests, plus lint, TypeScript, production
+  service `80/80`, V4.1 `37/37`, V4.2 `117/117`, and
+  frontend/API/collector `82/82` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
-  at 1,440 px and 390 px with 48 blocks, nine charts, 14 metrics, and three
+  at 1,440 px and 390 px with 53 blocks, 10 charts, 16 metrics, and three
   evidence tables, including the first-party capture readiness receipt.
-- [ ] Configure a remote alert destination, smoke an actual stale alert plus
-  genuine-heartbeat recovery and full-M5-outage delivery, and only then enable
-  the server/frontend view flags.
+- [x] Harden the health outbox with atomic `SKIP LOCKED` claims, lease-token
+  completion, collision rollback, bounded counters, service-role-only RPCs,
+  and retryable failure state; pass 18 rollback and 19 deployed-state gates.
+- [x] Prove actual off-M5 stale/recovery delivery: run `29494058601` failed
+  closed at 10,227 seconds and opened aggregate-only issue `#10`; genuine
+  heartbeat recovery run `29497729210` observed 25 seconds and closed it.
+- [ ] Prove delivery during a controlled literal full-M5 power outage, then
+  consider enabling the server/frontend System Health flags for beta.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -794,8 +808,19 @@ The first real calendar invocation then passed at immutable scheduled run
 `29485741095` on the same `main` commit: the heartbeat was healthy at 2,035
 seconds, no transition occurred, and failed/exhausted deliveries remained zero.
 The temporary feature-branch push trigger was removed and the twice-hourly
-schedule is now operationally proven. An approved subscriber-facing source, real stale
-alert/recovery webhook delivery smoke,
+schedule is now operationally proven. The subsequent hardening migration passed
+18/18 rollback and 19/19 deployed-state gates with atomic `SKIP LOCKED` claims,
+lease-token completion, collision rollback, service-role-only RPCs, and
+retryable failed deliveries. Production [PR #11](https://github.com/crypticpy/propulse/pull/11)
+then enabled the dedicated health store at `propulse.cloud`. Real stale run
+[`29494058601`](https://github.com/crypticpy/propulse/actions/runs/29494058601)
+failed closed at 10,227 seconds and opened aggregate-only issue
+[`#10`](https://github.com/crypticpy/propulse/issues/10); genuine recovery run
+[`29497729210`](https://github.com/crypticpy/propulse/actions/runs/29497729210)
+observed a 25-second heartbeat, posted the recovery transition, and closed the
+same issue. This proves durable off-M5 detection and recovery, but the stale
+episode came from missing publisher configuration rather than a literal device
+shutdown. An approved subscriber-facing source, controlled full-M5-outage proof,
 30-day live coverage, the 24-hour first-party capture preflight, beta outcomes,
 and prospective evidence remain open.
 
@@ -818,6 +843,10 @@ count. The corrected M5 run matched all `287,694` observations exactly and
 published `75,055` path cells. A separate target audit passed `10/10` gates,
 including exact observation/feature counts, one failed plus one corrected
 version, and fail-closed lookup while H-1/H-2/H-3/H-24 are incomplete.
+Later deep `OFFSET` pages returned target HTTP 500 responses. The finalizer now
+uses monotonic-id keyset pagination backed by a covering
+`(source, target_hour, band, id)` index, retries only transient transport,
+408/425/429/5xx failures, and still fails contract/JSON errors immediately.
 
 The M5 research LaunchAgent then completed its first scheduled target hour,
 `2026-07-16T03:00:00Z`. Its identity-free receipt covers `261,006` exact
@@ -830,12 +859,13 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `7/7`
-expected hours, 100% scheduled completion, zero gaps, and `7/720` required
-hours through target `2026-07-16T09:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `1,763,891`
-observations and `470,851` feature cells with the same bounded 18-thread
-profile. The rollup re-verifies
+The automatic duration rollup is operationally healthy at `9/9`
+expected hours, 100% scheduled completion, zero gaps, and `9/720` required
+hours through target `2026-07-16T11:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `2,199,427`
+observations and `590,320` feature cells with the same bounded 18-thread
+profile. The latest audited finalizer completed in 114.34 seconds with two
+workers and nine native threads each. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current
 99% operational threshold is satisfied.

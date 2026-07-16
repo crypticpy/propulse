@@ -13,6 +13,9 @@ export const RESEARCH_HEALTH_ALERT_NAMES = [
   "shadow_rollup_operational_healthy",
 ] as const;
 
+export const RESEARCH_HEALTH_SOURCE_KEY = "nowcast-research";
+export const RESEARCH_HEALTH_STALE_SECONDS = 7200;
+
 const ALERT_NAMES = new Set<string>(RESEARCH_HEALTH_ALERT_NAMES);
 const PAYLOAD_KEYS = new Set([
   "schemaVersion",
@@ -250,7 +253,7 @@ export async function verifyResearchHealthSignature(
 }
 
 function genericWebhookHostIsUnsafe(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const host = hostname.toLowerCase().replace(/\.$/, "").replace(/^\[|\]$/g, "");
   if (
     host === "localhost" ||
     host.endsWith(".localhost") ||
@@ -302,7 +305,7 @@ export function parseResearchAlertWebhookConfig(
   ) {
     throw new Error("alert webhook URL violates the HTTPS destination contract");
   }
-  const hostname = parsed.hostname.toLowerCase();
+  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
   if (rawKind === "slack") {
     const slackHost = hostname === "hooks.slack.com" || hostname === "hooks.slack-gov.com";
     if (!slackHost || !parsed.pathname.startsWith("/services/")) {
@@ -316,7 +319,8 @@ export function parseResearchAlertWebhookConfig(
   } else {
     const allowedHost = environment.PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST
       ?.trim()
-      .toLowerCase();
+      .toLowerCase()
+      .replace(/\.$/, "");
     if (!allowedHost || allowedHost !== hostname || genericWebhookHostIsUnsafe(hostname)) {
       throw new Error("generic alert webhook host is not explicitly allowed");
     }

@@ -78,6 +78,9 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
             values["research_health_monitor_migration_validation"],
             values["research_health_monitor_deployment_validation"],
             values["research_health_external_monitor_validation"],
+            values["research_health_hardening_migration_validation"],
+            values["research_health_hardening_deployment_validation"],
+            values["research_health_incident_delivery_validation"],
             values["research_participation_migration_validation"],
             values["research_participation_deployment_validation"],
             values["operational_weather_validation"],
@@ -93,8 +96,14 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
         self.assertTrue(health["remote_heartbeat_delivered"])
         self.assertTrue(health["monitor_migration_deployed"])
         self.assertTrue(health["external_monitor_invoked"])
-        self.assertFalse(health["alert_delivery_configured"])
+        self.assertFalse(health["external_webhook_configured"])
+        self.assertTrue(health["github_issue_delivery_configured"])
+        self.assertTrue(health["stale_recovery_delivery_proven"])
+        self.assertFalse(health["literal_full_m5_outage_proven"])
         self.assertFalse(health["public_view_enabled"])
+        self.assertEqual(
+            health["incident_delivery"]["incident"]["state"], "closed"
+        )
         participation = evidence["research_participation"]
         self.assertTrue(participation["migration_deployed"])
         self.assertFalse(participation["frontend_enabled"])

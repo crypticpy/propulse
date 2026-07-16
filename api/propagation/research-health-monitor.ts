@@ -1,17 +1,19 @@
 /** Authenticated off-M5 stale-heartbeat monitor and alert retry trigger. */
 
+import { applyRateLimit } from "../_lib/rateLimit";
 import {
   deliverPendingAlerts,
   researchHealthStoreConfig,
   supabaseJson,
 } from "./research-health";
+import {
+  RESEARCH_HEALTH_SOURCE_KEY,
+  RESEARCH_HEALTH_STALE_SECONDS,
+} from "../_lib/researchHealth";
 
 export const config = {
   runtime: "edge",
 };
-
-const SOURCE_KEY = "nowcast-research";
-const STALE_SECONDS = 7200;
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -48,6 +50,13 @@ export default async function handler(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
+  const limited = applyRateLimit(
+    request,
+    "propagation/research-health-monitor",
+    10,
+    60,
+  );
+  if (limited) return limited;
   const monitorSecret = process.env.PROPULSE_RESEARCH_HEALTH_MONITOR_SECRET;
   if (!monitorSecret || monitorSecret.length < 32) {
     return jsonResponse({ error: "Server misconfiguration" }, 503);
@@ -61,7 +70,7 @@ export default async function handler(request: Request): Promise<Response> {
   try {
     const result = await supabaseJson(
       store,
-      `propagation_research_health?singleton_key=eq.${SOURCE_KEY}&select=reported_at&limit=1`,
+      `propagation_research_health?singleton_key=eq.${RESEARCH_HEALTH_SOURCE_KEY}&select=reported_at&limit=1`,
       { method: "GET" },
     );
     const row = Array.isArray(result) ? result[0] : null;
@@ -81,7 +90,7 @@ export default async function handler(request: Request): Promise<Response> {
     );
     let evaluated = true;
     let stateChanged = false;
-    let heartbeatStale = heartbeatAgeSeconds > STALE_SECONDS;
+    let heartbeatStale = heartbeatAgeSeconds > RESEARCH_HEALTH_STALE_SECONDS;
     if (heartbeatStale) {
       const eventId = await sha256(`stale-heartbeat:${reportedAt}`);
       const monitorResult = await supabaseJson(
@@ -92,7 +101,7 @@ export default async function handler(request: Request): Promise<Response> {
           body: JSON.stringify({
             p_event_id: eventId,
             p_observed_at: observedAt,
-            p_stale_seconds: STALE_SECONDS,
+            p_stale_seconds: RESEARCH_HEALTH_STALE_SECONDS,
           }),
         },
       );

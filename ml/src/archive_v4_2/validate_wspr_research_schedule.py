@@ -170,16 +170,19 @@ def launchd_gates(payload: dict[str, Any], *, runtime_root: Path) -> dict[str, b
 
 
 def health_launchd_gates(
-    payload: dict[str, Any], *, runtime_root: Path
+    payload: dict[str, Any], *, runtime_root: Path, remote_env: Path | None = None
 ) -> dict[str, bool]:
     arguments = payload.get("ProgramArguments", [])
     rendered = repr(payload).lower()
     secret_markers = ("secret", "password", "token", "service_role", "apikey")
+    remote_env = remote_env or ROOT / ".env.local"
+    remote_env_details = remote_env.stat() if remote_env.exists() else None
     expected_values = {
         "--runtime-root": str(runtime_root),
         "--alert-output": str(runtime_root / "live_wspr_alert.json"),
         "--stale-seconds": "7200",
         "--max-runtime-bytes": str(2 * 1024**3),
+        "--remote-env-file": str(remote_env),
     }
     values: dict[str, str] = {}
     for option in expected_values:
@@ -196,8 +199,12 @@ def health_launchd_gates(
         ),
         "watchdog_thresholds_and_runtime_exact": (
             values == expected_values
-            and len(arguments) == 11
+            and len(arguments) == 13
             and runtime_root.resolve().is_relative_to(Path.home().resolve())
+            and remote_env_details is not None
+            and not remote_env.is_symlink()
+            and remote_env_details.st_uid == os.getuid()
+            and remote_env_details.st_mode & 0o077 == 0
         ),
         "watchdog_owner_only_and_secret_free": (
             payload.get("Umask") == 0o077

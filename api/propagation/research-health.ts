@@ -4,6 +4,8 @@ import { applyRateLimit } from "../_lib/rateLimit";
 import {
   parseResearchHealthPayload,
   parseResearchAlertWebhookConfig,
+  RESEARCH_HEALTH_SOURCE_KEY,
+  RESEARCH_HEALTH_STALE_SECONDS,
   researchAlertWebhookBody,
   verifyResearchHealthSignature,
   type ResearchAlertEvent,
@@ -13,9 +15,9 @@ export const config = {
   runtime: "edge",
 };
 
-const SOURCE_KEY = "nowcast-research";
-const STALE_SECONDS = 7200;
 export const MAX_RESEARCH_ALERT_ATTEMPTS = 8;
+const RESEARCH_ALERT_LEASE_SECONDS = 30;
+const MAX_RESEARCH_HEALTH_BODY_BYTES = 16_384;
 
 function allowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
@@ -94,23 +96,29 @@ function asAlertEvents(value: unknown): ResearchAlertEvent[] {
   });
 }
 
-async function patchAlertEvent(
+async function completeAlertEvent(
   configValue: SupabaseConfig,
   event: ResearchAlertEvent,
-  updates: Record<string, unknown>,
+  leaseToken: string,
+  deliveredAt: string | null,
+  lastError: string | null,
 ): Promise<void> {
-  await supabaseJson(
+  const completed = await supabaseJson(
     configValue,
-    `propagation_research_alert_outbox?event_id=eq.${encodeURIComponent(event.event_id)}`,
+    "rpc/complete_propagation_research_alert_attempt",
     {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
+      method: "POST",
       body: JSON.stringify({
-        attempts: event.attempts + 1,
-        ...updates,
+        p_event_id: event.event_id,
+        p_lease_token: leaseToken,
+        p_delivered_at: deliveredAt,
+        p_last_error: lastError,
       }),
     },
   );
+  if (completed !== true) {
+    throw new Error("research alert lease completion failed");
+  }
 }
 
 export async function deliverPendingAlerts(
@@ -132,11 +140,20 @@ export async function deliverPendingAlerts(
       exhausted: 0,
     };
   }
+  const leaseToken = crypto.randomUUID();
   const pending = asAlertEvents(
     await supabaseJson(
       configValue,
-      `propagation_research_alert_outbox?delivered_at=is.null&attempts=lt.${MAX_RESEARCH_ALERT_ATTEMPTS}&order=created_at.asc&limit=5&select=event_id,decision,alert_names,occurred_at,attempts`,
-      { method: "GET" },
+      "rpc/claim_propagation_research_alerts",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          p_limit: 5,
+          p_max_attempts: MAX_RESEARCH_ALERT_ATTEMPTS,
+          p_lease_seconds: RESEARCH_ALERT_LEASE_SECONDS,
+          p_lease_token: leaseToken,
+        }),
+      },
     ),
   );
   let delivered = 0;
@@ -145,6 +162,8 @@ export async function deliverPendingAlerts(
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (webhook.bearer) headers.Authorization = `Bearer ${webhook.bearer}`;
     if (webhook.kind === "generic") headers["Idempotency-Key"] = event.event_id;
+    let deliveredAt: string | null = null;
+    let lastError: string | null = null;
     try {
       const response = await fetch(webhook.url, {
         method: "POST",
@@ -156,22 +175,26 @@ export async function deliverPendingAlerts(
       if (!response.ok) {
         throw new Error(`webhook returned ${response.status}`);
       }
-      await patchAlertEvent(configValue, event, {
-        delivered_at: new Date().toISOString(),
-        last_error: null,
-      });
-      delivered += 1;
+      deliveredAt = new Date().toISOString();
     } catch (error) {
-      const lastError =
+      lastError =
         error instanceof Error && /^webhook returned \d{3}$/.test(error.message)
           ? error.message
           : error instanceof DOMException && error.name === "TimeoutError"
             ? "webhook timed out"
             : "webhook request failed";
-      await patchAlertEvent(configValue, event, {
-        last_error: lastError,
-      });
+    }
+    await completeAlertEvent(
+      configValue,
+      event,
+      leaseToken,
+      deliveredAt,
+      lastError,
+    );
+    if (lastError) {
       failed += 1;
+    } else {
+      delivered += 1;
     }
   }
   const exhaustedRows = await supabaseJson(
@@ -188,6 +211,37 @@ export async function deliverPendingAlerts(
   };
 }
 
+export async function readBoundedResearchHealthBody(
+  request: Request,
+  maximumBytes = MAX_RESEARCH_HEALTH_BODY_BYTES,
+): Promise<string | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maximumBytes) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(body);
+}
+
 async function postHealth(request: Request): Promise<Response> {
   const limited = applyRateLimit(request, "propagation/research-health-post", 10, 60);
   if (limited) return limited;
@@ -196,11 +250,10 @@ async function postHealth(request: Request): Promise<Response> {
   if (!ingestSecret || ingestSecret.length < 32 || !store) {
     return jsonResponse({ error: "Server misconfiguration" }, 503);
   }
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > 16_384) {
+  const rawBody = await readBoundedResearchHealthBody(request);
+  if (rawBody === null) {
     return jsonResponse({ error: "Payload too large" }, 413);
   }
-  const rawBody = await request.text();
   const signatureValid = await verifyResearchHealthSignature(
     rawBody,
     request.headers.get("x-propulse-timestamp"),
@@ -270,7 +323,7 @@ async function getHealth(request: Request): Promise<Response> {
   try {
     const result = await supabaseJson(
       store,
-      `propagation_research_health?singleton_key=eq.${SOURCE_KEY}&select=reported_at,decision,last_completed_target_hour,continuous_completed_hours,completed_hours,required_hours,missing_hours,freshness_seconds&limit=1`,
+      `propagation_research_health?singleton_key=eq.${RESEARCH_HEALTH_SOURCE_KEY}&select=reported_at,decision,last_completed_target_hour,continuous_completed_hours,completed_hours,required_hours,missing_hours,freshness_seconds&limit=1`,
       { method: "GET" },
     );
     const row = Array.isArray(result) ? result[0] : null;
@@ -291,7 +344,7 @@ async function getHealth(request: Request): Promise<Response> {
     const status =
       storedDecision === "alert"
         ? "alert"
-        : heartbeatAgeSeconds > STALE_SECONDS
+        : heartbeatAgeSeconds > RESEARCH_HEALTH_STALE_SECONDS
           ? "degraded"
           : "healthy";
     return jsonResponse(

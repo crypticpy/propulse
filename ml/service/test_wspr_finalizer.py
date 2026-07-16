@@ -79,9 +79,9 @@ class WsprFinalizerTests(unittest.TestCase):
 
         def handler(request):
             requests.append(request)
-            offset = int(request.url.params["offset"])
-            page = [{"id": offset + index} for index in range(1000)]
-            return httpx.Response(200, json=page if offset < 2000 else [])
+            cursor = int(request.url.params.get("id", "gt.0").removeprefix("gt."))
+            page = [{"id": cursor + index + 1} for index in range(1000)]
+            return httpx.Response(200, json=page if cursor < 2000 else [])
 
         store = PostgrestFinalizerStore(
             base_url="https://feature-store.test",
@@ -98,9 +98,87 @@ class WsprFinalizerTests(unittest.TestCase):
 
         self.assertEqual([len(page) for page in pages], [1000, 1000])
         self.assertEqual(
-            [request.url.params["offset"] for request in requests],
-            ["0", "1000", "2000"],
+            [request.url.params.get("id") for request in requests],
+            [None, "gt.1000", "gt.2000"],
         )
+        self.assertTrue(all("id" not in row for page in pages for row in page))
+
+    def test_postgrest_lookup_refuses_a_non_increasing_cursor(self):
+        def handler(_request):
+            return httpx.Response(200, json=[{"id": 2}, {"id": 2}])
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "invalid cursor"):
+            list(store.observation_pages(
+                target_hour=TARGET,
+                band="20m",
+                provider="approved-fixture",
+                available_at=TARGET + timedelta(hours=1),
+                page_size=5000,
+            ))
+
+    def test_postgrest_lookup_retries_a_transient_server_error(self):
+        requests = []
+        sleeps = []
+
+        def handler(request):
+            requests.append(request)
+            if len(requests) == 1:
+                return httpx.Response(500, json={"message": "temporary"})
+            return httpx.Response(200, json=[])
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            retry_base_seconds=0.25,
+            sleep=sleeps.append,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        pages = list(store.observation_pages(
+            target_hour=TARGET,
+            band="20m",
+            provider="approved-fixture",
+            available_at=TARGET + timedelta(hours=1),
+            page_size=5000,
+        ))
+
+        self.assertEqual(pages, [])
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(sleeps, [0.25])
+
+    def test_postgrest_lookup_does_not_retry_a_contract_error(self):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(400, json={"message": "bad filter"})
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            sleep=lambda _: self.fail("contract errors must not retry"),
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "rolling WSPR observation lookup failed",
+        ):
+            list(store.observation_pages(
+                target_hour=TARGET,
+                band="20m",
+                provider="approved-fixture",
+                available_at=TARGET + timedelta(hours=1),
+                page_size=5000,
+            ))
+
+        self.assertEqual(len(requests), 1)
 
     def test_watermark_invalidation_requires_exact_all_band_response(self):
         def handler(request):

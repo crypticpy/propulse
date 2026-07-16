@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T10:59:04.784230+00:00",
+  "generated_at": "2026-07-16T12:42:19.058752+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -66,6 +66,21 @@
       "sha256": "d65ffc9d0a55c01c52f29f562f75e67e246c21738d88d7c40ea3a3629a1847d0"
     },
     {
+      "id": "research_health_hardening_migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_hardening_migration_validation.json",
+      "sha256": "dbd3523cc937147955efc424337d47286de845bfed67b4ff3b5fce127cd53ff2"
+    },
+    {
+      "id": "research_health_hardening_deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_hardening_deployment_validation.json",
+      "sha256": "38df695596282f647aa373c063b1c613e7dafdd36db48a66574b620b43b11ed8"
+    },
+    {
+      "id": "research_health_incident_delivery_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_incident_delivery_validation.json",
+      "sha256": "7f114b312422410da22f166911a69acd8866f49e68d40ca7a83a67d1d99a784b"
+    },
+    {
       "id": "research_participation_migration_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_participation_migration_validation.json",
       "sha256": "7382feb050ccdb6d365d33793a93f4d33d1f6c9866d1e4014a3f25b9a82cb1d4"
@@ -98,17 +113,17 @@
     {
       "id": "wspr_research_schedule_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_schedule_validation.json",
-      "sha256": "f62d6a7080efaca1eb45020928762d8934e34628d055f6ccb722b03f2f960b51"
+      "sha256": "1cf3a444d8386effc74aa1e1d0b6aac5c8f185ee3af32a0a0caa3ac4e50ec516"
     },
     {
       "id": "wspr_research_shadow_progress",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "bfa4965339676f99cb4f4eeecbf39ce1534aff7d86d0f66b16cb55344e19a66f"
+      "sha256": "2d6a979cadced4056bc74852097145cb32ae15525d4518c69bb6243907834082"
     },
     {
       "id": "prospective_capture_readiness",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "97a1b496affb26fb638b46dbbbf003e7de955c9b3bbcd0fada90a8d68318d19d"
+      "sha256": "76422accef53371ae6b03c83f4f937c5e255a51747c67cf72f7d2a861907ec79"
     }
   ],
   "bundle": {
@@ -349,12 +364,108 @@
         "exhausted": 0
       }
     },
+    "hardening_rollback": {
+      "migration": {
+        "path": "supabase/migrations/20260716012000_research_health_hardening.sql",
+        "sha256": "0760c2fff581ff218fae3ddf65544fa20708482db22f5d99c8358d2823915eee",
+        "deployed": false,
+        "server_version": "17.6"
+      },
+      "gates": {
+        "migration_sql_executed_or_deployed": true,
+        "security_definer_search_paths_locked": true,
+        "claim_and_complete_service_role_only": true,
+        "initial_alert_recorded": true,
+        "event_id_collision_rejected": true,
+        "collision_rolls_back_health_state": true,
+        "duplicate_alert_name_rejected": true,
+        "unsupported_alert_name_rejected": true,
+        "upper_counter_rejected": true,
+        "direct_invalid_alert_rejected": true,
+        "direct_counter_overflow_rejected": true,
+        "single_active_lease_enforced": true,
+        "stale_lease_token_rejected": true,
+        "success_completion_exact": true,
+        "recovery_transition_recorded": true,
+        "failure_claim_exact": true,
+        "failure_completion_exact": true,
+        "failed_delivery_remains_retryable": true
+      }
+    },
+    "hardening_deployment": {
+      "migration": {
+        "path": "supabase/migrations/20260716012000_research_health_hardening.sql",
+        "sha256": "0760c2fff581ff218fae3ddf65544fa20708482db22f5d99c8358d2823915eee",
+        "deployed": true,
+        "server_version": "17.6"
+      },
+      "gates": {
+        "migration_sql_executed_or_deployed": true,
+        "security_definer_search_paths_locked": true,
+        "claim_and_complete_service_role_only": true,
+        "initial_alert_recorded": true,
+        "event_id_collision_rejected": true,
+        "collision_rolls_back_health_state": true,
+        "duplicate_alert_name_rejected": true,
+        "unsupported_alert_name_rejected": true,
+        "upper_counter_rejected": true,
+        "direct_invalid_alert_rejected": true,
+        "direct_counter_overflow_rejected": true,
+        "single_active_lease_enforced": true,
+        "stale_lease_token_rejected": true,
+        "success_completion_exact": true,
+        "recovery_transition_recorded": true,
+        "failure_claim_exact": true,
+        "failure_completion_exact": true,
+        "failed_delivery_remains_retryable": true,
+        "deployment_ledger_exact": true
+      }
+    },
+    "incident_delivery": {
+      "stale_run": {
+        "id": 29494058601,
+        "conclusion": "failure",
+        "event": "workflow_dispatch",
+        "url": "https://github.com/crypticpy/propulse/actions/runs/29494058601"
+      },
+      "recovery_run": {
+        "id": 29497729210,
+        "conclusion": "success",
+        "event": "workflow_dispatch",
+        "head_sha": "c5e315523056223bc2063b80a60e36aae5cf1026",
+        "url": "https://github.com/crypticpy/propulse/actions/runs/29497729210"
+      },
+      "incident": {
+        "number": 10,
+        "state": "closed",
+        "url": "https://github.com/crypticpy/propulse/issues/10",
+        "created_at": "2026-07-16T11:20:33+00:00",
+        "closed_at": "2026-07-16T12:20:08+00:00",
+        "stale_heartbeat_age_seconds": 10227,
+        "recovery_heartbeat_age_seconds": 25,
+        "matching_incident_count": 1
+      },
+      "gates": {
+        "stale_run_failed_closed": true,
+        "stale_age_exceeded_boundary": true,
+        "single_durable_incident": true,
+        "incident_opened_by_stale_run": true,
+        "issue_template_identity_free": true,
+        "recovery_run_succeeded": true,
+        "genuine_recovery_comment_exact": true,
+        "recovery_age_inside_boundary": true,
+        "incident_closed_by_recovery_run": true
+      }
+    },
     "monitor_migration_deployed": true,
     "external_monitor_invoked": true,
     "migration_deployed": true,
     "remote_endpoint_configured": true,
     "remote_heartbeat_delivered": true,
-    "alert_delivery_configured": false,
+    "external_webhook_configured": false,
+    "github_issue_delivery_configured": true,
+    "stale_recovery_delivery_proven": true,
+    "literal_full_m5_outage_proven": false,
     "public_view_enabled": false,
     "aggregate_only": true
   },
@@ -574,25 +685,25 @@
     "provider": "wspr.live-research-v1",
     "research_only": true,
     "subscriber_facing_authorized": false,
-    "target_hour": "2026-07-16T04:00:00+00:00",
-    "source_record_count": 255536,
-    "feature_cell_count": 67829,
+    "target_hour": "2026-07-16T11:00:00+00:00",
+    "source_record_count": 216184,
+    "feature_cell_count": 60923,
     "connector": {
-      "elapsed_seconds": 40.774455,
-      "peak_rss_mib": 161.0,
+      "elapsed_seconds": 87.391896,
+      "peak_rss_mib": 106.391,
       "source_request_count": 1
     },
     "finalizer": {
       "maximum_compute_threads": 18,
       "threads_per_band": 9,
-      "wall_seconds": 171.515254,
+      "wall_seconds": 114.341591,
       "workers": 2
     },
     "health": {
       "status": "healthy",
-      "continuous_completed_hours": 2,
+      "continuous_completed_hours": 9,
       "consecutive_failures": 0,
-      "freshness_seconds": 1116
+      "freshness_seconds": 1106
     },
     "schedule": {
       "label": "org.propulse.wspr-research",
@@ -614,20 +725,26 @@
         "stale_seconds": 7200
       },
       "observations": {
-        "continuous_completed_hours": 2,
-        "dynamic_freshness_seconds": 1163,
-        "health_record_age_seconds": 46,
-        "last_completed_target_hour": "2026-07-16T04:00:00+00:00",
-        "latest_settled_target_hour": "2026-07-16T04:00:00+00:00",
-        "runtime_bytes": 9108,
-        "shadow_completed_hours": 2,
+        "continuous_completed_hours": 9,
+        "dynamic_freshness_seconds": 1800,
+        "health_record_age_seconds": 693,
+        "last_completed_target_hour": "2026-07-16T11:00:00+00:00",
+        "latest_settled_target_hour": "2026-07-16T11:00:00+00:00",
+        "runtime_bytes": 109110,
+        "shadow_completed_hours": 9,
         "shadow_completion_rate": 1.0,
-        "shadow_expected_hours": 2
+        "shadow_expected_hours": 9,
+        "shadow_missing_hours": 0,
+        "shadow_required_hours": 720
       },
       "delivery": {
         "local_notification_enabled": true,
         "notification_attempted": false,
         "notification_delivered": false,
+        "remote_attempted": true,
+        "remote_configured": true,
+        "remote_delivered": true,
+        "remote_error_type": null,
         "state_changed": false
       },
       "delivery_test": {
@@ -671,38 +788,38 @@
     "decision": "collecting",
     "operational_status": "healthy",
     "window": {
-      "completed_hours": 7,
+      "completed_hours": 9,
       "completion_rate": 1.0,
-      "continuous_completed_hours": 7,
-      "expected_hours": 7,
-      "last_completed_target_hour": "2026-07-16T09:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T09:00:00+00:00",
+      "continuous_completed_hours": 9,
+      "expected_hours": 9,
+      "last_completed_target_hour": "2026-07-16T11:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T11:00:00+00:00",
       "minimum_hours": 720,
       "missing_hours": 0,
       "start_target_hour": "2026-07-16T03:00:00+00:00"
     },
     "totals": {
-      "feature_cells": 470851,
+      "feature_cells": 590320,
       "records_by_band": {
-        "10m": 36954,
-        "12m": 13458,
-        "15m": 60438,
-        "160m": 18524,
-        "17m": 60118,
-        "20m": 530641,
-        "30m": 341749,
-        "40m": 548122,
-        "60m": 16815,
-        "80m": 137072
+        "10m": 52839,
+        "12m": 18770,
+        "15m": 84444,
+        "160m": 20607,
+        "17m": 80002,
+        "20m": 662856,
+        "30m": 422272,
+        "40m": 679187,
+        "60m": 18938,
+        "80m": 159512
       },
-      "source_records": 1763891
+      "source_records": 2199427
     },
     "performance": {
-      "completion_latency_max_seconds": 1725.481164,
-      "completion_latency_p95_seconds": 1717.6972824,
+      "completion_latency_max_seconds": 2802.150802,
+      "completion_latency_p95_seconds": 2371.4829468,
       "connector_peak_rss_max_mib": 161.0,
-      "connector_wall_p95_seconds": 67.7042285,
-      "finalizer_wall_p95_seconds": 748.3314117
+      "connector_wall_p95_seconds": 79.7311352,
+      "finalizer_wall_p95_seconds": 745.4885656
     },
     "gates": {
       "all_receipts_and_manifests_valid": true,
@@ -720,7 +837,7 @@
   },
   "prospective_capture": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T10:58:40.043675+00:00",
+    "generated_at": "2026-07-16T12:40:18.793132+00:00",
     "host_role": "M5 prospective capture",
     "architecture": "arm64",
     "schedule": {
@@ -746,75 +863,75 @@
     "source_state": {
       "pskreporter": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T10:57:38.215721+00:00",
-        "last_success_at": "2026-07-16T10:57:38.215721+00:00",
-        "attempt_age_seconds": 61.827954,
-        "success_age_seconds": 61.827954,
-        "rows_last_run": 2766,
-        "duration_ms": 1360,
+        "last_attempt_at": "2026-07-16T12:37:38.475769+00:00",
+        "last_success_at": "2026-07-16T12:37:38.475769+00:00",
+        "attempt_age_seconds": 160.317363,
+        "success_age_seconds": 160.317363,
+        "rows_last_run": 2798,
+        "duration_ms": 1595,
         "error_present": false,
-        "latest_spotted_at": "2026-07-16T10:57:30+00:00",
-        "latest_ingested_at": "2026-07-16T10:57:37.603746+00:00",
-        "latest_available_at": "2026-07-16T10:57:37.603746+00:00",
-        "latest_spot_age_seconds": 70.043675
+        "latest_spotted_at": "2026-07-16T12:37:31+00:00",
+        "latest_ingested_at": "2026-07-16T12:37:37.843309+00:00",
+        "latest_available_at": "2026-07-16T12:37:37.843309+00:00",
+        "latest_spot_age_seconds": 167.793132
       },
       "rbn": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T10:57:39.951934+00:00",
-        "last_success_at": "2026-07-16T10:57:39.951934+00:00",
-        "attempt_age_seconds": 60.091741,
-        "success_age_seconds": 60.091741,
-        "rows_last_run": 11603,
-        "duration_ms": 3094,
+        "last_attempt_at": "2026-07-16T12:37:40.765565+00:00",
+        "last_success_at": "2026-07-16T12:37:40.765565+00:00",
+        "attempt_age_seconds": 158.027567,
+        "success_age_seconds": 158.027567,
+        "rows_last_run": 15865,
+        "duration_ms": 3879,
         "error_present": false,
-        "latest_spotted_at": "2026-07-16T10:57:30+00:00",
-        "latest_ingested_at": "2026-07-16T10:57:37.786094+00:00",
-        "latest_available_at": "2026-07-16T10:57:37.786094+00:00",
-        "latest_spot_age_seconds": 70.043675
+        "latest_spotted_at": "2026-07-16T12:37:30+00:00",
+        "latest_ingested_at": "2026-07-16T12:37:37.735983+00:00",
+        "latest_available_at": "2026-07-16T12:37:37.735983+00:00",
+        "latest_spot_age_seconds": 168.793132
       },
       "dxcluster": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T10:57:37.500674+00:00",
-        "last_success_at": "2026-07-16T10:57:37.500674+00:00",
-        "attempt_age_seconds": 62.543001,
-        "success_age_seconds": 62.543001,
-        "rows_last_run": 113,
-        "duration_ms": 634,
+        "last_attempt_at": "2026-07-16T12:39:37.779115+00:00",
+        "last_success_at": "2026-07-16T12:39:37.779115+00:00",
+        "attempt_age_seconds": 41.014017,
+        "success_age_seconds": 41.014017,
+        "rows_last_run": 114,
+        "duration_ms": 786,
         "error_present": false,
-        "latest_spotted_at": "2026-07-16T10:57:00+00:00",
-        "latest_ingested_at": "2026-07-16T10:57:37.434955+00:00",
-        "latest_available_at": "2026-07-16T10:57:37.434955+00:00",
-        "latest_spot_age_seconds": 100.043675
+        "latest_spotted_at": "2026-07-16T12:38:00+00:00",
+        "latest_ingested_at": "2026-07-16T12:39:37.653086+00:00",
+        "latest_available_at": "2026-07-16T12:39:37.653086+00:00",
+        "latest_spot_age_seconds": 138.793132
       },
       "solar": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T10:57:37.129985+00:00",
-        "last_success_at": "2026-07-16T10:57:37.129985+00:00",
-        "success_age_seconds": 62.91369,
+        "last_attempt_at": "2026-07-16T12:37:37.117751+00:00",
+        "last_success_at": "2026-07-16T12:37:37.117751+00:00",
+        "success_age_seconds": 161.675381,
         "rows_last_run": 1,
-        "duration_ms": 266,
+        "duration_ms": 231,
         "error_present": false,
-        "latest_captured_at": "2026-07-16T10:57:37.006+00:00",
-        "capture_age_seconds": 63.037675,
+        "latest_captured_at": "2026-07-16T12:37:36.962+00:00",
+        "capture_age_seconds": 161.831132,
         "source_observed_at": {
-          "kp": "2026-07-16T10:54:00.000Z",
-          "magnetic_field": "2026-07-16T10:52:00.000Z",
-          "solar_wind": "2026-07-16T10:51:00.000Z",
-          "proton_flux_10mev": "2026-07-16T10:50:00.000Z",
-          "dst": "2026-07-16T10:00:00.000Z"
+          "kp": "2026-07-16T12:34:00.000Z",
+          "magnetic_field": "2026-07-16T12:32:00.000Z",
+          "solar_wind": "2026-07-16T12:32:00.000Z",
+          "proton_flux_10mev": "2026-07-16T12:25:00.000Z",
+          "dst": "2026-07-16T12:00:00.000Z"
         },
         "source_age_seconds": {
-          "kp": 280.043675,
-          "magnetic_field": 400.043675,
-          "solar_wind": 460.043675,
-          "proton_flux_10mev": 520.043675,
-          "dst": 3520.043675
+          "kp": 378.793132,
+          "magnetic_field": 498.793132,
+          "solar_wind": 498.793132,
+          "proton_flux_10mev": 918.793132,
+          "dst": 2418.793132
         },
         "source_current": {
           "kp": true,
           "magnetic_field": true,
           "solar_wind": true,
-          "proton_flux_10mev": true,
+          "proton_flux_10mev": false,
           "dst": true
         },
         "required_sources": [
@@ -827,29 +944,29 @@
     },
     "aggregation_state": {
       "band_hourly": {
-        "hour_utc": "2026-07-16T09:00:00+00:00",
-        "rows_written": 0,
-        "available_at": "2026-07-16T10:30:24.330234+00:00",
-        "hour_age_seconds": 7120.043675,
+        "hour_utc": "2026-07-16T11:00:00+00:00",
+        "rows_written": 10,
+        "available_at": "2026-07-16T12:22:38.295124+00:00",
+        "hour_age_seconds": 6018.793132,
         "watermark_last": true
       },
       "path_hourly": {
-        "hour_utc": "2026-07-16T09:00:00+00:00",
-        "rows_written": 0,
-        "available_at": "2026-07-16T10:30:24.361094+00:00",
-        "hour_age_seconds": 7120.043675,
+        "hour_utc": "2026-07-16T11:00:00+00:00",
+        "rows_written": 2839,
+        "available_at": "2026-07-16T12:22:38.064505+00:00",
+        "hour_age_seconds": 6018.793132,
         "watermark_last": true
       }
     },
     "open_outage_sources": [],
     "query_error_type": null,
     "operational_healthy": true,
-    "instant_healthy": false,
+    "instant_healthy": true,
     "continuity": {
-      "hours": 0.0,
-      "healthy_receipts": 0,
+      "hours": 1.1370709441666667,
+      "healthy_receipts": 6,
       "maximum_allowed_gap_seconds": 1800,
-      "tail_has_no_gap": false,
+      "tail_has_no_gap": true,
       "minimum_hours": 24.0
     },
     "gates": {
@@ -860,8 +977,8 @@
       "rbn_current": true,
       "dxcluster_current": true,
       "solar_weather_current": true,
-      "band_hourly_current": false,
-      "path_hourly_current": false,
+      "band_hourly_current": true,
+      "path_hourly_current": true,
       "no_open_outages": true,
       "identity_free_receipt": true,
       "prospective_outcomes_unread": true,
@@ -916,6 +1033,17 @@
         "research_health_external_monitor_gates_total": 14,
         "research_health_external_monitor_age_seconds": 2035,
         "research_health_external_monitor_event": "schedule",
+        "research_health_hardening_rollback_gates_passed": 18,
+        "research_health_hardening_rollback_gates_total": 18,
+        "research_health_hardening_deployment_gates_passed": 19,
+        "research_health_hardening_deployment_gates_total": 19,
+        "incident_stale_age_seconds": 10227,
+        "incident_recovery_age_seconds": 25,
+        "incident_issue_number": 10,
+        "incident_stale_run_id": 29494058601,
+        "incident_recovery_run_id": 29497729210,
+        "incident_gates_passed": 9,
+        "incident_gates_total": 9,
         "research_participation_rollback_gates_passed": 13,
         "research_participation_rollback_gates_total": 13,
         "research_participation_deployment_gates_passed": 14,
@@ -937,20 +1065,24 @@
         "live_hour_feature_cells": 75055,
         "schedule_gates_passed": 28,
         "schedule_gates_total": 28,
-        "schedule_source_rows": 255536,
-        "schedule_feature_cells": 67829,
-        "schedule_continuous_hours": 2,
-        "schedule_connector_seconds": 40.774455,
-        "schedule_finalizer_seconds": 171.515254,
-        "schedule_peak_rss_mib": 161.0,
-        "schedule_target_hour": "2026-07-16T04:00:00+00:00",
-        "shadow_completed_hours": 7,
+        "schedule_source_rows": 216184,
+        "schedule_feature_cells": 60923,
+        "schedule_continuous_hours": 9,
+        "schedule_connector_seconds": 87.391896,
+        "schedule_finalizer_seconds": 114.341591,
+        "schedule_finalizer_workers": 2,
+        "schedule_threads_per_band": 9,
+        "schedule_peak_rss_mib": 106.391,
+        "schedule_target_hour": "2026-07-16T11:00:00+00:00",
+        "shadow_completed_hours": 9,
         "shadow_required_hours": 720,
         "shadow_completion_rate_percent": 100.0,
         "shadow_missing_hours": 0,
+        "shadow_source_records": 2199427,
+        "shadow_feature_cells": 590320,
         "prospective_sources_current": 4,
         "prospective_sources_required": 4,
-        "prospective_continuity_hours": 0.0,
+        "prospective_continuity_hours": 1.1370709441666667,
         "prospective_continuity_required_hours": 24.0,
         "prospective_capture_ready": false
       }
@@ -1090,77 +1222,87 @@
     "schedule_band_rows": [
       {
         "band": "10m",
-        "observations": 2450
+        "observations": 6842
       },
       {
         "band": "12m",
-        "observations": 1218
+        "observations": 2469
       },
       {
         "band": "15m",
-        "observations": 5117
+        "observations": 11172
       },
       {
         "band": "160m",
-        "observations": 2959
+        "observations": 929
       },
       {
         "band": "17m",
-        "observations": 7267
+        "observations": 10303
       },
       {
         "band": "20m",
-        "observations": 72843
+        "observations": 69068
       },
       {
         "band": "30m",
-        "observations": 50200
+        "observations": 40655
       },
       {
         "band": "40m",
-        "observations": 86683
+        "observations": 64526
       },
       {
         "band": "60m",
-        "observations": 3577
+        "observations": 930
       },
       {
         "band": "80m",
-        "observations": 23222
+        "observations": 9290
       }
     ],
     "schedule_stage_rows": [
       {
         "stage": "Source observations",
-        "count": 255536
+        "count": 216184
       },
       {
         "stage": "Path-hour feature cells",
-        "count": 67829
+        "count": 60923
       }
     ],
     "shadow_progress_rows": [
       {
         "window": "30-day receipt shadow",
         "state": "Completed",
-        "hours": 7
+        "hours": 9
       },
       {
         "window": "30-day receipt shadow",
         "state": "Remaining",
-        "hours": 713
+        "hours": 711
       }
     ],
     "prospective_progress_rows": [
       {
         "window": "First-party capture preflight",
         "state": "Continuous healthy evidence",
-        "hours": 0.0
+        "hours": 1.1370709441666667
       },
       {
         "window": "First-party capture preflight",
         "state": "Remaining",
-        "hours": 24.0
+        "hours": 22.862929055833334
+      }
+    ],
+    "incident_age_rows": [
+      {
+        "state": "Stale monitor run",
+        "heartbeat_age_seconds": 10227
+      },
+      {
+        "state": "Genuine recovery run",
+        "heartbeat_age_seconds": 25
       }
     ],
     "gate_rows": [
@@ -1985,6 +2127,236 @@
         "status": "pass"
       },
       {
+        "scope": "Health outbox hardening rollback",
+        "gate": "migration sql executed or deployed",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "security definer search paths locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "claim and complete service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "initial alert recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "event id collision rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "collision rolls back health state",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "duplicate alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "unsupported alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "upper counter rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "direct invalid alert rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "direct counter overflow rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "single active lease enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "stale lease token rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "success completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "recovery transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "failure claim exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "failure completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "failed delivery remains retryable",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "migration sql executed or deployed",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "security definer search paths locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "claim and complete service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "initial alert recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "event id collision rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "collision rolls back health state",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "duplicate alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "unsupported alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "upper counter rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "direct invalid alert rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "direct counter overflow rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "single active lease enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "stale lease token rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "success completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "recovery transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "failure claim exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "failure completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "failed delivery remains retryable",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "deployment ledger exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "stale run failed closed",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "stale age exceeded boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "single durable incident",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "incident opened by stale run",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "issue template identity free",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "recovery run succeeded",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "genuine recovery comment exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "recovery age inside boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "incident closed by recovery run",
+        "status": "pass"
+      },
+      {
         "scope": "Opt-in outcomes rollback",
         "gate": "retention acknowledgement column present",
         "status": "pass"
@@ -2562,12 +2934,12 @@
       {
         "scope": "Prospective first-party capture",
         "gate": "band hourly current",
-        "status": "pending"
+        "status": "pass"
       },
       {
         "scope": "Prospective first-party capture",
         "gate": "path hourly current",
-        "status": "pending"
+        "status": "pass"
       },
       {
         "scope": "Prospective first-party capture",
@@ -2596,15 +2968,15 @@
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "remote alert-destination failure/recovery delivery smoke",
-        "status": "required before live NowCast"
-      },
-      {
         "remaining_work": "30-day real receipt-time shadow coverage and calibration evidence",
         "status": "required before live NowCast"
       },
       {
         "remaining_work": "24-hour gap-free first-party capture preflight with nonempty settled aggregates",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "literal full-M5 power-loss delivery proof before exposing System Health",
         "status": "required before live NowCast"
       },
       {
@@ -2620,10 +2992,13 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "7 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        "evidence_limit": "9 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
       },
       {
-        "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 0.00/24 required gap-free preflight hours"
+        "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 1.14/24 required gap-free preflight hours"
+      },
+      {
+        "evidence_limit": "A real stale heartbeat opened and genuine recovery closed one durable GitHub incident, but the stale episode was not caused by physically powering off the M5"
       }
     ]
   }

@@ -6,9 +6,10 @@ import argparse
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable, Protocol
+from typing import Any, Callable, Iterable, Protocol
 
 import duckdb
 import httpx
@@ -85,13 +86,53 @@ class PostgrestFinalizerStore:
         base_url: str,
         service_key: str,
         timeout_seconds: float = 30.0,
+        max_read_attempts: int = 4,
+        retry_base_seconds: float = 1.0,
+        sleep: Callable[[float], None] = time.sleep,
         client: httpx.Client | None = None,
     ) -> None:
         if not base_url.strip() or not service_key.strip():
             raise RuntimeError("feature-store URL and service key are required")
+        if max_read_attempts < 1 or max_read_attempts > 8:
+            raise ValueError("max_read_attempts must be between 1 and 8")
+        if retry_base_seconds < 0 or retry_base_seconds > 30:
+            raise ValueError("retry_base_seconds must be between 0 and 30")
         self.base_url = base_url.rstrip("/")
         self.service_key = service_key
+        self.max_read_attempts = max_read_attempts
+        self.retry_base_seconds = retry_base_seconds
+        self.sleep = sleep
         self.client = client or httpx.Client(timeout=timeout_seconds)
+
+    @staticmethod
+    def _read_error_is_transient(error: httpx.HTTPError) -> bool:
+        if isinstance(error, httpx.HTTPStatusError):
+            status = error.response.status_code
+            return status in {408, 425, 429} or status >= 500
+        return isinstance(error, httpx.TransportError)
+
+    def _read_page(self, params: dict[str, str]) -> Any:
+        for attempt in range(self.max_read_attempts):
+            try:
+                response = self.client.get(
+                    f"{self.base_url}/rest/v1/wspr_observations_rolling",
+                    headers=self.headers(),
+                    params=params,
+                )
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPError as error:
+                final_attempt = attempt + 1 == self.max_read_attempts
+                if final_attempt or not self._read_error_is_transient(error):
+                    raise RuntimeError(
+                        "rolling WSPR observation lookup failed"
+                    ) from error
+                self.sleep(self.retry_base_seconds * (2 ** attempt))
+            except ValueError as error:
+                raise RuntimeError(
+                    "rolling WSPR observation lookup failed"
+                ) from error
+        raise AssertionError("read retry loop exhausted without returning")
 
     def headers(self, *, upsert: bool = False) -> dict[str, str]:
         headers = {
@@ -112,35 +153,41 @@ class PostgrestFinalizerStore:
         available_at: datetime,
         page_size: int,
     ) -> Iterable[list[dict[str, Any]]]:
-        offset = 0
+        last_id: int | None = None
         while True:
-            try:
-                response = self.client.get(
-                    f"{self.base_url}/rest/v1/wspr_observations_rolling",
-                    headers=self.headers(),
-                    params={
-                        "select": ",".join(OBSERVATION_COLUMNS),
-                        "source": f"eq.{provider}",
-                        "target_hour": f"eq.{target_hour.isoformat()}",
-                        "band": f"eq.{band}",
-                        "received_at": f"lte.{available_at.isoformat()}",
-                        "order": "id.asc",
-                        "offset": str(offset),
-                        "limit": str(page_size),
-                    },
-                )
-                response.raise_for_status()
-                payload = response.json()
-            except (httpx.HTTPError, ValueError) as error:
-                raise RuntimeError("rolling WSPR observation lookup failed") from error
+            params = {
+                "select": ",".join(OBSERVATION_COLUMNS),
+                "source": f"eq.{provider}",
+                "target_hour": f"eq.{target_hour.isoformat()}",
+                "band": f"eq.{band}",
+                "received_at": f"lte.{available_at.isoformat()}",
+                "order": "id.asc",
+                "limit": str(page_size),
+            }
+            params["select"] = f"id,{params['select']}"
+            if last_id is not None:
+                params["id"] = f"gt.{last_id}"
+            payload = self._read_page(params)
             if not isinstance(payload, list) or any(
                 not isinstance(row, dict) for row in payload
             ):
                 raise RuntimeError("rolling WSPR observation page is invalid")
             if not payload:
                 break
-            yield payload
-            offset += len(payload)
+            page: list[dict[str, Any]] = []
+            for raw in payload:
+                row_id = raw.get("id")
+                if (
+                    not isinstance(row_id, int)
+                    or row_id < 1
+                    or last_id is not None and row_id <= last_id
+                ):
+                    raise RuntimeError(
+                        "rolling WSPR observation page has an invalid cursor"
+                    )
+                last_id = row_id
+                page.append({key: value for key, value in raw.items() if key != "id"})
+            yield page
 
     def upsert_feature_page(self, rows: list[dict[str, Any]]) -> None:
         if not rows:

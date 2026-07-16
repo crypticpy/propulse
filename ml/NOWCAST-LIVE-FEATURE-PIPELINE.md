@@ -48,7 +48,7 @@
 > Synthetic late/duplicate receipt cases produced immutable first versions and
 > exact corrected versions. The private schema then passed 14/14 rollback-only
 > gates on target PostgreSQL 17.6 with no persistent changes. Historical
-> receipt times are synthetic, so the authorized 30-day live shadow gate
+> receipt times are synthetic, so the permitted 30-day live shadow gate
 > remains unchanged.
 
 > Deployment update, 2026-07-15: the exact six-file release chain passed 22/22
@@ -66,8 +66,8 @@
 > The source-independent hourly runner now requires an HMAC-authenticated,
 > checkpoint-hashed completion manifest for all ten HF bands, bounds
 > `workers * threads_per_band` to visible CPUs, and prunes only after every band
-> finalizes. The runner is tested but cannot be activated until a WSPR source is
-> authorized and its connector emits the required manifest.
+> finalizes. Subscriber-facing activation still requires written source terms;
+> the later internal research schedule remains separately double-gated.
 
 > Research connector update, 2026-07-16: the disabled-by-default WSPR.live
 > connector passed 8/8 real-source gates on the M5. One settled-hour request
@@ -81,7 +81,19 @@
 > Pagination now exhausts the result and manifest v2 signs per-band counts before
 > publication. The corrected hour matched all 287,694 rows, produced 75,055 path
 > cells, and passed 10/10 independent target gates; incomplete four-lag history
-> still fails closed. Continuous collection has not started.
+> still fails closed.
+
+> Research schedule update, 2026-07-16: the research-only M5 LaunchAgent is
+> active at minute 15. Its first receipt matched 261,006 observations and 69,980
+> feature cells across all ten bands with two workers and nine threads each. A
+> separate minute-0/minute-30 watchdog enforces the 7,200-second stale boundary,
+> receipt continuity, UTC, worker, failure, and 2 GiB runtime gates. Local
+> notification delivery smoke and the expanded independent audit passed 28/28
+> gates. The 30-day clock has started; subscriber permission, remote escalation,
+> System Health, beta outcomes, and long-window evidence remain open.
+> An automatic identity-free rollup re-verifies every receipt and signed
+> manifest, fixes the duration at 720 expected hours and scheduled completion at
+> 99%, and currently reports operationally healthy `collecting` status at `1/720`.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
@@ -325,17 +337,18 @@ explicitly labeled and does not satisfy the live requirement above.
   micro-batch finalizer that commits the completeness watermark last.
 - [x] Add rolling bronze and hourly feature-store migrations with RLS/service
   policies, retention, and sparse-export protection.
-- [ ] Connect an authorized source to the implemented idempotent ingest,
-  bounded hourly finalizer, atomic watermarks, and health metrics; no provider
-  connector is present or enabled yet.
+- [x] Connect the research-permitted WSPR.live path to the implemented
+  idempotent ingest, bounded hourly finalizer, atomic watermarks, and health
+  metrics for internal evidence only; subscriber-facing authorization remains
+  open.
 - [x] Build and M5-test the pure `solar_snapshots` operational-weather
   builder with source observation/receipt times and legal rolling features.
 - [x] Deploy the provenance and private WSPR feature-store migrations through
   the reviewed chain and pass post-deployment RLS/RPC verification.
 - [x] Expose the operational-weather builder through the trusted model backend,
   remove browser weather/freshness claims, and pass real A6 target validation.
-- [x] Add the HMAC completion-manifest runner for bounded all-band finalization
-  and prune-after-success orchestration; activation awaits an authorized source.
+- [x] Add and activate the HMAC completion-manifest runner for bounded internal
+  all-band finalization and prune-after-success orchestration.
 - [x] Implement and real-source validate the double-gated WSPR.live research
   connector without writing the target feature store.
 - [x] Validate one corrected end-to-end private-store/finalizer hour under exact
@@ -346,11 +359,15 @@ explicitly labeled and does not satisfy the live requirement above.
   telemetry, migration contract, and responsive visual report on the M5.
 - [x] Add and pass the October/November open-month event-time replay with
   synthetic duplicate, late-arrival, correction-version, and causal-lag cases.
-- [ ] Complete the 30-day authorized receipt-time live shadow replay.
+- [x] Install the receipt-driven M5 hourly schedule and twice-hourly watchdog;
+  pass exact target counts, owner-only runtime, multicore, and local alert gates.
+- [x] Automate the signed-receipt 720-hour denominator, 99% completion rate,
+  gap, stale-boundary, coverage, memory, and performance rollup.
+- [ ] Complete the 30-day permitted receipt-time research shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.
 - [x] Add explicit frontend/service shadow execution with aggregate-only
-  telemetry and hidden model UI; current requests deliberately exercise the
-  stale-history physics fallback.
+  telemetry and hidden model UI; requests remain on physics until the complete
+  causal H-1/H-2/H-3/H-24 history window exists.
 - [ ] Wire fresh feature responses into `buildNowCastRequests` and ReachMap only
   after V4.2 archive approval; retain physics fallback permanently.
 - [ ] Publish coverage and drift evidence in the final visual report.

@@ -32,6 +32,8 @@ INPUTS = {
     "wspr_live_hour_validation": RESULT / "wspr_live_hour_validation.json",
     "wspr_research_schedule_validation": RESULT
     / "wspr_research_schedule_validation.json",
+    "wspr_research_shadow_progress": RESULT
+    / "wspr_research_shadow_progress.json",
 }
 
 
@@ -98,6 +100,7 @@ def build_evidence(
     wspr_live_connector_validation: dict[str, Any],
     wspr_live_hour_validation: dict[str, Any],
     wspr_research_schedule_validation: dict[str, Any],
+    wspr_research_shadow_progress: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
         raise RuntimeError("transform parity did not pass")
@@ -126,6 +129,11 @@ def build_evidence(
         raise RuntimeError("real WSPR.live target-hour validation did not pass")
     if wspr_research_schedule_validation.get("decision") != "pass":
         raise RuntimeError("active WSPR research schedule validation did not pass")
+    if (
+        wspr_research_shadow_progress.get("decision") not in {"collecting", "pass"}
+        or wspr_research_shadow_progress.get("operational_status") != "healthy"
+    ):
+        raise RuntimeError("WSPR research shadow progress is not operationally healthy")
     if any(
         value.get("locked_outcomes_read")
         for value in (
@@ -139,6 +147,7 @@ def build_evidence(
             wspr_live_connector_validation,
             wspr_live_hour_validation,
             wspr_research_schedule_validation,
+            wspr_research_shadow_progress,
         )
     ):
         raise RuntimeError("live-feature work must not read locked outcomes")
@@ -265,6 +274,18 @@ def build_evidence(
         "schedule_peak_rss_mib": float(
             wspr_research_schedule_validation["connector"]["peak_rss_mib"]
         ),
+        "shadow_completed_hours": int(
+            wspr_research_shadow_progress["window"]["completed_hours"]
+        ),
+        "shadow_required_hours": int(
+            wspr_research_shadow_progress["window"]["minimum_hours"]
+        ),
+        "shadow_completion_rate_percent": 100 * float(
+            wspr_research_shadow_progress["window"]["completion_rate"]
+        ),
+        "shadow_missing_hours": int(
+            wspr_research_shadow_progress["window"]["missing_hours"]
+        ),
     }]
     parity_rows = []
     for month in event_replays:
@@ -335,6 +356,24 @@ def build_evidence(
             "count": int(wspr_research_schedule_validation["feature_cell_count"]),
         },
     ]
+    shadow_progress_rows = [
+        {
+            "window": "30-day receipt shadow",
+            "state": "Completed",
+            "hours": int(
+                wspr_research_shadow_progress["window"]["completed_hours"]
+            ),
+        },
+        {
+            "window": "30-day receipt shadow",
+            "state": "Remaining",
+            "hours": max(
+                0,
+                int(wspr_research_shadow_progress["window"]["minimum_hours"])
+                - int(wspr_research_shadow_progress["window"]["completed_hours"]),
+            ),
+        },
+    ]
     gate_rows = [{
         "scope": "Foundation",
         "gate": name.replace("_", " "),
@@ -379,6 +418,15 @@ def build_evidence(
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
     } for name, passed in wspr_research_schedule_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "30-day research shadow",
+        "gate": name.replace("_", " "),
+        "status": (
+            "pending"
+            if name == "minimum_30_day_window_complete" and not passed
+            else "pass" if passed else "fail"
+        ),
+    } for name, passed in wspr_research_shadow_progress["gates"].items())
     blocker_rows = [
         {
             "remaining_work": work,
@@ -504,7 +552,18 @@ def build_evidence(
             "finalizer": wspr_research_schedule_validation["finalizer"],
             "health": wspr_research_schedule_validation["health"],
             "schedule": wspr_research_schedule_validation["schedule"],
+            "watchdog": wspr_research_schedule_validation["watchdog"],
             "gates": wspr_research_schedule_validation["gates"],
+        },
+        "research_shadow_progress": {
+            "decision": wspr_research_shadow_progress["decision"],
+            "operational_status": wspr_research_shadow_progress[
+                "operational_status"
+            ],
+            "window": wspr_research_shadow_progress["window"],
+            "totals": wspr_research_shadow_progress["totals"],
+            "performance": wspr_research_shadow_progress["performance"],
+            "gates": wspr_research_shadow_progress["gates"],
         },
         "datasets": {
             "summary": summary,
@@ -515,6 +574,7 @@ def build_evidence(
             "source_band_rows": source_band_rows,
             "schedule_band_rows": schedule_band_rows,
             "schedule_stage_rows": schedule_stage_rows,
+            "shadow_progress_rows": shadow_progress_rows,
             "gate_rows": gate_rows,
             "blocker_rows": blocker_rows,
             "limit_rows": limit_rows,
@@ -575,6 +635,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "Scheduled source rows",
                 "schedule_source_rows",
                 "First independently audited hourly LaunchAgent receipt.",
+            ),
+            (
+                "shadow_hours",
+                "Shadow hours",
+                "shadow_completed_hours",
+                "Signed, identity-free receipts toward the required 720 hours.",
             ),
         )
     ]
@@ -651,12 +717,23 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "y": {"field": "count", "type": "quantitative", "label": "Rows or cells"},
             },
         ),
+        chart(
+            "shadow_progress",
+            "The preregistered 30-day evidence clock is explicit",
+            f"{summary['shadow_completed_hours']} of {summary['shadow_required_hours']} required hourly receipts are complete; current scheduled completion is {summary['shadow_completion_rate_percent']:.1f}%.",
+            "shadow_progress_rows",
+            {
+                "x": {"field": "state", "type": "ordinal", "label": "Window state"},
+                "y": {"field": "hours", "type": "quantitative", "label": "Hours"},
+                "color": {"field": "state", "type": "nominal", "label": "State"},
+            },
+        ),
     ]
     tables = [
         {
             "id": "gate_table",
-            "title": "Foundation, replay, and deployment gates",
-            "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, deployed schema, and trusted weather all pass.",
+            "title": "Foundation, deployment, and research-shadow gates",
+            "subtitle": "Every completed operational gate passes; the preregistered 30-day duration gate is explicitly pending.",
             "dataset": "gate_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
@@ -697,7 +774,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         {
             "id": "title",
             "type": "markdown",
-            "body": "# Propulse NowCast V4.2: live-feature foundation and replay report",
+            "body": "# Propulse NowCast V4.2: research shadow validation report",
         },
         {
             "id": "answer",
@@ -722,13 +799,15 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"A real research-only source dry-run then passed **{summary['connector_gates_passed']} of {summary['connector_gates_total']}** "
                 f"gates, streaming **{summary['connector_rows']:,} observations** in **{summary['connector_requests']} request** "
                 f"at **{summary['connector_peak_rss_mib']:.1f} MiB peak RSS**. "
-                f"the corrected end-to-end target hour passed **{summary['live_hour_gates_passed']} of {summary['live_hour_gates_total']}** "
+                f"The corrected end-to-end target hour passed **{summary['live_hour_gates_passed']} of {summary['live_hour_gates_total']}** "
                 f"gates with **{summary['live_hour_feature_cells']:,} path cells** after its truncated first version was invalidated. "
                 f"The hourly research LaunchAgent is now active and its first receipt passed **{summary['schedule_gates_passed']} of "
                 f"{summary['schedule_gates_total']} independent gates**: **{summary['schedule_source_rows']:,} observations** became "
                 f"**{summary['schedule_feature_cells']:,} path cells** with zero consecutive failures, **{summary['schedule_peak_rss_mib']:.1f} MiB** "
                 "peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written "
-                "confirmation or an independently permitted source, and one scheduled hour is not 30-day evidence."
+                "confirmation or an independently permitted source. The signed progress rollup is operationally healthy at "
+                f"**{summary['shadow_completed_hours']} of {summary['shadow_required_hours']} hours** with "
+                f"**{summary['shadow_missing_hours']} gaps**; it remains `collecting`, not 30-day evidence."
             ),
         },
         {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
@@ -829,7 +908,28 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"{summary['schedule_gates_total']} gates**, including manifest signature/hash linkage, per-band observation and "
                 "feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only "
                 "permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk "
-                "because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume."
+                "because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume. "
+                "A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, "
+                "job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. "
+                "The local delivery smoke was accepted; remote escalation and product System Health integration remain open."
+            ),
+        },
+        {
+            "id": "shadow_progress_chart",
+            "type": "chart",
+            "chartId": "shadow_progress",
+            "layout": "full",
+        },
+        {
+            "id": "shadow_progress_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The rollup currently records **{summary['shadow_completed_hours']} of {summary['shadow_required_hours']} required hours** "
+                f"at **{summary['shadow_completion_rate_percent']:.1f}% scheduled completion** with **{summary['shadow_missing_hours']} gaps**. "
+                "Every receipt is schema-checked, hash-linked to its signed completion manifest, and rechecked for all-band counts, causal "
+                "timestamps, one bounded source request, the exact 2-by-9 M5 profile, and completion within 7,200 seconds. The decision remains "
+                "`collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
             ),
         },
         {"id": "gates", "type": "table", "tableId": "gate_table", "layout": "full"},
@@ -882,7 +982,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
                 "plus one corrected source hour and one scheduled receipt do not prove 30-day provider completeness, permission for "
-                "subscriber-facing use, outage recovery under a real failure, or alert delivery. Trusted weather "
+                "subscriber-facing use, outage recovery under a real failure, or remote alert escalation. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
@@ -897,7 +997,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "## Next steps\n\n"
                 "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
                 "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
-                "3. Add alert thresholds and delivery so failures reach an operator rather than only updating the local health file.\n"
+                "3. Route the tested local watchdog into a remote escalation channel and product System Health before beta.\n"
                 "4. Run opt-in beta outcome collection before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
@@ -909,7 +1009,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         "manifest": {
             "version": 1,
             "surface": "report",
-            "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
+            "title": "Propulse NowCast V4.2: research shadow validation report",
             "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
             "generatedAt": generated_at,
             "cards": cards,
@@ -930,7 +1030,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
 
 def markdown_summary(evidence: dict[str, Any]) -> str:
     summary = evidence["datasets"]["summary"][0]
-    return f"""# Propulse NowCast V4.2: live-feature foundation and replay report
+    return f"""# Propulse NowCast V4.2: research shadow validation report
 
 Generated: {evidence['generated_at']}
 
@@ -960,8 +1060,13 @@ LaunchAgent is now active: its first receipt passed
 `{summary['schedule_gates_passed']}/{summary['schedule_gates_total']}` independent
 gates, converting `{summary['schedule_source_rows']:,}` observations into
 `{summary['schedule_feature_cells']:,}` path cells with 18 bounded M5 threads.
-Subscriber-facing use still requires source confirmation. Alert delivery and 30
-days of real receipt-time shadow evidence also remain open. See `REPORT.html` for charts,
+The signed progress rollup is operationally healthy at
+`{summary['shadow_completed_hours']}/{summary['shadow_required_hours']}` hours,
+`{summary['shadow_completion_rate_percent']:.1f}%` scheduled completion, and
+`{summary['shadow_missing_hours']}` gaps; its decision remains `collecting`.
+Subscriber-facing use still requires source confirmation. Remote alert
+escalation and 30 days of real receipt-time shadow evidence also remain open.
+See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
 
@@ -994,6 +1099,9 @@ def main() -> None:
     wspr_research_schedule_validation = read_json(
         INPUTS["wspr_research_schedule_validation"]
     )
+    wspr_research_shadow_progress = read_json(
+        INPUTS["wspr_research_shadow_progress"]
+    )
     evidence = build_evidence(
         transform,
         foundation,
@@ -1005,6 +1113,7 @@ def main() -> None:
         wspr_live_connector_validation,
         wspr_live_hour_validation,
         wspr_research_schedule_validation,
+        wspr_research_shadow_progress,
     )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

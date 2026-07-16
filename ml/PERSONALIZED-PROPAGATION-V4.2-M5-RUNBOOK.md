@@ -191,7 +191,7 @@ The research-only job is active. Its first scheduled target hour,
 `2026-07-16T03:00:00Z`, completed with `261,006` exact observations and `69,980`
 feature cells across ten bands. The connector used `152.297` MiB peak RSS; two
 finalizers used nine threads each, for 18 bounded native M5 threads. The
-independent schedule audit passed `20/20` gates and is stored as
+independent schedule audit passed `28/28` gates and is stored as
 `wspr_research_schedule_validation.json`. Re-run it with the server-only target
 environment and signing secret loaded out of process arguments:
 
@@ -201,6 +201,19 @@ ml/.venv/bin/python ml/src/archive_v4_2/validate_wspr_research_schedule.py
 
 This starts the 30-day internal receipt-time shadow; it does not grant
 subscriber-facing source authorization or complete the long-window gate.
+The paired watchdog runs at minutes 0 and 30, applies the 7,200-second stale
+boundary and 2 GiB runtime ceiling, and sends changed failure/recovery states to
+the unified log and macOS Notification Center. The local notification delivery
+smoke passed. Remote escalation and product System Health integration remain
+pre-beta gates.
+
+`summarize_wspr_research_shadow.py` rebuilds the identity-free progress rollup
+from each receipt plus its signed completed manifest. It fixes the duration at
+720 expected hours and the operational threshold at 99% completion, while also
+tracking gaps, stale-boundary latency, ten-band coverage, exact M5 concurrency,
+one-request ingest, RSS, and aggregate row/cell totals. The initial real state
+is operationally healthy at `1/1` expected hours with zero gaps, but remains
+`collecting` because `1/720` is not 30 days.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,

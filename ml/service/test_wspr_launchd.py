@@ -3,7 +3,13 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from install_m5_wspr_research_launchd import LABEL, launchd_payload
+from install_m5_wspr_research_launchd import (
+    HEALTH_LABEL,
+    LABEL,
+    MAX_RUNTIME_BYTES,
+    health_launchd_payload,
+    launchd_payload,
+)
 
 
 class WsprLaunchdTests(unittest.TestCase):
@@ -37,6 +43,28 @@ class WsprLaunchdTests(unittest.TestCase):
             ],
             "true",
         )
+        self.assertNotIn("SECRET", repr(payload).upper())
+
+    def test_health_payload_runs_between_ingests_and_notifies_locally(self) -> None:
+        artifact_root = Path.home() / "Library/Application Support/PropulseML"
+        payload = health_launchd_payload(
+            python=Path("/repo/ml/.venv/bin/python"),
+            artifact_root=artifact_root,
+            stdout_path=Path.home() / "Library/Logs/Propulse/health.out.log",
+            stderr_path=Path.home() / "Library/Logs/Propulse/health.err.log",
+        )
+
+        self.assertEqual(payload["Label"], HEALTH_LABEL)
+        self.assertEqual(
+            payload["StartCalendarInterval"],
+            [{"Minute": 0}, {"Minute": 30}],
+        )
+        self.assertTrue(payload["RunAtLoad"])
+        self.assertEqual(payload["Umask"], 0o077)
+        self.assertIn("--notify-local", payload["ProgramArguments"])
+        self.assertIn("7200", payload["ProgramArguments"])
+        self.assertIn(str(MAX_RUNTIME_BYTES), payload["ProgramArguments"])
+        self.assertNotIn("EnvironmentVariables", payload)
         self.assertNotIn("SECRET", repr(payload).upper())
 
 

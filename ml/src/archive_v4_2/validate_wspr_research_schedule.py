@@ -27,6 +27,7 @@ from wspr_scheduler import CompletionManifest, aware_utc  # noqa: E402
 
 
 LABEL = "org.propulse.wspr-research"
+HEALTH_LABEL = "org.propulse.wspr-research-health"
 DEFAULT_RUNTIME_ROOT = Path.home() / "Library/Application Support/PropulseML"
 DEFAULT_OUTPUT = (
     ROOT
@@ -78,6 +79,20 @@ EXPECTED_RECEIPT_KEYS = {
 EXPECTED_LAUNCHD_ENVIRONMENT = {
     "PROPULSE_WSPR_LIVE_RESEARCH_ENABLED",
     "PROPULSE_ML_ARTIFACT_ROOT",
+}
+EXPECTED_WATCHDOG_GATES = {
+    "health_record_parseable",
+    "health_status_healthy",
+    "zero_consecutive_failures",
+    "health_record_recent",
+    "latest_settled_hour_complete",
+    "source_freshness_within_limit",
+    "receipt_continuity_positive",
+    "target_hour_utc_aligned",
+    "runtime_storage_bounded",
+    "worker_job_loaded",
+    "worker_job_clean_or_running",
+    "shadow_rollup_operational_healthy",
 }
 
 
@@ -154,6 +169,49 @@ def launchd_gates(payload: dict[str, Any], *, runtime_root: Path) -> dict[str, b
     }
 
 
+def health_launchd_gates(
+    payload: dict[str, Any], *, runtime_root: Path
+) -> dict[str, bool]:
+    arguments = payload.get("ProgramArguments", [])
+    rendered = repr(payload).lower()
+    secret_markers = ("secret", "password", "token", "service_role", "apikey")
+    expected_values = {
+        "--runtime-root": str(runtime_root),
+        "--alert-output": str(runtime_root / "live_wspr_alert.json"),
+        "--stale-seconds": "7200",
+        "--max-runtime-bytes": str(2 * 1024**3),
+    }
+    values: dict[str, str] = {}
+    for option in expected_values:
+        try:
+            values[option] = str(arguments[arguments.index(option) + 1])
+        except (AttributeError, IndexError, ValueError, TypeError):
+            values[option] = ""
+    return {
+        "watchdog_twice_hourly_and_restart_enabled": (
+            payload.get("Label") == HEALTH_LABEL
+            and payload.get("StartCalendarInterval")
+            == [{"Minute": 0}, {"Minute": 30}]
+            and payload.get("RunAtLoad") is True
+        ),
+        "watchdog_thresholds_and_runtime_exact": (
+            values == expected_values
+            and len(arguments) == 11
+            and runtime_root.resolve().is_relative_to(Path.home().resolve())
+        ),
+        "watchdog_owner_only_and_secret_free": (
+            payload.get("Umask") == 0o077
+            and "EnvironmentVariables" not in payload
+            and not any(marker in rendered for marker in secret_markers)
+        ),
+        "watchdog_local_notification_enabled": "--notify-local" in arguments,
+        "watchdog_logs_on_internal_home": all(
+            str(payload.get(key, "")).startswith(str(Path.home() / "Library/Logs"))
+            for key in ("StandardOutPath", "StandardErrorPath")
+        ),
+    }
+
+
 class TargetReader:
     def __init__(self, *, base_url: str, service_key: str) -> None:
         if not base_url.strip() or not service_key.strip():
@@ -199,6 +257,7 @@ def main() -> None:
     parser.add_argument("--runtime-root", type=Path, default=DEFAULT_RUNTIME_ROOT)
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--plist", type=Path)
+    parser.add_argument("--health-plist", type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     args.runtime_root = args.runtime_root.expanduser().resolve()
@@ -220,6 +279,16 @@ def main() -> None:
     plist_payload = plistlib.loads(plist_path.read_bytes())
     if not isinstance(plist_payload, dict):
         raise RuntimeError("launchd plist is not a dictionary")
+    health_plist_path = args.health_plist or (
+        Path.home() / "Library/LaunchAgents" / f"{HEALTH_LABEL}.plist"
+    )
+    health_plist_payload = plistlib.loads(health_plist_path.read_bytes())
+    if not isinstance(health_plist_payload, dict):
+        raise RuntimeError("watchdog launchd plist is not a dictionary")
+    watchdog = read_json(args.runtime_root / "live_wspr_alert.json")
+    watchdog_delivery_test = read_json(
+        args.runtime_root / "live_wspr_notification_test.json"
+    )
     target = TargetReader(
         base_url=os.environ.get("PROPULSE_FEATURE_STORE_URL", ""),
         service_key=os.environ.get("PROPULSE_FEATURE_STORE_SERVICE_KEY", ""),
@@ -268,6 +337,15 @@ def main() -> None:
         text=True,
     )
     launchd = launchd_gates(plist_payload, runtime_root=args.runtime_root)
+    health_launchd = health_launchd_gates(
+        health_plist_payload, runtime_root=args.runtime_root
+    )
+    health_launchctl = subprocess.run(
+        ["/bin/launchctl", "print", f"gui/{os.getuid()}/{HEALTH_LABEL}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
     target_hour = aware_utc(str(receipt.get("target_hour")), "receipt target_hour")
     completed_manifest_hash = sha256(completed_manifest_path)
     gates = {
@@ -334,6 +412,26 @@ def main() -> None:
             )
         ),
         **launchd,
+        "watchdog_current_status_healthy": (
+            watchdog.get("decision") == "healthy"
+            and not watchdog.get("alerts")
+            and set(watchdog.get("gates", {})) == EXPECTED_WATCHDOG_GATES
+            and all(watchdog.get("gates", {}).values())
+        ),
+        "watchdog_job_loaded_and_clean_exit": (
+            health_launchctl.returncode == 0
+            and (
+                "state = running" in health_launchctl.stdout
+                or "last exit code = 0" in health_launchctl.stdout
+            )
+        ),
+        "watchdog_local_delivery_smoke_passed": (
+            watchdog_delivery_test.get("decision") == "pass"
+            and watchdog_delivery_test.get("accepted") is True
+            and watchdog_delivery_test.get("research_only") is True
+            and watchdog_delivery_test.get("locked_outcomes_read") is False
+        ),
+        **health_launchd,
         "locked_outcomes_unread": True,
     }
     output = {
@@ -361,8 +459,22 @@ def main() -> None:
             "label": LABEL,
             "minute": 15,
             "run_at_load": True,
+            "watchdog_label": HEALTH_LABEL,
+            "watchdog_minutes": [0, 30],
             "runtime_storage": "internal_owner_only",
             "large_ml_storage": "projects_volume",
+        },
+        "watchdog": {
+            "decision": watchdog.get("decision"),
+            "alerts": watchdog.get("alerts"),
+            "thresholds": watchdog.get("thresholds"),
+            "observations": watchdog.get("observations"),
+            "delivery": watchdog.get("delivery"),
+            "delivery_test": {
+                "decision": watchdog_delivery_test.get("decision"),
+                "accepted": watchdog_delivery_test.get("accepted"),
+                "generated_at": watchdog_delivery_test.get("generated_at"),
+            },
         },
         "execution": {
             "target_requests": target.request_count,

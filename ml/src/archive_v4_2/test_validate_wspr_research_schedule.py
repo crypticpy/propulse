@@ -3,7 +3,11 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from validate_wspr_research_schedule import has_identity_key, launchd_gates
+from validate_wspr_research_schedule import (
+    has_identity_key,
+    health_launchd_gates,
+    launchd_gates,
+)
 
 
 class WsprResearchScheduleValidationTests(unittest.TestCase):
@@ -32,6 +36,33 @@ class WsprResearchScheduleValidationTests(unittest.TestCase):
             launchd_gates(payload, runtime_root=runtime)[
                 "launchd_owner_only_and_secret_free"
             ]
+        )
+
+    def test_watchdog_contract_is_bounded_and_secret_free(self) -> None:
+        runtime = Path.home() / "Library/Application Support/PropulseML"
+        payload = {
+            "Label": "org.propulse.wspr-research-health",
+            "ProgramArguments": [
+                "python",
+                "health.py",
+                "--runtime-root",
+                str(runtime),
+                "--alert-output",
+                str(runtime / "live_wspr_alert.json"),
+                "--stale-seconds",
+                "7200",
+                "--max-runtime-bytes",
+                str(2 * 1024**3),
+                "--notify-local",
+            ],
+            "StartCalendarInterval": [{"Minute": 0}, {"Minute": 30}],
+            "RunAtLoad": True,
+            "Umask": 0o077,
+            "StandardOutPath": str(Path.home() / "Library/Logs/health.out"),
+            "StandardErrorPath": str(Path.home() / "Library/Logs/health.err"),
+        }
+        self.assertTrue(
+            all(health_launchd_gates(payload, runtime_root=runtime).values())
         )
 
 

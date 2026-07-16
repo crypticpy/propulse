@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from check_m5_wspr_research_health import directory_bytes, evaluate_health
+
+
+NOW = datetime(2026, 7, 16, 5, 30, tzinfo=timezone.utc)
+
+
+def healthy_record() -> dict[str, object]:
+    return {
+        "generated_at": (NOW - timedelta(minutes=10)).isoformat(),
+        "status": "healthy",
+        "consecutive_failures": 0,
+        "last_completed_target_hour": "2026-07-16T04:00:00+00:00",
+        "continuous_completed_hours": 2,
+    }
+
+
+class WsprResearchHealthTests(unittest.TestCase):
+    def test_healthy_hour_passes_every_gate(self) -> None:
+        gates, observations = evaluate_health(
+            healthy_record(),
+            now=NOW,
+            runtime_bytes=100,
+            worker_loaded=True,
+            worker_running=False,
+            worker_clean_exit=True,
+            shadow_summary={
+                "operational_status": "healthy",
+                "window": {
+                    "expected_hours": 1,
+                    "completed_hours": 1,
+                    "completion_rate": 1.0,
+                    "missing_hours": 0,
+                },
+            },
+        )
+        self.assertTrue(all(gates.values()))
+        self.assertEqual(observations["dynamic_freshness_seconds"], 1800)
+
+    def test_stale_failed_or_missing_job_alerts(self) -> None:
+        value = healthy_record()
+        value["status"] = "failed"
+        value["consecutive_failures"] = 2
+        value["generated_at"] = (NOW - timedelta(hours=3)).isoformat()
+        value["last_completed_target_hour"] = "2026-07-16T02:00:00+00:00"
+        gates, _ = evaluate_health(
+            value,
+            now=NOW,
+            runtime_bytes=3 * 1024**3,
+            worker_loaded=False,
+            worker_running=False,
+            worker_clean_exit=False,
+            shadow_summary={
+                "operational_status": "alert",
+                "window": {
+                    "expected_hours": 3,
+                    "completed_hours": 1,
+                    "completion_rate": 1 / 3,
+                    "missing_hours": 2,
+                },
+            },
+        )
+        for name in (
+            "health_status_healthy",
+            "zero_consecutive_failures",
+            "health_record_recent",
+            "latest_settled_hour_complete",
+            "source_freshness_within_limit",
+            "runtime_storage_bounded",
+            "worker_job_loaded",
+            "worker_job_clean_or_running",
+            "shadow_rollup_operational_healthy",
+        ):
+            self.assertFalse(gates[name])
+
+    def test_runtime_size_ignores_symlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "receipt.json").write_text(json.dumps({"ok": True}))
+            (root / "link").symlink_to(root / "receipt.json")
+            self.assertEqual(directory_bytes(root), (root / "receipt.json").stat().st_size)
+
+
+if __name__ == "__main__":
+    unittest.main()

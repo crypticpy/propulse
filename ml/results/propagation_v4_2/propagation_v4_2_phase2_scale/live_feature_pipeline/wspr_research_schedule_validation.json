@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T04:42:43.578322+00:00",
+  "generated_at": "2026-07-16T04:59:00.395493+00:00",
   "scope": "active_wspr_research_schedule_validation",
   "decision": "pass",
   "locked_outcomes_read": false,
@@ -37,18 +37,53 @@
     "status": "healthy",
     "continuous_completed_hours": 1,
     "consecutive_failures": 0,
-    "freshness_seconds": 2441
+    "freshness_seconds": 2917
   },
   "schedule": {
     "label": "org.propulse.wspr-research",
     "minute": 15,
     "run_at_load": true,
+    "watchdog_label": "org.propulse.wspr-research-health",
+    "watchdog_minutes": [
+      0,
+      30
+    ],
     "runtime_storage": "internal_owner_only",
     "large_ml_storage": "projects_volume"
   },
+  "watchdog": {
+    "decision": "healthy",
+    "alerts": [],
+    "thresholds": {
+      "max_runtime_bytes": 2147483648,
+      "stale_seconds": 7200
+    },
+    "observations": {
+      "continuous_completed_hours": 1,
+      "dynamic_freshness_seconds": 3521,
+      "health_record_age_seconds": 603,
+      "last_completed_target_hour": "2026-07-16T03:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T03:00:00+00:00",
+      "runtime_bytes": 6807,
+      "shadow_completed_hours": 1,
+      "shadow_completion_rate": 1.0,
+      "shadow_expected_hours": 1
+    },
+    "delivery": {
+      "local_notification_enabled": true,
+      "notification_attempted": false,
+      "notification_delivered": false,
+      "state_changed": false
+    },
+    "delivery_test": {
+      "decision": "pass",
+      "accepted": true,
+      "generated_at": "2026-07-16T04:50:25.757254+00:00"
+    }
+  },
   "execution": {
     "target_requests": 21,
-    "validation_wall_seconds": 1.9085185000149067
+    "validation_wall_seconds": 1.9163411670015194
   },
   "gates": {
     "signed_manifest_v2_accepted": true,
@@ -70,6 +105,14 @@
     "launchd_research_gate_explicit": true,
     "launchd_owner_only_and_secret_free": true,
     "launchd_logs_on_internal_home": true,
+    "watchdog_current_status_healthy": true,
+    "watchdog_job_loaded_and_clean_exit": true,
+    "watchdog_local_delivery_smoke_passed": true,
+    "watchdog_twice_hourly_and_restart_enabled": true,
+    "watchdog_thresholds_and_runtime_exact": true,
+    "watchdog_owner_only_and_secret_free": true,
+    "watchdog_local_notification_enabled": true,
+    "watchdog_logs_on_internal_home": true,
     "locked_outcomes_unread": true
   }
 }

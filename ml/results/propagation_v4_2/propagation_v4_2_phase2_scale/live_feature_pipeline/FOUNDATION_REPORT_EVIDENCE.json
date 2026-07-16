@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T04:42:43.698000+00:00",
+  "generated_at": "2026-07-16T05:01:49.767374+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -58,7 +58,12 @@
     {
       "id": "wspr_research_schedule_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_schedule_validation.json",
-      "sha256": "066fd06a5bc76200e7d014158f853a1f6b86677bfc9f3062da3b4deadc518eab"
+      "sha256": "005e0e12769d53670217cafdf734be05772d7fc9855bf43895c02c2fc8d4824c"
+    },
+    {
+      "id": "wspr_research_shadow_progress",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
+      "sha256": "b207064731d47986baacf0a9c0090f57c75a87d267b321d81ea11235b7fc70ea"
     }
   ],
   "bundle": {
@@ -333,14 +338,49 @@
       "status": "healthy",
       "continuous_completed_hours": 1,
       "consecutive_failures": 0,
-      "freshness_seconds": 2441
+      "freshness_seconds": 2917
     },
     "schedule": {
       "label": "org.propulse.wspr-research",
       "minute": 15,
       "run_at_load": true,
+      "watchdog_label": "org.propulse.wspr-research-health",
+      "watchdog_minutes": [
+        0,
+        30
+      ],
       "runtime_storage": "internal_owner_only",
       "large_ml_storage": "projects_volume"
+    },
+    "watchdog": {
+      "decision": "healthy",
+      "alerts": [],
+      "thresholds": {
+        "max_runtime_bytes": 2147483648,
+        "stale_seconds": 7200
+      },
+      "observations": {
+        "continuous_completed_hours": 1,
+        "dynamic_freshness_seconds": 3521,
+        "health_record_age_seconds": 603,
+        "last_completed_target_hour": "2026-07-16T03:00:00+00:00",
+        "latest_settled_target_hour": "2026-07-16T03:00:00+00:00",
+        "runtime_bytes": 6807,
+        "shadow_completed_hours": 1,
+        "shadow_completion_rate": 1.0,
+        "shadow_expected_hours": 1
+      },
+      "delivery": {
+        "local_notification_enabled": true,
+        "notification_attempted": false,
+        "notification_delivered": false,
+        "state_changed": false
+      },
+      "delivery_test": {
+        "decision": "pass",
+        "accepted": true,
+        "generated_at": "2026-07-16T04:50:25.757254+00:00"
+      }
     },
     "gates": {
       "signed_manifest_v2_accepted": true,
@@ -362,7 +402,66 @@
       "launchd_research_gate_explicit": true,
       "launchd_owner_only_and_secret_free": true,
       "launchd_logs_on_internal_home": true,
+      "watchdog_current_status_healthy": true,
+      "watchdog_job_loaded_and_clean_exit": true,
+      "watchdog_local_delivery_smoke_passed": true,
+      "watchdog_twice_hourly_and_restart_enabled": true,
+      "watchdog_thresholds_and_runtime_exact": true,
+      "watchdog_owner_only_and_secret_free": true,
+      "watchdog_local_notification_enabled": true,
+      "watchdog_logs_on_internal_home": true,
       "locked_outcomes_unread": true
+    }
+  },
+  "research_shadow_progress": {
+    "decision": "collecting",
+    "operational_status": "healthy",
+    "window": {
+      "completed_hours": 1,
+      "completion_rate": 1.0,
+      "continuous_completed_hours": 1,
+      "expected_hours": 1,
+      "last_completed_target_hour": "2026-07-16T03:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T03:00:00+00:00",
+      "minimum_hours": 720,
+      "missing_hours": 0,
+      "start_target_hour": "2026-07-16T03:00:00+00:00"
+    },
+    "totals": {
+      "feature_cells": 69980,
+      "records_by_band": {
+        "10m": 3830,
+        "12m": 1960,
+        "15m": 8323,
+        "160m": 4689,
+        "17m": 9401,
+        "20m": 77164,
+        "30m": 49354,
+        "40m": 77470,
+        "60m": 3419,
+        "80m": 25396
+      },
+      "source_records": 261006
+    },
+    "performance": {
+      "completion_latency_max_seconds": 1681.07353,
+      "completion_latency_p95_seconds": 1681.07353,
+      "connector_peak_rss_max_mib": 152.297,
+      "connector_wall_p95_seconds": 37.961483,
+      "finalizer_wall_p95_seconds": 149.460603
+    },
+    "gates": {
+      "all_receipts_and_manifests_valid": true,
+      "all_ten_bands_present_each_hour": true,
+      "completed_hours_within_7200_seconds": true,
+      "locked_outcomes_unread": true,
+      "m5_multicore_profile_exact": true,
+      "minimum_30_day_window_complete": false,
+      "no_future_target_receipts": true,
+      "one_source_request_per_hour": true,
+      "receipt_timestamps_causal": true,
+      "scheduled_completion_rate_at_least_99_percent": true,
+      "secret_file_owner_only": true
     }
   },
   "datasets": {
@@ -408,14 +507,18 @@
         "live_hour_gates_passed": 10,
         "live_hour_gates_total": 10,
         "live_hour_feature_cells": 75055,
-        "schedule_gates_passed": 20,
-        "schedule_gates_total": 20,
+        "schedule_gates_passed": 28,
+        "schedule_gates_total": 28,
         "schedule_source_rows": 261006,
         "schedule_feature_cells": 69980,
         "schedule_continuous_hours": 1,
         "schedule_connector_seconds": 37.961483,
         "schedule_finalizer_seconds": 149.460603,
-        "schedule_peak_rss_mib": 152.297
+        "schedule_peak_rss_mib": 152.297,
+        "shadow_completed_hours": 1,
+        "shadow_required_hours": 720,
+        "shadow_completion_rate_percent": 100.0,
+        "shadow_missing_hours": 0
       }
     ],
     "parity_rows": [
@@ -600,6 +703,18 @@
       {
         "stage": "Path-hour feature cells",
         "count": 69980
+      }
+    ],
+    "shadow_progress_rows": [
+      {
+        "window": "30-day receipt shadow",
+        "state": "Completed",
+        "hours": 1
+      },
+      {
+        "window": "30-day receipt shadow",
+        "state": "Remaining",
+        "hours": 719
       }
     ],
     "gate_rows": [
@@ -1240,7 +1355,102 @@
       },
       {
         "scope": "Active research schedule",
+        "gate": "watchdog current status healthy",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog job loaded and clean exit",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog local delivery smoke passed",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog twice hourly and restart enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog thresholds and runtime exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog owner only and secret free",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog local notification enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog logs on internal home",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
         "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "all receipts and manifests valid",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "all ten bands present each hour",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "completed hours within 7200 seconds",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "m5 multicore profile exact",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "minimum 30 day window complete",
+        "status": "pending"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "no future target receipts",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "one source request per hour",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "receipt timestamps causal",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "scheduled completion rate at least 99 percent",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "secret file owner only",
         "status": "pass"
       }
     ],

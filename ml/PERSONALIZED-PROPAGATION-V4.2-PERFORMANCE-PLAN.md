@@ -673,6 +673,12 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Activate the research-only receipt-driven M5 hourly schedule and
   independently audit its first exact all-band receipt, target counts, health,
   secret-free launchd boundary, and 18-thread limit.
+- [x] Install a twice-hourly M5 watchdog for the preregistered stale boundary,
+  continuity, job, UTC, failure, and storage gates, and pass local notification
+  delivery smoke without placing secrets in launchd.
+- [x] Automate the signed-receipt 30-day denominator and 99% completion rollup,
+  including gaps, latency, ten-band coverage, M5 concurrency, memory, and
+  aggregate volume without station identities.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -712,8 +718,8 @@ smoke rows were removed. Trusted operational weather then passed all 14 target
 gates against the real A6 bundle with 14 causal fields and 2.91 ms cached path
 p95. The signed hourly runner is implemented and refuses CPU oversubscription,
 partial-band manifests, timestamp gaps, tampering, and prune-before-success. An
-approved subscriber-facing source, alert delivery, 30-day live coverage, beta
-outcomes, and prospective evidence remain open.
+approved subscriber-facing source, remote alert escalation/System Health,
+30-day live coverage, beta outcomes, and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on
 the M5. One exact-hour request returned `287,694` archive-compatible rows across
@@ -740,10 +746,17 @@ The M5 research LaunchAgent then completed its first scheduled target hour,
 observations and `69,980` feature cells across all ten bands. Source streaming
 took 37.96 seconds at 152.297 MiB peak RSS; bounded finalization took 149.46
 seconds with two workers and nine native threads each. An independent audit
-made 21 target queries and passed all `20/20` manifest, receipt, exact-count,
-watermark, health, cleanup, launchd, privacy, storage, and multicore gates. This
+made 21 target queries and passed all `28/28` manifest, receipt, exact-count,
+watermark, health, cleanup, launchd, watchdog, local-delivery, privacy, storage,
+and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
+
+The automatic duration rollup is initially operationally healthy at `1/1`
+expected hours, 100% scheduled completion, zero gaps, and `1/720` required
+hours. It re-verifies every receipt against its signed completed manifest and
+cannot return `pass` before all 720 expected hours exist, even if the current
+99% operational threshold is satisfied.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,

@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+"""Evaluate the M5 WSPR research schedule and deliver local state changes."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+from wspr_live_connector import aware_utc, latest_settled_hour
+from wspr_scheduler import write_json_atomic
+from summarize_wspr_research_shadow import build_shadow_summary
+
+
+WORKER_LABEL = "org.propulse.wspr-research"
+DEFAULT_RUNTIME_ROOT = Path.home() / "Library/Application Support/PropulseML"
+DEFAULT_STALE_SECONDS = 7200
+DEFAULT_MAX_RUNTIME_BYTES = 2 * 1024**3
+GATE_NAMES = (
+    "health_record_parseable",
+    "health_status_healthy",
+    "zero_consecutive_failures",
+    "health_record_recent",
+    "latest_settled_hour_complete",
+    "source_freshness_within_limit",
+    "receipt_continuity_positive",
+    "target_hour_utc_aligned",
+    "runtime_storage_bounded",
+    "worker_job_loaded",
+    "worker_job_clean_or_running",
+    "shadow_rollup_operational_healthy",
+)
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise RuntimeError(f"{path.name} is not a JSON object")
+    return value
+
+
+def directory_bytes(root: Path) -> int:
+    total = 0
+    for path in root.rglob("*"):
+        if path.is_symlink() or not path.is_file():
+            continue
+        total += path.stat().st_size
+    return total
+
+
+def evaluate_health(
+    health: dict[str, Any],
+    *,
+    now: datetime,
+    runtime_bytes: int,
+    worker_loaded: bool,
+    worker_running: bool,
+    worker_clean_exit: bool,
+    shadow_summary: dict[str, Any],
+    stale_seconds: int = DEFAULT_STALE_SECONDS,
+    max_runtime_bytes: int = DEFAULT_MAX_RUNTIME_BYTES,
+) -> tuple[dict[str, bool], dict[str, Any]]:
+    current = aware_utc(now, "now")
+    generated = aware_utc(str(health["generated_at"]), "health generated_at")
+    last = aware_utc(
+        str(health["last_completed_target_hour"]),
+        "last completed target hour",
+    )
+    latest = latest_settled_hour(current, timedelta(minutes=10))
+    freshness_seconds = max(0, int((current - (last + timedelta(hours=1))).total_seconds()))
+    health_age_seconds = max(0, int((current - generated).total_seconds()))
+    gates = {
+        "health_record_parseable": True,
+        "health_status_healthy": health.get("status") == "healthy",
+        "zero_consecutive_failures": int(health.get("consecutive_failures", -1)) == 0,
+        "health_record_recent": health_age_seconds <= stale_seconds,
+        "latest_settled_hour_complete": (
+            last >= latest
+            or (
+                worker_running
+                and latest - last == timedelta(hours=1)
+            )
+        ),
+        "source_freshness_within_limit": freshness_seconds <= stale_seconds,
+        "receipt_continuity_positive": int(
+            health.get("continuous_completed_hours", 0)
+        ) >= 1,
+        "target_hour_utc_aligned": (
+            last.minute == 0 and last.second == 0 and last.microsecond == 0
+        ),
+        "runtime_storage_bounded": 0 <= runtime_bytes <= max_runtime_bytes,
+        "worker_job_loaded": worker_loaded,
+        "worker_job_clean_or_running": worker_running or worker_clean_exit,
+        "shadow_rollup_operational_healthy": (
+            shadow_summary.get("operational_status") == "healthy"
+            or (
+                worker_running
+                and shadow_summary.get("window", {}).get("missing_hours") == 1
+                and all(
+                    passed
+                    for name, passed in shadow_summary.get("gates", {}).items()
+                    if name
+                    not in {
+                        "scheduled_completion_rate_at_least_99_percent",
+                        "minimum_30_day_window_complete",
+                    }
+                )
+            )
+        ),
+    }
+    observations = {
+        "latest_settled_target_hour": latest.isoformat(),
+        "last_completed_target_hour": last.isoformat(),
+        "dynamic_freshness_seconds": freshness_seconds,
+        "health_record_age_seconds": health_age_seconds,
+        "continuous_completed_hours": int(
+            health.get("continuous_completed_hours", 0)
+        ),
+        "runtime_bytes": runtime_bytes,
+        "shadow_expected_hours": shadow_summary.get("window", {}).get(
+            "expected_hours"
+        ),
+        "shadow_completed_hours": shadow_summary.get("window", {}).get(
+            "completed_hours"
+        ),
+        "shadow_completion_rate": shadow_summary.get("window", {}).get(
+            "completion_rate"
+        ),
+    }
+    return gates, observations
+
+
+def worker_state() -> tuple[bool, bool, bool]:
+    result = subprocess.run(
+        ["/bin/launchctl", "print", f"gui/{os.getuid()}/{WORKER_LABEL}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return (
+        result.returncode == 0,
+        "state = running" in result.stdout,
+        "last exit code = 0" in result.stdout,
+    )
+
+
+def notify(message: str) -> bool:
+    subprocess.run(
+        ["/usr/bin/logger", "-t", "PropulseWSPR", message],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    escaped = message.replace("\\", "\\\\").replace('"', '\\"')
+    result = subprocess.run(
+        [
+            "/usr/bin/osascript",
+            "-e",
+            f'display notification "{escaped}" with title "Propulse WSPR research"',
+        ],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--runtime-root", type=Path, default=DEFAULT_RUNTIME_ROOT)
+    parser.add_argument("--alert-output", type=Path)
+    parser.add_argument("--stale-seconds", type=int, default=DEFAULT_STALE_SECONDS)
+    parser.add_argument("--max-runtime-bytes", type=int, default=DEFAULT_MAX_RUNTIME_BYTES)
+    parser.add_argument("--notify-local", action="store_true")
+    parser.add_argument("--test-notification", action="store_true")
+    parser.add_argument("--test-output", type=Path)
+    args = parser.parse_args()
+    if args.stale_seconds < 3600 or args.stale_seconds > 21600:
+        raise ValueError("stale seconds must be between one and six hours")
+    if args.max_runtime_bytes < 256 * 1024**2:
+        raise ValueError("runtime storage limit must be at least 256 MiB")
+    if args.test_notification:
+        delivered = notify("Research watchdog delivery test passed")
+        result = {
+            "schema_version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "test": "local_notification",
+            "decision": "pass" if delivered else "fail",
+            "accepted": delivered,
+            "research_only": True,
+            "locked_outcomes_read": False,
+        }
+        if args.test_output is not None:
+            write_json_atomic(args.test_output, result)
+        print(json.dumps(result, indent=2))
+        if not delivered:
+            raise SystemExit(2)
+        return
+    args.runtime_root = args.runtime_root.expanduser().resolve()
+    output_path = args.alert_output or args.runtime_root / "live_wspr_alert.json"
+    previous = read_json(output_path) if output_path.exists() else {}
+    gates = {name: False for name in GATE_NAMES}
+    observations: dict[str, Any] = {}
+    error_type: str | None = None
+    try:
+        health = read_json(args.runtime_root / "live_wspr_health.json")
+        loaded, running, clean_exit = worker_state()
+        now = datetime.now(timezone.utc)
+        shadow_summary = build_shadow_summary(args.runtime_root, now=now)
+        write_json_atomic(
+            args.runtime_root / "live_wspr_shadow_progress.json",
+            shadow_summary,
+        )
+        gates, observations = evaluate_health(
+            health,
+            now=now,
+            runtime_bytes=directory_bytes(args.runtime_root),
+            worker_loaded=loaded,
+            worker_running=running,
+            worker_clean_exit=clean_exit,
+            shadow_summary=shadow_summary,
+            stale_seconds=args.stale_seconds,
+            max_runtime_bytes=args.max_runtime_bytes,
+        )
+    except (KeyError, OSError, TypeError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+        error_type = type(error).__name__
+    alerts = sorted(name for name, passed in gates.items() if not passed)
+    decision = "healthy" if not alerts else "alert"
+    state_changed = (
+        previous.get("decision") != decision
+        or previous.get("alerts") != alerts
+    )
+    notification_attempted = False
+    notification_delivered = False
+    should_notify = (
+        decision == "alert" or previous.get("decision") == "alert"
+    )
+    if args.notify_local and state_changed and should_notify:
+        notification_attempted = True
+        message = (
+            "Research shadow recovered"
+            if decision == "healthy"
+            else "Research shadow alert: " + ", ".join(alerts)
+        )
+        notification_delivered = notify(message)
+    output = {
+        "schema_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "decision": decision,
+        "research_only": True,
+        "alerts": alerts,
+        "error_type": error_type,
+        "thresholds": {
+            "stale_seconds": args.stale_seconds,
+            "max_runtime_bytes": args.max_runtime_bytes,
+        },
+        "observations": observations,
+        "delivery": {
+            "state_changed": state_changed,
+            "local_notification_enabled": args.notify_local,
+            "notification_attempted": notification_attempted,
+            "notification_delivered": notification_delivered,
+        },
+        "gates": gates,
+    }
+    write_json_atomic(output_path, output)
+    print(json.dumps(output, indent=2))
+    if decision != "healthy":
+        raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main()

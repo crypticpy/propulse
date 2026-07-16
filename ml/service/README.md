@@ -189,6 +189,22 @@ the latest receipt, target counts, health record, plist, and thread bound with
 `validate_wspr_research_schedule.py`; the generated evidence contains no station
 identity or secret material.
 
+`check_m5_wspr_research_health.py` is installed as a second LaunchAgent at
+minutes 0 and 30. It evaluates the preregistered 7,200-second freshness limit,
+latest settled-hour completion, receipt continuity, UTC alignment, worker
+state, failures, health age, and a 2 GiB transient-runtime ceiling. Changed
+failure and recovery states go to the unified log and macOS Notification
+Center. Its local notification smoke and expanded schedule audit pass; a remote
+escalation channel and product System Health integration remain pre-beta work.
+
+The watchdog also regenerates `live_wspr_shadow_progress.json` from every
+identity-free receipt and its HMAC-verified completed manifest. The rollup fixes
+the denominator at 720 expected hours, requires at least 99% scheduled
+completion, checks every completed hour against the 7,200-second boundary, and
+tracks gaps, band coverage, one-request ingest, exact M5 concurrency, latency,
+RSS, source rows, and feature cells. It reports `collecting` until the full
+30-day duration exists even when every current operational gate passes.
+
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature
 contract; weights must be non-negative and sum to one. Each component is scored

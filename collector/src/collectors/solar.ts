@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SolarSnapshot } from "../types.js";
 import { log } from "../logger.js";
 import { reportHealth } from "../health.js";
+import { reportToDb } from "../lib/db-helpers.js";
 
 type TimedRow = Record<string, unknown>;
 
@@ -182,13 +183,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
     const durationMs = Date.now() - start;
     reportHealth("solar", "ok", 1);
 
-    // Also write to collector_health table
-    await db.from("collector_health").insert({
-      source: "solar",
-      status: "ok",
-      spots_ingested: 1,
-      duration_ms: durationMs,
-    });
+    await reportToDb(db, "solar", "ok", 1, durationMs);
 
     log("info", "Solar snapshot captured", {
       kp,
@@ -204,18 +199,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
     const durationMs = Date.now() - start;
     const msg = err instanceof Error ? err.message : String(err);
     reportHealth("solar", "error", 0);
-    await db
-      .from("collector_health")
-      .insert({
-        source: "solar",
-        status: "error",
-        duration_ms: durationMs,
-        error_message: msg,
-      })
-      .then(
-        () => {},
-        () => {},
-      ); // fire-and-forget, swallow errors
+    await reportToDb(db, "solar", "error", 0, durationMs, msg);
     log("error", "Solar collection failed", { error: msg });
   }
 }

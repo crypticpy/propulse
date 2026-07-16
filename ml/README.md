@@ -15,9 +15,12 @@
 > The server-authoritative live-feature foundation, causal replay, scheduled M5
 > research pipeline, and first real GitHub schedule event now pass their gates;
 > see the [live research report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html).
-> The receipt window is only `6/720` hours, subscriber-facing source permission
+> The receipt window is only `7/720` hours, subscriber-facing source permission
 > and remote alert smoke remain open, and opt-in outcome instrumentation is
-> deployed but disabled. These results do not authorize prospective or learned-
+> deployed but disabled. A separate native-M5 first-party collector now has all
+> PSK Reporter/RBN/DX Cluster plus current solar/geomagnetic inputs operational, server-side settled
+> band/path aggregation, and identity-free continuity receipts. Its status is
+> `warming` at `0/24` preflight hours, so these results do not authorize prospective or learned-
 > personalization claims.
 > The original V4 M2 gate failure remains published rather than overwritten.
 > Archive V3 context remains in its [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md)

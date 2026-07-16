@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CollectorConfig } from "../types.js";
 import { log } from "../logger.js";
+import { settledPreviousHour } from "./hourly.js";
+import {
+  recordAggregationWatermark,
+  resolveAggregationWatermark,
+} from "./watermark.js";
 
 let lastComputedHour: string | null = null;
 let lastCallsignRefreshDay: string | null = null;
@@ -18,12 +23,12 @@ async function refreshCallsignFields(db: SupabaseClient): Promise<void> {
   const { data, error } = await db.rpc("refresh_callsign_fields");
 
   if (error) {
-    log("warn", "callsign_fields refresh failed", { error: error.message });
+    throw new Error(`callsign_fields refresh failed: ${error.message}`);
   } else {
     log("info", "callsign_fields refreshed", { callsignsUpserted: data });
   }
 
-  // Mark the day even on failure — one attempt per day, not one per tick.
+  // Mark only a completed refresh; a failure retries on the next tick.
   lastCallsignRefreshDay = today;
 }
 
@@ -38,19 +43,11 @@ async function resolveLastComputedHour(
 ): Promise<string | null> {
   if (lastComputedHour !== null) return lastComputedHour;
 
-  const { data, error } = await db
-    .from("path_hourly_stats")
-    .select("hour_utc")
-    .order("hour_utc", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error || !data) {
-    log("info", "No existing path hourly stats found — starting fresh");
+  const resolved = await resolveAggregationWatermark(db, "path_hourly");
+  if (!resolved) {
+    log("info", "No existing path hourly stats found - starting fresh");
     return null;
   }
-
-  const resolved = data.hour_utc as string;
   log("info", "Resolved last computed path hour from DB", { hour: resolved });
   return resolved;
 }
@@ -66,27 +63,16 @@ async function resolveLastComputedHour(
 export async function computePathHourlyStats(
   db: SupabaseClient,
   config?: CollectorConfig,
-): Promise<void> {
+): Promise<number> {
   // Catch-up window matches spot retention (default 7 days)
   const maxCatchupHours = (config?.retention.spots ?? 7) * 24;
 
-  const now = new Date();
-  const currentHour = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      now.getUTCHours(),
-      0,
-      0,
-      0,
-    ),
-  );
-  const prevHour = new Date(currentHour.getTime() - 3_600_000);
+  const settleMinutes = config?.aggregationSettleMinutes ?? 20;
+  const prevHour = settledPreviousHour(new Date(), settleMinutes);
   const prevHourISO = prevHour.toISOString();
 
   // Fast path: already computed this hour within current process lifetime
-  if (lastComputedHour === prevHourISO) return;
+  if (lastComputedHour === prevHourISO) return 0;
 
   try {
     // Keep the backfill map warm before aggregating
@@ -128,7 +114,7 @@ export async function computePathHourlyStats(
     if (hoursToCompute.length === 0) {
       // Edge case: lastComputed equals prevHour already
       lastComputedHour = prevHourISO;
-      return;
+      return 0;
     }
 
     const isCatchUp = hoursToCompute.length > 1;
@@ -140,6 +126,7 @@ export async function computePathHourlyStats(
       });
     }
 
+    let totalCellsWritten = 0;
     for (let i = 0; i < hoursToCompute.length; i++) {
       const hour = hoursToCompute[i];
       const hourISO = hour.toISOString();
@@ -150,17 +137,21 @@ export async function computePathHourlyStats(
       );
 
       if (error) {
-        // Leave lastComputedHour untouched so this hour retries next tick
-        log("warn", "Path aggregation failed for hour", {
-          hour: hourISO,
-          error: error.message,
-        });
-        return;
+        throw new Error(`path-hour RPC failed for ${hourISO}: ${error.message}`);
       }
+
+      totalCellsWritten += Number(cellsWritten ?? 0);
+      await recordAggregationWatermark(
+        db,
+        "path_hourly",
+        hourISO,
+        Number(cellsWritten ?? 0),
+      );
 
       log("info", "Path aggregation complete", {
         hour: hourISO,
         cellsWritten,
+        settleMinutes,
         ...(isCatchUp ? { remaining: hoursToCompute.length - i - 1 } : {}),
       });
 
@@ -169,9 +160,11 @@ export async function computePathHourlyStats(
     }
 
     lastComputedHour = prevHourISO;
+    return totalCellsWritten;
   } catch (err) {
     log("error", "Path aggregation failed", {
       error: err instanceof Error ? err.message : String(err),
     });
+    throw err;
   }
 }

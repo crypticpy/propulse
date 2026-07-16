@@ -86,6 +86,7 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
             values["wspr_live_hour_validation"],
             values["wspr_research_schedule_validation"],
             values["wspr_research_shadow_progress"],
+            values["prospective_capture_readiness"],
         )
         health = evidence["research_health"]
         self.assertTrue(health["remote_endpoint_configured"])
@@ -99,6 +100,13 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
         self.assertFalse(participation["frontend_enabled"])
         self.assertFalse(participation["server_enabled"])
         self.assertFalse(participation["real_consents_or_outcomes_collected"])
+        capture = evidence["prospective_capture"]
+        self.assertTrue(capture["operational_healthy"])
+        self.assertFalse(capture["prospective_capture_ready"])
+        self.assertFalse(capture["prospective_window"]["outcomes_read"])
+        summary = evidence["datasets"]["summary"][0]
+        self.assertEqual(summary["prospective_sources_current"], 4)
+        self.assertEqual(summary["prospective_sources_required"], 4)
 
 
 if __name__ == "__main__":

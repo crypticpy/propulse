@@ -25,37 +25,40 @@ export async function insertSpots(
 }
 
 // ---------------------------------------------------------------------------
-// Health row (fire-and-forget — errors silently swallowed)
+// Durable health and current source status. Callers await both writes so a
+// receipt cannot claim success before the database records it.
 // ---------------------------------------------------------------------------
 
-export function reportToDb(
+export async function reportToDb(
   db: SupabaseClient,
   source: string,
   status: string,
   spotsIngested: number,
   durationMs: number,
   errorMessage?: string,
-): void {
-  db.from("collector_health")
-    .insert({
+): Promise<void> {
+  const [health, statusResult] = await Promise.all([
+    db.from("collector_health").insert({
       source,
       status,
       spots_ingested: spotsIngested,
       duration_ms: durationMs,
       error_message: errorMessage || null,
-    })
-    .then(
-      () => {},
-      () => {},
+    }),
+    db.rpc("record_collector_source_status", {
+      p_source: source,
+      p_status: status,
+      p_rows: spotsIngested,
+      p_duration_ms: durationMs,
+      p_error: errorMessage || null,
+    }),
+  ]);
+  if (health.error) {
+    throw new Error(`[${source}] Health insert failed: ${health.error.message}`);
+  }
+  if (statusResult.error) {
+    throw new Error(
+      `[${source}] Status update failed: ${statusResult.error.message}`,
     );
-  db.rpc("record_collector_source_status", {
-    p_source: source,
-    p_status: status,
-    p_rows: spotsIngested,
-    p_duration_ms: durationMs,
-    p_error: errorMessage || null,
-  }).then(
-    () => {},
-    () => {},
-  );
+  }
 }

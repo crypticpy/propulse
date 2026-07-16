@@ -855,6 +855,11 @@ fallback tests pass locally and in staging.
 
 ### Phase 6: prospective test, beta, and publication
 
+- [x] Deploy native-M5 first-party prospective capture for PSK Reporter, RBN,
+  DX Cluster, and current solar/geomagnetic measurements with settled server-side band/path aggregation, durable
+  watermark-last cursors, outage state, and identity-free continuity receipts.
+- [ ] Pass 24 gap-free hours with all four operational inputs current and both settled
+  aggregates nonempty before declaring the 2026 prospective capture ready.
 - [ ] Complete the frozen 2026-08-01 through 2026-09-30 evaluation.
 - [ ] Run internal alpha and opt-in beta with evidence-grade outcomes.
 - [ ] Compare core versus StationCast and document selection bias.

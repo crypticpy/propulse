@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: research shadow validation report",
     "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
-    "generatedAt": "2026-07-16T09:46:40.723959+00:00",
+    "generatedAt": "2026-07-16T10:54:33.353924+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -107,6 +107,19 @@
           {
             "label": "Shadow hours",
             "field": "shadow_completed_hours",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "prospective_sources",
+        "description": "Three spot networks plus provenance-checked operational weather on the M5.",
+        "dataset": "summary",
+        "sourceId": "live_feature_evidence",
+        "metrics": [
+          {
+            "label": "Capture inputs current",
+            "field": "prospective_sources_current",
             "format": "number"
           }
         ]
@@ -345,7 +358,7 @@
       {
         "id": "shadow_progress",
         "title": "The preregistered 30-day evidence clock is explicit",
-        "subtitle": "6 of 720 required hourly receipts are complete; current scheduled completion is 100.0%.",
+        "subtitle": "7 of 720 required hourly receipts are complete; current scheduled completion is 100.0%.",
         "type": "bar",
         "dataset": "shadow_progress_rows",
         "sourceId": "live_feature_evidence",
@@ -354,6 +367,33 @@
             "field": "state",
             "type": "ordinal",
             "label": "Window state"
+          },
+          "y": {
+            "field": "hours",
+            "type": "quantitative",
+            "label": "Hours"
+          },
+          "color": {
+            "field": "state",
+            "type": "nominal",
+            "label": "State"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "prospective_progress",
+        "title": "First-party prospective capture is operational and warming",
+        "subtitle": "All 4 of 4 sources are current; the evidence clock is 0.00 of 24 required hours.",
+        "type": "bar",
+        "dataset": "prospective_progress_rows",
+        "sourceId": "live_feature_evidence",
+        "encodings": {
+          "x": {
+            "field": "state",
+            "type": "ordinal",
+            "label": "Preflight state"
           },
           "y": {
             "field": "hours",
@@ -461,7 +501,7 @@
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The internal research shadow is active; product authorization and long-window evidence remain open\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The separate private research-health boundary passed **20 of 20** rollback gates and **21 of 21** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. Its protected-preview endpoint then passed **8 of 8** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. The additive off-M5 monitor passed **17 of 17** rollback gates and **18 of 18** deployed-state gates while preserving the source heartbeat timestamp. A GitHub-hosted **schedule** invocation then passed **14 of 14** external-invocation gates against the protected preview, observing a healthy heartbeat **2035 seconds** old with no transition and zero failed or exhausted deliveries. The opt-in outcome boundary passed **13 of 13** rollback gates and **14 of 14** deployed-state gates. Active predictions can carry a short-lived account-bound signed receipt; the API requires current versioned consent and creates an explicit attempt before accepting any failure. Collection remains double-disabled and the signing secret is unset. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. The corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. The hourly research LaunchAgent is now active and its latest audited receipt passed **28 of 28 independent gates**: **255,536 observations** became **67,829 path cells** with zero consecutive failures, **161.0 MiB** peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written confirmation or an independently permitted source. The signed progress rollup is operationally healthy at **6 of 720 hours** with **0 gaps**; it remains `collecting`, not 30-day evidence."
+        "body": "## The internal research shadow is active; product authorization and long-window evidence remain open\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The separate private research-health boundary passed **20 of 20** rollback gates and **21 of 21** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. Its protected-preview endpoint then passed **8 of 8** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. The additive off-M5 monitor passed **17 of 17** rollback gates and **18 of 18** deployed-state gates while preserving the source heartbeat timestamp. A GitHub-hosted **schedule** invocation then passed **14 of 14** external-invocation gates against the protected preview, observing a healthy heartbeat **2035 seconds** old with no transition and zero failed or exhausted deliveries. The opt-in outcome boundary passed **13 of 13** rollback gates and **14 of 14** deployed-state gates. Active predictions can carry a short-lived account-bound signed receipt; the API requires current versioned consent and creates an explicit attempt before accepting any failure. Collection remains double-disabled and the signing secret is unset. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. The corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. The hourly research LaunchAgent is now active and its latest audited receipt passed **28 of 28 independent gates**: **255,536 observations** became **67,829 path cells** with zero consecutive failures, **161.0 MiB** peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written confirmation or an independently permitted source. The signed progress rollup is operationally healthy at **7 of 720 hours** with **0 gaps**; it remains `collecting`, not 30-day evidence."
       },
       {
         "id": "cards",
@@ -475,6 +515,7 @@
           "surface_latency",
           "scheduled_rows",
           "shadow_hours",
+          "prospective_sources",
           "private_health_gates",
           "remote_health_gates",
           "off_m5_monitor_gates",
@@ -589,7 +630,24 @@
         "id": "shadow_progress_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The rollup currently records **6 of 720 required hours** at **100.0% scheduled completion** with **0 gaps**. Every receipt is schema-checked, hash-linked to its signed completion manifest, and rechecked for all-band counts, causal timestamps, one bounded source request, the exact 2-by-9 M5 profile, and completion within 7,200 seconds. The decision remains `collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
+        "body": "The rollup currently records **7 of 720 required hours** at **100.0% scheduled completion** with **0 gaps**. Every receipt is schema-checked, hash-linked to its signed completion manifest, and rechecked for all-band counts, causal timestamps, one bounded source request, the exact 2-by-9 M5 profile, and completion within 7,200 seconds. The decision remains `collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
+      },
+      {
+        "id": "prospective_capture_heading",
+        "type": "markdown",
+        "body": "## The frozen prospective window now has a first-party capture boundary"
+      },
+      {
+        "id": "prospective_capture_chart",
+        "type": "chart",
+        "chartId": "prospective_progress",
+        "layout": "full"
+      },
+      {
+        "id": "prospective_capture_explainer",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "The native-M5 LaunchAgent polls PSK Reporter, RBN, and provenance-rich NOAA/Kyoto weather every five minutes, and DX Cluster every two minutes. The latest receipt has **4 of 4 sources current** and **0.00 of 24 required continuity hours**. Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable watermark even for a zero-row hour. Solar readiness checks each fast upstream timestamp, not only capture time. The readiness clock does not begin until both aggregates are nonempty and current. A separate quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, station equipment, and user data are excluded. The August-September outcomes remain unread."
       },
       {
         "id": "outcomes_heading",
@@ -617,7 +675,7 @@
         "id": "method",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. Launchd-driven scheduled hours then exercised the receipt-based restart boundary, internal transient runtime, exact target-store audit, and identity-free health records. A separate private migration then established a service-role-only aggregate health singleton and transition outbox. It was rollback-tested, deployed through the normal ledger, and rechecked with equal-timestamp replay, alert, recovery, invalid-counter, grant, RLS, search-path, and identity-column tests; all smoke rows were rolled back. The protected feature-preview endpoint was then validated from the M5 with an independent HMAC secret and Vercel automation bypass header. Its dedicated store state matched the signed aggregate exactly, the public coarse reader stayed disabled, and no station, path, equipment, source-row, or credential field entered the evidence. A separate additive migration established a service-role-only stale-heartbeat transition for off-M5 monitors. Rollback and deployed-state tests proved that it preserves the last source timestamp, emits one alert per stale episode, ignores repeated checks, leaves fresh or missing state unchanged, and lets the next genuine heartbeat emit recovery. A GitHub-hosted Ubuntu runner then invoked the protected monitor endpoint at an immutable workflow run and commit, verified a fresh identity-free response, and recorded zero failed or exhausted deliveries. The proof did not configure or exercise a webhook. A final additive migration revoked browser write authority over consent, attempt, and outcome records while retaining user-scoped reads and deletes. Its rollback and deployed-state validators checked the allowed-use constraint, retention acknowledgement, one-attempt index, RLS, grants, and ledger. Active-only inference receipts are HMAC-signed and carry a second short-lived pseudonymous binding that the product API recomputes for the authenticated account. A real hardened NOAA capture separately verified the operational-weather path against A6."
+        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. Launchd-driven scheduled hours then exercised the receipt-based restart boundary, internal transient runtime, exact target-store audit, and identity-free health records. A separate first-party M5 collector now captures PSK Reporter, RBN, DX Cluster, and current solar/geomagnetic measurements concurrently. Its settled band and path-hour aggregations execute inside PostgreSQL, publish watermark-last cursors, and feed an identity-free 15-minute continuity receipt. A separate private migration then established a service-role-only aggregate health singleton and transition outbox. It was rollback-tested, deployed through the normal ledger, and rechecked with equal-timestamp replay, alert, recovery, invalid-counter, grant, RLS, search-path, and identity-column tests; all smoke rows were rolled back. The protected feature-preview endpoint was then validated from the M5 with an independent HMAC secret and Vercel automation bypass header. Its dedicated store state matched the signed aggregate exactly, the public coarse reader stayed disabled, and no station, path, equipment, source-row, or credential field entered the evidence. A separate additive migration established a service-role-only stale-heartbeat transition for off-M5 monitors. Rollback and deployed-state tests proved that it preserves the last source timestamp, emits one alert per stale episode, ignores repeated checks, leaves fresh or missing state unchanged, and lets the next genuine heartbeat emit recovery. A GitHub-hosted Ubuntu runner then invoked the protected monitor endpoint at an immutable workflow run and commit, verified a fresh identity-free response, and recorded zero failed or exhausted deliveries. The proof did not configure or exercise a webhook. A final additive migration revoked browser write authority over consent, attempt, and outcome records while retaining user-scoped reads and deletes. Its rollback and deployed-state validators checked the allowed-use constraint, retention acknowledgement, one-attempt index, RLS, grants, and ledger. Active-only inference receipts are HMAC-signed and carry a second short-lived pseudonymous binding that the product API recomputes for the authenticated account. A real hardened NOAA capture separately verified the operational-weather path against A6."
       },
       {
         "id": "compute",
@@ -629,7 +687,7 @@
         "id": "limits",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus one corrected source hour and 6 scheduled receipts do not prove 30-day provider completeness, permission for subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The off-M5 protected fresh-heartbeat path has been invoked successfully, but a real stale transition, alert destination, webhook delivery, and recovery still require live smoke. The signed heartbeat path is active, but the product-health reader remains intentionally hidden until alert/recovery delivery and the source release gate pass. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X coverage, selection bias, or core-versus-StationCast prospective lift."
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus one corrected source hour and 7 scheduled receipts do not prove 30-day provider completeness, permission for subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The off-M5 protected fresh-heartbeat path has been invoked successfully, but a real stale transition, alert destination, webhook delivery, and recovery still require live smoke. The signed heartbeat path is active, but the product-health reader remains intentionally hidden until alert/recovery delivery and the source release gate pass. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X coverage, selection bias, or core-versus-StationCast prospective lift. The first-party capture job is operational but its nonempty 24-hour preflight is still warming, so it is not yet readiness evidence."
       },
       {
         "id": "limit_table_block",
@@ -647,13 +705,13 @@
         "id": "next",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Next steps\n\n1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n3. Configure a user-approved HTTPS alert destination, smoke alert/recovery and full-M5-outage delivery through the proven off-M5 workflow, then enable the server and frontend health-view flags before beta.\n4. Run opt-in beta outcome collection before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+        "body": "## Next steps\n\n1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n3. Let the new first-party capture pass its 24-hour gap-free preflight, then audit nonempty settled band/path cells and keep it green through the prospective window.\n4. Configure a user-approved HTTPS alert destination, smoke alert/recovery and full-M5-outage delivery through the proven off-M5 workflow, then enable the server and frontend health-view flags before beta.\n5. Run opt-in beta outcome collection before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
       }
     ]
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T09:46:40.723959+00:00",
+    "generatedAt": "2026-07-16T10:54:33.353924+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -725,10 +783,15 @@
           "schedule_finalizer_seconds": 171.515254,
           "schedule_peak_rss_mib": 161.0,
           "schedule_target_hour": "2026-07-16T04:00:00+00:00",
-          "shadow_completed_hours": 6,
+          "shadow_completed_hours": 7,
           "shadow_required_hours": 720,
           "shadow_completion_rate_percent": 100.0,
-          "shadow_missing_hours": 0
+          "shadow_missing_hours": 0,
+          "prospective_sources_current": 4,
+          "prospective_sources_required": 4,
+          "prospective_continuity_hours": 0.0,
+          "prospective_continuity_required_hours": 24.0,
+          "prospective_capture_ready": false
         }
       ],
       "parity_rows": [
@@ -919,12 +982,24 @@
         {
           "window": "30-day receipt shadow",
           "state": "Completed",
-          "hours": 6
+          "hours": 7
         },
         {
           "window": "30-day receipt shadow",
           "state": "Remaining",
-          "hours": 714
+          "hours": 713
+        }
+      ],
+      "prospective_progress_rows": [
+        {
+          "window": "First-party capture preflight",
+          "state": "Continuous healthy evidence",
+          "hours": 0.0
+        },
+        {
+          "window": "First-party capture preflight",
+          "state": "Remaining",
+          "hours": 24.0
         }
       ],
       "gate_rows": [
@@ -2287,6 +2362,71 @@
           "scope": "30-day research shadow",
           "gate": "secret file owner only",
           "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "native arm64",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "collector launchd running",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "target queries succeeded",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "pskreporter current",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "rbn current",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "dxcluster current",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "solar weather current",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "band hourly current",
+          "status": "pending"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "path hourly current",
+          "status": "pending"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "no open outages",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "identity free receipt",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "prospective outcomes unread",
+          "status": "pass"
+        },
+        {
+          "scope": "Prospective first-party capture",
+          "gate": "minimum continuity reached",
+          "status": "pending"
         }
       ],
       "blocker_rows": [
@@ -2303,6 +2443,10 @@
           "status": "required before live NowCast"
         },
         {
+          "remaining_work": "24-hour gap-free first-party capture preflight with nonempty settled aggregates",
+          "status": "required before live NowCast"
+        },
+        {
           "remaining_work": "opt-in beta outcome evidence and frozen prospective evaluation",
           "status": "required before live NowCast"
         }
@@ -2315,7 +2459,10 @@
           "evidence_limit": "30-day real receipt-time shadow coverage is still required"
         },
         {
-          "evidence_limit": "6 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+          "evidence_limit": "7 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        },
+        {
+          "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 0.00/24 required gap-free preflight hours"
         }
       ]
     }

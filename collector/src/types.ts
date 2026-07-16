@@ -62,6 +62,7 @@ export interface CollectorConfig {
   logLevel: LogLevel;
   enabledSources: Set<string>;
   healthPort: number;
+  aggregationSettleMinutes: number;
   pollIntervals: PollIntervals;
   retention: RetentionDays;
 }

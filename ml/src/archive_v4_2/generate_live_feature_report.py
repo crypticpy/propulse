@@ -50,6 +50,8 @@ INPUTS = {
     / "wspr_research_schedule_validation.json",
     "wspr_research_shadow_progress": RESULT
     / "wspr_research_shadow_progress.json",
+    "prospective_capture_readiness": RESULT
+    / "prospective_capture_readiness.json",
 }
 
 
@@ -125,6 +127,7 @@ def build_evidence(
     wspr_live_hour_validation: dict[str, Any],
     wspr_research_schedule_validation: dict[str, Any],
     wspr_research_shadow_progress: dict[str, Any],
+    prospective_capture_readiness: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
         raise RuntimeError("transform parity did not pass")
@@ -206,6 +209,16 @@ def build_evidence(
         or wspr_research_shadow_progress.get("operational_status") != "healthy"
     ):
         raise RuntimeError("WSPR research shadow progress is not operationally healthy")
+    if prospective_capture_readiness.get("operational_healthy") is not True:
+        raise RuntimeError("first-party prospective capture is not operationally healthy")
+    if prospective_capture_readiness.get("prospective_window", {}).get(
+        "outcomes_read"
+    ) is not False:
+        raise RuntimeError("prospective outcomes were opened before the frozen window")
+    if prospective_capture_readiness.get("privacy", {}).get(
+        "callsigns_or_grids_in_receipt"
+    ) is not False:
+        raise RuntimeError("prospective readiness receipt contains identity data")
     if any(
         value.get("locked_outcomes_read")
         for value in (
@@ -228,6 +241,7 @@ def build_evidence(
             wspr_live_hour_validation,
             wspr_research_schedule_validation,
             wspr_research_shadow_progress,
+            prospective_capture_readiness,
         )
     ):
         raise RuntimeError("live-feature work must not read locked outcomes")
@@ -431,6 +445,22 @@ def build_evidence(
         "shadow_missing_hours": int(
             wspr_research_shadow_progress["window"]["missing_hours"]
         ),
+        "prospective_sources_current": sum(
+            bool(prospective_capture_readiness["gates"].get(f"{source}_current"))
+            for source in ("pskreporter", "rbn", "dxcluster")
+        ) + int(bool(prospective_capture_readiness["gates"].get(
+            "solar_weather_current"
+        ))),
+        "prospective_sources_required": 4,
+        "prospective_continuity_hours": float(
+            prospective_capture_readiness["continuity"]["hours"]
+        ),
+        "prospective_continuity_required_hours": float(
+            prospective_capture_readiness["continuity"]["minimum_hours"]
+        ),
+        "prospective_capture_ready": bool(
+            prospective_capture_readiness["prospective_capture_ready"]
+        ),
     }]
     parity_rows = []
     for month in event_replays:
@@ -516,6 +546,22 @@ def build_evidence(
                 0,
                 int(wspr_research_shadow_progress["window"]["minimum_hours"])
                 - int(wspr_research_shadow_progress["window"]["completed_hours"]),
+            ),
+        },
+    ]
+    prospective_progress_rows = [
+        {
+            "window": "First-party capture preflight",
+            "state": "Continuous healthy evidence",
+            "hours": float(prospective_capture_readiness["continuity"]["hours"]),
+        },
+        {
+            "window": "First-party capture preflight",
+            "state": "Remaining",
+            "hours": max(
+                0.0,
+                float(prospective_capture_readiness["continuity"]["minimum_hours"])
+                - float(prospective_capture_readiness["continuity"]["hours"]),
             ),
         },
     ]
@@ -612,6 +658,11 @@ def build_evidence(
             else "pass" if passed else "fail"
         ),
     } for name, passed in wspr_research_shadow_progress["gates"].items())
+    gate_rows.extend({
+        "scope": "Prospective first-party capture",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "pending",
+    } for name, passed in prospective_capture_readiness["gates"].items())
     blocker_rows = [
         {
             "remaining_work": work,
@@ -621,6 +672,7 @@ def build_evidence(
             "written subscriber-facing source authorization or a self-operated source",
             "remote alert-destination failure/recovery delivery smoke",
             "30-day real receipt-time shadow coverage and calibration evidence",
+            "24-hour gap-free first-party capture preflight with nonempty settled aggregates",
             "opt-in beta outcome evidence and frozen prospective evaluation",
         )
     ]
@@ -636,6 +688,12 @@ def build_evidence(
     limit_rows.append({
         "evidence_limit": (
             f"{wspr_research_shadow_progress['window']['completed_hours']} contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        )
+    })
+    limit_rows.append({
+        "evidence_limit": (
+            f"The first-party collector is operational with {summary[0]['prospective_sources_current']}/{summary[0]['prospective_sources_required']} sources current, "
+            f"but has only {summary[0]['prospective_continuity_hours']:.2f}/24 required gap-free preflight hours"
         )
     })
     return {
@@ -810,6 +868,7 @@ def build_evidence(
             "performance": wspr_research_shadow_progress["performance"],
             "gates": wspr_research_shadow_progress["gates"],
         },
+        "prospective_capture": prospective_capture_readiness,
         "datasets": {
             "summary": summary,
             "parity_rows": parity_rows,
@@ -820,6 +879,7 @@ def build_evidence(
             "schedule_band_rows": schedule_band_rows,
             "schedule_stage_rows": schedule_stage_rows,
             "shadow_progress_rows": shadow_progress_rows,
+            "prospective_progress_rows": prospective_progress_rows,
             "gate_rows": gate_rows,
             "blocker_rows": blocker_rows,
             "limit_rows": limit_rows,
@@ -886,6 +946,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "Shadow hours",
                 "shadow_completed_hours",
                 "Signed, identity-free receipts toward the required 720 hours.",
+            ),
+            (
+                "prospective_sources",
+                "Capture inputs current",
+                "prospective_sources_current",
+                "Three spot networks plus provenance-checked operational weather on the M5.",
             ),
             (
                 "private_health_gates",
@@ -999,6 +1065,17 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "shadow_progress_rows",
             {
                 "x": {"field": "state", "type": "ordinal", "label": "Window state"},
+                "y": {"field": "hours", "type": "quantitative", "label": "Hours"},
+                "color": {"field": "state", "type": "nominal", "label": "State"},
+            },
+        ),
+        chart(
+            "prospective_progress",
+            "First-party prospective capture is operational and warming",
+            f"All {summary['prospective_sources_current']} of {summary['prospective_sources_required']} sources are current; the evidence clock is {summary['prospective_continuity_hours']:.2f} of {summary['prospective_continuity_required_hours']:.0f} required hours.",
+            "prospective_progress_rows",
+            {
+                "x": {"field": "state", "type": "ordinal", "label": "Preflight state"},
                 "y": {"field": "hours", "type": "quantitative", "label": "Hours"},
                 "color": {"field": "state", "type": "nominal", "label": "State"},
             },
@@ -1234,6 +1311,31 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             ),
         },
         {
+            "id": "prospective_capture_heading",
+            "type": "markdown",
+            "body": "## The frozen prospective window now has a first-party capture boundary",
+        },
+        {
+            "id": "prospective_capture_chart",
+            "type": "chart",
+            "chartId": "prospective_progress",
+            "layout": "full",
+        },
+        {
+            "id": "prospective_capture_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The native-M5 LaunchAgent polls PSK Reporter, RBN, and provenance-rich NOAA/Kyoto weather every five minutes, and DX Cluster every two minutes. "
+                f"The latest receipt has **{summary['prospective_sources_current']} of {summary['prospective_sources_required']} sources current** and "
+                f"**{summary['prospective_continuity_hours']:.2f} of {summary['prospective_continuity_required_hours']:.0f} required continuity hours**. "
+                "Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable "
+                "watermark even for a zero-row hour. Solar readiness checks each fast upstream timestamp, not only capture time. The readiness clock does not begin until both aggregates are nonempty and current. A separate "
+                "quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, "
+                "station equipment, and user data are excluded. The August-September outcomes remain unread."
+            ),
+        },
+        {
             "id": "outcomes_heading",
             "type": "markdown",
             "body": "## Beta outcome instrumentation is implemented but intentionally inactive",
@@ -1275,6 +1377,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. "
                 "Launchd-driven scheduled hours then exercised the receipt-based restart boundary, internal transient runtime, "
                 "exact target-store audit, and identity-free health records. "
+                "A separate first-party M5 collector now captures PSK Reporter, RBN, DX Cluster, and current solar/geomagnetic measurements concurrently. Its settled band and path-hour "
+                "aggregations execute inside PostgreSQL, publish watermark-last cursors, and feed an identity-free 15-minute continuity receipt. "
                 "A separate private migration then established a service-role-only aggregate health singleton and transition outbox. "
                 "It was rollback-tested, deployed through the normal ledger, and rechecked with equal-timestamp replay, alert, recovery, "
                 "invalid-counter, grant, RLS, search-path, and identity-column tests; all smoke rows were rolled back. "
@@ -1327,6 +1431,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic "
                 "and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X "
                 "coverage, selection bias, or core-versus-StationCast prospective lift."
+                " The first-party capture job is operational but its nonempty 24-hour preflight is still warming, so it is not yet readiness evidence."
             ),
         },
         {"id": "limit_table_block", "type": "table", "tableId": "limit_table", "layout": "full"},
@@ -1339,8 +1444,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "## Next steps\n\n"
                 "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
                 "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
-                "3. Configure a user-approved HTTPS alert destination, smoke alert/recovery and full-M5-outage delivery through the proven off-M5 workflow, then enable the server and frontend health-view flags before beta.\n"
-                "4. Run opt-in beta outcome collection before allowing verified fresh history to "
+                "3. Let the new first-party capture pass its 24-hour gap-free preflight, then audit nonempty settled band/path cells and keep it green through the prospective window.\n"
+                "4. Configure a user-approved HTTPS alert destination, smoke alert/recovery and full-M5-outage delivery through the proven off-M5 workflow, then enable the server and frontend health-view flags before beta.\n"
+                "5. Run opt-in beta outcome collection before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
         },
@@ -1429,6 +1535,12 @@ rollback and
 deployed-state gates. Account-bound signed receipts and explicit attempts now
 protect failure labels, but collection remains disabled and no beta outcomes
 have been gathered.
+The separate first-party prospective collector is operational with
+`{summary['prospective_sources_current']}/{summary['prospective_sources_required']}`
+sources current. Its readiness state remains warming at
+`{summary['prospective_continuity_hours']:.2f}/{summary['prospective_continuity_required_hours']:.0f}`
+gap-free hours because the first settled startup aggregates were empty. The
+frozen August-September outcomes remain unread.
 See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
@@ -1489,6 +1601,9 @@ def main() -> None:
     wspr_research_shadow_progress = read_json(
         INPUTS["wspr_research_shadow_progress"]
     )
+    prospective_capture_readiness = read_json(
+        INPUTS["prospective_capture_readiness"]
+    )
     evidence = build_evidence(
         transform,
         foundation,
@@ -1509,6 +1624,7 @@ def main() -> None:
         wspr_live_hour_validation,
         wspr_research_schedule_validation,
         wspr_research_shadow_progress,
+        prospective_capture_readiness,
     )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

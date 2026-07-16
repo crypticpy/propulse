@@ -1,6 +1,6 @@
 # Personalized Propagation V4.2: Performance Recovery and Product Plan
 
-> Status, 2026-07-15: Phases 0-5 are complete on the M5. The frozen 50M A6
+> Status, 2026-07-16: Phases 0-5 are complete on the M5. The frozen 50M A6
 > blend passed untouched December 2024 and the four-month locked 2025 archive.
 > Phase 6 shadow, opt-in, and prospective evidence remains open; the frozen
 > 2026-08-01 through 2026-09-30 window is still in the future and unread.
@@ -15,6 +15,12 @@
 > active every six hours. Its first durable issuance captured both required
 > NOAA products and 144 parsed values; training remains withheld until 90
 > consecutive legal availability days exist.
+> Prospective capture status, 2026-07-16: a native-M5 first-party LaunchAgent
+> now captures PSK Reporter, RBN, DX Cluster, and current solar/geomagnetic
+> measurements concurrently. All four operational input gates are active,
+> settled band/path reductions run inside
+> PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
+> receipt remains `warming` until nonempty aggregates sustain 24 gap-free hours.
 
 > Final retrospective evidence: A6 is a frozen 70% A4 recent-cycle and 30% A5
 > recency-weighted probability blend. It improved weighted Brier versus frozen
@@ -699,12 +705,25 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   writes, and disabled-by-default product/API gates. Rollback validation passed
   13/13 gates and deployed-state validation passed 14/14 without reading locked
   outcomes or collecting real operator data.
+- [x] Reactivate first-party PSK Reporter, RBN, DX Cluster, and provenance-rich
+  operational-weather collection on the
+  M5; replace Node-side hourly materialization with a bounded PostgreSQL RPC,
+  apply a 20-minute event-time settle delay, persist watermark-last cursors for
+  zero and nonzero hours, and install an identity-free 15-minute watchdog.
+  The spot-network cycle completed concurrently with no stderr; current weather
+  is independently checked against its upstream observation timestamps.
+- [ ] Pass the first-party prospective capture preflight: both settled
+  aggregates and all four operational inputs must be nonempty/current, and the
+  gates must remain
+  gap-free for 24 hours. The initial status is honestly `warming` at `0/24`
+  hours; the August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `73/73`, V4.1 `37/37`, V4.2 `112/112`, and frontend/API `68/68`
-  tests, plus lint, TypeScript, production build, tracked-artifact rules, and
-  bundle budgets. The refreshed visual report passed canonical packaging,
-  source-dialog interaction, and browser QA at 1,440 px and 390 px with eight
-  charts, 13 metrics, and three evidence tables.
+  service `77/77`, V4.1 `37/37`, V4.2 `112/112`, and
+  frontend/API/collector `72/72` tests, plus lint, TypeScript, production
+  build, tracked-artifact rules, and bundle budgets. The refreshed visual
+  report passed canonical packaging, source-dialog interaction, and browser QA
+  at 1,440 px and 390 px with 48 blocks, nine charts, 14 metrics, and three
+  evidence tables, including the first-party capture readiness receipt.
 - [ ] Configure a remote alert destination, smoke an actual stale alert plus
   genuine-heartbeat recovery and full-M5-outage delivery, and only then enable
   the server/frontend view flags.
@@ -721,6 +740,11 @@ until a complete H-1/H-2/H-3/H-24 causal window exists. Band Planner and
 ReachMap both expose that server-selected profile; ReachMap displays `Physics
 fallback` rather than claiming NowCast when verified history is unavailable.
 The active internal research schedule has only begun accumulating that window.
+The separate first-party prospective collector is now operational on the M5.
+Its first cycle wrote current source receipts for PSK Reporter, RBN, DX
+Cluster, and solar/geomagnetic weather, while the settled 09:00 UTC startup watermarks correctly recorded zero
+rows because collection had not begun. Zero-row watermarks do not start the
+24-hour evidence clock; the next nonempty settled hour begins that preflight.
 The real A6 bundle also passed a local M5 HTTP smoke deployment with six
 one-thread workers, allowlisted CORS, explicit fallback, and a persisted
 `propagation-shadow-v1` event. Phase 6 remains open until a durable beta
@@ -769,7 +793,8 @@ seconds, no transition occurred, and failed/exhausted deliveries remained zero.
 The temporary feature-branch push trigger was removed and the twice-hourly
 schedule is now operationally proven. An approved subscriber-facing source, real stale
 alert/recovery webhook delivery smoke,
-30-day live coverage, beta outcomes, and prospective evidence remain open.
+30-day live coverage, the 24-hour first-party capture preflight, beta outcomes,
+and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on
 the M5. One exact-hour request returned `287,694` archive-compatible rows across
@@ -802,11 +827,11 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `6/6`
-expected hours, 100% scheduled completion, zero gaps, and `6/720` required
-hours through target `2026-07-16T08:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `1,541,169`
-observations and `411,955` feature cells with the same bounded 18-thread
+The automatic duration rollup is operationally healthy at `7/7`
+expected hours, 100% scheduled completion, zero gaps, and `7/720` required
+hours through target `2026-07-16T09:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `1,763,891`
+observations and `470,851` feature cells with the same bounded 18-thread
 profile. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current
@@ -836,4 +861,6 @@ On the M5:
 > deterministic StationCast probabilities, and consented outcomes. Preserve the
 > 2026-08-01 through 2026-09-30 prospective window without inspection or tuning
 > until its preregistered evaluation. Keep FutureCast, learned StationCast, and
-> 6m as separate evidence tracks.
+> 6m as separate evidence tracks. Check the M5
+> `prospective_capture_readiness.json` receipt before every Phase 6 decision;
+> operational deployment is not the same as 24-hour readiness.

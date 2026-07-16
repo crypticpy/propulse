@@ -181,7 +181,7 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
 
     const durationMs = Date.now() - start;
     reportHealth("dxcluster", "ok", count);
-    reportToDb(db, "dxcluster", "ok", count, durationMs);
+    await reportToDb(db, "dxcluster", "ok", count, durationMs);
     log("info", "DXCluster: collection complete", {
       spots: count,
       durationMs,
@@ -190,7 +190,7 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
     const durationMs = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
     reportHealth("dxcluster", "error", count);
-    reportToDb(db, "dxcluster", "error", count, durationMs, message);
+    await reportToDb(db, "dxcluster", "error", count, durationMs, message);
     log("error", "DXCluster: collection failed", { error: message });
   }
 }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T09:46:40.722558+00:00",
+  "generated_at": "2026-07-16T10:54:33.352392+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -103,7 +103,12 @@
     {
       "id": "wspr_research_shadow_progress",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "2151f84e4a30831b5b0f871d026c1932794156e6e16ca08b759b472afc8a53f0"
+      "sha256": "bfa4965339676f99cb4f4eeecbf39ce1534aff7d86d0f66b16cb55344e19a66f"
+    },
+    {
+      "id": "prospective_capture_readiness",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
+      "sha256": "40bb4b3e0acbe1e3ae796cfb40fae74dd273e03b772ba864e4783f8cffa93423"
     }
   ],
   "bundle": {
@@ -666,38 +671,38 @@
     "decision": "collecting",
     "operational_status": "healthy",
     "window": {
-      "completed_hours": 6,
+      "completed_hours": 7,
       "completion_rate": 1.0,
-      "continuous_completed_hours": 6,
-      "expected_hours": 6,
-      "last_completed_target_hour": "2026-07-16T08:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T08:00:00+00:00",
+      "continuous_completed_hours": 7,
+      "expected_hours": 7,
+      "last_completed_target_hour": "2026-07-16T09:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T09:00:00+00:00",
       "minimum_hours": 720,
       "missing_hours": 0,
       "start_target_hour": "2026-07-16T03:00:00+00:00"
     },
     "totals": {
-      "feature_cells": 411955,
+      "feature_cells": 470851,
       "records_by_band": {
-        "10m": 26864,
-        "12m": 10470,
-        "15m": 48144,
-        "160m": 16338,
-        "17m": 50510,
-        "20m": 467905,
-        "30m": 301928,
-        "40m": 482977,
-        "60m": 15642,
-        "80m": 120391
+        "10m": 36954,
+        "12m": 13458,
+        "15m": 60438,
+        "160m": 18524,
+        "17m": 60118,
+        "20m": 530641,
+        "30m": 341749,
+        "40m": 548122,
+        "60m": 16815,
+        "80m": 137072
       },
-      "source_records": 1541169
+      "source_records": 1763891
     },
     "performance": {
-      "completion_latency_max_seconds": 1699.534892,
-      "completion_latency_p95_seconds": 1694.9195515,
+      "completion_latency_max_seconds": 1725.481164,
+      "completion_latency_p95_seconds": 1717.6972824,
       "connector_peak_rss_max_mib": 161.0,
-      "connector_wall_p95_seconds": 67.79352275,
-      "finalizer_wall_p95_seconds": 712.26287975
+      "connector_wall_p95_seconds": 67.7042285,
+      "finalizer_wall_p95_seconds": 748.3314117
     },
     "gates": {
       "all_receipts_and_manifests_valid": true,
@@ -711,6 +716,149 @@
       "receipt_timestamps_causal": true,
       "scheduled_completion_rate_at_least_99_percent": true,
       "secret_file_owner_only": true
+    }
+  },
+  "prospective_capture": {
+    "schema_version": 1,
+    "generated_at": "2026-07-16T10:49:29.487837+00:00",
+    "host_role": "M5 prospective capture",
+    "architecture": "arm64",
+    "schedule": {
+      "source_poll_seconds": {
+        "pskreporter": 300,
+        "rbn": 300,
+        "dxcluster": 120
+      },
+      "aggregation_poll_seconds": 300,
+      "aggregation_settle_minutes": 20,
+      "health_minutes": [
+        2,
+        17,
+        32,
+        47
+      ]
+    },
+    "prospective_window": {
+      "start": "2026-08-01",
+      "end": "2026-09-30",
+      "outcomes_read": false
+    },
+    "source_state": {
+      "pskreporter": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T10:47:38.391057+00:00",
+        "last_success_at": "2026-07-16T10:47:38.391057+00:00",
+        "attempt_age_seconds": 111.09678,
+        "success_age_seconds": 111.09678,
+        "rows_last_run": 2766,
+        "duration_ms": 1559,
+        "error_present": false,
+        "latest_spotted_at": "2026-07-16T10:47:30+00:00",
+        "latest_ingested_at": "2026-07-16T10:47:37.658154+00:00",
+        "latest_available_at": "2026-07-16T10:47:37.658154+00:00",
+        "latest_spot_age_seconds": 119.487837
+      },
+      "rbn": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T10:47:40.568345+00:00",
+        "last_success_at": "2026-07-16T10:47:40.568345+00:00",
+        "attempt_age_seconds": 108.919492,
+        "success_age_seconds": 108.919492,
+        "rows_last_run": 3038,
+        "duration_ms": 3711,
+        "error_present": false,
+        "latest_spotted_at": "2026-07-16T10:47:30+00:00",
+        "latest_ingested_at": "2026-07-16T10:47:39.920285+00:00",
+        "latest_available_at": "2026-07-16T10:47:39.920285+00:00",
+        "latest_spot_age_seconds": 119.487837
+      },
+      "dxcluster": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T10:47:40.100712+00:00",
+        "last_success_at": "2026-07-16T10:47:40.100712+00:00",
+        "attempt_age_seconds": 109.387125,
+        "success_age_seconds": 109.387125,
+        "rows_last_run": 130,
+        "duration_ms": 3242,
+        "error_present": false,
+        "latest_spotted_at": "2026-07-16T10:34:00+00:00",
+        "latest_ingested_at": "2026-07-16T10:34:53.600902+00:00",
+        "latest_available_at": "2026-07-16T10:34:53.600902+00:00",
+        "latest_spot_age_seconds": 929.487837
+      },
+      "solar": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T10:47:37.147985+00:00",
+        "last_success_at": "2026-07-16T10:47:37.147985+00:00",
+        "success_age_seconds": 112.339852,
+        "rows_last_run": 1,
+        "duration_ms": 290,
+        "error_present": false,
+        "latest_captured_at": "2026-07-16T10:47:36.992+00:00",
+        "capture_age_seconds": 112.495837,
+        "source_observed_at": {
+          "kp": "2026-07-16T10:44:00.000Z",
+          "magnetic_field": "2026-07-16T10:40:00.000Z",
+          "solar_wind": "2026-07-16T10:41:10.000Z",
+          "proton_flux_10mev": "2026-07-16T10:35:00.000Z",
+          "dst": "2026-07-16T10:00:00.000Z"
+        },
+        "source_age_seconds": {
+          "kp": 329.487837,
+          "magnetic_field": 569.487837,
+          "solar_wind": 499.487837,
+          "proton_flux_10mev": 869.487837,
+          "dst": 2969.487837
+        }
+      }
+    },
+    "aggregation_state": {
+      "band_hourly": {
+        "hour_utc": "2026-07-16T09:00:00+00:00",
+        "rows_written": 0,
+        "available_at": "2026-07-16T10:30:24.330234+00:00",
+        "hour_age_seconds": 6569.487837,
+        "watermark_last": true
+      },
+      "path_hourly": {
+        "hour_utc": "2026-07-16T09:00:00+00:00",
+        "rows_written": 0,
+        "available_at": "2026-07-16T10:30:24.361094+00:00",
+        "hour_age_seconds": 6569.487837,
+        "watermark_last": true
+      }
+    },
+    "open_outage_sources": [],
+    "query_error_type": null,
+    "operational_healthy": true,
+    "instant_healthy": false,
+    "continuity": {
+      "hours": 0.0,
+      "healthy_receipts": 0,
+      "maximum_allowed_gap_seconds": 1800,
+      "tail_has_no_gap": false,
+      "minimum_hours": 24.0
+    },
+    "gates": {
+      "native_arm64": true,
+      "collector_launchd_running": true,
+      "target_queries_succeeded": true,
+      "pskreporter_current": true,
+      "rbn_current": true,
+      "dxcluster_current": true,
+      "solar_weather_current": true,
+      "band_hourly_current": false,
+      "path_hourly_current": false,
+      "no_open_outages": true,
+      "identity_free_receipt": true,
+      "prospective_outcomes_unread": true,
+      "minimum_continuity_reached": false
+    },
+    "prospective_capture_ready": false,
+    "privacy": {
+      "callsigns_or_grids_in_receipt": false,
+      "user_station_data_collected": false,
+      "raw_upstream_rows_redistributed": false
     }
   },
   "datasets": {
@@ -783,10 +931,15 @@
         "schedule_finalizer_seconds": 171.515254,
         "schedule_peak_rss_mib": 161.0,
         "schedule_target_hour": "2026-07-16T04:00:00+00:00",
-        "shadow_completed_hours": 6,
+        "shadow_completed_hours": 7,
         "shadow_required_hours": 720,
         "shadow_completion_rate_percent": 100.0,
-        "shadow_missing_hours": 0
+        "shadow_missing_hours": 0,
+        "prospective_sources_current": 4,
+        "prospective_sources_required": 4,
+        "prospective_continuity_hours": 0.0,
+        "prospective_continuity_required_hours": 24.0,
+        "prospective_capture_ready": false
       }
     ],
     "parity_rows": [
@@ -977,12 +1130,24 @@
       {
         "window": "30-day receipt shadow",
         "state": "Completed",
-        "hours": 6
+        "hours": 7
       },
       {
         "window": "30-day receipt shadow",
         "state": "Remaining",
-        "hours": 714
+        "hours": 713
+      }
+    ],
+    "prospective_progress_rows": [
+      {
+        "window": "First-party capture preflight",
+        "state": "Continuous healthy evidence",
+        "hours": 0.0
+      },
+      {
+        "window": "First-party capture preflight",
+        "state": "Remaining",
+        "hours": 24.0
       }
     ],
     "gate_rows": [
@@ -2345,6 +2510,71 @@
         "scope": "30-day research shadow",
         "gate": "secret file owner only",
         "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "native arm64",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "collector launchd running",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "target queries succeeded",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "pskreporter current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "rbn current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "dxcluster current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "solar weather current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "band hourly current",
+        "status": "pending"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "path hourly current",
+        "status": "pending"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "no open outages",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "identity free receipt",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "prospective outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "minimum continuity reached",
+        "status": "pending"
       }
     ],
     "blocker_rows": [
@@ -2361,6 +2591,10 @@
         "status": "required before live NowCast"
       },
       {
+        "remaining_work": "24-hour gap-free first-party capture preflight with nonempty settled aggregates",
+        "status": "required before live NowCast"
+      },
+      {
         "remaining_work": "opt-in beta outcome evidence and frozen prospective evaluation",
         "status": "required before live NowCast"
       }
@@ -2373,7 +2607,10 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "6 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        "evidence_limit": "7 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+      },
+      {
+        "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 0.00/24 required gap-free preflight hours"
       }
     ]
   }

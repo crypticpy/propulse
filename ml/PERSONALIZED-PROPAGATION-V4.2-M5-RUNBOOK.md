@@ -57,7 +57,7 @@ faster end to end, `7.338326x` faster in the tree-fit stage, identical recorded
 validation log loss, and a conservative two-worker projection of `72.8105`
 GiB.
 
-## Current status, 2026-07-15
+## Current status, 2026-07-16
 
 Phases 0-5 are complete. The protocol state is `archive_passed`. The frozen
 candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
@@ -380,10 +380,10 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T08:00:00Z` also completed under
-the same bounded profile. The rollup is now `6/6` with zero gaps, `1,541,169`
-aggregate observations, `411,955` feature cells, and remains `collecting` at
-`6/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+following scheduled targets through `2026-07-16T09:00:00Z` also completed under
+the same bounded profile. The rollup is now `7/7` with zero gaps, `1,763,891`
+aggregate observations, `470,851` feature cells, and remains `collecting` at
+`7/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
 remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
@@ -657,6 +657,54 @@ band regression above 3%, calibration limits, and all operational contracts.
 Publish every month and every failure.
 
 ## Product and prospective phase
+
+### First-party prospective capture
+
+The M5 runs a separate always-on collector for PSK Reporter, RBN, DX Cluster,
+and current NOAA/Kyoto solar/geomagnetic measurements. Network fetches run
+concurrently; the CPU-heavy band/path reductions run as PostgreSQL set
+operations rather than materializing raw hours in Node.
+Both reductions wait 20 minutes after the hour and publish durable watermarks
+only after the aggregate RPC returns. The owner-only watchdog runs at minutes
+2, 17, 32, and 47 and never writes callsigns, grids, equipment, or user data.
+
+Build, migration, and installation commands are M5-only:
+
+```bash
+export PATH="${HOME}/.local/bin:${PATH}"
+npm --prefix collector run typecheck
+npx vitest run collector/src/aggregator/hourly.test.ts \
+  collector/src/collectors/rbn.test.ts
+npm --prefix collector run build
+
+ml/service/run_m5_prospective_collector_migration.sh --dry-run
+ml/service/run_m5_prospective_collector_migration.sh \
+  --apply --acknowledge-collector-migration
+ml/.venv/bin/python ml/service/install_m5_prospective_collector_launchd.py \
+  --install --acknowledge-public-upstream-capture
+```
+
+Inspect only aggregate operational state:
+
+```bash
+launchctl print gui/$(id -u)/org.propulse.prospective-collector
+launchctl print gui/$(id -u)/org.propulse.prospective-collector-health
+cat "$HOME/Library/Application Support/PropulseML/prospective_capture/prospective_capture_readiness.json"
+tail -n 50 "$HOME/Library/Logs/Propulse/prospective-collector.stderr.log"
+```
+
+The first cycle on `2026-07-16T10:30Z` completed PSK Reporter, RBN, and DX
+Cluster concurrently with `2,554`, `15,115`, and `133` attempted rows,
+respectively, in under four seconds wall time and no stderr. The startup 09:00
+UTC band/path watermarks are causal but contain zero rows because collection
+started later; the readiness clock therefore remains `warming` at `0/24`
+hours. Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
+RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
+30-minute source-freshness budget expired. No outage record was deleted. The
+five-minute weather poll separately validates upstream observation times
+against A6's freshness contract. Do not override that gate. The first nonempty
+settled hour and every subsequent 15-minute receipt must remain continuous for
+a full day.
 
 Archive approval permits shadow integration, not an immediate prospective or
 personalization claim. ReachMap consumes the identity-free core surface;

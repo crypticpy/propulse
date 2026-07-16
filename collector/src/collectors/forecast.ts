@@ -304,7 +304,7 @@ export async function collectForecasts(db: SupabaseClient): Promise<void> {
     const receipt = await collectForecastsStrict(db);
     const rows = receipt.valueCount;
     reportHealth("forecasts", "ok", rows);
-    reportToDb(db, "forecasts", "ok", rows, Date.now() - start);
+    await reportToDb(db, "forecasts", "ok", rows, Date.now() - start);
     log("info", "Forecast issuances archived", {
       products: 2,
       values: rows,
@@ -313,7 +313,7 @@ export async function collectForecasts(db: SupabaseClient): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     reportHealth("forecasts", "error", 0);
-    reportToDb(db, "forecasts", "error", 0, Date.now() - start, message);
+    await reportToDb(db, "forecasts", "error", 0, Date.now() - start, message);
     log("error", "Forecast collection failed", { error: message });
   }
 }

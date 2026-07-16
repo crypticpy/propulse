@@ -682,9 +682,11 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Implement and deploy a private aggregate research-health boundary with
   HMAC/replay protection, service-role-only RLS, transition outbox, a
   secret-free M5 launchd boundary, and double-gated System Health reader.
-- [ ] Configure the deployed health endpoint and remote alert destination,
-  smoke alert/recovery delivery, and only then enable the server/frontend view
-  flags.
+- [x] Configure and validate the protected preview health endpoint from the M5
+  with a signed aggregate heartbeat, dedicated private store, and public reader
+  disabled.
+- [ ] Configure a remote alert destination, smoke alert/recovery delivery, and
+  only then enable the server/frontend view flags.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -724,11 +726,14 @@ smoke rows were removed. Trusted operational weather then passed all 14 target
 gates against the real A6 bundle with 14 causal fields and 2.91 ms cached path
 p95. The signed hourly runner is implemented and refuses CPU oversubscription,
 partial-band manifests, timestamp gaps, tampering, and prune-before-success.
-The separate private research-health migration then passed 19/19 rollback
-gates and 20/20 deployed-state gates on target PostgreSQL 17.6. Its HMAC
+The separate private research-health migration then passed 20/20 rollback
+gates and 21/21 deployed-state gates on target PostgreSQL 17.6. Its HMAC
 endpoint, retryable transition outbox, and double-gated System Health reader
-accept no station/path/equipment data and remain unconfigured and hidden. An
-approved subscriber-facing source, remote endpoint/webhook delivery smoke,
+accept no station/path/equipment data. The protected preview endpoint is now
+configured with an independent HMAC secret and automation-bypass header; its
+M5-to-endpoint-to-private-store validation passed 8/8 gates with the public
+reader still disabled. An approved subscriber-facing source, remote webhook
+delivery smoke,
 30-day live coverage, beta outcomes, and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on
@@ -762,11 +767,12 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `2/2`
-expected hours, 100% scheduled completion, zero gaps, and `2/720` required
-hours. The second target was triggered by the actual minute-15 calendar event,
-not RunAtLoad or a manual target; it added `255,536` observations and `67,829`
-feature cells with the same bounded 18-thread profile. The rollup re-verifies
+The automatic duration rollup is operationally healthy at `3/3`
+expected hours, 100% scheduled completion, zero gaps, and `3/720` required
+hours through target `2026-07-16T05:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `771,970`
+observations and `207,085` feature cells with the same bounded 18-thread
+profile. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current
 99% operational threshold is satisfied.

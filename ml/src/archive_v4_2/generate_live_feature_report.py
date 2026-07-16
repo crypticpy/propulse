@@ -30,6 +30,8 @@ INPUTS = {
     / "research_health_migration_validation.json",
     "research_health_deployment_validation": RESULT
     / "research_health_deployment_validation.json",
+    "research_health_endpoint_validation": RESULT
+    / "research_health_endpoint_validation.json",
     "operational_weather_validation": RESULT / "operational_weather_validation.json",
     "orchestration_validation": RESULT / "orchestration_validation.json",
     "wspr_live_connector_validation": RESULT / "wspr_live_connector_validation.json",
@@ -101,6 +103,7 @@ def build_evidence(
     deployment_validation: dict[str, Any],
     research_health_migration_validation: dict[str, Any],
     research_health_deployment_validation: dict[str, Any],
+    research_health_endpoint_validation: dict[str, Any],
     operational_weather_validation: dict[str, Any],
     orchestration_validation: dict[str, Any],
     wspr_live_connector_validation: dict[str, Any],
@@ -139,6 +142,8 @@ def build_evidence(
         or research_health_deployment_validation.get("persistent_changes") is not False
     ):
         raise RuntimeError("research-health deployment validation did not pass")
+    if research_health_endpoint_validation.get("decision") != "pass":
+        raise RuntimeError("research-health endpoint validation did not pass")
     if orchestration_validation.get("decision") != "pass":
         raise RuntimeError("live orchestration validation did not pass")
     if wspr_live_connector_validation.get("decision") != "pass":
@@ -162,6 +167,7 @@ def build_evidence(
             deployment_validation,
             research_health_migration_validation,
             research_health_deployment_validation,
+            research_health_endpoint_validation,
             operational_weather_validation,
             orchestration_validation,
             wspr_live_connector_validation,
@@ -241,6 +247,13 @@ def build_evidence(
         ),
         "research_health_deployment_gates_total": len(
             research_health_deployment_validation["gates"]
+        ),
+        "research_health_endpoint_gates_passed": sum(
+            bool(value)
+            for value in research_health_endpoint_validation["gates"].values()
+        ),
+        "research_health_endpoint_gates_total": len(
+            research_health_endpoint_validation["gates"]
         ),
         "weather_gates_passed": sum(
             bool(value)
@@ -439,6 +452,11 @@ def build_evidence(
         "status": "pass" if passed else "fail",
     } for name, passed in research_health_deployment_validation["gates"].items())
     gate_rows.extend({
+        "scope": "Private health endpoint",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_endpoint_validation["gates"].items())
+    gate_rows.extend({
         "scope": "Trusted operational weather",
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
@@ -479,7 +497,7 @@ def build_evidence(
         }
         for work in (
             "written subscriber-facing source authorization or a self-operated source",
-            "remote endpoint secret plus alert-destination delivery smoke",
+            "remote alert-destination failure/recovery delivery smoke",
             "30-day real receipt-time shadow coverage and calibration evidence",
             "opt-in beta outcome evidence and frozen prospective evaluation",
         )
@@ -495,7 +513,7 @@ def build_evidence(
     ]
     limit_rows.append({
         "evidence_limit": (
-            "two contiguous scheduled hours exist, but only the latest target has the expanded 28-gate exact-count audit"
+            f"{wspr_research_shadow_progress['window']['completed_hours']} contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
         )
     })
     return {
@@ -533,8 +551,15 @@ def build_evidence(
             "rollback_gates": research_health_migration_validation["gates"],
             "deployment_scope": research_health_deployment_validation["scope"],
             "deployment_gates": research_health_deployment_validation["gates"],
+            "endpoint_scope": research_health_endpoint_validation["scope"],
+            "endpoint_gates": research_health_endpoint_validation["gates"],
+            "endpoint": research_health_endpoint_validation["endpoint"],
+            "store": research_health_endpoint_validation["store"],
+            "progress": research_health_endpoint_validation["progress"],
             "migration_deployed": True,
-            "remote_endpoint_configured": False,
+            "remote_endpoint_configured": True,
+            "remote_heartbeat_delivered": True,
+            "alert_delivery_configured": False,
             "public_view_enabled": False,
             "aggregate_only": True,
         },
@@ -688,9 +713,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             ),
             (
                 "scheduled_rows",
-                "Latest audited rows",
+                "Expanded-audit rows",
                 "schedule_source_rows",
-                "Most recent independently audited hourly LaunchAgent receipt.",
+                "Scheduled receipt with the expanded exact-count target audit.",
             ),
             (
                 "shadow_hours",
@@ -703,6 +728,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "Private health gates",
                 "research_health_deployment_gates_passed",
                 "Deployed private schema, replay, privacy, and transition-outbox gates.",
+            ),
+            (
+                "remote_health_gates",
+                "Remote health gates",
+                "research_health_endpoint_gates_passed",
+                "Signed protected-preview heartbeat, exact private-store state, and disabled public reader.",
             ),
         )
     ]
@@ -857,6 +888,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"The separate private research-health boundary passed **{summary['research_health_rollback_gates_passed']} of "
                 f"{summary['research_health_rollback_gates_total']}** rollback gates and **{summary['research_health_deployment_gates_passed']} of "
                 f"{summary['research_health_deployment_gates_total']}** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. "
+                f"Its protected-preview endpoint then passed **{summary['research_health_endpoint_gates_passed']} of "
+                f"{summary['research_health_endpoint_gates_total']}** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, "
+                "the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. "
                 f"Trusted operational weather then passed **{summary['weather_gates_passed']} of {summary['weather_gates_total']}** "
                 f"gates with **{summary['weather_feature_count']} causal fields** at **{summary['weather_path_p95_ms']:.2f} ms** cached path p95. "
                 f"Signed hourly orchestration passed **{summary['orchestration_gates_passed']} of {summary['orchestration_gates_total']}** "
@@ -977,8 +1011,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, "
                 "job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. "
                 "Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are "
-                "implemented. The M5 endpoint/secret, alert destination, public server flag, and frontend build flag remain unset, so no remote "
-                "heartbeat or subscriber-visible health state is active."
+                "implemented. The M5 now publishes signed aggregate heartbeats through the protected feature preview into the dedicated "
+                "private store. The alert destination, public server flag, and frontend build flag remain unset, so no remote escalation or "
+                "subscriber-visible health state is active."
             ),
         },
         {
@@ -1018,11 +1053,14 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, "
                 "research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling "
                 "store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. "
-                "A launchd-driven second hour then exercised the receipt-based restart boundary, internal transient runtime, "
-                "exact target-store audit, and identity-free health record. "
+                "Launchd-driven scheduled hours then exercised the receipt-based restart boundary, internal transient runtime, "
+                "exact target-store audit, and identity-free health records. "
                 "A separate private migration then established a service-role-only aggregate health singleton and transition outbox. "
                 "It was rollback-tested, deployed through the normal ledger, and rechecked with equal-timestamp replay, alert, recovery, "
                 "invalid-counter, grant, RLS, search-path, and identity-column tests; all smoke rows were rolled back. "
+                "The protected feature-preview endpoint was then validated from the M5 with an independent HMAC secret and Vercel automation "
+                "bypass header. Its dedicated store state matched the signed aggregate exactly, the public coarse reader stayed disabled, "
+                "and no station, path, equipment, source-row, or credential field entered the evidence. "
                 "A real hardened NOAA capture separately verified the operational-weather path against A6."
             ),
         },
@@ -1051,9 +1089,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
-                "plus one corrected source hour and two scheduled receipts do not prove 30-day provider completeness, permission for "
-                "subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The remote and product-health "
-                "code is intentionally unconfigured and hidden until its endpoint secret, alert destination, and source release gate pass. Trusted weather "
+                f"plus one corrected source hour and {summary['shadow_completed_hours']} scheduled receipts do not prove 30-day provider completeness, permission for "
+                "subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The signed heartbeat path is active, "
+                "but the product-health reader remains intentionally hidden until alert/recovery delivery and the source release gate pass. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
@@ -1068,7 +1106,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "## Next steps\n\n"
                 "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
                 "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
-                "3. Deploy the signed health endpoint, configure the M5 secret and alert destination, smoke alert/recovery delivery, then enable the server and frontend health-view flags before beta.\n"
+                "3. Configure a real HTTPS alert destination, smoke alert/recovery delivery, then enable the server and frontend health-view flags before beta.\n"
                 "4. Run opt-in beta outcome collection before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
@@ -1137,8 +1175,9 @@ The signed progress rollup is operationally healthy at
 `{summary['shadow_missing_hours']}` gaps; its decision remains `collecting`.
 Subscriber-facing use still requires source confirmation. Remote alert
 configuration/delivery smoke and 30 days of real receipt-time shadow evidence
-also remain open. The private health migration and double-gated reader are
-implemented but not enabled for users.
+also remain open. The signed protected-preview heartbeat passed
+`{summary['research_health_endpoint_gates_passed']}/{summary['research_health_endpoint_gates_total']}`
+end-to-end gates; the double-gated public reader remains disabled.
 See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
@@ -1167,6 +1206,9 @@ def main() -> None:
     research_health_deployment_validation = read_json(
         INPUTS["research_health_deployment_validation"]
     )
+    research_health_endpoint_validation = read_json(
+        INPUTS["research_health_endpoint_validation"]
+    )
     operational_weather_validation = read_json(
         INPUTS["operational_weather_validation"]
     )
@@ -1189,6 +1231,7 @@ def main() -> None:
         deployment_validation,
         research_health_migration_validation,
         research_health_deployment_validation,
+        research_health_endpoint_validation,
         operational_weather_validation,
         orchestration_validation,
         wspr_live_connector_validation,

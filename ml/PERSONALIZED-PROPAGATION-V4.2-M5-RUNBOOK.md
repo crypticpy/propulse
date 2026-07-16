@@ -204,19 +204,20 @@ subscriber-facing source authorization or complete the long-window gate.
 The paired watchdog runs at minutes 0 and 30, applies the 7,200-second stale
 boundary and 2 GiB runtime ceiling, and sends changed failure/recovery states to
 the unified log and macOS Notification Center. The local notification delivery
-smoke passed. Remote escalation and product System Health integration remain
-pre-beta activation gates. Their code and private database boundary are now
-implemented: the HMAC ingest accepts only aggregate freshness/continuity
+smoke passed. Its signed aggregate heartbeat is now active through the
+protected feature preview and dedicated private store; the end-to-end validator
+passed 8/8 gates with the public reader returning 404. Remote alert delivery and
+product System Health activation remain pre-beta gates. Their code and private
+database boundary are now implemented: the HMAC ingest accepts only aggregate freshness/continuity
 state, alert transitions enter a retryable outbox, browser database roles have
 no access, and the System Health reader requires independent server and
-frontend flags. Target PostgreSQL 17.6 passed 19/19 rollback gates and 20/20
+frontend flags. Target PostgreSQL 17.6 passed 20/20 rollback gates and 21/21
 deployed-state gates, including replay rejection, alert/recovery transitions,
 identity-free columns, ledger presence, and rollback of smoke rows.
 
-Keep the remote variables and both view flags unset until the endpoint is
-deployed and the alert destination is selected. Then set the same 32+ character
-`PROPULSE_RESEARCH_HEALTH_INGEST_SECRET` on the M5 and server, set the M5
-`PROPULSE_RESEARCH_HEALTH_ENDPOINT`, configure the server-only
+The endpoint, ingest secret, preview bypass, and dedicated store are configured
+only for the feature-branch preview. Keep both view flags unset until an alert
+destination is selected. Configure the server-only
 `PROPULSE_RESEARCH_ALERT_WEBHOOK_URL` plus `generic`, `slack`, or `discord`
 kind, and smoke alert plus recovery. Only afterward may
 `PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED` and
@@ -237,6 +238,18 @@ health migration is deployed to a different Supabase project than the product
 preview. They are all-or-nothing and take precedence over the general Supabase
 pair, so a stale preview credential cannot redirect aggregate health into the
 wrong project.
+
+Validate the configured protected endpoint from the M5 without printing any
+secret or station-level data:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_endpoint.py --profile m5
+```
+
+The current evidence passes 8/8 signed-ingest, exact-store, empty-initial-outbox,
+disabled-reader, preview-bypass, native-M5, locked-outcome, and identity-free
+gates. It does not exercise a failure/recovery webhook transition.
 
 The private schema procedure is M5-only and password-safe:
 
@@ -261,7 +274,10 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-rollup is now `2/2` with zero gaps and remains `collecting` at `2/720`.
+following scheduled target, `2026-07-16T05:00:00Z`, also completed under the
+same bounded profile. The rollup is now `3/3` with zero gaps, `771,970`
+aggregate observations, `207,085` feature cells, and remains `collecting` at
+`3/720`.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,

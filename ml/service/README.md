@@ -195,6 +195,10 @@ observations and `67,829` feature cells, used 161 MiB connector peak RSS and the
 same bounded 18-thread finalizer profile, and exited cleanly with no transient
 spool or run directory.
 
+The following scheduled target, `2026-07-16T05:00:00Z`, completed under the
+same bounded profile. The aggregate rollup is now `3/3` expected hours with
+zero gaps, `771,970` observations, and `207,085` feature cells.
+
 `check_m5_wspr_research_health.py` is installed as a second LaunchAgent at
 minutes 0 and 30. It evaluates the preregistered 7,200-second freshness limit,
 latest settled-hour completion, receipt continuity, UTC alignment, worker
@@ -202,8 +206,8 @@ state, failures, health age, and a 2 GiB transient-runtime ceiling. Changed
 failure and recovery states go to the unified log and macOS Notification
 Center. Its local notification smoke and expanded schedule audit pass.
 
-The remote path is implemented but deliberately unconfigured. The watchdog
-can read `PROPULSE_RESEARCH_HEALTH_ENDPOINT` and a 32+ character
+The remote path is active only on the protected feature preview. The watchdog
+reads `PROPULSE_RESEARCH_HEALTH_ENDPOINT` and a 32+ character
 `PROPULSE_RESEARCH_HEALTH_INGEST_SECRET` from the existing owner-only
 `.env.local`; it signs an aggregate heartbeat and refuses redirects. A
 protected Vercel preview may also set the owner-only
@@ -213,8 +217,14 @@ secret and is never placed in the endpoint URL. The
 server endpoint accepts only a strict identity-free schema, writes a private
 service-role singleton, and places alert/recovery transitions in a retryable
 outbox. It never receives station, path, row-count, equipment, or credential
-fields. The migration passed 19 rollback gates and 20 deployed-state gates on
+fields. The migration passed 20 rollback gates and 21 deployed-state gates on
 PostgreSQL 17.6, with every smoke row rolled back.
+
+`validate_research_health_endpoint.py --profile m5` passed 8/8 end-to-end
+gates: signed ingest, exact private singleton state, no initial healthy outbox
+event, disabled coarse reader, protected-preview bypass, native ARM64 runtime,
+locked outcomes unread, and identity-free evidence. The alert destination and
+both product-view flags remain unset.
 
 When the health tables live outside the application's general Supabase project,
 configure both `PROPULSE_RESEARCH_HEALTH_STORE_URL` and
@@ -226,12 +236,12 @@ service key. The endpoint falls back to `SUPABASE_URL` and
 `SystemHealthPage` reads the coarse endpoint only when both
 `PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED=true` on the server and
 `VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED=true` at frontend build time. Both
-remain false. To activate after the endpoint is deployed, configure a Slack,
+remain false. To activate after alert delivery is proven, configure a Slack,
 Discord, or generic HTTPS destination with
 `PROPULSE_RESEARCH_ALERT_WEBHOOK_URL` and the matching
-`PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND`, add the same ingest secret to the M5
-and server environments, smoke both alert and recovery, then enable the two
-view flags. This health path does not enable inference or source permission.
+`PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND`, smoke both alert and recovery, then
+enable the two view flags. This health path does not enable inference or source
+permission.
 
 Rollback-validate, deploy, and verify the private migration only on the M5:
 
@@ -253,8 +263,8 @@ completion, checks every completed hour against the 7,200-second boundary, and
 tracks gaps, band coverage, one-request ingest, exact M5 concurrency, latency,
 RSS, source rows, and feature cells. It reports `collecting` until the full
 30-day duration exists even when every current operational gate passes. The
-current rollup is `2/2` expected hours, 100% completion, zero gaps, and `2/720`
-required hours.
+current rollup is `3/3` expected hours, 100% completion, zero gaps, and `3/720`
+required hours through `2026-07-16T05:00:00Z`.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

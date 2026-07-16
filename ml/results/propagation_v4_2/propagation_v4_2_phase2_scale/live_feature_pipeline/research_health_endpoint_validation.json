@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T06:40:08.237197+00:00",
+  "scope": "protected_preview_research_health_endpoint_validation",
+  "locked_outcomes_read": false,
+  "research_only": true,
+  "progress": {
+    "continuous_hours": 3,
+    "completed_hours": 3,
+    "required_hours": 720,
+    "missing_hours": 0
+  },
+  "endpoint": {
+    "protected_preview_bypass_configured": true,
+    "accepted": true,
+    "state_changed": false,
+    "alert_delivery_configured": false,
+    "coarse_view_status": 404
+  },
+  "store": {
+    "decision": "healthy",
+    "continuous_hours": 3,
+    "completed_hours": 3,
+    "required_hours": 720,
+    "missing_hours": 0,
+    "pending_alert_events": 0
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    }
+  },
+  "gates": {
+    "signed_heartbeat_accepted": true,
+    "stored_aggregate_exact": true,
+    "initial_healthy_outbox_empty": true,
+    "coarse_view_remains_disabled": true,
+    "protected_preview_bypass_used": true,
+    "native_m5_runtime": true,
+    "locked_outcomes_unread": true,
+    "identity_free_evidence": true
+  },
+  "decision": "pass"
+}

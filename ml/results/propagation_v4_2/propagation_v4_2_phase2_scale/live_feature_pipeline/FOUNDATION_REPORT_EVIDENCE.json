@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T05:51:32.939748+00:00",
+  "generated_at": "2026-07-16T06:55:05.127958+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -46,6 +46,11 @@
       "sha256": "49668cd353c3fb7c72e106a55db36b4fe50c03cb487c7a21455c6db0f925e222"
     },
     {
+      "id": "research_health_endpoint_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_endpoint_validation.json",
+      "sha256": "94a6b60aa4fc72b7cae5bae37d04000dbb9669e1b80c3f2116c39a21730416ad"
+    },
+    {
       "id": "operational_weather_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/operational_weather_validation.json",
       "sha256": "be3caf5d726fce6c8b8019e36238f269e2c326c3acd424cfbaabcef591015496"
@@ -73,7 +78,7 @@
     {
       "id": "wspr_research_shadow_progress",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "ce4c04d6eeb94e044e2fa2fc4ed7084acef4d2f4877be2f99da531f5a70f57f8"
+      "sha256": "38b58e5d9b1f4943279e6f89359be84aa403b523ea9f7debdb370d63b76a1d60"
     }
   ],
   "bundle": {
@@ -205,8 +210,42 @@
       "native_m5_runtime": true,
       "locked_outcomes_unread": true
     },
+    "endpoint_scope": "protected_preview_research_health_endpoint_validation",
+    "endpoint_gates": {
+      "signed_heartbeat_accepted": true,
+      "stored_aggregate_exact": true,
+      "initial_healthy_outbox_empty": true,
+      "coarse_view_remains_disabled": true,
+      "protected_preview_bypass_used": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true,
+      "identity_free_evidence": true
+    },
+    "endpoint": {
+      "protected_preview_bypass_configured": true,
+      "accepted": true,
+      "state_changed": false,
+      "alert_delivery_configured": false,
+      "coarse_view_status": 404
+    },
+    "store": {
+      "decision": "healthy",
+      "continuous_hours": 3,
+      "completed_hours": 3,
+      "required_hours": 720,
+      "missing_hours": 0,
+      "pending_alert_events": 0
+    },
+    "progress": {
+      "continuous_hours": 3,
+      "completed_hours": 3,
+      "required_hours": 720,
+      "missing_hours": 0
+    },
     "migration_deployed": true,
-    "remote_endpoint_configured": false,
+    "remote_endpoint_configured": true,
+    "remote_heartbeat_delivered": true,
+    "alert_delivery_configured": false,
     "public_view_enabled": false,
     "aggregate_only": true
   },
@@ -480,38 +519,38 @@
     "decision": "collecting",
     "operational_status": "healthy",
     "window": {
-      "completed_hours": 2,
+      "completed_hours": 3,
       "completion_rate": 1.0,
-      "continuous_completed_hours": 2,
-      "expected_hours": 2,
-      "last_completed_target_hour": "2026-07-16T04:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T04:00:00+00:00",
+      "continuous_completed_hours": 3,
+      "expected_hours": 3,
+      "last_completed_target_hour": "2026-07-16T05:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T05:00:00+00:00",
       "minimum_hours": 720,
       "missing_hours": 0,
       "start_target_hour": "2026-07-16T03:00:00+00:00"
     },
     "totals": {
-      "feature_cells": 137809,
+      "feature_cells": 207085,
       "records_by_band": {
-        "10m": 6280,
-        "12m": 3178,
-        "15m": 13440,
-        "160m": 7648,
-        "17m": 16668,
-        "20m": 150007,
-        "30m": 99554,
-        "40m": 164153,
-        "60m": 6996,
-        "80m": 48618
+        "10m": 8987,
+        "12m": 4401,
+        "15m": 19462,
+        "160m": 10287,
+        "17m": 23413,
+        "20m": 223753,
+        "30m": 151230,
+        "40m": 251236,
+        "60m": 9964,
+        "80m": 69237
       },
-      "source_records": 516542
+      "source_records": 771970
     },
     "performance": {
       "completion_latency_max_seconds": 1681.07353,
-      "completion_latency_p95_seconds": 1652.8467360999998,
+      "completion_latency_p95_seconds": 1633.6546606999998,
       "connector_peak_rss_max_mib": 161.0,
-      "connector_wall_p95_seconds": 40.633806400000005,
-      "finalizer_wall_p95_seconds": 170.41252144999999
+      "connector_wall_p95_seconds": 65.49344009999999,
+      "finalizer_wall_p95_seconds": 227.7372136
     },
     "gates": {
       "all_receipts_and_manifests_valid": true,
@@ -559,6 +598,8 @@
         "research_health_rollback_gates_total": 20,
         "research_health_deployment_gates_passed": 21,
         "research_health_deployment_gates_total": 21,
+        "research_health_endpoint_gates_passed": 8,
+        "research_health_endpoint_gates_total": 8,
         "weather_gates_passed": 14,
         "weather_gates_total": 14,
         "weather_feature_count": 14,
@@ -583,7 +624,7 @@
         "schedule_finalizer_seconds": 171.515254,
         "schedule_peak_rss_mib": 161.0,
         "schedule_target_hour": "2026-07-16T04:00:00+00:00",
-        "shadow_completed_hours": 2,
+        "shadow_completed_hours": 3,
         "shadow_required_hours": 720,
         "shadow_completion_rate_percent": 100.0,
         "shadow_missing_hours": 0
@@ -777,12 +818,12 @@
       {
         "window": "30-day receipt shadow",
         "state": "Completed",
-        "hours": 2
+        "hours": 3
       },
       {
         "window": "30-day receipt shadow",
         "state": "Remaining",
-        "hours": 718
+        "hours": 717
       }
     ],
     "gate_rows": [
@@ -1322,6 +1363,46 @@
         "status": "pass"
       },
       {
+        "scope": "Private health endpoint",
+        "gate": "signed heartbeat accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "stored aggregate exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "initial healthy outbox empty",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "coarse view remains disabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "protected preview bypass used",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "identity free evidence",
+        "status": "pass"
+      },
+      {
         "scope": "Trusted operational weather",
         "gate": "target snapshot verified",
         "status": "pass"
@@ -1733,7 +1814,7 @@
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "remote endpoint secret plus alert-destination delivery smoke",
+        "remaining_work": "remote alert-destination failure/recovery delivery smoke",
         "status": "required before live NowCast"
       },
       {
@@ -1753,7 +1834,7 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "two contiguous scheduled hours exist, but only the latest target has the expanded 28-gate exact-count audit"
+        "evidence_limit": "3 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
       }
     ]
   }

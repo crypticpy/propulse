@@ -89,13 +89,15 @@
 > separate minute-0/minute-30 watchdog enforces the 7,200-second stale boundary,
 > receipt continuity, UTC, worker, failure, and 2 GiB runtime gates. Local
 > notification delivery smoke and the expanded independent audit passed 28/28
-> gates. The 30-day clock has started; subscriber permission, remote escalation,
-> System Health, beta outcomes, and long-window evidence remain open.
+> gates. The protected-preview HMAC heartbeat subsequently passed 8/8
+> M5-to-endpoint-to-private-store gates while the public reader remained off.
+> The 30-day clock has started; subscriber permission, remote alert delivery,
+> System Health activation, beta outcomes, and long-window evidence remain open.
 > An automatic identity-free rollup re-verifies every receipt and signed
 > manifest, fixes the duration at 720 expected hours and scheduled completion at
-> 99%. The next actual minute-15 calendar event completed without RunAtLoad or a
-> manual target, advancing the operationally healthy rollup to `2/2` expected
-> hours, zero gaps, and `collecting` status at `2/720`.
+> 99%. Actual minute-15 calendar events completed without RunAtLoad or manual
+> targets, advancing the operationally healthy rollup to `3/3` expected hours,
+> zero gaps, and `collecting` status at `3/720` through `2026-07-16T05:00:00Z`.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
@@ -368,9 +370,11 @@ explicitly labeled and does not satisfy the live requirement above.
 - [x] Add and deploy the service-role-only aggregate health singleton,
   replay-protected HMAC ingest, retryable alert transition outbox, secret-free
   M5 publisher boundary, and double-gated product System Health reader.
-- [ ] Configure the endpoint secret and HTTPS alert destination, smoke alert
-  and recovery delivery, then enable the independent server/frontend view
-  flags; keep inference and provider gates unchanged.
+- [x] Configure and validate the protected preview endpoint from the M5 with a
+  signed aggregate heartbeat, dedicated private store, and public reader off.
+- [ ] Configure an HTTPS alert destination, smoke alert and recovery delivery,
+  then enable the independent server/frontend view flags; keep inference and
+  provider gates unchanged.
 - [ ] Complete the 30-day permitted receipt-time research shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.
 - [x] Add explicit frontend/service shadow execution with aggregate-only

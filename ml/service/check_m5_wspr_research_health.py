@@ -188,7 +188,7 @@ def publish_remote_health(
     payload: dict[str, Any],
     *,
     timeout_seconds: float = 10.0,
-) -> None:
+) -> dict[str, Any]:
     body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     timestamp = str(int(datetime.now(timezone.utc).timestamp()))
     signature = hmac.new(
@@ -210,7 +210,14 @@ def publish_remote_health(
     with opener.open(request, timeout=timeout_seconds) as response:
         if response.status < 200 or response.status >= 300:
             raise RuntimeError("remote health endpoint rejected the heartbeat")
-        response.read(4096)
+        raw = response.read(4096)
+    try:
+        result = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("remote health endpoint returned invalid JSON") from error
+    if not isinstance(result, dict):
+        raise RuntimeError("remote health endpoint returned a non-object response")
+    return result
 
 
 def evaluate_health(

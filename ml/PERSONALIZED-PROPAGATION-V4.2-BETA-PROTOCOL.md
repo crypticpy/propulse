@@ -229,6 +229,17 @@ separate responsibilities:
    ARM64 with all visible Polars threads. Its receipt always writes
    `release_approved: false`, even when every synthetic gate passes.
 
+A real scorer decision additionally requires the frozen-config SHA-256, private
+Parquet SHA-256 and row count, export window, and operations window to agree.
+The 30-day gate counts distinct observed UTC dates, not the distance between
+the first and last observation. Signed API telemetry rejects undeclared fields
+and records consent, subject-binding, stale-profile, station-math, unsupported
+support, high-confidence overprediction, geographic-regression, integrity, and
+privacy events independently. Any nonzero stop-event count withholds the real
+decision. The aggregate scorer also enforces the preregistered `0.10`
+high-confidence overprediction stop in addition to the relative calibration
+guardrail.
+
 The synthetic dry run is an implementation proof only. Its fixture metrics are
 not evidence about operator equipment, propagation, or expected beta effect
 size, and they may not be quoted as real model performance.

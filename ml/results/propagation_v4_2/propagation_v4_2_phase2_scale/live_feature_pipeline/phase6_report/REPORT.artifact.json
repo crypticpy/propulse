@@ -1,0 +1,1034 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propulse NowCast V4.2: model and Phase 6 readiness report",
+    "description": "Technical model result, release evidence, blockers, and ordered next steps.",
+    "generatedAt": "2026-07-16T14:01:35.609671+00:00",
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propulse NowCast V4.2: model and Phase 6 readiness report"
+      },
+      {
+        "id": "technical_summary",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "## The core is strong retrospectively; the product release is correctly withheld\n\nFrozen A6 improved weighted Brier by **2.134%** versus frozen V3/B2 across **260,474,292 untouched rows**, winning all **4 of 4** locked 2025 months. The model artifact, native M5/OpenMP serving path, health boundary, consent boundary, and privacy-bounded beta database are validated. That is enough to call A6 a credible retrospective NowCast core, but not enough to claim subscriber-facing live or personalized performance. Only **8 of 18** Phase 6 gates currently pass, so core and deterministic StationCast remain shadow-only; learned StationCast, FutureCast, and 6m remain withheld. The August-September prospective outcomes are still unread."
+      },
+      {
+        "id": "metrics",
+        "type": "metric-strip",
+        "cardIds": [
+          "archive_improvement",
+          "locked_rows",
+          "release_gates",
+          "beta_database",
+          "beta_scorer",
+          "wspr_hours",
+          "futurecast_days"
+        ]
+      },
+      {
+        "id": "performance_heading",
+        "type": "markdown",
+        "body": "## A6 improves every locked month, but this establishes the core only"
+      },
+      {
+        "id": "performance_chart",
+        "type": "chart",
+        "chartId": "locked_improvement",
+        "layout": "full"
+      },
+      {
+        "id": "performance_explainer",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "A6 is a frozen 70% recent-cycle A4 and 30% recency-weighted A5 probability blend. The comparison baseline is the strongest frozen V3/B2 model, not a weak climatology. Positive improvement in December and every 2025 month is the main reason the core is promising: the result is broad across time and was obtained after the candidate and scorer were frozen. It does not measure live source availability, operator equipment benefit, +3 to +24 hour forecasts, or 6m mechanisms."
+      },
+      {
+        "id": "readiness_heading",
+        "type": "markdown",
+        "body": "## Completed engineering cannot substitute for missing real-world evidence"
+      },
+      {
+        "id": "gate_chart",
+        "type": "chart",
+        "chartId": "gate_tracks",
+        "layout": "full"
+      },
+      {
+        "id": "gate_explainer",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "The beta migration passed **22 of 22 rollback gates** and **23 of 23 deployed-state gates** on PostgreSQL 17.6. Signed receipt v2 records only fixed capability classes and the server-selected profile. The four equipment classes are persisted only under separate derived-equipment consent; removing that purpose scrubs them atomically. Removing outcome consent or withdrawing deletes retained predictions, attempts, and outcomes. A daily service-role job enforces the 24-month maximum. Those controls make a beta safe to start later; they do not manufacture beta evidence now."
+      },
+      {
+        "id": "beta_dry_run_heading",
+        "type": "markdown",
+        "body": "## The beta scorer is frozen and tested, not passed with operators"
+      },
+      {
+        "id": "beta_dry_run_chart",
+        "type": "chart",
+        "chartId": "synthetic_beta_brier",
+        "layout": "full"
+      },
+      {
+        "id": "beta_dry_run_explainer",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "The actual Polars scorer processed a reproducible **2,000-row, 50-participant, 30-day synthetic cohort** on native ARM64 using every visible core. It exercised **16 of 16 gates**, including the 10% participant cap, operator-cluster bootstrap, calibration guardrails, Tier-A sensitivity, and reportable-stratum regression checks. The synthetic Brier improvement was **5.88%**, but the receipt hard-codes `release_approved: false`. The number is fixture behavior, not an estimate of real StationCast performance."
+      },
+      {
+        "id": "beta_gate_table_block",
+        "type": "table",
+        "tableId": "beta_gate_table",
+        "layout": "full"
+      },
+      {
+        "id": "collection_heading",
+        "type": "markdown",
+        "body": "## The remaining clocks have only begun"
+      },
+      {
+        "id": "collection_chart",
+        "type": "chart",
+        "chartId": "collection_progress",
+        "layout": "full"
+      },
+      {
+        "id": "collection_explainer",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "First-party prospective capture is at **2.00/24 continuous hours**; the permitted WSPR research shadow is at **10/720 hours**; and FutureCast has **1/90 consecutive legal issuance days**. WSPR research access remains research-only until a separate signed subscriber authorization artifact exists. The literal full-M5 outage proof is deliberately not simulated from a missing publisher: it must be a coordinated power-loss and genuine recovery event."
+      },
+      {
+        "id": "mode_heading",
+        "type": "markdown",
+        "body": "## Release decisions stay separate by model and claim"
+      },
+      {
+        "id": "mode_chart",
+        "type": "chart",
+        "chartId": "mode_readiness",
+        "layout": "full"
+      },
+      {
+        "id": "mode_table_block",
+        "type": "table",
+        "tableId": "mode_table",
+        "layout": "full"
+      },
+      {
+        "id": "mode_explainer",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "Core NowCast needs untouched prospective evidence in addition to live-source and outage proof. Deterministic StationCast needs its paired opt-in beta. Learned StationCast needs a new preregistered split and model version. FutureCast needs 90 genuine issued-forecast days plus horizon skill; observed weather cannot be backfilled as forecasts. The experimental 6m mechanisms remain withheld despite strong development skill because mechanism labels, GIRO/NWP validation, locked event/quiet evidence, and prospective tests are absent. Keeping unsupported modes withheld does not weaken a later claim limited to modes that actually pass."
+      },
+      {
+        "id": "definitions_heading",
+        "type": "markdown",
+        "body": "## Scope, definitions, and experimental design"
+      },
+      {
+        "id": "definitions",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "**Core NowCast** predicts the probability of one WSPR decode for an identity-free origin-grid4, target-grid4, band, issue time, current causal weather, and verified H-1/H-2/H-3/H-24 path history. **Physics fallback** is selected whenever that recent history is missing, stale, partial, mismatched, future-dated, or quality-flagged. **Deterministic StationCast** adjusts the same frozen core with the user's server-validated station envelope; the beta estimand is the paired weighted Brier delta versus the core. **Release candidate** means evidence permits a separate activation decision; this report never changes a product flag. The primary beta endpoint is supported WSPR reception. Contact and non-WSPR outcomes are secondary and cannot rescue a failed primary gate."
+      },
+      {
+        "id": "limitations_heading",
+        "type": "markdown",
+        "body": "## What the current evidence does not establish"
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "sourceId": "phase6_evidence",
+        "body": "The locked archive is observational WSPR data and includes the receiver network; it does not prove causal equipment effects or generalize automatically to every mode. Operators self-select time, path, equipment, and reporting, so even a successful StationCast beta supports predictive utility rather than a causal equipment claim. The live WSPR candidate is not subscriber-authorized. A stale heartbeat incident proved the off-M5 control path but was not a physical outage. The 2026-08-01 through 2026-09-30 window has not begun, and its outcomes remain unread. Current percentages in the collection chart are elapsed evidence, not accuracy."
+      },
+      {
+        "id": "next_heading",
+        "type": "markdown",
+        "body": "## The next work is ordered by evidence dependency"
+      },
+      {
+        "id": "next_table",
+        "type": "table",
+        "tableId": "next_steps_table",
+        "layout": "full"
+      },
+      {
+        "id": "further_questions",
+        "type": "markdown",
+        "body": "## Further questions to answer with future evidence\n\nWhich bands, broad regions, station-capability classes, and evidence tiers preserve the aggregate StationCast direction? How much of live performance changes under verified NowCast history versus physics fallback? Does a learned StationCast residual add stable value after deterministic physics without exploiting operator or receiver selection? Which FutureCast horizons retain skill over persistence and climatology after 90 legal issuance days? Can independently labeled 6m mechanisms pass both event and quiet-day gates?"
+      },
+      {
+        "id": "all_gates",
+        "type": "table",
+        "tableId": "gate_table",
+        "layout": "full"
+      }
+    ],
+    "cards": [
+      {
+        "id": "archive_improvement",
+        "description": "Weighted Brier improvement versus frozen V3/B2 across the untouched 2025 archive.",
+        "dataset": "summary",
+        "sourceId": "phase6_evidence",
+        "metrics": [
+          {
+            "label": "Locked 2025 improvement",
+            "field": "archive_improvement",
+            "format": "percent"
+          }
+        ]
+      },
+      {
+        "id": "locked_rows",
+        "description": "Untouched December 2024 plus four locked 2025 archive months.",
+        "dataset": "summary",
+        "sourceId": "phase6_evidence",
+        "metrics": [
+          {
+            "label": "Locked rows scored",
+            "field": "locked_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "release_gates",
+        "description": "Passed mode-specific gates; pending evidence remains fail-closed.",
+        "dataset": "summary",
+        "sourceId": "phase6_evidence",
+        "metrics": [
+          {
+            "label": "Release gates passed",
+            "field": "release_gates_passed",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "beta_database",
+        "description": "Deployed PostgreSQL beta-protocol gates, including the exact ledger check.",
+        "dataset": "summary",
+        "sourceId": "phase6_evidence",
+        "metrics": [
+          {
+            "label": "Beta DB gates passed",
+            "field": "beta_deployment_gates",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "beta_scorer",
+        "description": "Frozen StationCast gates exercised with synthetic data; this can never authorize release.",
+        "dataset": "summary",
+        "sourceId": "phase6_evidence",
+        "metrics": [
+          {
+            "label": "Synthetic scorer gates",
+            "field": "beta_dry_run_gates",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "wspr_hours",
+        "description": "Completed, signed, all-band receipt-time shadow hours toward the 720-hour minimum.",
+        "dataset": "summary",
+        "sourceId": "phase6_evidence",
+        "metrics": [
+          {
+            "label": "WSPR hours",
+            "field": "wspr_hours",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "futurecast_days",
+        "description": "Minimum consecutive common legal issuance days across +3/+6/+12/+24 hours.",
+        "dataset": "summary",
+        "sourceId": "phase6_evidence",
+        "metrics": [
+          {
+            "label": "FutureCast days",
+            "field": "futurecast_days",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "locked_improvement",
+        "title": "A6 relative Brier improvement on untouched scopes",
+        "subtitle": "Weighted opportunity Brier versus frozen V3/B2; positive is better. December and all four 2025 months were opened only after candidate freeze.",
+        "type": "bar",
+        "dataset": "locked_scope_rows",
+        "sourceId": "phase6_evidence",
+        "encodings": {
+          "x": {
+            "field": "scope",
+            "type": "ordinal",
+            "label": "Untouched scope"
+          },
+          "y": {
+            "field": "relative_improvement",
+            "type": "quantitative",
+            "label": "Relative Brier improvement"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "gate_tracks",
+        "title": "Release-gate completion by evidence track",
+        "subtitle": "Passed preregistered gates divided by required gates; incomplete tracks do not borrow evidence from completed tracks.",
+        "type": "bar",
+        "dataset": "gate_group_rows",
+        "sourceId": "phase6_evidence",
+        "encodings": {
+          "x": {
+            "field": "track",
+            "type": "ordinal",
+            "label": "Evidence track"
+          },
+          "y": {
+            "field": "completion",
+            "type": "quantitative",
+            "label": "Gate completion"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "synthetic_beta_brier",
+        "title": "Frozen StationCast scorer dry run",
+        "subtitle": "Brier loss on a reproducible synthetic cohort; lower is better. This validates scorer behavior only and is not model evidence.",
+        "type": "bar",
+        "dataset": "beta_metric_rows",
+        "sourceId": "phase6_evidence",
+        "encodings": {
+          "x": {
+            "field": "model",
+            "type": "ordinal",
+            "label": "Model input"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Synthetic Brier loss"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "collection_progress",
+        "title": "Elapsed collection progress toward frozen minimums",
+        "subtitle": "Continuous hours or legal issuance days divided by the preregistered minimum; these clocks are not model-accuracy scores.",
+        "type": "bar",
+        "dataset": "collection_progress_rows",
+        "sourceId": "phase6_evidence",
+        "encodings": {
+          "x": {
+            "field": "evidence_track",
+            "type": "ordinal",
+            "label": "Evidence track"
+          },
+          "y": {
+            "field": "completion",
+            "type": "quantitative",
+            "label": "Minimum completed"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "mode_readiness",
+        "title": "Required evidence complete by mode",
+        "subtitle": "Passed mode-specific release gates divided by required gates. Unsupported future modes may remain withheld without weakening supported-mode claims.",
+        "type": "bar",
+        "dataset": "mode_rows",
+        "sourceId": "phase6_evidence",
+        "encodings": {
+          "x": {
+            "field": "mode",
+            "type": "ordinal",
+            "label": "Mode"
+          },
+          "y": {
+            "field": "completion",
+            "type": "quantitative",
+            "label": "Required evidence complete"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "mode_table",
+        "title": "Current mode decisions",
+        "subtitle": "Release remains mode-specific; no product flag is enabled by this report.",
+        "dataset": "mode_rows",
+        "sourceId": "phase6_evidence",
+        "density": "dense",
+        "layout": "full",
+        "defaultSort": {
+          "field": "completion",
+          "direction": "desc"
+        },
+        "columns": [
+          {
+            "field": "mode",
+            "label": "Mode",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Decision",
+            "type": "text"
+          },
+          {
+            "field": "completion",
+            "label": "Complete",
+            "type": "number",
+            "format": "percent"
+          },
+          {
+            "field": "remaining",
+            "label": "Remaining",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "id": "beta_gate_table",
+        "title": "Frozen StationCast scorer gates",
+        "subtitle": "Exercised with synthetic inputs only; every row remains non-releasing until the real opt-in beta is complete.",
+        "dataset": "beta_gate_rows",
+        "sourceId": "phase6_evidence",
+        "density": "dense",
+        "layout": "full",
+        "defaultSort": {
+          "field": "gate",
+          "direction": "asc"
+        },
+        "columns": [
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Dry-run result",
+            "type": "text"
+          },
+          {
+            "field": "evidence",
+            "label": "Evidence",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "next_steps_table",
+        "title": "Ordered work before a supported release",
+        "subtitle": "Time and permission gates are evidence requirements, not engineering tasks that can be marked complete early.",
+        "dataset": "next_steps",
+        "sourceId": "phase6_evidence",
+        "density": "comfortable",
+        "layout": "full",
+        "defaultSort": {
+          "field": "order",
+          "direction": "asc"
+        },
+        "columns": [
+          {
+            "field": "order",
+            "label": "Order",
+            "type": "number"
+          },
+          {
+            "field": "action",
+            "label": "Action",
+            "type": "text"
+          },
+          {
+            "field": "current",
+            "label": "Current evidence",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "gate_table",
+        "title": "All Phase 6 release gates",
+        "subtitle": "A pending gate is a blocker for only the modes whose preregistration names it.",
+        "dataset": "gate_rows",
+        "sourceId": "phase6_evidence",
+        "density": "dense",
+        "layout": "full",
+        "defaultSort": {
+          "field": "status",
+          "direction": "asc"
+        },
+        "columns": [
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "phase6_evidence",
+        "label": "V4.2 Phase 6 model and release-readiness evidence",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed, checksum-linked evidence in ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json"
+          ],
+          "filters": [
+            "Prospective outcomes remain unread",
+            "No raw operator, WSPR source-row, or station inventory data",
+            "Current mode decisions are fail-closed"
+          ],
+          "metric_definitions": {
+            "relative_improvement": "(B2 Brier - A6 Brier) / B2 Brier on the named untouched scope.",
+            "gate_completion": "Passed Boolean release gates divided by preregistered gates in the named track.",
+            "collection_progress": "Observed continuous hours or legal issuance days divided by the frozen minimum."
+          }
+        }
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "status": "ready",
+    "generatedAt": "2026-07-16T14:01:35.609671+00:00",
+    "datasets": {
+      "summary": [
+        {
+          "selected_candidate": "A6_recent_recency_blend",
+          "archive_improvement": 0.02133784541521433,
+          "locked_rows": 260474292,
+          "archive_months_won": 4,
+          "archive_months_total": 4,
+          "release_gates_passed": 8,
+          "release_gates_total": 18,
+          "beta_rollback_gates": 22,
+          "beta_rollback_total": 22,
+          "beta_deployment_gates": 23,
+          "beta_deployment_total": 23,
+          "wspr_hours": 10,
+          "wspr_required_hours": 720,
+          "capture_hours": 1.9998520044444446,
+          "capture_required_hours": 24.0,
+          "futurecast_days": 1,
+          "futurecast_required_days": 90,
+          "releaseable_modes": 0,
+          "mode_count": 5,
+          "release_decision": "withheld",
+          "six_meter_decision": "withheld",
+          "beta_dry_run_rows": 2000,
+          "beta_dry_run_participants": 50,
+          "beta_dry_run_gates": 16,
+          "beta_dry_run_gate_total": 16,
+          "beta_dry_run_relative_brier_improvement": 0.058823529411764594,
+          "beta_dry_run_release_approved": false
+        }
+      ],
+      "locked_scope_rows": [
+        {
+          "scope": "2024-12",
+          "candidate_brier": 0.043440623903057037,
+          "b2_brier": 0.04434430409817182,
+          "relative_improvement": 0.020378720863770128,
+          "rows": 52101759
+        },
+        {
+          "scope": "2025 aggregate",
+          "candidate_brier": 0.04096767484040412,
+          "b2_brier": 0.04186089617186164,
+          "relative_improvement": 0.02133784541521433,
+          "rows": 208372533
+        },
+        {
+          "scope": "2025-01",
+          "candidate_brier": 0.04246630838805516,
+          "b2_brier": 0.04347420875355045,
+          "relative_improvement": 0.023183869112119893,
+          "rows": 52120942
+        },
+        {
+          "scope": "2025-04",
+          "candidate_brier": 0.03826858503907948,
+          "b2_brier": 0.03902344107416458,
+          "relative_improvement": 0.019343656384645636,
+          "rows": 52629262
+        },
+        {
+          "scope": "2025-07",
+          "candidate_brier": 0.039702025315924955,
+          "b2_brier": 0.04063997188048948,
+          "relative_improvement": 0.023079409782141402,
+          "rows": 47444263
+        },
+        {
+          "scope": "2025-10",
+          "candidate_brier": 0.04340886477044602,
+          "b2_brier": 0.04429873552688599,
+          "relative_improvement": 0.020087949370471092,
+          "rows": 56178066
+        }
+      ],
+      "gate_group_rows": [
+        {
+          "track": "Frozen model",
+          "passed": 3,
+          "required": 3,
+          "completion": 1.0
+        },
+        {
+          "track": "Live data",
+          "passed": 0,
+          "required": 3,
+          "completion": 0.0
+        },
+        {
+          "track": "Operations",
+          "passed": 2,
+          "required": 3,
+          "completion": 0.6666666666666666
+        },
+        {
+          "track": "Personalized beta",
+          "passed": 3,
+          "required": 4,
+          "completion": 0.75
+        },
+        {
+          "track": "Locked prospective",
+          "passed": 0,
+          "required": 2,
+          "completion": 0.0
+        },
+        {
+          "track": "Future modes",
+          "passed": 0,
+          "required": 3,
+          "completion": 0.0
+        }
+      ],
+      "collection_progress_rows": [
+        {
+          "evidence_track": "First-party capture",
+          "observed": 1.9998520044444446,
+          "required": 24.0,
+          "unit": "continuous hours",
+          "completion": 0.08332716685185186
+        },
+        {
+          "evidence_track": "WSPR shadow",
+          "observed": 10.0,
+          "required": 720.0,
+          "unit": "completed hours",
+          "completion": 0.013888888888888888
+        },
+        {
+          "evidence_track": "FutureCast issuance",
+          "observed": 1,
+          "required": 90,
+          "unit": "consecutive legal days",
+          "completion": 0.011111111111111112
+        }
+      ],
+      "mode_rows": [
+        {
+          "mode": "core nowcast",
+          "status": "shadow_only",
+          "passed": 5,
+          "required": 11,
+          "completion": 0.45454545454545453,
+          "remaining": 6
+        },
+        {
+          "mode": "stationcast deterministic",
+          "status": "shadow_only",
+          "passed": 8,
+          "required": 13,
+          "completion": 0.6153846153846154,
+          "remaining": 5
+        },
+        {
+          "mode": "stationcast learned",
+          "status": "withheld",
+          "passed": 0,
+          "required": 1,
+          "completion": 0.0,
+          "remaining": 1
+        },
+        {
+          "mode": "futurecast",
+          "status": "withheld",
+          "passed": 0,
+          "required": 1,
+          "completion": 0.0,
+          "remaining": 1
+        },
+        {
+          "mode": "six meter",
+          "status": "withheld",
+          "passed": 0,
+          "required": 1,
+          "completion": 0.0,
+          "remaining": 1
+        },
+        {
+          "mode": "system health view",
+          "status": "hidden",
+          "passed": 5,
+          "required": 9,
+          "completion": 0.5555555555555556,
+          "remaining": 4
+        }
+      ],
+      "gate_rows": [
+        {
+          "gate": "archive candidate frozen and passed",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "phase3 serving candidate validated",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "phase3 native m5 openmp evidence",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "prospective capture has 24 continuous hours",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "wspr shadow has 720 hours at 99 percent",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "subscriber recent path source authorized",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "research health boundaries deployed",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "stale and recovery incident exercised",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "literal full m5 outage exercised",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "participation boundary deployed",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "beta protocol boundary deployed",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "beta protocol preregistered",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "stationcast beta passed",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "prospective window closed",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "nowcast prospective evaluation passed",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "learned stationcast release evidence passed",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "futurecast 90 day horizon evidence passed",
+          "status": "pending",
+          "passed": false
+        },
+        {
+          "gate": "six meter mechanism release evidence passed",
+          "status": "pending",
+          "passed": false
+        }
+      ],
+      "beta_metric_rows": [
+        {
+          "model": "Frozen core",
+          "brier": 0.17,
+          "ece": 0.10000000000000003,
+          "synthetic": true
+        },
+        {
+          "model": "Deterministic StationCast",
+          "brier": 0.16000000000000003,
+          "ece": 0.0,
+          "synthetic": true
+        }
+      ],
+      "beta_gate_rows": [
+        {
+          "gate": "minimum participants",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "minimum weighted primary outcomes",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "minimum tier a outcomes",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "minimum calendar days",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "minimum supported bands",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "minimum geography cells",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "minimum capability cells",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "participant weight share bounded",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "relative brier improvement",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "cluster bootstrap upper below zero",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "ece degradation bounded",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "high confidence gap degradation bounded",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "high confidence overprediction below stop",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "no reportable stratum regression",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "tier a and all grade direction agree",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        },
+        {
+          "gate": "no active stop condition",
+          "status": "exercised",
+          "passed": true,
+          "evidence": "synthetic only"
+        }
+      ],
+      "next_steps": [
+        {
+          "order": 1,
+          "action": "Sustain nonempty first-party capture for 24 continuous hours",
+          "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
+          "current": "2.00/24 hours"
+        },
+        {
+          "order": 2,
+          "action": "Accumulate 720 permitted receipt-time WSPR shadow hours",
+          "why": "Measures real completeness, gaps, freshness, latency, and fallback behavior.",
+          "current": "10/720 hours"
+        },
+        {
+          "order": 3,
+          "action": "Obtain written subscriber-source authorization or operate an independent source",
+          "why": "Research-only WSPR access cannot authorize product-serving recent-path features.",
+          "current": "missing signed authorization artifact"
+        },
+        {
+          "order": 4,
+          "action": "Run the coordinated literal M5 power-loss recovery proof",
+          "why": "Must prove off-device detection and genuine restart without sacrificing the active duration clocks.",
+          "current": "not yet run"
+        },
+        {
+          "order": 5,
+          "action": "Run opt-in alpha and preregistered StationCast beta",
+          "why": "Only paired operator outcomes can support a personalization claim.",
+          "current": "collection disabled; infrastructure deployed"
+        },
+        {
+          "order": 6,
+          "action": "Open the frozen 2026-08-01 through 2026-09-30 window once",
+          "why": "The final NowCast release decision requires untouched prospective evidence.",
+          "current": "future and unread"
+        }
+      ],
+      "blocker_rows": [
+        {
+          "blocker": "futurecast 90 day horizon evidence passed",
+          "status": "required"
+        },
+        {
+          "blocker": "learned stationcast release evidence passed",
+          "status": "required"
+        },
+        {
+          "blocker": "literal full m5 outage exercised",
+          "status": "required"
+        },
+        {
+          "blocker": "nowcast prospective evaluation passed",
+          "status": "required"
+        },
+        {
+          "blocker": "prospective capture has 24 continuous hours",
+          "status": "required"
+        },
+        {
+          "blocker": "prospective window closed",
+          "status": "required"
+        },
+        {
+          "blocker": "six meter mechanism release evidence passed",
+          "status": "required"
+        },
+        {
+          "blocker": "stationcast beta passed",
+          "status": "required"
+        },
+        {
+          "blocker": "subscriber recent path source authorized",
+          "status": "required"
+        },
+        {
+          "blocker": "wspr shadow has 720 hours at 99 percent",
+          "status": "required"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "phase6_evidence",
+      "label": "V4.2 Phase 6 model and release-readiness evidence",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed, checksum-linked evidence in ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/PHASE6_REPORT_EVIDENCE.json"
+        ],
+        "filters": [
+          "Prospective outcomes remain unread",
+          "No raw operator, WSPR source-row, or station inventory data",
+          "Current mode decisions are fail-closed"
+        ],
+        "metric_definitions": {
+          "relative_improvement": "(B2 Brier - A6 Brier) / B2 Brier on the named untouched scope.",
+          "gate_completion": "Passed Boolean release gates divided by preregistered gates in the named track.",
+          "collection_progress": "Observed continuous hours or legal issuance days divided by the frozen minimum."
+        }
+      }
+    }
+  ]
+}

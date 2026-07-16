@@ -20,7 +20,8 @@
 > measurements concurrently. All four operational input gates are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming` until nonempty aggregates sustain 24 gap-free hours.
+> receipt remains `warming` at `2.50/24` hours until nonempty aggregates sustain
+> 24 gap-free hours.
 > Research-shadow status, 2026-07-16T13:30Z: `10/10` expected WSPR hours are
 > complete with zero gaps (`10/720` duration gate), `2,411,311` observations,
 > and `656,055` feature cells. The latest keyset-paginated finalizer used the
@@ -29,6 +30,11 @@
 > aggregate-only GitHub issue and a genuine `25`-second heartbeat closed it.
 > The public health view remains disabled until a literal M5 power-loss proof
 > and the remaining beta/release gates pass.
+> Phase 6 release status: `8/18` gates pass. Core NowCast and deterministic
+> StationCast remain `shadow_only`; learned StationCast, FutureCast, and 6m are
+> withheld; System Health is hidden; beta collection and public release remain
+> disabled. See the
+> [Phase 6 visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html).
 
 > Final retrospective evidence: A6 is a frozen 70% A4 recent-cycle and 30% A5
 > recency-weighted probability blend. It improved weighted Brier versus frozen
@@ -721,13 +727,15 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   bootstrap. Deploy the 24-month retention boundary, atomic withdrawal and
   purpose-removal deletion, daily aggregate-only retention job, supported-chain
   filter, and service-role-only monitoring export. Rollback validation passed
-  21/21 gates and deployed-state validation passed 22/22 on PostgreSQL 17.6
+  22/22 gates and deployed-state validation passed 23/23 on PostgreSQL 17.6
   without reading locked outcomes; collection remains disabled.
 - [x] Freeze the private StationCast analysis path: owner-only streaming Parquet
   export with HMAC participant keys, aggregate database/API operations audit,
   signed API-telemetry schema, strict real-versus-synthetic receipt validation,
-  10% participant capping, operator-cluster bootstrap, calibration and stratum
-  guardrails, and k-anonymous output. The exact Polars scorer exercised all 16
+  config/export/operations checksum and window binding, 10% participant
+  capping, operator-cluster bootstrap, distinct-day coverage, calibration,
+  high-confidence overprediction, stratum, and k-anonymous output guardrails.
+  The exact Polars scorer exercised all 16
   preregistered gates on a 50-participant, 2,000-row, 30-day synthetic cohort
   using all 18 M5 threads; the synthetic receipt permanently records
   `release_approved: false` and is not performance evidence.
@@ -745,7 +753,7 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `2.00/24` hours; the
+  the latest preserved receipt is honestly `warming` at `2.50/24` hours; the
   August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
   service `81/81`, V4.1 `37/37`, V4.2 `142/142`, and
@@ -788,8 +796,8 @@ rows because collection had not begun. Zero-row watermarks do not start the
 24-hour evidence clock; the next nonempty settled hour begins that preflight.
 The real A6 bundle also passed a local M5 HTTP smoke deployment with six
 one-thread workers, allowlisted CORS, explicit fallback, and a persisted
-`propagation-shadow-v1` event. Phase 6 remains open until a durable beta
-deployment exists, subscriber-facing source terms are confirmed, 30-day
+`propagation-shadow-v1` event. Phase 6 remains open until durable beta
+evidence exists, subscriber-facing source terms are confirmed, 30-day
 receipt evidence passes, and real opt-in shadow outcomes are collected.
 Consented outcomes and the future prospective window also cannot be marked
 complete from retrospective archive evidence.
@@ -883,11 +891,11 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `9/9`
-expected hours, 100% scheduled completion, zero gaps, and `9/720` required
-hours through target `2026-07-16T11:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `2,199,427`
-observations and `590,320` feature cells with the same bounded 18-thread
+The automatic duration rollup is operationally healthy at `10/10`
+expected hours, 100% scheduled completion, zero gaps, and `10/720` required
+hours through target `2026-07-16T12:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `2,411,311`
+observations and `656,055` feature cells with the same bounded 18-thread
 profile. The latest audited finalizer completed in 114.34 seconds with two
 workers and nine native threads each. The rollup re-verifies
 every receipt against its signed completed manifest and

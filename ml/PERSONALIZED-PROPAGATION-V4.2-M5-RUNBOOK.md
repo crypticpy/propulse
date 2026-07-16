@@ -74,9 +74,9 @@ candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
 | Locked 2025 archive | 0.04096767 | 0.04186090 | 2.134% | 6/6 gates pass |
 
 The internal WSPR shadow is operationally healthy through target
-`2026-07-16T11:00:00Z`: `9/9` expected hours, zero gaps, `2,199,427`
-observations, and `590,320` feature cells. This is `9/720` duration evidence,
-not a 30-day pass. The latest finalizer used two workers with nine native
+`2026-07-16T12:00:00Z`: `10/10` expected hours, zero gaps, `2,411,311`
+observations, and `656,055` feature cells. This is `10/720` duration evidence,
+not a 30-day pass. The audited `11:00Z` finalizer used two workers with nine native
 threads each and completed in 114.34 seconds after keyset pagination replaced
 deep OFFSET scans.
 
@@ -94,7 +94,7 @@ weather and the source-independent finalization runner are implemented.
 Frontend/service shadow execution and aggregate-only telemetry are implemented.
 A local M5 deployment smoke passed with six one-thread Uvicorn workers, the real
 A6 bundle, successful path HTTP/CORS, explicit physics fallback, and a persisted
-identity-free event. Durable beta deployment and real opt-in receipts remain
+identity-free event. Durable beta evidence and real opt-in receipts remain
 open. The current product request must select the physics fallback until the
 authorized WSPR pipeline passes its source and replay gates. Do not rerun
 training, reopen outcome scopes, or tune the frozen policy from December or
@@ -432,14 +432,14 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T11:00:00Z` also completed under
-the same bounded profile. The rollup is now `9/9` with zero gaps, `2,199,427`
-aggregate observations, `590,320` feature cells, and remains `collecting` at
-`9/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+following scheduled targets through `2026-07-16T12:00:00Z` also completed under
+the same bounded profile. The rollup is now `10/10` with zero gaps, `2,411,311`
+aggregate observations, `656,055` feature cells, and remains `collecting` at
+`10/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
 remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
 Deep OFFSET pages later returned target HTTP 500 responses; monotonic-id keyset
 pagination plus the covering `(source, target_hour, band, id)` index removed
-that database access pattern. The latest `11:00Z` finalizer completed in 114.34
+that database access pattern. The audited `11:00Z` finalizer completed in 114.34
 seconds with the exact two-by-nine profile.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
@@ -536,8 +536,8 @@ cd ml/src/archive_v4_2
   --profile m5 --verify-deployed
 ```
 
-The rollback pass completed 21/21 gates and restored the original PostgreSQL
-17.6 state. The deployed pass completed 22/22 gates, including the exact
+The rollback pass completed 22/22 gates and restored the original PostgreSQL
+17.6 state. The deployed pass completed 23/23 gates, including the exact
 ledger entry, nullable consent-gated classes, strict enums, hardened
 service-role functions, atomic purpose removal/withdrawal deletion, bounded
 retention pruning, and k-anonymous WSPR-reception monitoring. Neither check
@@ -597,7 +597,12 @@ ml/.venv/bin/python ml/src/archive_v4_2/score_stationcast_beta.py \
 
 The private Parquet, HMAC secrets, signed telemetry, and private export receipt
 remain on the Projects volume and are never committed. The aggregate scorer
-decision may be committed only after the privacy/reportability gates pass.
+decision may be committed only after the privacy/reportability gates pass. The
+scorer requires matching config, export, Parquet, and operations SHA-256 values;
+identical export/operations windows; an exact export row count; and every
+observed timestamp inside that half-open window. It counts distinct observed
+UTC dates, not an elapsed span. Raw 32-byte HMAC secrets are read byte-for-byte,
+so do not convert them to text or append a newline.
 
 ## Reproduce Phase 2 at 20M
 
@@ -841,7 +846,7 @@ respectively, in under four seconds wall time and no stderr. The startup 09:00
 UTC band/path watermarks are causal but contain zero rows because collection
 started later; zero-row startup watermarks therefore did not begin the evidence
 clock. The first nonempty settled hour wrote ten band rows and 2,246 path rows;
-the latest preserved receipt remains `warming` at `1.14/24` gap-free hours.
+the latest preserved receipt remains `warming` at `2.50/24` gap-free hours.
 Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The

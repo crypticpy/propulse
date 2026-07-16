@@ -724,7 +724,11 @@ command and estimated storage/runtime.
 
 ### Phase 0: freeze, audit, and consolidate
 
-- [ ] Tag/freeze V3 model, config, report, and checksum manifest.
+- [x] Tag/freeze V3 model, calibrators, config, report, and checksum manifest.
+  The M5-generated `v3_release_freeze.json` records 21 published evidence files
+  plus all eight model/calibrator artifacts with `complete: true`; its four HF
+  hashes match the independent B2 freeze exactly. The evidence-only Git tag is
+  `propagation-v3-evidence-v1`.
 - [x] Add the V4 config schema and run manifest before downloading outcomes.
 - [x] Consolidate all station chain calculations into one pure engine.
 - [x] Fix and validate Sherwood parsing; quarantine impossible data.

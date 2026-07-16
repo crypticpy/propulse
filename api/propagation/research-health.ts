@@ -1,6 +1,7 @@
 /** Private signed ingest and double-gated coarse view for NowCast research health. */
 
 import { applyRateLimit } from "../_lib/rateLimit";
+import { propagationRuntimeModeIsActivated } from "../../src/lib/propagation/runtimeActivation";
 import {
   parseResearchHealthPayload,
   parseResearchAlertWebhookConfig,
@@ -315,7 +316,10 @@ async function postHealth(request: Request): Promise<Response> {
 async function getHealth(request: Request): Promise<Response> {
   const limited = applyRateLimit(request, "propagation/research-health-get", 30, 60);
   if (limited) return limited;
-  if (process.env.PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED !== "true") {
+  if (
+    process.env.PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED !== "true" ||
+    !propagationRuntimeModeIsActivated("system_health_view")
+  ) {
     return jsonResponse({ error: "Not found" }, 404);
   }
   const store = researchHealthStoreConfig();

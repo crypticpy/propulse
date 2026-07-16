@@ -578,7 +578,9 @@ export function BandPlanner() {
                     <div>
                       <h3 className="text-base font-semibold text-white">Model nowcast</h3>
                       <p className="text-xs text-gray-400">
-                        Single-decode WSPR probability from your active station chain
+                        {modelNowCast.personalized
+                          ? "Single-decode WSPR probability from your active station chain"
+                          : "Single-decode WSPR probability from the core model"}
                       </p>
                     </div>
                   </div>

@@ -54,6 +54,9 @@ class Phase6ReadinessReportTests(unittest.TestCase):
         coverage = values["coverage"]
         self.assertEqual(summary["beta_dry_run_gates"], 16)
         self.assertFalse(summary["beta_dry_run_release_approved"])
+        self.assertEqual(summary["runtime_eligible_modes"], 0)
+        self.assertEqual(summary["runtime_activated_modes"], 0)
+        self.assertEqual(summary["runtime_activation_state"], "disabled")
         self.assertEqual(
             summary["coverage_hours"], coverage["window"]["completed_hours"]
         )
@@ -76,8 +79,9 @@ class Phase6ReadinessReportTests(unittest.TestCase):
         self.assertTrue(
             all(row["passed"] for row in evidence["datasets"]["beta_gate_rows"])
         )
+        self.assertEqual(len(evidence["datasets"]["next_steps"]), 6)
         self.assertTrue(any(
-            "stop-event producer" in row["action"]
+            "StationCast beta" in row["action"]
             for row in evidence["datasets"]["next_steps"]
         ))
 

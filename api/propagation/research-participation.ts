@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ZodError } from "zod";
 import { verifyAuth } from "../_lib/auth";
 import { applyRateLimit } from "../_lib/rateLimit";
+import { propagationRuntimeModeIsActivated } from "../../src/lib/propagation/runtimeActivation";
 import {
   RESEARCH_POLICY_VERSION,
   ResearchReceiptValidationError,
@@ -103,6 +104,7 @@ export interface ResearchParticipationDependencies {
   authenticate(request: Request): Promise<{ id: string }>;
   store: ResearchParticipationStore;
   receiptSecret: string;
+  betaCollectionActivated: boolean;
   now(): Date;
 }
 
@@ -363,6 +365,8 @@ function defaultDependencies(): ResearchParticipationDependencies | null {
     },
     store: createStore(url, serviceKey),
     receiptSecret,
+    betaCollectionActivated:
+      propagationRuntimeModeIsActivated("beta_collection"),
     now: () => new Date(),
   };
 }
@@ -371,7 +375,12 @@ export async function handleResearchParticipation(
   request: Request,
   dependencies?: ResearchParticipationDependencies,
 ): Promise<Response> {
-  if (process.env.PROPULSE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED !== "true") {
+  const betaCollectionActivated = dependencies?.betaCollectionActivated ??
+    propagationRuntimeModeIsActivated("beta_collection");
+  if (
+    process.env.PROPULSE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED !== "true" ||
+    !betaCollectionActivated
+  ) {
     return jsonResponse({ error: "Not found" }, 404);
   }
   if (request.method === "OPTIONS") return jsonResponse({}, 204);

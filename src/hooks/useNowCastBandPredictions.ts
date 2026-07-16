@@ -3,8 +3,10 @@ import { useQueries } from "@tanstack/react-query";
 import { buildCorePathFeatures, HF_BAND_MHZ, type OperationalSpaceWeather } from "@/lib/propagation/coreFeatureBuilder";
 import {
   propagationModelClient,
+  propagationCoreNowCastVisible,
   propagationModelEnabled,
-  propagationModelVisible,
+  propagationStationCastRequested,
+  propagationStationCastVisible,
   type PathPredictionRequest,
   type PropagationPrediction,
   type ResearchSubjectBinding,
@@ -39,6 +41,7 @@ function bearingDegrees(values: Record<string, number | null>): number {
 export function buildNowCastRequests(
   input: NowCastBandInput,
   issuedAt: Date,
+  personalizationEnabled = true,
 ): PathPredictionRequest[] {
   if (!input.origin || !input.target) return [];
   const originGrid4 = input.origin.grid.toUpperCase().slice(0, 4);
@@ -58,10 +61,12 @@ export function buildNowCastRequests(
       validTime: issuedAt,
       weather: input.weather,
     });
-    const envelope = input.deriveEnvelope(band, {
-      mode: "WSPR",
-      targetBearingDeg: bearingDegrees(preliminary),
-    });
+    const envelope = personalizationEnabled
+      ? input.deriveEnvelope(band, {
+          mode: "WSPR",
+          targetBearingDeg: bearingDegrees(preliminary),
+        })
+      : null;
     const declaredPower = Math.max(envelope?.conductedPowerWatts ?? 5, 0.001);
     const values = buildCorePathFeatures({
       origin: input.origin!,
@@ -94,6 +99,7 @@ export function buildNowCastRequests(
 export interface NowCastBandPredictions {
   enabled: boolean;
   visible: boolean;
+  personalized: boolean;
   pending: boolean;
   predictions: Map<string, PropagationPrediction>;
   errors: Map<string, Error>;
@@ -104,7 +110,11 @@ export function useNowCastBandPredictions(
 ): NowCastBandPredictions {
   const issueBucket = Math.floor(Date.now() / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
   const requests = useMemo(
-    () => buildNowCastRequests(input, new Date(issueBucket)),
+    () => buildNowCastRequests(
+      input,
+      new Date(issueBucket),
+      propagationStationCastRequested,
+    ),
     [input, issueBucket],
   );
   const queries = useQueries({
@@ -140,7 +150,9 @@ export function useNowCastBandPredictions(
   });
   return {
     enabled: propagationModelEnabled && requests.length > 0,
-    visible: propagationModelVisible && requests.length > 0,
+    visible: propagationCoreNowCastVisible && requests.length > 0,
+    personalized:
+      propagationStationCastVisible && requests.some((request) => Boolean(request.station)),
     pending: queries.some((query) => query.isPending || query.isFetching),
     predictions,
     errors,

@@ -811,9 +811,9 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
   the latest preserved receipt is honestly `warming` at `6.00/24` hours across
   28 healthy receipts; the August-September outcomes remain unread.
-- [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `97/97`, V4.1 `37/37`, V4.2 `181/181`, and
-  frontend/API/collector `94/94` tests, plus lint, TypeScript, production
+- [x] Pass one uninterrupted native-M5 repository verification: V4 `41/41`,
+  service `102/102`, V4.1 `37/37`, V4.2 `186/186`, and
+  frontend/API/collector `99/99` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
   at 1,440 px and 390 px with 34 blocks, five charts, seven metrics, and four
@@ -850,6 +850,16 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   verifies a native 18-core AC-powered boot session, writes no raw boot
   identifier or secret, and records `outage_armed: false`. Recovery validation
   rejects the episode unless shutdown follows arming within five minutes.
+- [x] Replace flag-only product activation with a mode-specific runtime
+  contract. The M5 release validator now emits a compact deterministic
+  eligibility snapshot for System Health, beta collection, core NowCast,
+  deterministic and learned StationCast, FutureCast, and 6m. A separate M5-only
+  command records the explicit product decision and refuses ineligible modes.
+  Browser visibility, Vercel health/outcome APIs, and active inference receipts
+  each require both their existing environment gate and the same approved,
+  currently eligible mode. Shadow scoring remains unchanged. Core-only release
+  also omits station envelopes and renders core probabilities so it cannot
+  silently claim StationCast performance.
 - [ ] Send the immutable WSPR.live request, receive explicit operator approval
   for both required roles and the stated nonprofit operating limits, retain the
   reply privately, and pass `validate_wspr_source_authorization.py` on the M5.
@@ -864,7 +874,9 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 The service bundle, feature builders, station adapter, Band Planner path, and
 ReachMap surface path are implemented and validated. Explicit frontend and
 service shadow execution plus privacy-bounded aggregate telemetry are now
-implemented. The current shadow path correctly selects the physics fallback
+implemented. Environment flags alone can no longer activate beta collection,
+System Health, or a subscriber-facing model mode. The current shadow path
+correctly selects the physics fallback
 until a complete H-1/H-2/H-3/H-24 causal window exists. Band Planner and
 ReachMap both expose that server-selected profile; ReachMap displays `Physics
 fallback` rather than claiming NowCast when verified history is unavailable.

@@ -4,6 +4,8 @@ import { useStationCastContext } from "./useStationCastContext";
 import {
   propagationModelClient,
   propagationModelEnabled,
+  propagationStationCastRequested,
+  propagationStationCastVisible,
 } from "@/lib/propagation/modelClient";
 import {
   buildReachMapRequest,
@@ -45,6 +47,7 @@ export function useReachMapSurface(options: {
   const timeKey = Math.floor(options.validTime.getTime() / 300_000);
   const weatherKey = JSON.stringify(options.weather ?? {});
   const declaredPowerWatts = useMemo(() => {
+    if (!propagationStationCastRequested) return 5;
     const envelope = deriveEnvelope(options.band, { mode: "WSPR" });
     return Math.max(envelope?.conductedPowerWatts ?? 5, 0.001);
   }, [deriveEnvelope, options.band]);
@@ -86,6 +89,7 @@ export function useReachMapSurface(options: {
       validTime,
       declaredPowerWatts,
       weather,
+      personalizationEnabled: propagationStationCastRequested,
       deriveEnvelope: (band, targetBearingDeg) =>
         deriveEnvelope(band, { mode: "WSPR", targetBearingDeg }),
     });
@@ -93,7 +97,11 @@ export function useReachMapSurface(options: {
     propagationModelClient.surface(request, controller.signal)
       .then((response) => {
         if (controller.signal.aborted) return;
-        const cells = predictionsToReachMapCells(response.cells, grid);
+        const cells = predictionsToReachMapCells(
+          response.cells,
+          grid,
+          propagationStationCastVisible,
+        );
         if (options.renderOverlay !== false) {
           useMapStore.getState().updateOverlayLayer(REACH_MAP_LAYER_ID, {
             type: "cells",
@@ -138,7 +146,7 @@ export function useReachMapSurface(options: {
 
   return {
     ...state,
-    personalized: hasConfiguredChain,
+    personalized: hasConfiguredChain && propagationStationCastVisible,
     available: propagationModelEnabled && location !== null,
   };
 }

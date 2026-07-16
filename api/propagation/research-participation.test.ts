@@ -137,6 +137,7 @@ function dependencies(store = buildStore()): ResearchParticipationDependencies {
     authenticate: vi.fn().mockResolvedValue({ id: USER_ID }),
     store,
     receiptSecret: SECRET,
+    betaCollectionActivated: true,
     now: () => NOW,
   };
 }
@@ -171,6 +172,16 @@ describe("research participation API", () => {
     const response = await handleResearchParticipation(
       new Request("https://propulse.test/api/propagation/research-participation"),
       dependencies(),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("is undiscoverable when evidence-backed runtime activation is absent", async () => {
+    const deps = dependencies();
+    deps.betaCollectionActivated = false;
+    const response = await handleResearchParticipation(
+      new Request("https://propulse.test/api/propagation/research-participation"),
+      deps,
     );
     expect(response.status).toBe(404);
   });

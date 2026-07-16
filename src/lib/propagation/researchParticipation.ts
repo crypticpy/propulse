@@ -2,11 +2,13 @@ import type {
   ResearchSubjectBinding,
   SignedResearchReceipt,
 } from "@/lib/propagation/modelClient";
+import { propagationRuntimeModeIsActivated } from "./runtimeActivation";
 
 export const RESEARCH_POLICY_VERSION = "propagation-research-v1-2026-07-12";
 
 export const RESEARCH_PARTICIPATION_ENABLED =
-  import.meta.env.VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED === "true";
+  import.meta.env.VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED === "true" &&
+  propagationRuntimeModeIsActivated("beta_collection");
 
 export type ResearchAllowedUse =
   | "anonymous_quality_metrics"

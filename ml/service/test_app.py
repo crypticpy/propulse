@@ -18,6 +18,7 @@ from operational_weather import (
     UnavailableOperationalWeatherProvider,
     VerifiedOperationalWeather,
 )
+from runtime_activation import RuntimeActivation
 
 from app import (
     PathRequest,
@@ -34,6 +35,9 @@ from app import (
     resolve_xgboost_prediction_threads,
     station_capability_classes,
 )
+
+
+BETA_RUNTIME_ACTIVATION = RuntimeActivation(frozenset({"beta_collection"}))
 
 
 class FakeRegistry:
@@ -223,6 +227,7 @@ class ServiceTests(unittest.TestCase):
             operational_weather_provider=UnavailableOperationalWeatherProvider(),
             research_receipt_secret=secret,
             beta_telemetry_sink=beta_sink,
+            runtime_activation=BETA_RUNTIME_ACTIVATION,
         ))
         response = client.post("/v1/propagation/path", json=request_payload())
         self.assertEqual(response.status_code, 200)
@@ -267,6 +272,7 @@ class ServiceTests(unittest.TestCase):
 
         health = client.get("/v1/propagation/health").json()
         self.assertTrue(health["research_receipts_enabled"])
+        self.assertEqual(health["activated_runtime_modes"], ["beta_collection"])
         self.assertTrue(health["beta_stop_event_telemetry_configured"])
         self.assertEqual(beta_sink.events, [])
         self.assertEqual(
@@ -319,6 +325,7 @@ class ServiceTests(unittest.TestCase):
             operational_weather_provider=UnavailableOperationalWeatherProvider(),
             research_receipt_secret="test-research-receipt-secret-at-least-32-chars",
             beta_telemetry_sink=RecordingBetaTelemetrySink(),
+            runtime_activation=BETA_RUNTIME_ACTIVATION,
         ))
         response = client.post("/v1/propagation/path", json=payload)
         self.assertNotIn("research_receipt", response.json())
@@ -329,6 +336,21 @@ class ServiceTests(unittest.TestCase):
                 self.registry,
                 inference_mode="active",
                 research_receipt_secret="short",
+                runtime_activation=BETA_RUNTIME_ACTIVATION,
+            )
+
+    def test_active_inference_requires_evidence_backed_activation(self):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "evidence-backed beta_collection activation",
+        ):
+            create_app(
+                self.registry,
+                inference_mode="active",
+                research_receipt_secret=(
+                    "test-research-receipt-secret-at-least-32-chars"
+                ),
+                beta_telemetry_sink=RecordingBetaTelemetrySink(),
             )
 
     def test_active_research_receipts_require_stop_event_telemetry(self):
@@ -342,6 +364,7 @@ class ServiceTests(unittest.TestCase):
                 research_receipt_secret=(
                     "test-research-receipt-secret-at-least-32-chars"
                 ),
+                runtime_activation=BETA_RUNTIME_ACTIVATION,
             )
 
     def test_equipment_math_violation_is_recorded_and_prediction_is_suppressed(self):
@@ -357,6 +380,7 @@ class ServiceTests(unittest.TestCase):
                 "test-research-receipt-secret-at-least-32-chars"
             ),
             beta_telemetry_sink=beta_sink,
+            runtime_activation=BETA_RUNTIME_ACTIVATION,
         ))
 
         response = client.post("/v1/propagation/path", json=payload)
@@ -380,6 +404,7 @@ class ServiceTests(unittest.TestCase):
                 "test-research-receipt-secret-at-least-32-chars"
             ),
             beta_telemetry_sink=RecordingBetaTelemetrySink(fail=True),
+            runtime_activation=BETA_RUNTIME_ACTIVATION,
         ))
 
         response = client.post("/v1/propagation/path", json=payload)

@@ -3,6 +3,7 @@ import {
   parseResearchHealthResponse,
   type ResearchHealthResponse,
 } from "@/lib/propagation/researchHealth";
+import { propagationRuntimeModeIsActivated } from "@/lib/propagation/runtimeActivation";
 
 export const RESEARCH_HEALTH_QUERY_KEY = [
   "system-health",
@@ -10,7 +11,8 @@ export const RESEARCH_HEALTH_QUERY_KEY = [
 ] as const;
 
 export const RESEARCH_HEALTH_ENABLED =
-  import.meta.env.VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED === "true";
+  import.meta.env.VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED === "true" &&
+  propagationRuntimeModeIsActivated("system_health_view");
 
 async function fetchResearchHealth(): Promise<ResearchHealthResponse> {
   const response = await fetch("/api/propagation/research-health", {

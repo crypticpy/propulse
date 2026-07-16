@@ -43,6 +43,7 @@ from operational_weather import (
     VerifiedOperationalWeather,
     operational_weather_provider_from_environment,
 )
+from runtime_activation import RuntimeActivation, load_runtime_activation
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -945,6 +946,7 @@ def create_app(
     operational_weather_provider: OperationalWeatherProvider | None = None,
     research_receipt_secret: str | None = None,
     beta_telemetry_sink: BetaTelemetrySink | None = None,
+    runtime_activation: RuntimeActivation | None = None,
 ) -> FastAPI:
     runtime = registry
     if runtime is None:
@@ -955,11 +957,23 @@ def create_app(
         if inference_mode is not None
         else os.environ.get("PROPULSE_INFERENCE_MODE")
     )
+    selected_runtime_activation = runtime_activation or load_runtime_activation()
+    if (
+        selected_inference_mode == "active"
+        and not selected_runtime_activation.allows("beta_collection")
+    ):
+        raise RuntimeError(
+            "active inference requires evidence-backed beta_collection activation"
+        )
     selected_research_receipt_secret = (
         research_receipt_secret
         if research_receipt_secret is not None
         else os.environ.get("PROPULSE_RESEARCH_RECEIPT_SECRET", "")
     )
+    if selected_inference_mode == "active" and not selected_research_receipt_secret:
+        raise RuntimeError(
+            "active inference requires PROPULSE_RESEARCH_RECEIPT_SECRET"
+        )
     if selected_research_receipt_secret and len(selected_research_receipt_secret) < 32:
         raise RuntimeError(
             "PROPULSE_RESEARCH_RECEIPT_SECRET must be at least 32 characters"
@@ -1015,6 +1029,9 @@ def create_app(
             **runtime.health(),
             "checked_at": datetime.now(timezone.utc),
             "inference_mode": selected_inference_mode,
+            "activated_runtime_modes": sorted(
+                selected_runtime_activation.approved_modes
+            ),
             "telemetry_schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
             "research_receipt_schema_version": RESEARCH_RECEIPT_SCHEMA_VERSION,
             "research_receipts_enabled": research_receipts_enabled,

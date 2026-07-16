@@ -1,4 +1,5 @@
 import type { StationFeatureEnvelope } from "@/lib/station/stationChainEngine";
+import { propagationRuntimeModeIsActivated } from "./runtimeActivation";
 
 export type CoreFeatureValues = Record<string, number | null>;
 
@@ -141,7 +142,18 @@ export const propagationModelMode = resolvePropagationModelMode(
 export const propagationModelEnabled =
   propagationModelMode !== "off";
 
-export const propagationModelVisible = propagationModelMode === "active";
+export const propagationModelVisible =
+  propagationModelMode === "active" &&
+  propagationRuntimeModeIsActivated("core_nowcast");
+
+export const propagationCoreNowCastVisible = propagationModelVisible;
+
+export const propagationStationCastVisible =
+  propagationModelMode === "active" &&
+  propagationRuntimeModeIsActivated("stationcast_deterministic");
+
+export const propagationStationCastRequested =
+  propagationModelMode === "shadow" || propagationStationCastVisible;
 
 export const propagationModelShadow = propagationModelMode === "shadow";
 

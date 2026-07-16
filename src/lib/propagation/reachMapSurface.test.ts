@@ -54,5 +54,9 @@ describe("ReachMap surface contract", () => {
     expect(cell.value).toBe(0.7);
     expect(cell.opacity).toBeCloseTo(0.56);
     expect(cell.label).toContain("70%");
+
+    const [coreCell] = predictionsToReachMapCells([prediction], grid, false);
+    expect(coreCell.value).toBe(0.4);
+    expect(coreCell.label).toContain("40%");
   });
 });

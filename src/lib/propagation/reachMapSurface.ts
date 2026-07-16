@@ -26,6 +26,7 @@ export interface ReachMapRequestOptions {
   validTime: Date;
   declaredPowerWatts: number;
   weather?: OperationalSpaceWeather;
+  personalizationEnabled?: boolean;
   deriveEnvelope: (
     band: string,
     targetBearingDeg: number,
@@ -76,7 +77,9 @@ export function buildReachMapRequest(
         validTime: options.validTime,
         weather: options.weather,
       }),
-      station: options.deriveEnvelope(options.band, bearing) ?? undefined,
+      ...(options.personalizationEnabled === false
+        ? {}
+        : { station: options.deriveEnvelope(options.band, bearing) ?? undefined }),
     };
   });
   const timestamp = options.validTime.toISOString();
@@ -116,12 +119,15 @@ export function reachMapProfileLabel(profile: string | null): string {
 export function predictionsToReachMapCells(
   predictions: PropagationPrediction[],
   grid: ReachMapGridCell[],
+  personalized = true,
 ): OverlayCell[] {
   const locations = new Map(grid.map((cell) => [cell.targetGrid4, cell]));
   return predictions.flatMap((prediction) => {
     const cell = locations.get(prediction.target_grid4);
     if (!cell) return [];
-    const probability = prediction.personalized_probability;
+    const probability = personalized
+      ? prediction.personalized_probability
+      : prediction.core_probability;
     return [{
       id: cell.id,
       lat: cell.lat,

@@ -18,6 +18,9 @@ CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 PHASE2 = ROOT / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
 LIVE = PHASE2 / "live_feature_pipeline"
 DEFAULT_OUTPUT = LIVE / "phase6_release_readiness.json"
+DEFAULT_RUNTIME_ELIGIBILITY = (
+    ROOT / "ml/config/propagation_v4_2_runtime_eligibility.json"
+)
 PROSPECTIVE_WINDOW_END = datetime(2026, 10, 1, tzinfo=timezone.utc)
 EVIDENCE_PATHS = {
     "archive_protocol": PHASE2 / "outcome_protocol_manifest.json",
@@ -463,6 +466,41 @@ def evaluate_release_readiness(
     }
 
 
+def runtime_eligibility_document(evaluation: dict[str, Any]) -> dict[str, Any]:
+    decisions = evaluation["mode_decisions"]
+    return {
+        "schema_version": 1,
+        "scope": "phase6_runtime_eligibility",
+        "locked_prospective_outcomes_read": False,
+        "modes": {
+            "system_health_view": (
+                decisions["system_health_view"]["status"]
+                == "eligible_hidden_by_product_flag"
+            ),
+            "beta_collection": (
+                evaluation["beta_collection"]["status"] == "eligible"
+            ),
+            "core_nowcast": (
+                decisions["core_nowcast"]["status"] == "release_candidate"
+            ),
+            "stationcast_deterministic": (
+                decisions["stationcast_deterministic"]["status"]
+                == "release_candidate"
+            ),
+            "stationcast_learned": (
+                decisions["stationcast_learned"]["status"]
+                == "release_candidate"
+            ),
+            "futurecast": (
+                decisions["futurecast"]["status"] == "release_candidate"
+            ),
+            "six_meter": (
+                decisions["six_meter"]["status"] == "release_candidate"
+            ),
+        },
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--profile", choices=("m5",), required=True)
@@ -506,6 +544,7 @@ def main() -> None:
         **evaluation,
     }
     atomic_write(args.output, result)
+    atomic_write(DEFAULT_RUNTIME_ELIGIBILITY, runtime_eligibility_document(evaluation))
     print(json.dumps(result, indent=2))
     if args.require_release and not result["supported_scope_release_ready"]:
         raise SystemExit("Phase 6 supported release scope is not ready")

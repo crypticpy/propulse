@@ -21,6 +21,12 @@ DEFAULT_OUTPUT = LIVE / "phase6_report"
 INPUTS = {
     "model": PHASE2 / "final_report/FINAL_REPORT_EVIDENCE.json",
     "release": LIVE / "phase6_release_readiness.json",
+    "runtime_eligibility": (
+        ROOT / "ml/config/propagation_v4_2_runtime_eligibility.json"
+    ),
+    "runtime_activation": (
+        ROOT / "ml/config/propagation_v4_2_runtime_activation.json"
+    ),
     "beta_rollback": LIVE / "propagation_beta_protocol_migration_validation.json",
     "beta_deployment": LIVE / "propagation_beta_protocol_deployment_validation.json",
     "wspr": LIVE / "wspr_research_shadow_progress.json",
@@ -134,6 +140,8 @@ def card(
 def validate_inputs(values: dict[str, dict[str, Any]]) -> None:
     model = values["model"]
     release = values["release"]
+    eligibility = values["runtime_eligibility"]
+    activation = values["runtime_activation"]
     rollback = values["beta_rollback"]
     deployment = values["beta_deployment"]
     if model.get("prospective_read") is not False:
@@ -142,6 +150,45 @@ def validate_inputs(values: dict[str, dict[str, Any]]) -> None:
         raise RuntimeError("Phase 6 decision is not a valid fail-closed decision")
     if release.get("locked_prospective_outcomes_read") is not False:
         raise RuntimeError("Phase 6 decision opened prospective outcomes")
+    if (
+        eligibility.get("schema_version") != 1
+        or eligibility.get("scope") != "phase6_runtime_eligibility"
+        or eligibility.get("locked_prospective_outcomes_read") is not False
+        or not isinstance(eligibility.get("modes"), dict)
+    ):
+        raise RuntimeError("runtime eligibility boundary is invalid")
+    approved_modes = activation.get("approved_modes")
+    runtime_modes = {
+        "system_health_view",
+        "beta_collection",
+        "core_nowcast",
+        "stationcast_deterministic",
+        "stationcast_learned",
+        "futurecast",
+        "six_meter",
+    }
+    if (
+        activation.get("schema_version") != 1
+        or activation.get("scope") != "phase6_runtime_activation"
+        or activation.get("locked_prospective_outcomes_read") is not False
+        or not isinstance(approved_modes, list)
+        or set(eligibility["modes"]) != runtime_modes
+        or not all(isinstance(value, bool) for value in eligibility["modes"].values())
+        or not all(isinstance(mode, str) and mode in runtime_modes for mode in approved_modes)
+        or len(set(approved_modes)) != len(approved_modes)
+        or any(eligibility["modes"].get(mode) is not True for mode in approved_modes)
+    ):
+        raise RuntimeError("runtime activation boundary is invalid")
+    activation_state = activation.get("activation_state")
+    activation_recorded = activation.get("product_activation_recorded")
+    if (
+        activation_state == "disabled"
+        and (activation_recorded is not False or approved_modes)
+    ) or (
+        activation_state == "approved"
+        and (activation_recorded is not True or not approved_modes)
+    ) or activation_state not in {"disabled", "approved"}:
+        raise RuntimeError("runtime activation state is inconsistent")
     if rollback.get("decision") != "pass" or rollback.get("migration_deployed") is not False:
         raise RuntimeError("beta protocol rollback proof did not pass")
     if deployment.get("decision") != "pass" or deployment.get("migration_deployed") is not True:
@@ -196,6 +243,8 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
     validate_inputs(values)
     model = values["model"]
     release = values["release"]
+    eligibility = values["runtime_eligibility"]
+    activation = values["runtime_activation"]
     rollback = values["beta_rollback"]
     deployment = values["beta_deployment"]
     wspr = values["wspr"]
@@ -374,18 +423,12 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
         },
         {
             "order": 5,
-            "action": "Validate every aggregate stop-event producer end to end",
-            "why": "An unused counter is not an observed zero; model-service and scheduled-monitor events must reach the signed receipt.",
-            "current": "participation API categories wired; model and aggregate-monitor categories pending",
-        },
-        {
-            "order": 6,
             "action": "Run opt-in alpha and preregistered StationCast beta",
             "why": "Only paired operator outcomes can support a personalization claim.",
             "current": "collection disabled; infrastructure deployed",
         },
         {
-            "order": 7,
+            "order": 6,
             "action": "Open the frozen 2026-08-01 through 2026-09-30 window once",
             "why": "The final NowCast release decision requires untouched prospective evidence.",
             "current": "future and unread",
@@ -424,6 +467,9 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "futurecast_days": future_days,
         "futurecast_required_days": future_required,
         "releaseable_modes": len(release["public_release"]["releaseable_modes"]),
+        "runtime_eligible_modes": sum(eligibility["modes"].values()),
+        "runtime_activated_modes": len(activation["approved_modes"]),
+        "runtime_activation_state": activation["activation_state"],
         "mode_count": 5,
         "release_decision": release["decision"],
         "six_meter_decision": six_meter["decision"],
@@ -766,7 +812,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "paired opt-in beta. Learned StationCast needs a new preregistered split and model version. FutureCast needs 90 genuine issued-forecast "
                 "days plus horizon skill; observed weather cannot be backfilled as forecasts. The experimental 6m mechanisms remain withheld despite "
                 "strong development skill because mechanism labels, GIRO/NWP validation, locked event/quiet evidence, and prospective tests are absent. "
-                "Keeping unsupported modes withheld does not weaken a later claim limited to modes that actually pass."
+                "Keeping unsupported modes withheld does not weaken a later claim limited to modes that actually pass. Environment flags cannot "
+                f"override these decisions: **{summary['runtime_eligible_modes']} modes are evidence-eligible and "
+                f"{summary['runtime_activated_modes']} are explicitly activated** (`{summary['runtime_activation_state']}`). Browser visibility, "
+                "System Health, outcome collection, and active inference receipts each fail closed unless both conditions hold."
             ),
         },
         {
@@ -801,8 +850,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "generalize automatically to every mode. Operators self-select time, path, equipment, and reporting, so even a successful StationCast "
                 "beta supports predictive utility rather than a causal equipment claim. The live WSPR candidate is not subscriber-authorized. A stale "
                 "heartbeat incident proved the off-M5 control path but was not a physical outage. The 2026-08-01 through 2026-09-30 window has not begun, "
-                "and its outcomes remain unread. Several aggregate stop counters still need validated model-service or scheduled-monitor producers; "
-                "an unused counter cannot be interpreted as an observed zero. Current percentages in the collection chart are elapsed evidence, not accuracy."
+                "and its outcomes remain unread. Every aggregate stop-event producer has passed isolated target-RPC validation, but no real beta outcomes "
+                "exist yet. Current percentages in the collection chart are elapsed evidence, not accuracy."
             ),
         },
         {

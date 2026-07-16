@@ -13,6 +13,7 @@ from validate_phase6_release_readiness import (  # noqa: E402
     EVIDENCE_PATHS,
     evaluate_release_readiness,
     load_evidence,
+    runtime_eligibility_document,
 )
 
 
@@ -233,6 +234,25 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
             result["public_release"]["releaseable_modes"],
             ["core_nowcast"],
         )
+
+    def test_runtime_eligibility_is_mode_specific_and_fail_closed(self) -> None:
+        evidence = release_evidence()
+        evidence["stationcast_beta"] = None
+        evaluation = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+        )
+
+        runtime = runtime_eligibility_document(evaluation)
+        self.assertEqual(runtime["scope"], "phase6_runtime_eligibility")
+        self.assertFalse(runtime["locked_prospective_outcomes_read"])
+        self.assertTrue(runtime["modes"]["system_health_view"])
+        self.assertTrue(runtime["modes"]["beta_collection"])
+        self.assertTrue(runtime["modes"]["core_nowcast"])
+        self.assertFalse(runtime["modes"]["stationcast_deterministic"])
+        self.assertFalse(runtime["modes"]["futurecast"])
+        self.assertFalse(runtime["modes"]["six_meter"])
 
     def test_existing_nested_migration_receipt_is_recognized(self) -> None:
         evidence = release_evidence()

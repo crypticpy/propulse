@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "scope": "phase6_runtime_eligibility",
+  "locked_prospective_outcomes_read": false,
+  "modes": {
+    "system_health_view": false,
+    "beta_collection": false,
+    "core_nowcast": false,
+    "stationcast_deterministic": false,
+    "stationcast_learned": false,
+    "futurecast": false,
+    "six_meter": false
+  }
+}

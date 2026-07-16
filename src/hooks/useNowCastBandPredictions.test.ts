@@ -58,4 +58,22 @@ describe("buildNowCastRequests", () => {
       hmac_sha256: "a".repeat(64),
     });
   });
+
+  it("omits the station chain when only the core mode is activated", () => {
+    const requests = buildNowCastRequests(
+      {
+        origin: { grid: "EM10ab", lat: 30, lon: -97 },
+        target: { grid: "IO91aa", lat: 51.5, lon: -0.1 },
+        deriveEnvelope: () => {
+          throw new Error("station envelope must not be built");
+        },
+      },
+      new Date("2026-07-12T12:00:00Z"),
+      false,
+    );
+
+    expect(requests).toHaveLength(10);
+    expect(requests.every((request) => request.station === undefined)).toBe(true);
+    expect(requests.every((request) => request.declared_power_watts === 5)).toBe(true);
+  });
 });

@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: model and Phase 6 readiness report",
     "description": "Technical model result, release evidence, blockers, and ordered next steps.",
-    "generatedAt": "2026-07-16T17:34:50.668157+00:00",
+    "generatedAt": "2026-07-16T17:54:33.539578+00:00",
     "blocks": [
       {
         "id": "title",
@@ -126,7 +126,7 @@
         "id": "mode_explainer",
         "type": "markdown",
         "sourceId": "phase6_evidence",
-        "body": "Core NowCast needs untouched prospective evidence in addition to live-source and outage proof. Deterministic StationCast needs its paired opt-in beta. Learned StationCast needs a new preregistered split and model version. FutureCast needs 90 genuine issued-forecast days plus horizon skill; observed weather cannot be backfilled as forecasts. The experimental 6m mechanisms remain withheld despite strong development skill because mechanism labels, GIRO/NWP validation, locked event/quiet evidence, and prospective tests are absent. Keeping unsupported modes withheld does not weaken a later claim limited to modes that actually pass."
+        "body": "Core NowCast needs untouched prospective evidence in addition to live-source and outage proof. Deterministic StationCast needs its paired opt-in beta. Learned StationCast needs a new preregistered split and model version. FutureCast needs 90 genuine issued-forecast days plus horizon skill; observed weather cannot be backfilled as forecasts. The experimental 6m mechanisms remain withheld despite strong development skill because mechanism labels, GIRO/NWP validation, locked event/quiet evidence, and prospective tests are absent. Keeping unsupported modes withheld does not weaken a later claim limited to modes that actually pass. Environment flags cannot override these decisions: **0 modes are evidence-eligible and 0 are explicitly activated** (`disabled`). Browser visibility, System Health, outcome collection, and active inference receipts each fail closed unless both conditions hold."
       },
       {
         "id": "definitions_heading",
@@ -148,7 +148,7 @@
         "id": "limitations",
         "type": "markdown",
         "sourceId": "phase6_evidence",
-        "body": "The locked archive is observational WSPR data and includes the receiver network; it does not prove causal equipment effects or generalize automatically to every mode. Operators self-select time, path, equipment, and reporting, so even a successful StationCast beta supports predictive utility rather than a causal equipment claim. The live WSPR candidate is not subscriber-authorized. A stale heartbeat incident proved the off-M5 control path but was not a physical outage. The 2026-08-01 through 2026-09-30 window has not begun, and its outcomes remain unread. Several aggregate stop counters still need validated model-service or scheduled-monitor producers; an unused counter cannot be interpreted as an observed zero. Current percentages in the collection chart are elapsed evidence, not accuracy."
+        "body": "The locked archive is observational WSPR data and includes the receiver network; it does not prove causal equipment effects or generalize automatically to every mode. Operators self-select time, path, equipment, and reporting, so even a successful StationCast beta supports predictive utility rather than a causal equipment claim. The live WSPR candidate is not subscriber-authorized. A stale heartbeat incident proved the off-M5 control path but was not a physical outage. The 2026-08-01 through 2026-09-30 window has not begun, and its outcomes remain unread. Every aggregate stop-event producer has passed isolated target-RPC validation, but no real beta outcomes exist yet. Current percentages in the collection chart are elapsed evidence, not accuracy."
       },
       {
         "id": "next_heading",
@@ -531,7 +531,7 @@
   "snapshot": {
     "version": 1,
     "status": "ready",
-    "generatedAt": "2026-07-16T17:34:50.668157+00:00",
+    "generatedAt": "2026-07-16T17:54:33.539578+00:00",
     "datasets": {
       "summary": [
         {
@@ -558,6 +558,9 @@
           "futurecast_days": 1,
           "futurecast_required_days": 90,
           "releaseable_modes": 0,
+          "runtime_eligible_modes": 0,
+          "runtime_activated_modes": 0,
+          "runtime_activation_state": "disabled",
           "mode_count": 5,
           "release_decision": "withheld",
           "six_meter_decision": "withheld",
@@ -977,18 +980,12 @@
         },
         {
           "order": 5,
-          "action": "Validate every aggregate stop-event producer end to end",
-          "why": "An unused counter is not an observed zero; model-service and scheduled-monitor events must reach the signed receipt.",
-          "current": "participation API categories wired; model and aggregate-monitor categories pending"
-        },
-        {
-          "order": 6,
           "action": "Run opt-in alpha and preregistered StationCast beta",
           "why": "Only paired operator outcomes can support a personalization claim.",
           "current": "collection disabled; infrastructure deployed"
         },
         {
-          "order": 7,
+          "order": 6,
           "action": "Open the frozen 2026-08-01 through 2026-09-30 window once",
           "why": "The final NowCast release decision requires untouched prospective evidence.",
           "current": "future and unread"

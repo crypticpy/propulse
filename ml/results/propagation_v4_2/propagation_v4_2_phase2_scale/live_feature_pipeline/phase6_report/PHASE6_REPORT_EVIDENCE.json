@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T17:34:50.668157+00:00",
+  "generated_at": "2026-07-16T17:54:33.539578+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,8 +12,18 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "b54129c82839daeb59ae3dd53b571b6ef23f6d3f12f084c8d86e66c63784786b",
+      "sha256": "f3d4f463711b779cfe9c5d951877bf00668ff429b94b1002e37a2a4cf791be96",
       "bytes": 9410
+    },
+    "runtime_eligibility": {
+      "path": "ml/config/propagation_v4_2_runtime_eligibility.json",
+      "sha256": "913440eb3c02f7f01236a8271b3bac0b1e24eaef49a846300c26affe15ab7cea",
+      "bytes": 342
+    },
+    "runtime_activation": {
+      "path": "ml/config/propagation_v4_2_runtime_activation.json",
+      "sha256": "2e307a3159c7d152cbd6081af690aad4933d4c1f2752b2daac2428db4b20ef9f",
+      "bytes": 330
     },
     "beta_rollback": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/propagation_beta_protocol_migration_validation.json",
@@ -87,6 +97,9 @@
         "futurecast_days": 1,
         "futurecast_required_days": 90,
         "releaseable_modes": 0,
+        "runtime_eligible_modes": 0,
+        "runtime_activated_modes": 0,
+        "runtime_activation_state": "disabled",
         "mode_count": 5,
         "release_decision": "withheld",
         "six_meter_decision": "withheld",
@@ -506,18 +519,12 @@
       },
       {
         "order": 5,
-        "action": "Validate every aggregate stop-event producer end to end",
-        "why": "An unused counter is not an observed zero; model-service and scheduled-monitor events must reach the signed receipt.",
-        "current": "participation API categories wired; model and aggregate-monitor categories pending"
-      },
-      {
-        "order": 6,
         "action": "Run opt-in alpha and preregistered StationCast beta",
         "why": "Only paired operator outcomes can support a personalization claim.",
         "current": "collection disabled; infrastructure deployed"
       },
       {
-        "order": 7,
+        "order": 6,
         "action": "Open the frozen 2026-08-01 through 2026-09-30 window once",
         "why": "The final NowCast release decision requires untouched prospective evidence.",
         "current": "future and unread"
@@ -572,7 +579,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T17:34:50.388582+00:00",
+    "generated_at": "2026-07-16T17:51:14.397578+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,

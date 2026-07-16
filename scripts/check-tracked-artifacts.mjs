@@ -27,7 +27,9 @@ function fail(message) {
 
 let output = "";
 try {
-  output = execSync("git ls-files", { encoding: "utf8" }).trim();
+  output = execSync("git -c core.fsmonitor=false ls-files", {
+    encoding: "utf8",
+  }).trim();
 } catch {
   fail("Unable to list tracked files.");
 }

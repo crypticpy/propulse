@@ -5,6 +5,11 @@
 > Phase 6 shadow, opt-in, and prospective evidence remains open; the frozen
 > 2026-08-01 through 2026-09-30 window is still in the future and unread.
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
+> Product/cloud execution: [`PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md`](PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md).
+> Because Propulse remains a private prelaunch product, A6 NowCast,
+> deterministic StationCast, ReachMap, and aggregate System Health may now be
+> visible internally. Evidence eligibility still controls research claims,
+> consented outcome collection, and any later public release.
 > M5 execution: [`PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md`](PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md).
 > Live feature contract: [`NOWCAST-LIVE-FEATURE-PIPELINE.md`](NOWCAST-LIVE-FEATURE-PIPELINE.md).
 > Predecessor evidence: [`V4.1 calibration recovery plan`](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md)
@@ -1080,12 +1085,15 @@ blockers.
 
 On the M5:
 
-> Read this file, `PERSONALIZED-PROPAGATION-V4-PLAN.md`, the final retrospective
+> Read this file, `PERSONALIZED-PROPAGATION-V4-PLAN.md`,
+> `PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md`, the final retrospective
 > report, and `NOWCAST-LIVE-FEATURE-PIPELINE.md`. The protocol state is
 > `archive_passed`; do not refit or tune A6 from December or 2025. Continue
-> Phase 6 by deploying the frozen bundle in shadow mode, recording event time,
+> Phase 6 by deploying the frozen bundle for visible internal integration while
+> the service remains in non-receipt shadow execution, recording event time,
 > receipt time, model/feature versions, freshness, fallbacks, core and
-> deterministic StationCast probabilities, and consented outcomes. Preserve the
+> deterministic StationCast probabilities. Enable consented outcomes only under
+> their independent beta protocol. Preserve the
 > 2026-08-01 through 2026-09-30 prospective window without inspection or tuning
 > until its preregistered evaluation. Keep FutureCast, learned StationCast, and
 > 6m as separate evidence tracks. Check the M5

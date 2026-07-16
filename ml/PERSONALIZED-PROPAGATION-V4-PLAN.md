@@ -2,8 +2,14 @@
 
 > Status, 2026-07-16: V4.2 performance recovery has completed the 50M model,
 > untouched December 2024 gate, and locked 2025 archive gate. The frozen A6
-> NowCast is approved for shadow integration. Prospective, opt-in StationCast,
-> FutureCast, and release evidence remains in progress. FutureCast V1 now has a
+> NowCast is approved for visible internal integration in the private prelaunch
+> product. Deterministic StationCast, ReachMap, and aggregate System Health may
+> also be shown internally with honest experimental/evidence status; scientific
+> gates now govern claims and public release rather than private UI visibility.
+> Prospective, opt-in StationCast, FutureCast, and release evidence remains in
+> progress. The remaining product/cloud work is sequenced in
+> [`PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md`](PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md).
+> FutureCast V1 now has a
 > frozen issued-forecast protocol, streaming source export, Polars materializer,
 > bounded multicore training, paired P.533 diagnostic, one-shot scorer, and a
 > browser-verified synthetic end-to-end report; genuine training remains
@@ -18,12 +24,13 @@
 
 On the M5, point the coding agent to this file with:
 
-> Read this file and `ml/PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`.
+> Read this file, `ml/PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`, and
+> `ml/PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md`.
 > Phases 0-5 of the V4.2 recovery are complete and the outcome protocol is
 > `archive_passed`; do not refit from December 2024 or 2025. Resume Phase 6 with
-> frozen-bundle shadow integration, consented evidence instrumentation, and the
-> still-unread 2026 prospective protocol. Use the external `Projects` drive for
-> all ignored data and model outputs.
+> visible internal product/cloud integration of the frozen bundle, consented
+> evidence instrumentation, and the still-unread 2026 prospective protocol. Use
+> the external `Projects` drive for all ignored data and model outputs.
 
 The agent must also read:
 

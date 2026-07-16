@@ -36,6 +36,8 @@ INPUTS = {
     / "research_health_monitor_migration_validation.json",
     "research_health_monitor_deployment_validation": RESULT
     / "research_health_monitor_deployment_validation.json",
+    "research_health_external_monitor_validation": RESULT
+    / "research_health_external_monitor_validation.json",
     "operational_weather_validation": RESULT / "operational_weather_validation.json",
     "orchestration_validation": RESULT / "orchestration_validation.json",
     "wspr_live_connector_validation": RESULT / "wspr_live_connector_validation.json",
@@ -110,6 +112,7 @@ def build_evidence(
     research_health_endpoint_validation: dict[str, Any],
     research_health_monitor_migration_validation: dict[str, Any],
     research_health_monitor_deployment_validation: dict[str, Any],
+    research_health_external_monitor_validation: dict[str, Any],
     operational_weather_validation: dict[str, Any],
     orchestration_validation: dict[str, Any],
     wspr_live_connector_validation: dict[str, Any],
@@ -166,6 +169,8 @@ def build_evidence(
         is not False
     ):
         raise RuntimeError("research-health monitor deployment validation did not pass")
+    if research_health_external_monitor_validation.get("decision") != "pass":
+        raise RuntimeError("external research-health monitor validation did not pass")
     if orchestration_validation.get("decision") != "pass":
         raise RuntimeError("live orchestration validation did not pass")
     if wspr_live_connector_validation.get("decision") != "pass":
@@ -192,6 +197,7 @@ def build_evidence(
             research_health_endpoint_validation,
             research_health_monitor_migration_validation,
             research_health_monitor_deployment_validation,
+            research_health_external_monitor_validation,
             operational_weather_validation,
             orchestration_validation,
             wspr_live_connector_validation,
@@ -292,6 +298,18 @@ def build_evidence(
         ),
         "research_health_monitor_deployment_gates_total": len(
             research_health_monitor_deployment_validation["gates"]
+        ),
+        "research_health_external_monitor_gates_passed": sum(
+            bool(value)
+            for value in research_health_external_monitor_validation["gates"].values()
+        ),
+        "research_health_external_monitor_gates_total": len(
+            research_health_external_monitor_validation["gates"]
+        ),
+        "research_health_external_monitor_age_seconds": int(
+            research_health_external_monitor_validation["response"][
+                "heartbeat_age_seconds"
+            ]
         ),
         "weather_gates_passed": sum(
             bool(value)
@@ -505,6 +523,11 @@ def build_evidence(
         "status": "pass" if passed else "fail",
     } for name, passed in research_health_monitor_deployment_validation["gates"].items())
     gate_rows.extend({
+        "scope": "Off-M5 external invocation",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_external_monitor_validation["gates"].items())
+    gate_rows.extend({
         "scope": "Trusted operational weather",
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
@@ -616,12 +639,26 @@ def build_evidence(
             "monitor_deployment_gates": research_health_monitor_deployment_validation[
                 "gates"
             ],
+            "external_monitor_scope": research_health_external_monitor_validation[
+                "scope"
+            ],
+            "external_monitor_gates": research_health_external_monitor_validation[
+                "gates"
+            ],
+            "external_monitor_run": research_health_external_monitor_validation[
+                "workflow_run"
+            ],
+            "external_monitor_response": research_health_external_monitor_validation[
+                "response"
+            ],
             "monitor_migration_deployed": True,
-            "external_monitor_invoked": False,
+            "external_monitor_invoked": True,
             "migration_deployed": True,
             "remote_endpoint_configured": True,
             "remote_heartbeat_delivered": True,
-            "alert_delivery_configured": False,
+            "alert_delivery_configured": research_health_external_monitor_validation[
+                "response"
+            ]["alert_delivery"]["configured"],
             "public_view_enabled": False,
             "aggregate_only": True,
         },
@@ -803,6 +840,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "research_health_monitor_deployment_gates_passed",
                 "Deployed stale-heartbeat transition, timestamp preservation, deduplication, and recovery gates.",
             ),
+            (
+                "external_monitor_gates",
+                "External monitor gates",
+                "research_health_external_monitor_gates_passed",
+                "GitHub-hosted fresh-heartbeat invocation, privacy, scheduling, and disabled-reader gates.",
+            ),
         )
     ]
     charts = [
@@ -962,6 +1005,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"The additive off-M5 monitor passed **{summary['research_health_monitor_rollback_gates_passed']} of "
                 f"{summary['research_health_monitor_rollback_gates_total']}** rollback gates and **{summary['research_health_monitor_deployment_gates_passed']} of "
                 f"{summary['research_health_monitor_deployment_gates_total']}** deployed-state gates while preserving the source heartbeat timestamp. "
+                f"A GitHub-hosted runner then passed **{summary['research_health_external_monitor_gates_passed']} of "
+                f"{summary['research_health_external_monitor_gates_total']}** external-invocation gates against the protected preview, "
+                f"observing a healthy heartbeat **{summary['research_health_external_monitor_age_seconds']} seconds** old with no transition "
+                "and zero failed or exhausted deliveries. "
                 f"Trusted operational weather then passed **{summary['weather_gates_passed']} of {summary['weather_gates_total']}** "
                 f"gates with **{summary['weather_feature_count']} causal fields** at **{summary['weather_path_p95_ms']:.2f} ms** cached path p95. "
                 f"Signed hourly orchestration passed **{summary['orchestration_gates_passed']} of {summary['orchestration_gates_total']}** "
@@ -1084,7 +1131,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are "
                 "implemented. The M5 now publishes signed aggregate heartbeats through the protected feature preview into the dedicated "
                 "private store. The alert destination, public server flag, and frontend build flag remain unset, so no remote escalation or "
-                "subscriber-visible health state is active."
+                "subscriber-visible health state is active. A separate GitHub-hosted runner successfully exercised the protected fresh-heartbeat "
+                "path from outside the M5; its branch-only trigger was removed, and the twice-hourly schedule becomes active when merged to the default branch."
             ),
         },
         {
@@ -1135,6 +1183,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "A separate additive migration established a service-role-only stale-heartbeat transition for off-M5 monitors. Rollback and "
                 "deployed-state tests proved that it preserves the last source timestamp, emits one alert per stale episode, ignores repeated "
                 "checks, leaves fresh or missing state unchanged, and lets the next genuine heartbeat emit recovery. "
+                "A GitHub-hosted Ubuntu runner then invoked the protected monitor endpoint at an immutable workflow run and commit, verified a fresh "
+                "identity-free response, and recorded zero failed or exhausted deliveries. The proof did not configure or exercise a webhook. "
                 "A real hardened NOAA capture separately verified the operational-weather path against A6."
             ),
         },
@@ -1164,8 +1214,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
                 f"plus one corrected source hour and {summary['shadow_completed_hours']} scheduled receipts do not prove 30-day provider completeness, permission for "
-                "subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The off-M5 monitor migration is deployed, "
-                "but its protected API/workflow and a real alert destination still require live invocation. The signed heartbeat path is active, "
+                "subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The off-M5 protected fresh-heartbeat path "
+                "has been invoked successfully, but a real stale transition, alert destination, webhook delivery, and recovery still require live smoke. "
+                "The signed heartbeat path is active, "
                 "but the product-health reader remains intentionally hidden until alert/recovery delivery and the source release gate pass. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
@@ -1181,7 +1232,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "## Next steps\n\n"
                 "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
                 "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
-                "3. Invoke the authenticated off-M5 workflow, configure a real HTTPS alert destination, smoke alert/recovery and full-M5-outage delivery, then enable the server and frontend health-view flags before beta.\n"
+                "3. Configure a user-approved HTTPS alert destination, smoke alert/recovery and full-M5-outage delivery through the proven off-M5 workflow, then enable the server and frontend health-view flags before beta.\n"
                 "4. Run opt-in beta outcome collection before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
@@ -1256,8 +1307,11 @@ end-to-end gates. The off-M5 monitor migration passed
 `{summary['research_health_monitor_rollback_gates_passed']}/{summary['research_health_monitor_rollback_gates_total']}`
 rollback and
 `{summary['research_health_monitor_deployment_gates_passed']}/{summary['research_health_monitor_deployment_gates_total']}`
-deployed-state gates; its external workflow and the double-gated public reader
-remain disabled.
+deployed-state gates. Its GitHub-hosted invocation passed
+`{summary['research_health_external_monitor_gates_passed']}/{summary['research_health_external_monitor_gates_total']}`
+gates with a fresh heartbeat `{summary['research_health_external_monitor_age_seconds']}`
+seconds old. A real alert destination and alert/recovery smoke remain open;
+the double-gated public reader remains disabled.
 See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
@@ -1295,6 +1349,9 @@ def main() -> None:
     research_health_monitor_deployment_validation = read_json(
         INPUTS["research_health_monitor_deployment_validation"]
     )
+    research_health_external_monitor_validation = read_json(
+        INPUTS["research_health_external_monitor_validation"]
+    )
     operational_weather_validation = read_json(
         INPUTS["operational_weather_validation"]
     )
@@ -1320,6 +1377,7 @@ def main() -> None:
         research_health_endpoint_validation,
         research_health_monitor_migration_validation,
         research_health_monitor_deployment_validation,
+        research_health_external_monitor_validation,
         operational_weather_validation,
         orchestration_validation,
         wspr_live_connector_validation,

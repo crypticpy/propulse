@@ -1,14 +1,6 @@
 name: Research health monitor
 
 on:
-  push:
-    branches:
-      - feat/archive-multimonth-v3
-    paths:
-      - .github/workflows/research-health-monitor.yml
-      - api/_lib/researchHealth.ts
-      - api/propagation/research-health.ts
-      - api/propagation/research-health-monitor.ts
   schedule:
     - cron: "17,47 * * * *"
   workflow_dispatch:

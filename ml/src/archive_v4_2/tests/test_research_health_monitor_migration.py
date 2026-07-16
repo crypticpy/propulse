@@ -31,13 +31,14 @@ class ResearchHealthMonitorMigrationTests(unittest.TestCase):
     def test_external_workflow_is_private_and_inside_stale_boundary(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn('cron: "17,47 * * * *"', workflow)
-        self.assertIn("feat/archive-multimonth-v3", workflow)
+        self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("PROPULSE_RESEARCH_HEALTH_MONITOR_SECRET", workflow)
         self.assertIn("Authorization: Bearer", workflow)
         self.assertIn("X-Vercel-Protection-Bypass", workflow)
         self.assertIn('(.heartbeatStale == false)', workflow)
         self.assertIn("--retry-max-time 90", workflow)
         self.assertIn("timeout-minutes: 3", workflow)
+        self.assertNotIn("\n  push:", workflow)
 
 
 if __name__ == "__main__":

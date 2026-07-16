@@ -685,9 +685,12 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Configure and validate the protected preview health endpoint from the M5
   with a signed aggregate heartbeat, dedicated private store, and public reader
   disabled.
-- [ ] Configure a remote alert destination and an independent off-M5 stale-
-  heartbeat monitor, smoke alert/recovery and full-M5-outage delivery, and only
-  then enable the server/frontend view flags.
+- [x] Deploy and invoke the authenticated off-M5 monitor from a GitHub-hosted
+  runner against the protected preview; verify a fresh identity-free heartbeat,
+  zero delivery failures, and a disabled public reader.
+- [ ] Configure a remote alert destination, smoke an actual stale alert plus
+  genuine-heartbeat recovery and full-M5-outage delivery, and only then enable
+  the server/frontend view flags.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -736,9 +739,13 @@ M5-to-endpoint-to-private-store validation passed 8/8 gates with the public
 reader still disabled. The additive off-M5 monitor migration then passed 17/17
 rollback gates and 18/18 deployed-state gates, including preservation of the
 last source timestamp, one stale transition, repeat suppression, and genuine-
-heartbeat recovery. Its authenticated GitHub workflow is implemented but not
-yet invoked against the protected preview. An approved subscriber-facing
-source, remote webhook delivery smoke,
+heartbeat recovery. Its authenticated GitHub workflow then passed a protected-
+preview invocation from a GitHub-hosted runner at immutable run `29480631813`:
+the private heartbeat was fresh at 490 seconds, no transition occurred, no
+delivery failed or exhausted retries, and the public reader remained disabled.
+The temporary feature-branch push trigger was removed; the twice-hourly schedule
+activates after the workflow reaches the default branch. An approved subscriber-
+facing source, real stale alert/recovery webhook delivery smoke,
 30-day live coverage, beta outcomes, and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on

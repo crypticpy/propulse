@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T07:32:26.270469+00:00
+Generated: 2026-07-16T07:53:12.542878+00:00
 
 ## Answer first
 
@@ -40,7 +40,10 @@ end-to-end gates. The off-M5 monitor migration passed
 `17/17`
 rollback and
 `18/18`
-deployed-state gates; its external workflow and the double-gated public reader
-remain disabled.
+deployed-state gates. Its GitHub-hosted invocation passed
+`13/13`
+gates with a fresh heartbeat `490`
+seconds old. A real alert destination and alert/recovery smoke remain open;
+the double-gated public reader remains disabled.
 See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.

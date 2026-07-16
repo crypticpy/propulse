@@ -223,8 +223,9 @@ kind. Generic destinations also require the exact
 `PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST`; only generic destinations may
 use a bearer token. Delivery refuses redirects, uses an idempotency key for
 generic receivers, stores sanitized errors, and stops retrying an event after
-eight attempts. Smoke alert plus recovery and prove an independent off-M5
-stale-heartbeat check before activation. Only afterward may
+eight attempts. Use the proven independent off-M5 runner to smoke an actual
+stale alert plus genuine-heartbeat recovery before activation. Only afterward
+may
 `PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED` and
 `VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED` be enabled. These flags expose
 coarse health only; they do not authorize a WSPR source or select NowCast.
@@ -283,10 +284,18 @@ ml/.venv/bin/python \
 ```
 
 The GitHub workflow requires encrypted repository values for its monitor
-endpoint, independent bearer, and protected-preview bypass. Scheduled and
-manual-dispatch workflows require the file on the default branch. The feature
-branch uses one temporary, path-scoped push trigger for protected-preview
-validation; remove that trigger after its successful run.
+endpoint, independent bearer, and protected-preview bypass. Those values are
+configured as repository secrets. The protected-preview fresh path passed from
+a GitHub-hosted runner in
+[run 29480631813](https://github.com/crypticpy/propulse/actions/runs/29480631813):
+the response was identity-free, `evaluated=true`, 490 seconds fresh, unchanged,
+and had zero failed or exhausted deliveries. The M5-generated
+`research_health_external_monitor_validation.json` records the immutable run
+and commit plus the disabled-reader and privacy gates. The temporary, path-
+scoped feature-branch push trigger was then removed. Scheduled and manual-
+dispatch workflows require the file on the default branch, so the minutes 17
+and 47 schedule becomes active after merge. This fresh-path proof does not
+replace a live stale-alert/recovery webhook smoke.
 
 The private schema procedure is M5-only and password-safe:
 

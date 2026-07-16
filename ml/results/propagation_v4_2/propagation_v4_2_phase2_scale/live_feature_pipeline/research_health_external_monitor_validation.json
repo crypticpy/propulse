@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T07:50:47.311070+00:00",
+  "scope": "off_m5_protected_preview_fresh_heartbeat_validation",
+  "research_only": true,
+  "locked_outcomes_read": false,
+  "public_view_enabled": false,
+  "external_runner": "github_actions",
+  "workflow_run": {
+    "id": 29480631813,
+    "url": "https://github.com/crypticpy/propulse/actions/runs/29480631813",
+    "head_sha": "f60f4dd397d712d531cbe22f3175efc9263fc000",
+    "conclusion": "success"
+  },
+  "response": {
+    "evaluated": true,
+    "heartbeat_stale": false,
+    "state_changed": false,
+    "heartbeat_age_seconds": 490,
+    "alert_delivery": {
+      "configured": false,
+      "failed": 0,
+      "exhausted": 0
+    }
+  },
+  "runtime": {
+    "validation_machine": "arm64",
+    "physical_cores_visible": 18
+  },
+  "gates": {
+    "github_workflow_concluded_success": true,
+    "github_run_url_exact": true,
+    "immutable_head_sha_recorded": true,
+    "fresh_heartbeat_evaluated": true,
+    "heartbeat_not_stale": true,
+    "no_unexpected_state_transition": true,
+    "no_failed_or_exhausted_delivery": true,
+    "independent_schedule_configured": true,
+    "release_workflow_push_trigger_removed": true,
+    "public_view_remains_disabled": true,
+    "native_m5_evidence_validation": true,
+    "locked_outcomes_unread": true,
+    "identity_free_evidence": true
+  },
+  "decision": "pass"
+}

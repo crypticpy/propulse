@@ -243,9 +243,9 @@ Discord, or generic HTTPS destination with
 exact `PROPULSE_RESEARCH_ALERT_WEBHOOK_ALLOWED_HOST`; a bearer token is valid
 only for that generic mode. Delivery refuses redirects, sends a generic
 idempotency key, sanitizes stored errors, and caps each event at eight attempts.
-Smoke both alert and recovery, prove an independent off-M5 stale-heartbeat
-check, then enable the two view flags. This health path does not enable
-inference or source permission.
+Use the proven independent off-M5 runner to smoke both an actual stale alert and
+genuine-heartbeat recovery, then enable the two view flags. This health path
+does not enable inference or source permission.
 
 The M5 watchdog cannot report total loss of its own power or network. The
 pre-beta design therefore requires an independent monitor to check the private
@@ -259,9 +259,12 @@ and 18 deployed-state gates on PostgreSQL 17.6. It preserves the last source
 heartbeat timestamp, emits one stale transition, suppresses repeated checks,
 does nothing to fresh or missing state, and lets the next genuine heartbeat
 emit recovery. `research-health-monitor.yml` calls the bearer-protected API at
-minutes 17 and 47 once the workflow is present on the default branch. A
-temporary path-scoped feature-branch push validates the protected preview
-before merge and is removed after its successful run.
+minutes 17 and 47 once the workflow is present on the default branch. GitHub
+Actions run `29480631813` passed the protected-preview fresh path with a
+490-second-old identity-free heartbeat, no transition, and zero failed or
+exhausted deliveries. Its temporary feature-branch push trigger is removed.
+The remaining alerting gate is a real destination plus stale alert/recovery and
+full-M5-outage delivery smoke.
 
 Rollback-validate, deploy, and verify the private migration only on the M5:
 

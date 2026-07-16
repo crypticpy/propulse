@@ -56,6 +56,10 @@ class Phase6ReadinessReportTests(unittest.TestCase):
         self.assertTrue(
             all(row["passed"] for row in evidence["datasets"]["beta_gate_rows"])
         )
+        self.assertTrue(any(
+            "stop-event producer" in row["action"]
+            for row in evidence["datasets"]["next_steps"]
+        ))
 
     def test_report_keeps_mode_decisions_separate(self) -> None:
         values = {

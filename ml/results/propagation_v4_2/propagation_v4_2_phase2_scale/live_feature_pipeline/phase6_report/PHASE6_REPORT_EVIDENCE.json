@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T14:44:10.115432+00:00",
+  "generated_at": "2026-07-16T14:55:20.079051+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,7 +12,7 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "f33745c2c1642296df90ff990e2477217c221196900fb5e7f8357d335f2a0539",
+      "sha256": "e1fe0cfcf71e098a02e5672c68f4f568d3b58820f920ab6ef2044ee6591244dc",
       "bytes": 8433
     },
     "beta_rollback": {
@@ -479,12 +479,18 @@
       },
       {
         "order": 5,
+        "action": "Validate every aggregate stop-event producer end to end",
+        "why": "An unused counter is not an observed zero; model-service and scheduled-monitor events must reach the signed receipt.",
+        "current": "participation API categories wired; model and aggregate-monitor categories pending"
+      },
+      {
+        "order": 6,
         "action": "Run opt-in alpha and preregistered StationCast beta",
         "why": "Only paired operator outcomes can support a personalization claim.",
         "current": "collection disabled; infrastructure deployed"
       },
       {
-        "order": 6,
+        "order": 7,
         "action": "Open the frozen 2026-08-01 through 2026-09-30 window once",
         "why": "The final NowCast release decision requires untouched prospective evidence.",
         "current": "future and unread"
@@ -535,7 +541,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T14:44:00.896477+00:00",
+    "generated_at": "2026-07-16T14:53:13.399394+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -658,7 +664,7 @@
       "beta_protocol": {
         "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
         "exists": true,
-        "sha256": "8d9bae064cc0a8d0955d5eacb1e703edb7ff732765e437292afd316d368db6d2"
+        "sha256": "7ef8720e893c4d47513a5b7798ef3d3a7c0d6b3b6880e81753d0091f6686c88e"
       }
     },
     "gates": {

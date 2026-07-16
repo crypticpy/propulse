@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T14:44:00.896477+00:00",
+  "generated_at": "2026-07-16T14:53:13.399394+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -123,7 +123,7 @@
     "beta_protocol": {
       "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
       "exists": true,
-      "sha256": "8d9bae064cc0a8d0955d5eacb1e703edb7ff732765e437292afd316d368db6d2"
+      "sha256": "7ef8720e893c4d47513a5b7798ef3d3a7c0d6b3b6880e81753d0091f6686c88e"
     }
   },
   "gates": {

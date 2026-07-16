@@ -343,12 +343,18 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
         },
         {
             "order": 5,
+            "action": "Validate every aggregate stop-event producer end to end",
+            "why": "An unused counter is not an observed zero; model-service and scheduled-monitor events must reach the signed receipt.",
+            "current": "participation API categories wired; model and aggregate-monitor categories pending",
+        },
+        {
+            "order": 6,
             "action": "Run opt-in alpha and preregistered StationCast beta",
             "why": "Only paired operator outcomes can support a personalization claim.",
             "current": "collection disabled; infrastructure deployed",
         },
         {
-            "order": 6,
+            "order": 7,
             "action": "Open the frozen 2026-08-01 through 2026-09-30 window once",
             "why": "The final NowCast release decision requires untouched prospective evidence.",
             "current": "future and unread",
@@ -754,7 +760,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "generalize automatically to every mode. Operators self-select time, path, equipment, and reporting, so even a successful StationCast "
                 "beta supports predictive utility rather than a causal equipment claim. The live WSPR candidate is not subscriber-authorized. A stale "
                 "heartbeat incident proved the off-M5 control path but was not a physical outage. The 2026-08-01 through 2026-09-30 window has not begun, "
-                "and its outcomes remain unread. Current percentages in the collection chart are elapsed evidence, not accuracy."
+                "and its outcomes remain unread. Several aggregate stop counters still need validated model-service or scheduled-monitor producers; "
+                "an unused counter cannot be interpreted as an observed zero. Current percentages in the collection chart are elapsed evidence, not accuracy."
             ),
         },
         {

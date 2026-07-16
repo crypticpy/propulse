@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T15:40:57.563490+00:00",
+  "generated_at": "2026-07-16T15:44:35.757259+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -28,7 +28,7 @@
     "wspr_shadow": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
       "exists": true,
-      "sha256": "2b804b4bcefcb0fe1b5e78cc08e59c75dd07c41ccf22c9eead8a1f9f4ef77730",
+      "sha256": "4a5549852024efd547ab16b97e1eab65001f3ae9f8dcceb7eddab30616d7608f",
       "schema_version": 1,
       "decision": "collecting"
     },
@@ -40,7 +40,7 @@
     "prospective_capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
       "exists": true,
-      "sha256": "90759eebbe94554ebad795f0a6b07449a49f895fcb3e425d1cde5c507c37997b",
+      "sha256": "49b8c45dd60bfce773a5d0e7ffe4a2c87663e1ff40febd23881fe237cbf62b0e",
       "schema_version": 1,
       "decision": null
     },
@@ -94,7 +94,7 @@
     "beta_stop_producers": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_stop_producer_validation.json",
       "exists": true,
-      "sha256": "a89c6da50386c242c7da6ad0a1b81c68dc4360e5b07095eec454352a2748aa5c",
+      "sha256": "09cf398cdcc92d782958e8c5c0c03ce84588d766be7be5bb21136ef2602409e0",
       "schema_version": 1,
       "decision": "pass"
     },

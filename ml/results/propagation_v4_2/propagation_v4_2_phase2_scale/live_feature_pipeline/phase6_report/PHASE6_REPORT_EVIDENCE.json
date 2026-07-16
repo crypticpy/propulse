@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T15:40:57.723806+00:00",
+  "generated_at": "2026-07-16T15:44:35.920657+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,7 +12,7 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "83c19f51498fb8b25944f30364fe245d3d05b7b8a19c87719277b0265037fb49",
+      "sha256": "285e3f97be1dfd364329d77f51d85ec068accdd36722253f6ea4a4663b6e72e8",
       "bytes": 8820
     },
     "beta_rollback": {
@@ -27,13 +27,13 @@
     },
     "wspr": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "2b804b4bcefcb0fe1b5e78cc08e59c75dd07c41ccf22c9eead8a1f9f4ef77730",
+      "sha256": "4a5549852024efd547ab16b97e1eab65001f3ae9f8dcceb7eddab30616d7608f",
       "bytes": 1792
     },
     "capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "90759eebbe94554ebad795f0a6b07449a49f895fcb3e425d1cde5c507c37997b",
-      "bytes": 4807
+      "sha256": "49b8c45dd60bfce773a5d0e7ffe4a2c87663e1ff40febd23881fe237cbf62b0e",
+      "bytes": 4814
     },
     "beta_config": {
       "path": "ml/config/propagation_v4_2_beta_protocol.json",
@@ -72,7 +72,7 @@
         "beta_deployment_total": 23,
         "wspr_hours": 12,
         "wspr_required_hours": 720,
-        "capture_hours": 4.019001265,
+        "capture_hours": 4.208192640833333,
         "capture_required_hours": 24.0,
         "futurecast_days": 1,
         "futurecast_required_days": 90,
@@ -173,10 +173,10 @@
     "collection_progress_rows": [
       {
         "evidence_track": "First-party capture",
-        "observed": 4.019001265,
+        "observed": 4.208192640833333,
         "required": 24.0,
         "unit": "continuous hours",
-        "completion": 0.16745838604166666
+        "completion": 0.17534136003472223
       },
       {
         "evidence_track": "WSPR shadow",
@@ -462,7 +462,7 @@
         "order": 1,
         "action": "Sustain nonempty first-party capture for 24 continuous hours",
         "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-        "current": "4.02/24 hours"
+        "current": "4.21/24 hours"
       },
       {
         "order": 2,
@@ -546,7 +546,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T15:40:57.563490+00:00",
+    "generated_at": "2026-07-16T15:44:35.757259+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -574,7 +574,7 @@
       "wspr_shadow": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
         "exists": true,
-        "sha256": "2b804b4bcefcb0fe1b5e78cc08e59c75dd07c41ccf22c9eead8a1f9f4ef77730",
+        "sha256": "4a5549852024efd547ab16b97e1eab65001f3ae9f8dcceb7eddab30616d7608f",
         "schema_version": 1,
         "decision": "collecting"
       },
@@ -586,7 +586,7 @@
       "prospective_capture": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
         "exists": true,
-        "sha256": "90759eebbe94554ebad795f0a6b07449a49f895fcb3e425d1cde5c507c37997b",
+        "sha256": "49b8c45dd60bfce773a5d0e7ffe4a2c87663e1ff40febd23881fe237cbf62b0e",
         "schema_version": 1,
         "decision": null
       },
@@ -640,7 +640,7 @@
       "beta_stop_producers": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_stop_producer_validation.json",
         "exists": true,
-        "sha256": "a89c6da50386c242c7da6ad0a1b81c68dc4360e5b07095eec454352a2748aa5c",
+        "sha256": "09cf398cdcc92d782958e8c5c0c03ce84588d766be7be5bb21136ef2602409e0",
         "schema_version": 1,
         "decision": "pass"
       },

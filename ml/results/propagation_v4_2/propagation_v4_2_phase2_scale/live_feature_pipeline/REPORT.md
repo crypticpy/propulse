@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T15:36:23.724043+00:00
+Generated: 2026-07-16T15:44:37.908453+00:00
 
 ## Answer first
 
@@ -65,7 +65,7 @@ have been gathered.
 The separate first-party prospective collector is operational with
 `4/4`
 sources current. Its readiness state remains warming at
-`4.02/24`
+`4.21/24`
 gap-free hours because the first settled startup aggregates were empty. The
 frozen August-September outcomes remain unread.
 See `REPORT.html` for charts,

@@ -20,7 +20,7 @@
 > measurements concurrently. All four operational input gates are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming` at `4.02/24` hours across 19 healthy receipts until
+> receipt remains `warming` at `4.21/24` hours across 20 healthy receipts until
 > nonempty aggregates sustain 24 gap-free hours.
 > Research-shadow status, 2026-07-16T15:33Z: `12/12` expected WSPR hours are
 > complete with zero gaps (`12/720` duration gate), `2,867,582` observations,
@@ -773,8 +773,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `4.02/24` hours across
-  19 healthy receipts; the August-September outcomes remain unread.
+  the latest preserved receipt is honestly `warming` at `4.21/24` hours across
+  20 healthy receipts; the August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
   service `95/95`, V4.1 `37/37`, V4.2 `148/148`, and
   frontend/API/collector `94/94` tests, plus lint, TypeScript, production

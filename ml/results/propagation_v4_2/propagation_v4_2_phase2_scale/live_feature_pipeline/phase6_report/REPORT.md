@@ -11,7 +11,7 @@ releaseable, and prospective outcomes remain unread.
 
 ## Current clocks
 
-- First-party capture: 4.02/24 continuous hours.
+- First-party capture: 4.21/24 continuous hours.
 - Permitted WSPR shadow: 12/720 completed hours.
 - FutureCast issuance history: 1/90 consecutive legal days.
 

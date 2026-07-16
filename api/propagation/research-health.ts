@@ -34,14 +34,17 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
-interface SupabaseConfig {
+export interface SupabaseConfig {
   baseUrl: string;
   serviceKey: string;
 }
 
-function supabaseConfig(): SupabaseConfig | null {
-  const baseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export function researchHealthStoreConfig(): SupabaseConfig | null {
+  const dedicatedUrl = process.env.PROPULSE_RESEARCH_HEALTH_STORE_URL;
+  const dedicatedKey = process.env.PROPULSE_RESEARCH_HEALTH_STORE_SERVICE_KEY;
+  if (Boolean(dedicatedUrl) !== Boolean(dedicatedKey)) return null;
+  const baseUrl = (dedicatedUrl ?? process.env.SUPABASE_URL)?.replace(/\/$/, "");
+  const serviceKey = dedicatedKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   return baseUrl && serviceKey ? { baseUrl, serviceKey } : null;
 }
 
@@ -167,7 +170,7 @@ async function postHealth(request: Request): Promise<Response> {
   const limited = applyRateLimit(request, "propagation/research-health-post", 10, 60);
   if (limited) return limited;
   const ingestSecret = process.env.PROPULSE_RESEARCH_HEALTH_INGEST_SECRET;
-  const store = supabaseConfig();
+  const store = researchHealthStoreConfig();
   if (!ingestSecret || ingestSecret.length < 32 || !store) {
     return jsonResponse({ error: "Server misconfiguration" }, 503);
   }
@@ -240,7 +243,7 @@ async function getHealth(request: Request): Promise<Response> {
   if (process.env.PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED !== "true") {
     return jsonResponse({ error: "Not found" }, 404);
   }
-  const store = supabaseConfig();
+  const store = researchHealthStoreConfig();
   if (!store) return jsonResponse({ error: "Server misconfiguration" }, 503);
   try {
     const result = await supabaseJson(

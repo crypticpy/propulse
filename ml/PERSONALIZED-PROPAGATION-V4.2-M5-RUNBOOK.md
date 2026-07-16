@@ -231,6 +231,13 @@ never as a query parameter, process argument, plist value, or report field.
 Production does not require this value while its public domain remains outside
 preview protection. See [Vercel Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation).
 
+Use the dedicated `PROPULSE_RESEARCH_HEALTH_STORE_URL` and
+`PROPULSE_RESEARCH_HEALTH_STORE_SERVICE_KEY` server variables if the private
+health migration is deployed to a different Supabase project than the product
+preview. They are all-or-nothing and take precedence over the general Supabase
+pair, so a stale preview credential cannot redirect aggregate health into the
+wrong project.
+
 The private schema procedure is M5-only and password-safe:
 
 ```bash

@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
-import handler from "./research-health";
+import handler, { researchHealthStoreConfig } from "./research-health";
 
 const ORIGINAL_VIEW_FLAG = process.env.PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED;
 const ORIGINAL_INGEST_SECRET = process.env.PROPULSE_RESEARCH_HEALTH_INGEST_SECRET;
+const STORE_ENV_NAMES = [
+  "PROPULSE_RESEARCH_HEALTH_STORE_URL",
+  "PROPULSE_RESEARCH_HEALTH_STORE_SERVICE_KEY",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+] as const;
+const ORIGINAL_STORE_ENV = Object.fromEntries(
+  STORE_ENV_NAMES.map((name) => [name, process.env[name]]),
+);
 
 afterEach(() => {
   if (ORIGINAL_VIEW_FLAG === undefined) {
@@ -14,6 +23,11 @@ afterEach(() => {
     delete process.env.PROPULSE_RESEARCH_HEALTH_INGEST_SECRET;
   } else {
     process.env.PROPULSE_RESEARCH_HEALTH_INGEST_SECRET = ORIGINAL_INGEST_SECRET;
+  }
+  for (const name of STORE_ENV_NAMES) {
+    const original = ORIGINAL_STORE_ENV[name];
+    if (original === undefined) delete process.env[name];
+    else process.env[name] = original;
   }
 });
 
@@ -46,5 +60,20 @@ describe("research health endpoint gates", () => {
     );
     expect(response.status).toBe(204);
     expect(await response.text()).toBe("");
+  });
+
+  it("keeps a dedicated health store all-or-nothing", () => {
+    process.env.SUPABASE_URL = "https://general.supabase.test";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "general-key";
+    process.env.PROPULSE_RESEARCH_HEALTH_STORE_URL =
+      "https://dedicated.supabase.test";
+    delete process.env.PROPULSE_RESEARCH_HEALTH_STORE_SERVICE_KEY;
+    expect(researchHealthStoreConfig()).toBeNull();
+
+    process.env.PROPULSE_RESEARCH_HEALTH_STORE_SERVICE_KEY = "dedicated-key";
+    expect(researchHealthStoreConfig()).toEqual({
+      baseUrl: "https://dedicated.supabase.test",
+      serviceKey: "dedicated-key",
+    });
   });
 });

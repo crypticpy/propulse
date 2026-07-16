@@ -216,6 +216,13 @@ outbox. It never receives station, path, row-count, equipment, or credential
 fields. The migration passed 19 rollback gates and 20 deployed-state gates on
 PostgreSQL 17.6, with every smoke row rolled back.
 
+When the health tables live outside the application's general Supabase project,
+configure both `PROPULSE_RESEARCH_HEALTH_STORE_URL` and
+`PROPULSE_RESEARCH_HEALTH_STORE_SERVICE_KEY` on the server. Partial dedicated
+configuration fails closed and never mixes a dedicated URL with a general
+service key. The endpoint falls back to `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` only when neither dedicated value is present.
+
 `SystemHealthPage` reads the coarse endpoint only when both
 `PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED=true` on the server and
 `VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED=true` at frontend build time. Both

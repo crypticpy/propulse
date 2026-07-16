@@ -148,6 +148,27 @@ class BetaTelemetryTests(unittest.TestCase):
             ),
             {},
         )
+        capped = copy.deepcopy(valid)
+        capped["requestedPowerWatts"] = 100
+        self.assertEqual(
+            station_envelope_stop_counts(
+                capped,
+                request_band="20m",
+                request_mode="WSPR",
+                request_declared_power_watts=25,
+            ),
+            {},
+        )
+        mismatched_conducted_power = copy.deepcopy(valid)
+        self.assertEqual(
+            station_envelope_stop_counts(
+                mismatched_conducted_power,
+                request_band="20m",
+                request_mode="WSPR",
+                request_declared_power_watts=20,
+            ),
+            {"equipment_math_events": 1},
+        )
         invalid_math = copy.deepcopy(valid)
         invalid_math["eirpWatts"] *= 2
         self.assertEqual(

@@ -331,9 +331,9 @@ def station_envelope_stop_counts(
         math_violation = True
     if (
         request_declared_power_watts is not None
-        and "requestedPowerWatts" in numbers
+        and "conductedPowerWatts" in numbers
         and not _close(
-            numbers["requestedPowerWatts"],
+            numbers["conductedPowerWatts"],
             request_declared_power_watts,
         )
     ):

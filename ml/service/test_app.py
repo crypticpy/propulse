@@ -406,6 +406,9 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(receipt_contains_raw_private_fields({
             "station_capability": {"eirpWatts": 100},
         }))
+        self.assertTrue(receipt_contains_raw_private_fields({
+            "station_capability": {"RADIOID": "private"},
+        }))
         self.assertFalse(receipt_contains_raw_private_fields({
             "station_capability": {"tx_eirp": "25_100w"},
         }))

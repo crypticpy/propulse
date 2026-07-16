@@ -55,22 +55,28 @@ RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v2"
 RESEARCH_SUBJECT_SCHEMA_VERSION = "propagation-research-subject-v1"
 RESEARCH_RECEIPT_TTL_SECONDS = 24 * 60 * 60
 RAW_RECEIPT_FORBIDDEN_KEYS = frozenset({
-    "amplifierGainDb",
-    "antennaGainTowardPathDbi",
+    "amplifiergaindb",
+    "antennagaintowardpathdbi",
     "callsign",
-    "conductedPowerWatts",
+    "conductedpowerwatts",
+    "coordinates",
     "email",
-    "eirpWatts",
-    "erpWatts",
-    "feedlineLossDb",
-    "inlineLossDb",
-    "localSystemNoiseFloorDbm",
-    "powerAtAntennaWatts",
-    "receiverNoiseFloorDbm",
-    "requestedPowerWatts",
+    "eirpwatts",
+    "erpwatts",
+    "feedlinelossdb",
+    "inlineequipment",
+    "inlinelossdb",
+    "inventory",
+    "localsystemnoisefloordbm",
+    "password",
+    "poweratantennawatts",
+    "radioid",
+    "receivernoisefloordbm",
+    "requestedpowerwatts",
     "station",
-    "totalPassiveLossDb",
+    "totalpassivelossdb",
     "user_id",
+    "userid",
     "values",
 })
 INFERENCE_MODES = {"disabled", "shadow", "active"}
@@ -847,7 +853,7 @@ def build_research_receipt(
 
 def receipt_contains_raw_private_fields(value: Any) -> bool:
     if isinstance(value, dict):
-        if RAW_RECEIPT_FORBIDDEN_KEYS.intersection(value):
+        if any(str(key).lower() in RAW_RECEIPT_FORBIDDEN_KEYS for key in value):
             return True
         return any(receipt_contains_raw_private_fields(item) for item in value.values())
     if isinstance(value, list):

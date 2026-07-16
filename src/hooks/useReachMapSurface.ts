@@ -46,7 +46,7 @@ export function useReachMapSurface(options: {
   const weatherKey = JSON.stringify(options.weather ?? {});
   const declaredPowerWatts = useMemo(() => {
     const envelope = deriveEnvelope(options.band, { mode: "WSPR" });
-    return Math.max(envelope?.requestedPowerWatts ?? 5, 0.001);
+    return Math.max(envelope?.conductedPowerWatts ?? 5, 0.001);
   }, [deriveEnvelope, options.band]);
 
   useEffect(() => {

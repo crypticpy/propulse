@@ -221,12 +221,16 @@ separate responsibilities:
    database audit of attempts, binary outcomes, unknown/not-attempted outcomes,
    open attempts, OOD/fallback exclusions, withdrawals, and retention deletion.
    It also verifies a signed aggregate API-telemetry receipt against
-   `config/propagation_v4_2_beta_api_telemetry.schema.json`.
+   `config/propagation_v4_2_beta_api_telemetry.schema.json` and verifies the
+   latest owner-only HMAC-signed weekly stop-monitor receipt. The operations
+   receipt binds both inputs, the monitor evidence, and the frozen config by
+   SHA-256 without recording private paths.
 3. `score_stationcast_beta.py` uses Polars streaming input, applies the frozen
    primary filter and participant cap, computes paired probabilistic metrics,
    runs the operator-cluster bootstrap, and withholds subthreshold cells. A real
    decision fails closed when the operational receipt is missing, synthetic,
-   malformed, or withheld.
+   malformed, withheld, missing its exact signed monitor input, or bound to a
+   different monitor checksum.
 4. `run_synthetic_stationcast_beta.py` exercises the exact scorer on native
    ARM64 with all visible Polars threads. Its receipt always writes
    `release_approved: false`, even when every synthetic gate passes.
@@ -247,14 +251,36 @@ Parquet SHA-256 and row count, export window, and operations window to agree.
 The 30-day gate counts distinct observed UTC dates, not the distance between
 the first and last observation. The deployed participation API automatically
 records requests, errors, consent, subject-binding, stale-profile, and signed
-receipt-integrity events. The exact aggregate schema also reserves independent
-privacy, station-math, unsupported-support, high-confidence-overprediction,
-and geographic-regression counters. Those remaining producers must be wired
-and validated at their model-service or scheduled aggregate-monitor boundary
-before beta collection; zero-by-default placeholders are not evidence. Any
+receipt-integrity events. The model service independently validates the
+canonical station-chain equations, unsupported-equipment support claims, and
+the exact identity-free shadow-event schema before returning an active beta
+receipt. Those failures increment the privacy, station-math, or
+unsupported-support counter and fail closed if the aggregate RPC is
+unavailable.
+
+The weekly aggregate safety monitor uses non-overlapping Monday-to-Monday UTC
+windows. High-confidence monitoring becomes eligible after 200 valid primary
+outcomes and stops collection when any reportable StationCast calibration bin
+with mean probability at least `0.5` overpredicts by more than `0.10`.
+Geographic monitoring considers origin-field cells only after five participants
+and 100 outcomes. It stops collection only when the same reportable broad cell
+has StationCast relative Brier regression above `3%` in two contiguous weekly
+reads. The owner-only state stores only SHA-256 cell tokens; telemetry and
+receipts contain counts and booleans, never geography labels. Repeating a
+window emits no counters and reuses the original signed receipt only when its
+config, aggregate-evidence digest, and window still match; a changed or missing
+receipt fails closed. Real operations accept only a signed `continue` decision,
+never a `stop` or `already_evaluated` envelope. A missing or noncontiguous
+window resets the streak.
+
+All five non-participation producers were frozen and real-target validated on
+the M5 before collection. Synthetic stop inputs produced exactly one of each
+reserved counter through the deployed aggregate RPC; every unrelated counter
+remained zero, and the isolated test-protocol rows were deleted and re-queried
+as zero. No operator outcome or locked prospective outcome was read. Any
 nonzero stop-event count withholds the real decision. The aggregate scorer also
-enforces the preregistered `0.10` high-confidence overprediction stop in
-addition to the relative calibration guardrail.
+enforces the same `0.10` high-confidence overprediction stop in addition to the
+relative calibration guardrail.
 
 The synthetic dry run is an implementation proof only. Its fixture metrics are
 not evidence about operator equipment, propagation, or expected beta effect

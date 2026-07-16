@@ -93,6 +93,7 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
             migration_deployed=True,
             locked_outcomes_read=False,
         ),
+        "beta_stop_producers": passing_document(),
         "stationcast_beta": passing_document(release_approved=True),
         "nowcast_prospective": passing_document(
             release_approved=True,

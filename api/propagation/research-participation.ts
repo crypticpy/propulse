@@ -5,6 +5,7 @@ import { verifyAuth } from "../_lib/auth";
 import { applyRateLimit } from "../_lib/rateLimit";
 import {
   RESEARCH_POLICY_VERSION,
+  ResearchReceiptValidationError,
   completeAttemptRequestSchema,
   consentRequestSchema,
   createResearchSubjectBinding,
@@ -530,6 +531,13 @@ export async function handleResearchParticipation(
       "Invalid research participation request",
     );
   } catch (error) {
+    if (error instanceof ResearchReceiptValidationError) {
+      return rejectWithTelemetry(
+        400,
+        "Invalid research participation request",
+        { [error.telemetryCounter]: 1 },
+      );
+    }
     if (error instanceof ZodError) {
       return rejectWithTelemetry(
         400,

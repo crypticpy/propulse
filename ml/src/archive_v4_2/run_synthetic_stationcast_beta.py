@@ -128,6 +128,15 @@ def main() -> None:
                 ).hexdigest(),
                 "api_telemetry_path_recorded": False,
                 "config_sha256": config_digest,
+                "stop_monitor_receipt_sha256": hashlib.sha256(
+                    b"synthetic-stationcast-beta-stop-monitor"
+                ).hexdigest(),
+                "stop_monitor_receipt_path_recorded": False,
+                "stop_monitor_evidence_sha256": hashlib.sha256(
+                    b"synthetic-stationcast-beta-monitor-evidence"
+                ).hexdigest(),
+                "stop_monitor_config_sha256": config_digest,
+                "stop_monitor_decision": "synthetic",
             },
             "runtime": {
                 "machine": platform.machine(),

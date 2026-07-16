@@ -74,8 +74,8 @@ candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
 | Locked 2025 archive | 0.04096767 | 0.04186090 | 2.134% | 6/6 gates pass |
 
 The internal WSPR shadow is operationally healthy through target
-`2026-07-16T13:00:00Z`: `11/11` expected hours, zero gaps, `2,635,688`
-observations, and `724,978` feature cells. This is `11/720` duration evidence,
+`2026-07-16T14:00:00Z`: `12/12` expected hours, zero gaps, `2,867,582`
+observations, and `796,382` feature cells. This is `12/720` duration evidence,
 not a 30-day pass. The audited `11:00Z` finalizer used two workers with nine native
 threads each and completed in 114.34 seconds after keyset pagination replaced
 deep OFFSET scans.
@@ -432,10 +432,10 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T13:00:00Z` also completed under
-the same bounded profile. The rollup is now `11/11` with zero gaps, `2,635,688`
-aggregate observations, `724,978` feature cells, and remains `collecting` at
-`11/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+following scheduled targets through `2026-07-16T14:00:00Z` also completed under
+the same bounded profile. The rollup is now `12/12` with zero gaps, `2,867,582`
+aggregate observations, `796,382` feature cells, and remains `collecting` at
+`12/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
 remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
 Deep OFFSET pages later returned target HTTP 500 responses; monotonic-id keyset
 pagination plus the covering `(source, target_hour, band, id)` index removed
@@ -564,11 +564,10 @@ ml/.venv/bin/python \
   --profile m5 --verify-deployed
 ```
 
-Do not interpret an unused counter as an observed zero. The participation API
-currently produces request/error, receipt-integrity, consent, subject-binding,
-and stale-profile counters. Before enabling beta, validate the model-service or
-scheduled-monitor producers for privacy, station-math, unsupported-support,
-high-confidence-overprediction, and geographic-regression events.
+Do not interpret an unused counter as an observed zero. Before enabling beta,
+rerun the real-target producer validator below and require all counters to
+increment exactly once under its isolated test protocol, followed by zero rows
+after cleanup.
 
 Freeze and exercise the private exporter and scorer on the M5 before any real
 outcome flag is enabled:
@@ -581,6 +580,7 @@ umask 077
 mkdir -p "$PRIVATE"
 openssl rand -out "$PRIVATE/participant-key.secret" 32
 openssl rand -out "$PRIVATE/api-telemetry.secret" 32
+openssl rand -out "$PRIVATE/stop-monitor.secret" 32
 
 ml/.venv/bin/python ml/src/archive_v4_2/run_synthetic_stationcast_beta.py \
   --profile m5
@@ -592,6 +592,16 @@ the deployed counter boundary. It must match
 then export and score the private cohort:
 
 ```bash
+export PROPULSE_STATIONCAST_BETA_MONITOR_ENABLED=true
+export PROPULSE_BETA_TELEMETRY_STORE_URL="$VITE_SUPABASE_URL"
+export PROPULSE_BETA_TELEMETRY_STORE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+ml/.venv/bin/python ml/service/stationcast_beta_stop_monitor.py \
+  --window-end 2026-09-28T00:00:00Z \
+  --state "$PRIVATE/stop-monitor-state.json" \
+  --output "$PRIVATE/stop-monitor-signed.json" \
+  --receipt-secret "$PRIVATE/stop-monitor.secret" \
+  --commit --acknowledge-beta-safety-monitor
+
 ml/.venv/bin/python ml/src/archive_v4_2/generate_stationcast_beta_api_telemetry.py \
   --profile m5 --window-start 2026-08-01T00:00:00Z \
   --window-end 2026-10-01T00:00:00Z \
@@ -607,7 +617,9 @@ ml/.venv/bin/python ml/src/archive_v4_2/generate_stationcast_beta_operations_rec
   --profile m5 --window-start 2026-08-01T00:00:00Z \
   --window-end 2026-10-01T00:00:00Z \
   --api-telemetry-receipt "$PRIVATE/api-telemetry-signed.json" \
-  --api-telemetry-secret "$PRIVATE/api-telemetry.secret"
+  --api-telemetry-secret "$PRIVATE/api-telemetry.secret" \
+  --stop-monitor-receipt "$PRIVATE/stop-monitor-signed.json" \
+  --stop-monitor-secret "$PRIVATE/stop-monitor.secret"
 
 ml/.venv/bin/python ml/src/archive_v4_2/export_stationcast_beta_private.py \
   --profile m5 --window-start 2026-08-01T00:00:00Z \
@@ -621,17 +633,23 @@ ml/.venv/bin/python ml/src/archive_v4_2/score_stationcast_beta.py \
   --export-receipt "$PRIVATE/stationcast_beta_20260801_20261001.receipt.json" \
   --operations-receipt \
     ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_operations_receipt.json \
+  --stop-monitor-receipt "$PRIVATE/stop-monitor-signed.json" \
   --require-release
 ```
 
-The private Parquet, HMAC secrets, signed telemetry, and private export receipt
-remain on the Projects volume and are never committed. The aggregate scorer
-decision may be committed only after the privacy/reportability gates pass. The
-scorer requires matching config, export, Parquet, and operations SHA-256 values;
-identical export/operations windows; an exact export row count; and every
-observed timestamp inside that half-open window. It counts distinct observed
-UTC dates, not an elapsed span. Raw 32-byte HMAC secrets are read byte-for-byte,
-so do not convert them to text or append a newline.
+The private Parquet, HMAC secrets, signed telemetry, signed monitor receipt,
+monitor state, and private export receipt remain on the Projects volume and are
+never committed. The aggregate scorer decision may be committed only after the
+privacy/reportability gates pass. The scorer requires matching config, monitor,
+export, Parquet, and operations SHA-256 values; identical export/operations
+windows; a monitor read less than seven days old; an exact export row count; and
+every observed timestamp inside that half-open window. It counts distinct
+observed UTC dates, not an elapsed span. Raw 32-byte HMAC secrets are read
+byte-for-byte, so do not convert them to text or append a newline.
+Real operations accept only the original HMAC-signed weekly `continue` receipt.
+A repeated window reuses that receipt only when its config, evidence digest, and
+window still match; `stop`, `already_evaluated`, changed, or missing receipts
+fail closed.
 
 ## Reproduce Phase 2 at 20M
 
@@ -875,7 +893,8 @@ respectively, in under four seconds wall time and no stderr. The startup 09:00
 UTC band/path watermarks are causal but contain zero rows because collection
 started later; zero-row startup watermarks therefore did not begin the evidence
 clock. The first nonempty settled hour wrote ten band rows and 2,246 path rows;
-the latest preserved receipt remains `warming` at `2.75/24` gap-free hours.
+the latest preserved receipt remains `warming` at `4.02/24` gap-free hours
+across 19 healthy receipts.
 Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The
@@ -886,6 +905,23 @@ an optional model field, so normal NOAA publication lag marks that feature
 missing rather than disabling the complete weather input. The first nonempty
 settled hour and every subsequent 15-minute receipt must remain continuous for
 a full day.
+
+Validate all non-participation StationCast stop producers against the real
+aggregate target without retaining test rows:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_stationcast_beta_stop_producers.py \
+  --profile m5
+```
+
+The validator uses an isolated 2099 protocol, drives model-service station-math,
+unsupported-support, and privacy failures, drives the aggregate weekly
+high-confidence and same-cell two-read geographic monitors, asserts the five
+exact target counters, and deletes the test protocol rows in a `finally`
+boundary. The proof passes nine independent gates, leaves every unrelated
+counter at zero, and re-queries every test counter as zero after cleanup. It
+never reads operator outcomes or enables either beta flag.
 
 Archive approval permits shadow integration, not an immediate prospective or
 personalization claim. ReachMap consumes the identity-free core surface;

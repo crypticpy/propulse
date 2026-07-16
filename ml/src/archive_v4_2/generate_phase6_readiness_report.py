@@ -208,6 +208,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "participation_boundary_deployed",
             "beta_protocol_boundary_deployed",
             "beta_telemetry_boundary_deployed",
+            "beta_stop_event_producers_validated",
             "beta_protocol_preregistered",
             "stationcast_beta_passed",
         ),
@@ -223,7 +224,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
     }
     gate_group_rows = []
     for track, names in groups.items():
-        passed_count = sum(gates[name] is True for name in names)
+        passed_count = sum(gates.get(name) is True for name in names)
         gate_group_rows.append({
             "track": track,
             "passed": passed_count,
@@ -847,6 +848,11 @@ def main() -> None:
     parser.add_argument("--profile", choices=("m5",), required=True)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
+    args.output_dir = args.output_dir.expanduser().resolve()
+    try:
+        args.output_dir.relative_to(ROOT)
+    except ValueError as error:
+        raise RuntimeError("Phase 6 report output must remain inside the repository") from error
     validate_m5_runtime(json.loads(CONFIG.read_text(encoding="utf-8")))
     values = {name: read_json(path) for name, path in INPUTS.items()}
     evidence = build_evidence(values)

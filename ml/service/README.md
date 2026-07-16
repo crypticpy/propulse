@@ -34,9 +34,12 @@ issue/valid/receipt times, band/mode, cell count, model/feature versions,
 the core and station-adapter contracts, profile and OOD counts, allowlisted
 path-history/space-weather ages, probability/confidence summaries, and latency.
 It never records grid locators, coordinates, callsigns, user IDs, station
-fingerprints, or raw equipment fields. Telemetry failure does not fail a
-prediction. The default sink writes structured JSON to the service logger;
-production storage must retain the same allowlisted schema.
+fingerprints, or raw equipment fields. The default sink writes structured JSON
+to the service logger; production storage must retain the same allowlisted
+schema. Ordinary shadow telemetry remains best effort. Once active research
+receipts are enabled, privacy validation and the independent aggregate stop
+counter become fail-closed: telemetry failure suppresses the receipt and
+prediction rather than representing an unobserved stop as zero.
 
 Opt-in beta outcomes use a separate active-only receipt boundary. Configure the
 same independent 32+ character secret in the inference service and product API
@@ -44,6 +47,8 @@ only after beta approval:
 
 ```bash
 export PROPULSE_RESEARCH_RECEIPT_SECRET="server-only-random-secret"
+export PROPULSE_BETA_TELEMETRY_STORE_URL="https://project.supabase.co"
+export PROPULSE_BETA_TELEMETRY_STORE_SERVICE_KEY="server-only-service-role-key"
 ```
 
 The path endpoint emits no research receipt in disabled or shadow mode, without
@@ -60,6 +65,33 @@ decision is retained only to reject unsupported chains from evaluation. Both
 `VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED` and
 `PROPULSE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED` remain false until the beta
 release gate passes.
+
+The model service validates the canonical station-chain equations, the HF-band
+support decision, and the exact identity-free shadow event before returning an
+active beta receipt. It emits aggregate `equipment_math_events`,
+`unsupported_support_events`, or `privacy_events` through the same hardened RPC
+used by the participation API. A separate weekly M5 monitor reads only the
+k-anonymous aggregate evidence RPC. After 200 valid outcomes it enforces the
+0.10 high-confidence overprediction stop, and it emits the geographic stop only
+after the same broad origin-field cell has reportable regression above 3% in
+two contiguous weekly reads. Enable and schedule that monitor only when the
+beta itself is approved:
+
+```bash
+export PROPULSE_STATIONCAST_BETA_MONITOR_ENABLED=true
+ml/.venv/bin/python ml/service/stationcast_beta_stop_monitor.py \
+  --window-end 2026-08-10T00:00:00Z \
+  --receipt-secret "$HOME/Library/Application Support/PropulseML/stationcast_beta/monitor_receipt_hmac.key" \
+  --commit --acknowledge-beta-safety-monitor
+```
+
+Its state and receipt are owner-only aggregate files under
+`~/Library/Application Support/PropulseML/stationcast_beta`. Repeating the same
+weekly window emits no counter and reuses the original signed receipt only when
+its config, evidence digest, and window still match. A mismatch fails closed,
+and real operations accept only a signed `continue` decision. A noncontiguous
+read resets the geographic streak. Collection flags remain false in the current
+release.
 
 Endpoints are `/v1/propagation/path`, `/surface`, `/models`, and `/health`.
 When recent path history is older than two hours, inference selects the physics

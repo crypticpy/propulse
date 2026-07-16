@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import math
 import platform
 import time
 from datetime import datetime, timedelta, timezone
@@ -167,10 +168,43 @@ TELEMETRY_FIELDS = {
     "participant_data_present",
     "signature",
 }
+MONITOR_ENVELOPE_FIELDS = {
+    "schema_version",
+    "scope",
+    "signed_payload",
+    "hmac_sha256",
+}
+MONITOR_PAYLOAD_FIELDS = {
+    "schema_version",
+    "generated_at",
+    "scope",
+    "protocol_version",
+    "config_sha256",
+    "evidence_sha256",
+    "window",
+    "decision",
+    "aggregate_only",
+    "stop_counters_emitted",
+    "high_confidence",
+    "geographic",
+    "geographic_regression_streak",
+}
+MONITOR_STOP_FIELDS = {
+    "high_confidence_overprediction_events",
+    "geographic_regression_events",
+}
 
 
 def nonnegative_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def sha256(path: Path) -> str:
@@ -257,6 +291,152 @@ def validate_api_telemetry(
     return errors
 
 
+def validate_stop_monitor_receipt(
+    receipt: dict[str, Any],
+    config: dict[str, Any],
+    *,
+    operations_start: datetime,
+    operations_end: datetime,
+    secret: bytes,
+    config_sha256: str,
+) -> tuple[dict[str, Any], list[str]]:
+    errors: list[str] = []
+    if set(receipt) != MONITOR_ENVELOPE_FIELDS:
+        errors.append("stop_monitor_fields")
+    signed_payload = receipt.get("signed_payload")
+    supplied_signature = receipt.get("hmac_sha256")
+    expected_signature = (
+        hmac.new(secret, signed_payload.encode(), hashlib.sha256).hexdigest()
+        if isinstance(signed_payload, str)
+        else ""
+    )
+    if (
+        receipt.get("schema_version") != 1
+        or receipt.get("scope")
+        != "stationcast_beta_signed_stop_monitor_receipt"
+        or not isinstance(supplied_signature, str)
+        or not hmac.compare_digest(supplied_signature, expected_signature)
+    ):
+        errors.append("stop_monitor_signature")
+    try:
+        payload = json.loads(signed_payload) if isinstance(signed_payload, str) else {}
+    except json.JSONDecodeError:
+        payload = {}
+    if not isinstance(payload, dict) or set(payload) != MONITOR_PAYLOAD_FIELDS:
+        errors.append("stop_monitor_payload_fields")
+        return {}, sorted(set(errors))
+    if json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ) != signed_payload:
+        errors.append("stop_monitor_payload_canonical")
+    if (
+        payload.get("schema_version") != 1
+        or payload.get("scope") != "stationcast_beta_weekly_stop_monitor"
+        or payload.get("protocol_version") != config["protocol_version"]
+        or payload.get("config_sha256") != config_sha256
+        or not is_sha256(payload.get("evidence_sha256"))
+        or payload.get("aggregate_only") is not True
+        or payload.get("decision") not in {"continue", "stop"}
+    ):
+        errors.append("stop_monitor_payload")
+    try:
+        generated_at = parse_utc(str(payload["generated_at"]))
+        monitor_start = parse_utc(str(payload["window"]["start"]))
+        monitor_end = parse_utc(str(payload["window"]["end"]))
+        if (
+            set(payload["window"]) != {"start", "end"}
+            or monitor_end - monitor_start != timedelta(days=7)
+            or not operations_start < monitor_end <= operations_end
+            or operations_end - monitor_end >= timedelta(days=7)
+            or not monitor_end <= generated_at <= operations_end
+        ):
+            raise ValueError("stale monitor window")
+    except (KeyError, TypeError, ValueError):
+        errors.append("stop_monitor_window")
+    counters = payload.get("stop_counters_emitted")
+    if (
+        not isinstance(counters, dict)
+        or not set(counters).issubset(MONITOR_STOP_FIELDS)
+        or any(
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or value != 1
+            for value in counters.values()
+        )
+    ):
+        errors.append("stop_monitor_counters")
+    high_confidence = payload.get("high_confidence")
+    geographic = payload.get("geographic")
+    if (
+        not isinstance(high_confidence, dict)
+        or set(high_confidence)
+        != {"eligible", "maximum_overprediction"}
+        or not isinstance(high_confidence.get("eligible"), bool)
+        or (
+            high_confidence.get("maximum_overprediction") is not None
+            and (
+                isinstance(high_confidence.get("maximum_overprediction"), bool)
+                or not isinstance(
+                    high_confidence.get("maximum_overprediction"), (int, float)
+                )
+                or not math.isfinite(
+                    float(high_confidence["maximum_overprediction"])
+                )
+                or not -1 <= float(high_confidence["maximum_overprediction"]) <= 1
+            )
+        )
+        or not isinstance(geographic, dict)
+        or set(geographic)
+        != {"reportable_cells", "regression_present"}
+        or not nonnegative_int(geographic.get("reportable_cells"))
+        or not isinstance(geographic.get("regression_present"), bool)
+        or not nonnegative_int(payload.get("geographic_regression_streak"))
+    ):
+        errors.append("stop_monitor_summary")
+    else:
+        maximum_overprediction = high_confidence["maximum_overprediction"]
+        high_confidence_stop = bool(
+            high_confidence["eligible"]
+            and maximum_overprediction is not None
+            and float(maximum_overprediction)
+            > float(config["beta"]["maximum_high_confidence_overprediction"])
+        )
+        geographic_stop = bool(
+            geographic["regression_present"]
+            and payload["geographic_regression_streak"] >= 2
+        )
+        expected_stop = high_confidence_stop or geographic_stop
+        if (
+            (payload.get("decision") == "stop") != expected_stop
+            or (
+                isinstance(counters, dict)
+                and (
+                    (
+                        "high_confidence_overprediction_events" in counters
+                        and not high_confidence_stop
+                    )
+                    or (
+                        "geographic_regression_events" in counters
+                        and not geographic_stop
+                    )
+                )
+            )
+            or (
+                geographic["regression_present"]
+                and payload["geographic_regression_streak"] < 1
+            )
+            or (
+                not geographic["regression_present"]
+                and payload["geographic_regression_streak"] != 0
+            )
+        ):
+            errors.append("stop_monitor_consistency")
+    return payload, sorted(set(errors))
+
+
 def build_receipt(
     database: dict[str, int],
     telemetry: dict[str, Any],
@@ -269,13 +449,18 @@ def build_receipt(
     telemetry_sha256: str,
     config_sha256: str,
     wall_seconds: float,
+    stop_monitor: dict[str, Any],
+    stop_monitor_errors: list[str],
+    stop_monitor_sha256: str,
 ) -> dict[str, Any]:
     api_counts = telemetry.get("counts", {}) if not telemetry_errors else {}
     api = {
         name: int(api_counts.get(name, 0))
         for name in API_COUNT_FIELDS
     }
-    active = list(telemetry_errors)
+    active = [*telemetry_errors, *stop_monitor_errors]
+    if stop_monitor.get("decision") == "stop":
+        active.append("stop_monitor_decision_stop")
     if database["withdrawn_rows_remaining"]:
         active.append("withdrawal_deletion_integrity")
     if database["expired_rows_remaining"]:
@@ -333,6 +518,17 @@ def build_receipt(
             "api_telemetry_sha256": telemetry_sha256,
             "api_telemetry_path_recorded": False,
             "config_sha256": config_sha256,
+            "stop_monitor_receipt_sha256": stop_monitor_sha256,
+            "stop_monitor_receipt_path_recorded": False,
+            "stop_monitor_evidence_sha256": stop_monitor.get(
+                "evidence_sha256",
+                "0" * 64,
+            ),
+            "stop_monitor_config_sha256": stop_monitor.get(
+                "config_sha256",
+                "0" * 64,
+            ),
+            "stop_monitor_decision": stop_monitor.get("decision", "invalid"),
         },
         "runtime": {
             "machine": platform.machine(),
@@ -355,6 +551,8 @@ def main() -> None:
     parser.add_argument("--window-end", required=True)
     parser.add_argument("--api-telemetry-receipt", type=Path, required=True)
     parser.add_argument("--api-telemetry-secret", type=Path, required=True)
+    parser.add_argument("--stop-monitor-receipt", type=Path, required=True)
+    parser.add_argument("--stop-monitor-secret", type=Path, required=True)
     parser.add_argument("--config", type=Path, default=CONFIG)
     parser.add_argument("--env-file", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--pooler-url-file", type=Path, default=DEFAULT_POOLER_URL)
@@ -376,6 +574,18 @@ def main() -> None:
         window_start=window_start,
         window_end=window_end,
         secret=telemetry_secret,
+    )
+    config_digest = sha256(args.config)
+    stop_monitor_envelope = json.loads(
+        args.stop_monitor_receipt.read_text(encoding="utf-8")
+    )
+    stop_monitor, stop_monitor_errors = validate_stop_monitor_receipt(
+        stop_monitor_envelope,
+        config,
+        operations_start=window_start,
+        operations_end=window_end,
+        secret=owner_secret(args.stop_monitor_secret),
+        config_sha256=config_digest,
     )
 
     values = read_env(args.env_file)
@@ -413,8 +623,11 @@ def main() -> None:
         window_end=window_end,
         runtime=runtime,
         telemetry_sha256=sha256(args.api_telemetry_receipt),
-        config_sha256=sha256(args.config),
+        config_sha256=config_digest,
         wall_seconds=time.perf_counter() - started,
+        stop_monitor=stop_monitor,
+        stop_monitor_errors=stop_monitor_errors,
+        stop_monitor_sha256=sha256(args.stop_monitor_receipt),
     )
     atomic_write(args.output, receipt)
     print(json.dumps(receipt, indent=2))

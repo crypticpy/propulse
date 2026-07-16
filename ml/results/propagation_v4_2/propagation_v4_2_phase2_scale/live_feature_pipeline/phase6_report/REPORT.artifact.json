@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: model and Phase 6 readiness report",
     "description": "Technical model result, release evidence, blockers, and ordered next steps.",
-    "generatedAt": "2026-07-16T14:55:20.079051+00:00",
+    "generatedAt": "2026-07-16T15:40:57.723806+00:00",
     "blocks": [
       {
         "id": "title",
@@ -16,7 +16,7 @@
         "id": "technical_summary",
         "type": "markdown",
         "sourceId": "phase6_evidence",
-        "body": "## The core is strong retrospectively; the product release is correctly withheld\n\nFrozen A6 improved weighted Brier by **2.134%** versus frozen V3/B2 across **260,474,292 untouched rows**, winning all **4 of 4** locked 2025 months. The model artifact, native M5/OpenMP serving path, health boundary, consent boundary, and privacy-bounded beta database are validated. That is enough to call A6 a credible retrospective NowCast core, but not enough to claim subscriber-facing live or personalized performance. Only **9 of 19** Phase 6 gates currently pass, so core and deterministic StationCast remain shadow-only; learned StationCast, FutureCast, and 6m remain withheld. The August-September prospective outcomes are still unread."
+        "body": "## The core is strong retrospectively; the product release is correctly withheld\n\nFrozen A6 improved weighted Brier by **2.134%** versus frozen V3/B2 across **260,474,292 untouched rows**, winning all **4 of 4** locked 2025 months. The model artifact, native M5/OpenMP serving path, health boundary, consent boundary, and privacy-bounded beta database are validated. That is enough to call A6 a credible retrospective NowCast core, but not enough to claim subscriber-facing live or personalized performance. Only **10 of 20** Phase 6 gates currently pass, so core and deterministic StationCast remain shadow-only; learned StationCast, FutureCast, and 6m remain withheld. The August-September prospective outcomes are still unread."
       },
       {
         "id": "metrics",
@@ -103,7 +103,7 @@
         "id": "collection_explainer",
         "type": "markdown",
         "sourceId": "phase6_evidence",
-        "body": "First-party prospective capture is at **2.75/24 continuous hours**; the permitted WSPR research shadow is at **11/720 hours**; and FutureCast has **1/90 consecutive legal issuance days**. WSPR research access remains research-only until a separate signed subscriber authorization artifact exists. The literal full-M5 outage proof is deliberately not simulated from a missing publisher: it must be a coordinated power-loss and genuine recovery event."
+        "body": "First-party prospective capture is at **4.02/24 continuous hours**; the permitted WSPR research shadow is at **12/720 hours**; and FutureCast has **1/90 consecutive legal issuance days**. WSPR research access remains research-only until a separate signed subscriber authorization artifact exists. The literal full-M5 outage proof is deliberately not simulated from a missing publisher: it must be a coordinated power-loss and genuine recovery event."
       },
       {
         "id": "mode_heading",
@@ -531,7 +531,7 @@
   "snapshot": {
     "version": 1,
     "status": "ready",
-    "generatedAt": "2026-07-16T14:55:20.079051+00:00",
+    "generatedAt": "2026-07-16T15:40:57.723806+00:00",
     "datasets": {
       "summary": [
         {
@@ -540,15 +540,15 @@
           "locked_rows": 260474292,
           "archive_months_won": 4,
           "archive_months_total": 4,
-          "release_gates_passed": 9,
-          "release_gates_total": 19,
+          "release_gates_passed": 10,
+          "release_gates_total": 20,
           "beta_rollback_gates": 22,
           "beta_rollback_total": 22,
           "beta_deployment_gates": 23,
           "beta_deployment_total": 23,
-          "wspr_hours": 11,
+          "wspr_hours": 12,
           "wspr_required_hours": 720,
-          "capture_hours": 2.749883181944444,
+          "capture_hours": 4.019001265,
           "capture_required_hours": 24.0,
           "futurecast_days": 1,
           "futurecast_required_days": 90,
@@ -629,9 +629,9 @@
         },
         {
           "track": "Personalized beta",
-          "passed": 4,
-          "required": 5,
-          "completion": 0.8
+          "passed": 5,
+          "required": 6,
+          "completion": 0.8333333333333334
         },
         {
           "track": "Locked prospective",
@@ -649,17 +649,17 @@
       "collection_progress_rows": [
         {
           "evidence_track": "First-party capture",
-          "observed": 2.749883181944444,
+          "observed": 4.019001265,
           "required": 24.0,
           "unit": "continuous hours",
-          "completion": 0.11457846591435183
+          "completion": 0.16745838604166666
         },
         {
           "evidence_track": "WSPR shadow",
-          "observed": 11.0,
+          "observed": 12.0,
           "required": 720.0,
           "unit": "completed hours",
-          "completion": 0.015277777777777777
+          "completion": 0.016666666666666666
         },
         {
           "evidence_track": "FutureCast issuance",
@@ -777,6 +777,11 @@
         },
         {
           "gate": "beta telemetry boundary deployed",
+          "status": "pass",
+          "passed": true
+        },
+        {
+          "gate": "beta stop event producers validated",
           "status": "pass",
           "passed": true
         },
@@ -933,13 +938,13 @@
           "order": 1,
           "action": "Sustain nonempty first-party capture for 24 continuous hours",
           "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-          "current": "2.75/24 hours"
+          "current": "4.02/24 hours"
         },
         {
           "order": 2,
           "action": "Accumulate 720 permitted receipt-time WSPR shadow hours",
           "why": "Measures real completeness, gaps, freshness, latency, and fallback behavior.",
-          "current": "11/720 hours"
+          "current": "12/720 hours"
         },
         {
           "order": 3,

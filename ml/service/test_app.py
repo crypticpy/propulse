@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import unittest
 from datetime import timedelta
 
@@ -19,12 +20,15 @@ from operational_weather import (
 )
 
 from app import (
+    PathRequest,
     RuntimePrediction,
     StationEnvelope,
     allowlisted_telemetry_dimension,
+    beta_stop_event_for_prediction,
     blend_probabilities,
     create_app,
     model_feature_value,
+    receipt_contains_raw_private_fields,
     research_receipt_signature,
     resolve_inference_mode,
     resolve_xgboost_prediction_threads,
@@ -115,8 +119,35 @@ class FakeOperationalWeatherProvider:
         )
 
 
+class RecordingBetaTelemetrySink:
+    configured = True
+
+    def __init__(self, *, fail=False):
+        self.fail = fail
+        self.events = []
+
+    def record(self, counts, *, observed_at=None):
+        if self.fail:
+            raise RuntimeError("fixture telemetry failure")
+        self.events.append((dict(counts), observed_at))
+
+
+def set_station_path_gain(station, gain_dbi):
+    power_at_antenna = station["conductedPowerWatts"] * math.pow(
+        10,
+        (station["amplifierGainDb"] - station["totalPassiveLossDb"]) / 10,
+    )
+    eirp = power_at_antenna * math.pow(10, gain_dbi / 10)
+    station.update({
+        "powerAtAntennaWatts": power_at_antenna,
+        "eirpWatts": eirp,
+        "erpWatts": eirp / math.pow(10, 2.15 / 10),
+        "antennaGainTowardPathDbi": gain_dbi,
+    })
+
+
 def request_payload():
-    return {
+    payload = {
         "origin_grid4": "EM10",
         "issue_time": "2026-07-12T08:00:00Z",
         "valid_time": "2026-07-12T08:00:00Z",
@@ -128,18 +159,18 @@ def request_payload():
             "featureContract": "station-chain-v1",
             "chainFingerprint": "fixture:test",
             "band": "20m",
-            "frequencyMHz": 14.1,
+            "frequencyMHz": 14.15,
             "mode": "WSPR",
             "requestedPowerWatts": 25,
             "conductedPowerWatts": 25,
-            "powerAtAntennaWatts": 20,
-            "eirpWatts": 100,
-            "erpWatts": 60.95,
+            "powerAtAntennaWatts": 0,
+            "eirpWatts": 0,
+            "erpWatts": 0,
             "totalPassiveLossDb": 1,
             "feedlineLossDb": 0.8,
             "inlineLossDb": 0.2,
             "amplifierGainDb": 0,
-            "antennaGainTowardPathDbi": 6.99,
+            "antennaGainTowardPathDbi": 7.1,
             "targetBearingDeg": 90,
             "takeoffAngleDeg": None,
             "receiverNoiseFloorDbm": -135,
@@ -159,6 +190,8 @@ def request_payload():
         },
         "data_freshness_seconds": {"path_history": 60},
     }
+    set_station_path_gain(payload["station"], 7.1)
+    return payload
 
 
 class ServiceTests(unittest.TestCase):
@@ -182,12 +215,14 @@ class ServiceTests(unittest.TestCase):
 
     def test_active_path_emits_a_signed_minimized_research_receipt(self):
         secret = "test-research-receipt-secret-at-least-32-chars"
+        beta_sink = RecordingBetaTelemetrySink()
         client = TestClient(create_app(
             self.registry,
             inference_mode="active",
             path_history_provider=UnavailablePathHistoryProvider(),
             operational_weather_provider=UnavailableOperationalWeatherProvider(),
             research_receipt_secret=secret,
+            beta_telemetry_sink=beta_sink,
         ))
         response = client.post("/v1/propagation/path", json=request_payload())
         self.assertEqual(response.status_code, 200)
@@ -232,6 +267,8 @@ class ServiceTests(unittest.TestCase):
 
         health = client.get("/v1/propagation/health").json()
         self.assertTrue(health["research_receipts_enabled"])
+        self.assertTrue(health["beta_stop_event_telemetry_configured"])
+        self.assertEqual(beta_sink.events, [])
         self.assertEqual(
             health["research_receipt_schema_version"],
             "propagation-research-receipt-v2",
@@ -281,6 +318,7 @@ class ServiceTests(unittest.TestCase):
             path_history_provider=UnavailablePathHistoryProvider(),
             operational_weather_provider=UnavailableOperationalWeatherProvider(),
             research_receipt_secret="test-research-receipt-secret-at-least-32-chars",
+            beta_telemetry_sink=RecordingBetaTelemetrySink(),
         ))
         response = client.post("/v1/propagation/path", json=payload)
         self.assertNotIn("research_receipt", response.json())
@@ -292,6 +330,85 @@ class ServiceTests(unittest.TestCase):
                 inference_mode="active",
                 research_receipt_secret="short",
             )
+
+    def test_active_research_receipts_require_stop_event_telemetry(self):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "require beta stop-event telemetry",
+        ):
+            create_app(
+                self.registry,
+                inference_mode="active",
+                research_receipt_secret=(
+                    "test-research-receipt-secret-at-least-32-chars"
+                ),
+            )
+
+    def test_equipment_math_violation_is_recorded_and_prediction_is_suppressed(self):
+        payload = request_payload()
+        payload["station"]["eirpWatts"] = 500
+        beta_sink = RecordingBetaTelemetrySink()
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="active",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
+            research_receipt_secret=(
+                "test-research-receipt-secret-at-least-32-chars"
+            ),
+            beta_telemetry_sink=beta_sink,
+        ))
+
+        response = client.post("/v1/propagation/path", json=payload)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            beta_sink.events,
+            [({"equipment_math_events": 1}, None)],
+        )
+        self.assertNotIn("research_receipt", response.text)
+
+    def test_stop_event_telemetry_failure_suppresses_prediction(self):
+        payload = request_payload()
+        payload["station"]["eirpWatts"] = 500
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="active",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
+            research_receipt_secret=(
+                "test-research-receipt-secret-at-least-32-chars"
+            ),
+            beta_telemetry_sink=RecordingBetaTelemetrySink(fail=True),
+        ))
+
+        response = client.post("/v1/propagation/path", json=payload)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("telemetry unavailable", response.text)
+
+    def test_unsupported_and_privacy_stop_conditions_are_classified(self):
+        payload = request_payload()
+        payload["station"].update({
+            "supported": False,
+            "powerAtAntennaWatts": 0,
+            "eirpWatts": 0,
+            "erpWatts": 0,
+        })
+        request = PathRequest.model_validate(payload)
+        self.assertEqual(
+            beta_stop_event_for_prediction(
+                request,
+                {"personalized_probability": 0.2},
+            ),
+            "unsupported_support_events",
+        )
+        self.assertTrue(receipt_contains_raw_private_fields({
+            "station_capability": {"eirpWatts": 100},
+        }))
+        self.assertFalse(receipt_contains_raw_private_fields({
+            "station_capability": {"tx_eirp": "25_100w"},
+        }))
 
     def test_missing_model_features_match_training_imputation(self):
         self.assertEqual(model_feature_value(None), 0.0)
@@ -512,11 +629,9 @@ class ServiceTests(unittest.TestCase):
         payload = request_payload()
         base_features = payload.pop("features")
         weak_station = copy.deepcopy(payload["station"])
-        weak_station["eirpWatts"] = 5
-        weak_station["antennaGainTowardPathDbi"] = -6
+        set_station_path_gain(weak_station, -6)
         strong_station = copy.deepcopy(payload["station"])
-        strong_station["eirpWatts"] = 250
-        strong_station["antennaGainTowardPathDbi"] = 10
+        set_station_path_gain(strong_station, 10)
         payload["cells"] = [
             {**base_features, "station": weak_station},
             {

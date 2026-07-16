@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T14:55:20.079051+00:00",
+  "generated_at": "2026-07-16T15:40:57.723806+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,8 +12,8 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "e1fe0cfcf71e098a02e5672c68f4f568d3b58820f920ab6ef2044ee6591244dc",
-      "bytes": 8433
+      "sha256": "83c19f51498fb8b25944f30364fe245d3d05b7b8a19c87719277b0265037fb49",
+      "bytes": 8820
     },
     "beta_rollback": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/propagation_beta_protocol_migration_validation.json",
@@ -27,13 +27,13 @@
     },
     "wspr": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "3673cbab84d51a00529c9978d7a7ed744cefc36009cba81f1dfe34f77e3c5f47",
-      "bytes": 1783
+      "sha256": "2b804b4bcefcb0fe1b5e78cc08e59c75dd07c41ccf22c9eead8a1f9f4ef77730",
+      "bytes": 1792
     },
     "capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "bd2a847dc6843153407c0334a3a63411e3ff2c0a3b5c0c0c687aeb903c43b4e3",
-      "bytes": 4828
+      "sha256": "90759eebbe94554ebad795f0a6b07449a49f895fcb3e425d1cde5c507c37997b",
+      "bytes": 4807
     },
     "beta_config": {
       "path": "ml/config/propagation_v4_2_beta_protocol.json",
@@ -42,8 +42,8 @@
     },
     "beta_dry_run": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/synthetic_stationcast_beta_dry_run.json",
-      "sha256": "f4b6f9b88f58fd9fbf0509a3c3cd3ba573c78ce5a4401c573612e553541b15af",
-      "bytes": 9332
+      "sha256": "f0aa11e90fe767ff5cd41ff959ea0c811d51a0e4f8b6865177675bb94c26def3",
+      "bytes": 9422
     },
     "futurecast": {
       "path": "ml/results/propagation_v4/futurecast_readiness.json",
@@ -64,15 +64,15 @@
         "locked_rows": 260474292,
         "archive_months_won": 4,
         "archive_months_total": 4,
-        "release_gates_passed": 9,
-        "release_gates_total": 19,
+        "release_gates_passed": 10,
+        "release_gates_total": 20,
         "beta_rollback_gates": 22,
         "beta_rollback_total": 22,
         "beta_deployment_gates": 23,
         "beta_deployment_total": 23,
-        "wspr_hours": 11,
+        "wspr_hours": 12,
         "wspr_required_hours": 720,
-        "capture_hours": 2.749883181944444,
+        "capture_hours": 4.019001265,
         "capture_required_hours": 24.0,
         "futurecast_days": 1,
         "futurecast_required_days": 90,
@@ -153,9 +153,9 @@
       },
       {
         "track": "Personalized beta",
-        "passed": 4,
-        "required": 5,
-        "completion": 0.8
+        "passed": 5,
+        "required": 6,
+        "completion": 0.8333333333333334
       },
       {
         "track": "Locked prospective",
@@ -173,17 +173,17 @@
     "collection_progress_rows": [
       {
         "evidence_track": "First-party capture",
-        "observed": 2.749883181944444,
+        "observed": 4.019001265,
         "required": 24.0,
         "unit": "continuous hours",
-        "completion": 0.11457846591435183
+        "completion": 0.16745838604166666
       },
       {
         "evidence_track": "WSPR shadow",
-        "observed": 11.0,
+        "observed": 12.0,
         "required": 720.0,
         "unit": "completed hours",
-        "completion": 0.015277777777777777
+        "completion": 0.016666666666666666
       },
       {
         "evidence_track": "FutureCast issuance",
@@ -301,6 +301,11 @@
       },
       {
         "gate": "beta telemetry boundary deployed",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "beta stop event producers validated",
         "status": "pass",
         "passed": true
       },
@@ -457,13 +462,13 @@
         "order": 1,
         "action": "Sustain nonempty first-party capture for 24 continuous hours",
         "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-        "current": "2.75/24 hours"
+        "current": "4.02/24 hours"
       },
       {
         "order": 2,
         "action": "Accumulate 720 permitted receipt-time WSPR shadow hours",
         "why": "Measures real completeness, gaps, freshness, latency, and fallback behavior.",
-        "current": "11/720 hours"
+        "current": "12/720 hours"
       },
       {
         "order": 3,
@@ -541,7 +546,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T14:53:13.399394+00:00",
+    "generated_at": "2026-07-16T15:40:57.563490+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -569,7 +574,7 @@
       "wspr_shadow": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
         "exists": true,
-        "sha256": "3673cbab84d51a00529c9978d7a7ed744cefc36009cba81f1dfe34f77e3c5f47",
+        "sha256": "2b804b4bcefcb0fe1b5e78cc08e59c75dd07c41ccf22c9eead8a1f9f4ef77730",
         "schema_version": 1,
         "decision": "collecting"
       },
@@ -581,7 +586,7 @@
       "prospective_capture": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
         "exists": true,
-        "sha256": "bd2a847dc6843153407c0334a3a63411e3ff2c0a3b5c0c0c687aeb903c43b4e3",
+        "sha256": "90759eebbe94554ebad795f0a6b07449a49f895fcb3e425d1cde5c507c37997b",
         "schema_version": 1,
         "decision": null
       },
@@ -632,6 +637,13 @@
         "schema_version": 1,
         "decision": "pass"
       },
+      "beta_stop_producers": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_stop_producer_validation.json",
+        "exists": true,
+        "sha256": "a89c6da50386c242c7da6ad0a1b81c68dc4360e5b07095eec454352a2748aa5c",
+        "schema_version": 1,
+        "decision": "pass"
+      },
       "stationcast_beta": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_release_decision.json",
         "exists": false,
@@ -664,7 +676,7 @@
       "beta_protocol": {
         "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
         "exists": true,
-        "sha256": "7ef8720e893c4d47513a5b7798ef3d3a7c0d6b3b6880e81753d0091f6686c88e"
+        "sha256": "884cd75ecf95c20afbd14c6f57a2622dcf24e2d5f8899846129a84ca42601a9f"
       }
     },
     "gates": {
@@ -680,6 +692,7 @@
       "participation_boundary_deployed": true,
       "beta_protocol_boundary_deployed": true,
       "beta_telemetry_boundary_deployed": true,
+      "beta_stop_event_producers_validated": true,
       "beta_protocol_preregistered": true,
       "stationcast_beta_passed": false,
       "prospective_window_closed": false,
@@ -860,14 +873,14 @@
     },
     "synthetic_scorer_dry_run": {
       "schema_version": 1,
-      "generated_at": "2026-07-16T13:59:57.972682+00:00",
+      "generated_at": "2026-07-16T15:33:54.251324+00:00",
       "scope": "synthetic_stationcast_beta_dry_run",
       "protocol_version": "propagation-v4.2-stationcast-beta-2026-07-16",
       "runtime": {
         "machine": "arm64",
         "physical_cores_visible": 18,
         "polars_threads": 18,
-        "wall_seconds": 0.020903000026009977
+        "wall_seconds": 0.024308833002578467
       },
       "inputs": {
         "private_export_sha256": "e9228e1950c1da609868b70629a362c66d9b90fd952115bf2ffcf09ff2acf0e2",
@@ -880,7 +893,9 @@
         "private_input_binding_errors": [],
         "operations_receipt_valid": true,
         "operations_receipt_validation_errors": [],
-        "operations_receipt_sha256": "a22fb784b67820f5c900359467408b09971c9834c8b23596c73a97f089a367ab"
+        "operations_receipt_sha256": "72e9fdef2899aaea2e6ffddd1d3d82ce0322da5ce55086d9fdde887889e5cff6",
+        "stop_monitor_receipt_sha256": null,
+        "stop_monitor_receipt_path_recorded": false
       },
       "decision": "synthetic_pass",
       "release_approved": false,

@@ -54,7 +54,7 @@ function payload(overrides: Partial<ResearchReceiptPayload> = {}): ResearchRecei
   };
 }
 
-function sign(value = payload()): SignedResearchReceipt {
+function signUnknown(value: unknown): SignedResearchReceipt {
   const signedPayload = JSON.stringify(value);
   return {
     signed_payload: signedPayload,
@@ -62,6 +62,10 @@ function sign(value = payload()): SignedResearchReceipt {
       .update(signedPayload)
       .digest("hex"),
   };
+}
+
+function sign(value = payload()): SignedResearchReceipt {
+  return signUnknown(value);
 }
 
 function optedInConsent() {
@@ -314,6 +318,76 @@ describe("research participation API", () => {
     expect(store.ensurePrediction).not.toHaveBeenCalled();
     expect(store.recordTelemetry).toHaveBeenCalledWith(
       { errors: 1, integrity_errors: 1 },
+      NOW.toISOString(),
+    );
+  });
+
+  it("counts prohibited raw receipt fields as a privacy stop event", async () => {
+    const store = buildStore();
+    const receipt = signUnknown({
+      ...payload(),
+      station: { radioId: "private-radio-id", eirpWatts: 100 },
+    });
+
+    const response = await handleResearchParticipation(
+      post({ action: "start_attempt", receipt, evidenceGrade: "manual" }),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.ensurePrediction).not.toHaveBeenCalled();
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, privacy_events: 1 },
+      NOW.toISOString(),
+    );
+  });
+
+  it("counts inconsistent core personalization as an equipment stop event", async () => {
+    const store = buildStore();
+    const receipt = sign({
+      ...payload(),
+      chain_fingerprint: "core",
+      station_capability: {
+        tx_eirp: "unknown",
+        passive_loss: "unknown",
+        directional_gain: "unknown",
+        receiver_evidence: "unknown",
+        supported: false,
+      },
+      personalized_probability: 0.51,
+    });
+
+    const response = await handleResearchParticipation(
+      post({ action: "start_attempt", receipt, evidenceGrade: "manual" }),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, equipment_math_events: 1 },
+      NOW.toISOString(),
+    );
+  });
+
+  it("counts unsupported personalized probability as a support stop event", async () => {
+    const store = buildStore();
+    const receipt = sign({
+      ...payload(),
+      station_capability: {
+        ...payload().station_capability,
+        supported: false,
+      },
+      personalized_probability: 0.2,
+    });
+
+    const response = await handleResearchParticipation(
+      post({ action: "start_attempt", receipt, evidenceGrade: "manual" }),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, unsupported_support_events: 1 },
       NOW.toISOString(),
     );
   });

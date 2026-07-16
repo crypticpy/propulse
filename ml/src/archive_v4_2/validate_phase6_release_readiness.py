@@ -32,6 +32,7 @@ EVIDENCE_PATHS = {
     "participation_boundary": LIVE / "research_participation_deployment_validation.json",
     "beta_protocol_boundary": LIVE / "propagation_beta_protocol_deployment_validation.json",
     "beta_telemetry_boundary": LIVE / "stationcast_beta_telemetry_utc_deployment_validation.json",
+    "beta_stop_producers": LIVE / "stationcast_beta_stop_producer_validation.json",
     "stationcast_beta": LIVE / "stationcast_beta_release_decision.json",
     "nowcast_prospective": LIVE / "nowcast_prospective_release_decision.json",
     "learned_stationcast": LIVE / "learned_stationcast_release_decision.json",
@@ -199,6 +200,9 @@ def evaluate_release_readiness(
         "beta_telemetry_boundary_deployed": deployed(
             evidence.get("beta_telemetry_boundary")
         ),
+        "beta_stop_event_producers_validated": passed(
+            evidence.get("beta_stop_producers")
+        ),
         "beta_protocol_preregistered": protocol_preregistered,
         "stationcast_beta_passed": bool(
             passed(evidence.get("stationcast_beta"))
@@ -250,6 +254,7 @@ def evaluate_release_readiness(
         "participation_boundary_deployed",
         "beta_protocol_boundary_deployed",
         "beta_telemetry_boundary_deployed",
+        "beta_stop_event_producers_validated",
         "beta_protocol_preregistered",
     )
     core_release_prerequisites = core_prerequisites + (

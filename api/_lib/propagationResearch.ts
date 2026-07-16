@@ -180,6 +180,126 @@ export type SignedResearchReceipt = z.infer<typeof signedResearchReceiptSchema>;
 export type ResearchSubjectBinding = ResearchReceiptPayload[
   "research_subject_binding"
 ];
+export type ResearchReceiptTelemetryCounter =
+  | "integrity_errors"
+  | "privacy_events"
+  | "equipment_math_events"
+  | "unsupported_support_events";
+
+export class ResearchReceiptValidationError extends Error {
+  constructor(
+    message: string,
+    readonly telemetryCounter: ResearchReceiptTelemetryCounter,
+  ) {
+    super(message);
+    this.name = "ResearchReceiptValidationError";
+  }
+}
+
+const prohibitedReceiptKeys = new Set([
+  "amplifiergaindb",
+  "antennagaintowardpathdbi",
+  "callsign",
+  "conductedpowerwatts",
+  "coordinates",
+  "email",
+  "eirpwatts",
+  "erpwatts",
+  "feedlinelossdb",
+  "inlineequipment",
+  "inlinelossdb",
+  "inventory",
+  "localsystemnoisefloordbm",
+  "password",
+  "poweratantennawatts",
+  "radioid",
+  "receivernoisefloordbm",
+  "requestedpowerwatts",
+  "station",
+  "totalpassivelossdb",
+  "user_id",
+  "userid",
+  "values",
+]);
+
+function containsProhibitedReceiptKey(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(containsProhibitedReceiptKey);
+  }
+  if (value === null || typeof value !== "object") return false;
+  return Object.entries(value).some(([key, child]) =>
+    prohibitedReceiptKeys.has(key.toLowerCase()) ||
+    containsProhibitedReceiptKey(child)
+  );
+}
+
+function parseReceiptPayload(decoded: unknown): ResearchReceiptPayload {
+  if (containsProhibitedReceiptKey(decoded)) {
+    throw new ResearchReceiptValidationError(
+      "Research receipt privacy boundary is invalid",
+      "privacy_events",
+    );
+  }
+  const parsed = researchReceiptPayloadSchema.safeParse(decoded);
+  if (!parsed.success) {
+    const equipmentPaths = new Set([
+      "confidence",
+      "core_probability",
+      "declared_power_watts",
+      "personalized_probability",
+      "station_capability",
+    ]);
+    const equipmentFailure = parsed.error.issues.some((issue) =>
+      equipmentPaths.has(String(issue.path[0] ?? ""))
+    );
+    throw new ResearchReceiptValidationError(
+      "Research receipt payload is invalid",
+      equipmentFailure ? "equipment_math_events" : "integrity_errors",
+    );
+  }
+  const payload = parsed.data;
+  const capability = payload.station_capability;
+  if (
+    payload.chain_fingerprint === "core" &&
+    (
+      capability.supported ||
+      capability.tx_eirp !== "unknown" ||
+      capability.passive_loss !== "unknown" ||
+      capability.directional_gain !== "unknown" ||
+      capability.receiver_evidence !== "unknown" ||
+      payload.personalized_probability !== payload.core_probability
+    )
+  ) {
+    throw new ResearchReceiptValidationError(
+      "Research receipt equipment invariants are invalid",
+      "equipment_math_events",
+    );
+  }
+  if (
+    payload.chain_fingerprint !== "core" &&
+    (
+      capability.tx_eirp === "unknown" ||
+      capability.passive_loss === "unknown" ||
+      capability.directional_gain === "unknown"
+    )
+  ) {
+    throw new ResearchReceiptValidationError(
+      "Research receipt equipment invariants are invalid",
+      "equipment_math_events",
+    );
+  }
+  if (
+    payload.chain_fingerprint !== "core" &&
+    !capability.supported &&
+    payload.personalized_probability !== 0
+  ) {
+    throw new ResearchReceiptValidationError(
+      "Research receipt support invariant is invalid",
+      "unsupported_support_events",
+    );
+  }
+  return payload;
+}
 
 function signatureFor(signedPayload: string, secret: string): Buffer {
   return createHmac("sha256", secret).update(signedPayload).digest();
@@ -231,22 +351,38 @@ export function verifyResearchReceipt(
   now = new Date(),
 ): ResearchReceiptPayload {
   if (secret.length < 32) {
-    throw new Error("Research receipt verifier is not configured");
+    throw new ResearchReceiptValidationError(
+      "Research receipt verifier is not configured",
+      "integrity_errors",
+    );
   }
-  const receipt = signedResearchReceiptSchema.parse(value);
+  const parsedReceipt = signedResearchReceiptSchema.safeParse(value);
+  if (!parsedReceipt.success) {
+    throw new ResearchReceiptValidationError(
+      "Research receipt envelope is invalid",
+      "integrity_errors",
+    );
+  }
+  const receipt = parsedReceipt.data;
   const provided = Buffer.from(receipt.hmac_sha256, "hex");
   const expected = signatureFor(receipt.signed_payload, secret);
   if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
-    throw new Error("Research receipt signature is invalid");
+    throw new ResearchReceiptValidationError(
+      "Research receipt signature is invalid",
+      "integrity_errors",
+    );
   }
 
   let decoded: unknown;
   try {
     decoded = JSON.parse(receipt.signed_payload);
   } catch {
-    throw new Error("Research receipt payload is invalid");
+    throw new ResearchReceiptValidationError(
+      "Research receipt payload is invalid",
+      "integrity_errors",
+    );
   }
-  const payload = researchReceiptPayloadSchema.parse(decoded);
+  const payload = parseReceiptPayload(decoded);
   const issuedAt = Date.parse(payload.receipt_issued_at);
   const expiresAt = Date.parse(payload.receipt_expires_at);
   const issueTime = Date.parse(payload.issue_time);
@@ -259,7 +395,10 @@ export function verifyResearchReceipt(
     issueTime > issuedAt + 5 * 60 * 1000 ||
     validTime < issueTime
   ) {
-    throw new Error("Research receipt timing is invalid or expired");
+    throw new ResearchReceiptValidationError(
+      "Research receipt timing is invalid or expired",
+      "integrity_errors",
+    );
   }
   return payload;
 }

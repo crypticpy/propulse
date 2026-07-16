@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T12:42:19.058752+00:00
+Generated: 2026-07-16T15:36:23.724043+00:00
 
 ## Answer first
 
@@ -35,7 +35,7 @@ Keyset pagination completed the latest finalizer in
 `2 x 9`
 bounded threads.
 The signed progress rollup is operationally healthy at
-`9/720` hours,
+`12/720` hours,
 `100.0%` scheduled completion, and
 `0` gaps; its decision remains `collecting`.
 Subscriber-facing use still requires source confirmation, and 30 days of real
@@ -65,7 +65,7 @@ have been gathered.
 The separate first-party prospective collector is operational with
 `4/4`
 sources current. Its readiness state remains warming at
-`1.14/24`
+`4.02/24`
 gap-free hours because the first settled startup aggregates were empty. The
 frozen August-September outcomes remain unread.
 See `REPORT.html` for charts,

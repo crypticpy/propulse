@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T13:59:57.972682+00:00",
+  "generated_at": "2026-07-16T15:33:54.251324+00:00",
   "scope": "synthetic_stationcast_beta_dry_run",
   "protocol_version": "propagation-v4.2-stationcast-beta-2026-07-16",
   "runtime": {
     "machine": "arm64",
     "physical_cores_visible": 18,
     "polars_threads": 18,
-    "wall_seconds": 0.020903000026009977
+    "wall_seconds": 0.024308833002578467
   },
   "inputs": {
     "private_export_sha256": "e9228e1950c1da609868b70629a362c66d9b90fd952115bf2ffcf09ff2acf0e2",
@@ -20,7 +20,9 @@
     "private_input_binding_errors": [],
     "operations_receipt_valid": true,
     "operations_receipt_validation_errors": [],
-    "operations_receipt_sha256": "a22fb784b67820f5c900359467408b09971c9834c8b23596c73a97f089a367ab"
+    "operations_receipt_sha256": "72e9fdef2899aaea2e6ffddd1d3d82ce0322da5ce55086d9fdde887889e5cff6",
+    "stop_monitor_receipt_sha256": null,
+    "stop_monitor_receipt_path_recorded": false
   },
   "decision": "synthetic_pass",
   "release_approved": false,

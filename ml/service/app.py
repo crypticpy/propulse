@@ -23,6 +23,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from beta_telemetry import (
+    BetaTelemetrySink,
+    UnavailableBetaTelemetrySink,
+    emit_shadow_telemetry,
+    model_beta_telemetry_sink_from_environment,
+    station_envelope_stop_counts,
+)
 from path_history import (
     PATH_LAGS,
     PathHistoryProvider,
@@ -47,6 +54,25 @@ SHADOW_TELEMETRY_SCHEMA_VERSION = "propagation-shadow-v1"
 RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v2"
 RESEARCH_SUBJECT_SCHEMA_VERSION = "propagation-research-subject-v1"
 RESEARCH_RECEIPT_TTL_SECONDS = 24 * 60 * 60
+RAW_RECEIPT_FORBIDDEN_KEYS = frozenset({
+    "amplifierGainDb",
+    "antennaGainTowardPathDbi",
+    "callsign",
+    "conductedPowerWatts",
+    "email",
+    "eirpWatts",
+    "erpWatts",
+    "feedlineLossDb",
+    "inlineLossDb",
+    "localSystemNoiseFloorDbm",
+    "powerAtAntennaWatts",
+    "receiverNoiseFloorDbm",
+    "requestedPowerWatts",
+    "station",
+    "totalPassiveLossDb",
+    "user_id",
+    "values",
+})
 INFERENCE_MODES = {"disabled", "shadow", "active"}
 TELEMETRY_BANDS = {
     "160m",
@@ -819,6 +845,54 @@ def build_research_receipt(
     }
 
 
+def receipt_contains_raw_private_fields(value: Any) -> bool:
+    if isinstance(value, dict):
+        if RAW_RECEIPT_FORBIDDEN_KEYS.intersection(value):
+            return True
+        return any(receipt_contains_raw_private_fields(item) for item in value.values())
+    if isinstance(value, list):
+        return any(receipt_contains_raw_private_fields(item) for item in value)
+    return False
+
+
+def beta_stop_counts_for_prediction(
+    request: PathRequest,
+    response: dict[str, Any],
+) -> dict[str, int]:
+    station = request.station
+    counts = station_envelope_stop_counts(
+        station,
+        request_band=request.band,
+        request_mode=request.mode,
+        request_declared_power_watts=request.declared_power_watts,
+    )
+    if (
+        station is not None
+        and not station.supported
+        and float(response["personalized_probability"]) != 0
+    ):
+        counts["unsupported_support_events"] = 1
+    return counts
+
+
+def station_math_is_valid(request: PathRequest) -> bool:
+    return "equipment_math_events" not in beta_stop_counts_for_prediction(
+        request,
+        {"personalized_probability": 0.0},
+    )
+
+
+def beta_stop_event_for_prediction(
+    request: PathRequest,
+    response: dict[str, Any],
+) -> str | None:
+    counts = beta_stop_counts_for_prediction(request, response)
+    for name in ("equipment_math_events", "unsupported_support_events"):
+        if counts.get(name):
+            return name
+    return None
+
+
 def prediction_response(request: PathRequest, runtime: RuntimePrediction) -> dict[str, Any]:
     personalized = runtime.probability
     confidence = runtime.confidence
@@ -864,6 +938,7 @@ def create_app(
     path_history_provider: PathHistoryProvider | None = None,
     operational_weather_provider: OperationalWeatherProvider | None = None,
     research_receipt_secret: str | None = None,
+    beta_telemetry_sink: BetaTelemetrySink | None = None,
 ) -> FastAPI:
     runtime = registry
     if runtime is None:
@@ -886,6 +961,17 @@ def create_app(
     research_receipts_enabled = bool(
         selected_research_receipt_secret and selected_inference_mode == "active"
     )
+    selected_beta_telemetry_sink = (
+        beta_telemetry_sink
+        if beta_telemetry_sink is not None
+        else model_beta_telemetry_sink_from_environment()
+        if research_receipts_enabled
+        else UnavailableBetaTelemetrySink()
+    )
+    if research_receipts_enabled and not selected_beta_telemetry_sink.configured:
+        raise RuntimeError(
+            "active research receipts require beta stop-event telemetry"
+        )
     runtime_feature_contract = str(
         getattr(runtime, "core_feature_contract", "unknown")
     )
@@ -926,6 +1012,9 @@ def create_app(
             "telemetry_schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
             "research_receipt_schema_version": RESEARCH_RECEIPT_SCHEMA_VERSION,
             "research_receipts_enabled": research_receipts_enabled,
+            "beta_stop_event_telemetry_configured": (
+                selected_beta_telemetry_sink.configured
+            ),
             "path_history_provider": history_provider.name,
             "path_history_transform_version": history_provider.transform_version,
             "operational_weather_provider": weather_provider.name,
@@ -962,29 +1051,70 @@ def create_app(
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
         response = prediction_response(verified_request, prediction)
+        if research_receipts_enabled:
+            stop_counts = beta_stop_counts_for_prediction(
+                verified_request,
+                response,
+            )
+            if stop_counts:
+                try:
+                    selected_beta_telemetry_sink.record(stop_counts)
+                except Exception as error:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="beta stop-event telemetry unavailable",
+                    ) from error
+                raise HTTPException(
+                    status_code=503,
+                    detail="beta safety invariant failed",
+                )
         if research_receipts_enabled and verified_request.research_subject_binding:
-            response["research_receipt"] = build_research_receipt(
+            receipt = build_research_receipt(
                 verified_request,
                 response,
                 core_feature_contract=runtime_feature_contract,
                 secret=selected_research_receipt_secret,
             )
+            decoded_receipt = json.loads(receipt["signed_payload"])
+            if receipt_contains_raw_private_fields(decoded_receipt):
+                try:
+                    selected_beta_telemetry_sink.record({"privacy_events": 1})
+                except Exception as error:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="beta stop-event telemetry unavailable",
+                    ) from error
+                raise HTTPException(
+                    status_code=503,
+                    detail="beta safety invariant failed",
+                )
+            response["research_receipt"] = receipt
         if selected_inference_mode != "disabled":
             try:
-                emit_telemetry(shadow_telemetry_event(
-                    verified_request,
-                    [response],
-                    inference_mode=selected_inference_mode,
-                    request_kind="path",
-                    feature_contract=runtime_feature_contract,
-                    path_history_provider=history_provider.name,
-                    path_history_transform_version=history_provider.transform_version,
-                    operational_weather_provider=weather_provider.name,
-                    stale_history=stale,
-                    latency_ms=(time.perf_counter() - started) * 1000,
-                ))
-            except Exception:
+                emit_shadow_telemetry(
+                    shadow_telemetry_event(
+                        verified_request,
+                        [response],
+                        inference_mode=selected_inference_mode,
+                        request_kind="path",
+                        feature_contract=runtime_feature_contract,
+                        path_history_provider=history_provider.name,
+                        path_history_transform_version=history_provider.transform_version,
+                        operational_weather_provider=weather_provider.name,
+                        stale_history=stale,
+                        latency_ms=(time.perf_counter() - started) * 1000,
+                    ),
+                    sink=emit_telemetry,
+                    beta_recorder=selected_beta_telemetry_sink,
+                    beta_collection_enabled=research_receipts_enabled,
+                )
+            except Exception as error:
                 LOGGER.exception("propagation telemetry sink failed")
+                if research_receipts_enabled:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="beta stop-event telemetry unavailable",
+                    ) from error
         return response
 
     @app.post("/v1/propagation/surface")
@@ -1036,23 +1166,51 @@ def create_app(
                 station=cell.station or request.station,
                 data_freshness_seconds=freshness,
             )
-            predictions.append(prediction_response(path_request, prediction))
+            response = prediction_response(path_request, prediction)
+            if research_receipts_enabled:
+                stop_counts = beta_stop_counts_for_prediction(
+                    path_request,
+                    response,
+                )
+                if stop_counts:
+                    try:
+                        selected_beta_telemetry_sink.record(stop_counts)
+                    except Exception as error:
+                        raise HTTPException(
+                            status_code=503,
+                            detail="beta stop-event telemetry unavailable",
+                        ) from error
+                    raise HTTPException(
+                        status_code=503,
+                        detail="beta safety invariant failed",
+                    )
+            predictions.append(response)
         if selected_inference_mode != "disabled":
             try:
-                emit_telemetry(shadow_telemetry_event(
-                    verified_request,
-                    predictions,
-                    inference_mode=selected_inference_mode,
-                    request_kind="surface",
-                    feature_contract=runtime_feature_contract,
-                    path_history_provider=history_provider.name,
-                    path_history_transform_version=history_provider.transform_version,
-                    operational_weather_provider=weather_provider.name,
-                    stale_history=stale,
-                    latency_ms=(time.perf_counter() - started) * 1000,
-                ))
-            except Exception:
+                emit_shadow_telemetry(
+                    shadow_telemetry_event(
+                        verified_request,
+                        predictions,
+                        inference_mode=selected_inference_mode,
+                        request_kind="surface",
+                        feature_contract=runtime_feature_contract,
+                        path_history_provider=history_provider.name,
+                        path_history_transform_version=history_provider.transform_version,
+                        operational_weather_provider=weather_provider.name,
+                        stale_history=stale,
+                        latency_ms=(time.perf_counter() - started) * 1000,
+                    ),
+                    sink=emit_telemetry,
+                    beta_recorder=selected_beta_telemetry_sink,
+                    beta_collection_enabled=research_receipts_enabled,
+                )
+            except Exception as error:
                 LOGGER.exception("propagation telemetry sink failed")
+                if research_receipts_enabled:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="beta stop-event telemetry unavailable",
+                    ) from error
         return {
             "origin_grid4": request.origin_grid4,
             "issue_time": request.issue_time,

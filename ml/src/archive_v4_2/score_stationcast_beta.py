@@ -108,6 +108,16 @@ EXPORT_RECEIPT_FIELDS = {
     "runtime",
     "privacy",
 }
+OPERATIONS_INPUT_FIELDS = {
+    "api_telemetry_sha256",
+    "api_telemetry_path_recorded",
+    "config_sha256",
+    "stop_monitor_receipt_sha256",
+    "stop_monitor_receipt_path_recorded",
+    "stop_monitor_evidence_sha256",
+    "stop_monitor_config_sha256",
+    "stop_monitor_decision",
+}
 
 
 def nonnegative_int(value: Any) -> bool:
@@ -171,6 +181,7 @@ def validate_operations_receipt(
     *,
     allow_synthetic: bool,
     config_sha256: str | None = None,
+    stop_monitor_receipt_sha256: str | None = None,
 ) -> tuple[bool, list[str]]:
     errors: list[str] = []
     expected_scope = (
@@ -266,12 +277,25 @@ def validate_operations_receipt(
     inputs = receipt.get("inputs")
     if (
         not isinstance(inputs, dict)
+        or set(inputs) != OPERATIONS_INPUT_FIELDS
         or inputs.get("api_telemetry_path_recorded") is not False
+        or inputs.get("stop_monitor_receipt_path_recorded") is not False
         or not is_sha256(inputs.get("api_telemetry_sha256"))
         or not is_sha256(inputs.get("config_sha256"))
+        or not is_sha256(inputs.get("stop_monitor_receipt_sha256"))
+        or not is_sha256(inputs.get("stop_monitor_evidence_sha256"))
+        or not is_sha256(inputs.get("stop_monitor_config_sha256"))
+        or inputs.get("stop_monitor_config_sha256") != inputs.get("config_sha256")
+        or inputs.get("stop_monitor_decision")
+        != ("synthetic" if allow_synthetic else "continue")
         or (
             config_sha256 is not None
             and inputs.get("config_sha256") != config_sha256
+        )
+        or (
+            stop_monitor_receipt_sha256 is not None
+            and inputs.get("stop_monitor_receipt_sha256")
+            != stop_monitor_receipt_sha256
         )
     ):
         errors.append("inputs")
@@ -829,6 +853,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=CONFIG)
     parser.add_argument("--export-receipt", type=Path)
     parser.add_argument("--operations-receipt", type=Path)
+    parser.add_argument("--stop-monitor-receipt", type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--require-release", action="store_true")
     parser.add_argument("--synthetic-dry-run", action="store_true")
@@ -844,12 +869,21 @@ def main() -> None:
         if args.operations_receipt
         else {}
     )
+    stop_monitor_digest = (
+        sha256(args.stop_monitor_receipt)
+        if args.stop_monitor_receipt
+        else None
+    )
     operations_valid, operations_errors = validate_operations_receipt(
         operations,
         config,
         allow_synthetic=args.synthetic_dry_run,
         config_sha256=config_digest,
+        stop_monitor_receipt_sha256=stop_monitor_digest,
     )
+    if not args.synthetic_dry_run and stop_monitor_digest is None:
+        operations_valid = False
+        operations_errors = [*operations_errors, "stop_monitor_receipt_missing"]
     export_receipt = (
         json.loads(args.export_receipt.read_text(encoding="utf-8"))
         if args.export_receipt
@@ -935,6 +969,8 @@ def main() -> None:
             "operations_receipt_sha256": (
                 sha256(args.operations_receipt) if args.operations_receipt else None
             ),
+            "stop_monitor_receipt_sha256": stop_monitor_digest,
+            "stop_monitor_receipt_path_recorded": False,
         },
         **score,
     }

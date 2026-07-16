@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T14:53:13.399394+00:00",
+  "generated_at": "2026-07-16T15:40:57.563490+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -28,7 +28,7 @@
     "wspr_shadow": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
       "exists": true,
-      "sha256": "3673cbab84d51a00529c9978d7a7ed744cefc36009cba81f1dfe34f77e3c5f47",
+      "sha256": "2b804b4bcefcb0fe1b5e78cc08e59c75dd07c41ccf22c9eead8a1f9f4ef77730",
       "schema_version": 1,
       "decision": "collecting"
     },
@@ -40,7 +40,7 @@
     "prospective_capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
       "exists": true,
-      "sha256": "bd2a847dc6843153407c0334a3a63411e3ff2c0a3b5c0c0c687aeb903c43b4e3",
+      "sha256": "90759eebbe94554ebad795f0a6b07449a49f895fcb3e425d1cde5c507c37997b",
       "schema_version": 1,
       "decision": null
     },
@@ -91,6 +91,13 @@
       "schema_version": 1,
       "decision": "pass"
     },
+    "beta_stop_producers": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_stop_producer_validation.json",
+      "exists": true,
+      "sha256": "a89c6da50386c242c7da6ad0a1b81c68dc4360e5b07095eec454352a2748aa5c",
+      "schema_version": 1,
+      "decision": "pass"
+    },
     "stationcast_beta": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_release_decision.json",
       "exists": false,
@@ -123,7 +130,7 @@
     "beta_protocol": {
       "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
       "exists": true,
-      "sha256": "7ef8720e893c4d47513a5b7798ef3d3a7c0d6b3b6880e81753d0091f6686c88e"
+      "sha256": "884cd75ecf95c20afbd14c6f57a2622dcf24e2d5f8899846129a84ca42601a9f"
     }
   },
   "gates": {
@@ -139,6 +146,7 @@
     "participation_boundary_deployed": true,
     "beta_protocol_boundary_deployed": true,
     "beta_telemetry_boundary_deployed": true,
+    "beta_stop_event_producers_validated": true,
     "beta_protocol_preregistered": true,
     "stationcast_beta_passed": false,
     "prospective_window_closed": false,

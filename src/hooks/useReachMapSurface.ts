@@ -25,6 +25,7 @@ export interface ReachMapSurfaceState {
 
 export function useReachMapSurface(options: {
   enabled: boolean;
+  renderOverlay?: boolean;
   band: string;
   validTime: Date;
   weather?: OperationalSpaceWeather;
@@ -93,10 +94,14 @@ export function useReachMapSurface(options: {
       .then((response) => {
         if (controller.signal.aborted) return;
         const cells = predictionsToReachMapCells(response.cells, grid);
-        useMapStore.getState().updateOverlayLayer(REACH_MAP_LAYER_ID, {
-          type: "cells",
-          cells,
-        });
+        if (options.renderOverlay !== false) {
+          useMapStore.getState().updateOverlayLayer(REACH_MAP_LAYER_ID, {
+            type: "cells",
+            cells,
+          });
+        } else {
+          remove();
+        }
         setState({
           loading: false,
           error: null,
@@ -122,6 +127,7 @@ export function useReachMapSurface(options: {
     };
   }, [
     options.enabled,
+    options.renderOverlay,
     options.band,
     timeKey,
     weatherKey,

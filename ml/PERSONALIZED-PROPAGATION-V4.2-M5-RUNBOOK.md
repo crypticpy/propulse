@@ -76,9 +76,26 @@ performance warning was observed.
 
 The comprehensive report and open-research handoff are under
 `ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/`.
-The remaining work is Phase 6 shadow, opt-in, and prospective evidence. Do not
-rerun training, reopen outcome scopes, or tune the frozen policy from December
-or 2025.
+The remaining work is Phase 6 shadow, opt-in, and prospective evidence.
+Frontend/service shadow execution and aggregate-only telemetry are implemented.
+A local M5 deployment smoke passed with six one-thread Uvicorn workers, the real
+A6 bundle, successful path HTTP/CORS, explicit physics fallback, and a persisted
+identity-free event. Durable beta deployment and real opt-in receipts remain
+open. The current product request must select the physics fallback until the
+authorized WSPR pipeline passes its source and replay gates. Do not rerun
+training, reopen outcome scopes, or tune the frozen policy from December or
+2025.
+
+For local M5 shadow validation, keep each model-serving process at the manifest
+default of one XGBoost thread and use six Uvicorn workers. This is distinct from
+offline scoring, which uses the benchmark-pinned 18-thread path:
+
+```bash
+export PROPULSE_INFERENCE_MODE=shadow
+export PROPULSE_MODEL_BUNDLE="/path/to/approved/serving_manifest.json"
+ml/.venv/bin/uvicorn app:app --app-dir ml/service \
+  --host 127.0.0.1 --port 8000 --workers 6
+```
 
 ## Reproduce Phase 2 at 20M
 

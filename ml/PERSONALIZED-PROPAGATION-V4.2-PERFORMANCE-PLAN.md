@@ -640,14 +640,25 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 
 ### Phase 6: product evidence
 
-- [ ] Shadow the approved core in ReachMap and StationCast.
+- [x] Implement and locally deploy the approved core shadow path in ReachMap
+  and StationCast, with hidden UI and aggregate-only service telemetry.
+- [ ] Accumulate permitted beta shadow traffic with authorized recent-path
+  features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
 - [ ] Release only claims and modes supported by the evidence.
 
 The service bundle, feature builders, station adapter, Band Planner path, and
-ReachMap surface path are implemented and validated. Actual shadow deployment,
-consented outcomes, and the future prospective window cannot be marked complete
-from retrospective archive evidence.
+ReachMap surface path are implemented and validated. Explicit frontend and
+service shadow execution plus privacy-bounded aggregate telemetry are now
+implemented. The current shadow path correctly selects the physics fallback
+because authorized, replay-equivalent live WSPR lag features do not yet exist.
+The real A6 bundle also passed a local M5 HTTP smoke deployment with six
+one-thread workers, allowlisted CORS, explicit fallback, and a persisted
+`propagation-shadow-v1` event. Phase 6 remains open until a durable beta
+deployment exists, a permitted source passes the live pipeline gates, and real
+opt-in shadow receipts are collected. Consented outcomes and the future
+prospective window also cannot be marked complete from retrospective archive
+evidence.
 
 ## Immediate resume instruction
 

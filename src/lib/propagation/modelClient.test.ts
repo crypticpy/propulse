@@ -1,7 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPropagationModelClient } from "./modelClient";
+import {
+  createPropagationModelClient,
+  resolvePropagationModelMode,
+} from "./modelClient";
 
 describe("createPropagationModelClient", () => {
+  it("resolves explicit shadow mode and fails closed without a URL", () => {
+    expect(resolvePropagationModelMode("shadow", undefined, "https://model.test")).toBe(
+      "shadow",
+    );
+    expect(resolvePropagationModelMode("active", undefined, "")).toBe("off");
+    expect(resolvePropagationModelMode(undefined, "true", "https://model.test")).toBe(
+      "active",
+    );
+    expect(resolvePropagationModelMode("invalid", undefined, "https://model.test")).toBe(
+      "off",
+    );
+  });
+
   it("sends only the explicit versioned request envelope", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ model_version: "v4" }), {

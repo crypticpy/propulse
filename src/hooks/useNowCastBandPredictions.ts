@@ -4,6 +4,7 @@ import { buildCorePathFeatures, HF_BAND_MHZ, type OperationalSpaceWeather } from
 import {
   propagationModelClient,
   propagationModelEnabled,
+  propagationModelVisible,
   type PathPredictionRequest,
   type PropagationPrediction,
 } from "@/lib/propagation/modelClient";
@@ -87,6 +88,7 @@ export function buildNowCastRequests(
 
 export interface NowCastBandPredictions {
   enabled: boolean;
+  visible: boolean;
   pending: boolean;
   predictions: Map<string, PropagationPrediction>;
   errors: Map<string, Error>;
@@ -132,6 +134,7 @@ export function useNowCastBandPredictions(
   });
   return {
     enabled: propagationModelEnabled && requests.length > 0,
+    visible: propagationModelVisible && requests.length > 0,
     pending: queries.some((query) => query.isPending || query.isFetching),
     predictions,
     errors,

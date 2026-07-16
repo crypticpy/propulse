@@ -8,9 +8,11 @@ from fastapi.testclient import TestClient
 
 from app import (
     RuntimePrediction,
+    allowlisted_telemetry_dimension,
     blend_probabilities,
     create_app,
     model_feature_value,
+    resolve_inference_mode,
     resolve_xgboost_prediction_threads,
 )
 
@@ -19,6 +21,8 @@ class FakeRegistry:
     def __init__(self):
         self.batch_sizes = []
         self.path_history_stale_after_seconds = 7200
+        self.feature_contract = "station-chain-v1"
+        self.core_feature_contract = "archive-v4-features-test-v1"
 
     def predict(self, values, band, stale_history):
         return RuntimePrediction(
@@ -88,7 +92,7 @@ def request_payload():
 class ServiceTests(unittest.TestCase):
     def setUp(self):
         self.registry = FakeRegistry()
-        self.client = TestClient(create_app(self.registry))
+        self.client = TestClient(create_app(self.registry, inference_mode="disabled"))
 
     def test_path_applies_station_envelope(self):
         response = self.client.post("/v1/propagation/path", json=request_payload())
@@ -117,6 +121,20 @@ class ServiceTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "between 1 and 64"):
             resolve_xgboost_prediction_threads({}, "0")
+
+    def test_inference_mode_is_strict_and_health_reports_it(self):
+        self.assertEqual(resolve_inference_mode("off"), "disabled")
+        self.assertEqual(resolve_inference_mode("shadow"), "shadow")
+        self.assertEqual(allowlisted_telemetry_dimension("am", {"AM"}), "AM")
+        self.assertEqual(
+            allowlisted_telemetry_dimension("private", {"AM"}), "other"
+        )
+        with self.assertRaisesRegex(RuntimeError, "disabled, shadow, or active"):
+            resolve_inference_mode("maybe")
+        client = TestClient(create_app(self.registry, inference_mode="shadow"))
+        body = client.get("/v1/propagation/health").json()
+        self.assertEqual(body["inference_mode"], "shadow")
+        self.assertEqual(body["telemetry_schema_version"], "propagation-shadow-v1")
 
     def test_weighted_ensemble_probability_is_exact(self):
         output = blend_probabilities(
@@ -196,6 +214,59 @@ class ServiceTests(unittest.TestCase):
             for cell in response.json()["cells"]
         ]
         self.assertGreater(probabilities[1], probabilities[0])
+
+    def test_shadow_telemetry_is_aggregate_and_identity_free(self):
+        events = []
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            telemetry_sink=events.append,
+        ))
+        path_payload = request_payload()
+        path_payload["band"] = "private-band-value"
+        path_payload["mode"] = "K1PRIVATE"
+        path_response = client.post("/v1/propagation/path", json=path_payload)
+        self.assertEqual(path_response.status_code, 200)
+
+        surface_payload = request_payload()
+        surface_payload["cells"] = [
+            surface_payload.pop("features"),
+            {"target_grid4": "FN31", "values": {"band_mhz": 14.1}},
+        ]
+        surface_response = client.post(
+            "/v1/propagation/surface", json=surface_payload
+        )
+        self.assertEqual(surface_response.status_code, 200)
+        self.assertEqual([event["request_kind"] for event in events], ["path", "surface"])
+        self.assertEqual(events[0]["cell_count"], 1)
+        self.assertEqual(events[0]["band"], "other")
+        self.assertEqual(events[0]["mode"], "other")
+        self.assertEqual(events[1]["cell_count"], 2)
+        self.assertEqual(
+            events[1]["feature_contract"], "archive-v4-features-test-v1"
+        )
+        self.assertEqual(events[1]["station_feature_contract"], "station-chain-v1")
+        self.assertEqual(events[1]["profile_counts"], {"nowcast": 2})
+        self.assertEqual(
+            events[1]["core_probability_summary"],
+            {"minimum": 0.4, "mean": 0.4, "maximum": 0.4},
+        )
+        serialized = str(events)
+        for private_value in (
+            "EM10",
+            "IO91",
+            "FN31",
+            "fixture:test",
+            "chainFingerprint",
+            "origin_grid4",
+            "target_grid4",
+            "eirpWatts",
+            "requestedPowerWatts",
+            "receiverNoiseFloorDbm",
+            "private-band-value",
+            "K1PRIVATE",
+        ):
+            self.assertNotIn(private_value, serialized)
 
     def test_local_browser_preflight_is_allowed(self):
         response = self.client.options(

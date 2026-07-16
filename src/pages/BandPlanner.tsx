@@ -566,7 +566,7 @@ export function BandPlanner() {
               </div>
             </Card>
 
-            {targetCoords && modelNowCast.enabled && (
+            {targetCoords && modelNowCast.visible && (
               <Card>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">

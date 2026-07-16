@@ -61,6 +61,21 @@ export interface PropagationModelClient {
   health: (signal?: AbortSignal) => Promise<Record<string, unknown>>;
 }
 
+export type PropagationModelMode = "off" | "shadow" | "active";
+
+export function resolvePropagationModelMode(
+  configuredMode: string | undefined,
+  legacyEnabled: string | undefined,
+  baseUrl: string,
+): PropagationModelMode {
+  if (!baseUrl.trim()) return "off";
+  const normalized = configuredMode?.trim().toLowerCase();
+  if (normalized === "off" || normalized === "shadow" || normalized === "active") {
+    return normalized;
+  }
+  return legacyEnabled === "true" ? "active" : "off";
+}
+
 async function responseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = `Propagation API returned HTTP ${response.status}`;
@@ -103,9 +118,18 @@ export function createPropagationModelClient(
 export const propagationModelUrl =
   import.meta.env.VITE_PROPAGATION_MODEL_URL?.trim() ?? "";
 
+export const propagationModelMode = resolvePropagationModelMode(
+  import.meta.env.VITE_PROPAGATION_V4_MODE,
+  import.meta.env.VITE_PROPAGATION_V4_ENABLED,
+  propagationModelUrl,
+);
+
 export const propagationModelEnabled =
-  import.meta.env.VITE_PROPAGATION_V4_ENABLED === "true" &&
-  propagationModelUrl.length > 0;
+  propagationModelMode !== "off";
+
+export const propagationModelVisible = propagationModelMode === "active";
+
+export const propagationModelShadow = propagationModelMode === "shadow";
 
 export const propagationModelClient = propagationModelEnabled
   ? createPropagationModelClient(propagationModelUrl)

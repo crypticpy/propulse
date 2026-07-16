@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 import hashlib
+import logging
 import os
 import sys
+import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 import joblib
 import numpy as np
@@ -23,6 +26,35 @@ V4 = ROOT / "ml/src/archive_v4"
 V41 = ROOT / "ml/src/archive_v4_1"
 DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS = 7200
 DEFAULT_XGBOOST_PREDICTION_THREADS = 1
+SHADOW_TELEMETRY_SCHEMA_VERSION = "propagation-shadow-v1"
+INFERENCE_MODES = {"disabled", "shadow", "active"}
+TELEMETRY_BANDS = {
+    "160m",
+    "80m",
+    "60m",
+    "40m",
+    "30m",
+    "20m",
+    "17m",
+    "15m",
+    "12m",
+    "10m",
+    "6m",
+}
+TELEMETRY_MODES = {
+    "WSPR",
+    "FT8",
+    "FT4",
+    "CW",
+    "SSB",
+    "RTTY",
+    "PSK31",
+    "JS8",
+    "AM",
+    "FM",
+}
+LOGGER = logging.getLogger("uvicorn.error")
+LOGGER.setLevel(logging.INFO)
 sys.path.insert(0, str(V4))
 # V4.1 joblib bundles retain the historical ``calibration`` module name. Put
 # the backward-compatible V4.1 implementation first before unpickling them.
@@ -186,6 +218,9 @@ class ModelRegistry:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         self.version = payload["model_version"]
         self.feature_contract = payload["feature_contract"]
+        self.core_feature_contract = payload.get(
+            "core_feature_contract", self.feature_contract
+        )
         runtime_policy = payload.get("runtime_policy", {})
         self.path_history_stale_after_seconds = int(
             runtime_policy.get(
@@ -331,6 +366,7 @@ class ModelRegistry:
         return [{
             "model_version": self.version,
             "feature_contract": self.feature_contract,
+            "core_feature_contract": self.core_feature_contract,
             "profiles": sorted(self.profiles),
             "profile_kinds": {
                 name: item["kind"] for name, item in sorted(self.profiles.items())
@@ -351,6 +387,7 @@ class ModelRegistry:
             "status": "ok",
             "model_version": self.version,
             "profiles": sorted(self.profiles),
+            "core_feature_contract": self.core_feature_contract,
             "xgboost_prediction_threads": self.xgboost_prediction_threads,
             "xgboost_prediction_threads_source": (
                 self.xgboost_prediction_threads_source
@@ -360,6 +397,7 @@ class ModelRegistry:
 
 class UnavailableRegistry:
     path_history_stale_after_seconds = DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS
+    core_feature_contract = "unknown"
 
     def predict(self, values: dict[str, float | int | None], band: str, stale_history: bool) -> RuntimePrediction:
         raise RuntimeError("no approved model bundle is loaded")
@@ -386,6 +424,86 @@ def path_history_is_stale(
     )
     age = data_freshness_seconds.get("path_history")
     return age is None or age > threshold
+
+
+def resolve_inference_mode(configured: str | None) -> str:
+    mode = (configured or "disabled").strip().lower()
+    if mode == "off":
+        mode = "disabled"
+    if mode not in INFERENCE_MODES:
+        raise RuntimeError(
+            "PROPULSE_INFERENCE_MODE must be disabled, shadow, or active"
+        )
+    return mode
+
+
+def probability_summary(values: list[float]) -> dict[str, float]:
+    array = np.asarray(values, dtype=np.float64)
+    return {
+        "minimum": float(array.min()),
+        "mean": float(array.mean()),
+        "maximum": float(array.max()),
+    }
+
+
+def allowlisted_telemetry_dimension(value: str, allowed: set[str]) -> str:
+    canonical = {item.lower(): item for item in allowed}
+    return canonical.get(value.strip().lower(), "other")
+
+
+def shadow_telemetry_event(
+    request: PathRequest | SurfaceRequest,
+    responses: list[dict[str, Any]],
+    *,
+    inference_mode: str,
+    request_kind: str,
+    feature_contract: str,
+    stale_history: bool,
+    latency_ms: float,
+) -> dict[str, Any]:
+    profiles = Counter(str(item["profile"]) for item in responses)
+    ood_flags = Counter(
+        str(flag) for item in responses for flag in item["ood_flags"]
+    )
+    path_history_age = request.data_freshness_seconds.get("path_history")
+    return {
+        "schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
+        "event_type": "propagation_inference_completed",
+        "inference_mode": inference_mode,
+        "request_kind": request_kind,
+        "receipt_time": datetime.now(timezone.utc).isoformat(),
+        "issue_time": request.issue_time.isoformat(),
+        "valid_time": request.valid_time.isoformat(),
+        "band": allowlisted_telemetry_dimension(request.band, TELEMETRY_BANDS),
+        "mode": allowlisted_telemetry_dimension(request.mode, TELEMETRY_MODES),
+        "cell_count": len(responses),
+        "model_version": str(responses[0]["model_version"]),
+        "feature_contract": feature_contract,
+        "station_feature_contract": str(responses[0]["feature_contract"]),
+        "profile_counts": dict(sorted(profiles.items())),
+        "source_freshness": {
+            "path_history_seconds": path_history_age,
+            "path_history_stale": stale_history,
+            "space_weather_seconds": request.data_freshness_seconds.get(
+                "space_weather"
+            ),
+        },
+        "ood_flag_counts": dict(sorted(ood_flags.items())),
+        "core_probability_summary": probability_summary(
+            [float(item["core_probability"]) for item in responses]
+        ),
+        "personalized_probability_summary": probability_summary(
+            [float(item["personalized_probability"]) for item in responses]
+        ),
+        "confidence_summary": probability_summary(
+            [float(item["confidence"]) for item in responses]
+        ),
+        "latency_ms": float(latency_ms),
+    }
+
+
+def log_shadow_telemetry(event: dict[str, Any]) -> None:
+    LOGGER.info("propagation_inference %s", json.dumps(event, sort_keys=True))
 
 
 def prediction_response(request: PathRequest, runtime: RuntimePrediction) -> dict[str, Any]:
@@ -421,11 +539,24 @@ def prediction_response(request: PathRequest, runtime: RuntimePrediction) -> dic
     }
 
 
-def create_app(registry: Predictor | None = None) -> FastAPI:
+def create_app(
+    registry: Predictor | None = None,
+    inference_mode: str | None = None,
+    telemetry_sink: Callable[[dict[str, Any]], None] | None = None,
+) -> FastAPI:
     runtime = registry
     if runtime is None:
         manifest = os.environ.get("PROPULSE_MODEL_BUNDLE")
         runtime = ModelRegistry(Path(manifest)) if manifest else UnavailableRegistry()
+    selected_inference_mode = resolve_inference_mode(
+        inference_mode
+        if inference_mode is not None
+        else os.environ.get("PROPULSE_INFERENCE_MODE")
+    )
+    runtime_feature_contract = str(
+        getattr(runtime, "core_feature_contract", "unknown")
+    )
+    emit_telemetry = telemetry_sink or log_shadow_telemetry
     app = FastAPI(title="Propulse Propagation API", version="1.0.0")
     allowed_origins = [
         value.strip()
@@ -445,7 +576,12 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
 
     @app.get("/v1/propagation/health")
     def health() -> dict[str, Any]:
-        return {**runtime.health(), "checked_at": datetime.now(timezone.utc)}
+        return {
+            **runtime.health(),
+            "checked_at": datetime.now(timezone.utc),
+            "inference_mode": selected_inference_mode,
+            "telemetry_schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
+        }
 
     @app.get("/v1/propagation/models")
     def models() -> dict[str, Any]:
@@ -453,15 +589,31 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
 
     @app.post("/v1/propagation/path")
     def path(request: PathRequest) -> dict[str, Any]:
+        started = time.perf_counter()
         stale = path_history_is_stale(runtime, request.data_freshness_seconds)
         try:
             prediction = runtime.predict(request.features.values, request.band, stale)
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
-        return prediction_response(request, prediction)
+        response = prediction_response(request, prediction)
+        if selected_inference_mode != "disabled":
+            try:
+                emit_telemetry(shadow_telemetry_event(
+                    request,
+                    [response],
+                    inference_mode=selected_inference_mode,
+                    request_kind="path",
+                    feature_contract=runtime_feature_contract,
+                    stale_history=stale,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                ))
+            except Exception:
+                LOGGER.exception("propagation telemetry sink failed")
+        return response
 
     @app.post("/v1/propagation/surface")
     def surface(request: SurfaceRequest) -> dict[str, Any]:
+        started = time.perf_counter()
         stale = path_history_is_stale(runtime, request.data_freshness_seconds)
         predictions = []
         try:
@@ -491,6 +643,19 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
                 data_freshness_seconds=request.data_freshness_seconds,
             )
             predictions.append(prediction_response(path_request, prediction))
+        if selected_inference_mode != "disabled":
+            try:
+                emit_telemetry(shadow_telemetry_event(
+                    request,
+                    predictions,
+                    inference_mode=selected_inference_mode,
+                    request_kind="surface",
+                    feature_contract=runtime_feature_contract,
+                    stale_history=stale,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                ))
+            except Exception:
+                LOGGER.exception("propagation telemetry sink failed")
         return {
             "origin_grid4": request.origin_grid4,
             "issue_time": request.issue_time,

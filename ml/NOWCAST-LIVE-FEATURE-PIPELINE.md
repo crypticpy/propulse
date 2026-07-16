@@ -5,6 +5,20 @@
 > product. Until every release gate below passes, Propulse must mark path
 > history stale and serve the packaged physics/weather profile.
 
+> Archive update, 2026-07-15: frozen A6 passed untouched December 2024 and the
+> locked four-month 2025 archive. The frontend and inference service now have an
+> explicit shadow mode: requests are scored silently, the UI remains on approved
+> behavior, and only aggregate identity-free telemetry is emitted. This proves
+> service/fallback operation; it does not satisfy the live-source, replay, or
+> receipt-time gates and must not be described as live NowCast evidence.
+
+> Local runtime update, 2026-07-15: the checksum-verified A6 bundle served a
+> real M5 HTTP shadow request through six one-thread Uvicorn workers. Health,
+> CORS, stale-profile selection, and persisted aggregate telemetry passed. The
+> request used a synthetic fixture and therefore is operational smoke evidence,
+> not beta, receipt-time, coverage, calibration, or source-authorization
+> evidence.
+
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
 > Dst object schema, preserves Bx and proton temperature, and stores per-source
@@ -244,6 +258,9 @@ shadow capture with receipt timestamps is required before product enablement.
 - [ ] Add batched path-history lookup to the trusted model backend.
 - [ ] Add open-month event-time replay, then a receipt-time live shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.
+- [x] Add explicit frontend/service shadow execution with aggregate-only
+  telemetry and hidden model UI; current requests deliberately exercise the
+  stale-history physics fallback.
 - [ ] Wire fresh feature responses into `buildNowCastRequests` and ReachMap only
   after V4.2 archive approval; retain physics fallback permanently.
 - [ ] Publish coverage and drift evidence in the final visual report.

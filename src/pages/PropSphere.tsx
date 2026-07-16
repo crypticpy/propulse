@@ -104,7 +104,10 @@ import { useReplayStore } from "@/stores/replayStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
-import { propagationModelEnabled } from "@/lib/propagation/modelClient";
+import {
+  propagationModelShadow,
+  propagationModelVisible,
+} from "@/lib/propagation/modelClient";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -539,7 +542,8 @@ export function PropSphere() {
     return addHours(new Date(), timeOffset);
   }, [timeOffset]);
   const reachMapState = useReachMapSurface({
-    enabled: reachMapEnabled && timeOffset === 0,
+    enabled: (reachMapEnabled || propagationModelShadow) && timeOffset === 0,
+    renderOverlay: propagationModelVisible && reachMapEnabled,
     band: reachMapBand,
     validTime: displayTime,
     weather: {
@@ -870,7 +874,7 @@ export function PropSphere() {
                 {/* Layers popover */}
                 <LayersPopover />
 
-                {propagationModelEnabled && (
+                {propagationModelVisible && (
                   <ReachMapControl
                     enabled={reachMapEnabled}
                     band={reachMapBand}

@@ -4,6 +4,8 @@ import { applyRateLimit } from "../_lib/rateLimit";
 import {
   parseResearchHealthPayload,
   parseResearchAlertWebhookConfig,
+  RESEARCH_HEALTH_SOURCE_KEY,
+  RESEARCH_HEALTH_STALE_SECONDS,
   researchAlertWebhookBody,
   verifyResearchHealthSignature,
   type ResearchAlertEvent,
@@ -13,8 +15,6 @@ export const config = {
   runtime: "edge",
 };
 
-const SOURCE_KEY = "nowcast-research";
-const STALE_SECONDS = 7200;
 export const MAX_RESEARCH_ALERT_ATTEMPTS = 8;
 
 function allowedOrigin(): string {
@@ -270,7 +270,7 @@ async function getHealth(request: Request): Promise<Response> {
   try {
     const result = await supabaseJson(
       store,
-      `propagation_research_health?singleton_key=eq.${SOURCE_KEY}&select=reported_at,decision,last_completed_target_hour,continuous_completed_hours,completed_hours,required_hours,missing_hours,freshness_seconds&limit=1`,
+      `propagation_research_health?singleton_key=eq.${RESEARCH_HEALTH_SOURCE_KEY}&select=reported_at,decision,last_completed_target_hour,continuous_completed_hours,completed_hours,required_hours,missing_hours,freshness_seconds&limit=1`,
       { method: "GET" },
     );
     const row = Array.isArray(result) ? result[0] : null;
@@ -291,7 +291,7 @@ async function getHealth(request: Request): Promise<Response> {
     const status =
       storedDecision === "alert"
         ? "alert"
-        : heartbeatAgeSeconds > STALE_SECONDS
+        : heartbeatAgeSeconds > RESEARCH_HEALTH_STALE_SECONDS
           ? "degraded"
           : "healthy";
     return jsonResponse(

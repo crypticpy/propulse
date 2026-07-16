@@ -13,6 +13,9 @@ export const RESEARCH_HEALTH_ALERT_NAMES = [
   "shadow_rollup_operational_healthy",
 ] as const;
 
+export const RESEARCH_HEALTH_SOURCE_KEY = "nowcast-research";
+export const RESEARCH_HEALTH_STALE_SECONDS = 7200;
+
 const ALERT_NAMES = new Set<string>(RESEARCH_HEALTH_ALERT_NAMES);
 const PAYLOAD_KEYS = new Set([
   "schemaVersion",

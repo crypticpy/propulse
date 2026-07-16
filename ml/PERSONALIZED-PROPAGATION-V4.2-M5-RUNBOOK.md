@@ -215,6 +215,50 @@ frontend flags. Target PostgreSQL 17.6 passed 20/20 rollback gates and 21/21
 deployed-state gates, including replay rejection, alert/recovery transitions,
 identity-free columns, ledger presence, and rollback of smoke rows.
 
+## FutureCast issuance archive
+
+FutureCast needs real forecast vintages, not definitive observations relabeled
+as forecasts. The dedicated M5 job reuses
+`collector/src/collectors/forecast.ts`, stores the exact NOAA 45-day and
+three-day payloads plus parsed values in the immutable forecast tables, and
+writes small owner-only aggregate receipts under
+`~/Library/Application Support/PropulseML/forecast_archive`. The launchd plist
+contains only paths; the ignored `.env.local` must be a non-symlink `0600` file.
+
+Build, test, and install on the M5:
+
+```bash
+npm --prefix collector run build
+npx vitest run collector/src/collectors/forecast.test.ts
+ml/.venv/bin/python -m unittest discover -s ml/src/archive_v4/tests \
+  -p 'test_futurecast*.py'
+ml/.venv/bin/python -m unittest discover -s ml/service \
+  -p 'test_forecast_archive.py'
+
+ml/.venv/bin/python ml/service/install_m5_forecast_archive_launchd.py \
+  --install --acknowledge-noaa-archive
+```
+
+Inspect non-secret state:
+
+```bash
+launchctl print gui/$(id -u)/org.propulse.forecast-archive
+cat "$HOME/Library/Application Support/PropulseML/forecast_archive/futurecast_readiness.json"
+tail -n 50 "$HOME/Library/Logs/Propulse/forecast-archive.stdout.log"
+tail -n 50 "$HOME/Library/Logs/Propulse/forecast-archive.stderr.log"
+```
+
+The first scheduled run on `2026-07-16` exited zero and persisted two payloads
+and 144 values: 90 daily Ap/F10.7 values and 54 three-day solar/geomagnetic
+values. Both products cover `+3/+6/+12/+24`; the readiness receipt reports one
+legal common availability day, zero invalid captures, and
+`issued_forecast_training_ready=false`. `futurecast_examples.py` rejects future
+issuance and future availability. Do not train until the receipt reaches 90
+consecutive common days. When it does, materialize outcome joins as bounded
+month/day Parquet partitions with DuckDB or Polars lazy scans on the M5, then
+fit separate direct-horizon models with the same bounded multicore XGBoost
+policy used by V4.2. Do not recursively feed predictions into later horizons.
+
 The endpoint, ingest secret, preview bypass, and dedicated store are configured
 only for the feature-branch preview. Keep both view flags unset until an alert
 destination is selected. Configure the server-only
@@ -394,8 +438,9 @@ provenance columns, and exact four-lag RPC behavior. Smoke rows were rolled
 back. The schema is deployed. A real provenance-rich NOAA capture and the
 trusted service provider passed 14/14 A6 gates with 14 causal fields and 2.91 ms
 cached path p95; browser weather forgery was replaced. The authorized WSPR
-connector, signed runner activation/monitoring, and 30-day receipt-time shadow
-are not active yet.
+research connector and signed runner are active internally. Written source
+authorization, the 30-day receipt-time shadow, remote alert delivery, and
+subscriber-facing release remain open.
 
 ## Reproduce Phase 2 at 20M
 
@@ -510,6 +555,8 @@ Expected state: `candidate_frozen`; every outcome-access value must be `false`.
 | OMNI documentation | Provenance, field definitions, and acknowledgement | <https://omniweb.gsfc.nasa.gov/html/ow_data.html> |
 | GFZ Hp60 | Lagged high-cadence geomagnetic input, CC BY 4.0 | <https://kp.gfz.de/en/hp30-hp60/data> |
 | NOAA SWPC JSON | Operational live-source parity after archive approval | <https://services.swpc.noaa.gov/json/> |
+| NOAA 45-day Ap/F10.7 forecast | Immutable FutureCast exogenous vintages | <https://services.swpc.noaa.gov/json/45-day-forecast.json> |
+| NOAA three-day solar/geomagnetic forecast | Three-hour K and daily Ap/F10.7 vintages | <https://services.swpc.noaa.gov/text/3-day-solar-geomag-predictions.txt> |
 | ITU-R P.533 | Physics fallback/baseline reference | <https://www.itu.int/rec/R-REC-P.533> |
 
 Raw third-party archives remain under ignored `ml/data/raw` storage. Source

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parse3DayForecast, parse45DayForecast } from "./forecast.js";
+import {
+  forecastHorizonCoverage,
+  parse3DayForecast,
+  parse45DayForecast,
+} from "./forecast.js";
 
 describe("forecast parsers", () => {
   it("preserves issue and valid times from the 45-day JSON product", () => {
@@ -19,6 +23,7 @@ describe("forecast parsers", () => {
       { validAt: "2026-07-13T00:00:00.000Z", metric: "ap", value: 10, unit: "nT" },
       { validAt: "2026-07-13T00:00:00.000Z", metric: "f107", value: 105, unit: "sfu" },
     ]);
+    expect(forecastHorizonCoverage(parsed)).toEqual([24]);
   });
 
   it("extracts daily and 3-hour values from the NOAA text product", () => {
@@ -46,5 +51,17 @@ ${kRows}`;
       value: 4,
       unit: "K index",
     });
+    expect(forecastHorizonCoverage(parsed)).toEqual([3, 6, 12, 24]);
+  });
+
+  it("rejects a 45-day payload without both required metrics", () => {
+    expect(() => parse45DayForecast({
+      issued: "2026-07-12T00:00:00Z",
+      source: "NOAA SWPC",
+      product: "45 Day Forecast",
+      data: [
+        { time: "2026-07-13T00:00:00Z", metric: "f107", value: 105 },
+      ],
+    })).toThrow("must contain Ap and F10.7");
   });
 });

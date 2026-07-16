@@ -11,6 +11,10 @@
 > and [`V4.1 visual report`](results/propagation_v4_1/propagation_v4_1_calibration_recovery/REPORT.html).
 > Compute: Apple M5 Max with 128 GB unified memory. Large artifacts remain on
 > `/Volumes/Projects/PropulseML`; the M3 is limited to source and Git transport.
+> FutureCast archive status, 2026-07-16: the secret-free M5 LaunchAgent is
+> active every six hours. Its first durable issuance captured both required
+> NOAA products and 144 parsed values; training remains withheld until 90
+> consecutive legal availability days exist.
 
 > Final retrospective evidence: A6 is a frozen 70% A4 recent-cycle and 30% A5
 > recency-weighted probability blend. It improved weighted Brier versus frozen
@@ -695,8 +699,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   writes, and disabled-by-default product/API gates. Rollback validation passed
   13/13 gates and deployed-state validation passed 14/14 without reading locked
   outcomes or collecting real operator data.
-- [x] Pass one uninterrupted native-M5 repository verification: V4 `24/24`,
-  service `70/70`, V4.1 `37/37`, V4.2 `112/112`, and frontend/API `67/67`
+- [x] Pass one uninterrupted native-M5 repository verification: V4 `30/30`,
+  service `73/73`, V4.1 `37/37`, V4.2 `112/112`, and frontend/API `68/68`
   tests, plus lint, TypeScript, production build, tracked-artifact rules, and
   bundle budgets. The refreshed visual report passed canonical packaging,
   source-dialog interaction, and browser QA at 1,440 px and 390 px with eight

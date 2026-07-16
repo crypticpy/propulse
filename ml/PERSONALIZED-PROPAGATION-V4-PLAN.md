@@ -742,7 +742,10 @@ source registry, privacy policy, and test calendar are committed.
 
 ### Phase 1: source acquisition and live forecast archive
 
-- [x] Start immutable archive of every operational forecast issuance now (local capture plus six-hour collector and immutable Supabase schema; production deployment remains a release gate).
+- [x] Start immutable archive of every operational forecast issuance now. The
+  forecast-only M5 LaunchAgent is active every six hours against the immutable
+  Supabase schema; its first `2026-07-16` run stored both NOAA products and 144
+  parsed values, emitted an owner-only aggregate receipt, and exited zero.
 - [x] Download/checksum the 2018-2025 quarterly WSPR months.
 - [x] Acquire OMNI2 and GFZ historical inputs with status/provenance.
 - [x] Build and validate P.533/VOACAP on Apple Silicon.
@@ -812,6 +815,20 @@ remains the explicit stale/missing-source fallback.
 
 **Gate:** every released horizon has positive held-out Brier skill and reliable
 uncertainty; 6m passes both event and quiet-day tests.
+
+FutureCast acquisition began for real on `2026-07-16`; the previous local
+one-shot status was not a continuous archive. The M5 now captures the NOAA
+45-day Ap/F10.7 and NOAA three-day solar/geomagnetic products every six hours,
+preserving content hash, issue time, availability time, validity range, parser
+version, and metric cadence. The first durable capture contains two payloads
+and 144 values with zero invalid timestamps and coverage for all four proposed
+horizons. `futurecast_examples.py` implements the frozen direct-horizon
+selection contract and rejects rows issued or available after prediction time.
+This is infrastructure, not a completed training set: the checklist remains
+open until both sources provide at least 90 consecutive common legal
+availability days, WSPR outcomes mature at each valid time, and the direct
+models beat the frozen baselines on held-out data. Observed OMNI/GFZ values may
+not be substituted for missing historical forecast issuances.
 
 ### Phase 5: inference, Supabase, and product integration
 

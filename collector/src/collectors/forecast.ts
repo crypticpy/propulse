@@ -25,6 +25,28 @@ interface ParsedForecast {
   values: ForecastValue[];
 }
 
+export interface ForecastProductReceipt {
+  source: string;
+  product: string;
+  issuedAt: string;
+  capturedAt: string;
+  payloadSha256: string;
+  valueCount: number;
+  metrics: string[];
+  validStart: string;
+  validEnd: string;
+  leadMinutesMin: number;
+  leadMinutesMax: number;
+  horizonsCovered: number[];
+}
+
+export interface ForecastCollectionReceipt {
+  schemaVersion: 1;
+  capturedAt: string;
+  products: ForecastProductReceipt[];
+  valueCount: number;
+}
+
 interface Forecast45Payload {
   issued: string;
   source: string;
@@ -74,6 +96,10 @@ export function parse45DayForecast(payload: Forecast45Payload): ParsedForecast {
       value: row.value,
       unit: payload.units?.[row.metric] ?? null,
     }));
+  const metrics = new Set(values.map((row) => row.metric));
+  if (!metrics.has("ap") || !metrics.has("f107")) {
+    throw new Error("NOAA 45-day forecast must contain Ap and F10.7 values");
+  }
   return {
     source: payload.source || "NOAA SWPC",
     product: "noaa_45_day_ap_f107",
@@ -150,9 +176,47 @@ async function fetchText(url: string): Promise<string> {
   return response.text();
 }
 
-async function persist(db: SupabaseClient, forecast: ParsedForecast): Promise<number> {
+const FORECAST_HORIZONS = [3, 6, 12, 24] as const;
+const METRIC_CADENCE_HOURS: Record<string, number> = {
+  ap: 24,
+  f107: 24,
+  planetary_ap: 24,
+  mid_latitude_k: 3,
+  high_latitude_k: 3,
+};
+const REQUIRED_METRICS: Record<string, string[]> = {
+  noaa_45_day_ap_f107: ["ap", "f107"],
+  noaa_3_day_solar_geomagnetic: [
+    "planetary_ap",
+    "f107",
+    "mid_latitude_k",
+    "high_latitude_k",
+  ],
+};
+
+export function forecastHorizonCoverage(forecast: ParsedForecast): number[] {
+  const requiredMetrics = REQUIRED_METRICS[forecast.product];
+  if (!requiredMetrics) return [];
+  const issuedMs = new Date(forecast.issuedAt).getTime();
+  return FORECAST_HORIZONS.filter((horizon) => {
+    const targetMs = issuedMs + horizon * 60 * 60_000;
+    return requiredMetrics.every((metric) =>
+      forecast.values.some((row) => {
+        if (row.metric !== metric) return false;
+        const validMs = new Date(row.validAt).getTime();
+        const cadenceHours = METRIC_CADENCE_HOURS[metric];
+        return validMs <= targetMs && targetMs < validMs + cadenceHours * 60 * 60_000;
+      }),
+    );
+  });
+}
+
+async function persist(
+  db: SupabaseClient,
+  forecast: ParsedForecast,
+  capturedAt: string,
+): Promise<ForecastProductReceipt> {
   const payloadSha256 = await sha256(forecast.rawPayload);
-  const ingestedAt = new Date().toISOString();
   const { error: payloadError } = await db
     .from("space_weather_forecast_payloads")
     .upsert(
@@ -161,7 +225,7 @@ async function persist(db: SupabaseClient, forecast: ParsedForecast): Promise<nu
         source: forecast.source,
         product: forecast.product,
         issued_at: forecast.issuedAt,
-        ingested_at: ingestedAt,
+        ingested_at: capturedAt,
         parser_version: PARSER_VERSION,
         source_url: forecast.sourceUrl,
         raw_payload: forecast.rawPayload,
@@ -177,7 +241,7 @@ async function persist(db: SupabaseClient, forecast: ParsedForecast): Promise<nu
     product: forecast.product,
     issued_at: forecast.issuedAt,
     valid_at: value.validAt,
-    available_at: ingestedAt,
+    available_at: capturedAt,
     lead_minutes: Math.max(
       0,
       Math.round((new Date(value.validAt).getTime() - issuedMs) / 60_000),
@@ -192,25 +256,53 @@ async function persist(db: SupabaseClient, forecast: ParsedForecast): Promise<nu
     .upsert(rows, {
       onConflict: "payload_sha256,valid_at,metric",
       ignoreDuplicates: true,
-    });
+  });
   if (valueError) throw new Error(`Forecast value insert failed: ${valueError.message}`);
-  return rows.length;
+  const validTimes = forecast.values.map((row) => new Date(row.validAt).getTime());
+  const leadMinutes = rows.map((row) => row.lead_minutes);
+  return {
+    source: forecast.source,
+    product: forecast.product,
+    issuedAt: forecast.issuedAt,
+    capturedAt,
+    payloadSha256,
+    valueCount: rows.length,
+    metrics: [...new Set(forecast.values.map((row) => row.metric))].sort(),
+    validStart: new Date(Math.min(...validTimes)).toISOString(),
+    validEnd: new Date(Math.max(...validTimes)).toISOString(),
+    leadMinutesMin: Math.min(...leadMinutes),
+    leadMinutesMax: Math.max(...leadMinutes),
+    horizonsCovered: forecastHorizonCoverage(forecast),
+  };
+}
+
+export async function collectForecastsStrict(
+  db: SupabaseClient,
+): Promise<ForecastCollectionReceipt> {
+  const [json45, text3day] = await Promise.all([
+    fetchText(FORECAST_45_URL).then((text) =>
+      parse45DayForecast(JSON.parse(text) as Forecast45Payload),
+    ),
+    fetchText(FORECAST_3DAY_URL).then(parse3DayForecast),
+  ]);
+  const capturedAt = new Date().toISOString();
+  const products = await Promise.all([
+    persist(db, json45, capturedAt),
+    persist(db, text3day, capturedAt),
+  ]);
+  return {
+    schemaVersion: 1,
+    capturedAt,
+    products,
+    valueCount: products.reduce((sum, product) => sum + product.valueCount, 0),
+  };
 }
 
 export async function collectForecasts(db: SupabaseClient): Promise<void> {
   const start = Date.now();
   try {
-    const [json45, text3day] = await Promise.all([
-      fetchText(FORECAST_45_URL).then((text) =>
-        parse45DayForecast(JSON.parse(text) as Forecast45Payload),
-      ),
-      fetchText(FORECAST_3DAY_URL).then(parse3DayForecast),
-    ]);
-    const counts = await Promise.all([
-      persist(db, json45),
-      persist(db, text3day),
-    ]);
-    const rows = counts.reduce((sum, count) => sum + count, 0);
+    const receipt = await collectForecastsStrict(db);
+    const rows = receipt.valueCount;
     reportHealth("forecasts", "ok", rows);
     reportToDb(db, "forecasts", "ok", rows, Date.now() - start);
     log("info", "Forecast issuances archived", {

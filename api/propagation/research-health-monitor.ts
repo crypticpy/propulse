@@ -1,5 +1,6 @@
 /** Authenticated off-M5 stale-heartbeat monitor and alert retry trigger. */
 
+import { applyRateLimit } from "../_lib/rateLimit";
 import {
   deliverPendingAlerts,
   researchHealthStoreConfig,
@@ -49,6 +50,13 @@ export default async function handler(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
+  const limited = applyRateLimit(
+    request,
+    "propagation/research-health-monitor",
+    10,
+    60,
+  );
+  if (limited) return limited;
   const monitorSecret = process.env.PROPULSE_RESEARCH_HEALTH_MONITOR_SECRET;
   if (!monitorSecret || monitorSecret.length < 32) {
     return jsonResponse({ error: "Server misconfiguration" }, 503);

@@ -72,6 +72,22 @@ describe("research health endpoint gates", () => {
     expect(response.status).toBe(503);
   });
 
+  it("rejects an oversized streamed body without Content-Length", async () => {
+    process.env.PROPULSE_RESEARCH_HEALTH_INGEST_SECRET = "s".repeat(32);
+    process.env.SUPABASE_URL = "https://store.supabase.test";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    const response = await handler(
+      new Request("https://propulse.test/api/propagation/research-health", {
+        method: "POST",
+        body: "x".repeat(16_385),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({ error: "Payload too large" });
+  });
+
   it("answers preflight without a response body", async () => {
     const response = await handler(
       new Request("https://propulse.test/api/propagation/research-health", {
@@ -120,7 +136,12 @@ describe("research health endpoint gates", () => {
         }),
       )
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(true), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
       .mockResolvedValueOnce(
         new Response(JSON.stringify([]), {
           status: 200,
@@ -143,7 +164,16 @@ describe("research health endpoint gates", () => {
     });
 
     expect(String(fetchMock.mock.calls[0][0])).toContain(
-      `attempts=lt.${MAX_RESEARCH_ALERT_ATTEMPTS}`,
+      "rpc/claim_propagation_research_alerts",
+    );
+    const claimBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(claimBody).toMatchObject({
+      p_limit: 5,
+      p_max_attempts: MAX_RESEARCH_ALERT_ATTEMPTS,
+      p_lease_seconds: 30,
+    });
+    expect(claimBody.p_lease_token).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
     expect(fetchMock.mock.calls[1][0]).toBe("https://alerts.example.test/propulse");
     expect(fetchMock.mock.calls[1][1]).toMatchObject({
@@ -155,9 +185,13 @@ describe("research health endpoint gates", () => {
         "Idempotency-Key": event.event_id,
       },
     });
+    expect(String(fetchMock.mock.calls[2][0])).toContain(
+      "rpc/complete_propagation_research_alert_attempt",
+    );
     expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toMatchObject({
-      attempts: 1,
-      last_error: null,
+      p_event_id: event.event_id,
+      p_lease_token: claimBody.p_lease_token,
+      p_last_error: null,
     });
   });
 
@@ -182,7 +216,12 @@ describe("research health endpoint gates", () => {
         }),
       )
       .mockResolvedValueOnce(new Response("no", { status: 503 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(true), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
       .mockResolvedValueOnce(
         new Response(JSON.stringify([{ event_id: event.event_id }]), {
           status: 200,
@@ -203,9 +242,10 @@ describe("research health endpoint gates", () => {
       failed: 1,
       exhausted: 1,
     });
-    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toEqual({
-      attempts: MAX_RESEARCH_ALERT_ATTEMPTS,
-      last_error: "webhook returned 503",
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toMatchObject({
+      p_event_id: event.event_id,
+      p_delivered_at: null,
+      p_last_error: "webhook returned 503",
     });
   });
 });

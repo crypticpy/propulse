@@ -14,12 +14,15 @@ const ORIGINAL_ENV = Object.fromEntries(
 const SECRET = "test-monitor-secret-that-is-at-least-32-characters";
 const NOW = new Date("2026-07-16T07:30:00Z");
 
-function request(secret = SECRET): Request {
+function request(secret = SECRET, forwardedFor?: string): Request {
   return new Request(
     "https://propulse.test/api/propagation/research-health-monitor",
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${secret}` },
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+      },
     },
   );
 }
@@ -53,6 +56,20 @@ describe("off-M5 research health monitor", () => {
     await expect(handler(request("wrong-secret"))).resolves.toHaveProperty(
       "status",
       401,
+    );
+  });
+
+  it("rate-limits repeated authentication failures", async () => {
+    const source = "203.0.113.77";
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await expect(handler(request("wrong-secret", source))).resolves.toHaveProperty(
+        "status",
+        401,
+      );
+    }
+    await expect(handler(request("wrong-secret", source))).resolves.toHaveProperty(
+      "status",
+      429,
     );
   });
 

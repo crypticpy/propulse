@@ -44,6 +44,7 @@ GATE_NAMES = (
 REMOTE_ENV_KEYS = (
     "PROPULSE_RESEARCH_HEALTH_ENDPOINT",
     "PROPULSE_RESEARCH_HEALTH_INGEST_SECRET",
+    "PROPULSE_RESEARCH_HEALTH_BYPASS_SECRET",
 )
 
 
@@ -51,6 +52,7 @@ REMOTE_ENV_KEYS = (
 class RemoteHealthConfig:
     endpoint: str
     secret: str
+    bypass_secret: str | None = None
 
 
 class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -116,14 +118,39 @@ def load_remote_health_config(path: Path | None) -> RemoteHealthConfig | None:
             values[key.strip()] = _env_value(raw_value)
     endpoint = values.get("PROPULSE_RESEARCH_HEALTH_ENDPOINT", "")
     secret = values.get("PROPULSE_RESEARCH_HEALTH_INGEST_SECRET", "")
-    if not endpoint and not secret:
+    bypass_secret = values.get("PROPULSE_RESEARCH_HEALTH_BYPASS_SECRET", "")
+    if not endpoint and not secret and not bypass_secret:
         return None
     if not endpoint or len(secret) < 32:
         raise RuntimeError("remote health endpoint and 32-byte secret are required together")
+    if bypass_secret and not 16 <= len(bypass_secret) <= 512:
+        raise RuntimeError("remote health bypass secret has an invalid length")
     parsed = urlsplit(endpoint)
     if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
         raise RuntimeError("remote health endpoint must be credential-free HTTPS")
-    return RemoteHealthConfig(endpoint=endpoint, secret=secret)
+    return RemoteHealthConfig(
+        endpoint=endpoint,
+        secret=secret,
+        bypass_secret=bypass_secret or None,
+    )
+
+
+def remote_request_headers(
+    config: RemoteHealthConfig,
+    *,
+    timestamp: str,
+    signature: str,
+) -> dict[str, str]:
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Propulse-Timestamp": timestamp,
+        "X-Propulse-Signature": f"v1={signature}",
+        "User-Agent": "Propulse-M5-Research-Health/1",
+    }
+    if config.bypass_secret is not None:
+        headers["X-Vercel-Protection-Bypass"] = config.bypass_secret
+    return headers
 
 
 def build_remote_health_payload(
@@ -173,13 +200,11 @@ def publish_remote_health(
         config.endpoint,
         data=body,
         method="POST",
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "X-Propulse-Timestamp": timestamp,
-            "X-Propulse-Signature": f"v1={signature}",
-            "User-Agent": "Propulse-M5-Research-Health/1",
-        },
+        headers=remote_request_headers(
+            config,
+            timestamp=timestamp,
+            signature=signature,
+        ),
     )
     opener = urllib.request.build_opener(NoRedirectHandler())
     with opener.open(request, timeout=timeout_seconds) as response:

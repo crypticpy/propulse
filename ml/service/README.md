@@ -205,7 +205,11 @@ Center. Its local notification smoke and expanded schedule audit pass.
 The remote path is implemented but deliberately unconfigured. The watchdog
 can read `PROPULSE_RESEARCH_HEALTH_ENDPOINT` and a 32+ character
 `PROPULSE_RESEARCH_HEALTH_INGEST_SECRET` from the existing owner-only
-`.env.local`; it signs an aggregate heartbeat and refuses redirects. The
+`.env.local`; it signs an aggregate heartbeat and refuses redirects. A
+protected Vercel preview may also set the owner-only
+`PROPULSE_RESEARCH_HEALTH_BYPASS_SECRET`, which is sent only in Vercel's
+documented automation-bypass header. The bypass is independent of the HMAC
+secret and is never placed in the endpoint URL. The
 server endpoint accepts only a strict identity-free schema, writes a private
 service-role singleton, and places alert/recovery transitions in a retryable
 outbox. It never receives station, path, row-count, equipment, or credential

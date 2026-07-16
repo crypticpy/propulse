@@ -223,6 +223,14 @@ kind, and smoke alert plus recovery. Only afterward may
 `VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED` be enabled. These flags expose
 coarse health only; they do not authorize a WSPR source or select NowCast.
 
+The feature-branch Vercel deployment is protected. For preview-only remote
+smoke tests, set its independent automation credential as
+`PROPULSE_RESEARCH_HEALTH_BYPASS_SECRET` in the M5 owner-only environment. The
+watchdog sends it through the documented `x-vercel-protection-bypass` header,
+never as a query parameter, process argument, plist value, or report field.
+Production does not require this value while its public domain remains outside
+preview protection. See [Vercel Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation).
+
 The private schema procedure is M5-only and password-safe:
 
 ```bash

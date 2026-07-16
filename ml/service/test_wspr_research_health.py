@@ -12,6 +12,7 @@ from check_m5_wspr_research_health import (
     directory_bytes,
     evaluate_health,
     load_remote_health_config,
+    remote_request_headers,
 )
 
 
@@ -99,11 +100,19 @@ class WsprResearchHealthTests(unittest.TestCase):
             path.write_text(
                 "PROPULSE_RESEARCH_HEALTH_ENDPOINT=https://example.test/health\n"
                 "PROPULSE_RESEARCH_HEALTH_INGEST_SECRET=" + "x" * 32 + "\n"
+                "PROPULSE_RESEARCH_HEALTH_BYPASS_SECRET=" + "b" * 32 + "\n"
             )
             os.chmod(path, 0o600)
             config = load_remote_health_config(path)
             self.assertIsNotNone(config)
             self.assertEqual(config.endpoint, "https://example.test/health")
+            self.assertEqual(config.bypass_secret, "b" * 32)
+            headers = remote_request_headers(
+                config,
+                timestamp="1784181600",
+                signature="a" * 64,
+            )
+            self.assertEqual(headers["X-Vercel-Protection-Bypass"], "b" * 32)
         value = build_remote_health_payload(
             generated_at=NOW.isoformat(),
             decision="healthy",

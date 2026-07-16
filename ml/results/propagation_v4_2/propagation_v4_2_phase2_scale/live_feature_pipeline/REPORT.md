@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T09:31:52.924743+00:00
+Generated: 2026-07-16T09:46:40.722558+00:00
 
 ## Answer first
 
@@ -13,6 +13,8 @@ synthetic receipt scenarios recovered exact corrected snapshots after
 duplicates, reordering, and late arrivals. The real A6 bundle blocked browser
 freshness forgery and measured `3.39` ms path p95 and
 `10.59` ms for a 288-cell surface.
+Band Planner and ReachMap use the backend-returned profile; ReachMap displays
+`Physics fallback` unless the service verifies the complete NowCast history.
 
 The six-migration schema is deployed, and trusted operational weather passed
 `14/14` real-bundle gates.

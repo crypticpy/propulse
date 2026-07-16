@@ -1,5 +1,6 @@
 import { LoaderCircle, RadioTower, X } from "lucide-react";
 import type { ReachMapSurfaceState } from "@/hooks/useReachMapSurface";
+import { reachMapProfileLabel } from "@/lib/propagation/reachMapSurface";
 
 const BANDS = ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"];
 
@@ -22,7 +23,7 @@ export function ReachMapControl({
         type="button"
         onClick={() => onEnabledChange(true)}
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-        title="Show personalized near-real-time reach probability"
+        title="Show model reach probability"
       >
         <RadioTower size={14} aria-hidden="true" />
         ReachMap
@@ -39,7 +40,7 @@ export function ReachMapControl({
         <div className="flex items-center gap-2 min-w-0">
           <RadioTower size={15} className="text-plasma-orange shrink-0" aria-hidden="true" />
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-white">ReachMap NowCast</div>
+            <div className="text-xs font-semibold text-white">ReachMap</div>
             <div className="text-[10px] text-gray-400 truncate">
               {state.personalized ? "Personalized station chain" : "Core model, default 5 W"}
             </div>
@@ -104,7 +105,10 @@ export function ReachMapControl({
         ) : state.error ? (
           <span className="text-red-300">{state.error}</span>
         ) : (
-          <span>{state.cellCount} cells · {state.profile ?? "model"} · {state.modelVersion ?? "pending"}</span>
+          <span>
+            {state.cellCount} cells · {reachMapProfileLabel(state.profile)} ·{" "}
+            {state.modelVersion ?? "pending"}
+          </span>
         )}
       </div>
       <div className="mt-2 border-t border-white/10 pt-2 text-[9px] text-gray-500">

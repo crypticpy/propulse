@@ -695,8 +695,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   writes, and disabled-by-default product/API gates. Rollback validation passed
   13/13 gates and deployed-state validation passed 14/14 without reading locked
   outcomes or collecting real operator data.
-- [x] Pass one uninterrupted native-M5 repository verification: V4 `21/21`,
-  service `69/69`, V4.1 `37/37`, V4.2 `112/112`, and frontend/API `66/66`
+- [x] Pass one uninterrupted native-M5 repository verification: V4 `24/24`,
+  service `70/70`, V4.1 `37/37`, V4.2 `112/112`, and frontend/API `67/67`
   tests, plus lint, TypeScript, production build, tracked-artifact rules, and
   bundle budgets. The refreshed visual report passed canonical packaging,
   source-dialog interaction, and browser QA at 1,440 px and 390 px with eight
@@ -713,8 +713,10 @@ The service bundle, feature builders, station adapter, Band Planner path, and
 ReachMap surface path are implemented and validated. Explicit frontend and
 service shadow execution plus privacy-bounded aggregate telemetry are now
 implemented. The current shadow path correctly selects the physics fallback
-until a complete H-1/H-2/H-3/H-24 causal window exists; the active internal
-research schedule has only begun accumulating that window.
+until a complete H-1/H-2/H-3/H-24 causal window exists. Band Planner and
+ReachMap both expose that server-selected profile; ReachMap displays `Physics
+fallback` rather than claiming NowCast when verified history is unavailable.
+The active internal research schedule has only begun accumulating that window.
 The real A6 bundle also passed a local M5 HTTP smoke deployment with six
 one-thread workers, allowlisted CORS, explicit fallback, and a persisted
 `propagation-shadow-v1` event. Phase 6 remains open until a durable beta

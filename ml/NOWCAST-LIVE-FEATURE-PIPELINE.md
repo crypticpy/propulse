@@ -393,8 +393,10 @@ explicitly labeled and does not satisfy the live requirement above.
 - [x] Add explicit frontend/service shadow execution with aggregate-only
   telemetry and hidden model UI; requests remain on physics until the complete
   causal H-1/H-2/H-3/H-24 history window exists.
-- [ ] Wire fresh feature responses into `buildNowCastRequests` and ReachMap only
-  after V4.2 archive approval; retain physics fallback permanently.
+- [x] Wire trusted fresh feature responses into Band Planner and ReachMap after
+  V4.2 archive approval. Both paths call the server-authoritative path-history
+  provider; stale/missing history retains physics fallback, and ReachMap labels
+  that profile explicitly rather than calling it NowCast.
 - [ ] Publish coverage and drift evidence in the final visual report.
 
 ## Stop Conditions

@@ -107,6 +107,12 @@ export function reachMapProbabilityColor(probability: number): string {
   return "#06b6d4";
 }
 
+export function reachMapProfileLabel(profile: string | null): string {
+  if (profile === "nowcast") return "NowCast";
+  if (profile === "physics") return "Physics fallback";
+  return profile || "Pending";
+}
+
 export function predictionsToReachMapCells(
   predictions: PropagationPrediction[],
   grid: ReachMapGridCell[],

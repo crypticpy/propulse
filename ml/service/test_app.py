@@ -425,6 +425,47 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(len(response.json()["cells"]), 2)
         self.assertEqual(self.registry.batch_sizes, [2])
 
+    def test_surface_profile_depends_only_on_verified_path_history(self):
+        payload = request_payload()
+        first = payload.pop("features")
+        first["values"].update({
+            "path_success_prev1": 0.99,
+            "path_prev1_available": 1,
+        })
+        payload["cells"] = [
+            first,
+            {"target_grid4": "FN31", "values": {"band_mhz": 14.1}},
+        ]
+        payload["data_freshness_seconds"]["path_history"] = 0
+
+        unavailable = self.client.post("/v1/propagation/surface", json=payload)
+        self.assertEqual(unavailable.status_code, 200)
+        self.assertEqual(
+            [cell["profile"] for cell in unavailable.json()["cells"]],
+            ["physics", "physics"],
+        )
+        self.assertTrue(all(
+            "path_history" not in cell["data_freshness"]
+            for cell in unavailable.json()["cells"]
+        ))
+        self.assertEqual(self.registry.last_values[-2]["path_success_prev1"], 0.0)
+
+        verified_client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+            path_history_provider=FakePathHistoryProvider(age_seconds=60),
+        ))
+        verified = verified_client.post("/v1/propagation/surface", json=payload)
+        self.assertEqual(verified.status_code, 200)
+        self.assertEqual(
+            [cell["profile"] for cell in verified.json()["cells"]],
+            ["nowcast", "nowcast"],
+        )
+        self.assertTrue(all(
+            cell["data_freshness"]["path_history"] == 60
+            for cell in verified.json()["cells"]
+        ))
+
     def test_surface_applies_per_direction_station_envelopes(self):
         payload = request_payload()
         base_features = payload.pop("features")

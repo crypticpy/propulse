@@ -1150,7 +1150,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "The browser may request a path or surface but cannot supply trusted lag values or mark them fresh. "
                 "The API deletes client lag features, obtains a complete matching server snapshot, and activates "
                 "NowCast only when provider, transform version, watermark, availability time, and quality flags all "
-                "pass. It also deletes every browser weather value and reconstructs the supported weather vector "
+                "pass. Band Planner and ReachMap render that backend-returned profile; ReachMap says `Physics fallback` "
+                "unless the response is verified `nowcast`, so its control cannot imply a stronger model path than the "
+                "service actually used. The API also deletes every browser weather value and reconstructs the supported weather vector "
                 "from provenance-rich `solar_snapshots`. Missing, partial, future, stale, or degraded data fails closed."
             ),
         },
@@ -1385,6 +1387,8 @@ synthetic receipt scenarios recovered exact corrected snapshots after
 duplicates, reordering, and late arrivals. The real A6 bundle blocked browser
 freshness forgery and measured `{summary['path_p95_ms']:.2f}` ms path p95 and
 `{summary['surface_p95_ms']:.2f}` ms for a 288-cell surface.
+Band Planner and ReachMap use the backend-returned profile; ReachMap displays
+`Physics fallback` unless the service verifies the complete NowCast history.
 
 The six-migration schema is deployed, and trusted operational weather passed
 `{summary['weather_gates_passed']}/{summary['weather_gates_total']}` real-bundle gates.

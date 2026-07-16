@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: research shadow validation report",
     "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
-    "generatedAt": "2026-07-16T09:31:52.926161+00:00",
+    "generatedAt": "2026-07-16T09:46:40.723959+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -531,7 +531,7 @@
         "id": "architecture",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "**Authorized connector -> HMAC/checkpoint completion manifest -> private rolling observations -> bounded hourly DuckDB finalizer -> versioned path-hour cells and atomic watermarks -> service-role-only batched lookup -> A6 service.**\n\nThe browser may request a path or surface but cannot supply trusted lag values or mark them fresh. The API deletes client lag features, obtains a complete matching server snapshot, and activates NowCast only when provider, transform version, watermark, availability time, and quality flags all pass. It also deletes every browser weather value and reconstructs the supported weather vector from provenance-rich `solar_snapshots`. Missing, partial, future, stale, or degraded data fails closed."
+        "body": "**Authorized connector -> HMAC/checkpoint completion manifest -> private rolling observations -> bounded hourly DuckDB finalizer -> versioned path-hour cells and atomic watermarks -> service-role-only batched lookup -> A6 service.**\n\nThe browser may request a path or surface but cannot supply trusted lag values or mark them fresh. The API deletes client lag features, obtains a complete matching server snapshot, and activates NowCast only when provider, transform version, watermark, availability time, and quality flags all pass. Band Planner and ReachMap render that backend-returned profile; ReachMap says `Physics fallback` unless the response is verified `nowcast`, so its control cannot imply a stronger model path than the service actually used. The API also deletes every browser weather value and reconstructs the supported weather vector from provenance-rich `solar_snapshots`. Missing, partial, future, stale, or degraded data fails closed."
       },
       {
         "id": "latency_chart",
@@ -653,7 +653,7 @@
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T09:31:52.926161+00:00",
+    "generatedAt": "2026-07-16T09:46:40.723959+00:00",
     "status": "ready",
     "datasets": {
       "summary": [

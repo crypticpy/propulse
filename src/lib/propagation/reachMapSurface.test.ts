@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildReachMapGrid,
   predictionsToReachMapCells,
+  reachMapProfileLabel,
   reachMapProbabilityColor,
 } from "./reachMapSurface";
 import type { PropagationPrediction } from "./modelClient";
@@ -22,6 +23,12 @@ describe("ReachMap surface contract", () => {
       "#22c55e",
       "#06b6d4",
     ]);
+  });
+
+  it("never labels physics fallback as NowCast", () => {
+    expect(reachMapProfileLabel("nowcast")).toBe("NowCast");
+    expect(reachMapProfileLabel("physics")).toBe("Physics fallback");
+    expect(reachMapProfileLabel(null)).toBe("Pending");
   });
 
   it("maps personalized probability and confidence into the overlay", () => {

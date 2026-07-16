@@ -702,7 +702,10 @@ hours. Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The
 five-minute weather poll separately validates upstream observation times
-against A6's freshness contract. Do not override that gate. The first nonempty
+against A6's freshness contract. Required Kp, magnetic-field, solar-wind, and
+Dst sources gate readiness. Proton flux keeps its 15-minute causal limit but is
+an optional model field, so normal NOAA publication lag marks that feature
+missing rather than disabling the complete weather input. The first nonempty
 settled hour and every subsequent 15-minute receipt must remain continuous for
 a full day.
 

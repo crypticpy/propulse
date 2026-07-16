@@ -30,6 +30,7 @@ SOLAR_SOURCE_MAX_AGE_SECONDS = {
     "proton_flux_10mev": 15 * 60,
     "dst": 2 * 60 * 60,
 }
+SOLAR_REQUIRED_SOURCES = ("kp", "magnetic_field", "solar_wind", "dst")
 
 
 def parse_time(value: str | None) -> datetime | None:
@@ -179,10 +180,17 @@ def solar_snapshot(
         source: age_seconds(now, observed.get(source))
         for source in SOLAR_SOURCE_MAX_AGE_SECONDS
     }
-    upstream_current = all(
-        age is not None and -60 <= age <= SOLAR_SOURCE_MAX_AGE_SECONDS[source]
+    source_current = {
+        source: bool(
+            age is not None
+            and -60 <= age <= SOLAR_SOURCE_MAX_AGE_SECONDS[source]
+        )
         for source, age in observed_ages.items()
-    )
+    }
+    # Match the serving contract: proton flux retains its 15-minute causal
+    # limit but is optional and becomes a missing feature when NOAA publishes
+    # it late. Critical Kp, magnetic-field, wind, and Dst inputs must be fresh.
+    upstream_current = all(source_current[source] for source in SOLAR_REQUIRED_SOURCES)
     current = bool(
         status.get("status") == "ok"
         and success_age is not None
@@ -205,6 +213,8 @@ def solar_snapshot(
             source: observed.get(source) for source in SOLAR_SOURCE_MAX_AGE_SECONDS
         },
         "source_age_seconds": observed_ages,
+        "source_current": source_current,
+        "required_sources": list(SOLAR_REQUIRED_SOURCES),
     }, current
 
 

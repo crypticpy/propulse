@@ -712,6 +712,9 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   zero and nonzero hours, and install an identity-free 15-minute watchdog.
   The spot-network cycle completed concurrently with no stderr; current weather
   is independently checked against its upstream observation timestamps.
+  Required Kp, magnetic-field, solar-wind, and Dst freshness gates match the
+  serving contract; a late optional proton-flux value remains missing rather
+  than taking down the complete weather input.
 - [ ] Pass the first-party prospective capture preflight: both settled
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain

@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T10:54:33.352392+00:00
+Generated: 2026-07-16T10:59:04.784230+00:00
 
 ## Answer first
 

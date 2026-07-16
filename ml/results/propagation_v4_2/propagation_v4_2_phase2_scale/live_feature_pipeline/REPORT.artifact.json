@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: research shadow validation report",
     "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
-    "generatedAt": "2026-07-16T10:54:33.353924+00:00",
+    "generatedAt": "2026-07-16T10:59:04.785751+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -647,7 +647,7 @@
         "id": "prospective_capture_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The native-M5 LaunchAgent polls PSK Reporter, RBN, and provenance-rich NOAA/Kyoto weather every five minutes, and DX Cluster every two minutes. The latest receipt has **4 of 4 sources current** and **0.00 of 24 required continuity hours**. Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable watermark even for a zero-row hour. Solar readiness checks each fast upstream timestamp, not only capture time. The readiness clock does not begin until both aggregates are nonempty and current. A separate quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, station equipment, and user data are excluded. The August-September outcomes remain unread."
+        "body": "The native-M5 LaunchAgent polls PSK Reporter, RBN, and provenance-rich NOAA/Kyoto weather every five minutes, and DX Cluster every two minutes. The latest receipt has **4 of 4 sources current** and **0.00 of 24 required continuity hours**. Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable watermark even for a zero-row hour. Solar readiness checks each upstream timestamp, not only capture time. Kp, magnetic field, solar wind, and Dst are required; optional proton flux retains its 15-minute causal limit and becomes a missing feature when NOAA publishes it late. The readiness clock does not begin until both aggregates are nonempty and current. A separate quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, station equipment, and user data are excluded. The August-September outcomes remain unread."
       },
       {
         "id": "outcomes_heading",
@@ -711,7 +711,7 @@
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T10:54:33.353924+00:00",
+    "generatedAt": "2026-07-16T10:59:04.785751+00:00",
     "status": "ready",
     "datasets": {
       "summary": [

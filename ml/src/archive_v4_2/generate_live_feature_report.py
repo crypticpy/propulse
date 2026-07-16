@@ -1330,7 +1330,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"The latest receipt has **{summary['prospective_sources_current']} of {summary['prospective_sources_required']} sources current** and "
                 f"**{summary['prospective_continuity_hours']:.2f} of {summary['prospective_continuity_required_hours']:.0f} required continuity hours**. "
                 "Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable "
-                "watermark even for a zero-row hour. Solar readiness checks each fast upstream timestamp, not only capture time. The readiness clock does not begin until both aggregates are nonempty and current. A separate "
+                "watermark even for a zero-row hour. Solar readiness checks each upstream timestamp, not only capture time. Kp, magnetic field, solar wind, and Dst are required; optional proton flux retains its 15-minute causal limit and becomes a missing feature when NOAA publishes it late. The readiness clock does not begin until both aggregates are nonempty and current. A separate "
                 "quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, "
                 "station equipment, and user data are excluded. The August-September outcomes remain unread."
             ),

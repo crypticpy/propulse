@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T10:49:29.487837+00:00",
+  "generated_at": "2026-07-16T10:58:40.043675+00:00",
   "host_role": "M5 prospective capture",
   "architecture": "arm64",
   "schedule": {
@@ -26,70 +26,83 @@
   "source_state": {
     "pskreporter": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T10:47:38.391057+00:00",
-      "last_success_at": "2026-07-16T10:47:38.391057+00:00",
-      "attempt_age_seconds": 111.09678,
-      "success_age_seconds": 111.09678,
+      "last_attempt_at": "2026-07-16T10:57:38.215721+00:00",
+      "last_success_at": "2026-07-16T10:57:38.215721+00:00",
+      "attempt_age_seconds": 61.827954,
+      "success_age_seconds": 61.827954,
       "rows_last_run": 2766,
-      "duration_ms": 1559,
+      "duration_ms": 1360,
       "error_present": false,
-      "latest_spotted_at": "2026-07-16T10:47:30+00:00",
-      "latest_ingested_at": "2026-07-16T10:47:37.658154+00:00",
-      "latest_available_at": "2026-07-16T10:47:37.658154+00:00",
-      "latest_spot_age_seconds": 119.487837
+      "latest_spotted_at": "2026-07-16T10:57:30+00:00",
+      "latest_ingested_at": "2026-07-16T10:57:37.603746+00:00",
+      "latest_available_at": "2026-07-16T10:57:37.603746+00:00",
+      "latest_spot_age_seconds": 70.043675
     },
     "rbn": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T10:47:40.568345+00:00",
-      "last_success_at": "2026-07-16T10:47:40.568345+00:00",
-      "attempt_age_seconds": 108.919492,
-      "success_age_seconds": 108.919492,
-      "rows_last_run": 3038,
-      "duration_ms": 3711,
+      "last_attempt_at": "2026-07-16T10:57:39.951934+00:00",
+      "last_success_at": "2026-07-16T10:57:39.951934+00:00",
+      "attempt_age_seconds": 60.091741,
+      "success_age_seconds": 60.091741,
+      "rows_last_run": 11603,
+      "duration_ms": 3094,
       "error_present": false,
-      "latest_spotted_at": "2026-07-16T10:47:30+00:00",
-      "latest_ingested_at": "2026-07-16T10:47:39.920285+00:00",
-      "latest_available_at": "2026-07-16T10:47:39.920285+00:00",
-      "latest_spot_age_seconds": 119.487837
+      "latest_spotted_at": "2026-07-16T10:57:30+00:00",
+      "latest_ingested_at": "2026-07-16T10:57:37.786094+00:00",
+      "latest_available_at": "2026-07-16T10:57:37.786094+00:00",
+      "latest_spot_age_seconds": 70.043675
     },
     "dxcluster": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T10:47:40.100712+00:00",
-      "last_success_at": "2026-07-16T10:47:40.100712+00:00",
-      "attempt_age_seconds": 109.387125,
-      "success_age_seconds": 109.387125,
-      "rows_last_run": 130,
-      "duration_ms": 3242,
+      "last_attempt_at": "2026-07-16T10:57:37.500674+00:00",
+      "last_success_at": "2026-07-16T10:57:37.500674+00:00",
+      "attempt_age_seconds": 62.543001,
+      "success_age_seconds": 62.543001,
+      "rows_last_run": 113,
+      "duration_ms": 634,
       "error_present": false,
-      "latest_spotted_at": "2026-07-16T10:34:00+00:00",
-      "latest_ingested_at": "2026-07-16T10:34:53.600902+00:00",
-      "latest_available_at": "2026-07-16T10:34:53.600902+00:00",
-      "latest_spot_age_seconds": 929.487837
+      "latest_spotted_at": "2026-07-16T10:57:00+00:00",
+      "latest_ingested_at": "2026-07-16T10:57:37.434955+00:00",
+      "latest_available_at": "2026-07-16T10:57:37.434955+00:00",
+      "latest_spot_age_seconds": 100.043675
     },
     "solar": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T10:47:37.147985+00:00",
-      "last_success_at": "2026-07-16T10:47:37.147985+00:00",
-      "success_age_seconds": 112.339852,
+      "last_attempt_at": "2026-07-16T10:57:37.129985+00:00",
+      "last_success_at": "2026-07-16T10:57:37.129985+00:00",
+      "success_age_seconds": 62.91369,
       "rows_last_run": 1,
-      "duration_ms": 290,
+      "duration_ms": 266,
       "error_present": false,
-      "latest_captured_at": "2026-07-16T10:47:36.992+00:00",
-      "capture_age_seconds": 112.495837,
+      "latest_captured_at": "2026-07-16T10:57:37.006+00:00",
+      "capture_age_seconds": 63.037675,
       "source_observed_at": {
-        "kp": "2026-07-16T10:44:00.000Z",
-        "magnetic_field": "2026-07-16T10:40:00.000Z",
-        "solar_wind": "2026-07-16T10:41:10.000Z",
-        "proton_flux_10mev": "2026-07-16T10:35:00.000Z",
+        "kp": "2026-07-16T10:54:00.000Z",
+        "magnetic_field": "2026-07-16T10:52:00.000Z",
+        "solar_wind": "2026-07-16T10:51:00.000Z",
+        "proton_flux_10mev": "2026-07-16T10:50:00.000Z",
         "dst": "2026-07-16T10:00:00.000Z"
       },
       "source_age_seconds": {
-        "kp": 329.487837,
-        "magnetic_field": 569.487837,
-        "solar_wind": 499.487837,
-        "proton_flux_10mev": 869.487837,
-        "dst": 2969.487837
-      }
+        "kp": 280.043675,
+        "magnetic_field": 400.043675,
+        "solar_wind": 460.043675,
+        "proton_flux_10mev": 520.043675,
+        "dst": 3520.043675
+      },
+      "source_current": {
+        "kp": true,
+        "magnetic_field": true,
+        "solar_wind": true,
+        "proton_flux_10mev": true,
+        "dst": true
+      },
+      "required_sources": [
+        "kp",
+        "magnetic_field",
+        "solar_wind",
+        "dst"
+      ]
     }
   },
   "aggregation_state": {
@@ -97,14 +110,14 @@
       "hour_utc": "2026-07-16T09:00:00+00:00",
       "rows_written": 0,
       "available_at": "2026-07-16T10:30:24.330234+00:00",
-      "hour_age_seconds": 6569.487837,
+      "hour_age_seconds": 7120.043675,
       "watermark_last": true
     },
     "path_hourly": {
       "hour_utc": "2026-07-16T09:00:00+00:00",
       "rows_written": 0,
       "available_at": "2026-07-16T10:30:24.361094+00:00",
-      "hour_age_seconds": 6569.487837,
+      "hour_age_seconds": 7120.043675,
       "watermark_last": true
     }
   },

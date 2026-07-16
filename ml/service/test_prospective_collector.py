@@ -110,8 +110,18 @@ class ProspectiveCollectorTests(unittest.TestCase):
         _, aggregation_gates = aggregation_snapshot(NOW, watermarks)
         self.assertFalse(aggregation_gates["band_hourly_current"])
 
-        solar["source_observed_at"]["kp"] = (NOW - timedelta(minutes=16)).isoformat()
-        _, solar_current = solar_snapshot(NOW, statuses, solar)
+        solar["source_observed_at"]["proton_flux_10mev"] = (
+            NOW - timedelta(minutes=16)
+        ).isoformat()
+        solar_state, solar_current = solar_snapshot(NOW, statuses, solar)
+        self.assertFalse(solar_state["source_current"]["proton_flux_10mev"])
+        self.assertTrue(solar_current)
+
+        solar["source_observed_at"]["kp"] = (
+            NOW - timedelta(minutes=16)
+        ).isoformat()
+        solar_state, solar_current = solar_snapshot(NOW, statuses, solar)
+        self.assertFalse(solar_state["source_current"]["kp"])
         self.assertFalse(solar_current)
 
     def test_continuity_requires_unbroken_24_hour_tail(self) -> None:

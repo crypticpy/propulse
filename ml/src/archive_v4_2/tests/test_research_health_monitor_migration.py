@@ -36,6 +36,7 @@ class ResearchHealthMonitorMigrationTests(unittest.TestCase):
         self.assertIn("Authorization: Bearer", workflow)
         self.assertIn("X-Vercel-Protection-Bypass", workflow)
         self.assertIn('(.heartbeatStale == false)', workflow)
+        self.assertIn("--retry-max-time 90", workflow)
         self.assertIn("timeout-minutes: 3", workflow)
 
 

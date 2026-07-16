@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T17:25:50.772151+00:00",
+  "generated_at": "2026-07-16T17:34:50.668157+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,7 +12,7 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "63442bada2562ca8ef8fa496e54b4dbd7b06e135a6a6c10f13e2fd03cf289922",
+      "sha256": "b54129c82839daeb59ae3dd53b571b6ef23f6d3f12f084c8d86e66c63784786b",
       "bytes": 9410
     },
     "beta_rollback": {
@@ -37,8 +37,8 @@
     },
     "capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "defea0769a9f95844066c3fe28de46ee4fd65ebd0c1b374d7e536b341c9cd47e",
-      "bytes": 4831
+      "sha256": "e47d295667c5d5f1c04f1648b30401c484b6ec91158eb2cd61de72dd76067dbf",
+      "bytes": 4822
     },
     "beta_config": {
       "path": "ml/config/propagation_v4_2_beta_protocol.json",
@@ -82,7 +82,7 @@
         "coverage_utc_hours": 14,
         "coverage_distance_buckets": 5,
         "coverage_drift_sample_sufficient": false,
-        "capture_hours": 5.248610775555555,
+        "capture_hours": 5.9986222611111115,
         "capture_required_hours": 24.0,
         "futurecast_days": 1,
         "futurecast_required_days": 90,
@@ -183,10 +183,10 @@
     "collection_progress_rows": [
       {
         "evidence_track": "First-party capture",
-        "observed": 5.248610775555555,
+        "observed": 5.9986222611111115,
         "required": 24.0,
         "unit": "continuous hours",
-        "completion": 0.21869211564814814
+        "completion": 0.24994259421296297
       },
       {
         "evidence_track": "WSPR shadow",
@@ -484,7 +484,7 @@
         "order": 1,
         "action": "Sustain nonempty first-party capture for 24 continuous hours",
         "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-        "current": "5.25/24 hours"
+        "current": "6.00/24 hours"
       },
       {
         "order": 2,
@@ -572,7 +572,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T17:25:50.607826+00:00",
+    "generated_at": "2026-07-16T17:34:50.388582+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -619,7 +619,7 @@
       "prospective_capture": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
         "exists": true,
-        "sha256": "defea0769a9f95844066c3fe28de46ee4fd65ebd0c1b374d7e536b341c9cd47e",
+        "sha256": "e47d295667c5d5f1c04f1648b30401c484b6ec91158eb2cd61de72dd76067dbf",
         "schema_version": 1,
         "decision": null
       },

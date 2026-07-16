@@ -88,7 +88,7 @@
 > feature cells across all ten bands with two workers and nine threads each. A
 > separate minute-0/minute-30 watchdog enforces the 7,200-second stale boundary,
 > receipt continuity, UTC, worker, failure, and 2 GiB runtime gates. Local
-> notification delivery smoke and the expanded independent audit passed 28/28
+> notification delivery smoke and the initial independent audit passed 28/28
 > gates. The protected-preview HMAC heartbeat subsequently passed 8/8
 > M5-to-endpoint-to-private-store gates while the public reader remained off.
 > A GitHub-hosted runner then passed the independent default-branch protected

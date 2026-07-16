@@ -74,8 +74,8 @@ candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
 | Locked 2025 archive | 0.04096767 | 0.04186090 | 2.134% | 6/6 gates pass |
 
 The internal WSPR shadow is operationally healthy through target
-`2026-07-16T14:00:00Z`: `12/12` expected hours, zero gaps, `2,867,582`
-observations, and `796,382` feature cells. This is `12/720` duration evidence,
+`2026-07-16T15:00:00Z`: `13/13` expected hours, zero gaps, `3,088,321`
+observations, and `867,072` feature cells. This is `13/720` duration evidence,
 not a 30-day pass. The audited `11:00Z` finalizer used two workers with nine native
 threads each and completed in 114.34 seconds after keyset pagination replaced
 deep OFFSET scans.
@@ -163,10 +163,22 @@ in `23.1142` seconds at `57.625` MiB peak RSS, removed its transient spool, and
 performed no target write. Aggregate evidence is
 `live_feature_pipeline/wspr_live_connector_validation.json`. The send-ready
 source request is [`WSPR-LIVE-PERMISSION-REQUEST.md`](WSPR-LIVE-PERMISSION-REQUEST.md).
-After an operator reply, follow its machine-verifiable receipt section. The M5
-validator binds the private approval checksum to the exact sent proposal and a
-contemporaneous WSPR.live public-terms snapshot, emits only repository-safe
-hashes/decisions, and is the only path to `source_authorization.json`.
+The official terms were captured into an owner-only M5 directory and the
+preparation command passed every gate while recording `email_sent: false` and
+`subscriber_facing_authorized: false`:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/prepare_wspr_permission_request.py \
+  --profile m5 \
+  --public-terms-snapshot "$PROPULSE_AUTH_DIR/wspr-live-terms.html"
+```
+
+After an operator reply, follow the request's machine-verifiable receipt
+section. The M5 validator binds the private approval checksum to the exact sent
+proposal and a contemporaneous WSPR.live public-terms snapshot, emits only
+repository-safe hashes/decisions, and is the only path to
+`source_authorization.json`.
 
 For a deliberately enabled internal hour, store the HMAC secret in the M5 login
 keychain under service `propulse-wspr-completion-v1`. Non-interactive runs can
@@ -485,10 +497,10 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T14:00:00Z` also completed under
-the same bounded profile. The rollup is now `12/12` with zero gaps, `2,867,582`
-aggregate observations, `796,382` feature cells, and remains `collecting` at
-`12/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+following scheduled targets through `2026-07-16T15:00:00Z` also completed under
+the same bounded profile. The rollup is now `13/13` with zero gaps, `3,088,321`
+aggregate observations, `867,072` feature cells, and remains `collecting` at
+`13/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
 remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
 Deep OFFSET pages later returned target HTTP 500 responses; monotonic-id keyset
 pagination plus the covering `(source, target_hour, band, id)` index removed
@@ -946,8 +958,8 @@ respectively, in under four seconds wall time and no stderr. The startup 09:00
 UTC band/path watermarks are causal but contain zero rows because collection
 started later; zero-row startup watermarks therefore did not begin the evidence
 clock. The first nonempty settled hour wrote ten band rows and 2,246 path rows;
-the latest preserved receipt remains `warming` at `4.50/24` gap-free hours
-across 22 healthy receipts.
+the latest preserved receipt remains `warming` at `4.75/24` gap-free hours
+across 23 healthy receipts.
 Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The

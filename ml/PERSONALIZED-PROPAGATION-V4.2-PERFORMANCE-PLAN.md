@@ -20,11 +20,11 @@
 > measurements concurrently. All four operational input gates are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming` at `4.50/24` hours across 22 healthy receipts until
+> receipt remains `warming` at `4.75/24` hours across 23 healthy receipts until
 > nonempty aggregates sustain 24 gap-free hours.
-> Research-shadow status, 2026-07-16T16:05Z: `12/12` expected WSPR hours are
-> complete with zero gaps (`12/720` duration gate), `2,867,582` observations,
-> and `796,382` feature cells. The latest audited keyset-paginated finalizer used the
+> Research-shadow status, 2026-07-16T16:20Z: `13/13` expected WSPR hours are
+> complete with zero gaps (`13/720` duration gate), `3,088,321` observations,
+> and `867,072` feature cells. The latest audited keyset-paginated finalizer used the
 > exact `2 x 9` native-thread profile and completed in 114.34 seconds.
 > Incident-delivery status: a real `10,227`-second stale heartbeat opened one
 > aggregate-only GitHub issue and a genuine `25`-second heartbeat closed it.
@@ -773,10 +773,10 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `4.50/24` hours across
-  22 healthy receipts; the August-September outcomes remain unread.
+  the latest preserved receipt is honestly `warming` at `4.75/24` hours across
+  23 healthy receipts; the August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `95/95`, V4.1 `37/37`, V4.2 `162/162`, and
+  service `95/95`, V4.1 `37/37`, V4.2 `165/165`, and
   frontend/API/collector `94/94` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
@@ -801,6 +801,12 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   outage receipt is bound to a private pre-shutdown boot challenge, current
   health, workflow checksum, macOS boot history, and scheduled off-M5 incident
   lifecycle. Neither implementation marks its real-world gate complete.
+- [x] Prepare the exact WSPR.live request on the M5 without sending it or
+  claiming authorization. The owner-only official-terms snapshot passed the
+  frozen content contract 99 seconds after retrieval; the repository-safe
+  receipt binds proposal SHA-256 `b9119dce...a45ac7` and snapshot SHA-256
+  `08f12515...9477df`, while explicitly recording `email_sent: false` and
+  `subscriber_facing_authorized: false`.
 - [ ] Send the immutable WSPR.live request, receive explicit operator approval
   for both required roles and the stated nonprofit operating limits, retain the
   reply privately, and pass `validate_wspr_source_authorization.py` on the M5.
@@ -922,11 +928,11 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `12/12`
-expected hours, 100% scheduled completion, zero gaps, and `12/720` required
-hours through target `2026-07-16T14:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `2,867,582`
-observations and `796,382` feature cells with the same bounded 18-thread
+The automatic duration rollup is operationally healthy at `13/13`
+expected hours, 100% scheduled completion, zero gaps, and `13/720` required
+hours through target `2026-07-16T15:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `3,088,321`
+observations and `867,072` feature cells with the same bounded 18-thread
 profile. The latest audited finalizer completed in 114.34 seconds with two
 workers and nine native threads each. The rollup re-verifies
 every receipt against its signed completed manifest and

@@ -96,12 +96,18 @@ chmod 700 "$PROPULSE_AUTH_DIR"
 curl --fail --silent --show-error --location https://wspr.live/ \
   --output "$PROPULSE_AUTH_DIR/wspr-live-terms.html"
 shasum -a 256 ml/WSPR-LIVE-PERMISSION-EMAIL.txt \
-  "$PROPULSE_AUTH_DIR/wspr-live-terms.html" \
-  "$PROPULSE_AUTH_DIR/wspr-live-reply.eml"
+  "$PROPULSE_AUTH_DIR/wspr-live-terms.html"
+ml/.venv/bin/python ml/src/archive_v4_2/prepare_wspr_permission_request.py \
+  --profile m5 \
+  --public-terms-snapshot "$PROPULSE_AUTH_DIR/wspr-live-terms.html"
 ```
 
-Record those hashes and offset-qualified UTC timestamps in the private input,
-then run the validator on the M5:
+The preparation receipt must say `prepared_not_sent`, `email_sent: false`, and
+`subscriber_facing_authorized: false`; it does not open a release gate. After a
+reply arrives, save the complete message and headers as
+`wspr-live-reply.eml`, verify the sender independently, hash it with
+`shasum -a 256`, and record the hashes plus offset-qualified UTC timestamps in
+the private input. Then run the validator on the M5:
 
 ```bash
 chmod 600 "$PROPULSE_AUTH_DIR/wspr-live-authorization.json"

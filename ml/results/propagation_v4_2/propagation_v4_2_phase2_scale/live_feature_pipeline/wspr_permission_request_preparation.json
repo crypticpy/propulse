@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T16:19:41.478530+00:00",
+  "scope": "wspr_live_permission_request_preparation",
+  "decision": "prepared_not_sent",
+  "request": {
+    "recipient": "admin@wspr.live",
+    "proposal_sha256": "b9119dcedad5e2d8961bc11c9174c9b07b5c84b64773f681b5e6dc2b79a45ac7",
+    "email_sent": false
+  },
+  "public_terms": {
+    "url": "https://wspr.live/",
+    "content_contract": "wspr_live_terms_v1",
+    "snapshot_retrieved_at": "2026-07-16T16:18:02.370481+00:00",
+    "snapshot_age_seconds": 99,
+    "snapshot_sha256": "08f12515072b621f95eb883a97babfe07188cee7bf9a5831dc5e01481e9477df"
+  },
+  "authorization": {
+    "written_operator_response_received": false,
+    "subscriber_facing_authorized": false
+  },
+  "required_next_actions": [
+    "send_exact_tracked_request",
+    "retain_complete_reply_headers_privately",
+    "validate_written_operator_response_on_m5"
+  ],
+  "gates": {
+    "native_m5_validation": true,
+    "immutable_request_checksum_recorded": true,
+    "terms_snapshot_checksum_recorded": true,
+    "official_terms_content_contract_passed": true,
+    "terms_snapshot_fresh": true,
+    "terms_snapshot_owner_only": true,
+    "private_correspondence_absent": true,
+    "subscriber_authorization_still_closed": true,
+    "locked_outcomes_unread": true
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18
+  },
+  "privacy": {
+    "private_snapshot_path_written": false,
+    "private_correspondence_written": false,
+    "station_identity_written": false,
+    "locked_outcomes_read": false
+  }
+}

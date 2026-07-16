@@ -2,16 +2,42 @@ from __future__ import annotations
 
 import sys
 import unittest
+from datetime import date
 from pathlib import Path
 
 
 MODULE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE))
 
-from assess_futurecast_readiness import assess  # noqa: E402
+from assess_futurecast_readiness import (  # noqa: E402
+    assess,
+    consecutive_day_runs,
+    first_qualifying_window,
+)
 
 
 class FutureCastReadinessTests(unittest.TestCase):
+    def test_freezes_the_first_qualifying_consecutive_window(self) -> None:
+        days = {
+            date(2026, 7, 1),
+            date(2026, 7, 2),
+            date(2026, 7, 5),
+            date(2026, 7, 6),
+            date(2026, 7, 7),
+            date(2026, 7, 8),
+        }
+        self.assertEqual(
+            consecutive_day_runs(days),
+            [
+                (date(2026, 7, 1), date(2026, 7, 2)),
+                (date(2026, 7, 5), date(2026, 7, 8)),
+            ],
+        )
+        self.assertEqual(
+            first_qualifying_window(days, 3),
+            (date(2026, 7, 5), date(2026, 7, 7)),
+        )
+
     @staticmethod
     def capture(source: str, day: int, *, captured_hour: int = 6) -> dict[str, object]:
         return {
@@ -44,6 +70,14 @@ class FutureCastReadinessTests(unittest.TestCase):
         ]
         result = assess(captures, minimum_days=3)
         self.assertTrue(result["issued_forecast_training_ready"])
+        self.assertEqual(
+            result["horizons"]["24"]["qualifying_window_start"],
+            "2026-07-01",
+        )
+        self.assertEqual(
+            result["horizons"]["24"]["qualifying_window_end"],
+            "2026-07-03",
+        )
         self.assertFalse(result["release_approved"])
 
     def test_gap_does_not_count_as_consecutive_history(self) -> None:

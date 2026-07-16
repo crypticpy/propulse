@@ -15,6 +15,14 @@
 > active every six hours. Its first durable issuance captured both required
 > NOAA products and 144 parsed values; training remains withheld until 90
 > consecutive legal availability days exist.
+> FutureCast implementation status, 2026-07-16: the V1 protocol and config are
+> frozen. Streaming PostgreSQL-to-Parquet export, Polars direct-horizon
+> materialization, `2 x 9` external-memory XGBoost training, an 18-worker
+> issued-input P.533 diagnostic, streamed one-shot gate scoring, synthetic
+> lineage enforcement, and the visual engineering report all pass on the M5.
+> This is pipeline evidence only; no production horizon has been trained or
+> released. See [`FUTURECAST-V1-PROTOCOL.md`](FUTURECAST-V1-PROTOCOL.md) and the
+> [synthetic report](results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html).
 > Prospective capture status, 2026-07-16: a native-M5 first-party LaunchAgent
 > now captures PSK Reporter, RBN, DX Cluster, and solar/geomagnetic
 > measurements concurrently. All four operational input paths are active,
@@ -820,6 +828,19 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   consecutive stale samples. The first scheduled proof waited 51.89 seconds,
   used six status queries plus one bounded health read, preserved 6.76 pipeline
   hours, and honestly recorded NOAA magnetic-field/wind staleness.
+- [x] Freeze and exercise the complete FutureCast V1 engineering path before
+  genuine history matures. The first-qualifying 90-day rule, 60/15/15 issue-day
+  split, direct and weather-only profiles, train-only baselines, calibration
+  guard, issue-day bootstrap, supported-band gates, bounded paired P.533
+  diagnostic, partial-horizon release rule, and resource ceilings are
+  preregistered. A 90-day synthetic M5 proof caught and fixed duplicate daily
+  Parquet joins, multiprocessing worker reuse, local-time P.533 serialization,
+  and non-finite sparse-slice JSON. The corrected run produced 14,400 unique
+  examples, eight frozen models with `2 x 9` threads, 4,800 paired P.533 rows
+  with 18 workers, strict streamed gate output, and a five-chart browser-verified
+  [visual report](results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html).
+  Synthetic lineage permanently withholds release; genuine training remains
+  open until 90 consecutive common issuance days and valid-time outcomes mature.
 - [ ] Pass the first-party prospective capture preflight: both settled
   aggregates and all four operational input paths must remain available, the
   pipeline must remain gap-free for 24 hours, weather availability must reach
@@ -827,7 +848,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   current. The latest receipt is honestly `warming` at `6.76/24` pipeline
   hours, `30/33` fresh-weather samples, and a current weather failure; the
   August-September outcomes remain unread.
-- [x] Pass one uninterrupted native-M5 repository verification: V4 `41/41`,
+- [x] Pass one uninterrupted native-M5 repository verification: V4 `61/61`
+  (including the focused FutureCast `37/37` suite),
   service `104/104`, V4.1 `37/37`, V4.2 `186/186`, and
   frontend/API/collector `99/99` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual

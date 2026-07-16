@@ -42,49 +42,98 @@ def build_issued_forecast_features(
         raise ValueError(f"unsupported FutureCast horizon: {horizon_hours}")
     issue = aware(issue_time)
     valid = issue + timedelta(hours=horizon_hours)
-    candidates: dict[tuple[str, str], list[tuple[datetime, datetime, str, dict[str, Any]]]] = {}
+    issuances: dict[
+        tuple[str, datetime, str],
+        dict[str, list[tuple[datetime, datetime, dict[str, Any]]]],
+    ] = {}
     for row in rows:
         key = (str(row.get("product")), str(row.get("metric")))
         cadence_hours = FEATURES.get(key)
-        if cadence_hours is None or row.get("quality", "forecast") != "forecast":
+        if cadence_hours is None or row.get("quality") != "forecast":
             continue
         issued_at = aware(row["issued_at"])
         available_at = aware(row["available_at"])
         valid_at = aware(row["valid_at"])
+        payload_sha256 = str(row.get("payload_sha256", "")).lower()
+        if (
+            len(payload_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in payload_sha256)
+        ):
+            raise ValueError("FutureCast forecast payload SHA-256 is invalid")
         if issued_at > issue or available_at > issue:
             continue
+        if available_at < issued_at:
+            raise ValueError("FutureCast forecast was available before it was issued")
         if not valid_at <= valid < valid_at + timedelta(hours=cadence_hours):
             continue
-        payload_sha256 = str(row.get("payload_sha256", ""))
-        candidates.setdefault(key, []).append(
-            (issued_at, available_at, payload_sha256, row)
+        issuances.setdefault((key[0], issued_at, payload_sha256), {}).setdefault(
+            key[1], []
+        ).append(
+            (valid_at, available_at, row)
         )
 
     values: dict[str, float] = {}
     provenance: dict[str, dict[str, Any]] = {}
+    issuance_provenance: dict[str, dict[str, Any]] = {}
     missing: list[str] = []
-    for key, _cadence_hours in FEATURES.items():
-        name = feature_name(*key)
-        eligible = candidates.get(key, [])
-        if not eligible:
-            missing.append(name)
+    products = sorted({product for product, _metric in FEATURES})
+    for product in products:
+        required_metrics = sorted(
+            metric for candidate, metric in FEATURES if candidate == product
+        )
+        complete: list[
+            tuple[
+                datetime,
+                datetime,
+                str,
+                dict[str, tuple[datetime, datetime, dict[str, Any]]],
+            ]
+        ] = []
+        for (candidate, issued_at, payload_sha256), metric_rows in issuances.items():
+            if candidate != product or not all(
+                metric in metric_rows for metric in required_metrics
+            ):
+                continue
+            selected_rows = {
+                metric: max(metric_rows[metric], key=lambda item: (item[0], item[1]))
+                for metric in required_metrics
+            }
+            complete.append(
+                (
+                    issued_at,
+                    max(row[1] for row in selected_rows.values()),
+                    payload_sha256,
+                    selected_rows,
+                )
+            )
+        if not complete:
+            missing.extend(feature_name(product, metric) for metric in required_metrics)
             continue
-        issued_at, available_at, payload_sha256, selected = max(
-            eligible,
+        issued_at, issuance_available_at, payload_sha256, selected_rows = max(
+            complete,
             key=lambda item: (item[0], item[1], item[2]),
         )
-        valid_at = aware(selected["valid_at"])
-        values[name] = float(selected["value"])
-        provenance[name] = {
+        issuance_provenance[product] = {
             "payload_sha256": payload_sha256,
             "issued_at": issued_at.isoformat(),
-            "available_at": available_at.isoformat(),
-            "valid_at": valid_at.isoformat(),
-            "forecast_age_minutes": int((issue - issued_at).total_seconds() // 60),
-            "availability_age_minutes": int(
-                (issue - available_at).total_seconds() // 60
-            ),
+            "available_at": issuance_available_at.isoformat(),
         }
+        for metric in required_metrics:
+            valid_at, available_at, selected = selected_rows[metric]
+            name = feature_name(product, metric)
+            values[name] = float(selected["value"])
+            provenance[name] = {
+                "payload_sha256": payload_sha256,
+                "issued_at": issued_at.isoformat(),
+                "available_at": available_at.isoformat(),
+                "valid_at": valid_at.isoformat(),
+                "forecast_age_minutes": int(
+                    (issue - issued_at).total_seconds() // 60
+                ),
+                "availability_age_minutes": int(
+                    (issue - available_at).total_seconds() // 60
+                ),
+            }
     return {
         "schema_version": 1,
         "issue_time": issue.isoformat(),
@@ -93,5 +142,6 @@ def build_issued_forecast_features(
         "complete": not missing,
         "values": values,
         "provenance": provenance,
+        "issuances": issuance_provenance,
         "missing_features": sorted(missing),
     }

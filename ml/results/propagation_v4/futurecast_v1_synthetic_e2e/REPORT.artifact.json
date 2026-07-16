@@ -1,0 +1,1152 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "FutureCast V1: synthetic end-to-end engineering report",
+    "description": "Issued-forecast pipeline, model, physics diagnostic, gate, and M5 resource evidence.",
+    "generatedAt": "2026-07-16T18:46:57.365226+00:00",
+    "cards": [
+      {
+        "id": "issued_days",
+        "description": "Frozen chronological fixture window.",
+        "dataset": "summary",
+        "sourceId": "futurecast_e2e",
+        "metrics": [
+          {
+            "label": "Issued days",
+            "field": "issued_days",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "example_rows",
+        "description": "Identity-free path-band-hour examples.",
+        "dataset": "summary",
+        "sourceId": "futurecast_e2e",
+        "metrics": [
+          {
+            "label": "Examples",
+            "field": "example_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "models",
+        "description": "Direct and weather-only models across four horizons.",
+        "dataset": "summary",
+        "sourceId": "futurecast_e2e",
+        "metrics": [
+          {
+            "label": "Models frozen",
+            "field": "models_frozen",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "threads",
+        "description": "Two XGBoost workers with nine native threads each.",
+        "dataset": "summary",
+        "sourceId": "futurecast_e2e",
+        "metrics": [
+          {
+            "label": "Training threads",
+            "field": "xgboost_threads",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "rss",
+        "description": "Conservative sum of simultaneous fit peaks.",
+        "dataset": "summary",
+        "sourceId": "futurecast_e2e",
+        "metrics": [
+          {
+            "label": "Peak RSS",
+            "field": "combined_peak_rss_gib",
+            "format": "number",
+            "unit": "GiB"
+          }
+        ]
+      },
+      {
+        "id": "p533",
+        "description": "Calibration plus unlabeled-gate physics sample.",
+        "dataset": "summary",
+        "sourceId": "futurecast_e2e",
+        "metrics": [
+          {
+            "label": "P.533 rows",
+            "field": "p533_sample_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "released",
+        "description": "Synthetic evidence can never authorize release.",
+        "dataset": "summary",
+        "sourceId": "futurecast_e2e",
+        "metrics": [
+          {
+            "label": "Horizons released",
+            "field": "released_horizons",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "full_gate_brier_chart",
+        "title": "Full-gate weighted Brier by horizon",
+        "subtitle": "Synthetic 15-day gate; lower is better. Baselines and direct model use identical rows.",
+        "type": "bar",
+        "dataset": "full_gate_brier",
+        "sourceId": "futurecast_e2e",
+        "encodings": {
+          "x": {
+            "field": "horizon_hours",
+            "type": "ordinal",
+            "label": "Horizon (hours)"
+          },
+          "y": {
+            "field": "weighted_brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          },
+          "color": {
+            "field": "model",
+            "type": "nominal",
+            "label": "Model"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "relative_skill_chart",
+        "title": "Direct-model relative Brier improvement",
+        "subtitle": "Versus the best frozen full-gate baseline; negative values are regressions.",
+        "type": "bar",
+        "dataset": "horizon_metrics",
+        "sourceId": "futurecast_e2e",
+        "encodings": {
+          "x": {
+            "field": "horizon_hours",
+            "type": "ordinal",
+            "label": "Horizon (hours)"
+          },
+          "y": {
+            "field": "relative_brier_improvement",
+            "type": "quantitative",
+            "label": "Relative improvement"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "p533_chart",
+        "title": "Paired P.533 diagnostic Brier",
+        "subtitle": "Up to 50 paths per issue day, horizon, and band; calibrated on pre-gate days.",
+        "type": "bar",
+        "dataset": "p533_brier",
+        "sourceId": "futurecast_e2e",
+        "encodings": {
+          "x": {
+            "field": "horizon_hours",
+            "type": "ordinal",
+            "label": "Horizon (hours)"
+          },
+          "y": {
+            "field": "weighted_brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          },
+          "color": {
+            "field": "model",
+            "type": "nominal",
+            "label": "Model"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "calibration_chart",
+        "title": "Expected calibration error by horizon",
+        "subtitle": "Direct model versus the horizon's best full-gate baseline; lower is better.",
+        "type": "bar",
+        "dataset": "calibration",
+        "sourceId": "futurecast_e2e",
+        "encodings": {
+          "x": {
+            "field": "horizon_hours",
+            "type": "ordinal",
+            "label": "Horizon (hours)"
+          },
+          "y": {
+            "field": "ece",
+            "type": "quantitative",
+            "label": "Expected calibration error"
+          },
+          "color": {
+            "field": "model",
+            "type": "nominal",
+            "label": "Model"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "iterations_chart",
+        "title": "Best boosting iteration by horizon",
+        "subtitle": "Frozen five-day early-stopping block; fresh spawn child per fit.",
+        "type": "bar",
+        "dataset": "model_fits",
+        "sourceId": "futurecast_e2e",
+        "encodings": {
+          "x": {
+            "field": "horizon_hours",
+            "type": "ordinal",
+            "label": "Horizon (hours)"
+          },
+          "y": {
+            "field": "best_iteration",
+            "type": "quantitative",
+            "label": "Best iteration"
+          },
+          "color": {
+            "field": "profile",
+            "type": "nominal",
+            "label": "Model"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "horizon_table",
+        "title": "Per-horizon gate result",
+        "subtitle": "Exact full-gate metrics and one-sided paired uncertainty.",
+        "dataset": "horizon_metrics",
+        "sourceId": "futurecast_e2e",
+        "defaultSort": {
+          "field": "horizon_hours",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "horizon_hours",
+            "label": "Horizon h",
+            "type": "number"
+          },
+          {
+            "field": "status",
+            "label": "Decision",
+            "type": "text"
+          },
+          {
+            "field": "best_baseline",
+            "label": "Best baseline",
+            "type": "text"
+          },
+          {
+            "field": "direct_brier",
+            "label": "Direct Brier",
+            "type": "number"
+          },
+          {
+            "field": "best_baseline_brier",
+            "label": "Baseline Brier",
+            "type": "number"
+          },
+          {
+            "field": "relative_brier_improvement",
+            "label": "Relative skill",
+            "type": "number"
+          },
+          {
+            "field": "paired_upper_95",
+            "label": "Paired upper 95%",
+            "type": "number"
+          },
+          {
+            "field": "gate_opportunities",
+            "label": "Gate opportunities",
+            "type": "number"
+          },
+          {
+            "field": "gates_passed",
+            "label": "Gates passed",
+            "type": "number"
+          },
+          {
+            "field": "gates_total",
+            "label": "Gates total",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "id": "model_table",
+        "title": "Frozen model fits",
+        "subtitle": "External-memory XGBoost models; gate rows remained unread during fitting.",
+        "dataset": "model_fits",
+        "sourceId": "futurecast_e2e",
+        "defaultSort": {
+          "field": "horizon_hours",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "horizon_hours",
+            "label": "Horizon h",
+            "type": "number"
+          },
+          {
+            "field": "profile",
+            "label": "Profile",
+            "type": "text"
+          },
+          {
+            "field": "features",
+            "label": "Features",
+            "type": "number"
+          },
+          {
+            "field": "train_rows",
+            "label": "Train rows",
+            "type": "number"
+          },
+          {
+            "field": "best_iteration",
+            "label": "Best iteration",
+            "type": "number"
+          },
+          {
+            "field": "calibration_method",
+            "label": "Calibration",
+            "type": "text"
+          },
+          {
+            "field": "wall_seconds",
+            "label": "Wall seconds",
+            "type": "number"
+          },
+          {
+            "field": "peak_rss_gib",
+            "label": "Peak RSS GiB",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "id": "gate_table",
+        "title": "All preregistered release gates",
+        "subtitle": "Every gate is mandatory and evaluated separately for each horizon.",
+        "dataset": "gate_matrix",
+        "sourceId": "futurecast_e2e",
+        "defaultSort": {
+          "field": "horizon_hours",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "horizon_hours",
+            "label": "Horizon h",
+            "type": "number"
+          },
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "futurecast_e2e",
+        "label": "FutureCast V1 synthetic end-to-end evidence",
+        "path": "ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed aggregate evidence in ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json"
+          ],
+          "filters": [
+            "Synthetic 90-day fixture only",
+            "Four direct horizons: +3, +6, +12, +24 hours",
+            "Private path keys and local artifact paths excluded"
+          ],
+          "metric_definitions": {
+            "weighted_brier": "Opportunity-weighted mean squared probability error; lower is better.",
+            "relative_brier_improvement": "1 - direct Brier / best frozen full-gate baseline Brier.",
+            "paired_upper_95": "One-sided 95% issue-day bootstrap bound for direct minus best-baseline Brier.",
+            "ece": "Twenty-bin opportunity-weighted expected calibration error."
+          }
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# FutureCast V1: synthetic end-to-end engineering report"
+      },
+      {
+        "id": "summary",
+        "type": "markdown",
+        "sourceId": "futurecast_e2e",
+        "body": "## Technical summary\n\n**The complete FutureCast training and evaluation path works on the M5, but this run is not model-quality evidence.** The fixture exercised 90 legal issue days, 360 leakage-audited Parquet partitions, eight direct-horizon XGBoost fits, a pinned issued-input P.533 diagnostic, and one-shot streamed gate scoring. All four horizons remain withheld. The direct models lost to a frozen full-gate baseline in this deliberately small synthetic world, and `data_scope: synthetic_fixture` independently makes release impossible."
+      },
+      {
+        "id": "cards",
+        "type": "metric-strip",
+        "cardIds": [
+          "issued_days",
+          "example_rows",
+          "models",
+          "threads",
+          "rss",
+          "p533",
+          "released"
+        ]
+      },
+      {
+        "id": "finding",
+        "type": "markdown",
+        "sourceId": "futurecast_e2e",
+        "body": "## Learned path history did not beat the simpler fixture baselines\n\nThe direct model regressed against weather-only at +3, +6, and +12 hours and against one-hour persistence at +24 hours. That is a useful negative control: the scorer selected the strongest frozen comparator instead of manufacturing a win."
+      },
+      {
+        "id": "brier",
+        "type": "chart",
+        "chartId": "full_gate_brier_chart",
+        "layout": "full"
+      },
+      {
+        "id": "skill",
+        "type": "chart",
+        "chartId": "relative_skill_chart",
+        "layout": "full"
+      },
+      {
+        "id": "physics",
+        "type": "markdown",
+        "sourceId": "futurecast_e2e",
+        "body": "## The physics comparator is reproducible and bounded\n\nP.533 used the same issued NOAA three-day F10.7 value, an explicitly pinned statistical sunspot conversion, and fixed 1 W, 6 Hz, -28 dB reference conditions. Calibration used only pre-gate days. P.533 is a paired diagnostic, not an eligible full-gate baseline."
+      },
+      {
+        "id": "p533",
+        "type": "chart",
+        "chartId": "p533_chart",
+        "layout": "full"
+      },
+      {
+        "id": "scope",
+        "type": "markdown",
+        "sourceId": "futurecast_e2e",
+        "body": "## Scope, data, and metric definitions\n\nEach row is one identity-free grid4 path, HF band, and valid hour. The fractional label is `successes / opportunities`; opportunities are the sample weight. Brier is the opportunity-weighted mean squared probability error. Issue days are split chronologically 60 train / 15 calibration / 15 gate, and the gate is read only after model and P.533 artifacts are frozen."
+      },
+      {
+        "id": "horizon",
+        "type": "table",
+        "tableId": "horizon_table",
+        "layout": "full"
+      },
+      {
+        "id": "calibration_text",
+        "type": "markdown",
+        "body": "## Calibration remains a product gate\n\nReachMap and band forecasts consume probability magnitude, so Brier wins cannot compensate for poor expected calibration error."
+      },
+      {
+        "id": "calibration",
+        "type": "chart",
+        "chartId": "calibration_chart",
+        "layout": "full"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "sourceId": "futurecast_e2e",
+        "body": "## Model and execution specification\n\nOne direct and one weather-only XGBoost model are fit per horizon. Two macOS spawn children run concurrently with nine native threads each; every child handles exactly one model. Arrow and XGBoost stream bounded Parquet batches from the Projects SSD, and conservative simultaneous peak RSS stayed below 1 GiB on this fixture."
+      },
+      {
+        "id": "iterations",
+        "type": "chart",
+        "chartId": "iterations_chart",
+        "layout": "full"
+      },
+      {
+        "id": "models_table",
+        "type": "table",
+        "tableId": "model_table",
+        "layout": "full"
+      },
+      {
+        "id": "gates_text",
+        "type": "markdown",
+        "body": "## Release remains fail-closed\n\nA horizon must pass every performance, uncertainty, calibration, supported-band, integrity, P.533, production-evidence, and resource gate. Partial release is permitted only for individually passing production horizons."
+      },
+      {
+        "id": "gates",
+        "type": "table",
+        "tableId": "gate_table",
+        "layout": "full"
+      },
+      {
+        "id": "limits",
+        "type": "markdown",
+        "body": "## Limitations, uncertainty, and robustness\n\nThis fixture is intentionally small and deterministic. It cannot estimate real HF forecast accuracy, receiver-selection bias, geography transfer, solar-event behavior, or supported-band safety. Only 60,000 gate opportunities exist per horizon, so the million-opportunity gate and 10,000-opportunity per-band support rule correctly withhold. The P.533 F10.7-to-sunspot relationship is statistical, not exact."
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "body": "## Recommended next step\n\nKeep the immutable NOAA and permitted WSPR collectors running. When the first 90 consecutive common legal issuance days mature, export that first window, run this unchanged pipeline once, and release only horizons that clear every frozen gate."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\n- Which horizons add value beyond weather-only and persistence on genuine issued forecasts?\n- Do improvements survive all supported bands, solar regimes, and geographic slices?\n- Does the production P.533 sample reveal systematic physics/model disagreements worth a hybrid feature?\n- Which passing horizons are calibrated well enough for operator-facing probability maps?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-16T18:46:57.365226+00:00",
+    "status": "fixture",
+    "datasets": {
+      "summary": [
+        {
+          "issued_days": 90,
+          "example_partitions": 360,
+          "example_rows": 14400,
+          "example_opportunities": 1440000.0,
+          "models_frozen": 8,
+          "xgboost_threads": 18,
+          "combined_peak_rss_gib": 0.560333251953125,
+          "p533_sample_rows": 4800,
+          "p533_unique_circuits": 4000,
+          "p533_workers": 18,
+          "p533_wall_seconds": 23.19854199999827,
+          "gates_passed": 16,
+          "gates_total": 40,
+          "released_horizons": 0,
+          "total_horizons": 4,
+          "decision": "withheld"
+        }
+      ],
+      "horizon_metrics": [
+        {
+          "horizon_hours": 3,
+          "status": "withheld",
+          "best_baseline": "Weather-only model",
+          "direct_brier": 0.0014307077418262864,
+          "best_baseline_brier": 0.0007384285018142673,
+          "relative_brier_improvement": -0.937503412058361,
+          "paired_upper_95": 0.0008600560144712016,
+          "direct_ece": 0.032263998742149726,
+          "best_baseline_ece": 0.014279400562758135,
+          "gate_opportunities": 60000.0,
+          "gates_passed": 4,
+          "gates_total": 10,
+          "released": false
+        },
+        {
+          "horizon_hours": 6,
+          "status": "withheld",
+          "best_baseline": "Weather-only model",
+          "direct_brier": 0.0016258823497652627,
+          "best_baseline_brier": 0.0011012121067732845,
+          "relative_brier_improvement": -0.4764479429211328,
+          "paired_upper_95": 0.0007483172764963176,
+          "direct_ece": 0.03308797306016533,
+          "best_baseline_ece": 0.016102526889582393,
+          "gate_opportunities": 60000.0,
+          "gates_passed": 4,
+          "gates_total": 10,
+          "released": false
+        },
+        {
+          "horizon_hours": 12,
+          "status": "withheld",
+          "best_baseline": "Weather-only model",
+          "direct_brier": 0.00061094799070233,
+          "best_baseline_brier": 0.00048679624305133373,
+          "relative_brier_improvement": -0.25503842608313687,
+          "paired_upper_95": 0.00017151864034353255,
+          "direct_ece": 0.017377245136682328,
+          "best_baseline_ece": 0.009921754230876061,
+          "gate_opportunities": 60000.0,
+          "gates_passed": 4,
+          "gates_total": 10,
+          "released": false
+        },
+        {
+          "horizon_hours": 24,
+          "status": "withheld",
+          "best_baseline": "Path persistence",
+          "direct_brier": 0.003613494461598515,
+          "best_baseline_brier": 0.0006499999999999998,
+          "relative_brier_improvement": -4.559222248613103,
+          "paired_upper_95": 0.003525098253029988,
+          "direct_ece": 0.055684512820237245,
+          "best_baseline_ece": 0.015033333333333333,
+          "gate_opportunities": 60000.0,
+          "gates_passed": 4,
+          "gates_total": 10,
+          "released": false
+        }
+      ],
+      "full_gate_brier": [
+        {
+          "horizon_hours": 3,
+          "model": "Direct model",
+          "weighted_brier": 0.0014307077418262864,
+          "weighted_log_loss": 0.5734246028719356,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 3,
+          "model": "Path persistence",
+          "weighted_brier": 0.008228833333333335,
+          "weighted_log_loss": 0.589911717728417,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 3,
+          "model": "Band-hour climatology",
+          "weighted_brier": 0.02151516583333333,
+          "weighted_log_loss": 0.621511410558818,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 3,
+          "model": "Weather-only model",
+          "weighted_brier": 0.0007384285018142673,
+          "weighted_log_loss": 0.5717503161937227,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Direct model",
+          "weighted_brier": 0.0016258823497652627,
+          "weighted_log_loss": 0.6010590632325971,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Path persistence",
+          "weighted_brier": 0.023895833333333335,
+          "weighted_log_loss": 0.6567880070408297,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Band-hour climatology",
+          "weighted_brier": 0.01983154932291667,
+          "weighted_log_loss": 0.6426209310570836,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Weather-only model",
+          "weighted_brier": 0.0011012121067732845,
+          "weighted_log_loss": 0.5998679536192708,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Direct model",
+          "weighted_brier": 0.00061094799070233,
+          "weighted_log_loss": 0.571959844446236,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Path persistence",
+          "weighted_brier": 0.049953166666666673,
+          "weighted_log_loss": 0.6976466228553122,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Band-hour climatology",
+          "weighted_brier": 0.023275757291666664,
+          "weighted_log_loss": 0.6260678547776863,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Weather-only model",
+          "weighted_brier": 0.00048679624305133373,
+          "weighted_log_loss": 0.5716326328337905,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Direct model",
+          "weighted_brier": 0.003613494461598515,
+          "weighted_log_loss": 0.5310420423426618,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Path persistence",
+          "weighted_brier": 0.0006499999999999998,
+          "weighted_log_loss": 0.5223152376379121,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Band-hour climatology",
+          "weighted_brier": 0.01639859140625,
+          "weighted_log_loss": 0.5638292277956801,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Weather-only model",
+          "weighted_brier": 0.0014630695958782482,
+          "weighted_log_loss": 0.5260362497177639,
+          "weighted_opportunities": 60000.0
+        }
+      ],
+      "p533_brier": [
+        {
+          "horizon_hours": 3,
+          "model": "Direct model",
+          "weighted_brier": 0.0014307077418262864,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 3,
+          "model": "Calibrated P.533",
+          "weighted_brier": 0.02645428451706132,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Direct model",
+          "weighted_brier": 0.0016258823497652627,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Calibrated P.533",
+          "weighted_brier": 0.025231958419455126,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Direct model",
+          "weighted_brier": 0.00061094799070233,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Calibrated P.533",
+          "weighted_brier": 0.02373009008582283,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Direct model",
+          "weighted_brier": 0.003613494461598515,
+          "weighted_opportunities": 60000.0
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Calibrated P.533",
+          "weighted_brier": 0.02645395316804407,
+          "weighted_opportunities": 60000.0
+        }
+      ],
+      "calibration": [
+        {
+          "horizon_hours": 3,
+          "model": "Direct model",
+          "ece": 0.032263998742149726
+        },
+        {
+          "horizon_hours": 3,
+          "model": "Best: Weather-only model",
+          "ece": 0.014279400562758135
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Direct model",
+          "ece": 0.03308797306016533
+        },
+        {
+          "horizon_hours": 6,
+          "model": "Best: Weather-only model",
+          "ece": 0.016102526889582393
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Direct model",
+          "ece": 0.017377245136682328
+        },
+        {
+          "horizon_hours": 12,
+          "model": "Best: Weather-only model",
+          "ece": 0.009921754230876061
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Direct model",
+          "ece": 0.055684512820237245
+        },
+        {
+          "horizon_hours": 24,
+          "model": "Best: Path persistence",
+          "ece": 0.015033333333333333
+        }
+      ],
+      "model_fits": [
+        {
+          "horizon_hours": 3,
+          "profile": "Direct",
+          "features": 64,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 418,
+          "calibration_method": "isotonic",
+          "wall_seconds": 40.48728045797907,
+          "peak_rss_gib": 0.263885498046875
+        },
+        {
+          "horizon_hours": 3,
+          "profile": "Weather-only",
+          "features": 56,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 374,
+          "calibration_method": "isotonic",
+          "wall_seconds": 37.595127457985654,
+          "peak_rss_gib": 0.2605743408203125
+        },
+        {
+          "horizon_hours": 6,
+          "profile": "Direct",
+          "features": 64,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 456,
+          "calibration_method": "isotonic",
+          "wall_seconds": 42.23372429201845,
+          "peak_rss_gib": 0.26702880859375
+        },
+        {
+          "horizon_hours": 6,
+          "profile": "Weather-only",
+          "features": 56,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 569,
+          "calibration_method": "isotonic",
+          "wall_seconds": 50.97042450000299,
+          "peak_rss_gib": 0.2801666259765625
+        },
+        {
+          "horizon_hours": 12,
+          "profile": "Direct",
+          "features": 64,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 337,
+          "calibration_method": "isotonic",
+          "wall_seconds": 31.439774791011587,
+          "peak_rss_gib": 0.2604522705078125
+        },
+        {
+          "horizon_hours": 12,
+          "profile": "Weather-only",
+          "features": 56,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 423,
+          "calibration_method": "isotonic",
+          "wall_seconds": 37.745499334007036,
+          "peak_rss_gib": 0.265472412109375
+        },
+        {
+          "horizon_hours": 24,
+          "profile": "Direct",
+          "features": 64,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 342,
+          "calibration_method": "isotonic",
+          "wall_seconds": 32.426301583996974,
+          "peak_rss_gib": 0.2469635009765625
+        },
+        {
+          "horizon_hours": 24,
+          "profile": "Weather-only",
+          "features": 56,
+          "train_rows": 2400,
+          "early_stopping_rows": 200,
+          "best_iteration": 157,
+          "calibration_method": "isotonic",
+          "wall_seconds": 17.39409508398967,
+          "peak_rss_gib": 0.24761962890625
+        }
+      ],
+      "gate_matrix": [
+        {
+          "horizon_hours": 3,
+          "gate": "minimum gate issue days",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "minimum gate opportunities",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "relative brier improvement",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "paired issue day upper 95 below zero",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "calibration",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "supported band safety",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "p533 forecast input diagnostic",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "source and training integrity",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "production issued evidence",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 3,
+          "gate": "m5 rss within limit",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "minimum gate issue days",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "minimum gate opportunities",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "relative brier improvement",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "paired issue day upper 95 below zero",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "calibration",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "supported band safety",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "p533 forecast input diagnostic",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "source and training integrity",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "production issued evidence",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 6,
+          "gate": "m5 rss within limit",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "minimum gate issue days",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "minimum gate opportunities",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "relative brier improvement",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "paired issue day upper 95 below zero",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "calibration",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "supported band safety",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "p533 forecast input diagnostic",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "source and training integrity",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "production issued evidence",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 12,
+          "gate": "m5 rss within limit",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "minimum gate issue days",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "minimum gate opportunities",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "relative brier improvement",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "paired issue day upper 95 below zero",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "calibration",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "supported band safety",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "p533 forecast input diagnostic",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "source and training integrity",
+          "status": "pass"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "production issued evidence",
+          "status": "fail"
+        },
+        {
+          "horizon_hours": 24,
+          "gate": "m5 rss within limit",
+          "status": "pass"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "futurecast_e2e",
+      "label": "FutureCast V1 synthetic end-to-end evidence",
+      "path": "ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed aggregate evidence in ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/futurecast_v1_synthetic_e2e/FUTURECAST_SYNTHETIC_E2E_EVIDENCE.json"
+        ],
+        "filters": [
+          "Synthetic 90-day fixture only",
+          "Four direct horizons: +3, +6, +12, +24 hours",
+          "Private path keys and local artifact paths excluded"
+        ],
+        "metric_definitions": {
+          "weighted_brier": "Opportunity-weighted mean squared probability error; lower is better.",
+          "relative_brier_improvement": "1 - direct Brier / best frozen full-gate baseline Brier.",
+          "paired_upper_95": "One-sided 95% issue-day bootstrap bound for direct minus best-baseline Brier.",
+          "ece": "Twenty-bin opportunity-weighted expected calibration error."
+        }
+      }
+    }
+  ]
+}

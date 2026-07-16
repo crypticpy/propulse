@@ -26,15 +26,36 @@ def parse_time(value: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def longest_consecutive_days(days: set[date]) -> int:
-    longest = 0
-    current = 0
+def consecutive_day_runs(days: set[date]) -> list[tuple[date, date]]:
+    runs: list[tuple[date, date]] = []
+    start: date | None = None
     previous: date | None = None
     for day in sorted(days):
-        current = current + 1 if previous and day == previous + timedelta(days=1) else 1
-        longest = max(longest, current)
+        if previous is None or day != previous + timedelta(days=1):
+            if start is not None and previous is not None:
+                runs.append((start, previous))
+            start = day
         previous = day
-    return longest
+    if start is not None and previous is not None:
+        runs.append((start, previous))
+    return runs
+
+
+def run_days(run: tuple[date, date]) -> int:
+    return (run[1] - run[0]).days + 1
+
+
+def longest_consecutive_days(days: set[date]) -> int:
+    return max((run_days(run) for run in consecutive_day_runs(days)), default=0)
+
+
+def first_qualifying_window(
+    days: set[date], minimum_days: int
+) -> tuple[date, date] | None:
+    for start, end in consecutive_day_runs(days):
+        if run_days((start, end)) >= minimum_days:
+            return start, start + timedelta(days=minimum_days - 1)
+    return None
 
 
 def assess(captures: list[dict[str, Any]], minimum_days: int) -> dict[str, Any]:
@@ -113,14 +134,35 @@ def assess(captures: list[dict[str, Any]], minimum_days: int) -> dict[str, Any]:
             horizon_days.get(source, {}).get(horizon, set())
             for source in sorted(REQUIRED_SOURCES)
         ])
-        consecutive_days = longest_consecutive_days(common_days)
+        runs = consecutive_day_runs(common_days)
+        longest_run = max(runs, key=run_days) if runs else None
+        consecutive_days = run_days(longest_run) if longest_run else 0
+        qualifying_window = first_qualifying_window(common_days, minimum_days)
         eligible = consecutive_days >= minimum_days
         horizon_rows[str(horizon)] = {
             "status": "eligible_for_development"
             if eligible
             else "withheld_insufficient_issued_history",
             "common_legal_capture_days": len(common_days),
+            "common_legal_capture_start": min(common_days).isoformat()
+            if common_days
+            else None,
+            "common_legal_capture_end": max(common_days).isoformat()
+            if common_days
+            else None,
             "longest_consecutive_common_days": consecutive_days,
+            "longest_run_start": longest_run[0].isoformat()
+            if longest_run
+            else None,
+            "longest_run_end": longest_run[1].isoformat()
+            if longest_run
+            else None,
+            "qualifying_window_start": qualifying_window[0].isoformat()
+            if qualifying_window
+            else None,
+            "qualifying_window_end": qualifying_window[1].isoformat()
+            if qualifying_window
+            else None,
         }
     ready = all(row["status"] == "eligible_for_development" for row in horizon_rows.values())
     return {

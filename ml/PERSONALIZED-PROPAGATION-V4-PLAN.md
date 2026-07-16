@@ -1,9 +1,13 @@
 # Personalized Propagation V4: Multi-Year Model and Product Execution Plan
 
-> Status, 2026-07-15: V4.2 performance recovery has completed the 50M model,
+> Status, 2026-07-16: V4.2 performance recovery has completed the 50M model,
 > untouched December 2024 gate, and locked 2025 archive gate. The frozen A6
 > NowCast is approved for shadow integration. Prospective, opt-in StationCast,
-> FutureCast, and release evidence remains in progress.
+> FutureCast, and release evidence remains in progress. FutureCast V1 now has a
+> frozen issued-forecast protocol, streaming source export, Polars materializer,
+> bounded multicore training, paired P.533 diagnostic, one-shot scorer, and a
+> browser-verified synthetic end-to-end report; genuine training remains
+> mechanically withheld until the first 90 consecutive legal issuance days.
 > Previous result: [`ARCHIVE-MULTIMONTH-V3-RESULTS.md`](ARCHIVE-MULTIMONTH-V3-RESULTS.md).
 > Primary compute target: Apple M5 Max, 128 GB unified memory, with the external
 > `Projects` SSD for ignored data, models, caches, and reports.
@@ -807,8 +811,17 @@ remains the explicit stale/missing-source fallback.
 
 ### Phase 4: FutureCast and 6m
 
-- [ ] Build issued-forecast examples for +3/+6/+12/+24 hours.
-- [ ] Train and validate direct horizon models against persistence/baselines.
+- [x] Implement and freeze the issued-forecast example builder for
+  +3/+6/+12/+24 hours. The builder passed a 90-day synthetic M5 proof with 360
+  checksum-bound partitions, 14,400 unique path-band-hour rows, and no leakage.
+- [ ] Materialize the first genuine 90-day issued-forecast window after it
+  matures; never choose a later favorable window.
+- [x] Implement the direct/weather-only external-memory trainers, train-only
+  climatology, persistence comparator, paired P.533 diagnostic, calibration
+  guard, issue-day bootstrap, per-band safety, partial-horizon receipt, and
+  fail-closed one-shot scorer.
+- [ ] Train and validate genuine direct horizon models against the frozen
+  full-gate baselines after the issued history matures.
 - [x] Build separate 6m mechanism features and models (development-only;
   unsupported mechanism families remain experimental and unreleased).
 - [x] Freeze the current 6m release decision as `withheld`. The decision
@@ -816,6 +829,11 @@ remains the explicit stale/missing-source fallback.
   mechanism, preserves the unread locked archive, and records the missing
   independent mechanism, NWP, event-catalog, and prospective evidence.
 - [ ] Freeze only FutureCast horizons that pass after issued history matures.
+- [x] Complete the synthetic engineering proof and visual report. It trained
+  eight models with `2 x 9` native XGBoost threads, evaluated 4,800 paired
+  P.533 rows with 18 workers, streamed the gate in 250,000-row batches, and
+  permanently recorded `data_scope: synthetic_fixture` and
+  `release_approved: false`.
 
 **Gate:** every released horizon has positive held-out Brier skill and reliable
 uncertainty; 6m passes both event and quiet-day tests.
@@ -826,13 +844,16 @@ one-shot status was not a continuous archive. The M5 now captures the NOAA
 preserving content hash, issue time, availability time, validity range, parser
 version, and metric cadence. The first durable capture contains two payloads
 and 144 values with zero invalid timestamps and coverage for all four proposed
-horizons. `futurecast_examples.py` implements the frozen direct-horizon
-selection contract and rejects rows issued or available after prediction time.
-This is infrastructure, not a completed training set: the checklist remains
-open until both sources provide at least 90 consecutive common legal
-availability days, WSPR outcomes mature at each valid time, and the direct
-models beat the frozen baselines on held-out data. Observed OMNI/GFZ values may
-not be substituted for missing historical forecast issuances.
+horizons. [`FUTURECAST-V1-PROTOCOL.md`](FUTURECAST-V1-PROTOCOL.md) and
+`config/futurecast_v1.json` freeze the first-qualifying-window rule, legal
+feature boundary, 60/15/15 issue-day split, calibration sub-splits, models,
+baselines, uncertainty, per-band gates, P.533 sample, and M5 resource limits.
+The [synthetic visual report](results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html)
+proves the code and privacy path, not accuracy. The checklist remains open
+until both sources provide at least 90 consecutive common legal availability
+days, WSPR outcomes mature at each valid time, and individual direct models
+beat the frozen baselines on held-out production data. Observed OMNI/GFZ values
+may not be substituted for missing historical forecast issuances.
 
 ### Phase 5: inference, Supabase, and product integration
 

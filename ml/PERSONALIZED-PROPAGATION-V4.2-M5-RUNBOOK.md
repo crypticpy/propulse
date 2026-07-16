@@ -308,10 +308,126 @@ values. Both products cover `+3/+6/+12/+24`; the readiness receipt reports one
 legal common availability day, zero invalid captures, and
 `issued_forecast_training_ready=false`. `futurecast_examples.py` rejects future
 issuance and future availability. Do not train until the receipt reaches 90
-consecutive common days. When it does, materialize outcome joins as bounded
-month/day Parquet partitions with DuckDB or Polars lazy scans on the M5, then
-fit separate direct-horizon models with the same bounded multicore XGBoost
-policy used by V4.2. Do not recursively feed predictions into later horizons.
+consecutive common days.
+
+The complete frozen method is in
+[`FUTURECAST-V1-PROTOCOL.md`](FUTURECAST-V1-PROTOCOL.md). The implementation
+uses only `space_weather_forecast_values`, completed
+`wspr_feature_watermarks`, and identity-free `wspr_path_hourly_features`.
+Raw WSPR rows, callsigns, station identity, equipment, beta outcomes, and the
+locked core prospective outcome store are mechanically excluded. All private
+Parquet, model, cache, and P.533 outputs stay under the Projects SSD.
+
+Preflight is safe to run while the clock is immature and exits with a
+structured withheld decision:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4/export_futurecast_sources.py \
+  --profile m5 --preflight
+```
+
+After the readiness receipt first reports 90 consecutive common days, execute
+the production scope exactly once. Do not use `--force-development-rerun`
+after the gate is opened; corrections require a new protocol version and a new
+untouched time block.
+
+```bash
+FUTURE_ROOT=/Volumes/Projects/PropulseML/futurecast_v1
+P533_ROOT=/Volumes/Projects/PropulseML/vendor
+
+ml/.venv/bin/python ml/src/archive_v4/export_futurecast_sources.py \
+  --profile m5 --output-root "$FUTURE_ROOT/sources" \
+  --acknowledge-open-futurecast-development-scope
+
+POLARS_MAX_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4/build_futurecast_examples.py \
+  --profile m5 --source-root "$FUTURE_ROOT/sources" \
+  --output-root "$FUTURE_ROOT/examples"
+
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=9 OPENBLAS_NUM_THREADS=1 \
+VECLIB_MAXIMUM_THREADS=1 ml/.venv/bin/python \
+  ml/src/archive_v4/train_futurecast.py \
+  --profile m5 --examples-root "$FUTURE_ROOT/examples" \
+  --output-root "$FUTURE_ROOT/models" \
+  --cache-root "$FUTURE_ROOT/cache"
+
+ml/.venv/bin/python ml/src/archive_v4/install_p533.py \
+  --source "$P533_ROOT/itu-r-hf-v14.3" \
+  --output "$P533_ROOT/p533_build_manifest.json"
+
+OMP_NUM_THREADS=1 ml/.venv/bin/python \
+  ml/src/archive_v4/build_futurecast_p533.py \
+  --profile m5 --examples-root "$FUTURE_ROOT/examples" \
+  --training-manifest "$FUTURE_ROOT/models/TRAINING_MANIFEST.json" \
+  --source "$P533_ROOT/itu-r-hf-v14.3" \
+  --p533-build-manifest "$P533_ROOT/p533_build_manifest.json" \
+  --output-root "$FUTURE_ROOT/p533"
+
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4/score_futurecast_gate.py \
+  --profile m5 --examples-root "$FUTURE_ROOT/examples" \
+  --training-manifest "$FUTURE_ROOT/models/TRAINING_MANIFEST.json" \
+  --p533-manifest "$FUTURE_ROOT/p533/P533_MANIFEST.json" \
+  --output "$FUTURE_ROOT/FUTURECAST_RELEASE_DECISION.json"
+```
+
+The source exporter uses a read-only named server cursor with 100,000-row
+Arrow batches. The materializer deduplicates daily source files before legal
+history joins and asserts unique issue/horizon/band/path keys. Training runs
+two fresh macOS spawn children with nine XGBoost threads each and one task per
+child; each fit is capped at 48 GiB and the conservative combined bound is 96
+GiB. Scoring iterates 250,000-row Parquet batches. Do not recursively feed a
+prediction into a later horizon.
+
+The M5 synthetic proof is reproducible with the same executables and explicit
+synthetic acknowledgements. It can never pass the production-evidence gate:
+
+```bash
+SYNTH_ROOT=/Volumes/Projects/PropulseML/futurecast_v1_synthetic_e2e
+P533_ROOT=/Volumes/Projects/PropulseML/vendor
+
+ml/.venv/bin/python ml/src/archive_v4/build_futurecast_synthetic_fixture.py \
+  --profile m5 --output-root "$SYNTH_ROOT/sources"
+ml/.venv/bin/python ml/src/archive_v4/build_futurecast_examples.py \
+  --profile m5 --source-root "$SYNTH_ROOT/sources" \
+  --output-root "$SYNTH_ROOT/examples" --allow-synthetic-fixture
+ml/.venv/bin/python ml/src/archive_v4/train_futurecast.py \
+  --profile m5 --examples-root "$SYNTH_ROOT/examples" \
+  --output-root "$SYNTH_ROOT/models" --cache-root "$SYNTH_ROOT/cache" \
+  --allow-synthetic-fixture
+
+OMP_NUM_THREADS=1 ml/.venv/bin/python \
+  ml/src/archive_v4/build_futurecast_p533.py \
+  --profile m5 --examples-root "$SYNTH_ROOT/examples" \
+  --training-manifest "$SYNTH_ROOT/models/TRAINING_MANIFEST.json" \
+  --source "$P533_ROOT/itu-r-hf-v14.3" \
+  --p533-build-manifest "$P533_ROOT/p533_build_manifest.json" \
+  --output-root "$SYNTH_ROOT/p533" --allow-synthetic-fixture
+
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4/score_futurecast_gate.py \
+  --profile m5 --examples-root "$SYNTH_ROOT/examples" \
+  --training-manifest "$SYNTH_ROOT/models/TRAINING_MANIFEST.json" \
+  --p533-manifest "$SYNTH_ROOT/p533/P533_MANIFEST.json" \
+  --output "$SYNTH_ROOT/FUTURECAST_RELEASE_DECISION.json" \
+  --allow-synthetic-fixture
+
+ml/.venv/bin/python ml/src/archive_v4/run_futurecast_synthetic_report.py \
+  --profile m5 \
+  --source-manifest "$SYNTH_ROOT/sources/SOURCE_EXPORT_MANIFEST.json" \
+  --example-manifest "$SYNTH_ROOT/examples/EXAMPLE_MANIFEST.json" \
+  --training-manifest "$SYNTH_ROOT/models/TRAINING_MANIFEST.json" \
+  --p533-manifest "$SYNTH_ROOT/p533/P533_MANIFEST.json" \
+  --gate-result "$SYNTH_ROOT/FUTURECAST_RELEASE_DECISION.json"
+```
+
+Use a new empty `SYNTH_ROOT` for another proof. Production outputs are
+write-once, and even synthetic reruns require the explicit development force
+flag so an earlier decision cannot be overwritten accidentally.
+
+The completed engineering proof is published in the
+[interactive FutureCast report](results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html).
+Its canonical builder and browser verification passed at 1,440 px and 390 px.
 
 The independent 6m development candidates are not a substitute for FutureCast
 or HF NowCast. Reproduce the current release decision with:
@@ -909,6 +1025,7 @@ Expected state: `candidate_frozen`; every outcome-access value must be `false`.
 | NOAA 45-day Ap/F10.7 forecast | Immutable FutureCast exogenous vintages | <https://services.swpc.noaa.gov/json/45-day-forecast.json> |
 | NOAA three-day solar/geomagnetic forecast | Three-hour K and daily Ap/F10.7 vintages | <https://services.swpc.noaa.gov/text/3-day-solar-geomag-predictions.txt> |
 | ITU-R P.533 | Physics fallback/baseline reference | <https://www.itu.int/rec/R-REC-P.533> |
+| Australian Bureau of Meteorology F10.7 conversion | Statistical issued F10.7 to P.533 sunspot-number conversion | <https://www.sws.bom.gov.au/Educational/2/2/5> |
 
 Raw third-party archives remain under ignored `ml/data/raw` storage. Source
 manifests retain URL, retrieval time, byte count, SHA-256, role, and license or

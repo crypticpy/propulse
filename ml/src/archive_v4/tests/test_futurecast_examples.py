@@ -80,7 +80,15 @@ class FutureCastExampleTests(unittest.TestCase):
             horizon_hours=6,
         )
         self.assertFalse(result["complete"])
-        self.assertEqual(len(result["missing_features"]), 1)
+        missing_product = str(rows_for_horizon(6)[0]["product"])
+        self.assertEqual(
+            set(result["missing_features"]),
+            {
+                feature_name(product, metric)
+                for product, metric in FEATURES
+                if product == missing_product
+            },
+        )
 
     def test_rejects_recursive_or_unsupported_horizons(self) -> None:
         with self.assertRaisesRegex(ValueError, "unsupported FutureCast horizon"):

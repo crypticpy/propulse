@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T14:01:35.609671+00:00",
+  "generated_at": "2026-07-16T14:44:10.115432+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,8 +12,8 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "7a9ce962ca68c20ce8c89537472450f567d66f0bf41201e01b75ea1190ad2ff2",
-      "bytes": 8034
+      "sha256": "f33745c2c1642296df90ff990e2477217c221196900fb5e7f8357d335f2a0539",
+      "bytes": 8433
     },
     "beta_rollback": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/propagation_beta_protocol_migration_validation.json",
@@ -27,13 +27,13 @@
     },
     "wspr": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "589557750e6529b0497ccda363ba679543d905db7dbc8645488415767a3cabcd",
-      "bytes": 1789
+      "sha256": "3673cbab84d51a00529c9978d7a7ed744cefc36009cba81f1dfe34f77e3c5f47",
+      "bytes": 1783
     },
     "capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "7cbdf96b918c798223823db279d21aa08a54517ff5a8026d7a0d43f09dd2adb0",
-      "bytes": 4825
+      "sha256": "bd2a847dc6843153407c0334a3a63411e3ff2c0a3b5c0c0c687aeb903c43b4e3",
+      "bytes": 4828
     },
     "beta_config": {
       "path": "ml/config/propagation_v4_2_beta_protocol.json",
@@ -64,15 +64,15 @@
         "locked_rows": 260474292,
         "archive_months_won": 4,
         "archive_months_total": 4,
-        "release_gates_passed": 8,
-        "release_gates_total": 18,
+        "release_gates_passed": 9,
+        "release_gates_total": 19,
         "beta_rollback_gates": 22,
         "beta_rollback_total": 22,
         "beta_deployment_gates": 23,
         "beta_deployment_total": 23,
-        "wspr_hours": 10,
+        "wspr_hours": 11,
         "wspr_required_hours": 720,
-        "capture_hours": 1.9998520044444446,
+        "capture_hours": 2.749883181944444,
         "capture_required_hours": 24.0,
         "futurecast_days": 1,
         "futurecast_required_days": 90,
@@ -153,9 +153,9 @@
       },
       {
         "track": "Personalized beta",
-        "passed": 3,
-        "required": 4,
-        "completion": 0.75
+        "passed": 4,
+        "required": 5,
+        "completion": 0.8
       },
       {
         "track": "Locked prospective",
@@ -173,17 +173,17 @@
     "collection_progress_rows": [
       {
         "evidence_track": "First-party capture",
-        "observed": 1.9998520044444446,
+        "observed": 2.749883181944444,
         "required": 24.0,
         "unit": "continuous hours",
-        "completion": 0.08332716685185186
+        "completion": 0.11457846591435183
       },
       {
         "evidence_track": "WSPR shadow",
-        "observed": 10.0,
+        "observed": 11.0,
         "required": 720.0,
         "unit": "completed hours",
-        "completion": 0.013888888888888888
+        "completion": 0.015277777777777777
       },
       {
         "evidence_track": "FutureCast issuance",
@@ -205,9 +205,9 @@
       {
         "mode": "stationcast deterministic",
         "status": "shadow_only",
-        "passed": 8,
-        "required": 13,
-        "completion": 0.6153846153846154,
+        "passed": 9,
+        "required": 14,
+        "completion": 0.6428571428571429,
         "remaining": 5
       },
       {
@@ -296,6 +296,11 @@
       },
       {
         "gate": "beta protocol boundary deployed",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "beta telemetry boundary deployed",
         "status": "pass",
         "passed": true
       },
@@ -452,13 +457,13 @@
         "order": 1,
         "action": "Sustain nonempty first-party capture for 24 continuous hours",
         "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-        "current": "2.00/24 hours"
+        "current": "2.75/24 hours"
       },
       {
         "order": 2,
         "action": "Accumulate 720 permitted receipt-time WSPR shadow hours",
         "why": "Measures real completeness, gaps, freshness, latency, and fallback behavior.",
-        "current": "10/720 hours"
+        "current": "11/720 hours"
       },
       {
         "order": 3,
@@ -530,7 +535,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T13:45:54.144624+00:00",
+    "generated_at": "2026-07-16T14:44:00.896477+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -558,7 +563,7 @@
       "wspr_shadow": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
         "exists": true,
-        "sha256": "589557750e6529b0497ccda363ba679543d905db7dbc8645488415767a3cabcd",
+        "sha256": "3673cbab84d51a00529c9978d7a7ed744cefc36009cba81f1dfe34f77e3c5f47",
         "schema_version": 1,
         "decision": "collecting"
       },
@@ -570,7 +575,7 @@
       "prospective_capture": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
         "exists": true,
-        "sha256": "7cbdf96b918c798223823db279d21aa08a54517ff5a8026d7a0d43f09dd2adb0",
+        "sha256": "bd2a847dc6843153407c0334a3a63411e3ff2c0a3b5c0c0c687aeb903c43b4e3",
         "schema_version": 1,
         "decision": null
       },
@@ -614,6 +619,13 @@
         "schema_version": 1,
         "decision": "pass"
       },
+      "beta_telemetry_boundary": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_telemetry_utc_deployment_validation.json",
+        "exists": true,
+        "sha256": "abe693a1224de221f2ed85e84ac9c4528a6a45ca36b260a7cf13b47ef491a69f",
+        "schema_version": 1,
+        "decision": "pass"
+      },
       "stationcast_beta": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_release_decision.json",
         "exists": false,
@@ -646,7 +658,7 @@
       "beta_protocol": {
         "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
         "exists": true,
-        "sha256": "dc0599e2623add402a63976946b3b935ba91e7999057d397ff9965c206acb6be"
+        "sha256": "8d9bae064cc0a8d0955d5eacb1e703edb7ff732765e437292afd316d368db6d2"
       }
     },
     "gates": {
@@ -661,6 +673,7 @@
       "literal_full_m5_outage_exercised": false,
       "participation_boundary_deployed": true,
       "beta_protocol_boundary_deployed": true,
+      "beta_telemetry_boundary_deployed": true,
       "beta_protocol_preregistered": true,
       "stationcast_beta_passed": false,
       "prospective_window_closed": false,

@@ -20,17 +20,17 @@
 > measurements concurrently. All four operational input gates are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming` at `2.50/24` hours until nonempty aggregates sustain
+> receipt remains `warming` at `2.75/24` hours until nonempty aggregates sustain
 > 24 gap-free hours.
-> Research-shadow status, 2026-07-16T13:30Z: `10/10` expected WSPR hours are
-> complete with zero gaps (`10/720` duration gate), `2,411,311` observations,
-> and `656,055` feature cells. The latest keyset-paginated finalizer used the
+> Research-shadow status, 2026-07-16T14:27Z: `11/11` expected WSPR hours are
+> complete with zero gaps (`11/720` duration gate), `2,635,688` observations,
+> and `724,978` feature cells. The latest audited keyset-paginated finalizer used the
 > exact `2 x 9` native-thread profile and completed in 114.34 seconds.
 > Incident-delivery status: a real `10,227`-second stale heartbeat opened one
 > aggregate-only GitHub issue and a genuine `25`-second heartbeat closed it.
 > The public health view remains disabled until a literal M5 power-loss proof
 > and the remaining beta/release gates pass.
-> Phase 6 release status: `8/18` gates pass. Core NowCast and deterministic
+> Phase 6 release status: `9/19` gates pass. Core NowCast and deterministic
 > StationCast remain `shadow_only`; learned StationCast, FutureCast, and 6m are
 > withheld; System Health is hidden; beta collection and public release remain
 > disabled. See the
@@ -739,6 +739,21 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   preregistered gates on a 50-participant, 2,000-row, 30-day synthetic cohort
   using all 18 M5 threads; the synthetic receipt permanently records
   `release_approved: false` and is not performance evidence.
+- [x] Deploy the aggregate-only StationCast API telemetry boundary before beta
+  collection: exact hourly counters only, no participant/path/location/equipment
+  dimensions, forced RLS, browser DML revoked, service-role-only hardened RPCs,
+  atomic increments, half-open UTC export windows, and HMAC-signed private
+  receipts. The UTC corrective migration passed 21/21 rollback gates and the
+  two-entry deployed chain passed 22/22 gates on PostgreSQL 17.6 without
+  reading locked outcomes or enabling collection. A dedicated non-UTC-session
+  proof independently passed 11/11 rollback and 12/12 deployed gates.
+- [ ] Before enabling beta, validate every stop-event producer end to end. The
+  participation API now emits request/error, receipt-integrity, consent,
+  subject-binding, and stale-profile counters and fails closed if aggregation
+  is unavailable. Privacy, station-math, unsupported-support,
+  high-confidence-overprediction, and geographic-regression producers still
+  require explicit model-service or scheduled-monitor wiring; their current
+  zero values cannot be treated as observed evidence.
 - [x] Reactivate first-party PSK Reporter, RBN, DX Cluster, and provenance-rich
   operational-weather collection on the
   M5; replace Node-side hourly materialization with a bounded PostgreSQL RPC,
@@ -753,14 +768,14 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `2.50/24` hours; the
+  the latest preserved receipt is honestly `warming` at `2.75/24` hours; the
   August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `81/81`, V4.1 `37/37`, V4.2 `142/142`, and
-  frontend/API/collector `88/88` tests, plus lint, TypeScript, production
+  service `81/81`, V4.1 `37/37`, V4.2 `147/147`, and
+  frontend/API/collector `91/91` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
-  at 1,440 px and 390 px with 53 blocks, 10 charts, 16 metrics, and three
+  at 1,440 px and 390 px with 34 blocks, five charts, seven metrics, and four
   evidence tables, including the first-party capture readiness receipt.
 - [x] Publish the separate
   [Phase 6 visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html)
@@ -891,11 +906,11 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `10/10`
-expected hours, 100% scheduled completion, zero gaps, and `10/720` required
-hours through target `2026-07-16T12:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `2,411,311`
-observations and `656,055` feature cells with the same bounded 18-thread
+The automatic duration rollup is operationally healthy at `11/11`
+expected hours, 100% scheduled completion, zero gaps, and `11/720` required
+hours through target `2026-07-16T13:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `2,635,688`
+observations and `724,978` feature cells with the same bounded 18-thread
 profile. The latest audited finalizer completed in 114.34 seconds with two
 workers and nine native threads each. The rollup re-verifies
 every receipt against its signed completed manifest and

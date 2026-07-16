@@ -74,8 +74,8 @@ candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
 | Locked 2025 archive | 0.04096767 | 0.04186090 | 2.134% | 6/6 gates pass |
 
 The internal WSPR shadow is operationally healthy through target
-`2026-07-16T12:00:00Z`: `10/10` expected hours, zero gaps, `2,411,311`
-observations, and `656,055` feature cells. This is `10/720` duration evidence,
+`2026-07-16T13:00:00Z`: `11/11` expected hours, zero gaps, `2,635,688`
+observations, and `724,978` feature cells. This is `11/720` duration evidence,
 not a 30-day pass. The audited `11:00Z` finalizer used two workers with nine native
 threads each and completed in 114.34 seconds after keyset pagination replaced
 deep OFFSET scans.
@@ -432,10 +432,10 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T12:00:00Z` also completed under
-the same bounded profile. The rollup is now `10/10` with zero gaps, `2,411,311`
-aggregate observations, `656,055` feature cells, and remains `collecting` at
-`10/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+following scheduled targets through `2026-07-16T13:00:00Z` also completed under
+the same bounded profile. The rollup is now `11/11` with zero gaps, `2,635,688`
+aggregate observations, `724,978` feature cells, and remains `collecting` at
+`11/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
 remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
 Deep OFFSET pages later returned target HTTP 500 responses; monotonic-id keyset
 pagination plus the covering `(source, target_hour, band, id)` index removed
@@ -546,6 +546,30 @@ read locked outcomes. Production Vercel holds an independent sensitive
 returns deletion counts only. Both outcome flags remain false until every
 protocol preflight gate passes.
 
+The separate aggregate-only API telemetry boundary is also deployed. Its base
+migration was preserved after application; the forward UTC correction passed
+21/21 rollback gates, and the exact two-entry deployed chain passed 22/22 live
+gates. It stores hourly counters only, rejects undeclared dimensions, revokes
+browser DML, and exposes hardened service-role RPCs. A separate
+`America/Chicago` session proof passed 11/11 rollback and 12/12 deployed gates.
+Revalidate it with:
+
+```bash
+ml/service/run_m5_beta_telemetry_migration.sh --dry-run
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_stationcast_beta_telemetry_migration.py \
+  --profile m5 --verify-deployed
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_stationcast_beta_telemetry_utc_migration.py \
+  --profile m5 --verify-deployed
+```
+
+Do not interpret an unused counter as an observed zero. The participation API
+currently produces request/error, receipt-integrity, consent, subject-binding,
+and stale-profile counters. Before enabling beta, validate the model-service or
+scheduled-monitor producers for privacy, station-math, unsupported-support,
+high-confidence-overprediction, and geographic-regression events.
+
 Freeze and exercise the private exporter and scorer on the M5 before any real
 outcome flag is enabled:
 
@@ -562,12 +586,17 @@ ml/.venv/bin/python ml/src/archive_v4_2/run_synthetic_stationcast_beta.py \
   --profile m5
 ```
 
-For a real preregistered window, the production telemetry aggregator first
-writes an unsigned, aggregate-only receipt matching
+For a real preregistered window, export an unsigned aggregate-only receipt from
+the deployed counter boundary. It must match
 `ml/config/propagation_v4_2_beta_api_telemetry.schema.json`. Sign and audit it,
 then export and score the private cohort:
 
 ```bash
+ml/.venv/bin/python ml/src/archive_v4_2/generate_stationcast_beta_api_telemetry.py \
+  --profile m5 --window-start 2026-08-01T00:00:00Z \
+  --window-end 2026-10-01T00:00:00Z \
+  --output "$PRIVATE/api-telemetry-unsigned.json"
+
 ml/.venv/bin/python ml/src/archive_v4_2/sign_stationcast_beta_api_telemetry.py \
   --profile m5 \
   --input "$PRIVATE/api-telemetry-unsigned.json" \
@@ -846,7 +875,7 @@ respectively, in under four seconds wall time and no stderr. The startup 09:00
 UTC band/path watermarks are causal but contain zero rows because collection
 started later; zero-row startup watermarks therefore did not begin the evidence
 clock. The first nonempty settled hour wrote ten band rows and 2,246 path rows;
-the latest preserved receipt remains `warming` at `2.50/24` gap-free hours.
+the latest preserved receipt remains `warming` at `2.75/24` gap-free hours.
 Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The

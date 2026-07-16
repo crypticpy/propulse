@@ -5,14 +5,14 @@
 Frozen A6 improved weighted Brier by **2.134%**
 versus frozen V3/B2 across **260,474,292 untouched rows** and
 won all four locked 2025 months. The current release decision is
-**withheld**: 8 of
-18 mode-specific gates pass, no product mode is
+**withheld**: 9 of
+19 mode-specific gates pass, no product mode is
 releaseable, and prospective outcomes remain unread.
 
 ## Current clocks
 
-- First-party capture: 2.00/24 continuous hours.
-- Permitted WSPR shadow: 10/720 completed hours.
+- First-party capture: 2.75/24 continuous hours.
+- Permitted WSPR shadow: 11/720 completed hours.
 - FutureCast issuance history: 1/90 consecutive legal days.
 
 ## StationCast scorer dry run

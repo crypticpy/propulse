@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T13:45:54.144624+00:00",
+  "generated_at": "2026-07-16T14:44:00.896477+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -28,7 +28,7 @@
     "wspr_shadow": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
       "exists": true,
-      "sha256": "589557750e6529b0497ccda363ba679543d905db7dbc8645488415767a3cabcd",
+      "sha256": "3673cbab84d51a00529c9978d7a7ed744cefc36009cba81f1dfe34f77e3c5f47",
       "schema_version": 1,
       "decision": "collecting"
     },
@@ -40,7 +40,7 @@
     "prospective_capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
       "exists": true,
-      "sha256": "7cbdf96b918c798223823db279d21aa08a54517ff5a8026d7a0d43f09dd2adb0",
+      "sha256": "bd2a847dc6843153407c0334a3a63411e3ff2c0a3b5c0c0c687aeb903c43b4e3",
       "schema_version": 1,
       "decision": null
     },
@@ -84,6 +84,13 @@
       "schema_version": 1,
       "decision": "pass"
     },
+    "beta_telemetry_boundary": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_telemetry_utc_deployment_validation.json",
+      "exists": true,
+      "sha256": "abe693a1224de221f2ed85e84ac9c4528a6a45ca36b260a7cf13b47ef491a69f",
+      "schema_version": 1,
+      "decision": "pass"
+    },
     "stationcast_beta": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_release_decision.json",
       "exists": false,
@@ -116,7 +123,7 @@
     "beta_protocol": {
       "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
       "exists": true,
-      "sha256": "dc0599e2623add402a63976946b3b935ba91e7999057d397ff9965c206acb6be"
+      "sha256": "8d9bae064cc0a8d0955d5eacb1e703edb7ff732765e437292afd316d368db6d2"
     }
   },
   "gates": {
@@ -131,6 +138,7 @@
     "literal_full_m5_outage_exercised": false,
     "participation_boundary_deployed": true,
     "beta_protocol_boundary_deployed": true,
+    "beta_telemetry_boundary_deployed": true,
     "beta_protocol_preregistered": true,
     "stationcast_beta_passed": false,
     "prospective_window_closed": false,

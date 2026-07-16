@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T02:11:01.641835+00:00",
-  "scope": "live_feature_foundation_pre_provider",
-  "decision": "foundation_pass_provider_pending",
+  "generated_at": "2026-07-16T02:52:23.272538+00:00",
+  "scope": "live_feature_foundation_and_open_month_replay_pre_provider",
+  "decision": "foundation_and_replay_pass_provider_pending",
   "source_authorized": false,
   "migration_deployed": false,
   "provider_connector_enabled": false,
@@ -17,6 +17,16 @@
       "id": "foundation_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/foundation_validation.json",
       "sha256": "efc80719e741e2428f9730c02bd565032ce15c815954a30b461f878895c1dc5b"
+    },
+    {
+      "id": "replay_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/replay_validation.json",
+      "sha256": "5e443a22a3246ffda89f929df8556694ce339911ab97d64d71552b73267055d9"
+    },
+    {
+      "id": "migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/migration_validation.json",
+      "sha256": "9278bbdb9db1f036a86703f4d23a6282f24e8d96bf1759a356b22e63e467f5a2"
     }
   ],
   "bundle": {
@@ -27,7 +37,34 @@
   },
   "migration": {
     "path": "supabase/migrations/20260716000000_wspr_live_feature_store.sql",
-    "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212"
+    "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212",
+    "validation_scope": "target_postgres_rollback_only_migration_validation",
+    "database_engine": "PostgreSQL",
+    "database_version": "17.6",
+    "transaction_mode": "rollback_only",
+    "persistent_changes": false,
+    "pending_prerequisite_migrations": [
+      {
+        "path": "supabase/migrations/20260711000000_path_hourly_stats.sql",
+        "sha256": "2d2a88324d5f9a98aac9a316f173d24ae3224b783b6c7bacd3f9371202ee9829"
+      },
+      {
+        "path": "supabase/migrations/20260712000000_space_weather_forecasts.sql",
+        "sha256": "ff74b7caa1914a6f18c660fc8b0a297b42797fffcf984a6d50ba57e9af4dfc2a"
+      },
+      {
+        "path": "supabase/migrations/20260712001000_propagation_v4_product.sql",
+        "sha256": "479e1070230b234bfe7333964391c8c9a4c7af4e47f443582f73baa002aebbb3"
+      },
+      {
+        "path": "supabase/migrations/20260712002000_collector_availability.sql",
+        "sha256": "bc08443a4c8a5568cca88b13744d39220c90a207975abd737b7650fac4280973"
+      },
+      {
+        "path": "supabase/migrations/20260715000000_solar_snapshot_provenance.sql",
+        "sha256": "bc54c1c514a2bd9607c4b3bb9e9e07a82119cba6bc5fe32eba4ac0ffe33a908b"
+      }
+    ]
   },
   "transform": {
     "version": "wspr-opportunity-duckdb-v1",
@@ -52,6 +89,39 @@
       "wall_seconds": 2.1766207089967793
     }
   },
+  "replay": {
+    "scope": "open_development_multi_hour_event_and_synthetic_receipt_replay",
+    "receipt_time_evidence": "synthetic_from_open_archive_event_times",
+    "compute": {
+      "machine": "arm64",
+      "visible_cpus": 18,
+      "duckdb_threads": 18,
+      "peak_rss_gib": 5.0274505615234375,
+      "wall_seconds": 76.04304741600936,
+      "hardware_runtime": {
+        "machine": "arm64",
+        "physical_cores_visible": 18,
+        "os_cpu_count": 18,
+        "core_clusters": [
+          6,
+          12
+        ],
+        "configured_performance_cores": 12,
+        "configured_efficiency_cores": 6,
+        "unified_memory_gb": 128.0,
+        "power_source": "AC Power",
+        "required_power_source": "AC Power",
+        "power_modes": {
+          "Battery Power": 0,
+          "AC Power": 2
+        },
+        "required_ac_power_mode": 2,
+        "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+        "thermal_limits": {},
+        "python_version": "3.12.11"
+      }
+    }
+  },
   "datasets": {
     "summary": [
       {
@@ -59,51 +129,103 @@
         "opportunity_cells": 88466,
         "lag_cells": 78478,
         "transform_wall_seconds": 2.1766207089967793,
+        "replay_hours": 48,
+        "replay_spots": 12245675,
+        "replay_opportunity_cells": 3628293,
+        "replay_path_cells": 3218610,
+        "receipt_scenarios": 2,
+        "receipt_rows": 20059,
+        "lag_lookup_cases": 2,
+        "lag_lookup_targets": 128,
+        "lag_availability_mismatches": 0,
+        "lag_maximum_rate_difference": 0.0,
         "path_p95_ms": 3.3913749939529225,
         "surface_p95_ms": 10.589041994535364,
         "visible_cpus": 18,
         "foundation_gates_passed": 14,
-        "foundation_gates_total": 14
+        "foundation_gates_total": 14,
+        "replay_gates_passed": 15,
+        "replay_gates_total": 15,
+        "migration_gates_passed": 22,
+        "migration_gates_total": 22
       }
     ],
     "parity_rows": [
       {
-        "cell_type": "Opportunity path/power/hour",
+        "month_and_cell": "2024-10 Opportunity cells",
         "implementation": "Historical builder",
-        "cells": 88466
+        "cells": 1803699
       },
       {
-        "cell_type": "Opportunity path/power/hour",
+        "month_and_cell": "2024-10 Opportunity cells",
         "implementation": "Shared live transform",
-        "cells": 88466
+        "cells": 1803699
       },
       {
-        "cell_type": "Path/hour after power aggregation",
+        "month_and_cell": "2024-10 Path-hour lag cells",
         "implementation": "Historical builder",
-        "cells": 78478
+        "cells": 1601123
       },
       {
-        "cell_type": "Path/hour after power aggregation",
+        "month_and_cell": "2024-10 Path-hour lag cells",
         "implementation": "Shared live transform",
-        "cells": 78478
+        "cells": 1601123
+      },
+      {
+        "month_and_cell": "2024-11 Opportunity cells",
+        "implementation": "Historical builder",
+        "cells": 1824594
+      },
+      {
+        "month_and_cell": "2024-11 Opportunity cells",
+        "implementation": "Shared live transform",
+        "cells": 1824594
+      },
+      {
+        "month_and_cell": "2024-11 Path-hour lag cells",
+        "implementation": "Historical builder",
+        "cells": 1617487
+      },
+      {
+        "month_and_cell": "2024-11 Path-hour lag cells",
+        "implementation": "Shared live transform",
+        "cells": 1617487
       }
     ],
     "flow_rows": [
       {
-        "stage": "Open-hour input spots",
-        "rows": 302903
-      },
-      {
-        "stage": "Deterministic sampled rows",
-        "rows": 343936
+        "stage": "Open-month input spots",
+        "rows": 12245675
       },
       {
         "stage": "Opportunity cells",
-        "rows": 88466
+        "rows": 3628293
       },
       {
         "stage": "Power-aggregated lag cells",
-        "rows": 78478
+        "rows": 3218610
+      }
+    ],
+    "receipt_rows": [
+      {
+        "month": "2024-10",
+        "version": "First +5 minute snapshot",
+        "observations": 9053
+      },
+      {
+        "month": "2024-10",
+        "version": "Corrected +15 minute snapshot",
+        "observations": 10059
+      },
+      {
+        "month": "2024-11",
+        "version": "First +5 minute snapshot",
+        "observations": 9000
+      },
+      {
+        "month": "2024-11",
+        "version": "Corrected +15 minute snapshot",
+        "observations": 10000
       }
     ],
     "latency_rows": [
@@ -120,69 +242,268 @@
     ],
     "gate_rows": [
       {
+        "scope": "Foundation",
         "gate": "open hour transform exact",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "real bundle loaded",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "client freshness forgery blocked",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "surface forgery blocked",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "server provider unavailable by default",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "serving thread contract",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "telemetry identity free",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "path latency",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "surface latency",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "rolling observation rls",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "sparse feature export revoked",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "lookup service role only",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "four atomic watermarks",
         "status": "pass"
       },
       {
+        "scope": "Foundation",
         "gate": "minimum rolling retention",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "two open months replayed",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "twenty four utc strata per month",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "event time transform exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "receipt time final parity",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "duplicates idempotent",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "late correction versioned",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "watermark committed last",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "degraded hour flagged",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "bounded lateness and future rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "four lag availability exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "four lag values exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "batch single lookup identical",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "lookup timestamps causal",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "m5 parallel contract",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "pending prerequisite migrations executed",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite tables created",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite row level security enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite public read grants present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite user policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite functions service only",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "collector availability backfill complete",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "solar provenance columns present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "migration sql executed",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "private tables created",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "row level security enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "public privileges revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "service role privileges present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "four lag lookup exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "missing watermark returns empty",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "complete watermark constraint enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "thirty hour pruning exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "minimum retention guard enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "rollback restored original object state",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "persistent changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "locked outcomes unread",
         "status": "pass"
       }
     ],
     "blocker_rows": [
       {
-        "remaining_work": "written source authorization or self-operated source",
+        "remaining_work": "written source authorization or a self-operated source",
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "migration deployment and syntax validation against target Postgres",
+        "remaining_work": "reviewed migration deployment and production scheduler",
         "status": "required before live NowCast"
       },
       {
@@ -190,12 +511,26 @@
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "multi-hour event-time and receipt-time replay",
+        "remaining_work": "trusted server-authoritative operational-weather response",
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "30-day live shadow coverage and calibration evidence",
+        "remaining_work": "30-day real receipt-time shadow coverage and calibration evidence",
         "status": "required before live NowCast"
+      }
+    ],
+    "limit_rows": [
+      {
+        "evidence_limit": "archive receipt timestamps are unavailable, so receipt delays are synthetic"
+      },
+      {
+        "evidence_limit": "authorized provider connector is not enabled"
+      },
+      {
+        "evidence_limit": "30-day real receipt-time shadow coverage is still required"
+      },
+      {
+        "evidence_limit": "target PostgreSQL validation was rollback-only; the migration is tested but not deployed"
       }
     ]
   }

@@ -57,7 +57,7 @@ faster end to end, `7.338326x` faster in the tree-fit stage, identical recorded
 validation log loss, and a conservative two-worker projection of `72.8105`
 GiB.
 
-## Current status, 2026-07-15 20:00 CDT
+## Current status, 2026-07-15
 
 Phases 0-5 are complete. The protocol state is `archive_passed`. The frozen
 candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
@@ -76,7 +76,8 @@ performance warning was observed.
 
 The comprehensive report and open-research handoff are under
 `ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/`.
-The remaining work is Phase 6 shadow, opt-in, and prospective evidence.
+The remaining work is Phase 6 source authorization, live receipt-time shadow,
+opt-in, and prospective evidence.
 Frontend/service shadow execution and aggregate-only telemetry are implemented.
 A local M5 deployment smoke passed with six one-thread Uvicorn workers, the real
 A6 bundle, successful path HTTP/CORS, explicit physics fallback, and a persisted
@@ -103,7 +104,8 @@ every request selects physics. The provider requires the URL, server-only
 service key, approved source identifier, and frozen transform version together;
 do not configure them before authorization and replay gates pass.
 
-The shared-transform extraction was checked only on open October 2024 data:
+The shared-transform extraction has exact single-hour and multi-hour open-data
+evidence. Reproduce the single-hour diagnostic with:
 
 ```bash
 ml/.venv/bin/python ml/src/archive_v4_2/validate_live_transform_parity.py \
@@ -145,6 +147,39 @@ The packaged report passed validation, packaging, source-dialog interaction,
 and browser checks at 1,440 px and 390 px. This does not replace target-Postgres
 migration validation or live-source replay. Foundation evidence records the
 exact migration SHA-256 as well as the serving-manifest SHA-256.
+
+The full replay uses one hour from every UTC hour of day in each open month,
+synthetic receipt-time correction cases, and causal H-1/H-2/H-3/H-24 lookups:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/replay_live_feature_pipeline.py \
+  --profile m5 --threads 18
+```
+
+It passed 15/15 gates over 48 hours, 12,245,675 spots, 3,628,293 opportunity
+cells, and 3,218,610 path-hour cells. October and November both covered all ten
+HF bands with zero directional differences. The two 10,000-row-class receipt
+cases proved duplicate rejection, late correction into a new version,
+watermark-last publication, and rejection of future/too-late observations.
+Those receipt times are synthetic because the archive lacks reliable receipt
+metadata. Real receipt-time validation still requires the 30-day live shadow.
+
+The target PostgreSQL migration can be exercised without persistence:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/validate_live_feature_migration.py \
+  --include-pending-prerequisites
+```
+
+The initial WSPR-only transaction passed 14/14 schema, RLS, role, lookup,
+constraint, retention, and rollback gates on PostgreSQL 17.6. The current
+validator always runs the five earlier pending migrations in timestamp order so
+the exact release chain is checked before a normal deployment; the flag makes
+that intent explicit in release logs. The validator derives the current
+project identity from the untracked project URL, never records a connection
+identifier, and always rolls back. A passing rollback test is not a deployment.
+Do not run a normal migration push until all six hashes are reviewed together;
+the remote ledger currently predates the entire chain.
 
 ## Reproduce Phase 2 at 20M
 

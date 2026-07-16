@@ -68,6 +68,10 @@ ALTER TABLE public.callsign_fields ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read access" ON public.callsign_fields FOR SELECT USING (true);
 CREATE POLICY "Service role insert" ON public.callsign_fields FOR INSERT WITH CHECK (false);
 
+GRANT SELECT ON public.path_hourly_stats, public.callsign_fields TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.path_hourly_stats, public.callsign_fields TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.path_hourly_stats_id_seq TO service_role;
+
 -- =============================================================================
 -- refresh_callsign_fields(lookback)
 -- =============================================================================

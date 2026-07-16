@@ -23,6 +23,8 @@ RESULT = (
 INPUTS = {
     "transform_parity": RESULT / "transform_parity.json",
     "foundation_validation": RESULT / "foundation_validation.json",
+    "replay_validation": RESULT / "replay_validation.json",
+    "migration_validation": RESULT / "migration_validation.json",
 }
 
 
@@ -46,7 +48,7 @@ def source(evidence_path: Path) -> dict[str, Any]:
     location = relative(evidence_path)
     return {
         "id": "live_feature_evidence",
-        "label": "V4.2 live-feature foundation evidence",
+        "label": "V4.2 live-feature foundation and replay evidence",
         "path": location,
         "query": {
             "engine": "duckdb",
@@ -79,27 +81,67 @@ def chart(
 
 
 def build_evidence(
-    transform: dict[str, Any], foundation: dict[str, Any]
+    transform: dict[str, Any],
+    foundation: dict[str, Any],
+    replay: dict[str, Any],
+    migration_validation: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
         raise RuntimeError("transform parity did not pass")
     if foundation.get("decision") != "pass":
         raise RuntimeError("foundation validation did not pass")
-    if transform.get("locked_outcomes_read") or foundation.get("locked_outcomes_read"):
+    if replay.get("decision") != "pass":
+        raise RuntimeError("multi-hour replay did not pass")
+    if (
+        migration_validation.get("decision") != "pass"
+        or migration_validation.get("persistent_changes") is not False
+    ):
+        raise RuntimeError("target Postgres rollback validation did not pass")
+    if any(
+        value.get("locked_outcomes_read")
+        for value in (transform, foundation, replay, migration_validation)
+    ):
         raise RuntimeError("live-feature work must not read locked outcomes")
 
     parity = foundation["transform_parity"]
     service = foundation["service"]
+    event_replays = replay["event_time_replay"]
+    receipt_replays = replay["receipt_time_replay"]
+    lag_replays = replay["lag_lookup_replay"]
+    replay_hours = sum(len(value["selected_hours"]) for value in event_replays)
+    replay_spots = sum(int(value["input_spot_rows"]) for value in event_replays)
+    replay_opportunities = sum(
+        int(value["opportunity_cells"]["actual"]) for value in event_replays
+    )
+    replay_path_cells = sum(
+        int(value["path_hour_cells"]["actual"]) for value in event_replays
+    )
+    replay_differences = sum(
+        int(value[cell_type][direction])
+        for value in event_replays
+        for cell_type in ("opportunity_cells", "path_hour_cells")
+        for direction in ("actual_minus_expected", "expected_minus_actual")
+    )
     summary = [{
-        "exact_differences": (
-            int(parity["actual_minus_expected_rows"])
-            + int(parity["expected_minus_actual_rows"])
-            + int(parity["actual_minus_expected_lag_cells"])
-            + int(parity["expected_minus_actual_lag_cells"])
-        ),
+        "exact_differences": replay_differences,
         "opportunity_cells": int(parity["actual_rows"]),
         "lag_cells": int(parity["actual_lag_cells"]),
         "transform_wall_seconds": float(transform["compute"]["wall_seconds"]),
+        "replay_hours": replay_hours,
+        "replay_spots": replay_spots,
+        "replay_opportunity_cells": replay_opportunities,
+        "replay_path_cells": replay_path_cells,
+        "receipt_scenarios": len(receipt_replays),
+        "receipt_rows": sum(int(value["source_rows"]) for value in receipt_replays),
+        "lag_lookup_cases": len(lag_replays),
+        "lag_lookup_targets": sum(int(value["target_count"]) for value in lag_replays),
+        "lag_availability_mismatches": sum(
+            int(value["availability_mismatches"]) for value in lag_replays
+        ),
+        "lag_maximum_rate_difference": max(
+            float(value["maximum_absolute_rate_difference"])
+            for value in lag_replays
+        ),
         "path_p95_ms": float(service["path_p95_ms"]),
         "surface_p95_ms": float(service["surface_p95_ms"]),
         "visible_cpus": int(foundation["compute"]["visible_cpus"]),
@@ -107,33 +149,47 @@ def build_evidence(
             bool(value) for value in foundation["gates"].values()
         ),
         "foundation_gates_total": len(foundation["gates"]),
+        "replay_gates_passed": sum(bool(value) for value in replay["gates"].values()),
+        "replay_gates_total": len(replay["gates"]),
+        "migration_gates_passed": sum(
+            bool(value) for value in migration_validation["gates"].values()
+        ),
+        "migration_gates_total": len(migration_validation["gates"]),
     }]
-    parity_rows = [
-        {
-            "cell_type": "Opportunity path/power/hour",
-            "implementation": implementation,
-            "cells": int(parity[field]),
-        }
-        for implementation, field in (
-            ("Historical builder", "expected_rows"),
-            ("Shared live transform", "actual_rows"),
-        )
-    ] + [
-        {
-            "cell_type": "Path/hour after power aggregation",
-            "implementation": implementation,
-            "cells": int(parity[field]),
-        }
-        for implementation, field in (
-            ("Historical builder", "expected_lag_cells"),
-            ("Shared live transform", "actual_lag_cells"),
-        )
-    ]
+    parity_rows = []
+    for month in event_replays:
+        for label, key in (
+            ("Opportunity cells", "opportunity_cells"),
+            ("Path-hour lag cells", "path_hour_cells"),
+        ):
+            parity_rows.extend([
+                {
+                    "month_and_cell": f"{month['label']} {label}",
+                    "implementation": "Historical builder",
+                    "cells": int(month[key]["expected"]),
+                },
+                {
+                    "month_and_cell": f"{month['label']} {label}",
+                    "implementation": "Shared live transform",
+                    "cells": int(month[key]["actual"]),
+                },
+            ])
     flow_rows = [
-        {"stage": "Open-hour input spots", "rows": int(parity["input_spot_rows"])},
-        {"stage": "Deterministic sampled rows", "rows": int(parity["actual_sampled_rows"])},
-        {"stage": "Opportunity cells", "rows": int(parity["actual_rows"])},
-        {"stage": "Power-aggregated lag cells", "rows": int(parity["actual_lag_cells"])},
+        {"stage": "Open-month input spots", "rows": replay_spots},
+        {"stage": "Opportunity cells", "rows": replay_opportunities},
+        {"stage": "Power-aggregated lag cells", "rows": replay_path_cells},
+    ]
+    receipt_rows = [
+        {
+            "month": value["label"],
+            "version": version,
+            "observations": int(value[field]["observation_count"]),
+        }
+        for value in receipt_replays
+        for version, field in (
+            ("First +5 minute snapshot", "first_version"),
+            ("Corrected +15 minute snapshot", "corrected_version"),
+        )
     ]
     latency_rows = [
         {
@@ -147,22 +203,48 @@ def build_evidence(
             "limit_ms": 3000,
         },
     ]
-    gate_rows = [
-        {
-            "gate": name.replace("_", " "),
-            "status": "pass" if passed else "fail",
-        }
-        for name, passed in foundation["gates"].items()
-    ]
+    gate_rows = [{
+        "scope": "Foundation",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in foundation["gates"].items()] + [{
+        "scope": "Multi-hour replay",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in replay["gates"].items()]
+    gate_rows.extend({
+        "scope": "Target PostgreSQL rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in migration_validation["gates"].items())
     blocker_rows = [
-        {"remaining_work": blocker, "status": "required before live NowCast"}
-        for blocker in foundation["remaining_blockers"]
+        {
+            "remaining_work": work,
+            "status": "required before live NowCast",
+        }
+        for work in (
+            "written source authorization or a self-operated source",
+            "reviewed migration deployment and production scheduler",
+            "authorized provider connector",
+            "trusted server-authoritative operational-weather response",
+            "30-day real receipt-time shadow coverage and calibration evidence",
+        )
     ]
+    limit_rows = [
+        {"evidence_limit": value}
+        for value in replay["remaining_limits"]
+        if value != "target Postgres migration is not deployed"
+    ]
+    limit_rows.append({
+        "evidence_limit": (
+            "target PostgreSQL validation was rollback-only; the migration is tested but not deployed"
+        )
+    })
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "scope": "live_feature_foundation_pre_provider",
-        "decision": "foundation_pass_provider_pending",
+        "scope": "live_feature_foundation_and_open_month_replay_pre_provider",
+        "decision": "foundation_and_replay_pass_provider_pending",
         "source_authorized": False,
         "migration_deployed": False,
         "provider_connector_enabled": False,
@@ -172,20 +254,37 @@ def build_evidence(
             for name, path in INPUTS.items()
         ],
         "bundle": foundation["bundle"],
-        "migration": foundation["migration"],
+        "migration": {
+            **foundation["migration"],
+            "validation_scope": migration_validation["scope"],
+            "database_engine": migration_validation["database"]["engine"],
+            "database_version": migration_validation["database"]["server_version"],
+            "transaction_mode": migration_validation["transaction_mode"],
+            "persistent_changes": migration_validation["persistent_changes"],
+            "pending_prerequisite_migrations": migration_validation.get(
+                "pending_prerequisite_migrations", []
+            ),
+        },
         "transform": {
             "version": transform["transform"]["transform_version"],
             "target_hour": transform["target_hour"],
             "source_hashes": transform["inputs"],
             "compute": transform["compute"],
         },
+        "replay": {
+            "scope": replay["scope"],
+            "receipt_time_evidence": replay["receipt_time_evidence"],
+            "compute": replay["compute"],
+        },
         "datasets": {
             "summary": summary,
             "parity_rows": parity_rows,
             "flow_rows": flow_rows,
+            "receipt_rows": receipt_rows,
             "latency_rows": latency_rows,
             "gate_rows": gate_rows,
             "blocker_rows": blocker_rows,
+            "limit_rows": limit_rows,
         },
     }
 
@@ -209,22 +308,22 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "Directional row and lag-cell differences; zero is required.",
             ),
             (
-                "opportunity_cells",
-                "Opportunity cells",
-                "opportunity_cells",
-                "Exact open-hour path/power/hour cells.",
+                "replay_hours",
+                "Replayed hours",
+                "replay_hours",
+                "One deterministic sample from every UTC hour-of-day in both months.",
             ),
             (
-                "lag_cells",
-                "Lag cells",
-                "lag_cells",
-                "Path/hour cells after aggregation across power bins.",
+                "replay_spots",
+                "Replay spots",
+                "replay_spots",
+                "Open October-November bronze rows across the 48 selected hours.",
             ),
             (
-                "transform_wall",
-                "Transform seconds",
-                "transform_wall_seconds",
-                "One open archive hour on 18 M5 DuckDB threads.",
+                "receipt_rows",
+                "Receipt-case rows",
+                "receipt_rows",
+                "Real open-month rows with synthetic arrival schedules.",
             ),
             (
                 "path_latency",
@@ -243,23 +342,34 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
     charts = [
         chart(
             "parity",
-            "The shared live transform exactly reproduces the archive builder",
-            "An open October 2024 hour; paired counts must be identical for both intermediate representations.",
+            "Both open months reproduce the historical builder exactly",
+            "Twenty-four stratified UTC hours per month; paired counts are identical for both representations.",
             "parity_rows",
             {
-                "x": {"field": "cell_type", "type": "ordinal", "label": "Cell representation"},
+                "x": {"field": "month_and_cell", "type": "ordinal", "label": "Month and representation"},
                 "y": {"field": "cells", "type": "quantitative", "label": "Cells"},
                 "color": {"field": "implementation", "type": "nominal", "label": "Implementation"},
             },
         ),
         chart(
             "flow",
-            "One open hour stays bounded through each transform stage",
-            "Counts describe different intermediate objects and are shown to make materialization scale explicit.",
+            "The 48-hour replay stays bounded through each transform stage",
+            "Counts combine October and November and describe different intermediate objects.",
             "flow_rows",
             {
                 "x": {"field": "stage", "type": "ordinal", "label": "Pipeline stage"},
                 "y": {"field": "rows", "type": "quantitative", "label": "Rows or cells"},
+            },
+        ),
+        chart(
+            "receipts",
+            "Late arrivals create corrected versions without overwriting history",
+            "Ten percent of each real-row fixture arrives after the first cutoff; the corrected version restores exact parity.",
+            "receipt_rows",
+            {
+                "x": {"field": "month", "type": "ordinal", "label": "Open month"},
+                "y": {"field": "observations", "type": "quantitative", "label": "Observations included"},
+                "color": {"field": "version", "type": "nominal", "label": "Feature version"},
             },
         ),
         chart(
@@ -276,15 +386,28 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
     tables = [
         {
             "id": "gate_table",
-            "title": "Foundation validation gates",
-            "subtitle": "The real bundle, service fallback, privacy, transform, and migration contract all pass.",
+            "title": "Foundation and replay validation gates",
+            "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, and migration contract all pass.",
             "dataset": "gate_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
             "layout": "full",
             "columns": [
+                {"field": "scope", "label": "Scope", "type": "text"},
                 {"field": "gate", "label": "Gate", "type": "text"},
                 {"field": "status", "label": "Status", "type": "text"},
+            ],
+        },
+        {
+            "id": "limit_table",
+            "title": "Evidence boundaries",
+            "subtitle": "Synthetic receipt schedules test causality and recovery but do not replace a real live capture.",
+            "dataset": "limit_rows",
+            "sourceId": "live_feature_evidence",
+            "density": "dense",
+            "layout": "full",
+            "columns": [
+                {"field": "evidence_limit", "label": "Limit", "type": "text"},
             ],
         },
         {
@@ -305,24 +428,28 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         {
             "id": "title",
             "type": "markdown",
-            "body": "# Propulse NowCast V4.2: live-feature foundation report",
+            "body": "# Propulse NowCast V4.2: live-feature foundation and replay report",
         },
         {
             "id": "answer",
             "type": "markdown",
             "sourceId": "live_feature_evidence",
             "body": (
-                "## The production-shaped foundation passes, but live WSPR is not enabled\n\n"
-                f"The shared DuckDB transform produced **{summary['opportunity_cells']:,}** opportunity cells and "
-                f"**{summary['lag_cells']:,}** power-aggregated lag cells with **zero directional differences** "
-                "from the historical builder. The real 50M A6 bundle rejected forged browser path-history values, "
+                "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\n"
+                f"Across **{summary['replay_hours']} stratified hours** and **{summary['replay_spots']:,} open-month spots**, "
+                f"the shared DuckDB transform produced **{summary['replay_opportunity_cells']:,}** opportunity cells and "
+                f"**{summary['replay_path_cells']:,}** path-hour cells with **zero directional differences** from the "
+                "historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after "
+                "duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, "
                 f"kept identity-free telemetry, and served a path at **{summary['path_p95_ms']:.2f} ms p95** and a "
-                f"288-cell surface at **{summary['surface_p95_ms']:.2f} ms p95**. This approves the foundation for "
-                "authorized-source integration. It does not claim that the private migration is deployed or that a live provider is approved."
+                f"288-cell surface at **{summary['surface_p95_ms']:.2f} ms p95**. The six-migration release chain also passed "
+                f"**{summary['migration_gates_passed']} of {summary['migration_gates_total']}** rollback-only gates "
+                "on the target PostgreSQL 17.6 database with its original object state restored. This approves the foundation for "
+                "authorized-source integration. It does not claim that the reviewed migrations are deployed or that a live provider is approved."
             ),
         },
         {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
-        {"id": "findings", "type": "markdown", "body": "## Exact feature semantics are the primary result"},
+        {"id": "findings", "type": "markdown", "body": "## Exact feature semantics hold across both open months"},
         {"id": "parity_chart", "type": "chart", "chartId": "parity", "layout": "full"},
         {
             "id": "parity_explainer",
@@ -332,11 +459,30 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "The live and archive paths now call the same versioned transform. It reconstructs deterministic "
                 "receiver opportunities from transmitter slots, then sums successes and opportunities across power "
                 "bins before creating path-hour lag rates. Exact equality includes counts, successes, opportunity "
-                "mass, sampled rows, and both cell sets. The parity test used only an already-open October 2024 hour "
-                "and did not inspect December, 2025, or prospective outcomes."
+                "mass, sampled rows, and both cell sets. The replay selects one hour from every UTC hour-of-day stratum "
+                "across October and November 2024, spanning each month from beginning to end. It did not inspect "
+                "December, 2025, or prospective outcomes."
             ),
         },
         {"id": "flow_chart", "type": "chart", "chartId": "flow", "layout": "full"},
+        {"id": "receipt_heading", "type": "markdown", "body": "## Arrival-time recovery is causal and versioned"},
+        {"id": "receipt_chart", "type": "chart", "chartId": "receipts", "layout": "full"},
+        {
+            "id": "receipt_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "Each receipt case uses about 10,000 real bronze observations from a selected open-month hour. The "
+                "fixture reverses storage order, retries deterministic duplicates, and delays ten percent of rows "
+                "past the first five-minute cutoff. The finalizer preserves the first snapshot, writes a distinct "
+                "corrected snapshot at fifteen minutes, and commits each watermark only after its feature pages. "
+                "Both corrected snapshots match historical path cells with zero observed numeric difference. A third "
+                "quality-flagged version remains degraded, and observations beyond the 30-hour bound or implausibly "
+                "future event times are rejected. Two separate 64-target lookups then validate exact H-1/H-2/H-3/H-24 "
+                "availability and rates, causal timestamps, and identical batch versus single responses. Receipt "
+                "timestamps are synthetic because the archive lacks them."
+            ),
+        },
         {"id": "architecture_heading", "type": "markdown", "body": "## Server authority prevents client-side freshness forgery"},
         {
             "id": "architecture",
@@ -359,13 +505,16 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "type": "markdown",
             "sourceId": "live_feature_evidence",
             "body": (
-                "The parity fixture is one open WSPRnet archive hour ([archive](https://www.wsprnet.org/archive/)), "
-                "checksum-linked to its bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine "
+                "The replay uses 24 deterministic hours from each open WSPRnet archive month "
+                "([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity "
+                "Parquet inputs. DuckDB 1.5's hash engine "
                 "is pinned because deterministic receiver sampling depends on it. The foundation validation loads "
                 "the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and "
                 "requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid "
-                "and station-envelope fields and checks the private migration's RLS, grants, retention, and four-lag "
-                "watermark joins. No external live WSPR provider was queried."
+                "and station-envelope fields. All six pending migrations are executed in timestamp order inside a rollback-only transaction "
+                "on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, "
+                "and the four-lag RPC are exercised before the original object state is verified. No external live "
+                "WSPR provider was queried."
             ),
         },
         {
@@ -375,7 +524,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "body": (
                 "## Apple Silicon execution\n\n"
                 f"All evidence was generated on native ARM64 with **{summary['visible_cpus']} M5 CPU cores**. The "
-                "open-hour transform used 18 DuckDB threads. Research training remains two spawned XGBoost fits "
+                "48-hour transform and receipt replay used 18 DuckDB threads. Research training remains two spawned XGBoost fits "
                 "with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch "
                 "scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training "
                 "backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one "
@@ -388,14 +537,16 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "sourceId": "live_feature_evidence",
             "body": (
                 "## Limits and robustness\n\n"
-                "This is an implementation-equivalence and fail-closed service test, not a live-source quality "
-                "study. One open hour proves exact semantics for that fixture but not provider completeness, late "
-                "arrival behavior, outage recovery, or 30-day shadow calibration. Static migration inspection is "
-                "not a substitute for applying it to the target Postgres version. Operational weather inputs also "
+                "This is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a "
+                "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
+                "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
+                "real arrival distributions, outage recovery, or 30-day shadow calibration. Rollback-only migration "
+                "execution is not a production deployment or scheduler test. Operational weather inputs also "
                 "need the same server-authoritative treatment before active forecasts. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
         },
+        {"id": "limit_table_block", "type": "table", "tableId": "limit_table", "layout": "full"},
         {"id": "blockers", "type": "table", "tableId": "blocker_table", "layout": "full"},
         {
             "id": "next",
@@ -404,11 +555,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "body": (
                 "## Next steps\n\n"
                 "1. Obtain written authorization for a live WSPR source or operate a source we control.\n"
-                "2. Review and apply the private migration against the target Postgres environment.\n"
+                "2. Apply the rollback-validated six-migration chain through the normal reviewed deployment path.\n"
                 "3. Implement the authorized connector without changing the shared transform.\n"
-                "4. Replay multi-hour event-time and receipt-time fixtures, including duplicates, late arrivals, "
-                "degraded hours, corrections, and pruning.\n"
-                "5. Run at least 30 days of identity-free shadow traffic before allowing verified fresh history to "
+                "4. Expose trusted server-authoritative operational weather and exercise retention/pruning on target Postgres.\n"
+                "5. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
         },
@@ -419,8 +569,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         "manifest": {
             "version": 1,
             "surface": "report",
-            "title": "Propulse NowCast V4.2: live-feature foundation report",
-            "description": "Exact transform parity, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
+            "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
+            "description": "Multi-hour transform parity, causal receipt replay, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
             "generatedAt": generated_at,
             "cards": cards,
             "charts": charts,
@@ -440,22 +590,26 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
 
 def markdown_summary(evidence: dict[str, Any]) -> str:
     summary = evidence["datasets"]["summary"][0]
-    return f"""# Propulse NowCast V4.2: live-feature foundation report
+    return f"""# Propulse NowCast V4.2: live-feature foundation and replay report
 
 Generated: {evidence['generated_at']}
 
 ## Answer first
 
-The server-authoritative live-feature foundation passes its pre-provider gate.
-The shared transform exactly reproduced `{summary['opportunity_cells']:,}`
-opportunity cells and `{summary['lag_cells']:,}` power-aggregated lag cells from
-an open archive hour, with zero directional differences. The real A6 bundle
-blocked browser freshness forgery and measured `{summary['path_p95_ms']:.2f}` ms
-path p95 and `{summary['surface_p95_ms']:.2f}` ms for a 288-cell surface.
+The server-authoritative live-feature foundation and open-month replay pass.
+Across `{summary['replay_hours']}` stratified October-November hours and
+`{summary['replay_spots']:,}` input spots, the shared transform exactly
+reproduced `{summary['replay_opportunity_cells']:,}` opportunity cells and
+`{summary['replay_path_cells']:,}` power-aggregated path-hour cells. Both
+synthetic receipt scenarios recovered exact corrected snapshots after
+duplicates, reordering, and late arrivals. The real A6 bundle blocked browser
+freshness forgery and measured `{summary['path_p95_ms']:.2f}` ms path p95 and
+`{summary['surface_p95_ms']:.2f}` ms for a 288-cell surface.
 
-Live WSPR remains disabled pending source authorization, migration deployment,
-multi-hour replay, and 30 days of shadow evidence. See `REPORT.html` for charts,
-methodology, privacy and fallback contracts, limitations, and next steps.
+Live WSPR remains disabled pending source authorization, reviewed migration
+deployment, an authorized connector, trusted operational weather, and 30 days of real
+receipt-time shadow evidence. See `REPORT.html` for charts, methodology, privacy
+and fallback contracts, limitations, and next steps.
 """
 
 
@@ -473,7 +627,14 @@ def main() -> None:
     validate_m5_runtime(read_json(CONFIG))
     transform = read_json(INPUTS["transform_parity"])
     foundation = read_json(INPUTS["foundation_validation"])
-    evidence = build_evidence(transform, foundation)
+    replay = read_json(INPUTS["replay_validation"])
+    migration_validation = read_json(INPUTS["migration_validation"])
+    evidence = build_evidence(
+        transform,
+        foundation,
+        replay,
+        migration_validation,
+    )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     artifact = build_artifact(evidence_path, evidence)

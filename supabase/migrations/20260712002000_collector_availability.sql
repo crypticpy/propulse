@@ -83,14 +83,14 @@ CREATE OR REPLACE FUNCTION public.record_collector_source_status(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 BEGIN
   IF p_status NOT IN ('ok', 'error', 'warning') THEN
     RAISE EXCEPTION 'invalid collector status';
   END IF;
 
-  INSERT INTO public.collector_source_status (
+  INSERT INTO public.collector_source_status AS current_status (
     source, status, last_attempt_at, last_success_at, rows_last_run,
     duration_ms, error_message, updated_at
   ) VALUES (
@@ -103,7 +103,7 @@ BEGIN
     last_attempt_at = excluded.last_attempt_at,
     last_success_at = CASE
       WHEN excluded.status = 'ok' THEN excluded.last_attempt_at
-      ELSE collector_source_status.last_success_at
+      ELSE current_status.last_success_at
     END,
     rows_last_run = excluded.rows_last_run,
     duration_ms = excluded.duration_ms,

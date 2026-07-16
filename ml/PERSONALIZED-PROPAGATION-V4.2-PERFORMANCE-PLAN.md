@@ -542,6 +542,20 @@ protocol, B2 adapter, and calibration dependency are all required frozen
 artifacts before the one-shot December scope can open. The V3/B2 results file,
 model, and isotonic calibrator used as the gate baseline are frozen separately
 as well, so neither side of the comparison can change after approval.
+
+This is also the default execution policy for later retraining and the separate
+6m experiment: use native `arm64` packages, stream Parquet with DuckDB,
+PyArrow datasets, or Polars lazy scans, and allocate physical cores explicitly
+at the process boundary. Never combine an 18-thread fit with an 18-thread outer
+worker pool. Independent fits use two spawned processes with nine
+XGBoost/Arrow CPU threads each; a single DuckDB transform or batch scorer may
+use all 18 cores. Inner numeric libraries remain bounded by the owning process
+so nested parallelism cannot silently oversubscribe the machine. The measured
+50M memory and throughput, not nominal unified-memory capacity, remain the
+sizing evidence. Rent an NVIDIA GPU only if a frozen CPU-versus-GPU benchmark
+shows equivalent predictions/metrics and material end-to-end speedup; Apple GPU
+or Neural Engine availability alone is not a reason to change the validated
+tree model.
 DuckDB timezone is also pinned to UTC in every remaining V4.2 connection and
 the locked-month audit converts timestamps to UTC inside its SQL. A synthetic
 boundary-row test exposed this requirement before December access: an unpinned
@@ -642,6 +656,10 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 
 - [x] Implement and locally deploy the approved core shadow path in ReachMap
   and StationCast, with hidden UI and aggregate-only service telemetry.
+- [x] Reproduce the historical WSPR transform across October and November open
+  months and validate late/duplicate/versioned receipt behavior synthetically.
+- [x] Rollback-validate the private WSPR schema and lookup RPC against the real
+  target PostgreSQL instance without leaving persistent objects.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -665,9 +683,17 @@ client lag values and freshness cannot select NowCast. The shared frozen
 DuckDB transform reproduced 88,466 open October opportunity cells and 78,478
 lag cells exactly from 302,903 bronze spots. The private rolling schema,
 idempotent source-agnostic ingest boundary, bounded watermark-last finalizer,
-and batched causal lookup contract are implemented. Migration deployment, an
-authorized provider connector, multi-hour event/receipt replay, and live
-coverage evidence remain open.
+and batched causal lookup contract are implemented. The M5 replay then sampled
+every UTC hour twice across October and November: 12,245,675 spots produced
+3,628,293 exact opportunity cells and 3,218,610 exact path-hour cells across all
+ten HF bands, with zero directional or lag-value differences. H-1/H-2/H-3/H-24
+lookups were causal and batch/single identical. Synthetic 10% late-arrival and
+duplicate cases proved immutable first versions plus exact corrected versions;
+the archive does not contain trustworthy receipt timestamps, so this is not a
+substitute for the required live window. The WSPR migration separately passed
+all 14 gates in a rollback-only transaction on target PostgreSQL 17.6, leaving
+no persistent change. Production migration deployment, an authorized provider
+connector, real receipt-time capture, and live coverage evidence remain open.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,
@@ -677,6 +703,9 @@ the canonical portable builder and browser verification at 1,440 px and 390 px.
 Its evidence is isolated under
 `results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/`;
 it does not alter the frozen retrospective report or approve a live source.
+The report now includes the two-month replay, correction/versioning evidence,
+four-lag lookup checks, target migration rollback result, and current release
+blockers.
 
 ## Immediate resume instruction
 

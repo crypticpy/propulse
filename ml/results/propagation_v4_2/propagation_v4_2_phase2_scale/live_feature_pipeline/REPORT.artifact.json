@@ -3,9 +3,9 @@
   "manifest": {
     "version": 1,
     "surface": "report",
-    "title": "Propulse NowCast V4.2: live-feature foundation report",
-    "description": "Exact transform parity, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
-    "generatedAt": "2026-07-16T02:11:01.642302+00:00",
+    "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
+    "description": "Multi-hour transform parity, causal receipt replay, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
+    "generatedAt": "2026-07-16T02:52:23.273138+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -21,40 +21,40 @@
         ]
       },
       {
-        "id": "opportunity_cells",
-        "description": "Exact open-hour path/power/hour cells.",
+        "id": "replay_hours",
+        "description": "One deterministic sample from every UTC hour-of-day in both months.",
         "dataset": "summary",
         "sourceId": "live_feature_evidence",
         "metrics": [
           {
-            "label": "Opportunity cells",
-            "field": "opportunity_cells",
+            "label": "Replayed hours",
+            "field": "replay_hours",
             "format": "number"
           }
         ]
       },
       {
-        "id": "lag_cells",
-        "description": "Path/hour cells after aggregation across power bins.",
+        "id": "replay_spots",
+        "description": "Open October-November bronze rows across the 48 selected hours.",
         "dataset": "summary",
         "sourceId": "live_feature_evidence",
         "metrics": [
           {
-            "label": "Lag cells",
-            "field": "lag_cells",
+            "label": "Replay spots",
+            "field": "replay_spots",
             "format": "number"
           }
         ]
       },
       {
-        "id": "transform_wall",
-        "description": "One open archive hour on 18 M5 DuckDB threads.",
+        "id": "receipt_rows",
+        "description": "Real open-month rows with synthetic arrival schedules.",
         "dataset": "summary",
         "sourceId": "live_feature_evidence",
         "metrics": [
           {
-            "label": "Transform seconds",
-            "field": "transform_wall_seconds",
+            "label": "Receipt-case rows",
+            "field": "receipt_rows",
             "format": "number"
           }
         ]
@@ -89,16 +89,16 @@
     "charts": [
       {
         "id": "parity",
-        "title": "The shared live transform exactly reproduces the archive builder",
-        "subtitle": "An open October 2024 hour; paired counts must be identical for both intermediate representations.",
+        "title": "Both open months reproduce the historical builder exactly",
+        "subtitle": "Twenty-four stratified UTC hours per month; paired counts are identical for both representations.",
         "type": "bar",
         "dataset": "parity_rows",
         "sourceId": "live_feature_evidence",
         "encodings": {
           "x": {
-            "field": "cell_type",
+            "field": "month_and_cell",
             "type": "ordinal",
-            "label": "Cell representation"
+            "label": "Month and representation"
           },
           "y": {
             "field": "cells",
@@ -116,8 +116,8 @@
       },
       {
         "id": "flow",
-        "title": "One open hour stays bounded through each transform stage",
-        "subtitle": "Counts describe different intermediate objects and are shown to make materialization scale explicit.",
+        "title": "The 48-hour replay stays bounded through each transform stage",
+        "subtitle": "Counts combine October and November and describe different intermediate objects.",
         "type": "bar",
         "dataset": "flow_rows",
         "sourceId": "live_feature_evidence",
@@ -131,6 +131,33 @@
             "field": "rows",
             "type": "quantitative",
             "label": "Rows or cells"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "receipts",
+        "title": "Late arrivals create corrected versions without overwriting history",
+        "subtitle": "Ten percent of each real-row fixture arrives after the first cutoff; the corrected version restores exact parity.",
+        "type": "bar",
+        "dataset": "receipt_rows",
+        "sourceId": "live_feature_evidence",
+        "encodings": {
+          "x": {
+            "field": "month",
+            "type": "ordinal",
+            "label": "Open month"
+          },
+          "y": {
+            "field": "observations",
+            "type": "quantitative",
+            "label": "Observations included"
+          },
+          "color": {
+            "field": "version",
+            "type": "nominal",
+            "label": "Feature version"
           }
         },
         "valueFormat": "number",
@@ -162,13 +189,18 @@
     "tables": [
       {
         "id": "gate_table",
-        "title": "Foundation validation gates",
-        "subtitle": "The real bundle, service fallback, privacy, transform, and migration contract all pass.",
+        "title": "Foundation and replay validation gates",
+        "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, and migration contract all pass.",
         "dataset": "gate_rows",
         "sourceId": "live_feature_evidence",
         "density": "dense",
         "layout": "full",
         "columns": [
+          {
+            "field": "scope",
+            "label": "Scope",
+            "type": "text"
+          },
           {
             "field": "gate",
             "label": "Gate",
@@ -177,6 +209,22 @@
           {
             "field": "status",
             "label": "Status",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "limit_table",
+        "title": "Evidence boundaries",
+        "subtitle": "Synthetic receipt schedules test causality and recovery but do not replace a real live capture.",
+        "dataset": "limit_rows",
+        "sourceId": "live_feature_evidence",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "evidence_limit",
+            "label": "Limit",
             "type": "text"
           }
         ]
@@ -206,7 +254,7 @@
     "sources": [
       {
         "id": "live_feature_evidence",
-        "label": "V4.2 live-feature foundation evidence",
+        "label": "V4.2 live-feature foundation and replay evidence",
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json",
         "query": {
           "engine": "duckdb",
@@ -223,22 +271,22 @@
       {
         "id": "title",
         "type": "markdown",
-        "body": "# Propulse NowCast V4.2: live-feature foundation report"
+        "body": "# Propulse NowCast V4.2: live-feature foundation and replay report"
       },
       {
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The production-shaped foundation passes, but live WSPR is not enabled\n\nThe shared DuckDB transform produced **88,466** opportunity cells and **78,478** power-aggregated lag cells with **zero directional differences** from the historical builder. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. This approves the foundation for authorized-source integration. It does not claim that the private migration is deployed or that a live provider is approved."
+        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain also passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored. This approves the foundation for authorized-source integration. It does not claim that the reviewed migrations are deployed or that a live provider is approved."
       },
       {
         "id": "cards",
         "type": "metric-strip",
         "cardIds": [
           "exact_diff",
-          "opportunity_cells",
-          "lag_cells",
-          "transform_wall",
+          "replay_hours",
+          "replay_spots",
+          "receipt_rows",
           "path_latency",
           "surface_latency"
         ]
@@ -246,7 +294,7 @@
       {
         "id": "findings",
         "type": "markdown",
-        "body": "## Exact feature semantics are the primary result"
+        "body": "## Exact feature semantics hold across both open months"
       },
       {
         "id": "parity_chart",
@@ -258,13 +306,30 @@
         "id": "parity_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The live and archive paths now call the same versioned transform. It reconstructs deterministic receiver opportunities from transmitter slots, then sums successes and opportunities across power bins before creating path-hour lag rates. Exact equality includes counts, successes, opportunity mass, sampled rows, and both cell sets. The parity test used only an already-open October 2024 hour and did not inspect December, 2025, or prospective outcomes."
+        "body": "The live and archive paths now call the same versioned transform. It reconstructs deterministic receiver opportunities from transmitter slots, then sums successes and opportunities across power bins before creating path-hour lag rates. Exact equality includes counts, successes, opportunity mass, sampled rows, and both cell sets. The replay selects one hour from every UTC hour-of-day stratum across October and November 2024, spanning each month from beginning to end. It did not inspect December, 2025, or prospective outcomes."
       },
       {
         "id": "flow_chart",
         "type": "chart",
         "chartId": "flow",
         "layout": "full"
+      },
+      {
+        "id": "receipt_heading",
+        "type": "markdown",
+        "body": "## Arrival-time recovery is causal and versioned"
+      },
+      {
+        "id": "receipt_chart",
+        "type": "chart",
+        "chartId": "receipts",
+        "layout": "full"
+      },
+      {
+        "id": "receipt_explainer",
+        "type": "markdown",
+        "sourceId": "live_feature_evidence",
+        "body": "Each receipt case uses about 10,000 real bronze observations from a selected open-month hour. The fixture reverses storage order, retries deterministic duplicates, and delays ten percent of rows past the first five-minute cutoff. The finalizer preserves the first snapshot, writes a distinct corrected snapshot at fifteen minutes, and commits each watermark only after its feature pages. Both corrected snapshots match historical path cells with zero observed numeric difference. A third quality-flagged version remains degraded, and observations beyond the 30-hour bound or implausibly future event times are rejected. Two separate 64-target lookups then validate exact H-1/H-2/H-3/H-24 availability and rates, causal timestamps, and identical batch versus single responses. Receipt timestamps are synthetic because the archive lacks them."
       },
       {
         "id": "architecture_heading",
@@ -298,19 +363,25 @@
         "id": "method",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The parity fixture is one open WSPRnet archive hour ([archive](https://www.wsprnet.org/archive/)), checksum-linked to its bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields and checks the private migration's RLS, grants, retention, and four-lag watermark joins. No external live WSPR provider was queried."
+        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six pending migrations are executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC are exercised before the original object state is verified. No external live WSPR provider was queried."
       },
       {
         "id": "compute",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Apple Silicon execution\n\nAll evidence was generated on native ARM64 with **18 M5 CPU cores**. The open-hour transform used 18 DuckDB threads. Research training remains two spawned XGBoost fits with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one XGBoost thread each to avoid oversubscription under concurrent traffic."
+        "body": "## Apple Silicon execution\n\nAll evidence was generated on native ARM64 with **18 M5 CPU cores**. The 48-hour transform and receipt replay used 18 DuckDB threads. Research training remains two spawned XGBoost fits with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one XGBoost thread each to avoid oversubscription under concurrent traffic."
       },
       {
         "id": "limits",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Limits and robustness\n\nThis is an implementation-equivalence and fail-closed service test, not a live-source quality study. One open hour proves exact semantics for that fixture but not provider completeness, late arrival behavior, outage recovery, or 30-day shadow calibration. Static migration inspection is not a substitute for applying it to the target Postgres version. Operational weather inputs also need the same server-authoritative treatment before active forecasts. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. Rollback-only migration execution is not a production deployment or scheduler test. Operational weather inputs also need the same server-authoritative treatment before active forecasts. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
+      },
+      {
+        "id": "limit_table_block",
+        "type": "table",
+        "tableId": "limit_table",
+        "layout": "full"
       },
       {
         "id": "blockers",
@@ -322,13 +393,13 @@
         "id": "next",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Next steps\n\n1. Obtain written authorization for a live WSPR source or operate a source we control.\n2. Review and apply the private migration against the target Postgres environment.\n3. Implement the authorized connector without changing the shared transform.\n4. Replay multi-hour event-time and receipt-time fixtures, including duplicates, late arrivals, degraded hours, corrections, and pruning.\n5. Run at least 30 days of identity-free shadow traffic before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+        "body": "## Next steps\n\n1. Obtain written authorization for a live WSPR source or operate a source we control.\n2. Apply the rollback-validated six-migration chain through the normal reviewed deployment path.\n3. Implement the authorized connector without changing the shared transform.\n4. Expose trusted server-authoritative operational weather and exercise retention/pruning on target Postgres.\n5. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
       }
     ]
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T02:11:01.642302+00:00",
+    "generatedAt": "2026-07-16T02:52:23.273138+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -337,51 +408,103 @@
           "opportunity_cells": 88466,
           "lag_cells": 78478,
           "transform_wall_seconds": 2.1766207089967793,
+          "replay_hours": 48,
+          "replay_spots": 12245675,
+          "replay_opportunity_cells": 3628293,
+          "replay_path_cells": 3218610,
+          "receipt_scenarios": 2,
+          "receipt_rows": 20059,
+          "lag_lookup_cases": 2,
+          "lag_lookup_targets": 128,
+          "lag_availability_mismatches": 0,
+          "lag_maximum_rate_difference": 0.0,
           "path_p95_ms": 3.3913749939529225,
           "surface_p95_ms": 10.589041994535364,
           "visible_cpus": 18,
           "foundation_gates_passed": 14,
-          "foundation_gates_total": 14
+          "foundation_gates_total": 14,
+          "replay_gates_passed": 15,
+          "replay_gates_total": 15,
+          "migration_gates_passed": 22,
+          "migration_gates_total": 22
         }
       ],
       "parity_rows": [
         {
-          "cell_type": "Opportunity path/power/hour",
+          "month_and_cell": "2024-10 Opportunity cells",
           "implementation": "Historical builder",
-          "cells": 88466
+          "cells": 1803699
         },
         {
-          "cell_type": "Opportunity path/power/hour",
+          "month_and_cell": "2024-10 Opportunity cells",
           "implementation": "Shared live transform",
-          "cells": 88466
+          "cells": 1803699
         },
         {
-          "cell_type": "Path/hour after power aggregation",
+          "month_and_cell": "2024-10 Path-hour lag cells",
           "implementation": "Historical builder",
-          "cells": 78478
+          "cells": 1601123
         },
         {
-          "cell_type": "Path/hour after power aggregation",
+          "month_and_cell": "2024-10 Path-hour lag cells",
           "implementation": "Shared live transform",
-          "cells": 78478
+          "cells": 1601123
+        },
+        {
+          "month_and_cell": "2024-11 Opportunity cells",
+          "implementation": "Historical builder",
+          "cells": 1824594
+        },
+        {
+          "month_and_cell": "2024-11 Opportunity cells",
+          "implementation": "Shared live transform",
+          "cells": 1824594
+        },
+        {
+          "month_and_cell": "2024-11 Path-hour lag cells",
+          "implementation": "Historical builder",
+          "cells": 1617487
+        },
+        {
+          "month_and_cell": "2024-11 Path-hour lag cells",
+          "implementation": "Shared live transform",
+          "cells": 1617487
         }
       ],
       "flow_rows": [
         {
-          "stage": "Open-hour input spots",
-          "rows": 302903
-        },
-        {
-          "stage": "Deterministic sampled rows",
-          "rows": 343936
+          "stage": "Open-month input spots",
+          "rows": 12245675
         },
         {
           "stage": "Opportunity cells",
-          "rows": 88466
+          "rows": 3628293
         },
         {
           "stage": "Power-aggregated lag cells",
-          "rows": 78478
+          "rows": 3218610
+        }
+      ],
+      "receipt_rows": [
+        {
+          "month": "2024-10",
+          "version": "First +5 minute snapshot",
+          "observations": 9053
+        },
+        {
+          "month": "2024-10",
+          "version": "Corrected +15 minute snapshot",
+          "observations": 10059
+        },
+        {
+          "month": "2024-11",
+          "version": "First +5 minute snapshot",
+          "observations": 9000
+        },
+        {
+          "month": "2024-11",
+          "version": "Corrected +15 minute snapshot",
+          "observations": 10000
         }
       ],
       "latency_rows": [
@@ -398,69 +521,268 @@
       ],
       "gate_rows": [
         {
+          "scope": "Foundation",
           "gate": "open hour transform exact",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "real bundle loaded",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "client freshness forgery blocked",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "surface forgery blocked",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "server provider unavailable by default",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "serving thread contract",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "telemetry identity free",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "path latency",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "surface latency",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "rolling observation rls",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "sparse feature export revoked",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "lookup service role only",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "four atomic watermarks",
           "status": "pass"
         },
         {
+          "scope": "Foundation",
           "gate": "minimum rolling retention",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "two open months replayed",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "twenty four utc strata per month",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "event time transform exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "receipt time final parity",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "duplicates idempotent",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "late correction versioned",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "watermark committed last",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "degraded hour flagged",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "bounded lateness and future rejected",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "four lag availability exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "four lag values exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "batch single lookup identical",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "lookup timestamps causal",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "m5 parallel contract",
+          "status": "pass"
+        },
+        {
+          "scope": "Multi-hour replay",
+          "gate": "locked outcomes unread",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "pending prerequisite migrations executed",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "prerequisite tables created",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "prerequisite row level security enabled",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "prerequisite public read grants present",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "prerequisite user policies present",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "prerequisite functions service only",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "collector availability backfill complete",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "solar provenance columns present",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "migration sql executed",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "private tables created",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "row level security enabled",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "public privileges revoked",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "service role privileges present",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "four lag lookup exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "missing watermark returns empty",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "complete watermark constraint enforced",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "thirty hour pruning exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "minimum retention guard enforced",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "rollback restored original object state",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "persistent changes absent",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "target is postgresql",
+          "status": "pass"
+        },
+        {
+          "scope": "Target PostgreSQL rollback",
+          "gate": "locked outcomes unread",
           "status": "pass"
         }
       ],
       "blocker_rows": [
         {
-          "remaining_work": "written source authorization or self-operated source",
+          "remaining_work": "written source authorization or a self-operated source",
           "status": "required before live NowCast"
         },
         {
-          "remaining_work": "migration deployment and syntax validation against target Postgres",
+          "remaining_work": "reviewed migration deployment and production scheduler",
           "status": "required before live NowCast"
         },
         {
@@ -468,12 +790,26 @@
           "status": "required before live NowCast"
         },
         {
-          "remaining_work": "multi-hour event-time and receipt-time replay",
+          "remaining_work": "trusted server-authoritative operational-weather response",
           "status": "required before live NowCast"
         },
         {
-          "remaining_work": "30-day live shadow coverage and calibration evidence",
+          "remaining_work": "30-day real receipt-time shadow coverage and calibration evidence",
           "status": "required before live NowCast"
+        }
+      ],
+      "limit_rows": [
+        {
+          "evidence_limit": "archive receipt timestamps are unavailable, so receipt delays are synthetic"
+        },
+        {
+          "evidence_limit": "authorized provider connector is not enabled"
+        },
+        {
+          "evidence_limit": "30-day real receipt-time shadow coverage is still required"
+        },
+        {
+          "evidence_limit": "target PostgreSQL validation was rollback-only; the migration is tested but not deployed"
         }
       ]
     }
@@ -481,7 +817,7 @@
   "sources": [
     {
       "id": "live_feature_evidence",
-      "label": "V4.2 live-feature foundation evidence",
+      "label": "V4.2 live-feature foundation and replay evidence",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/FOUNDATION_REPORT_EVIDENCE.json",
       "query": {
         "engine": "duckdb",

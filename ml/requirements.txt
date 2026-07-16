@@ -5,6 +5,7 @@ joblib==1.5.3
 lightgbm==4.6.0
 numpy==2.5.1
 polars==1.42.1
+psycopg[binary]==3.3.4
 pytz==2025.2
 pyarrow==25.0.0
 pydantic==2.13.4

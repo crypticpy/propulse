@@ -38,7 +38,18 @@
 > one-thread serving contract. The interactive report is
 > [`live_feature_pipeline/REPORT.html`](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html)
 > and passed browser verification at 1,440 px and 390 px. Source authorization,
-> migration deployment, multi-hour replay, and live shadow evidence remain open.
+> migration deployment, real receipt-time capture, and live shadow evidence
+> remain open.
+
+> Replay and migration update, 2026-07-15: the M5 replay passed 15/15 gates on
+> 48 hours spanning October and November, all UTC hours and all ten HF bands.
+> It processed 12,245,675 spots into 3,628,293 exact opportunity cells and
+> 3,218,610 exact path-hour cells with zero directional or causal lag mismatch.
+> Synthetic late/duplicate receipt cases produced immutable first versions and
+> exact corrected versions. The private schema then passed 14/14 rollback-only
+> gates on target PostgreSQL 17.6 with no persistent changes. Historical
+> receipt times are synthetic and the migration is not deployed, so the
+> authorized 30-day live shadow gate remains unchanged.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
@@ -242,6 +253,12 @@ The archive lacks a reliable receipt timestamp for every historic spot. Any
 replay using event time alone must be labeled optimistic. A minimum 30-day live
 shadow capture with receipt timestamps is required before product enablement.
 
+The completed replay samples every UTC hour of day from both October and
+November and records exact cell, lag, causality, duplicate, late-arrival,
+versioning, watermark, bounded-memory, and batch/single lookup results in
+`live_feature_pipeline/replay_validation.json`. Its synthetic receipt clock is
+explicitly labeled and does not satisfy the live requirement above.
+
 ### C. Operational gate
 
 - at least 99% of scheduled hourly jobs complete before the 7,200-second stale
@@ -287,7 +304,9 @@ shadow capture with receipt timestamps is required before product enablement.
   model backend reject browser-provided lag values and freshness.
 - [x] Validate the real A6 bundle, fail-closed service behavior, aggregate-only
   telemetry, migration contract, and responsive visual report on the M5.
-- [ ] Add open-month event-time replay, then a receipt-time live shadow replay.
+- [x] Add and pass the October/November open-month event-time replay with
+  synthetic duplicate, late-arrival, correction-version, and causal-lag cases.
+- [ ] Complete the 30-day authorized receipt-time live shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.
 - [x] Add explicit frontend/service shadow execution with aggregate-only
   telemetry and hidden model UI; current requests deliberately exercise the

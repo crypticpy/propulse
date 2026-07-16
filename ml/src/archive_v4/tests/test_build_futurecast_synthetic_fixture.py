@@ -9,7 +9,10 @@ MODULE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE))
 
 from build_futurecast_examples import HF_BANDS  # noqa: E402
-from build_futurecast_synthetic_fixture import PATHS  # noqa: E402
+from build_futurecast_synthetic_fixture import (  # noqa: E402
+    PATHS,
+    synthetic_path_effect,
+)
 
 
 class BuildFutureCastSyntheticFixtureTests(unittest.TestCase):
@@ -20,6 +23,12 @@ class BuildFutureCastSyntheticFixtureTests(unittest.TestCase):
         for tx_grid4, rx_grid4 in PATHS:
             for grid in (tx_grid4, rx_grid4):
                 self.assertRegex(grid, r"^[A-R]{2}[0-9]{2}$")
+
+    def test_path_effect_is_bounded_and_centered_after_fixture_expansion(self) -> None:
+        effects = [synthetic_path_effect(index) for index in range(len(PATHS))]
+        self.assertLessEqual(max(effects), 0.65)
+        self.assertGreaterEqual(min(effects), -0.65)
+        self.assertAlmostEqual(sum(effects) / len(effects), 0.0, places=12)
 
 
 if __name__ == "__main__":

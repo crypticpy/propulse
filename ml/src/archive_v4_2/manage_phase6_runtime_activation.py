@@ -51,7 +51,11 @@ def build_activation_document(
         or readiness.get("locked_prospective_outcomes_read") is not False
     ):
         raise RuntimeError("Phase 6 readiness boundary is invalid")
-    expected_eligibility = runtime_eligibility_document(readiness)
+    readiness_sha256 = hashlib.sha256(readiness_bytes).hexdigest()
+    expected_eligibility = runtime_eligibility_document(
+        readiness,
+        source_readiness_sha256=readiness_sha256,
+    )
     if eligibility != expected_eligibility:
         raise RuntimeError("runtime eligibility is stale or does not match readiness")
     if any(mode not in RUNTIME_MODES for mode in requested_modes):
@@ -73,7 +77,7 @@ def build_activation_document(
         "product_activation_recorded": approved,
         "approved_modes": approved_modes,
         "locked_prospective_outcomes_read": False,
-        "source_readiness_sha256": hashlib.sha256(readiness_bytes).hexdigest(),
+        "source_readiness_sha256": readiness_sha256,
         "activated_at": activated_at.isoformat() if approved else None,
     }
 

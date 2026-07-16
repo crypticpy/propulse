@@ -15,6 +15,9 @@ from validate_live_feature_migration import ROOT, atomic_write
 
 
 CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+FUTURECAST_CONFIG = ROOT / "ml/config/futurecast_v1.json"
+FUTURECAST_SCORER = ROOT / "ml/src/archive_v4/score_futurecast_gate.py"
+FUTURECAST_HORIZONS = (3, 6, 12, 24)
 PHASE2 = ROOT / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
 LIVE = PHASE2 / "live_feature_pipeline"
 DEFAULT_OUTPUT = LIVE / "phase6_release_readiness.json"
@@ -41,6 +44,9 @@ EVIDENCE_PATHS = {
     "nowcast_prospective": LIVE / "nowcast_prospective_release_decision.json",
     "learned_stationcast": LIVE / "learned_stationcast_release_decision.json",
     "futurecast": ROOT / "ml/results/propagation_v4/futurecast_readiness.json",
+    "futurecast_gate": (
+        ROOT / "ml/results/propagation_v4/futurecast_release_decision.json"
+    ),
     "six_meter": (
         ROOT
         / "ml/results/propagation_v4/propagation_v4_multiyear_50m"
@@ -218,6 +224,130 @@ def aggregate_coverage_drift_passed(
     )
 
 
+def valid_sha256(value: object) -> bool:
+    return bool(
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def futurecast_release_evidence(
+    document: dict[str, Any] | None,
+    *,
+    expected_readiness_sha256: str | None,
+) -> dict[str, Any]:
+    invalid = {
+        "valid": False,
+        "released_horizons_hours": [],
+        "withheld_horizons_hours": list(FUTURECAST_HORIZONS),
+    }
+    if not isinstance(document, dict):
+        return invalid
+    horizons = document.get("horizons")
+    released = document.get("released_horizons_hours")
+    withheld = document.get("withheld_horizons_hours")
+    if (
+        document.get("schema_version") != 1
+        or document.get("scope") != "futurecast_v1_locked_gate"
+        or document.get("data_scope") != "production_issued_history"
+        or document.get("gate_scored_once") is not True
+        or document.get("post_gate_tuning_permitted") is not False
+        or document.get("observed_weather_substituted") is not False
+        or document.get("locked_core_policy_changed") is not False
+        or not isinstance(horizons, dict)
+        or set(horizons) != {str(value) for value in FUTURECAST_HORIZONS}
+        or not isinstance(released, list)
+        or not isinstance(withheld, list)
+        or any(type(value) is not int for value in [*released, *withheld])
+        or len(set(released)) != len(released)
+        or len(set(withheld)) != len(withheld)
+    ):
+        return invalid
+    released_values = sorted(released)
+    withheld_values = sorted(withheld)
+    if (
+        set(released_values) & set(withheld_values)
+        or sorted([*released_values, *withheld_values]) != list(FUTURECAST_HORIZONS)
+        or document.get("release_approved") is not bool(released_values)
+    ):
+        return invalid
+    expected_decision = (
+        "release_candidate"
+        if len(released_values) == len(FUTURECAST_HORIZONS)
+        else "partial_release_candidate"
+        if released_values
+        else "withheld"
+    )
+    if document.get("decision") != expected_decision:
+        return invalid
+    expected_config_sha256 = hashlib.sha256(FUTURECAST_CONFIG.read_bytes()).hexdigest()
+    expected_scorer_sha256 = hashlib.sha256(FUTURECAST_SCORER.read_bytes()).hexdigest()
+    if (
+        document.get("config_sha256") != expected_config_sha256
+        or document.get("scorer_sha256") != expected_scorer_sha256
+        or not valid_sha256(expected_readiness_sha256)
+        or document.get("readiness_sha256") != expected_readiness_sha256
+        or not all(
+            valid_sha256(document.get(name))
+            for name in (
+                "readiness_sha256",
+                "example_manifest_sha256",
+                "training_manifest_sha256",
+                "p533_manifest_sha256",
+            )
+        )
+    ):
+        return invalid
+    for horizon in FUTURECAST_HORIZONS:
+        record = horizons.get(str(horizon))
+        if not isinstance(record, dict):
+            return invalid
+        gates = record.get("gates")
+        if (
+            record.get("horizon_hours") != horizon
+            or type(record.get("issue_days")) is not int
+            or record.get("issue_days") != 15
+            or not isinstance(gates, dict)
+            or not gates
+            or any(type(value) is not bool for value in gates.values())
+        ):
+            return invalid
+        approved = horizon in released_values
+        if (
+            record.get("release_approved") is not approved
+            or record.get("status") != ("pass" if approved else "withheld")
+            or all(gates.values()) is not approved
+        ):
+            return invalid
+    return {
+        "valid": True,
+        "released_horizons_hours": released_values,
+        "withheld_horizons_hours": withheld_values,
+    }
+
+
+def futurecast_readiness_mature(document: dict[str, Any]) -> bool:
+    horizons = document.get("horizons")
+    if (
+        document.get("issued_forecast_training_ready") is not True
+        or not isinstance(horizons, dict)
+    ):
+        return False
+    for horizon in FUTURECAST_HORIZONS:
+        record = horizons.get(str(horizon))
+        if not isinstance(record, dict):
+            return False
+        days = record.get("longest_consecutive_common_days")
+        if type(days) is not int or days < 90:
+            return False
+    return True
+
+
+def reject_nonfinite_json(value: str) -> None:
+    raise ValueError(f"non-finite JSON constant is forbidden: {value}")
+
+
 def load_evidence(
     paths: dict[str, Path] = EVIDENCE_PATHS,
 ) -> tuple[dict[str, dict[str, Any] | None], dict[str, dict[str, Any]]]:
@@ -236,7 +366,7 @@ def load_evidence(
         content = path.read_bytes()
         record["sha256"] = hashlib.sha256(content).hexdigest()
         try:
-            decoded = json.loads(content)
+            decoded = json.loads(content, parse_constant=reject_nonfinite_json)
             if not isinstance(decoded, dict):
                 raise ValueError("top-level JSON value is not an object")
             evidence[name] = decoded
@@ -254,6 +384,7 @@ def evaluate_release_readiness(
     *,
     protocol_preregistered: bool,
     as_of: datetime,
+    futurecast_readiness_sha256: str | None = None,
 ) -> dict[str, Any]:
     archive = evidence.get("archive_protocol") or {}
     phase3 = evidence.get("phase3") or {}
@@ -261,6 +392,10 @@ def evaluate_release_readiness(
     coverage = evidence.get("wspr_coverage_drift") or {}
     capture = evidence.get("prospective_capture") or {}
     futurecast = evidence.get("futurecast") or {}
+    futurecast_gate = futurecast_release_evidence(
+        evidence.get("futurecast_gate"),
+        expected_readiness_sha256=futurecast_readiness_sha256,
+    )
     six_meter = evidence.get("six_meter") or {}
     wspr_window = wspr.get("window") if isinstance(wspr.get("window"), dict) else {}
     capture_window = (
@@ -346,17 +481,9 @@ def evaluate_release_readiness(
             and (evidence.get("learned_stationcast") or {}).get("release_approved") is True
         ),
         "futurecast_90_day_horizon_evidence_passed": bool(
-            futurecast.get("issued_forecast_training_ready") is True
-            and futurecast.get("release_approved") is True
-            and all(
-                int((futurecast.get("horizons") or {}).get(str(horizon), {}).get(
-                    "longest_consecutive_common_days", 0
-                )) >= 90
-                and (futurecast.get("horizons") or {}).get(str(horizon), {}).get(
-                    "status"
-                ) == "release_approved"
-                for horizon in (3, 6, 12, 24)
-            )
+            futurecast_readiness_mature(futurecast)
+            and futurecast_gate["valid"] is True
+            and bool(futurecast_gate["released_horizons_hours"])
         ),
         "six_meter_mechanism_release_evidence_passed": bool(
             six_meter.get("release_approved") is True
@@ -422,7 +549,17 @@ def evaluate_release_readiness(
         },
         "futurecast": {
             "status": "release_candidate" if futurecast_ready else "withheld",
-            "horizons_hours": [3, 6, 12, 24],
+            "horizons_hours": list(FUTURECAST_HORIZONS),
+            "released_horizons_hours": (
+                futurecast_gate["released_horizons_hours"]
+                if futurecast_ready
+                else []
+            ),
+            "withheld_horizons_hours": (
+                futurecast_gate["withheld_horizons_hours"]
+                if futurecast_ready
+                else list(FUTURECAST_HORIZONS)
+            ),
             "blockers": [] if futurecast_ready else [
                 "futurecast_90_day_horizon_evidence_passed"
             ],
@@ -466,12 +603,28 @@ def evaluate_release_readiness(
     }
 
 
-def runtime_eligibility_document(evaluation: dict[str, Any]) -> dict[str, Any]:
+def runtime_eligibility_document(
+    evaluation: dict[str, Any],
+    *,
+    source_readiness_sha256: str,
+) -> dict[str, Any]:
+    if not valid_sha256(source_readiness_sha256):
+        raise RuntimeError("runtime eligibility requires a readiness checksum")
     decisions = evaluation["mode_decisions"]
+    futurecast_horizons = decisions["futurecast"].get(
+        "released_horizons_hours", []
+    )
+    if (
+        decisions["futurecast"]["status"] != "release_candidate"
+        or not futurecast_horizons
+    ):
+        futurecast_horizons = []
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "scope": "phase6_runtime_eligibility",
         "locked_prospective_outcomes_read": False,
+        "source_readiness_sha256": source_readiness_sha256,
+        "futurecast_horizons_hours": futurecast_horizons,
         "modes": {
             "system_health_view": (
                 decisions["system_health_view"]["status"]
@@ -515,6 +668,9 @@ def main() -> None:
         evidence,
         protocol_preregistered=BETA_PROTOCOL.is_file(),
         as_of=now,
+        futurecast_readiness_sha256=(
+            provenance.get("futurecast", {}).get("sha256")
+        ),
     )
     protocol_provenance = {
         "path": BETA_PROTOCOL.relative_to(ROOT).as_posix(),
@@ -544,7 +700,14 @@ def main() -> None:
         **evaluation,
     }
     atomic_write(args.output, result)
-    atomic_write(DEFAULT_RUNTIME_ELIGIBILITY, runtime_eligibility_document(evaluation))
+    readiness_sha256 = hashlib.sha256(args.output.read_bytes()).hexdigest()
+    atomic_write(
+        DEFAULT_RUNTIME_ELIGIBILITY,
+        runtime_eligibility_document(
+            evaluation,
+            source_readiness_sha256=readiness_sha256,
+        ),
+    )
     print(json.dumps(result, indent=2))
     if args.require_release and not result["supported_scope_release_ready"]:
         raise SystemExit("Phase 6 supported release scope is not ready")

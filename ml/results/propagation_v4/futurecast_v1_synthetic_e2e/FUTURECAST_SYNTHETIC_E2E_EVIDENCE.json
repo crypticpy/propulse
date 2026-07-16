@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T18:46:57.365226+00:00",
+  "generated_at": "2026-07-16T19:25:40.684411+00:00",
   "scope": "futurecast_v1_synthetic_e2e_evidence",
   "data_scope": "synthetic_fixture",
   "decision": "engineering_pipeline_validated_release_withheld",
   "release_approved": false,
   "inputs": {
     "config_sha256": "c26dcae90862e5008006888dbfa77a3cf5ca59192b807c0955acdd006764eea4",
-    "source_manifest_sha256": "64e18d83d35aaec63d5b2ec5c4131e111c41d4b5423cb20943ad67271c00cbbd",
-    "example_manifest_sha256": "be52bc1d083780bf7233a1ad50f9d5acad45f0b37ebeb66a5c069ea52db48e06",
-    "training_manifest_sha256": "3be7e76276bee3b6d565e22950903cda3c26413ff0b2855f23d4925ccd4aba8c",
-    "p533_manifest_sha256": "285b90c8a8fda5056cc8eb95010476b1b21a06934c12ab413351d4e3f4d6ffbb",
-    "gate_result_sha256": "398d646c74cae9092188df41508b4649987a1459f269098b796b54faa263975d"
+    "source_manifest_sha256": "e908e479821daaf1aa9c03eb4ee2980d15be3eaed8578ac9782a68ac3597c405",
+    "example_manifest_sha256": "97a08259cf3190d7d4e1f2722500223070a7f5d6e75836cb80750718fabcae30",
+    "training_manifest_sha256": "f4a561d484f26f8f6802e19197558808d947798ae76cd379491c16440b9c4a10",
+    "p533_manifest_sha256": "1a52560535ee56d6dbd5bb836e397710438d2a72a159383cc9c6f6cb7225b1c6",
+    "gate_result_sha256": "8918cae38a549560a2c5926058a36442c569daf61493122d1fbb90cc7903c580"
   },
   "definitions": {
     "label": "successes / opportunities for one identity-free path, band, and valid hour",
@@ -34,16 +34,16 @@
       {
         "issued_days": 90,
         "example_partitions": 360,
-        "example_rows": 14400,
-        "example_opportunities": 1440000.0,
+        "example_rows": 720000,
+        "example_opportunities": 72000000.0,
         "models_frozen": 8,
         "xgboost_threads": 18,
-        "combined_peak_rss_gib": 0.560333251953125,
-        "p533_sample_rows": 4800,
-        "p533_unique_circuits": 4000,
+        "combined_peak_rss_gib": 1.0823974609375,
+        "p533_sample_rows": 60000,
+        "p533_unique_circuits": 56450,
         "p533_workers": 18,
-        "p533_wall_seconds": 23.19854199999827,
-        "gates_passed": 16,
+        "p533_wall_seconds": 206.7996813750069,
+        "gates_passed": 20,
         "gates_total": 40,
         "released_horizons": 0,
         "total_horizons": 4,
@@ -55,14 +55,14 @@
         "horizon_hours": 3,
         "status": "withheld",
         "best_baseline": "Weather-only model",
-        "direct_brier": 0.0014307077418262864,
-        "best_baseline_brier": 0.0007384285018142673,
-        "relative_brier_improvement": -0.937503412058361,
-        "paired_upper_95": 0.0008600560144712016,
-        "direct_ece": 0.032263998742149726,
-        "best_baseline_ece": 0.014279400562758135,
-        "gate_opportunities": 60000.0,
-        "gates_passed": 4,
+        "direct_brier": 0.0008206964796489428,
+        "best_baseline_brier": 0.0004035398967614895,
+        "relative_brier_improvement": -1.0337430976100288,
+        "paired_upper_95": 0.0005233882527277014,
+        "direct_ece": 0.026064769694939136,
+        "best_baseline_ece": 0.00950663964917452,
+        "gate_opportunities": 3000000.0,
+        "gates_passed": 5,
         "gates_total": 10,
         "released": false
       },
@@ -70,14 +70,14 @@
         "horizon_hours": 6,
         "status": "withheld",
         "best_baseline": "Weather-only model",
-        "direct_brier": 0.0016258823497652627,
-        "best_baseline_brier": 0.0011012121067732845,
-        "relative_brier_improvement": -0.4764479429211328,
-        "paired_upper_95": 0.0007483172764963176,
-        "direct_ece": 0.03308797306016533,
-        "best_baseline_ece": 0.016102526889582393,
-        "gate_opportunities": 60000.0,
-        "gates_passed": 4,
+        "direct_brier": 0.0009301927390996808,
+        "best_baseline_brier": 0.00029839640313377526,
+        "relative_brier_improvement": -2.1173054679303975,
+        "paired_upper_95": 0.0007366439174957871,
+        "direct_ece": 0.027467046970075033,
+        "best_baseline_ece": 0.00807460637100205,
+        "gate_opportunities": 3000000.0,
+        "gates_passed": 5,
         "gates_total": 10,
         "released": false
       },
@@ -85,29 +85,29 @@
         "horizon_hours": 12,
         "status": "withheld",
         "best_baseline": "Weather-only model",
-        "direct_brier": 0.00061094799070233,
-        "best_baseline_brier": 0.00048679624305133373,
-        "relative_brier_improvement": -0.25503842608313687,
-        "paired_upper_95": 0.00017151864034353255,
-        "direct_ece": 0.017377245136682328,
-        "best_baseline_ece": 0.009921754230876061,
-        "gate_opportunities": 60000.0,
-        "gates_passed": 4,
+        "direct_brier": 0.0008984608267391891,
+        "best_baseline_brier": 0.00045208212427334446,
+        "relative_brier_improvement": -0.9873841023538206,
+        "paired_upper_95": 0.0005466694788682263,
+        "direct_ece": 0.02667866277871826,
+        "best_baseline_ece": 0.00912560550844337,
+        "gate_opportunities": 3000000.0,
+        "gates_passed": 5,
         "gates_total": 10,
         "released": false
       },
       {
         "horizon_hours": 24,
         "status": "withheld",
-        "best_baseline": "Path persistence",
-        "direct_brier": 0.003613494461598515,
-        "best_baseline_brier": 0.0006499999999999998,
-        "relative_brier_improvement": -4.559222248613103,
-        "paired_upper_95": 0.003525098253029988,
-        "direct_ece": 0.055684512820237245,
-        "best_baseline_ece": 0.015033333333333333,
-        "gate_opportunities": 60000.0,
-        "gates_passed": 4,
+        "best_baseline": "Weather-only model",
+        "direct_brier": 0.0019808127914023245,
+        "best_baseline_brier": 0.0004703846140633838,
+        "relative_brier_improvement": -3.2110492821846677,
+        "paired_upper_95": 0.0016806807672519338,
+        "direct_ece": 0.04124176364859935,
+        "best_baseline_ece": 0.009741526502325284,
+        "gate_opportunities": 3000000.0,
+        "gates_passed": 5,
         "gates_total": 10,
         "released": false
       }
@@ -116,206 +116,206 @@
       {
         "horizon_hours": 3,
         "model": "Direct model",
-        "weighted_brier": 0.0014307077418262864,
-        "weighted_log_loss": 0.5734246028719356,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0008206964796489428,
+        "weighted_log_loss": 0.5236549889504029,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 3,
         "model": "Path persistence",
-        "weighted_brier": 0.008228833333333335,
-        "weighted_log_loss": 0.589911717728417,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0067512399999999995,
+        "weighted_log_loss": 0.5397510412909584,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 3,
         "model": "Band-hour climatology",
-        "weighted_brier": 0.02151516583333333,
-        "weighted_log_loss": 0.621511410558818,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.022657616761805558,
+        "weighted_log_loss": 0.5808348986692027,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 3,
         "model": "Weather-only model",
-        "weighted_brier": 0.0007384285018142673,
-        "weighted_log_loss": 0.5717503161937227,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0004035398967614895,
+        "weighted_log_loss": 0.5226135166762254,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 6,
         "model": "Direct model",
-        "weighted_brier": 0.0016258823497652627,
-        "weighted_log_loss": 0.6010590632325971,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0009301927390996808,
+        "weighted_log_loss": 0.5520324466770904,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 6,
         "model": "Path persistence",
-        "weighted_brier": 0.023895833333333335,
-        "weighted_log_loss": 0.6567880070408297,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.01967114,
+        "weighted_log_loss": 0.6033462290996872,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 6,
         "model": "Band-hour climatology",
-        "weighted_brier": 0.01983154932291667,
-        "weighted_log_loss": 0.6426209310570836,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.022229300233333332,
+        "weighted_log_loss": 0.6049083889318019,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 6,
         "model": "Weather-only model",
-        "weighted_brier": 0.0011012121067732845,
-        "weighted_log_loss": 0.5998679536192708,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.00029839640313377526,
+        "weighted_log_loss": 0.5505732537083257,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 12,
         "model": "Direct model",
-        "weighted_brier": 0.00061094799070233,
-        "weighted_log_loss": 0.571959844446236,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0008984608267391891,
+        "weighted_log_loss": 0.5257004729555279,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 12,
         "model": "Path persistence",
-        "weighted_brier": 0.049953166666666673,
-        "weighted_log_loss": 0.6976466228553122,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.04061801333333335,
+        "weighted_log_loss": 0.6362020966476716,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 12,
         "model": "Band-hour climatology",
-        "weighted_brier": 0.023275757291666664,
-        "weighted_log_loss": 0.6260678547776863,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.02422524406722222,
+        "weighted_log_loss": 0.5862449688540601,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 12,
         "model": "Weather-only model",
-        "weighted_brier": 0.00048679624305133373,
-        "weighted_log_loss": 0.5716326328337905,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.00045208212427334446,
+        "weighted_log_loss": 0.5246112750268704,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 24,
         "model": "Direct model",
-        "weighted_brier": 0.003613494461598515,
-        "weighted_log_loss": 0.5310420423426618,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0019808127914023245,
+        "weighted_log_loss": 0.4751259103731303,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 24,
         "model": "Path persistence",
-        "weighted_brier": 0.0006499999999999998,
-        "weighted_log_loss": 0.5223152376379121,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0005287666666666666,
+        "weighted_log_loss": 0.4706912791807002,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 24,
         "model": "Band-hour climatology",
-        "weighted_brier": 0.01639859140625,
-        "weighted_log_loss": 0.5638292277956801,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.017093839668000002,
+        "weighted_log_loss": 0.5188443342941593,
+        "weighted_opportunities": 3000000.0
       },
       {
         "horizon_hours": 24,
         "model": "Weather-only model",
-        "weighted_brier": 0.0014630695958782482,
-        "weighted_log_loss": 0.5260362497177639,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0004703846140633838,
+        "weighted_log_loss": 0.4712220596295078,
+        "weighted_opportunities": 3000000.0
       }
     ],
     "p533_brier": [
       {
         "horizon_hours": 3,
         "model": "Direct model",
-        "weighted_brier": 0.0014307077418262864,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0008288584477696724,
+        "weighted_opportunities": 750000.0
       },
       {
         "horizon_hours": 3,
         "model": "Calibrated P.533",
-        "weighted_brier": 0.02645428451706132,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.026631346615095173,
+        "weighted_opportunities": 750000.0
       },
       {
         "horizon_hours": 6,
         "model": "Direct model",
-        "weighted_brier": 0.0016258823497652627,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0009226977968815551,
+        "weighted_opportunities": 750000.0
       },
       {
         "horizon_hours": 6,
         "model": "Calibrated P.533",
-        "weighted_brier": 0.025231958419455126,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.02640730495712818,
+        "weighted_opportunities": 750000.0
       },
       {
         "horizon_hours": 12,
         "model": "Direct model",
-        "weighted_brier": 0.00061094799070233,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.000904195632568103,
+        "weighted_opportunities": 750000.0
       },
       {
         "horizon_hours": 12,
         "model": "Calibrated P.533",
-        "weighted_brier": 0.02373009008582283,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.025764456365115863,
+        "weighted_opportunities": 750000.0
       },
       {
         "horizon_hours": 24,
         "model": "Direct model",
-        "weighted_brier": 0.003613494461598515,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.0019846223962976823,
+        "weighted_opportunities": 750000.0
       },
       {
         "horizon_hours": 24,
         "model": "Calibrated P.533",
-        "weighted_brier": 0.02645395316804407,
-        "weighted_opportunities": 60000.0
+        "weighted_brier": 0.02475762008906437,
+        "weighted_opportunities": 750000.0
       }
     ],
     "calibration": [
       {
         "horizon_hours": 3,
         "model": "Direct model",
-        "ece": 0.032263998742149726
+        "ece": 0.026064769694939136
       },
       {
         "horizon_hours": 3,
         "model": "Best: Weather-only model",
-        "ece": 0.014279400562758135
+        "ece": 0.00950663964917452
       },
       {
         "horizon_hours": 6,
         "model": "Direct model",
-        "ece": 0.03308797306016533
+        "ece": 0.027467046970075033
       },
       {
         "horizon_hours": 6,
         "model": "Best: Weather-only model",
-        "ece": 0.016102526889582393
+        "ece": 0.00807460637100205
       },
       {
         "horizon_hours": 12,
         "model": "Direct model",
-        "ece": 0.017377245136682328
+        "ece": 0.02667866277871826
       },
       {
         "horizon_hours": 12,
         "model": "Best: Weather-only model",
-        "ece": 0.009921754230876061
+        "ece": 0.00912560550844337
       },
       {
         "horizon_hours": 24,
         "model": "Direct model",
-        "ece": 0.055684512820237245
+        "ece": 0.04124176364859935
       },
       {
         "horizon_hours": 24,
-        "model": "Best: Path persistence",
-        "ece": 0.015033333333333333
+        "model": "Best: Weather-only model",
+        "ece": 0.009741526502325284
       }
     ],
     "model_fits": [
@@ -323,89 +323,89 @@
         "horizon_hours": 3,
         "profile": "Direct",
         "features": 64,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 418,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 651,
         "calibration_method": "isotonic",
-        "wall_seconds": 40.48728045797907,
-        "peak_rss_gib": 0.263885498046875
+        "wall_seconds": 68.16653787498944,
+        "peak_rss_gib": 0.454864501953125
       },
       {
         "horizon_hours": 3,
         "profile": "Weather-only",
         "features": 56,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 374,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 1137,
         "calibration_method": "isotonic",
-        "wall_seconds": 37.595127457985654,
-        "peak_rss_gib": 0.2605743408203125
+        "wall_seconds": 123.24682162498357,
+        "peak_rss_gib": 0.54119873046875
       },
       {
         "horizon_hours": 6,
         "profile": "Direct",
         "features": 64,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 456,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 1072,
         "calibration_method": "isotonic",
-        "wall_seconds": 42.23372429201845,
-        "peak_rss_gib": 0.26702880859375
+        "wall_seconds": 139.51982820799458,
+        "peak_rss_gib": 0.50823974609375
       },
       {
         "horizon_hours": 6,
         "profile": "Weather-only",
         "features": 56,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 569,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 1115,
         "calibration_method": "isotonic",
-        "wall_seconds": 50.97042450000299,
-        "peak_rss_gib": 0.2801666259765625
+        "wall_seconds": 147.73352329200134,
+        "peak_rss_gib": 0.5324249267578125
       },
       {
         "horizon_hours": 12,
         "profile": "Direct",
         "features": 64,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 337,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 643,
         "calibration_method": "isotonic",
-        "wall_seconds": 31.439774791011587,
-        "peak_rss_gib": 0.2604522705078125
+        "wall_seconds": 91.82157633299357,
+        "peak_rss_gib": 0.45379638671875
       },
       {
         "horizon_hours": 12,
         "profile": "Weather-only",
         "features": 56,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 423,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 1199,
         "calibration_method": "isotonic",
-        "wall_seconds": 37.745499334007036,
-        "peak_rss_gib": 0.265472412109375
+        "wall_seconds": 125.65069145799498,
+        "peak_rss_gib": 0.5383148193359375
       },
       {
         "horizon_hours": 24,
         "profile": "Direct",
         "features": 64,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 342,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 507,
         "calibration_method": "isotonic",
-        "wall_seconds": 32.426301583996974,
-        "peak_rss_gib": 0.2469635009765625
+        "wall_seconds": 64.06025470898021,
+        "peak_rss_gib": 0.419464111328125
       },
       {
         "horizon_hours": 24,
         "profile": "Weather-only",
         "features": 56,
-        "train_rows": 2400,
-        "early_stopping_rows": 200,
-        "best_iteration": 157,
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "best_iteration": 1178,
         "calibration_method": "isotonic",
-        "wall_seconds": 17.39409508398967,
-        "peak_rss_gib": 0.24761962890625
+        "wall_seconds": 74.49374920799164,
+        "peak_rss_gib": 0.532012939453125
       }
     ],
     "gate_matrix": [
@@ -417,7 +417,7 @@
       {
         "horizon_hours": 3,
         "gate": "minimum gate opportunities",
-        "status": "fail"
+        "status": "pass"
       },
       {
         "horizon_hours": 3,
@@ -467,7 +467,7 @@
       {
         "horizon_hours": 6,
         "gate": "minimum gate opportunities",
-        "status": "fail"
+        "status": "pass"
       },
       {
         "horizon_hours": 6,
@@ -517,7 +517,7 @@
       {
         "horizon_hours": 12,
         "gate": "minimum gate opportunities",
-        "status": "fail"
+        "status": "pass"
       },
       {
         "horizon_hours": 12,
@@ -567,7 +567,7 @@
       {
         "horizon_hours": 24,
         "gate": "minimum gate opportunities",
-        "status": "fail"
+        "status": "pass"
       },
       {
         "horizon_hours": 24,

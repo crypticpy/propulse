@@ -110,6 +110,14 @@ def forecast_value(metric: str, *, day_offset: int, valid_offset: int) -> float:
     raise ValueError(metric)
 
 
+def synthetic_path_effect(path_index: int) -> float:
+    if not 0 <= path_index < len(PATHS):
+        raise ValueError("synthetic path index is outside the frozen fixture")
+    return 0.65 * math.sin(
+        2 * math.pi * (path_index + 0.5) / len(PATHS)
+    )
+
+
 def forecast_rows(start: date, count: int) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for offset in range(count):
@@ -179,7 +187,7 @@ def hourly_rows(
                     -1.4
                     + 0.9 * solar
                     + 0.8 * math.cos((hour - band_index * 1.7) * math.pi / 12)
-                    + 0.18 * path_index
+                    + synthetic_path_effect(path_index)
                     - 0.05 * abs(band_index - 5)
                 )
                 probability = 1.0 / (1.0 + math.exp(-phase))

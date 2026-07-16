@@ -144,6 +144,14 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def valid_sha256(value: object) -> bool:
+    return bool(
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 def aware(value: datetime | str) -> datetime:
     parsed = (
         datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -627,13 +635,19 @@ def validate_source_manifest(
     config_path: Path,
 ) -> tuple[date, date, str]:
     privacy = manifest.get("privacy", {})
+    data_scope = manifest.get("data_scope")
+    readiness_sha256 = manifest.get("readiness_sha256")
     if (
         manifest.get("scope") != "futurecast_v1_private_source_export"
         or manifest.get("decision") != "development_sources_frozen"
         or manifest.get("release_approved") is not False
-        or manifest.get("data_scope")
-        not in {"production_issued_history", "synthetic_fixture"}
+        or data_scope not in {"production_issued_history", "synthetic_fixture"}
         or manifest.get("config_sha256") != sha256(config_path)
+        or (
+            data_scope == "production_issued_history"
+            and not valid_sha256(readiness_sha256)
+        )
+        or (data_scope == "synthetic_fixture" and readiness_sha256 is not None)
         or privacy.get("raw_wspr_observations_read") is not False
         or privacy.get("callsigns_read") is not False
         or privacy.get("station_identity_read") is not False
@@ -778,6 +792,7 @@ def main() -> None:
         "release_approved": False,
         "config_sha256": sha256(args.config),
         "source_manifest_sha256": sha256(source_manifest_path),
+        "readiness_sha256": source_manifest.get("readiness_sha256"),
         "window": {
             "start": start.isoformat(),
             "end": end.isoformat(),

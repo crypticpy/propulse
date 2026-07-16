@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import unittest
@@ -15,6 +16,12 @@ from validate_phase6_release_readiness import runtime_eligibility_document  # no
 
 
 NOW = datetime(2026, 10, 2, tzinfo=timezone.utc)
+def eligibility(source: dict[str, object]) -> dict[str, object]:
+    content = json.dumps(source).encode()
+    return runtime_eligibility_document(
+        source,
+        source_readiness_sha256=hashlib.sha256(content).hexdigest(),
+    )
 
 
 def readiness(core: bool = False, beta: bool = False) -> dict[str, object]:
@@ -46,7 +53,7 @@ class Phase6RuntimeActivationTests(unittest.TestCase):
         content = json.dumps(source).encode()
         result = build_activation_document(
             content,
-            runtime_eligibility_document(source),
+            eligibility(source),
             ["core_nowcast"],
             activated_at=NOW,
         )
@@ -61,14 +68,14 @@ class Phase6RuntimeActivationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "not evidence-eligible"):
             build_activation_document(
                 json.dumps(source).encode(),
-                runtime_eligibility_document(source),
+                eligibility(source),
                 ["core_nowcast"],
                 activated_at=NOW,
             )
 
     def test_stale_eligibility_cannot_be_used(self) -> None:
         source = readiness(core=True)
-        stale = runtime_eligibility_document(source)
+        stale = eligibility(source)
         stale["modes"]["core_nowcast"] = False
         with self.assertRaisesRegex(RuntimeError, "stale"):
             build_activation_document(
@@ -82,7 +89,7 @@ class Phase6RuntimeActivationTests(unittest.TestCase):
         source = readiness()
         result = build_activation_document(
             json.dumps(source).encode(),
-            runtime_eligibility_document(source),
+            eligibility(source),
             [],
             activated_at=NOW,
         )

@@ -368,7 +368,13 @@ POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
   --profile m5 --examples-root "$FUTURE_ROOT/examples" \
   --training-manifest "$FUTURE_ROOT/models/TRAINING_MANIFEST.json" \
   --p533-manifest "$FUTURE_ROOT/p533/P533_MANIFEST.json" \
-  --output "$FUTURE_ROOT/FUTURECAST_RELEASE_DECISION.json"
+  --output ml/results/propagation_v4/futurecast_release_decision.json
+
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_phase6_release_readiness.py --profile m5
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/manage_phase6_runtime_activation.py \
+  --profile m5 --disable-all
 ```
 
 The source exporter uses a read-only named server cursor with 100,000-row
@@ -378,6 +384,18 @@ two fresh macOS spawn children with nine XGBoost threads each and one task per
 child; each fit is capped at 48 GiB and the conservative combined bound is 96
 GiB. Scoring iterates 250,000-row Parquet batches. Do not recursively feed a
 prediction into a later horizon.
+
+The production scorer is mechanically restricted to the canonical
+repository-safe aggregate decision above; synthetic output is mechanically
+restricted outside the repository. Phase 6 validates the scorer/config hash
+chain and exact horizon partition, then makes only the individually passing
+horizons runtime-eligible. A failed horizon stays withheld even when another
+horizon passes. Runtime eligibility schema V2 carries that exact horizon list
+and the SHA-256 of the complete readiness decision. Regenerating readiness
+therefore invalidates any older product approval. Keep the runtime disabled as
+shown until the aggregate decision has been reviewed; an explicit later
+`--approve-mode futurecast` records the product decision without broadening the
+eligible horizon list.
 
 The M5 synthetic proof is reproducible with the same executables and explicit
 synthetic acknowledgements. It can never pass the production-evidence gate:
@@ -411,6 +429,17 @@ POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
   --p533-manifest "$SYNTH_ROOT/p533/P533_MANIFEST.json" \
   --output "$SYNTH_ROOT/FUTURECAST_RELEASE_DECISION.json" \
   --allow-synthetic-fixture
+
+ml/.venv/bin/python \
+  ml/src/archive_v4/summarize_futurecast_synthetic_proof.py \
+  --profile m5 --config ml/config/futurecast_v1.json \
+  --source-manifest "$SYNTH_ROOT/sources/SOURCE_EXPORT_MANIFEST.json" \
+  --example-manifest "$SYNTH_ROOT/examples/EXAMPLE_MANIFEST.json" \
+  --training-manifest "$SYNTH_ROOT/models/TRAINING_MANIFEST.json" \
+  --p533-manifest "$SYNTH_ROOT/p533/P533_MANIFEST.json" \
+  --decision "$SYNTH_ROOT/FUTURECAST_RELEASE_DECISION.json" \
+  --output \
+    ml/results/propagation_v4/futurecast_v1_synthetic_proof.json
 
 ml/.venv/bin/python ml/src/archive_v4/run_futurecast_synthetic_report.py \
   --profile m5 \
@@ -831,7 +860,7 @@ Freeze and exercise the private exporter and scorer on the M5 before any real
 outcome flag is enabled:
 
 ```bash
-cd /Users/crypticpy/Projects/propulse
+cd "$HOME/Projects/propulse"
 export POLARS_MAX_THREADS=18
 PRIVATE=/Volumes/Projects/PropulseML/private/stationcast_beta
 umask 077

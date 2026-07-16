@@ -151,13 +151,18 @@ def validate_inputs(values: dict[str, dict[str, Any]]) -> None:
     if release.get("locked_prospective_outcomes_read") is not False:
         raise RuntimeError("Phase 6 decision opened prospective outcomes")
     if (
-        eligibility.get("schema_version") != 1
+        eligibility.get("schema_version") != 2
         or eligibility.get("scope") != "phase6_runtime_eligibility"
         or eligibility.get("locked_prospective_outcomes_read") is not False
+        or eligibility.get("source_readiness_sha256") != sha256(INPUTS["release"])
         or not isinstance(eligibility.get("modes"), dict)
     ):
         raise RuntimeError("runtime eligibility boundary is invalid")
     approved_modes = activation.get("approved_modes")
+    futurecast_horizons = eligibility.get("futurecast_horizons_hours")
+    released_futurecast_horizons = release.get("mode_decisions", {}).get(
+        "futurecast", {}
+    ).get("released_horizons_hours", [])
     runtime_modes = {
         "system_health_view",
         "beta_collection",
@@ -171,9 +176,17 @@ def validate_inputs(values: dict[str, dict[str, Any]]) -> None:
         activation.get("schema_version") != 1
         or activation.get("scope") != "phase6_runtime_activation"
         or activation.get("locked_prospective_outcomes_read") is not False
+        or activation.get("source_readiness_sha256")
+        != eligibility.get("source_readiness_sha256")
         or not isinstance(approved_modes, list)
         or set(eligibility["modes"]) != runtime_modes
         or not all(isinstance(value, bool) for value in eligibility["modes"].values())
+        or not isinstance(futurecast_horizons, list)
+        or any(type(value) is not int for value in futurecast_horizons)
+        or futurecast_horizons != sorted(set(futurecast_horizons))
+        or any(value not in (3, 6, 12, 24) for value in futurecast_horizons)
+        or eligibility["modes"]["futurecast"] is not bool(futurecast_horizons)
+        or futurecast_horizons != released_futurecast_horizons
         or not all(isinstance(mode, str) and mode in runtime_modes for mode in approved_modes)
         or len(set(approved_modes)) != len(approved_modes)
         or any(eligibility["modes"].get(mode) is not True for mode in approved_modes)
@@ -370,9 +383,18 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
     for mode, decision in release["mode_decisions"].items():
         required = required_by_mode[mode]
         remaining = len(decision["blockers"])
+        released_horizons = decision.get("released_horizons_hours", [])
+        eligible_scope = (
+            ", ".join(f"+{int(horizon)}h" for horizon in released_horizons)
+            if mode == "futurecast" and released_horizons
+            else "mode-wide"
+            if decision["status"] == "release_candidate"
+            else "none"
+        )
         mode_rows.append({
             "mode": mode.replace("_", " "),
             "status": decision["status"],
+            "eligible_scope": eligible_scope,
             "passed": required - remaining,
             "required": required,
             "completion": (required - remaining) / required,
@@ -660,6 +682,11 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "columns": [
                 {"field": "mode", "label": "Mode", "type": "text"},
                 {"field": "status", "label": "Decision", "type": "text"},
+                {
+                    "field": "eligible_scope",
+                    "label": "Eligible scope",
+                    "type": "text",
+                },
                 {
                     "field": "completion",
                     "label": "Complete",

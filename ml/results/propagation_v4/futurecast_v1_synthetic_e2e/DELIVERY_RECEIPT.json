@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T18:46:59.339250+00:00",
+  "generated_at": "2026-07-16T19:25:42.799150+00:00",
   "scope": "futurecast_v1_synthetic_report_delivery",
   "data_scope": "synthetic_fixture",
   "release_approved": false,
@@ -48,15 +48,15 @@
       390
     ],
     "timings": {
-      "validateAndPackageMs": 1044.8,
-      "staticChartExtractionMs": 1001.1,
-      "browserRunMs": 864.9,
-      "readerReadyMs": 48.5,
-      "contentChecksMs": 32.1,
+      "validateAndPackageMs": 1114.1,
+      "staticChartExtractionMs": 1061.4,
+      "browserRunMs": 923.9,
+      "readerReadyMs": 51.1,
+      "contentChecksMs": 32,
       "sourceDialogMs": 32,
-      "responsiveChecksMs": 32.1,
-      "verificationMs": 870.7,
-      "totalMs": 1921.1
+      "responsiveChecksMs": 32,
+      "verificationMs": 930.4,
+      "totalMs": 2049.4
     }
   },
   "checks": {

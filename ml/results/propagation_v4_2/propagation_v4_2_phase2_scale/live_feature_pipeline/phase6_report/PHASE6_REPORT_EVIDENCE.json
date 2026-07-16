@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T18:26:56.922226+00:00",
+  "generated_at": "2026-07-16T19:43:02.734282+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,17 +12,17 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "d2d8cc416e8658f115846822cbcf7633b8413540cab87fe5496a41331f5045c1",
-      "bytes": 9410
+      "sha256": "bfd969651c94a497e280475ff5c24348af751ffec6c2bbc7a0669438f7514b8c",
+      "bytes": 9692
     },
     "runtime_eligibility": {
       "path": "ml/config/propagation_v4_2_runtime_eligibility.json",
-      "sha256": "913440eb3c02f7f01236a8271b3bac0b1e24eaef49a846300c26affe15ab7cea",
-      "bytes": 342
+      "sha256": "fe22d83614bd239d0e03801fa2976c853aa21f65a73c24f64449a1f151108b38",
+      "bytes": 474
     },
     "runtime_activation": {
       "path": "ml/config/propagation_v4_2_runtime_activation.json",
-      "sha256": "2e307a3159c7d152cbd6081af690aad4933d4c1f2752b2daac2428db4b20ef9f",
+      "sha256": "701b5c29d091350c36d941dd5cf3c319a5ecb050521a22dbfc75a5fda68ff27b",
       "bytes": 330
     },
     "beta_rollback": {
@@ -233,6 +233,7 @@
       {
         "mode": "core nowcast",
         "status": "shadow_only",
+        "eligible_scope": "none",
         "passed": 5,
         "required": 12,
         "completion": 0.4166666666666667,
@@ -241,6 +242,7 @@
       {
         "mode": "stationcast deterministic",
         "status": "shadow_only",
+        "eligible_scope": "none",
         "passed": 9,
         "required": 15,
         "completion": 0.6,
@@ -249,6 +251,7 @@
       {
         "mode": "stationcast learned",
         "status": "withheld",
+        "eligible_scope": "none",
         "passed": 0,
         "required": 1,
         "completion": 0.0,
@@ -257,6 +260,7 @@
       {
         "mode": "futurecast",
         "status": "withheld",
+        "eligible_scope": "none",
         "passed": 0,
         "required": 1,
         "completion": 0.0,
@@ -265,6 +269,7 @@
       {
         "mode": "six meter",
         "status": "withheld",
+        "eligible_scope": "none",
         "passed": 0,
         "required": 1,
         "completion": 0.0,
@@ -273,6 +278,7 @@
       {
         "mode": "system health view",
         "status": "hidden",
+        "eligible_scope": "none",
         "passed": 5,
         "required": 10,
         "completion": 0.5,
@@ -585,7 +591,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T18:20:18.123673+00:00",
+    "generated_at": "2026-07-16T19:43:02.236013+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -712,6 +718,11 @@
         "schema_version": 2,
         "decision": null
       },
+      "futurecast_gate": {
+        "path": "ml/results/propagation_v4/futurecast_release_decision.json",
+        "exists": false,
+        "error": "missing"
+      },
       "six_meter": {
         "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_release_decision.json",
         "exists": true,
@@ -791,6 +802,13 @@
       "futurecast": {
         "status": "withheld",
         "horizons_hours": [
+          3,
+          6,
+          12,
+          24
+        ],
+        "released_horizons_hours": [],
+        "withheld_horizons_hours": [
           3,
           6,
           12,

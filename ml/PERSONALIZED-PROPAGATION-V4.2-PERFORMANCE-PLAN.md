@@ -20,24 +20,27 @@
 > materialization, `2 x 9` external-memory XGBoost training, an 18-worker
 > issued-input P.533 diagnostic, streamed one-shot gate scoring, synthetic
 > lineage enforcement, and the visual engineering report all pass on the M5.
-> This is pipeline evidence only; no production horizon has been trained or
-> released. See [`FUTURECAST-V1-PROTOCOL.md`](FUTURECAST-V1-PROTOCOL.md) and the
+> The production gate is restricted to one canonical checksum-linked decision,
+> and Phase 6 now releases only independently passing horizons while failing
+> closed on missing, synthetic, immature, or inconsistent evidence. This is
+> pipeline evidence only; no production horizon has been trained or released.
+> See [`FUTURECAST-V1-PROTOCOL.md`](FUTURECAST-V1-PROTOCOL.md), the compact
+> [proof receipt](results/propagation_v4/futurecast_v1_synthetic_proof.json), and the
 > [synthetic report](results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html).
 > Prospective capture status, 2026-07-16: a native-M5 first-party LaunchAgent
 > now captures PSK Reporter, RBN, DX Cluster, and solar/geomagnetic
 > measurements concurrently. All four operational input paths are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming`: the pipeline has `6.76/24` gap-free hours across
-> 33 receipts, while fresh-weather availability is `30/33` (`90.91%`) against
-> the frozen `95%` gate and the current NOAA magnetic-field/wind observation is
-> stale. The longest weather-stale run is `2/2` allowed samples. Pipeline
-> continuity is preserved while explicit serving fallback is measured; release
-> still requires current weather at decision time.
-> Research-shadow status, 2026-07-16T17:20Z: `14/14` expected WSPR hours are
-> complete with zero gaps (`14/720` duration gate), `3,295,875` observations,
-> and `933,688` feature cells. The latest audited keyset-paginated finalizer used the
-> exact `2 x 9` native-thread profile and completed in 114.61 seconds.
+> receipt remains `warming`: the pipeline has `8.01/24` gap-free hours across
+> 38 receipts. The latest weather is current, but fresh-weather availability is
+> only `34/38` (`89.47%`) against the frozen `95%` gate and the longest stale run
+> is `3/2` allowed samples. Pipeline continuity is preserved while explicit
+> serving fallback is measured; release still requires every weather gate.
+> Research-shadow status, 2026-07-16T19:30Z: `16/16` expected WSPR hours are
+> complete with zero gaps (`16/720` duration gate), `3,763,790` observations,
+> and `1,074,595` feature cells. Finalization continues to use the exact `2 x 9`
+> native-thread profile.
 > Aggregate coverage status, 2026-07-16T17:20Z: a separate read-only PostgreSQL
 > audit is checksum-bound to the signed schedule and excludes the earlier manual
 > validation hour. It covers `14/14` hours, 140 complete band-hours, zero gaps,
@@ -835,23 +838,27 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   diagnostic, partial-horizon release rule, and resource ceilings are
   preregistered. A 90-day synthetic M5 proof caught and fixed duplicate daily
   Parquet joins, multiprocessing worker reuse, local-time P.533 serialization,
-  and non-finite sparse-slice JSON. The corrected run produced 14,400 unique
-  examples, eight frozen models with `2 x 9` threads, 4,800 paired P.533 rows
-  with 18 workers, strict streamed gate output, and a five-chart browser-verified
-  [visual report](results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html).
+  and non-finite sparse-slice JSON. The clean rerun produced 720,000 example
+  rows across 360 daily horizon partitions, eight frozen models with `2 x 9`
+  threads, and a 60,000-row P.533 diagnostic over 56,450 unique circuits with
+  18 workers. Its scientific gate metrics reproduced exactly while runtime and
+  peak-memory measurements were independently refreshed. The compact receipt,
+  strict streamed gate output, and five-chart browser-verified
+  [visual report](results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html)
+  all passed their validation boundaries.
   Synthetic lineage permanently withholds release; genuine training remains
   open until 90 consecutive common issuance days and valid-time outcomes mature.
 - [ ] Pass the first-party prospective capture preflight: both settled
   aggregates and all four operational input paths must remain available, the
   pipeline must remain gap-free for 24 hours, weather availability must reach
   95% with no stale run longer than two samples, and the final sample must be
-  current. The latest receipt is honestly `warming` at `6.76/24` pipeline
-  hours, `30/33` fresh-weather samples, and a current weather failure; the
-  August-September outcomes remain unread.
-- [x] Pass one uninterrupted native-M5 repository verification: V4 `61/61`
-  (including the focused FutureCast `37/37` suite),
-  service `104/104`, V4.1 `37/37`, V4.2 `186/186`, and
-  frontend/API/collector `99/99` tests, plus lint, TypeScript, production
+  current. The latest receipt is honestly `warming` at `8.01/24` pipeline
+  hours, `34/38` fresh-weather samples, a `3/2` stale-run failure, and a current
+  final weather sample; the August-September outcomes remain unread.
+- [x] Pass one uninterrupted native-M5 repository verification: V4 `68/68`
+  (including the focused FutureCast `44/44` suite),
+  service `104/104`, V4.1 `37/37`, V4.2 `189/189`, and
+  frontend/API/collector `100/100` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
   at 1,440 px and 390 px with 34 blocks, five charts, seven metrics, and four

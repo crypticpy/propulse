@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 
@@ -113,6 +113,14 @@ function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+function repositoryRelative(path) {
+  const value = relative(process.cwd(), resolve(path));
+  if (value.startsWith("..") || isAbsolute(value)) {
+    throw new Error("Phase 6 delivery output must remain inside the repository");
+  }
+  return value;
+}
+
 try {
   const result = await deliveryModule.deliverPortableArtifact(
     { inputPath, outputPath },
@@ -122,6 +130,7 @@ try {
   await capturePreview(mobilePreview, 390, 844);
   const receipt = {
     ...result,
+    html: repositoryRelative(result.html),
     files: {
       artifactSha256: sha256(inputPath),
       htmlSha256: sha256(outputPath),

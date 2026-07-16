@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sys
 import unittest
 from datetime import datetime, timezone
@@ -11,6 +12,9 @@ sys.path.insert(0, str(MODULE))
 
 from validate_phase6_release_readiness import (  # noqa: E402
     EVIDENCE_PATHS,
+    FUTURECAST_CONFIG,
+    FUTURECAST_HORIZONS,
+    FUTURECAST_SCORER,
     evaluate_release_readiness,
     load_evidence,
     runtime_eligibility_document,
@@ -173,6 +177,7 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
             "issued_forecast_training_ready": False,
             "release_approved": False,
         },
+        "futurecast_gate": None,
         "six_meter": {
             "decision": "withheld",
             "release_approved": False,
@@ -181,7 +186,160 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
     }
 
 
+def futurecast_gate_document(
+    released: tuple[int, ...],
+    *,
+    data_scope: str = "production_issued_history",
+) -> dict[str, object]:
+    released_values = sorted(released)
+    withheld_values = sorted(set(FUTURECAST_HORIZONS) - set(released_values))
+    return {
+        "schema_version": 1,
+        "scope": "futurecast_v1_locked_gate",
+        "data_scope": data_scope,
+        "decision": (
+            "release_candidate"
+            if len(released_values) == len(FUTURECAST_HORIZONS)
+            else "partial_release_candidate"
+            if released_values
+            else "withheld"
+        ),
+        "release_approved": bool(released_values),
+        "released_horizons_hours": released_values,
+        "withheld_horizons_hours": withheld_values,
+        "config_sha256": hashlib.sha256(FUTURECAST_CONFIG.read_bytes()).hexdigest(),
+        "scorer_sha256": hashlib.sha256(FUTURECAST_SCORER.read_bytes()).hexdigest(),
+        "readiness_sha256": "d" * 64,
+        "example_manifest_sha256": "a" * 64,
+        "training_manifest_sha256": "b" * 64,
+        "p533_manifest_sha256": "c" * 64,
+        "gate_scored_once": True,
+        "post_gate_tuning_permitted": False,
+        "observed_weather_substituted": False,
+        "locked_core_policy_changed": False,
+        "horizons": {
+            str(horizon): {
+                "status": "pass" if horizon in released_values else "withheld",
+                "release_approved": horizon in released_values,
+                "horizon_hours": horizon,
+                "issue_days": 15,
+                "gates": {
+                    "production_issued_evidence": horizon in released_values,
+                    "skill_and_integrity": horizon in released_values,
+                },
+            }
+            for horizon in FUTURECAST_HORIZONS
+        },
+    }
+
+
 class Phase6ReleaseReadinessTests(unittest.TestCase):
+    def test_futurecast_partial_horizon_release_is_mode_eligible(self) -> None:
+        evidence = release_evidence()
+        evidence["futurecast"] = {
+            "issued_forecast_training_ready": True,
+            "release_approved": False,
+            "horizons": {
+                str(horizon): {"longest_consecutive_common_days": 90}
+                for horizon in FUTURECAST_HORIZONS
+            },
+        }
+        evidence["futurecast_gate"] = futurecast_gate_document((3, 12))
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+            futurecast_readiness_sha256="d" * 64,
+        )
+
+        self.assertTrue(
+            result["gates"]["futurecast_90_day_horizon_evidence_passed"]
+        )
+        decision = result["mode_decisions"]["futurecast"]
+        self.assertEqual(decision["status"], "release_candidate")
+        self.assertEqual(decision["released_horizons_hours"], [3, 12])
+        self.assertEqual(decision["withheld_horizons_hours"], [6, 24])
+        runtime = runtime_eligibility_document(
+            result,
+            source_readiness_sha256="a" * 64,
+        )
+        self.assertTrue(runtime["modes"]["futurecast"])
+        self.assertEqual(runtime["futurecast_horizons_hours"], [3, 12])
+
+    def test_futurecast_rejects_synthetic_or_inconsistent_gate_evidence(self) -> None:
+        for gate in (
+            futurecast_gate_document((3,), data_scope="synthetic_fixture"),
+            futurecast_gate_document((3,)),
+        ):
+            evidence = release_evidence()
+            evidence["futurecast"] = {
+                "issued_forecast_training_ready": True,
+                "horizons": {
+                    str(horizon): {"longest_consecutive_common_days": 90}
+                    for horizon in FUTURECAST_HORIZONS
+                },
+            }
+            evidence["futurecast_gate"] = gate
+            if gate["data_scope"] == "production_issued_history":
+                gate["withheld_horizons_hours"] = [6, 12]
+            result = evaluate_release_readiness(
+                evidence,
+                protocol_preregistered=True,
+                as_of=AFTER_WINDOW,
+                futurecast_readiness_sha256="d" * 64,
+            )
+            self.assertFalse(
+                result["gates"]["futurecast_90_day_horizon_evidence_passed"]
+            )
+            self.assertEqual(
+                result["mode_decisions"]["futurecast"]["status"], "withheld"
+            )
+
+        evidence = release_evidence()
+        evidence["futurecast"] = {
+            "issued_forecast_training_ready": True,
+            "horizons": {
+                str(horizon): {"longest_consecutive_common_days": 90}
+                for horizon in FUTURECAST_HORIZONS
+            },
+        }
+        evidence["futurecast_gate"] = futurecast_gate_document((3,))
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+            futurecast_readiness_sha256="e" * 64,
+        )
+        self.assertFalse(
+            result["gates"]["futurecast_90_day_horizon_evidence_passed"]
+        )
+
+    def test_futurecast_withholds_every_horizon_until_history_is_mature(self) -> None:
+        evidence = release_evidence()
+        evidence["futurecast"] = {
+            "issued_forecast_training_ready": False,
+            "horizons": {
+                str(horizon): {"longest_consecutive_common_days": 89}
+                for horizon in FUTURECAST_HORIZONS
+            },
+        }
+        evidence["futurecast_gate"] = futurecast_gate_document((3, 12))
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+            futurecast_readiness_sha256="d" * 64,
+        )
+
+        decision = result["mode_decisions"]["futurecast"]
+        self.assertEqual(decision["released_horizons_hours"], [])
+        self.assertEqual(
+            decision["withheld_horizons_hours"],
+            list(FUTURECAST_HORIZONS),
+        )
+
     def test_missing_evidence_fails_closed_without_invalidating_withholding(self) -> None:
         result = evaluate_release_readiness(
             {},
@@ -244,8 +402,14 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
             as_of=AFTER_WINDOW,
         )
 
-        runtime = runtime_eligibility_document(evaluation)
+        runtime = runtime_eligibility_document(
+            evaluation,
+            source_readiness_sha256="a" * 64,
+        )
         self.assertEqual(runtime["scope"], "phase6_runtime_eligibility")
+        self.assertEqual(runtime["schema_version"], 2)
+        self.assertEqual(runtime["source_readiness_sha256"], "a" * 64)
+        self.assertEqual(runtime["futurecast_horizons_hours"], [])
         self.assertFalse(runtime["locked_prospective_outcomes_read"])
         self.assertTrue(runtime["modes"]["system_health_view"])
         self.assertTrue(runtime["modes"]["beta_collection"])

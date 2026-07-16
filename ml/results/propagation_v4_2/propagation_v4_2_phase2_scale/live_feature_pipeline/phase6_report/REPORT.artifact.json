@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: model and Phase 6 readiness report",
     "description": "Technical model result, release evidence, blockers, and ordered next steps.",
-    "generatedAt": "2026-07-16T18:26:56.922226+00:00",
+    "generatedAt": "2026-07-16T19:43:02.734282+00:00",
     "blocks": [
       {
         "id": "title",
@@ -403,6 +403,11 @@
             "type": "text"
           },
           {
+            "field": "eligible_scope",
+            "label": "Eligible scope",
+            "type": "text"
+          },
+          {
             "field": "completion",
             "label": "Complete",
             "type": "number",
@@ -531,7 +536,7 @@
   "snapshot": {
     "version": 1,
     "status": "ready",
-    "generatedAt": "2026-07-16T18:26:56.922226+00:00",
+    "generatedAt": "2026-07-16T19:43:02.734282+00:00",
     "datasets": {
       "summary": [
         {
@@ -694,6 +699,7 @@
         {
           "mode": "core nowcast",
           "status": "shadow_only",
+          "eligible_scope": "none",
           "passed": 5,
           "required": 12,
           "completion": 0.4166666666666667,
@@ -702,6 +708,7 @@
         {
           "mode": "stationcast deterministic",
           "status": "shadow_only",
+          "eligible_scope": "none",
           "passed": 9,
           "required": 15,
           "completion": 0.6,
@@ -710,6 +717,7 @@
         {
           "mode": "stationcast learned",
           "status": "withheld",
+          "eligible_scope": "none",
           "passed": 0,
           "required": 1,
           "completion": 0.0,
@@ -718,6 +726,7 @@
         {
           "mode": "futurecast",
           "status": "withheld",
+          "eligible_scope": "none",
           "passed": 0,
           "required": 1,
           "completion": 0.0,
@@ -726,6 +735,7 @@
         {
           "mode": "six meter",
           "status": "withheld",
+          "eligible_scope": "none",
           "passed": 0,
           "required": 1,
           "completion": 0.0,
@@ -734,6 +744,7 @@
         {
           "mode": "system health view",
           "status": "hidden",
+          "eligible_scope": "none",
           "passed": 5,
           "required": 10,
           "completion": 0.5,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { runtimeModeIsActivated } from "./runtimeActivation";
+import {
+  runtimeFutureCastHorizonIsActivated,
+  runtimeModeIsActivated,
+} from "./runtimeActivation";
+
+const readinessSha256 = "a".repeat(64);
 
 const activation = {
   schema_version: 1,
@@ -8,12 +13,15 @@ const activation = {
   product_activation_recorded: true,
   approved_modes: ["core_nowcast"],
   locked_prospective_outcomes_read: false,
+  source_readiness_sha256: readinessSha256,
 };
 
 const eligibility = {
-  schema_version: 1,
+  schema_version: 2,
   scope: "phase6_runtime_eligibility",
   locked_prospective_outcomes_read: false,
+  source_readiness_sha256: readinessSha256,
+  futurecast_horizons_hours: [],
   modes: {
     system_health_view: false,
     beta_collection: false,
@@ -55,6 +63,36 @@ describe("runtimeModeIsActivated", () => {
     expect(runtimeModeIsActivated("core_nowcast", activation, {
       ...eligibility,
       modes: { core_nowcast: true },
+    })).toBe(false);
+    expect(runtimeModeIsActivated("core_nowcast", activation, {
+      ...eligibility,
+      source_readiness_sha256: "b".repeat(64),
+    })).toBe(false);
+  });
+
+  it("activates only independently eligible FutureCast horizons", () => {
+    const futurecastActivation = {
+      ...activation,
+      approved_modes: ["futurecast"],
+    };
+    const partialEligibility = {
+      ...eligibility,
+      futurecast_horizons_hours: [3, 12],
+      modes: { ...eligibility.modes, futurecast: true },
+    };
+    expect(runtimeFutureCastHorizonIsActivated(
+      3,
+      futurecastActivation,
+      partialEligibility,
+    )).toBe(true);
+    expect(runtimeFutureCastHorizonIsActivated(
+      6,
+      futurecastActivation,
+      partialEligibility,
+    )).toBe(false);
+    expect(runtimeModeIsActivated("futurecast", futurecastActivation, {
+      ...partialEligibility,
+      futurecast_horizons_hours: [12, 3],
     })).toBe(false);
   });
 });

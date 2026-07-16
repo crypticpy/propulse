@@ -45,6 +45,14 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def valid_sha256(value: object) -> bool:
+    return bool(
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 def atomic_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + f".tmp-{os.getpid()}")
@@ -180,13 +188,19 @@ def validate_examples(
     config = json.loads(config_path.read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     privacy = manifest.get("privacy", {})
+    data_scope = manifest.get("data_scope")
+    readiness_sha256 = manifest.get("readiness_sha256")
     if (
         manifest.get("scope") != "futurecast_v1_direct_horizon_examples"
-        or manifest.get("data_scope")
-        not in {"production_issued_history", "synthetic_fixture"}
+        or data_scope not in {"production_issued_history", "synthetic_fixture"}
         or manifest.get("decision") != "development_examples_frozen"
         or manifest.get("release_approved") is not False
         or manifest.get("config_sha256") != sha256(config_path)
+        or (
+            data_scope == "production_issued_history"
+            and not valid_sha256(readiness_sha256)
+        )
+        or (data_scope == "synthetic_fixture" and readiness_sha256 is not None)
         or manifest.get("model_identifier_columns") != []
         or privacy.get("raw_wspr_observations_read") is not False
         or privacy.get("station_identity_read") is not False
@@ -207,7 +221,13 @@ def validate_examples(
         if str(path) in seen or sha256(path) != row.get("sha256"):
             raise RuntimeError("FutureCast example checksum mismatch")
         seen.add(str(path))
-        if not row.get("gates") or not all(row["gates"].values()):
+        gates = row.get("gates")
+        if (
+            not isinstance(gates, dict)
+            or not gates
+            or any(type(value) is not bool for value in gates.values())
+            or not all(gates.values())
+        ):
             raise RuntimeError("FutureCast example leakage gate failed")
     for horizon in config["horizons_hours"]:
         for split, days in config["split_days"].items():
@@ -569,6 +589,7 @@ def main() -> None:
         "example_manifest_sha256": sha256(
             args.examples_root / "EXAMPLE_MANIFEST.json"
         ),
+        "readiness_sha256": manifest.get("readiness_sha256"),
         "runtime": runtime,
         "arrow": arrow,
         "parallelism": {

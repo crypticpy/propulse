@@ -12,14 +12,17 @@ MODULE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE))
 
 from build_futurecast_examples import (  # noqa: E402
+    DEFAULT_CONFIG,
     HF_BANDS,
     build_example_frame,
     derive_legal_issues,
     leakage_audit,
     model_feature_columns,
     scheduled_issue_time,
+    sha256,
     source_partition_paths,
     split_for_issue,
+    validate_source_manifest,
 )
 from futurecast_examples import FEATURES  # noqa: E402
 
@@ -106,6 +109,50 @@ def aggregate_sources(*, future_history: bool = False) -> tuple[pl.DataFrame, pl
 
 
 class BuildFutureCastExamplesTests(unittest.TestCase):
+    def source_manifest(self, data_scope: str) -> dict[str, object]:
+        return {
+            "scope": "futurecast_v1_private_source_export",
+            "decision": "development_sources_frozen",
+            "release_approved": False,
+            "data_scope": data_scope,
+            "readiness_sha256": (
+                "f" * 64 if data_scope == "production_issued_history" else None
+            ),
+            "config_sha256": sha256(DEFAULT_CONFIG),
+            "privacy": {
+                "raw_wspr_observations_read": False,
+                "callsigns_read": False,
+                "station_identity_read": False,
+                "equipment_read": False,
+                "beta_outcomes_read": False,
+                "core_prospective_outcomes_read": False,
+                "repository_artifact_written": False,
+            },
+            "execution": {"files": []},
+            "window": {"start": "2026-01-01", "end": "2026-03-31"},
+        }
+
+    def test_production_source_manifest_requires_readiness_checksum(self) -> None:
+        manifest = self.source_manifest("production_issued_history")
+        start, end, scope = validate_source_manifest(
+            Path("/tmp"), manifest, DEFAULT_CONFIG
+        )
+        self.assertEqual((start, end, scope), (
+            date(2026, 1, 1),
+            date(2026, 3, 31),
+            "production_issued_history",
+        ))
+        manifest["readiness_sha256"] = None
+        with self.assertRaisesRegex(RuntimeError, "manifest is invalid"):
+            validate_source_manifest(Path("/tmp"), manifest, DEFAULT_CONFIG)
+
+    def test_synthetic_source_manifest_forbids_readiness_checksum(self) -> None:
+        manifest = self.source_manifest("synthetic_fixture")
+        validate_source_manifest(Path("/tmp"), manifest, DEFAULT_CONFIG)
+        manifest["readiness_sha256"] = "f" * 64
+        with self.assertRaisesRegex(RuntimeError, "manifest is invalid"):
+            validate_source_manifest(Path("/tmp"), manifest, DEFAULT_CONFIG)
+
     def test_issue_time_is_first_configured_boundary_after_availability(self) -> None:
         self.assertEqual(
             scheduled_issue_time("2026-07-16T11:58:00+00:00", 30),

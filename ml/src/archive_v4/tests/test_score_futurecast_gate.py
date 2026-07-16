@@ -11,7 +11,12 @@ import numpy as np
 MODULE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE))
 
-from score_futurecast_gate import bootstrap_upper, release_gates  # noqa: E402
+from score_futurecast_gate import (  # noqa: E402
+    PRODUCTION_RELEASE_OUTPUT,
+    bootstrap_upper,
+    release_gates,
+    validate_release_output_boundary,
+)
 
 
 CONFIG = json.loads(
@@ -31,6 +36,22 @@ def metrics(brier: float, ece: float = 0.01) -> dict[str, float]:
 
 
 class ScoreFutureCastGateTests(unittest.TestCase):
+    def test_release_output_boundary_separates_production_and_synthetic(self) -> None:
+        validate_release_output_boundary(
+            "production_issued_history", PRODUCTION_RELEASE_OUTPUT
+        )
+        with self.assertRaisesRegex(RuntimeError, "canonical"):
+            validate_release_output_boundary(
+                "production_issued_history", Path("/tmp/futurecast.json")
+            )
+        validate_release_output_boundary(
+            "synthetic_fixture", Path("/tmp/futurecast-synthetic.json")
+        )
+        with self.assertRaisesRegex(RuntimeError, "outside the repository"):
+            validate_release_output_boundary(
+                "synthetic_fixture", PRODUCTION_RELEASE_OUTPUT
+            )
+
     def test_paired_issue_day_bootstrap_is_deterministic(self) -> None:
         deltas = [-0.01] * 14 + [-0.005]
         weights = [1.0] * len(deltas)

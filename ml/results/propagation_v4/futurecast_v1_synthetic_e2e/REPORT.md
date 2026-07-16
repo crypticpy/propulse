@@ -11,10 +11,10 @@ best frozen full-gate baselines.
 ## Execution
 
 - XGBoost: 18 native threads, two fresh spawn workers.
-- Conservative combined peak RSS: 0.560 GiB.
-- P.533: 4,800 paired rows, 4,000
+- Conservative combined peak RSS: 1.082 GiB.
+- P.533: 60,000 paired rows, 56,450
   unique circuits, 18 workers.
-- Release gates: 16/40 passed across four horizons.
+- Release gates: 20/40 passed across four horizons.
 
 The interactive `REPORT.html` is the primary visual report. This Markdown file is its
 compact semantic companion. Synthetic results establish pipeline behavior only, not

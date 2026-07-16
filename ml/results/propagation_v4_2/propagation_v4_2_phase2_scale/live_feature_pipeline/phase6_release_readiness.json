@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T18:20:18.123673+00:00",
+  "generated_at": "2026-07-16T19:43:02.236013+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -127,6 +127,11 @@
       "schema_version": 2,
       "decision": null
     },
+    "futurecast_gate": {
+      "path": "ml/results/propagation_v4/futurecast_release_decision.json",
+      "exists": false,
+      "error": "missing"
+    },
     "six_meter": {
       "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_release_decision.json",
       "exists": true,
@@ -206,6 +211,13 @@
     "futurecast": {
       "status": "withheld",
       "horizons_hours": [
+        3,
+        6,
+        12,
+        24
+      ],
+      "released_horizons_hours": [],
+      "withheld_horizons_hours": [
         3,
         6,
         12,

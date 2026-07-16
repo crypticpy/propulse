@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "html": "/Users/crypticpy/Projects/propulse/ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html",
+  "html": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html",
   "stages": {
     "validation": "passed",
     "package": "passed",
@@ -20,21 +20,21 @@
     390
   ],
   "timings": {
-    "validateAndPackageMs": 961.8,
-    "staticChartExtractionMs": 916.3,
-    "browserRunMs": 782.5,
-    "readerReadyMs": 49.4,
+    "validateAndPackageMs": 1023.9,
+    "staticChartExtractionMs": 976.1,
+    "browserRunMs": 819.2,
+    "readerReadyMs": 49.8,
     "contentChecksMs": 32,
     "sourceDialogMs": 32,
     "responsiveChecksMs": 32,
-    "verificationMs": 788.7,
-    "totalMs": 1755.3
+    "verificationMs": 825.3,
+    "totalMs": 1854.8
   },
   "files": {
-    "artifactSha256": "cd08bad39637b48743869c84a81e7c64ba88c686a8b93b71f494f5b55b11a9d7",
-    "htmlSha256": "a4ce4d42c93d8ea881bbeee29cfaa7f4901ca310a72cc517cd5a8776ee8c3625",
-    "desktopPreviewSha256": "c18941f963b5507f5fe7eafc2794c166fcc35d477a265bec8db11598b2856d76",
-    "mobilePreviewSha256": "ab2b2a777bb3f5e18ae12435d059f4d44626951a5e92d36070a3b30e325c414a"
+    "artifactSha256": "0eb91327f40f19a3925d03aa4b2ce38a0962d2818b2199d95f0908cf670f798a",
+    "htmlSha256": "f2c9f4f3efef1a034bb8cfbc447b020011aed0524e1addd63bfd4ef0184a1d60",
+    "desktopPreviewSha256": "26dccef3a341cec8049bdca902e2b254941a0c884bd25b01b46981a5f6b9594c",
+    "mobilePreviewSha256": "aa7c5cfc6ed4b8c6be965412932ab009be22c933f5ec37aee23e14a304971f52"
   },
   "renderer": {
     "officialPluginBase": "data-analytics/0.2.8-13ceeea1f599",

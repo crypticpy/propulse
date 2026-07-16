@@ -31,6 +31,9 @@ from m5_runtime import validate_m5_runtime  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/futurecast_v1.json"
+PRODUCTION_RELEASE_OUTPUT = (
+    ROOT / "ml/results/propagation_v4/futurecast_release_decision.json"
+)
 RUNTIME_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 JOIN_COLUMNS = (
     "issue_time",
@@ -64,6 +67,22 @@ def atomic_json(path: Path, payload: dict[str, Any]) -> None:
     )
     os.chmod(temporary, 0o600)
     temporary.replace(path)
+
+
+def validate_release_output_boundary(data_scope: str, output: Path) -> None:
+    resolved = output.expanduser().resolve()
+    if data_scope == "production_issued_history":
+        if resolved != PRODUCTION_RELEASE_OUTPUT.resolve():
+            raise RuntimeError(
+                "production FutureCast gate must publish to the canonical "
+                "repository-safe release decision"
+            )
+    elif data_scope == "synthetic_fixture" and resolved.is_relative_to(ROOT):
+        raise RuntimeError(
+            "synthetic FutureCast gate output must remain outside the repository"
+        )
+    elif data_scope not in {"production_issued_history", "synthetic_fixture"}:
+        raise RuntimeError("unsupported FutureCast data scope")
 
 
 def bootstrap_upper(
@@ -160,6 +179,7 @@ def validate_training_manifest(
         or training.get("release_approved") is not False
         or training.get("config_sha256") != sha256(config_path)
         or training.get("example_manifest_sha256") != sha256(example_manifest_path)
+        or training.get("readiness_sha256") != examples.get("readiness_sha256")
         or training.get("gate", {}).get("rows_read") is not False
         or training.get("privacy", {}).get("grid4_model_features") is not False
         or training.get("privacy", {}).get("station_identity_read") is not False
@@ -542,6 +562,7 @@ def main() -> None:
         and not args.allow_synthetic_fixture
     ):
         raise RuntimeError("synthetic FutureCast gate scoring requires explicit acknowledgement")
+    validate_release_output_boundary(examples["data_scope"], args.output)
     if examples["data_scope"] == "production_issued_history" and args.force_development_rerun:
         raise RuntimeError("production FutureCast gate results are immutable")
     if args.output.exists() and (
@@ -604,6 +625,8 @@ def main() -> None:
             set(int(value) for value in config["horizons_hours"]) - set(released)
         ),
         "config_sha256": sha256(args.config),
+        "readiness_sha256": training.get("readiness_sha256"),
+        "scorer_sha256": sha256(Path(__file__).resolve()),
         "example_manifest_sha256": sha256(example_manifest_path),
         "training_manifest_sha256": sha256(args.training_manifest),
         "p533_manifest_sha256": sha256(args.p533_manifest),

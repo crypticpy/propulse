@@ -1688,6 +1688,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"{summary['coverage_expected_hours']} complete all-band hours** with **{summary['coverage_missing_hours']} gaps**, "
                 f"covering **{summary['coverage_feature_cells']:,} identity-free path cells**. The audit window is checksum-bound "
                 "to the signed scheduled-receipt rollup, so the earlier manual validation target cannot advance this clock. "
+                "Database reads are capped at 24-hour chunks and recombined before regional suppression, keeping the eventual "
+                "720-hour audit bounded without changing its global thresholds. "
                 "The band distribution describes what the receiver network observed; "
                 "it is neither a model score nor evidence of uniform geographic sampling."
             ),

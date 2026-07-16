@@ -14,7 +14,9 @@ from analyze_wspr_shadow_coverage import (  # noqa: E402
     DISTANCE_QUERY,
     HOURLY_QUERY,
     REGION_QUERY,
+    aggregate_region_chunks,
     build_coverage_receipt,
+    hour_chunks,
     jensen_shannon_divergence,
     scheduled_audit_window,
 )
@@ -101,10 +103,56 @@ def receipt(hours: int, *, late_multiplier: int = 1) -> dict:
             "audited_end": (START + timedelta(hours=hours - 1)).isoformat(),
             "audited_expected_hours": hours,
         },
+        query_chunk_hours=24,
+        query_chunk_count=(hours + 23) // 24,
+        query_max_seconds={"hourly": 0.1},
     )
 
 
 class WsprShadowCoverageTests(unittest.TestCase):
+    def test_hour_chunks_are_gap_free_and_capped(self) -> None:
+        chunks = hour_chunks(START, START + timedelta(hours=54))
+
+        self.assertEqual(len(chunks), 3)
+        self.assertEqual(chunks[0], (START, START + timedelta(hours=23)))
+        self.assertEqual(chunks[-1], (
+            START + timedelta(hours=48),
+            START + timedelta(hours=54),
+        ))
+        self.assertTrue(all(
+            following[0] == current[1] + timedelta(hours=1)
+            for current, following in zip(chunks, chunks[1:])
+        ))
+
+    def test_region_chunks_aggregate_before_suppression_and_cap(self) -> None:
+        rows = []
+        for index in range(14):
+            region = f"A{chr(ord('A') + index)}"
+            rows.extend((
+                {
+                    "dimension": "origin",
+                    "region": region,
+                    "band": "20m",
+                    "feature_cells": 60,
+                    "completed_hours": 3,
+                    "sampled_rows": 600,
+                },
+                {
+                    "dimension": "origin",
+                    "region": region,
+                    "band": "20m",
+                    "feature_cells": 60,
+                    "completed_hours": 3,
+                    "sampled_rows": 600,
+                },
+            ))
+
+        result = aggregate_region_chunks(rows)
+
+        self.assertEqual(len(result), 12)
+        self.assertTrue(all(row["eligible_region_count"] == 14 for row in result))
+        self.assertEqual([row["coverage_rank"] for row in result], list(range(1, 13)))
+
     def test_audit_window_is_bound_to_scheduled_receipt_progress(self) -> None:
         progress = {
             "schema_version": 1,
@@ -197,6 +245,9 @@ class WsprShadowCoverageTests(unittest.TestCase):
                 "audited_end": (START + timedelta(hours=11)).isoformat(),
                 "audited_expected_hours": 12,
             },
+            query_chunk_hours=24,
+            query_chunk_count=1,
+            query_max_seconds={},
         )
         self.assertEqual(result["decision"], "invalid")
         self.assertFalse(result["gates"]["region_output_k_suppressed"])

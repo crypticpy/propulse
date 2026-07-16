@@ -401,6 +401,8 @@ explicitly labeled and does not satisfy the live requirement above.
   coverage in the visual report from a read-only aggregate feature-store audit.
   The current 13-hour artifact is checksum-bound to the signed scheduled
   receipt window, excludes the manual validation hour, is labeled `collecting`,
+  caps each database query at 24 hours before global recombination and
+  suppression,
   and contains no station identity, grid-4 output, equipment, raw observations,
   or locked outcomes.
 - [ ] Complete the 720-hour window and publish the preregistered non-overlapping

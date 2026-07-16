@@ -20,22 +20,23 @@
 > measurements concurrently. All four operational input gates are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming` at `4.75/24` hours across 23 healthy receipts until
+> receipt remains `warming` at `5.25/24` hours across 25 healthy receipts until
 > nonempty aggregates sustain 24 gap-free hours.
-> Research-shadow status, 2026-07-16T16:20Z: `13/13` expected WSPR hours are
+> Research-shadow status, 2026-07-16T16:50Z: `13/13` expected WSPR hours are
 > complete with zero gaps (`13/720` duration gate), `3,088,321` observations,
 > and `867,072` feature cells. The latest audited keyset-paginated finalizer used the
 > exact `2 x 9` native-thread profile and completed in 114.34 seconds.
-> Aggregate coverage status, 2026-07-16T16:35Z: a separate read-only PostgreSQL
+> Aggregate coverage status, 2026-07-16T16:58Z: a separate read-only PostgreSQL
 > audit is checksum-bound to the signed schedule and excludes the earlier manual
 > validation hour. It covers `13/13` hours, 130 complete band-hours, zero gaps,
 > all ten HF bands, 13/24 UTC hour strata, all five distance buckets, and 237
-> k-suppressed broad-region rows. Early/late drift remains unavailable until two
+> k-suppressed broad-region rows. Database work is capped at 24-hour query
+> chunks and recombined before global region suppression. Early/late drift remains unavailable until two
 > non-overlapping seven-day periods exist; the aggregate gate cannot pass before
 > the full 720-hour window.
 > Incident-delivery status: a real `10,227`-second stale heartbeat opened one
 > aggregate-only GitHub issue and a genuine `25`-second heartbeat closed it.
-> A non-destructive literal-outage preflight passed all six M5, fresh-health,
+> A non-destructive literal-outage preflight passed all seven M5, fresh-health,
 > boot, privacy, and immutable-main-workflow gates while recording
 > `outage_armed: false`; the physical shutdown experiment remains open.
 > The public health view remains disabled until a literal M5 power-loss proof
@@ -721,7 +722,9 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   PostgreSQL performs the heavy grouping; no raw observation, callsign,
   equipment, user, or locked-outcome table is read. Coverage is reported by HF
   band, UTC hour, five great-circle distance buckets, and k-suppressed broad
-  Maidenhead fields. The release gate requires 720 hours, at least 99% all-band
+  Maidenhead fields. Each database query is capped at 24 hours; global region
+  eligibility and top-12 caps are applied only after all chunks are recombined.
+  The release gate requires 720 hours, at least 99% all-band
   completion, all 24 UTC strata, two non-overlapping seven-day periods,
   base-2 Jensen-Shannon divergence no greater than 0.20 for band/hour/distance
   distributions, and a late-to-early volume ratio between 0.5 and 2.0.
@@ -795,10 +798,10 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `4.75/24` hours across
-  23 healthy receipts; the August-September outcomes remain unread.
+  the latest preserved receipt is honestly `warming` at `5.25/24` hours across
+  25 healthy receipts; the August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `95/95`, V4.1 `37/37`, V4.2 `177/177`, and
+  service `95/95`, V4.1 `37/37`, V4.2 `180/180`, and
   frontend/API/collector `94/94` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
@@ -976,10 +979,15 @@ The independent coverage audit is checksum-bound to the signed schedule and
 therefore excludes the corrected manual `02:00Z` target. It currently spans
 `13/13` complete hours and 130 band-hours. It queries only
 `wspr_feature_watermarks` and `wspr_path_hourly_features` in a read-only
-transaction. The report exposes band/hour/distance totals and broad-field
-counts only after each region spans at least six hours and 100 feature cells,
-capped to the top 12 fields per band/direction. Current coverage includes all
-ten bands and all five distance buckets but only 13/24 UTC hour strata.
+transaction. Every statement is bounded to at most 24 hours, so the 720-hour
+audit becomes 30 bounded chunks instead of one query whose working set grows
+with the evidence clock. The M5 combines only identity-free chunk aggregates;
+it then exposes band/hour/distance totals and broad-field counts only after each
+region spans at least six hours and 100 feature cells across the complete
+window, capped to the top 12 fields per band/direction. This preserves the
+preregistered privacy semantics across chunk boundaries without loading the
+underlying feature rows into M5 memory. Current coverage includes all ten bands
+and all five distance buckets but only 13/24 UTC hour strata.
 Early/late volume and Jensen-Shannon drift values remain null until two
 non-overlapping seven-day periods exist.
 

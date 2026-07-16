@@ -151,7 +151,23 @@ def aggregate_coverage_drift_passed(
     window = document.get("window")
     privacy = document.get("privacy")
     gates = document.get("gates")
+    execution = document.get("execution")
     provenance = window.get("provenance") if isinstance(window, dict) else None
+    expected_hours = (
+        int(window.get("expected_hours", 0))
+        if isinstance(window, dict)
+        else 0
+    )
+    query_chunk_hours = (
+        int(execution.get("query_chunk_hours", 0))
+        if isinstance(execution, dict)
+        else 0
+    )
+    query_chunk_count = (
+        int(execution.get("query_chunk_count", 0))
+        if isinstance(execution, dict)
+        else 0
+    )
     return bool(
         document.get("schema_version") == 1
         and document.get("scope")
@@ -159,7 +175,7 @@ def aggregate_coverage_drift_passed(
         and document.get("operational_status") == "healthy"
         and document.get("research_only") is True
         and isinstance(window, dict)
-        and int(window.get("expected_hours", 0)) >= 720
+        and expected_hours >= 720
         and int(window.get("completed_hours", 0)) >= 713
         and float(window.get("completion_rate", 0.0)) >= 0.99
         and isinstance(provenance, dict)
@@ -176,10 +192,15 @@ def aggregate_coverage_drift_passed(
         == int(window.get("expected_hours", 0))
         and isinstance(gates, dict)
         and gates.get("window_bound_to_signed_scheduled_receipts") is True
+        and gates.get("database_queries_bounded_to_24_hours") is True
         and gates.get("all_ten_hf_bands_observed") is True
         and gates.get("all_24_utc_hours_observed") is True
         and gates.get("early_late_drift_sample_sufficient") is True
         and gates.get("aggregate_source_distribution_stable") is True
+        and isinstance(execution, dict)
+        and 1 <= query_chunk_hours <= 24
+        and query_chunk_count
+        == (expected_hours + query_chunk_hours - 1) // query_chunk_hours
         and isinstance(privacy, dict)
         and privacy.get("source_tables")
         == [

@@ -85,12 +85,14 @@ schedule, so it excludes the earlier manual validation target. It spans `13/13`
 complete hours and 130 band-hours with zero gaps, all ten HF bands, 13/24 UTC
 hour strata, all five distance buckets, and 237 broad regional rows. Output
 requires at least six completed hours and 100 feature cells and is capped to 12
-fields per band/direction. Early/late drift remains null until two
+fields per band/direction. Each PostgreSQL statement is bounded to at most 24
+hours; the M5 combines identity-free chunk aggregates before applying the
+full-window suppression and cap. Early/late drift remains null until two
 non-overlapping seven-day periods exist, and the release gate cannot pass
 before 720 hours.
 
-The non-destructive full-outage preflight passed all six gates at
-`2026-07-16T16:34:56Z` and recorded `outage_armed: false`. It verified native
+The non-destructive full-outage preflight passed all seven gates at
+`2026-07-16T16:48:29Z` and recorded `outage_armed: false`. It verified native
 M5 boot metadata, fresh private health, and local monitor bytes matching GitHub
 `main`; it did not shut down the machine or pass the literal-outage release
 gate.
@@ -539,8 +541,12 @@ seconds with the exact two-by-nine profile.
 
 Run the independent aggregate coverage/drift audit after refreshing the signed
 receipt rollup. The analyzer is M5-only, opens a read-only PostgreSQL
-transaction, performs aggregation server-side, and writes only repository-safe
-identity-free evidence:
+transaction, and limits every server-side aggregate query to at most 24 hours.
+It combines only identity-free chunk results on the M5, applies regional
+suppression and caps against the complete audited window, and writes only
+repository-safe identity-free evidence. Queries stay sequential to avoid
+amplifying load on the shared database; the analyzer records both cumulative
+and maximum per-chunk timings:
 
 ```bash
 POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
@@ -552,7 +558,9 @@ The resulting
 the 720-hour span, 99% all-band completion, all UTC strata, and two
 non-overlapping seven-day drift windows pass. Its input window is bound to the
 SHA-256 of `wspr_research_shadow_progress.json`, excluding manual feature-store
-hours; it publishes no grid4, station, equipment, or outcome fields. Re-run
+hours. Each PostgreSQL query is capped at 24 hours, so a complete release audit
+uses 30 bounded chunks and recombines them before global region suppression; it
+publishes no grid4, station, equipment, or outcome fields. Re-run
 `generate_live_feature_report.py`, the portable report builder,
 `validate_phase6_release_readiness.py`, and
 `generate_phase6_readiness_report.py` after each evidence milestone.
@@ -1008,8 +1016,8 @@ respectively, in under four seconds wall time and no stderr. The startup 09:00
 UTC band/path watermarks are causal but contain zero rows because collection
 started later; zero-row startup watermarks therefore did not begin the evidence
 clock. The first nonempty settled hour wrote ten band rows and 2,246 path rows;
-the latest preserved receipt remains `warming` at `4.75/24` gap-free hours
-across 23 healthy receipts.
+the latest preserved receipt remains `warming` at `5.25/24` gap-free hours
+across 25 healthy receipts.
 Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The

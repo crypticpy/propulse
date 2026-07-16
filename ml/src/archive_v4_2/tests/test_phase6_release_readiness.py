@@ -76,10 +76,15 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
             },
             gates={
                 "window_bound_to_signed_scheduled_receipts": True,
+                "database_queries_bounded_to_24_hours": True,
                 "all_ten_hf_bands_observed": True,
                 "all_24_utc_hours_observed": True,
                 "early_late_drift_sample_sufficient": True,
                 "aggregate_source_distribution_stable": True,
+            },
+            execution={
+                "query_chunk_hours": 24,
+                "query_chunk_count": 30,
             },
             privacy={
                 "source_tables": [
@@ -282,6 +287,24 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
         coverage["window"]["provenance"]["audited_start"] = (
             "2026-06-30T23:00:00+00:00"
         )
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+        )
+
+        self.assertFalse(
+            result["gates"]["wspr_aggregate_coverage_and_drift_passed"]
+        )
+
+    def test_coverage_release_requires_bounded_database_queries(self) -> None:
+        evidence = release_evidence()
+        coverage = evidence["wspr_coverage_drift"]
+        assert coverage is not None
+        coverage["gates"]["database_queries_bounded_to_24_hours"] = False
+        coverage["execution"]["query_chunk_hours"] = 720
+        coverage["execution"]["query_chunk_count"] = 1
 
         result = evaluate_release_readiness(
             evidence,

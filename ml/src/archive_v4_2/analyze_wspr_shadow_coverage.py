@@ -58,6 +58,7 @@ MAXIMUM_VOLUME_RATIO = 2.00
 REGION_MINIMUM_HOURS = 6
 REGION_MINIMUM_CELLS = 100
 MAXIMUM_REGION_ROWS_PER_BAND = 12
+MAXIMUM_QUERY_CHUNK_HOURS = 24
 EXPECTED_PROGRESS_GATES = {
     "secret_file_owner_only",
     "all_receipts_and_manifests_valid",
@@ -152,28 +153,9 @@ REGION_QUERY = LATEST_WATERMARK_CTE + """
   FROM feature_rows
   GROUP BY target_field, band
 )
-, ranked_regions AS (
-  SELECT
-    dimension,
-    region,
-    band,
-    feature_cells,
-    completed_hours,
-    sampled_rows,
-    count(*) OVER (PARTITION BY dimension, band)::integer
-      AS eligible_region_count,
-    row_number() OVER (
-      PARTITION BY dimension, band
-      ORDER BY feature_cells DESC, region
-    )::integer AS coverage_rank
-  FROM region_rows
-  WHERE feature_cells >= %s AND completed_hours >= %s
-)
-SELECT dimension, region, band, feature_cells, completed_hours, sampled_rows,
-       eligible_region_count, coverage_rank
-FROM ranked_regions
-WHERE coverage_rank <= %s
-ORDER BY dimension, band, coverage_rank
+SELECT dimension, region, band, feature_cells, completed_hours, sampled_rows
+FROM region_rows
+ORDER BY dimension, band, region
 """
 
 DISTANCE_QUERY = LATEST_WATERMARK_CTE + """
@@ -330,6 +312,86 @@ def scheduled_audit_window(
     }
 
 
+def hour_chunks(
+    start: datetime,
+    end: datetime,
+    chunk_hours: int = MAXIMUM_QUERY_CHUNK_HOURS,
+) -> list[tuple[datetime, datetime]]:
+    if not 1 <= chunk_hours <= MAXIMUM_QUERY_CHUNK_HOURS:
+        raise ValueError("query chunk hours must be between 1 and 24")
+    if end < start:
+        raise ValueError("query chunk end precedes start")
+    chunks: list[tuple[datetime, datetime]] = []
+    cursor = start
+    while cursor <= end:
+        chunk_end = min(end, cursor + timedelta(hours=chunk_hours - 1))
+        chunks.append((cursor, chunk_end))
+        cursor = chunk_end + timedelta(hours=1)
+    return chunks
+
+
+def aggregate_region_chunks(
+    rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    totals: dict[tuple[str, str, str], dict[str, int]] = {}
+    for row in rows:
+        dimension = str(row.get("dimension"))
+        region = str(row.get("region"))
+        band = str(row.get("band"))
+        if (
+            dimension not in {"origin", "target"}
+            or band not in HF_BANDS
+            or not REGION_RE.fullmatch(region)
+        ):
+            raise ValueError("regional chunk row is outside the audit contract")
+        key = (dimension, band, region)
+        total = totals.setdefault(
+            key,
+            {"feature_cells": 0, "completed_hours": 0, "sampled_rows": 0},
+        )
+        for name in total:
+            value = _integer(row.get(name))
+            if value < 0:
+                raise ValueError("regional chunk count cannot be negative")
+            total[name] += value
+
+    eligible: defaultdict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for (dimension, band, region), total in totals.items():
+        if (
+            total["feature_cells"] >= REGION_MINIMUM_CELLS
+            and total["completed_hours"] >= REGION_MINIMUM_HOURS
+        ):
+            eligible[(dimension, band)].append(
+                {
+                    "dimension": dimension,
+                    "region": region,
+                    "band": band,
+                    **total,
+                }
+            )
+
+    result: list[dict[str, Any]] = []
+    for dimension in ("origin", "target"):
+        for band in HF_BANDS:
+            candidates = sorted(
+                eligible[(dimension, band)],
+                key=lambda row: (-row["feature_cells"], row["region"]),
+            )
+            eligible_count = len(candidates)
+            for rank, row in enumerate(
+                candidates[:MAXIMUM_REGION_ROWS_PER_BAND],
+                start=1,
+            ):
+                result.append(
+                    {
+                        **row,
+                        "eligible_region_count": eligible_count,
+                        "coverage_rank": rank,
+                    }
+                )
+    return result
+
+
 def _distribution(
     rows: Iterable[Mapping[str, Any]],
     key: str,
@@ -393,6 +455,9 @@ def build_coverage_receipt(
     transform_version: str,
     query_seconds: Mapping[str, float],
     window_provenance: Mapping[str, Any],
+    query_chunk_hours: int,
+    query_chunk_count: int,
+    query_max_seconds: Mapping[str, float],
 ) -> dict[str, Any]:
     start = _utc(window_start)
     end = _utc(window_end)
@@ -527,6 +592,11 @@ def build_coverage_receipt(
             and _integer(window_provenance.get("scheduled_expected_hours"))
             >= expected_hours
         ),
+        "database_queries_bounded_to_24_hours": bool(
+            1 <= query_chunk_hours <= MAXIMUM_QUERY_CHUNK_HOURS
+            and query_chunk_count
+            == math.ceil(expected_hours / query_chunk_hours)
+        ),
         "early_late_drift_sample_sufficient": drift_sample_sufficient,
         "aggregate_source_distribution_stable": drift_stable,
         "region_output_k_suppressed": all(
@@ -654,6 +724,12 @@ def build_coverage_receipt(
                 name: float(seconds) for name, seconds in query_seconds.items()
             },
             "database_engine": "PostgreSQL",
+            "query_chunk_hours": query_chunk_hours,
+            "query_chunk_count": query_chunk_count,
+            "maximum_chunk_seconds": {
+                name: float(seconds)
+                for name, seconds in query_max_seconds.items()
+            },
             "server_identifier_recorded": False,
         },
         "privacy": {
@@ -695,6 +771,11 @@ def main() -> None:
     parser.add_argument("--provider", default=DEFAULT_PROVIDER)
     parser.add_argument("--transform-version", default=DEFAULT_TRANSFORM_VERSION)
     parser.add_argument("--progress", type=Path, default=DEFAULT_PROGRESS)
+    parser.add_argument(
+        "--query-chunk-hours",
+        type=int,
+        default=MAXIMUM_QUERY_CHUNK_HOURS,
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
@@ -710,12 +791,17 @@ def main() -> None:
     if not password or not pooler_url.startswith("postgresql://"):
         raise RuntimeError("target database connection settings are incomplete")
 
-    query_seconds: dict[str, float] = {}
+    query_seconds = {"hourly": 0.0, "regions": 0.0, "distance": 0.0}
+    query_max_seconds = {"hourly": 0.0, "regions": 0.0, "distance": 0.0}
     progress = json.loads(args.progress.read_text(encoding="utf-8"))
     start, end, window_provenance = scheduled_audit_window(
         progress,
         _sha256(args.progress),
     )
+    chunks = hour_chunks(start, end, args.query_chunk_hours)
+    hourly_rows: list[dict[str, Any]] = []
+    regional_chunk_rows: list[dict[str, Any]] = []
+    distance_rows: list[dict[str, Any]] = []
     with psycopg.connect(
         pooler_url,
         password=password,
@@ -726,30 +812,31 @@ def main() -> None:
     ) as connection:
         connection.execute("SET TRANSACTION READ ONLY")
         connection.execute("SET LOCAL statement_timeout = '10min'")
-        common = (args.provider, args.transform_version, start, end)
-        hourly_rows, query_seconds["hourly"] = _timed_fetch(
-            connection,
-            HOURLY_QUERY,
-            (*common, args.provider, args.transform_version),
-        )
-        region_rows, query_seconds["regions"] = _timed_fetch(
-            connection,
-            REGION_QUERY,
-            (
-                *common,
+        for chunk_start, chunk_end in chunks:
+            common = (
                 args.provider,
                 args.transform_version,
-                REGION_MINIMUM_CELLS,
-                REGION_MINIMUM_HOURS,
-                MAXIMUM_REGION_ROWS_PER_BAND,
-            ),
-        )
-        distance_rows, query_seconds["distance"] = _timed_fetch(
-            connection,
-            DISTANCE_QUERY,
-            (*common, args.provider, args.transform_version),
-        )
+                chunk_start,
+                chunk_end,
+            )
+            for name, query, target in (
+                ("hourly", HOURLY_QUERY, hourly_rows),
+                ("regions", REGION_QUERY, regional_chunk_rows),
+                ("distance", DISTANCE_QUERY, distance_rows),
+            ):
+                rows, elapsed = _timed_fetch(
+                    connection,
+                    query,
+                    (*common, args.provider, args.transform_version),
+                )
+                target.extend(rows)
+                query_seconds[name] += elapsed
+                query_max_seconds[name] = max(
+                    query_max_seconds[name],
+                    elapsed,
+                )
         connection.rollback()
+    region_rows = aggregate_region_chunks(regional_chunk_rows)
 
     receipt = build_coverage_receipt(
         generated_at=datetime.now(timezone.utc),
@@ -763,6 +850,9 @@ def main() -> None:
         transform_version=args.transform_version,
         query_seconds=query_seconds,
         window_provenance=window_provenance,
+        query_chunk_hours=args.query_chunk_hours,
+        query_chunk_count=len(chunks),
+        query_max_seconds=query_max_seconds,
     )
     atomic_write(args.output, receipt)
     print(json.dumps(receipt, indent=2))

@@ -24,7 +24,7 @@
 > deployed-state checks. A separate native-M5 first-party collector now has all
 > PSK Reporter/RBN/DX Cluster plus current solar/geomagnetic inputs operational, server-side settled
 > band/path aggregation, and identity-free continuity receipts. Its status is
-> `warming` at `4.75/24` preflight hours, so these results do not authorize prospective or learned-
+> `warming` at `5.25/24` preflight hours, so these results do not authorize prospective or learned-
 > personalization claims.
 > The original V4 M2 gate failure remains published rather than overwritten.
 > Archive V3 context remains in its [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md)

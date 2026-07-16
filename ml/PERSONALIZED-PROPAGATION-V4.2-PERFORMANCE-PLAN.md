@@ -668,6 +668,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   with bounded multicore concurrency and prunes only after total success.
 - [x] Implement a disabled-by-default, disk-streaming WSPR.live research
   connector and validate one real settled hour without target writes.
+- [x] Run and audit one end-to-end private target hour, invalidate the discovered
+  capped-pagination version, and pass the corrected manifest-v2 hour exactly.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -718,6 +720,16 @@ streaming compatibility only. Continuous internal collection is still disabled,
 and [the prepared request](WSPR-LIVE-PERMISSION-REQUEST.md) must receive written
 confirmation before subscriber-facing use unless an independently permitted
 source replaces WSPR.live.
+
+The first end-to-end target run caught a PostgREST response cap: requested
+5,000-row pages returned 1,000 rows, and the v1 finalizer incorrectly published
+ten truncated watermarks. Those exact watermarks were immediately changed to
+`failed` with `observation_pagination_truncated`; they cannot be selected. The
+repair paginates until an empty response and manifest v2 signs every per-band
+count. The corrected M5 run matched all `287,694` observations exactly and
+published `75,055` path cells. A separate target audit passed `10/10` gates,
+including exact observation/feature counts, one failed plus one corrected
+version, and fail-closed lookup while H-1/H-2/H-3/H-24 are incomplete.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,

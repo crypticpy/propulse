@@ -18,7 +18,7 @@ SECRET = "fixture-completion-secret-value"
 
 def manifest_payload() -> dict:
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "provider": "approved-fixture",
         "target_hour": TARGET.isoformat(),
         "source_watermark": TARGET.replace(hour=21).isoformat(),
@@ -26,6 +26,7 @@ def manifest_payload() -> dict:
         "source_complete": True,
         "source_checkpoint_sha256": hashlib.sha256(b"fixture").hexdigest(),
         "source_record_count": 100,
+        "source_records_by_band": {band: 10 for band in sorted(HF_BANDS)},
         "bands": sorted(HF_BANDS),
         "quality_flags": [],
     }
@@ -62,6 +63,13 @@ class WsprSchedulerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "signature"):
             CompletionManifest.from_json(payload, signing_secret=SECRET)
 
+    def test_manifest_requires_exact_band_counts(self) -> None:
+        payload = manifest_payload()
+        payload["source_records_by_band"]["20m"] = 9
+        payload["manifest_hmac_sha256"] = completion_signature(payload, SECRET)
+        with self.assertRaisesRegex(ValueError, "do not match"):
+            CompletionManifest.from_json(payload, signing_secret=SECRET)
+
     def test_all_bands_complete_before_pruning(self) -> None:
         manifest = CompletionManifest.from_json(
             manifest_payload(), signing_secret=SECRET
@@ -76,7 +84,7 @@ class WsprSchedulerTests(unittest.TestCase):
                 "status": "complete",
                 "provider": item.provider,
                 "feature_cell_count": 3,
-                "observation_count": 5,
+                "observation_count": item.source_records_by_band[band],
             }
 
         result = run_completed_hour(
@@ -92,6 +100,30 @@ class WsprSchedulerTests(unittest.TestCase):
         self.assertEqual(result["bands_finalized"], 10)
         self.assertEqual(result["feature_cells"], 30)
         self.assertEqual(result["maximum_compute_threads"], 4)
+
+    def test_band_count_mismatch_prevents_pruning(self) -> None:
+        manifest = CompletionManifest.from_json(
+            manifest_payload(), signing_secret=SECRET
+        )
+        pruner = FakePruner()
+
+        def finalizer(item, band, _threads):
+            return {
+                "band": band,
+                "status": "complete",
+                "provider": item.provider,
+                "observation_count": 9 if band == "20m" else 10,
+            }
+
+        with self.assertRaisesRegex(RuntimeError, "inconsistent watermark"):
+            run_completed_hour(
+                manifest,
+                finalizer=finalizer,
+                pruner=pruner,
+                workers=2,
+                threads_per_band=2,
+            )
+        self.assertEqual(pruner.calls, [])
 
     def test_failure_prevents_pruning(self) -> None:
         manifest = CompletionManifest.from_json(

@@ -55,6 +55,7 @@ class CompletionManifest:
     available_at: datetime
     source_checkpoint_sha256: str
     source_record_count: int
+    source_records_by_band: dict[str, int]
     bands: tuple[str, ...]
     quality_flags: tuple[str, ...]
 
@@ -71,14 +72,15 @@ class CompletionManifest:
             "source_complete",
             "source_checkpoint_sha256",
             "source_record_count",
+            "source_records_by_band",
             "bands",
             "quality_flags",
             "manifest_hmac_sha256",
         }
         if set(payload) != allowed:
-            raise ValueError("completion manifest fields do not match version 1")
-        if payload["schema_version"] != 1 or payload["source_complete"] is not True:
-            raise ValueError("completion manifest must explicitly confirm version 1 completeness")
+            raise ValueError("completion manifest fields do not match version 2")
+        if payload["schema_version"] != 2 or payload["source_complete"] is not True:
+            raise ValueError("completion manifest must explicitly confirm version 2 completeness")
         signature = str(payload["manifest_hmac_sha256"])
         expected_signature = completion_signature(payload, signing_secret)
         if not SHA256_PATTERN.fullmatch(signature) or not hmac.compare_digest(
@@ -97,6 +99,14 @@ class CompletionManifest:
         bands = tuple(map(str, payload["bands"]))
         if len(bands) != len(set(bands)) or set(bands) != HF_BANDS:
             raise ValueError("completion manifest must cover each HF band exactly once")
+        records_raw = payload["source_records_by_band"]
+        if not isinstance(records_raw, dict) or set(records_raw) != HF_BANDS:
+            raise ValueError("completion manifest must count every HF band")
+        records_by_band = {str(band): int(value) for band, value in records_raw.items()}
+        if any(value < 0 for value in records_by_band.values()):
+            raise ValueError("completion manifest band counts cannot be negative")
+        if sum(records_by_band.values()) != record_count:
+            raise ValueError("completion manifest band counts do not match its total")
         quality_flags = tuple(map(str, payload["quality_flags"]))
         if any(not value or len(value) > 128 for value in quality_flags):
             raise ValueError("completion manifest quality flag is invalid")
@@ -118,6 +128,7 @@ class CompletionManifest:
             available_at=available_at,
             source_checkpoint_sha256=checkpoint,
             source_record_count=record_count,
+            source_records_by_band=records_by_band,
             bands=tuple(sorted(bands)),
             quality_flags=quality_flags,
         )
@@ -194,6 +205,8 @@ def run_completed_hour(
         value.get("band") != band
         or value.get("status") != expected_status
         or value.get("provider") != manifest.provider
+        or int(value.get("observation_count", -1))
+        != manifest.source_records_by_band[band]
         for band, value in watermarks.items()
     ):
         raise RuntimeError("hourly finalizer returned an inconsistent watermark")
@@ -251,6 +264,7 @@ def main() -> None:
             band=band,
             provider=item.provider,
             source_complete=True,
+            expected_observation_count=item.source_records_by_band[band],
             quality_flags=item.quality_flags,
             page_size=args.page_size,
             threads=threads,

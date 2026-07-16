@@ -31,6 +31,7 @@ HF_BANDS = {
     "20m", "17m", "15m", "12m", "10m",
 }
 PROVIDER_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.:-]{0,63}$")
+QUALITY_FLAG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.:-]{0,127}$")
 OBSERVATION_COLUMNS = (
     "slot_epoch",
     "target_hour",
@@ -136,11 +137,10 @@ class PostgrestFinalizerStore:
                 not isinstance(row, dict) for row in payload
             ):
                 raise RuntimeError("rolling WSPR observation page is invalid")
-            if payload:
-                yield payload
-            if len(payload) < page_size:
+            if not payload:
                 break
-            offset += page_size
+            yield payload
+            offset += len(payload)
 
     def upsert_feature_page(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
@@ -174,6 +174,53 @@ class PostgrestFinalizerStore:
             response.raise_for_status()
         except httpx.HTTPError as error:
             raise RuntimeError("WSPR feature watermark upsert failed") from error
+
+    def invalidate_watermark_version(
+        self,
+        *,
+        target_hour: datetime,
+        available_at: datetime,
+        provider: str,
+        reason: str,
+    ) -> int:
+        target_hour = aware_utc(target_hour, "target_hour")
+        available_at = aware_utc(available_at, "available_at")
+        if not PROVIDER_PATTERN.fullmatch(provider):
+            raise ValueError("invalid approved provider identifier")
+        if not QUALITY_FLAG_PATTERN.fullmatch(reason):
+            raise ValueError("invalid watermark invalidation reason")
+        try:
+            response = self.client.patch(
+                f"{self.base_url}/rest/v1/wspr_feature_watermarks",
+                headers={
+                    **self.headers(),
+                    "Prefer": "return=representation",
+                },
+                params={
+                    "select": "band,status,quality_flags",
+                    "target_hour": f"eq.{target_hour.isoformat()}",
+                    "available_at": f"eq.{available_at.isoformat()}",
+                    "provider": f"eq.{provider}",
+                },
+                json={"status": "failed", "quality_flags": [reason]},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (httpx.HTTPError, ValueError) as error:
+            raise RuntimeError("WSPR watermark invalidation failed") from error
+        if (
+            not isinstance(payload, list)
+            or len(payload) != len(HF_BANDS)
+            or any(not isinstance(row, dict) for row in payload)
+            or {str(row.get("band")) for row in payload} != HF_BANDS
+            or any(
+                row.get("status") != "failed"
+                or row.get("quality_flags") != [reason]
+                for row in payload
+            )
+        ):
+            raise RuntimeError("WSPR watermark invalidation was not all-band exact")
+        return len(payload)
 
 
 def insert_observation_page(
@@ -212,6 +259,7 @@ def finalize_hour(
     band: str,
     provider: str,
     source_complete: bool,
+    expected_observation_count: int | None = None,
     quality_flags: tuple[str, ...] = (),
     page_size: int = 5000,
     threads: int = 4,
@@ -233,6 +281,8 @@ def finalize_hour(
         raise ValueError("invalid approved provider identifier")
     if not source_complete:
         raise RuntimeError("source completeness must be confirmed before finalization")
+    if expected_observation_count is not None and expected_observation_count < 0:
+        raise ValueError("expected observation count cannot be negative")
     if page_size < 1 or page_size > 10_000:
         raise ValueError("page_size must be between 1 and 10,000")
     if threads < 1 or threads > (os.cpu_count() or 1):
@@ -272,6 +322,13 @@ def finalize_hour(
             band=band,
         )
         observation_count += len(page)
+    if (
+        expected_observation_count is not None
+        and observation_count != expected_observation_count
+    ):
+        raise RuntimeError(
+            "rolling WSPR observation count does not match the signed manifest"
+        )
     materialize_opportunity_cells(
         connection,
         source_relation="wspr_source",
@@ -332,6 +389,7 @@ def main() -> None:
     parser.add_argument("--band", choices=sorted(HF_BANDS), required=True)
     parser.add_argument("--provider", required=True)
     parser.add_argument("--confirm-source-complete", action="store_true")
+    parser.add_argument("--expected-observation-count", type=int)
     parser.add_argument("--quality-flag", action="append", default=[])
     parser.add_argument("--page-size", type=int, default=5000)
     parser.add_argument("--threads", type=int, default=min(4, os.cpu_count() or 1))
@@ -348,6 +406,7 @@ def main() -> None:
         band=args.band,
         provider=args.provider,
         source_complete=args.confirm_source_complete,
+        expected_observation_count=args.expected_observation_count,
         quality_flags=tuple(args.quality_flag),
         page_size=args.page_size,
         threads=args.threads,

@@ -119,6 +119,13 @@ allocated CPU count. An external scheduler may retry the same signed manifest;
 feature and watermark keys are idempotent, and the local lock prevents
 overlapping runs in one instance.
 
+Completion manifest v2 includes a signed observation count for each band as
+well as the total. The PostgREST reader continues until an empty page because a
+server may cap a requested page below `page_size`; a short page is not evidence
+of completion. Each finalizer compares its fully paginated count to the signed
+band count before writing any feature or watermark. The scheduler repeats the
+cross-band check before pruning.
+
 For internal research shadow only, `wspr_live_connector.py` implements the
 public WSPR.live candidate without loading an hour into memory. It makes one
 exact-hour query across the ten HF bands, applies the archive's grid/call/power/
@@ -141,6 +148,18 @@ never emits callsigns or locators in its result. The explicit environment flag
 and CLI acknowledgement do not grant subscriber-facing permission. Keep this
 path internal until the source operator confirms the nonprofit,
 donation-supported, derivative-model use in writing.
+
+On the M5, `run_m5_wspr_research_hour.sh` joins the connector and signed runner
+without exposing server credentials or the HMAC secret in process arguments.
+It loads the ignored `.env.local`, maps the server-only feature-store variables,
+and reads the signing secret from the login keychain service
+`propulse-wspr-completion-v1`. Non-interactive SSH may instead use the
+owner-readable-only Projects-volume file
+`PropulseML/secrets/wspr_completion_secret`. The caller must still explicitly export
+`PROPULSE_WSPR_LIVE_RESEARCH_ENABLED=true`. It uses 5,000-row bounded pages and
+the native 2-by-9 finalizer profile. The corrected manual target hour has passed
+ingest, finalization, count, watermark, cleanup, and fallback checks; keep the
+hourly schedule disabled until monitoring and restart recovery are installed.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

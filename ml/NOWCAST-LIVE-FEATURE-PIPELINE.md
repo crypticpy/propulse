@@ -76,6 +76,13 @@
 > This validates the current source schema and bounded streaming path; it does
 > not authorize subscriber-facing use or start the 30-day evidence window.
 
+> Real target-hour update, 2026-07-16: the first finalizer exposed a 1,000-row
+> PostgREST response cap. All ten truncated watermarks were explicitly failed.
+> Pagination now exhausts the result and manifest v2 signs per-band counts before
+> publication. The corrected hour matched all 287,694 rows, produced 75,055 path
+> cells, and passed 10/10 independent target gates; incomplete four-lag history
+> still fails closed. Continuous collection has not started.
+
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
 > Dst object schema, preserves Bx and proton temperature, and stores per-source
@@ -331,6 +338,8 @@ explicitly labeled and does not satisfy the live requirement above.
   and prune-after-success orchestration; activation awaits an authorized source.
 - [x] Implement and real-source validate the double-gated WSPR.live research
   connector without writing the target feature store.
+- [x] Validate one corrected end-to-end private-store/finalizer hour under exact
+  signed per-band counts and preserve the failed first version for audit.
 - [x] Add service-role-only batched path-history lookup and make the trusted
   model backend reject browser-provided lag values and freshness.
 - [x] Validate the real A6 bundle, fail-closed service behavior, aggregate-only

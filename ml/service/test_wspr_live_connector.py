@@ -130,6 +130,7 @@ class WsprLiveConnectorTests(unittest.TestCase):
         self.assertEqual(manifest.provider, PROVIDER)
         self.assertEqual(set(manifest.bands), set(BAND_CODES.values()))
         self.assertEqual(manifest.source_record_count, 1)
+        self.assertEqual(manifest.source_records_by_band["20m"], 1)
 
 
 if __name__ == "__main__":

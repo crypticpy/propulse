@@ -35,3 +35,11 @@ seconds at 57.625 MiB peak RSS, performed no target write, and removed its
 transient Projects-volume spool. This does not change the production decision.
 Use [`WSPR-LIVE-PERMISSION-REQUEST.md`](WSPR-LIVE-PERMISSION-REQUEST.md) for the
 written request and authorization record.
+
+The first private target finalization detected a 1,000-row PostgREST response
+cap. Its ten truncated watermarks were marked `failed`; no history was erased.
+The repaired manifest v2 signs per-band counts and the finalizer refuses to
+publish if a fully paginated band differs. The corrected target version matched
+all 287,694 observations and 75,055 aggregate feature cells, while an incomplete
+four-lag lookup remained empty. This is one research hour, not continuous or
+subscriber-facing approval.

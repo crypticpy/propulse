@@ -152,6 +152,25 @@ performed no target write. Aggregate evidence is
 `live_feature_pipeline/wspr_live_connector_validation.json`. The send-ready
 source request is [`WSPR-LIVE-PERMISSION-REQUEST.md`](WSPR-LIVE-PERMISSION-REQUEST.md).
 
+For a deliberately enabled internal hour, store the HMAC secret in the M5 login
+keychain under service `propulse-wspr-completion-v1`. Non-interactive SSH can
+instead use a `0600` secret at
+`/Volumes/Projects/PropulseML/secrets/wspr_completion_secret`. Then invoke
+`ml/service/run_m5_wspr_research_hour.sh` with
+`PROPULSE_WSPR_LIVE_RESEARCH_ENABLED=true`. The wrapper keeps secrets out of
+arguments, maps the ignored service credentials, uses 5,000-row request pages,
+and runs the two-by-nine-thread finalizer under `caffeinate`. Complete one manual
+target hour and inspect aggregate counts/watermarks before creating any hourly
+launchd schedule.
+
+That manual gate is complete. The first attempt exposed a server-side 1,000-row
+response cap and its ten watermarks were invalidated. Manifest v2 now carries
+signed per-band counts, pagination continues until empty, and count mismatch
+fails before feature or watermark publication. The corrected hour matched
+`287,694` observations, wrote `75,055` feature cells, and passed `10/10` target
+gates. `wspr_live_hour_validation.json` is the aggregate audit. Continuous
+scheduling still requires the monitoring/restart wrapper and remains disabled.
+
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,
 `1.1201` GiB peak RSS, identity-free telemetry, and forged browser freshness

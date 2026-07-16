@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 
 from wspr_finalizer import (
+    HF_BANDS,
     TRANSFORM_VERSION,
     PostgrestFinalizerStore,
     finalize_hour,
@@ -73,6 +74,56 @@ class WsprFinalizerTests(unittest.TestCase):
         self.assertEqual(pages, [])
         self.assertEqual(requests[0].url.params["band"], "eq.20m")
 
+    def test_postgrest_lookup_continues_after_server_capped_page(self):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            offset = int(request.url.params["offset"])
+            page = [{"id": offset + index} for index in range(1000)]
+            return httpx.Response(200, json=page if offset < 2000 else [])
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+        pages = list(store.observation_pages(
+            target_hour=TARGET,
+            band="20m",
+            provider="approved-fixture",
+            available_at=TARGET + timedelta(hours=1),
+            page_size=5000,
+        ))
+
+        self.assertEqual([len(page) for page in pages], [1000, 1000])
+        self.assertEqual(
+            [request.url.params["offset"] for request in requests],
+            ["0", "1000", "2000"],
+        )
+
+    def test_watermark_invalidation_requires_exact_all_band_response(self):
+        def handler(request):
+            self.assertEqual(request.method, "PATCH")
+            reason = "observation_pagination_truncated"
+            return httpx.Response(200, json=[
+                {"band": band, "status": "failed", "quality_flags": [reason]}
+                for band in sorted(HF_BANDS)
+            ])
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+        count = store.invalidate_watermark_version(
+            target_hour=TARGET,
+            available_at=TARGET + timedelta(hours=1, minutes=5),
+            provider="approved-fixture",
+            reason="observation_pagination_truncated",
+        )
+        self.assertEqual(count, 10)
+
     def test_finalizer_streams_pages_and_commits_watermark_last(self):
         store = FakeStore()
         result = finalize_hour(
@@ -83,6 +134,7 @@ class WsprFinalizerTests(unittest.TestCase):
             band="20m",
             provider="approved-fixture",
             source_complete=True,
+            expected_observation_count=6,
             page_size=3,
             threads=2,
         )
@@ -94,6 +146,24 @@ class WsprFinalizerTests(unittest.TestCase):
         self.assertEqual(len(store.watermarks), 1)
         self.assertEqual(len(store.features), result["feature_cell_count"])
         self.assertTrue(all(row["provider"] == "approved-fixture" for row in store.features))
+
+    def test_finalizer_refuses_manifest_count_mismatch_before_publish(self):
+        store = FakeStore()
+        with self.assertRaisesRegex(RuntimeError, "signed manifest"):
+            finalize_hour(
+                store,
+                target_hour=TARGET,
+                available_at=TARGET + timedelta(hours=1, minutes=5),
+                source_watermark=TARGET + timedelta(hours=1),
+                band="20m",
+                provider="approved-fixture",
+                source_complete=True,
+                expected_observation_count=7,
+                page_size=3,
+                threads=2,
+            )
+        self.assertEqual(store.features, [])
+        self.assertEqual(store.watermarks, [])
 
     def test_finalizer_refuses_unconfirmed_source_before_io(self):
         store = FakeStore()

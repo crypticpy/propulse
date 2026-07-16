@@ -235,7 +235,7 @@ def require_research_gate(*, acknowledged: bool, enabled: bool) -> None:
 
 def signed_manifest(receipt: FetchReceipt, *, signing_secret: str) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "provider": PROVIDER,
         "target_hour": receipt.target_hour.isoformat(),
         "source_watermark": (
@@ -245,6 +245,7 @@ def signed_manifest(receipt: FetchReceipt, *, signing_secret: str) -> dict[str, 
         "source_complete": True,
         "source_checkpoint_sha256": receipt.checkpoint_sha256,
         "source_record_count": receipt.record_count,
+        "source_records_by_band": receipt.records_by_band,
         "bands": sorted(BAND_CODES.values()),
         "quality_flags": [],
     }

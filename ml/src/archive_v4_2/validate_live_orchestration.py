@@ -42,7 +42,7 @@ SECRET = "validation-only-completion-secret"
 def payload() -> dict[str, Any]:
     target = datetime(2026, 7, 15, 20, tzinfo=timezone.utc)
     value: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "provider": "orchestration-validation",
         "target_hour": target.isoformat(),
         "source_watermark": (target + timedelta(hours=1)).isoformat(),
@@ -50,6 +50,9 @@ def payload() -> dict[str, Any]:
         "source_complete": True,
         "source_checkpoint_sha256": hashlib.sha256(b"validation-checkpoint").hexdigest(),
         "source_record_count": 100_000,
+        "source_records_by_band": {
+            band: 10_000 for band in sorted(HF_BANDS)
+        },
         "bands": sorted(HF_BANDS),
         "quality_flags": [],
     }
@@ -97,7 +100,7 @@ def main() -> None:
             "status": "complete",
             "provider": item.provider,
             "feature_cell_count": 100,
-            "observation_count": 1000,
+            "observation_count": item.source_records_by_band[band],
             "threads": per_band_threads,
         }
 
@@ -141,6 +144,32 @@ def main() -> None:
     except RuntimeError:
         failure_prevents_prune = not failure_pruner.calls
 
+    mismatch_pruner = RecordingPruner()
+
+    def mismatched_finalizer(
+        item: CompletionManifest, band: str, _per_band_threads: int
+    ) -> dict[str, Any]:
+        return {
+            "band": band,
+            "status": "complete",
+            "provider": item.provider,
+            "observation_count": item.source_records_by_band[band] - (
+                1 if band == "20m" else 0
+            ),
+        }
+
+    count_mismatch_prevents_prune = False
+    try:
+        run_completed_hour(
+            manifest,
+            finalizer=mismatched_finalizer,
+            pruner=mismatch_pruner,
+            workers=workers,
+            threads_per_band=threads,
+        )
+    except RuntimeError:
+        count_mismatch_prevents_prune = not mismatch_pruner.calls
+
     oversubscription_rejected = False
     try:
         run_completed_hour(
@@ -161,6 +190,7 @@ def main() -> None:
         "all_eighteen_m5_threads_allocated": result["maximum_compute_threads"] == 18,
         "prune_runs_after_total_success": pruner.calls == [30],
         "band_failure_prevents_prune": failure_prevents_prune,
+        "band_count_mismatch_prevents_prune": count_mismatch_prevents_prune,
         "cpu_oversubscription_rejected": oversubscription_rejected,
         "locked_outcomes_unread": True,
     }

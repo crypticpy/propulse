@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
     "description": "Multi-hour transform parity, causal receipt replay, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
-    "generatedAt": "2026-07-16T03:46:42.549921+00:00",
+    "generatedAt": "2026-07-16T04:06:41.047711+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -254,7 +254,7 @@
       {
         "id": "blocker_table",
         "title": "Required work before live NowCast",
-        "subtitle": "The internal research connector is validated; continuous collection and subscriber-facing permission remain open.",
+        "subtitle": "One end-to-end research hour is exact; continuous collection and subscriber-facing permission remain open.",
         "dataset": "blocker_rows",
         "sourceId": "live_feature_evidence",
         "density": "dense",
@@ -299,7 +299,7 @@
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **9 of 9** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. Continuous ingest is not scheduled, and subscriber-facing WSPR use still requires written confirmation or an independently permitted source."
+        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. Continuous ingest is not scheduled, and the corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. subscriber-facing WSPR use still requires written confirmation or an independently permitted source."
       },
       {
         "id": "cards",
@@ -385,7 +385,7 @@
         "id": "source_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The disabled-by-default connector queried one exact settled UTC hour from [WSPR.live](https://wspr.live/), covering all ten HF bands in one HTTP request. It applied the same grid, callsign, power, and SNR filters as the archive builder, streamed canonical rows through the M5 Projects volume, checksum-linked the completed response, and removed the spool after validation. No database write occurred. This establishes technical compatibility and bounded memory behavior, not subscriber-facing permission, continuous completeness, or a production availability guarantee."
+        "body": "The disabled-by-default connector queried one exact settled UTC hour from [WSPR.live](https://wspr.live/), covering all ten HF bands in one HTTP request. It applied the same grid, callsign, power, and SNR filters as the archive builder, streamed canonical rows through the M5 Projects volume, checksum-linked the completed response, and removed the spool after validation. The first target finalization then exposed a PostgREST 1,000-row response cap. All ten affected watermarks were marked failed, pagination was repaired to continue until an empty page, and manifest v2 added signed per-band counts that block watermark publication on any mismatch. The corrected run matched all 287,694 source rows and published 75,055 aggregate cells. This establishes one exact end-to-end hour, not subscriber-facing permission, continuous completeness, or an availability guarantee."
       },
       {
         "id": "gates",
@@ -402,7 +402,7 @@
         "id": "method",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, research-only WSPR.live hour was queried after the connector was double-gated; it was not ingested or exposed to users. A real hardened NOAA capture separately verified the operational-weather path against A6."
+        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. A real hardened NOAA capture separately verified the operational-weather path against A6."
       },
       {
         "id": "compute",
@@ -414,7 +414,7 @@
         "id": "limits",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus one successful source hour does not prove continuous hourly execution, provider completeness, permission for subscriber-facing use, or the monitoring loop. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus one corrected source hour does not prove continuous hourly execution, long-window provider completeness, permission for subscriber-facing use, or the monitoring loop. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
       },
       {
         "id": "limit_table_block",
@@ -432,13 +432,13 @@
         "id": "next",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Next steps\n\n1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n2. Deliberately schedule the validated research-only connector for internal evidence.\n3. Activate the signed completion-manifest finalizer/pruner and internal monitoring for that connector.\n4. Run at least 30 days of identity-free real receipt-time shadow traffic and continuous weather freshness before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+        "body": "## Next steps\n\n1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n2. Deliberately schedule the validated research-only connector and signed finalizer for internal evidence.\n3. Add hourly health, pagination/count, retention, restart, and fallback alerts.\n4. Run at least 30 days of identity-free real receipt-time shadow traffic and continuous weather freshness before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
       }
     ]
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T03:46:42.549921+00:00",
+    "generatedAt": "2026-07-16T04:06:41.047711+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -472,14 +472,17 @@
           "weather_gates_total": 14,
           "weather_feature_count": 14,
           "weather_path_p95_ms": 2.906167006585747,
-          "orchestration_gates_passed": 9,
-          "orchestration_gates_total": 9,
+          "orchestration_gates_passed": 10,
+          "orchestration_gates_total": 10,
           "orchestration_threads": 18,
           "connector_gates_passed": 8,
           "connector_gates_total": 8,
           "connector_rows": 287694,
           "connector_requests": 1,
-          "connector_peak_rss_mib": 57.625
+          "connector_peak_rss_mib": 57.625,
+          "live_hour_gates_passed": 10,
+          "live_hour_gates_total": 10,
+          "live_hour_feature_cells": 75055
         }
       ],
       "parity_rows": [
@@ -1052,6 +1055,11 @@
         },
         {
           "scope": "Signed hourly orchestration",
+          "gate": "band count mismatch prevents prune",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
           "gate": "cpu oversubscription rejected",
           "status": "pass"
         },
@@ -1099,6 +1107,56 @@
           "scope": "Research source connector",
           "gate": "streaming peak rss below 512 mib",
           "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "signed manifest v2 accepted",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "exact failed and corrected versions",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "truncated version all band invalidated",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "corrected version all band complete",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "stored observation counts match manifest",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "watermark observation counts match manifest",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "feature counts match watermarks",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "source total matches exact target count",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "incomplete four lag window fails closed",
+          "status": "pass"
+        },
+        {
+          "scope": "Real target source hour",
+          "gate": "locked outcomes unread",
+          "status": "pass"
         }
       ],
       "blocker_rows": [
@@ -1111,7 +1169,7 @@
           "status": "required before live NowCast"
         },
         {
-          "remaining_work": "activate the signed hourly finalizer/pruning runner and monitoring internally",
+          "remaining_work": "activate hourly monitoring, alerting, and restart recovery internally",
           "status": "required before live NowCast"
         },
         {
@@ -1130,7 +1188,7 @@
           "evidence_limit": "30-day real receipt-time shadow coverage is still required"
         },
         {
-          "evidence_limit": "the schema is deployed and a one-hour research query passed, but no continuous source or scheduler is active"
+          "evidence_limit": "one full research hour passed after an invalidated pagination defect, but continuous collection is not active"
         }
       ]
     }

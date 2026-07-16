@@ -1,11 +1,12 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T03:46:42.549038+00:00",
+  "generated_at": "2026-07-16T04:06:41.046892+00:00",
   "scope": "live_feature_foundation_replay_schema_weather_and_orchestration_pre_provider",
   "decision": "foundation_replay_schema_weather_and_orchestration_pass_provider_pending",
   "source_authorized": false,
   "migration_deployed": true,
   "provider_connector_enabled": false,
+  "provider_connector_validated": true,
   "locked_outcomes_read": false,
   "input_inventory": [
     {
@@ -41,12 +42,17 @@
     {
       "id": "orchestration_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/orchestration_validation.json",
-      "sha256": "3d827eee8ae3ef3e991a8614727d7b77bf771ab2cb565c2ea1e4e9452c5275e9"
+      "sha256": "a40712d6b2fdd6c0cef0f52f32ae254eec64a06bd165f5259b1b709ba0473c7e"
     },
     {
       "id": "wspr_live_connector_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_live_connector_validation.json",
       "sha256": "c9cf98375bf2ba639ced86d35712461276162b4811b96407746db9e93cca42c1"
+    },
+    {
+      "id": "wspr_live_hour_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_live_hour_validation.json",
+      "sha256": "e7012d9e12b20ae8aeecda10354c39c691e19a7a8e0346c5cb872bdba0b2959a"
     }
   ],
   "bundle": {
@@ -239,7 +245,7 @@
       "maximum_compute_threads": 18,
       "maximum_concurrent_workers_observed": 2,
       "bands_finalized": 10,
-      "wall_seconds": 0.1755410410114564
+      "wall_seconds": 0.1753502500068862
     },
     "gates": {
       "signed_manifest_accepted": true,
@@ -249,6 +255,7 @@
       "all_eighteen_m5_threads_allocated": true,
       "prune_runs_after_total_success": true,
       "band_failure_prevents_prune": true,
+      "band_count_mismatch_prevents_prune": true,
       "cpu_oversubscription_rejected": true,
       "locked_outcomes_unread": true
     }
@@ -271,6 +278,31 @@
       "one_bounded_source_request": true,
       "research_only": true,
       "streaming_peak_rss_below_512_mib": true
+    }
+  },
+  "real_source_hour": {
+    "provider": "wspr.live-research-v1",
+    "research_only": true,
+    "target_hour": "2026-07-16T02:00:00+00:00",
+    "source_checkpoint_sha256": "424a1a3b7ba27f2fa50581ee4c043471fd72b1f53448cf2c27170f5701f28f6a",
+    "completion_manifest_sha256": "485555c0b2c7e8abf8274fc8d3cd9653c076efad13ebea458caff89479d1c5e9",
+    "source_record_count": 287694,
+    "feature_cell_count": 75055,
+    "watermark_versions": {
+      "failed": 1,
+      "corrected": 1
+    },
+    "gates": {
+      "signed_manifest_v2_accepted": true,
+      "exact_failed_and_corrected_versions": true,
+      "truncated_version_all_band_invalidated": true,
+      "corrected_version_all_band_complete": true,
+      "stored_observation_counts_match_manifest": true,
+      "watermark_observation_counts_match_manifest": true,
+      "feature_counts_match_watermarks": true,
+      "source_total_matches_exact_target_count": true,
+      "incomplete_four_lag_window_fails_closed": true,
+      "locked_outcomes_unread": true
     }
   },
   "datasets": {
@@ -305,14 +337,17 @@
         "weather_gates_total": 14,
         "weather_feature_count": 14,
         "weather_path_p95_ms": 2.906167006585747,
-        "orchestration_gates_passed": 9,
-        "orchestration_gates_total": 9,
+        "orchestration_gates_passed": 10,
+        "orchestration_gates_total": 10,
         "orchestration_threads": 18,
         "connector_gates_passed": 8,
         "connector_gates_total": 8,
         "connector_rows": 287694,
         "connector_requests": 1,
-        "connector_peak_rss_mib": 57.625
+        "connector_peak_rss_mib": 57.625,
+        "live_hour_gates_passed": 10,
+        "live_hour_gates_total": 10,
+        "live_hour_feature_cells": 75055
       }
     ],
     "parity_rows": [
@@ -885,6 +920,11 @@
       },
       {
         "scope": "Signed hourly orchestration",
+        "gate": "band count mismatch prevents prune",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
         "gate": "cpu oversubscription rejected",
         "status": "pass"
       },
@@ -932,6 +972,56 @@
         "scope": "Research source connector",
         "gate": "streaming peak rss below 512 mib",
         "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "signed manifest v2 accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "exact failed and corrected versions",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "truncated version all band invalidated",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "corrected version all band complete",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "stored observation counts match manifest",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "watermark observation counts match manifest",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "feature counts match watermarks",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "source total matches exact target count",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "incomplete four lag window fails closed",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "locked outcomes unread",
+        "status": "pass"
       }
     ],
     "blocker_rows": [
@@ -944,7 +1034,7 @@
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "activate the signed hourly finalizer/pruning runner and monitoring internally",
+        "remaining_work": "activate hourly monitoring, alerting, and restart recovery internally",
         "status": "required before live NowCast"
       },
       {
@@ -963,7 +1053,7 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "the schema is deployed and a one-hour research query passed, but no continuous source or scheduler is active"
+        "evidence_limit": "one full research hour passed after an invalidated pagination defect, but continuous collection is not active"
       }
     ]
   }

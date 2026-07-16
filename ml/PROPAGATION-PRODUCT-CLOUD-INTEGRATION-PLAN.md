@@ -23,8 +23,10 @@
 > pass focused tests, lint, and the production build on the M5. Remaining cloud
 > gates are the explicitly approved private object upload, Railway/Vercel preview
 > deployment, cloud load/cost measurements, continuous monitoring, and the final
-> user-facing failure/partial-surface states.
-> Full `npm run verify` passes on the M5: 422 Python tests, 111 TypeScript/Node
+> deployed smoke test. ReachMap now scores two bounded 144-cell chunks, retains
+> successful cells when one chunk fails, and reports actual profile, stale-input,
+> fallback, and partial coverage. Band Planner reports the same states per band.
+> Full `npm run verify` passes on the M5: 422 Python tests, 114 TypeScript/Node
 > tests, lint, the production build, and all bundle budgets.
 >
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
@@ -237,7 +239,7 @@ fails closed when any model or trusted-data dependency is deliberately broken.
   private station record to aggregate inference logs.
 - [x] Point `modelClient.ts` at the same-origin proxy by default. Retain a direct
   local URL override for M5 development.
-- [ ] Add clear unavailable, stale-input, fallback, and partial-surface states.
+- [x] Add clear unavailable, stale-input, fallback, and partial-surface states.
 
 **Exit gate:** a registered invited tester can use propagation features from the
 Vercel deployment without any cloud secret appearing in the browser or network

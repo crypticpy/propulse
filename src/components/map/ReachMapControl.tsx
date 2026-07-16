@@ -1,4 +1,4 @@
-import { LoaderCircle, RadioTower, X } from "lucide-react";
+import { LoaderCircle, RadioTower, TriangleAlert, X } from "lucide-react";
 import type { ReachMapSurfaceState } from "@/hooks/useReachMapSurface";
 import { reachMapProfileLabel } from "@/lib/propagation/reachMapSurface";
 
@@ -96,19 +96,35 @@ export function ReachMapControl({
         ))}
       </div>
 
-      <div
-        className="mt-3 text-[10px] text-gray-400 flex items-center gap-1.5"
-        style={{ minHeight: 16 }}
-      >
+      <div className="mt-3 text-[10px] text-gray-400" style={{ minHeight: 34 }}>
         {state.loading ? (
-          <><LoaderCircle size={12} className="animate-spin" /> Scoring global paths...</>
+          <div className="flex items-center gap-1.5">
+            <LoaderCircle size={12} className="animate-spin" /> Scoring global paths...
+          </div>
         ) : state.error ? (
           <span className="text-red-300">{state.error}</span>
         ) : (
-          <span>
-            {state.cellCount} cells · {reachMapProfileLabel(state.profile)} ·{" "}
-            {state.modelVersion ?? "pending"}
-          </span>
+          <>
+            <div className="flex items-center gap-1.5">
+              {state.status === "partial" && (
+                <TriangleAlert size={12} className="shrink-0 text-caution-amber" />
+              )}
+              <span className={state.status === "partial" ? "text-caution-amber" : undefined}>
+                {state.cellCount}/{state.expectedCellCount} cells ·{" "}
+                {reachMapProfileLabel(state.profile)}
+              </span>
+            </div>
+            <div className="mt-1 truncate text-gray-500" title={state.modelVersion ?? undefined}>
+              {state.status === "partial"
+                ? `${state.failedCellCount} cells unavailable`
+                : state.staleInputCellCount > 0
+                  ? "Recent path data stale; physics fallback active"
+                  : state.fallbackCellCount > 0
+                    ? "Physics fallback active"
+                    : "Verified recent path data active"}
+              {state.modelVersion ? ` · ${state.modelVersion}` : ""}
+            </div>
+          </>
         )}
       </div>
       <div className="mt-2 border-t border-white/10 pt-2 text-[9px] text-gray-500">

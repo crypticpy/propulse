@@ -631,11 +631,38 @@ export function BandPlanner() {
                   </div>
                 )}
 
+                {modelNowCast.partial && (
+                  <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-caution-amber">
+                    <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>
+                      {modelNowCast.predictions.size}/{modelNowCast.requestedCount} bands scored.
+                      {" "}The established planner remains active for the unavailable bands.
+                    </span>
+                  </div>
+                )}
+
                 {modelNowCast.predictions.size > 0 && (
                   <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
                     <span>{[...modelNowCast.predictions.values()][0]?.model_version}</span>
                     <span>Issued {[...modelNowCast.predictions.values()][0]?.issue_time.slice(11, 16)} UTC</span>
-                    <span>Recent path feed unavailable, so physics fallback is expected</span>
+                    {modelNowCast.staleInputBands.length > 0 && (
+                      <span>
+                        Recent path data stale on {modelNowCast.staleInputBands.length} band
+                        {modelNowCast.staleInputBands.length === 1 ? "" : "s"}; physics fallback shown
+                      </span>
+                    )}
+                    {modelNowCast.fallbackBands.length > modelNowCast.staleInputBands.length && (
+                      <span>
+                        Physics fallback active on {modelNowCast.fallbackBands.length} band
+                        {modelNowCast.fallbackBands.length === 1 ? "" : "s"}
+                      </span>
+                    )}
+                    {modelNowCast.nowcastBands.length > 0 && (
+                      <span>
+                        Verified recent path data active on {modelNowCast.nowcastBands.length} band
+                        {modelNowCast.nowcastBands.length === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </div>
                 )}
               </Card>

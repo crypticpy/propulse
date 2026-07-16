@@ -10,6 +10,7 @@ import { latLonToGrid } from "@/lib/utils/grid";
 import type { OverlayCell } from "@/types/mapOverlays";
 
 export const REACH_MAP_CELL_DEGREES = 15;
+export const REACH_MAP_SURFACE_CHUNK_CELLS = 144;
 
 export interface ReachMapGridCell {
   id: string;
@@ -101,6 +102,47 @@ export function buildReachMapRequest(
   };
 }
 
+export function chunkReachMapSurfaceRequest(
+  request: SurfacePredictionRequest,
+  maximumCells = REACH_MAP_SURFACE_CHUNK_CELLS,
+): SurfacePredictionRequest[] {
+  if (!Number.isInteger(maximumCells) || maximumCells < 1 || maximumCells > 4096) {
+    throw new Error("ReachMap surface chunk size must be between 1 and 4,096");
+  }
+  const chunks: SurfacePredictionRequest[] = [];
+  for (let index = 0; index < request.cells.length; index += maximumCells) {
+    chunks.push({
+      ...request,
+      cells: request.cells.slice(index, index + maximumCells),
+    });
+  }
+  return chunks;
+}
+
+export interface ReachMapPredictionSummary {
+  modelVersion: string | null;
+  profile: string | null;
+  fallbackCellCount: number;
+  staleInputCellCount: number;
+}
+
+export function summarizeReachMapPredictions(
+  predictions: PropagationPrediction[],
+): ReachMapPredictionSummary {
+  const modelVersions = new Set(predictions.map((prediction) => prediction.model_version));
+  const profiles = new Set(predictions.map((prediction) => prediction.profile));
+  return {
+    modelVersion:
+      modelVersions.size === 1 ? [...modelVersions][0] : modelVersions.size > 1 ? "mixed" : null,
+    profile: profiles.size === 1 ? [...profiles][0] : profiles.size > 1 ? "mixed" : null,
+    fallbackCellCount: predictions.filter((prediction) => prediction.profile === "physics").length,
+    staleInputCellCount: predictions.filter((prediction) =>
+      prediction.ood_flags.includes("recent_network_stale_physics_fallback") ||
+      prediction.assumptions.includes("path_history_stale_or_unavailable_physics_fallback"),
+    ).length,
+  };
+}
+
 export function reachMapProbabilityColor(probability: number): string {
   const value = Math.max(0, Math.min(1, probability));
   if (value < 0.2) return "#dc2626";
@@ -113,6 +155,7 @@ export function reachMapProbabilityColor(probability: number): string {
 export function reachMapProfileLabel(profile: string | null): string {
   if (profile === "nowcast") return "NowCast";
   if (profile === "physics") return "Physics fallback";
+  if (profile === "mixed") return "Mixed profiles";
   return profile || "Pending";
 }
 

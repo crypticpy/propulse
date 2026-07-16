@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildNowCastRequests } from "./useNowCastBandPredictions";
+import {
+  buildNowCastRequests,
+  summarizeNowCastResults,
+} from "./useNowCastBandPredictions";
+import type { PropagationPrediction } from "@/lib/propagation/modelClient";
 
 describe("buildNowCastRequests", () => {
   it("builds privacy-safe station envelopes and forces stale-history fallback", () => {
@@ -75,5 +79,50 @@ describe("buildNowCastRequests", () => {
     expect(requests).toHaveLength(10);
     expect(requests.every((request) => request.station === undefined)).toBe(true);
     expect(requests.every((request) => request.declared_power_watts === 5)).toBe(true);
+  });
+});
+
+describe("summarizeNowCastResults", () => {
+  it("reports mixed fallback, stale input, and partial request failures", () => {
+    const base: PropagationPrediction = {
+      model_version: "v4-test",
+      feature_contract: "station-chain-v1",
+      issue_time: "2026-07-16T12:00:00Z",
+      valid_time: "2026-07-16T12:00:00Z",
+      band: "20m",
+      mode: "WSPR",
+      target_grid4: "IO91",
+      core_probability: 0.4,
+      personalized_probability: 0.5,
+      confidence: 0.7,
+      ood_flags: [],
+      data_freshness: {},
+      top_factors: [],
+      assumptions: [],
+      profile: "nowcast",
+    };
+    const predictions = new Map<string, PropagationPrediction>([
+      ["20m", base],
+      ["40m", {
+        ...base,
+        band: "40m",
+        profile: "physics",
+        assumptions: ["path_history_stale_or_unavailable_physics_fallback"],
+      }],
+    ]);
+    const errors = new Map([["80m", new Error("unavailable")]]);
+
+    expect(summarizeNowCastResults(
+      ["20m", "40m", "80m"],
+      predictions,
+      errors,
+    )).toEqual({
+      requestedCount: 3,
+      failedCount: 1,
+      partial: true,
+      fallbackBands: ["40m"],
+      staleInputBands: ["40m"],
+      nowcastBands: ["20m"],
+    });
   });
 });

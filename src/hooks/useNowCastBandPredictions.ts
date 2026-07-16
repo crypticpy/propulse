@@ -103,6 +103,50 @@ export interface NowCastBandPredictions {
   pending: boolean;
   predictions: Map<string, PropagationPrediction>;
   errors: Map<string, Error>;
+  requestedCount: number;
+  failedCount: number;
+  partial: boolean;
+  fallbackBands: string[];
+  staleInputBands: string[];
+  nowcastBands: string[];
+}
+
+export function summarizeNowCastResults(
+  requestedBands: string[],
+  predictions: Map<string, PropagationPrediction>,
+  errors: Map<string, Error>,
+): Pick<
+  NowCastBandPredictions,
+  | "requestedCount"
+  | "failedCount"
+  | "partial"
+  | "fallbackBands"
+  | "staleInputBands"
+  | "nowcastBands"
+> {
+  const fallbackBands = requestedBands.filter(
+    (band) => predictions.get(band)?.profile === "physics",
+  );
+  const staleInputBands = requestedBands.filter((band) => {
+    const prediction = predictions.get(band);
+    return Boolean(
+      prediction && (
+        prediction.ood_flags.includes("recent_network_stale_physics_fallback") ||
+        prediction.assumptions.includes("path_history_stale_or_unavailable_physics_fallback")
+      ),
+    );
+  });
+  const nowcastBands = requestedBands.filter(
+    (band) => predictions.get(band)?.profile === "nowcast",
+  );
+  return {
+    requestedCount: requestedBands.length,
+    failedCount: errors.size,
+    partial: predictions.size > 0 && errors.size > 0,
+    fallbackBands,
+    staleInputBands,
+    nowcastBands,
+  };
 }
 
 export function useNowCastBandPredictions(
@@ -148,6 +192,11 @@ export function useNowCastBandPredictions(
     if (query.data) predictions.set(band, query.data);
     if (query.error instanceof Error) errors.set(band, query.error);
   });
+  const summary = summarizeNowCastResults(
+    requests.map((request) => request.band),
+    predictions,
+    errors,
+  );
   return {
     enabled: propagationModelEnabled && requests.length > 0,
     visible: propagationCoreNowCastVisible && requests.length > 0,
@@ -156,5 +205,6 @@ export function useNowCastBandPredictions(
     pending: queries.some((query) => query.isPending || query.isFetching),
     predictions,
     errors,
+    ...summary,
   };
 }

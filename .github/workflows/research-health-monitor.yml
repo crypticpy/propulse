@@ -59,8 +59,11 @@ jobs:
           fi
           mv /tmp/research-health-monitor-response.json \
             /tmp/research-health-monitor.json
-          jq '{evaluated, heartbeatStale, stateChanged, heartbeatAgeSeconds, alertDelivery}' \
-            /tmp/research-health-monitor.json
+          if ! jq \
+            '{evaluated, heartbeatStale, stateChanged, heartbeatAgeSeconds, alertDelivery}' \
+            /tmp/research-health-monitor.json; then
+            echo "Monitor response was not valid JSON; incident fallback will handle it" >&2
+          fi
 
       - name: Reconcile durable GitHub incident
         shell: bash

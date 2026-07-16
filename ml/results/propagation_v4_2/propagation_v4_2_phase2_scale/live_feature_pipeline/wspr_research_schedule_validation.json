@@ -1,43 +1,43 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T04:59:00.395493+00:00",
+  "generated_at": "2026-07-16T05:19:26.696995+00:00",
   "scope": "active_wspr_research_schedule_validation",
   "decision": "pass",
   "locked_outcomes_read": false,
   "research_only": true,
   "subscriber_facing_authorized": false,
   "provider": "wspr.live-research-v1",
-  "target_hour": "2026-07-16T03:00:00+00:00",
-  "source_record_count": 261006,
+  "target_hour": "2026-07-16T04:00:00+00:00",
+  "source_record_count": 255536,
   "records_by_band": {
-    "10m": 3830,
-    "12m": 1960,
-    "15m": 8323,
-    "160m": 4689,
-    "17m": 9401,
-    "20m": 77164,
-    "30m": 49354,
-    "40m": 77470,
-    "60m": 3419,
-    "80m": 25396
+    "10m": 2450,
+    "12m": 1218,
+    "15m": 5117,
+    "160m": 2959,
+    "17m": 7267,
+    "20m": 72843,
+    "30m": 50200,
+    "40m": 86683,
+    "60m": 3577,
+    "80m": 23222
   },
-  "feature_cell_count": 69980,
+  "feature_cell_count": 67829,
   "connector": {
-    "elapsed_seconds": 37.961483,
-    "peak_rss_mib": 152.297,
+    "elapsed_seconds": 40.774455,
+    "peak_rss_mib": 161.0,
     "source_request_count": 1
   },
   "finalizer": {
     "maximum_compute_threads": 18,
     "threads_per_band": 9,
-    "wall_seconds": 149.460603,
+    "wall_seconds": 171.515254,
     "workers": 2
   },
   "health": {
     "status": "healthy",
-    "continuous_completed_hours": 1,
+    "continuous_completed_hours": 2,
     "consecutive_failures": 0,
-    "freshness_seconds": 2917
+    "freshness_seconds": 1116
   },
   "schedule": {
     "label": "org.propulse.wspr-research",
@@ -59,15 +59,15 @@
       "stale_seconds": 7200
     },
     "observations": {
-      "continuous_completed_hours": 1,
-      "dynamic_freshness_seconds": 3521,
-      "health_record_age_seconds": 603,
-      "last_completed_target_hour": "2026-07-16T03:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T03:00:00+00:00",
-      "runtime_bytes": 6807,
-      "shadow_completed_hours": 1,
+      "continuous_completed_hours": 2,
+      "dynamic_freshness_seconds": 1163,
+      "health_record_age_seconds": 46,
+      "last_completed_target_hour": "2026-07-16T04:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T04:00:00+00:00",
+      "runtime_bytes": 9108,
+      "shadow_completed_hours": 2,
       "shadow_completion_rate": 1.0,
-      "shadow_expected_hours": 1
+      "shadow_expected_hours": 2
     },
     "delivery": {
       "local_notification_enabled": true,
@@ -83,7 +83,7 @@
   },
   "execution": {
     "target_requests": 21,
-    "validation_wall_seconds": 1.9163411670015194
+    "validation_wall_seconds": 2.1440757079981267
   },
   "gates": {
     "signed_manifest_v2_accepted": true,

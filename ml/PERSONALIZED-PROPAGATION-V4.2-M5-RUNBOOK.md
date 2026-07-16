@@ -213,7 +213,11 @@ from each receipt plus its signed completed manifest. It fixes the duration at
 tracking gaps, stale-boundary latency, ten-band coverage, exact M5 concurrency,
 one-request ingest, RSS, and aggregate row/cell totals. The initial real state
 is operationally healthy at `1/1` expected hours with zero gaps, but remains
-`collecting` because `1/720` is not 30 days.
+`collecting` because `1/720` is not 30 days. The following minute-15 calendar
+event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
+target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
+RSS, the same bounded 18-thread finalizer, and clean transient removal. The
+rollup is now `2/2` with zero gaps and remains `collecting` at `2/720`.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,

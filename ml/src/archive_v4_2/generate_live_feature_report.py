@@ -274,6 +274,7 @@ def build_evidence(
         "schedule_peak_rss_mib": float(
             wspr_research_schedule_validation["connector"]["peak_rss_mib"]
         ),
+        "schedule_target_hour": wspr_research_schedule_validation["target_hour"],
         "shadow_completed_hours": int(
             wspr_research_shadow_progress["window"]["completed_hours"]
         ),
@@ -632,9 +633,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             ),
             (
                 "scheduled_rows",
-                "Scheduled source rows",
+                "Latest audited rows",
                 "schedule_source_rows",
-                "First independently audited hourly LaunchAgent receipt.",
+                "Most recent independently audited hourly LaunchAgent receipt.",
             ),
             (
                 "shadow_hours",
@@ -699,8 +700,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         ),
         chart(
             "scheduled_band_coverage",
-            "The first scheduled hour is complete across all ten HF bands",
-            f"Exact target-store counts sum to {summary['schedule_source_rows']:,} observations; no raw station identity enters this report.",
+            "The latest scheduled hour is complete across all ten HF bands",
+            f"Target {summary['schedule_target_hour']} has {summary['schedule_source_rows']:,} exact observations; no raw station identity enters this report.",
             "schedule_band_rows",
             {
                 "x": {"field": "band", "type": "ordinal", "label": "Band"},
@@ -801,7 +802,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"at **{summary['connector_peak_rss_mib']:.1f} MiB peak RSS**. "
                 f"The corrected end-to-end target hour passed **{summary['live_hour_gates_passed']} of {summary['live_hour_gates_total']}** "
                 f"gates with **{summary['live_hour_feature_cells']:,} path cells** after its truncated first version was invalidated. "
-                f"The hourly research LaunchAgent is now active and its first receipt passed **{summary['schedule_gates_passed']} of "
+                f"The hourly research LaunchAgent is now active and its latest audited receipt passed **{summary['schedule_gates_passed']} of "
                 f"{summary['schedule_gates_total']} independent gates**: **{summary['schedule_source_rows']:,} observations** became "
                 f"**{summary['schedule_feature_cells']:,} path cells** with zero consecutive failures, **{summary['schedule_peak_rss_mib']:.1f} MiB** "
                 "peak connector RSS, and all 18 M5 compute threads bounded. Subscriber-facing WSPR use still requires written "
@@ -902,7 +903,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "sourceId": "live_feature_evidence",
             "body": (
                 f"At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an "
-                f"identity-free atomic receipt only after all ten bands pass. Its first scheduled hour contained "
+                f"identity-free atomic receipt only after all ten bands pass. The latest audited target, **{summary['schedule_target_hour']}**, contained "
                 f"**{summary['schedule_source_rows']:,} observations** and **{summary['schedule_feature_cells']:,} feature cells**. "
                 f"An independent validator made 21 exact target-store queries and passed **{summary['schedule_gates_passed']} of "
                 f"{summary['schedule_gates_total']} gates**, including manifest signature/hash linkage, per-band observation and "
@@ -1056,7 +1057,7 @@ at `{summary['connector_peak_rss_mib']:.1f}` MiB peak RSS. The corrected end-to-
 hour passed `{summary['live_hour_gates_passed']}/{summary['live_hour_gates_total']}`
 gates and published `{summary['live_hour_feature_cells']:,}` aggregate path cells;
 the truncated first watermark version is explicitly failed. The hourly research
-LaunchAgent is now active: its first receipt passed
+LaunchAgent is now active: its latest audited receipt passed
 `{summary['schedule_gates_passed']}/{summary['schedule_gates_total']}` independent
 gates, converting `{summary['schedule_source_rows']:,}` observations into
 `{summary['schedule_feature_cells']:,}` path cells with 18 bounded M5 threads.

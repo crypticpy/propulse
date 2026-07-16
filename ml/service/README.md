@@ -189,6 +189,12 @@ the latest receipt, target counts, health record, plist, and thread bound with
 `validate_wspr_research_schedule.py`; the generated evidence contains no station
 identity or secret material.
 
+The next minute-15 calendar event (not RunAtLoad) advanced the schedule to two
+continuous receipts. Target `2026-07-16T04:00:00Z` matched `255,536`
+observations and `67,829` feature cells, used 161 MiB connector peak RSS and the
+same bounded 18-thread finalizer profile, and exited cleanly with no transient
+spool or run directory.
+
 `check_m5_wspr_research_health.py` is installed as a second LaunchAgent at
 minutes 0 and 30. It evaluates the preregistered 7,200-second freshness limit,
 latest settled-hour completion, receipt continuity, UTC alignment, worker
@@ -203,7 +209,9 @@ the denominator at 720 expected hours, requires at least 99% scheduled
 completion, checks every completed hour against the 7,200-second boundary, and
 tracks gaps, band coverage, one-request ingest, exact M5 concurrency, latency,
 RSS, source rows, and feature cells. It reports `collecting` until the full
-30-day duration exists even when every current operational gate passes.
+30-day duration exists even when every current operational gate passes. The
+current rollup is `2/2` expected hours, 100% completion, zero gaps, and `2/720`
+required hours.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

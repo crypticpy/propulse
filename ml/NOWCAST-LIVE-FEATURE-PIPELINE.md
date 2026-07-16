@@ -93,7 +93,9 @@
 > System Health, beta outcomes, and long-window evidence remain open.
 > An automatic identity-free rollup re-verifies every receipt and signed
 > manifest, fixes the duration at 720 expected hours and scheduled completion at
-> 99%, and currently reports operationally healthy `collecting` status at `1/720`.
+> 99%. The next actual minute-15 calendar event completed without RunAtLoad or a
+> manual target, advancing the operationally healthy rollup to `2/2` expected
+> hours, zero gaps, and `collecting` status at `2/720`.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto

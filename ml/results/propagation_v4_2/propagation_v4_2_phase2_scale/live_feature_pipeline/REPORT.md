@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T05:01:49.767374+00:00
+Generated: 2026-07-16T05:22:15.543734+00:00
 
 ## Answer first
 
@@ -24,12 +24,12 @@ at `57.6` MiB peak RSS. The corrected end-to-end target
 hour passed `10/10`
 gates and published `75,055` aggregate path cells;
 the truncated first watermark version is explicitly failed. The hourly research
-LaunchAgent is now active: its first receipt passed
+LaunchAgent is now active: its latest audited receipt passed
 `28/28` independent
-gates, converting `261,006` observations into
-`69,980` path cells with 18 bounded M5 threads.
+gates, converting `255,536` observations into
+`67,829` path cells with 18 bounded M5 threads.
 The signed progress rollup is operationally healthy at
-`1/720` hours,
+`2/720` hours,
 `100.0%` scheduled completion, and
 `0` gaps; its decision remains `collecting`.
 Subscriber-facing use still requires source confirmation. Remote alert

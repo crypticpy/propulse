@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T16:17:05.269953+00:00",
+  "generated_at": "2026-07-16T16:47:00.336525+00:00",
   "host_role": "M5 prospective capture",
   "architecture": "arm64",
   "schedule": {
@@ -26,75 +26,75 @@
   "source_state": {
     "pskreporter": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T16:12:38.568633+00:00",
-      "last_success_at": "2026-07-16T16:12:38.568633+00:00",
-      "attempt_age_seconds": 266.70132,
-      "success_age_seconds": 266.70132,
-      "rows_last_run": 2675,
-      "duration_ms": 1537,
+      "last_attempt_at": "2026-07-16T16:42:39.517177+00:00",
+      "last_success_at": "2026-07-16T16:42:39.517177+00:00",
+      "attempt_age_seconds": 260.819348,
+      "success_age_seconds": 260.819348,
+      "rows_last_run": 2629,
+      "duration_ms": 2378,
       "error_present": false,
-      "latest_spotted_at": "2026-07-16T16:12:29+00:00",
-      "latest_ingested_at": "2026-07-16T16:12:37.85731+00:00",
-      "latest_available_at": "2026-07-16T16:12:37.85731+00:00",
-      "latest_spot_age_seconds": 276.269953
+      "latest_spotted_at": "2026-07-16T16:42:32+00:00",
+      "latest_ingested_at": "2026-07-16T16:42:37.976869+00:00",
+      "latest_available_at": "2026-07-16T16:42:37.976869+00:00",
+      "latest_spot_age_seconds": 268.336525
     },
     "rbn": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T16:12:41.745138+00:00",
-      "last_success_at": "2026-07-16T16:12:41.745138+00:00",
-      "attempt_age_seconds": 263.524815,
-      "success_age_seconds": 263.524815,
-      "rows_last_run": 18151,
-      "duration_ms": 4696,
+      "last_attempt_at": "2026-07-16T16:42:43.122336+00:00",
+      "last_success_at": "2026-07-16T16:42:43.122336+00:00",
+      "attempt_age_seconds": 257.214189,
+      "success_age_seconds": 257.214189,
+      "rows_last_run": 16388,
+      "duration_ms": 6059,
       "error_present": false,
-      "latest_spotted_at": "2026-07-16T16:12:30+00:00",
-      "latest_ingested_at": "2026-07-16T16:12:37.829026+00:00",
-      "latest_available_at": "2026-07-16T16:12:37.829026+00:00",
-      "latest_spot_age_seconds": 275.269953
+      "latest_spotted_at": "2026-07-16T16:42:30+00:00",
+      "latest_ingested_at": "2026-07-16T16:42:38.450415+00:00",
+      "latest_available_at": "2026-07-16T16:42:38.450415+00:00",
+      "latest_spot_age_seconds": 270.336525
     },
     "dxcluster": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T16:15:37.936266+00:00",
-      "last_success_at": "2026-07-16T16:15:37.936266+00:00",
-      "attempt_age_seconds": 87.333687,
-      "success_age_seconds": 87.333687,
-      "rows_last_run": 136,
-      "duration_ms": 673,
+      "last_attempt_at": "2026-07-16T16:45:37.968104+00:00",
+      "last_success_at": "2026-07-16T16:45:37.968104+00:00",
+      "attempt_age_seconds": 82.368421,
+      "success_age_seconds": 82.368421,
+      "rows_last_run": 102,
+      "duration_ms": 644,
       "error_present": false,
-      "latest_spotted_at": "2026-07-16T16:15:00+00:00",
-      "latest_ingested_at": "2026-07-16T16:15:37.805241+00:00",
-      "latest_available_at": "2026-07-16T16:15:37.805241+00:00",
-      "latest_spot_age_seconds": 125.269953
+      "latest_spotted_at": "2026-07-16T16:45:00+00:00",
+      "latest_ingested_at": "2026-07-16T16:45:37.838403+00:00",
+      "latest_available_at": "2026-07-16T16:45:37.838403+00:00",
+      "latest_spot_age_seconds": 120.336525
     },
     "solar": {
       "status": "ok",
-      "last_attempt_at": "2026-07-16T16:12:37.488035+00:00",
-      "last_success_at": "2026-07-16T16:12:37.488035+00:00",
-      "success_age_seconds": 267.781918,
+      "last_attempt_at": "2026-07-16T16:42:37.415876+00:00",
+      "last_success_at": "2026-07-16T16:42:37.415876+00:00",
+      "success_age_seconds": 262.920649,
       "rows_last_run": 1,
-      "duration_ms": 439,
+      "duration_ms": 338,
       "error_present": false,
-      "latest_captured_at": "2026-07-16T16:12:37.279+00:00",
-      "capture_age_seconds": 267.990953,
+      "latest_captured_at": "2026-07-16T16:42:37.111+00:00",
+      "capture_age_seconds": 263.225525,
       "source_observed_at": {
-        "kp": "2026-07-16T16:09:00.000Z",
-        "magnetic_field": "2026-07-16T16:06:00.000Z",
-        "solar_wind": "2026-07-16T16:07:00.000Z",
-        "proton_flux_10mev": "2026-07-16T16:05:00.000Z",
-        "dst": "2026-07-16T15:00:00.000Z"
+        "kp": "2026-07-16T16:39:00.000Z",
+        "magnetic_field": "2026-07-16T16:36:00.000Z",
+        "solar_wind": "2026-07-16T16:36:00.000Z",
+        "proton_flux_10mev": "2026-07-16T16:30:00.000Z",
+        "dst": "2026-07-16T16:00:00.000Z"
       },
       "source_age_seconds": {
-        "kp": 485.269953,
-        "magnetic_field": 665.269953,
-        "solar_wind": 605.269953,
-        "proton_flux_10mev": 725.269953,
-        "dst": 4625.269953
+        "kp": 480.336525,
+        "magnetic_field": 660.336525,
+        "solar_wind": 660.336525,
+        "proton_flux_10mev": 1020.336525,
+        "dst": 2820.336525
       },
       "source_current": {
         "kp": true,
         "magnetic_field": true,
         "solar_wind": true,
-        "proton_flux_10mev": true,
+        "proton_flux_10mev": false,
         "dst": true
       },
       "required_sources": [
@@ -107,17 +107,17 @@
   },
   "aggregation_state": {
     "band_hourly": {
-      "hour_utc": "2026-07-16T14:00:00+00:00",
-      "rows_written": 9,
-      "available_at": "2026-07-16T15:22:38.569528+00:00",
-      "hour_age_seconds": 8225.269953,
+      "hour_utc": "2026-07-16T15:00:00+00:00",
+      "rows_written": 10,
+      "available_at": "2026-07-16T16:22:38.692738+00:00",
+      "hour_age_seconds": 6420.336525,
       "watermark_last": true
     },
     "path_hourly": {
-      "hour_utc": "2026-07-16T14:00:00+00:00",
-      "rows_written": 2613,
-      "available_at": "2026-07-16T15:22:38.32169+00:00",
-      "hour_age_seconds": 8225.269953,
+      "hour_utc": "2026-07-16T15:00:00+00:00",
+      "rows_written": 2761,
+      "available_at": "2026-07-16T16:22:38.345072+00:00",
+      "hour_age_seconds": 6420.336525,
       "watermark_last": true
     }
   },
@@ -126,8 +126,8 @@
   "operational_healthy": true,
   "instant_healthy": true,
   "continuity": {
-    "hours": 4.749981172222222,
-    "healthy_receipts": 23,
+    "hours": 5.248610775555555,
+    "healthy_receipts": 25,
     "maximum_allowed_gap_seconds": 1800,
     "tail_has_no_gap": true,
     "minimum_hours": 24.0

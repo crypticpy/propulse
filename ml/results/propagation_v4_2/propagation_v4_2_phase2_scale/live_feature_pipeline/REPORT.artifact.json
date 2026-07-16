@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: research shadow validation report",
     "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
-    "generatedAt": "2026-07-16T16:47:56.952625+00:00",
+    "generatedAt": "2026-07-16T17:01:47.102181+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -517,7 +517,7 @@
       {
         "id": "prospective_progress",
         "title": "First-party prospective capture is operational and warming",
-        "subtitle": "All 4 of 4 sources are current; the evidence clock is 4.75 of 24 required hours.",
+        "subtitle": "All 4 of 4 sources are current; the evidence clock is 5.25 of 24 required hours.",
         "type": "bar",
         "dataset": "prospective_progress_rows",
         "sourceId": "live_feature_evidence",
@@ -815,7 +815,7 @@
         "id": "coverage_band_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The read-only M5 audit found **13 of 13 complete all-band hours** with **0 gaps**, covering **867,072 identity-free path cells**. The audit window is checksum-bound to the signed scheduled-receipt rollup, so the earlier manual validation target cannot advance this clock. The band distribution describes what the receiver network observed; it is neither a model score nor evidence of uniform geographic sampling."
+        "body": "The read-only M5 audit found **13 of 13 complete all-band hours** with **0 gaps**, covering **867,072 identity-free path cells**. The audit window is checksum-bound to the signed scheduled-receipt rollup, so the earlier manual validation target cannot advance this clock. Database reads are capped at 24-hour chunks and recombined before regional suppression, keeping the eventual 720-hour audit bounded without changing its global thresholds. The band distribution describes what the receiver network observed; it is neither a model score nor evidence of uniform geographic sampling."
       },
       {
         "id": "coverage_band_chart",
@@ -880,7 +880,7 @@
         "id": "prospective_capture_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The native-M5 LaunchAgent polls PSK Reporter, RBN, and provenance-rich NOAA/Kyoto weather every five minutes, and DX Cluster every two minutes. The latest receipt has **4 of 4 sources current** and **4.75 of 24 required continuity hours**. Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable watermark even for a zero-row hour. Solar readiness checks each upstream timestamp, not only capture time. Kp, magnetic field, solar wind, and Dst are required; optional proton flux retains its 15-minute causal limit and becomes a missing feature when NOAA publishes it late. The readiness clock does not begin until both aggregates are nonempty and current. A separate quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, station equipment, and user data are excluded. The August-September outcomes remain unread."
+        "body": "The native-M5 LaunchAgent polls PSK Reporter, RBN, and provenance-rich NOAA/Kyoto weather every five minutes, and DX Cluster every two minutes. The latest receipt has **4 of 4 sources current** and **5.25 of 24 required continuity hours**. Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable watermark even for a zero-row hour. Solar readiness checks each upstream timestamp, not only capture time. Kp, magnetic field, solar wind, and Dst are required; optional proton flux retains its 15-minute causal limit and becomes a missing feature when NOAA publishes it late. The readiness clock does not begin until both aggregates are nonempty and current. A separate quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, station equipment, and user data are excluded. The August-September outcomes remain unread."
       },
       {
         "id": "outcomes_heading",
@@ -944,7 +944,7 @@
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T16:47:56.952625+00:00",
+    "generatedAt": "2026-07-16T17:01:47.102181+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -1046,7 +1046,7 @@
           "coverage_drift_sample_sufficient": false,
           "prospective_sources_current": 4,
           "prospective_sources_required": 4,
-          "prospective_continuity_hours": 4.749981172222222,
+          "prospective_continuity_hours": 5.248610775555555,
           "prospective_continuity_required_hours": 24.0,
           "prospective_capture_ready": false
         }
@@ -1542,12 +1542,12 @@
         {
           "window": "First-party capture preflight",
           "state": "Continuous healthy evidence",
-          "hours": 4.749981172222222
+          "hours": 5.248610775555555
         },
         {
           "window": "First-party capture preflight",
           "state": "Remaining",
-          "hours": 19.25001882777778
+          "hours": 18.751389224444445
         }
       ],
       "incident_age_rows": [
@@ -3183,6 +3183,11 @@
         },
         {
           "scope": "Aggregate coverage and drift",
+          "gate": "database queries bounded to 24 hours",
+          "status": "pass"
+        },
+        {
+          "scope": "Aggregate coverage and drift",
           "gate": "early late drift sample sufficient",
           "status": "pending"
         },
@@ -3320,7 +3325,7 @@
           "evidence_limit": "13 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
         },
         {
-          "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 4.75/24 required gap-free preflight hours"
+          "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 5.25/24 required gap-free preflight hours"
         },
         {
           "evidence_limit": "A real stale heartbeat opened and genuine recovery closed one durable GitHub incident, but the stale episode was not caused by physically powering off the M5"

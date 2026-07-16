@@ -4,7 +4,11 @@ Status: draft ready to send. Recipient: `admin@wspr.live` (the contact published
 on [WSPR.live](https://wspr.live/)). Record the sent date, response, and any
 conditions here before enabling subscriber-facing use.
 
-## Draft
+## Exact request
+
+Send [`WSPR-LIVE-PERMISSION-EMAIL.txt`](WSPR-LIVE-PERMISSION-EMAIL.txt)
+unchanged. That standalone file is the immutable request hashed by the release
+validator. The rendering below is retained for review.
 
 Subject: Permission request for nonprofit Propulse propagation research
 
@@ -69,3 +73,49 @@ Thank you.
 Do not place private email contents or credentials in this repository. Record a
 short permission decision and checksum/reference to the privately retained
 message.
+
+## Machine-verifiable release receipt
+
+The public terms allow non-profit-oriented research/projects whose results stay
+free, but that language does not unambiguously cover personalized features in a
+donation/subscription-supported product. Public terms alone therefore cannot
+open the subscriber gate. The exact request above must be sent and the service
+operator must explicitly approve both `internal_research` and
+`subscriber_recent_path_features` under the listed limits.
+
+Keep the reply, a snapshot of `https://wspr.live/`, and the authorization input
+outside the repository in an owner-only directory. Start from
+[`config/wspr_live_authorization_input.example.json`](config/wspr_live_authorization_input.example.json),
+record the exact email-file SHA-256 and reply SHA-256 rather than message contents,
+and preserve the complete reply headers. Capture the public page directly rather
+than copying rendered text:
+
+```bash
+mkdir -p "$PROPULSE_AUTH_DIR"
+chmod 700 "$PROPULSE_AUTH_DIR"
+curl --fail --silent --show-error --location https://wspr.live/ \
+  --output "$PROPULSE_AUTH_DIR/wspr-live-terms.html"
+shasum -a 256 ml/WSPR-LIVE-PERMISSION-EMAIL.txt \
+  "$PROPULSE_AUTH_DIR/wspr-live-terms.html" \
+  "$PROPULSE_AUTH_DIR/wspr-live-reply.eml"
+```
+
+Record those hashes and offset-qualified UTC timestamps in the private input,
+then run the validator on the M5:
+
+```bash
+chmod 600 "$PROPULSE_AUTH_DIR/wspr-live-authorization.json"
+ml/.venv/bin/python ml/src/archive_v4_2/validate_wspr_source_authorization.py \
+  --profile m5 \
+  --authorization-input "$PROPULSE_AUTH_DIR/wspr-live-authorization.json" \
+  --public-terms-snapshot "$PROPULSE_AUTH_DIR/wspr-live-terms.html"
+```
+
+The validator fails closed on proposal drift, a mismatched terms snapshot,
+changed terms content, expired or non-operator approval, altered conditions,
+extra fields, malformed types, non-M5 execution, or any authorization scope
+short of the two required roles. Its repository-safe output contains hashes and
+decisions only; it never copies the correspondence. The receipt is an auditable
+operator attestation bound to privately retained evidence, not cryptographic
+proof that the email sender controls WSPR.live; independently verify the sender
+and retain complete headers before recording `service_operator` approval.

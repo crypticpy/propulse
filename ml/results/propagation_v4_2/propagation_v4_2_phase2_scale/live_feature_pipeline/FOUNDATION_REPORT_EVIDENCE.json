@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T12:42:19.058752+00:00",
+  "generated_at": "2026-07-16T16:05:56.020253+00:00",
   "scope": "live_feature_foundation_replay_and_active_research_shadow",
   "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
   "source_authorized": false,
@@ -118,12 +118,12 @@
     {
       "id": "wspr_research_shadow_progress",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "2d6a979cadced4056bc74852097145cb32ae15525d4518c69bb6243907834082"
+      "sha256": "4aa21fcfe0b5f8c9981ea84ef74f2c30118a183b6e1e1c951f3f941c65cead6b"
     },
     {
       "id": "prospective_capture_readiness",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "76422accef53371ae6b03c83f4f937c5e255a51747c67cf72f7d2a861907ec79"
+      "sha256": "6dc47a48cb3a17660bdd656b2a6dd9810fdf3328504c8a9b85fd386107bb3b94"
     }
   ],
   "bundle": {
@@ -788,38 +788,38 @@
     "decision": "collecting",
     "operational_status": "healthy",
     "window": {
-      "completed_hours": 9,
+      "completed_hours": 12,
       "completion_rate": 1.0,
-      "continuous_completed_hours": 9,
-      "expected_hours": 9,
-      "last_completed_target_hour": "2026-07-16T11:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T11:00:00+00:00",
+      "continuous_completed_hours": 12,
+      "expected_hours": 12,
+      "last_completed_target_hour": "2026-07-16T14:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T14:00:00+00:00",
       "minimum_hours": 720,
       "missing_hours": 0,
       "start_target_hour": "2026-07-16T03:00:00+00:00"
     },
     "totals": {
-      "feature_cells": 590320,
+      "feature_cells": 796382,
       "records_by_band": {
-        "10m": 52839,
-        "12m": 18770,
-        "15m": 84444,
-        "160m": 20607,
-        "17m": 80002,
-        "20m": 662856,
-        "30m": 422272,
-        "40m": 679187,
-        "60m": 18938,
-        "80m": 159512
+        "10m": 69613,
+        "12m": 27284,
+        "15m": 121953,
+        "160m": 22523,
+        "17m": 117427,
+        "20m": 915419,
+        "30m": 549955,
+        "40m": 844571,
+        "60m": 21142,
+        "80m": 177695
       },
-      "source_records": 2199427
+      "source_records": 2867582
     },
     "performance": {
       "completion_latency_max_seconds": 2802.150802,
-      "completion_latency_p95_seconds": 2371.4829468,
+      "completion_latency_p95_seconds": 2209.9825010999994,
       "connector_peak_rss_max_mib": 161.0,
-      "connector_wall_p95_seconds": 79.7311352,
-      "finalizer_wall_p95_seconds": 745.4885656
+      "connector_wall_p95_seconds": 109.2787156,
+      "finalizer_wall_p95_seconds": 741.22429645
     },
     "gates": {
       "all_receipts_and_manifests_valid": true,
@@ -837,7 +837,7 @@
   },
   "prospective_capture": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T12:40:18.793132+00:00",
+    "generated_at": "2026-07-16T16:02:04.478884+00:00",
     "host_role": "M5 prospective capture",
     "architecture": "arm64",
     "schedule": {
@@ -863,75 +863,75 @@
     "source_state": {
       "pskreporter": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T12:37:38.475769+00:00",
-        "last_success_at": "2026-07-16T12:37:38.475769+00:00",
-        "attempt_age_seconds": 160.317363,
-        "success_age_seconds": 160.317363,
-        "rows_last_run": 2798,
-        "duration_ms": 1595,
+        "last_attempt_at": "2026-07-16T15:57:38.719895+00:00",
+        "last_success_at": "2026-07-16T15:57:38.719895+00:00",
+        "attempt_age_seconds": 265.758989,
+        "success_age_seconds": 265.758989,
+        "rows_last_run": 2651,
+        "duration_ms": 1701,
         "error_present": false,
-        "latest_spotted_at": "2026-07-16T12:37:31+00:00",
-        "latest_ingested_at": "2026-07-16T12:37:37.843309+00:00",
-        "latest_available_at": "2026-07-16T12:37:37.843309+00:00",
-        "latest_spot_age_seconds": 167.793132
+        "latest_spotted_at": "2026-07-16T15:57:31+00:00",
+        "latest_ingested_at": "2026-07-16T15:57:38.039174+00:00",
+        "latest_available_at": "2026-07-16T15:57:38.039174+00:00",
+        "latest_spot_age_seconds": 273.478884
       },
       "rbn": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T12:37:40.765565+00:00",
-        "last_success_at": "2026-07-16T12:37:40.765565+00:00",
-        "attempt_age_seconds": 158.027567,
-        "success_age_seconds": 158.027567,
-        "rows_last_run": 15865,
-        "duration_ms": 3879,
+        "last_attempt_at": "2026-07-16T15:57:43.045153+00:00",
+        "last_success_at": "2026-07-16T15:57:43.045153+00:00",
+        "attempt_age_seconds": 261.433731,
+        "success_age_seconds": 261.433731,
+        "rows_last_run": 23764,
+        "duration_ms": 6021,
         "error_present": false,
-        "latest_spotted_at": "2026-07-16T12:37:30+00:00",
-        "latest_ingested_at": "2026-07-16T12:37:37.735983+00:00",
-        "latest_available_at": "2026-07-16T12:37:37.735983+00:00",
-        "latest_spot_age_seconds": 168.793132
+        "latest_spotted_at": "2026-07-16T15:57:30+00:00",
+        "latest_ingested_at": "2026-07-16T15:57:38.048638+00:00",
+        "latest_available_at": "2026-07-16T15:57:38.048638+00:00",
+        "latest_spot_age_seconds": 274.478884
       },
       "dxcluster": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T12:39:37.779115+00:00",
-        "last_success_at": "2026-07-16T12:39:37.779115+00:00",
-        "attempt_age_seconds": 41.014017,
-        "success_age_seconds": 41.014017,
-        "rows_last_run": 114,
-        "duration_ms": 786,
+        "last_attempt_at": "2026-07-16T16:01:38.523976+00:00",
+        "last_success_at": "2026-07-16T16:01:38.523976+00:00",
+        "attempt_age_seconds": 25.954908,
+        "success_age_seconds": 25.954908,
+        "rows_last_run": 130,
+        "duration_ms": 1241,
         "error_present": false,
-        "latest_spotted_at": "2026-07-16T12:38:00+00:00",
-        "latest_ingested_at": "2026-07-16T12:39:37.653086+00:00",
-        "latest_available_at": "2026-07-16T12:39:37.653086+00:00",
-        "latest_spot_age_seconds": 138.793132
+        "latest_spotted_at": "2026-07-16T16:01:00+00:00",
+        "latest_ingested_at": "2026-07-16T16:01:37.98865+00:00",
+        "latest_available_at": "2026-07-16T16:01:37.98865+00:00",
+        "latest_spot_age_seconds": 64.478884
       },
       "solar": {
         "status": "ok",
-        "last_attempt_at": "2026-07-16T12:37:37.117751+00:00",
-        "last_success_at": "2026-07-16T12:37:37.117751+00:00",
-        "success_age_seconds": 161.675381,
+        "last_attempt_at": "2026-07-16T15:57:37.30131+00:00",
+        "last_success_at": "2026-07-16T15:57:37.30131+00:00",
+        "success_age_seconds": 267.177574,
         "rows_last_run": 1,
-        "duration_ms": 231,
+        "duration_ms": 280,
         "error_present": false,
-        "latest_captured_at": "2026-07-16T12:37:36.962+00:00",
-        "capture_age_seconds": 161.831132,
+        "latest_captured_at": "2026-07-16T15:57:37.101+00:00",
+        "capture_age_seconds": 267.377884,
         "source_observed_at": {
-          "kp": "2026-07-16T12:34:00.000Z",
-          "magnetic_field": "2026-07-16T12:32:00.000Z",
-          "solar_wind": "2026-07-16T12:32:00.000Z",
-          "proton_flux_10mev": "2026-07-16T12:25:00.000Z",
-          "dst": "2026-07-16T12:00:00.000Z"
+          "kp": "2026-07-16T15:54:00.000Z",
+          "magnetic_field": "2026-07-16T15:50:00.000Z",
+          "solar_wind": "2026-07-16T15:51:10.000Z",
+          "proton_flux_10mev": "2026-07-16T15:50:00.000Z",
+          "dst": "2026-07-16T15:00:00.000Z"
         },
         "source_age_seconds": {
-          "kp": 378.793132,
-          "magnetic_field": 498.793132,
-          "solar_wind": 498.793132,
-          "proton_flux_10mev": 918.793132,
-          "dst": 2418.793132
+          "kp": 484.478884,
+          "magnetic_field": 724.478884,
+          "solar_wind": 654.478884,
+          "proton_flux_10mev": 724.478884,
+          "dst": 3724.478884
         },
         "source_current": {
           "kp": true,
           "magnetic_field": true,
           "solar_wind": true,
-          "proton_flux_10mev": false,
+          "proton_flux_10mev": true,
           "dst": true
         },
         "required_sources": [
@@ -944,17 +944,17 @@
     },
     "aggregation_state": {
       "band_hourly": {
-        "hour_utc": "2026-07-16T11:00:00+00:00",
-        "rows_written": 10,
-        "available_at": "2026-07-16T12:22:38.295124+00:00",
-        "hour_age_seconds": 6018.793132,
+        "hour_utc": "2026-07-16T14:00:00+00:00",
+        "rows_written": 9,
+        "available_at": "2026-07-16T15:22:38.569528+00:00",
+        "hour_age_seconds": 7324.478884,
         "watermark_last": true
       },
       "path_hourly": {
-        "hour_utc": "2026-07-16T11:00:00+00:00",
-        "rows_written": 2839,
-        "available_at": "2026-07-16T12:22:38.064505+00:00",
-        "hour_age_seconds": 6018.793132,
+        "hour_utc": "2026-07-16T14:00:00+00:00",
+        "rows_written": 2613,
+        "available_at": "2026-07-16T15:22:38.32169+00:00",
+        "hour_age_seconds": 7324.478884,
         "watermark_last": true
       }
     },
@@ -963,8 +963,8 @@
     "operational_healthy": true,
     "instant_healthy": true,
     "continuity": {
-      "hours": 1.1370709441666667,
-      "healthy_receipts": 6,
+      "hours": 4.499761430833333,
+      "healthy_receipts": 22,
       "maximum_allowed_gap_seconds": 1800,
       "tail_has_no_gap": true,
       "minimum_hours": 24.0
@@ -1074,15 +1074,15 @@
         "schedule_threads_per_band": 9,
         "schedule_peak_rss_mib": 106.391,
         "schedule_target_hour": "2026-07-16T11:00:00+00:00",
-        "shadow_completed_hours": 9,
+        "shadow_completed_hours": 12,
         "shadow_required_hours": 720,
         "shadow_completion_rate_percent": 100.0,
         "shadow_missing_hours": 0,
-        "shadow_source_records": 2199427,
-        "shadow_feature_cells": 590320,
+        "shadow_source_records": 2867582,
+        "shadow_feature_cells": 796382,
         "prospective_sources_current": 4,
         "prospective_sources_required": 4,
-        "prospective_continuity_hours": 1.1370709441666667,
+        "prospective_continuity_hours": 4.499761430833333,
         "prospective_continuity_required_hours": 24.0,
         "prospective_capture_ready": false
       }
@@ -1275,24 +1275,24 @@
       {
         "window": "30-day receipt shadow",
         "state": "Completed",
-        "hours": 9
+        "hours": 12
       },
       {
         "window": "30-day receipt shadow",
         "state": "Remaining",
-        "hours": 711
+        "hours": 708
       }
     ],
     "prospective_progress_rows": [
       {
         "window": "First-party capture preflight",
         "state": "Continuous healthy evidence",
-        "hours": 1.1370709441666667
+        "hours": 4.499761430833333
       },
       {
         "window": "First-party capture preflight",
         "state": "Remaining",
-        "hours": 22.862929055833334
+        "hours": 19.50023856916667
       }
     ],
     "incident_age_rows": [
@@ -2992,10 +2992,10 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "9 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        "evidence_limit": "12 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
       },
       {
-        "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 1.14/24 required gap-free preflight hours"
+        "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 4.50/24 required gap-free preflight hours"
       },
       {
         "evidence_limit": "A real stale heartbeat opened and genuine recovery closed one durable GitHub incident, but the stale episode was not caused by physically powering off the M5"

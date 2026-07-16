@@ -84,6 +84,64 @@ def deployed(document: dict[str, Any] | None) -> bool:
     )
 
 
+def written_source_authorization_passed(
+    document: dict[str, Any] | None,
+) -> bool:
+    if not document or not passed(document):
+        return False
+    source = document.get("source")
+    evidence = document.get("evidence")
+    privacy = document.get("privacy")
+    return bool(
+        document.get("schema_version") == 1
+        and document.get("scope") == "approved_subscriber_recent_path_source"
+        and document.get("subscriber_facing_authorized") is True
+        and document.get("authorization_basis")
+        == "written_permission_from_source_operator"
+        and source
+        == {
+            "id": "wspr_live",
+            "service_url": "https://wspr.live/",
+            "terms_url": "https://wspr.live/",
+        }
+        and document.get("authorized_roles")
+        == ["internal_research", "subscriber_recent_path_features"]
+        and isinstance(evidence, dict)
+        and evidence.get("private_correspondence_recorded") is False
+        and isinstance(privacy, dict)
+        and privacy.get("private_correspondence_written") is False
+        and privacy.get("station_identity_written") is False
+        and privacy.get("locked_outcomes_read") is False
+    )
+
+
+def literal_m5_outage_passed(document: dict[str, Any] | None) -> bool:
+    if not document or not passed(document):
+        return False
+    evidence = document.get("evidence")
+    privacy = document.get("privacy")
+    return bool(
+        document.get("schema_version") == 1
+        and document.get("scope")
+        == "controlled_full_m5_power_outage_recovery"
+        and (document.get("gates") or {}).get(
+            "off_m5_monitor_detected_power_loss"
+        )
+        is True
+        and (document.get("gates") or {}).get(
+            "publisher_recovered_after_power_restore"
+        )
+        is True
+        and isinstance(evidence, dict)
+        and evidence.get("private_state_path_recorded") is False
+        and isinstance(privacy, dict)
+        and privacy.get("boot_session_identifier_written") is False
+        and privacy.get("private_endpoint_written") is False
+        and privacy.get("secret_value_written") is False
+        and privacy.get("locked_outcomes_read") is False
+    )
+
+
 def load_evidence(
     paths: dict[str, Path] = EVIDENCE_PATHS,
 ) -> tuple[dict[str, dict[str, Any] | None], dict[str, dict[str, Any]]]:
@@ -166,30 +224,18 @@ def evaluate_release_readiness(
             and not wspr.get("integrity_errors")
             and wspr.get("locked_outcomes_read") is False
         ),
-        "subscriber_recent_path_source_authorized": bool(
-            passed(evidence.get("recent_path_source_authorization"))
-            and (evidence.get("recent_path_source_authorization") or {}).get(
-                "scope"
-            ) == "approved_subscriber_recent_path_source"
-            and (evidence.get("recent_path_source_authorization") or {}).get(
-                "subscriber_facing_authorized"
-            ) is True
+        "subscriber_recent_path_source_authorized": (
+            written_source_authorization_passed(
+                evidence.get("recent_path_source_authorization")
+            )
         ),
         "research_health_boundaries_deployed": bool(
             deployed(evidence.get("health_hardening"))
             and passed(evidence.get("health_external_monitor"))
         ),
         "stale_and_recovery_incident_exercised": passed(evidence.get("stale_recovery")),
-        "literal_full_m5_outage_exercised": bool(
-            passed(evidence.get("literal_m5_outage"))
-            and (evidence.get("literal_m5_outage") or {}).get("scope")
-            == "controlled_full_m5_power_outage_recovery"
-            and (evidence.get("literal_m5_outage") or {}).get("gates", {}).get(
-                "off_m5_monitor_detected_power_loss"
-            ) is True
-            and (evidence.get("literal_m5_outage") or {}).get("gates", {}).get(
-                "publisher_recovered_after_power_restore"
-            ) is True
+        "literal_full_m5_outage_exercised": literal_m5_outage_passed(
+            evidence.get("literal_m5_outage")
         ),
         "participation_boundary_deployed": deployed(
             evidence.get("participation_boundary")

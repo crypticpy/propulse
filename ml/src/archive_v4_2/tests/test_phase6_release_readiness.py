@@ -56,8 +56,25 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
             "locked_outcomes_read": False,
         },
         "recent_path_source_authorization": passing_document(
+            schema_version=1,
             scope="approved_subscriber_recent_path_source",
             subscriber_facing_authorized=True,
+            authorization_basis="written_permission_from_source_operator",
+            source={
+                "id": "wspr_live",
+                "service_url": "https://wspr.live/",
+                "terms_url": "https://wspr.live/",
+            },
+            authorized_roles=[
+                "internal_research",
+                "subscriber_recent_path_features",
+            ],
+            evidence={"private_correspondence_recorded": False},
+            privacy={
+                "private_correspondence_written": False,
+                "station_identity_written": False,
+                "locked_outcomes_read": False,
+            },
         ),
         "prospective_capture": {
             "prospective_capture_ready": True,
@@ -75,10 +92,18 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
         "health_external_monitor": passing_document(),
         "stale_recovery": passing_document(),
         "literal_m5_outage": passing_document(
+            schema_version=1,
             scope="controlled_full_m5_power_outage_recovery",
             gates={
                 "off_m5_monitor_detected_power_loss": True,
                 "publisher_recovered_after_power_restore": True,
+            },
+            evidence={"private_state_path_recorded": False},
+            privacy={
+                "boot_session_identifier_written": False,
+                "private_endpoint_written": False,
+                "secret_value_written": False,
+                "locked_outcomes_read": False,
             },
         ),
         "participation_boundary": passing_document(
@@ -182,6 +207,31 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
         )
 
         self.assertTrue(result["gates"]["research_health_boundaries_deployed"])
+
+    def test_generic_pass_receipts_cannot_forge_operational_gates(self) -> None:
+        evidence = release_evidence()
+        evidence["recent_path_source_authorization"] = passing_document(
+            scope="approved_subscriber_recent_path_source",
+            subscriber_facing_authorized=True,
+        )
+        evidence["literal_m5_outage"] = passing_document(
+            scope="controlled_full_m5_power_outage_recovery",
+            gates={
+                "off_m5_monitor_detected_power_loss": True,
+                "publisher_recovered_after_power_restore": True,
+            },
+        )
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+        )
+
+        self.assertFalse(
+            result["gates"]["subscriber_recent_path_source_authorized"]
+        )
+        self.assertFalse(result["gates"]["literal_full_m5_outage_exercised"])
 
     def test_current_repository_evidence_remains_withheld_and_outcomes_unread(self) -> None:
         evidence, _ = load_evidence(EVIDENCE_PATHS)

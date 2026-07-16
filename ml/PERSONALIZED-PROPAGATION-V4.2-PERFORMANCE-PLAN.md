@@ -20,9 +20,9 @@
 > measurements concurrently. All four operational input gates are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming` at `4.21/24` hours across 20 healthy receipts until
+> receipt remains `warming` at `4.50/24` hours across 22 healthy receipts until
 > nonempty aggregates sustain 24 gap-free hours.
-> Research-shadow status, 2026-07-16T15:33Z: `12/12` expected WSPR hours are
+> Research-shadow status, 2026-07-16T16:05Z: `12/12` expected WSPR hours are
 > complete with zero gaps (`12/720` duration gate), `2,867,582` observations,
 > and `796,382` feature cells. The latest audited keyset-paginated finalizer used the
 > exact `2 x 9` native-thread profile and completed in 114.34 seconds.
@@ -773,10 +773,10 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `4.21/24` hours across
-  20 healthy receipts; the August-September outcomes remain unread.
+  the latest preserved receipt is honestly `warming` at `4.50/24` hours across
+  22 healthy receipts; the August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `95/95`, V4.1 `37/37`, V4.2 `148/148`, and
+  service `95/95`, V4.1 `37/37`, V4.2 `162/162`, and
   frontend/API/collector `94/94` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
@@ -794,6 +794,17 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Prove actual off-M5 stale/recovery delivery: run `29494058601` failed
   closed at 10,227 seconds and opened aggregate-only issue `#10`; genuine
   heartbeat recovery run `29497729210` observed 25 seconds and closed it.
+- [x] Implement fail-closed M5 validators for exact written WSPR.live operator
+  permission and a literal full-device shutdown/reboot. The authorization
+  receipt is bound to the immutable sent request, contemporaneous terms
+  snapshot, private reply checksum, exact roles, and operating limits. The
+  outage receipt is bound to a private pre-shutdown boot challenge, current
+  health, workflow checksum, macOS boot history, and scheduled off-M5 incident
+  lifecycle. Neither implementation marks its real-world gate complete.
+- [ ] Send the immutable WSPR.live request, receive explicit operator approval
+  for both required roles and the stated nonprofit operating limits, retain the
+  reply privately, and pass `validate_wspr_source_authorization.py` on the M5.
+  Public terms by themselves do not satisfy this gate.
 - [ ] Prove delivery during a controlled literal full-M5 power outage, then
   consider enabling the server/frontend System Health flags for beta.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path

@@ -163,6 +163,10 @@ in `23.1142` seconds at `57.625` MiB peak RSS, removed its transient spool, and
 performed no target write. Aggregate evidence is
 `live_feature_pipeline/wspr_live_connector_validation.json`. The send-ready
 source request is [`WSPR-LIVE-PERMISSION-REQUEST.md`](WSPR-LIVE-PERMISSION-REQUEST.md).
+After an operator reply, follow its machine-verifiable receipt section. The M5
+validator binds the private approval checksum to the exact sent proposal and a
+contemporaneous WSPR.live public-terms snapshot, emits only repository-safe
+hashes/decisions, and is the only path to `source_authorization.json`.
 
 For a deliberately enabled internal hour, store the HMAC secret in the M5 login
 keychain under service `propulse-wspr-completion-v1`. Non-interactive runs can
@@ -408,6 +412,55 @@ ml/.venv/bin/python \
 This stale episode came from missing publisher configuration, not a physical
 shutdown. Do not record the literal full-M5-outage gate as passed until a
 controlled shutdown is observed and recovered by the external workflow.
+
+The literal-outage validator is implemented but the experiment has not been
+performed. Schedule a maintenance window of at least 2 hours 35 minutes when someone can
+restore power to the M5. Immediately before that window, refresh the protected
+health receipt, then arm the one-use private boot challenge on the M5:
+
+```bash
+export PATH="/opt/homebrew/bin:$PATH"
+gh auth status -h github.com
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4_2/prepare_m5_full_outage_drill.py \
+  --profile m5 --acknowledge-controlled-power-outage
+sudo shutdown -h now
+```
+
+Leave the M5 fully powered off for at least 9,120 seconds. The validator uses a
+conservative lower bound because macOS shutdown history has one-minute
+precision; this still proves at least 9,000 seconds and exceeds the
+7,200-second stale boundary plus a full twice-hourly schedule margin. Confirm
+that a scheduled, not manually dispatched, GitHub monitor run opened exactly
+one aggregate-only incident while the M5 was off. Restore power, allow the
+publisher to emit a genuine fresh heartbeat, and wait for a later scheduled
+monitor run to close that incident. Locate the three immutable IDs without
+copying private endpoint or boot data into the repository:
+
+```bash
+gh run list --repo crypticpy/propulse \
+  --workflow research-health-monitor.yml --event schedule --limit 20
+gh issue list --repo crypticpy/propulse --state all \
+  --search '"M5 heartbeat stale" in:body' --limit 20
+```
+
+Then validate the exact issue, stale run, and recovery run on the restarted M5:
+
+```bash
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_m5_full_outage_recovery.py \
+  --profile m5 --issue ISSUE_NUMBER \
+  --stale-run STALE_RUN_ID --recovery-run RECOVERY_RUN_ID
+```
+
+The proof fails closed unless macOS reports a new boot-session UUID and a
+matching shutdown/reboot pair, the machine stayed off for the required interval,
+the locally armed workflow matches GitHub `main`, both historical GitHub runs
+use those exact precommitted workflow bytes and were calendar-scheduled on
+off-M5 infrastructure, the incident was created while the M5 was off and closed
+only after a new heartbeat, and all public evidence remains identity-free. The
+private challenge and raw boot IDs remain in an owner-only M5 file; only their
+SHA-256 commitments are published.
 
 The private schema procedure is M5-only and password-safe:
 
@@ -893,8 +946,8 @@ respectively, in under four seconds wall time and no stderr. The startup 09:00
 UTC band/path watermarks are causal but contain zero rows because collection
 started later; zero-row startup watermarks therefore did not begin the evidence
 clock. The first nonempty settled hour wrote ten band rows and 2,246 path rows;
-the latest preserved receipt remains `warming` at `4.21/24` gap-free hours
-across 20 healthy receipts.
+the latest preserved receipt remains `warming` at `4.50/24` gap-free hours
+across 22 healthy receipts.
 Later HamQTH timeouts opened one DX Cluster outage at `10:37Z` and one
 RBN outage at `10:38Z`; successful polls closed both at `10:47Z`, before the
 30-minute source-freshness budget expired. No outage record was deleted. The

@@ -520,6 +520,39 @@ class ServiceTests(unittest.TestCase):
             CAPABILITIES_FIXTURE,
         )
 
+    def test_service_token_protects_every_endpoint_except_health(self):
+        token = "service-token-at-least-32-characters-long"
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            service_token=token,
+        ))
+        health = client.get("/v1/propagation/health")
+        self.assertEqual(health.status_code, 200)
+        self.assertTrue(health.json()["service_auth_enabled"])
+        self.assertEqual(
+            client.get("/v1/propagation/capabilities").status_code,
+            401,
+        )
+        self.assertEqual(
+            client.get(
+                "/v1/propagation/capabilities",
+                headers={"Authorization": "Bearer wrong"},
+            ).status_code,
+            401,
+        )
+        self.assertEqual(
+            client.get(
+                "/v1/propagation/capabilities",
+                headers={"Authorization": f"Bearer {token}"},
+            ).status_code,
+            200,
+        )
+
+    def test_short_service_token_fails_startup(self):
+        with self.assertRaisesRegex(RuntimeError, "at least 32"):
+            create_app(self.registry, service_token="short")
+
     def test_weighted_ensemble_probability_is_exact(self):
         output = blend_probabilities(
             [np.asarray([0.2, 0.8]), np.asarray([0.6, 0.4])],

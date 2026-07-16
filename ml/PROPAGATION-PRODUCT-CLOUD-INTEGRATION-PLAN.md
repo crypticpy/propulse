@@ -12,7 +12,20 @@
 > SSD and produced a real path prediction through the strict service registry. Its
 > tracked receipt is
 > [`retrospective_internal_promotion_receipt.json`](results/propagation_v4_2/propagation_v4_2_phase2_scale/retrospective_internal_promotion_receipt.json).
-> Full `npm run verify` passes on the M5. Phase B is next.
+> Phase B's runtime, immutable packaging, artifact verification, Docker image,
+> production authentication, and fail-closed configuration are implemented and
+> tested on the M5. The 66,846,932-byte A6 archive is checksum-named
+> `254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee.tar.zst`;
+> its tracked package receipt contains every member hash and M5 provenance. The
+> 148.5 MB CPU-only container loaded that exact A6 bundle, rejected anonymous
+> inference, served an authenticated prediction, and rejected incomplete startup.
+> Phase C's authenticated same-origin proxy and browser client are implemented and
+> pass focused tests, lint, and the production build on the M5. Remaining cloud
+> gates are the explicitly approved private object upload, Railway/Vercel preview
+> deployment, cloud load/cost measurements, continuous monitoring, and the final
+> user-facing failure/partial-surface states.
+> Full `npm run verify` passes on the M5: 422 Python tests, 111 TypeScript/Node
+> tests, lint, the production build, and all bundle budgets.
 >
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Active model plan: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md).
@@ -177,24 +190,27 @@ and the service loads the exact A6 internal manifest on the M5.
 
 **Owner:** M5 artifact promotion plus Railway runtime.
 
-- [ ] Add a production entrypoint that respects Railway's injected `PORT` and a
+- [x] Add a production entrypoint that respects Railway's injected `PORT` and a
   bounded `PROPULSE_UVICORN_WORKERS` value.
-- [ ] Add `railway.json` with the existing `ml/service/Dockerfile`,
+- [x] Add `railway.json` with the existing `ml/service/Dockerfile`,
   `/v1/propagation/health` readiness check, restart policy, deployment drain,
   and ML/service-only watch paths.
-- [ ] Make the Docker image contain runtime code only; do not copy raw archives,
+- [x] Make the Docker image contain runtime code only; do not copy raw archives,
   reports, local secrets, or the full ML workspace.
-- [ ] Add a startup artifact fetcher for a versioned private object such as
+- [x] Add a startup artifact fetcher for a versioned private object such as
   `propagation-models/a6/<bundle_sha256>.tar.zst`.
-- [ ] Download to a temporary path, verify the outer archive checksum, safely
+- [x] Download to a temporary path, verify the outer archive checksum, safely
   extract, verify every manifest member, then atomically expose the bundle.
 - [ ] Upload the bundle only from the M5 promotion command. Commit the small
   promotion receipt, never the private service key or large artifact.
 - [ ] Run one cloud worker initially with one XGBoost thread, then load test 1,
   2, and 4 workers before changing concurrency. The M5's six-worker serving
   profile does not automatically fit a smaller cloud allocation.
-- [ ] Configure exact origins, trusted weather store, verified feature store,
-  provider/transform version, telemetry sink, and server-to-server secret.
+- [x] Fail production startup unless exact origins, trusted weather store,
+  verified feature store, provider/transform version, one prediction thread,
+  bounded workers, and a server-to-server secret are valid.
+- [ ] Populate those settings plus the telemetry sink in Railway and verify the
+  deployed dependencies.
 - [ ] Confirm cold-start time, model RSS, path p50/p95, 4,096-cell surface
   p50/p95, concurrent request behavior, and monthly compute/storage estimates.
 - [ ] Configure external continuous monitoring; Railway's deployment health
@@ -208,18 +224,18 @@ fails closed when any model or trusted-data dependency is deliberately broken.
 
 **Owner:** M5 implementation and verification; Vercel runtime.
 
-- [ ] Add same-origin Vercel endpoints for path, surface, capabilities, models,
+- [x] Add same-origin Vercel endpoints for path, surface, capabilities, models,
   and health.
-- [ ] Reuse the repository's Supabase JWT verification boundary for registered
+- [x] Reuse the repository's Supabase JWT verification boundary for registered
   users and invited testers.
-- [ ] Authenticate Vercel to Railway with a server-only secret. Never place the
+- [x] Authenticate Vercel to Railway with a server-only secret. Never place the
   Railway credential or a service-role key in a `VITE_*` variable.
-- [ ] Validate request and response schemas at the boundary, impose body/cell
+- [x] Validate request and response schemas at the boundary, impose body/cell
   limits, set short timeouts, and reject redirects.
-- [ ] Add per-user and per-IP throttles, with a stricter surface-request budget.
-- [ ] Forward a trace ID but no callsign, user ID, exact shack inventory, or
+- [x] Add per-user and per-IP throttles, with a stricter surface-request budget.
+- [x] Forward a trace ID but no callsign, user ID, exact shack inventory, or
   private station record to aggregate inference logs.
-- [ ] Point `modelClient.ts` at the same-origin proxy by default. Retain a direct
+- [x] Point `modelClient.ts` at the same-origin proxy by default. Retain a direct
   local URL override for M5 development.
 - [ ] Add clear unavailable, stale-input, fallback, and partial-surface states.
 

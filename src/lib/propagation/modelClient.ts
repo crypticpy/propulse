@@ -1,4 +1,5 @@
 import type { StationFeatureEnvelope } from "@/lib/station/stationChainEngine";
+import { authHeaders } from "@/lib/api/authFetch";
 import {
   FUTURECAST_HORIZONS_HOURS,
   PROPAGATION_RUNTIME_MODES,
@@ -100,6 +101,7 @@ export interface PropagationModelClient {
   ) => Promise<SurfacePredictionResponse>;
   health: (signal?: AbortSignal) => Promise<Record<string, unknown>>;
   capabilities: (signal?: AbortSignal) => Promise<PropagationCapabilitiesResponse>;
+  models: (signal?: AbortSignal) => Promise<Record<string, unknown>>;
 }
 
 export type PropagationModelMode = "off" | "internal" | "released";
@@ -116,6 +118,7 @@ export function resolvePropagationModelMode(
   }
   if (normalized === "shadow") return "internal";
   if (normalized === "active") return "released";
+  if (normalized === undefined && legacyEnabled === undefined) return "internal";
   // The retired boolean flag predates evidence gating, so keep it internal.
   return legacyEnabled === "true" ? "internal" : "off";
 }
@@ -181,8 +184,9 @@ async function responseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = `Propagation API returned HTTP ${response.status}`;
     try {
-      const body = await response.json() as { detail?: string };
+      const body = await response.json() as { detail?: string; error?: string };
       if (body.detail) detail = body.detail;
+      else if (body.error) detail = body.error;
     } catch {
       // Preserve the status-based error when the body is not JSON.
     }
@@ -194,40 +198,54 @@ async function responseJson<T>(response: Response): Promise<T> {
 export function createPropagationModelClient(
   baseUrl: string,
   fetcher: typeof fetch = fetch,
+  options: {
+    pathPrefix?: string;
+    headers?: () => Promise<Record<string, string>>;
+  } = {},
 ): PropagationModelClient {
   const root = baseUrl.replace(/\/$/, "");
-  const post = <T>(path: string, body: unknown, signal?: AbortSignal) =>
-    fetcher(`${root}${path}`, {
+  const pathPrefix = options.pathPrefix ?? "/v1/propagation";
+  const requestHeaders = options.headers ?? (async () => ({}));
+  const endpoint = (path: string) => `${root}${pathPrefix}${path}`;
+  const post = async <T>(path: string, body: unknown, signal?: AbortSignal) =>
+    fetcher(endpoint(path), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await requestHeaders().then((headers) => ({
+        ...headers,
+        "Content-Type": "application/json",
+      })),
       body: JSON.stringify(body),
+      signal,
+    }).then(responseJson<T>);
+
+  const get = async <T>(path: string, signal?: AbortSignal) =>
+    fetcher(endpoint(path), {
+      headers: await requestHeaders(),
       signal,
     }).then(responseJson<T>);
 
   return {
     path: (request, signal) =>
-      post<PropagationPrediction>("/v1/propagation/path", request, signal),
+      post<PropagationPrediction>("/path", request, signal),
     surface: (request, signal) =>
-      post<SurfacePredictionResponse>("/v1/propagation/surface", request, signal),
-    health: (signal) =>
-      fetcher(`${root}/v1/propagation/health`, { signal }).then(
-        responseJson<Record<string, unknown>>,
-      ),
+      post<SurfacePredictionResponse>("/surface", request, signal),
+    health: (signal) => get<Record<string, unknown>>("/health", signal),
     capabilities: async (signal) => {
-      const response = await fetcher(`${root}/v1/propagation/capabilities`, {
-        signal,
-      });
-      const value = await responseJson<unknown>(response);
+      const value = await get<unknown>("/capabilities", signal);
       if (!propagationCapabilitiesAreValid(value)) {
         throw new Error("Propagation API returned an invalid capabilities contract");
       }
       return value;
     },
+    models: (signal) => get<Record<string, unknown>>("/models", signal),
   };
 }
 
-export const propagationModelUrl =
+const directPropagationModelUrl =
   import.meta.env.VITE_PROPAGATION_MODEL_URL?.trim() ?? "";
+
+export const propagationModelUrl =
+  directPropagationModelUrl || "/api/propagation";
 
 export const propagationModelMode = resolvePropagationModelMode(
   import.meta.env.VITE_PROPAGATION_V4_MODE,
@@ -257,5 +275,11 @@ export const propagationStationCastRequested =
 export const propagationModelShadow = propagationModelMode === "internal";
 
 export const propagationModelClient = propagationModelEnabled
-  ? createPropagationModelClient(propagationModelUrl)
+  ? createPropagationModelClient(
+      propagationModelUrl,
+      fetch,
+      directPropagationModelUrl
+        ? {}
+        : { pathPrefix: "", headers: () => authHeaders() },
+    )
   : null;

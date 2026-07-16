@@ -19,8 +19,9 @@ from uuid import uuid4
 import joblib
 import numpy as np
 import xgboost as xgb
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from beta_telemetry import (
@@ -1048,6 +1049,7 @@ def create_app(
     research_receipt_secret: str | None = None,
     beta_telemetry_sink: BetaTelemetrySink | None = None,
     runtime_activation: RuntimeActivation | None = None,
+    service_token: str | None = None,
 ) -> FastAPI:
     runtime = registry
     if runtime is None:
@@ -1089,6 +1091,14 @@ def create_app(
         raise RuntimeError(
             "active research receipts require beta stop-event telemetry"
         )
+    selected_service_token = (
+        service_token
+        if service_token is not None
+        else os.environ.get("PROPULSE_SERVICE_TOKEN", "")
+    )
+    if selected_service_token and len(selected_service_token) < 32:
+        raise RuntimeError("PROPULSE_SERVICE_TOKEN must be at least 32 characters")
+    service_auth_enabled = bool(selected_service_token)
     runtime_feature_contract = str(
         getattr(runtime, "core_feature_contract", "unknown")
     )
@@ -1104,6 +1114,29 @@ def create_app(
     )
     emit_telemetry = telemetry_sink or log_shadow_telemetry
     app = FastAPI(title="Propulse Propagation API", version="1.0.0")
+
+    @app.middleware("http")
+    async def require_service_auth(request: Request, call_next):
+        protected = (
+            request.url.path.startswith("/v1/propagation/")
+            and request.url.path != "/v1/propagation/health"
+            and request.method != "OPTIONS"
+        )
+        if protected and service_auth_enabled:
+            authorization = request.headers.get("authorization", "")
+            scheme, _, credential = authorization.partition(" ")
+            authorized = (
+                scheme.lower() == "bearer"
+                and bool(credential)
+                and hmac.compare_digest(credential, selected_service_token)
+            )
+            if not authorized:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "service authorization required"},
+                )
+        return await call_next(request)
+
     allowed_origins = [
         value.strip()
         for value in os.environ.get(
@@ -1133,6 +1166,7 @@ def create_app(
             "research_receipt_schema_version": RESEARCH_RECEIPT_SCHEMA_VERSION,
             "research_receipts_enabled": research_receipts_enabled,
             "beta_collection_activated": beta_collection_activated,
+            "service_auth_enabled": service_auth_enabled,
             "beta_stop_event_telemetry_configured": (
                 selected_beta_telemetry_sink.configured
             ),

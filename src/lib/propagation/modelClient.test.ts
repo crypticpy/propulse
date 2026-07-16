@@ -24,8 +24,50 @@ describe("createPropagationModelClient", () => {
     expect(resolvePropagationModelMode(undefined, "true", "https://model.test")).toBe(
       "internal",
     );
+    expect(resolvePropagationModelMode(undefined, undefined, "/api/propagation")).toBe(
+      "internal",
+    );
     expect(resolvePropagationModelMode("invalid", undefined, "https://model.test")).toBe(
       "off",
+    );
+  });
+
+  it("uses the authenticated same-origin proxy without exposing a service secret", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ model_version: "v4" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const client = createPropagationModelClient(
+      "/api/propagation",
+      fetcher,
+      {
+        pathPrefix: "",
+        headers: async () => ({ Authorization: "Bearer user-session" }),
+      },
+    );
+    const payload = {
+      origin_grid4: "EM10",
+      issue_time: "2026-07-12T00:00:00Z",
+      valid_time: "2026-07-12T00:00:00Z",
+      band: "20m",
+      mode: "WSPR",
+      declared_power_watts: 5,
+      features: { target_grid4: "IO91", values: { dist_km: 7900 } },
+    };
+
+    await client.path(payload);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/propagation/path",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          Authorization: "Bearer user-session",
+          "Content-Type": "application/json",
+        },
+      }),
     );
   });
 
@@ -94,7 +136,7 @@ describe("createPropagationModelClient", () => {
     await expect(client.capabilities()).resolves.toEqual(capabilitiesFixture);
     expect(fetcher).toHaveBeenCalledWith(
       "http://localhost:8000/v1/propagation/capabilities",
-      { signal: undefined },
+      { headers: {}, signal: undefined },
     );
   });
 });

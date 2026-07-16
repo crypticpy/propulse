@@ -28,6 +28,80 @@ Set `PROPULSE_XGBOOST_THREADS` only when the deployment CPU allocation and load
 test justify a different value. `/health` and `/models` expose the effective
 count and whether it came from the manifest or environment.
 
+## Private cloud runtime
+
+Package and promote A6 only from the M5. The package command reads the promoted
+manifest and checksum-verifies every referenced model and calibrator before it
+creates an immutable archive on the Projects SSD:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/package_cloud_bundle.py
+```
+
+The tracked `cloud_bundle_package_receipt.json` is the source of truth for the
+private bucket, object key, byte length, outer SHA-256, member hashes,
+compression settings, and M5 provenance. The archive itself remains untracked.
+After explicit approval for the external write, upload it with:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/upload_cloud_bundle.py
+```
+
+The uploader creates or verifies a private, size-bounded `propagation-models`
+bucket, streams the binary archive with resumable TUS chunks, then downloads
+and hashes the complete private object before writing an immutable upload
+receipt. It does not transport the archive through SSH or encode the archive as
+base64.
+
+The production Docker image contains only inference modules, the two runtime
+activation documents, and the station/calibration adapters. It runs as a
+non-root user and downloads the bundle to temporary storage at startup. The
+entrypoint verifies the archive SHA-256, rejects unsafe tar members, verifies
+every bundle member, and atomically activates the model only after all checks
+pass. Build it on the M5 with:
+
+```bash
+docker build -f ml/service/Dockerfile -t propulse-inference .
+```
+
+Railway uses `railway.json` and requires these server-only variables:
+
+```text
+PROPULSE_MODEL_BUNDLE_URL=https://PROJECT.supabase.co/storage/v1/object/authenticated/propagation-models/a6/SHA256.tar.zst
+PROPULSE_MODEL_BUNDLE_SHA256=SHA256
+PROPULSE_MODEL_BUNDLE_AUTH_TOKEN=server-only-storage-token
+PROPULSE_SERVICE_TOKEN=shared-random-secret-at-least-32-characters
+PROPULSE_ALLOWED_ORIGINS=https://APP_ORIGIN
+PROPULSE_INFERENCE_MODE=shadow
+PROPULSE_FEATURE_STORE_URL=https://PROJECT.supabase.co
+PROPULSE_FEATURE_STORE_SERVICE_KEY=server-only-service-role-key
+PROPULSE_WSPR_PROVIDER=approved-provider-id
+PROPULSE_PATH_TRANSFORM_VERSION=wspr-opportunity-duckdb-v1
+PROPULSE_WEATHER_STORE_URL=https://PROJECT.supabase.co
+PROPULSE_WEATHER_STORE_SERVICE_KEY=server-only-service-role-key
+PROPULSE_WEATHER_CACHE_SECONDS=60
+PROPULSE_XGBOOST_THREADS=1
+PROPULSE_UVICORN_WORKERS=1
+```
+
+Production startup fails before model loading if any trusted store, provider,
+origin, secret, thread, worker, or cache bound is missing or unsafe. Keep one
+worker and one prediction thread until the deployed 1/2/4-worker load test is
+complete.
+
+Vercel requires `PROPULSE_INFERENCE_URL` set to the exact HTTPS Railway origin,
+the same server-only `PROPULSE_SERVICE_TOKEN`, and server-side `SUPABASE_URL`
+plus `SUPABASE_ANON_KEY` for JWT verification. Missing server-side auth
+configuration fails closed in production. The five
+`/api/propagation/*` endpoints verify the browser's Supabase JWT, enforce
+same-origin access, strict request and response contracts, body and cell bounds,
+per-user and per-IP budgets, timeouts, and redirect refusal. They forward only
+the inference envelope and a trace ID. The Railway secret, service-role keys,
+user ID, and browser JWT are never forwarded to or emitted by browser code.
+Production should leave `VITE_PROPAGATION_MODEL_URL` unset so the client uses
+the authenticated same-origin proxy. Set that variable only for direct M5 local
+development.
+
 When shadow or active mode is selected, each successful inference emits a
 `propagation-shadow-v1` aggregate telemetry event. It records request kind,
 issue/valid/receipt times, band/mode, cell count, model/feature versions,
@@ -93,7 +167,9 @@ and real operations accept only a signed `continue` decision. A noncontiguous
 read resets the geographic streak. Collection flags remain false in the current
 release.
 
-Endpoints are `/v1/propagation/path`, `/surface`, `/models`, and `/health`.
+Endpoints are `/v1/propagation/path`, `/surface`, `/capabilities`, `/models`, and
+`/health`. Production authentication protects every endpoint except `/health`,
+which remains public for the deployment readiness probe and exposes no secret.
 When recent path history is older than two hours, inference selects the physics
 profile and returns an explicit stale-data OOD flag. Missing freshness is stale,
 and negative ages are rejected. If no approved model is

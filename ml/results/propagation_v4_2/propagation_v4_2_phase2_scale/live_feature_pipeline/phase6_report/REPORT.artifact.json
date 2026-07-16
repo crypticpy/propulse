@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: model and Phase 6 readiness report",
     "description": "Technical model result, release evidence, blockers, and ordered next steps.",
-    "generatedAt": "2026-07-16T17:05:19.208913+00:00",
+    "generatedAt": "2026-07-16T17:07:38.265361+00:00",
     "blocks": [
       {
         "id": "title",
@@ -531,7 +531,7 @@
   "snapshot": {
     "version": 1,
     "status": "ready",
-    "generatedAt": "2026-07-16T17:05:19.208913+00:00",
+    "generatedAt": "2026-07-16T17:07:38.265361+00:00",
     "datasets": {
       "summary": [
         {

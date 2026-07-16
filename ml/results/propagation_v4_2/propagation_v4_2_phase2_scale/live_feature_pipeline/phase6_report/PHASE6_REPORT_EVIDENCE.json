@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T17:05:19.208913+00:00",
+  "generated_at": "2026-07-16T17:07:38.265361+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,7 +12,7 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "56f2206905978fd1decc35f8a236b597fec8c5a82b681bac2a2d951ab622a8c3",
+      "sha256": "52c7da4f05187a1325204f6991d901755763cf4f9ed309dd18e0e14b1b1b14ca",
       "bytes": 9410
     },
     "beta_rollback": {
@@ -572,7 +572,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T17:05:05.825523+00:00",
+    "generated_at": "2026-07-16T17:07:38.107144+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,

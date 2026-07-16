@@ -20,21 +20,21 @@
     390
   ],
   "timings": {
-    "validateAndPackageMs": 983.5,
-    "staticChartExtractionMs": 937.1,
-    "browserRunMs": 794.3,
-    "readerReadyMs": 49.6,
-    "contentChecksMs": 32,
-    "sourceDialogMs": 31.9,
-    "responsiveChecksMs": 32,
-    "verificationMs": 799.9,
-    "totalMs": 1788.4
+    "validateAndPackageMs": 1013.4,
+    "staticChartExtractionMs": 967.6,
+    "browserRunMs": 785.6,
+    "readerReadyMs": 46.8,
+    "contentChecksMs": 32.1,
+    "sourceDialogMs": 32,
+    "responsiveChecksMs": 31.9,
+    "verificationMs": 791.7,
+    "totalMs": 1810
   },
   "files": {
-    "artifactSha256": "0c128e1d9e69f8a914577021e1c934e5a317dd5e3292ff621bb6bf6d0220ecd3",
-    "htmlSha256": "d5c8a6fc7aca626561df02204b238e2fbd096d4eef96391dc66557d349283006",
-    "desktopPreviewSha256": "14b164c8b6585dd5a15b781c15a01f58f4ca08afdb3a6cf934c3f1040e056a58",
-    "mobilePreviewSha256": "f45bece77fd0dcb3ce106559c6d215aabb93ba42d0b4a9cd47858c5ddca19779"
+    "artifactSha256": "18e3a9c3fbceb640b07aa82fa721739affa6efbe96d3a074753f4e3b0459ebec",
+    "htmlSha256": "54612a36a784f3d7ae815bb90b6794b423a6900ce7e329b36d4a56966e365427",
+    "desktopPreviewSha256": "d8e735fac040f5eeaef75c73df8ac3becfdad36c697f6683faf277b4ffadcd80",
+    "mobilePreviewSha256": "dc9deb6099ffdd62cfd61906c5f2aad5b66c10c5f6cd77e23530a5cb274eded4"
   },
   "renderer": {
     "officialPluginBase": "data-analytics/0.2.8-13ceeea1f599",

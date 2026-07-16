@@ -38,6 +38,13 @@ describe("research health GitHub issue destination", () => {
     });
   });
 
+  it("rejects a well-formed response that was not evaluated", () => {
+    expect(normalizeMonitorPayload(monitor({ evaluated: false }))).toMatchObject({
+      healthy: false,
+      reasons: ["monitor evaluation incomplete"],
+    });
+  });
+
   it("opens one identity-free incident for a stale M5 heartbeat", async () => {
     const fetchMock = vi
       .fn()
@@ -120,5 +127,19 @@ describe("research health GitHub issue destination", () => {
       issueNumber: 7,
       reasons: ["monitor endpoint unavailable"],
     });
+  });
+
+  it("does not spam a continuing endpoint-outage incident", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      json([{ number: 7, title: RESEARCH_HEALTH_ISSUE_TITLE }]),
+    );
+    const result = await reconcileResearchHealthIssue({
+      payload: { monitorUnavailable: true },
+      repository: REPOSITORY,
+      token: TOKEN,
+      fetchImpl: fetchMock,
+    });
+    expect(result.action).toBe("unchanged");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

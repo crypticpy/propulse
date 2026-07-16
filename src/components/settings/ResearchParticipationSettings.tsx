@@ -77,7 +77,7 @@ export function ResearchParticipationSettings() {
       setEditingOptIn(false);
       setConfirmWithdrawal(false);
       setSelectedUses([]);
-      setStatus("Research consent withdrawn. No new outcomes will be collected.");
+      setStatus("Research consent withdrawn. Retained account-bound research data was deleted.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to withdraw consent.");
     }
@@ -135,8 +135,9 @@ export function ResearchParticipationSettings() {
               <p className="text-xs text-gray-500">
                 Shared research is aggregated at grid4/hour resolution with minimum cohort
                 sizes. Raw equipment, callsigns, exact coordinates, credentials, and viewed-only
-                predictions are excluded. Derived records stop entering future training after
-                withdrawal; already published aggregate results cannot be retracted.
+                predictions are excluded. Account-bound predictions, attempts, and outcomes are
+                kept for no more than 24 months and deleted immediately on withdrawal. Already
+                published aggregate results cannot be retracted.
               </p>
               <button
                 type="button"
@@ -152,7 +153,8 @@ export function ResearchParticipationSettings() {
           {confirmWithdrawal && (
             <div className="space-y-3 border border-caution-amber/30 bg-caution-amber/5 p-3 rounded-md">
               <p className="text-sm text-gray-300">
-                Withdrawal stops new research collection and future training use.
+                Withdrawal stops collection and future training use, and immediately deletes
+                retained account-bound predictions, attempts, and outcomes.
               </p>
               <div className="flex gap-2">
                 <button

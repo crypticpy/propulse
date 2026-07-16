@@ -44,7 +44,7 @@ V41 = ROOT / "ml/src/archive_v4_1"
 DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS = 7200
 DEFAULT_XGBOOST_PREDICTION_THREADS = 1
 SHADOW_TELEMETRY_SCHEMA_VERSION = "propagation-shadow-v1"
-RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v1"
+RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v2"
 RESEARCH_SUBJECT_SCHEMA_VERSION = "propagation-research-subject-v1"
 RESEARCH_RECEIPT_TTL_SECONDS = 24 * 60 * 60
 INFERENCE_MODES = {"disabled", "shadow", "active"}
@@ -714,6 +714,60 @@ def research_receipt_signature(signed_payload: str, secret: str) -> str:
     ).hexdigest()
 
 
+def station_capability_classes(
+    station: StationEnvelope | None,
+) -> dict[str, str | bool]:
+    if station is None:
+        return {
+            "tx_eirp": "unknown",
+            "passive_loss": "unknown",
+            "directional_gain": "unknown",
+            "receiver_evidence": "unknown",
+            "supported": False,
+        }
+
+    eirp = station.eirpWatts
+    tx_eirp = (
+        "lt_1w" if eirp < 1
+        else "1_5w" if eirp < 5
+        else "5_25w" if eirp < 25
+        else "25_100w" if eirp < 100
+        else "100_500w" if eirp < 500
+        else "ge_500w"
+    )
+    loss = station.totalPassiveLossDb
+    passive_loss = (
+        "lt_1db" if loss < 1
+        else "1_3db" if loss < 3
+        else "3_6db" if loss < 6
+        else "ge_6db"
+    )
+    gain = station.antennaGainTowardPathDbi
+    directional_gain = (
+        "lt_0dbi" if gain < 0
+        else "0_3dbi" if gain < 3
+        else "3_6dbi" if gain < 6
+        else "6_10dbi" if gain < 10
+        else "ge_10dbi"
+    )
+    receiver_evidence = (
+        "measured"
+        if station.localSystemNoiseFloorDbm is not None
+        else "relative"
+        if station.receiverEvidenceIsRelative
+        else "catalog"
+        if station.receiverNoiseFloorDbm is not None
+        else "unknown"
+    )
+    return {
+        "tx_eirp": tx_eirp,
+        "passive_loss": passive_loss,
+        "directional_gain": directional_gain,
+        "receiver_evidence": receiver_evidence,
+        "supported": station.supported,
+    }
+
+
 def build_research_receipt(
     request: PathRequest,
     response: dict[str, Any],
@@ -748,6 +802,8 @@ def build_research_receipt(
         "declared_power_watts": request.declared_power_watts,
         "core_probability": float(response["core_probability"]),
         "personalized_probability": float(response["personalized_probability"]),
+        "profile": str(response["profile"]),
+        "station_capability": station_capability_classes(request.station),
         "confidence": float(response["confidence"]),
         "ood_flags": list(response["ood_flags"]),
         "freshness": dict(response["data_freshness"]),

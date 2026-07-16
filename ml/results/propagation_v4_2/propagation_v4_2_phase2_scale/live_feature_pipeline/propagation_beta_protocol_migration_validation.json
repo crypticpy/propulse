@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T13:11:36.367024+00:00",
+  "scope": "propagation_beta_protocol_target_postgres_rollback_validation",
+  "decision": "pass",
+  "migration_deployed": false,
+  "locked_outcomes_read": false,
+  "persistent_changes": false,
+  "migration": {
+    "path": "supabase/migrations/20260716013000_propagation_beta_protocol.sql",
+    "sha256": "1e792da6e6d982d2f5d02ef40df6a3797c79e77056b94d18a365d783c9883a82"
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "server_version": "17.6",
+    "connection_identifier_recorded": false
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "wall_seconds": 1.5926723750017118,
+    "psycopg_version": "3.3.4"
+  },
+  "gates": {
+    "exact_beta_columns_present": true,
+    "profile_is_required_and_bounded": true,
+    "equipment_classes_are_nullable": true,
+    "all_constraints_validated": true,
+    "capability_classes_strictly_enumerated": true,
+    "retention_is_bounded_to_730_days": true,
+    "exact_security_definer_functions_present": true,
+    "function_search_paths_hardened": true,
+    "functions_are_service_role_only": true,
+    "equipment_consent_removal_scrubs_classes": true,
+    "outcome_consent_removal_deletes_account_bound_rows": true,
+    "withdrawal_deletes_all_account_bound_rows": true,
+    "retention_prune_is_bounded_and_locked": true,
+    "aggregate_export_has_privacy_thresholds": true,
+    "privacy_comments_prohibit_exact_station_values": true,
+    "browser_prediction_writes_remain_revoked": true,
+    "service_role_prediction_insert_remains_available": true,
+    "rollback_restored_original_boundary": true,
+    "persistent_test_changes_absent": true,
+    "target_is_postgresql": true,
+    "native_m5_runtime": true,
+    "locked_outcomes_unread": true
+  }
+}

@@ -95,6 +95,7 @@ describe("research participation client", () => {
         consentedAt: null,
         withdrawnAt: null,
         retentionAcknowledgedAt: null,
+        retentionUntil: "2028-07-15T12:00:00Z",
         updatedAt: "2026-07-16T12:00:00Z",
       },
     })).toBe(false);
@@ -108,8 +109,23 @@ describe("research participation client", () => {
         consentedAt: "2026-07-16T12:00:00Z",
         withdrawnAt: null,
         retentionAcknowledgedAt: "2026-07-16T12:00:00Z",
+        retentionUntil: "2028-07-15T12:00:00Z",
         updatedAt: "2026-07-16T12:00:00Z",
       },
-    })).toBe(true);
+    }, new Date("2026-07-16T12:00:00Z"))).toBe(true);
+    expect(canRecordResearchOutcomes({
+      policyVersion: RESEARCH_POLICY_VERSION,
+      subjectBinding: null,
+      consent: {
+        policyVersion: RESEARCH_POLICY_VERSION,
+        status: "opted_in",
+        allowedUses: ["attempt_outcome_training"],
+        consentedAt: "2024-07-16T12:00:00Z",
+        withdrawnAt: null,
+        retentionAcknowledgedAt: "2024-07-16T12:00:00Z",
+        retentionUntil: "2026-07-15T12:00:00Z",
+        updatedAt: "2024-07-16T12:00:00Z",
+      },
+    }, new Date("2026-07-16T12:00:00Z"))).toBe(false);
   });
 });

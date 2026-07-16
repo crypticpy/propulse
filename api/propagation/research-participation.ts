@@ -9,6 +9,7 @@ import {
   consentRequestSchema,
   createResearchSubjectBinding,
   hasAttemptOutcomeConsent,
+  hasDerivedEquipmentConsent,
   startAttemptRequestSchema,
   verifyResearchReceipt,
   verifyResearchSubjectBinding,
@@ -26,6 +27,7 @@ interface ConsentRow {
   consented_at: string | null;
   withdrawn_at: string | null;
   retention_acknowledged_at: string | null;
+  retention_until: string;
   updated_at: string;
 }
 
@@ -54,7 +56,11 @@ export interface ResearchParticipationStore {
     now: string,
   ): Promise<ConsentRow>;
   withdrawConsent(userId: string, now: string): Promise<ConsentRow>;
-  ensurePrediction(userId: string, receipt: ResearchReceiptPayload): Promise<void>;
+  ensurePrediction(
+    userId: string,
+    receipt: ResearchReceiptPayload,
+    persistStationCapability: boolean,
+  ): Promise<void>;
   startAttempt(
     userId: string,
     receipt: ResearchReceiptPayload,
@@ -103,15 +109,26 @@ function publicConsent(row: ConsentRow | null) {
     consentedAt: row.consented_at,
     withdrawnAt: row.withdrawn_at,
     retentionAcknowledgedAt: row.retention_acknowledged_at,
+    retentionUntil: row.retention_until,
     updatedAt: row.updated_at,
   };
 }
 
-function activeOutcomeConsent(row: ConsentRow | null): boolean {
+function activeOutcomeConsent(row: ConsentRow | null, now: Date): boolean {
   return Boolean(
     row &&
       row.policy_version === RESEARCH_POLICY_VERSION &&
-      hasAttemptOutcomeConsent(row.status, row.allowed_uses),
+      hasAttemptOutcomeConsent(row.status, row.allowed_uses) &&
+      Date.parse(row.retention_until) > now.getTime(),
+  );
+}
+
+function activeDerivedEquipmentConsent(row: ConsentRow | null, now: Date): boolean {
+  return Boolean(
+    row &&
+      row.policy_version === RESEARCH_POLICY_VERSION &&
+      hasDerivedEquipmentConsent(row.status, row.allowed_uses) &&
+      Date.parse(row.retention_until) > now.getTime(),
   );
 }
 
@@ -124,7 +141,7 @@ function createStore(url: string, serviceKey: string): ResearchParticipationStor
     const { data, error } = await db
       .from("ml_research_consents")
       .select(
-        "policy_version,status,allowed_uses,consented_at,withdrawn_at,retention_acknowledged_at,updated_at",
+        "policy_version,status,allowed_uses,consented_at,withdrawn_at,retention_acknowledged_at,retention_until,updated_at",
       )
       .eq("user_id", userId)
       .maybeSingle();
@@ -136,53 +153,28 @@ function createStore(url: string, serviceKey: string): ResearchParticipationStor
     getConsent,
     async saveConsent(userId, allowedUses, now) {
       const { data, error } = await db
-        .from("ml_research_consents")
-        .upsert(
-          {
-            user_id: userId,
-            policy_version: RESEARCH_POLICY_VERSION,
-            status: "opted_in",
-            allowed_uses: [...new Set(allowedUses)].sort(),
-            consented_at: now,
-            withdrawn_at: null,
-            retention_until: null,
-            retention_acknowledged_at: now,
-          },
-          { onConflict: "user_id" },
-        )
-        .select(
-          "policy_version,status,allowed_uses,consented_at,withdrawn_at,retention_acknowledged_at,updated_at",
-        )
+        .rpc("set_propagation_research_consent", {
+          p_user_id: userId,
+          p_policy_version: RESEARCH_POLICY_VERSION,
+          p_allowed_uses: [...new Set(allowedUses)].sort(),
+          p_now: now,
+        })
         .single();
       if (error || !data) throw new Error("Consent update failed");
       return data as ConsentRow;
     },
     async withdrawConsent(userId, now) {
-      const existing = await getConsent(userId);
       const { data, error } = await db
-        .from("ml_research_consents")
-        .upsert(
-          {
-            user_id: userId,
-            policy_version: RESEARCH_POLICY_VERSION,
-            status: "withdrawn",
-            allowed_uses: existing?.allowed_uses ?? [],
-            consented_at: existing?.consented_at ?? null,
-            withdrawn_at: now,
-            retention_until: now,
-            retention_acknowledged_at:
-              existing?.retention_acknowledged_at ?? null,
-          },
-          { onConflict: "user_id" },
-        )
-        .select(
-          "policy_version,status,allowed_uses,consented_at,withdrawn_at,retention_acknowledged_at,updated_at",
-        )
+        .rpc("withdraw_propagation_research_consent", {
+          p_user_id: userId,
+          p_policy_version: RESEARCH_POLICY_VERSION,
+          p_now: now,
+        })
         .single();
       if (error || !data) throw new Error("Consent withdrawal failed");
       return data as ConsentRow;
     },
-    async ensurePrediction(userId, receipt) {
+    async ensurePrediction(userId, receipt, persistStationCapability) {
       const row = {
         id: receipt.prediction_id,
         user_id: userId,
@@ -199,6 +191,20 @@ function createStore(url: string, serviceKey: string): ResearchParticipationStor
         declared_power_watts: receipt.declared_power_watts,
         core_probability: receipt.core_probability,
         personalized_probability: receipt.personalized_probability,
+        profile: receipt.profile,
+        station_tx_class: persistStationCapability
+          ? receipt.station_capability.tx_eirp
+          : null,
+        station_loss_class: persistStationCapability
+          ? receipt.station_capability.passive_loss
+          : null,
+        station_antenna_class: persistStationCapability
+          ? receipt.station_capability.directional_gain
+          : null,
+        station_rx_class: persistStationCapability
+          ? receipt.station_capability.receiver_evidence
+          : null,
+        station_supported: receipt.station_capability.supported,
         confidence: receipt.confidence,
         ood_flags: receipt.ood_flags,
         freshness: receipt.freshness,
@@ -359,7 +365,7 @@ export async function handleResearchParticipation(
       return jsonResponse({
         policyVersion: RESEARCH_POLICY_VERSION,
         consent: publicConsent(consent),
-        subjectBinding: activeOutcomeConsent(consent)
+        subjectBinding: activeOutcomeConsent(consent, deps.now())
           ? createResearchSubjectBinding(user.id, deps.receiptSecret, deps.now())
           : null,
       }, 200);
@@ -385,7 +391,7 @@ export async function handleResearchParticipation(
     if (startAttemptRequestSchema.safeParse(body).success) {
       const parsed = startAttemptRequestSchema.parse(body);
       const consent = await deps.store.getConsent(user.id);
-      if (!activeOutcomeConsent(consent)) {
+      if (!activeOutcomeConsent(consent, deps.now())) {
         return jsonResponse({ error: "Attempt outcome consent is required" }, 403);
       }
       const receipt = verifyResearchReceipt(
@@ -399,7 +405,11 @@ export async function handleResearchParticipation(
         deps.receiptSecret,
         deps.now(),
       );
-      await deps.store.ensurePrediction(user.id, receipt);
+      await deps.store.ensurePrediction(
+        user.id,
+        receipt,
+        activeDerivedEquipmentConsent(consent, deps.now()),
+      );
       const attempt = await deps.store.startAttempt(
         user.id,
         receipt,
@@ -421,7 +431,7 @@ export async function handleResearchParticipation(
     if (completeAttemptRequestSchema.safeParse(body).success) {
       const parsed = completeAttemptRequestSchema.parse(body);
       const consent = await deps.store.getConsent(user.id);
-      if (!activeOutcomeConsent(consent)) {
+      if (!activeOutcomeConsent(consent, deps.now())) {
         return jsonResponse({ error: "Attempt outcome consent is required" }, 403);
       }
       const result = await deps.store.completeAttempt(

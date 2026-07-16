@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const RESEARCH_POLICY_VERSION = "propagation-research-v1-2026-07-12";
 export const RESEARCH_RECEIPT_SCHEMA_VERSION =
-  "propagation-research-receipt-v1";
+  "propagation-research-receipt-v2";
 export const RESEARCH_RECEIPT_TTL_MS = 24 * 60 * 60 * 1000;
 export const RESEARCH_SUBJECT_SCHEMA_VERSION =
   "propagation-research-subject-v1";
@@ -89,6 +89,40 @@ export const researchReceiptPayloadSchema = z
     declared_power_watts: z.number().positive().max(1_000_000),
     core_probability: z.number().min(0).max(1),
     personalized_probability: z.number().min(0).max(1),
+    profile: z.enum(["physics", "nowcast"]),
+    station_capability: z.object({
+      tx_eirp: z.enum([
+        "unknown",
+        "lt_1w",
+        "1_5w",
+        "5_25w",
+        "25_100w",
+        "100_500w",
+        "ge_500w",
+      ]),
+      passive_loss: z.enum([
+        "unknown",
+        "lt_1db",
+        "1_3db",
+        "3_6db",
+        "ge_6db",
+      ]),
+      directional_gain: z.enum([
+        "unknown",
+        "lt_0dbi",
+        "0_3dbi",
+        "3_6dbi",
+        "6_10dbi",
+        "ge_10dbi",
+      ]),
+      receiver_evidence: z.enum([
+        "unknown",
+        "relative",
+        "catalog",
+        "measured",
+      ]),
+      supported: z.boolean(),
+    }).strict(),
     confidence: z.number().min(0).max(1),
     ood_flags: boundedStringArraySchema,
     freshness: freshnessSchema,
@@ -236,5 +270,14 @@ export function hasAttemptOutcomeConsent(
 ): boolean {
   return status === "opted_in" && Boolean(
     allowedUses?.includes("attempt_outcome_training"),
+  );
+}
+
+export function hasDerivedEquipmentConsent(
+  status: string | null | undefined,
+  allowedUses: readonly string[] | null | undefined,
+): boolean {
+  return status === "opted_in" && Boolean(
+    allowedUses?.includes("derived_equipment_training"),
   );
 }

@@ -51,7 +51,13 @@ a current pseudonymous subject binding, or without that secret. A receipt HMAC
 protects coarse prediction provenance and the subject binding ties it to the
 authenticated consenting account without exposing a user ID to the model. The
 product API, not the browser, verifies and persists the receipt. Surface calls
-never emit receipts. Both `VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED` and
+never emit receipts. Receipt v2 adds only fixed capability classes and the
+selected physics/NowCast profile. Raw shack inventory and exact component
+values remain excluded. The API stores capability classes only when the
+current consent independently includes `derived_equipment_training`; ordinary
+attempt/outcome consent stores those columns as null. The signed support
+decision is retained only to reject unsupported chains from evaluation. Both
+`VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED` and
 `PROPULSE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED` remain false until the beta
 release gate passes.
 

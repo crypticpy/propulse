@@ -713,6 +713,16 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   writes, and disabled-by-default product/API gates. Rollback validation passed
   13/13 gates and deployed-state validation passed 14/14 without reading locked
   outcomes or collecting real operator data.
+- [x] Preregister the [alpha/beta protocol](PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md)
+  before collection: the primary endpoint is WSPR reception, contact and
+  non-WSPR outcomes are secondary, capability classes require an independent
+  consent use, public cells require five participants and 20 outcomes, and the
+  promotion scorer applies a 10% participant cap plus operator-cluster
+  bootstrap. Deploy the 24-month retention boundary, atomic withdrawal and
+  purpose-removal deletion, daily aggregate-only retention job, supported-chain
+  filter, and service-role-only monitoring export. Rollback validation passed
+  21/21 gates and deployed-state validation passed 22/22 on PostgreSQL 17.6
+  without reading locked outcomes; collection remains disabled.
 - [x] Reactivate first-party PSK Reporter, RBN, DX Cluster, and provenance-rich
   operational-weather collection on the
   M5; replace Node-side hourly materialization with a bounded PostgreSQL RPC,
@@ -730,8 +740,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   the latest preserved receipt is honestly `warming` at `1.14/24` hours; the
   August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `80/80`, V4.1 `37/37`, V4.2 `117/117`, and
-  frontend/API/collector `82/82` tests, plus lint, TypeScript, production
+  service `81/81`, V4.1 `37/37`, V4.2 `123/123`, and
+  frontend/API/collector `88/88` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
   at 1,440 px and 390 px with 53 blocks, 10 charts, 16 metrics, and three

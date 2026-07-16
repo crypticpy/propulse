@@ -20,6 +20,7 @@ from operational_weather import (
 
 from app import (
     RuntimePrediction,
+    StationEnvelope,
     allowlisted_telemetry_dimension,
     blend_probabilities,
     create_app,
@@ -27,6 +28,7 @@ from app import (
     research_receipt_signature,
     resolve_inference_mode,
     resolve_xgboost_prediction_threads,
+    station_capability_classes,
 )
 
 
@@ -192,13 +194,30 @@ class ServiceTests(unittest.TestCase):
         receipt = response.json()["research_receipt"]
         payload = json.loads(receipt["signed_payload"])
 
-        self.assertEqual(payload["schema_version"], "propagation-research-receipt-v1")
+        self.assertEqual(payload["schema_version"], "propagation-research-receipt-v2")
         self.assertEqual(payload["model_version"], "v4-test")
         self.assertEqual(payload["feature_contract"], "archive-v4-features-test-v1")
         self.assertEqual(payload["station_feature_contract"], "station-chain-v1")
         self.assertEqual(payload["chain_fingerprint"], "fixture:test")
         self.assertEqual(payload["origin_grid4"], "EM10")
         self.assertEqual(payload["target_grid4"], "IO91")
+        self.assertEqual(payload["profile"], "physics")
+        self.assertEqual(payload["station_capability"], {
+            "tx_eirp": "100_500w",
+            "passive_loss": "1_3db",
+            "directional_gain": "6_10dbi",
+            "receiver_evidence": "relative",
+            "supported": True,
+        })
+        capability_text = json.dumps(payload["station_capability"], sort_keys=True)
+        for raw_field in (
+            "eirpWatts",
+            "totalPassiveLossDb",
+            "antennaGainTowardPathDbi",
+            "localSystemNoiseFloorDbm",
+            "chainFingerprint",
+        ):
+            self.assertNotIn(raw_field, capability_text)
         self.assertNotIn("station", payload)
         self.assertNotIn("values", payload)
         self.assertNotIn("callsign", str(payload).lower())
@@ -215,7 +234,30 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(health["research_receipts_enabled"])
         self.assertEqual(
             health["research_receipt_schema_version"],
-            "propagation-research-receipt-v1",
+            "propagation-research-receipt-v2",
+        )
+
+    def test_station_capability_classes_are_bounded_and_identity_free(self):
+        station = request_payload()["station"]
+        self.assertEqual(
+            station_capability_classes(StationEnvelope.model_validate(station)),
+            {
+                "tx_eirp": "100_500w",
+                "passive_loss": "1_3db",
+                "directional_gain": "6_10dbi",
+                "receiver_evidence": "relative",
+                "supported": True,
+            },
+        )
+        self.assertEqual(
+            station_capability_classes(None),
+            {
+                "tx_eirp": "unknown",
+                "passive_loss": "unknown",
+                "directional_gain": "unknown",
+                "receiver_evidence": "unknown",
+                "supported": False,
+            },
         )
 
     def test_shadow_mode_never_emits_research_receipts(self):

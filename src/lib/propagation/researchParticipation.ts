@@ -29,6 +29,7 @@ export interface ResearchConsent {
   consentedAt: string | null;
   withdrawnAt: string | null;
   retentionAcknowledgedAt: string | null;
+  retentionUntil: string;
   updatedAt: string;
 }
 
@@ -127,10 +128,12 @@ export async function completeResearchAttempt(
 
 export function canRecordResearchOutcomes(
   state: ResearchParticipationState | undefined,
+  now: Date = new Date(),
 ): boolean {
   return Boolean(
     state?.consent?.policyVersion === RESEARCH_POLICY_VERSION &&
       state.consent.status === "opted_in" &&
-      state.consent.allowedUses.includes("attempt_outcome_training"),
+      state.consent.allowedUses.includes("attempt_outcome_training") &&
+      Date.parse(state.consent.retentionUntil) > now.getTime(),
   );
 }

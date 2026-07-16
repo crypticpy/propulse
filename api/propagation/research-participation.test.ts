@@ -20,7 +20,7 @@ const USER_ID = "aeb08527-58ad-4be7-8fa4-23c22c07d93d";
 
 function payload(overrides: Partial<ResearchReceiptPayload> = {}): ResearchReceiptPayload {
   return {
-    schema_version: "propagation-research-receipt-v1",
+    schema_version: "propagation-research-receipt-v2",
     prediction_id: "f038638f-218b-4a31-9be9-4277897dc7d7",
     receipt_issued_at: "2026-07-16T11:55:00+00:00",
     receipt_expires_at: "2026-07-17T11:55:00+00:00",
@@ -37,6 +37,14 @@ function payload(overrides: Partial<ResearchReceiptPayload> = {}): ResearchRecei
     declared_power_watts: 25,
     core_probability: 0.4,
     personalized_probability: 0.51,
+    profile: "nowcast",
+    station_capability: {
+      tx_eirp: "25_100w",
+      passive_loss: "1_3db",
+      directional_gain: "3_6dbi",
+      receiver_evidence: "catalog",
+      supported: true,
+    },
     confidence: 0.78,
     ood_flags: [],
     freshness: { path_history: 120, space_weather: 60 },
@@ -64,6 +72,7 @@ function optedInConsent() {
     consented_at: NOW.toISOString(),
     withdrawn_at: null,
     retention_acknowledged_at: NOW.toISOString(),
+    retention_until: "2028-07-15T12:00:00.000Z",
     updated_at: NOW.toISOString(),
   };
 }
@@ -85,6 +94,7 @@ function buildStore(): ResearchParticipationStore {
       consented_at: null,
       withdrawn_at: now,
       retention_acknowledged_at: null,
+      retention_until: now,
       updated_at: now,
     })),
     ensurePrediction: vi.fn().mockResolvedValue(undefined),
@@ -220,7 +230,7 @@ describe("research participation API", () => {
       dependencies(store),
     );
     expect(response.status).toBe(201);
-    expect(store.ensurePrediction).toHaveBeenCalledWith(USER_ID, payload());
+    expect(store.ensurePrediction).toHaveBeenCalledWith(USER_ID, payload(), false);
     expect(store.startAttempt).toHaveBeenCalledWith(
       USER_ID,
       payload(),
@@ -230,6 +240,25 @@ describe("research participation API", () => {
     const body = await response.json();
     expect(body.attempt).toMatchObject({ band: "20m", mode: "WSPR" });
     expect(JSON.stringify(body)).not.toContain("chain_fingerprint");
+  });
+
+  it("persists capability classes only with independent equipment consent", async () => {
+    const store = buildStore();
+    vi.mocked(store.getConsent).mockResolvedValue({
+      ...optedInConsent(),
+      allowed_uses: [
+        "attempt_outcome_training",
+        "derived_equipment_training",
+      ],
+    });
+
+    const response = await handleResearchParticipation(
+      post({ action: "start_attempt", receipt: sign(), evidenceGrade: "manual" }),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(201);
+    expect(store.ensurePrediction).toHaveBeenCalledWith(USER_ID, payload(), true);
   });
 
   it("rejects tampered and expired receipts before any write", async () => {
@@ -292,6 +321,39 @@ describe("research participation API", () => {
         outcomeType: "receive_failure",
       }),
       dependencies(store),
+    );
+    expect(complete.status).toBe(403);
+    expect(store.ensurePrediction).not.toHaveBeenCalled();
+    expect(store.completeAttempt).not.toHaveBeenCalled();
+  });
+
+  it("cannot issue a binding, start, or label after retention expires", async () => {
+    const store = buildStore();
+    vi.mocked(store.getConsent).mockResolvedValue({
+      ...optedInConsent(),
+      retention_until: "2026-07-16T11:59:59Z",
+    });
+    const deps = dependencies(store);
+
+    const state = await handleResearchParticipation(
+      new Request("https://propulse.test/api/propagation/research-participation"),
+      deps,
+    );
+    expect(state.status).toBe(200);
+    await expect(state.json()).resolves.toMatchObject({ subjectBinding: null });
+
+    const start = await handleResearchParticipation(
+      post({ action: "start_attempt", receipt: sign(), evidenceGrade: "manual" }),
+      deps,
+    );
+    expect(start.status).toBe(403);
+    const complete = await handleResearchParticipation(
+      post({
+        action: "complete_attempt",
+        attemptId: "722a25ce-d396-4964-a89d-a1261098f934",
+        outcomeType: "receive_failure",
+      }),
+      deps,
     );
     expect(complete.status).toBe(403);
     expect(store.ensurePrediction).not.toHaveBeenCalled();

@@ -514,6 +514,38 @@ research connector and signed runner are active internally. Written source
 authorization, the 30-day receipt-time shadow, remote alert delivery, and
 subscriber-facing release remain open.
 
+### Preregistered beta and retention boundary
+
+The frozen operator experiment is defined in
+[`PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md`](PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md).
+Its primary endpoint is WSPR reception so the beta does not relabel the core's
+single-decode estimand as a generic QSO probability. Contact outcomes and
+non-WSPR modes remain separately reported secondary evidence. Capability
+classes are nullable unless the operator independently permits derived
+equipment training; the signed server support decision is retained only to
+exclude unsupported chains.
+
+On the M5, validate the additive database boundary without persistence and
+then verify its deployed state:
+
+```bash
+cd ml/src/archive_v4_2
+../../.venv/bin/python validate_propagation_beta_protocol_migration.py \
+  --profile m5
+../../.venv/bin/python validate_propagation_beta_protocol_migration.py \
+  --profile m5 --verify-deployed
+```
+
+The rollback pass completed 21/21 gates and restored the original PostgreSQL
+17.6 state. The deployed pass completed 22/22 gates, including the exact
+ledger entry, nullable consent-gated classes, strict enums, hardened
+service-role functions, atomic purpose removal/withdrawal deletion, bounded
+retention pruning, and k-anonymous WSPR-reception monitoring. Neither check
+read locked outcomes. Production Vercel holds an independent sensitive
+`CRON_SECRET`; `/api/propagation/research-retention` runs daily at 05:17 UTC and
+returns deletion counts only. Both outcome flags remain false until every
+protocol preflight gate passes.
+
 ## Reproduce Phase 2 at 20M
 
 After the parent exits successfully:

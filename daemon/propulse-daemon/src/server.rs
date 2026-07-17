@@ -2,7 +2,7 @@ use std::{
   net::{IpAddr, SocketAddr},
   collections::{HashMap, HashSet, VecDeque},
   path::PathBuf,
-  sync::atomic::{AtomicBool, Ordering},
+  sync::atomic::{AtomicBool, AtomicU64, Ordering},
   sync::Arc,
   sync::Mutex as StdMutex,
   time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -30,7 +30,7 @@ use propulse_radio::{
   dummy::dummy_device,
   manager::{DeviceDelta, RadioManager},
   soapy::SoapyDevice,
-  types::{DeviceInfo, GainStage, RadioCapabilities, RadioType},
+  types::{DeviceInfo, RadioCapabilities, RadioCommandCapabilities, RadioType},
 };
 use sysinfo::System;
 
@@ -43,7 +43,6 @@ use propulse_integrations::{
 };
 use propulse_discovery::{
   mdns::MdnsAdvertiser,
-  serial::list_serial_ports,
   soapy_enum::enumerate_soapy_devices,
 };
 use propulse_dsp::{
@@ -68,6 +67,135 @@ struct DaemonState {
   clients: Mutex<HashMap<String, ClientState>>,
   streams: Mutex<HashMap<String, DeviceStreams>>,
   integrations: Mutex<IntegrationsState>,
+  ptt_safety: PttSafetyState,
+}
+
+struct PttSafetyState {
+  transition: Mutex<()>,
+  lockout: AtomicBool,
+  release_pending: AtomicBool,
+  generation: AtomicU64,
+  owner: Mutex<Option<String>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ManualPttClaim {
+  generation: u64,
+  new_owner: bool,
+}
+
+impl Default for PttSafetyState {
+  fn default() -> Self {
+    Self {
+      transition: Mutex::new(()),
+      lockout: AtomicBool::new(false),
+      release_pending: AtomicBool::new(false),
+      generation: AtomicU64::new(0),
+      owner: Mutex::new(None),
+    }
+  }
+}
+
+impl PttSafetyState {
+  fn key_down_error(&self) -> Option<&'static str> {
+    if self.lockout.load(Ordering::SeqCst) {
+      Some("PTT safety lockout is enabled")
+    } else if self.release_pending.load(Ordering::SeqCst) {
+      Some("PTT release is pending after a hardware error")
+    } else {
+      None
+    }
+  }
+
+  async fn claim_manual(&self, client_id: &str) -> Result<ManualPttClaim, &'static str> {
+    if let Some(error) = self.key_down_error() {
+      return Err(error);
+    }
+
+    let mut owner = self.owner.lock().await;
+    if let Some(error) = self.key_down_error() {
+      return Err(error);
+    }
+    match owner.as_deref() {
+      Some(current) if current != client_id => Err("PTT is already controlled by another client"),
+      Some(_) => Ok(ManualPttClaim {
+        generation: self.generation.load(Ordering::SeqCst),
+        new_owner: false,
+      }),
+      None => {
+        let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        *owner = Some(client_id.to_string());
+        Ok(ManualPttClaim {
+          generation,
+          new_owner: true,
+        })
+      }
+    }
+  }
+
+  async fn confirm_manual(
+    &self,
+    client_id: &str,
+    claim: ManualPttClaim,
+  ) -> Result<u64, &'static str> {
+    if let Some(error) = self.key_down_error() {
+      return Err(error);
+    }
+    let owner = self.owner.lock().await;
+    if owner.as_deref() != Some(client_id)
+      || (claim.new_owner && !self.generation_is(claim.generation))
+    {
+      return Err("PTT ownership changed while the hardware command was running");
+    }
+    if claim.new_owner {
+      Ok(claim.generation)
+    } else {
+      Ok(self.generation.fetch_add(1, Ordering::SeqCst) + 1)
+    }
+  }
+
+  async fn rollback_manual_claim(&self, client_id: &str, claim: ManualPttClaim) {
+    if !claim.new_owner || !self.generation_is(claim.generation) {
+      return;
+    }
+    let mut owner = self.owner.lock().await;
+    if self.generation_is(claim.generation) && owner.as_deref() == Some(client_id) {
+      *owner = None;
+    }
+  }
+
+  async fn track_manual_release(&self) -> u64 {
+    let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    *self.owner.lock().await = None;
+    self.release_pending.store(false, Ordering::SeqCst);
+    generation
+  }
+
+  fn begin_release(&self) -> u64 {
+    self.release_pending.store(true, Ordering::SeqCst);
+    self.generation.fetch_add(1, Ordering::SeqCst) + 1
+  }
+
+  fn generation_is(&self, generation: u64) -> bool {
+    self.generation.load(Ordering::SeqCst) == generation
+  }
+
+  async fn complete_release(&self, generation: u64) -> bool {
+    if !self.generation_is(generation) {
+      return false;
+    }
+    let mut owner = self.owner.lock().await;
+    if !self.generation_is(generation) {
+      return false;
+    }
+    *owner = None;
+    self.release_pending.store(false, Ordering::SeqCst);
+    true
+  }
+
+  async fn is_owned_by(&self, client_id: &str) -> bool {
+    self.owner.lock().await.as_deref() == Some(client_id)
+  }
 }
 
 #[derive(Default)]
@@ -143,6 +271,12 @@ where
   let ip: IpAddr = bind.parse().map_err(|_| anyhow::anyhow!("Invalid bind address: {bind}"))?;
   let addr = SocketAddr::new(ip, port);
 
+  if !ip.is_loopback() && auth_token.trim().is_empty() {
+    return Err(anyhow::anyhow!(
+      "Refusing unauthenticated non-loopback bind. Configure server.auth_token or use --localhost-only"
+    ));
+  }
+
   let listener = TcpListener::bind(addr).await?;
   info!(%addr, "Propulse Radio Daemon listening");
 
@@ -179,6 +313,7 @@ where
     clients: Mutex::new(HashMap::new()),
     streams: Mutex::new(HashMap::new()),
     integrations: Mutex::new(IntegrationsState::default()),
+    ptt_safety: PttSafetyState::default(),
   });
 
   apply_runtime_config(&state, &effective_config).await;
@@ -204,6 +339,8 @@ where
       }
     }
   }
+
+  release_all_ptt(&state, "daemon shutdown").await;
 
   // Best-effort close notifications.
   {
@@ -487,15 +624,8 @@ fn discover_devices(cfg: &crate::config::RadioConfig) -> DeviceScanResult {
   }
 
   if cfg.hamlib.enabled && !cfg.hamlib.rigs.is_empty() {
-    let ports = list_serial_ports().unwrap_or_default();
-    let port_names = ports
-      .iter()
-      .map(|p| p.port_name.as_str())
-      .collect::<HashSet<_>>();
-
     for rig in &cfg.hamlib.rigs {
-      let available = port_names.contains(rig.port.as_str());
-      devices.push(hamlib_device_from_config(rig, available));
+      devices.push(hamlib_device_from_config(rig));
     }
   }
 
@@ -522,7 +652,7 @@ fn stable_sdrconnect_device_id(info: &SdrconnectRadioInstanceConfig) -> String {
   format!("sdrconnect:{h}:{}", info.device_id.unwrap_or(0))
 }
 
-fn hamlib_device_from_config(rig: &HamlibRigConfig, available: bool) -> DeviceInfo {
+fn hamlib_device_from_config(rig: &HamlibRigConfig) -> DeviceInfo {
   DeviceInfo {
     device_id: stable_hamlib_device_id(rig),
     name: rig.name.clone(),
@@ -530,8 +660,11 @@ fn hamlib_device_from_config(rig: &HamlibRigConfig, available: bool) -> DeviceIn
     device_type: RadioType::Transceiver,
     serial: None,
     port: Some(rig.port.clone()),
-    available,
-    capabilities: default_rig_capabilities(),
+    // Configured Hamlib rigs are controlled through RigService, not the
+    // RadioManager device protocol. Keep them visible for diagnostics but do
+    // not claim that in-memory RadioManager commands control real hardware.
+    available: false,
+    capabilities: unavailable_rig_capabilities(),
   }
 }
 
@@ -549,10 +682,14 @@ fn short_hash(input: &str) -> String {
 fn default_sdr_capabilities() -> RadioCapabilities {
   RadioCapabilities {
     can_transmit: false,
-    can_stream_iq: true,
+    // IQ is consumed internally by the DSP pipeline; there is no client IQ
+    // stream command in protocol 1.1.
+    can_stream_iq: false,
     can_stream_fft: true,
     can_stream_audio: true,
-    antennas: vec!["RX".to_string()],
+    // Enumeration does not currently query antenna ports or gain ranges.
+    // Keep those controls hidden instead of publishing invented values.
+    antennas: Vec::new(),
     modes: vec![
       "USB".to_string(),
       "LSB".to_string(),
@@ -562,30 +699,26 @@ fn default_sdr_capabilities() -> RadioCapabilities {
     ],
     frequency_range: (1_000, 2_000_000_000),
     sample_rates: vec![2_048_000, 4_096_000],
-    gain_stages: vec![
-      GainStage {
-        name: "LNA".to_string(),
-        min: 0.0,
-        max: 30.0,
-        step: 1.0,
-      },
-      GainStage {
-        name: "IF".to_string(),
-        min: -59.0,
-        max: 0.0,
-        step: 1.0,
-      },
-    ],
+    gain_stages: Vec::new(),
+    commands: RadioCommandCapabilities {
+      tune: true,
+      mode: true,
+      agc: true,
+      filter: true,
+      nr: true,
+      nb: true,
+      ..RadioCommandCapabilities::default()
+    },
   }
 }
 
 fn sdrconnect_sdr_capabilities(cfg: &SdrconnectRadioInstanceConfig) -> RadioCapabilities {
   RadioCapabilities {
     can_transmit: false,
-    can_stream_iq: true,
+    can_stream_iq: false,
     can_stream_fft: true,
     can_stream_audio: true,
-    antennas: vec!["RX".to_string()],
+    antennas: Vec::new(),
     modes: vec![
       "USB".to_string(),
       "LSB".to_string(),
@@ -596,42 +729,31 @@ fn sdrconnect_sdr_capabilities(cfg: &SdrconnectRadioInstanceConfig) -> RadioCapa
     frequency_range: (1_000, 2_000_000_000),
     sample_rates: vec![cfg.sample_rate],
     gain_stages: Vec::new(),
+    commands: RadioCommandCapabilities {
+      tune: true,
+      mode: true,
+      squelch: true,
+      agc: true,
+      filter: true,
+      nr: true,
+      nb: true,
+      ..RadioCommandCapabilities::default()
+    },
   }
 }
 
-fn default_rig_capabilities() -> RadioCapabilities {
+fn unavailable_rig_capabilities() -> RadioCapabilities {
   RadioCapabilities {
-    can_transmit: true,
+    can_transmit: false,
     can_stream_iq: false,
     can_stream_fft: false,
     can_stream_audio: false,
-    antennas: vec!["ANT1".to_string(), "ANT2".to_string()],
-    modes: vec![
-      "USB".to_string(),
-      "LSB".to_string(),
-      "CW".to_string(),
-      "CW-R".to_string(),
-      "AM".to_string(),
-      "FM".to_string(),
-      "RTTY".to_string(),
-      "RTTY-R".to_string(),
-    ],
-    frequency_range: (30_000, 74_800_000),
+    antennas: Vec::new(),
+    modes: Vec::new(),
+    frequency_range: (0, 0),
     sample_rates: Vec::new(),
-    gain_stages: vec![
-      GainStage {
-        name: "RF".to_string(),
-        min: 0.0,
-        max: 100.0,
-        step: 1.0,
-      },
-      GainStage {
-        name: "AF".to_string(),
-        min: 0.0,
-        max: 100.0,
-        step: 1.0,
-      },
-    ],
+    gain_stages: Vec::new(),
+    commands: RadioCommandCapabilities::default(),
   }
 }
 
@@ -705,6 +827,12 @@ async fn handle_client(
       kind: "hello".to_string(),
       version: PROTOCOL_VERSION.to_string(),
       daemon_id,
+      features: vec![
+        "command-capabilities".to_string(),
+        "correlated-responses".to_string(),
+        "ptt-safety".to_string(),
+        "stream-subscriptions".to_string(),
+      ],
     },
   )
   .await?;
@@ -827,6 +955,198 @@ enum StreamKind {
   Audio,
 }
 
+const MAX_MANUAL_PTT_DURATION: Duration = Duration::from_secs(180);
+const PTT_RELEASE_RETRY_DELAY: Duration = Duration::from_secs(1);
+
+async fn attempt_release_all_ptt(state: &Arc<DaemonState>, reason: &str) -> bool {
+  let mut release_succeeded = true;
+  let rig = {
+    let integrations = state.integrations.lock().await;
+    integrations.rig.as_ref().map(|running| running.service.clone())
+  };
+  if let Some(rig) = rig {
+    match rig.status().await {
+      Ok(status) if status.connected => {
+        if let Err(err) = rig.set_ptt(false).await {
+          release_succeeded = false;
+          warn!(error = %err, %reason, "failed to release rig PTT");
+        }
+      }
+      Ok(_) => {}
+      Err(err) => {
+        release_succeeded = false;
+        warn!(error = %err, %reason, "failed to release rig PTT");
+      }
+    }
+  }
+
+  let (released, radio_release_succeeded) = {
+    let mut radio = state.radio.lock().await;
+    let ids = radio
+      .devices()
+      .iter()
+      .filter(|device| device.capabilities.can_transmit)
+      .filter(|device| radio.state(&device.device_id).is_some_and(|status| status.ptt == Some(true)))
+      .map(|device| device.device_id.clone())
+      .collect::<Vec<_>>();
+    let mut released = Vec::new();
+    let mut succeeded = true;
+    for device_id in ids {
+      match radio.set_ptt(&device_id, false) {
+        Ok(status) => released.push((device_id, status)),
+        Err(err) => {
+          succeeded = false;
+          warn!(error = %err, %reason, %device_id, "failed to release radio PTT");
+        }
+      }
+    }
+    (released, succeeded)
+  };
+
+  for (device_id, radio_state) in released {
+    let _ = broadcast_json(
+      state,
+      &RadioStateEvent {
+        kind: "radio:state".to_string(),
+        device_id,
+        state: radio_state.clone(),
+      },
+    )
+    .await;
+    let _ = maybe_broadcast_rig_from_radio_state(state, &radio_state).await;
+  }
+
+  release_succeeded && radio_release_succeeded
+}
+
+async fn release_all_ptt_locked(state: &Arc<DaemonState>, reason: &str) -> Option<u64> {
+  let generation = state.ptt_safety.begin_release();
+  if attempt_release_all_ptt(state, reason).await {
+    state.ptt_safety.complete_release(generation).await;
+    return None;
+  }
+
+  if !state.ptt_safety.generation_is(generation) {
+    return None;
+  }
+
+  Some(generation)
+}
+
+fn schedule_ptt_release_retry(state: &Arc<DaemonState>, reason: &str, generation: u64) {
+  let state = Arc::clone(state);
+  let reason = reason.to_string();
+  tokio::spawn(async move {
+    loop {
+      tokio::time::sleep(PTT_RELEASE_RETRY_DELAY).await;
+      let _transition = state.ptt_safety.transition.lock().await;
+      if !state.ptt_safety.generation_is(generation) {
+        return;
+      }
+      if attempt_release_all_ptt(&state, &reason).await {
+        state.ptt_safety.complete_release(generation).await;
+        return;
+      }
+    }
+  });
+}
+
+async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    release_all_ptt_locked(state, reason).await
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, reason, generation);
+  }
+}
+
+async fn release_owned_ptt(state: &Arc<DaemonState>, client_id: &str, reason: &str) {
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    if !state.ptt_safety.is_owned_by(client_id).await {
+      return;
+    }
+    release_all_ptt_locked(state, reason).await
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, reason, generation);
+  }
+}
+
+async fn release_ptt_if_generation(
+  state: &Arc<DaemonState>,
+  expected_generation: u64,
+  reason: &str,
+) {
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    if !state.ptt_safety.generation_is(expected_generation) {
+      return;
+    }
+    release_all_ptt_locked(state, reason).await
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, reason, generation);
+  }
+}
+
+async fn begin_manual_ptt_transition<'a>(
+  state: &'a Arc<DaemonState>,
+  client_id: &str,
+  active: bool,
+) -> Result<(tokio::sync::MutexGuard<'a, ()>, Option<ManualPttClaim>), &'static str> {
+  let transition = state.ptt_safety.transition.lock().await;
+  let claim = if active {
+    Some(state.ptt_safety.claim_manual(client_id).await?)
+  } else {
+    None
+  };
+  Ok((transition, claim))
+}
+
+async fn complete_manual_ptt_transition(
+  state: &Arc<DaemonState>,
+  client_id: &str,
+  active: bool,
+  claim: Option<ManualPttClaim>,
+) -> Result<Option<u64>, &'static str> {
+  if active {
+    let claim = claim.ok_or("PTT ownership was not claimed before key-down")?;
+    state
+      .ptt_safety
+      .confirm_manual(client_id, claim)
+      .await
+      .map(Some)
+  } else {
+    state.ptt_safety.track_manual_release().await;
+    Ok(None)
+  }
+}
+
+fn schedule_manual_ptt_timeout(state: &Arc<DaemonState>, generation: u64) {
+  let state = Arc::clone(state);
+  tokio::spawn(async move {
+    tokio::time::sleep(MAX_MANUAL_PTT_DURATION).await;
+    release_ptt_if_generation(&state, generation, "manual PTT timeout").await;
+  });
+}
+
+async fn configure_ptt_safety(state: &Arc<DaemonState>, lockout: bool) {
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    state.ptt_safety.lockout.store(lockout, Ordering::SeqCst);
+    if lockout {
+      release_all_ptt_locked(state, "PTT safety lockout enabled").await
+    } else {
+      None
+    }
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, "PTT safety lockout enabled", generation);
+  }
+}
+
 async fn handle_text_message(
   state: &Arc<DaemonState>,
   client_id: &str,
@@ -839,34 +1159,41 @@ async fn handle_text_message(
     }
   };
 
-  // Bridge compatibility: messages that use { type, payload, ... } are treated as
-  // legacy bridge messages.
-  if state.compat_bridge && value.get("payload").is_some() {
-    handle_bridge_message(state, client_id, &value).await?;
-    return Ok(());
-  }
-
   let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) else {
     return Ok(());
   };
   let id = value.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+  let is_bridge_message = state.compat_bridge && value.get("payload").is_some();
 
-  // Auth gate (if enabled)
-  {
-    let token_required = state.auth_token.is_some();
-    if token_required {
-      let mut clients = state.clients.lock().await;
-      let Some(client) = clients.get_mut(client_id) else {
-        return Ok(());
-      };
-
-      if !client.authenticated && msg_type != "hello" {
-        if let Some(id) = id {
-          send_json(state, client_id, &Response::err(id, "Not authenticated")).await?;
-        }
-        return Ok(());
-      }
+  // Authentication applies equally to flat daemon messages and compatibility
+  // envelopes. Check without holding the clients lock across a response send.
+  let authenticated = {
+    let clients = state.clients.lock().await;
+    clients
+      .get(client_id)
+      .is_some_and(|client| client.authenticated)
+  };
+  if state.auth_token.is_some() && !authenticated && msg_type != "hello" {
+    if is_bridge_message {
+      send_bridge_envelope(
+        state,
+        client_id,
+        id.as_deref(),
+        "error",
+        serde_json::json!({ "code": "UNAUTHENTICATED", "message": "Not authenticated" }),
+      )
+      .await?;
+    } else if let Some(id) = id {
+      send_json(state, client_id, &Response::err(id, "Not authenticated")).await?;
     }
+    return Ok(());
+  }
+
+  // Bridge compatibility: messages that use { type, payload, ... } are treated as
+  // legacy bridge messages.
+  if is_bridge_message {
+    handle_bridge_message(state, client_id, &value).await?;
+    return Ok(());
   }
 
   match msg_type {
@@ -912,6 +1239,17 @@ async fn handle_text_message(
         },
       )
       .await?;
+    }
+
+    "rig:test" => {
+      // Reuse the compatibility protocol's real backend probe so setup clients
+      // receive the same correlated result from either server implementation.
+      let envelope = serde_json::json!({
+        "type": "rig:test",
+        "id": id,
+        "payload": value.clone(),
+      });
+      handle_bridge_message(state, client_id, &envelope).await?;
     }
 
     "radio:connect" => {
@@ -1136,6 +1474,7 @@ async fn handle_text_message(
       stop_device_streams_if_any(state, device_id).await;
       stop_soapy_device_if_any(state, device_id).await;
       stop_sdrconnect_device_if_any(state, device_id).await;
+      release_all_ptt(state, "radio disconnect").await;
 
       let mut radio = state.radio.lock().await;
       match radio.disconnect(device_id) {
@@ -1231,6 +1570,8 @@ async fn handle_text_message(
       let mut radio = state.radio.lock().await;
       match radio.set_mode(device_id, mode) {
         Ok(new_state) => {
+          drop(radio);
+          apply_radio_state_to_active_pipeline(state, device_id, &new_state).await;
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -1318,10 +1659,17 @@ async fn handle_text_message(
         return Ok(());
       };
       let enabled = value.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false);
+      let mode = value
+        .get("mode")
+        .and_then(|v| v.as_u64())
+        .map(|value| value.clamp(0, 3) as u8)
+        .unwrap_or(if enabled { 3 } else { 0 });
 
       let mut radio = state.radio.lock().await;
-      match radio.set_agc(device_id, enabled) {
+      match radio.set_agc(device_id, enabled, mode) {
         Ok(new_state) => {
+          drop(radio);
+          apply_radio_state_to_active_pipeline(state, device_id, &new_state).await;
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -1352,9 +1700,47 @@ async fn handle_text_message(
       };
       let active = value.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
 
+      let (transition, claim) = match begin_manual_ptt_transition(state, client_id, active).await {
+        Ok(value) => value,
+        Err(error) => {
+          if let Some(id) = id {
+            send_json(state, client_id, &Response::err(id, error)).await?;
+          }
+          return Ok(());
+        }
+      };
+
       let mut radio = state.radio.lock().await;
       match radio.set_ptt(device_id, active) {
         Ok(new_state) => {
+          drop(radio);
+          let tracked = complete_manual_ptt_transition(state, client_id, active, claim).await;
+          let generation = match tracked {
+            Ok(generation) => generation,
+            Err(error) => {
+              let retry_generation = release_all_ptt_locked(
+                state,
+                "PTT ownership changed during radio key-down",
+              )
+              .await;
+              drop(transition);
+              if let Some(generation) = retry_generation {
+                schedule_ptt_release_retry(
+                  state,
+                  "PTT ownership changed during radio key-down",
+                  generation,
+                );
+              }
+              if let Some(id) = id {
+                send_json(state, client_id, &Response::err(id, error)).await?;
+              }
+              return Ok(());
+            }
+          };
+          drop(transition);
+          if let Some(generation) = generation {
+            schedule_manual_ptt_timeout(state, generation);
+          }
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -1370,10 +1756,36 @@ async fn handle_text_message(
           maybe_broadcast_rig_from_radio_state(state, &new_state).await?;
         }
         Err(err) => {
+          drop(radio);
+          if let Some(claim) = claim {
+            state.ptt_safety.rollback_manual_claim(client_id, claim).await;
+          }
+          let retry_generation =
+            release_all_ptt_locked(state, "manual radio PTT command failed").await;
+          drop(transition);
+          if let Some(generation) = retry_generation {
+            schedule_ptt_release_retry(
+              state,
+              "manual radio PTT command failed",
+              generation,
+            );
+          }
           if let Some(id) = id {
             send_json(state, client_id, &Response::err(id, err.to_string())).await?;
           }
         }
+      }
+    }
+
+    "safety:configure" => {
+      let lockout = value
+        .get("ptt_lockout")
+        .or_else(|| value.get("pttLockout"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+      configure_ptt_safety(state, lockout).await;
+      if let Some(id) = id {
+        send_json(state, client_id, &Response::ok(id)).await?;
       }
     }
 
@@ -1400,6 +1812,8 @@ async fn handle_text_message(
       let mut radio = state.radio.lock().await;
       match radio.set_filter(device_id, low as i32, high as i32) {
         Ok(new_state) => {
+          drop(radio);
+          apply_radio_state_to_active_pipeline(state, device_id, &new_state).await;
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -1434,6 +1848,8 @@ async fn handle_text_message(
       let mut radio = state.radio.lock().await;
       match radio.set_nr(device_id, enabled, level) {
         Ok(new_state) => {
+          drop(radio);
+          apply_radio_state_to_active_pipeline(state, device_id, &new_state).await;
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -1468,6 +1884,8 @@ async fn handle_text_message(
       let mut radio = state.radio.lock().await;
       match radio.set_nb(device_id, enabled, threshold) {
         Ok(new_state) => {
+          drop(radio);
+          apply_radio_state_to_active_pipeline(state, device_id, &new_state).await;
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -1596,6 +2014,13 @@ async fn handle_text_message(
         .and_then(|v| v.as_u64())
         .unwrap_or(1) as usize;
 
+      if let Err(err) = validate_stream_start(state, device_id, StreamKind::Fft).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
+
       subscribe(state, client_id, StreamKind::Fft, device_id).await;
       ensure_fft_stream(state, device_id, fft_size, fps, averaging).await;
 
@@ -1631,6 +2056,13 @@ async fn handle_text_message(
         .get("sample_rate")
         .and_then(|v| v.as_u64())
         .unwrap_or(48_000) as u32;
+
+      if let Err(err) = validate_stream_start(state, device_id, StreamKind::Audio).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
 
       subscribe(state, client_id, StreamKind::Audio, device_id).await;
       ensure_audio_stream(state, device_id, sample_rate).await;
@@ -2242,35 +2674,86 @@ impl CatBackend for DaemonCatBackend {
   }
 
   async fn set_ptt(&self, enabled: bool) -> anyhow::Result<()> {
-    let rig = ensure_rig_service(&self.state).await;
-    if let Ok(st) = rig.status().await {
-      if st.connected {
-        return rig.set_ptt(enabled).await;
+    let client_id = "cat-server";
+    let (transition, claim) = begin_manual_ptt_transition(&self.state, client_id, enabled)
+      .await
+      .map_err(anyhow::Error::msg)?;
+
+    let hardware_result = async {
+      let rig = ensure_rig_service(&self.state).await;
+      if let Ok(st) = rig.status().await {
+        if st.connected {
+          rig.set_ptt(enabled).await?;
+          return Ok::<_, anyhow::Error>(());
+        }
       }
+
+      let (device_id, new_state) = {
+        let mut radio = self.state.radio.lock().await;
+        let device_id = radio
+          .devices()
+          .iter()
+          .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+          .map(|d| d.device_id.clone())
+          .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
+        let new_state = radio.set_ptt(&device_id, enabled)?;
+        (device_id, new_state)
+      };
+
+      broadcast_json(
+        &self.state,
+        &RadioStateEvent {
+          kind: "radio:state".to_string(),
+          device_id: device_id.clone(),
+          state: new_state.clone(),
+        },
+      )
+      .await?;
+      broadcast_rig_from_radio_state(&self.state, &new_state).await?;
+      Ok(())
+    }
+    .await;
+
+    if let Err(error) = hardware_result {
+      if let Some(claim) = claim {
+        self.state.ptt_safety.rollback_manual_claim(client_id, claim).await;
+      }
+      let retry_generation =
+        release_all_ptt_locked(&self.state, "CAT server PTT command failed").await;
+      drop(transition);
+      if let Some(generation) = retry_generation {
+        schedule_ptt_release_retry(
+          &self.state,
+          "CAT server PTT command failed",
+          generation,
+        );
+      }
+      return Err(error);
     }
 
-    let (device_id, new_state) = {
-      let mut radio = self.state.radio.lock().await;
-      let device_id = radio
-        .devices()
-        .iter()
-        .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
-        .map(|d| d.device_id.clone())
-        .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
-      let new_state = radio.set_ptt(&device_id, enabled)?;
-      (device_id, new_state)
-    };
-
-    broadcast_json(
-      &self.state,
-      &RadioStateEvent {
-        kind: "radio:state".to_string(),
-        device_id: device_id.clone(),
-        state: new_state.clone(),
-      },
-    )
-    .await?;
-    broadcast_rig_from_radio_state(&self.state, &new_state).await?;
+    let generation = complete_manual_ptt_transition(&self.state, client_id, enabled, claim)
+      .await
+      .map_err(anyhow::Error::msg);
+    match generation {
+      Ok(Some(generation)) => {
+        drop(transition);
+        schedule_manual_ptt_timeout(&self.state, generation);
+      }
+      Ok(None) => drop(transition),
+      Err(error) => {
+        let retry_generation =
+          release_all_ptt_locked(&self.state, "CAT server PTT ownership changed").await;
+        drop(transition);
+        if let Some(generation) = retry_generation {
+          schedule_ptt_release_retry(
+            &self.state,
+            "CAT server PTT ownership changed",
+            generation,
+          );
+        }
+        return Err(error);
+      }
+    }
     Ok(())
   }
 
@@ -3227,6 +3710,29 @@ fn estimate_dbm_from_bins(bins_db: &[f32]) -> f32 {
   (avg - 30.0).clamp(-140.0, -10.0)
 }
 
+async fn apply_radio_state_to_active_pipeline(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+  radio_state: &propulse_radio::types::RadioState,
+) {
+  let pipeline = {
+    let streams = state.streams.lock().await;
+    streams.get(device_id).and_then(|runtime| runtime.dsp.clone())
+  };
+  let Some(pipeline) = pipeline else {
+    return;
+  };
+  let mut pipeline = pipeline.lock().await;
+  apply_pipeline_controls(
+    &mut pipeline,
+    &radio_state.mode,
+    radio_state.filter.as_ref(),
+    radio_state.nr.as_ref(),
+    radio_state.nb.as_ref(),
+    radio_state.agc,
+  );
+}
+
 fn apply_pipeline_controls(
   p: &mut DspPipeline,
   mode: &str,
@@ -3288,6 +3794,31 @@ async fn stop_stream_if_no_subscribers(
   stop_soapy_reader_if_idle(state, device_id).await;
 }
 
+async fn validate_stream_start(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+  kind: StreamKind,
+) -> anyhow::Result<()> {
+  let radio = state.radio.lock().await;
+  let device = radio
+    .device(device_id)
+    .ok_or_else(|| anyhow::anyhow!("Device not found: {device_id}"))?;
+  let connected = radio
+    .state(device_id)
+    .is_some_and(|radio_state| radio_state.connected);
+  if !connected {
+    return Err(anyhow::anyhow!("Device is not connected: {device_id}"));
+  }
+  let supported = match kind {
+    StreamKind::Fft => device.capabilities.can_stream_fft,
+    StreamKind::Audio => device.capabilities.can_stream_audio,
+  };
+  if !supported {
+    return Err(anyhow::anyhow!("Requested stream is not supported by {device_id}"));
+  }
+  Ok(())
+}
+
 async fn stop_device_streams_if_any(state: &Arc<DaemonState>, device_id: &str) {
   let mut streams = state.streams.lock().await;
   if let Some(dev) = streams.get_mut(device_id) {
@@ -3309,6 +3840,8 @@ async fn remove_client_and_cleanup(state: &Arc<DaemonState>, client_id: &str) {
   let Some(removed) = removed else {
     return;
   };
+
+  release_owned_ptt(state, client_id, "PTT owner disconnected").await;
 
   // If this client was the last subscriber for any stream, stop the stream.
   for device_id in removed.fft_subs {
@@ -3424,6 +3957,36 @@ async fn handle_bridge_message(
   let payload = msg.get("payload").cloned().unwrap_or(serde_json::Value::Null);
 
   match msg_type {
+    "hello" => {
+      let presented = payload
+        .get("auth_token")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+      let valid = state
+        .auth_token
+        .as_deref()
+        .is_none_or(|expected| presented == expected);
+      {
+        let mut clients = state.clients.lock().await;
+        if let Some(client) = clients.get_mut(client_id) {
+          client.authenticated = valid;
+        }
+      }
+      send_bridge_ack(
+        state,
+        client_id,
+        msg_id,
+        msg_type,
+        valid,
+        if valid {
+          serde_json::json!({ "authenticated": true })
+        } else {
+          serde_json::json!({ "message": "Invalid token" })
+        },
+      )
+      .await?;
+    }
+
     "bridge.ping" => {
       send_bridge_envelope(
         state,
@@ -3439,34 +4002,137 @@ async fn handle_bridge_message(
       send_bridge_ack(state, client_id, msg_id, msg_type, true, serde_json::json!({})).await?;
     }
 
-    "rig.connect" => {
-      let rig = ensure_rig_service(state).await;
-      let cfg = RigConnectConfig {
-        backend: RigBackendKind::Auto,
-        host: None,
-        port: None,
-        poll_interval_ms: Some(200),
-      };
-      let st = rig.connect(cfg).await.unwrap_or(RigStatus {
-        connected: false,
-        frequency: None,
-        mode: None,
-        ptt: None,
-        backend: Some("none".to_string()),
-      });
+    "devices:scan" => {
+      send_bridge_envelope(
+        state,
+        client_id,
+        msg_id,
+        "error",
+        serde_json::json!({
+          "code": "DEVICE_SCAN_UNSUPPORTED",
+          "message": "ICOM USB probing is provided by the Node bridge; the Rust daemon cannot identify CI-V radios from serial metadata alone",
+        }),
+      )
+      .await?;
+    }
+
+    "safety.configure" => {
+      let lockout = payload
+        .get("ptt_lockout")
+        .or_else(|| payload.get("pttLockout"))
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+      configure_ptt_safety(state, lockout).await;
       send_bridge_ack(
         state,
         client_id,
         msg_id,
         msg_type,
-        st.connected,
-        serde_json::json!({ "backend": st.backend }),
+        true,
+        serde_json::json!({ "pttLockout": lockout }),
       )
       .await?;
-      broadcast_rig_from_status(state, &st).await?;
+    }
+
+    "rig.connect" => {
+      let requested = payload
+        .get("backend")
+        .and_then(|value| value.as_str())
+        .unwrap_or("auto")
+        .to_lowercase();
+      let backend = match requested.as_str() {
+        "auto" => RigBackendKind::Auto,
+        "hamlib" => RigBackendKind::Hamlib,
+        "flrig" => RigBackendKind::Flrig,
+        "icom-serial" | "icom-network" => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_CONNECT_UNSUPPORTED",
+              "message": format!("{requested} control is provided by the Node bridge, not the Rust daemon"),
+            }),
+          )
+          .await?;
+          return Ok(());
+        }
+        _ => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_CONNECT_INVALID_BACKEND",
+              "message": format!("Unknown rig backend: {requested}"),
+            }),
+          )
+          .await?;
+          return Ok(());
+        }
+      };
+      let host = payload
+        .get("host")
+        .and_then(|value| value.as_str())
+        .map(|value| value.to_string());
+      let port = payload
+        .get("port")
+        .and_then(|value| value.as_u64())
+        .and_then(|value| u16::try_from(value).ok());
+      let rig = ensure_rig_service(state).await;
+      let cfg = RigConnectConfig {
+        backend,
+        host,
+        port,
+        poll_interval_ms: Some(200),
+      };
+      match rig.connect(cfg).await {
+        Ok(st) if st.connected => {
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            true,
+            serde_json::json!({ "backend": st.backend }),
+          )
+          .await?;
+          broadcast_rig_from_status(state, &st).await?;
+        }
+        Ok(st) => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_CONNECT_FAILED",
+              "message": format!("No {requested} backend responded"),
+            }),
+          )
+          .await?;
+          broadcast_rig_from_status(state, &st).await?;
+        }
+        Err(err) => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_CONNECT_FAILED",
+              "message": err.to_string(),
+            }),
+          )
+          .await?;
+        }
+      }
     }
 
     "rig.disconnect" => {
+      release_all_ptt(state, "rig disconnect").await;
       let rig = ensure_rig_service(state).await;
       let st = rig.disconnect().await.unwrap_or(RigStatus {
         connected: false,
@@ -3487,24 +4153,127 @@ async fn handle_bridge_message(
       broadcast_rig_from_status(state, &st).await?;
     }
 
-    "rig.test" => {
-      let rig = ensure_rig_service(state).await;
-      let st = rig.status().await.unwrap_or(RigStatus {
-        connected: false,
-        frequency: None,
-        mode: None,
-        ptt: None,
-        backend: Some("none".to_string()),
-      });
-      send_bridge_ack(
-        state,
-        client_id,
-        msg_id,
-        msg_type,
-        st.connected,
-        serde_json::json!({ "backend": st.backend }),
-      )
-      .await?;
+    "rig:test" | "rig.test" => {
+      let requested = payload
+        .get("backend")
+        .and_then(|value| value.as_str())
+        .unwrap_or("auto")
+        .to_lowercase();
+      let backend = match requested.as_str() {
+        "auto" => RigBackendKind::Auto,
+        "hamlib" => RigBackendKind::Hamlib,
+        "flrig" => RigBackendKind::Flrig,
+        "icom-serial" | "icom-network" => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_TEST_UNSUPPORTED",
+              "message": format!("{requested} testing is not implemented by the Rust daemon"),
+            }),
+          )
+          .await?;
+          return Ok(());
+        }
+        _ => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_TEST_INVALID_BACKEND",
+              "message": format!("Unknown rig backend: {requested}"),
+            }),
+          )
+          .await?;
+          return Ok(());
+        }
+      };
+      let host = payload
+        .get("host")
+        .and_then(|value| value.as_str())
+        .map(|value| value.to_string());
+      let port = payload
+        .get("port")
+        .and_then(|value| value.as_u64())
+        .and_then(|value| u16::try_from(value).ok());
+      let (probe, handle) = RigService::start(|_| {});
+      let result = probe
+        .connect(RigConnectConfig {
+          backend,
+          host,
+          port,
+          poll_interval_ms: Some(200),
+        })
+        .await;
+
+      match result {
+        Ok(status) if status.connected => {
+          let resolved = status.backend.clone().unwrap_or_else(|| "none".to_string());
+          if requested != "auto" && resolved != requested {
+            send_bridge_envelope(
+              state,
+              client_id,
+              msg_id,
+              "error",
+              serde_json::json!({
+                "code": "RIG_TEST_WRONG_BACKEND",
+                "message": format!("Requested {requested}, but only {resolved} responded"),
+              }),
+            )
+            .await?;
+          } else {
+            let ack_type = format!("{msg_type}.ack");
+            send_bridge_envelope(
+              state,
+              client_id,
+              msg_id,
+              &ack_type,
+              serde_json::json!({
+                "success": true,
+                "connected": true,
+                "backend": resolved,
+                "frequency": status.frequency,
+                "mode": status.mode,
+                "hasSpectrum": false,
+                "hasAudio": false,
+              }),
+            )
+            .await?;
+          }
+          let _ = probe.disconnect().await;
+        }
+        Ok(_) => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_TEST_FAILED",
+              "message": format!("No {requested} backend responded"),
+            }),
+          )
+          .await?;
+        }
+        Err(err) => {
+          send_bridge_envelope(
+            state,
+            client_id,
+            msg_id,
+            "error",
+            serde_json::json!({
+              "code": "RIG_TEST_FAILED",
+              "message": err.to_string(),
+            }),
+          )
+          .await?;
+        }
+      }
+      handle.abort();
     }
 
     "rig.status" => {
@@ -3759,6 +4528,22 @@ async fn handle_bridge_message(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+      let (transition, claim) = match begin_manual_ptt_transition(state, client_id, enabled).await {
+        Ok(value) => value,
+        Err(error) => {
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            false,
+            serde_json::json!({ "message": error }),
+          )
+          .await?;
+          return Ok(());
+        }
+      };
+
       let rig = ensure_rig_service(state).await;
       let st = rig.status().await.unwrap_or(RigStatus {
         connected: false,
@@ -3768,31 +4553,12 @@ async fn handle_bridge_message(
         backend: Some("none".to_string()),
       });
 
-      if st.connected {
-        if let Err(err) = rig.set_ptt(enabled).await {
-          send_bridge_ack(
-            state,
-            client_id,
-            msg_id,
-            msg_type,
-            false,
-            serde_json::json!({ "message": err.to_string() }),
-          )
-          .await?;
-          return Ok(());
-        }
-
-        send_bridge_ack(
-          state,
-          client_id,
-          msg_id,
-          msg_type,
-          true,
-          serde_json::json!({ "ptt": enabled }),
-        )
-        .await?;
+      let updated = if st.connected {
+        rig.set_ptt(enabled)
+          .await
+          .map(|_| None)
       } else {
-        let updated = async {
+        async {
           let mut radio = state.radio.lock().await;
           let device_id = radio
             .devices()
@@ -3801,12 +4567,47 @@ async fn handle_bridge_message(
             .map(|d| d.device_id.clone())
             .ok_or_else(|| anyhow::anyhow!("No connected radio"))?;
           let new_state = radio.set_ptt(&device_id, enabled)?;
-          Ok::<_, anyhow::Error>((device_id, new_state))
+          Ok::<_, anyhow::Error>(Some((device_id, new_state)))
         }
-        .await;
+        .await
+      };
 
-        match updated {
-          Ok((device_id, new_state)) => {
+      match updated {
+        Ok(radio_update) => {
+          let tracked = complete_manual_ptt_transition(state, client_id, enabled, claim).await;
+          let generation = match tracked {
+            Ok(generation) => generation,
+            Err(error) => {
+              let retry_generation = release_all_ptt_locked(
+                state,
+                "PTT ownership changed during rig key-down",
+              )
+              .await;
+              drop(transition);
+              if let Some(generation) = retry_generation {
+                schedule_ptt_release_retry(
+                  state,
+                  "PTT ownership changed during rig key-down",
+                  generation,
+                );
+              }
+              send_bridge_ack(
+                state,
+                client_id,
+                msg_id,
+                msg_type,
+                false,
+                serde_json::json!({ "message": error }),
+              )
+              .await?;
+              return Ok(());
+            }
+          };
+          drop(transition);
+          if let Some(generation) = generation {
+            schedule_manual_ptt_timeout(state, generation);
+          }
+          if let Some((device_id, new_state)) = radio_update {
             broadcast_json(
               state,
               &RadioStateEvent {
@@ -3817,27 +4618,39 @@ async fn handle_bridge_message(
             )
             .await?;
             broadcast_rig_from_radio_state(state, &new_state).await?;
-            send_bridge_ack(
-              state,
-              client_id,
-              msg_id,
-              msg_type,
-              true,
-              serde_json::json!({ "ptt": enabled }),
-            )
-            .await?;
           }
-          Err(err) => {
-            send_bridge_ack(
-              state,
-              client_id,
-              msg_id,
-              msg_type,
-              false,
-              serde_json::json!({ "message": err.to_string() }),
-            )
-            .await?;
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            true,
+            serde_json::json!({ "ptt": enabled }),
+          )
+          .await?;
+        }
+        Err(err) => {
+          if let Some(claim) = claim {
+            state.ptt_safety.rollback_manual_claim(client_id, claim).await;
           }
+          let retry_generation = release_all_ptt_locked(state, "rig PTT command failed").await;
+          drop(transition);
+          if let Some(generation) = retry_generation {
+            schedule_ptt_release_retry(
+              state,
+              "rig PTT command failed",
+              generation,
+            );
+          }
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            false,
+            serde_json::json!({ "message": err.to_string() }),
+          )
+          .await?;
         }
       }
     }
@@ -4039,11 +4852,10 @@ async fn send_bridge_ack(
   ok: bool,
   extra: serde_json::Value,
 ) -> anyhow::Result<()> {
-  let payload = if ok {
-    serde_json::json!({ "ok": true, "received": true, "data": extra })
-  } else {
-    serde_json::json!({ "ok": false, "received": true, "error": extra })
-  };
+  if !ok {
+    return send_bridge_envelope(state, client_id, msg_id, "error", extra).await;
+  }
+  let payload = serde_json::json!({ "ok": true, "received": true, "data": extra });
   send_bridge_envelope(
     state,
     client_id,
@@ -4072,4 +4884,59 @@ async fn broadcast_rig_update(state: &Arc<DaemonState>, st: &propulse_radio::typ
     "payload": rig_payload_from_state(st),
   });
   broadcast_json(state, &msg).await
+}
+
+#[cfg(test)]
+mod tests {
+  use super::PttSafetyState;
+
+  #[tokio::test]
+  async fn failed_release_state_retains_owner_and_blocks_rekey() {
+    let safety = PttSafetyState::default();
+    let claim = safety.claim_manual("client-a").await.unwrap();
+    safety.confirm_manual("client-a", claim).await.unwrap();
+
+    let release_generation = safety.begin_release();
+    assert_eq!(
+      safety.key_down_error(),
+      Some("PTT release is pending after a hardware error")
+    );
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-a"));
+
+    // A failed hardware attempt deliberately does not complete the release.
+    assert!(safety.generation_is(release_generation));
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-a"));
+
+    assert!(safety.complete_release(release_generation).await);
+    assert_eq!(safety.owner.lock().await.as_deref(), None);
+    assert_eq!(safety.key_down_error(), None);
+  }
+
+  #[tokio::test]
+  async fn stale_release_cannot_clear_a_new_owner() {
+    let safety = PttSafetyState::default();
+    let first = safety.claim_manual("client-a").await.unwrap();
+    safety.confirm_manual("client-a", first).await.unwrap();
+    let stale_release = safety.begin_release();
+
+    safety.track_manual_release().await;
+    let second = safety.claim_manual("client-b").await.unwrap();
+    safety.confirm_manual("client-b", second).await.unwrap();
+
+    assert!(!safety.complete_release(stale_release).await);
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-b"));
+  }
+
+  #[tokio::test]
+  async fn a_second_client_cannot_take_over_an_active_ptt_owner() {
+    let safety = PttSafetyState::default();
+    let first = safety.claim_manual("client-a").await.unwrap();
+    safety.confirm_manual("client-a", first).await.unwrap();
+
+    assert_eq!(
+      safety.claim_manual("client-b").await.unwrap_err(),
+      "PTT is already controlled by another client"
+    );
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-a"));
+  }
 }

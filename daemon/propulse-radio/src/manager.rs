@@ -72,6 +72,12 @@ impl RadioManager {
   }
 
   pub fn connect(&mut self, device_id: &str) -> anyhow::Result<RadioState> {
+    let dev = self
+      .device(device_id)
+      .ok_or_else(|| anyhow::anyhow!("Device not found: {device_id}"))?;
+    if !dev.available {
+      return Err(anyhow::anyhow!("Device not available: {device_id}"));
+    }
     let state = self
       .states
       .get_mut(device_id)
@@ -88,6 +94,7 @@ impl RadioManager {
       .states
       .get_mut(device_id)
       .ok_or_else(|| anyhow::anyhow!("Device not found: {device_id}"))?;
+    state.ptt = Some(false);
     state.connected = false;
     Ok(state.clone())
   }
@@ -156,12 +163,14 @@ impl RadioManager {
     &mut self,
     device_id: &str,
     enabled: bool,
+    mode: u8,
   ) -> anyhow::Result<RadioState> {
     let state = self
       .states
       .get_mut(device_id)
       .ok_or_else(|| anyhow::anyhow!("Device not found: {device_id}"))?;
     state.agc = enabled;
+    state.agc_mode = Some(if enabled { mode.clamp(1, 3) } else { 0 });
     Ok(state.clone())
   }
 

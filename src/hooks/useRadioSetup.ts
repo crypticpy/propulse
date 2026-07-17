@@ -3,8 +3,8 @@
  *
  * Manages a 4-step wizard: detecting → configuring → testing → complete
  *
- * Uses independent raw WebSocket probes to the bridge daemon (ws://127.0.0.1:9867)
- * so that the wizard can operate without affecting global bridge state.
+ * Uses an independent extension-safe transport to the bridge daemon
+ * (ws://127.0.0.1:9867) so the wizard does not affect global bridge state.
  *
  * Steps:
  *  1. **Detecting**: Probes bridge, sends `devices:scan`, discovers ICOM radios
@@ -15,6 +15,9 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useRadioDaemon } from "@/hooks/useRadioDaemon";
+import type { DaemonIncomingMessage } from "@/lib/radio/protocol";
+import { isUnlocked, saveCredential } from "@/lib/db/credentialStore";
 
 // ─── Bridge URL ──────────────────────────────────────────────────────────────
 
@@ -22,8 +25,8 @@ const BRIDGE_URL = "ws://127.0.0.1:9867";
 
 // ─── Timeouts ────────────────────────────────────────────────────────────────
 
-/** How long to wait for the bridge WebSocket to open */
-const BRIDGE_PROBE_TIMEOUT_MS = 3_000;
+/** How long to wait for the bridge and a complete device scan */
+const BRIDGE_PROBE_TIMEOUT_MS = 12_000;
 
 /** How long to wait for the rig:test response (probe + CI-V poll + audio resolve) */
 const RIG_TEST_TIMEOUT_MS = 12_000;
@@ -101,8 +104,10 @@ export interface UseRadioSetupReturn {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Build the rig:test payload from the current config */
-function buildTestPayload(config: RadioConfig): Record<string, unknown> {
+/** Build the rig:test payload from the current config. */
+export function buildRadioTestPayload(
+  config: RadioConfig,
+): Record<string, unknown> {
   switch (config.catBackend) {
     case "hamlib":
       return {
@@ -134,6 +139,66 @@ function buildTestPayload(config: RadioConfig): Record<string, unknown> {
     default:
       return { backend: "auto" };
   }
+}
+
+/**
+ * Interpret only the response correlated to a specific rig:test request.
+ * Generic success responses are deliberately not accepted as proof that a
+ * radio answered.
+ */
+export function parseRadioTestResult(
+  incoming: unknown,
+  requestId: string,
+): TestResult | null {
+  if (!incoming || typeof incoming !== "object") return null;
+  const message = incoming as {
+    type?: string;
+    id?: string;
+    success?: boolean;
+    error?: string;
+    payload?: {
+      success?: boolean;
+      rigModel?: string;
+      frequency?: number;
+      mode?: string;
+      hasSpectrum?: boolean;
+      error?: string;
+      errorMessage?: string;
+      message?: string;
+    };
+  };
+  if (message.id !== requestId) return null;
+
+  if (
+    (message.type === "rig:test:ack" || message.type === "rig:test.ack") &&
+    message.payload?.success === true
+  ) {
+    return {
+      status: "success",
+      rigModel: message.payload.rigModel,
+      frequency: message.payload.frequency,
+      mode: message.payload.mode,
+      hasSpectrum: message.payload.hasSpectrum === true,
+    };
+  }
+
+  if (
+    message.type === "rig:test:error" ||
+    message.type === "error" ||
+    (message.type === "response" && message.success === false)
+  ) {
+    return {
+      status: "error",
+      errorMessage:
+        message.payload?.errorMessage ??
+        message.payload?.error ??
+        message.payload?.message ??
+        message.error ??
+        "Radio connection test failed",
+    };
+  }
+
+  return null;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -172,9 +237,11 @@ export function useRadioSetup(): UseRadioSetupReturn {
   // ── Test result state ───────────────────────────────────────────────────
   const [testResult, setTestResult] = useState<TestResult>({ status: "idle" });
 
-  // ── Refs for WebSocket lifecycle ────────────────────────────────────────
-  const probeWsRef = useRef<WebSocket | null>(null);
-  const testWsRef = useRef<WebSocket | null>(null);
+  // ── Shared HTTPS-safe transport lifecycle ───────────────────────────────
+  const [transportMode, setTransportMode] = useState<
+    "idle" | "detect" | "test"
+  >("idle");
+  const requestIdRef = useRef<string | null>(null);
   const probeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const testTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -185,14 +252,8 @@ export function useRadioSetup(): UseRadioSetupReturn {
       clearTimeout(probeTimeoutRef.current);
       probeTimeoutRef.current = null;
     }
-    if (probeWsRef.current) {
-      try {
-        probeWsRef.current.close(1000, "Probe cleanup");
-      } catch {
-        /* ignore */
-      }
-      probeWsRef.current = null;
-    }
+    requestIdRef.current = null;
+    setTransportMode((mode) => (mode === "detect" ? "idle" : mode));
   }, []);
 
   const closeTestWs = useCallback(() => {
@@ -200,14 +261,8 @@ export function useRadioSetup(): UseRadioSetupReturn {
       clearTimeout(testTimeoutRef.current);
       testTimeoutRef.current = null;
     }
-    if (testWsRef.current) {
-      try {
-        testWsRef.current.close(1000, "Test cleanup");
-      } catch {
-        /* ignore */
-      }
-      testWsRef.current = null;
-    }
+    requestIdRef.current = null;
+    setTransportMode((mode) => (mode === "test" ? "idle" : mode));
   }, []);
 
   // ── Unmount cleanup ─────────────────────────────────────────────────────
@@ -215,106 +270,141 @@ export function useRadioSetup(): UseRadioSetupReturn {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      closeProbeWs();
-      closeTestWs();
+      if (probeTimeoutRef.current) clearTimeout(probeTimeoutRef.current);
+      if (testTimeoutRef.current) clearTimeout(testTimeoutRef.current);
+      requestIdRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleTransportMessage = useCallback(
+    (incoming: DaemonIncomingMessage) => {
+      if (!mountedRef.current) return;
+      const message = incoming as DaemonIncomingMessage & {
+        id?: string;
+        radios?: DiscoveredRadio[];
+        error?: string;
+        payload?: {
+          radios?: DiscoveredRadio[];
+          success?: boolean;
+          rigModel?: string;
+          frequency?: number;
+          mode?: string;
+          hasSpectrum?: boolean;
+          error?: string;
+          errorMessage?: string;
+          message?: string;
+        };
+        success?: boolean;
+      };
+      const requestId = requestIdRef.current;
+
+      if (
+        transportMode === "detect" &&
+        message.type === "devices:scan:result" &&
+        requestId !== null &&
+        message.id === requestId
+      ) {
+        const discovered = message.radios ?? message.payload?.radios ?? [];
+        setRadios(discovered);
+        setBridgeStatus("found");
+
+        const first = discovered[0];
+        if (first) {
+          setSelectedRadio(first);
+          setAutoBackend("icom-serial");
+          setConfigState((previous) => ({
+            ...previous,
+            catBackend: "icom-serial",
+            icomSerialPort: first.port,
+            icomBaudRate: first.baudRate,
+            icomRadioAddress: first.radioAddress,
+          }));
+        }
+        closeProbeWs();
+        return;
+      }
+
+      if (
+        transportMode === "detect" &&
+        message.id === requestId &&
+        (message.type === "error" ||
+          (message.type === "response" && message.success === false))
+      ) {
+        // The bridge is reachable but scanning is unsupported or failed. Keep
+        // the wizard on the manual-configuration path instead of claiming the
+        // bridge itself was not found.
+        setBridgeStatus("found");
+        setRadios([]);
+        closeProbeWs();
+        return;
+      }
+
+      if (transportMode === "test" && message.id === requestId) {
+        const result = parseRadioTestResult(message, requestId);
+        if (result) {
+          setTestResult(result);
+          closeTestWs();
+          return;
+        }
+      }
+    },
+    [closeProbeWs, closeTestWs, transportMode],
+  );
+
+  const transport = useRadioDaemon({
+    enabled: transportMode !== "idle",
+    url: BRIDGE_URL,
+    autoReconnect: false,
+    trackLastMessage: false,
+    trackLastFrame: false,
+    authToken: store.radioDaemonAuthToken || undefined,
+    onMessage: handleTransportMessage,
+  });
+
+  useEffect(() => {
+    if (!transport.connected || requestIdRef.current) return;
+    if (transportMode === "detect") {
+      setBridgeStatus("found");
+      requestIdRef.current = transport.sendCommand("devices:scan");
+    } else if (transportMode === "test") {
+      requestIdRef.current = transport.sendCommand(
+        "rig:test",
+        buildRadioTestPayload(config),
+      );
+    }
+  }, [config, transport, transportMode]);
+
+  useEffect(() => {
+    if (!transport.error || transportMode === "idle") return;
+    if (transportMode === "detect") {
+      setBridgeStatus("not-found");
+      closeProbeWs();
+    } else {
+      setTestResult({ status: "error", errorMessage: transport.error });
+      closeTestWs();
+    }
+  }, [closeProbeWs, closeTestWs, transport.error, transportMode]);
 
   // ── startDetection ──────────────────────────────────────────────────────
   const startDetection = useCallback(() => {
-    // Reset detection state
     closeProbeWs();
+    closeTestWs();
     setBridgeStatus("probing");
     setRadios([]);
     setSelectedRadio(undefined);
     setAutoBackend(undefined);
     setStep("detecting");
+    requestIdRef.current = null;
+    setTransportMode("detect");
 
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket(BRIDGE_URL);
-    } catch {
-      if (mountedRef.current) {
-        setBridgeStatus("not-found");
-      }
-      return;
-    }
-    probeWsRef.current = ws;
-
-    // Timeout: if we don't connect + get scan results in time, give up
     probeTimeoutRef.current = setTimeout(() => {
       if (!mountedRef.current) return;
-      // If still probing, the bridge didn't respond in time
-      setBridgeStatus((prev) => (prev === "probing" ? "not-found" : prev));
+      setBridgeStatus((previous) =>
+        previous === "probing" ? "not-found" : previous,
+      );
       closeProbeWs();
     }, BRIDGE_PROBE_TIMEOUT_MS);
-
-    ws.onopen = () => {
-      if (!mountedRef.current) {
-        ws.close();
-        return;
-      }
-      // Bridge is reachable — mark found immediately
-      setBridgeStatus("found");
-
-      // Send device scan as flat daemon command (NO ts/timestamp — the
-      // bridge's isDaemonCommand() rejects messages with those fields)
-      ws.send(JSON.stringify({ type: "devices:scan" }));
-    };
-
-    ws.onmessage = (event: MessageEvent) => {
-      if (!mountedRef.current) return;
-
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string;
-          radios?: DiscoveredRadio[];
-        };
-
-        if (msg.type === "devices:scan:result") {
-          // Daemon protocol: radios is a flat top-level field (no payload wrapper)
-          const discovered = msg.radios ?? [];
-          setRadios(discovered);
-
-          if (discovered.length > 0) {
-            const first = discovered[0];
-            setBridgeStatus("found");
-            setSelectedRadio(first);
-            setAutoBackend("icom-serial");
-
-            // Pre-fill config from discovered radio
-            setConfigState((prev) => ({
-              ...prev,
-              catBackend: "icom-serial" as CATBackend,
-              icomSerialPort: first.port,
-              icomBaudRate: first.baudRate,
-              icomRadioAddress: first.radioAddress,
-            }));
-          } else {
-            // Bridge is running but no radios found
-            setBridgeStatus("found");
-          }
-
-          closeProbeWs();
-        }
-      } catch {
-        // Ignore non-JSON or malformed messages
-      }
-    };
-
-    ws.onerror = () => {
-      if (!mountedRef.current) return;
-      setBridgeStatus("not-found");
-      closeProbeWs();
-    };
-
-    ws.onclose = () => {
-      // If we haven't resolved yet and the socket closed, mark as not-found
-      if (!mountedRef.current) return;
-      setBridgeStatus((prev) => (prev === "probing" ? "not-found" : prev));
-    };
-  }, [closeProbeWs]);
+  }, [closeProbeWs, closeTestWs]);
 
   // ── setConfig (partial merge) ───────────────────────────────────────────
   const setConfig = useCallback((partial: Partial<RadioConfig>) => {
@@ -329,22 +419,12 @@ export function useRadioSetup(): UseRadioSetupReturn {
   // ── testConnection ──────────────────────────────────────────────────────
   const testConnection = useCallback(() => {
     closeTestWs();
+    closeProbeWs();
     setTestResult({ status: "testing" });
     setStep("testing");
 
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket(BRIDGE_URL);
-    } catch {
-      if (mountedRef.current) {
-        setTestResult({
-          status: "error",
-          errorMessage: "Could not open WebSocket to bridge",
-        });
-      }
-      return;
-    }
-    testWsRef.current = ws;
+    requestIdRef.current = null;
+    setTransportMode("test");
 
     // Timeout for the entire test exchange
     testTimeoutRef.current = setTimeout(() => {
@@ -352,100 +432,11 @@ export function useRadioSetup(): UseRadioSetupReturn {
       setTestResult({
         status: "error",
         errorMessage:
-          "Test timed out — the radio did not respond within 5 seconds",
+          "Test timed out — the radio did not respond within 12 seconds",
       });
       closeTestWs();
     }, RIG_TEST_TIMEOUT_MS);
-
-    ws.onopen = () => {
-      if (!mountedRef.current) {
-        ws.close();
-        return;
-      }
-      // Send as flat daemon command (NO ts/id — isDaemonCommand rejects those)
-      ws.send(
-        JSON.stringify({
-          type: "rig:test",
-          ...buildTestPayload(config),
-        }),
-      );
-    };
-
-    ws.onmessage = (event: MessageEvent) => {
-      if (!mountedRef.current) return;
-
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          type: string;
-          payload?: {
-            rigModel?: string;
-            frequency?: number;
-            mode?: string;
-            hasSpectrum?: boolean;
-            error?: string;
-            errorMessage?: string;
-          };
-        };
-
-        // Only accept rig:test:ack as success (radio:state broadcasts interfere)
-        if (msg.type === "rig:test:ack") {
-          const p = msg.payload;
-          if (p?.error || p?.errorMessage) {
-            setTestResult({
-              status: "error",
-              errorMessage: p.error ?? p.errorMessage,
-            });
-          } else {
-            setTestResult({
-              status: "success",
-              rigModel: p?.rigModel,
-              frequency: p?.frequency,
-              mode: p?.mode,
-              hasSpectrum: p?.hasSpectrum,
-            });
-          }
-          closeTestWs();
-        }
-
-        // Also handle explicit error response
-        if (msg.type === "rig:test:error") {
-          setTestResult({
-            status: "error",
-            errorMessage:
-              msg.payload?.errorMessage ??
-              msg.payload?.error ??
-              "Unknown error from bridge",
-          });
-          closeTestWs();
-        }
-      } catch {
-        // Ignore malformed
-      }
-    };
-
-    ws.onerror = () => {
-      if (!mountedRef.current) return;
-      setTestResult({
-        status: "error",
-        errorMessage:
-          "Bridge connection failed — is the bridge daemon running?",
-      });
-      closeTestWs();
-    };
-
-    ws.onclose = () => {
-      if (!mountedRef.current) return;
-      // If test is still in "testing" state when socket closes, that's an error
-      setTestResult((prev) =>
-        prev.status === "testing"
-          ? {
-              status: "error",
-              errorMessage: "Connection to bridge closed unexpectedly",
-            }
-          : prev,
-      );
-    };
-  }, [config, closeTestWs]);
+  }, [closeProbeWs, closeTestWs]);
 
   // ── retryTest ───────────────────────────────────────────────────────────
   const retryTest = useCallback(() => {
@@ -455,6 +446,17 @@ export function useRadioSetup(): UseRadioSetupReturn {
 
   // ── saveAndComplete ─────────────────────────────────────────────────────
   const saveAndComplete = useCallback(() => {
+    if (
+      config.catBackend === "icom-network" &&
+      config.icomNetworkPassword &&
+      isUnlocked()
+    ) {
+      void saveCredential(
+        "icom-network",
+        config.icomNetworkUsername,
+        config.icomNetworkPassword,
+      );
+    }
     useSettingsStore.getState().updatePreferences({
       bridgeEnabled: true,
       radioSetupCompleted: true,

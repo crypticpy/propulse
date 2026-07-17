@@ -25,7 +25,7 @@ const BZ_LEVELS = [
     maxBz: Infinity,
     color: "#00ff88",
     description:
-      "IMF is directed northward. Minimal coupling with Earth's magnetosphere. Quiet geomagnetic conditions expected. Excellent HF propagation.",
+      "IMF is directed northward, so strong solar-wind coupling is less favored. This is global geomagnetic context, not a prediction for a particular HF path.",
   },
   {
     level: "Weakly Southward",
@@ -34,7 +34,7 @@ const BZ_LEVELS = [
     maxBz: 0,
     color: "#ffaa00",
     description:
-      "IMF is slightly southward. Some coupling with magnetosphere possible. Minor disturbances may occur. Watch for gradual degradation of HF conditions.",
+      "IMF is slightly southward. Some coupling with the magnetosphere is possible; watch the duration and subsequent Kp response before drawing an HF conclusion.",
   },
   {
     level: "Moderately Southward",
@@ -43,7 +43,7 @@ const BZ_LEVELS = [
     maxBz: -5,
     color: "#ff7700",
     description:
-      "Moderate southward IMF. Enhanced magnetospheric coupling. Geomagnetic activity likely. HF propagation may be disturbed, especially at high latitudes.",
+      "Moderate southward IMF favors stronger magnetospheric coupling. If sustained, geomagnetic disturbance risk increases, especially for high-latitude paths.",
   },
   {
     level: "Strongly Southward",
@@ -52,7 +52,7 @@ const BZ_LEVELS = [
     maxBz: -10,
     color: "#ff4455",
     description:
-      "Strong southward IMF. Significant energy transfer to magnetosphere. Geomagnetic storm conditions likely. Expect major HF disruptions and auroral activity.",
+      "Strong southward IMF favors significant energy transfer into the magnetosphere. Watch duration and subsequent official Kp and G-scale products for confirmed storm conditions.",
   },
 ];
 

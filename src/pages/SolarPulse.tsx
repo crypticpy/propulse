@@ -1,1854 +1,603 @@
-import { useEffect, useState, useCallback } from "react";
-import {
-  PrimaryMetrics,
-  BandConditions,
-  KIndexChart,
-  AIndexChart,
-  BzChart,
-  FlareProbability,
-  SolarFluxChart,
-  PropagationIndex,
-  AnimationModal,
-  KIndexChartModal,
-  AIndexChartModal,
-  BzChartModal,
-  SolarFluxChartModal,
-  SolarSummaryModal,
-  FlareProbabilityModal,
-  BandConditionsModal,
-  PropagationIndexModal,
-} from "@/components/solar";
-import {
-  useKIndex,
-  useSolarFlux,
-  useProbabilities,
-  useSunspots,
-  useMagnetometer,
-} from "@/hooks/useSolarData";
-import {
-  useProtonFlux,
-  useDstIndex,
-  useFluxForecast,
-} from "@/hooks/useSolarExpanded";
-import { useSolarStore } from "@/stores/solarStore";
-import { kpToAp } from "@/lib/utils/solarConversions";
-import { SolarCycleContext } from "@/components/solar/SolarCycleContext";
-import { ModelAccuracyPanel } from "@/components/solar/ModelAccuracyPanel";
-import { DraggablePanel } from "@/components/layout/DraggablePanel";
-import { DataFreshnessIndicator } from "@/components/ui";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { AccessibleDialog } from "@/components/ui";
+import { SolarDisclosure } from "@/components/solar/SolarDisclosure";
+import { SolarImageCard } from "@/components/solar/SolarImageCard";
+import { SolarImageDetail } from "@/components/solar/SolarImageDetail";
+import { SolarSeriesChart } from "@/components/solar/SolarSeriesChart";
+import { WidgetShell } from "@/components/solar/WidgetShell";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { MobileSolarPulse } from "@/components/mobile/MobileSolarPulse";
-import { InfoTip } from "@/components/ui/Tooltip";
-import { CMEAnalysisPanel } from "@/components/solar/CMEAnalysisPanel";
-import { PropagationConfidence } from "@/components/solar/PropagationConfidence";
-import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
-import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
-import { HelpTooltip } from "@/components/help/HelpTooltip";
-import { DataSourceError } from "@/components/ui/DataSourceError";
-import { useDataSourceStatus } from "@/stores/dataSourceStatusStore";
-import { classifyError } from "@/lib/errors/classifyError";
-import { useSwpcAlerts } from "@/hooks/useSwpcAlerts";
-import type { SwpcAlertParsed } from "@/types/swpcAlerts";
-import { SwpcAlertDetailModal } from "@/components/alerts/SwpcAlertDetailModal";
+import {
+  useSolarModel,
+  type SolarResourceView,
+} from "@/hooks/useSolarModel";
+import type { SolarWidgetState } from "@/lib/solar/contracts";
+import type {
+  OfficialSolarAlert,
+  SolarFluxPoint,
+} from "@/lib/solar/dataTypes";
+import {
+  SOLAR_IMAGE_PRODUCTS,
+  type SolarImageProductId,
+} from "@/lib/solar/mediaProducts";
+import {
+  getSolarSourcePolicy,
+  type SolarSourceGroup,
+} from "@/lib/solar/sourcePolicies";
 
-// --- SWPC live ops add-ons (images + alerts + scales) ---
+const SolarAnimationPlayer = lazy(() =>
+  import("@/components/solar/SolarAnimationPlayer").then((module) => ({
+    default: module.SolarAnimationPlayer,
+  })),
+);
 
-type NoaaScalesResponse = Record<
-  string,
-  {
-    DateStamp: string;
-    TimeStamp: string;
-    R: {
-      Scale: string | null;
-      Text: string | null;
-      MinorProb: string | null;
-      MajorProb: string | null;
-    };
-    S: {
-      Scale: string | null;
-      Text: string | null;
-      Prob: string | null;
-    };
-    G: {
-      Scale: string | null;
-      Text: string | null;
-    };
-  }
->;
+type ModalState =
+  | { kind: "image"; productId: SolarImageProductId }
+  | { kind: "animation"; productId: SolarImageProductId }
+  | { kind: "alert"; alert: OfficialSolarAlert }
+  | { kind: "metric"; metric: "kp" | "sfi" | "bz" | "xray" }
+  | null;
 
-type XrayFlareLatestItem = {
-  time_tag: string;
-  satellite: number;
-  current_class: string;
-  current_int_xrlong: number;
-  begin_time: string;
-  begin_class: string;
-  max_time: string;
-  max_class: string;
-  max_xrlong: number;
-  end_time: string;
-  end_class: string | null;
-};
+const ALL_GROUPS = new Set<SolarSourceGroup>([
+  "now",
+  "impacts",
+  "forecast",
+  "details",
+]);
 
-type SwpcMatrix = (string | number | null)[][];
+const imageProducts = Object.keys(SOLAR_IMAGE_PRODUCTS) as SolarImageProductId[];
 
-type SolarWindMag5mRow = {
-  time_tag: string;
-  bx_gsm: number | null;
-  by_gsm: number | null;
-  bz_gsm: number | null;
-  bt: number | null;
-};
-
-type SolarWindPlasma5mRow = {
-  time_tag: string;
-  density: number | null;
-  speed: number | null;
-  temperature: number | null;
-};
-
-const SWPC_ENDPOINTS = {
-  noaaScales: "https://services.swpc.noaa.gov/products/noaa-scales.json",
-  xrayLatest:
-    "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json",
-  swMag5m:
-    "https://services.swpc.noaa.gov/products/solar-wind/mag-5-minute.json",
-  swPlasma5m:
-    "https://services.swpc.noaa.gov/products/solar-wind/plasma-5-minute.json",
-} as const;
-
-const SWPC_IMAGES = {
-  drapGlobal: "https://services.swpc.noaa.gov/images/d-rap/global.png",
-  drapF10: "https://services.swpc.noaa.gov/images/d-rap/global_f10.png",
-  drapF20: "https://services.swpc.noaa.gov/images/d-rap/global_f20.png",
-  auroraNorth:
-    "https://services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg",
-  synopticMap: "https://services.swpc.noaa.gov/images/synoptic-map.jpg",
-  sunspot: "/api/solar/sdo-image?type=hmi",
-} as const;
-
-// Animation JSON manifests (contain arrays of frame URLs)
-const SWPC_ANIMATIONS = {
-  drapGlobal:
-    "https://services.swpc.noaa.gov/products/animations/d-rap/global.json",
-  auroraNorth:
-    "https://services.swpc.noaa.gov/products/animations/ovation_north_24h.json",
-} as const;
-
-function toNumber(v: unknown): number | null {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function formatNumber(value: number | null | undefined, digits = 1): string {
+  return value === null || value === undefined ? "—" : value.toFixed(digits);
 }
 
-function parseSwpcMatrixLatestRow(
-  matrix: SwpcMatrix | null | undefined,
-): Record<string, unknown> | null {
-  if (!matrix || matrix.length < 2) {
-    return null;
-  }
-  const header = matrix[0];
-  const last = matrix[matrix.length - 1];
-  if (!Array.isArray(header) || !Array.isArray(last)) {
-    return null;
-  }
-  const obj: Record<string, unknown> = {};
-  header.forEach((h, i) => {
-    obj[String(h)] = last[i];
+function formatUtc(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
   });
-  return obj;
 }
 
-async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
-  const res = await fetch(url, { signal, cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as T;
+function hasData<T>(view: SolarResourceView<T>): boolean {
+  if (Array.isArray(view.data)) return view.data.length > 0;
+  return view.data !== undefined && view.data !== null;
+}
+
+function sourceProps<T>(view: SolarResourceView<T>) {
+  const policy = getSolarSourcePolicy(view.sourceId);
+  return {
+    state: view.state,
+    observedAt: view.resource?.envelope.observedAt,
+    provider: view.resource?.envelope.provider ?? policy.provider,
+    sourceUrl: view.resource?.envelope.sourceUrl ?? policy.sourceUrl,
+    hasData: hasData(view),
+    onRetry: () => void view.query.refetch(),
+  };
+}
+
+function MetricValue({
+  value,
+  unit,
+  note,
+  tone = "cyan",
+}: {
+  value: string;
+  unit?: string;
+  note: string;
+  tone?: "cyan" | "amber" | "green" | "rose";
+}) {
+  const colors = {
+    cyan: "from-cyan-200 to-cyan-400",
+    amber: "from-amber-200 to-orange-400",
+    green: "from-emerald-200 to-emerald-400",
+    rose: "from-rose-200 to-rose-400",
+  };
+  return (
+    <div>
+      <p className={`bg-gradient-to-br ${colors[tone]} bg-clip-text font-mono text-4xl font-bold tracking-tight text-transparent sm:text-5xl`}>
+        {value}
+        {unit && <span className="ml-2 text-base font-medium text-slate-400">{unit}</span>}
+      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-400">{note}</p>
+    </div>
+  );
+}
+
+function DetailButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
+    >
+      Explain
+    </button>
+  );
+}
+
+function oldestObservation(values: Array<string | undefined>): string | undefined {
+  const parsed = values
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Date.parse(value))
+    .filter(Number.isFinite);
+  return parsed.length ? new Date(Math.min(...parsed)).toISOString() : undefined;
 }
 
 export function SolarPulse() {
-  // Fetch all solar data
-  const {
-    data: kIndexData,
-    isLoading: kLoading,
-    isError: kError,
-    dataUpdatedAt: kUpdatedAt,
-    refetch: refetchK,
-    isRefetching: kRefetching,
-  } = useKIndex();
-  const {
-    data: fluxData,
-    isLoading: fluxLoading,
-    dataUpdatedAt: fluxUpdatedAt,
-    refetch: refetchFlux,
-    isRefetching: fluxRefetching,
-  } = useSolarFlux();
-  const {
-    data: probData,
-    isLoading: probLoading,
-    dataUpdatedAt: probUpdatedAt,
-    refetch: refetchProb,
-    isRefetching: probRefetching,
-  } = useProbabilities();
-  const {
-    data: sunspotData,
-    isLoading: sunspotLoading,
-    dataUpdatedAt: sunspotUpdatedAt,
-    refetch: refetchSunspot,
-    isRefetching: sunspotRefetching,
-  } = useSunspots();
-  const {
-    data: magnetometerData,
-    isLoading: magLoading,
-    dataUpdatedAt: magUpdatedAt,
-    refetch: refetchMag,
-    isRefetching: magRefetching,
-  } = useMagnetometer();
-
-  // --- Expanded solar data hooks ---
-  const { data: protonFluxData, isLoading: protonLoading } = useProtonFlux();
-  const { data: dstIndexData, isLoading: dstLoading } = useDstIndex();
-  // CME data is fetched internally by CMEAnalysisPanel
-  const { data: fluxForecastData, isLoading: forecastLoading } =
-    useFluxForecast();
-
-  // --- Shared SWPC alerts via React Query hook ---
-  const { data: hamAlerts } = useSwpcAlerts();
-  const [selectedSwpcAlert, setSelectedSwpcAlert] =
-    useState<SwpcAlertParsed | null>(null);
-
-  // --- Live SWPC additions (scales, x-ray, 5-min solar wind) ---
-  const [noaaScales, setNoaaScales] = useState<NoaaScalesResponse | null>(null);
-  const [xrayLatest, setXrayLatest] = useState<XrayFlareLatestItem | null>(
-    null,
+  const isMobile = useIsMobile();
+  const [mobileGroups, setMobileGroups] = useState<Set<SolarSourceGroup>>(
+    () => new Set(["now"]),
   );
-  const [swMag5m, setSwMag5m] = useState<SolarWindMag5mRow | null>(null);
-  const [swPlasma5m, setSwPlasma5m] = useState<SolarWindPlasma5mRow | null>(
-    null,
+  const [desktopGroups, setDesktopGroups] = useState<Set<SolarSourceGroup>>(
+    () => new Set(ALL_GROUPS),
   );
-  const [imageTick, setImageTick] = useState(0);
+  const [mobileImagesOpen, setMobileImagesOpen] = useState(false);
+  const [desktopImagesOpen, setDesktopImagesOpen] = useState(true);
+  const [modal, setModal] = useState<ModalState>(null);
+  const enabledGroups = useMemo(
+    () => (isMobile ? mobileGroups : desktopGroups),
+    [desktopGroups, isMobile, mobileGroups],
+  );
+  const model = useSolarModel({ enabledGroups });
+  const { resources, current } = model;
 
-  // Cache-bust images ~1/min so users see fresh SWPC plots.
-  useEffect(() => {
-    const id = window.setInterval(() => setImageTick((x) => x + 1), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    const load = async () => {
-      try {
-        const data = await fetchJson<NoaaScalesResponse>(
-          SWPC_ENDPOINTS.noaaScales,
-          ac.signal,
-        );
-        setNoaaScales(data);
-        useDataSourceStatus.getState().reportSuccess("swpc-scales");
-      } catch (err) {
-        const c1 = classifyError(err, "swpc-scales");
-        useDataSourceStatus.getState().reportError("swpc-scales", c1);
-      }
-    };
-    load();
-    const id = window.setInterval(load, 5 * 60_000);
-    return () => {
-      ac.abort();
-      window.clearInterval(id);
-    };
-  }, []);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    const load = async () => {
-      try {
-        const data = await fetchJson<XrayFlareLatestItem[]>(
-          SWPC_ENDPOINTS.xrayLatest,
-          ac.signal,
-        );
-        setXrayLatest(data?.[0] ?? null);
-        useDataSourceStatus.getState().reportSuccess("swpc-xray-latest");
-      } catch (err) {
-        useDataSourceStatus
-          .getState()
-          .reportError(
-            "swpc-xray-latest",
-            classifyError(err, "swpc-xray-latest"),
-          );
-      }
-    };
-    load();
-    const id = window.setInterval(load, 60_000);
-    return () => {
-      ac.abort();
-      window.clearInterval(id);
-    };
-  }, []);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    const load = async () => {
-      try {
-        const mag = await fetchJson<SwpcMatrix>(
-          SWPC_ENDPOINTS.swMag5m,
-          ac.signal,
-        );
-        const plasma = await fetchJson<SwpcMatrix>(
-          SWPC_ENDPOINTS.swPlasma5m,
-          ac.signal,
-        );
-
-        const magRow = parseSwpcMatrixLatestRow(mag);
-        const plasmaRow = parseSwpcMatrixLatestRow(plasma);
-
-        if (magRow) {
-          setSwMag5m({
-            time_tag: String(magRow.time_tag ?? ""),
-            bx_gsm: toNumber(magRow.bx_gsm),
-            by_gsm: toNumber(magRow.by_gsm),
-            bz_gsm: toNumber(magRow.bz_gsm),
-            bt: toNumber(magRow.bt),
-          });
-          useDataSourceStatus.getState().reportSuccess("swpc-solar-wind-mag");
-        }
-
-        if (plasmaRow) {
-          setSwPlasma5m({
-            time_tag: String(plasmaRow.time_tag ?? ""),
-            density: toNumber(plasmaRow.density),
-            speed: toNumber(plasmaRow.speed),
-            temperature: toNumber(plasmaRow.temperature),
-          });
-          useDataSourceStatus
-            .getState()
-            .reportSuccess("swpc-solar-wind-plasma");
-        }
-      } catch (err) {
-        useDataSourceStatus
-          .getState()
-          .reportError(
-            "swpc-solar-wind-mag",
-            classifyError(err, "swpc-solar-wind-mag"),
-          );
-        useDataSourceStatus
-          .getState()
-          .reportError(
-            "swpc-solar-wind-plasma",
-            classifyError(err, "swpc-solar-wind-plasma"),
-          );
-      }
-    };
-    load();
-    const id = window.setInterval(load, 60_000);
-    return () => {
-      ac.abort();
-      window.clearInterval(id);
-    };
-  }, []);
-
-  // Store state
-  const { setLastUpdate, setIsLive } = useSolarStore();
-
-  // Modal states for chart/summary modals
-  const [kIndexChartOpen, setKIndexChartOpen] = useState(false);
-  const [aIndexChartOpen, setAIndexChartOpen] = useState(false);
-  const [bzChartOpen, setBzChartOpen] = useState(false);
-  const [solarFluxChartOpen, setSolarFluxChartOpen] = useState(false);
-  const [propagationIndexOpen, setPropagationIndexOpen] = useState(false);
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [flareProbOpen, setFlareProbOpen] = useState(false);
-  const [bandConditionsOpen, setBandConditionsOpen] = useState(false);
-
-  // Image modal states for NOAA/SWPC images
-  const [drapGlobalOpen, setDrapGlobalOpen] = useState(false);
-  const [drapF10Open, setDrapF10Open] = useState(false);
-  const [drapF20Open, setDrapF20Open] = useState(false);
-  const [auroraOpen, setAuroraOpen] = useState(false);
-  const [synopticOpen, setSynopticOpen] = useState(false);
-  const [sunspotImageOpen, setSunspotImageOpen] = useState(false);
-
-  // Help modal states
-  const [helpModal, setHelpModal] = useState<string | null>(null);
-  const closeHelp = useCallback(() => setHelpModal(null), []);
-
-  // Update store when data changes
-  useEffect(() => {
-    if (kIndexData && !kError) {
-      setLastUpdate(new Date());
-      setIsLive(true);
-    } else if (kError) {
-      setIsLive(false);
-    }
-  }, [kIndexData, kError, setLastUpdate, setIsLive]);
-
-  // Extract current values
-  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
-  const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? null;
-  const currentSsn = sunspotData?.[sunspotData.length - 1]?.ssn ?? null;
-  const currentBz =
-    magnetometerData
-      ?.slice()
-      .reverse()
-      .find((d) => typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm))
-      ?.bz_gsm ?? null;
-
-  const isLoading =
-    kLoading || fluxLoading || probLoading || sunspotLoading || magLoading;
-
-  const solarDataUpdatedAt =
-    Math.max(
-      kUpdatedAt || 0,
-      fluxUpdatedAt || 0,
-      probUpdatedAt || 0,
-      sunspotUpdatedAt || 0,
-      magUpdatedAt || 0,
-    ) || undefined;
-
-  const solarIsRefetching =
-    kRefetching ||
-    fluxRefetching ||
-    probRefetching ||
-    sunspotRefetching ||
-    magRefetching;
-
-  const refetchAllSolar = () => {
-    refetchK();
-    refetchFlux();
-    refetchProb();
-    refetchSunspot();
-    refetchMag();
+  const toggleGroup = (group: SolarSourceGroup) => {
+    const setter = isMobile ? setMobileGroups : setDesktopGroups;
+    setter((existing) => {
+      const next = new Set(existing);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      next.add("now");
+      return next;
+    });
   };
 
-  // Data source status for panel-level error display
-  const swMagStatus = useDataSourceStatus(
-    (s) => s.sources["swpc-solar-wind-mag"],
+  const impactsOpen = enabledGroups.has("impacts");
+  const forecastOpen = enabledGroups.has("forecast");
+  const detailsOpen = enabledGroups.has("details");
+  const imageryOpen = isMobile ? mobileImagesOpen : desktopImagesOpen;
+
+  const guidanceInputs = [resources.flux, resources.kp, resources.magnetometer];
+  const guidanceHasData = current.guidance.level !== "insufficient";
+  const guidanceState: SolarWidgetState = !guidanceHasData
+    ? guidanceInputs.some((resource) => resource.state === "loading")
+      ? "loading"
+      : "unavailable"
+    : current.guidance.missing.length > 0 ||
+        guidanceInputs.some((resource) => ["stale", "error", "unavailable"].includes(resource.state))
+      ? "partial"
+      : guidanceInputs.some((resource) => resource.state === "refreshing")
+        ? "refreshing"
+        : "fresh";
+  const guidanceObservedAt = oldestObservation(
+    guidanceInputs.map((resource) => resource.resource?.envelope.observedAt),
   );
-  const swPlasmaStatus = useDataSourceStatus(
-    (s) => s.sources["swpc-solar-wind-plasma"],
-  );
-  const protonSourceStatus = useDataSourceStatus(
-    (s) => s.sources["noaa-protons"],
-  );
-  const dstSourceStatus = useDataSourceStatus((s) => s.sources["noaa-dst"]);
-  const forecastSourceStatus = useDataSourceStatus(
-    (s) => s.sources["noaa-flux-forecast"],
-  );
 
-  // --- Mobile viewport ---
-  const isMobile = useIsMobile();
+  const maxDrapFrequency = useMemo(() => {
+    const grid = resources.drap.data?.frequencies;
+    if (!grid) return null;
+    let maximum = -Infinity;
+    for (const row of grid) for (const value of row) maximum = Math.max(maximum, value);
+    return Number.isFinite(maximum) ? maximum : null;
+  }, [resources.drap.data]);
 
-  if (isMobile) {
-    return (
-      <>
-        <MobileSolarPulse
-          currentKp={currentKp}
-          currentFlux={currentFlux}
-          currentSsn={currentSsn}
-          currentBz={currentBz}
-          kIndexData={kIndexData}
-          fluxData={fluxData}
-          magnetometerData={magnetometerData}
-          probData={probData}
-          isLoading={isLoading}
-          kLoading={kLoading}
-          fluxLoading={fluxLoading}
-          magLoading={magLoading}
-          probLoading={probLoading}
-          solarDataUpdatedAt={solarDataUpdatedAt}
-          solarIsRefetching={solarIsRefetching}
-          refetchAllSolar={refetchAllSolar}
-          onExpandPropagation={() => setPropagationIndexOpen(true)}
-          onExpandSummary={() => setSummaryOpen(true)}
-          onExpandBandConditions={() => setBandConditionsOpen(true)}
-          onExpandKIndexChart={() => setKIndexChartOpen(true)}
-          onExpandSolarFluxChart={() => setSolarFluxChartOpen(true)}
-          onExpandBzChart={() => setBzChartOpen(true)}
-          onExpandFlareProb={() => setFlareProbOpen(true)}
-        />
-        {/* Modals render as overlays -- keep in parent */}
-        <KIndexChartModal
-          isOpen={kIndexChartOpen}
-          onClose={() => setKIndexChartOpen(false)}
-          data={
-            kIndexData?.map((d) => ({
-              time_tag: d.time_tag,
-              kp_index: d.kp_index,
-            })) ?? []
-          }
-        />
-        <AIndexChartModal
-          isOpen={aIndexChartOpen}
-          onClose={() => setAIndexChartOpen(false)}
-          data={
-            kIndexData?.map((d) => ({
-              time_tag: d.time_tag,
-              kp_index: d.kp_index,
-            })) ?? []
-          }
-        />
-        <BzChartModal
-          isOpen={bzChartOpen}
-          onClose={() => setBzChartOpen(false)}
-          data={
-            magnetometerData?.flatMap((d) =>
-              typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm)
-                ? [{ time_tag: d.time_tag, bz_gsm: d.bz_gsm }]
-                : [],
-            ) ?? []
-          }
-        />
-        <SolarFluxChartModal
-          isOpen={solarFluxChartOpen}
-          onClose={() => setSolarFluxChartOpen(false)}
-          data={
-            fluxData?.map((d) => ({
-              time_tag: d.time_tag,
-              flux: d.flux,
-            })) ?? []
-          }
-        />
-        <SolarSummaryModal
-          isOpen={summaryOpen}
-          onClose={() => setSummaryOpen(false)}
-          kIndex={currentKp}
-          solarFlux={currentFlux}
-        />
-        <PropagationIndexModal
-          isOpen={propagationIndexOpen}
-          onClose={() => setPropagationIndexOpen(false)}
-          solarFlux={currentFlux}
-          kIndex={currentKp}
-          bz={currentBz}
-        />
-        <FlareProbabilityModal
-          isOpen={flareProbOpen}
-          onClose={() => setFlareProbOpen(false)}
-          cProb={probData?.c_prob ?? 0}
-          mProb={probData?.m_prob ?? 0}
-          xProb={probData?.x_prob ?? 0}
-          protonProb={probData?.proton_prob ?? 0}
-        />
-        <BandConditionsModal
-          isOpen={bandConditionsOpen}
-          onClose={() => setBandConditionsOpen(false)}
-          kIndex={currentKp}
-          solarFlux={currentFlux}
-        />
-      </>
-    );
-  }
-
-  // --- Derived: ops banner + cards ---
-
-  const scalesNow = noaaScales?.["0"] ?? null;
-  const scalesForecast1 = noaaScales?.["1"] ?? null;
-
-  const rNow = scalesNow?.R?.Scale ? `R${scalesNow.R.Scale}` : "—";
-  const sNow = scalesNow?.S?.Scale ? `S${scalesNow.S.Scale}` : "—";
-  const gNow = scalesNow?.G?.Scale ? `G${scalesNow.G.Scale}` : "—";
-
-  const scaleStamp = scalesNow
-    ? `${scalesNow.DateStamp} ${scalesNow.TimeStamp}Z`
-    : "—";
-
-  const xrayCurrent = xrayLatest?.current_class ?? "—";
-  const xrayMax = xrayLatest?.max_class ?? "—";
-  const xrayBegin = xrayLatest?.begin_time ?? "—";
-  const xrayMaxTime = xrayLatest?.max_time ?? "—";
-
-  const swStamp = swMag5m?.time_tag || swPlasma5m?.time_tag || "—";
-  const swBt = swMag5m?.bt;
-  const swBz = swMag5m?.bz_gsm;
-  const swSpeed = swPlasma5m?.speed;
-  const swDensity = swPlasma5m?.density;
-
-  const imgQs = `?t=${imageTick}`;
-  const drapGlobalUrl = `${SWPC_IMAGES.drapGlobal}${imgQs}`;
-  const drapF10Url = `${SWPC_IMAGES.drapF10}${imgQs}`;
-  const drapF20Url = `${SWPC_IMAGES.drapF20}${imgQs}`;
-  const auroraUrl = `${SWPC_IMAGES.auroraNorth}${imgQs}`;
-  const synopticUrl = `${SWPC_IMAGES.synopticMap}${imgQs}`;
-  const sunspotImgUrl = `${SWPC_IMAGES.sunspot}&t=${imageTick}`;
-
-  const recentHamAlerts = hamAlerts.slice(0, 5);
-
-  // --- Proton flux derived ---
-  const latestProton = protonFluxData?.[protonFluxData.length - 1] ?? null;
-  const protonPfu = latestProton?.flux ?? null;
-  const protonSScale =
-    protonPfu === null
-      ? null
-      : protonPfu >= 100_000
-        ? "S5"
-        : protonPfu >= 10_000
-          ? "S4"
-          : protonPfu >= 1_000
-            ? "S3"
-            : protonPfu >= 100
-              ? "S2"
-              : protonPfu >= 10
-                ? "S1"
-                : null;
-  const protonColor =
-    protonPfu === null
-      ? "text-gray-500"
-      : protonPfu >= 1_000
-        ? "text-alert-red"
-        : protonPfu >= 100
-          ? "text-plasma-orange"
-          : protonPfu >= 10
-            ? "text-caution-amber"
-            : "text-signal-green";
-  const protonBorderColor =
-    protonPfu === null
-      ? "border-gray-700/30"
-      : protonPfu >= 1_000
-        ? "border-alert-red/20"
-        : protonPfu >= 100
-          ? "border-plasma-orange/20"
-          : protonPfu >= 10
-            ? "border-caution-amber/20"
-            : "border-signal-green/20";
-
-  // --- Dst index derived ---
-  const latestDst = dstIndexData?.[dstIndexData.length - 1] ?? null;
-  const dstValue = latestDst?.dst ?? null;
-  const dstClassification =
-    dstValue === null
-      ? null
-      : dstValue < -200
-        ? "Severe Storm"
-        : dstValue < -100
-          ? "Storm"
-          : dstValue < -50
-            ? "Active"
-            : dstValue < -30
-              ? "Moderate"
-              : "Quiet";
-  const dstColor =
-    dstValue === null
-      ? "text-gray-500"
-      : dstValue < -100
-        ? "text-alert-red"
-        : dstValue < -50
-          ? "text-plasma-orange"
-          : dstValue < -30
-            ? "text-caution-amber"
-            : "text-signal-green";
-  const dstBorderColor =
-    dstValue === null
-      ? "border-gray-700/30"
-      : dstValue < -100
-        ? "border-alert-red/20"
-        : dstValue < -50
-          ? "border-plasma-orange/20"
-          : dstValue < -30
-            ? "border-caution-amber/20"
-            : "border-signal-green/20";
-
-  // --- Forecast derived ---
-  const forecastDays = fluxForecastData?.forecast ?? [];
-  const sfiColor = (sfi: number) =>
-    sfi > 100
-      ? "text-signal-green"
-      : sfi > 80
-        ? "text-caution-amber"
-        : sfi > 70
-          ? "text-plasma-orange"
-          : "text-alert-red";
+  const refreshSummary = model.refreshResult.running
+    ? "Refreshing every visible data feed…"
+    : model.refreshResult.failed.length
+      ? `${model.refreshResult.succeeded.length} refreshed · ${model.refreshResult.failed.length} could not refresh`
+      : model.refreshResult.succeeded.length
+        ? `${model.refreshResult.succeeded.length} sources refreshed`
+        : "Refreshes visible structured feeds; imagery checks itself";
 
   return (
-    <div className="min-h-screen px-4">
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto py-4 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-white">Solar Pulse</h1>
-            <HelpTooltip
-              section="solar-pulse"
-              tooltip="Learn more about Solar Pulse"
-            />
-          </div>
-          <DataFreshnessIndicator
-            dataUpdatedAt={solarDataUpdatedAt}
-            onRefresh={refetchAllSolar}
-            isRefetching={solarIsRefetching}
-          />
-        </div>
-
-        {/* Primary Metrics */}
-        <PrimaryMetrics
-          kIndex={currentKp}
-          solarFlux={currentFlux}
-          sunspotNumber={currentSsn}
-          aIndex={currentKp !== null ? kpToAp(currentKp) : undefined}
-          bz={currentBz}
-          bzData={
-            magnetometerData?.map((d) => ({
-              time_tag: d.time_tag,
-              bz_gsm: d.bz_gsm,
-            })) ?? []
-          }
-          loading={isLoading}
-          solarFluxData={
-            fluxData?.map((d) => ({
-              time_tag: d.time_tag,
-              flux: d.flux,
-            })) ?? []
-          }
-        />
-
-        {/* Propagation Index - Hero Metric */}
-        <PropagationIndex
-          solarFlux={currentFlux}
-          kIndex={currentKp}
-          bz={currentBz}
-          loading={isLoading}
-          onExpand={() => setPropagationIndexOpen(true)}
-        />
-
-        {/* Solar Cycle Context */}
-        <SolarCycleContext
-          currentSFI={currentFlux}
-          recentSFI={fluxData?.map((d) => d.flux)}
-          loading={isLoading}
-        />
-
-        {/* Summary — merged into PropagationIndex above; standalone removed */}
-
-        {/* Operational "Now" cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* NOAA scales */}
-          <section className="rounded-2xl border border-plasma-orange/20 bg-white/[0.03] backdrop-blur-md p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                  NOAA Scales
-                </h2>
-                <InfoTip content={SOLAR_TOOLTIPS.noaaScales} />
-                <HelpButton onClick={() => setHelpModal("noaaScales")} />
-              </div>
-              <span className="text-xs text-gray-400 font-mono">
-                {scaleStamp}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-xl bg-gradient-to-br from-plasma-orange/10 to-transparent border border-plasma-orange/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Radio
-                </div>
-                <div className="mt-1 text-2xl font-bold text-plasma-orange font-mono">
-                  {rNow}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {scalesNow?.R?.Text ?? ""}
-                </div>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-caution-amber/10 to-transparent border border-caution-amber/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Radiation
-                </div>
-                <div className="mt-1 text-2xl font-bold text-caution-amber font-mono">
-                  {sNow}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {scalesNow?.S?.Text ?? ""}
-                </div>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-aurora-purple/10 to-transparent border border-aurora-purple/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Geomag
-                </div>
-                <div className="mt-1 text-2xl font-bold text-aurora-purple font-mono">
-                  {gNow}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {scalesNow?.G?.Text ?? ""}
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-white/10 text-xs text-gray-400">
-              <span className="text-gray-500">Next day forecast:</span>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-                <span>
-                  <span className="text-plasma-orange">R:</span>{" "}
-                  {scalesForecast1?.R?.MinorProb ||
-                  scalesForecast1?.R?.MajorProb
-                    ? `${scalesForecast1.R.MinorProb ?? "0"}%/${scalesForecast1.R.MajorProb ?? "0"}%`
-                    : "—"}
+    <main className="min-h-full bg-[radial-gradient(circle_at_top_left,rgba(68,221,255,0.08),transparent_32%),radial-gradient(circle_at_top_right,rgba(255,107,53,0.08),transparent_28%)] px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-6">
+        <header className="overflow-hidden rounded-3xl border border-white/10 bg-black/20 p-5 shadow-xl shadow-black/20 sm:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-orange-300/20 bg-orange-300/10 px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-orange-200">
+                  Solar weather
                 </span>
-                <span>
-                  <span className="text-caution-amber">S:</span>{" "}
-                  {scalesForecast1?.S?.Prob
-                    ? `${scalesForecast1.S.Prob}%`
-                    : "—"}
-                </span>
-                <span>
-                  <span className="text-aurora-purple">G:</span>{" "}
-                  {scalesForecast1?.G?.Scale
-                    ? `G${scalesForecast1.G.Scale}`
-                    : "—"}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* Latest GOES X-ray flare */}
-          <section className="rounded-2xl border border-alert-red/20 bg-white/[0.03] backdrop-blur-md p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                  GOES X-ray Flare
-                </h2>
-                <InfoTip content={SOLAR_TOOLTIPS.xrayFlux} />
-                <HelpButton onClick={() => setHelpModal("xrayFlare")} />
-              </div>
-              <span className="text-xs text-gray-400 font-mono">
-                {xrayLatest?.time_tag ?? "—"}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-gradient-to-br from-alert-red/10 to-transparent border border-alert-red/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Current
-                </div>
-                <div className="mt-1 text-2xl font-bold text-alert-red font-mono">
-                  {xrayCurrent}
-                </div>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-caution-amber/10 to-transparent border border-caution-amber/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Max
-                </div>
-                <div className="mt-1 text-2xl font-bold text-caution-amber font-mono">
-                  {xrayMax}
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-              <span className="text-gray-400">
-                Begin:{" "}
-                <span className="text-gray-300 font-mono">{xrayBegin}</span>
-              </span>
-              <span className="text-gray-400">
-                Max:{" "}
-                <span className="text-gray-300 font-mono">{xrayMaxTime}</span>
-              </span>
-              <span className="text-gray-400">
-                Sat:{" "}
-                <span className="text-gray-300 font-mono">
-                  {xrayLatest?.satellite ?? "—"}
-                </span>
-              </span>
-            </div>
-          </section>
-
-          {/* Solar wind (5-minute) */}
-          <section className="rounded-2xl border border-cosmic-cyan/20 bg-white/[0.03] backdrop-blur-md p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                  Solar Wind
-                </h2>
-                <InfoTip content={SOLAR_TOOLTIPS.solarWind} />
-                <HelpButton onClick={() => setHelpModal("solarWind")} />
-              </div>
-              <span className="text-xs text-gray-400 font-mono">
-                {swStamp}Z
-              </span>
-            </div>
-            {(swMagStatus?.error || swPlasmaStatus?.error) && (
-              <DataSourceError
-                error={swMagStatus?.error ?? swPlasmaStatus?.error ?? null}
-                compact
-              />
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-gradient-to-br from-cosmic-cyan/10 to-transparent border border-cosmic-cyan/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Speed
-                </div>
-                <div className="mt-1 text-xl font-bold text-cosmic-cyan font-mono">
-                  {typeof swSpeed === "number" ? `${Math.round(swSpeed)}` : "—"}
-                  <span className="text-sm font-normal text-gray-500 ml-1">
-                    km/s
-                  </span>
-                </div>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-signal-green/10 to-transparent border border-signal-green/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Density
-                </div>
-                <div className="mt-1 text-xl font-bold text-signal-green font-mono">
-                  {typeof swDensity === "number" ? swDensity.toFixed(1) : "—"}
-                  <span className="text-sm font-normal text-gray-500 ml-1">
-                    /cc
-                  </span>
-                </div>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-plasma-orange/10 to-transparent border border-plasma-orange/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Bt
-                </div>
-                <div className="mt-1 text-xl font-bold text-plasma-orange font-mono">
-                  {typeof swBt === "number" ? swBt.toFixed(1) : "—"}
-                  <span className="text-sm font-normal text-gray-500 ml-1">
-                    nT
-                  </span>
-                </div>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-aurora-purple/10 to-transparent border border-aurora-purple/20 p-3">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Bz
-                </div>
-                <div
-                  className="mt-1 text-xl font-bold font-mono"
-                  style={{
-                    color:
-                      typeof swBz === "number"
-                        ? swBz >= 0
-                          ? "#00ff88"
-                          : "#ff7700"
-                        : "#888",
-                  }}
+                <span
+                  className={`rounded-full border px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.16em] ${
+                    model.pageHealth === "healthy"
+                      ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-200"
+                      : model.pageHealth === "loading"
+                        ? "border-slate-300/20 bg-slate-300/10 text-slate-300"
+                        : "border-amber-300/20 bg-amber-300/10 text-amber-200"
+                  }`}
+                  role="status"
                 >
-                  {typeof swBz === "number"
-                    ? `${swBz > 0 ? "+" : ""}${swBz.toFixed(1)}`
-                    : "—"}
-                  <span className="text-sm font-normal text-gray-500 ml-1">
-                    nT
-                  </span>
-                </div>
+                  {model.pageHealth === "healthy"
+                    ? "All critical products current"
+                    : model.pageHealth === "loading"
+                      ? "Checking sources"
+                      : model.pageHealth === "degraded"
+                        ? `${model.degradedCritical.length} critical source${model.degradedCritical.length === 1 ? "" : "s"} stale`
+                        : `${model.unavailableCritical.length} critical source${model.unavailableCritical.length === 1 ? "" : "s"} unavailable`}
+                </span>
               </div>
+              <h1 className="mt-4 font-orbitron text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                What the Sun is doing now
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 sm:text-base">
+                Current observations, official forecasts, and global HF implications—with source age and uncertainty kept visible.
+              </p>
             </div>
-          </section>
-        </div>
-
-        {/* Proton Flux + Dst Index row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Proton Flux */}
-          <section
-            className={`rounded-2xl border ${protonBorderColor} bg-white/[0.03] backdrop-blur-md p-4`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                  Proton Flux
-                </h2>
-                <InfoTip content="GOES satellite proton flux (>=10 MeV). Used for NOAA S-scale solar radiation storm classification. High proton flux degrades polar HF paths." />
-              </div>
-              <span className="text-xs text-gray-400 font-mono">
-                {latestProton?.time_tag
-                  ? new Date(latestProton.time_tag)
-                      .toISOString()
-                      .slice(11, 16) + "Z"
-                  : "—"}
-              </span>
-            </div>
-            {protonSourceStatus?.error && !protonLoading && (
-              <DataSourceError error={protonSourceStatus.error} compact />
-            )}
-            {protonLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-5 h-5 border-2 border-caution-amber/30 border-t-caution-amber rounded-full animate-spin" />
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div
-                    className={`rounded-xl bg-gradient-to-br from-caution-amber/10 to-transparent border ${protonBorderColor} p-3`}
-                  >
-                    <div className="text-xs text-gray-400 uppercase tracking-wider">
-                      Flux
-                    </div>
-                    <div
-                      className={`mt-1 text-2xl font-bold font-mono ${protonColor}`}
-                    >
-                      {protonPfu !== null ? protonPfu.toFixed(1) : "—"}
-                      <span className="text-sm font-normal text-gray-500 ml-1">
-                        pfu
-                      </span>
-                    </div>
-                  </div>
-                  <div
-                    className={`rounded-xl bg-gradient-to-br from-caution-amber/10 to-transparent border ${protonBorderColor} p-3`}
-                  >
-                    <div className="text-xs text-gray-400 uppercase tracking-wider">
-                      S-Scale
-                    </div>
-                    <div
-                      className={`mt-1 text-2xl font-bold font-mono ${protonColor}`}
-                    >
-                      {protonSScale ?? "None"}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-white/10 text-xs text-gray-400">
-                  <span className="text-gray-500">Thresholds:</span>
-                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 font-mono">
-                    <span>
-                      <span className="text-signal-green">S1</span> 10
-                    </span>
-                    <span>
-                      <span className="text-caution-amber">S2</span> 100
-                    </span>
-                    <span>
-                      <span className="text-plasma-orange">S3</span> 1K
-                    </span>
-                    <span>
-                      <span className="text-alert-red">S4</span> 10K
-                    </span>
-                    <span>
-                      <span className="text-alert-red">S5</span> 100K pfu
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-
-          {/* Dst Index */}
-          <section
-            className={`rounded-2xl border ${dstBorderColor} bg-white/[0.03] backdrop-blur-md p-4`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                  Dst Index
-                </h2>
-                <InfoTip content="Disturbance Storm Time index measures ring current intensity. Negative values indicate geomagnetic storms. Affects HF propagation, especially at low latitudes." />
-              </div>
-              <span className="text-xs text-gray-400 font-mono">
-                {latestDst?.time_tag
-                  ? new Date(latestDst.time_tag).toISOString().slice(11, 16) +
-                    "Z"
-                  : "—"}
-              </span>
-            </div>
-            {dstSourceStatus?.error && !dstLoading && (
-              <DataSourceError error={dstSourceStatus.error} compact />
-            )}
-            {dstLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-5 h-5 border-2 border-cosmic-cyan/30 border-t-cosmic-cyan rounded-full animate-spin" />
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div
-                    className={`rounded-xl bg-gradient-to-br from-cosmic-cyan/10 to-transparent border ${dstBorderColor} p-3`}
-                  >
-                    <div className="text-xs text-gray-400 uppercase tracking-wider">
-                      Dst Value
-                    </div>
-                    <div
-                      className={`mt-1 text-2xl font-bold font-mono ${dstColor}`}
-                    >
-                      {dstValue !== null
-                        ? `${dstValue > 0 ? "+" : ""}${dstValue}`
-                        : "—"}
-                      <span className="text-sm font-normal text-gray-500 ml-1">
-                        nT
-                      </span>
-                    </div>
-                  </div>
-                  <div
-                    className={`rounded-xl bg-gradient-to-br from-cosmic-cyan/10 to-transparent border ${dstBorderColor} p-3`}
-                  >
-                    <div className="text-xs text-gray-400 uppercase tracking-wider">
-                      Status
-                    </div>
-                    <div
-                      className={`mt-1 text-2xl font-bold font-mono ${dstColor}`}
-                    >
-                      {dstClassification ?? "—"}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-white/10 text-xs text-gray-400">
-                  <span className="text-gray-500">Classification:</span>
-                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-                    <span>
-                      <span className="text-signal-green font-medium">
-                        Quiet
-                      </span>{" "}
-                      &gt;-30
-                    </span>
-                    <span>
-                      <span className="text-caution-amber font-medium">
-                        Moderate
-                      </span>{" "}
-                      -30..-50
-                    </span>
-                    <span>
-                      <span className="text-plasma-orange font-medium">
-                        Active
-                      </span>{" "}
-                      -50..-100
-                    </span>
-                    <span>
-                      <span className="text-alert-red font-medium">Storm</span>{" "}
-                      &lt;-100 nT
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-        </div>
-
-        {/* Live Maps - unified section with efficient grid */}
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                Live Maps
-              </h2>
-              <InfoTip content={SOLAR_TOOLTIPS.liveMaps} />
-              <HelpButton onClick={() => setHelpModal("liveMaps")} />
-            </div>
-            <a
-              href="https://www.swpc.noaa.gov/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-plasma-orange hover:text-white bg-plasma-orange/10 hover:bg-plasma-orange/20 border border-plasma-orange/30 rounded-lg transition-all duration-200"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+              <p className="text-xs text-slate-500" role="status" aria-live="polite">{refreshSummary}</p>
+              <button
+                type="button"
+                onClick={() => void model.refreshVisible()}
+                disabled={model.refreshResult.running}
+                className="min-h-11 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 text-sm font-semibold text-cyan-100 transition-colors hover:bg-cyan-300/15 disabled:cursor-wait disabled:opacity-60"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-              NOAA SWPC
-            </a>
+                {model.refreshResult.running ? "Refreshing…" : "Refresh visible data feeds"}
+              </button>
+            </div>
           </div>
+        </header>
 
-          {/* 6-item grid: responsive from 2 cols to 6 cols */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {/* D-RAP Global (animated) */}
-            <figure
-              className="group cursor-pointer"
-              onClick={() => setDrapGlobalOpen(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setDrapGlobalOpen(true)}
+        <section aria-labelledby="solar-now-heading">
+          <div className="mb-3 flex items-end justify-between px-1">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Now</p>
+              <h2 id="solar-now-heading" className="mt-1 font-orbitron text-xl font-bold text-white">Current global observations</h2>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <WidgetShell
+              title="Planetary Kp"
+              eyebrow="3-hour observed / estimated"
+              {...sourceProps(resources.kp)}
+              action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "kp" })} />}
             >
-              <div className="relative overflow-hidden rounded-xl border border-white/10 group-hover:border-plasma-orange/40 transition-all duration-200 aspect-[4/3]">
-                <img
-                  src={drapGlobalUrl}
-                  alt="SWPC D-RAP global"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.style.display = "none";
-                    const fallback = document.createElement("div");
-                    fallback.className =
-                      "flex items-center justify-center h-full text-gray-500 text-sm";
-                    fallback.textContent = "Image unavailable";
-                    target.parentElement?.appendChild(fallback);
-                  }}
-                />
-                {/* Animated badge */}
-                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-plasma-orange/80 rounded text-[10px] font-mono text-white uppercase tracking-wider">
-                  Animated
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
-                  <span className="text-xs text-white font-medium flex items-center gap-1">
-                    <svg
-                      className="w-3 h-3"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    Play
-                  </span>
-                </div>
-              </div>
-              <figcaption className="text-xs text-gray-500 mt-2 text-center">
-                D-RAP Global HF
-              </figcaption>
-            </figure>
-
-            {/* D-RAP 20 MHz (static) */}
-            <figure
-              className="group cursor-pointer"
-              onClick={() => setDrapF20Open(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setDrapF20Open(true)}
+              <MetricValue
+                value={formatNumber(current.kp?.kp)}
+                note={current.kp ? `${current.kp.kind === "observed" ? "Observed" : "Estimated"} planetary value for the interval ending ${formatUtc(current.kp.time_tag)}.` : "No current Kp interval."}
+                tone={current.kp && current.kp.kp >= 5 ? "rose" : current.kp && current.kp.kp >= 4 ? "amber" : "green"}
+              />
+            </WidgetShell>
+            <WidgetShell
+              title="10.7 cm solar flux"
+              eyebrow="Observed SFI"
+              {...sourceProps(resources.flux)}
+              action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "sfi" })} />}
             >
-              <div className="relative overflow-hidden rounded-xl border border-white/10 group-hover:border-plasma-orange/40 transition-all duration-200 aspect-[4/3]">
-                <img
-                  src={drapF20Url}
-                  alt="SWPC D-RAP 20 MHz"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.style.display = "none";
-                    const fallback = document.createElement("div");
-                    fallback.className =
-                      "flex items-center justify-center h-full text-gray-500 text-sm";
-                    fallback.textContent = "Image unavailable";
-                    target.parentElement?.appendChild(fallback);
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
-                  <span className="text-xs text-white font-medium">
-                    Enlarge
-                  </span>
-                </div>
-              </div>
-              <figcaption className="text-xs text-gray-500 mt-2 text-center">
-                D-RAP 20 MHz / 15m
-              </figcaption>
-            </figure>
-
-            {/* D-RAP 10 MHz (static) */}
-            <figure
-              className="group cursor-pointer"
-              onClick={() => setDrapF10Open(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setDrapF10Open(true)}
+              <MetricValue
+                value={formatNumber(current.flux?.flux, 0)}
+                unit="sfu"
+                note="A global proxy for solar EUV output and ionospheric ionization—not a path forecast by itself."
+                tone="amber"
+              />
+            </WidgetShell>
+            <WidgetShell
+              title="IMF Bz"
+              eyebrow="Solar wind at L1"
+              {...sourceProps(resources.magnetometer)}
+              action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "bz" })} />}
             >
-              <div className="relative overflow-hidden rounded-xl border border-white/10 group-hover:border-plasma-orange/40 transition-all duration-200 aspect-[4/3]">
-                <img
-                  src={drapF10Url}
-                  alt="SWPC D-RAP 10 MHz"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.style.display = "none";
-                    const fallback = document.createElement("div");
-                    fallback.className =
-                      "flex items-center justify-center h-full text-gray-500 text-sm";
-                    fallback.textContent = "Image unavailable";
-                    target.parentElement?.appendChild(fallback);
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
-                  <span className="text-xs text-white font-medium">
-                    Enlarge
-                  </span>
-                </div>
-              </div>
-              <figcaption className="text-xs text-gray-500 mt-2 text-center">
-                D-RAP 10 MHz / 30m
-              </figcaption>
-            </figure>
-
-            {/* Aurora (animated) */}
-            <figure
-              className="group cursor-pointer"
-              onClick={() => setAuroraOpen(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setAuroraOpen(true)}
+              <MetricValue
+                value={formatNumber(current.mag?.bz_gsm)}
+                unit="nT"
+                note={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm < 0 ? "Southward Bz can increase geomagnetic coupling when sustained." : "Northward or near-neutral Bz is less favorable for strong coupling."}
+                tone={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm <= -8 ? "rose" : "cyan"}
+              />
+            </WidgetShell>
+            <WidgetShell
+              title="GOES long X-ray"
+              eyebrow="Exact 0.1–0.8 nm channel"
+              {...sourceProps(resources.xray)}
+              action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "xray" })} />}
             >
-              <div className="relative overflow-hidden rounded-xl border border-white/10 group-hover:border-aurora-purple/40 transition-all duration-200 aspect-[4/3]">
-                <img
-                  src={auroraUrl}
-                  alt="Aurora forecast"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.style.display = "none";
-                    const fallback = document.createElement("div");
-                    fallback.className =
-                      "flex items-center justify-center h-full text-gray-500 text-sm";
-                    fallback.textContent = "Image unavailable";
-                    target.parentElement?.appendChild(fallback);
-                  }}
-                />
-                {/* Animated badge */}
-                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-aurora-purple/80 rounded text-[10px] font-mono text-white uppercase tracking-wider">
-                  Animated
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
-                  <span className="text-xs text-white font-medium flex items-center gap-1">
-                    <svg
-                      className="w-3 h-3"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    Play
-                  </span>
-                </div>
-              </div>
-              <figcaption className="text-xs text-gray-500 mt-2 text-center">
-                Aurora N. Hemisphere
-              </figcaption>
-            </figure>
-
-            {/* Synoptic Map (static) */}
-            <figure
-              className="group cursor-pointer"
-              onClick={() => setSynopticOpen(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setSynopticOpen(true)}
-            >
-              <div className="relative overflow-hidden rounded-xl border border-white/10 group-hover:border-caution-amber/40 transition-all duration-200 aspect-[4/3]">
-                <img
-                  src={synopticUrl}
-                  alt="Solar synoptic map"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.style.display = "none";
-                    const fallback = document.createElement("div");
-                    fallback.className =
-                      "flex items-center justify-center h-full text-gray-500 text-sm";
-                    fallback.textContent = "Image unavailable";
-                    target.parentElement?.appendChild(fallback);
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
-                  <span className="text-xs text-white font-medium">
-                    Enlarge
-                  </span>
-                </div>
-              </div>
-              <figcaption className="text-xs text-gray-500 mt-2 text-center">
-                Solar Synoptic Map
-              </figcaption>
-            </figure>
-
-            {/* Sunspot Image (NASA SDO) */}
-            <figure
-              className="group cursor-pointer"
-              onClick={() => setSunspotImageOpen(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setSunspotImageOpen(true)}
-            >
-              <div className="relative overflow-hidden rounded-xl border border-white/10 group-hover:border-caution-amber/40 transition-all duration-200 aspect-[4/3] bg-black">
-                <img
-                  src={sunspotImgUrl}
-                  alt="NASA SDO sunspot image"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.style.display = "none";
-                    const fallback = document.createElement("div");
-                    fallback.className =
-                      "flex items-center justify-center h-full text-gray-500 text-sm";
-                    fallback.textContent = "Image unavailable";
-                    target.parentElement?.appendChild(fallback);
-                  }}
-                />
-                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-caution-amber/80 rounded text-[10px] font-mono text-white uppercase tracking-wider">
-                  Live
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
-                  <span className="text-xs text-white font-medium">
-                    Enlarge
-                  </span>
-                </div>
-              </div>
-              <figcaption className="text-xs text-gray-500 mt-2 text-center">
-                Sunspots (SDO/HMI)
-              </figcaption>
-            </figure>
+              <MetricValue
+                value={current.xrayClass ?? "—"}
+                note={current.xray ? `${current.xray.flux.toExponential(2)} W/m². Elevated flux can produce sunlit-side HF absorption.` : "No usable long-channel observation."}
+                tone={current.xrayClass?.startsWith("M") || current.xrayClass?.startsWith("X") ? "rose" : "cyan"}
+              />
+            </WidgetShell>
           </div>
         </section>
 
-        {/* Recent ham-relevant alerts */}
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-              Recent SWPC Alerts
-            </h2>
-            <a
-              href="https://www.swpc.noaa.gov/products/alerts-watches-and-warnings"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-plasma-orange hover:text-white bg-plasma-orange/10 hover:bg-plasma-orange/20 border border-plasma-orange/30 rounded-lg transition-all duration-200"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-              All Alerts
-            </a>
-          </div>
-          {recentHamAlerts.length ? (
-            <div className="space-y-2">
-              {recentHamAlerts.map((a) => {
-                const severityColors = {
-                  minor: {
-                    border: "border-signal-green/30",
-                    bg: "bg-signal-green/10",
-                    text: "text-signal-green",
-                    dot: "bg-signal-green",
-                  },
-                  moderate: {
-                    border: "border-caution-amber/30",
-                    bg: "bg-caution-amber/10",
-                    text: "text-caution-amber",
-                    dot: "bg-caution-amber",
-                  },
-                  major: {
-                    border: "border-plasma-orange/30",
-                    bg: "bg-plasma-orange/10",
-                    text: "text-plasma-orange",
-                    dot: "bg-plasma-orange",
-                  },
-                  extreme: {
-                    border: "border-alert-red/30",
-                    bg: "bg-alert-red/10",
-                    text: "text-alert-red",
-                    dot: "bg-alert-red",
-                  },
-                };
-                const colors = severityColors[a.severity];
+        <div className="grid gap-3 lg:grid-cols-[1.2fr_.8fr]">
+          <WidgetShell
+            title="General HF guidance"
+            eyebrow="Transparent global heuristic"
+            state={guidanceState}
+            observedAt={guidanceObservedAt}
+            provider="NOAA SWPC inputs"
+            hasData={guidanceHasData}
+          >
+            <div className="flex h-full flex-col justify-between gap-5">
+              <div>
+                <p className="text-xl font-bold text-white">{current.guidance.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{current.guidance.summary}</p>
+                <ul className="mt-4 space-y-2 text-sm text-slate-400">
+                  {current.guidance.evidence.map((item) => (
+                    <li key={item} className="flex gap-2"><span className="text-cyan-300" aria-hidden="true">•</span>{item}</li>
+                  ))}
+                </ul>
+                {current.guidance.missing.length > 0 && (
+                  <p className="mt-3 text-xs text-amber-200">Missing: {current.guidance.missing.join(", ")}.</p>
+                )}
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-400">
+                This is general context, not a confidence score or station-to-station forecast.
+                <Link to="/map" className="ml-1 rounded font-semibold text-cyan-300 underline decoration-cyan-300/30 underline-offset-2 hover:text-cyan-200">
+                  Open PropSphere for path-aware analysis.
+                </Link>
+              </div>
+            </div>
+          </WidgetShell>
+
+          <WidgetShell title="Official NOAA scales" eyebrow="Current R / S / G snapshot" {...sourceProps(resources.scales)}>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ["R", "Radio blackout", resources.scales.data?.radio_blackout],
+                ["S", "Radiation storm", resources.scales.data?.solar_radiation],
+                ["G", "Geomagnetic", resources.scales.data?.geomagnetic_storm],
+              ].map(([code, label, value]) => {
+                const scale = value as { scale: number | null; text: string | null } | undefined;
                 return (
-                  <div
-                    key={`${a.product_id}-${a.issue_datetime}`}
-                    className={`rounded-xl ${colors.border} ${colors.bg} border p-3 cursor-pointer hover:border-white/20 transition-colors`}
-                    onClick={() => setSelectedSwpcAlert(a)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && setSelectedSwpcAlert(a)
-                    }
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-2 h-2 rounded-full ${colors.dot} mt-1.5 flex-shrink-0`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm font-medium text-gray-200 leading-snug">
-                            {a.summaryLine}
-                            {a.noaaScaleCode && (
-                              <span
-                                className={`ml-2 text-xs font-mono ${colors.text}`}
-                              >
-                                {a.noaaScaleCode}
-                              </span>
-                            )}
-                          </p>
-                          <span className="text-xs text-gray-500 font-mono whitespace-nowrap flex-shrink-0">
-                            {a.issue_datetime.split(" ")[1]?.slice(0, 5) ?? ""}Z
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {a.parsedDate.toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    </div>
+                  <div key={String(code)} className="rounded-xl border border-white/10 bg-black/20 p-3 text-center">
+                    <p className="text-xs font-bold text-slate-500">{String(label)}</p>
+                    <p className="mt-2 font-mono text-2xl font-bold text-white">{scale?.scale === null || scale?.scale === undefined ? "—" : `${code}${scale.scale}`}</p>
+                    <p className="mt-1 min-h-5 text-xs text-slate-400">{scale?.text ?? "Not reported"}</p>
                   </div>
                 );
               })}
             </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              <svg
-                className="w-8 h-8 mx-auto mb-2 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              No ham-relevant alerts in the last 24 hours
-            </div>
-          )}
-        </section>
-
-        {/* Two-column layout for K-index and A-index charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* K-Index Chart */}
-          <KIndexChart
-            data={
-              kIndexData?.map((d) => ({
-                time_tag: d.time_tag,
-                kp_index: d.kp_index,
-              })) ?? []
-            }
-            loading={kLoading}
-            onExpand={() => setKIndexChartOpen(true)}
-          />
-
-          {/* A-Index Chart */}
-          <AIndexChart
-            data={
-              kIndexData?.map((d) => ({
-                time_tag: d.time_tag,
-                kp_index: d.kp_index,
-              })) ?? []
-            }
-            loading={kLoading}
-            onExpand={() => setAIndexChartOpen(true)}
-          />
+          </WidgetShell>
         </div>
 
-        {/* Two-column layout for Solar Flux and IMF Bz */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Solar Flux Chart */}
-          <SolarFluxChart
-            data={
-              fluxData?.map((d) => ({
-                time_tag: d.time_tag,
-                flux: d.flux,
-              })) ?? []
-            }
-            loading={fluxLoading}
-            onExpand={() => setSolarFluxChartOpen(true)}
-          />
-
-          {/* IMF Bz Chart */}
-          <BzChart
-            data={
-              magnetometerData?.flatMap((d) =>
-                typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm)
-                  ? [{ time_tag: d.time_tag, bz_gsm: d.bz_gsm }]
-                  : [],
-              ) ?? []
-            }
-            loading={magLoading}
-            onExpand={() => setBzChartOpen(true)}
-          />
-        </div>
-
-        {/* SFI 3-Day Forecast */}
-        <section className="rounded-2xl border border-plasma-orange/20 bg-white/[0.03] backdrop-blur-md p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                SFI 3-Day Forecast
-              </h2>
-              <InfoTip content="NOAA 3-day solar flux index forecast. Higher SFI means better HF propagation on higher bands (15m, 12m, 10m). Values above 100 are generally favorable." />
-            </div>
-          </div>
-          {forecastSourceStatus?.error && !forecastLoading && (
-            <DataSourceError error={forecastSourceStatus.error} compact />
-          )}
-          {forecastLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
-            </div>
-          ) : forecastDays.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              No forecast data available
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-left py-2 px-3 text-xs text-gray-400 uppercase tracking-wider font-medium">
-                      Date
-                    </th>
-                    <th className="text-center py-2 px-3 text-xs text-gray-400 uppercase tracking-wider font-medium">
-                      Predicted SFI
-                    </th>
-                    <th className="text-center py-2 px-3 text-xs text-gray-400 uppercase tracking-wider font-medium">
-                      Observed SFI
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {forecastDays.map((day) => (
-                    <tr
-                      key={day.date}
-                      className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
-                    >
-                      <td className="py-2.5 px-3 text-gray-300 font-mono text-xs">
-                        {day.date}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span
-                          className={`font-bold font-mono ${sfiColor(day.predicted_flux)}`}
-                        >
-                          {day.predicted_flux}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-mono text-gray-400">
-                        {day.observed_flux != null ? day.observed_flux : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="mt-3 pt-3 border-t border-white/10 text-xs text-gray-400">
-            <span className="text-gray-500">SFI interpretation:</span>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-              <span>
-                <span className="text-signal-green font-medium">&gt;100</span>{" "}
-                Good
-              </span>
-              <span>
-                <span className="text-caution-amber font-medium">80-100</span>{" "}
-                Fair
-              </span>
-              <span>
-                <span className="text-plasma-orange font-medium">70-80</span>{" "}
-                Poor
-              </span>
-              <span>
-                <span className="text-alert-red font-medium">&lt;70</span> Very
-                Poor
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* Two-column layout for probability and bands */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Flare Probability */}
-          <FlareProbability
-            cProb={probData?.c_prob ?? 0}
-            mProb={probData?.m_prob ?? 0}
-            xProb={probData?.x_prob ?? 0}
-            protonProb={probData?.proton_prob ?? 0}
-            loading={probLoading}
-            onExpand={() => setFlareProbOpen(true)}
-          />
-
-          {/* Band Conditions */}
-          <BandConditions
-            kIndex={currentKp}
-            solarFlux={currentFlux}
-            loading={isLoading}
-            onExpand={() => setBandConditionsOpen(true)}
-          />
-        </div>
-
-        {/* Propagation Confidence */}
-        <PropagationConfidence />
-
-        {/* CME Analysis — KPI dashboard widget */}
-        <CMEAnalysisPanel />
-
-        {/* Model Accuracy Panel - spot correlation with draggable support */}
-        <DraggablePanel
-          id="model-accuracy"
-          title="Model Accuracy"
-          draggable={false}
+        <WidgetShell
+          title="Recent official SWPC bulletins"
+          eyebrow="Alerts, watches, warnings, and summaries"
+          {...sourceProps(resources.alerts)}
+          hasData={resources.alerts.state === "empty" || hasData(resources.alerts)}
         >
-          <ModelAccuracyPanel />
-        </DraggablePanel>
-      </main>
+          {resources.alerts.data?.length ? (
+            <div className="divide-y divide-white/[0.07]">
+              {resources.alerts.data.slice(0, 5).map((alert) => (
+                <button
+                  type="button"
+                  key={`${alert.product_id}-${alert.issued_at}`}
+                  onClick={() => setModal({ kind: "alert", alert })}
+                  className="flex min-h-14 w-full items-center justify-between gap-4 py-3 text-left hover:text-white"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-slate-200">{alert.title}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{formatUtc(alert.issued_at)} · {alert.product_id}</span>
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold capitalize text-cyan-300">{alert.severity}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">
+              No recent bulletins were reported in the current successful response.
+            </p>
+          )}
+        </WidgetShell>
 
-      {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-4 py-8 text-center text-xs text-gray-500">
-        <p>
-          Data sourced from{" "}
-          <a
-            href="https://www.swpc.noaa.gov/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-plasma-orange hover:underline"
-          >
-            NOAA Space Weather Prediction Center
-          </a>
-        </p>
-        <p className="mt-1">Propulse — The ionosphere, visualized</p>
-      </footer>
+        <SolarDisclosure
+          id="solar-impacts"
+          title="Impacts"
+          summary="Radiation, geomagnetic, absorption, and CME indicators"
+          open={impactsOpen}
+          onToggle={() => toggleGroup("impacts")}
+        >
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <WidgetShell title=">=10 MeV proton flux" eyebrow="Exact NOAA S-scale channel" {...sourceProps(resources.protons)}>
+              <MetricValue
+                value={formatNumber(current.proton?.flux, 2)}
+                unit="pfu"
+                note={`${current.protonScale}. NOAA S-scale thresholds are applied only to the validated >=10 MeV channel.`}
+                tone={current.proton && current.proton.flux >= 10 ? "rose" : "green"}
+              />
+            </WidgetShell>
+            <WidgetShell title="Dst index" eyebrow="Geomagnetic storm intensity" {...sourceProps(resources.dst)}>
+              <MetricValue
+                value={formatNumber(current.dst?.dst, 0)}
+                unit="nT"
+                note="More-negative Dst indicates a stronger ring current; values below −50 nT suggest storm conditions."
+                tone={current.dst && current.dst.dst <= -50 ? "rose" : "cyan"}
+              />
+            </WidgetShell>
+            <WidgetShell title="Latest classified flare" eyebrow="GOES event record" {...sourceProps(resources.latestFlare)}>
+              <MetricValue
+                value={resources.latestFlare.data?.max_class || "—"}
+                note={resources.latestFlare.data ? `Peak at ${formatUtc(resources.latestFlare.data.max_time)}; current classification ${resources.latestFlare.data.current_class}.` : "No latest flare record is usable."}
+                tone={resources.latestFlare.data?.max_class.startsWith("M") || resources.latestFlare.data?.max_class.startsWith("X") ? "rose" : "cyan"}
+              />
+            </WidgetShell>
+            <WidgetShell title="D-RAP grid" eyebrow="Sunlit-side absorption model" {...sourceProps(resources.drap)}>
+              <MetricValue
+                value={formatNumber(maxDrapFrequency, 1)}
+                unit="MHz max"
+                note="Highest modeled affected frequency anywhere on the current global grid; inspect imagery for location."
+                tone={maxDrapFrequency && maxDrapFrequency >= 10 ? "rose" : "amber"}
+              />
+            </WidgetShell>
+          </div>
+          <WidgetShell title="Recent CME analyses" eyebrow="NASA DONKI · current event set" {...sourceProps(resources.cme)} className="mt-3">
+            {resources.cme.data?.length ? (
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {resources.cme.data.slice(-6).reverse().map((event) => (
+                  <a key={`${event.time21_5}-${event.link}`} href={event.link} target="_blank" rel="noreferrer" className="rounded-xl border border-white/10 bg-black/20 p-3 hover:bg-white/[0.04]">
+                    <p className="font-mono text-sm font-semibold text-white">{event.speed.toFixed(0)} km/s</p>
+                    <p className="mt-1 text-xs text-slate-400">{formatUtc(event.time21_5)} · half-angle {event.halfAngle.toFixed(0)}°</p>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{event.note || "No analyst note supplied."}</p>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">No CME analyses were returned in the current event window.</p>
+            )}
+          </WidgetShell>
+        </SolarDisclosure>
 
-      {/* Chart/Summary Modals */}
-      <KIndexChartModal
-        isOpen={kIndexChartOpen}
-        onClose={() => setKIndexChartOpen(false)}
-        data={
-          kIndexData?.map((d) => ({
-            time_tag: d.time_tag,
-            kp_index: d.kp_index,
-          })) ?? []
-        }
-      />
+        <SolarDisclosure
+          id="solar-forecast"
+          title="Official forecast"
+          summary="NOAA predicted Kp, solar flux, planetary A, and event probabilities"
+          open={forecastOpen}
+          onToggle={() => toggleGroup("forecast")}
+        >
+          <div className="grid gap-3 xl:grid-cols-[1.4fr_.6fr]">
+            <WidgetShell title="Planetary Kp timeline" eyebrow="Three-hour grain · observed and official prediction" {...sourceProps(resources.kp)}>
+              <SolarSeriesChart
+                points={(resources.kp.data ?? []).map((point) => ({ timestamp: point.time_tag, value: point.kp, kind: point.kind }))}
+                label="Planetary Kp observed, estimated, and predicted three-hour intervals"
+                unit="Kp"
+                min={0}
+                max={9}
+              />
+            </WidgetShell>
+            <WidgetShell title="One-day event probabilities" eyebrow="Official NOAA forecast" {...sourceProps(resources.probabilities)}>
+              {resources.probabilities.data && (
+                <div className="space-y-3">
+                  {[
+                    ["C-class flare", resources.probabilities.data.c_class],
+                    ["M-class flare", resources.probabilities.data.m_class],
+                    ["X-class flare", resources.probabilities.data.x_class],
+                    [">=10 MeV proton event", resources.probabilities.data.proton_10mev],
+                  ].map(([label, value]) => (
+                    <div key={String(label)}>
+                      <div className="flex justify-between text-xs"><span className="text-slate-400">{label}</span><span className="font-mono text-white">{value}%</span></div>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-amber-300" style={{ width: `${value}%` }} /></div>
+                    </div>
+                  ))}
+                  <p className="border-t border-white/[0.07] pt-3 text-xs text-slate-500">Issued {formatUtc(resources.probabilities.data.issue_time)} · one-day horizon.</p>
+                </div>
+              )}
+            </WidgetShell>
+          </div>
+          <WidgetShell title="Three-day solar / geomagnetic prediction" eyebrow="Official NOAA forecast product" {...sourceProps(resources.forecast)} className="mt-3">
+            {resources.forecast.data && (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-left text-sm">
+                  <caption className="sr-only">NOAA three-day predicted 10.7 cm solar flux and planetary A index</caption>
+                  <thead className="text-xs uppercase tracking-wider text-slate-500"><tr><th className="pb-3">Forecast date</th><th className="pb-3">Predicted SFI</th><th className="pb-3">Predicted planetary A</th></tr></thead>
+                  <tbody className="divide-y divide-white/[0.07]">
+                    {resources.forecast.data.forecast.map((day) => (
+                      <tr key={day.date}><td className="py-3 text-slate-200">{new Date(day.date).toLocaleDateString(undefined, { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" })}</td><td className="py-3 font-mono text-cyan-200">{day.predicted_flux} sfu</td><td className="py-3 font-mono text-amber-200">{day.predicted_planetary_a}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-3 text-xs text-slate-500">Issued {formatUtc(resources.forecast.data.issued_at)}. These are official forecast values, distinct from current observations.</p>
+              </div>
+            )}
+          </WidgetShell>
+        </SolarDisclosure>
 
-      <AIndexChartModal
-        isOpen={aIndexChartOpen}
-        onClose={() => setAIndexChartOpen(false)}
-        data={
-          kIndexData?.map((d) => ({
-            time_tag: d.time_tag,
-            kp_index: d.kp_index,
-          })) ?? []
-        }
-      />
+        <SolarDisclosure
+          id="solar-details"
+          title="Details and history"
+          summary="Chronological trends, solar cycle context, and independent wind products"
+          open={detailsOpen}
+          onToggle={() => toggleGroup("details")}
+        >
+          <div className="grid gap-3 xl:grid-cols-2">
+            <WidgetShell title="Observed solar flux history" eyebrow="Chronological 2.8 GHz observations" {...sourceProps(resources.flux)}>
+              <SolarSeriesChart points={(resources.flux.data ?? []).map((point: SolarFluxPoint) => ({ timestamp: point.time_tag, value: point.flux }))} label="Observed 10.7 centimetre solar flux history" unit="sfu" />
+            </WidgetShell>
+            <WidgetShell title="IMF Bz history" eyebrow="True latest-hour window" {...sourceProps(resources.magnetometer)}>
+              <SolarSeriesChart points={(resources.magnetometer.data ?? []).filter((point) => point.bz_gsm !== null).map((point) => ({ timestamp: point.time_tag, value: point.bz_gsm! }))} label="Interplanetary magnetic field Bz over the latest hour" unit="nT" />
+            </WidgetShell>
+            <WidgetShell title="Solar cycle context" eyebrow="Monthly observed sunspot number" {...sourceProps(resources.sunspots)}>
+              <MetricValue
+                value={formatNumber(current.sunspot?.ssn, 1)}
+                note={current.sunspot ? `Observed monthly SSN for ${new Date(`${current.sunspot.time_tag}-01T00:00:00Z`).toLocaleDateString(undefined, { timeZone: "UTC", month: "long", year: "numeric" })}. Comparisons use the same monthly product.` : "No current monthly sunspot observation."}
+                tone="amber"
+              />
+              <div className="mt-4"><SolarSeriesChart points={(resources.sunspots.data ?? []).map((point) => ({ timestamp: `${point.time_tag}-01T00:00:00Z`, value: point.ssn }))} label="Monthly observed sunspot number" unit="SSN" height={140} /></div>
+            </WidgetShell>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <WidgetShell title="Solar-wind magnetic summary" eyebrow="Independent NOAA summary" {...sourceProps(resources.windMag)}>
+                <MetricValue value={formatNumber(resources.windMag.data?.at(-1)?.bz_gsm)} unit="nT Bz" note="A compact current summary; failure does not hide the independent speed product." tone="cyan" />
+              </WidgetShell>
+              <WidgetShell title="Solar-wind speed summary" eyebrow="Independent NOAA summary" {...sourceProps(resources.windPlasma)}>
+                <MetricValue value={formatNumber(current.plasma?.speed, 0)} unit="km/s" note="Compact current speed summary. Magnetic-product failure is isolated." tone="green" />
+              </WidgetShell>
+            </div>
+          </div>
+        </SolarDisclosure>
 
-      <BzChartModal
-        isOpen={bzChartOpen}
-        onClose={() => setBzChartOpen(false)}
-        data={
-          magnetometerData?.flatMap((d) =>
-            typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm)
-              ? [{ time_tag: d.time_tag, bz_gsm: d.bz_gsm }]
-              : [],
-          ) ?? []
-        }
-      />
-
-      <SolarFluxChartModal
-        isOpen={solarFluxChartOpen}
-        onClose={() => setSolarFluxChartOpen(false)}
-        data={
-          fluxData?.map((d) => ({
-            time_tag: d.time_tag,
-            flux: d.flux,
-          })) ?? []
-        }
-      />
-
-      <SolarSummaryModal
-        isOpen={summaryOpen}
-        onClose={() => setSummaryOpen(false)}
-        kIndex={currentKp}
-        solarFlux={currentFlux}
-      />
-
-      <PropagationIndexModal
-        isOpen={propagationIndexOpen}
-        onClose={() => setPropagationIndexOpen(false)}
-        solarFlux={currentFlux}
-        kIndex={currentKp}
-        bz={currentBz}
-      />
-
-      <FlareProbabilityModal
-        isOpen={flareProbOpen}
-        onClose={() => setFlareProbOpen(false)}
-        cProb={probData?.c_prob ?? 0}
-        mProb={probData?.m_prob ?? 0}
-        xProb={probData?.x_prob ?? 0}
-        protonProb={probData?.proton_prob ?? 0}
-      />
-
-      <BandConditionsModal
-        isOpen={bandConditionsOpen}
-        onClose={() => setBandConditionsOpen(false)}
-        kIndex={currentKp}
-        solarFlux={currentFlux}
-      />
-
-      {/* NOAA Image/Animation Modals */}
-      <AnimationModal
-        isOpen={drapGlobalOpen}
-        onClose={() => setDrapGlobalOpen(false)}
-        thumbnailUrl={drapGlobalUrl}
-        animationJsonUrl={SWPC_ANIMATIONS.drapGlobal}
-        alt="SWPC D-RAP global: highest affected HF frequency"
-        title="D-RAP Global HF Absorption"
-        caption="Shows the highest HF frequency affected by D-region absorption. Higher values indicate stronger absorption affecting more frequencies."
-        sourceUrl="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
-        sourceLabel="View at NOAA"
-        defaultFps={10}
-      />
-
-      <AnimationModal
-        isOpen={drapF10Open}
-        onClose={() => setDrapF10Open(false)}
-        thumbnailUrl={drapF10Url}
-        alt="SWPC D-RAP global 10 MHz slice"
-        title="D-RAP 10 MHz Absorption"
-        caption="HF absorption impact at 10 MHz - useful for 30m and 40m band operations."
-        sourceUrl="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
-        sourceLabel="View at NOAA"
-      />
-
-      <AnimationModal
-        isOpen={drapF20Open}
-        onClose={() => setDrapF20Open(false)}
-        thumbnailUrl={drapF20Url}
-        alt="SWPC D-RAP global 20 MHz slice"
-        title="D-RAP 20 MHz Absorption"
-        caption="HF absorption impact at 20 MHz - useful for 15m and 17m band operations."
-        sourceUrl="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
-        sourceLabel="View at NOAA"
-      />
-
-      <AnimationModal
-        isOpen={auroraOpen}
-        onClose={() => setAuroraOpen(false)}
-        thumbnailUrl={auroraUrl}
-        animationJsonUrl={SWPC_ANIMATIONS.auroraNorth}
-        alt="SWPC aurora forecast (northern hemisphere)"
-        title="Aurora Forecast (Northern Hemisphere)"
-        caption="30-minute aurora forecast. Higher activity indicates potential VHF propagation opportunities and HF disruption at high latitudes."
-        sourceUrl="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast"
-        sourceLabel="View at NOAA"
-        defaultFps={8}
-      />
-
-      <AnimationModal
-        isOpen={synopticOpen}
-        onClose={() => setSynopticOpen(false)}
-        thumbnailUrl={synopticUrl}
-        alt="SWPC solar synoptic map"
-        title="Solar Synoptic Map"
-        caption="Shows active regions (sunspots) and coronal holes on the sun. Coronal holes can produce high-speed solar wind streams affecting propagation."
-        sourceUrl="https://www.swpc.noaa.gov/products/solar-synoptic-map"
-        sourceLabel="View at NOAA"
-      />
-
-      <AnimationModal
-        isOpen={sunspotImageOpen}
-        onClose={() => setSunspotImageOpen(false)}
-        thumbnailUrl={sunspotImgUrl}
-        alt="NASA SDO HMI Intensitygram - Sunspots"
-        title="Live Sunspot Image (NASA SDO)"
-        caption="HMI Intensitygram showing sunspots on the solar surface. Updated every few minutes by NASA's Solar Dynamics Observatory."
-        sourceUrl="https://sdo.gsfc.nasa.gov/"
-        sourceLabel="View at NASA SDO"
-      />
-
-      {/* SWPC Alert Detail Modal */}
-      <SwpcAlertDetailModal
-        isOpen={!!selectedSwpcAlert}
-        onClose={() => setSelectedSwpcAlert(null)}
-        alert={selectedSwpcAlert}
-      />
-
-      {/* Help Modals for solar sections */}
-      {helpModal && HELP_CONTENT[helpModal as keyof typeof HELP_CONTENT] && (
-        <HelpModal
-          isOpen={true}
-          onClose={closeHelp}
-          title={HELP_CONTENT[helpModal as keyof typeof HELP_CONTENT].title}
-          sections={
-            HELP_CONTENT[helpModal as keyof typeof HELP_CONTENT].sections
+        <SolarDisclosure
+          id="solar-imagery"
+          title="Imagery"
+          summary="Cache-stable scientific maps with complete legends and recoverable timelines"
+          open={imageryOpen}
+          onToggle={() =>
+            isMobile
+              ? setMobileImagesOpen((value) => !value)
+              : setDesktopImagesOpen((value) => !value)
           }
-        />
-      )}
-    </div>
+        >
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {imageProducts.map((productId) => (
+              <SolarImageCard
+                key={productId}
+                productId={productId}
+                onOpen={(selected, animation) =>
+                  setModal({ kind: animation ? "animation" : "image", productId: selected })
+                }
+              />
+            ))}
+          </div>
+        </SolarDisclosure>
+
+        <footer className="rounded-2xl border border-white/10 bg-black/15 px-5 py-4 text-xs leading-5 text-slate-500">
+          Measurements and official forecasts are supplied by NOAA SWPC, NASA SDO, NASA DONKI, and Kyoto WDC products. “Observed,” “estimated,” “predicted,” and “general guidance” are deliberately kept distinct throughout this page.
+        </footer>
+      </div>
+
+      <SolarModalHost modal={modal} onClose={() => setModal(null)} />
+    </main>
+  );
+}
+
+function SolarModalHost({ modal, onClose }: { modal: ModalState; onClose: () => void }) {
+  if (!modal) return null;
+  if (modal.kind === "alert") {
+    return (
+      <AccessibleDialog open onClose={onClose} title={modal.alert.title} description={`Official SWPC ${modal.alert.severity} · issued ${formatUtc(modal.alert.issued_at)}`} size="lg">
+        <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-300">{modal.alert.message}</pre>
+      </AccessibleDialog>
+    );
+  }
+  if (modal.kind === "metric") {
+    const content = {
+      kp: ["Planetary Kp", "NOAA’s official three-hour product separates observed, estimated, and predicted intervals. Kp 5 or higher corresponds to geomagnetic storm levels; a minute estimate is never relabeled as a three-hour forecast."],
+      sfi: ["10.7 cm solar flux", "Observed 2.8 GHz radio flux is a broad proxy for solar EUV output. It helps describe global ionization, but station, target, path, band, season, and local time are still required for a path forecast."],
+      bz: ["Interplanetary magnetic field Bz", "Southward Bz can couple more efficiently with Earth’s magnetic field. A brief negative sample is context—not a forecast—and By/Bt gaps do not erase a usable Bz observation."],
+      xray: ["GOES long X-ray channel", "Radio-blackout context uses the exact 0.1–0.8 nm channel. C, M, and X classifications are derived from that validated channel; a missing channel remains unavailable rather than becoming zero."],
+    } as const;
+    return (
+      <AccessibleDialog open onClose={onClose} title={content[modal.metric][0]} description="How this observation is selected and how to interpret it" size="md">
+        <p className="text-sm leading-7 text-slate-300">{content[modal.metric][1]}</p>
+      </AccessibleDialog>
+    );
+  }
+  const product = SOLAR_IMAGE_PRODUCTS[modal.productId];
+  if (modal.kind === "animation" && product.animation) {
+    return (
+      <AccessibleDialog open onClose={onClose} title={`${product.title} timeline`} description={`${product.description} Frames load only while this dialog is open.`} size="xl">
+        <Suspense fallback={<p role="status" className="py-12 text-center text-sm text-slate-400">Loading timeline controls…</p>}>
+          <SolarAnimationPlayer animationId={product.animation} thumbnailProductId={modal.productId} alt={product.alt} />
+        </Suspense>
+      </AccessibleDialog>
+    );
+  }
+  return (
+    <AccessibleDialog open onClose={onClose} title={product.title} description={product.description} size="xl">
+      <SolarImageDetail productId={modal.productId} />
+    </AccessibleDialog>
   );
 }

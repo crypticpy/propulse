@@ -152,11 +152,11 @@ function XIcon({ className }: { className?: string }) {
 const MAIN_VIEWS: string[][] = [
   [
     "Dashboard Hub",
-    "Real-time solar conditions, band-by-band propagation, K-index/A-index/flux/Bz charts, DX cluster pulse, operating predictions",
+    "Current solar conditions, band-by-band propagation, official Kp and observed flux/Bz context, DX cluster pulse, operating predictions",
   ],
   [
     "Solar Pulse",
-    "Solar flux, K-index, magnetometer, aurora probability, flare forecasts, event alerts, draggable panels",
+    "Source-attributed Kp, solar flux, Bz, X-ray, official forecasts, event alerts, stable scientific imagery, and explicit outage states",
   ],
   [
     "PropSphere Globe",
@@ -177,10 +177,10 @@ const CATEGORIES: FeatureCategory[] = [
         pro: "Full access + per-station ML models",
       },
       {
-        feature: "Band Planner (24h forecast)",
+        feature: "Band Planner (24h projection)",
         noAccount: "Full access, local only",
         free: "Full access, cloud-synced",
-        pro: "Full access + extended forecasts",
+        pro: "Full access + extended projections",
       },
       {
         feature: "LogBook (QSO logging)",

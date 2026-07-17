@@ -18,6 +18,7 @@ export function ConnectionsSection() {
 
   const {
     send: bridgeSend,
+    sendRequest: bridgeSendRequest,
     connected: bridgeConnected,
     lastMessage,
   } = useBridge({
@@ -51,6 +52,7 @@ export function ConnectionsSection() {
         </p>
         <CATSettings
           bridgeSend={bridgeSend}
+          bridgeSendRequest={bridgeSendRequest}
           bridgeConnected={bridgeConnected}
           bridgeEnabled={!!bridgeEnabled}
           onBridgeEnabledChange={(enabled) =>

@@ -1,0 +1,435 @@
+{
+  "audit": {
+    "title": "Solar Weather Product, Reliability, and Architecture Audit",
+    "as_of": "2026-07-15",
+    "scope": [
+      "Solar Pulse desktop and mobile layouts",
+      "Solar widgets, charts, modals, imagery, and user-facing copy",
+      "Solar data hooks, caching, freshness, status, and failure behavior",
+      "Vercel-style solar API handlers and local Vite proxy parity",
+      "Build, lint, test, bundle, and local runtime behavior"
+    ],
+    "method": "Static source review, desktop and mobile browser inspection, live local NOAA proxy probes, production build analysis, lint, and repository test execution.",
+    "limitations": "No production CDN logs, field performance telemetry, paid-provider cost data, synthetic uptime history, or multi-browser assistive-technology study was available. Local Vite proxy responses were used to validate upstream ordering and development parity; serverless handlers were reviewed statically."
+  },
+  "summary": {
+    "finding_count": 30,
+    "severity_counts": {
+      "Critical": 5,
+      "High": 9,
+      "Medium": 14,
+      "Low": 2
+    },
+    "domain_counts": {
+      "Data correctness": 5,
+      "Reliability and caching": 7,
+      "Architecture and backend": 5,
+      "Performance and mobile": 6,
+      "UX, content, and accessibility": 6,
+      "Testing and observability": 1
+    }
+  },
+  "measurements": {
+    "source": {
+      "solar_page_loc": 1854,
+      "mobile_page_loc": 574,
+      "top_level_solar_component_loc": 6908,
+      "solar_api_handler_count": 12,
+      "solar_api_handler_loc": 1251,
+      "targeted_solar_test_files": 0
+    },
+    "desktop_runtime": {
+      "viewport": "1272x720",
+      "page_height_px": 4907,
+      "section_count": 11,
+      "svg_count": 68,
+      "image_count": 6,
+      "failed_images": 1
+    },
+    "mobile_runtime": {
+      "viewport": "390x844",
+      "accordion_count": 9,
+      "default_open_section_height_px": 732,
+      "svg_count_in_dom_with_sections_collapsed": 58
+    },
+    "build": {
+      "lint": "pass",
+      "build": "pass with chunk-size warning",
+      "tests": "7 pass, all in one radio subsystem test file",
+      "solar_route_js_kb": 127.71,
+      "main_index_js_kb": 1021.79,
+      "main_index_gzip_kb": 276.57,
+      "pwa_precache_kib": 7853.11
+    },
+    "development_payloads": [
+      { "endpoint": "magnetometer", "bytes": 1528297, "seconds": 0.227 },
+      { "endpoint": "protons", "bytes": 242380, "seconds": 0.355 },
+      { "endpoint": "xray", "bytes": 163485, "seconds": 0.134 },
+      { "endpoint": "sunspots", "bytes": 127274, "seconds": 0.243 },
+      { "endpoint": "cme", "bytes": 110371, "seconds": 2.557 },
+      { "endpoint": "k-index", "bytes": 27925, "seconds": 0.063 },
+      { "endpoint": "drap", "bytes": 24923, "seconds": 0.071 },
+      { "endpoint": "flux", "bytes": 22659, "seconds": 0.257 },
+      { "endpoint": "probabilities", "bytes": 9120, "seconds": 0.137 },
+      { "endpoint": "dst", "bytes": 7487, "seconds": 0.109 }
+    ]
+  },
+  "findings": [
+    {
+      "id": "SW-001",
+      "severity": "Critical",
+      "domain": "Data correctness",
+      "finding": "The current Solar Flux Index is selected from the oldest end of a newest-first NOAA feed.",
+      "evidence": "On 2026-07-15 the feed's first row was 2026-07-15 17:00 with flux 100, while its last row was 2026-06-04 17:00 with flux 151. useSolarFlux slices the final 30 rows and SolarPulse treats the final row as current.",
+      "impact": "The headline SFI, 30-day chart, propagation index, band recommendations, summaries, and solar-cycle comparison can be driven by data roughly six weeks old while appearing live.",
+      "strategy": "Normalize every time series at the API boundary: validate timestamps, sort ascending, de-duplicate, bound by a time window, and explicitly return latestObservedAt. Add a fixture test for newest-first input.",
+      "phase": "Now",
+      "effort": "S"
+    },
+    {
+      "id": "SW-002",
+      "severity": "Critical",
+      "domain": "Data correctness",
+      "finding": "Flare probabilities select the oldest forecast in NOAA's newest-first response.",
+      "evidence": "The 2026-07-15 response started with the July 15 forecast (55/10/1 percent) and ended with June 16 (80/15/1 percent). fetchProbabilities selects data[data.length - 1].",
+      "impact": "The page can show month-old flare and proton-event probabilities as today's forecast.",
+      "strategy": "Select by maximum parsed forecast date, validate required fields and 0-100 ranges, and expose the forecast issue date beside the widget.",
+      "phase": "Now",
+      "effort": "S"
+    },
+    {
+      "id": "SW-003",
+      "severity": "Critical",
+      "domain": "Data correctness",
+      "finding": "The Bz pipeline retains the oldest hour from a newest-first 24-hour magnetometer feed.",
+      "evidence": "The inspected RTSW response began at 2026-07-15 17:56 and ended at 2026-07-14 18:01. useMagnetometer calls slice(-60), and SolarPulse reverses that subset before choosing a value.",
+      "impact": "The primary Bz metric, storm interpretation, propagation score, and Bz chart can lag by about a day during fast-changing space weather.",
+      "strategy": "Sort by time once at the edge, select a real last-hour window, filter invalid samples without changing order, and assert the returned latest timestamp is within the source freshness budget.",
+      "phase": "Now",
+      "effort": "S"
+    },
+    {
+      "id": "SW-004",
+      "severity": "Critical",
+      "domain": "Data correctness",
+      "finding": "Kp and A-index widgets label one-minute samples as a 24-hour, three-hour-grain history and manufacture a '3hr Forecast'.",
+      "evidence": "The K endpoint uses planetary_k_index_1m.json. The hook retains 24 minutes; KIndexChart retains eight minutes but comments and labels them as eight three-hour intervals. Its forecast is the rounded average of the last two one-minute observations. AIndexChart converts those same eight points to ap-equivalents and presents them as A-index history.",
+      "impact": "Charts are scientifically misleading, repeated hourly labels are visually wrong, and users may act on a value that is neither a three-hour Kp forecast nor a daily A-index.",
+      "strategy": "Use NOAA's official three-hour observed/predicted Kp products or aggregate one-minute estimates into honest bins. Remove the pseudo-forecast immediately. Label derived ap values as estimates and source the daily A-index separately.",
+      "phase": "Now",
+      "effort": "M"
+    },
+    {
+      "id": "SW-005",
+      "severity": "Critical",
+      "domain": "Data correctness",
+      "finding": "The proton storm card reads the final mixed-energy row, which is the >=60 MeV channel, while applying NOAA S-scale thresholds defined for >=10 MeV.",
+      "evidence": "The integral-protons feed contains multiple energy channels per timestamp; the inspected final row was energy >=60 MeV. The API slices the final 60 mixed rows and SolarPulse uses the final row as latestProton.",
+      "impact": "Solar radiation storm classification can be materially understated or otherwise wrong.",
+      "strategy": "Filter energy === '>=10 MeV' at the server, sort by timestamp, return a typed bounded series, and test thresholds with multi-channel fixtures.",
+      "phase": "Now",
+      "effort": "S"
+    },
+    {
+      "id": "SW-006",
+      "severity": "High",
+      "domain": "Reliability and caching",
+      "finding": "The page freshness label represents query/cache resolution time, not the observation time of the displayed data.",
+      "evidence": "fetchFromProxy can resolve immediately from IndexedDB, after which TanStack Query updates dataUpdatedAt. SolarPulse then takes Math.max across five queries, allowing the newest cache read to hide the oldest source.",
+      "impact": "'Updated just now' can accompany stale observations and gives false confidence during outages or cache reuse.",
+      "strategy": "Adopt a data envelope with observedAt, fetchedAt, cacheStoredAt, ageMs, source, and stale state. Show per-widget age and use the oldest required input for aggregate freshness.",
+      "phase": "Now",
+      "effort": "M"
+    },
+    {
+      "id": "SW-007",
+      "severity": "High",
+      "domain": "Reliability and caching",
+      "finding": "The client cache is fresh-or-nothing; it discards usable last-good data precisely when outage resilience is needed.",
+      "evidence": "getCachedResponse returns null after the soft TTL and clearExpiredCache deletes expired entries. fetchFromProxy has no stale-on-network-error branch. Most edge responses use stale-while-revalidate but not stale-if-error.",
+      "impact": "A temporary NOAA, NASA, network, or edge failure turns widgets into errors even when a recent valid snapshot exists locally.",
+      "strategy": "Use two horizons per source: soft freshness and hard usability. Revalidate after soft TTL, serve last-good data on error until the hard TTL, and visibly mark it stale. This can use existing edge CDN plus bounded IndexedDB/Cache Storage without a paid cache service.",
+      "phase": "Next",
+      "effort": "M"
+    },
+    {
+      "id": "SW-008",
+      "severity": "High",
+      "domain": "Reliability and caching",
+      "finding": "Five operational feeds bypass the resilient query/proxy/cache path and have coupled or incomplete failure behavior.",
+      "evidence": "NOAA scales, alerts, latest X-ray flare, solar-wind magnetometer, and solar-wind plasma are direct browser fetches. They lack IndexedDB fallback and shared timeout/schema policy. Magnetometer and plasma are fetched sequentially in one try/catch, so failure of the second marks both failed and prevents partial success.",
+      "impact": "Outage behavior varies by widget, browser CORS and rate limits leak into the product, and one upstream problem can disable multiple cards.",
+      "strategy": "Route all solar feeds through one server/client gateway and one React Query policy. Fetch independent sources independently, preserve partial success, and share validation, timeout, retry, cache, and provenance rules.",
+      "phase": "Next",
+      "effort": "L"
+    },
+    {
+      "id": "SW-009",
+      "severity": "High",
+      "domain": "UX, content, and accessibility",
+      "finding": "Several missing/error states are rendered as valid quiet conditions.",
+      "evidence": "PrimaryMetrics defaults missing A-index to 0/Quiet; FlareProbability receives four zeroes when data is absent; the alerts panel maps a failed/undefined query to an empty array and says no ham-relevant alerts.",
+      "impact": "Users receive false all-clear signals instead of an honest unavailable or stale state.",
+      "strategy": "Use a shared widget state machine: loading, fresh, stale, partial, unavailable, and error. Keep null distinct from zero and empty-success distinct from failed fetch.",
+      "phase": "Now",
+      "effort": "M"
+    },
+    {
+      "id": "SW-010",
+      "severity": "High",
+      "domain": "Reliability and caching",
+      "finding": "Solar imagery is force-refetched every minute with a new query key, and its fallback implementation cannot reliably recover.",
+      "evidence": "imageTick changes all six image URLs every 60 seconds, including the proxied SDO URL with a five-minute edge TTL. Each onError imperatively hides the image and appends a new div; a later successful source does not restore display and repeated failures can append duplicates.",
+      "impact": "CDN/browser hit rates fall, bandwidth and origin pressure rise, and a transient image error can leave a permanently broken tile for the session.",
+      "strategy": "Use stable proxy URLs with ETag/Last-Modified revalidation and per-product TTLs. Replace DOM mutation with a declarative image state component that can retry and recover, and include observation age.",
+      "phase": "Now",
+      "effort": "M"
+    },
+    {
+      "id": "SW-011",
+      "severity": "High",
+      "domain": "Architecture and backend",
+      "finding": "Most solar API handlers have no upstream deadline and no runtime schema validation.",
+      "evidence": "The handlers generally call fetch and cast response.json; only the SDO image sets an eight-second abort. Parsers can return 200 with empty or partially invalid results, and a hung upstream can occupy the request and client retry cycle.",
+      "impact": "Provider format changes, malformed payloads, and slow connections can produce silent corruption, long skeletons, retry amplification, or expensive edge execution.",
+      "strategy": "Centralize fetchUpstream with AbortSignal.timeout, content-type and size bounds, Zod schemas, nonempty checks, typed upstream errors, and consistent cache/error headers.",
+      "phase": "Next",
+      "effort": "L"
+    },
+    {
+      "id": "SW-012",
+      "severity": "High",
+      "domain": "Architecture and backend",
+      "finding": "Local development does not faithfully exercise two important production endpoints.",
+      "evidence": "The /api/solar/flux proxy is declared before /api/solar/flux-forecast, so the longer route is shadowed and returned the flux JSON payload. /api/solar/sdo-image has no dev proxy and returned the Vite SPA JavaScript fallback as a 200 response.",
+      "impact": "The forecast and SDO widget are broken locally, and production-only transforms are not validated during normal development.",
+      "strategy": "Replace prefix-sensitive proxy entries with exact middleware routes or order longest paths first, implement SDO parity, and add a contract smoke test for every /api/solar route in dev and serverless mode.",
+      "phase": "Now",
+      "effort": "S"
+    },
+    {
+      "id": "SW-013",
+      "severity": "High",
+      "domain": "Performance and mobile",
+      "finding": "The mobile layout hides features visually but still performs their work, and collapsed accordions still mount their complete widget trees.",
+      "evidence": "Desktop-only direct effects and alerts execute before the mobile early return. MobileSolarPulse also creates proton, Dst, and forecast observers already created by its parent. Native details elements always render children; with sections collapsed, 58 SVGs, charts, a table, and cards remained in the DOM.",
+      "impact": "Mobile users pay network, parsing, memory, and render cost for content they may never reveal.",
+      "strategy": "Move data ownership into a shared solar model, conditionally enable queries by visible product tier, and implement render-on-first-expand accordion panels. Lazy-mount the one active modal.",
+      "phase": "Next",
+      "effort": "L"
+    },
+    {
+      "id": "SW-014",
+      "severity": "High",
+      "domain": "Reliability and caching",
+      "finding": "The page-wide Refresh control only refreshes five core numeric feeds.",
+      "evidence": "refetchAllSolar triggers Kp, SFI, probabilities, sunspots, and magnetometer; it does not refresh expanded feeds, alerts, direct operational feeds, CME, forecast, or imagery.",
+      "impact": "The control promises broader recovery than it performs and can leave visibly stale or failed widgets unchanged.",
+      "strategy": "Either rename it 'Refresh core metrics' or implement a registry-driven refresh of all visible widgets with per-source progress and rate-limit awareness.",
+      "phase": "Now",
+      "effort": "S"
+    },
+    {
+      "id": "SW-015",
+      "severity": "Medium",
+      "domain": "Architecture and backend",
+      "finding": "SolarPulse is a 1,854-line orchestration monolith with duplicated desktop/mobile derivation and modal state.",
+      "evidence": "The page mixes polling, parsing, source status, derived science metrics, responsive branching, image lifecycle, copy, layout, and fourteen modal/open states. Top-level solar components add 6,908 lines, while MobileSolarPulse duplicates expanded hooks and calculations.",
+      "impact": "Correctness fixes must be repeated, review surface is large, and widget-level testing and replacement are difficult.",
+      "strategy": "Introduce a typed widget registry, source policy registry, useSolarModel selector layer, reusable WidgetShell, and a single modal host. Keep pages declarative and responsive layouts data-agnostic.",
+      "phase": "Next",
+      "effort": "XL"
+    },
+    {
+      "id": "SW-016",
+      "severity": "Medium",
+      "domain": "Architecture and backend",
+      "finding": "Twelve solar handlers repeat fetch, CORS, cache, and error boilerplate without consistent method handling.",
+      "evidence": "Most handlers duplicate getAllowedOrigin and response construction, advertise GET/OPTIONS, but do not explicitly handle OPTIONS or reject unsupported methods. Cache windows and error semantics are scattered.",
+      "impact": "Policy changes are error-prone and endpoints drift in subtle ways.",
+      "strategy": "Create a small edge handler factory for GET/OPTIONS, origin policy, fetch deadline, validation, cache policy, rate-limit metadata, and structured errors. Keep provider-specific parsing in isolated adapters.",
+      "phase": "Next",
+      "effort": "L"
+    },
+    {
+      "id": "SW-017",
+      "severity": "Medium",
+      "domain": "Performance and mobile",
+      "finding": "Several development endpoints download and cache far more history and fields than widgets use.",
+      "evidence": "Measured raw responses included magnetometer 1,528,297 bytes, protons 242,380, X-ray 163,485, sunspots 127,274, and CME 110,371. The client often slices only after download and IndexedDB write; production magnetometer still maps the full RTSW payload.",
+      "impact": "First render, parsing, storage, and repeated polling cost are unnecessarily high, particularly on mobile.",
+      "strategy": "Filter fields/channels, sort, and bound by time window at the edge. Return compact versioned envelopes and gzip/Brotli-friendly JSON. Establish per-endpoint byte budgets.",
+      "phase": "Next",
+      "effort": "M"
+    },
+    {
+      "id": "SW-018",
+      "severity": "Medium",
+      "domain": "Performance and mobile",
+      "finding": "The information architecture is visually polished but excessively dense on desktop and redundant above the fold on mobile.",
+      "evidence": "The audited desktop page was 4,907 px tall with 11 sections and 68 SVGs. On 390x844 mobile, the compact SFI/Kp/Bz strip is immediately followed by a default-open 732 px metric section repeating those values.",
+      "impact": "Users must scan too much undifferentiated detail to answer the primary question: what is actionable now, and how trustworthy is it?",
+      "strategy": "Lead with an actionable status strip, source health, and top changes; group deeper science into Current, Forecast, Impacts, and Imagery tabs/accordions. Remove duplicate mobile metrics and remember expansion state.",
+      "phase": "Later",
+      "effort": "L"
+    },
+    {
+      "id": "SW-019",
+      "severity": "Medium",
+      "domain": "Performance and mobile",
+      "finding": "AnimationModal front-loads too many images and has race, retry, memory, and keyboard-focus weaknesses.",
+      "evidence": "It preloads 30 frames concurrently without timeout/abort, marks failed frames as preloaded, retains its image map until unmount, and rebuilds preload callbacks from mutable Set state. The global Space handler can intercept controls, and no focus trap or focus restoration is implemented.",
+      "impact": "Opening an animation can create a bandwidth spike, retain memory, fail permanently after transient errors, and degrade keyboard accessibility.",
+      "strategy": "Load the manifest on demand, preload 2-4 adjacent frames with bounded concurrency and abort, use a retryable cache, cap memory, and adopt the shared accessible dialog/focus primitive.",
+      "phase": "Later",
+      "effort": "M"
+    },
+    {
+      "id": "SW-020",
+      "severity": "Medium",
+      "domain": "Performance and mobile",
+      "finding": "The application shell and PWA precache are large enough to undermine the route's otherwise reasonable code split.",
+      "evidence": "The production build passed but warned about a 1,021.79 kB main index chunk (276.57 kB gzip). The SolarPulse route chunk was 127.71 kB, CSS was 194.55 kB, and the service worker precached 7,853.11 KiB across 111 entries.",
+      "impact": "Cold starts, updates, storage use, and low-bandwidth installs are heavier than needed for a frequently refreshed data page.",
+      "strategy": "Set bundle and precache budgets, inspect route dependency leakage, lazy-load heavy secondary panels/modals, and exclude nonessential route assets from install-time precache in favor of runtime caching.",
+      "phase": "Later",
+      "effort": "M"
+    },
+    {
+      "id": "SW-021",
+      "severity": "Medium",
+      "domain": "UX, content, and accessibility",
+      "finding": "Propagation guidance is written as path-specific certainty even though it is based on global indices and a fixed UTC day/night rule.",
+      "evidence": "Copy says 'excellent HF propagation expected' and bands 'should be open.' getBestBands treats 06:00-18:00 UTC as daytime for every user and does not use station, target path, season, local solar time, mode, noise, or real-world openings.",
+      "impact": "Advice can be wrong for the user's location and path while sounding authoritative.",
+      "strategy": "Label this as a global heuristic, soften claims, state inputs and exclusions, and ask for station/target to offer path-aware guidance. Use local solar illumination when location is available.",
+      "phase": "Later",
+      "effort": "M"
+    },
+    {
+      "id": "SW-022",
+      "severity": "Medium",
+      "domain": "UX, content, and accessibility",
+      "finding": "Two uncalibrated scoring systems are presented with model-like precision.",
+      "evidence": "Propagation Index is a hand-weighted 0-100 composite, including a neutral score when Bz is unknown. Propagation Confidence defaults to exactly 30 percent outside contests and describes that constant as based on analytical models.",
+      "impact": "Users may confuse UI heuristics with validated forecast probability or measured confidence.",
+      "strategy": "Rename to 'Global conditions score' and 'evidence coverage,' publish the formula and missing-input rules, remove false precision, and only use confidence terminology after calibration against outcomes.",
+      "phase": "Later",
+      "effort": "M"
+    },
+    {
+      "id": "SW-023",
+      "severity": "Medium",
+      "domain": "UX, content, and accessibility",
+      "finding": "Solar-cycle context is based on a static provisional series without an as-of label.",
+      "evidence": "The embedded Cycle 25 series ends at January 2026 SSN 135 and defines a provisional September 2024 peak of 175; the audit date is July 2026. The card shows a percentage of predicted peak as current context.",
+      "impact": "The cycle phase and percent-of-peak display age silently and can conflict with the live monthly sunspot feed.",
+      "strategy": "Derive current cycle context from the validated monthly feed, version any forecast baseline, and show provider and as-of date. Fall back to the embedded series only with a visible stale label.",
+      "phase": "Later",
+      "effort": "S"
+    },
+    {
+      "id": "SW-024",
+      "severity": "Medium",
+      "domain": "UX, content, and accessibility",
+      "finding": "Loading and live status are coupled across unrelated widgets.",
+      "evidence": "One isLoading OR combines five core queries and masks all primary metrics, summaries, and bands when any one source is slow. solarStore.isLive is controlled only by K-index success/error, regardless of other sources.",
+      "impact": "Available values disappear behind a global spinner, and overall status can say live when most widgets are degraded.",
+      "strategy": "Render each widget from its own required-input state, support partial data, and compute page health from the registry with criticality weights and per-source status.",
+      "phase": "Next",
+      "effort": "M"
+    },
+    {
+      "id": "SW-025",
+      "severity": "Medium",
+      "domain": "Reliability and caching",
+      "finding": "A promising source registry/status framework is only partially wired and does not actually track staleness.",
+      "evidence": "DataSourceStatus defines updateStaleness and the registry defines freshness/critical thresholds, but no production caller updates staleness. The store is runtime-only and widgets consume error status inconsistently.",
+      "impact": "The application cannot reliably distinguish fresh, stale, recovering, and failed sources despite having types for them.",
+      "strategy": "Make the registry executable policy: derive staleness from observedAt on a timer, persist last-good provenance with the cache entry, and give every widget the same status contract.",
+      "phase": "Next",
+      "effort": "M"
+    },
+    {
+      "id": "SW-026",
+      "severity": "Medium",
+      "domain": "Performance and mobile",
+      "finding": "Scientific imagery lacks trustworthy age/status metadata and is cropped for decoration.",
+      "evidence": "Tiles use object-cover, which can crop map legends and edges; they show badges such as Live or Animated without product timestamps. The failed SDO tile still retained a Live badge in the inspected page.",
+      "impact": "Users cannot judge whether a map is current and may miss scientifically important edges or legends.",
+      "strategy": "Use object-contain, show observation time/age and stale/unavailable status, retain legends, and expose source/coverage metadata. Prefer a shared SolarImageCard component.",
+      "phase": "Later",
+      "effort": "S"
+    },
+    {
+      "id": "SW-027",
+      "severity": "Medium",
+      "domain": "Testing and observability",
+      "finding": "There is no automated coverage for solar transforms, endpoints, caching, fallback behavior, or widgets.",
+      "evidence": "The repository test run passed seven tests in one radio subsystem file; targeted search found zero tests importing the core solar hooks or proxy client. Lint and build passed, but neither detects feed-order or semantic errors.",
+      "impact": "Provider ordering/format changes and outage-state regressions can ship unnoticed, as the current critical defects demonstrate.",
+      "strategy": "Add fixture contract tests for every provider adapter, cache/freshness state tests, failure-matrix component tests, endpoint smoke tests, and two browser journeys. Add synthetic endpoint age/shape monitoring in production.",
+      "phase": "Now",
+      "effort": "L"
+    },
+    {
+      "id": "SW-028",
+      "severity": "Medium",
+      "domain": "Reliability and caching",
+      "finding": "PWA resilience does not cover direct NOAA data and image products consistently.",
+      "evidence": "The service worker's API rule covers same-origin /api requests with one five-minute policy. Several operational JSON feeds and most images are fetched cross-origin and are not governed by that cache; the one policy also ignores each product's cadence.",
+      "impact": "Offline and degraded-network behavior differs by widget, while overlapping IndexedDB and service-worker caches make age harder to reason about.",
+      "strategy": "Proxy the required products, assign per-source runtime cache policies from the same registry, and define one owner for freshness versus transport fallback. Bound entries by bytes and hard TTL.",
+      "phase": "Later",
+      "effort": "M"
+    },
+    {
+      "id": "SW-029",
+      "severity": "Low",
+      "domain": "Architecture and backend",
+      "finding": "Multiple unused image/modal implementations remain exported alongside the active animation path.",
+      "evidence": "AnimatedImagePlayer and ImageModal are exported but have no consumers beyond the barrel; active behavior lives in AnimationModal and six page instances.",
+      "impact": "Duplicated patterns increase maintenance and review surface even if tree-shaken from the current route.",
+      "strategy": "Choose one image-viewer contract, migrate any remaining use cases, remove dead exports, and add component-level examples/tests.",
+      "phase": "Later",
+      "effort": "S"
+    },
+    {
+      "id": "SW-030",
+      "severity": "Low",
+      "domain": "UX, content, and accessibility",
+      "finding": "Secondary interactive charts, figures, and dialogs have inconsistent keyboard and accessible labeling details.",
+      "evidence": "Live-map figures with role=button respond to Enter but not Space, K chart labels repeat the same rounded hour for one-minute points, and AnimationModal lacks focus trapping/restoration while globally binding Space.",
+      "impact": "Keyboard and assistive-technology use is less predictable, and chart narration can be misleading.",
+      "strategy": "Use native buttons where possible, support Enter and Space consistently, provide unique timestamp labels, and standardize on the shared accessible dialog primitive.",
+      "phase": "Later",
+      "effort": "S"
+    }
+  ],
+  "roadmap": [
+    {
+      "phase": "Now — restore trust (0-2 weeks)",
+      "objective": "Stop displaying wrong or falsely reassuring data.",
+      "work": "Fix feed ordering and proton channel; remove pseudo Kp forecast/A-index claims; distinguish null/error/empty states; correct freshness; repair dev proxy parity; add provider fixtures and outage-state tests.",
+      "exit_criteria": "Every current value is selected by timestamp/channel, every aggregate states its data age, all critical findings have regression tests, and dev contracts match production."
+    },
+    {
+      "phase": "Next — durable data plane (2-6 weeks)",
+      "objective": "Make widgets survive provider and network failures cheaply.",
+      "work": "Create typed provider adapters and a shared gateway; add deadlines/schema validation; adopt soft/hard TTL envelopes and stale-on-error; proxy direct feeds; centralize widget status and refresh; bound server payloads.",
+      "exit_criteria": "A simulated outage serves last-good data with visible age, independent widgets degrade independently, and all solar endpoints meet shape/latency/byte budgets."
+    },
+    {
+      "phase": "Later — simplify and accelerate (6-12 weeks)",
+      "objective": "Reduce cognitive, rendering, bundle, and maintenance cost.",
+      "work": "Extract useSolarModel/widget registry/WidgetShell; redesign desktop and mobile hierarchy; render panels on demand; consolidate modal/image paths; tune bundle and PWA precache; calibrate or relabel heuristic scores and copy.",
+      "exit_criteria": "Mobile loads only visible essentials, the primary answer is visible in one screen, one widget contract governs states/images, and performance budgets pass on constrained devices."
+    },
+    {
+      "phase": "Operate — measure continuously",
+      "objective": "Detect provider drift and reliability regressions before users do.",
+      "work": "Track source observation age, validation failures, cache hit/stale-served rate, endpoint latency/bytes, widget unavailable rate, and Web Vitals; run synthetic feed-shape and page-state checks.",
+      "exit_criteria": "Source SLOs and alerts exist, provider schema drift pages the team, and product decisions use field performance and failure data."
+    }
+  ]
+}

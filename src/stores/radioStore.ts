@@ -11,6 +11,7 @@ export interface RadioStoreState {
   lastDaemonStatus: DaemonStatusMessage | null;
 
   reset: () => void;
+  markTransportDisconnected: () => void;
   setDevices: (devices: DeviceInfo[]) => void;
   setSelectedDeviceId: (deviceId: string | null) => void;
   setConnectedDeviceId: (deviceId: string | null) => void;
@@ -37,14 +38,39 @@ export const useRadioStore = create<RadioStoreState>()((set) => ({
       lastDaemonStatus: null,
     }),
 
-  setDevices: (devices) =>
+  markTransportDisconnected: () =>
     set((s) => ({
-      devices,
-      selectedDeviceId:
-        s.selectedDeviceId && devices.some((d) => d.device_id === s.selectedDeviceId)
-          ? s.selectedDeviceId
-          : devices[0]?.device_id ?? null,
+      connectedDeviceId: null,
+      radioStateById: Object.fromEntries(
+        Object.entries(s.radioStateById).map(([id, state]) => [
+          id,
+          { ...state, connected: false, ptt: false },
+        ]),
+      ),
     })),
+
+  setDevices: (devices) =>
+    set((s) => {
+      const deviceIds = new Set(devices.map((d) => d.device_id));
+      const connectedDeviceId =
+        s.connectedDeviceId && deviceIds.has(s.connectedDeviceId)
+          ? s.connectedDeviceId
+          : null;
+      return {
+        devices,
+        selectedDeviceId:
+          s.selectedDeviceId && deviceIds.has(s.selectedDeviceId)
+            ? s.selectedDeviceId
+            : connectedDeviceId ?? devices[0]?.device_id ?? null,
+        connectedDeviceId,
+        radioStateById: Object.fromEntries(
+          Object.entries(s.radioStateById).filter(([id]) => deviceIds.has(id)),
+        ),
+        smeterDbmById: Object.fromEntries(
+          Object.entries(s.smeterDbmById).filter(([id]) => deviceIds.has(id)),
+        ),
+      };
+    }),
 
   setSelectedDeviceId: (deviceId) => set({ selectedDeviceId: deviceId }),
   setConnectedDeviceId: (deviceId) => set({ connectedDeviceId: deviceId }),

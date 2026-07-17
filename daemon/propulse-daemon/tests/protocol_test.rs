@@ -35,6 +35,24 @@ async fn next_json(
   anyhow::bail!("WebSocket closed");
 }
 
+async fn response_for(
+  ws: &mut tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+  expected_id: &str,
+) -> anyhow::Result<serde_json::Value> {
+  tokio::time::timeout(Duration::from_secs(3), async {
+    loop {
+      let message = next_json(ws).await?;
+      if message.get("type").and_then(|value| value.as_str()) == Some("response")
+        && message.get("id").and_then(|value| value.as_str()) == Some(expected_id)
+      {
+        return Ok(message);
+      }
+    }
+  })
+  .await
+  .map_err(|_| anyhow::anyhow!("Timed out waiting for response {expected_id}"))?
+}
+
 #[tokio::test]
 async fn protocol_lifecycle_dummy_radio() -> anyhow::Result<()> {
   let port = pick_free_port();
@@ -76,6 +94,12 @@ async fn protocol_lifecycle_dummy_radio() -> anyhow::Result<()> {
   // Server hello
   let hello = next_json(&mut ws).await?;
   assert_eq!(hello.get("type").and_then(|v| v.as_str()), Some("hello"));
+  assert_eq!(hello.get("version").and_then(|v| v.as_str()), Some("1.1.0"));
+  let features = hello
+    .get("features")
+    .and_then(|value| value.as_array())
+    .expect("hello features");
+  assert!(features.iter().any(|value| value.as_str() == Some("command-capabilities")));
 
   // Enumerate
   ws.send(Message::Text(r#"{"id":"1","type":"devices:enumerate"}"#.into()))
@@ -98,6 +122,16 @@ async fn protocol_lifecycle_dummy_radio() -> anyhow::Result<()> {
   }
   let devices = devices.expect("devices:list");
   assert!(!devices.is_empty(), "expected at least one device (dummy)");
+  let capabilities = devices[0]
+    .get("capabilities")
+    .expect("device capabilities");
+  assert_eq!(
+    capabilities
+      .get("commands")
+      .and_then(|value| value.get("ptt"))
+      .and_then(|value| value.as_bool()),
+    Some(false),
+  );
   let device_id = devices[0]
     .get("device_id")
     .and_then(|v| v.as_str())
@@ -124,6 +158,42 @@ async fn protocol_lifecycle_dummy_radio() -> anyhow::Result<()> {
     }
   }
   assert!(connected, "expected radio to connect");
+
+  // Safety lockout must reject transmit before backend capability handling.
+  ws.send(Message::Text(
+    serde_json::json!({ "id": "safety-on", "type": "safety:configure", "ptt_lockout": true }).to_string(),
+  ))
+  .await?;
+  assert_eq!(
+    response_for(&mut ws, "safety-on")
+      .await?
+      .get("success")
+      .and_then(|value| value.as_bool()),
+    Some(true),
+  );
+
+  ws.send(Message::Text(
+    serde_json::json!({ "id": "ptt-blocked", "type": "radio:ptt", "device_id": device_id, "active": true }).to_string(),
+  ))
+  .await?;
+  let blocked = response_for(&mut ws, "ptt-blocked").await?;
+  assert_eq!(blocked.get("success").and_then(|value| value.as_bool()), Some(false));
+  assert!(blocked
+    .get("error")
+    .and_then(|value| value.as_str())
+    .is_some_and(|message| message.contains("lockout")));
+
+  ws.send(Message::Text(
+    serde_json::json!({ "id": "safety-off", "type": "safety:configure", "ptt_lockout": false }).to_string(),
+  ))
+  .await?;
+  assert_eq!(
+    response_for(&mut ws, "safety-off")
+      .await?
+      .get("success")
+      .and_then(|value| value.as_bool()),
+    Some(true),
+  );
 
   // Start FFT stream
   ws.send(Message::Text(
@@ -158,4 +228,3 @@ async fn protocol_lifecycle_dummy_radio() -> anyhow::Result<()> {
   let _ = server_task.await?;
   Ok(())
 }
-

@@ -204,12 +204,12 @@ export function useSolarAlerts(
   // SOLAR DATA QUERIES
   // =========================================================================
 
-  const kIndexQuery = useKIndex();
-  const magnetometerQuery = useMagnetometer();
-  const probabilitiesQuery = useProbabilities();
-  const xrayFluxQuery = useXrayFlux();
-  const protonFluxQuery = useProtonFlux();
-  const dstIndexQuery = useDstIndex();
+  const kIndexQuery = useKIndex(enabled);
+  const magnetometerQuery = useMagnetometer(enabled);
+  const probabilitiesQuery = useProbabilities(enabled);
+  const xrayFluxQuery = useXrayFlux(enabled);
+  const protonFluxQuery = useProtonFlux(enabled);
+  const dstIndexQuery = useDstIndex(enabled);
 
   // =========================================================================
   // USER PREFERENCES

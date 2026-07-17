@@ -407,7 +407,21 @@ export const useShackStore = create<ShackStore>()(
               (n) => !(n.type === "radio" && n.radioId === radioId),
             ),
           }));
-          return { radios: updatedRadios, activeRadioId, stationChains };
+          const stationPresets = state.stationPresets.filter(
+            (preset) => preset.radioId !== radioId,
+          );
+          const activePresetId = stationPresets.some(
+            (preset) => preset.id === state.activePresetId,
+          )
+            ? state.activePresetId
+            : null;
+          return {
+            radios: updatedRadios,
+            activeRadioId,
+            stationChains,
+            stationPresets,
+            activePresetId,
+          };
         });
 
         get()._addHistoryEntry({
@@ -527,6 +541,22 @@ export const useShackStore = create<ShackStore>()(
         const affectedRadioIds = get()
           .radios.filter((r) => r.equipmentId === id)
           .map((r) => r.id);
+        const affectedRadios = get().radios.filter((r) =>
+          affectedRadioIds.includes(r.id),
+        );
+
+        for (const radio of affectedRadios) {
+          if (radio.imageId) {
+            deleteImage(radio.imageId).catch(() => {
+              /* best-effort cleanup */
+            });
+          }
+          for (const galleryId of radio.galleryImageIds ?? []) {
+            deleteImage(galleryId).catch(() => {
+              /* best-effort cleanup */
+            });
+          }
+        }
 
         set((state) => {
           const nextCustom = (state.customRadios || []).filter(
@@ -552,12 +582,22 @@ export const useShackStore = create<ShackStore>()(
                 !(n.type === "radio" && affectedRadioIds.includes(n.radioId)),
             ),
           }));
+          const stationPresets = state.stationPresets.filter(
+            (preset) => !affectedRadioIds.includes(preset.radioId),
+          );
+          const activePresetId = stationPresets.some(
+            (preset) => preset.id === state.activePresetId,
+          )
+            ? state.activePresetId
+            : null;
 
           return {
             customRadios: nextCustom,
             radios: updatedRadios,
             activeRadioId,
             stationChains,
+            stationPresets,
+            activePresetId,
           };
         });
 

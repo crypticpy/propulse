@@ -102,15 +102,15 @@ function getCategoryLabel(
 ): string {
   switch (category) {
     case "excellent":
-      return "Excellent";
+      return "Strongly supportive";
     case "good":
       return "Good";
     case "fair":
-      return "Fair";
+      return "Mixed";
     case "poor":
-      return "Poor";
+      return "Disrupted";
     case "very-poor":
-      return "Very Poor";
+      return "Severely disrupted";
   }
 }
 
@@ -121,7 +121,6 @@ function getOperatingTip(
   sfi: number,
   kp: number,
   bz: number | null,
-  hour: number,
   score: number,
 ): { tip: string; audience: string } {
   // For storm conditions — check both Kp and Bz
@@ -142,15 +141,7 @@ function getOperatingTip(
   // High flux conditions
   if (sfi >= 150 && score >= 60) {
     return {
-      tip: "Excellent for 10m/15m SSB DX - work the high bands!",
-      audience: "dx",
-    };
-  }
-
-  // Greyline opportunities
-  if ((hour >= 5 && hour <= 7) || (hour >= 17 && hour <= 19)) {
-    return {
-      tip: "Greyline window - enhanced long-path propagation",
+      tip: "Global ionization is supportive; use the path results below to choose a band",
       audience: "dx",
     };
   }
@@ -163,24 +154,8 @@ function getOperatingTip(
     };
   }
 
-  // Nighttime
-  if (hour >= 22 || hour < 6) {
-    return {
-      tip: "Night mode - 40m/80m/160m are open for DX",
-      audience: "dx",
-    };
-  }
-
-  // Daytime
-  if (hour >= 10 && hour < 16) {
-    return {
-      tip: "Peak daytime - 20m/17m/15m should be productive",
-      audience: "all",
-    };
-  }
-
   return {
-    tip: "Stable conditions - check the forecast for peak times",
+    tip: "Use the station-to-target result; global indices alone cannot establish an opening",
     audience: "beginner",
   };
 }
@@ -268,14 +243,14 @@ export function SolarSnapshot({
   // Extract current values with defaults
   const currentKp = useMemo(() => {
     if (!kIndexData || kIndexData.length === 0) {
-      return 3;
+      return null;
     }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
     if (!solarFluxData || solarFluxData.length === 0) {
-      return 100;
+      return null;
     }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
@@ -295,12 +270,16 @@ export function SolarSnapshot({
 
   // Calculate propagation index
   const indexResult = useMemo(
-    () => calculatePropagationIndex(currentSfi, currentKp, currentBz),
+    () =>
+      currentSfi !== null && currentKp !== null
+        ? calculatePropagationIndex(currentSfi, currentKp, currentBz)
+        : null,
     [currentSfi, currentKp, currentBz],
   );
 
   // Get band recommendations
   const recommendations = useMemo<PropagationRecommendations | null>(() => {
+    if (currentKp === null || currentSfi === null) return null;
     return getRecommendations(
       homeLat,
       homeLon,
@@ -322,14 +301,16 @@ export function SolarSnapshot({
   ]);
 
   // Check storm risk conditions
-  const hasStormRisk = currentKp >= 5 || (currentBz !== null && currentBz < -5);
+  const hasStormRisk =
+    (currentKp !== null && currentKp >= 5) ||
+    (currentBz !== null && currentBz < -5);
 
   // Get greyline status for home location
   const greylineStatus = useMemo(() => {
     return getGreylineStatus(homeLat, homeLon, displayTime);
   }, [homeLat, homeLon, displayTime]);
 
-  const scoreColor = getScoreColor(indexResult.score);
+  const scoreColor = indexResult ? getScoreColor(indexResult.score) : "#888899";
   const optimal = recommendations?.optimal ?? null;
   const mode = recommendations?.mode ?? null;
 
@@ -356,13 +337,19 @@ export function SolarSnapshot({
     );
   }
 
+  if (!indexResult || currentKp === null || currentSfi === null) {
+    return (
+      <div className={`${className} h-full flex items-center justify-center text-gray-400 text-xs`}>
+        Current solar observations are unavailable
+      </div>
+    );
+  }
+
   // Get operating tip
-  const currentHour = displayTime.getUTCHours();
   const operatingTip = getOperatingTip(
     currentSfi,
     currentKp,
     currentBz,
-    currentHour,
     indexResult.score,
   );
 

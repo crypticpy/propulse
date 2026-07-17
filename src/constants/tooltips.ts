@@ -8,13 +8,13 @@
 // ─── Solar & Geomagnetic Metrics ──────────────────────────────────────────
 
 export const SOLAR_TOOLTIPS = {
-  sfi: "Solar Flux Index — measures 10.7 cm radio emissions from the sun (70-300+ sfu). Higher values indicate better HF propagation.",
+  sfi: "10.7 cm solar flux — an observed global proxy for solar EUV output, measured in sfu. A path forecast still needs both stations, time, and frequency.",
   kIndex:
     "K-index — geomagnetic disturbance on a 0-9 scale. Lower is better: 0-2 quiet, 3-4 unsettled, 5+ storm conditions.",
   aIndex:
-    "A-index — 24-hour average of geomagnetic activity (0-400). Derived from K-index; below 10 is quiet.",
+    "Planetary A — a daily geomagnetic measure. Propulse shows NOAA’s official predicted value in forecast context; Kp conversions are labelled estimated ap-equivalent.",
   bz: "Bz — vertical component of the interplanetary magnetic field (nT). Negative Bz can trigger geomagnetic storms.",
-  ssn: "Sunspot Number — daily count of visible sunspots. Correlates with solar flux and HF propagation quality.",
+  ssn: "Sunspot Number — monthly observed international sunspot number used for solar-cycle context; it is not a minute-level condition.",
   solarWind:
     "Solar Wind Speed — velocity of charged particles from the sun (km/s). High speeds can disturb the ionosphere.",
   protonFlux:
@@ -26,7 +26,7 @@ export const SOLAR_TOOLTIPS = {
   noaaScales:
     "NOAA Scales — R (radio blackouts), S (solar radiation), G (geomagnetic storms). Higher numbers = more severe impact.",
   liveMaps:
-    "Live Maps — real-time satellite imagery showing HF absorption, aurora activity, and solar surface features.",
+    "Current maps — timestamped NOAA/NASA imagery for HF absorption, aurora activity, and solar structure. Stale and unavailable products are labelled explicitly.",
 } as const;
 
 // ─── Propagation & Band Conditions ────────────────────────────────────────
@@ -46,11 +46,11 @@ export const PROPAGATION_TOOLTIPS = {
   f2Layer:
     "F2 Layer — primary ionospheric layer for HF propagation at 250-400 km altitude. Supports most DX contacts.",
   propagationIndex:
-    "Propagation Index — composite score (0-100) combining SFI, K-index, and Bz to summarize current HF conditions.",
+    "Global Conditions Score — an uncalibrated 0-100 heuristic using 40% SFI, 40% Kp, and 20% Bz when available. It is not a probability or path forecast.",
   bandCondition:
     "Band Condition — predicted signal quality for a band: Excellent, Good, Fair, Poor, or Closed.",
   forecastConfidence:
-    "Forecast Confidence — reliability of the propagation forecast. Drops during geomagnetic storms, southward IMF, or when solar data is unavailable.",
+    "Forecast evidence — a qualitative coverage label based on available inputs and disturbance. It is not a calibrated probability.",
 } as const;
 
 // ─── Signal & Measurement ─────────────────────────────────────────────────

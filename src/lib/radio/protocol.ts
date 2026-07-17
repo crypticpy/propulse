@@ -11,6 +11,27 @@ export interface GainStage {
   step: number;
 }
 
+export type RadioCommandCapability =
+  | "tune"
+  | "mode"
+  | "gain"
+  | "squelch"
+  | "agc"
+  | "antenna"
+  | "filter"
+  | "nr"
+  | "nb"
+  | "ptt"
+  | "vfo"
+  | "rit"
+  | "xit"
+  | "split"
+  | "anf"
+  | "qsk"
+  | "vox"
+  | "if_shift"
+  | "cw_speed";
+
 export interface RadioCapabilities {
   can_transmit: boolean;
   can_stream_iq: boolean;
@@ -21,6 +42,8 @@ export interface RadioCapabilities {
   frequency_range: [number, number];
   sample_rates: number[];
   gain_stages: GainStage[];
+  /** Optional command-level feature negotiation. Missing advanced flags are unsupported. */
+  commands?: Partial<Record<RadioCommandCapability, boolean>>;
 }
 
 export interface DeviceInfo {
@@ -81,6 +104,7 @@ export interface DaemonHelloMessage {
   type: "hello";
   version: string;
   daemon_id: string;
+  features?: string[];
 }
 
 export interface DaemonResponseMessage {

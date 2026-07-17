@@ -196,7 +196,7 @@ export function MobileBandPlanner({
           <div>
             <h1 className="text-lg font-bold text-white">Band Planner</h1>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              24-hour propagation forecasts
+              24-hour path projection
             </p>
           </div>
           <DataFreshnessIndicator
@@ -267,7 +267,7 @@ export function MobileBandPlanner({
               Southward IMF (Bz {currentBz?.toFixed(1)} nT)
             </div>
             <p className="text-[11px] text-gray-400 mt-0.5">
-              Conditions may degrade. Reduced forecast confidence.
+              Conditions may degrade, so the projection has weaker evidence.
             </p>
           </div>
         )}
@@ -368,7 +368,7 @@ export function MobileBandPlanner({
                 </div>
               ) : (
                 <p className="text-xs text-gray-500">
-                  No bands open on this path right now.
+                  The model does not identify a supported band for this hour.
                 </p>
               )}
             </Card>
@@ -414,7 +414,7 @@ export function MobileBandPlanner({
             {/* Band cards */}
             <div>
               <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-                24-Hour Forecast
+                24-Hour Projection
               </h3>
               <div className="space-y-2">
                 {BANDS.map((band) => {
@@ -516,7 +516,7 @@ export function MobileBandPlanner({
                 </div>
                 <div className="bg-white/[0.03] border border-white/10 rounded-lg p-2">
                   <div className="text-[10px] text-gray-500 mb-0.5">
-                    A-Index
+                    ap equivalent (estimated)
                   </div>
                   <div className="font-mono text-xs text-white">
                     {currentKp !== null ? kpToAp(currentKp) : "—"}
@@ -537,7 +537,7 @@ export function MobileBandPlanner({
         {!targetCoords && !isLoading && (
           <div className="text-center py-8">
             <p className="text-sm text-gray-500">
-              Enter a target grid square above to see the forecast.
+              Enter a target grid square above to see the projection.
             </p>
           </div>
         )}

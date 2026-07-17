@@ -4,8 +4,8 @@
     {
       "name": "App Entry",
       "pattern": "index-*.js",
-      "maxRawKb": 992,
-      "maxGzipKb": 275,
+      "maxRawKb": 850,
+      "maxGzipKb": 240,
       "required": true
     },
     {
@@ -44,10 +44,24 @@
       "required": true
     },
     {
+      "name": "Supabase Vendor",
+      "pattern": "vendor-supabase-*.js",
+      "maxRawKb": 220,
+      "maxGzipKb": 65,
+      "required": true
+    },
+    {
       "name": "Main CSS",
       "pattern": "index-*.css",
-      "maxRawKb": 190,
+      "maxRawKb": 200,
       "maxGzipKb": 32,
+      "required": true
+    },
+    {
+      "name": "SolarPulse Route",
+      "pattern": "SolarPulse-*.js",
+      "maxRawKb": 60,
+      "maxGzipKb": 18,
       "required": true
     },
     {
@@ -64,5 +78,10 @@
       "maxGzipKb": 280,
       "required": false
     }
-  ]
+  ],
+  "precache": {
+    "serviceWorker": "dist/sw.js",
+    "maxEntries": 15,
+    "maxTotalKiB": 2700
+  }
 }

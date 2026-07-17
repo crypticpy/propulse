@@ -7,415 +7,152 @@ import { HelpFAQ } from "@/components/help/HelpFAQ";
 export function DashboardSection() {
   return (
     <div className="space-y-6">
-      {/* Overview — no accordion */}
       <p className="text-sm leading-relaxed text-gray-300">
-        The Dashboard is your at-a-glance command center for HF propagation
-        conditions. It combines real-time solar data, band status, and DX
-        activity into a single view. Everything on this page updates
-        automatically so you can keep it open during an operating session and
-        always know the state of the ionosphere. For a deeper dive into the
-        underlying space weather data, see{" "}
-        <Link
-          to="/help/solar-pulse"
-          className="text-plasma-orange hover:underline"
-        >
+        The Dashboard combines source-aged solar observations, general band
+        guidance, and DX activity in one operational view. Solar cards preserve
+        the last validated observation during a bounded outage and label it
+        stale; they do not turn a missing value into zero. See{" "}
+        <Link to="/help/solar-pulse" className="text-plasma-orange hover:underline">
           Solar Pulse
-        </Link>
-        .
+        </Link>{" "}
+        for product-level provenance, official forecasts, and imagery.
       </p>
 
-      {/* Band Conditions */}
       <HelpAccordion
         id="band-conditions"
         title="Band Conditions"
-        summary="Real-time HF band status from 160 m through 10 m"
+        summary="General HF guidance from global Kp and solar-flux inputs"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
           <p>
-            The Band Conditions panel shows propagation status for the major HF
-            amateur bands:{" "}
-            <strong>
-              160 m, 80 m, 60 m, 40 m, 30 m, 20 m, 17 m, 15 m, 12 m,
-            </strong>{" "}
-            and <strong>10 m</strong>. Each band is assigned a color-coded
-            status based on the current K-Index and Solar Flux Index (SFI).
+            The panel groups the major amateur bands from 160 m through 10 m
+            into Good, Fair, and Poor categories. These are global heuristics,
+            not measured openings or station-to-station predictions.
           </p>
-
-          <ul className="list-disc list-inside space-y-1.5 pl-1">
-            <li>
-              <span className="text-green-400 font-semibold">Green (Good)</span>{" "}
-              — Strong propagation expected. SSB, CW, and digital modes should
-              all work well on this band.
-            </li>
-            <li>
-              <span className="text-yellow-400 font-semibold">
-                Yellow (Fair)
-              </span>{" "}
-              — Marginal conditions. CW and digital modes (FT8/FT4) will
-              outperform SSB. Patience may be rewarded.
-            </li>
-            <li>
-              <span className="text-red-400 font-semibold">Red (Poor)</span> —
-              Weak or unreliable propagation. Digital modes may still produce
-              contacts, but expect difficulty.
-            </li>
-            <li>
-              <span className="text-gray-400 font-semibold">Gray (Closed)</span>{" "}
-              — No propagation expected on this band under current conditions.
-            </li>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li><strong>Good:</strong> the available global inputs are supportive for that band.</li>
+            <li><strong>Fair:</strong> the inputs are mixed; weak-signal modes may be more practical.</li>
+            <li><strong>Poor:</strong> the inputs indicate elevated disruption or limited support.</li>
           </ul>
-
-          <p>
-            Status is computed by combining the current K-Index (geomagnetic
-            disturbance) with the Solar Flux Index (ionospheric ionization
-            level). Higher bands like 10 m and 12 m require stronger solar flux
-            to open, while lower bands like 80 m and 160 m are more affected by
-            geomagnetic disturbance.
-          </p>
-
           <HelpCallout type="tip">
-            Band conditions update every minute based on live K-Index data. If
-            you see a band flicker between statuses, geomagnetic conditions are
-            right on the boundary — try calling CQ and see what happens.
+            Actual results still depend on both endpoints, path illumination,
+            season, time, mode, antennas, and local noise. Check PropSphere or
+            observed spots before treating a category as an opening.
           </HelpCallout>
         </div>
       </HelpAccordion>
 
-      {/* Propagation Index */}
       <HelpAccordion
         id="propagation-index"
-        title="Propagation Index"
-        summary="Composite propagation quality score combining multiple solar parameters"
+        title="Global Conditions Score"
+        summary="Transparent, uncalibrated context—not a probability or path forecast"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
           <p>
-            The Propagation Index is a single composite score that summarizes
-            overall HF propagation quality. It synthesizes data from the Solar
-            Flux Index, K-Index, and IMF Bz component into one easy-to-read
-            gauge.
+            The score combines observed 10.7 cm solar flux (40%), planetary Kp
+            (40%), and IMF Bz (20% when available). Missing Bz does not receive
+            hidden neutral points. Evidence coverage states whether two or
+            three inputs contributed.
           </p>
-
-          <ul className="list-disc list-inside space-y-1.5 pl-1">
-            <li>
-              <strong>High values (green zone)</strong> — Excellent conditions.
-              High solar flux, low geomagnetic disturbance, and favorable IMF
-              orientation combine to produce reliable, strong propagation across
-              most bands.
-            </li>
-            <li>
-              <strong>Medium values (yellow zone)</strong> — Moderate
-              conditions. Some bands will be usable, but performance may be
-              inconsistent. Focus on the bands highlighted as "Good" in the Band
-              Conditions panel.
-            </li>
-            <li>
-              <strong>Low values (red zone)</strong> — Poor conditions. High
-              geomagnetic disturbance, low solar flux, or southward Bz are
-              suppressing propagation. Consider low-band or digital-mode
-              operation.
-            </li>
-          </ul>
-
           <p>
-            Click the Propagation Index card on the dashboard to expand a
-            detailed breakdown showing how each input parameter contributes to
-            the score.
+            High, medium, and low values mean globally supportive, mixed, or
+            disrupted inputs. The score has not been calibrated against contact
+            probability and intentionally avoids confidence language.
           </p>
         </div>
       </HelpAccordion>
 
-      {/* Primary Metrics */}
       <HelpAccordion
         id="primary-metrics"
         title="Primary Metrics"
-        summary="Key solar and geomagnetic measurements that drive propagation predictions"
+        summary="Observed Kp, SFI, monthly sunspots, and IMF Bz"
       >
-        <div className="space-y-5 text-sm text-gray-300 leading-relaxed">
-          {/* K-Index */}
-          <div>
-            <h4 className="text-white font-semibold mb-1.5">K-Index (Kp)</h4>
-            <p>
-              The planetary K-Index measures geomagnetic disturbance on a 0 to 9
-              scale. It is derived from magnetometer readings at observatories
-              worldwide and updated every minute from NOAA SWPC.
-            </p>
-            <ul className="list-disc list-inside space-y-1 pl-1 mt-2">
-              <li>
-                <strong>Kp 0-1:</strong> Quiet — Excellent HF propagation.
-                Stable ionosphere, predictable skip distances.
-              </li>
-              <li>
-                <strong>Kp 2-3:</strong> Unsettled — Good conditions for most
-                bands. Slight variations in signal strength possible.
-              </li>
-              <li>
-                <strong>Kp 4:</strong> Active — Fair conditions. High bands may
-                be degraded; low bands can still perform well.
-              </li>
-              <li>
-                <strong>Kp 5+:</strong> Storm — Poor to closed conditions.
-                Geomagnetic storm in progress. HF bands may be severely degraded
-                or blacked out.
-              </li>
-            </ul>
-            <p className="mt-2">
-              Higher Kp values mean more geomagnetic disturbance, which disrupts
-              the ionosphere and degrades HF propagation. The relationship is
-              inverse: as Kp goes up, propagation quality goes down.
-            </p>
-            <HelpCallout type="warning">
-              K-Index of 5 or higher indicates a geomagnetic storm. HF bands may
-              be severely degraded, especially on paths crossing high latitudes.
-            </HelpCallout>
-          </div>
-
-          {/* Solar Flux */}
-          <div>
-            <h4 className="text-white font-semibold mb-1.5">
-              Solar Flux Index (SFI)
-            </h4>
-            <p>
-              The 10.7 cm radio flux, measured in solar flux units (sfu), is the
-              primary indicator of solar activity affecting the ionosphere. It
-              directly correlates with the level of ionization in the F-layer,
-              which is responsible for long-distance HF propagation.
-            </p>
-            <ul className="list-disc list-inside space-y-1 pl-1 mt-2">
-              <li>
-                <strong>&lt; 70 sfu:</strong> Low solar activity — Only lower HF
-                bands (40 m and below) reliably open. 10 m and 12 m likely
-                closed.
-              </li>
-              <li>
-                <strong>70-120 sfu:</strong> Moderate — 20 m and 17 m open
-                reliably. 15 m may open during daylight peaks.
-              </li>
-              <li>
-                <strong>120-180 sfu:</strong> High — 15 m, 12 m, and 10 m open
-                during daylight hours. Excellent high-band DX potential.
-              </li>
-              <li>
-                <strong>&gt; 180 sfu:</strong> Very high — All bands open.
-                Worldwide propagation on 10 m possible. Peak solar cycle
-                conditions.
-              </li>
-            </ul>
-            <HelpCallout type="tip">
-              SFI above 120 usually means 10 m and 12 m will be wide open during
-              daylight hours. This is the time to chase rare DX on the high
-              bands.
-            </HelpCallout>
-          </div>
-
-          {/* Sunspot Number */}
-          <div>
-            <h4 className="text-white font-semibold mb-1.5">
-              Sunspot Number (SSN)
-            </h4>
-            <p>
-              The monthly International Sunspot Number tracks how many sunspots
-              are visible on the solar disk. Sunspots are regions of intense
-              magnetic activity that produce the ultraviolet and X-ray radiation
-              responsible for ionizing Earth's upper atmosphere.
-            </p>
-            <p className="mt-2">
-              Higher SSN correlates with higher SFI and better HF conditions.
-              The Sun follows an approximately 11-year cycle of activity. We are
-              currently in <strong>Solar Cycle 25</strong>, which began in
-              December 2019 and is progressing toward its maximum.
-            </p>
-          </div>
-
-          {/* A-Index */}
-          <div>
-            <h4 className="text-white font-semibold mb-1.5">A-Index</h4>
-            <p>
-              The A-Index is a 24-hour summary of geomagnetic activity, derived
-              from the K-Index using the standard Kp-to-Ap conversion table. It
-              provides a smoother, daily view of geomagnetic conditions compared
-              to the rapidly changing K-Index.
-            </p>
-            <ul className="list-disc list-inside space-y-1 pl-1 mt-2">
-              <li>
-                <strong>0-7:</strong> Quiet — Stable geomagnetic field.
-                Excellent day for HF.
-              </li>
-              <li>
-                <strong>8-15:</strong> Unsettled — Minor fluctuations. Most
-                bands unaffected.
-              </li>
-              <li>
-                <strong>16-29:</strong> Active — Noticeable degradation on
-                high-latitude paths and higher bands.
-              </li>
-              <li>
-                <strong>30+:</strong> Storm — Significant geomagnetic storm
-                activity. Expect band closures.
-              </li>
-            </ul>
-          </div>
-
-          {/* Bz */}
-          <div>
-            <h4 className="text-white font-semibold mb-1.5">
-              Bz (IMF Z-Component)
-            </h4>
-            <p>
-              Bz is the north-south component of the Interplanetary Magnetic
-              Field (IMF), measured in nanotesla (nT). It is one of the most
-              important real-time indicators for predicting geomagnetic storms
-              and HF propagation disruptions.
-            </p>
-            <ul className="list-disc list-inside space-y-1 pl-1 mt-2">
-              <li>
-                <strong>Positive (northward) Bz:</strong> The magnetosphere is
-                shielded from solar wind energy. Good for HF propagation.
-              </li>
-              <li>
-                <strong>Negative (southward) Bz:</strong> Energy from the solar
-                wind couples into Earth's magnetosphere, causing geomagnetic
-                disturbance and degrading HF conditions.
-              </li>
-            </ul>
-            <HelpCallout type="warning">
-              Bz below -5 nT often precedes geomagnetic storm conditions. If Bz
-              has been sustained below -10 nT for more than an hour, expect
-              K-Index to rise and HF conditions to deteriorate within 1-3 hours.
-            </HelpCallout>
-          </div>
-        </div>
-      </HelpAccordion>
-
-      {/* Activity Cards */}
-      <HelpAccordion
-        id="activity-cards"
-        title="Activity Cards"
-        summary="DX cluster spots, log statistics, predictions, and history at a glance"
-      >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
-          <div>
-            <h4 className="text-white font-semibold mb-1">Cluster Pulse</h4>
-            <p>
-              Displays a live count of DX spots from the worldwide DX cluster
-              network. This tells you how active the bands are right now — more
-              spots mean more stations are hearing and working DX. Click the
-              card to expand a detailed view with spot breakdowns by band and
-              mode.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-1">Log Stats</h4>
-            <p>
-              Shows your recent QSO statistics including contact counts, bands
-              worked, and modes used. This card reflects activity from your
-              station logbook, helping you track your operating patterns
-              alongside current conditions.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-1">Predictions</h4>
-            <p>
-              Displays upcoming propagation events, contest schedules, and other
-              relevant forecasts. Use this card to plan your operating sessions
-              around expected band openings and events.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-1">History</h4>
-            <p>
-              Shows past propagation conditions as a trend reference. By
-              comparing historical patterns with current conditions, you can
-              develop intuition for how conditions evolve and when they tend to
-              improve or degrade. Click to expand a detailed historical view.
-            </p>
-          </div>
-        </div>
-      </HelpAccordion>
-
-      {/* Data Sources */}
-      <HelpAccordion
-        id="data-sources-dashboard"
-        title="Data Sources"
-        summary="Where the dashboard data comes from and how often it refreshes"
-      >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm leading-relaxed text-gray-300">
           <p>
-            All solar and geomagnetic data is sourced from NOAA's Space Weather
-            Prediction Center (SWPC). Propulse proxies these feeds through
-            Vercel Edge Functions to handle CORS restrictions and add
-            server-side caching, reducing load on NOAA's servers while keeping
-            data fresh.
+            <strong>Planetary Kp</strong> describes global geomagnetic
+            disturbance in official three-hour intervals. Observed, estimated,
+            and predicted intervals remain distinct; Kp 5 or higher corresponds
+            to geomagnetic storm levels.
           </p>
-
-          <HelpDataTable
-            sources={[
-              {
-                name: "K-Index",
-                source: "NOAA SWPC",
-                endpoint: "/api/solar/k-index",
-                refresh: "1 min",
-                cache: "15 min",
-              },
-              {
-                name: "Solar Flux",
-                source: "NOAA SWPC",
-                endpoint: "/api/solar/flux",
-                refresh: "4 hrs",
-                cache: "4 hrs",
-              },
-              {
-                name: "Sunspots",
-                source: "NOAA SWPC",
-                endpoint: "/api/solar/sunspots",
-                refresh: "6 hrs",
-                cache: "24 hrs",
-              },
-              {
-                name: "Magnetometer",
-                source: "NOAA SWPC",
-                endpoint: "/api/solar/magnetometer",
-                refresh: "1 min",
-                cache: "5 min",
-              },
-              {
-                name: "Probabilities",
-                source: "NOAA SWPC",
-                endpoint: "/api/solar/probabilities",
-                refresh: "6 hrs",
-                cache: "12 hrs",
-              },
-            ]}
-          />
-
+          <p>
+            <strong>10.7 cm solar flux (SFI)</strong> is an observed global
+            proxy for solar EUV output and ionospheric ionization. Higher SFI
+            can support higher-frequency F-layer propagation, but it does not
+            determine whether a particular path is open.
+          </p>
+          <p>
+            <strong>Sunspot number</strong> is a monthly observed series used
+            for solar-cycle context. The card shows its as-of month rather than
+            implying minute-level freshness.
+          </p>
+          <p>
+            <strong>IMF Bz</strong> is the north-south component of the solar-wind
+            magnetic field measured near L1. Sustained southward Bz can increase
+            coupling into Earth’s magnetosphere; a single sample is context,
+            not a geomagnetic or HF forecast.
+          </p>
           <HelpCallout type="note">
-            The "Refresh" column shows how often the client polls for new data.
-            The "Cache" column shows how long the edge proxy caches responses.
-            Even during a cache window, you will always see the most recent
-            cached value — not stale placeholder data.
+            NOAA’s official three-day product includes predicted planetary A.
+            Propulse shows it only in forecast context. Any Kp conversion shown
+            elsewhere is labeled estimated ap-equivalent, not measured A-index.
           </HelpCallout>
         </div>
       </HelpAccordion>
 
-      {/* FAQ */}
+      <HelpAccordion
+        id="activity-cards"
+        title="Activity Cards"
+        summary="Observed network activity, station history, and planning context"
+      >
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+          <p>
+            Cluster Pulse summarizes recent DX-cluster reports; Log Stats and
+            History summarize your own records. A spot is evidence that one
+            reporting station heard another—it is not proof that your path will
+            behave the same way.
+          </p>
+          <p>
+            Planning cards may show modeled operating projections. They remain
+            distinct from provider-issued space-weather forecasts.
+          </p>
+        </div>
+      </HelpAccordion>
+
+      <HelpAccordion
+        id="data-sources-dashboard"
+        title="Data Sources"
+        summary="Shared validation, age, refresh, and last-good behavior"
+      >
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+          <p>
+            Solar data is validated and normalized by same-origin endpoints,
+            then stored in a bounded browser last-good cache. Soft expiry starts
+            revalidation; hard expiry removes the value from decision claims.
+          </p>
+          <HelpDataTable
+            sources={[
+              { name: "Planetary Kp", source: "NOAA SWPC", endpoint: "/api/solar/k-index", refresh: "2 min", cache: "5 min soft / 30 min hard" },
+              { name: "Solar flux", source: "NOAA SWPC", endpoint: "/api/solar/flux", refresh: "4 hr", cache: "4 hr soft / 24 hr hard" },
+              { name: "IMF Bz", source: "NOAA SWPC", endpoint: "/api/solar/magnetometer", refresh: "2 min", cache: "5 min soft / 30 min hard" },
+              { name: "Monthly sunspots", source: "NOAA SWPC", endpoint: "/api/solar/sunspots", refresh: "24 hr", cache: "35 day soft / 75 day hard" },
+            ]}
+          />
+        </div>
+      </HelpAccordion>
+
       <HelpFAQ
         items={[
           {
-            question: "Why are band conditions changing so fast?",
-            answer:
-              "K-Index updates every minute, and geomagnetic conditions can shift rapidly during disturbances. A solar wind shock or a sudden change in IMF Bz can cause the K-Index to jump within minutes, which immediately changes band status calculations. This is normal — the ionosphere is a dynamic system. If you see rapid changes, check the Bz chart for sustained southward dips, which often precede prolonged disturbances.",
+            question: "Why is a value marked stale but still visible?",
+            answer: "It is the last validated observation and remains inside that product’s hard usability limit. Propulse keeps it visible with its real age while retrying; after hard expiry, the value becomes unavailable.",
           },
           {
-            question: "What's a good SFI for 10 m?",
-            answer:
-              "SFI above 120 usually supports 10 m propagation during daylight hours, especially on north-south paths. Above 150 can produce worldwide openings where even modest stations can work DX. During solar minimum (SFI below 70), 10 m is essentially closed for F-layer propagation, though sporadic-E openings can still occur in summer months.",
+            question: "What is a good SFI for 10 m?",
+            answer: "Higher SFI generally improves high-band potential, but no SFI threshold proves a 10 m path is open. Check both endpoints, illumination, time, season, mode, noise, and current observations.",
           },
           {
-            question: "How often does data refresh?",
-            answer:
-              "K-Index and magnetometer data update every minute, giving you near-real-time awareness of geomagnetic conditions. Solar flux updates every 4 hours since it changes slowly. Sunspot numbers and flare probabilities update every 6 hours. You can manually force a refresh using the refresh button in the header.",
+            question: "What does the dashboard refresh control cover?",
+            answer: "It refreshes the registered structured sources visible on the dashboard and reports partial failures. Product imagery performs its own stable-URL metadata checks.",
           },
         ]}
       />

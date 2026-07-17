@@ -10,29 +10,12 @@
  * Only fetches when the DRAP layer is enabled in mapStore.
  */
 
-import { useQuery } from "@tanstack/react-query";
 import { useMapStore } from "@/stores/mapStore";
-import type { DRAPData } from "@/types/alerts";
+import { useSolarResource } from "./useSolarResource";
+import type { DrapGrid } from "@/lib/solar/dataTypes";
+import { SOLAR_QUERY_KEYS } from "@/lib/solar/sourcePolicies";
 
-// ─── Constants ──────────────────────────────────────────────────────────────
-
-const MINUTE = 60 * 1000;
-
-export const DRAP_QUERY_KEY = ["solar", "drap"] as const;
-
-// ─── Fetcher ────────────────────────────────────────────────────────────────
-
-async function fetchDRAPData(): Promise<DRAPData> {
-  const response = await fetch("/api/solar/drap");
-
-  if (!response.ok) {
-    throw new Error(
-      `DRAP API returned ${response.status}: ${response.statusText}`,
-    );
-  }
-
-  return response.json();
-}
+export const DRAP_QUERY_KEY = SOLAR_QUERY_KEYS["noaa-drap"];
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
@@ -46,20 +29,17 @@ async function fetchDRAPData(): Promise<DRAPData> {
 export function useDRAPOverlay() {
   const drapEnabled = useMapStore((s) => s.layers.drap);
 
-  const query = useQuery({
-    queryKey: [...DRAP_QUERY_KEY],
-    queryFn: fetchDRAPData,
-    enabled: drapEnabled,
-    staleTime: 15 * MINUTE,
-    refetchInterval: drapEnabled ? 15 * MINUTE : false,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
+  const query = useSolarResource<DrapGrid>("noaa-drap", drapEnabled);
+  const resource = query.data;
 
   return {
-    data: query.data ?? null,
+    data: resource?.envelope.data ?? null,
     isLoading: query.isLoading,
     error: query.error,
-    dataUpdatedAt: query.dataUpdatedAt,
+    dataUpdatedAt: resource
+      ? Date.parse(resource.envelope.observedAt)
+      : query.dataUpdatedAt,
+    state: resource?.state,
+    cacheOutcome: resource?.cacheOutcome,
   };
 }

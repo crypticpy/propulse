@@ -185,12 +185,12 @@ export const HELP_SECTIONS: HelpSectionDef[] = [
   {
     id: "band-planner",
     title: "Band Planner",
-    description: "Band-time planning and propagation forecasts",
+    description: "Band-time planning and path projections",
     icon: HelpIcons.calendar,
     keywords: [
       "band",
       "planner",
-      "forecast",
+      "projection",
       "schedule",
       "time",
       "propagation",
@@ -469,7 +469,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
   },
   {
     sectionId: "dashboard",
-    heading: "Propagation Index",
+    heading: "Global Conditions Score",
     keywords: [
       "propagation",
       "index",
@@ -540,8 +540,8 @@ export const SEARCH_INDEX: SearchEntry[] = [
   },
   {
     sectionId: "dashboard",
-    heading: "A-Index",
-    keywords: ["a-index", "ap", "geomagnetic", "daily", "24-hour", "summary"],
+    heading: "Planetary A forecast",
+    keywords: ["a-index", "ap", "geomagnetic", "daily", "forecast", "predicted"],
     anchor: "primary-metrics",
   },
   {
@@ -684,7 +684,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "geomagnetic storm",
       "severity",
     ],
-    anchor: "noaa-scales",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -699,7 +699,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "absorption",
       "hf degradation",
     ],
-    anchor: "noaa-scales",
+    anchor: "solar-impacts",
   },
   {
     sectionId: "solar-pulse",
@@ -714,7 +714,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "pca",
       "transpolar",
     ],
-    anchor: "noaa-scales",
+    anchor: "solar-impacts",
   },
   {
     sectionId: "solar-pulse",
@@ -728,7 +728,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "aurora",
       "kp",
     ],
-    anchor: "noaa-scales",
+    anchor: "solar-impacts",
   },
   {
     sectionId: "solar-pulse",
@@ -746,7 +746,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "satellite",
       "solar flare",
     ],
-    anchor: "xray-flares",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -763,7 +763,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "cme",
       "coronal hole",
     ],
-    anchor: "solar-wind",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -776,7 +776,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "coronal hole",
       "high-speed stream",
     ],
-    anchor: "solar-wind",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -789,7 +789,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "cme",
       "shock front",
     ],
-    anchor: "solar-wind",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -802,7 +802,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "magnetic field",
       "nanotesla",
     ],
-    anchor: "solar-wind",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -817,11 +817,11 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "coupling",
       "storm predictor",
     ],
-    anchor: "solar-wind",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
-    heading: "Live SWPC Maps",
+    heading: "Scientific imagery and timelines",
     keywords: [
       "swpc",
       "maps",
@@ -832,7 +832,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "animation",
       "synoptic",
     ],
-    anchor: "swpc-maps",
+    anchor: "solar-cycle-imagery",
   },
   {
     sectionId: "solar-pulse",
@@ -846,7 +846,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "global",
       "map",
     ],
-    anchor: "swpc-maps",
+    anchor: "solar-cycle-imagery",
   },
   {
     sectionId: "solar-pulse",
@@ -859,7 +859,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "absorption",
       "band specific",
     ],
-    anchor: "swpc-maps",
+    anchor: "solar-cycle-imagery",
   },
   {
     sectionId: "solar-pulse",
@@ -873,7 +873,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "vhf scatter",
       "absorption",
     ],
-    anchor: "swpc-maps",
+    anchor: "solar-cycle-imagery",
   },
   {
     sectionId: "solar-pulse",
@@ -887,7 +887,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "coronal hole",
       "27-day",
     ],
-    anchor: "swpc-maps",
+    anchor: "solar-cycle-imagery",
   },
   {
     sectionId: "solar-pulse",
@@ -903,19 +903,19 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "history",
       "trend",
     ],
-    anchor: "charts",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
     heading: "K-Index Chart (24 hours)",
     keywords: ["k-index", "chart", "bar", "24 hours", "geomagnetic", "trend"],
-    anchor: "charts",
+    anchor: "solar-official-forecast",
   },
   {
     sectionId: "solar-pulse",
-    heading: "A-Index Chart",
-    keywords: ["a-index", "chart", "daily", "geomagnetic", "summary"],
-    anchor: "charts",
+    heading: "Planetary A forecast",
+    keywords: ["a-index", "forecast", "daily", "geomagnetic", "predicted"],
+    anchor: "solar-official-forecast",
   },
   {
     sectionId: "solar-pulse",
@@ -929,13 +929,13 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "solar cycle",
       "27-day recurrence",
     ],
-    anchor: "charts",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
     heading: "IMF Bz Chart (1 hour)",
     keywords: ["bz", "chart", "imf", "1 hour", "southward", "real-time"],
-    anchor: "charts",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -950,7 +950,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "proton",
       "next-day",
     ],
-    anchor: "flare-probabilities",
+    anchor: "solar-official-forecast",
   },
   {
     sectionId: "solar-pulse",
@@ -970,7 +970,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "cw",
       "ft8",
     ],
-    anchor: "band-matrix",
+    anchor: "solar-guidance",
   },
   {
     sectionId: "solar-pulse",
@@ -985,7 +985,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "storm recovery",
       "27-day recurrence",
     ],
-    anchor: "interpreting",
+    anchor: "solar-guidance",
   },
   {
     sectionId: "solar-pulse",
@@ -998,7 +998,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "snap back",
       "f-layer",
     ],
-    anchor: "interpreting",
+    anchor: "solar-guidance",
   },
   {
     sectionId: "solar-pulse",
@@ -1014,7 +1014,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "refresh",
       "cache",
     ],
-    anchor: "data-sources-solar",
+    anchor: "solar-current-products",
   },
   {
     sectionId: "solar-pulse",
@@ -2266,7 +2266,8 @@ export const SEARCH_INDEX: SearchEntry[] = [
     keywords: [
       "band planner",
       "24-hour",
-      "forecast",
+      "projection",
+      "estimate",
       "propagation",
       "schedule",
       "operating",
@@ -2283,7 +2284,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "hours",
       "grid",
       "utc",
-      "forecast",
+      "projection",
       "cell",
       "hover",
       "tooltip",
@@ -2328,10 +2329,10 @@ export const SEARCH_INDEX: SearchEntry[] = [
   },
   {
     sectionId: "band-planner",
-    heading: "Storm & Confidence",
+    heading: "Storms & Evidence",
     keywords: [
       "storm",
-      "confidence",
+      "evidence",
       "kp",
       "bz",
       "geomagnetic",
@@ -2437,7 +2438,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "bz",
       "noaa",
       "swpc",
-      "forecast data",
+      "projection inputs",
     ],
     anchor: "data-sources-planner",
   },
@@ -2456,9 +2457,9 @@ export const SEARCH_INDEX: SearchEntry[] = [
   },
   {
     sectionId: "band-planner",
-    heading: "FAQ: What makes confidence low?",
+    heading: "FAQ: What makes Projection Evidence low?",
     keywords: [
-      "confidence",
+      "evidence",
       "low",
       "kp",
       "bz",

@@ -80,6 +80,8 @@ export interface RigState {
   setPendingMode: (mode: string) => void;
   /** Clear all pending commands (after dispatch or cancel) */
   clearPending: () => void;
+  clearPendingFrequency: () => void;
+  clearPendingMode: () => void;
 
   // Derived selectors
   /** Get the current band derived from frequency */
@@ -155,6 +157,8 @@ export const useRigStore = create<RigState>()((set, get) => ({
   setPendingMode: (mode) => set({ pendingMode: mode }),
 
   clearPending: () => set({ pendingFrequency: null, pendingMode: null }),
+  clearPendingFrequency: () => set({ pendingFrequency: null }),
+  clearPendingMode: () => set({ pendingMode: null }),
 
   // Derived selectors
   getCurrentBand: () => {

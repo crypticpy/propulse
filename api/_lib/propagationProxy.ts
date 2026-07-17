@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { verifyAuth } from "./auth";
-import { checkRateLimit, getClientIP } from "./rateLimit";
+import { verifyAuth } from "./auth.js";
+import { checkRateLimit, getClientIP } from "./rateLimit.js";
 
 export type PropagationProxyRoute =
   | "path"

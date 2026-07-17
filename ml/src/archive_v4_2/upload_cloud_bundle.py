@@ -64,17 +64,23 @@ def auth_headers(service_key: str) -> dict[str, str]:
     }
 
 
+def storage_error_payload(response: httpx.Response) -> dict[str, Any] | None:
+    try:
+        response.read()
+        payload = response.json()
+    except (UnicodeDecodeError, ValueError, httpx.HTTPError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def bucket_is_missing(response: httpx.Response) -> bool:
     if response.status_code == 404:
         return True
     if response.status_code != 400:
         return False
-    try:
-        payload = response.json()
-    except ValueError:
-        return False
+    payload = storage_error_payload(response)
     return (
-        isinstance(payload, dict)
+        payload is not None
         and str(payload.get("statusCode")) == "404"
         and payload.get("error") == "Bucket not found"
         and payload.get("message") == "Bucket not found"
@@ -86,12 +92,9 @@ def object_is_missing(response: httpx.Response) -> bool:
         return True
     if response.status_code != 400:
         return False
-    try:
-        payload = response.json()
-    except ValueError:
-        return False
+    payload = storage_error_payload(response)
     return (
-        isinstance(payload, dict)
+        payload is not None
         and str(payload.get("statusCode")) == "404"
         and payload.get("error") == "not_found"
         and payload.get("message") == "Object not found"

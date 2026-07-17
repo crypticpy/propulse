@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -194,11 +195,16 @@ class CloudBundleUploadTests(unittest.TestCase):
         }
 
         def handler(request):
-            return httpx.Response(400, json={
+            body = json.dumps({
                 "statusCode": "404",
                 "error": "not_found",
                 "message": "Object not found",
-            })
+            }).encode("utf-8")
+            return httpx.Response(
+                400,
+                stream=httpx.ByteStream(body),
+                headers={"content-type": "application/json"},
+            )
 
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
             self.assertFalse(verify_remote_object(

@@ -8,8 +8,11 @@ const MAX_PUSH_LINE_CHANGES = Number.parseInt(
 );
 const allowLargePush = process.env.ALLOW_LARGE_PUSH === "1";
 
-function git(args) {
-  return execSync(`git -c core.fsmonitor=false ${args}`, { encoding: "utf8" }).trim();
+function git(args, { quietStderr = false } = {}) {
+  return execSync(`git -c core.fsmonitor=false ${args}`, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", quietStderr ? "ignore" : "inherit"],
+  }).trim();
 }
 
 function fail(message) {
@@ -19,7 +22,9 @@ function fail(message) {
 
 let upstream = "";
 try {
-  upstream = git("rev-parse --abbrev-ref --symbolic-full-name @{u}");
+  upstream = git("rev-parse --abbrev-ref --symbolic-full-name @{u}", {
+    quietStderr: true,
+  });
 } catch {
   console.log("[push-size] No upstream configured for this branch. Skipping size check.");
   process.exit(0);

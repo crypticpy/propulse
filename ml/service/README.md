@@ -48,10 +48,14 @@ ml/.venv/bin/python ml/src/archive_v4_2/upload_cloud_bundle.py
 ```
 
 The uploader creates or verifies a private, size-bounded `propagation-models`
-bucket, streams the binary archive with resumable TUS chunks, then downloads
-and hashes the complete private object before writing an immutable upload
-receipt. It does not transport the archive through SSH or encode the archive as
-base64.
+bucket, streams the binary archive as ordered objects below the provider's
+per-object limit using resumable TUS chunks, then downloads and hashes the
+reassembled private archive before writing an immutable upload receipt. Objects
+use deterministic `.part-000` suffixes and carry individual byte counts and
+SHA-256 values. Railway concatenates them into one temporary archive and verifies
+the original outer SHA-256 before extraction; every manifest member checksum
+remains independently enforced. The uploader does not transport the archive
+through SSH or encode it as base64.
 
 The production Docker image contains only inference modules, the two runtime
 activation documents, and the station/calibration adapters. It runs as a
@@ -69,6 +73,7 @@ Railway uses `railway.json` and requires these server-only variables:
 ```text
 PROPULSE_MODEL_BUNDLE_URL=https://PROJECT.supabase.co/storage/v1/object/authenticated/propagation-models/a6/SHA256.tar.zst
 PROPULSE_MODEL_BUNDLE_SHA256=SHA256
+PROPULSE_MODEL_BUNDLE_PART_COUNT=2
 PROPULSE_MODEL_BUNDLE_AUTH_TOKEN=server-only-storage-token
 PROPULSE_SERVICE_TOKEN=shared-random-secret-at-least-32-characters
 PROPULSE_ALLOWED_ORIGINS=https://APP_ORIGIN

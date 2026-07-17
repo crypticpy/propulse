@@ -109,6 +109,12 @@ def prepare_bundle_environment() -> Path:
         expected_sha256=expected_sha,
         bearer_token=os.environ.get("PROPULSE_MODEL_BUNDLE_AUTH_TOKEN", ""),
         cache_root=cache_root,
+        part_count=bounded_integer(
+            "PROPULSE_MODEL_BUNDLE_PART_COUNT",
+            1,
+            1,
+            64,
+        ),
         max_bytes=bounded_integer(
             "PROPULSE_MODEL_BUNDLE_MAX_BYTES",
             512 * 1024 * 1024,

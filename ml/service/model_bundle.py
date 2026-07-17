@@ -286,12 +286,15 @@ def download_bundle(
     *,
     bearer_token: str,
     max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
+    part_count: int = 1,
 ) -> None:
     parsed = urlparse(url)
     if parsed.scheme != "https" or not parsed.netloc:
         raise RuntimeError("model bundle URL must be absolute HTTPS")
     if max_bytes < 1 or max_bytes > 1024 * 1024 * 1024:
         raise RuntimeError("model bundle byte limit is invalid")
+    if part_count < 1 or part_count > 64:
+        raise RuntimeError("model bundle part count must be between 1 and 64")
     headers = {"User-Agent": "propulse-inference/1"}
     if bearer_token:
         headers["Authorization"] = f"Bearer {bearer_token}"
@@ -301,25 +304,41 @@ def download_bundle(
             follow_redirects=False,
             timeout=httpx.Timeout(120, connect=15),
         ) as client:
-            with client.stream("GET", url, headers=headers) as response:
-                if response.status_code != 200:
-                    raise RuntimeError(
-                        f"model bundle download returned HTTP {response.status_code}"
+            copied = 0
+            with destination.open("xb") as output:
+                for index in range(part_count):
+                    part_url = (
+                        url
+                        if part_count == 1
+                        else f"{url}.part-{index:03d}"
                     )
-                content_length = response.headers.get("content-length")
-                if content_length and int(content_length) > max_bytes:
-                    raise RuntimeError("model bundle exceeds configured byte limit")
-                copied = 0
-                with destination.open("xb") as output:
-                    for chunk in response.iter_bytes(DOWNLOAD_CHUNK_BYTES):
-                        copied += len(chunk)
-                        if copied > max_bytes:
+                    with client.stream(
+                        "GET",
+                        part_url,
+                        headers=headers,
+                    ) as response:
+                        if response.status_code != 200:
+                            raise RuntimeError(
+                                "model bundle part download returned HTTP "
+                                f"{response.status_code}"
+                            )
+                        content_length = response.headers.get("content-length")
+                        if (
+                            content_length
+                            and copied + int(content_length) > max_bytes
+                        ):
                             raise RuntimeError(
                                 "model bundle exceeds configured byte limit"
                             )
-                        output.write(chunk)
-                    output.flush()
-                    os.fsync(output.fileno())
+                        for chunk in response.iter_bytes(DOWNLOAD_CHUNK_BYTES):
+                            copied += len(chunk)
+                            if copied > max_bytes:
+                                raise RuntimeError(
+                                    "model bundle exceeds configured byte limit"
+                                )
+                            output.write(chunk)
+                output.flush()
+                os.fsync(output.fileno())
     except Exception:
         destination.unlink(missing_ok=True)
         raise
@@ -332,6 +351,7 @@ def prepare_model_bundle(
     bearer_token: str,
     cache_root: Path,
     max_bytes: int = DEFAULT_MAX_ARCHIVE_BYTES,
+    part_count: int = 1,
 ) -> Path:
     if (
         len(expected_sha256) != 64
@@ -358,6 +378,7 @@ def prepare_model_bundle(
             archive_path,
             bearer_token=bearer_token,
             max_bytes=max_bytes,
+            part_count=part_count,
         )
         return extract_bundle_archive(
             archive_path,

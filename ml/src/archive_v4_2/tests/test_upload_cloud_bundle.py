@@ -8,10 +8,13 @@ from unittest.mock import patch
 import httpx
 
 from upload_cloud_bundle import (
+    STORAGE_CONTENT_TYPE,
     TUS_CHUNK_BYTES,
+    archive_part_records,
     direct_storage_origin,
     ensure_private_bucket,
     upload_resumable,
+    verify_remote_archive,
 )
 
 
@@ -43,13 +46,13 @@ class CloudBundleUploadTests(unittest.TestCase):
                     "id": "propagation-models",
                     "public": False,
                     "file_size_limit": 100 * 1024 * 1024,
-                    "allowed_mime_types": ["application/zstd"],
+                    "allowed_mime_types": [STORAGE_CONTENT_TYPE],
                 })
             return httpx.Response(201, json={
                 "id": "propagation-models",
                 "public": False,
                 "file_size_limit": 100 * 1024 * 1024,
-                "allowed_mime_types": ["application/zstd"],
+                "allowed_mime_types": [STORAGE_CONTENT_TYPE],
             })
 
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
@@ -85,7 +88,7 @@ class CloudBundleUploadTests(unittest.TestCase):
                     "id": "propagation-models",
                     "public": False,
                     "file_size_limit": 100 * 1024 * 1024,
-                    "allowed_mime_types": ["application/zstd"],
+                    "allowed_mime_types": [STORAGE_CONTENT_TYPE],
                 })
             return httpx.Response(201)
 
@@ -120,6 +123,95 @@ class CloudBundleUploadTests(unittest.TestCase):
                     "propagation-models",
                     70 * 1024 * 1024,
                 )
+
+    def test_builds_checksum_bound_ordered_storage_parts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / "bundle.tar.zst"
+            archive.write_bytes(b"abcdefghij")
+            parts = archive_part_records(
+                archive,
+                "a6/bundle.tar.zst",
+                part_bytes=4,
+            )
+        self.assertEqual([part["index"] for part in parts], [0, 1, 2])
+        self.assertEqual([part["offset"] for part in parts], [0, 4, 8])
+        self.assertEqual([part["bytes"] for part in parts], [4, 4, 2])
+        self.assertEqual(
+            [part["key"] for part in parts],
+            [
+                "a6/bundle.tar.zst.part-000",
+                "a6/bundle.tar.zst.part-001",
+                "a6/bundle.tar.zst.part-002",
+            ],
+        )
+
+    def test_verifies_remote_parts_as_the_original_archive(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / "bundle.tar.zst"
+            archive.write_bytes(b"abcdefghij")
+            parts = archive_part_records(
+                archive,
+                "a6/bundle.tar.zst",
+                part_bytes=4,
+            )
+            content = archive.read_bytes()
+
+            def handler(request):
+                index = int(request.url.path.rsplit("-", 1)[1])
+                part = parts[index]
+                start = part["offset"]
+                return httpx.Response(
+                    200,
+                    content=content[start:start + part["bytes"]],
+                )
+
+            with httpx.Client(
+                transport=httpx.MockTransport(handler),
+            ) as client:
+                verified = verify_remote_archive(
+                    client,
+                    "https://projectref.supabase.co",
+                    SERVICE_KEY,
+                    "propagation-models",
+                    parts,
+                    len(content),
+                    archive_part_records(
+                        archive,
+                        "unused",
+                        part_bytes=len(content),
+                    )[0]["sha256"],
+                )
+        self.assertTrue(verified)
+
+    def test_uploads_only_the_selected_archive_slice(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive = Path(temporary) / "bundle.tar.zst"
+            archive.write_bytes(b"0123456789")
+            uploaded = []
+
+            def handler(request):
+                if request.method == "POST":
+                    self.assertEqual(request.headers["upload-length"], "4")
+                    return httpx.Response(201, headers={"location": "/upload/id"})
+                body = request.read()
+                uploaded.append(body)
+                return httpx.Response(
+                    204,
+                    headers={"upload-offset": str(len(body))},
+                )
+
+            with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+                upload_resumable(
+                    client,
+                    "https://projectref.storage.supabase.co/upload",
+                    archive,
+                    SERVICE_KEY,
+                    "propagation-models",
+                    "a6/bundle.tar.zst.part-000",
+                    source_offset=3,
+                    upload_bytes=4,
+                )
+        self.assertEqual(uploaded, [b"3456"])
 
     def test_uploads_in_tus_chunks_and_checks_offsets(self):
         with tempfile.TemporaryDirectory() as temporary:

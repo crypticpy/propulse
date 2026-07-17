@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from production_entrypoint import (
     bounded_integer,
+    prepare_bundle_environment,
     uvicorn_arguments,
     validate_production_environment,
 )
@@ -79,6 +82,37 @@ class ProductionEntrypointTests(unittest.TestCase):
         with patch.dict(os.environ, environment, clear=True):
             with self.assertRaisesRegex(RuntimeError, "absolute HTTPS"):
                 validate_production_environment()
+
+    def test_passes_bounded_part_count_to_bundle_downloader(self):
+        manifest = Path("/tmp/fixture-serving-manifest.json")
+        with tempfile.TemporaryDirectory() as temporary:
+            environment = {
+                "PROPULSE_MODEL_BUNDLE_URL": "https://storage.example/bundle.tar.zst",
+                "PROPULSE_MODEL_BUNDLE_SHA256": "a" * 64,
+                "PROPULSE_MODEL_BUNDLE_AUTH_TOKEN": "private-token",
+                "PROPULSE_MODEL_BUNDLE_PART_COUNT": "2",
+                "PROPULSE_MODEL_CACHE_DIR": temporary,
+            }
+            with (
+                patch.dict(os.environ, environment, clear=True),
+                patch(
+                    "production_entrypoint.prepare_model_bundle",
+                    return_value=manifest,
+                ) as prepare,
+            ):
+                result = prepare_bundle_environment()
+        self.assertEqual(result, manifest)
+        self.assertEqual(prepare.call_args.kwargs["part_count"], 2)
+
+    def test_rejects_unbounded_bundle_part_count(self):
+        environment = {
+            "PROPULSE_MODEL_BUNDLE_URL": "https://storage.example/bundle.tar.zst",
+            "PROPULSE_MODEL_BUNDLE_SHA256": "a" * 64,
+            "PROPULSE_MODEL_BUNDLE_PART_COUNT": "65",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "between 1 and 64"):
+                prepare_bundle_environment()
 
 
 if __name__ == "__main__":

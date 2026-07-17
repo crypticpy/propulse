@@ -4,9 +4,13 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import httpx
 
 from model_bundle import (
     create_bundle_archive,
+    download_bundle,
     extract_bundle_archive,
     sha256_file,
     verify_bundle_directory,
@@ -94,6 +98,67 @@ class ModelBundleTests(unittest.TestCase):
                     root / "bundle.tar.zst",
                     compression_threads=1,
                 )
+
+    def test_downloads_ordered_parts_into_one_archive(self):
+        requests = []
+        values = {
+            "/bundle.tar.zst.part-000": b"first-",
+            "/bundle.tar.zst.part-001": b"second",
+        }
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, content=values[request.url.path])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "bundle.tar.zst"
+            client = httpx.Client(transport=httpx.MockTransport(handler))
+            with patch("model_bundle.httpx.Client", return_value=client):
+                download_bundle(
+                    "https://storage.example/bundle.tar.zst",
+                    destination,
+                    bearer_token="private-token",
+                    max_bytes=32,
+                    part_count=2,
+                )
+            self.assertEqual(destination.read_bytes(), b"first-second")
+        self.assertEqual(
+            [request.url.path for request in requests],
+            list(values),
+        )
+        self.assertTrue(all(
+            request.headers["authorization"] == "Bearer private-token"
+            for request in requests
+        ))
+
+    def test_failed_part_download_removes_partial_archive(self):
+        def handler(request):
+            if request.url.path.endswith("part-000"):
+                return httpx.Response(200, content=b"first")
+            return httpx.Response(404)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "bundle.tar.zst"
+            client = httpx.Client(transport=httpx.MockTransport(handler))
+            with patch("model_bundle.httpx.Client", return_value=client):
+                with self.assertRaisesRegex(RuntimeError, "HTTP 404"):
+                    download_bundle(
+                        "https://storage.example/bundle.tar.zst",
+                        destination,
+                        bearer_token="private-token",
+                        max_bytes=32,
+                        part_count=2,
+                    )
+            self.assertFalse(destination.exists())
+
+    def test_rejects_unbounded_part_count(self):
+        with self.assertRaisesRegex(RuntimeError, "between 1 and 64"):
+            download_bundle(
+                "https://storage.example/bundle.tar.zst",
+                Path("unused"),
+                bearer_token="",
+                part_count=65,
+            )
 
 
 if __name__ == "__main__":

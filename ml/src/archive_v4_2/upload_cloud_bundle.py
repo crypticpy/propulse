@@ -32,6 +32,8 @@ PACKAGE_RECEIPT_NAME = "cloud_bundle_package_receipt.json"
 UPLOAD_RECEIPT_NAME = "cloud_bundle_upload_receipt.json"
 TUS_VERSION = "1.0.0"
 TUS_CHUNK_BYTES = 6 * 1024 * 1024
+STORAGE_PART_BYTES = 45 * 1024 * 1024
+STORAGE_CONTENT_TYPE = "application/octet-stream"
 TRANSIENT_STATUS = {408, 425, 429, 500, 502, 503, 504}
 
 
@@ -102,7 +104,7 @@ def ensure_private_bucket(
         f"{base}/storage/v1/bucket/{quote(bucket, safe='')}",
         headers=headers,
     )
-    minimum_limit = max(100 * 1024 * 1024, required_bytes)
+    minimum_limit = required_bytes
     if bucket_is_missing(response):
         created = client.post(
             f"{base}/storage/v1/bucket",
@@ -112,7 +114,7 @@ def ensure_private_bucket(
                 "name": bucket,
                 "public": False,
                 "file_size_limit": minimum_limit,
-                "allowed_mime_types": ["application/zstd"],
+                "allowed_mime_types": [STORAGE_CONTENT_TYPE],
             },
         )
         if created.status_code not in {200, 201}:
@@ -138,9 +140,49 @@ def ensure_private_bucket(
     if type(limit) is not int or limit < required_bytes:
         raise RuntimeError("model bucket file-size limit is too small")
     allowed = payload.get("allowed_mime_types")
-    if not isinstance(allowed, list) or "application/zstd" not in allowed:
-        raise RuntimeError("model bucket must allow application/zstd")
+    if not isinstance(allowed, list) or STORAGE_CONTENT_TYPE not in allowed:
+        raise RuntimeError(
+            f"model bucket must allow {STORAGE_CONTENT_TYPE}"
+        )
     return payload
+
+
+def archive_part_records(
+    archive_path: Path,
+    object_key: str,
+    *,
+    part_bytes: int = STORAGE_PART_BYTES,
+) -> list[dict[str, Any]]:
+    if part_bytes < 1:
+        raise RuntimeError("storage part size must be positive")
+    total_bytes = archive_path.stat().st_size
+    records: list[dict[str, Any]] = []
+    offset = 0
+    with archive_path.open("rb") as handle:
+        while offset < total_bytes:
+            size = min(part_bytes, total_bytes - offset)
+            digest = hashlib.sha256()
+            copied = 0
+            while copied < size:
+                chunk = handle.read(min(1024 * 1024, size - copied))
+                if not chunk:
+                    raise RuntimeError(
+                        "local bundle ended while computing storage parts"
+                    )
+                digest.update(chunk)
+                copied += len(chunk)
+            index = len(records)
+            records.append({
+                "index": index,
+                "key": f"{object_key}.part-{index:03d}",
+                "offset": offset,
+                "bytes": size,
+                "sha256": digest.hexdigest(),
+            })
+            offset += size
+    if not records:
+        raise RuntimeError("model archive must not be empty")
+    return records
 
 
 def tus_metadata(values: dict[str, str]) -> str:
@@ -174,9 +216,15 @@ def upload_resumable(
     service_key: str,
     bucket: str,
     object_key: str,
+    *,
+    source_offset: int = 0,
+    upload_bytes: int | None = None,
 ) -> str:
     headers = auth_headers(service_key)
-    size = archive_path.stat().st_size
+    archive_bytes = archive_path.stat().st_size
+    size = archive_bytes - source_offset if upload_bytes is None else upload_bytes
+    if source_offset < 0 or size < 1 or source_offset + size > archive_bytes:
+        raise RuntimeError("model storage slice is outside the local archive")
     response = client.post(
         endpoint,
         headers={
@@ -186,7 +234,7 @@ def upload_resumable(
             "Upload-Metadata": tus_metadata({
                 "bucketName": bucket,
                 "objectName": object_key,
-                "contentType": "application/zstd",
+                "contentType": STORAGE_CONTENT_TYPE,
                 "cacheControl": "31536000",
             }),
             "x-upsert": "false",
@@ -207,7 +255,7 @@ def upload_resumable(
     offset = 0
     with archive_path.open("rb") as handle:
         while offset < size:
-            handle.seek(offset)
+            handle.seek(source_offset + offset)
             chunk = handle.read(min(TUS_CHUNK_BYTES, size - offset))
             if not chunk:
                 raise RuntimeError("local bundle ended before TUS upload completed")
@@ -285,6 +333,56 @@ def verify_remote_object(
     return True
 
 
+def verify_remote_archive(
+    client: httpx.Client,
+    supabase_url: str,
+    service_key: str,
+    bucket: str,
+    parts: list[dict[str, Any]],
+    expected_bytes: int,
+    expected_sha256: str,
+) -> bool:
+    archive_digest = hashlib.sha256()
+    archive_bytes = 0
+    for part in parts:
+        url = (
+            f"{supabase_url.rstrip('/')}/storage/v1/object/authenticated/"
+            f"{quote(bucket, safe='')}/{quote(part['key'], safe='/')}"
+        )
+        part_digest = hashlib.sha256()
+        part_copied = 0
+        with client.stream(
+            "GET",
+            url,
+            headers=auth_headers(service_key),
+        ) as response:
+            if response.status_code == 404:
+                return False
+            if response.status_code != 200:
+                raise RuntimeError(
+                    "remote model part verification returned HTTP "
+                    f"{response.status_code}"
+                )
+            for chunk in response.iter_bytes(1024 * 1024):
+                part_copied += len(chunk)
+                archive_bytes += len(chunk)
+                if part_copied > part["bytes"] or archive_bytes > expected_bytes:
+                    raise RuntimeError("remote model part exceeds expected size")
+                part_digest.update(chunk)
+                archive_digest.update(chunk)
+        if (
+            part_copied != part["bytes"]
+            or part_digest.hexdigest() != part["sha256"]
+        ):
+            raise RuntimeError("remote model part checksum differs")
+    if (
+        archive_bytes != expected_bytes
+        or archive_digest.hexdigest() != expected_sha256
+    ):
+        raise RuntimeError("reassembled remote model checksum differs")
+    return True
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--result-dir", type=Path, default=DEFAULT_RESULT_DIR)
@@ -312,6 +410,7 @@ def main() -> None:
         or sha256_file(archive_path) != object_record["sha256"]
     ):
         raise RuntimeError("local cloud bundle differs from the package receipt")
+    parts = archive_part_records(archive_path, object_record["key"])
     headers = auth_headers(service_key)
     del headers
     with httpx.Client(
@@ -323,42 +422,55 @@ def main() -> None:
             supabase_url,
             service_key,
             object_record["bucket"],
-            object_record["bytes"],
+            max(part["bytes"] for part in parts),
         )
         endpoint = (
             direct_storage_origin(supabase_url)
             + "/storage/v1/upload/resumable"
         )
-        already_uploaded = verify_remote_object(
+        already_uploaded = verify_remote_archive(
             client,
             supabase_url,
             service_key,
             object_record["bucket"],
-            object_record["key"],
+            parts,
             object_record["bytes"],
             object_record["sha256"],
         )
         if not already_uploaded:
-            upload_resumable(
-                client,
-                endpoint,
-                archive_path,
-                service_key,
-                object_record["bucket"],
-                object_record["key"],
-            )
-            if not verify_remote_object(
+            for part in parts:
+                if verify_remote_object(
+                    client,
+                    supabase_url,
+                    service_key,
+                    object_record["bucket"],
+                    part["key"],
+                    part["bytes"],
+                    part["sha256"],
+                ):
+                    continue
+                upload_resumable(
+                    client,
+                    endpoint,
+                    archive_path,
+                    service_key,
+                    object_record["bucket"],
+                    part["key"],
+                    source_offset=part["offset"],
+                    upload_bytes=part["bytes"],
+                )
+            if not verify_remote_archive(
                 client,
                 supabase_url,
                 service_key,
                 object_record["bucket"],
-                object_record["key"],
+                parts,
                 object_record["bytes"],
                 object_record["sha256"],
             ):
-                raise RuntimeError("uploaded model object is missing")
+                raise RuntimeError("uploaded model parts are missing")
     receipt = {
-        "schema_version": 1,
+        "schema_version": 2,
         "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "release_stage": package_receipt["release_stage"],
         "bucket": {
@@ -368,9 +480,15 @@ def main() -> None:
             "allowed_mime_types": bucket["allowed_mime_types"],
         },
         "object": object_record,
+        "storage_layout": "ordered-split-object-v1",
+        "storage_parts": [
+            {key: part[key] for key in ("index", "key", "bytes", "sha256")}
+            for part in parts
+        ],
+        "storage_part_bytes": STORAGE_PART_BYTES,
         "upload_protocol": "tus-v1.0.0",
         "chunk_bytes": TUS_CHUNK_BYTES,
-        "remote_verification": "full_sha256_download_passed",
+        "remote_verification": "reassembled_full_sha256_download_passed",
     }
     receipt_path = args.result_dir / UPLOAD_RECEIPT_NAME
     write_new_json(receipt_path, receipt)

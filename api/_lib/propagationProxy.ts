@@ -392,7 +392,8 @@ const DEFAULT_DEPENDENCIES: PropagationProxyDependencies = {
       return jsonResponse({ error: "Authentication service unavailable" }, 503);
     }
     const result = await verifyAuth(request);
-    return result instanceof Response ? result : { id: result.user.id };
+    if ("user" in result) return { id: result.user.id };
+    return result;
   },
   fetcher: fetch,
   rateLimiter: checkRateLimit,
@@ -524,7 +525,7 @@ export async function handlePropagationProxy(
   if (request.method !== policy.method) return methodNotAllowed(policy.method);
 
   const auth = await dependencies.authenticate(request);
-  if (auth instanceof Response) {
+  if (!("id" in auth)) {
     auth.headers.set("Cache-Control", "no-store");
     auth.headers.set("X-Content-Type-Options", "nosniff");
     return auth;

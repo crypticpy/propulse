@@ -131,11 +131,16 @@ describe("propagation proxy", () => {
     );
     expect(crossOrigin.status).toBe(403);
 
+    const crossRealmAuthFailure = {
+      status: 401,
+      headers: new Headers(),
+    } as unknown as Response;
     const unauthorized = await handlePropagationProxy(
       request("path"),
       "path",
       dependencies(fetcher, {
-        authenticate: async () => new Response("unauthorized", { status: 401 }),
+        // Vercel Edge responses may not share the caller's Response prototype.
+        authenticate: async () => crossRealmAuthFailure,
       }),
     );
     expect(unauthorized.status).toBe(401);

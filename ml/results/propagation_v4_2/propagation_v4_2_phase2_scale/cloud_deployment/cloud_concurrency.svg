@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430" role="img" aria-labelledby="title desc">
+  <title id="title">Path throughput under controlled concurrency</title>
+  <desc id="desc">Bars show wall-clock requests per second for one, two, and four simultaneous callers; dots show p95 request latency.</desc>
+  <rect width="960" height="430" fill="#fbfcfe"/>
+  <text x="48" y="48" font-family="system-ui,sans-serif" font-size="24" font-weight="700" fill="#18212f">Path throughput under controlled concurrency</text>
+  <text x="48" y="76" font-family="system-ui,sans-serif" font-size="14" fill="#5b6675">24 requests per level, one Railway worker, one XGBoost prediction thread</text>
+  <g stroke="#d9dee7" stroke-width="1">
+    <line x1="160" y1="330" x2="870" y2="330"/><line x1="160" y1="250" x2="870" y2="250"/><line x1="160" y1="170" x2="870" y2="170"/><line x1="160" y1="90" x2="870" y2="90"/>
+  </g>
+  <g font-family="system-ui,sans-serif" font-size="13" fill="#5b6675">
+    <text x="94" y="334">0 req/s</text><text x="88" y="254">7 req/s</text><text x="82" y="174">14 req/s</text><text x="82" y="94">21 req/s</text>
+  </g>
+  <g fill="#2d5f91" stroke="#173a5d" stroke-width="1">
+    <rect x="225" y="264.3" width="120" height="65.7"/><rect x="455" y="203.8" width="120" height="126.2"/><rect x="685" y="115.8" width="120" height="214.2"/>
+  </g>
+  <g font-family="ui-monospace,SFMono-Regular,monospace" font-size="15" font-weight="700" fill="#18212f" text-anchor="middle">
+    <text x="285" y="253">5.75 req/s</text><text x="515" y="193">11.05 req/s</text><text x="745" y="105">18.75 req/s</text>
+  </g>
+  <g font-family="system-ui,sans-serif" font-size="15" fill="#18212f" text-anchor="middle">
+    <text x="285" y="360">1 caller</text><text x="515" y="360">2 callers</text><text x="745" y="360">4 callers</text>
+  </g>
+  <g font-family="ui-monospace,SFMono-Regular,monospace" font-size="13" fill="#7a5415" text-anchor="middle">
+    <circle cx="285" cy="386" r="5" fill="#d49a32"/><text x="285" y="412">p95 192 ms</text>
+    <circle cx="515" cy="386" r="5" fill="#d49a32"/><text x="515" y="412">p95 191 ms</text>
+    <circle cx="745" cy="386" r="5" fill="#d49a32"/><text x="745" y="412">p95 401 ms</text>
+  </g>
+</svg>

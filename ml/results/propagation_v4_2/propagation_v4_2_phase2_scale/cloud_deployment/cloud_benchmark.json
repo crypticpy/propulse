@@ -1,0 +1,79 @@
+{
+  "health": {
+    "latency_ms": 180.848,
+    "model_version": "propagation_v4_2_phase2_scale-a6-retrospective-internal-50000000"
+  },
+  "measured_at": "2026-07-17T03:08:53.428006+00:00",
+  "method": {
+    "concurrency_levels": [
+      1,
+      2,
+      4
+    ],
+    "concurrency_requests_per_level": 24,
+    "http_connection_reuse": true,
+    "path_sequential_requests": 30,
+    "surface_cells": [
+      144,
+      288,
+      4096
+    ],
+    "surface_repetitions_per_size": 10
+  },
+  "path_concurrency": {
+    "1": {
+      "max_ms": 202.186,
+      "median_ms": 171.847,
+      "p95_ms": 192.473,
+      "requests_per_second": 5.754,
+      "wall_requests_per_second": 5.753
+    },
+    "2": {
+      "max_ms": 236.957,
+      "median_ms": 173.456,
+      "p95_ms": 190.616,
+      "requests_per_second": 5.681,
+      "wall_requests_per_second": 11.046
+    },
+    "4": {
+      "max_ms": 422.47,
+      "median_ms": 171.23,
+      "p95_ms": 401.131,
+      "requests_per_second": 4.938,
+      "wall_requests_per_second": 18.746
+    }
+  },
+  "path_sequential": {
+    "max_ms": 370.638,
+    "median_ms": 176.027,
+    "p95_ms": 343.765,
+    "requests_per_second": 4.885
+  },
+  "service_url": "https://propulse-inference-production.up.railway.app",
+  "surface": {
+    "144": {
+      "max_ms": 569.252,
+      "median_cells_per_second": 755.817,
+      "median_ms": 190.522,
+      "p95_ms": 569.252,
+      "requests_per_second": 4.206,
+      "response_bytes": 112308
+    },
+    "288": {
+      "max_ms": 226.817,
+      "median_cells_per_second": 1452.474,
+      "median_ms": 198.282,
+      "p95_ms": 226.817,
+      "requests_per_second": 5.004,
+      "response_bytes": 224484
+    },
+    "4096": {
+      "max_ms": 655.506,
+      "median_cells_per_second": 7706.444,
+      "median_ms": 531.503,
+      "p95_ms": 655.506,
+      "requests_per_second": 1.837,
+      "response_bytes": 3190916
+    }
+  }
+}

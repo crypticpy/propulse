@@ -1,54 +1,41 @@
 # Propagation Product and Cloud Integration Plan
 
-> Status, 2026-07-16: Phase A is complete and verified on the M5. Propulse is a private,
-> prelaunch product used only by the project team and occasional invited friends.
-> Experimental feature visibility is therefore no longer coupled to scientific
-> release eligibility. The evidence gates still control claims, outcome studies,
-> model publication status, and any future general release.
-> Browser `internal` and service `shadow` contracts now expose the loaded A6 core
-> without activating beta collection or public release. Python and TypeScript use
-> shared activation and capability fixtures. The immutable
-> `retrospective_validated_internal` manifest loaded successfully from the Projects
-> SSD and produced a real path prediction through the strict service registry. Its
-> tracked receipt is
-> [`retrospective_internal_promotion_receipt.json`](results/propagation_v4_2/propagation_v4_2_phase2_scale/retrospective_internal_promotion_receipt.json).
-> Phase B's runtime, immutable packaging, artifact verification, Docker image,
-> production authentication, and fail-closed configuration are implemented and
-> tested on the M5. The 66,846,932-byte A6 archive is checksum-named
-> `254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee.tar.zst`;
-> its tracked package receipt contains every member hash and M5 provenance. The
-> 148.5 MB CPU-only container loaded that exact A6 bundle, rejected anonymous
-> inference, served an authenticated prediction, and rejected incomplete startup.
-> Phase C's authenticated same-origin proxy and browser client are implemented and
-> pass focused tests, lint, and the production build on the M5. Remaining cloud
-> gates are Railway/Vercel preview deployment, cloud load/cost measurements,
-> continuous monitoring, and the final deployed smoke test. The A6 archive is now
-> stored as two private, checksum-bound Supabase objects below the provider's
-> per-object limit. The upload receipt records both part hashes and confirms the
-> reassembled 66,846,932-byte archive matches SHA-256
-> `254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee`.
-> The existing Vercel `crypticpys-projects/propulse` branch preview has its four
-> encrypted server variables. A distinct
-> `propulse-inference` service and HTTPS domain exist inside the existing Railway
-> `propulse-collector` project; the collector service is unchanged. Railway's
-> required variables are staged with deploys suppressed, service mode is `shadow`,
-> and concurrency remains one worker with one XGBoost thread. The inference
-> deployment and cloud validation remain open.
+> Status, 2026-07-17: Phases A, B's deployment path, and C are complete on the
+> M5. The exact 66,846,932-byte A6 archive was reassembled and hash-verified from
+> two private Supabase objects, then loaded by the dedicated Railway
+> `propulse-inference` service in `shadow` mode with one worker and one XGBoost
+> thread. Deployment `f2b7c130-0a73-4afa-a619-d9260d7d885d` is healthy at
+> `https://propulse-inference-production.up.railway.app`; anonymous inference is
+> rejected. The existing Railway collector service was not modified.
 >
-> A local production-path A6 benchmark on the M5 measured 2.424 seconds to load,
-> 1,160 MiB peak RSS after load, and 1,180 MiB after the maximum surface request.
-> Warmed median latency was 1.941 ms for a path, 5.429 ms for 144 cells, 8.660 ms
-> for 288 cells, and 114.124 ms for 4,096 cells. The first Railway allocation must
-> therefore provide at least 2 GiB RAM; 1 GiB is not viable. These are local
-> single-process results, not substitutes for deployed latency and concurrency
-> measurements. ReachMap now scores two bounded 144-cell chunks, retains successful
-> cells when one chunk fails, and reports actual profile, stale-input, fallback,
-> and partial coverage. Band Planner reports the same states per band.
-> Full `npm run verify` passes on the M5: 422 Python tests, 114 TypeScript/Node
-> tests, lint, the production build, and all bundle budgets.
+> Vercel preview deployment `dpl_FN1gXF1vaapsMfRfcKdDZsFUNaBX` at commit
+> `3f498dea` now adapts the Web Request/Response proxy core to the Vercel Node
+> runtime without weakening authentication, schema validation, request limits,
+> timeouts, or response checks. A confirmed ephemeral Supabase user received
+> health, capabilities, and a personalized path response through the complete
+> browser-to-Vercel-to-Railway chain; the account was deleted afterward. With a
+> complete verified WSPR lag window, the exact A6 model returned profile
+> `nowcast`, 12.29% core probability, and 27.92% deterministic personalized
+> probability for the representative station fixture. FutureCast remained
+> unavailable, as required by its evidence gate.
+>
+> The deployed single-worker benchmark measured a 176.03 ms sequential path
+> median and 343.77 ms p95 over 30 requests. Four concurrent callers achieved
+> 18.75 requests/second with 401.13 ms p95. Ten 4,096-cell surfaces measured
+> 531.50 ms median and 655.51 ms p95. Local model-process evidence remains 2.424
+> seconds load time, 1,160 MiB RSS after load, and 1,180 MiB after a maximum
+> surface, so 2 GiB RAM and 1 vCPU remain the minimum starting allocation.
+> Continuous off-platform uptime/cost monitoring is still open; exact monthly
+> cost will be recorded from the provider meter after representative private use.
+>
+> The deployment evidence and visual explanation are in
+> [`cloud_deployment/CLOUD_REPORT.md`](results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md).
+> The next product work is Phase D: bind saved location and the active virtual
+> shack to Band Planner, then finish the core/personalized ReachMap experience.
 >
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Active model plan: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md).
+> Cloud deployment report: [`CLOUD_REPORT.md`](results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md).
 > M5 runbook: [`PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md`](PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md).
 > Live input contract: [`NOWCAST-LIVE-FEATURE-PIPELINE.md`](NOWCAST-LIVE-FEATURE-PIPELINE.md).
 > FutureCast protocol: [`FUTURECAST-V1-PROTOCOL.md`](FUTURECAST-V1-PROTOCOL.md).
@@ -225,21 +212,23 @@ and the service loads the exact A6 internal manifest on the M5.
   promotion receipt, never the private service key or large artifact.
   Receipt: `cloud_bundle_upload_receipt.json`; layout
   `ordered-split-object-v1`; remote verification passed the reassembled SHA-256.
-- [ ] Run one cloud worker initially with one XGBoost thread, then load test 1,
-  2, and 4 workers before changing concurrency. The M5's six-worker serving
-  profile does not automatically fit a smaller cloud allocation.
+- [x] Run one cloud worker initially with one XGBoost thread, then load test 1,
+  2, and 4 concurrent callers before changing concurrency. The tested one-worker
+  service reached 18.75 requests/second at four callers; do not multiply model
+  copies until real product load or monitoring justifies another replica.
 - [x] Fail production startup unless exact origins, trusted weather store,
   verified feature store, provider/transform version, one prediction thread,
   bounded workers, and a server-to-server secret are valid.
-- [ ] Populate those settings plus the telemetry sink in Railway and verify the
-  deployed dependencies.
-  Current status: the service/store credentials, immutable bundle URL/checksum,
-  provider/transform, exact origins, `shadow` mode, 60-second weather cache, one
-  worker, and one prediction thread are staged with deploys suppressed. External
-  telemetry retention and deployed dependency checks remain open.
-- [ ] Confirm cold-start time, model RSS, path p50/p95, 4,096-cell surface
-  p50/p95, concurrent request behavior, and monthly compute/storage estimates.
-  Local M5 preflight is recorded above; repeat in Railway at 1/2/4 workers.
+- [x] Populate those settings plus aggregate shadow telemetry in Railway and
+  verify the deployed dependencies. The service/store credentials, immutable
+  bundle URL/checksum, provider/transform, exact origins, `shadow` mode,
+  60-second weather cache, one worker, and one prediction thread are active.
+- [x] Confirm local load/RSS and deployed path p50/p95, 4,096-cell surface
+  p50/p95, and concurrent request behavior. Raw measurements and methodology are
+  preserved in the cloud deployment report and JSON receipt.
+- [ ] Record monthly compute, private model storage, and egress cost from provider
+  meters after at least one representative week. Do not extrapolate a dollar
+  estimate from a short synthetic load test.
 - [ ] Configure external continuous monitoring; Railway's deployment health
   check establishes readiness but is not continuous uptime monitoring.
 
@@ -468,10 +457,10 @@ Vercel preview endpoints without printing secrets or private station data.
 
 ## Immediate resume instruction
 
-On the M5, pull the branch and read this plan plus its four linked controlling
-documents. Begin Phase A. Do not retrain A6. First repair the V2 runtime contract,
-generate the retrospective-validated internal serving manifest from the existing
-checksum-verified A6 components, run the complete M5 verification, and then
-prepare the Railway runtime/artifact promotion path. Preserve every existing
-collector and the unread prospective outcome boundary while product integration
-continues.
+On the M5, pull the branch and read this plan plus its controlling documents and
+the cloud deployment report. Begin Phase D; do not retrain A6. Use the deployed
+same-origin client and capability contract to bind the active saved location and
+active virtual-shack chain into Band Planner. Preserve actual `nowcast` versus
+`physics` profile, freshness, confidence, OOD, and partial-failure states. Then
+complete Phase E's core/personalized ReachMap controls and map-mode verification.
+Keep every collector and the unread prospective outcome boundary unchanged.

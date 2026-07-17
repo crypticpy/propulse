@@ -1,0 +1,19 @@
+# Local Vercel state and generated web output
+.vercel
+dist
+**/dist
+
+# Package-manager dependency trees are installed by Vercel
+node_modules
+**/node_modules
+
+# Native and Python build products are not part of the web deployment
+daemon/target
+ml/.venv
+**/__pycache__
+**/*.pyc
+
+# Local test output
+coverage
+playwright-report
+test-results

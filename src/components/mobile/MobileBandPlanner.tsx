@@ -24,6 +24,16 @@ import {
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { gridToLatLon } from "@/lib/utils/grid";
 import type { UserStation } from "@/types/user";
+import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
+import {
+  useNowCastBandPredictions,
+  type NowCastBandInput,
+} from "@/hooks/useNowCastBandPredictions";
+import {
+  HF_MODEL_BANDS,
+  type OperationalSpaceWeather,
+} from "@/lib/propagation/coreFeatureBuilder";
+import type { ResearchSubjectBinding } from "@/lib/propagation/modelClient";
 
 // --- Types ---
 
@@ -38,6 +48,12 @@ interface MobileBandPlannerProps {
   bandDataUpdatedAt: number | undefined;
   bandIsRefetching: boolean;
   refetchBandData: () => void;
+  deriveEnvelope: NowCastBandInput["deriveEnvelope"];
+  modelWeather?: OperationalSpaceWeather;
+  modelWeatherUpdatedAt?: number;
+  researchSubjectBinding?: ResearchSubjectBinding | null;
+  stationChainName?: string;
+  locationName?: string;
 }
 
 // --- Helpers ---
@@ -74,6 +90,12 @@ export function MobileBandPlanner({
   bandDataUpdatedAt,
   bandIsRefetching,
   refetchBandData,
+  deriveEnvelope,
+  modelWeather,
+  modelWeatherUpdatedAt,
+  researchSubjectBinding,
+  stationChainName,
+  locationName,
 }: MobileBandPlannerProps) {
   // Target location state
   const [targetGrid, setTargetGrid] = useState("");
@@ -85,6 +107,15 @@ export function MobileBandPlanner({
 
   // Expanded band card
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
+
+  const modelNowCast = useNowCastBandPredictions({
+    origin: station,
+    target: targetCoords,
+    weather: modelWeather,
+    weatherUpdatedAt: modelWeatherUpdatedAt,
+    deriveEnvelope,
+    researchSubjectBinding,
+  });
 
   // Parse target grid
   const handleTargetChange = useCallback((value: string) => {
@@ -280,6 +311,16 @@ export function MobileBandPlanner({
               </button>
             ))}
           </div>
+        )}
+
+        {targetCoords && modelNowCast.visible && (
+          <NowCastBandPanel
+            state={modelNowCast}
+            bands={HF_MODEL_BANDS}
+            stationLabel={stationChainName}
+            locationLabel={locationName}
+            compact
+          />
         )}
 
         {/* Loading */}

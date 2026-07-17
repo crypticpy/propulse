@@ -19,11 +19,11 @@ import { gridToLatLon } from "@/lib/utils/grid";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
+import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
-import { BrainCircuit, Loader2, TriangleAlert } from "lucide-react";
-import { ResearchAttemptControl } from "@/components/propagation/ResearchAttemptControl";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
+import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 
 /**
  * Band Planner Page
@@ -275,6 +275,12 @@ export function BandPlanner() {
         bandDataUpdatedAt={bandDataUpdatedAt}
         bandIsRefetching={bandIsRefetching}
         refetchBandData={refetchBandData}
+        deriveEnvelope={stationCast.deriveEnvelope}
+        modelWeather={modelWeather}
+        modelWeatherUpdatedAt={bandDataUpdatedAt}
+        researchSubjectBinding={researchParticipation.state?.subjectBinding}
+        stationChainName={stationCast.chain?.name}
+        locationName={stationCast.location?.name}
       />
     );
   }
@@ -571,101 +577,12 @@ export function BandPlanner() {
             </Card>
 
             {targetCoords && modelNowCast.visible && (
-              <Card>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <BrainCircuit className="h-5 w-5 text-cyan-300" aria-hidden="true" />
-                    <div>
-                      <h3 className="text-base font-semibold text-white">Model nowcast</h3>
-                      <p className="text-xs text-gray-400">
-                        {modelNowCast.personalized
-                          ? "Single-decode WSPR probability from your active station chain"
-                          : "Single-decode WSPR probability from the core model"}
-                      </p>
-                    </div>
-                  </div>
-                  {modelNowCast.pending && (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" aria-label="Loading model predictions" />
-                  )}
-                </div>
-
-                {modelNowCast.predictions.size > 0 && (
-                  <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 sm:grid-cols-3 lg:grid-cols-5">
-                    {allBands.map((band) => {
-                      const prediction = modelNowCast.predictions.get(band);
-                      if (!prediction) return null;
-                      const probability = prediction.personalized_probability;
-                      const color =
-                        probability >= 0.5
-                          ? "text-signal-green"
-                          : probability >= 0.2
-                            ? "text-caution-amber"
-                            : "text-gray-300";
-                      return (
-                        <div
-                          key={band}
-                          className="bg-void-black/80 px-3 py-2.5"
-                          style={{ minHeight: 80 }}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-sm text-white">{band}</span>
-                            <span className={`font-mono text-sm font-semibold ${color}`}>
-                              {(probability * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-gray-500">
-                            <span>{prediction.profile === "physics" ? "Physics fallback" : "Nowcast"}</span>
-                            <span>{Math.round(prediction.confidence * 100)}% conf.</span>
-                          </div>
-                          <ResearchAttemptControl prediction={prediction} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {modelNowCast.errors.size > 0 && modelNowCast.predictions.size === 0 && (
-                  <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-caution-amber">
-                    <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>Model service unavailable. The established planner remains active.</span>
-                  </div>
-                )}
-
-                {modelNowCast.partial && (
-                  <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-caution-amber">
-                    <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>
-                      {modelNowCast.predictions.size}/{modelNowCast.requestedCount} bands scored.
-                      {" "}The established planner remains active for the unavailable bands.
-                    </span>
-                  </div>
-                )}
-
-                {modelNowCast.predictions.size > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
-                    <span>{[...modelNowCast.predictions.values()][0]?.model_version}</span>
-                    <span>Issued {[...modelNowCast.predictions.values()][0]?.issue_time.slice(11, 16)} UTC</span>
-                    {modelNowCast.staleInputBands.length > 0 && (
-                      <span>
-                        Recent path data stale on {modelNowCast.staleInputBands.length} band
-                        {modelNowCast.staleInputBands.length === 1 ? "" : "s"}; physics fallback shown
-                      </span>
-                    )}
-                    {modelNowCast.fallbackBands.length > modelNowCast.staleInputBands.length && (
-                      <span>
-                        Physics fallback active on {modelNowCast.fallbackBands.length} band
-                        {modelNowCast.fallbackBands.length === 1 ? "" : "s"}
-                      </span>
-                    )}
-                    {modelNowCast.nowcastBands.length > 0 && (
-                      <span>
-                        Verified recent path data active on {modelNowCast.nowcastBands.length} band
-                        {modelNowCast.nowcastBands.length === 1 ? "" : "s"}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </Card>
+              <NowCastBandPanel
+                state={modelNowCast}
+                bands={HF_MODEL_BANDS}
+                stationLabel={stationCast.chain?.name}
+                locationLabel={stationCast.location?.name}
+              />
             )}
 
             {/* No target selected */}

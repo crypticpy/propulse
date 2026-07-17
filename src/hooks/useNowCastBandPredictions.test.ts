@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNowCastRequests,
+  resolveNowCastCapabilityAccess,
   summarizeNowCastResults,
 } from "./useNowCastBandPredictions";
-import type { PropagationPrediction } from "@/lib/propagation/modelClient";
+import capabilitiesFixture from "../../ml/fixtures/propagation_capabilities_v1.json";
+import type {
+  PropagationCapabilitiesResponse,
+  PropagationPrediction,
+} from "@/lib/propagation/modelClient";
 
 describe("buildNowCastRequests", () => {
-  it("builds privacy-safe station envelopes and forces stale-history fallback", () => {
+  it("builds privacy-safe station envelopes for every HF model band", () => {
     const requests = buildNowCastRequests(
       {
         origin: { grid: "EM10ab", lat: 30, lon: -97 },
@@ -51,9 +56,13 @@ describe("buildNowCastRequests", () => {
     );
 
     expect(requests).toHaveLength(10);
+    expect(requests.map((request) => request.band)).toEqual([
+      "160m", "80m", "60m", "40m", "30m",
+      "20m", "17m", "15m", "12m", "10m",
+    ]);
     expect(requests[0].origin_grid4).toBe("EM10");
     expect(requests[0].features.target_grid4).toBe("IO91");
-    expect(requests[0].data_freshness_seconds?.path_history).toBeGreaterThan(7200);
+    expect(requests[0].data_freshness_seconds).toEqual({ space_weather: 300 });
     expect(requests[0].station).not.toHaveProperty("radioId");
     expect(requests[0].features.values.power_bin_dbm).toBe(45);
     expect(requests[0].research_subject_binding).toEqual({
@@ -79,6 +88,35 @@ describe("buildNowCastRequests", () => {
     expect(requests).toHaveLength(10);
     expect(requests.every((request) => request.station === undefined)).toBe(true);
     expect(requests.every((request) => request.declared_power_watts === 5)).toBe(true);
+  });
+});
+
+describe("resolveNowCastCapabilityAccess", () => {
+  const capabilities = capabilitiesFixture as PropagationCapabilitiesResponse;
+
+  it("uses internal availability without claiming public release", () => {
+    expect(resolveNowCastCapabilityAccess(capabilities, "internal")).toEqual({
+      coreNowCast: true,
+      stationCast: true,
+    });
+    expect(resolveNowCastCapabilityAccess(capabilities, "released")).toEqual({
+      coreNowCast: false,
+      stationCast: false,
+    });
+  });
+
+  it("fails closed when execution or the model is unavailable", () => {
+    expect(resolveNowCastCapabilityAccess(capabilities, "off")).toEqual({
+      coreNowCast: false,
+      stationCast: false,
+    });
+    expect(resolveNowCastCapabilityAccess({
+      ...capabilities,
+      model_loaded: false,
+    }, "internal")).toEqual({
+      coreNowCast: false,
+      stationCast: false,
+    });
   });
 });
 

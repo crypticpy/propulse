@@ -3,6 +3,19 @@ import type { CoreFeatureValues } from "./modelClient";
 const EARTH_RADIUS_KM = 6371;
 const DEG = Math.PI / 180;
 
+export const HF_MODEL_BANDS = [
+  "160m",
+  "80m",
+  "60m",
+  "40m",
+  "30m",
+  "20m",
+  "17m",
+  "15m",
+  "12m",
+  "10m",
+] as const;
+
 export const HF_BAND_MHZ: Record<string, number> = {
   "160m": 1.9,
   "80m": 3.6,

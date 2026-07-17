@@ -1,13 +1,17 @@
 import { useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
-import { buildCorePathFeatures, HF_BAND_MHZ, type OperationalSpaceWeather } from "@/lib/propagation/coreFeatureBuilder";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import {
+  buildCorePathFeatures,
+  HF_MODEL_BANDS,
+  type OperationalSpaceWeather,
+} from "@/lib/propagation/coreFeatureBuilder";
 import {
   propagationModelClient,
-  propagationCoreNowCastVisible,
   propagationModelEnabled,
-  propagationStationCastRequested,
-  propagationStationCastVisible,
+  propagationModelMode,
   type PathPredictionRequest,
+  type PropagationCapabilitiesResponse,
+  type PropagationModelMode,
   type PropagationPrediction,
   type ResearchSubjectBinding,
 } from "@/lib/propagation/modelClient";
@@ -52,7 +56,7 @@ export function buildNowCastRequests(
   const weatherAge = input.weatherUpdatedAt
     ? Math.max(0, Math.round((issuedAt.getTime() - input.weatherUpdatedAt) / 1000))
     : 86_400;
-  return Object.keys(HF_BAND_MHZ).map((band) => {
+  return HF_MODEL_BANDS.map((band) => {
     const preliminary = buildCorePathFeatures({
       origin: input.origin!,
       target: input.target!,
@@ -87,7 +91,6 @@ export function buildNowCastRequests(
       ...(envelope ? { station: envelope } : {}),
       data_freshness_seconds: {
         space_weather: weatherAge,
-        path_history: 86_400,
       },
       ...(input.researchSubjectBinding
         ? { research_subject_binding: input.researchSubjectBinding }
@@ -99,9 +102,12 @@ export function buildNowCastRequests(
 export interface NowCastBandPredictions {
   enabled: boolean;
   visible: boolean;
+  available: boolean;
   personalized: boolean;
   pending: boolean;
+  capabilityError: Error | null;
   predictions: Map<string, PropagationPrediction>;
+  stationEnvelopes: Map<string, StationFeatureEnvelope>;
   errors: Map<string, Error>;
   requestedCount: number;
   failedCount: number;
@@ -109,6 +115,33 @@ export interface NowCastBandPredictions {
   fallbackBands: string[];
   staleInputBands: string[];
   nowcastBands: string[];
+}
+
+export interface NowCastCapabilityAccess {
+  coreNowCast: boolean;
+  stationCast: boolean;
+}
+
+export function resolveNowCastCapabilityAccess(
+  capabilities: PropagationCapabilitiesResponse | undefined,
+  mode: PropagationModelMode,
+): NowCastCapabilityAccess {
+  if (
+    !capabilities ||
+    mode === "off" ||
+    !capabilities.service_execution_enabled ||
+    !capabilities.model_loaded ||
+    !capabilities.runtime_activation_valid
+  ) {
+    return { coreNowCast: false, stationCast: false };
+  }
+  const field = mode === "internal" ? "internal_available" : "released_eligible";
+  const coreNowCast = capabilities.modes.core_nowcast[field];
+  return {
+    coreNowCast,
+    stationCast:
+      coreNowCast && capabilities.modes.stationcast_deterministic[field],
+  };
 }
 
 export function summarizeNowCastResults(
@@ -153,13 +186,29 @@ export function useNowCastBandPredictions(
   input: NowCastBandInput,
 ): NowCastBandPredictions {
   const issueBucket = Math.floor(Date.now() / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
+  const capabilities = useQuery({
+    queryKey: ["propagation-v4", "capabilities"] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) => {
+      if (!propagationModelClient) throw new Error("Propagation model is disabled");
+      return propagationModelClient.capabilities(signal);
+    },
+    enabled: propagationModelEnabled,
+    staleTime: FIVE_MINUTES_MS,
+    retry: 1,
+  });
+  const access = resolveNowCastCapabilityAccess(
+    capabilities.data,
+    propagationModelMode,
+  );
   const requests = useMemo(
-    () => buildNowCastRequests(
-      input,
-      new Date(issueBucket),
-      propagationStationCastRequested,
-    ),
-    [input, issueBucket],
+    () => access.coreNowCast
+      ? buildNowCastRequests(
+          input,
+          new Date(issueBucket),
+          access.stationCast,
+        )
+      : [],
+    [input, issueBucket, access.coreNowCast, access.stationCast],
   );
   const queries = useQueries({
     queries: requests.map((request) => ({
@@ -185,6 +234,7 @@ export function useNowCastBandPredictions(
     })),
   });
   const predictions = new Map<string, PropagationPrediction>();
+  const stationEnvelopes = new Map<string, StationFeatureEnvelope>();
   const errors = new Map<string, Error>();
   queries.forEach((query, index) => {
     const band = requests[index]?.band;
@@ -192,18 +242,27 @@ export function useNowCastBandPredictions(
     if (query.data) predictions.set(band, query.data);
     if (query.error instanceof Error) errors.set(band, query.error);
   });
+  requests.forEach((request) => {
+    if (request.station) stationEnvelopes.set(request.band, request.station);
+  });
   const summary = summarizeNowCastResults(
     requests.map((request) => request.band),
     predictions,
     errors,
   );
   return {
-    enabled: propagationModelEnabled && requests.length > 0,
-    visible: propagationCoreNowCastVisible && requests.length > 0,
+    enabled: propagationModelEnabled,
+    visible: propagationModelEnabled,
+    available: access.coreNowCast,
     personalized:
-      propagationStationCastVisible && requests.some((request) => Boolean(request.station)),
-    pending: queries.some((query) => query.isPending || query.isFetching),
+      access.stationCast && requests.some((request) => Boolean(request.station)),
+    pending:
+      (propagationModelEnabled && capabilities.isPending) ||
+      queries.some((query) => query.isPending || query.isFetching),
+    capabilityError:
+      capabilities.error instanceof Error ? capabilities.error : null,
     predictions,
+    stationEnvelopes,
     errors,
     ...summary,
   };

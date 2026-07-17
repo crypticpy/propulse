@@ -501,13 +501,20 @@ function throttled(
   return ipResult.success ? null : ipResult;
 }
 
-function timeoutFailure(error: unknown): boolean {
-  return (
+function safeErrorName(error: unknown): string {
+  if (
     typeof error === "object" &&
     error !== null &&
     "name" in error &&
-    error.name === "TimeoutError"
-  );
+    typeof error.name === "string"
+  ) {
+    return error.name.slice(0, 64);
+  }
+  return "unknown";
+}
+
+function timeoutFailure(error: unknown): boolean {
+  return safeErrorName(error) === "TimeoutError";
 }
 
 export async function handlePropagationProxy(
@@ -567,6 +574,8 @@ export async function handlePropagationProxy(
 
   const traceId = dependencies.traceId();
   let upstream: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), policy.timeoutMs);
   try {
     upstream = await dependencies.fetcher(
       `${config.baseUrl}/v1/propagation/${route}`,
@@ -579,15 +588,23 @@ export async function handlePropagationProxy(
         },
         body: requestBody,
         redirect: "error",
-        signal: AbortSignal.timeout(policy.timeoutMs),
+        signal: controller.signal,
       },
     );
   } catch (error) {
+    const timedOut = timeoutFailure(error);
+    console.error("Propagation upstream request failed", {
+      route,
+      traceId,
+      errorName: safeErrorName(error),
+    });
     return jsonResponse(
-      { error: timeoutFailure(error) ? "Propagation request timed out" : "Propagation service unavailable" },
-      timeoutFailure(error) ? 504 : 502,
+      { error: timedOut ? "Propagation request timed out" : "Propagation service unavailable" },
+      timedOut ? 504 : 502,
       traceId,
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   let responseText: string;

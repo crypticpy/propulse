@@ -77,6 +77,7 @@ function dependencies(
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
 
@@ -238,6 +239,7 @@ describe("propagation proxy", () => {
   });
 
   it("maps timeouts and sanitizes upstream authentication failures", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const timeout = vi.fn(async () => {
       const crossRealmTimeout = Object.assign(Object.create(null), {
         name: "TimeoutError",
@@ -250,6 +252,14 @@ describe("propagation proxy", () => {
       dependencies(timeout),
     );
     expect(timeoutResponse.status).toBe(504);
+    expect(consoleError).toHaveBeenCalledWith(
+      "Propagation upstream request failed",
+      {
+        route: "path",
+        traceId: "00000000-0000-4000-8000-000000000001",
+        errorName: "TimeoutError",
+      },
+    );
 
     const authFailure = vi.fn(async () => new Response(JSON.stringify({
       detail: "service authorization required",

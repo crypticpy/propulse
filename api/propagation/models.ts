@@ -1,5 +1,3 @@
-import { handlePropagationProxy } from "../_lib/propagationProxy.js";
+import { nodePropagationHandler } from "../_lib/nodePropagationHandler.js";
 
-export default function handler(request: Request): Promise<Response> {
-  return handlePropagationProxy(request, "models");
-}
+export default nodePropagationHandler("models");

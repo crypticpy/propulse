@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500" role="img" aria-labelledby="title desc">
+  <title id="title">Local compute and deployed request latency</title>
+  <desc id="desc">Grouped horizontal bars compare median M5 local compute with Railway request latency for one path and surfaces of 144, 288, and 4096 cells.</desc>
+  <rect width="960" height="500" fill="#fbfcfe"/>
+  <text x="48" y="48" font-family="system-ui,sans-serif" font-size="24" font-weight="700" fill="#18212f">Local compute and deployed request latency</text>
+  <text x="48" y="76" font-family="system-ui,sans-serif" font-size="14" fill="#5b6675">Median milliseconds; Railway includes HTTPS, trusted-data lookup, validation, inference, and serialization</text>
+  <g font-family="system-ui,sans-serif" font-size="13" fill="#5b6675">
+    <text x="230" y="112">0</text><text x="430" y="112">200</text><text x="630" y="112">400</text><text x="830" y="112">600 ms</text>
+  </g>
+  <g stroke="#d9dee7" stroke-width="1">
+    <line x1="230" y1="122" x2="230" y2="438"/><line x1="430" y1="122" x2="430" y2="438"/><line x1="630" y1="122" x2="630" y2="438"/><line x1="830" y1="122" x2="830" y2="438"/>
+  </g>
+  <g font-family="system-ui,sans-serif" font-size="15" fill="#18212f">
+    <text x="48" y="168">Single path</text><text x="48" y="248">144-cell surface</text><text x="48" y="328">288-cell surface</text><text x="48" y="408">4,096-cell surface</text>
+  </g>
+  <g fill="#d7e6f7" stroke="#2d5f91" stroke-width="1">
+    <rect x="230" y="140" width="2" height="18"/><rect x="230" y="220" width="5.4" height="18"/><rect x="230" y="300" width="8.7" height="18"/><rect x="230" y="380" width="114.1" height="18"/>
+  </g>
+  <g fill="#d49a32" stroke="#7a5415" stroke-width="1">
+    <rect x="230" y="164" width="176" height="24"/><rect x="230" y="244" width="190.5" height="24"/><rect x="230" y="324" width="198.3" height="24"/><rect x="230" y="404" width="531.5" height="24"/>
+  </g>
+  <g font-family="ui-monospace,SFMono-Regular,monospace" font-size="13" fill="#18212f">
+    <text x="240" y="154">1.94</text><text x="416" y="181">176.03</text>
+    <text x="245" y="234">5.43</text><text x="431" y="261">190.52</text>
+    <text x="249" y="314">8.66</text><text x="439" y="341">198.28</text>
+    <text x="354" y="394">114.12</text><text x="771" y="421">531.50</text>
+  </g>
+  <g font-family="system-ui,sans-serif" font-size="13" fill="#364152">
+    <rect x="48" y="458" width="18" height="12" fill="#d7e6f7" stroke="#2d5f91"/><text x="76" y="469">M5 local model compute</text>
+    <rect x="270" y="458" width="18" height="12" fill="#d49a32" stroke="#7a5415"/><text x="298" y="469">Railway end-to-end service request</text>
+  </g>
+</svg>

@@ -1,0 +1,310 @@
+{
+  "schema_version": 1,
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "preregistered_at": "2026-07-12T00:00:00Z",
+  "plan_commit": "2af85f5",
+  "parent_evidence_commit": "2cb309d",
+  "execution_scope": "preregistration",
+  "protocol_state": "development_failed",
+  "development_outcomes_opened": true,
+  "november_gate_opened": true,
+  "november_gate_opened_at": "2026-07-12T18:42:49.441736+00:00",
+  "november_gate_attempt_id": "november-fe4f874f7a514075bcb6f48e3333d0e9",
+  "development_gates_passed": false,
+  "locked_archive_test_opened": false,
+  "locked_archive_test_opened_at": null,
+  "locked_archive_attempt_id": null,
+  "prospective_test_complete": false,
+  "release_approved": false,
+  "outcome_access": {
+    "2024-02": true,
+    "2024-05": true,
+    "2024-08": true,
+    "2024-11": true,
+    "2024-12": false,
+    "2025-01": false,
+    "2025-04": false,
+    "2025-07": false,
+    "2025-10": false
+  },
+  "frozen_artifacts": {
+    "b2_freeze": {
+      "path": "ml/results/propagation_v4_1/preregistration/b2_freeze.json",
+      "bytes": 4419,
+      "sha256": "543e4022c03af64c58966a5b46146daadd269ba7081dac1dab1749cc17b5b147"
+    },
+    "b2_engineering": {
+      "path": "ml/results/propagation_v4_1/preregistration/b2_october_engineering.json",
+      "bytes": 27003,
+      "sha256": "915cc8f335f7837dc460a15e527a080ccc7fcdf0c151d888e2aa2e6a87890220"
+    },
+    "development_data_audit": {
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit.json",
+      "bytes": 4252,
+      "sha256": "2d1d14f187977498bf9dcd00a1104a03f7a55dacb83388e5806d81e818ede92a"
+    },
+    "development_data_audit_v2": {
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit_v2.json",
+      "bytes": 4252,
+      "sha256": "80dc18b190b04e846d5be97aded9c25e0a06f547441b30e44486ac4b10e4bdfa"
+    },
+    "calibration_input_inventory": {
+      "path": "ml/results/propagation_v4_1/preregistration/calibration_input_inventory.json",
+      "bytes": 2918,
+      "sha256": "e8c6e4bd3d6cc76f759f9c081885cbd69a0ed461a42caf79f3e111238cffb57e"
+    },
+    "calibration_predictions": {
+      "path": "ml/data/processed/archive_v4_1/calibration_predictions/propagation_v4_1_calibration_recovery/manifest.json",
+      "bytes": 7589,
+      "sha256": "03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5"
+    },
+    "calibration_selection": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json",
+      "bytes": 524139,
+      "sha256": "371b040390b4649aae74c2f96c8303c0a69676ea7c0733580eda9c6f2b704a24"
+    },
+    "calibration_oof_daily": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_oof_daily.parquet",
+      "bytes": 612372,
+      "sha256": "4a7f13011366cd834e4ee59582041923cba4a7ad385e65c2382bb093048c6a60"
+    },
+    "selected_calibrator": {
+      "path": "ml/models/archive_v4_1/propagation_v4_1_calibration_recovery/M2_nowcast_v4_1_calibrator.joblib",
+      "bytes": 722043,
+      "sha256": "26bb7950b4d3c858432740f66fdad14ff57f97e02abd8960625f572d5905cf36"
+    },
+    "candidate_environment": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/candidate_environment.json",
+      "bytes": 760,
+      "sha256": "30e6edeb9ad426067f2eccb0e45ae652826860ea17b478bd8b710fd5e548a438"
+    },
+    "split_manifest": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/splits.json",
+      "bytes": 1582,
+      "sha256": "890837fed6f32b40f8ba019ac2d974b8f4fe05c2334df1cb16b95e803a3e7ce0"
+    },
+    "serving_candidate": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/serving_candidate_manifest.json",
+      "bytes": 6805,
+      "sha256": "1332757f5f436e4aed6ff8a5133a9f581a801f9d8b1f703c82615ebf55f84455"
+    },
+    "candidate_validation": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json",
+      "bytes": 1654,
+      "sha256": "81a74f8838aaf2ad59c37cbc4df0502cb64955d41e85afe0e6f2f3a73b221d4e"
+    },
+    "synthetic_report_validation": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/synthetic_dry_run/report_validation.json",
+      "bytes": 817,
+      "sha256": "df46be3554a8bb5e7bf51ba73eb3e40da724fa664cc9a70660ed3a763fc662b4"
+    },
+    "b0_climatology": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/b0_climatology.json",
+      "bytes": 30502,
+      "sha256": "c77952ea7cd75c30a737ad37a1b61d2827cf892e4a998a76aa37f84f9d5a535a"
+    },
+    "candidate_freeze": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/candidate_freeze.json",
+      "bytes": 4573,
+      "sha256": "905d02636f8bf5d755568bc1d28b82ab2b2aaa864adda966ef02a2a8779c27c2"
+    },
+    "scorer_freeze": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/scorer_freeze.json",
+      "bytes": 3393,
+      "sha256": "cfefe185edd50965aa02c968785cbeee8ed97d913f89549a9dea97e73ff8c756"
+    },
+    "november_gate_result": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json",
+      "bytes": 917672,
+      "sha256": "4dd2bcdb16c9515aab399ad0659b4ca0a77a8d28a1e8b97b36364c67444a3824"
+    }
+  },
+  "phase_status": {
+    "phase_0": "complete",
+    "phase_1": "complete",
+    "phase_2": "failed",
+    "phase_3": "not_started",
+    "phase_4": "locked",
+    "phase_5": "not_started"
+  },
+  "failed_gates": [
+    "G4_frozen_v3",
+    "G6_short_path_calibration"
+  ],
+  "protocol_events": [
+    {
+      "at": "2026-07-12T15:55:45.004646+00:00",
+      "event": "artifact_frozen",
+      "name": "b2_freeze",
+      "path": "ml/results/propagation_v4_1/preregistration/b2_freeze.json",
+      "bytes": 4419,
+      "sha256": "543e4022c03af64c58966a5b46146daadd269ba7081dac1dab1749cc17b5b147"
+    },
+    {
+      "at": "2026-07-12T16:12:20.333801+00:00",
+      "event": "artifact_frozen",
+      "name": "b2_engineering",
+      "path": "ml/results/propagation_v4_1/preregistration/b2_october_engineering.json",
+      "bytes": 27003,
+      "sha256": "915cc8f335f7837dc460a15e527a080ccc7fcdf0c151d888e2aa2e6a87890220"
+    },
+    {
+      "at": "2026-07-12T16:15:46.077344+00:00",
+      "event": "development_outcomes_opened",
+      "months": [
+        "2024-02",
+        "2024-05",
+        "2024-08"
+      ]
+    },
+    {
+      "at": "2026-07-12T16:34:19.828246+00:00",
+      "event": "artifact_frozen",
+      "name": "development_data_audit",
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit.json",
+      "bytes": 4252,
+      "sha256": "2d1d14f187977498bf9dcd00a1104a03f7a55dacb83388e5806d81e818ede92a"
+    },
+    {
+      "at": "2026-07-12T17:37:08.390584+00:00",
+      "event": "artifact_frozen",
+      "name": "development_data_audit_v2",
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit_v2.json",
+      "bytes": 4252,
+      "sha256": "80dc18b190b04e846d5be97aded9c25e0a06f547441b30e44486ac4b10e4bdfa"
+    },
+    {
+      "at": "2026-07-12T17:38:18.993912+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_input_inventory",
+      "path": "ml/results/propagation_v4_1/preregistration/calibration_input_inventory.json",
+      "bytes": 2918,
+      "sha256": "e8c6e4bd3d6cc76f759f9c081885cbd69a0ed461a42caf79f3e111238cffb57e"
+    },
+    {
+      "at": "2026-07-12T17:48:55.963919+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_predictions",
+      "path": "ml/data/processed/archive_v4_1/calibration_predictions/propagation_v4_1_calibration_recovery/manifest.json",
+      "bytes": 7589,
+      "sha256": "03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5"
+    },
+    {
+      "at": "2026-07-12T18:19:42.440681+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_selection",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json",
+      "bytes": 524139,
+      "sha256": "371b040390b4649aae74c2f96c8303c0a69676ea7c0733580eda9c6f2b704a24"
+    },
+    {
+      "at": "2026-07-12T18:19:42.441962+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_oof_daily",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_oof_daily.parquet",
+      "bytes": 612372,
+      "sha256": "4a7f13011366cd834e4ee59582041923cba4a7ad385e65c2382bb093048c6a60"
+    },
+    {
+      "at": "2026-07-12T18:19:42.442570+00:00",
+      "event": "artifact_frozen",
+      "name": "selected_calibrator",
+      "path": "ml/models/archive_v4_1/propagation_v4_1_calibration_recovery/M2_nowcast_v4_1_calibrator.joblib",
+      "bytes": 722043,
+      "sha256": "26bb7950b4d3c858432740f66fdad14ff57f97e02abd8960625f572d5905cf36"
+    },
+    {
+      "at": "2026-07-12T18:40:52.934008+00:00",
+      "event": "artifact_frozen",
+      "name": "candidate_environment",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/candidate_environment.json",
+      "bytes": 760,
+      "sha256": "30e6edeb9ad426067f2eccb0e45ae652826860ea17b478bd8b710fd5e548a438"
+    },
+    {
+      "at": "2026-07-12T18:40:52.934324+00:00",
+      "event": "artifact_frozen",
+      "name": "split_manifest",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/splits.json",
+      "bytes": 1582,
+      "sha256": "890837fed6f32b40f8ba019ac2d974b8f4fe05c2334df1cb16b95e803a3e7ce0"
+    },
+    {
+      "at": "2026-07-12T18:40:52.934599+00:00",
+      "event": "artifact_frozen",
+      "name": "serving_candidate",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/serving_candidate_manifest.json",
+      "bytes": 6805,
+      "sha256": "1332757f5f436e4aed6ff8a5133a9f581a801f9d8b1f703c82615ebf55f84455"
+    },
+    {
+      "at": "2026-07-12T18:40:52.934926+00:00",
+      "event": "artifact_frozen",
+      "name": "candidate_validation",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json",
+      "bytes": 1654,
+      "sha256": "81a74f8838aaf2ad59c37cbc4df0502cb64955d41e85afe0e6f2f3a73b221d4e"
+    },
+    {
+      "at": "2026-07-12T18:40:52.935241+00:00",
+      "event": "artifact_frozen",
+      "name": "synthetic_report_validation",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/synthetic_dry_run/report_validation.json",
+      "bytes": 817,
+      "sha256": "df46be3554a8bb5e7bf51ba73eb3e40da724fa664cc9a70660ed3a763fc662b4"
+    },
+    {
+      "at": "2026-07-12T18:40:52.935555+00:00",
+      "event": "artifact_frozen",
+      "name": "b0_climatology",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/b0_climatology.json",
+      "bytes": 30502,
+      "sha256": "c77952ea7cd75c30a737ad37a1b61d2827cf892e4a998a76aa37f84f9d5a535a"
+    },
+    {
+      "at": "2026-07-12T18:40:52.935859+00:00",
+      "event": "artifact_frozen",
+      "name": "candidate_freeze",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/candidate_freeze.json",
+      "bytes": 4573,
+      "sha256": "905d02636f8bf5d755568bc1d28b82ab2b2aaa864adda966ef02a2a8779c27c2"
+    },
+    {
+      "at": "2026-07-12T18:40:52.936244+00:00",
+      "event": "artifact_frozen",
+      "name": "scorer_freeze",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/scorer_freeze.json",
+      "bytes": 3393,
+      "sha256": "cfefe185edd50965aa02c968785cbeee8ed97d913f89549a9dea97e73ff8c756"
+    },
+    {
+      "at": "2026-07-12T18:40:52.936614+00:00",
+      "event": "candidate_frozen"
+    },
+    {
+      "at": "2026-07-12T18:42:49.441736+00:00",
+      "event": "november-gate_opened",
+      "months": [
+        "2024-11"
+      ],
+      "attempt_id": "november-fe4f874f7a514075bcb6f48e3333d0e9"
+    },
+    {
+      "at": "2026-07-12T19:15:22.903023+00:00",
+      "event": "outcome_artifact_recorded",
+      "name": "november_gate_result",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json",
+      "bytes": 917672,
+      "sha256": "4dd2bcdb16c9515aab399ad0659b4ca0a77a8d28a1e8b97b36364c67444a3824"
+    },
+    {
+      "at": "2026-07-12T19:15:22.903912+00:00",
+      "event": "development_decision",
+      "passed": false,
+      "failed_gates": [
+        "G4_frozen_v3",
+        "G6_short_path_calibration"
+      ]
+    }
+  ]
+}

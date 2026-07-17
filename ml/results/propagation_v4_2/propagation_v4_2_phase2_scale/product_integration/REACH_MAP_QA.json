@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "tested_at": "2026-07-17T05:01:23.754Z",
+  "environment": "authenticated local frontend against protected Vercel preview and deployed Railway A6 service",
+  "model_version": "propagation_v4_2_phase2_scale-a6-retrospective-internal-50000000",
+  "bands": [
+    "160m",
+    "80m",
+    "60m",
+    "40m",
+    "30m",
+    "20m",
+    "17m",
+    "15m",
+    "12m",
+    "10m"
+  ],
+  "grid": {
+    "cells": 324,
+    "unique_maidenhead_fields": 324,
+    "chunk_sizes": [144, 144, 36]
+  },
+  "viewports": [
+    {
+      "name": "Desktop",
+      "dimensions": "1440x900",
+      "projections": ["globe", "flat", "azimuthal"],
+      "station_cells": "324/324",
+      "core_cells": "324/324",
+      "document_width_matches_viewport": true,
+      "model_calls_before_projection_changes": 7,
+      "model_calls_after_projection_changes": 7
+    },
+    {
+      "name": "Mobile",
+      "dimensions": "390x844",
+      "projections": ["globe", "flat"],
+      "station_cells": "324/324",
+      "core_cells": "324/324",
+      "document_width_matches_viewport": true,
+      "model_calls_before_projection_changes": 14,
+      "model_calls_after_projection_changes": 14
+    }
+  ],
+  "model_http_responses": {
+    "total": 14,
+    "status_200": 14
+  },
+  "cache_verification": "Changing projection or returning to a previously loaded profile caused no additional model calls.",
+  "freshness_behavior": "Stale path history correctly selected the physics fallback and displayed confidence, source age, profile, and model provenance.",
+  "privacy": {
+    "ephemeral_confirmed_user_deleted": true,
+    "callsigns_or_real_user_records_in_receipt": false
+  },
+  "screenshots": [
+    "reach-map-desktop-globe.png",
+    "reach-map-desktop-flat.png",
+    "reach-map-desktop-azimuthal.png",
+    "reach-map-mobile-globe.png",
+    "reach-map-mobile-flat.png"
+  ]
+}

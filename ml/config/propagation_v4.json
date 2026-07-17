@@ -1,0 +1,106 @@
+{
+  "$schema": "./propagation_v4.schema.json",
+  "run_id": "propagation_v4_multiyear_50m",
+  "archive_namespace": "archive_v4",
+  "seed": 20260712,
+  "baseline_commit": "95d1e68",
+  "splits": {
+    "train": [
+      "2018-01", "2018-04", "2018-07", "2018-10",
+      "2019-01", "2019-04", "2019-07", "2019-10",
+      "2020-01", "2020-04", "2020-07", "2020-10",
+      "2021-01", "2021-04", "2021-07", "2021-10",
+      "2022-01", "2022-04", "2022-07", "2022-10",
+      "2023-01", "2023-04", "2023-07", "2023-10"
+    ],
+    "validation": ["2024-01", "2024-04", "2024-07", "2024-10"],
+    "locked_archive_test": ["2025-01", "2025-04", "2025-07", "2025-10"],
+    "locked_prospective_test": {
+      "start": "2026-08-01",
+      "end": "2026-09-30"
+    }
+  },
+  "months": [
+    "2018-01", "2018-04", "2018-07", "2018-10",
+    "2019-01", "2019-04", "2019-07", "2019-10",
+    "2020-01", "2020-04", "2020-07", "2020-10",
+    "2021-01", "2021-04", "2021-07", "2021-10",
+    "2022-01", "2022-04", "2022-07", "2022-10",
+    "2023-01", "2023-04", "2023-07", "2023-10",
+    "2024-01", "2024-04", "2024-07", "2024-10",
+    "2025-01", "2025-04", "2025-07", "2025-10"
+  ],
+  "train": {
+    "months": [
+      "2018-01", "2018-04", "2018-07", "2018-10",
+      "2019-01", "2019-04", "2019-07", "2019-10",
+      "2020-01", "2020-04", "2020-07", "2020-10",
+      "2021-01", "2021-04", "2021-07", "2021-10",
+      "2022-01", "2022-04", "2022-07", "2022-10",
+      "2023-01", "2023-04", "2023-07", "2023-10"
+    ]
+  },
+  "validation": {
+    "months": ["2024-01", "2024-04", "2024-07", "2024-10"]
+  },
+  "validation_protocol": {
+    "early_stopping_months": ["2024-01", "2024-07"],
+    "calibration_months": ["2024-04"],
+    "gate_months": ["2024-10"]
+  },
+  "test": {
+    "months": ["2025-01", "2025-04", "2025-07", "2025-10"]
+  },
+  "negative_receivers_per_tx_slot": 4,
+  "primary_train_rows": 50000000,
+  "validation_rows": 5000000,
+  "xgboost_rounds": 1000,
+  "early_stopping_rounds": 75,
+  "sampling": {
+    "primary_train_rows": 50000000,
+    "learning_curve_rows": [5000000, 20000000, 50000000],
+    "validation_rows": 5000000,
+    "strata": [
+      "year",
+      "season_anchor",
+      "band",
+      "power_bin_dbm",
+      "distance_bin",
+      "f107_regime",
+      "geomagnetic_regime",
+      "path_history_regime"
+    ]
+  },
+  "models": [
+    "B0_climatology",
+    "B1_p533_voacap",
+    "B2_frozen_v3",
+    "M1_multiyear_physics",
+    "M2_multiyear_nowcast",
+    "M3_nowcast_tec_roti",
+    "M4_nowcast_crossfit_station_nuisance",
+    "M5_nowcast_p533_hybrid"
+  ],
+  "future_horizons_hours": [3, 6, 12, 24],
+  "gates": {
+    "max_exposure_weight_error_fraction": 0.03,
+    "max_feature_available_after_issue_rows": 0,
+    "minimum_rolling_brier_skill": 0.0,
+    "minimum_v4_relative_brier_improvement_over_v3": 0.01,
+    "maximum_band_relative_brier_regression": 0.05,
+    "maximum_ece_delta": 0.005,
+    "minimum_short_path_validation_relative_brier_improvement": 0.03,
+    "primary_delta_bootstrap_upper_bound": 0.0,
+    "maximum_process_rss_gb": 96
+  },
+  "compute": {
+    "primary_machine": "Apple M5 Max 128 GB",
+    "data_root": "/Volumes/Projects/PropulseML/data",
+    "model_root": "/Volumes/Projects/PropulseML/models",
+    "external_memory": true,
+    "gpu_approved": false,
+    "duckdb_threads": 14,
+    "duckdb_memory_limit": "80GB",
+    "temp_root": "/Volumes/Projects/PropulseML/tmp"
+  }
+}

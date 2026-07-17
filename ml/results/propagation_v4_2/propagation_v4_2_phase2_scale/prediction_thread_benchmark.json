@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T20:48:02Z",
+  "scope": "execution_only_no_evaluation_outcomes",
+  "rows": 100000,
+  "repeats": 5,
+  "features": 64,
+  "best_iteration": 996,
+  "sample": {
+    "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase1_5m/sample_early_stopping_2024_07_5m.parquet",
+    "bytes": 566888739,
+    "rows": 5000000,
+    "sha256": "d5d8f05f17437df5d1b04bda8fa19ba6236db2da809e13f98c2cd1aab3d3dd30"
+  },
+  "sample_sha256_verified_this_run": true,
+  "measurement_order_rotated": true,
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "results": [
+    {
+      "threads": 1,
+      "seconds": [
+        0.8733770830003778,
+        0.9132416250067763,
+        0.8830479169992032,
+        0.8842438749998109,
+        0.8767086250009015
+      ],
+      "median_seconds": 0.8830479169992032,
+      "minimum_seconds": 0.8733770830003778,
+      "prediction_sha256": "4c34048b3f51bb079448e22ddd31fd55dab5116c23268b6524c59dd817b33ae2",
+      "maximum_absolute_delta": 0.0
+    },
+    {
+      "threads": 6,
+      "seconds": [
+        0.1740201659995364,
+        0.17847445800725836,
+        0.1671227920014644,
+        0.17192858298949432,
+        0.17500929199741222
+      ],
+      "median_seconds": 0.1740201659995364,
+      "minimum_seconds": 0.1671227920014644,
+      "prediction_sha256": "4c34048b3f51bb079448e22ddd31fd55dab5116c23268b6524c59dd817b33ae2",
+      "maximum_absolute_delta": 0.0
+    },
+    {
+      "threads": 9,
+      "seconds": [
+        0.14155029199901037,
+        0.13847475001239218,
+        0.1378855829971144,
+        0.13498304200766142,
+        0.13563145798980258
+      ],
+      "median_seconds": 0.1378855829971144,
+      "minimum_seconds": 0.13498304200766142,
+      "prediction_sha256": "4c34048b3f51bb079448e22ddd31fd55dab5116c23268b6524c59dd817b33ae2",
+      "maximum_absolute_delta": 0.0
+    },
+    {
+      "threads": 12,
+      "seconds": [
+        0.11447833299462218,
+        0.11311541601025965,
+        0.11429479101207107,
+        0.11125137499766424,
+        0.11739962499996182
+      ],
+      "median_seconds": 0.11429479101207107,
+      "minimum_seconds": 0.11125137499766424,
+      "prediction_sha256": "4c34048b3f51bb079448e22ddd31fd55dab5116c23268b6524c59dd817b33ae2",
+      "maximum_absolute_delta": 0.0
+    },
+    {
+      "threads": 18,
+      "seconds": [
+        0.09323766699526459,
+        0.09287395900173578,
+        0.0893607080070069,
+        0.0925246669939952,
+        0.09351950000564102
+      ],
+      "median_seconds": 0.09287395900173578,
+      "minimum_seconds": 0.0893607080070069,
+      "prediction_sha256": "4c34048b3f51bb079448e22ddd31fd55dab5116c23268b6524c59dd817b33ae2",
+      "maximum_absolute_delta": 0.0
+    }
+  ],
+  "selected_threads": 18,
+  "all_predictions_bit_identical": true,
+  "compute": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0",
+    "arrow_cpu_threads": 18,
+    "arrow_io_threads": 6,
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "numpy": "2.5.1",
+    "xgboost": "3.3.0",
+    "peak_rss_gb": 2.2269287109375
+  }
+}

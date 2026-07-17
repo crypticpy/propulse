@@ -1,0 +1,186 @@
+{
+  "manifest_version": 1,
+  "generated_at": "2026-07-16T09:39:55.445635+00:00",
+  "baseline_commit": "95d1e68",
+  "freeze_tag": "propagation-v3-evidence-v1",
+  "run_id": "archive_v3_eight_month",
+  "evidence_artifacts": [
+    {
+      "path": "ml/ARCHIVE-MULTIMONTH-V3-PLAN.md",
+      "bytes": 26803,
+      "sha256": "add710c8e0a4535c8e49ae5762d6d14bbb6f7a79cfb037366f31b6d29ced0e52",
+      "status": "present"
+    },
+    {
+      "path": "ml/ARCHIVE-MULTIMONTH-V3-RESULTS.md",
+      "bytes": 14398,
+      "sha256": "347fbf17b3e84d4161b8e466f3399657bb9667ff4397339a716f4a9bdcedfe47",
+      "status": "present"
+    },
+    {
+      "path": "ml/config/archive_v3_eight_month.json",
+      "bytes": 566,
+      "sha256": "e677f17b77fcce605e435360da0aa93d3b0bfb0c47350d6b2f78049230221345",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/6m_results.json",
+      "bytes": 59732,
+      "sha256": "426e0be3c2d1e55168ac2808d64e34300b5d785e4cdcbfd02afeb135db254c31",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/6m_validation.json",
+      "bytes": 9504,
+      "sha256": "5681d9e0f9b85c0807a83bb13e4688612164861a90dd1ed039d94308769fb5c8",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/DATA-CARD.md",
+      "bytes": 2569,
+      "sha256": "f5eec0983fc8563e7a91ffbc36b24b054d4705ce6525454c804f6df4adb4009d",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/MODEL-CARD.md",
+      "bytes": 2663,
+      "sha256": "cc633db4b7b918e220867b90aeaddfda0b5cb4f457ba2aa13ac295508b66f9e7",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/RELEASE-CHECKLIST.md",
+      "bytes": 1639,
+      "sha256": "763086f2dc36496d4e52a5f9c928c3332b9dd674ecb0bc76d4d6e421a8171953",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/REPORT.html",
+      "bytes": 36817,
+      "sha256": "2a0ffcb8fff9dbfac1324027f881b69a26e431279ca6c77708b96f859a1a598f",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/hf_results.json",
+      "bytes": 73123,
+      "sha256": "bd2e4a34061ac5f303f6669eca82545e1073219a8c09a0d705fa5027984c5379",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/hf_rolling_results.json",
+      "bytes": 34843,
+      "sha256": "e65dac1c2356fcbf2175a9d68b6b1b13e1db0bf35461bce8528326e1e871f829",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/hf_validation.json",
+      "bytes": 10219,
+      "sha256": "85bf314e5f5a30b3d2487b23798e3f899f7382d6878c083f33fa68671143b52d",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/archive_v3_eight_month_6m_dataset.json",
+      "bytes": 7789,
+      "sha256": "14da96675cbf2ed1169316590d14368cf1f8cf6733573d2c73b9659c21761409",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/archive_v3_eight_month_6m_opportunities.json",
+      "bytes": 8081,
+      "sha256": "84d3510dae3cf49b0254345337b5bbbc8f0041c0824fb402133d2be7dccdaccb",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/archive_v3_eight_month_bronze.json",
+      "bytes": 6426,
+      "sha256": "68f4d541e1815b9358ab5ef4dbf3b2e3a20e515042e739a89f3e41b39716cf0c",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/archive_v3_eight_month_environment.json",
+      "bytes": 719,
+      "sha256": "7d6397e2ae4491c00290087c4ffcb3256867ef9acf106dd16924fca06f7d762d",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/archive_v3_eight_month_hf_dataset.json",
+      "bytes": 8431,
+      "sha256": "c14c33829475730bed940e434ea60152559a5776cb5afdcbee1a4a7924d01271",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/archive_v3_eight_month_hf_opportunities.json",
+      "bytes": 8343,
+      "sha256": "13879d26a730288eee2770a43944da0c72368a07dc0658c6f0f56d2ce5ac4e87",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/archive_v3_eight_month_sources.json",
+      "bytes": 11841,
+      "sha256": "1c9f07a68574210d74e1370d0de61592e604f49b01c746d7a9862afbdb1f5c7c",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/manifests/space_weather_archive_v3_eight_month.json",
+      "bytes": 1292,
+      "sha256": "f4f259aa4468cf76837ce6a32e9867301497a0ea647092939e53210654a4b1d5",
+      "status": "present"
+    },
+    {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/summary.json",
+      "bytes": 561,
+      "sha256": "69a3f9ddb919b2d58f91d389a4b6decb587b4ffffb5e35746303b80bcb919bb5",
+      "status": "present"
+    }
+  ],
+  "model_artifacts": [
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/6m_nowcast.isotonic.joblib",
+      "bytes": 3161,
+      "sha256": "35c56f5a22093fb77d14e09562b0e9cf8b410d32c2b520fa79eb57deb7196c5e",
+      "status": "present"
+    },
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/6m_nowcast.json",
+      "bytes": 2230755,
+      "sha256": "4d737b62632fe9f8f54a713beaeee40003a3b4fff1b9ab0ab769f3baab09ba71",
+      "status": "present"
+    },
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/6m_physics.isotonic.joblib",
+      "bytes": 1031,
+      "sha256": "6e4c94ee8e12a70cce6bfa9b4c9629e15500e9b48737a0cfdd7bac181ad82833",
+      "status": "present"
+    },
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/6m_physics.json",
+      "bytes": 1842171,
+      "sha256": "2956ce709bbce41b0e070a6935f0eb49587b63b352e733c11e2c545079f7c430",
+      "status": "present"
+    },
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_nowcast.isotonic.joblib",
+      "bytes": 36361,
+      "sha256": "d1508f33d5a79abca7c2bc4650f48d71f8644de224c4a3f2333f518f8f35ee20",
+      "status": "present"
+    },
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_nowcast.json",
+      "bytes": 54419601,
+      "sha256": "93a88864667d582939c1d9ec3a543e8745668be9331f1eae50b8ad973debc145",
+      "status": "present"
+    },
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_physics.isotonic.joblib",
+      "bytes": 32361,
+      "sha256": "37206b075f6d36b9c976f0d00f774b6e64ea980887576c1fc35caae6f3a52915",
+      "status": "present"
+    },
+    {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_physics.json",
+      "bytes": 53454953,
+      "sha256": "0e440b77bc7e0e821669ccd0d5e6aaa51dd6e8645f25e4374d2d989cd289ca39",
+      "status": "present"
+    }
+  ],
+  "complete": true
+}

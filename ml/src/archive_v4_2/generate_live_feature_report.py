@@ -1,0 +1,2124 @@
+#!/usr/bin/env python3
+"""Build the V4.2 live-feature foundation evidence and visual report."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from m5_runtime import validate_m5_runtime
+
+
+ROOT = Path(__file__).resolve().parents[3]
+CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+RESULT = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "live_feature_pipeline"
+)
+INPUTS = {
+    "transform_parity": RESULT / "transform_parity.json",
+    "foundation_validation": RESULT / "foundation_validation.json",
+    "replay_validation": RESULT / "replay_validation.json",
+    "migration_validation": RESULT / "migration_validation.json",
+    "deployment_validation": RESULT / "deployment_validation.json",
+    "research_health_migration_validation": RESULT
+    / "research_health_migration_validation.json",
+    "research_health_deployment_validation": RESULT
+    / "research_health_deployment_validation.json",
+    "research_health_endpoint_validation": RESULT
+    / "research_health_endpoint_validation.json",
+    "research_health_monitor_migration_validation": RESULT
+    / "research_health_monitor_migration_validation.json",
+    "research_health_monitor_deployment_validation": RESULT
+    / "research_health_monitor_deployment_validation.json",
+    "research_health_external_monitor_validation": RESULT
+    / "research_health_external_monitor_validation.json",
+    "research_health_hardening_migration_validation": RESULT
+    / "research_health_hardening_migration_validation.json",
+    "research_health_hardening_deployment_validation": RESULT
+    / "research_health_hardening_deployment_validation.json",
+    "research_health_incident_delivery_validation": RESULT
+    / "research_health_incident_delivery_validation.json",
+    "research_participation_migration_validation": RESULT
+    / "research_participation_migration_validation.json",
+    "research_participation_deployment_validation": RESULT
+    / "research_participation_deployment_validation.json",
+    "operational_weather_validation": RESULT / "operational_weather_validation.json",
+    "orchestration_validation": RESULT / "orchestration_validation.json",
+    "wspr_live_connector_validation": RESULT / "wspr_live_connector_validation.json",
+    "wspr_live_hour_validation": RESULT / "wspr_live_hour_validation.json",
+    "wspr_research_schedule_validation": RESULT
+    / "wspr_research_schedule_validation.json",
+    "wspr_research_shadow_progress": RESULT
+    / "wspr_research_shadow_progress.json",
+    "wspr_shadow_coverage_drift": RESULT
+    / "wspr_shadow_coverage_drift.json",
+    "prospective_capture_readiness": RESULT
+    / "prospective_capture_readiness.json",
+}
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def relative(path: Path) -> str:
+    return path.relative_to(ROOT).as_posix()
+
+
+def source(evidence_path: Path) -> dict[str, Any]:
+    location = relative(evidence_path)
+    return {
+        "id": "live_feature_evidence",
+        "label": "V4.2 live-feature foundation and replay evidence",
+        "path": location,
+        "query": {
+            "engine": "duckdb",
+            "language": "sql",
+            "description": f"Load the checksum-linked evidence in {location}.",
+            "sql": f"SELECT * FROM read_json_auto('{location}')",
+            "tables_used": [location],
+        },
+    }
+
+
+def chart(
+    chart_id: str,
+    title: str,
+    subtitle: str,
+    dataset: str,
+    encodings: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "id": chart_id,
+        "title": title,
+        "subtitle": subtitle,
+        "type": "bar",
+        "dataset": dataset,
+        "sourceId": "live_feature_evidence",
+        "encodings": encodings,
+        "valueFormat": "number",
+        "layout": "full",
+    }
+
+
+def build_evidence(
+    transform: dict[str, Any],
+    foundation: dict[str, Any],
+    replay: dict[str, Any],
+    migration_validation: dict[str, Any],
+    deployment_validation: dict[str, Any],
+    research_health_migration_validation: dict[str, Any],
+    research_health_deployment_validation: dict[str, Any],
+    research_health_endpoint_validation: dict[str, Any],
+    research_health_monitor_migration_validation: dict[str, Any],
+    research_health_monitor_deployment_validation: dict[str, Any],
+    research_health_external_monitor_validation: dict[str, Any],
+    research_health_hardening_migration_validation: dict[str, Any],
+    research_health_hardening_deployment_validation: dict[str, Any],
+    research_health_incident_delivery_validation: dict[str, Any],
+    research_participation_migration_validation: dict[str, Any],
+    research_participation_deployment_validation: dict[str, Any],
+    operational_weather_validation: dict[str, Any],
+    orchestration_validation: dict[str, Any],
+    wspr_live_connector_validation: dict[str, Any],
+    wspr_live_hour_validation: dict[str, Any],
+    wspr_research_schedule_validation: dict[str, Any],
+    wspr_research_shadow_progress: dict[str, Any],
+    wspr_shadow_coverage_drift: dict[str, Any],
+    prospective_capture_readiness: dict[str, Any],
+) -> dict[str, Any]:
+    if transform.get("decision") != "pass":
+        raise RuntimeError("transform parity did not pass")
+    if foundation.get("decision") != "pass":
+        raise RuntimeError("foundation validation did not pass")
+    if replay.get("decision") != "pass":
+        raise RuntimeError("multi-hour replay did not pass")
+    if (
+        migration_validation.get("decision") != "pass"
+        or migration_validation.get("persistent_changes") is not False
+    ):
+        raise RuntimeError("target Postgres rollback validation did not pass")
+    if (
+        deployment_validation.get("decision") != "pass"
+        or deployment_validation.get("migration_deployed") is not True
+        or deployment_validation.get("persistent_test_rows") is not False
+    ):
+        raise RuntimeError("target Postgres deployment validation did not pass")
+    if operational_weather_validation.get("decision") != "pass":
+        raise RuntimeError("operational-weather deployment validation did not pass")
+    if (
+        research_health_migration_validation.get("decision") != "pass"
+        or research_health_migration_validation.get("migration_deployed") is not False
+        or research_health_migration_validation.get("persistent_changes") is not False
+    ):
+        raise RuntimeError("research-health rollback validation did not pass")
+    if (
+        research_health_deployment_validation.get("decision") != "pass"
+        or research_health_deployment_validation.get("migration_deployed") is not True
+        or research_health_deployment_validation.get("persistent_changes") is not False
+    ):
+        raise RuntimeError("research-health deployment validation did not pass")
+    if research_health_endpoint_validation.get("decision") != "pass":
+        raise RuntimeError("research-health endpoint validation did not pass")
+    if (
+        research_health_monitor_migration_validation.get("decision") != "pass"
+        or research_health_monitor_migration_validation.get("migration_deployed")
+        is not False
+        or research_health_monitor_migration_validation.get("persistent_changes")
+        is not False
+    ):
+        raise RuntimeError("research-health monitor rollback validation did not pass")
+    if (
+        research_health_monitor_deployment_validation.get("decision") != "pass"
+        or research_health_monitor_deployment_validation.get("migration_deployed")
+        is not True
+        or research_health_monitor_deployment_validation.get("persistent_changes")
+        is not False
+    ):
+        raise RuntimeError("research-health monitor deployment validation did not pass")
+    if research_health_external_monitor_validation.get("decision") != "pass":
+        raise RuntimeError("external research-health monitor validation did not pass")
+    if (
+        research_health_hardening_migration_validation.get("passed") is not True
+        or research_health_hardening_migration_validation.get("migration", {}).get(
+            "deployed"
+        )
+        is not False
+    ):
+        raise RuntimeError("research-health hardening rollback validation did not pass")
+    if (
+        research_health_hardening_deployment_validation.get("passed") is not True
+        or research_health_hardening_deployment_validation.get("migration", {}).get(
+            "deployed"
+        )
+        is not True
+    ):
+        raise RuntimeError("research-health hardening deployment validation did not pass")
+    if research_health_incident_delivery_validation.get("decision") != "pass":
+        raise RuntimeError("research-health incident delivery validation did not pass")
+    if (
+        research_participation_migration_validation.get("decision") != "pass"
+        or research_participation_migration_validation.get("migration_deployed")
+        is not False
+        or research_participation_migration_validation.get("persistent_changes")
+        is not False
+    ):
+        raise RuntimeError("research participation rollback validation did not pass")
+    if (
+        research_participation_deployment_validation.get("decision") != "pass"
+        or research_participation_deployment_validation.get("migration_deployed")
+        is not True
+        or research_participation_deployment_validation.get("persistent_changes")
+        is not False
+    ):
+        raise RuntimeError("research participation deployment validation did not pass")
+    if orchestration_validation.get("decision") != "pass":
+        raise RuntimeError("live orchestration validation did not pass")
+    if wspr_live_connector_validation.get("decision") != "pass":
+        raise RuntimeError("WSPR.live research connector validation did not pass")
+    if wspr_live_hour_validation.get("decision") != "pass":
+        raise RuntimeError("real WSPR.live target-hour validation did not pass")
+    if wspr_research_schedule_validation.get("decision") != "pass":
+        raise RuntimeError("active WSPR research schedule validation did not pass")
+    if (
+        wspr_research_shadow_progress.get("decision") not in {"collecting", "pass"}
+        or wspr_research_shadow_progress.get("operational_status") != "healthy"
+    ):
+        raise RuntimeError("WSPR research shadow progress is not operationally healthy")
+    if (
+        wspr_shadow_coverage_drift.get("decision") not in {"collecting", "pass"}
+        or wspr_shadow_coverage_drift.get("operational_status") != "healthy"
+    ):
+        raise RuntimeError("WSPR aggregate coverage evidence is not healthy")
+    if wspr_shadow_coverage_drift.get("privacy", {}).get(
+        "locked_outcomes_read"
+    ) is not False:
+        raise RuntimeError("WSPR coverage analysis opened locked outcomes")
+    if wspr_shadow_coverage_drift.get("privacy", {}).get(
+        "station_identity_written"
+    ) is not False:
+        raise RuntimeError("WSPR coverage analysis contains station identity")
+    coverage_provenance = wspr_shadow_coverage_drift.get("window", {}).get(
+        "provenance"
+    )
+    if (
+        not isinstance(coverage_provenance, dict)
+        or coverage_provenance.get("source_scope")
+        != "wspr_research_shadow_progress"
+        or coverage_provenance.get("progress_sha256")
+        != sha256(INPUTS["wspr_research_shadow_progress"])
+        or coverage_provenance.get("scheduled_start")
+        != wspr_research_shadow_progress.get("window", {}).get(
+            "start_target_hour"
+        )
+        or coverage_provenance.get("scheduled_end")
+        != wspr_research_shadow_progress.get("window", {}).get(
+            "latest_settled_target_hour"
+        )
+        or wspr_shadow_coverage_drift.get("gates", {}).get(
+            "window_bound_to_signed_scheduled_receipts"
+        )
+        is not True
+    ):
+        raise RuntimeError("WSPR coverage window is not bound to signed receipts")
+    if prospective_capture_readiness.get("operational_healthy") is not True:
+        raise RuntimeError("first-party prospective capture is not operationally healthy")
+    if prospective_capture_readiness.get("prospective_window", {}).get(
+        "outcomes_read"
+    ) is not False:
+        raise RuntimeError("prospective outcomes were opened before the frozen window")
+    if prospective_capture_readiness.get("privacy", {}).get(
+        "callsigns_or_grids_in_receipt"
+    ) is not False:
+        raise RuntimeError("prospective readiness receipt contains identity data")
+    if any(
+        value.get("locked_outcomes_read")
+        for value in (
+            transform,
+            foundation,
+            replay,
+            migration_validation,
+            deployment_validation,
+            research_health_migration_validation,
+            research_health_deployment_validation,
+            research_health_endpoint_validation,
+            research_health_monitor_migration_validation,
+            research_health_monitor_deployment_validation,
+            research_health_external_monitor_validation,
+            research_health_hardening_migration_validation,
+            research_health_hardening_deployment_validation,
+            research_health_incident_delivery_validation,
+            research_participation_migration_validation,
+            research_participation_deployment_validation,
+            operational_weather_validation,
+            orchestration_validation,
+            wspr_live_connector_validation,
+            wspr_live_hour_validation,
+            wspr_research_schedule_validation,
+            wspr_research_shadow_progress,
+            wspr_shadow_coverage_drift,
+            prospective_capture_readiness,
+        )
+    ):
+        raise RuntimeError("live-feature work must not read locked outcomes")
+
+    parity = foundation["transform_parity"]
+    service = foundation["service"]
+    event_replays = replay["event_time_replay"]
+    receipt_replays = replay["receipt_time_replay"]
+    lag_replays = replay["lag_lookup_replay"]
+    replay_hours = sum(len(value["selected_hours"]) for value in event_replays)
+    replay_spots = sum(int(value["input_spot_rows"]) for value in event_replays)
+    replay_opportunities = sum(
+        int(value["opportunity_cells"]["actual"]) for value in event_replays
+    )
+    replay_path_cells = sum(
+        int(value["path_hour_cells"]["actual"]) for value in event_replays
+    )
+    replay_differences = sum(
+        int(value[cell_type][direction])
+        for value in event_replays
+        for cell_type in ("opportunity_cells", "path_hour_cells")
+        for direction in ("actual_minus_expected", "expected_minus_actual")
+    )
+    summary = [{
+        "exact_differences": replay_differences,
+        "opportunity_cells": int(parity["actual_rows"]),
+        "lag_cells": int(parity["actual_lag_cells"]),
+        "transform_wall_seconds": float(transform["compute"]["wall_seconds"]),
+        "replay_hours": replay_hours,
+        "replay_spots": replay_spots,
+        "replay_opportunity_cells": replay_opportunities,
+        "replay_path_cells": replay_path_cells,
+        "receipt_scenarios": len(receipt_replays),
+        "receipt_rows": sum(int(value["source_rows"]) for value in receipt_replays),
+        "lag_lookup_cases": len(lag_replays),
+        "lag_lookup_targets": sum(int(value["target_count"]) for value in lag_replays),
+        "lag_availability_mismatches": sum(
+            int(value["availability_mismatches"]) for value in lag_replays
+        ),
+        "lag_maximum_rate_difference": max(
+            float(value["maximum_absolute_rate_difference"])
+            for value in lag_replays
+        ),
+        "path_p95_ms": float(service["path_p95_ms"]),
+        "surface_p95_ms": float(service["surface_p95_ms"]),
+        "visible_cpus": int(foundation["compute"]["visible_cpus"]),
+        "foundation_gates_passed": sum(
+            bool(value) for value in foundation["gates"].values()
+        ),
+        "foundation_gates_total": len(foundation["gates"]),
+        "replay_gates_passed": sum(bool(value) for value in replay["gates"].values()),
+        "replay_gates_total": len(replay["gates"]),
+        "migration_gates_passed": sum(
+            bool(value) for value in migration_validation["gates"].values()
+        ),
+        "migration_gates_total": len(migration_validation["gates"]),
+        "deployment_gates_passed": sum(
+            bool(value) for value in deployment_validation["gates"].values()
+        ),
+        "deployment_gates_total": len(deployment_validation["gates"]),
+        "research_health_rollback_gates_passed": sum(
+            bool(value)
+            for value in research_health_migration_validation["gates"].values()
+        ),
+        "research_health_rollback_gates_total": len(
+            research_health_migration_validation["gates"]
+        ),
+        "research_health_deployment_gates_passed": sum(
+            bool(value)
+            for value in research_health_deployment_validation["gates"].values()
+        ),
+        "research_health_deployment_gates_total": len(
+            research_health_deployment_validation["gates"]
+        ),
+        "research_health_endpoint_gates_passed": sum(
+            bool(value)
+            for value in research_health_endpoint_validation["gates"].values()
+        ),
+        "research_health_endpoint_gates_total": len(
+            research_health_endpoint_validation["gates"]
+        ),
+        "research_health_monitor_rollback_gates_passed": sum(
+            bool(value)
+            for value in research_health_monitor_migration_validation["gates"].values()
+        ),
+        "research_health_monitor_rollback_gates_total": len(
+            research_health_monitor_migration_validation["gates"]
+        ),
+        "research_health_monitor_deployment_gates_passed": sum(
+            bool(value)
+            for value in research_health_monitor_deployment_validation["gates"].values()
+        ),
+        "research_health_monitor_deployment_gates_total": len(
+            research_health_monitor_deployment_validation["gates"]
+        ),
+        "research_health_external_monitor_gates_passed": sum(
+            bool(value)
+            for value in research_health_external_monitor_validation["gates"].values()
+        ),
+        "research_health_external_monitor_gates_total": len(
+            research_health_external_monitor_validation["gates"]
+        ),
+        "research_health_external_monitor_age_seconds": int(
+            research_health_external_monitor_validation["response"][
+                "heartbeat_age_seconds"
+            ]
+        ),
+        "research_health_external_monitor_event": str(
+            research_health_external_monitor_validation["workflow_run"]["event"]
+        ),
+        "research_health_hardening_rollback_gates_passed": sum(
+            bool(value)
+            for value in research_health_hardening_migration_validation[
+                "gates"
+            ].values()
+        ),
+        "research_health_hardening_rollback_gates_total": len(
+            research_health_hardening_migration_validation["gates"]
+        ),
+        "research_health_hardening_deployment_gates_passed": sum(
+            bool(value)
+            for value in research_health_hardening_deployment_validation[
+                "gates"
+            ].values()
+        ),
+        "research_health_hardening_deployment_gates_total": len(
+            research_health_hardening_deployment_validation["gates"]
+        ),
+        "incident_stale_age_seconds": int(
+            research_health_incident_delivery_validation["incident"][
+                "stale_heartbeat_age_seconds"
+            ]
+        ),
+        "incident_recovery_age_seconds": int(
+            research_health_incident_delivery_validation["incident"][
+                "recovery_heartbeat_age_seconds"
+            ]
+        ),
+        "incident_issue_number": int(
+            research_health_incident_delivery_validation["incident"]["number"]
+        ),
+        "incident_stale_run_id": int(
+            research_health_incident_delivery_validation["stale_run"]["id"]
+        ),
+        "incident_recovery_run_id": int(
+            research_health_incident_delivery_validation["recovery_run"]["id"]
+        ),
+        "incident_gates_passed": sum(
+            bool(value)
+            for value in research_health_incident_delivery_validation[
+                "gates"
+            ].values()
+        ),
+        "incident_gates_total": len(
+            research_health_incident_delivery_validation["gates"]
+        ),
+        "research_participation_rollback_gates_passed": sum(
+            bool(value)
+            for value in research_participation_migration_validation["gates"].values()
+        ),
+        "research_participation_rollback_gates_total": len(
+            research_participation_migration_validation["gates"]
+        ),
+        "research_participation_deployment_gates_passed": sum(
+            bool(value)
+            for value in research_participation_deployment_validation["gates"].values()
+        ),
+        "research_participation_deployment_gates_total": len(
+            research_participation_deployment_validation["gates"]
+        ),
+        "weather_gates_passed": sum(
+            bool(value)
+            for value in operational_weather_validation["gates"].values()
+        ),
+        "weather_gates_total": len(operational_weather_validation["gates"]),
+        "weather_feature_count": int(
+            operational_weather_validation["weather"]["feature_count"]
+        ),
+        "weather_path_p95_ms": float(
+            operational_weather_validation["performance"]["cached_path_p95_ms"]
+        ),
+        "orchestration_gates_passed": sum(
+            bool(value) for value in orchestration_validation["gates"].values()
+        ),
+        "orchestration_gates_total": len(orchestration_validation["gates"]),
+        "orchestration_threads": int(
+            orchestration_validation["execution"]["maximum_compute_threads"]
+        ),
+        "connector_gates_passed": sum(
+            bool(value)
+            for value in wspr_live_connector_validation["gates"].values()
+        ),
+        "connector_gates_total": len(wspr_live_connector_validation["gates"]),
+        "connector_rows": int(
+            wspr_live_connector_validation["source_record_count"]
+        ),
+        "connector_requests": int(
+            wspr_live_connector_validation["source_request_count"]
+        ),
+        "connector_peak_rss_mib": float(
+            wspr_live_connector_validation["performance"]["peak_rss_mib"]
+        ),
+        "live_hour_gates_passed": sum(
+            bool(value) for value in wspr_live_hour_validation["gates"].values()
+        ),
+        "live_hour_gates_total": len(wspr_live_hour_validation["gates"]),
+        "live_hour_feature_cells": int(
+            wspr_live_hour_validation["feature_cell_count"]
+        ),
+        "schedule_gates_passed": sum(
+            bool(value)
+            for value in wspr_research_schedule_validation["gates"].values()
+        ),
+        "schedule_gates_total": len(
+            wspr_research_schedule_validation["gates"]
+        ),
+        "schedule_source_rows": int(
+            wspr_research_schedule_validation["source_record_count"]
+        ),
+        "schedule_feature_cells": int(
+            wspr_research_schedule_validation["feature_cell_count"]
+        ),
+        "schedule_continuous_hours": int(
+            wspr_research_schedule_validation["health"][
+                "continuous_completed_hours"
+            ]
+        ),
+        "schedule_connector_seconds": float(
+            wspr_research_schedule_validation["connector"]["elapsed_seconds"]
+        ),
+        "schedule_finalizer_seconds": float(
+            wspr_research_schedule_validation["finalizer"]["wall_seconds"]
+        ),
+        "schedule_finalizer_workers": int(
+            wspr_research_schedule_validation["finalizer"]["workers"]
+        ),
+        "schedule_threads_per_band": int(
+            wspr_research_schedule_validation["finalizer"]["threads_per_band"]
+        ),
+        "schedule_peak_rss_mib": float(
+            wspr_research_schedule_validation["connector"]["peak_rss_mib"]
+        ),
+        "schedule_target_hour": wspr_research_schedule_validation["target_hour"],
+        "shadow_completed_hours": int(
+            wspr_research_shadow_progress["window"]["completed_hours"]
+        ),
+        "shadow_required_hours": int(
+            wspr_research_shadow_progress["window"]["minimum_hours"]
+        ),
+        "shadow_completion_rate_percent": 100 * float(
+            wspr_research_shadow_progress["window"]["completion_rate"]
+        ),
+        "shadow_missing_hours": int(
+            wspr_research_shadow_progress["window"]["missing_hours"]
+        ),
+        "shadow_source_records": int(
+            wspr_research_shadow_progress["totals"]["source_records"]
+        ),
+        "shadow_feature_cells": int(
+            wspr_research_shadow_progress["totals"]["feature_cells"]
+        ),
+        "coverage_expected_hours": int(
+            wspr_shadow_coverage_drift["window"]["expected_hours"]
+        ),
+        "coverage_completed_hours": int(
+            wspr_shadow_coverage_drift["window"]["completed_hours"]
+        ),
+        "coverage_missing_hours": int(
+            wspr_shadow_coverage_drift["window"]["missing_hours"]
+        ),
+        "coverage_feature_cells": sum(
+            int(row["feature_cells"])
+            for row in wspr_shadow_coverage_drift["coverage"]["by_band"]
+        ),
+        "coverage_sampled_rows": sum(
+            int(row["sampled_rows"])
+            for row in wspr_shadow_coverage_drift["coverage"]["by_band"]
+        ),
+        "coverage_utc_hours": len(
+            wspr_shadow_coverage_drift["coverage"]["observed_utc_hours"]
+        ),
+        "coverage_distance_buckets": len(
+            wspr_shadow_coverage_drift["coverage"]["by_distance"]
+        ),
+        "coverage_reported_regions": len(
+            wspr_shadow_coverage_drift["coverage"]["regional_fields"]
+        ),
+        "coverage_drift_sample_sufficient": bool(
+            wspr_shadow_coverage_drift["drift"]["sample_sufficient"]
+        ),
+        "prospective_sources_current": sum(
+            bool(prospective_capture_readiness["gates"].get(f"{source}_current"))
+            for source in ("pskreporter", "rbn", "dxcluster")
+        ) + int(bool(prospective_capture_readiness["gates"].get(
+            "solar_weather_current"
+        ))),
+        "prospective_sources_required": 4,
+        "prospective_continuity_hours": float(
+            prospective_capture_readiness["continuity"]["hours"]
+        ),
+        "prospective_continuity_required_hours": float(
+            prospective_capture_readiness["continuity"]["minimum_hours"]
+        ),
+        "prospective_capture_ready": bool(
+            prospective_capture_readiness["prospective_capture_ready"]
+        ),
+    }]
+    parity_rows = []
+    for month in event_replays:
+        for label, key in (
+            ("Opportunity cells", "opportunity_cells"),
+            ("Path-hour lag cells", "path_hour_cells"),
+        ):
+            parity_rows.extend([
+                {
+                    "month_and_cell": f"{month['label']} {label}",
+                    "implementation": "Historical builder",
+                    "cells": int(month[key]["expected"]),
+                },
+                {
+                    "month_and_cell": f"{month['label']} {label}",
+                    "implementation": "Shared live transform",
+                    "cells": int(month[key]["actual"]),
+                },
+            ])
+    flow_rows = [
+        {"stage": "Open-month input spots", "rows": replay_spots},
+        {"stage": "Opportunity cells", "rows": replay_opportunities},
+        {"stage": "Power-aggregated lag cells", "rows": replay_path_cells},
+    ]
+    receipt_rows = [
+        {
+            "month": value["label"],
+            "version": version,
+            "observations": int(value[field]["observation_count"]),
+        }
+        for value in receipt_replays
+        for version, field in (
+            ("First +5 minute snapshot", "first_version"),
+            ("Corrected +15 minute snapshot", "corrected_version"),
+        )
+    ]
+    latency_rows = [
+        {
+            "request": "Single path",
+            "p95_ms": float(service["path_p95_ms"]),
+            "limit_ms": 50,
+        },
+        {
+            "request": f"{int(service['surface_cells'])}-cell surface",
+            "p95_ms": float(service["surface_p95_ms"]),
+            "limit_ms": 3000,
+        },
+    ]
+    source_band_rows = [
+        {"band": band, "observations": int(observations)}
+        for band, observations in wspr_live_connector_validation[
+            "records_by_band"
+        ].items()
+    ]
+    schedule_band_rows = [
+        {"band": band, "observations": int(observations)}
+        for band, observations in wspr_research_schedule_validation[
+            "records_by_band"
+        ].items()
+    ]
+    schedule_stage_rows = [
+        {
+            "stage": "Source observations",
+            "count": int(wspr_research_schedule_validation["source_record_count"]),
+        },
+        {
+            "stage": "Path-hour feature cells",
+            "count": int(wspr_research_schedule_validation["feature_cell_count"]),
+        },
+    ]
+    shadow_progress_rows = [
+        {
+            "window": "30-day receipt shadow",
+            "state": "Completed",
+            "hours": int(
+                wspr_research_shadow_progress["window"]["completed_hours"]
+            ),
+        },
+        {
+            "window": "30-day receipt shadow",
+            "state": "Remaining",
+            "hours": max(
+                0,
+                int(wspr_research_shadow_progress["window"]["minimum_hours"])
+                - int(wspr_research_shadow_progress["window"]["completed_hours"]),
+            ),
+        },
+    ]
+    coverage_band_rows = [
+        {
+            "band": row["band"],
+            "feature_cells": int(row["feature_cells"]),
+            "sampled_rows": int(row["sampled_rows"]),
+            "completed_hours": int(row["band_hours"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["by_band"]
+    ]
+    coverage_utc_hour_rows = [
+        {
+            "utc_hour": f"{int(row['utc_hour']):02d}:00",
+            "feature_cells": int(row["feature_cells"]),
+            "sampled_rows": int(row["sampled_rows"]),
+            "completed_band_hours": int(row["band_hours"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["by_utc_hour"]
+    ]
+    coverage_distance_rows = [
+        {
+            "distance_bucket": row["distance_bucket"],
+            "feature_cells": int(row["feature_cells"]),
+            "sampled_rows": int(row["sampled_rows"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["by_distance"]
+    ]
+    coverage_region_rows = [
+        {
+            "band": row["band"],
+            "direction": row["dimension"].title(),
+            "eligible_regions": int(row["eligible_region_count"]),
+            "reported_regions": int(row["reported_region_count"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["regional_summary"]
+    ]
+    prospective_progress_rows = [
+        {
+            "window": "First-party capture preflight",
+            "state": "Continuous healthy evidence",
+            "hours": float(prospective_capture_readiness["continuity"]["hours"]),
+        },
+        {
+            "window": "First-party capture preflight",
+            "state": "Remaining",
+            "hours": max(
+                0.0,
+                float(prospective_capture_readiness["continuity"]["minimum_hours"])
+                - float(prospective_capture_readiness["continuity"]["hours"]),
+            ),
+        },
+    ]
+    incident_age_rows = [
+        {
+            "state": "Stale monitor run",
+            "heartbeat_age_seconds": summary[0]["incident_stale_age_seconds"],
+        },
+        {
+            "state": "Genuine recovery run",
+            "heartbeat_age_seconds": summary[0]["incident_recovery_age_seconds"],
+        },
+    ]
+    gate_rows = [{
+        "scope": "Foundation",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in foundation["gates"].items()] + [{
+        "scope": "Multi-hour replay",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in replay["gates"].items()]
+    gate_rows.extend({
+        "scope": "Target PostgreSQL rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Post-deployment target",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in deployment_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Private health rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Private health deployment",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_deployment_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Private health endpoint",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_endpoint_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Off-M5 monitor rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_monitor_migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Off-M5 monitor deployment",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_monitor_deployment_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Off-M5 external invocation",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_external_monitor_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Health outbox hardening rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_hardening_migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Health outbox hardening deployment",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_hardening_deployment_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Live stale and recovery incident",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_incident_delivery_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Opt-in outcomes rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_participation_migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Opt-in outcomes deployment",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_participation_deployment_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Trusted operational weather",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in operational_weather_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Signed hourly orchestration",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in orchestration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Research source connector",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in wspr_live_connector_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Real target source hour",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in wspr_live_hour_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Active research schedule",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in wspr_research_schedule_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "30-day research shadow",
+        "gate": name.replace("_", " "),
+        "status": (
+            "pending"
+            if name == "minimum_30_day_window_complete" and not passed
+            else "pass" if passed else "fail"
+        ),
+    } for name, passed in wspr_research_shadow_progress["gates"].items())
+    gate_rows.extend({
+        "scope": "Aggregate coverage and drift",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "pending",
+    } for name, passed in wspr_shadow_coverage_drift["gates"].items())
+    gate_rows.extend({
+        "scope": "Prospective first-party capture",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "pending",
+    } for name, passed in prospective_capture_readiness["gates"].items())
+    blocker_rows = [
+        {
+            "remaining_work": work,
+            "status": "required before live NowCast",
+        }
+        for work in (
+            "written subscriber-facing source authorization or a self-operated source",
+            "30-day real receipt-time shadow coverage and calibration evidence",
+            "24-hour gap-free first-party capture preflight with nonempty settled aggregates",
+            "literal full-M5 power-loss delivery proof before exposing System Health",
+            "opt-in beta outcome evidence and frozen prospective evaluation",
+        )
+    ]
+    limit_rows = [
+        {"evidence_limit": value}
+        for value in replay["remaining_limits"]
+        if value
+        not in {
+            "target Postgres migration is not deployed",
+            "authorized provider connector is not enabled",
+        }
+    ]
+    limit_rows.append({
+        "evidence_limit": (
+            f"{wspr_research_shadow_progress['window']['completed_hours']} contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+        )
+    })
+    limit_rows.append({
+        "evidence_limit": (
+            f"The first-party collector is operational with {summary[0]['prospective_sources_current']}/{summary[0]['prospective_sources_required']} sources current, "
+            f"but has only {summary[0]['prospective_continuity_hours']:.2f}/24 required gap-free preflight hours"
+        )
+    })
+    limit_rows.append({
+        "evidence_limit": (
+            "A real stale heartbeat opened and genuine recovery closed one durable GitHub incident, but the stale episode was not caused by physically powering off the M5"
+        )
+    })
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "scope": "live_feature_foundation_replay_and_active_research_shadow",
+        "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
+        "source_authorized": False,
+        "migration_deployed": True,
+        "provider_connector_enabled": True,
+        "provider_connector_mode": "internal_research_only",
+        "provider_connector_validated": True,
+        "locked_outcomes_read": False,
+        "input_inventory": [
+            {"id": name, "path": relative(path), "sha256": sha256(path)}
+            for name, path in INPUTS.items()
+        ],
+        "bundle": foundation["bundle"],
+        "migration": {
+            **foundation["migration"],
+            "validation_scope": migration_validation["scope"],
+            "database_engine": migration_validation["database"]["engine"],
+            "database_version": migration_validation["database"]["server_version"],
+            "transaction_mode": migration_validation["transaction_mode"],
+            "persistent_changes": migration_validation["persistent_changes"],
+            "pending_prerequisite_migrations": migration_validation.get(
+                "pending_prerequisite_migrations", []
+            ),
+            "deployment_scope": deployment_validation["scope"],
+            "deployment_gates": deployment_validation["gates"],
+            "deployed_migrations": deployment_validation["migrations"],
+        },
+        "research_health": {
+            "rollback_scope": research_health_migration_validation["scope"],
+            "rollback_gates": research_health_migration_validation["gates"],
+            "deployment_scope": research_health_deployment_validation["scope"],
+            "deployment_gates": research_health_deployment_validation["gates"],
+            "endpoint_scope": research_health_endpoint_validation["scope"],
+            "endpoint_gates": research_health_endpoint_validation["gates"],
+            "endpoint": research_health_endpoint_validation["endpoint"],
+            "store": research_health_endpoint_validation["store"],
+            "progress": research_health_endpoint_validation["progress"],
+            "monitor_rollback_scope": research_health_monitor_migration_validation[
+                "scope"
+            ],
+            "monitor_rollback_gates": research_health_monitor_migration_validation[
+                "gates"
+            ],
+            "monitor_deployment_scope": research_health_monitor_deployment_validation[
+                "scope"
+            ],
+            "monitor_deployment_gates": research_health_monitor_deployment_validation[
+                "gates"
+            ],
+            "external_monitor_scope": research_health_external_monitor_validation[
+                "scope"
+            ],
+            "external_monitor_gates": research_health_external_monitor_validation[
+                "gates"
+            ],
+            "external_monitor_run": research_health_external_monitor_validation[
+                "workflow_run"
+            ],
+            "external_monitor_response": research_health_external_monitor_validation[
+                "response"
+            ],
+            "hardening_rollback": {
+                "migration": research_health_hardening_migration_validation[
+                    "migration"
+                ],
+                "gates": research_health_hardening_migration_validation["gates"],
+            },
+            "hardening_deployment": {
+                "migration": research_health_hardening_deployment_validation[
+                    "migration"
+                ],
+                "gates": research_health_hardening_deployment_validation["gates"],
+            },
+            "incident_delivery": {
+                "stale_run": research_health_incident_delivery_validation[
+                    "stale_run"
+                ],
+                "recovery_run": research_health_incident_delivery_validation[
+                    "recovery_run"
+                ],
+                "incident": research_health_incident_delivery_validation["incident"],
+                "gates": research_health_incident_delivery_validation["gates"],
+            },
+            "monitor_migration_deployed": True,
+            "external_monitor_invoked": True,
+            "migration_deployed": True,
+            "remote_endpoint_configured": True,
+            "remote_heartbeat_delivered": True,
+            "external_webhook_configured": research_health_external_monitor_validation[
+                "response"
+            ]["alert_delivery"]["configured"],
+            "github_issue_delivery_configured": True,
+            "stale_recovery_delivery_proven": True,
+            "literal_full_m5_outage_proven": False,
+            "public_view_enabled": False,
+            "aggregate_only": True,
+        },
+        "research_participation": {
+            "policy_version": "propagation-research-v1-2026-07-12",
+            "receipt_schema": "propagation-research-receipt-v1",
+            "subject_binding_schema": "propagation-research-subject-v1",
+            "rollback_scope": research_participation_migration_validation["scope"],
+            "rollback_gates": research_participation_migration_validation["gates"],
+            "deployment_scope": research_participation_deployment_validation["scope"],
+            "deployment_gates": research_participation_deployment_validation["gates"],
+            "migration_deployed": True,
+            "frontend_enabled": False,
+            "server_enabled": False,
+            "signed_receipts_enabled": False,
+            "real_consents_or_outcomes_collected": False,
+        },
+        "transform": {
+            "version": transform["transform"]["transform_version"],
+            "target_hour": transform["target_hour"],
+            "source_hashes": transform["inputs"],
+            "compute": transform["compute"],
+        },
+        "replay": {
+            "scope": replay["scope"],
+            "receipt_time_evidence": replay["receipt_time_evidence"],
+            "compute": replay["compute"],
+        },
+        "operational_weather": {
+            "provider": operational_weather_validation["provider"],
+            "weather": operational_weather_validation["weather"],
+            "performance": operational_weather_validation["performance"],
+            "gates": operational_weather_validation["gates"],
+        },
+        "orchestration": {
+            "synthetic": orchestration_validation["synthetic"],
+            "execution": orchestration_validation["execution"],
+            "gates": orchestration_validation["gates"],
+        },
+        "research_connector": {
+            "provider": wspr_live_connector_validation["provider"],
+            "research_only": wspr_live_connector_validation["research_only"],
+            "target_hour": wspr_live_connector_validation["target_hour"],
+            "source_checkpoint_sha256": wspr_live_connector_validation[
+                "source_checkpoint_sha256"
+            ],
+            "performance": wspr_live_connector_validation["performance"],
+            "gates": wspr_live_connector_validation["gates"],
+        },
+        "real_source_hour": {
+            "provider": wspr_live_hour_validation["provider"],
+            "research_only": wspr_live_hour_validation["research_only"],
+            "target_hour": wspr_live_hour_validation["target_hour"],
+            "source_checkpoint_sha256": wspr_live_hour_validation[
+                "source_checkpoint_sha256"
+            ],
+            "completion_manifest_sha256": wspr_live_hour_validation[
+                "completion_manifest_sha256"
+            ],
+            "source_record_count": wspr_live_hour_validation[
+                "source_record_count"
+            ],
+            "feature_cell_count": wspr_live_hour_validation[
+                "feature_cell_count"
+            ],
+            "watermark_versions": wspr_live_hour_validation[
+                "watermark_versions"
+            ],
+            "gates": wspr_live_hour_validation["gates"],
+        },
+        "research_schedule": {
+            "provider": wspr_research_schedule_validation["provider"],
+            "research_only": wspr_research_schedule_validation["research_only"],
+            "subscriber_facing_authorized": wspr_research_schedule_validation[
+                "subscriber_facing_authorized"
+            ],
+            "target_hour": wspr_research_schedule_validation["target_hour"],
+            "source_record_count": wspr_research_schedule_validation[
+                "source_record_count"
+            ],
+            "feature_cell_count": wspr_research_schedule_validation[
+                "feature_cell_count"
+            ],
+            "connector": wspr_research_schedule_validation["connector"],
+            "finalizer": wspr_research_schedule_validation["finalizer"],
+            "health": wspr_research_schedule_validation["health"],
+            "schedule": wspr_research_schedule_validation["schedule"],
+            "watchdog": wspr_research_schedule_validation["watchdog"],
+            "gates": wspr_research_schedule_validation["gates"],
+        },
+        "research_shadow_progress": {
+            "decision": wspr_research_shadow_progress["decision"],
+            "operational_status": wspr_research_shadow_progress[
+                "operational_status"
+            ],
+            "window": wspr_research_shadow_progress["window"],
+            "totals": wspr_research_shadow_progress["totals"],
+            "performance": wspr_research_shadow_progress["performance"],
+            "gates": wspr_research_shadow_progress["gates"],
+        },
+        "research_shadow_coverage": wspr_shadow_coverage_drift,
+        "prospective_capture": prospective_capture_readiness,
+        "datasets": {
+            "summary": summary,
+            "parity_rows": parity_rows,
+            "flow_rows": flow_rows,
+            "receipt_rows": receipt_rows,
+            "latency_rows": latency_rows,
+            "source_band_rows": source_band_rows,
+            "schedule_band_rows": schedule_band_rows,
+            "schedule_stage_rows": schedule_stage_rows,
+            "shadow_progress_rows": shadow_progress_rows,
+            "coverage_band_rows": coverage_band_rows,
+            "coverage_utc_hour_rows": coverage_utc_hour_rows,
+            "coverage_distance_rows": coverage_distance_rows,
+            "coverage_region_rows": coverage_region_rows,
+            "prospective_progress_rows": prospective_progress_rows,
+            "incident_age_rows": incident_age_rows,
+            "gate_rows": gate_rows,
+            "blocker_rows": blocker_rows,
+            "limit_rows": limit_rows,
+        },
+    }
+
+
+def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, Any]:
+    generated_at = datetime.now(timezone.utc).isoformat()
+    summary = evidence["datasets"]["summary"][0]
+    cards = [
+        {
+            "id": card_id,
+            "description": description,
+            "dataset": "summary",
+            "sourceId": "live_feature_evidence",
+            "metrics": [{"label": label, "field": field, "format": "number"}],
+        }
+        for card_id, label, field, description in (
+            (
+                "exact_diff",
+                "Parity differences",
+                "exact_differences",
+                "Directional row and lag-cell differences; zero is required.",
+            ),
+            (
+                "replay_hours",
+                "Replayed hours",
+                "replay_hours",
+                "One deterministic sample from every UTC hour-of-day in both months.",
+            ),
+            (
+                "replay_spots",
+                "Replay spots",
+                "replay_spots",
+                "Open October-November bronze rows across the 48 selected hours.",
+            ),
+            (
+                "receipt_rows",
+                "Receipt-case rows",
+                "receipt_rows",
+                "Real open-month rows with synthetic arrival schedules.",
+            ),
+            (
+                "path_latency",
+                "Path p95 ms",
+                "path_p95_ms",
+                "Real A6 bundle with unavailable server provider.",
+            ),
+            (
+                "surface_latency",
+                "288-cell p95 ms",
+                "surface_p95_ms",
+                "One-thread XGBoost serving contract.",
+            ),
+            (
+                "scheduled_rows",
+                "Expanded-audit rows",
+                "schedule_source_rows",
+                "Scheduled receipt with the expanded exact-count target audit.",
+            ),
+            (
+                "shadow_hours",
+                "Shadow hours",
+                "shadow_completed_hours",
+                "Signed, identity-free receipts toward the required 720 hours.",
+            ),
+            (
+                "coverage_cells",
+                "Coverage path cells",
+                "coverage_feature_cells",
+                "Privacy-safe aggregate cells across the current clean live-source window.",
+            ),
+            (
+                "prospective_sources",
+                "Capture inputs current",
+                "prospective_sources_current",
+                "Three spot networks plus provenance-checked operational weather on the M5.",
+            ),
+            (
+                "private_health_gates",
+                "Private health gates",
+                "research_health_deployment_gates_passed",
+                "Deployed private schema, replay, privacy, and transition-outbox gates.",
+            ),
+            (
+                "remote_health_gates",
+                "Remote health gates",
+                "research_health_endpoint_gates_passed",
+                "Signed private heartbeat, exact private-store state, and disabled public reader.",
+            ),
+            (
+                "off_m5_monitor_gates",
+                "Off-M5 monitor gates",
+                "research_health_monitor_deployment_gates_passed",
+                "Deployed stale-heartbeat transition, timestamp preservation, deduplication, and recovery gates.",
+            ),
+            (
+                "external_monitor_gates",
+                "External monitor gates",
+                "research_health_external_monitor_gates_passed",
+                "GitHub-hosted fresh-heartbeat invocation, privacy, scheduling, and disabled-reader gates.",
+            ),
+            (
+                "health_hardening_gates",
+                "Outbox hardening gates",
+                "research_health_hardening_deployment_gates_passed",
+                "Atomic lease, collision rollback, counter, grant, and retry invariants on PostgreSQL 17.6.",
+            ),
+            (
+                "incident_delivery_gates",
+                "Incident delivery gates",
+                "incident_gates_passed",
+                "One real stale episode opened one durable issue and genuine heartbeat recovery closed it.",
+            ),
+            (
+                "outcome_boundary_gates",
+                "Outcome boundary gates",
+                "research_participation_deployment_gates_passed",
+                "Deployed consent, account-bound receipt, RLS, replay, and write-authority gates.",
+            ),
+        )
+    ]
+    charts = [
+        chart(
+            "parity",
+            "Both open months reproduce the historical builder exactly",
+            "Twenty-four stratified UTC hours per month; paired counts are identical for both representations.",
+            "parity_rows",
+            {
+                "x": {"field": "month_and_cell", "type": "ordinal", "label": "Month and representation"},
+                "y": {"field": "cells", "type": "quantitative", "label": "Cells"},
+                "color": {"field": "implementation", "type": "nominal", "label": "Implementation"},
+            },
+        ),
+        chart(
+            "flow",
+            "The 48-hour replay stays bounded through each transform stage",
+            "Counts combine October and November and describe different intermediate objects.",
+            "flow_rows",
+            {
+                "x": {"field": "stage", "type": "ordinal", "label": "Pipeline stage"},
+                "y": {"field": "rows", "type": "quantitative", "label": "Rows or cells"},
+            },
+        ),
+        chart(
+            "receipts",
+            "Late arrivals create corrected versions without overwriting history",
+            "Ten percent of each real-row fixture arrives after the first cutoff; the corrected version restores exact parity.",
+            "receipt_rows",
+            {
+                "x": {"field": "month", "type": "ordinal", "label": "Open month"},
+                "y": {"field": "observations", "type": "quantitative", "label": "Observations included"},
+                "color": {"field": "version", "type": "nominal", "label": "Feature version"},
+            },
+        ),
+        chart(
+            "latency",
+            "Fail-closed shadow requests remain well inside service limits",
+            "Measured on the real A6 bundle; missing verified path history selects physics fallback.",
+            "latency_rows",
+            {
+                "x": {"field": "request", "type": "ordinal", "label": "Request"},
+                "y": {"field": "p95_ms", "type": "quantitative", "label": "p95 milliseconds"},
+            },
+        ),
+        chart(
+            "source_band_coverage",
+            "One settled research hour covers every HF band",
+            f"A single bounded WSPR.live request streamed {summary['connector_rows']:,} archive-compatible observations without a target write.",
+            "source_band_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "Band"},
+                "y": {"field": "observations", "type": "quantitative", "label": "Observations"},
+            },
+        ),
+        chart(
+            "scheduled_band_coverage",
+            "The latest scheduled hour is complete across all ten HF bands",
+            f"Target {summary['schedule_target_hour']} has {summary['schedule_source_rows']:,} exact observations; no raw station identity enters this report.",
+            "schedule_band_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "Band"},
+                "y": {"field": "observations", "type": "quantitative", "label": "Observations"},
+            },
+        ),
+        chart(
+            "scheduled_pipeline",
+            "The active hourly pipeline remains bounded",
+            f"The source stage completed in {summary['schedule_connector_seconds']:.1f} seconds and finalization in {summary['schedule_finalizer_seconds']:.1f} seconds.",
+            "schedule_stage_rows",
+            {
+                "x": {"field": "stage", "type": "ordinal", "label": "Scheduled stage"},
+                "y": {"field": "count", "type": "quantitative", "label": "Rows or cells"},
+            },
+        ),
+        chart(
+            "shadow_progress",
+            "The preregistered 30-day evidence clock is explicit",
+            f"{summary['shadow_completed_hours']} of {summary['shadow_required_hours']} required hourly receipts are complete; current scheduled completion is {summary['shadow_completion_rate_percent']:.1f}%.",
+            "shadow_progress_rows",
+            {
+                "x": {"field": "state", "type": "ordinal", "label": "Window state"},
+                "y": {"field": "hours", "type": "quantitative", "label": "Hours"},
+                "color": {"field": "state", "type": "nominal", "label": "State"},
+            },
+        ),
+        chart(
+            "coverage_by_band",
+            "Aggregate feature coverage by HF band",
+            f"{summary['coverage_completed_hours']} complete all-band hours; cells measure reporting-network coverage, not model accuracy.",
+            "coverage_band_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "HF band"},
+                "y": {"field": "feature_cells", "type": "quantitative", "label": "Path-hour feature cells"},
+            },
+        ),
+        chart(
+            "coverage_by_utc_hour",
+            "Aggregate feature coverage by UTC hour",
+            f"The current window covers {summary['coverage_utc_hours']} of 24 UTC hour strata; missing clock hours are pending evidence, not zero coverage.",
+            "coverage_utc_hour_rows",
+            {
+                "x": {"field": "utc_hour", "type": "ordinal", "label": "UTC hour"},
+                "y": {"field": "feature_cells", "type": "quantitative", "label": "Path-hour feature cells"},
+            },
+        ),
+        chart(
+            "coverage_by_distance",
+            "Aggregate feature coverage by path distance",
+            f"All {summary['coverage_distance_buckets']} preregistered distance buckets are represented in the clean current window.",
+            "coverage_distance_rows",
+            {
+                "x": {"field": "distance_bucket", "type": "ordinal", "label": "Great-circle distance"},
+                "y": {"field": "feature_cells", "type": "quantitative", "label": "Path-hour feature cells"},
+            },
+        ),
+        chart(
+            "coverage_by_region",
+            "Privacy-qualified regional breadth by HF band",
+            "Broad Maidenhead fields must span at least six hours and 100 feature cells; only eligible-region counts are plotted.",
+            "coverage_region_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "HF band"},
+                "y": {"field": "eligible_regions", "type": "quantitative", "label": "Eligible broad fields"},
+                "color": {"field": "direction", "type": "nominal", "label": "Path endpoint"},
+            },
+        ),
+        chart(
+            "prospective_progress",
+            "First-party prospective capture is operational and warming",
+            f"All {summary['prospective_sources_current']} of {summary['prospective_sources_required']} sources are current; the evidence clock is {summary['prospective_continuity_hours']:.2f} of {summary['prospective_continuity_required_hours']:.0f} required hours.",
+            "prospective_progress_rows",
+            {
+                "x": {"field": "state", "type": "ordinal", "label": "Preflight state"},
+                "y": {"field": "hours", "type": "quantitative", "label": "Hours"},
+                "color": {"field": "state", "type": "nominal", "label": "State"},
+            },
+        ),
+        chart(
+            "incident_age",
+            "The off-M5 monitor detected staleness and then genuine recovery",
+            f"Heartbeat age fell from {summary['incident_stale_age_seconds']:,} seconds during the failed-closed run to {summary['incident_recovery_age_seconds']} seconds after publisher recovery.",
+            "incident_age_rows",
+            {
+                "x": {"field": "state", "type": "ordinal", "label": "Monitor state"},
+                "y": {"field": "heartbeat_age_seconds", "type": "quantitative", "label": "Heartbeat age, seconds"},
+            },
+        ),
+    ]
+    tables = [
+        {
+            "id": "gate_table",
+            "title": "Foundation, deployment, and research-shadow gates",
+            "subtitle": "Every completed operational gate passes; the preregistered 30-day duration gate is explicitly pending.",
+            "dataset": "gate_rows",
+            "sourceId": "live_feature_evidence",
+            "density": "dense",
+            "layout": "full",
+            "columns": [
+                {"field": "scope", "label": "Scope", "type": "text"},
+                {"field": "gate", "label": "Gate", "type": "text"},
+                {"field": "status", "label": "Status", "type": "text"},
+            ],
+        },
+        {
+            "id": "limit_table",
+            "title": "Evidence boundaries",
+            "subtitle": "Synthetic receipt schedules test causality and recovery but do not replace a real live capture.",
+            "dataset": "limit_rows",
+            "sourceId": "live_feature_evidence",
+            "density": "dense",
+            "layout": "full",
+            "columns": [
+                {"field": "evidence_limit", "label": "Limit", "type": "text"},
+            ],
+        },
+        {
+            "id": "blocker_table",
+            "title": "Required work before live NowCast",
+            "subtitle": "The internal hourly shadow is active; source permission, duration, beta outcomes, and prospective evidence remain open.",
+            "dataset": "blocker_rows",
+            "sourceId": "live_feature_evidence",
+            "density": "dense",
+            "layout": "full",
+            "columns": [
+                {"field": "remaining_work", "label": "Remaining work", "type": "text"},
+                {"field": "status", "label": "Status", "type": "text"},
+            ],
+        },
+    ]
+    blocks = [
+        {
+            "id": "title",
+            "type": "markdown",
+            "body": "# Propulse NowCast V4.2: research shadow validation report",
+        },
+        {
+            "id": "answer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "## The internal research shadow is active; product authorization and long-window evidence remain open\n\n"
+                f"Across **{summary['replay_hours']} stratified hours** and **{summary['replay_spots']:,} open-month spots**, "
+                f"the shared DuckDB transform produced **{summary['replay_opportunity_cells']:,}** opportunity cells and "
+                f"**{summary['replay_path_cells']:,}** path-hour cells with **zero directional differences** from the "
+                "historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after "
+                "duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, "
+                f"kept identity-free telemetry, and served a path at **{summary['path_p95_ms']:.2f} ms p95** and a "
+                f"288-cell surface at **{summary['surface_p95_ms']:.2f} ms p95**. The six-migration release chain passed "
+                f"**{summary['migration_gates_passed']} of {summary['migration_gates_total']}** rollback-only gates "
+                "on the target PostgreSQL 17.6 database with its original object state restored, then passed "
+                f"**{summary['deployment_gates_passed']} of {summary['deployment_gates_total']}** post-deployment gates. "
+                f"The separate private research-health boundary passed **{summary['research_health_rollback_gates_passed']} of "
+                f"{summary['research_health_rollback_gates_total']}** rollback gates and **{summary['research_health_deployment_gates_passed']} of "
+                f"{summary['research_health_deployment_gates_total']}** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. "
+                f"Its private endpoint then passed **{summary['research_health_endpoint_gates_passed']} of "
+                f"{summary['research_health_endpoint_gates_total']}** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, "
+                "the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. "
+                f"The additive off-M5 monitor passed **{summary['research_health_monitor_rollback_gates_passed']} of "
+                f"{summary['research_health_monitor_rollback_gates_total']}** rollback gates and **{summary['research_health_monitor_deployment_gates_passed']} of "
+                f"{summary['research_health_monitor_deployment_gates_total']}** deployed-state gates while preserving the source heartbeat timestamp. "
+                f"A GitHub-hosted **{summary['research_health_external_monitor_event']}** invocation then passed "
+                f"**{summary['research_health_external_monitor_gates_passed']} of "
+                f"{summary['research_health_external_monitor_gates_total']}** external-invocation gates against the protected preview, "
+                f"observing a healthy heartbeat **{summary['research_health_external_monitor_age_seconds']} seconds** old with no transition "
+                "and zero failed or exhausted deliveries. "
+                f"The hardened atomic outbox then passed **{summary['research_health_hardening_rollback_gates_passed']} of "
+                f"{summary['research_health_hardening_rollback_gates_total']}** rollback gates and **{summary['research_health_hardening_deployment_gates_passed']} of "
+                f"{summary['research_health_hardening_deployment_gates_total']}** deployed-state gates. A real stale monitor run at "
+                f"**{summary['incident_stale_age_seconds']:,} seconds** opened exactly one identity-free GitHub issue; a genuine "
+                f"**{summary['incident_recovery_age_seconds']}-second** heartbeat closed it, passing **{summary['incident_gates_passed']} of "
+                f"{summary['incident_gates_total']}** delivery gates. This proves off-M5 stale/recovery delivery, but not a literal M5 power-loss test. "
+                f"The opt-in outcome boundary passed **{summary['research_participation_rollback_gates_passed']} of "
+                f"{summary['research_participation_rollback_gates_total']}** rollback gates and **{summary['research_participation_deployment_gates_passed']} of "
+                f"{summary['research_participation_deployment_gates_total']}** deployed-state gates. Active predictions can carry a short-lived "
+                "account-bound signed receipt; the API requires current versioned consent and creates an explicit attempt before accepting any failure. "
+                "Collection remains double-disabled and the signing secret is unset. "
+                f"Trusted operational weather then passed **{summary['weather_gates_passed']} of {summary['weather_gates_total']}** "
+                f"gates with **{summary['weather_feature_count']} causal fields** at **{summary['weather_path_p95_ms']:.2f} ms** cached path p95. "
+                f"Signed hourly orchestration passed **{summary['orchestration_gates_passed']} of {summary['orchestration_gates_total']}** "
+                f"gates while allocating all **{summary['orchestration_threads']} M5 CPU threads** without oversubscription. "
+                f"A real research-only source dry-run then passed **{summary['connector_gates_passed']} of {summary['connector_gates_total']}** "
+                f"gates, streaming **{summary['connector_rows']:,} observations** in **{summary['connector_requests']} request** "
+                f"at **{summary['connector_peak_rss_mib']:.1f} MiB peak RSS**. "
+                f"The corrected end-to-end target hour passed **{summary['live_hour_gates_passed']} of {summary['live_hour_gates_total']}** "
+                f"gates with **{summary['live_hour_feature_cells']:,} path cells** after its truncated first version was invalidated. "
+                f"The hourly research LaunchAgent is now active and its latest audited receipt passed **{summary['schedule_gates_passed']} of "
+                f"{summary['schedule_gates_total']} independent gates**: **{summary['schedule_source_rows']:,} observations** became "
+                f"**{summary['schedule_feature_cells']:,} path cells** with zero consecutive failures, **{summary['schedule_peak_rss_mib']:.1f} MiB** "
+                f"peak connector RSS, and all 18 M5 compute threads bounded as {summary['schedule_finalizer_workers']} workers by "
+                f"{summary['schedule_threads_per_band']} threads. Keyset pagination completed finalization in "
+                f"**{summary['schedule_finalizer_seconds']:.1f} seconds** without the deep-offset database failures seen earlier. "
+                "Subscriber-facing WSPR use still requires written "
+                "confirmation or an independently permitted source. The signed progress rollup is operationally healthy at "
+                f"**{summary['shadow_completed_hours']} of {summary['shadow_required_hours']} hours** with "
+                f"**{summary['shadow_missing_hours']} gaps**, **{summary['shadow_source_records']:,} observations**, and "
+                f"**{summary['shadow_feature_cells']:,} feature cells**; it remains `collecting`, not 30-day evidence."
+            ),
+        },
+        {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
+        {"id": "findings", "type": "markdown", "body": "## Exact feature semantics hold across both open months"},
+        {"id": "parity_chart", "type": "chart", "chartId": "parity", "layout": "full"},
+        {
+            "id": "parity_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "The live and archive paths now call the same versioned transform. It reconstructs deterministic "
+                "receiver opportunities from transmitter slots, then sums successes and opportunities across power "
+                "bins before creating path-hour lag rates. Exact equality includes counts, successes, opportunity "
+                "mass, sampled rows, and both cell sets. The replay selects one hour from every UTC hour-of-day stratum "
+                "across October and November 2024, spanning each month from beginning to end. It did not inspect "
+                "December, 2025, or prospective outcomes."
+            ),
+        },
+        {"id": "flow_chart", "type": "chart", "chartId": "flow", "layout": "full"},
+        {"id": "receipt_heading", "type": "markdown", "body": "## Arrival-time recovery is causal and versioned"},
+        {"id": "receipt_chart", "type": "chart", "chartId": "receipts", "layout": "full"},
+        {
+            "id": "receipt_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "Each receipt case uses about 10,000 real bronze observations from a selected open-month hour. The "
+                "fixture reverses storage order, retries deterministic duplicates, and delays ten percent of rows "
+                "past the first five-minute cutoff. The finalizer preserves the first snapshot, writes a distinct "
+                "corrected snapshot at fifteen minutes, and commits each watermark only after its feature pages. "
+                "Both corrected snapshots match historical path cells with zero observed numeric difference. A third "
+                "quality-flagged version remains degraded, and observations beyond the 30-hour bound or implausibly "
+                "future event times are rejected. Two separate 64-target lookups then validate exact H-1/H-2/H-3/H-24 "
+                "availability and rates, causal timestamps, and identical batch versus single responses. Receipt "
+                "timestamps are synthetic because the archive lacks them."
+            ),
+        },
+        {"id": "architecture_heading", "type": "markdown", "body": "## Server authority prevents client-side freshness forgery"},
+        {
+            "id": "architecture",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "**Authorized connector -> HMAC/checkpoint completion manifest -> private rolling observations -> bounded hourly DuckDB finalizer -> "
+                "versioned path-hour cells and atomic watermarks -> service-role-only batched lookup -> A6 service.**\n\n"
+                "The browser may request a path or surface but cannot supply trusted lag values or mark them fresh. "
+                "The API deletes client lag features, obtains a complete matching server snapshot, and activates "
+                "NowCast only when provider, transform version, watermark, availability time, and quality flags all "
+                "pass. Band Planner and ReachMap render that backend-returned profile; ReachMap says `Physics fallback` "
+                "unless the response is verified `nowcast`, so its control cannot imply a stronger model path than the "
+                "service actually used. The API also deletes every browser weather value and reconstructs the supported weather vector "
+                "from provenance-rich `solar_snapshots`. Missing, partial, future, stale, or degraded data fails closed."
+            ),
+        },
+        {"id": "latency_chart", "type": "chart", "chartId": "latency", "layout": "full"},
+        {"id": "source_heading", "type": "markdown", "body": "## The research connector matches the live source schema"},
+        {"id": "source_chart", "type": "chart", "chartId": "source_band_coverage", "layout": "full"},
+        {
+            "id": "source_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "The disabled-by-default connector queried one exact settled UTC hour from "
+                "[WSPR.live](https://wspr.live/), covering all ten HF bands in one HTTP request. It applied the "
+                "same grid, callsign, power, and SNR filters as the archive builder, streamed canonical rows through "
+                "the M5 Projects volume, checksum-linked the completed response, and removed the spool after validation. "
+                "The first target finalization then exposed a PostgREST 1,000-row response cap. All ten affected watermarks "
+                "were marked failed, pagination was repaired, and manifest v2 added signed per-band counts that block watermark "
+                "publication on any mismatch. Later deep `OFFSET` pages caused target HTTP 500 responses, so the finalizer now uses "
+                "monotonic `id` keyset pagination backed by a covering source/target/band/id index. Bounded retry is limited to transient "
+                "transport, 408, 425, 429, and 5xx failures; contract and JSON errors still fail immediately. The corrected run matched all 287,694 "
+                f"source rows and published {summary['live_hour_feature_cells']:,} aggregate cells. This establishes one exact "
+                "end-to-end hour, not subscriber-facing permission, continuous completeness, or an availability guarantee."
+            ),
+        },
+        {
+            "id": "schedule_heading",
+            "type": "markdown",
+            "body": "## The research-only hourly schedule is active and independently audited",
+        },
+        {
+            "id": "schedule_band_chart",
+            "type": "chart",
+            "chartId": "scheduled_band_coverage",
+            "layout": "full",
+        },
+        {
+            "id": "schedule_pipeline_chart",
+            "type": "chart",
+            "chartId": "scheduled_pipeline",
+            "layout": "full",
+        },
+        {
+            "id": "schedule_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an "
+                f"identity-free atomic receipt only after all ten bands pass. The latest audited target, **{summary['schedule_target_hour']}**, contained "
+                f"**{summary['schedule_source_rows']:,} observations** and **{summary['schedule_feature_cells']:,} feature cells**. "
+                f"An independent validator made 21 exact target-store queries and passed **{summary['schedule_gates_passed']} of "
+                f"{summary['schedule_gates_total']} gates**, including manifest signature/hash linkage, per-band observation and "
+                "feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only "
+                "permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk "
+                "because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume. "
+                "A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, "
+                "job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. "
+                "Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are "
+                "implemented. The outbox now claims events atomically with a lease token, rejects stale completion, rolls back event-id collisions, "
+                "and leaves failed delivery retryable. The M5 publishes signed aggregate heartbeats through the protected production endpoint into "
+                "the dedicated private store. A GitHub-hosted runner detected one real stale episode, opened a single aggregate-only issue, and closed "
+                "it only after a genuine fresh heartbeat. The public server and frontend flags remain unset, so no subscriber-visible health state is active."
+            ),
+        },
+        {
+            "id": "incident_heading",
+            "type": "markdown",
+            "body": "## Off-M5 stale detection and genuine recovery now have durable proof",
+        },
+        {
+            "id": "incident_chart",
+            "type": "chart",
+            "chartId": "incident_age",
+            "layout": "full",
+        },
+        {
+            "id": "incident_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"Workflow run [{summary['incident_stale_run_id']}](https://github.com/crypticpy/propulse/actions/runs/{summary['incident_stale_run_id']}) "
+                f"observed a **{summary['incident_stale_age_seconds']:,}-second** heartbeat, failed closed, and opened exactly one durable "
+                f"[issue #{summary['incident_issue_number']}](https://github.com/crypticpy/propulse/issues/{summary['incident_issue_number']}). "
+                f"Recovery run [{summary['incident_recovery_run_id']}](https://github.com/crypticpy/propulse/actions/runs/{summary['incident_recovery_run_id']}) "
+                f"observed a genuine **{summary['incident_recovery_age_seconds']}-second** heartbeat, added the exact recovery comment, and closed the issue. "
+                f"All **{summary['incident_gates_passed']} of {summary['incident_gates_total']}** incident-delivery gates passed without station identity or secrets. "
+                "This proves the off-M5 control path and durable stale/recovery lifecycle. It does not claim a literal full-device power-loss test: the "
+                "staleness was caused by missing publisher configuration, so a controlled M5 shutdown remains a separate pre-public-health-view gate."
+            ),
+        },
+        {
+            "id": "shadow_progress_chart",
+            "type": "chart",
+            "chartId": "shadow_progress",
+            "layout": "full",
+        },
+        {
+            "id": "shadow_progress_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The rollup currently records **{summary['shadow_completed_hours']} of {summary['shadow_required_hours']} required hours** "
+                f"at **{summary['shadow_completion_rate_percent']:.1f}% scheduled completion** with **{summary['shadow_missing_hours']} gaps**. "
+                "Every receipt is schema-checked, hash-linked to its signed completion manifest, and rechecked for all-band counts, causal "
+                "timestamps, one bounded source request, the exact 2-by-9 M5 profile, and completion within 7,200 seconds. The decision remains "
+                "`collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
+            ),
+        },
+        {
+            "id": "coverage_heading",
+            "type": "markdown",
+            "body": "## Aggregate coverage is broad, while long-window drift evidence is still collecting",
+        },
+        {
+            "id": "coverage_band_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The read-only M5 audit found **{summary['coverage_completed_hours']} of "
+                f"{summary['coverage_expected_hours']} complete all-band hours** with **{summary['coverage_missing_hours']} gaps**, "
+                f"covering **{summary['coverage_feature_cells']:,} identity-free path cells**. The audit window is checksum-bound "
+                "to the signed scheduled-receipt rollup, so the earlier manual validation target cannot advance this clock. "
+                "Database reads are capped at 24-hour chunks and recombined before regional suppression, keeping the eventual "
+                "720-hour audit bounded without changing its global thresholds. "
+                "The band distribution describes what the receiver network observed; "
+                "it is neither a model score nor evidence of uniform geographic sampling."
+            ),
+        },
+        {
+            "id": "coverage_band_chart",
+            "type": "chart",
+            "chartId": "coverage_by_band",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_utc_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The current evidence spans **{summary['coverage_utc_hours']} of 24 UTC hour strata**. The unobserved clock "
+                "hours stay absent rather than being filled with zeros, so the chart cannot imply evidence the collector has "
+                "not yet accumulated. A full day will establish hour-of-day breadth; 720 hours remain the release requirement."
+            ),
+        },
+        {
+            "id": "coverage_utc_chart",
+            "type": "chart",
+            "chartId": "coverage_by_utc_hour",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_distance_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"All **{summary['coverage_distance_buckets']} distance buckets** already contain feature cells, including "
+                "paths beyond 10,000 km. Distances are computed from grid-cell centers inside PostgreSQL, then only bucketed "
+                "counts leave the read-only query. This is useful coverage evidence, but it does not prove equal performance "
+                "inside each bucket."
+            ),
+        },
+        {
+            "id": "coverage_distance_chart",
+            "type": "chart",
+            "chartId": "coverage_by_distance",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_region_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The regional audit retained **{summary['coverage_reported_regions']} top-ranked band/direction rows** after "
+                "requiring each broad Maidenhead field to span at least six completed hours and 100 feature cells. The chart "
+                "plots only eligible-field counts by band and endpoint direction; it contains no callsigns, grid-4 cells, "
+                "equipment, user records, or raw observations."
+            ),
+        },
+        {
+            "id": "coverage_region_chart",
+            "type": "chart",
+            "chartId": "coverage_by_region",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_drift_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "Early-versus-late drift is intentionally blank until two non-overlapping seven-day periods exist. Once "
+                "available, the gate compares band, UTC-hour, and distance distributions with base-2 Jensen-Shannon "
+                "divergence and requires late aggregate volume to remain between 0.5x and 2.0x the early week. These are "
+                "source-pipeline stability checks, not propagation-change or model-accuracy claims."
+            ),
+        },
+        {
+            "id": "prospective_capture_heading",
+            "type": "markdown",
+            "body": "## The frozen prospective window now has a first-party capture boundary",
+        },
+        {
+            "id": "prospective_capture_chart",
+            "type": "chart",
+            "chartId": "prospective_progress",
+            "layout": "full",
+        },
+        {
+            "id": "prospective_capture_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The native-M5 LaunchAgent polls PSK Reporter, RBN, and provenance-rich NOAA/Kyoto weather every five minutes, and DX Cluster every two minutes. "
+                f"The latest receipt has **{summary['prospective_sources_current']} of {summary['prospective_sources_required']} sources current** and "
+                f"**{summary['prospective_continuity_hours']:.2f} of {summary['prospective_continuity_required_hours']:.0f} required continuity hours**. "
+                "Band and path-hour reductions run as bounded PostgreSQL set operations after a 20-minute settle delay, then publish a durable "
+                "watermark even for a zero-row hour. Solar readiness checks each upstream timestamp, not only capture time. Kp, magnetic field, solar wind, and Dst are required; optional proton flux retains its 15-minute causal limit and becomes a missing feature when NOAA publishes it late. The readiness clock does not begin until both aggregates are nonempty and current. A separate "
+                "quarter-hour watchdog records only source/aggregate timestamps, counts, durations, outages, and process state; callsigns, grids, "
+                "station equipment, and user data are excluded. The August-September outcomes remain unread."
+            ),
+        },
+        {
+            "id": "outcomes_heading",
+            "type": "markdown",
+            "body": "## Beta outcome instrumentation is implemented but intentionally inactive",
+        },
+        {
+            "id": "outcomes_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The participation migration passed **{summary['research_participation_rollback_gates_passed']} of "
+                f"{summary['research_participation_rollback_gates_total']} rollback gates** and **{summary['research_participation_deployment_gates_passed']} of "
+                f"{summary['research_participation_deployment_gates_total']} deployed-state gates** on PostgreSQL 17.6. "
+                "Consent is policy-versioned, independently selectable, retained with explicit retention acknowledgement, and revocable. "
+                "An active path prediction receives a receipt only when the signed-in consenting account supplies a short-lived pseudonymous "
+                "subject binding. The model signs only coarse path and versioned prediction provenance, never raw equipment or exact coordinates. "
+                "The authenticated API verifies the receipt and account binding, enforces one attempt per prediction, and refuses outcomes without "
+                "an explicit attempt. Direct browser inserts and updates are revoked. No real consent or outcome was collected for this validation, "
+                "and both collection gates remain off."
+            ),
+        },
+        {"id": "gates", "type": "table", "tableId": "gate_table", "layout": "full"},
+        {"id": "method_heading", "type": "markdown", "body": "## Method, data, and execution"},
+        {
+            "id": "method",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "The replay uses 24 deterministic hours from each open WSPRnet archive month "
+                "([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity "
+                "Parquet inputs. DuckDB 1.5's hash engine "
+                "is pinned because deterministic receiver sampling depends on it. The foundation validation loads "
+                "the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and "
+                "requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid "
+                "and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction "
+                "on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, "
+                "and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then "
+                "deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. One read-only, "
+                "research-only WSPR.live hour was queried after the connector was double-gated, then ingested into the private rolling "
+                "store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. "
+                "Launchd-driven scheduled hours then exercised the receipt-based restart boundary, internal transient runtime, "
+                "exact target-store audit, and identity-free health records. "
+                "A separate first-party M5 collector now captures PSK Reporter, RBN, DX Cluster, and current solar/geomagnetic measurements concurrently. Its settled band and path-hour "
+                "aggregations execute inside PostgreSQL, publish watermark-last cursors, and feed an identity-free 15-minute continuity receipt. "
+                "A separate private migration then established a service-role-only aggregate health singleton and transition outbox. "
+                "It was rollback-tested, deployed through the normal ledger, and rechecked with equal-timestamp replay, alert, recovery, "
+                "invalid-counter, grant, RLS, search-path, and identity-column tests; all smoke rows were rolled back. "
+                "The protected feature-preview endpoint was then validated from the M5 with an independent HMAC secret and Vercel automation "
+                "bypass header. Its dedicated store state matched the signed aggregate exactly, the public coarse reader stayed disabled, "
+                "and no station, path, equipment, source-row, or credential field entered the evidence. "
+                "A separate additive migration established a service-role-only stale-heartbeat transition for off-M5 monitors. Rollback and "
+                "deployed-state tests proved that it preserves the last source timestamp, emits one alert per stale episode, ignores repeated "
+                "checks, leaves fresh or missing state unchanged, and lets the next genuine heartbeat emit recovery. "
+                "A GitHub-hosted Ubuntu runner first invoked the protected monitor endpoint at an immutable workflow run and commit, verified a fresh "
+                "identity-free response, and recorded zero failed or exhausted deliveries. A hardening migration then added atomic outbox claims, "
+                "lease-token completion, collision rollback, and retry invariants. Finally, a real stale run opened one aggregate-only GitHub issue and "
+                "the next genuine heartbeat closed it. This proves durable off-M5 incident delivery and recovery, but not a literal M5 power-off event. "
+                "A final additive migration revoked browser write authority over consent, attempt, and outcome records while retaining user-scoped "
+                "reads and deletes. Its rollback and deployed-state validators checked the allowed-use constraint, retention acknowledgement, "
+                "one-attempt index, RLS, grants, and ledger. Active-only inference receipts are HMAC-signed and carry a second short-lived "
+                "pseudonymous binding that the product API recomputes for the authenticated account. "
+                "A real hardened NOAA capture separately verified the operational-weather path against A6."
+            ),
+        },
+        {
+            "id": "compute",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "## Apple Silicon execution\n\n"
+                f"All evidence was generated on native ARM64 with **{summary['visible_cpus']} M5 CPU cores**. The "
+                "48-hour transform and receipt replay used 18 DuckDB threads. Research training remains two spawned XGBoost fits "
+                "with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch "
+                "scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training "
+                "backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one "
+                "XGBoost thread each to avoid oversubscription under concurrent traffic. The hourly runner uses "
+                f"two concurrent band finalizers with nine DuckDB threads each on this M5 and rejects any larger product. The latest "
+                f"keyset-paginated finalizer completed in **{summary['schedule_finalizer_seconds']:.1f} seconds**. These settings deliberately use "
+                "the 12 performance and six efficiency cores while bounding nested parallelism; more threads are not assumed to mean faster work."
+            ),
+        },
+        {
+            "id": "limits",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "## Limits and robustness\n\n"
+                "This is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a "
+                "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
+                "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
+                "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
+                f"plus {summary['shadow_completed_hours']} scheduled receipts do not prove 30-day provider completeness or permission for "
+                "subscriber-facing use. The off-M5 path has detected a real stale heartbeat, opened one durable issue, and closed it on genuine recovery. "
+                "That episode came from missing publisher configuration, not a controlled device shutdown; literal full-M5 power-loss delivery therefore "
+                "remains unproven. The signed heartbeat path is active, but the product-health reader remains intentionally hidden until that outage proof, "
+                "beta readiness, and the source release gate pass. Trusted weather "
+                "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
+                "continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic "
+                "and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X "
+                "coverage, selection bias, or core-versus-StationCast prospective lift."
+                " The first-party capture job is operational but its nonempty 24-hour preflight is still warming, so it is not yet readiness evidence."
+            ),
+        },
+        {"id": "limit_table_block", "type": "table", "tableId": "limit_table", "layout": "full"},
+        {"id": "blockers", "type": "table", "tableId": "blocker_table", "layout": "full"},
+        {
+            "id": "next",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "## Next steps\n\n"
+                "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
+                "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
+                "3. Let the new first-party capture pass its 24-hour gap-free preflight, then audit nonempty settled band/path cells and keep it green through the prospective window.\n"
+                "4. Run a controlled full-M5 shutdown while the off-M5 workflow remains active; verify the existing incident lifecycle, then consider enabling the server and frontend health-view flags for beta.\n"
+                "5. Run opt-in beta outcome collection before allowing verified fresh history to "
+                "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+            ),
+        },
+    ]
+    source_spec = source(evidence_path)
+    return {
+        "surface": "report",
+        "manifest": {
+            "version": 1,
+            "surface": "report",
+            "title": "Propulse NowCast V4.2: research shadow validation report",
+            "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
+            "generatedAt": generated_at,
+            "cards": cards,
+            "charts": charts,
+            "tables": tables,
+            "sources": [source_spec],
+            "blocks": blocks,
+        },
+        "snapshot": {
+            "version": 1,
+            "generatedAt": generated_at,
+            "status": "ready",
+            "datasets": evidence["datasets"],
+        },
+        "sources": [source_spec],
+    }
+
+
+def markdown_summary(evidence: dict[str, Any]) -> str:
+    summary = evidence["datasets"]["summary"][0]
+    return f"""# Propulse NowCast V4.2: research shadow validation report
+
+Generated: {evidence['generated_at']}
+
+## Answer first
+
+The server-authoritative live-feature foundation and open-month replay pass.
+Across `{summary['replay_hours']}` stratified October-November hours and
+`{summary['replay_spots']:,}` input spots, the shared transform exactly
+reproduced `{summary['replay_opportunity_cells']:,}` opportunity cells and
+`{summary['replay_path_cells']:,}` power-aggregated path-hour cells. Both
+synthetic receipt scenarios recovered exact corrected snapshots after
+duplicates, reordering, and late arrivals. The real A6 bundle blocked browser
+freshness forgery and measured `{summary['path_p95_ms']:.2f}` ms path p95 and
+`{summary['surface_p95_ms']:.2f}` ms for a 288-cell surface.
+Band Planner and ReachMap use the backend-returned profile; ReachMap displays
+`Physics fallback` unless the service verifies the complete NowCast history.
+
+The six-migration schema is deployed, and trusted operational weather passed
+`{summary['weather_gates_passed']}/{summary['weather_gates_total']}` real-bundle gates.
+Signed hourly orchestration passed `{summary['orchestration_gates_passed']}/{summary['orchestration_gates_total']}`
+gates with `{summary['orchestration_threads']}` bounded M5 threads.
+The research-only connector passed `{summary['connector_gates_passed']}/{summary['connector_gates_total']}`
+gates with `{summary['connector_rows']:,}` real observations in one bounded request
+at `{summary['connector_peak_rss_mib']:.1f}` MiB peak RSS. The corrected end-to-end target
+hour passed `{summary['live_hour_gates_passed']}/{summary['live_hour_gates_total']}`
+gates and published `{summary['live_hour_feature_cells']:,}` aggregate path cells;
+the truncated first watermark version is explicitly failed. The hourly research
+LaunchAgent is now active: its latest audited receipt passed
+`{summary['schedule_gates_passed']}/{summary['schedule_gates_total']}` independent
+gates, converting `{summary['schedule_source_rows']:,}` observations into
+`{summary['schedule_feature_cells']:,}` path cells with 18 bounded M5 threads.
+Keyset pagination completed the latest finalizer in
+`{summary['schedule_finalizer_seconds']:.1f}` seconds using
+`{summary['schedule_finalizer_workers']} x {summary['schedule_threads_per_band']}`
+bounded threads.
+The signed progress rollup is operationally healthy at
+`{summary['shadow_completed_hours']}/{summary['shadow_required_hours']}` hours,
+`{summary['shadow_completion_rate_percent']:.1f}%` scheduled completion, and
+`{summary['shadow_missing_hours']}` gaps; its decision remains `collecting`.
+The independent read-only coverage audit spans
+`{summary['coverage_completed_hours']}/{summary['coverage_expected_hours']}`
+complete all-band hours, `{summary['coverage_feature_cells']:,}` path cells,
+`{summary['coverage_utc_hours']}/24` UTC hour strata, and all
+`{summary['coverage_distance_buckets']}` distance buckets. Early-versus-late
+drift remains unavailable until two non-overlapping seven-day periods exist.
+Subscriber-facing use still requires source confirmation, and 30 days of real
+receipt-time shadow evidence remain open. The signed private heartbeat passed
+`{summary['research_health_endpoint_gates_passed']}/{summary['research_health_endpoint_gates_total']}`
+end-to-end gates. The off-M5 monitor migration passed
+`{summary['research_health_monitor_rollback_gates_passed']}/{summary['research_health_monitor_rollback_gates_total']}`
+rollback and
+`{summary['research_health_monitor_deployment_gates_passed']}/{summary['research_health_monitor_deployment_gates_total']}`
+deployed-state gates. Its GitHub-hosted
+`{summary['research_health_external_monitor_event']}` invocation passed
+`{summary['research_health_external_monitor_gates_passed']}/{summary['research_health_external_monitor_gates_total']}`
+gates with a fresh heartbeat `{summary['research_health_external_monitor_age_seconds']}`
+seconds old. Outbox hardening then passed
+`{summary['research_health_hardening_deployment_gates_passed']}/{summary['research_health_hardening_deployment_gates_total']}`
+deployed-state gates. A real stale run at `{summary['incident_stale_age_seconds']:,}`
+seconds opened issue `#{summary['incident_issue_number']}`, and a genuine
+`{summary['incident_recovery_age_seconds']}`-second heartbeat closed it. A literal
+full-M5 power-loss proof remains open; the double-gated public reader remains disabled.
+The opt-in outcome boundary passed
+`{summary['research_participation_rollback_gates_passed']}/{summary['research_participation_rollback_gates_total']}`
+rollback and
+`{summary['research_participation_deployment_gates_passed']}/{summary['research_participation_deployment_gates_total']}`
+deployed-state gates. Account-bound signed receipts and explicit attempts now
+protect failure labels, but collection remains disabled and no beta outcomes
+have been gathered.
+The separate first-party prospective collector is operational with
+`{summary['prospective_sources_current']}/{summary['prospective_sources_required']}`
+sources current. Its readiness state remains warming at
+`{summary['prospective_continuity_hours']:.2f}/{summary['prospective_continuity_required_hours']:.0f}`
+gap-free hours because the first settled startup aggregates were empty. The
+frozen August-September outcomes remain unread.
+See `REPORT.html` for charts,
+methodology, privacy and fallback contracts, limitations, and next steps.
+"""
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--profile", choices=("m5",), required=True)
+    parser.add_argument("--output-dir", type=Path, default=RESULT)
+    args = parser.parse_args()
+    del args.profile
+    output_dir = args.output_dir.resolve()
+    try:
+        output_dir.relative_to(ROOT)
+    except ValueError as error:
+        raise RuntimeError("report output must remain under the repository") from error
+    validate_m5_runtime(read_json(CONFIG))
+    transform = read_json(INPUTS["transform_parity"])
+    foundation = read_json(INPUTS["foundation_validation"])
+    replay = read_json(INPUTS["replay_validation"])
+    migration_validation = read_json(INPUTS["migration_validation"])
+    deployment_validation = read_json(INPUTS["deployment_validation"])
+    research_health_migration_validation = read_json(
+        INPUTS["research_health_migration_validation"]
+    )
+    research_health_deployment_validation = read_json(
+        INPUTS["research_health_deployment_validation"]
+    )
+    research_health_endpoint_validation = read_json(
+        INPUTS["research_health_endpoint_validation"]
+    )
+    research_health_monitor_migration_validation = read_json(
+        INPUTS["research_health_monitor_migration_validation"]
+    )
+    research_health_monitor_deployment_validation = read_json(
+        INPUTS["research_health_monitor_deployment_validation"]
+    )
+    research_health_external_monitor_validation = read_json(
+        INPUTS["research_health_external_monitor_validation"]
+    )
+    research_health_hardening_migration_validation = read_json(
+        INPUTS["research_health_hardening_migration_validation"]
+    )
+    research_health_hardening_deployment_validation = read_json(
+        INPUTS["research_health_hardening_deployment_validation"]
+    )
+    research_health_incident_delivery_validation = read_json(
+        INPUTS["research_health_incident_delivery_validation"]
+    )
+    research_participation_migration_validation = read_json(
+        INPUTS["research_participation_migration_validation"]
+    )
+    research_participation_deployment_validation = read_json(
+        INPUTS["research_participation_deployment_validation"]
+    )
+    operational_weather_validation = read_json(
+        INPUTS["operational_weather_validation"]
+    )
+    orchestration_validation = read_json(INPUTS["orchestration_validation"])
+    wspr_live_connector_validation = read_json(
+        INPUTS["wspr_live_connector_validation"]
+    )
+    wspr_live_hour_validation = read_json(INPUTS["wspr_live_hour_validation"])
+    wspr_research_schedule_validation = read_json(
+        INPUTS["wspr_research_schedule_validation"]
+    )
+    wspr_research_shadow_progress = read_json(
+        INPUTS["wspr_research_shadow_progress"]
+    )
+    wspr_shadow_coverage_drift = read_json(
+        INPUTS["wspr_shadow_coverage_drift"]
+    )
+    prospective_capture_readiness = read_json(
+        INPUTS["prospective_capture_readiness"]
+    )
+    evidence = build_evidence(
+        transform,
+        foundation,
+        replay,
+        migration_validation,
+        deployment_validation,
+        research_health_migration_validation,
+        research_health_deployment_validation,
+        research_health_endpoint_validation,
+        research_health_monitor_migration_validation,
+        research_health_monitor_deployment_validation,
+        research_health_external_monitor_validation,
+        research_health_hardening_migration_validation,
+        research_health_hardening_deployment_validation,
+        research_health_incident_delivery_validation,
+        research_participation_migration_validation,
+        research_participation_deployment_validation,
+        operational_weather_validation,
+        orchestration_validation,
+        wspr_live_connector_validation,
+        wspr_live_hour_validation,
+        wspr_research_schedule_validation,
+        wspr_research_shadow_progress,
+        wspr_shadow_coverage_drift,
+        prospective_capture_readiness,
+    )
+    evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
+    evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+    artifact = build_artifact(evidence_path, evidence)
+    (output_dir / "REPORT.artifact.json").write_text(
+        json.dumps(artifact, indent=2) + "\n", encoding="utf-8"
+    )
+    (output_dir / "REPORT.md").write_text(markdown_summary(evidence), encoding="utf-8")
+    print(output_dir / "REPORT.artifact.json")
+
+
+if __name__ == "__main__":
+    main()

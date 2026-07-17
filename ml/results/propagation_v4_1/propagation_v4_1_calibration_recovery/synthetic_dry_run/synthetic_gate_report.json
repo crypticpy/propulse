@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T18:40:37.668507+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "scope": "synthetic_report_dry_run",
+  "synthetic": true,
+  "november_gate_read": false,
+  "locked_archive_test_read": false,
+  "synthetic_candidates": [
+    {
+      "candidate": "B0 climatology",
+      "brier": 0.048
+    },
+    {
+      "candidate": "M1 physics",
+      "brier": 0.0445
+    },
+    {
+      "candidate": "M2 raw",
+      "brier": 0.0439
+    },
+    {
+      "candidate": "M2 + C4",
+      "brier": 0.0438
+    }
+  ],
+  "synthetic_gates": [
+    {
+      "gate": "Integrity",
+      "passed": true,
+      "explanation": "All synthetic inputs satisfy schema and time rules."
+    },
+    {
+      "gate": "Calibration",
+      "passed": true,
+      "explanation": "The illustrative calibrated score is no worse than raw."
+    },
+    {
+      "gate": "Fallback",
+      "passed": true,
+      "explanation": "The synthetic stale-history path selects physics and lowers confidence."
+    },
+    {
+      "gate": "Serving parity",
+      "passed": true,
+      "explanation": "The fixture assumes identical offline and service probabilities."
+    }
+  ]
+}

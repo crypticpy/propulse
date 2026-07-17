@@ -1,0 +1,3051 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propagation V4 Development Report",
+    "description": "Technical development report for the open Propulse multi-year nowcast, StationCast, FutureCast, and independent 6m program.",
+    "generatedAt": "2026-07-12T14:28:44.698470+00:00",
+    "cards": [
+      {
+        "id": "natural_rows",
+        "description": "Full multi-year HF development candidate pool.",
+        "dataset": "summary",
+        "sourceId": "sample",
+        "metrics": [
+          {
+            "label": "Natural training rows",
+            "field": "natural_train_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "sample_rows",
+        "description": "Largest deterministic regime-balanced nested cohort.",
+        "dataset": "summary",
+        "sourceId": "sample",
+        "metrics": [
+          {
+            "label": "Primary sample rows",
+            "field": "sample_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "m2_brier",
+        "description": "Opportunity-weighted October 2024 development-gate Brier score.",
+        "dataset": "summary",
+        "sourceId": "development",
+        "metrics": [
+          {
+            "label": "M2 Brier",
+            "field": "m2_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "m2_skill",
+        "description": "Relative Brier skill against natural band-by-hour climatology.",
+        "dataset": "summary",
+        "sourceId": "development",
+        "metrics": [
+          {
+            "label": "M2 skill vs B0",
+            "field": "m2_skill",
+            "format": "percent"
+          }
+        ]
+      },
+      {
+        "id": "six_skill",
+        "description": "Covered-row skill against mechanism-specific climatology; experimental.",
+        "dataset": "summary",
+        "sourceId": "six",
+        "metrics": [
+          {
+            "label": "6m covered-row skill",
+            "field": "six_skill",
+            "format": "percent"
+          }
+        ]
+      },
+      {
+        "id": "future_days",
+        "description": "Minimum distinct issued-forecast capture days across required NOAA products.",
+        "dataset": "summary",
+        "sourceId": "future",
+        "metrics": [
+          {
+            "label": "Forecast archive days",
+            "field": "future_days",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "outage_passed",
+        "description": "Packaged model fallback contract on held-out development rows.",
+        "dataset": "summary",
+        "sourceId": "outage",
+        "metrics": [
+          {
+            "label": "Outage fallback passed",
+            "field": "outage_passed",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "m2_skill_lower_95",
+        "description": "Day-bootstrap lower confidence bound for M2 skill versus climatology.",
+        "dataset": "summary",
+        "sourceId": "detailed",
+        "metrics": [
+          {
+            "label": "M2 skill lower 95%",
+            "field": "m2_skill_lower_95",
+            "format": "percent"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "candidate_brier",
+        "title": "M2 reduces October 2024 error versus simpler development baselines",
+        "subtitle": "Opportunity-weighted Brier score on the full October development gate; lower is better.",
+        "type": "bar",
+        "dataset": "model_metrics",
+        "sourceId": "development",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "paired_p533",
+        "title": "M2 outperforms calibrated P.533 on the same bounded circuits",
+        "subtitle": "Paired October sample, n=10,000 path-hours; lower Brier is better.",
+        "type": "bar",
+        "dataset": "paired_p533",
+        "sourceId": "p533",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "learning_curve",
+        "title": "The learning curve determines whether scale beyond 50M is justified",
+        "subtitle": "Nested deterministic cohorts evaluated on the same October 2024 gate; lower Brier is better.",
+        "type": "line",
+        "dataset": "learning_curve",
+        "sourceId": "development",
+        "encodings": {
+          "x": {
+            "field": "train_rows",
+            "type": "quantitative",
+            "label": "Training rows"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "reliability",
+        "title": "M2 reliability is measured against the ideal calibration line",
+        "subtitle": "Twenty opportunity-weighted probability bins on the full October 2024 development gate.",
+        "type": "line",
+        "dataset": "reliability",
+        "sourceId": "development",
+        "encodings": {
+          "x": {
+            "field": "predicted",
+            "type": "quantitative",
+            "label": "Predicted probability",
+            "format": "percent"
+          },
+          "y": {
+            "field": "probability",
+            "type": "quantitative",
+            "label": "Observed probability",
+            "format": "percent"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Series"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "rolling_skill",
+        "title": "Rolling-origin folds test whether M2 skill persists across years",
+        "subtitle": "Five-million-row cap; each October follows training only on earlier years.",
+        "type": "bar",
+        "dataset": "rolling",
+        "sourceId": "rolling",
+        "encodings": {
+          "x": {
+            "field": "gate",
+            "type": "ordinal",
+            "label": "Gate month"
+          },
+          "y": {
+            "field": "brier_skill",
+            "type": "quantitative",
+            "label": "Brier skill",
+            "format": "percent"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "outage_confidence",
+        "title": "A path-history outage lowers confidence and selects the physics profile",
+        "subtitle": "Packaged-bundle replay on 5,000 held-out development rows.",
+        "type": "bar",
+        "dataset": "outage_scenarios",
+        "sourceId": "outage",
+        "encodings": {
+          "x": {
+            "field": "scenario",
+            "type": "ordinal",
+            "label": "Source state"
+          },
+          "y": {
+            "field": "mean_confidence",
+            "type": "quantitative",
+            "label": "Mean confidence",
+            "format": "percent"
+          },
+          "color": {
+            "field": "profile",
+            "type": "nominal",
+            "label": "Served profile"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "daily_delta",
+        "title": "M2 error reduction persists across October days",
+        "subtitle": "Paired daily Brier difference against band-hour climatology; values below zero favor M2.",
+        "type": "line",
+        "dataset": "detailed_daily",
+        "sourceId": "detailed",
+        "encodings": {
+          "x": {
+            "field": "key",
+            "type": "temporal",
+            "label": "UTC day"
+          },
+          "y": {
+            "field": "m2_delta_vs_b0",
+            "type": "quantitative",
+            "label": "M2 minus B0 Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "distance_skill",
+        "title": "NowCast skill is checked across path distance",
+        "subtitle": "Paired opportunity-weighted October development sample; positive values favor M2.",
+        "type": "bar",
+        "dataset": "detailed_distance",
+        "sourceId": "detailed",
+        "encodings": {
+          "x": {
+            "field": "key",
+            "type": "ordinal",
+            "label": "Distance"
+          },
+          "y": {
+            "field": "m2_skill_vs_b0",
+            "type": "quantitative",
+            "label": "Brier skill",
+            "format": "percent"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "geographic_error",
+        "title": "Coarse regional error reveals geographic weak spots without stations",
+        "subtitle": "Transmitter locations aggregated to 15x30-degree cells; callsigns and grid cells omitted.",
+        "type": "scatter",
+        "dataset": "detailed_regions",
+        "sourceId": "detailed",
+        "encodings": {
+          "x": {
+            "field": "lon",
+            "type": "quantitative",
+            "label": "Longitude"
+          },
+          "y": {
+            "field": "lat",
+            "type": "quantitative",
+            "label": "Latitude"
+          },
+          "color": {
+            "field": "m2_brier",
+            "type": "quantitative",
+            "label": "M2 Brier"
+          },
+          "size": {
+            "field": "opportunities",
+            "type": "quantitative",
+            "label": "Opportunities"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "engine_comparison",
+        "title": "The bounded engine check guards against implementation regression",
+        "subtitle": "Same 5M cohort, April calibration protocol, and October sample; lower Brier is better.",
+        "type": "bar",
+        "dataset": "engine_comparison",
+        "sourceId": "lightgbm",
+        "encodings": {
+          "x": {
+            "field": "engine",
+            "type": "ordinal",
+            "label": "Engine"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "six_mechanisms",
+        "title": "Covered 6m mechanisms show positive development skill",
+        "subtitle": "Heuristic mechanism routes, October 2024; this is not event-catalog validation.",
+        "type": "bar",
+        "dataset": "six_mechanisms_trained",
+        "sourceId": "six",
+        "encodings": {
+          "x": {
+            "field": "mechanism",
+            "type": "ordinal",
+            "label": "Mechanism hypothesis"
+          },
+          "y": {
+            "field": "brier_skill",
+            "type": "quantitative",
+            "label": "Brier skill",
+            "format": "percent"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "archive_coverage",
+        "title": "Quarterly archive coverage grows substantially across network eras",
+        "subtitle": "Deduplicated WSPR bronze rows in Jan/Apr/Jul/Oct development months; 2025 is not transformed.",
+        "type": "bar",
+        "dataset": "archive_coverage",
+        "sourceId": "bronze",
+        "encodings": {
+          "x": {
+            "field": "year",
+            "type": "ordinal",
+            "label": "Year"
+          },
+          "y": {
+            "field": "spots",
+            "type": "quantitative",
+            "label": "Bronze WSPR rows"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "feature_family_importance",
+        "title": "Recent reports complement physics, geometry, and solar context",
+        "subtitle": "Normalized XGBoost gain by preregistered feature family; predictive importance is not causal effect.",
+        "type": "bar",
+        "dataset": "feature_family_importance",
+        "sourceId": "development",
+        "encodings": {
+          "x": {
+            "field": "family",
+            "type": "ordinal",
+            "label": "Feature family"
+          },
+          "y": {
+            "field": "gain_fraction",
+            "type": "quantitative",
+            "label": "Gain fraction",
+            "format": "percent"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "experiment_matrix",
+        "title": "Experiment matrix and evidence decisions",
+        "subtitle": "Deferred candidates require new evidence; they are not counted as failed or complete.",
+        "dataset": "experiment_matrix",
+        "sourceId": "development",
+        "defaultSort": {
+          "field": "candidate",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          },
+          {
+            "field": "decision",
+            "label": "Decision",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "band_metrics",
+        "title": "M2 error and calibration by band",
+        "subtitle": "Full October 2024 development gate; exact opportunity-weighted metrics.",
+        "dataset": "band_metrics",
+        "sourceId": "development",
+        "defaultSort": {
+          "field": "brier",
+          "direction": "desc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "band",
+            "label": "Band",
+            "type": "text"
+          },
+          {
+            "field": "brier",
+            "label": "Brier",
+            "format": "number"
+          },
+          {
+            "field": "log_loss",
+            "label": "Log loss",
+            "format": "number"
+          },
+          {
+            "field": "ece",
+            "label": "ECE",
+            "format": "number"
+          },
+          {
+            "field": "opportunities",
+            "label": "Opportunities",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "release_status",
+        "title": "Release decision by component",
+        "dataset": "release_status",
+        "sourceId": "development",
+        "defaultSort": {
+          "field": "component",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "component",
+            "label": "Component",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          },
+          {
+            "field": "reason",
+            "label": "Evidence boundary",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "bootstrap_intervals",
+        "title": "Paired day-bootstrap uncertainty",
+        "subtitle": "Two thousand resamples of October UTC days; development evidence only.",
+        "dataset": "detailed_intervals",
+        "sourceId": "detailed",
+        "defaultSort": {
+          "field": "metric",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "metric",
+            "label": "Metric",
+            "type": "text"
+          },
+          {
+            "field": "lower_95",
+            "label": "Lower 95%",
+            "format": "number"
+          },
+          {
+            "field": "median",
+            "label": "Median",
+            "format": "number"
+          },
+          {
+            "field": "upper_95",
+            "label": "Upper 95%",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "development",
+        "label": "V4 development metrics",
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json"
+          ]
+        }
+      },
+      {
+        "id": "sample",
+        "label": "Balanced sample manifest",
+        "path": "ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json')",
+          "tables_used": [
+            "ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json"
+          ]
+        }
+      },
+      {
+        "id": "hf_audit",
+        "label": "HF development audit",
+        "path": "ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json')",
+          "tables_used": [
+            "ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json"
+          ]
+        }
+      },
+      {
+        "id": "six",
+        "label": "Independent 6m development metrics",
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json"
+          ]
+        }
+      },
+      {
+        "id": "six_audit",
+        "label": "6m development audit",
+        "path": "ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json')",
+          "tables_used": [
+            "ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json"
+          ]
+        }
+      },
+      {
+        "id": "p533",
+        "label": "Pinned ITU-R P.533 validation",
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json"
+          ]
+        }
+      },
+      {
+        "id": "rolling",
+        "label": "Rolling-origin validation",
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json"
+          ]
+        }
+      },
+      {
+        "id": "outage",
+        "label": "Source-outage fallback validation",
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json"
+          ]
+        }
+      },
+      {
+        "id": "detailed",
+        "label": "Paired detailed validation",
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json"
+          ]
+        }
+      },
+      {
+        "id": "lightgbm",
+        "label": "Bounded LightGBM comparison",
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json"
+          ]
+        }
+      },
+      {
+        "id": "future",
+        "label": "FutureCast issuance readiness",
+        "path": "ml/results/propagation_v4/futurecast_readiness.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4/futurecast_readiness.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/futurecast_readiness.json')",
+          "tables_used": [
+            "ml/results/propagation_v4/futurecast_readiness.json"
+          ]
+        }
+      },
+      {
+        "id": "bronze",
+        "label": "Quarterly archive bronze manifest",
+        "path": "ml/data/manifests/propagation_v4_multiyear_50m_bronze.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_bronze.json; report shaping is implemented in generate_report_artifact.py.",
+          "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_bronze.json')",
+          "tables_used": [
+            "ml/data/manifests/propagation_v4_multiyear_50m_bronze.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propagation V4 Development Report"
+      },
+      {
+        "id": "summary_text",
+        "type": "markdown",
+        "body": "## The multi-year approach is promising, but no production replacement is approved\n\nThe current primary M2 candidate uses **50.0M rows** and reaches **0.04473 Brier** on the October 2024 development gate. The 2025 archive test and 2026 prospective test remain unopened. FutureCast is withheld, and 6m remains a separate experimental mechanism program. The detailed development gate failed because calibration regressed raw M2 on 0-500 km (+0.000153 Brier versus raw M2), 500-1500 km (+0.000287 Brier versus raw M2); the locked test therefore remains closed."
+      },
+      {
+        "id": "headline_metrics",
+        "type": "metric-strip",
+        "cardIds": [
+          "natural_rows",
+          "sample_rows",
+          "m2_brier",
+          "m2_skill",
+          "six_skill",
+          "future_days",
+          "outage_passed",
+          "m2_skill_lower_95"
+        ]
+      },
+      {
+        "id": "definitions",
+        "type": "markdown",
+        "body": "## What was measured\n\nThe HF target is the opportunity-weighted probability of one WSPR decode when the transmitter and receiver were inferred active. A missing public spot is not treated as a failed QSO. Brier score is the primary proper scoring rule; lower is better. Brier skill is relative error reduction against natural band-by-UTC-hour climatology."
+      },
+      {
+        "id": "block_candidate_brier",
+        "type": "chart",
+        "chartId": "candidate_brier",
+        "layout": "full"
+      },
+      {
+        "id": "block_paired_p533",
+        "type": "chart",
+        "chartId": "paired_p533",
+        "layout": "full"
+      },
+      {
+        "id": "block_learning_curve",
+        "type": "chart",
+        "chartId": "learning_curve",
+        "layout": "full"
+      },
+      {
+        "id": "block_reliability",
+        "type": "chart",
+        "chartId": "reliability",
+        "layout": "full"
+      },
+      {
+        "id": "methods",
+        "type": "markdown",
+        "body": "## The experiment separates fitting, calibration, and evaluation\n\nTraining uses quarterly anchors from 2018-2023. January and July 2024 control early stopping; April days 1-20 fit candidate calibrators, April days 21-end select the calibration family, and full April refits that family. October 2024 is evaluation-only. The 5M/20M/50M cohorts are exact nested hash samples balanced across year, season, band, power, distance, solar, geomagnetic, and recent-history regimes, then post-stratified to natural opportunity mass."
+      },
+      {
+        "id": "experiment_table",
+        "type": "table",
+        "tableId": "experiment_matrix",
+        "layout": "full"
+      },
+      {
+        "id": "block_rolling_skill",
+        "type": "chart",
+        "chartId": "rolling_skill",
+        "layout": "full"
+      },
+      {
+        "id": "block_outage_confidence",
+        "type": "chart",
+        "chartId": "outage_confidence",
+        "layout": "full"
+      },
+      {
+        "id": "block_daily_delta",
+        "type": "chart",
+        "chartId": "daily_delta",
+        "layout": "full"
+      },
+      {
+        "id": "block_distance_skill",
+        "type": "chart",
+        "chartId": "distance_skill",
+        "layout": "full"
+      },
+      {
+        "id": "block_geographic_error",
+        "type": "chart",
+        "chartId": "geographic_error",
+        "layout": "full"
+      },
+      {
+        "id": "block_engine_comparison",
+        "type": "chart",
+        "chartId": "engine_comparison",
+        "layout": "full"
+      },
+      {
+        "id": "block_six_mechanisms",
+        "type": "chart",
+        "chartId": "six_mechanisms",
+        "layout": "full"
+      },
+      {
+        "id": "block_archive_coverage",
+        "type": "chart",
+        "chartId": "archive_coverage",
+        "layout": "full"
+      },
+      {
+        "id": "block_feature_family_importance",
+        "type": "chart",
+        "chartId": "feature_family_importance",
+        "layout": "full"
+      },
+      {
+        "id": "band_table",
+        "type": "table",
+        "tableId": "band_metrics",
+        "layout": "full"
+      },
+      {
+        "id": "interval_table",
+        "type": "table",
+        "tableId": "bootstrap_intervals",
+        "layout": "full"
+      },
+      {
+        "id": "personalization",
+        "type": "markdown",
+        "body": "## StationCast uses the existing virtual shack without exposing it\n\nThe active chain or preset resolves its linked saved operating location before the global active location. The browser derives a versioned envelope containing realizable power, losses, path-bearing antenna gain, receiver evidence, mode threshold, warnings, and a stable fingerprint. Raw equipment IDs and inventory records are rejected by the inference API. Stage A is a deterministic physics adapter; mode heads and learned station residuals require separate prospective labels."
+      },
+      {
+        "id": "operations",
+        "type": "markdown",
+        "body": "## Operational outages change the served model, not the truth label\n\nWhen recent path-history data exceed the freshness limit, the API serves the independent physics/weather profile, adds an explicit out-of-distribution warning, and lowers confidence. The client exposes source ages and never fills missing live evidence with future observations."
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "body": "## The remaining evidence gaps are release blockers\n\n- The short-path calibration non-regression gate failed on 0-500 km (+0.000153 Brier versus raw M2), 500-1500 km (+0.000287 Brier versus raw M2).\n- The frozen V3/B2 development comparison has not been produced.\n- The locked 2025 archive is not opened until every preregistered development gate passes.\n- The prospective window runs from 2026-08-01 through 2026-09-30.\n- FutureCast needs at least 90 days of genuine issued forecasts; observations cannot backfill them.\n- 6m mechanism labels are hypotheses and need GIRO/NWP/event-catalog validation.\n- WSPR results do not establish FT8, CW, SSB, receive, or two-way QSO probability."
+      },
+      {
+        "id": "release_table",
+        "type": "table",
+        "tableId": "release_status",
+        "layout": "full"
+      },
+      {
+        "id": "next_steps",
+        "type": "markdown",
+        "body": "## Next steps are gated, not open-ended tuning\n\nPublish this failed gate without modifying the frozen candidate. Preregister a new calibration version that may select identity/raw calibration by distance using calibration data only, and give that version a fresh untouched development gate. Complete the frozen V3 comparison and product shadow integration. Open 2025 only after every gate passes, then preserve the selected bundle for the prospective window without post-test tuning."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\nDoes 50M materially improve the 5M/20M curve? Does M2 improve short paths without band regressions? Does StationCast improve calibration and operator decisions prospectively? Which 6m mechanisms retain skill against independent event catalogs and operational NWP?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-12T14:28:44.698470+00:00",
+    "status": "partial",
+    "datasets": {
+      "summary": [
+        {
+          "natural_train_rows": 673981409,
+          "sample_rows": 50000000,
+          "validation_rows": 5000000,
+          "m2_brier": 0.04473073023523096,
+          "m2_skill": 0.42504900711090876,
+          "m2_cap": 50000000,
+          "six_skill": 0.7604474481979135,
+          "future_days": 1,
+          "outage_passed": 1,
+          "m2_skill_lower_95": 0.41892575166281576
+        }
+      ],
+      "model_metrics": [
+        {
+          "candidate": "B0 climatology",
+          "brier": 0.07779920512957454,
+          "log_loss": 0.3207886995865604,
+          "ece": 0.005648211135557947,
+          "scope": "full October gate"
+        },
+        {
+          "candidate": "M1 physics/weather",
+          "brier": 0.05491155499459099,
+          "log_loss": 0.21095896451119167,
+          "ece": 0.006641874135408922,
+          "scope": "full October gate"
+        },
+        {
+          "candidate": "M2 nowcast",
+          "brier": 0.04473073023523096,
+          "log_loss": 0.1768669940223254,
+          "ece": 0.0020127955204683502,
+          "scope": "full October gate"
+        }
+      ],
+      "paired_p533": [
+        {
+          "candidate": "Calibrated P.533",
+          "brier": 0.0781570156123003,
+          "rows": 10000
+        },
+        {
+          "candidate": "M2 nowcast",
+          "brier": 0.04377076755528002,
+          "rows": 10000
+        }
+      ],
+      "learning_curve": [
+        {
+          "train_rows": 5000000,
+          "brier": 0.04719527452594937,
+          "runtime_minutes": 2.337169102827708,
+          "peak_rss_gb": 17.95379638671875
+        },
+        {
+          "train_rows": 20000000,
+          "brier": 0.04556459481769188,
+          "runtime_minutes": 2.9311041673024496,
+          "peak_rss_gb": 68.70704650878906
+        },
+        {
+          "train_rows": 50000000,
+          "brier": 0.04473073023523096,
+          "runtime_minutes": 7.22965490023295,
+          "peak_rss_gb": 68.70704650878906
+        }
+      ],
+      "reliability": [
+        {
+          "predicted": 0.025,
+          "series": "Observed",
+          "probability": 0.006233789575842311
+        },
+        {
+          "predicted": 0.025,
+          "series": "Ideal",
+          "probability": 0.025
+        },
+        {
+          "predicted": 0.07500000000000001,
+          "series": "Observed",
+          "probability": 0.06828543499326721
+        },
+        {
+          "predicted": 0.07500000000000001,
+          "series": "Ideal",
+          "probability": 0.07500000000000001
+        },
+        {
+          "predicted": 0.125,
+          "series": "Observed",
+          "probability": 0.11760005804862593
+        },
+        {
+          "predicted": 0.125,
+          "series": "Ideal",
+          "probability": 0.125
+        },
+        {
+          "predicted": 0.175,
+          "series": "Observed",
+          "probability": 0.17096073037058568
+        },
+        {
+          "predicted": 0.175,
+          "series": "Ideal",
+          "probability": 0.175
+        },
+        {
+          "predicted": 0.225,
+          "series": "Observed",
+          "probability": 0.2251244367958647
+        },
+        {
+          "predicted": 0.225,
+          "series": "Ideal",
+          "probability": 0.225
+        },
+        {
+          "predicted": 0.275,
+          "series": "Observed",
+          "probability": 0.26531957412072094
+        },
+        {
+          "predicted": 0.275,
+          "series": "Ideal",
+          "probability": 0.275
+        },
+        {
+          "predicted": 0.32499999999999996,
+          "series": "Observed",
+          "probability": 0.32496971768227734
+        },
+        {
+          "predicted": 0.32499999999999996,
+          "series": "Ideal",
+          "probability": 0.32499999999999996
+        },
+        {
+          "predicted": 0.375,
+          "series": "Observed",
+          "probability": 0.3672385698597286
+        },
+        {
+          "predicted": 0.375,
+          "series": "Ideal",
+          "probability": 0.375
+        },
+        {
+          "predicted": 0.42500000000000004,
+          "series": "Observed",
+          "probability": 0.4380681787740516
+        },
+        {
+          "predicted": 0.42500000000000004,
+          "series": "Ideal",
+          "probability": 0.42500000000000004
+        },
+        {
+          "predicted": 0.475,
+          "series": "Observed",
+          "probability": 0.4683458534194225
+        },
+        {
+          "predicted": 0.475,
+          "series": "Ideal",
+          "probability": 0.475
+        },
+        {
+          "predicted": 0.525,
+          "series": "Observed",
+          "probability": 0.5205701503282437
+        },
+        {
+          "predicted": 0.525,
+          "series": "Ideal",
+          "probability": 0.525
+        },
+        {
+          "predicted": 0.575,
+          "series": "Observed",
+          "probability": 0.5697824445588311
+        },
+        {
+          "predicted": 0.575,
+          "series": "Ideal",
+          "probability": 0.575
+        },
+        {
+          "predicted": 0.625,
+          "series": "Observed",
+          "probability": 0.6113025043093216
+        },
+        {
+          "predicted": 0.625,
+          "series": "Ideal",
+          "probability": 0.625
+        },
+        {
+          "predicted": 0.675,
+          "series": "Observed",
+          "probability": 0.6721385631333329
+        },
+        {
+          "predicted": 0.675,
+          "series": "Ideal",
+          "probability": 0.675
+        },
+        {
+          "predicted": 0.725,
+          "series": "Observed",
+          "probability": 0.7050570660894487
+        },
+        {
+          "predicted": 0.725,
+          "series": "Ideal",
+          "probability": 0.725
+        },
+        {
+          "predicted": 0.775,
+          "series": "Observed",
+          "probability": 0.7474613241468241
+        },
+        {
+          "predicted": 0.775,
+          "series": "Ideal",
+          "probability": 0.775
+        },
+        {
+          "predicted": 0.825,
+          "series": "Observed",
+          "probability": 0.7874688491282859
+        },
+        {
+          "predicted": 0.825,
+          "series": "Ideal",
+          "probability": 0.825
+        },
+        {
+          "predicted": 0.875,
+          "series": "Observed",
+          "probability": 0.8467393358579915
+        },
+        {
+          "predicted": 0.875,
+          "series": "Ideal",
+          "probability": 0.875
+        },
+        {
+          "predicted": 0.925,
+          "series": "Observed",
+          "probability": 0.875476961646034
+        },
+        {
+          "predicted": 0.925,
+          "series": "Ideal",
+          "probability": 0.925
+        },
+        {
+          "predicted": 0.975,
+          "series": "Observed",
+          "probability": 0.8915661577022961
+        },
+        {
+          "predicted": 0.975,
+          "series": "Ideal",
+          "probability": 0.975
+        }
+      ],
+      "rolling": [
+        {
+          "gate": "2020-10",
+          "brier_skill": 0.3859515291432568,
+          "brier": 0.05230725117063503
+        },
+        {
+          "gate": "2021-10",
+          "brier_skill": 0.3826861448584693,
+          "brier": 0.05175791177492823
+        },
+        {
+          "gate": "2022-10",
+          "brier_skill": 0.37695988368662126,
+          "brier": 0.0507870144211231
+        },
+        {
+          "gate": "2023-10",
+          "brier_skill": 0.3958450489890387,
+          "brier": 0.050505762284018395
+        }
+      ],
+      "outage_scenarios": [
+        {
+          "scenario": "fresh path history",
+          "profile": "nowcast",
+          "mean_confidence": 0.9867274725274727,
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "mean": 0.24559545663118798,
+          "p05": 2.4322762328665704e-05,
+          "p50": 0.1605677306652069,
+          "p95": 0.7096326947212219
+        },
+        {
+          "scenario": "path history outage",
+          "profile": "physics",
+          "mean_confidence": 0.7390861445783133,
+          "minimum": 0.0,
+          "maximum": 0.9235880374908447,
+          "mean": 0.2179927151718562,
+          "p05": 8.716555748833343e-05,
+          "p50": 0.1611134111881256,
+          "p95": 0.5885487198829651
+        }
+      ],
+      "detailed_daily": [
+        {
+          "key": "2024-10-01",
+          "rows": 44847,
+          "opportunities": 1484272.25,
+          "m1_brier": 0.05365189352145566,
+          "m2_brier": 0.047776530379599634,
+          "b0_brier": 0.07665376256018658,
+          "raw_m2_brier": 0.047452991132423954,
+          "m2_skill_vs_b0": 0.37672295809241296,
+          "m2_delta_vs_b0": -0.028877232180586944,
+          "m2_delta_vs_m1": -0.005875363141856028,
+          "m2_calibration_gain": -0.0003235392471756804
+        },
+        {
+          "key": "2024-10-02",
+          "rows": 47155,
+          "opportunities": 1568175.0,
+          "m1_brier": 0.056842201213669404,
+          "m2_brier": 0.045519280973900754,
+          "b0_brier": 0.07667021055452711,
+          "raw_m2_brier": 0.04602649658585457,
+          "m2_skill_vs_b0": 0.4062976918326332,
+          "m2_delta_vs_b0": -0.031150929580626353,
+          "m2_delta_vs_m1": -0.01132292023976865,
+          "m2_calibration_gain": 0.0005072156119538193
+        },
+        {
+          "key": "2024-10-03",
+          "rows": 48609,
+          "opportunities": 1595191.75,
+          "m1_brier": 0.05726101488410566,
+          "m2_brier": 0.04633763125970853,
+          "b0_brier": 0.07932991489354278,
+          "raw_m2_brier": 0.04645311335381806,
+          "m2_skill_vs_b0": 0.4158870418316776,
+          "m2_delta_vs_b0": -0.03299228363383425,
+          "m2_delta_vs_m1": -0.010923383624397133,
+          "m2_calibration_gain": 0.00011548209410953275
+        },
+        {
+          "key": "2024-10-04",
+          "rows": 48532,
+          "opportunities": 1655443.75,
+          "m1_brier": 0.05515184108021818,
+          "m2_brier": 0.04449508236221068,
+          "b0_brier": 0.07952415914395577,
+          "raw_m2_brier": 0.04474107257673308,
+          "m2_skill_vs_b0": 0.4404834601059403,
+          "m2_delta_vs_b0": -0.03502907678174509,
+          "m2_delta_vs_m1": -0.010656758718007496,
+          "m2_calibration_gain": 0.0002459902145223944
+        },
+        {
+          "key": "2024-10-05",
+          "rows": 48846,
+          "opportunities": 1616569.5,
+          "m1_brier": 0.056539179681263006,
+          "m2_brier": 0.04608665562874837,
+          "b0_brier": 0.08178348624884606,
+          "raw_m2_brier": 0.04626406126180244,
+          "m2_skill_vs_b0": 0.43647968871712606,
+          "m2_delta_vs_b0": -0.03569683062009769,
+          "m2_delta_vs_m1": -0.010452524052514636,
+          "m2_calibration_gain": 0.00017740563305407298
+        },
+        {
+          "key": "2024-10-06",
+          "rows": 48187,
+          "opportunities": 1614428.75,
+          "m1_brier": 0.05891444371276551,
+          "m2_brier": 0.04904622958970907,
+          "b0_brier": 0.07983284757076496,
+          "raw_m2_brier": 0.04989936857889225,
+          "m2_skill_vs_b0": 0.38563847987216293,
+          "m2_delta_vs_b0": -0.03078661798105589,
+          "m2_delta_vs_m1": -0.00986821412305644,
+          "m2_calibration_gain": 0.0008531389891831831
+        },
+        {
+          "key": "2024-10-07",
+          "rows": 36839,
+          "opportunities": 1223522.75,
+          "m1_brier": 0.053641239184721114,
+          "m2_brier": 0.04269901000384167,
+          "b0_brier": 0.0748486586098577,
+          "raw_m2_brier": 0.04255557508707183,
+          "m2_skill_vs_b0": 0.4295287210635711,
+          "m2_delta_vs_b0": -0.03214964860601603,
+          "m2_delta_vs_m1": -0.010942229180879441,
+          "m2_calibration_gain": -0.00014343491676984538
+        },
+        {
+          "key": "2024-10-08",
+          "rows": 27028,
+          "opportunities": 919935.75,
+          "m1_brier": 0.04784986061344761,
+          "m2_brier": 0.034617058733788064,
+          "b0_brier": 0.060543851775431236,
+          "raw_m2_brier": 0.0346530442144731,
+          "m2_skill_vs_b0": 0.42823164171666217,
+          "m2_delta_vs_b0": -0.02592679304164317,
+          "m2_delta_vs_m1": -0.013232801879659549,
+          "m2_calibration_gain": 3.598548068503571e-05
+        },
+        {
+          "key": "2024-10-09",
+          "rows": 33644,
+          "opportunities": 1152205.25,
+          "m1_brier": 0.04884351164901629,
+          "m2_brier": 0.039939224094407394,
+          "b0_brier": 0.07135243943229301,
+          "raw_m2_brier": 0.03975215521006387,
+          "m2_skill_vs_b0": 0.4402542588287245,
+          "m2_delta_vs_b0": -0.03141321533788562,
+          "m2_delta_vs_m1": -0.008904287554608897,
+          "m2_calibration_gain": -0.0001870688843435206
+        },
+        {
+          "key": "2024-10-10",
+          "rows": 34067,
+          "opportunities": 1123845.5,
+          "m1_brier": 0.048696886355046334,
+          "m2_brier": 0.04242319988942137,
+          "b0_brier": 0.07324213074212102,
+          "raw_m2_brier": 0.04247117515243566,
+          "m2_skill_vs_b0": 0.4207814619868221,
+          "m2_delta_vs_b0": -0.03081893085269965,
+          "m2_delta_vs_m1": -0.006273686465624963,
+          "m2_calibration_gain": 4.7975263014289615e-05
+        },
+        {
+          "key": "2024-10-11",
+          "rows": 24380,
+          "opportunities": 772213.75,
+          "m1_brier": 0.04684438703287305,
+          "m2_brier": 0.034334972985873326,
+          "b0_brier": 0.06080973275244836,
+          "raw_m2_brier": 0.03418515094786994,
+          "m2_skill_vs_b0": 0.4353704344393635,
+          "m2_delta_vs_b0": -0.026474759766575033,
+          "m2_delta_vs_m1": -0.012509414046999727,
+          "m2_calibration_gain": -0.000149822038003386
+        },
+        {
+          "key": "2024-10-12",
+          "rows": 35893,
+          "opportunities": 1201622.5,
+          "m1_brier": 0.05245473074038015,
+          "m2_brier": 0.043539014867577976,
+          "b0_brier": 0.07521583119937236,
+          "raw_m2_brier": 0.04333024776675892,
+          "m2_skill_vs_b0": 0.4211455996255574,
+          "m2_delta_vs_b0": -0.03167681633179439,
+          "m2_delta_vs_m1": -0.008915715872802175,
+          "m2_calibration_gain": -0.00020876710081905309
+        },
+        {
+          "key": "2024-10-13",
+          "rows": 40657,
+          "opportunities": 1355231.25,
+          "m1_brier": 0.05148706522394653,
+          "m2_brier": 0.04288547400514169,
+          "b0_brier": 0.07742601311431033,
+          "raw_m2_brier": 0.04296139652525136,
+          "m2_skill_vs_b0": 0.4461102634611138,
+          "m2_delta_vs_b0": -0.034540539109168635,
+          "m2_delta_vs_m1": -0.008601591218804841,
+          "m2_calibration_gain": 7.592252010966971e-05
+        },
+        {
+          "key": "2024-10-14",
+          "rows": 42755,
+          "opportunities": 1444867.0,
+          "m1_brier": 0.05336791983366565,
+          "m2_brier": 0.04382326580069819,
+          "b0_brier": 0.07992932254829868,
+          "raw_m2_brier": 0.04400938146739276,
+          "m2_skill_vs_b0": 0.4517247938112172,
+          "m2_delta_vs_b0": -0.03610605674760049,
+          "m2_delta_vs_m1": -0.009544654032967462,
+          "m2_calibration_gain": 0.0001861156666945682
+        },
+        {
+          "key": "2024-10-15",
+          "rows": 42439,
+          "opportunities": 1468356.5,
+          "m1_brier": 0.05190722922596117,
+          "m2_brier": 0.04272116274470894,
+          "b0_brier": 0.0750655100266724,
+          "raw_m2_brier": 0.04285376863615208,
+          "m2_skill_vs_b0": 0.4308816028888742,
+          "m2_delta_vs_b0": -0.03234434728196346,
+          "m2_delta_vs_m1": -0.009186066481252232,
+          "m2_calibration_gain": 0.00013260589144314244
+        },
+        {
+          "key": "2024-10-16",
+          "rows": 41771,
+          "opportunities": 1441900.25,
+          "m1_brier": 0.053210449693226525,
+          "m2_brier": 0.0429602969274894,
+          "b0_brier": 0.07694344103629416,
+          "raw_m2_brier": 0.04282806187240663,
+          "m2_skill_vs_b0": 0.4416639501835503,
+          "m2_delta_vs_b0": -0.033983144108804764,
+          "m2_delta_vs_m1": -0.010250152765737125,
+          "m2_calibration_gain": -0.00013223505508277306
+        },
+        {
+          "key": "2024-10-17",
+          "rows": 43045,
+          "opportunities": 1494074.0,
+          "m1_brier": 0.051480032740836325,
+          "m2_brier": 0.042226621107029634,
+          "b0_brier": 0.07366472541062141,
+          "raw_m2_brier": 0.042401300603094806,
+          "m2_skill_vs_b0": 0.42677284315321495,
+          "m2_delta_vs_b0": -0.03143810430359178,
+          "m2_delta_vs_m1": -0.00925341163380669,
+          "m2_calibration_gain": 0.00017467949606517208
+        },
+        {
+          "key": "2024-10-18",
+          "rows": 43084,
+          "opportunities": 1451345.25,
+          "m1_brier": 0.05361730176109118,
+          "m2_brier": 0.04420668455399573,
+          "b0_brier": 0.07928628425196675,
+          "raw_m2_brier": 0.044281685109958835,
+          "m2_skill_vs_b0": 0.44244222098352215,
+          "m2_delta_vs_b0": -0.035079599697971024,
+          "m2_delta_vs_m1": -0.009410617207095455,
+          "m2_calibration_gain": 7.500055596310756e-05
+        },
+        {
+          "key": "2024-10-19",
+          "rows": 41836,
+          "opportunities": 1409895.5,
+          "m1_brier": 0.05381311915308662,
+          "m2_brier": 0.04349077890043524,
+          "b0_brier": 0.07753149088376549,
+          "raw_m2_brier": 0.04339042992198488,
+          "m2_skill_vs_b0": 0.4390565897199601,
+          "m2_delta_vs_b0": -0.034040711983330245,
+          "m2_delta_vs_m1": -0.010322340252651378,
+          "m2_calibration_gain": -0.0001003489784503625
+        },
+        {
+          "key": "2024-10-20",
+          "rows": 42826,
+          "opportunities": 1420725.75,
+          "m1_brier": 0.05558862364601828,
+          "m2_brier": 0.04521300168655488,
+          "b0_brier": 0.07977899304121715,
+          "raw_m2_brier": 0.045135035322255795,
+          "m2_skill_vs_b0": 0.43327184308786704,
+          "m2_delta_vs_b0": -0.03456599135466227,
+          "m2_delta_vs_m1": -0.0103756219594634,
+          "m2_calibration_gain": -7.796636429908271e-05
+        },
+        {
+          "key": "2024-10-21",
+          "rows": 43674,
+          "opportunities": 1464365.75,
+          "m1_brier": 0.05650364405073437,
+          "m2_brier": 0.04565815194073129,
+          "b0_brier": 0.08033272825725916,
+          "raw_m2_brier": 0.045658454774280904,
+          "m2_skill_vs_b0": 0.4316369812000571,
+          "m2_delta_vs_b0": -0.03467457631652787,
+          "m2_delta_vs_m1": -0.010845492110003074,
+          "m2_calibration_gain": 3.028335496119139e-07
+        },
+        {
+          "key": "2024-10-22",
+          "rows": 44669,
+          "opportunities": 1512669.25,
+          "m1_brier": 0.05589012515459733,
+          "m2_brier": 0.045135891766532564,
+          "b0_brier": 0.08255471155892806,
+          "raw_m2_brier": 0.04503915362441872,
+          "m2_skill_vs_b0": 0.453260862836226,
+          "m2_delta_vs_b0": -0.037418819792395495,
+          "m2_delta_vs_m1": -0.010754233388064763,
+          "m2_calibration_gain": -9.673814211384746e-05
+        },
+        {
+          "key": "2024-10-23",
+          "rows": 45720,
+          "opportunities": 1542267.5,
+          "m1_brier": 0.056400002366615805,
+          "m2_brier": 0.0463892747372413,
+          "b0_brier": 0.08178960633208283,
+          "raw_m2_brier": 0.04641255378750691,
+          "m2_skill_vs_b0": 0.4328218851073671,
+          "m2_delta_vs_b0": -0.03540033159484154,
+          "m2_delta_vs_m1": -0.010010727629374508,
+          "m2_calibration_gain": 2.3279050265612167e-05
+        },
+        {
+          "key": "2024-10-24",
+          "rows": 43741,
+          "opportunities": 1432055.25,
+          "m1_brier": 0.05650107757656327,
+          "m2_brier": 0.04558319422603317,
+          "b0_brier": 0.0806334530695296,
+          "raw_m2_brier": 0.045463015097380946,
+          "m2_skill_vs_b0": 0.43468631826139037,
+          "m2_delta_vs_b0": -0.035050258843496426,
+          "m2_delta_vs_m1": -0.010917883350530101,
+          "m2_calibration_gain": -0.0001201791286522258
+        },
+        {
+          "key": "2024-10-25",
+          "rows": 44450,
+          "opportunities": 1503230.0,
+          "m1_brier": 0.056496965517273214,
+          "m2_brier": 0.045600238683272384,
+          "b0_brier": 0.07841489613125359,
+          "raw_m2_brier": 0.04555284793121005,
+          "m2_skill_vs_b0": 0.4184747932721212,
+          "m2_delta_vs_b0": -0.032814657447981205,
+          "m2_delta_vs_m1": -0.01089672683400083,
+          "m2_calibration_gain": -4.739075206233734e-05
+        },
+        {
+          "key": "2024-10-26",
+          "rows": 44312,
+          "opportunities": 1478088.5,
+          "m1_brier": 0.05676133438166216,
+          "m2_brier": 0.04625809326479421,
+          "b0_brier": 0.08007539187472439,
+          "raw_m2_brier": 0.04667484380909042,
+          "m2_skill_vs_b0": 0.422318240575536,
+          "m2_delta_vs_b0": -0.03381729860993018,
+          "m2_delta_vs_m1": -0.01050324111686795,
+          "m2_calibration_gain": 0.0004167505442962127
+        },
+        {
+          "key": "2024-10-27",
+          "rows": 46475,
+          "opportunities": 1567930.0,
+          "m1_brier": 0.05655044691990738,
+          "m2_brier": 0.04693343643571817,
+          "b0_brier": 0.07963548229537447,
+          "raw_m2_brier": 0.04721477481875406,
+          "m2_skill_vs_b0": 0.4106466730290118,
+          "m2_delta_vs_b0": -0.0327020458596563,
+          "m2_delta_vs_m1": -0.009617010484189205,
+          "m2_calibration_gain": 0.00028133838303588676
+        },
+        {
+          "key": "2024-10-28",
+          "rows": 45108,
+          "opportunities": 1499757.25,
+          "m1_brier": 0.05982361677563273,
+          "m2_brier": 0.04846961219026355,
+          "b0_brier": 0.08386261226058736,
+          "raw_m2_brier": 0.048677209423865976,
+          "m2_skill_vs_b0": 0.4220355068400051,
+          "m2_delta_vs_b0": -0.03539300007032381,
+          "m2_delta_vs_m1": -0.011354004585369178,
+          "m2_calibration_gain": 0.00020759723360242593
+        },
+        {
+          "key": "2024-10-29",
+          "rows": 46764,
+          "opportunities": 1562734.0,
+          "m1_brier": 0.05879835557386489,
+          "m2_brier": 0.048025450261186355,
+          "b0_brier": 0.08048959767494096,
+          "raw_m2_brier": 0.04830437347560349,
+          "m2_skill_vs_b0": 0.40333345365772344,
+          "m2_delta_vs_b0": -0.032464147413754606,
+          "m2_delta_vs_m1": -0.010772905312678535,
+          "m2_calibration_gain": 0.0002789232144171372
+        },
+        {
+          "key": "2024-10-30",
+          "rows": 46485,
+          "opportunities": 1582178.5,
+          "m1_brier": 0.05955099421183699,
+          "m2_brier": 0.04739755211414104,
+          "b0_brier": 0.08071968090369216,
+          "raw_m2_brier": 0.04772042593835492,
+          "m2_skill_vs_b0": 0.41281293999796964,
+          "m2_delta_vs_b0": -0.033322128789551125,
+          "m2_delta_vs_m1": -0.012153442097695949,
+          "m2_calibration_gain": 0.000322873824213879
+        },
+        {
+          "key": "2024-10-31",
+          "rows": 46561,
+          "opportunities": 1516014.75,
+          "m1_brier": 0.06158753886829501,
+          "m2_brier": 0.0487416445761901,
+          "b0_brier": 0.08376117417200095,
+          "raw_m2_brier": 0.048846920188543114,
+          "m2_skill_vs_b0": 0.41808785445031293,
+          "m2_delta_vs_b0": -0.035019529595810846,
+          "m2_delta_vs_m1": -0.012845894292104906,
+          "m2_calibration_gain": 0.00010527561235301047
+        }
+      ],
+      "detailed_distance": [
+        {
+          "key": "0-500 km",
+          "rows": 108681,
+          "opportunities": 3009297.5,
+          "m1_brier": 0.08525080826201759,
+          "m2_brier": 0.06938947732287268,
+          "b0_brier": 0.1353712851490243,
+          "raw_m2_brier": 0.06923692704135599,
+          "m2_skill_vs_b0": 0.4874136176923721,
+          "m2_delta_vs_b0": -0.06598180782615162,
+          "m2_delta_vs_m1": -0.015861330939144908,
+          "m2_calibration_gain": -0.00015255028151668626
+        },
+        {
+          "key": "500-1500 km",
+          "rows": 371450,
+          "opportunities": 7703553.5,
+          "m1_brier": 0.1252855625351524,
+          "m2_brier": 0.10317708845549514,
+          "b0_brier": 0.1769219313475013,
+          "raw_m2_brier": 0.10289019127934292,
+          "m2_skill_vs_b0": 0.41682137613092296,
+          "m2_delta_vs_b0": -0.07374484289200617,
+          "m2_delta_vs_m1": -0.02210847407965727,
+          "m2_calibration_gain": -0.000286897176152226
+        },
+        {
+          "key": "1500-3000 km",
+          "rows": 274412,
+          "opportunities": 5048255.75,
+          "m1_brier": 0.12496295474125672,
+          "m2_brier": 0.09863001505236171,
+          "b0_brier": 0.16217158902436873,
+          "raw_m2_brier": 0.09958948892056639,
+          "m2_skill_vs_b0": 0.39181692893481446,
+          "m2_delta_vs_b0": -0.06354157397200702,
+          "m2_delta_vs_m1": -0.02633293968889501,
+          "m2_calibration_gain": 0.0009594738682046772
+        },
+        {
+          "key": "3000-6000 km",
+          "rows": 180987,
+          "opportunities": 6422267.75,
+          "m1_brier": 0.04947679457774092,
+          "m2_brier": 0.04021008875869017,
+          "b0_brier": 0.06041475213623678,
+          "raw_m2_brier": 0.040346176029045645,
+          "m2_skill_vs_b0": 0.33443261228622745,
+          "m2_delta_vs_b0": -0.02020466337754661,
+          "m2_delta_vs_m1": -0.009266705819050751,
+          "m2_calibration_gain": 0.00013608727035547413
+        },
+        {
+          "key": "6000-10000 km",
+          "rows": 283458,
+          "opportunities": 16705311.5,
+          "m1_brier": 0.01204611087380305,
+          "m2_brier": 0.010120674943801474,
+          "b0_brier": 0.021825762682793636,
+          "raw_m2_brier": 0.010202823168885888,
+          "m2_skill_vs_b0": 0.5362968483213593,
+          "m2_delta_vs_b0": -0.011705087738992162,
+          "m2_delta_vs_m1": -0.0019254359300015754,
+          "m2_calibration_gain": 8.214822508441355e-05
+        },
+        {
+          "key": "10000-25000 km",
+          "rows": 95411,
+          "opportunities": 5186426.75,
+          "m1_brier": 0.0110954275521205,
+          "m2_brier": 0.00950932550054621,
+          "b0_brier": 0.019608110844110474,
+          "raw_m2_brier": 0.009527505174721873,
+          "m2_skill_vs_b0": 0.5150310207776877,
+          "m2_delta_vs_b0": -0.010098785343564265,
+          "m2_delta_vs_m1": -0.0015861020515742907,
+          "m2_calibration_gain": 1.8179674175663324e-05
+        }
+      ],
+      "detailed_regions": [
+        {
+          "key": "8:3",
+          "rows": 324094,
+          "opportunities": 9555186.25,
+          "m1_brier": 0.06517394664570396,
+          "m2_brier": 0.05306459342112367,
+          "b0_brier": 0.09207052558120207,
+          "raw_m2_brier": 0.053291233938596756,
+          "m2_skill_vs_b0": 0.42365275872870867,
+          "m2_delta_vs_b0": -0.0390059321600784,
+          "m2_delta_vs_m1": -0.012109353224580288,
+          "m2_calibration_gain": 0.0002266405174730854,
+          "lat": 37.5,
+          "lon": "-75"
+        },
+        {
+          "key": "9:6",
+          "rows": 281089,
+          "opportunities": 9237000.0,
+          "m1_brier": 0.05772987800541807,
+          "m2_brier": 0.04875267889253507,
+          "b0_brier": 0.081795498656075,
+          "raw_m2_brier": 0.04871158358637893,
+          "m2_skill_vs_b0": 0.40396868172996725,
+          "m2_delta_vs_b0": -0.03304281976353993,
+          "m2_delta_vs_m1": -0.008977199112883,
+          "m2_calibration_gain": -4.1095306156140043e-05,
+          "lat": 52.5,
+          "lon": "15"
+        },
+        {
+          "key": "8:2",
+          "rows": 200175,
+          "opportunities": 6308691.5,
+          "m1_brier": 0.0668602090994974,
+          "m2_brier": 0.05015361567251943,
+          "b0_brier": 0.09629347727716842,
+          "raw_m2_brier": 0.050095901417737364,
+          "m2_skill_vs_b0": 0.4791587437624806,
+          "m2_delta_vs_b0": -0.04613986160464899,
+          "m2_delta_vs_m1": -0.016706593426977973,
+          "m2_calibration_gain": -5.771425478206388e-05,
+          "lat": 37.5,
+          "lon": "-105"
+        },
+        {
+          "key": "9:5",
+          "rows": 131921,
+          "opportunities": 4538635.25,
+          "m1_brier": 0.06118434927093837,
+          "m2_brier": 0.05250501675310718,
+          "b0_brier": 0.08255417653631936,
+          "raw_m2_brier": 0.05265638193785027,
+          "m2_skill_vs_b0": 0.36399321080977864,
+          "m2_delta_vs_b0": -0.030049159783212175,
+          "m2_delta_vs_m1": -0.008679332517831186,
+          "m2_calibration_gain": 0.0001513651847430894,
+          "lat": 52.5,
+          "lon": "-15"
+        },
+        {
+          "key": "8:1",
+          "rows": 44495,
+          "opportunities": 2151526.25,
+          "m1_brier": 0.03679033851752075,
+          "m2_brier": 0.02975063226599272,
+          "b0_brier": 0.0553662197149164,
+          "raw_m2_brier": 0.02950857290448189,
+          "m2_skill_vs_b0": 0.46265733114559193,
+          "m2_delta_vs_b0": -0.025615587448923678,
+          "m2_delta_vs_m1": -0.007039706251528027,
+          "m2_calibration_gain": -0.00024205936151083102,
+          "lat": 37.5,
+          "lon": "-135"
+        },
+        {
+          "key": "9:1",
+          "rows": 36426,
+          "opportunities": 1585888.0,
+          "m1_brier": 0.03723327672909159,
+          "m2_brier": 0.03055138334850953,
+          "b0_brier": 0.05789528126749931,
+          "raw_m2_brier": 0.03035573621319336,
+          "m2_skill_vs_b0": 0.472299249962187,
+          "m2_delta_vs_b0": -0.027343897918989776,
+          "m2_delta_vs_m1": -0.006681893380582057,
+          "m2_calibration_gain": -0.00019564713531617164,
+          "lat": 52.5,
+          "lon": "-135"
+        },
+        {
+          "key": "8:6",
+          "rows": 39927,
+          "opportunities": 1250091.25,
+          "m1_brier": 0.06020492532028755,
+          "m2_brier": 0.04997300204122768,
+          "b0_brier": 0.08404653801168942,
+          "raw_m2_brier": 0.04995265672566901,
+          "m2_skill_vs_b0": 0.40541272462314504,
+          "m2_delta_vs_b0": -0.034073535970461734,
+          "m2_delta_vs_m1": -0.01023192327905987,
+          "m2_calibration_gain": -2.0345315558674415e-05,
+          "lat": 37.5,
+          "lon": "15"
+        },
+        {
+          "key": "9:2",
+          "rows": 20469,
+          "opportunities": 693330.0,
+          "m1_brier": 0.0526000211004636,
+          "m2_brier": 0.04292144559953199,
+          "b0_brier": 0.06751637503581184,
+          "raw_m2_brier": 0.043328226999278026,
+          "m2_skill_vs_b0": 0.3642809529278531,
+          "m2_delta_vs_b0": -0.024594929436279854,
+          "m2_delta_vs_m1": -0.00967857550093161,
+          "m2_calibration_gain": 0.0004067813997460368,
+          "lat": 52.5,
+          "lon": "-105"
+        },
+        {
+          "key": "9:3",
+          "rows": 25065,
+          "opportunities": 660245.5,
+          "m1_brier": 0.059206612585167843,
+          "m2_brier": 0.04765207110600363,
+          "b0_brier": 0.0751463775455012,
+          "raw_m2_brier": 0.04787189041178982,
+          "m2_skill_vs_b0": 0.36587667080625075,
+          "m2_delta_vs_b0": -0.027494306439497573,
+          "m2_delta_vs_m1": -0.011554541479164217,
+          "m2_calibration_gain": 0.00021981930578619108,
+          "lat": 52.5,
+          "lon": "-75"
+        },
+        {
+          "key": "4:11",
+          "rows": 11410,
+          "opportunities": 576595.25,
+          "m1_brier": 0.014305759335408737,
+          "m2_brier": 0.01200513358954968,
+          "b0_brier": 0.03026639314333553,
+          "raw_m2_brier": 0.012256070397289277,
+          "m2_skill_vs_b0": 0.6033510325232416,
+          "m2_delta_vs_b0": -0.018261259553785852,
+          "m2_delta_vs_m1": -0.0023006257458590574,
+          "m2_calibration_gain": 0.00025093680773959764,
+          "lat": -22.5,
+          "lon": "165"
+        },
+        {
+          "key": "8:5",
+          "rows": 20685,
+          "opportunities": 570582.75,
+          "m1_brier": 0.066987246557276,
+          "m2_brier": 0.05664700509345553,
+          "b0_brier": 0.07752782778366994,
+          "raw_m2_brier": 0.05794802941457531,
+          "m2_skill_vs_b0": 0.2693332611933781,
+          "m2_delta_vs_b0": -0.020880822690214414,
+          "m2_delta_vs_m1": -0.010340241463820475,
+          "m2_calibration_gain": 0.0013010243211197814,
+          "lat": 37.5,
+          "lon": "-15"
+        },
+        {
+          "key": "9:7",
+          "rows": 15656,
+          "opportunities": 552183.75,
+          "m1_brier": 0.04661978851820848,
+          "m2_brier": 0.03704301061980108,
+          "b0_brier": 0.05694628401751666,
+          "raw_m2_brier": 0.03784301710406705,
+          "m2_skill_vs_b0": 0.34950960788931096,
+          "m2_delta_vs_b0": -0.019903273397715582,
+          "m2_delta_vs_m1": -0.009576777898407399,
+          "m2_calibration_gain": 0.0008000064842659735,
+          "lat": 52.5,
+          "lon": "45"
+        },
+        {
+          "key": "3:11",
+          "rows": 10077,
+          "opportunities": 497282.0,
+          "m1_brier": 0.013467247370197492,
+          "m2_brier": 0.010480224662675197,
+          "b0_brier": 0.02618278767101898,
+          "raw_m2_brier": 0.010781792017380483,
+          "m2_skill_vs_b0": 0.5997284630514925,
+          "m2_delta_vs_b0": -0.01570256300834378,
+          "m2_delta_vs_m1": -0.002987022707522295,
+          "m2_calibration_gain": 0.0003015673547052851,
+          "lat": -37.5,
+          "lon": "165"
+        },
+        {
+          "key": "6:3",
+          "rows": 9313,
+          "opportunities": 488566.25,
+          "m1_brier": 0.056055499267108774,
+          "m2_brier": 0.031108137661453008,
+          "b0_brier": 0.0667812962321227,
+          "raw_m2_brier": 0.031843538710412705,
+          "m2_skill_vs_b0": 0.5341788881526744,
+          "m2_delta_vs_b0": -0.03567315857066969,
+          "m2_delta_vs_m1": -0.024947361605655766,
+          "m2_calibration_gain": 0.0007354010489596975,
+          "lat": 7.5,
+          "lon": "-75"
+        },
+        {
+          "key": "10:6",
+          "rows": 13535,
+          "opportunities": 369714.0,
+          "m1_brier": 0.07115333972753433,
+          "m2_brier": 0.05840627974374633,
+          "b0_brier": 0.09641169234607974,
+          "raw_m2_brier": 0.05926531145144739,
+          "m2_skill_vs_b0": 0.39419920631523675,
+          "m2_delta_vs_b0": -0.038005412602333415,
+          "m2_delta_vs_m1": -0.012747059983788007,
+          "m2_calibration_gain": 0.0008590317077010606,
+          "lat": 67.5,
+          "lon": "15"
+        },
+        {
+          "key": "3:10",
+          "rows": 9367,
+          "opportunities": 365098.25,
+          "m1_brier": 0.022932999001702117,
+          "m2_brier": 0.01874253575535299,
+          "b0_brier": 0.04360368179203375,
+          "raw_m2_brier": 0.018731244349437157,
+          "m2_skill_vs_b0": 0.570161624315468,
+          "m2_delta_vs_b0": -0.02486114603668076,
+          "m2_delta_vs_m1": -0.004190463246349127,
+          "m2_calibration_gain": -1.1291405915832275e-05,
+          "lat": -37.5,
+          "lon": "135"
+        },
+        {
+          "key": "8:7",
+          "rows": 10406,
+          "opportunities": 306779.5,
+          "m1_brier": 0.08455301192364355,
+          "m2_brier": 0.07064532698090452,
+          "b0_brier": 0.14799619708349054,
+          "raw_m2_brier": 0.07121073574961538,
+          "m2_skill_vs_b0": 0.5226544440121614,
+          "m2_delta_vs_b0": -0.07735087010258603,
+          "m2_delta_vs_m1": -0.01390768494273903,
+          "m2_calibration_gain": 0.0005654087687108622,
+          "lat": 37.5,
+          "lon": "45"
+        },
+        {
+          "key": "7:3",
+          "rows": 13956,
+          "opportunities": 288466.25,
+          "m1_brier": 0.08417266229913196,
+          "m2_brier": 0.07582071148374846,
+          "b0_brier": 0.11980458451192363,
+          "raw_m2_brier": 0.07587933179720631,
+          "m2_skill_vs_b0": 0.3671301328522837,
+          "m2_delta_vs_b0": -0.04398387302817518,
+          "m2_delta_vs_m1": -0.008351950815383508,
+          "m2_calibration_gain": 5.8620313457852236e-05,
+          "lat": 22.5,
+          "lon": "-75"
+        },
+        {
+          "key": "8:10",
+          "rows": 7554,
+          "opportunities": 263911.0,
+          "m1_brier": 0.023743468962891204,
+          "m2_brier": 0.019311555323216063,
+          "b0_brier": 0.04684499526580919,
+          "raw_m2_brier": 0.019037952521369955,
+          "m2_skill_vs_b0": 0.5877562754860387,
+          "m2_delta_vs_b0": -0.027533439942593125,
+          "m2_delta_vs_m1": -0.004431913639675142,
+          "m2_calibration_gain": -0.00027360280184610813,
+          "lat": 37.5,
+          "lon": "135"
+        },
+        {
+          "key": "8:11",
+          "rows": 3411,
+          "opportunities": 237220.25,
+          "m1_brier": 0.0005427651508579937,
+          "m2_brier": 0.00042858203909836674,
+          "b0_brier": 0.0353132808598429,
+          "raw_m2_brier": 0.00042411309298606047,
+          "m2_skill_vs_b0": 0.9878634318686108,
+          "m2_delta_vs_b0": -0.034884698820744534,
+          "m2_delta_vs_m1": -0.00011418311175962696,
+          "m2_calibration_gain": -4.4689461123062686e-06,
+          "lat": 37.5,
+          "lon": "165"
+        },
+        {
+          "key": "4:4",
+          "rows": 5442,
+          "opportunities": 235306.75,
+          "m1_brier": 0.023774666213275945,
+          "m2_brier": 0.020808774969353752,
+          "b0_brier": 0.031250469657280434,
+          "raw_m2_brier": 0.021466591565083983,
+          "m2_skill_vs_b0": 0.3341292083747637,
+          "m2_delta_vs_b0": -0.010441694687926682,
+          "m2_delta_vs_m1": -0.0029658912439221932,
+          "m2_calibration_gain": 0.0006578165957302311,
+          "lat": -22.5,
+          "lon": "-45"
+        },
+        {
+          "key": "7:2",
+          "rows": 9626,
+          "opportunities": 203710.75,
+          "m1_brier": 0.08141469716974835,
+          "m2_brier": 0.06434558909237305,
+          "b0_brier": 0.11248400168856826,
+          "raw_m2_brier": 0.06409496071716908,
+          "m2_skill_vs_b0": 0.42795785954943955,
+          "m2_delta_vs_b0": -0.04813841259619521,
+          "m2_delta_vs_m1": -0.0170691080773753,
+          "m2_calibration_gain": -0.00025062837520396786,
+          "lat": 22.5,
+          "lon": "-105"
+        },
+        {
+          "key": "7:10",
+          "rows": 3825,
+          "opportunities": 185501.25,
+          "m1_brier": 0.010801880994571631,
+          "m2_brier": 0.00861215320134203,
+          "b0_brier": 0.030532236934743162,
+          "raw_m2_brier": 0.008439925522687386,
+          "m2_skill_vs_b0": 0.7179324521898325,
+          "m2_delta_vs_b0": -0.02192008373340113,
+          "m2_delta_vs_m1": -0.0021897277932296007,
+          "m2_calibration_gain": -0.00017222767865464512,
+          "lat": 22.5,
+          "lon": "135"
+        },
+        {
+          "key": "3:4",
+          "rows": 3167,
+          "opportunities": 173076.5,
+          "m1_brier": 0.017130765774597115,
+          "m2_brier": 0.011466161962938315,
+          "b0_brier": 0.020969599035162594,
+          "raw_m2_brier": 0.011958960320102054,
+          "m2_skill_vs_b0": 0.4532007052823741,
+          "m2_delta_vs_b0": -0.009503437072224279,
+          "m2_delta_vs_m1": -0.0056646038116588,
+          "m2_calibration_gain": 0.0004927983571637387,
+          "lat": -37.5,
+          "lon": "-45"
+        },
+        {
+          "key": "3:9",
+          "rows": 3135,
+          "opportunities": 166860.5,
+          "m1_brier": 0.012634897143040637,
+          "m2_brier": 0.01154978200289009,
+          "b0_brier": 0.02121642307284782,
+          "raw_m2_brier": 0.01187730395153634,
+          "m2_skill_vs_b0": 0.45562067822491836,
+          "m2_delta_vs_b0": -0.009666641069957729,
+          "m2_delta_vs_m1": -0.0010851151401505468,
+          "m2_calibration_gain": 0.0003275219486462491,
+          "lat": -37.5,
+          "lon": "105"
+        },
+        {
+          "key": "9:9",
+          "rows": 1737,
+          "opportunities": 156084.25,
+          "m1_brier": 0.01897884765165984,
+          "m2_brier": 0.014036046618504187,
+          "b0_brier": 0.028018330582417764,
+          "raw_m2_brier": 0.013816842877012528,
+          "m2_skill_vs_b0": 0.49904058069354873,
+          "m2_delta_vs_b0": -0.013982283963913577,
+          "m2_delta_vs_m1": -0.004942801033155654,
+          "m2_calibration_gain": -0.00021920374149165915,
+          "lat": 52.5,
+          "lon": "105"
+        },
+        {
+          "key": "2:3",
+          "rows": 2486,
+          "opportunities": 149198.25,
+          "m1_brier": 0.009811854899006454,
+          "m2_brier": 0.008463504055212881,
+          "b0_brier": 0.01949260836234737,
+          "raw_m2_brier": 0.008403307764333812,
+          "m2_skill_vs_b0": 0.5658095675096364,
+          "m2_delta_vs_b0": -0.011029104307134488,
+          "m2_delta_vs_m1": -0.001348350843793573,
+          "m2_calibration_gain": -6.01962908790693e-05,
+          "lat": -52.5,
+          "lon": "-75"
+        },
+        {
+          "key": "10:5",
+          "rows": 5773,
+          "opportunities": 129219.25,
+          "m1_brier": 0.0769107480697727,
+          "m2_brier": 0.06918625144374148,
+          "b0_brier": 0.08959349329902716,
+          "raw_m2_brier": 0.0709401667653129,
+          "m2_skill_vs_b0": 0.22777593666511575,
+          "m2_delta_vs_b0": -0.020407241855285682,
+          "m2_delta_vs_m1": -0.007724496626031224,
+          "m2_calibration_gain": 0.001753915321571417,
+          "lat": 67.5,
+          "lon": "-15"
+        },
+        {
+          "key": "6:2",
+          "rows": 1701,
+          "opportunities": 127541.0,
+          "m1_brier": 0.005274038028140826,
+          "m2_brier": 0.004091251847326786,
+          "b0_brier": 0.014009277072791643,
+          "raw_m2_brier": 0.004113668007234187,
+          "m2_skill_vs_b0": 0.7079612441049739,
+          "m2_delta_vs_b0": -0.009918025225464857,
+          "m2_delta_vs_m1": -0.0011827861808140399,
+          "m2_calibration_gain": 2.2416159907401485e-05,
+          "lat": 7.5,
+          "lon": "-105"
+        },
+        {
+          "key": "5:7",
+          "rows": 1580,
+          "opportunities": 106714.75,
+          "m1_brier": 0.008235142965991888,
+          "m2_brier": 0.007616180630010446,
+          "b0_brier": 0.019501480629617554,
+          "raw_m2_brier": 0.0077378845646946335,
+          "m2_skill_vs_b0": 0.609456288234674,
+          "m2_delta_vs_b0": -0.011885299999607107,
+          "m2_delta_vs_m1": -0.0006189623359814421,
+          "m2_calibration_gain": 0.0001217039346841876,
+          "lat": -7.5,
+          "lon": "45"
+        },
+        {
+          "key": "10:1",
+          "rows": 2141,
+          "opportunities": 93656.0,
+          "m1_brier": 0.021029939228107333,
+          "m2_brier": 0.01647013683794452,
+          "b0_brier": 0.029189546717041614,
+          "raw_m2_brier": 0.016440463159385025,
+          "m2_skill_vs_b0": 0.4357522233009248,
+          "m2_delta_vs_b0": -0.012719409879097095,
+          "m2_delta_vs_m1": -0.0045598023901628135,
+          "m2_calibration_gain": -2.967367855949421e-05,
+          "lat": 67.5,
+          "lon": "-135"
+        },
+        {
+          "key": "4:10",
+          "rows": 2052,
+          "opportunities": 93281.5,
+          "m1_brier": 0.014916613456127192,
+          "m2_brier": 0.01076580847331327,
+          "b0_brier": 0.03176450726199215,
+          "raw_m2_brier": 0.011115533119191784,
+          "m2_skill_vs_b0": 0.6610742806580504,
+          "m2_delta_vs_b0": -0.020998698788678875,
+          "m2_delta_vs_m1": -0.0041508049828139215,
+          "m2_calibration_gain": 0.00034972464587851304,
+          "lat": -22.5,
+          "lon": "135"
+        },
+        {
+          "key": "7:0",
+          "rows": 2674,
+          "opportunities": 90543.25,
+          "m1_brier": 0.02712030263978093,
+          "m2_brier": 0.02261159721647621,
+          "b0_brier": 0.03765660570052124,
+          "raw_m2_brier": 0.022461378820171116,
+          "m2_skill_vs_b0": 0.39953172103976375,
+          "m2_delta_vs_b0": -0.015045008484045032,
+          "m2_delta_vs_m1": -0.004508705423304719,
+          "m2_calibration_gain": -0.00015021839630509348,
+          "lat": 22.5,
+          "lon": "-165"
+        },
+        {
+          "key": "3:3",
+          "rows": 2095,
+          "opportunities": 84664.75,
+          "m1_brier": 0.02043406264502221,
+          "m2_brier": 0.01730575042643299,
+          "b0_brier": 0.027256924462940497,
+          "raw_m2_brier": 0.016869851938748025,
+          "m2_skill_vs_b0": 0.3650879265574325,
+          "m2_delta_vs_b0": -0.009951174036507505,
+          "m2_delta_vs_m1": -0.0031283122185892173,
+          "m2_calibration_gain": -0.00043589848768496586,
+          "lat": -37.5,
+          "lon": "-75"
+        },
+        {
+          "key": "7:9",
+          "rows": 1726,
+          "opportunities": 74063.5,
+          "m1_brier": 0.01837468821639654,
+          "m2_brier": 0.012591996307226959,
+          "b0_brier": 0.031177425003872446,
+          "raw_m2_brier": 0.012555449480851558,
+          "m2_skill_vs_b0": 0.5961181429940752,
+          "m2_delta_vs_b0": -0.018585428696645485,
+          "m2_delta_vs_m1": -0.005782691909169581,
+          "m2_calibration_gain": -3.654682637540055e-05,
+          "lat": 22.5,
+          "lon": "105"
+        },
+        {
+          "key": "11:6",
+          "rows": 859,
+          "opportunities": 70511.25,
+          "m1_brier": 0.013335699189514967,
+          "m2_brier": 0.010845035401374974,
+          "b0_brier": 0.02370525138121057,
+          "raw_m2_brier": 0.01111298667295422,
+          "m2_skill_vs_b0": 0.5425049400669488,
+          "m2_delta_vs_b0": -0.012860215979835596,
+          "m2_delta_vs_m1": -0.002490663788139993,
+          "m2_calibration_gain": 0.00026795127157924585,
+          "lat": 82.5,
+          "lon": "15"
+        },
+        {
+          "key": "10:2",
+          "rows": 1922,
+          "opportunities": 59924.0,
+          "m1_brier": 0.03776415480580617,
+          "m2_brier": 0.03459694550965811,
+          "b0_brier": 0.04993295494231519,
+          "raw_m2_brier": 0.03476281946940604,
+          "m2_skill_vs_b0": 0.30713202233622927,
+          "m2_delta_vs_b0": -0.015336009432657081,
+          "m2_delta_vs_m1": -0.0031672092961480616,
+          "m2_calibration_gain": 0.00016587395974793084,
+          "lat": 67.5,
+          "lon": "-105"
+        },
+        {
+          "key": "6:4",
+          "rows": 1674,
+          "opportunities": 59897.25,
+          "m1_brier": 0.038714517126848376,
+          "m2_brier": 0.03322938055152806,
+          "b0_brier": 0.04350491910562478,
+          "raw_m2_brier": 0.03392743816140559,
+          "m2_skill_vs_b0": 0.2361925677680019,
+          "m2_delta_vs_b0": -0.01027553855409672,
+          "m2_delta_vs_m1": -0.005485136575320314,
+          "m2_calibration_gain": 0.0006980576098775254,
+          "lat": 7.5,
+          "lon": "-45"
+        },
+        {
+          "key": "10:8",
+          "rows": 1264,
+          "opportunities": 58762.75,
+          "m1_brier": 0.01695496699675797,
+          "m2_brier": 0.01692257582470967,
+          "b0_brier": 0.024457671438412133,
+          "raw_m2_brier": 0.017747324935849382,
+          "m2_skill_vs_b0": 0.30808720415910795,
+          "m2_delta_vs_b0": -0.0075350956137024624,
+          "m2_delta_vs_m1": -3.239117204829889e-05,
+          "m2_calibration_gain": 0.0008247491111397116,
+          "lat": 67.5,
+          "lon": "75"
+        },
+        {
+          "key": "1:5",
+          "rows": 2454,
+          "opportunities": 56066.25,
+          "m1_brier": 0.05599649628125806,
+          "m2_brier": 0.048087628825646184,
+          "b0_brier": 0.06646006722883736,
+          "raw_m2_brier": 0.048536786266753285,
+          "m2_skill_vs_b0": 0.2764432714148577,
+          "m2_delta_vs_b0": -0.01837243840319118,
+          "m2_delta_vs_m1": -0.007908867455611875,
+          "m2_calibration_gain": 0.0004491574411071009,
+          "lat": -67.5,
+          "lon": "-15"
+        },
+        {
+          "key": "3:0",
+          "rows": 701,
+          "opportunities": 55246.25,
+          "m1_brier": 0.00866696859465522,
+          "m2_brier": 0.0033488428969368723,
+          "b0_brier": 0.013329930042041364,
+          "raw_m2_brier": 0.00342170775910532,
+          "m2_skill_vs_b0": 0.7487726577427689,
+          "m2_delta_vs_b0": -0.00998108714510449,
+          "m2_delta_vs_m1": -0.0053181256977183474,
+          "m2_calibration_gain": 7.286486216844749e-05,
+          "lat": -37.5,
+          "lon": "-165"
+        },
+        {
+          "key": "4:6",
+          "rows": 1323,
+          "opportunities": 53610.5,
+          "m1_brier": 0.015135188550195742,
+          "m2_brier": 0.012001513733484645,
+          "b0_brier": 0.023415843519030217,
+          "raw_m2_brier": 0.011709055809709249,
+          "m2_skill_vs_b0": 0.48746182371218305,
+          "m2_delta_vs_b0": -0.011414329785545572,
+          "m2_delta_vs_m1": -0.0031336748167110975,
+          "m2_calibration_gain": -0.0002924579237753959,
+          "lat": -22.5,
+          "lon": "15"
+        },
+        {
+          "key": "4:3",
+          "rows": 1155,
+          "opportunities": 51881.5,
+          "m1_brier": 0.017333576979944226,
+          "m2_brier": 0.015012892393191972,
+          "b0_brier": 0.025494771269524673,
+          "raw_m2_brier": 0.01550373527707664,
+          "m2_skill_vs_b0": 0.4111383767879604,
+          "m2_delta_vs_b0": -0.010481878876332701,
+          "m2_delta_vs_m1": -0.0023206845867522544,
+          "m2_calibration_gain": 0.0004908428838846686,
+          "lat": -22.5,
+          "lon": "-75"
+        },
+        {
+          "key": "3:5",
+          "rows": 822,
+          "opportunities": 46640.75,
+          "m1_brier": 0.0077031935659517305,
+          "m2_brier": 0.00687045566642131,
+          "b0_brier": 0.019369164784209997,
+          "raw_m2_brier": 0.006923319579296823,
+          "m2_skill_vs_b0": 0.6452890074009697,
+          "m2_delta_vs_b0": -0.012498709117788687,
+          "m2_delta_vs_m1": -0.0008327378995304207,
+          "m2_calibration_gain": 5.2863912875513244e-05,
+          "lat": -37.5,
+          "lon": "-15"
+        },
+        {
+          "key": "5:4",
+          "rows": 1512,
+          "opportunities": 46238.75,
+          "m1_brier": 0.02482699556498377,
+          "m2_brier": 0.02270500516826242,
+          "b0_brier": 0.0315771551570499,
+          "raw_m2_brier": 0.022589117209553516,
+          "m2_skill_vs_b0": 0.2809673621534804,
+          "m2_delta_vs_b0": -0.008872149988787482,
+          "m2_delta_vs_m1": -0.0021219903967213474,
+          "m2_calibration_gain": -0.00011588795870890595,
+          "lat": -7.5,
+          "lon": "-45"
+        },
+        {
+          "key": "8:8",
+          "rows": 1018,
+          "opportunities": 45350.0,
+          "m1_brier": 0.019364035439644395,
+          "m2_brier": 0.015463080147627383,
+          "b0_brier": 0.026576032824412243,
+          "raw_m2_brier": 0.015189097591671672,
+          "m2_skill_vs_b0": 0.4181569442741172,
+          "m2_delta_vs_b0": -0.01111295267678486,
+          "m2_delta_vs_m1": -0.0039009552920170124,
+          "m2_calibration_gain": -0.000273982555955711,
+          "lat": 37.5,
+          "lon": "75"
+        },
+        {
+          "key": "5:5",
+          "rows": 671,
+          "opportunities": 44907.5,
+          "m1_brier": 0.005703291196925449,
+          "m2_brier": 0.005722552021322482,
+          "b0_brier": 0.014732917735413027,
+          "raw_m2_brier": 0.005727331328934764,
+          "m2_skill_vs_b0": 0.611580535227766,
+          "m2_delta_vs_b0": -0.009010365714090546,
+          "m2_delta_vs_m1": 1.926082439703252e-05,
+          "m2_calibration_gain": 4.779307612282763e-06,
+          "lat": -7.5,
+          "lon": "-15"
+        },
+        {
+          "key": "6:10",
+          "rows": 734,
+          "opportunities": 42489.5,
+          "m1_brier": 0.00878252700355518,
+          "m2_brier": 0.007775777737162457,
+          "b0_brier": 0.01685291865968478,
+          "raw_m2_brier": 0.00798937407249143,
+          "m2_skill_vs_b0": 0.5386094305573599,
+          "m2_delta_vs_b0": -0.009077140922522323,
+          "m2_delta_vs_m1": -0.0010067492663927233,
+          "m2_calibration_gain": 0.00021359633532897285,
+          "lat": 7.5,
+          "lon": "135"
+        },
+        {
+          "key": "7:5",
+          "rows": 1183,
+          "opportunities": 36313.75,
+          "m1_brier": 0.05956299716516145,
+          "m2_brier": 0.04617598031886029,
+          "b0_brier": 0.06493096980395151,
+          "raw_m2_brier": 0.04610300244755293,
+          "m2_skill_vs_b0": 0.2888450540892713,
+          "m2_delta_vs_b0": -0.018754989485091217,
+          "m2_delta_vs_m1": -0.013387016846301163,
+          "m2_calibration_gain": -7.297787130736144e-05,
+          "lat": 22.5,
+          "lon": "-15"
+        },
+        {
+          "key": "1:2",
+          "rows": 540,
+          "opportunities": 34516.0,
+          "m1_brier": 0.006322808286546732,
+          "m2_brier": 0.005625266367655989,
+          "b0_brier": 0.01570651727520258,
+          "raw_m2_brier": 0.005599243460887415,
+          "m2_skill_vs_b0": 0.6418514512738511,
+          "m2_delta_vs_b0": -0.01008125090754659,
+          "m2_delta_vs_m1": -0.0006975419188907424,
+          "m2_calibration_gain": -2.6022906768573967e-05,
+          "lat": -67.5,
+          "lon": "-105"
+        },
+        {
+          "key": "3:6",
+          "rows": 503,
+          "opportunities": 34238.75,
+          "m1_brier": 0.005735822932680143,
+          "m2_brier": 0.005413651603002912,
+          "b0_brier": 0.015936557990954774,
+          "raw_m2_brier": 0.00535265918155849,
+          "m2_skill_vs_b0": 0.6602998209478121,
+          "m2_delta_vs_b0": -0.010522906387951862,
+          "m2_delta_vs_m1": -0.00032217132967723126,
+          "m2_calibration_gain": -6.099242144442206e-05,
+          "lat": -37.5,
+          "lon": "15"
+        },
+        {
+          "key": "9:8",
+          "rows": 1150,
+          "opportunities": 33856.25,
+          "m1_brier": 0.028841056573357865,
+          "m2_brier": 0.0235337806793119,
+          "b0_brier": 0.03294758487297102,
+          "raw_m2_brier": 0.02381312104652691,
+          "m2_skill_vs_b0": 0.2857206144229969,
+          "m2_delta_vs_b0": -0.009413804193659118,
+          "m2_delta_vs_m1": -0.005307275894045966,
+          "m2_calibration_gain": 0.0002793403672150113,
+          "lat": 52.5,
+          "lon": "75"
+        },
+        {
+          "key": "6:8",
+          "rows": 522,
+          "opportunities": 33239.5,
+          "m1_brier": 0.007965012971675052,
+          "m2_brier": 0.007445422408486375,
+          "b0_brier": 0.015454658931505865,
+          "raw_m2_brier": 0.007695613476854901,
+          "m2_skill_vs_b0": 0.5182409109457513,
+          "m2_delta_vs_b0": -0.00800923652301949,
+          "m2_delta_vs_m1": -0.0005195905631886766,
+          "m2_calibration_gain": 0.00025019106836852555,
+          "lat": 7.5,
+          "lon": "75"
+        },
+        {
+          "key": "7:7",
+          "rows": 1201,
+          "opportunities": 32794.0,
+          "m1_brier": 0.03441458570429321,
+          "m2_brier": 0.025918044481895997,
+          "b0_brier": 0.03807995898223577,
+          "raw_m2_brier": 0.025963847142304475,
+          "m2_skill_vs_b0": 0.31937835085414046,
+          "m2_delta_vs_b0": -0.012161914500339772,
+          "m2_delta_vs_m1": -0.008496541222397215,
+          "m2_calibration_gain": 4.580266040847894e-05,
+          "lat": 22.5,
+          "lon": "45"
+        },
+        {
+          "key": "8:4",
+          "rows": 730,
+          "opportunities": 25607.0,
+          "m1_brier": 0.039829512628412875,
+          "m2_brier": 0.03446974381848161,
+          "b0_brier": 0.04031263101660058,
+          "raw_m2_brier": 0.034382285118082494,
+          "m2_skill_vs_b0": 0.14493936641627003,
+          "m2_delta_vs_b0": -0.005842887198118964,
+          "m2_delta_vs_m1": -0.005359768809931262,
+          "m2_calibration_gain": -8.745870039911924e-05,
+          "lat": 37.5,
+          "lon": "-45"
+        },
+        {
+          "key": "9:4",
+          "rows": 523,
+          "opportunities": 18664.5,
+          "m1_brier": 0.04592904739665062,
+          "m2_brier": 0.03602301567698513,
+          "b0_brier": 0.04427810522742525,
+          "raw_m2_brier": 0.035732211898652805,
+          "m2_skill_vs_b0": 0.18643728109049773,
+          "m2_delta_vs_b0": -0.008255089550440117,
+          "m2_delta_vs_m1": -0.00990603171966549,
+          "m2_calibration_gain": -0.00029080377833232834,
+          "lat": 52.5,
+          "lon": "-45"
+        }
+      ],
+      "detailed_intervals": [
+        {
+          "metric": "m2_brier",
+          "lower_95": 0.043858227391435335,
+          "median": 0.04488424361618905,
+          "upper_95": 0.04576966940830292
+        },
+        {
+          "metric": "m2_skill_vs_b0",
+          "lower_95": 0.41892575166281576,
+          "median": 0.42545232151269424,
+          "upper_95": 0.4316157960568577
+        },
+        {
+          "metric": "m2_delta_vs_m1",
+          "lower_95": -0.010714659534613553,
+          "median": -0.010224291595264744,
+          "upper_95": -0.009665691829234817
+        }
+      ],
+      "engine_comparison": [
+        {
+          "engine": "XGBoost",
+          "brier": 0.04732314861019439
+        },
+        {
+          "engine": "LightGBM",
+          "brier": 0.04688243346970116
+        }
+      ],
+      "six_mechanisms": [
+        {
+          "mechanism": "auroral",
+          "brier_skill": 0.821065456063148,
+          "status": "trained_experimental",
+          "train_rows": 216695
+        },
+        {
+          "mechanism": "sporadic e",
+          "brier_skill": null,
+          "status": "insufficient_support",
+          "train_rows": 157442
+        },
+        {
+          "mechanism": "tropospheric",
+          "brier_skill": 0.7767154656946376,
+          "status": "trained_experimental",
+          "train_rows": 460824
+        },
+        {
+          "mechanism": "f2 tep",
+          "brier_skill": 0.49759152420610786,
+          "status": "trained_experimental",
+          "train_rows": 495612
+        },
+        {
+          "mechanism": "meteor scatter",
+          "brier_skill": null,
+          "status": "insufficient_support",
+          "train_rows": 71354
+        },
+        {
+          "mechanism": "unknown",
+          "brier_skill": null,
+          "status": "insufficient_support",
+          "train_rows": 402733
+        }
+      ],
+      "six_mechanisms_trained": [
+        {
+          "mechanism": "auroral",
+          "brier_skill": 0.821065456063148,
+          "status": "trained_experimental",
+          "train_rows": 216695
+        },
+        {
+          "mechanism": "tropospheric",
+          "brier_skill": 0.7767154656946376,
+          "status": "trained_experimental",
+          "train_rows": 460824
+        },
+        {
+          "mechanism": "f2 tep",
+          "brier_skill": 0.49759152420610786,
+          "status": "trained_experimental",
+          "train_rows": 495612
+        }
+      ],
+      "archive_coverage": [
+        {
+          "year": "2018",
+          "spots": 117170610,
+          "six_meter_spots": 301950
+        },
+        {
+          "year": "2019",
+          "spots": 158341673,
+          "six_meter_spots": 310712
+        },
+        {
+          "year": "2020",
+          "spots": 249476723,
+          "six_meter_spots": 263877
+        },
+        {
+          "year": "2021",
+          "spots": 344064278,
+          "six_meter_spots": 447552
+        },
+        {
+          "year": "2022",
+          "spots": 455772595,
+          "six_meter_spots": 595640
+        },
+        {
+          "year": "2023",
+          "spots": 554317139,
+          "six_meter_spots": 582693
+        },
+        {
+          "year": "2024",
+          "spots": 652204220,
+          "six_meter_spots": 490275
+        }
+      ],
+      "band_metrics": [
+        {
+          "band": "10m",
+          "brier": 0.04229309944082372,
+          "log_loss": 0.17647278014265358,
+          "ece": 0.00387589829875714,
+          "opportunities": 151938878.5
+        },
+        {
+          "band": "12m",
+          "brier": 0.06405884111554212,
+          "log_loss": 0.24871621293934829,
+          "ece": 0.011872344464473966,
+          "opportunities": 31153285.75
+        },
+        {
+          "band": "15m",
+          "brier": 0.048662327419895304,
+          "log_loss": 0.19835248637695338,
+          "ece": 0.007935387784095294,
+          "opportunities": 117674414.25
+        },
+        {
+          "band": "160m",
+          "brier": 0.051108689426820765,
+          "log_loss": 0.2055895541777138,
+          "ece": 0.00860330016876428,
+          "opportunities": 7127674.75
+        },
+        {
+          "band": "17m",
+          "brier": 0.06158578901819397,
+          "log_loss": 0.23659915593900652,
+          "ece": 0.004561145123799709,
+          "opportunities": 78073969.25
+        },
+        {
+          "band": "20m",
+          "brier": 0.04087113047552772,
+          "log_loss": 0.16249717629882762,
+          "ece": 0.0033175182246746146,
+          "opportunities": 729410873.0
+        },
+        {
+          "band": "30m",
+          "brier": 0.04798374933885359,
+          "log_loss": 0.18299076138780415,
+          "ece": 0.005586750391165604,
+          "opportunities": 251970935.25
+        },
+        {
+          "band": "40m",
+          "brier": 0.04483005054311419,
+          "log_loss": 0.17678634905484067,
+          "ece": 0.003037941215299209,
+          "opportunities": 428827842.0
+        },
+        {
+          "band": "60m",
+          "brier": 0.06561511093838317,
+          "log_loss": 0.26522492378232937,
+          "ece": 0.02130777543860496,
+          "opportunities": 4853083.0
+        },
+        {
+          "band": "80m",
+          "brier": 0.04203842031837399,
+          "log_loss": 0.16327659487332535,
+          "ece": 0.004571523523355505,
+          "opportunities": 75842015.25
+        }
+      ],
+      "release_status": [
+        {
+          "component": "NowCast Core",
+          "status": "blocked",
+          "reason": "Detailed development gate failed: short_path_calibration_non_regression"
+        },
+        {
+          "component": "FutureCast",
+          "status": "withheld",
+          "reason": "Requires 90 days of real issued forecasts and horizon validation"
+        },
+        {
+          "component": "StationCast Stage A",
+          "status": "shadow",
+          "reason": "Deterministic adapter and privacy contract pass; product validation remains"
+        },
+        {
+          "component": "6m Cast",
+          "status": "experimental",
+          "reason": "Heuristic mechanism labels and incomplete mechanism support"
+        }
+      ],
+      "experiment_matrix": [
+        {
+          "candidate": "B0 climatology",
+          "status": "complete",
+          "decision": "Honest minimum baseline"
+        },
+        {
+          "candidate": "B1 P.533",
+          "status": "complete",
+          "decision": "Pinned physical baseline on identical bounded circuits"
+        },
+        {
+          "candidate": "B2 frozen V3",
+          "status": "blocked",
+          "decision": "Frozen V3 development comparison has not been produced"
+        },
+        {
+          "candidate": "M1 physics/weather",
+          "status": "complete",
+          "decision": "Independent stale-network serving profile"
+        },
+        {
+          "candidate": "M2 NowCast",
+          "status": "gate failed",
+          "decision": "Primary development candidate; locked test remains closed"
+        },
+        {
+          "candidate": "M3 TEC/ROTI",
+          "status": "deferred",
+          "decision": "Requires operational/historical IGS parity before ablation"
+        },
+        {
+          "candidate": "M4 station nuisance",
+          "status": "deferred",
+          "decision": "Requires cross-fitted or consented prospective station evidence"
+        },
+        {
+          "candidate": "M5 P.533 hybrid",
+          "status": "not escalated",
+          "decision": "P.533 retained as bounded baseline; full feature build is not justified yet"
+        },
+        {
+          "candidate": "LightGBM 5M",
+          "status": "complete",
+          "decision": "Bounded implementation-regression check only"
+        }
+      ],
+      "feature_family_importance": [
+        {
+          "family": "Recent path history",
+          "gain_fraction": 0.6706304277339921,
+          "gain": 9401752.09375
+        },
+        {
+          "family": "Space weather",
+          "gain_fraction": 0.0781981056372571,
+          "gain": 1096280.712890625
+        },
+        {
+          "family": "Band",
+          "gain_fraction": 0.07754793630747801,
+          "gain": 1087165.810546875
+        },
+        {
+          "family": "Path geometry",
+          "gain_fraction": 0.0644040599565316,
+          "gain": 902898.19921875
+        },
+        {
+          "family": "Source missingness",
+          "gain_fraction": 0.03747283239126078,
+          "gain": 525341.92578125
+        },
+        {
+          "family": "Declared power",
+          "gain_fraction": 0.027675255119542955,
+          "gain": 387987.0
+        },
+        {
+          "family": "Solar illumination",
+          "gain_fraction": 0.025145155855008833,
+          "gain": 352516.84375
+        },
+        {
+          "family": "Calendar",
+          "gain_fraction": 0.01892622699892861,
+          "gain": 265331.97265625
+        }
+      ]
+    },
+    "accessIssues": [
+      {
+        "id": "locked_archive",
+        "dataset": "locked_2025",
+        "message": "The preregistered 2025 archive test remains unopened."
+      },
+      {
+        "id": "prospective",
+        "dataset": "prospective_2026",
+        "message": "The prospective evaluation cannot finish before 2026-09-30."
+      },
+      {
+        "id": "frozen_v3",
+        "dataset": "frozen_v3",
+        "message": "The frozen V3/B2 development comparison has not been produced."
+      },
+      {
+        "id": "failed_development_gate",
+        "dataset": "detailed_validation",
+        "message": "Detailed development gate failed: short_path_calibration_non_regression"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "development",
+      "label": "V4 development metrics",
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json"
+        ]
+      }
+    },
+    {
+      "id": "sample",
+      "label": "Balanced sample manifest",
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json')",
+        "tables_used": [
+          "ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json"
+        ]
+      }
+    },
+    {
+      "id": "hf_audit",
+      "label": "HF development audit",
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json')",
+        "tables_used": [
+          "ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json"
+        ]
+      }
+    },
+    {
+      "id": "six",
+      "label": "Independent 6m development metrics",
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json"
+        ]
+      }
+    },
+    {
+      "id": "six_audit",
+      "label": "6m development audit",
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json')",
+        "tables_used": [
+          "ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json"
+        ]
+      }
+    },
+    {
+      "id": "p533",
+      "label": "Pinned ITU-R P.533 validation",
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json"
+        ]
+      }
+    },
+    {
+      "id": "rolling",
+      "label": "Rolling-origin validation",
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json"
+        ]
+      }
+    },
+    {
+      "id": "outage",
+      "label": "Source-outage fallback validation",
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json"
+        ]
+      }
+    },
+    {
+      "id": "detailed",
+      "label": "Paired detailed validation",
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json"
+        ]
+      }
+    },
+    {
+      "id": "lightgbm",
+      "label": "Bounded LightGBM comparison",
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json"
+        ]
+      }
+    },
+    {
+      "id": "future",
+      "label": "FutureCast issuance readiness",
+      "path": "ml/results/propagation_v4/futurecast_readiness.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4/futurecast_readiness.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4/futurecast_readiness.json')",
+        "tables_used": [
+          "ml/results/propagation_v4/futurecast_readiness.json"
+        ]
+      }
+    },
+    {
+      "id": "bronze",
+      "label": "Quarterly archive bronze manifest",
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_bronze.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_multiyear_50m_bronze.json; report shaping is implemented in generate_report_artifact.py.",
+        "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_multiyear_50m_bronze.json')",
+        "tables_used": [
+          "ml/data/manifests/propagation_v4_multiyear_50m_bronze.json"
+        ]
+      }
+    }
+  ]
+}

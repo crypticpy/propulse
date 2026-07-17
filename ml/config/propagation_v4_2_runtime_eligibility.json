@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "scope": "phase6_runtime_eligibility",
+  "locked_prospective_outcomes_read": false,
+  "source_readiness_sha256": "bfd969651c94a497e280475ff5c24348af751ffec6c2bbc7a0669438f7514b8c",
+  "futurecast_horizons_hours": [],
+  "modes": {
+    "system_health_view": false,
+    "beta_collection": false,
+    "core_nowcast": false,
+    "stationcast_deterministic": false,
+    "stationcast_learned": false,
+    "futurecast": false,
+    "six_meter": false
+  }
+}

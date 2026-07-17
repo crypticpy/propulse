@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "name": "WSPR four-times reference EIRP",
+      "coreProbability": 0.4,
+      "coreConfidence": 0.8,
+      "coreReferencePowerWatts": 25,
+      "envelope": {
+        "featureContract": "station-chain-v1",
+        "chainFingerprint": "fixture:wspr",
+        "band": "20m",
+        "frequencyMHz": 14.1,
+        "mode": "WSPR",
+        "requestedPowerWatts": 25,
+        "conductedPowerWatts": 25,
+        "powerAtAntennaWatts": 20,
+        "eirpWatts": 100,
+        "erpWatts": 60.95,
+        "totalPassiveLossDb": 1,
+        "feedlineLossDb": 0.8,
+        "inlineLossDb": 0.2,
+        "amplifierGainDb": 0,
+        "antennaGainTowardPathDbi": 6.99,
+        "targetBearingDeg": 90,
+        "takeoffAngleDeg": null,
+        "receiverNoiseFloorDbm": -135,
+        "receiverEvidence": "independent_test",
+        "receiverEvidenceIsRelative": true,
+        "localSystemNoiseFloorDbm": null,
+        "modeBandwidthHz": 6,
+        "modeSnrThresholdDb": -28,
+        "supported": true,
+        "warningCodes": [],
+        "assumptions": ["local_noise_not_measured"]
+      },
+      "expected": {
+        "personalizedProbability": 0.6451913274232249,
+        "confidence": 0.612,
+        "linkAdjustmentDb": 6.020599913279624
+      }
+    },
+    {
+      "name": "FT8 threshold penalty",
+      "coreProbability": 0.4,
+      "coreConfidence": 0.8,
+      "coreReferencePowerWatts": 25,
+      "envelope": {
+        "featureContract": "station-chain-v1",
+        "chainFingerprint": "fixture:ft8",
+        "band": "20m",
+        "frequencyMHz": 14.1,
+        "mode": "FT8",
+        "requestedPowerWatts": 25,
+        "conductedPowerWatts": 25,
+        "powerAtAntennaWatts": 20,
+        "eirpWatts": 100,
+        "erpWatts": 60.95,
+        "totalPassiveLossDb": 1,
+        "feedlineLossDb": 0.8,
+        "inlineLossDb": 0.2,
+        "amplifierGainDb": 0,
+        "antennaGainTowardPathDbi": 6.99,
+        "targetBearingDeg": 90,
+        "takeoffAngleDeg": null,
+        "receiverNoiseFloorDbm": -135,
+        "receiverEvidence": "independent_test",
+        "receiverEvidenceIsRelative": true,
+        "localSystemNoiseFloorDbm": null,
+        "modeBandwidthHz": 50,
+        "modeSnrThresholdDb": -21,
+        "supported": true,
+        "warningCodes": [],
+        "assumptions": ["local_noise_not_measured"]
+      },
+      "expected": {
+        "personalizedProbability": 0.3615372035688552,
+        "confidence": 0.612,
+        "linkAdjustmentDb": -0.9794000867203761
+      }
+    }
+  ]
+}

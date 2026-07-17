@@ -191,6 +191,15 @@ function computeState() {
   };
 }
 
+function shallowRecordEqual(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  if (leftKeys.length !== Object.keys(right).length) return false;
+  return leftKeys.every((key) => Object.is(left[key], right[key]));
+}
+
 // ─── Key routing for updatePreferences ────────────────────────────────────────
 
 const SETTINGS_KEYS = new Set([
@@ -457,17 +466,30 @@ export const useUserStore = create<UserStore>()(() => ({
 
 const rawSet = useUserStore.setState.bind(useUserStore);
 
-useProfileStore.subscribe(() => {
-  rawSet(computeState());
-});
+function syncBridgeState() {
+  const current = useUserStore.getState();
+  const next = computeState();
+  const preferencesUnchanged = shallowRecordEqual(
+    current.preferences as Record<string, unknown>,
+    next.preferences as Record<string, unknown>,
+  );
+  if (
+    current.station === next.station &&
+    preferencesUnchanged &&
+    current.savedTargets === next.savedTargets &&
+    current.serviceCredentials === next.serviceCredentials
+  ) {
+    return;
+  }
+  rawSet({
+    ...next,
+    preferences: preferencesUnchanged ? current.preferences : next.preferences,
+  });
+}
 
-useSettingsStore.subscribe(() => {
-  rawSet(computeState());
-});
-
-useShackStore.subscribe(() => {
-  rawSet(computeState());
-});
+useProfileStore.subscribe(syncBridgeState);
+useSettingsStore.subscribe(syncBridgeState);
+useShackStore.subscribe(syncBridgeState);
 
 // ─── Re-exported hooks from canonical stores ─────────────────────────────────
 // Consumers can continue importing these from userStore.

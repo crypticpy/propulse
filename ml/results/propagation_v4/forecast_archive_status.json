@@ -1,0 +1,57 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-07-16T10:03:26.857487+00:00",
+  "captures": [
+    {
+      "source": "noaa_45_day",
+      "product": "noaa_45_day_ap_f107",
+      "issued_at": "2026-07-16T00:00:00.000Z",
+      "captured_at": "2026-07-16T09:58:45.819Z",
+      "sha256": "9660b5884db5d9027f72671b705c5b56b616da2a5e70aacb8cfa4d4e885d289c",
+      "value_count": 90,
+      "metrics": [
+        "ap",
+        "f107"
+      ],
+      "valid_start": "2026-07-16T00:00:00.000Z",
+      "valid_end": "2026-08-29T00:00:00.000Z",
+      "lead_minutes_min": 0,
+      "lead_minutes_max": 63360,
+      "horizons_covered": [
+        3,
+        6,
+        12,
+        24
+      ],
+      "receipt": "20260716T095845819Z.json"
+    },
+    {
+      "source": "noaa_3_day",
+      "product": "noaa_3_day_solar_geomagnetic",
+      "issued_at": "2026-07-15T22:00:00.000Z",
+      "captured_at": "2026-07-16T09:58:45.819Z",
+      "sha256": "9b2ffda46d9c7e04749ac1b6f0f3c0799c61e808073432c8b4f27e3b0ce8be6a",
+      "value_count": 54,
+      "metrics": [
+        "f107",
+        "high_latitude_k",
+        "mid_latitude_k",
+        "planetary_ap"
+      ],
+      "valid_start": "2026-07-16T00:00:00.000Z",
+      "valid_end": "2026-07-18T21:00:00.000Z",
+      "lead_minutes_min": 120,
+      "lead_minutes_max": 4260,
+      "horizons_covered": [
+        3,
+        6,
+        12,
+        24
+      ],
+      "receipt": "20260716T095845819Z.json"
+    }
+  ],
+  "last_capture_at": "2026-07-16T09:58:45.819Z",
+  "schedule": "M5 forecast-only LaunchAgent every 6 hours",
+  "raw_rows_redistributed": false
+}

@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T18:40:52.903224+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "scope": "pre_november_candidate_freeze",
+  "code_commit": "132aade0b26621a412cad9af1576081dd04f9b9d",
+  "primary_candidate": "C4_guarded_hierarchical_isotonic",
+  "selected_global": false,
+  "selected_bands": [
+    "60m"
+  ],
+  "selected_band_distances": [
+    [
+      "15m",
+      "0-1000km"
+    ],
+    [
+      "30m",
+      "1000-3000km"
+    ],
+    [
+      "40m",
+      "0-1000km"
+    ],
+    [
+      "60m",
+      "6000-10000km"
+    ]
+  ],
+  "november_gate_read": false,
+  "locked_archive_test_read": false,
+  "core_and_baselines": {
+    "B0_climatology": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/b0_climatology.json",
+      "bytes": 30502,
+      "sha256": "c77952ea7cd75c30a737ad37a1b61d2827cf892e4a998a76aa37f84f9d5a535a"
+    },
+    "B1_p533_evidence": {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json",
+      "bytes": 7902,
+      "sha256": "82736ae603d7368eb7f8ff35653a84ba2cae85c7b35a10b89034a7d6e1bac6b9"
+    },
+    "B1_p533_calibrator": {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/B1_p533.isotonic.joblib",
+      "bytes": 1159,
+      "sha256": "ed47243844d35006a681fd631ad7953231cef258da5b5c75109503ffed734939"
+    },
+    "B2_frozen_v3": {
+      "path": "ml/results/propagation_v4_1/preregistration/b2_freeze.json",
+      "bytes": 4419,
+      "sha256": "543e4022c03af64c58966a5b46146daadd269ba7081dac1dab1749cc17b5b147"
+    },
+    "M1_model": {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M1_physics_50000000.json",
+      "bytes": 59348757,
+      "sha256": "025d43884046589ddcdcd555a61e07f0d1aa22daed5403cded66a06bc3cb61d4"
+    },
+    "M1_calibrator": {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M1_physics_50000000.isotonic.joblib",
+      "bytes": 4582,
+      "sha256": "0f61adf63b3b8119fda2ea3f739e9f8bd26ff998072ade2e0f32bebf02567913"
+    },
+    "M2_model": {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M2_nowcast_50000000.json",
+      "bytes": 28251303,
+      "sha256": "706d4f5ca6ad855bc9cbf1139cfeb53c0015e04c67d39184be78ca2e1f6755d5"
+    },
+    "M2_v4_1_calibrator": {
+      "path": "ml/models/archive_v4_1/propagation_v4_1_calibration_recovery/M2_nowcast_v4_1_calibrator.joblib",
+      "bytes": 722043,
+      "sha256": "26bb7950b4d3c858432740f66fdad14ff57f97e02abd8960625f572d5905cf36"
+    }
+  },
+  "evidence": {
+    "source_manifest": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/sources.json",
+      "bytes": 4962,
+      "sha256": "4fea0eb571df548797ea881ecbfa225851b80debc2469b26794c437e2ac42532"
+    },
+    "split_manifest": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/splits.json",
+      "bytes": 1582,
+      "sha256": "890837fed6f32b40f8ba019ac2d974b8f4fe05c2334df1cb16b95e803a3e7ce0"
+    },
+    "environment": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/candidate_environment.json",
+      "bytes": 760,
+      "sha256": "30e6edeb9ad426067f2eccb0e45ae652826860ea17b478bd8b710fd5e548a438"
+    },
+    "selection": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json",
+      "bytes": 524139,
+      "sha256": "371b040390b4649aae74c2f96c8303c0a69676ea7c0733580eda9c6f2b704a24"
+    },
+    "daily_oof": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_oof_daily.parquet",
+      "bytes": 612372,
+      "sha256": "4a7f13011366cd834e4ee59582041923cba4a7ad385e65c2382bb093048c6a60"
+    },
+    "serving_candidate": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/serving_candidate_manifest.json",
+      "bytes": 6805,
+      "sha256": "1332757f5f436e4aed6ff8a5133a9f581a801f9d8b1f703c82615ebf55f84455"
+    },
+    "candidate_validation": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json",
+      "bytes": 1654,
+      "sha256": "81a74f8838aaf2ad59c37cbc4df0502cb64955d41e85afe0e6f2f3a73b221d4e"
+    },
+    "synthetic_report_validation": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/synthetic_dry_run/report_validation.json",
+      "bytes": 817,
+      "sha256": "df46be3554a8bb5e7bf51ba73eb3e40da724fa664cc9a70660ed3a763fc662b4"
+    }
+  },
+  "release_approved": false
+}

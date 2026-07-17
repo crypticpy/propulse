@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T19:25:42.799150+00:00",
+  "scope": "futurecast_v1_synthetic_report_delivery",
+  "data_scope": "synthetic_fixture",
+  "release_approved": false,
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11"
+  },
+  "builder_receipt": {
+    "ok": true,
+    "html": "ml/results/propagation_v4/futurecast_v1_synthetic_e2e/REPORT.html",
+    "stages": {
+      "validation": "passed",
+      "package": "passed",
+      "verification": "passed"
+    },
+    "counts": {
+      "blocks": 26,
+      "charts": 5,
+      "html": 0,
+      "metrics": 7,
+      "tables": 3
+    },
+    "sourceDialog": "passed",
+    "sourceInteraction": "keyboard_menu_semantic_click",
+    "viewports": [
+      1440,
+      390
+    ],
+    "timings": {
+      "validateAndPackageMs": 1114.1,
+      "staticChartExtractionMs": 1061.4,
+      "browserRunMs": 923.9,
+      "readerReadyMs": 51.1,
+      "contentChecksMs": 32,
+      "sourceDialogMs": 32,
+      "responsiveChecksMs": 32,
+      "verificationMs": 930.4,
+      "totalMs": 2049.4
+    }
+  },
+  "checks": {
+    "canonical_builder_completed": true,
+    "browser_verification_passed": true,
+    "html_nonempty": true,
+    "synthetic_scope_visible": true,
+    "withheld_decision_visible": true,
+    "no_remote_script": true
+  },
+  "passed": true
+}

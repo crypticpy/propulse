@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Propulse V4.1 synthetic gate report dry run</title>
+<style>
+:root { color-scheme: light; --ink:#152026; --muted:#52616a; --line:#cfd8dc; --accent:#087f5b; --warn:#9a3412; --paper:#fff; --band:#f3f7f5; }
+* { box-sizing:border-box; } body { margin:0; font:16px/1.55 system-ui,sans-serif; color:var(--ink); background:var(--paper); }
+header,main,footer { max-width:1080px; margin:auto; padding:24px; } header { border-bottom:4px solid var(--warn); }
+h1 { font-size:2.6rem; margin:.2rem 0; letter-spacing:0; } h2 { margin-top:2.2rem; letter-spacing:0; }
+.warning { font-weight:800; color:var(--warn); text-transform:uppercase; letter-spacing:0; }
+.summary { background:var(--band); border-left:5px solid var(--accent); padding:16px; }
+svg { width:100%; height:auto; min-height:280px; border:1px solid var(--line); background:#fff; }
+.bar { fill:var(--accent); } .label,.value { font:14px system-ui,sans-serif; fill:var(--ink); }
+table { width:100%; border-collapse:collapse; } th,td { padding:10px; border-bottom:1px solid var(--line); text-align:left; }
+.pass { color:var(--accent); font-weight:800; } code { background:#eef2f3; padding:2px 4px; }
+footer { color:var(--muted); border-top:1px solid var(--line); }
+@media (max-width:640px) { h1 { font-size:2rem; } header,main,footer { padding:16px; } th,td { padding:8px 4px; } }
+@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; animation:none!important; } }
+</style>
+</head>
+<body>
+<header><p class="warning">Synthetic fixture, not experimental evidence</p><h1>V4.1 Gate Report Dry Run</h1><p>This page validates report structure, labels, accessibility, and failure disclosure before November outcomes can be opened.</p></header>
+<main>
+<section class="summary" aria-labelledby="summary"><h2 id="summary">How to read this</h2><p>A probability forecast says how often an event should happen among similar cases. Brier score measures squared probability error, so lower is better. Calibration checks whether a stated 30% chance happens about 30% of the time. Untouched data matters because changing the model after seeing the exam answers makes the score unreliable.</p></section>
+<section aria-labelledby="chart"><h2 id="chart">Synthetic candidate comparison</h2><svg viewBox="0 0 760 280" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">Synthetic weighted Brier scores</title><desc id="chart-desc">Illustrative lower-is-better bars used only to test report rendering.</desc><text x="0" y="59" class="label">B0 climatology</text><rect x="180" y="42" width="104" height="22" rx="2" class="bar" role="img" aria-label="B0 climatology synthetic Brier 0.0480" /><text x="294" y="59" class="value">0.0480</text><text x="0" y="103" class="label">M1 physics</text><rect x="180" y="86" width="286" height="22" rx="2" class="bar" role="img" aria-label="M1 physics synthetic Brier 0.0445" /><text x="476" y="103" class="value">0.0445</text><text x="0" y="147" class="label">M2 raw</text><rect x="180" y="130" width="317" height="22" rx="2" class="bar" role="img" aria-label="M2 raw synthetic Brier 0.0439" /><text x="507" y="147" class="value">0.0439</text><text x="0" y="191" class="label">M2 + C4</text><rect x="180" y="174" width="322" height="22" rx="2" class="bar" role="img" aria-label="M2 + C4 synthetic Brier 0.0438" /><text x="512" y="191" class="value">0.0438</text></svg></section>
+<section aria-labelledby="gates"><h2 id="gates">Synthetic gate table</h2><table><thead><tr><th>Gate</th><th>Status</th><th>Meaning</th></tr></thead><tbody><tr><th scope="row">Integrity</th><td class="pass">PASS</td><td>All synthetic inputs satisfy schema and time rules.</td></tr><tr><th scope="row">Calibration</th><td class="pass">PASS</td><td>The illustrative calibrated score is no worse than raw.</td></tr><tr><th scope="row">Fallback</th><td class="pass">PASS</td><td>The synthetic stale-history path selects physics and lowers confidence.</td></tr><tr><th scope="row">Serving parity</th><td class="pass">PASS</td><td>The fixture assumes identical offline and service probabilities.</td></tr></tbody></table></section>
+<section><h2>Real report contract</h2><p>The final report must publish every pass and failure, candidate and fallback coverage, reliability, day-bootstrap intervals, compute use, checksums, limitations, and locked-data access state. It must never replace failed evidence with a tuned rerun.</p></section>
+</main>
+<footer>Generated 2026-07-12T18:40:37.668507+00:00. No network requests, animation, personal identifiers, station identifiers, callsigns, or exact locations are present.</footer>
+</body></html>

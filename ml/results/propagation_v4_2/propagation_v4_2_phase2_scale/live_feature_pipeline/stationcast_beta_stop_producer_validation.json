@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T15:44:34.585315+00:00",
+  "scope": "stationcast_beta_stop_producer_target_validation",
+  "decision": "pass",
+  "passed": true,
+  "synthetic_stop_inputs": true,
+  "real_target_aggregate_rpc": true,
+  "protocol_version": "propagation-v4.2-stationcast-beta-2099-03-01",
+  "production_protocol_unchanged": true,
+  "observed_counts": {
+    "errors": 0,
+    "requests": 0,
+    "consent_errors": 0,
+    "privacy_events": 1,
+    "integrity_errors": 0,
+    "stale_profile_events": 0,
+    "equipment_math_events": 1,
+    "subject_binding_errors": 0,
+    "unsupported_support_events": 1,
+    "geographic_regression_events": 1,
+    "high_confidence_overprediction_events": 1
+  },
+  "post_cleanup_counts": {
+    "errors": 0,
+    "requests": 0,
+    "consent_errors": 0,
+    "privacy_events": 0,
+    "integrity_errors": 0,
+    "stale_profile_events": 0,
+    "equipment_math_events": 0,
+    "subject_binding_errors": 0,
+    "unsupported_support_events": 0,
+    "geographic_regression_events": 0,
+    "high_confidence_overprediction_events": 0
+  },
+  "gates": {
+    "equipment_math_request_failed_closed": true,
+    "unsupported_support_request_failed_closed": true,
+    "privacy_event_intercepted_before_sink": true,
+    "high_confidence_monitor_emitted_stop": true,
+    "two_week_geographic_monitor_emitted_stop": true,
+    "target_aggregate_counts_exact": true,
+    "persistent_test_rows_absent": true,
+    "locked_outcomes_unread": true,
+    "participant_data_absent": true
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18
+  },
+  "privacy": {
+    "locked_outcomes_read": false,
+    "participant_data_written": false,
+    "path_or_equipment_dimensions_written": false,
+    "secret_value_written": false
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://propulse.org/schemas/propagation-v4.2-beta-api-telemetry-v1.json",
+  "title": "Propulse StationCast beta API telemetry receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope",
+    "protocol_version",
+    "window",
+    "counts",
+    "participant_data_present",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "scope": { "const": "stationcast_beta_api_telemetry" },
+    "protocol_version": {
+      "const": "propagation-v4.2-stationcast-beta-2026-07-16"
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "errors",
+        "integrity_errors",
+        "privacy_events",
+        "consent_errors",
+        "subject_binding_errors",
+        "stale_profile_events",
+        "equipment_math_events",
+        "unsupported_support_events",
+        "high_confidence_overprediction_events",
+        "geographic_regression_events"
+      ],
+      "properties": {
+        "requests": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "integrity_errors": { "type": "integer", "minimum": 0 },
+        "privacy_events": { "type": "integer", "minimum": 0 },
+        "consent_errors": { "type": "integer", "minimum": 0 },
+        "subject_binding_errors": { "type": "integer", "minimum": 0 },
+        "stale_profile_events": { "type": "integer", "minimum": 0 },
+        "equipment_math_events": { "type": "integer", "minimum": 0 },
+        "unsupported_support_events": { "type": "integer", "minimum": 0 },
+        "high_confidence_overprediction_events": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "geographic_regression_events": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "participant_data_present": { "const": false },
+    "signature": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

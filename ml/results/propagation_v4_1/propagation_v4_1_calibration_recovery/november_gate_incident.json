@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T19:32:23.474231+00:00",
+  "attempt_id": "november-fe4f874f7a514075bcb6f48e3333d0e9",
+  "gate_opened_at": "2026-07-12T18:42:49.441736+00:00",
+  "outcome_recorded_at": "2026-07-12T19:15:22.903023+00:00",
+  "outcome_metrics_exposed_before_atomic_result": false,
+  "access_ledger_reset": false,
+  "candidate_or_gate_changed": false,
+  "events": [
+    {
+      "stage": "orchestration",
+      "effect": "Stopped before download",
+      "error": "Scoped transform re-authorized an already-open November gate.",
+      "recovery": "Resumed the same attempt with the exact November-only scoped config."
+    },
+    {
+      "stage": "scorer projection",
+      "effect": "Stopped before the first batch",
+      "error": "dist_km appeared twice in the PyArrow projection.",
+      "recovery": "Deduplicated projection columns without changing features or calculations."
+    },
+    {
+      "stage": "result provenance",
+      "effect": "Two complete passes ended before atomic result writing",
+      "error": "Manual recovery supplied paths outside the artifact writer's lexical repository contract.",
+      "recovery": "Used the absolute repository symlink path expected by the frozen orchestrator."
+    }
+  ],
+  "frozen_scorer_sha256": "3eaa6e71f01f6f97e8a495b516238bb1cefa6e4fae0497b465fbe996fd98b37c",
+  "executed_scorer_sha256": "70d5acd2abe821f9c2b7bb590ae5abef8fb02f08965356acd936db08f4dc5b1a",
+  "scientific_invariants": {
+    "attempt_id_unchanged": true,
+    "november_month_unchanged": true,
+    "candidate_checksums_unchanged": true,
+    "models_and_calibrators_unchanged": true,
+    "metrics_and_thresholds_unchanged": true,
+    "bootstrap_seed_and_repetitions_unchanged": true,
+    "locked_2025_read": false
+  },
+  "final_result": {
+    "passed": false,
+    "failed_gates": [
+      "G4_frozen_v3",
+      "G6_short_path_calibration"
+    ],
+    "artifact_sha256": "4dd2bcdb16c9515aab399ad0659b4ca0a77a8d28a1e8b97b36364c67444a3824"
+  }
+}

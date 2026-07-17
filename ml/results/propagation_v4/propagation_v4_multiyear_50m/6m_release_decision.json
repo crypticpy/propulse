@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T10:10:29.731165+00:00",
+  "run_id": "propagation_v4_multiyear_50m",
+  "scope": "development_release_decision",
+  "decision": "withheld",
+  "release_approved": false,
+  "product_serving_allowed": false,
+  "released_mechanisms": [],
+  "experimental_mechanisms": [
+    {
+      "mechanism": "auroral",
+      "status": "trained_experimental",
+      "train_rows": 216695,
+      "gate_rows": 28985,
+      "brier_skill": 0.821065456063148,
+      "artifacts": [
+        {
+          "type": "xgboost_model",
+          "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/6m/auroral.json",
+          "sha256": "5904f1e95a1921648864c7a2ed6b95e8b6c06525c3c47b25dcb498655ee6da0e",
+          "bytes": 908363
+        },
+        {
+          "type": "isotonic_calibrator",
+          "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/6m/auroral.isotonic.joblib",
+          "sha256": "acf3b36793e091dab7de29acea555439b6febb266fc3942dafaeaa8162b2bd9c",
+          "bytes": 927
+        }
+      ]
+    },
+    {
+      "mechanism": "f2_tep",
+      "status": "trained_experimental",
+      "train_rows": 495612,
+      "gate_rows": 57601,
+      "brier_skill": 0.49759152420610786,
+      "artifacts": [
+        {
+          "type": "xgboost_model",
+          "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/6m/f2_tep.json",
+          "sha256": "4b2cbf288e49e58ffb8245a93a606ad1d08f8d35e7478fbc41941e0ba7089246",
+          "bytes": 590778
+        },
+        {
+          "type": "isotonic_calibrator",
+          "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/6m/f2_tep.isotonic.joblib",
+          "sha256": "b35219a01e25fdc7b424a3260b665910c4d40789c2d418ac90b43cd69265d5fe",
+          "bytes": 1087
+        }
+      ]
+    },
+    {
+      "mechanism": "tropospheric",
+      "status": "trained_experimental",
+      "train_rows": 460824,
+      "gate_rows": 21076,
+      "brier_skill": 0.7767154656946376,
+      "artifacts": [
+        {
+          "type": "xgboost_model",
+          "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/6m/tropospheric.json",
+          "sha256": "5a4eaa2da921c83210ad193429b0a868dbb2dbc52ca096ce7f806d13160a0853",
+          "bytes": 2624707
+        },
+        {
+          "type": "isotonic_calibrator",
+          "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/6m/tropospheric.isotonic.joblib",
+          "sha256": "a407ca1aaff82a4cc84c25e30d4abbe39f23929b7ed0f4c3d88e8ca4c3bb3680",
+          "bytes": 1343
+        }
+      ]
+    }
+  ],
+  "unsupported_mechanisms": [
+    {
+      "mechanism": "meteor_scatter",
+      "status": "insufficient_support",
+      "train_rows": 71354
+    },
+    {
+      "mechanism": "sporadic_e",
+      "status": "insufficient_support",
+      "train_rows": 157442
+    },
+    {
+      "mechanism": "unknown",
+      "status": "insufficient_support",
+      "train_rows": 402733
+    }
+  ],
+  "development_event_brier_skill": 0.7209340079326979,
+  "development_quiet_brier_skill": 0.7491984435392827,
+  "gate_row_coverage": 0.9672266642709549,
+  "release_blockers": [
+    "No GIRO foEs/foF2 validation arm is available.",
+    "No historical/operational NWP parity arm is available.",
+    "Mechanism assignments are heuristic and require event catalog validation.",
+    "Locked 2025 and prospective event/quiet tests have not been opened."
+  ],
+  "locked_archive_test_read": false,
+  "evidence": [
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json",
+      "sha256": "3d46e872dd1137d124000799dedc61615f1050d6f80eb45ad986b1541085823f"
+    },
+    {
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json",
+      "sha256": "9b68b0fa842a112fcbf5ccafdc71e21119436587326327d605b649fc75b87757"
+    }
+  ],
+  "supersession_rule": "A later 6m version requires independent mechanism labels, locked event and quiet-day evidence, and a new release decision.",
+  "complete": true
+}

@@ -1,0 +1,12 @@
+{
+  "run_id": "archive_v3_smoke",
+  "seed": 20260711,
+  "months": ["2019-04", "2024-04"],
+  "negative_receivers_per_tx_slot": 4,
+  "train": {"months": ["2019-04"], "day_end_exclusive": 21},
+  "validation": {"months": ["2019-04"], "day_start": 21},
+  "test": {"months": ["2024-04"]},
+  "learning_curve_rows": [1000000, 5000000],
+  "xgboost_rounds": 700,
+  "early_stopping_rounds": 50
+}

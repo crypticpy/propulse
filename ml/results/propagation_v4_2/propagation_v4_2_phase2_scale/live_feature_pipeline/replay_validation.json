@@ -1,0 +1,519 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T02:32:12.407544+00:00",
+  "scope": "open_development_multi_hour_event_and_synthetic_receipt_replay",
+  "locked_outcomes_read": false,
+  "receipt_time_evidence": "synthetic_from_open_archive_event_times",
+  "inputs": [
+    {
+      "label": "2024-10",
+      "bronze": {
+        "path": "data/bronze/archive_v3/wspr/year=2024/month=10/spots.parquet",
+        "bytes": 3977216940,
+        "sha256": "f897af8507b68851bf93eaac26a76b008554dce9bcfd3e65c0b2a60e9178fcaf"
+      },
+      "opportunities": {
+        "path": "data/processed/archive_v3/opportunities/task=hf/year=2024/month=10/part.parquet",
+        "bytes": 475161901,
+        "sha256": "82eabb82addd723a0df0f22ae76119e9f604cd345e1042b63905bfe82eaec4b8"
+      }
+    },
+    {
+      "label": "2024-11",
+      "bronze": {
+        "path": "data/bronze/archive_v4_1/wspr/year=2024/month=11/spots.parquet",
+        "bytes": 3813152900,
+        "sha256": "d40b1da20c1850f5b72f8e61bf78b78ecf51dcf3cf3be3a0c143d16604b8353f"
+      },
+      "opportunities": {
+        "path": "data/processed/archive_v4_1/opportunities/task=hf/year=2024/month=11/part.parquet",
+        "bytes": 463673262,
+        "sha256": "05a45fe9f4a038738af628a5fb7603427143c022cd5a4cf7058db21cd87fa940"
+      }
+    }
+  ],
+  "transform": {
+    "transform_version": "wspr-opportunity-duckdb-v1",
+    "duckdb_version": "1.5.4",
+    "hash_engine": "duckdb_hash",
+    "lag_aggregation": "sum_across_power_bins",
+    "receiver_samples_per_tx_slot": 4
+  },
+  "event_time_replay": [
+    {
+      "label": "2024-10",
+      "available_hours": 744,
+      "selected_hours": [
+        "2024-10-01T00:00:00+00:00",
+        "2024-10-02T01:00:00+00:00",
+        "2024-10-04T02:00:00+00:00",
+        "2024-10-05T03:00:00+00:00",
+        "2024-10-06T04:00:00+00:00",
+        "2024-10-08T05:00:00+00:00",
+        "2024-10-09T06:00:00+00:00",
+        "2024-10-10T07:00:00+00:00",
+        "2024-10-11T08:00:00+00:00",
+        "2024-10-13T09:00:00+00:00",
+        "2024-10-14T10:00:00+00:00",
+        "2024-10-15T11:00:00+00:00",
+        "2024-10-17T12:00:00+00:00",
+        "2024-10-18T13:00:00+00:00",
+        "2024-10-19T14:00:00+00:00",
+        "2024-10-21T15:00:00+00:00",
+        "2024-10-22T16:00:00+00:00",
+        "2024-10-23T17:00:00+00:00",
+        "2024-10-24T18:00:00+00:00",
+        "2024-10-26T19:00:00+00:00",
+        "2024-10-27T20:00:00+00:00",
+        "2024-10-28T21:00:00+00:00",
+        "2024-10-30T22:00:00+00:00",
+        "2024-10-31T23:00:00+00:00"
+      ],
+      "utc_hour_of_day_coverage": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "input_spot_rows": 6175056,
+      "opportunity_cells": {
+        "actual": 1803699,
+        "expected": 1803699,
+        "actual_minus_expected": 0,
+        "expected_minus_actual": 0
+      },
+      "path_hour_cells": {
+        "actual": 1601123,
+        "expected": 1601123,
+        "actual_minus_expected": 0,
+        "expected_minus_actual": 0
+      },
+      "bands": [
+        {
+          "band": "10m",
+          "actual_rows": 169135,
+          "expected_rows": 169135
+        },
+        {
+          "band": "12m",
+          "actual_rows": 71328,
+          "expected_rows": 71328
+        },
+        {
+          "band": "15m",
+          "actual_rows": 164638,
+          "expected_rows": 164638
+        },
+        {
+          "band": "160m",
+          "actual_rows": 19424,
+          "expected_rows": 19424
+        },
+        {
+          "band": "17m",
+          "actual_rows": 140320,
+          "expected_rows": 140320
+        },
+        {
+          "band": "20m",
+          "actual_rows": 512391,
+          "expected_rows": 512391
+        },
+        {
+          "band": "30m",
+          "actual_rows": 260839,
+          "expected_rows": 260839
+        },
+        {
+          "band": "40m",
+          "actual_rows": 352797,
+          "expected_rows": 352797
+        },
+        {
+          "band": "60m",
+          "actual_rows": 14860,
+          "expected_rows": 14860
+        },
+        {
+          "band": "80m",
+          "actual_rows": 97967,
+          "expected_rows": 97967
+        }
+      ],
+      "exact": true,
+      "wall_seconds": 2.139575583001715
+    },
+    {
+      "label": "2024-11",
+      "available_hours": 720,
+      "selected_hours": [
+        "2024-11-01T00:00:00+00:00",
+        "2024-11-02T01:00:00+00:00",
+        "2024-11-04T02:00:00+00:00",
+        "2024-11-05T03:00:00+00:00",
+        "2024-11-06T04:00:00+00:00",
+        "2024-11-07T05:00:00+00:00",
+        "2024-11-09T06:00:00+00:00",
+        "2024-11-10T07:00:00+00:00",
+        "2024-11-11T08:00:00+00:00",
+        "2024-11-12T09:00:00+00:00",
+        "2024-11-14T10:00:00+00:00",
+        "2024-11-15T11:00:00+00:00",
+        "2024-11-16T12:00:00+00:00",
+        "2024-11-17T13:00:00+00:00",
+        "2024-11-19T14:00:00+00:00",
+        "2024-11-20T15:00:00+00:00",
+        "2024-11-21T16:00:00+00:00",
+        "2024-11-22T17:00:00+00:00",
+        "2024-11-24T18:00:00+00:00",
+        "2024-11-25T19:00:00+00:00",
+        "2024-11-26T20:00:00+00:00",
+        "2024-11-27T21:00:00+00:00",
+        "2024-11-29T22:00:00+00:00",
+        "2024-11-30T23:00:00+00:00"
+      ],
+      "utc_hour_of_day_coverage": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "input_spot_rows": 6070619,
+      "opportunity_cells": {
+        "actual": 1824594,
+        "expected": 1824594,
+        "actual_minus_expected": 0,
+        "expected_minus_actual": 0
+      },
+      "path_hour_cells": {
+        "actual": 1617487,
+        "expected": 1617487,
+        "actual_minus_expected": 0,
+        "expected_minus_actual": 0
+      },
+      "bands": [
+        {
+          "band": "10m",
+          "actual_rows": 175561,
+          "expected_rows": 175561
+        },
+        {
+          "band": "12m",
+          "actual_rows": 75878,
+          "expected_rows": 75878
+        },
+        {
+          "band": "15m",
+          "actual_rows": 157599,
+          "expected_rows": 157599
+        },
+        {
+          "band": "160m",
+          "actual_rows": 19370,
+          "expected_rows": 19370
+        },
+        {
+          "band": "17m",
+          "actual_rows": 140312,
+          "expected_rows": 140312
+        },
+        {
+          "band": "20m",
+          "actual_rows": 488890,
+          "expected_rows": 488890
+        },
+        {
+          "band": "30m",
+          "actual_rows": 273261,
+          "expected_rows": 273261
+        },
+        {
+          "band": "40m",
+          "actual_rows": 371063,
+          "expected_rows": 371063
+        },
+        {
+          "band": "60m",
+          "actual_rows": 15467,
+          "expected_rows": 15467
+        },
+        {
+          "band": "80m",
+          "actual_rows": 107193,
+          "expected_rows": 107193
+        }
+      ],
+      "exact": true,
+      "wall_seconds": 2.1820617920020595
+    }
+  ],
+  "receipt_time_replay": [
+    {
+      "label": "2024-10",
+      "target_hour": "2024-10-08T05:00:00+00:00",
+      "band": "20m",
+      "source_rows": 10059,
+      "late_rows": 1006,
+      "insert_attempts": 10170,
+      "unique_observations": 10059,
+      "duplicate_attempts_ignored": 111,
+      "first_version": {
+        "available_at": "2024-10-08T06:05:00+00:00",
+        "observation_count": 9053,
+        "feature_cells": 6893,
+        "watermark_last": true
+      },
+      "corrected_version": {
+        "available_at": "2024-10-08T06:15:00+00:00",
+        "observation_count": 10059,
+        "feature_cells": 7142,
+        "watermark_last": true,
+        "historical_parity": {
+          "actual_cells": 7142,
+          "expected_cells": 7142,
+          "actual_only_cells": 0,
+          "expected_only_cells": 0,
+          "maximum_absolute_difference": {
+            "successes": 0.0,
+            "opportunities": 0.0,
+            "success_rate": 0.0,
+            "sampled_rows": 0.0,
+            "positive_rows": 0.0
+          },
+          "within_tolerance": true
+        }
+      },
+      "degraded_version": {
+        "available_at": "2024-10-08T06:20:00+00:00",
+        "status": "degraded",
+        "quality_flags": [
+          "synthetic_quality_flag"
+        ],
+        "watermark_last": true
+      },
+      "correction_created_new_version": true,
+      "first_version_immutable": true,
+      "too_late_rejected": true,
+      "future_event_rejected": true,
+      "maximum_read_receipt_not_future": true,
+      "wall_seconds": 15.090394375001779
+    },
+    {
+      "label": "2024-11",
+      "target_hour": "2024-11-17T13:00:00+00:00",
+      "band": "12m",
+      "source_rows": 10000,
+      "late_rows": 1000,
+      "insert_attempts": 10110,
+      "unique_observations": 10000,
+      "duplicate_attempts_ignored": 110,
+      "first_version": {
+        "available_at": "2024-11-17T14:05:00+00:00",
+        "observation_count": 9000,
+        "feature_cells": 4656,
+        "watermark_last": true
+      },
+      "corrected_version": {
+        "available_at": "2024-11-17T14:15:00+00:00",
+        "observation_count": 10000,
+        "feature_cells": 4928,
+        "watermark_last": true,
+        "historical_parity": {
+          "actual_cells": 4928,
+          "expected_cells": 4928,
+          "actual_only_cells": 0,
+          "expected_only_cells": 0,
+          "maximum_absolute_difference": {
+            "successes": 0.0,
+            "opportunities": 0.0,
+            "success_rate": 0.0,
+            "sampled_rows": 0.0,
+            "positive_rows": 0.0
+          },
+          "within_tolerance": true
+        }
+      },
+      "degraded_version": {
+        "available_at": "2024-11-17T14:20:00+00:00",
+        "status": "degraded",
+        "quality_flags": [
+          "synthetic_quality_flag"
+        ],
+        "watermark_last": true
+      },
+      "correction_created_new_version": true,
+      "first_version_immutable": true,
+      "too_late_rejected": true,
+      "future_event_rejected": true,
+      "maximum_read_receipt_not_future": true,
+      "wall_seconds": 14.995463125000242
+    }
+  ],
+  "lag_lookup_replay": [
+    {
+      "label": "2024-10",
+      "issue_time": "2024-10-16T13:15:00+00:00",
+      "band": "80m",
+      "lag_hours": [
+        1,
+        2,
+        3,
+        24
+      ],
+      "source_rows_by_lag": {
+        "1": 6827,
+        "2": 9669,
+        "3": 14605,
+        "24": 4869
+      },
+      "late_rows_by_lag": {
+        "1": 683,
+        "2": 967,
+        "3": 1461,
+        "24": 487
+      },
+      "target_count": 64,
+      "availability_counts": {
+        "1": 49,
+        "2": 43,
+        "3": 50,
+        "24": 32
+      },
+      "availability_mismatches": 0,
+      "maximum_absolute_rate_difference": 0.0,
+      "batch_single_identical": true,
+      "causal_timestamps": true,
+      "watermark_committed_last": true,
+      "wall_seconds": 19.35183204099303
+    },
+    {
+      "label": "2024-11",
+      "issue_time": "2024-11-18T18:15:00+00:00",
+      "band": "80m",
+      "lag_hours": [
+        1,
+        2,
+        3,
+        24
+      ],
+      "source_rows_by_lag": {
+        "1": 9979,
+        "2": 9234,
+        "3": 6133,
+        "24": 10689
+      },
+      "late_rows_by_lag": {
+        "1": 998,
+        "2": 924,
+        "3": 614,
+        "24": 1069
+      },
+      "target_count": 64,
+      "availability_counts": {
+        "1": 46,
+        "2": 39,
+        "3": 25,
+        "24": 41
+      },
+      "availability_mismatches": 0,
+      "maximum_absolute_rate_difference": 0.0,
+      "batch_single_identical": true,
+      "causal_timestamps": true,
+      "watermark_committed_last": true,
+      "wall_seconds": 19.355161917002988
+    }
+  ],
+  "compute": {
+    "machine": "arm64",
+    "visible_cpus": 18,
+    "duckdb_threads": 18,
+    "peak_rss_gib": 5.0274505615234375,
+    "wall_seconds": 76.04304741600936,
+    "hardware_runtime": {
+      "machine": "arm64",
+      "physical_cores_visible": 18,
+      "os_cpu_count": 18,
+      "core_clusters": [
+        6,
+        12
+      ],
+      "configured_performance_cores": 12,
+      "configured_efficiency_cores": 6,
+      "unified_memory_gb": 128.0,
+      "power_source": "AC Power",
+      "required_power_source": "AC Power",
+      "power_modes": {
+        "Battery Power": 0,
+        "AC Power": 2
+      },
+      "required_ac_power_mode": 2,
+      "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+      "thermal_limits": {},
+      "python_version": "3.12.11"
+    }
+  },
+  "gates": {
+    "two_open_months_replayed": true,
+    "twenty_four_utc_strata_per_month": true,
+    "event_time_transform_exact": true,
+    "receipt_time_final_parity": true,
+    "duplicates_idempotent": true,
+    "late_correction_versioned": true,
+    "watermark_committed_last": true,
+    "degraded_hour_flagged": true,
+    "bounded_lateness_and_future_rejected": true,
+    "four_lag_availability_exact": true,
+    "four_lag_values_exact": true,
+    "batch_single_lookup_identical": true,
+    "lookup_timestamps_causal": true,
+    "m5_parallel_contract": true,
+    "locked_outcomes_unread": true
+  },
+  "decision": "pass",
+  "remaining_limits": [
+    "archive receipt timestamps are unavailable, so receipt delays are synthetic",
+    "target Postgres migration is not deployed",
+    "authorized provider connector is not enabled",
+    "30-day real receipt-time shadow coverage is still required"
+  ]
+}

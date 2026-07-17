@@ -1929,6 +1929,7 @@ export const useShackStore = create<ShackStore>()(
               nodes,
               feedlineRuns,
               operatingPowerWatts: preset.operatingPowerWatts,
+              linkedLocationId: preset.linkedLocationId,
               shackAccessoryIds: [],
               notes: preset.notes,
               createdAt: preset.createdAt,

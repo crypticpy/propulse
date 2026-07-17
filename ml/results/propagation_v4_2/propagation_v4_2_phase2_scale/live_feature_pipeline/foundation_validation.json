@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T02:10:19.718261+00:00",
+  "scope": "live_feature_foundation_pre_provider",
+  "locked_outcomes_read": false,
+  "source_authorized": false,
+  "migration_deployed": false,
+  "provider_connector_enabled": false,
+  "migration": {
+    "path": "supabase/migrations/20260716000000_wspr_live_feature_store.sql",
+    "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212"
+  },
+  "bundle": {
+    "model_version": "propagation_v4_2_phase2_scale-phase3-candidate-50000000",
+    "core_feature_contract": "archive-v4-features-v1",
+    "manifest_sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821",
+    "xgboost_prediction_threads": 1
+  },
+  "transform_parity": {
+    "input_spot_rows": 302903,
+    "expected_rows": 88466,
+    "actual_rows": 88466,
+    "actual_minus_expected_rows": 0,
+    "expected_minus_actual_rows": 0,
+    "actual_successes": 295612.0,
+    "expected_successes": 295612.0,
+    "actual_opportunities": 3271562.0,
+    "expected_opportunities": 3271562.0,
+    "actual_sampled_rows": 343936,
+    "expected_sampled_rows": 343936,
+    "actual_lag_cells": 78478,
+    "expected_lag_cells": 78478,
+    "actual_minus_expected_lag_cells": 0,
+    "expected_minus_actual_lag_cells": 0,
+    "exact": true
+  },
+  "service": {
+    "path_repetitions": 20,
+    "path_p95_ms": 3.3913749939529225,
+    "surface_repetitions": 5,
+    "surface_cells": 288,
+    "surface_p95_ms": 10.589041994535364,
+    "profile": "physics",
+    "path_history_provider": "unavailable",
+    "telemetry_events": 26,
+    "privacy_findings": []
+  },
+  "migration_contract": {
+    "rolling_observation_rls": true,
+    "sparse_feature_export_revoked": true,
+    "lookup_service_role_only": true,
+    "four_atomic_watermarks": true,
+    "minimum_rolling_retention": true
+  },
+  "compute": {
+    "machine": "arm64",
+    "visible_cpus": 18,
+    "peak_rss_gib": 1.1201171875,
+    "wall_seconds": 2.120428042006097
+  },
+  "gates": {
+    "open_hour_transform_exact": true,
+    "real_bundle_loaded": true,
+    "client_freshness_forgery_blocked": true,
+    "surface_forgery_blocked": true,
+    "server_provider_unavailable_by_default": true,
+    "serving_thread_contract": true,
+    "telemetry_identity_free": true,
+    "path_latency": true,
+    "surface_latency": true,
+    "rolling_observation_rls": true,
+    "sparse_feature_export_revoked": true,
+    "lookup_service_role_only": true,
+    "four_atomic_watermarks": true,
+    "minimum_rolling_retention": true
+  },
+  "decision": "pass",
+  "remaining_blockers": [
+    "written source authorization or self-operated source",
+    "migration deployment and syntax validation against target Postgres",
+    "authorized provider connector",
+    "multi-hour event-time and receipt-time replay",
+    "30-day live shadow coverage and calibration evidence"
+  ]
+}

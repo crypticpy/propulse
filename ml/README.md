@@ -1,6 +1,34 @@
 # Propulse ML — Contact Probability Model
 
-> **Status**: Planning / data staged
+> **Status, 2026-07-16**: Personalized Propagation V4.2 completed its 50M-row
+> performance recovery, untouched December 2024 gate, and locked four-month
+> 2025 archive on the 128 GiB M5 Max. The frozen A6 blend improved Brier versus
+> frozen V3/B2 by `2.354%` on October-November development, `2.038%` on
+> December, and `2.134%` across `208,372,533` locked 2025 rows. All four archive
+> months and every supported HF band improved. The model is approved for shadow
+> integration, not yet for prospective or learned-personalization claims. Start
+> with the [combined visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/REPORT.html),
+> [model card](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/MODEL_CARD.md),
+> [data card](results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/DATA_CARD.md),
+> [V4.2 plan](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md), and
+> [M5 runbook](PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md).
+> The server-authoritative live-feature foundation, causal replay, scheduled M5
+> research pipeline, and first real GitHub schedule event now pass their gates;
+> see the [live research report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html).
+> The frozen private beta scorer, mode-specific blockers, and ordered evidence
+> work are summarized in the [Phase 6 visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html).
+> The latest preserved receipt window is only `14/720` hours and
+> subscriber-facing source permission remains open. Opt-in outcome
+> instrumentation plus the preregistered retention/privacy boundary are
+> deployed but disabled; the database gates pass 21/21 rollback and 22/22
+> deployed-state checks. A separate native-M5 first-party collector now has all
+> PSK Reporter/RBN/DX Cluster plus current solar/geomagnetic inputs operational, server-side settled
+> band/path aggregation, and identity-free continuity receipts. Its status is
+> `warming` at `6.00/24` preflight hours, so these results do not authorize prospective or learned-
+> personalization claims.
+> The original V4 M2 gate failure remains published rather than overwritten.
+> Archive V3 context remains in its [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md)
+> and [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md).
 > **Created**: 2026-07-11
 > **Supersedes**: Level 2/3 of `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md` (Level 1 — `band_region_stats` — was never implemented)
 

@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "run_id": "futurecast_v1_issued_90d",
+  "seed": 20260716,
+  "acquisition_started_at": "2026-07-16T09:58:45.819Z",
+  "horizons_hours": [3, 6, 12, 24],
+  "required_products": [
+    "noaa_45_day_ap_f107",
+    "noaa_3_day_solar_geomagnetic"
+  ],
+  "required_forecast_features": [
+    "forecast__noaa_45_day_ap_f107__ap",
+    "forecast__noaa_45_day_ap_f107__f107",
+    "forecast__noaa_3_day_solar_geomagnetic__planetary_ap",
+    "forecast__noaa_3_day_solar_geomagnetic__f107",
+    "forecast__noaa_3_day_solar_geomagnetic__mid_latitude_k",
+    "forecast__noaa_3_day_solar_geomagnetic__high_latitude_k"
+  ],
+  "issue_minute_utc": 30,
+  "minimum_consecutive_common_days": 90,
+  "split_days": {
+    "train": 60,
+    "calibration": 15,
+    "gate": 15
+  },
+  "calibration_subsplit_days": {
+    "early_stopping": 5,
+    "isotonic_fit": 5,
+    "identity_guard": 5
+  },
+  "wspr": {
+    "provider": "wspr.live-research-v1",
+    "transform_version": "wspr-opportunity-duckdb-v1",
+    "history_lags_hours": [1, 2, 3, 24],
+    "minimum_gate_opportunities_per_horizon": 1000000,
+    "minimum_gate_days_per_horizon": 15
+  },
+  "export": {
+    "root": "/Volumes/Projects/PropulseML/futurecast_v1",
+    "batch_rows": 100000,
+    "parquet_row_group_rows": 250000,
+    "forecast_lookback_days": 7
+  },
+  "model": {
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "tree_method": "hist",
+    "learning_rate": 0.05,
+    "max_depth": 8,
+    "min_child_weight": 20,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "lambda": 1.0,
+    "alpha": 0.0,
+    "max_rounds": 1200,
+    "early_stopping_rounds": 75,
+    "training_workers": 2,
+    "threads_per_worker": 9
+  },
+  "calibration": {
+    "method": "per_horizon_isotonic_with_identity_guard",
+    "minimum_rows": 10000
+  },
+  "bootstrap": {
+    "unit": "issue_day",
+    "replicates": 2000,
+    "confidence": 0.95
+  },
+  "gates": {
+    "minimum_relative_brier_improvement_over_best_baseline": 0.005,
+    "maximum_paired_day_brier_delta_upper_95": 0.0,
+    "maximum_ece": 0.03,
+    "maximum_ece_delta_over_best_baseline": 0.005,
+    "maximum_supported_band_relative_brier_regression": 0.05,
+    "minimum_supported_band_opportunities": 10000,
+    "maximum_scoring_process_rss_gib": 96,
+    "require_p533_forecast_diagnostic": true,
+    "allow_partial_horizon_release": true
+  },
+  "p533": {
+    "source_tag": "v14.3",
+    "forecast_f107_feature": "forecast__noaa_3_day_solar_geomagnetic__f107",
+    "f107_to_sunspot_method": "australian_bom_cubic_statistical_conversion",
+    "rows_per_band_per_issue_day": 50,
+    "calibration_fit_days": 10,
+    "calibration_guard_days": 5,
+    "workers": 18,
+    "tx_power_watts": 1.0,
+    "bandwidth_hz": 6.0,
+    "required_snr_db": -28.0
+  },
+  "compute": {
+    "machine": "Apple M5 Max 128 GB",
+    "physical_cores": 18,
+    "polars_threads": 18,
+    "duckdb_threads": 18,
+    "duckdb_memory_limit": "80GB",
+    "maximum_fit_process_rss_gib": 48,
+    "maximum_parallel_fit_rss_gib": 96,
+    "score_batch_rows": 250000,
+    "temp_root": "/Volumes/Projects/PropulseML/tmp/futurecast_v1"
+  }
+}

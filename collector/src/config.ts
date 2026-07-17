@@ -18,6 +18,13 @@ function parseDays(envVar: string | undefined, defaultDays: number): number {
   return days;
 }
 
+function parseMinutes(envVar: string | undefined, defaultMinutes: number): number {
+  if (!envVar) return defaultMinutes;
+  const minutes = parseInt(envVar, 10);
+  if (isNaN(minutes) || minutes < 0 || minutes > 59) return defaultMinutes;
+  return minutes;
+}
+
 export function loadConfig(): CollectorConfig {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,7 +35,7 @@ export function loadConfig(): CollectorConfig {
 
   const sourcesRaw =
     process.env.COLLECTOR_ENABLED_SOURCES ||
-    "pskreporter,rbn,dxcluster,solar,lightning,satellites";
+    "pskreporter,rbn,dxcluster,solar,forecasts,lightning,satellites";
 
   return {
     supabaseUrl,
@@ -38,6 +45,10 @@ export function loadConfig(): CollectorConfig {
       "info",
     enabledSources: new Set(sourcesRaw.split(",").map((s) => s.trim())),
     healthPort: parseInt(process.env.PORT || "8080", 10),
+    aggregationSettleMinutes: parseMinutes(
+      process.env.AGGREGATION_SETTLE_MINUTES,
+      20,
+    ),
 
     // Polling intervals (env vars in SECONDS, defaults in ms)
     // Free tier defaults: conservative polling to keep costs down
@@ -47,6 +58,7 @@ export function loadConfig(): CollectorConfig {
       rbn: parseIntervalMs(process.env.POLL_RBN, 5 * 60_000),
       dxcluster: parseIntervalMs(process.env.POLL_DXCLUSTER, 2 * 60_000),
       solar: parseIntervalMs(process.env.POLL_SOLAR, 15 * 60_000),
+      forecasts: parseIntervalMs(process.env.POLL_FORECASTS, 6 * 60 * 60_000),
       satellites: parseIntervalMs(process.env.POLL_SATELLITES, 2 * 60 * 60_000),
       aggregator: parseIntervalMs(process.env.POLL_AGGREGATOR, 5 * 60_000),
       prune: parseIntervalMs(process.env.POLL_PRUNE, 60 * 60_000),

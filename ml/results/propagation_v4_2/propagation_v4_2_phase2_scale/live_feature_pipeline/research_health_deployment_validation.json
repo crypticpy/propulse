@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T05:45:55.836506+00:00",
+  "scope": "research_health_target_postgres_deployment_validation",
+  "decision": "pass",
+  "locked_outcomes_read": false,
+  "migration_deployed": true,
+  "persistent_changes": false,
+  "migration": {
+    "path": "supabase/migrations/20260716001000_propagation_research_health.sql",
+    "sha256": "45892cf1f2daf6ccfe7347f2b431591539a8e047c5c8bdeb7d31a6f58271c00a"
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "server_version": "17.6",
+    "connection_identifier_recorded": false
+  },
+  "compute": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "wall_seconds": 2.1598944590077735,
+    "psycopg_version": "3.3.4"
+  },
+  "gates": {
+    "migration_sql_executed_or_deployed": true,
+    "private_relations_created": true,
+    "row_level_security_enabled": true,
+    "browser_privileges_revoked": true,
+    "service_role_privileges_present": true,
+    "security_definer_search_path_locked": true,
+    "function_service_role_only": true,
+    "identity_free_schema": true,
+    "initial_healthy_does_not_alert": true,
+    "equal_timestamp_replay_rejected": true,
+    "alert_transition_recorded": true,
+    "recovery_transition_recorded": true,
+    "transition_outbox_exact": true,
+    "latest_aggregate_exact": true,
+    "invalid_counter_rejected": true,
+    "deployment_ledger_exact": true,
+    "rollback_restored_original_object_state": true,
+    "persistent_changes_absent": true,
+    "target_is_postgresql": true,
+    "native_m5_runtime": true,
+    "locked_outcomes_unread": true
+  }
+}

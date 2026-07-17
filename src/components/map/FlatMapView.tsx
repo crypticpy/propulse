@@ -4366,6 +4366,31 @@ export function FlatMapView({
     oCtx.translate(z.offsetX, z.offsetY);
     oCtx.scale(z.scale, z.scale);
 
+    // Draw probability-surface cells below arcs and markers.
+    for (const layer of Object.values(overlayLayers)) {
+      const cells =
+        layer.type === "cells"
+          ? layer.cells
+          : layer.type === "mixed"
+            ? (layer.cells ?? [])
+            : [];
+      for (const cell of cells) {
+        const centerPoint = latLonToCanvas(cell.lat, cell.lon, rw, rh);
+        const width = cell.widthDeg / 360 * rw;
+        const height = cell.heightDeg / 180 * rh;
+        oCtx.save();
+        oCtx.globalAlpha = cell.opacity ?? 0.45;
+        oCtx.fillStyle = cell.color;
+        oCtx.fillRect(
+          centerPoint.x - width / 2,
+          centerPoint.y - height / 2,
+          width + 0.5,
+          height + 0.5,
+        );
+        oCtx.restore();
+      }
+    }
+
     // Draw overlay arcs first (under markers)
     for (const layer of Object.values(overlayLayers)) {
       const arcs =

@@ -1,0 +1,62 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-07-16T10:03:26.857487+00:00",
+  "archive_status": "ml/results/propagation_v4/forecast_archive_status.json",
+  "minimum_distinct_capture_days": 90,
+  "sources": {
+    "noaa_3_day": {
+      "capture_records": 1,
+      "unique_payloads": 1,
+      "unique_capture_days": 1,
+      "unique_issue_days": 1,
+      "legal_capture_days": 1,
+      "first_issue_at": "2026-07-15T22:00:00+00:00",
+      "last_issue_at": "2026-07-15T22:00:00+00:00",
+      "invalid_captures": 0
+    },
+    "noaa_45_day": {
+      "capture_records": 1,
+      "unique_payloads": 1,
+      "unique_capture_days": 1,
+      "unique_issue_days": 1,
+      "legal_capture_days": 1,
+      "first_issue_at": "2026-07-16T00:00:00+00:00",
+      "last_issue_at": "2026-07-16T00:00:00+00:00",
+      "invalid_captures": 0
+    }
+  },
+  "required_sources_present": [
+    "noaa_3_day",
+    "noaa_45_day"
+  ],
+  "invalid_capture_count": 0,
+  "invalid_reasons": {},
+  "issued_forecast_training_ready": false,
+  "release_approved": false,
+  "horizons": {
+    "3": {
+      "status": "withheld_insufficient_issued_history",
+      "common_legal_capture_days": 1,
+      "longest_consecutive_common_days": 1
+    },
+    "6": {
+      "status": "withheld_insufficient_issued_history",
+      "common_legal_capture_days": 1,
+      "longest_consecutive_common_days": 1
+    },
+    "12": {
+      "status": "withheld_insufficient_issued_history",
+      "common_legal_capture_days": 1,
+      "longest_consecutive_common_days": 1
+    },
+    "24": {
+      "status": "withheld_insufficient_issued_history",
+      "common_legal_capture_days": 1,
+      "longest_consecutive_common_days": 1
+    }
+  },
+  "prohibitions": [
+    "Do not substitute observed OMNI/GFZ values for historical forecast issuances.",
+    "Do not release a horizon before time-held-out skill and calibration gates pass."
+  ]
+}

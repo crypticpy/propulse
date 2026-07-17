@@ -1,0 +1,66 @@
+{
+  "schema_version": "propulse-cloud-smoke-v1",
+  "measured_at": "2026-07-17T03:15:25Z",
+  "git_commit": "3f498dea",
+  "deployments": {
+    "vercel": {
+      "deployment_id": "dpl_FN1gXF1vaapsMfRfcKdDZsFUNaBX",
+      "environment": "preview",
+      "url": "https://propulse-ctdlxruj3-crypticpys-projects.vercel.app"
+    },
+    "railway": {
+      "deployment_id": "f2b7c130-0a73-4afa-a619-d9260d7d885d",
+      "service": "propulse-inference",
+      "url": "https://propulse-inference-production.up.railway.app"
+    }
+  },
+  "authentication": {
+    "supabase_token_status": 200,
+    "ephemeral_user_deleted": true,
+    "anonymous_railway_request_rejected": true,
+    "service_auth_enabled": true
+  },
+  "responses": {
+    "health_status": 200,
+    "capabilities_status": 200,
+    "path_status": 200
+  },
+  "runtime": {
+    "model_version": "propagation_v4_2_phase2_scale-a6-retrospective-internal-50000000",
+    "inference_mode": "shadow",
+    "model_loaded": true,
+    "core_nowcast_internal_available": true,
+    "futurecast_internal_available": false
+  },
+  "path": {
+    "origin_grid4": "EM10",
+    "target_grid4": "IO91",
+    "band": "20m",
+    "mode": "WSPR",
+    "issue_time": "2026-07-17T02:30:00Z",
+    "profile": "nowcast",
+    "core_probability": 0.12291975021362304,
+    "personalized_probability": 0.279206684309855,
+    "confidence": 0.36989010989010984,
+    "ood_flags": [
+      "missing_features"
+    ],
+    "data_freshness_seconds": {
+      "path_history": 1800,
+      "space_weather": 5400
+    },
+    "top_factors": [
+      "path_success_prev1",
+      "path_success_prev24",
+      "path_success_prev2",
+      "path_prev24_available",
+      "path_prev2_available"
+    ],
+    "station_chain": "representative non-user fixture"
+  },
+  "privacy": {
+    "user_records_persisted": false,
+    "raw_training_data_transmitted": false,
+    "secrets_recorded": false
+  }
+}

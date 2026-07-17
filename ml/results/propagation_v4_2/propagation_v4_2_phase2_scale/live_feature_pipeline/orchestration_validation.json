@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T04:02:45.109908+00:00",
+  "scope": "signed_all_band_orchestration_validation",
+  "locked_outcomes_read": false,
+  "synthetic": true,
+  "execution": {
+    "workers": 2,
+    "threads_per_band": 9,
+    "maximum_compute_threads": 18,
+    "maximum_concurrent_workers_observed": 2,
+    "bands_finalized": 10,
+    "wall_seconds": 0.1753502500068862
+  },
+  "compute": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11"
+  },
+  "gates": {
+    "signed_manifest_accepted": true,
+    "manifest_tampering_rejected": true,
+    "all_ten_hf_bands_finalized": true,
+    "two_workers_observed": true,
+    "all_eighteen_m5_threads_allocated": true,
+    "prune_runs_after_total_success": true,
+    "band_failure_prevents_prune": true,
+    "band_count_mismatch_prevents_prune": true,
+    "cpu_oversubscription_rejected": true,
+    "locked_outcomes_unread": true
+  },
+  "decision": "pass"
+}

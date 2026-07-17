@@ -1,0 +1,6251 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T17:34:50.514317+00:00",
+  "scope": "live_feature_foundation_replay_and_active_research_shadow",
+  "decision": "foundation_and_research_schedule_pass_permission_and_long_window_pending",
+  "source_authorized": false,
+  "migration_deployed": true,
+  "provider_connector_enabled": true,
+  "provider_connector_mode": "internal_research_only",
+  "provider_connector_validated": true,
+  "locked_outcomes_read": false,
+  "input_inventory": [
+    {
+      "id": "transform_parity",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/transform_parity.json",
+      "sha256": "06e4284f10611a027dc5cea300cf9d47fa594f8719d07dba403637aca071c641"
+    },
+    {
+      "id": "foundation_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/foundation_validation.json",
+      "sha256": "efc80719e741e2428f9730c02bd565032ce15c815954a30b461f878895c1dc5b"
+    },
+    {
+      "id": "replay_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/replay_validation.json",
+      "sha256": "5e443a22a3246ffda89f929df8556694ce339911ab97d64d71552b73267055d9"
+    },
+    {
+      "id": "migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/migration_validation.json",
+      "sha256": "9278bbdb9db1f036a86703f4d23a6282f24e8d96bf1759a356b22e63e467f5a2"
+    },
+    {
+      "id": "deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/deployment_validation.json",
+      "sha256": "0013b509749b7b30b1cbc4a1351dbd72afe9d4644b36d5679de0c5b422ab6cc9"
+    },
+    {
+      "id": "research_health_migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_migration_validation.json",
+      "sha256": "9eefc1c0890df5239d771b4cef9fbd512cea4837670b6bb6bb89d06bbc2c2140"
+    },
+    {
+      "id": "research_health_deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_deployment_validation.json",
+      "sha256": "49668cd353c3fb7c72e106a55db36b4fe50c03cb487c7a21455c6db0f925e222"
+    },
+    {
+      "id": "research_health_endpoint_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_endpoint_validation.json",
+      "sha256": "e8c79b97e3200ac7f46783f0e89ecd2a07bccb09650d1fc74e84130f018a805c"
+    },
+    {
+      "id": "research_health_monitor_migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_monitor_migration_validation.json",
+      "sha256": "6efa258c004c80b570baa1002e3b33d07ae837c89c577ecb8009bc70d172f037"
+    },
+    {
+      "id": "research_health_monitor_deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_monitor_deployment_validation.json",
+      "sha256": "f8671b416dbdb1f3e34e57c6ae707d48fb1499ee610aa83c37246555dce649cf"
+    },
+    {
+      "id": "research_health_external_monitor_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_external_monitor_validation.json",
+      "sha256": "d65ffc9d0a55c01c52f29f562f75e67e246c21738d88d7c40ea3a3629a1847d0"
+    },
+    {
+      "id": "research_health_hardening_migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_hardening_migration_validation.json",
+      "sha256": "dbd3523cc937147955efc424337d47286de845bfed67b4ff3b5fce127cd53ff2"
+    },
+    {
+      "id": "research_health_hardening_deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_hardening_deployment_validation.json",
+      "sha256": "38df695596282f647aa373c063b1c613e7dafdd36db48a66574b620b43b11ed8"
+    },
+    {
+      "id": "research_health_incident_delivery_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_incident_delivery_validation.json",
+      "sha256": "7f114b312422410da22f166911a69acd8866f49e68d40ca7a83a67d1d99a784b"
+    },
+    {
+      "id": "research_participation_migration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_participation_migration_validation.json",
+      "sha256": "7382feb050ccdb6d365d33793a93f4d33d1f6c9866d1e4014a3f25b9a82cb1d4"
+    },
+    {
+      "id": "research_participation_deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_participation_deployment_validation.json",
+      "sha256": "f743d535cc2782c5bc3b069bcdd450153f311f967f4f2e618488a0e864bae413"
+    },
+    {
+      "id": "operational_weather_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/operational_weather_validation.json",
+      "sha256": "be3caf5d726fce6c8b8019e36238f269e2c326c3acd424cfbaabcef591015496"
+    },
+    {
+      "id": "orchestration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/orchestration_validation.json",
+      "sha256": "a40712d6b2fdd6c0cef0f52f32ae254eec64a06bd165f5259b1b709ba0473c7e"
+    },
+    {
+      "id": "wspr_live_connector_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_live_connector_validation.json",
+      "sha256": "c9cf98375bf2ba639ced86d35712461276162b4811b96407746db9e93cca42c1"
+    },
+    {
+      "id": "wspr_live_hour_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_live_hour_validation.json",
+      "sha256": "e7012d9e12b20ae8aeecda10354c39c691e19a7a8e0346c5cb872bdba0b2959a"
+    },
+    {
+      "id": "wspr_research_schedule_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_schedule_validation.json",
+      "sha256": "4863feb97f1dfc28956620d0becc21b80875ef69f0e08275c5e6297eb79c8566"
+    },
+    {
+      "id": "wspr_research_shadow_progress",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
+      "sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74"
+    },
+    {
+      "id": "wspr_shadow_coverage_drift",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
+      "sha256": "0db9e2ca3efe2ecbfbebe1f8e27663b3d6d84ea2f119c13414ef1b11002bd1c5"
+    },
+    {
+      "id": "prospective_capture_readiness",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
+      "sha256": "e47d295667c5d5f1c04f1648b30401c484b6ec91158eb2cd61de72dd76067dbf"
+    }
+  ],
+  "bundle": {
+    "model_version": "propagation_v4_2_phase2_scale-phase3-candidate-50000000",
+    "core_feature_contract": "archive-v4-features-v1",
+    "manifest_sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821",
+    "xgboost_prediction_threads": 1
+  },
+  "migration": {
+    "path": "supabase/migrations/20260716000000_wspr_live_feature_store.sql",
+    "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212",
+    "validation_scope": "target_postgres_rollback_only_migration_validation",
+    "database_engine": "PostgreSQL",
+    "database_version": "17.6",
+    "transaction_mode": "rollback_only",
+    "persistent_changes": false,
+    "pending_prerequisite_migrations": [
+      {
+        "path": "supabase/migrations/20260711000000_path_hourly_stats.sql",
+        "sha256": "2d2a88324d5f9a98aac9a316f173d24ae3224b783b6c7bacd3f9371202ee9829"
+      },
+      {
+        "path": "supabase/migrations/20260712000000_space_weather_forecasts.sql",
+        "sha256": "ff74b7caa1914a6f18c660fc8b0a297b42797fffcf984a6d50ba57e9af4dfc2a"
+      },
+      {
+        "path": "supabase/migrations/20260712001000_propagation_v4_product.sql",
+        "sha256": "479e1070230b234bfe7333964391c8c9a4c7af4e47f443582f73baa002aebbb3"
+      },
+      {
+        "path": "supabase/migrations/20260712002000_collector_availability.sql",
+        "sha256": "bc08443a4c8a5568cca88b13744d39220c90a207975abd737b7650fac4280973"
+      },
+      {
+        "path": "supabase/migrations/20260715000000_solar_snapshot_provenance.sql",
+        "sha256": "bc54c1c514a2bd9607c4b3bb9e9e07a82119cba6bc5fe32eba4ac0ffe33a908b"
+      }
+    ],
+    "deployment_scope": "target_postgres_post_deployment_validation",
+    "deployment_gates": {
+      "six_expected_migration_versions_present": true,
+      "all_release_tables_present": true,
+      "all_release_tables_rls_enabled": true,
+      "intended_public_read_grants_present": true,
+      "private_wspr_public_access_revoked": true,
+      "private_wspr_service_access_present": true,
+      "user_scoped_policies_present": true,
+      "service_functions_restricted": true,
+      "security_definer_search_paths_locked": true,
+      "collector_availability_backfill_complete": true,
+      "solar_provenance_columns_present": true,
+      "deployed_four_lag_rpc_exact": true,
+      "smoke_transaction_rolled_back": true,
+      "target_is_postgresql": true,
+      "locked_outcomes_unread": true
+    },
+    "deployed_migrations": [
+      {
+        "path": "supabase/migrations/20260711000000_path_hourly_stats.sql",
+        "sha256": "2d2a88324d5f9a98aac9a316f173d24ae3224b783b6c7bacd3f9371202ee9829"
+      },
+      {
+        "path": "supabase/migrations/20260712000000_space_weather_forecasts.sql",
+        "sha256": "ff74b7caa1914a6f18c660fc8b0a297b42797fffcf984a6d50ba57e9af4dfc2a"
+      },
+      {
+        "path": "supabase/migrations/20260712001000_propagation_v4_product.sql",
+        "sha256": "479e1070230b234bfe7333964391c8c9a4c7af4e47f443582f73baa002aebbb3"
+      },
+      {
+        "path": "supabase/migrations/20260712002000_collector_availability.sql",
+        "sha256": "bc08443a4c8a5568cca88b13744d39220c90a207975abd737b7650fac4280973"
+      },
+      {
+        "path": "supabase/migrations/20260715000000_solar_snapshot_provenance.sql",
+        "sha256": "bc54c1c514a2bd9607c4b3bb9e9e07a82119cba6bc5fe32eba4ac0ffe33a908b"
+      },
+      {
+        "path": "supabase/migrations/20260716000000_wspr_live_feature_store.sql",
+        "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212"
+      }
+    ]
+  },
+  "research_health": {
+    "rollback_scope": "research_health_target_postgres_rollback_validation",
+    "rollback_gates": {
+      "migration_sql_executed": true,
+      "private_relations_created": true,
+      "row_level_security_enabled": true,
+      "browser_privileges_revoked": true,
+      "service_role_privileges_present": true,
+      "security_definer_search_path_locked": true,
+      "function_service_role_only": true,
+      "identity_free_schema": true,
+      "initial_healthy_does_not_alert": true,
+      "equal_timestamp_replay_rejected": true,
+      "alert_transition_recorded": true,
+      "recovery_transition_recorded": true,
+      "transition_outbox_exact": true,
+      "latest_aggregate_exact": true,
+      "invalid_counter_rejected": true,
+      "rollback_restored_original_object_state": true,
+      "persistent_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "deployment_scope": "research_health_target_postgres_deployment_validation",
+    "deployment_gates": {
+      "migration_sql_executed_or_deployed": true,
+      "private_relations_created": true,
+      "row_level_security_enabled": true,
+      "browser_privileges_revoked": true,
+      "service_role_privileges_present": true,
+      "security_definer_search_path_locked": true,
+      "function_service_role_only": true,
+      "identity_free_schema": true,
+      "initial_healthy_does_not_alert": true,
+      "equal_timestamp_replay_rejected": true,
+      "alert_transition_recorded": true,
+      "recovery_transition_recorded": true,
+      "transition_outbox_exact": true,
+      "latest_aggregate_exact": true,
+      "invalid_counter_rejected": true,
+      "deployment_ledger_exact": true,
+      "rollback_restored_original_object_state": true,
+      "persistent_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "endpoint_scope": "private_research_health_endpoint_validation",
+    "endpoint_gates": {
+      "signed_heartbeat_accepted": true,
+      "stored_aggregate_exact": true,
+      "alert_outbox_has_no_failed_delivery": true,
+      "coarse_view_remains_disabled": true,
+      "private_access_boundary_verified": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true,
+      "identity_free_evidence": true
+    },
+    "endpoint": {
+      "protected_preview_bypass_configured": false,
+      "private_access_mode": "signed_ingest_with_disabled_reader",
+      "accepted": true,
+      "state_changed": false,
+      "alert_delivery_configured": false,
+      "coarse_view_status": 404
+    },
+    "store": {
+      "decision": "healthy",
+      "continuous_hours": 14,
+      "completed_hours": 14,
+      "required_hours": 720,
+      "missing_hours": 0,
+      "pending_alert_events": 4,
+      "attempted_pending_alert_events": 0
+    },
+    "progress": {
+      "continuous_hours": 14,
+      "completed_hours": 14,
+      "required_hours": 720,
+      "missing_hours": 0
+    },
+    "monitor_rollback_scope": "research_health_monitor_target_postgres_rollback_validation",
+    "monitor_rollback_gates": {
+      "migration_sql_executed_or_deployed": true,
+      "monitor_function_created": true,
+      "security_definer_search_path_locked": true,
+      "function_service_role_only": true,
+      "stale_heartbeat_detected": true,
+      "source_heartbeat_timestamp_preserved": true,
+      "single_stale_alert_recorded": true,
+      "repeated_monitor_is_idempotent": true,
+      "genuine_heartbeat_records_recovery": true,
+      "fresh_heartbeat_does_not_alert": true,
+      "missing_heartbeat_fails_closed": true,
+      "invalid_stale_boundary_rejected": true,
+      "rollback_restored_original_object_state": true,
+      "persistent_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "monitor_deployment_scope": "research_health_monitor_target_postgres_deployment_validation",
+    "monitor_deployment_gates": {
+      "migration_sql_executed_or_deployed": true,
+      "monitor_function_created": true,
+      "security_definer_search_path_locked": true,
+      "function_service_role_only": true,
+      "stale_heartbeat_detected": true,
+      "source_heartbeat_timestamp_preserved": true,
+      "single_stale_alert_recorded": true,
+      "repeated_monitor_is_idempotent": true,
+      "genuine_heartbeat_records_recovery": true,
+      "fresh_heartbeat_does_not_alert": true,
+      "missing_heartbeat_fails_closed": true,
+      "invalid_stale_boundary_rejected": true,
+      "deployment_ledger_exact": true,
+      "rollback_restored_original_object_state": true,
+      "persistent_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "external_monitor_scope": "off_m5_protected_preview_fresh_heartbeat_validation",
+    "external_monitor_gates": {
+      "github_workflow_concluded_success": true,
+      "github_run_url_exact": true,
+      "immutable_head_sha_recorded": true,
+      "default_branch_invocation": true,
+      "fresh_heartbeat_evaluated": true,
+      "heartbeat_not_stale": true,
+      "no_unexpected_state_transition": true,
+      "no_failed_or_exhausted_delivery": true,
+      "independent_schedule_configured": true,
+      "release_workflow_push_trigger_removed": true,
+      "public_view_remains_disabled": true,
+      "native_m5_evidence_validation": true,
+      "locked_outcomes_unread": true,
+      "identity_free_evidence": true
+    },
+    "external_monitor_run": {
+      "id": 29485741095,
+      "url": "https://github.com/crypticpy/propulse/actions/runs/29485741095",
+      "head_sha": "42255fa855358dc6afbca7b27e018ea2cd7a2c2c",
+      "conclusion": "success",
+      "event": "schedule",
+      "head_branch": "main"
+    },
+    "external_monitor_response": {
+      "evaluated": true,
+      "heartbeat_stale": false,
+      "state_changed": false,
+      "heartbeat_age_seconds": 2035,
+      "alert_delivery": {
+        "configured": false,
+        "failed": 0,
+        "exhausted": 0
+      }
+    },
+    "hardening_rollback": {
+      "migration": {
+        "path": "supabase/migrations/20260716012000_research_health_hardening.sql",
+        "sha256": "0760c2fff581ff218fae3ddf65544fa20708482db22f5d99c8358d2823915eee",
+        "deployed": false,
+        "server_version": "17.6"
+      },
+      "gates": {
+        "migration_sql_executed_or_deployed": true,
+        "security_definer_search_paths_locked": true,
+        "claim_and_complete_service_role_only": true,
+        "initial_alert_recorded": true,
+        "event_id_collision_rejected": true,
+        "collision_rolls_back_health_state": true,
+        "duplicate_alert_name_rejected": true,
+        "unsupported_alert_name_rejected": true,
+        "upper_counter_rejected": true,
+        "direct_invalid_alert_rejected": true,
+        "direct_counter_overflow_rejected": true,
+        "single_active_lease_enforced": true,
+        "stale_lease_token_rejected": true,
+        "success_completion_exact": true,
+        "recovery_transition_recorded": true,
+        "failure_claim_exact": true,
+        "failure_completion_exact": true,
+        "failed_delivery_remains_retryable": true
+      }
+    },
+    "hardening_deployment": {
+      "migration": {
+        "path": "supabase/migrations/20260716012000_research_health_hardening.sql",
+        "sha256": "0760c2fff581ff218fae3ddf65544fa20708482db22f5d99c8358d2823915eee",
+        "deployed": true,
+        "server_version": "17.6"
+      },
+      "gates": {
+        "migration_sql_executed_or_deployed": true,
+        "security_definer_search_paths_locked": true,
+        "claim_and_complete_service_role_only": true,
+        "initial_alert_recorded": true,
+        "event_id_collision_rejected": true,
+        "collision_rolls_back_health_state": true,
+        "duplicate_alert_name_rejected": true,
+        "unsupported_alert_name_rejected": true,
+        "upper_counter_rejected": true,
+        "direct_invalid_alert_rejected": true,
+        "direct_counter_overflow_rejected": true,
+        "single_active_lease_enforced": true,
+        "stale_lease_token_rejected": true,
+        "success_completion_exact": true,
+        "recovery_transition_recorded": true,
+        "failure_claim_exact": true,
+        "failure_completion_exact": true,
+        "failed_delivery_remains_retryable": true,
+        "deployment_ledger_exact": true
+      }
+    },
+    "incident_delivery": {
+      "stale_run": {
+        "id": 29494058601,
+        "conclusion": "failure",
+        "event": "workflow_dispatch",
+        "url": "https://github.com/crypticpy/propulse/actions/runs/29494058601"
+      },
+      "recovery_run": {
+        "id": 29497729210,
+        "conclusion": "success",
+        "event": "workflow_dispatch",
+        "head_sha": "c5e315523056223bc2063b80a60e36aae5cf1026",
+        "url": "https://github.com/crypticpy/propulse/actions/runs/29497729210"
+      },
+      "incident": {
+        "number": 10,
+        "state": "closed",
+        "url": "https://github.com/crypticpy/propulse/issues/10",
+        "created_at": "2026-07-16T11:20:33+00:00",
+        "closed_at": "2026-07-16T12:20:08+00:00",
+        "stale_heartbeat_age_seconds": 10227,
+        "recovery_heartbeat_age_seconds": 25,
+        "matching_incident_count": 1
+      },
+      "gates": {
+        "stale_run_failed_closed": true,
+        "stale_age_exceeded_boundary": true,
+        "single_durable_incident": true,
+        "incident_opened_by_stale_run": true,
+        "issue_template_identity_free": true,
+        "recovery_run_succeeded": true,
+        "genuine_recovery_comment_exact": true,
+        "recovery_age_inside_boundary": true,
+        "incident_closed_by_recovery_run": true
+      }
+    },
+    "monitor_migration_deployed": true,
+    "external_monitor_invoked": true,
+    "migration_deployed": true,
+    "remote_endpoint_configured": true,
+    "remote_heartbeat_delivered": true,
+    "external_webhook_configured": false,
+    "github_issue_delivery_configured": true,
+    "stale_recovery_delivery_proven": true,
+    "literal_full_m5_outage_proven": false,
+    "public_view_enabled": false,
+    "aggregate_only": true
+  },
+  "research_participation": {
+    "policy_version": "propagation-research-v1-2026-07-12",
+    "receipt_schema": "propagation-research-receipt-v1",
+    "subject_binding_schema": "propagation-research-subject-v1",
+    "rollback_scope": "research_participation_target_postgres_rollback_validation",
+    "rollback_gates": {
+      "retention_acknowledgement_column_present": true,
+      "allowed_uses_constraint_validated": true,
+      "allowed_uses_are_strictly_enumerated": true,
+      "one_attempt_per_signed_prediction": true,
+      "exact_user_read_delete_policies_present": true,
+      "browser_insert_update_revoked": true,
+      "service_role_write_boundary_present": true,
+      "research_tables_rls_enabled": true,
+      "rollback_restored_original_boundary": true,
+      "persistent_test_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "deployment_scope": "research_participation_target_postgres_deployment_validation",
+    "deployment_gates": {
+      "retention_acknowledgement_column_present": true,
+      "allowed_uses_constraint_validated": true,
+      "allowed_uses_are_strictly_enumerated": true,
+      "one_attempt_per_signed_prediction": true,
+      "exact_user_read_delete_policies_present": true,
+      "browser_insert_update_revoked": true,
+      "service_role_write_boundary_present": true,
+      "research_tables_rls_enabled": true,
+      "deployment_ledger_exact": true,
+      "rollback_restored_original_boundary": true,
+      "persistent_test_changes_absent": true,
+      "target_is_postgresql": true,
+      "native_m5_runtime": true,
+      "locked_outcomes_unread": true
+    },
+    "migration_deployed": true,
+    "frontend_enabled": false,
+    "server_enabled": false,
+    "signed_receipts_enabled": false,
+    "real_consents_or_outcomes_collected": false
+  },
+  "transform": {
+    "version": "wspr-opportunity-duckdb-v1",
+    "target_hour": "2024-10-15T17:00:00+00:00",
+    "source_hashes": {
+      "bronze": {
+        "path": "data/bronze/archive_v3/wspr/year=2024/month=10/spots.parquet",
+        "bytes": 3977216940,
+        "sha256": "f897af8507b68851bf93eaac26a76b008554dce9bcfd3e65c0b2a60e9178fcaf"
+      },
+      "opportunities": {
+        "path": "data/processed/archive_v3/opportunities/task=hf/year=2024/month=10/part.parquet",
+        "bytes": 475161901,
+        "sha256": "82eabb82addd723a0df0f22ae76119e9f604cd345e1042b63905bfe82eaec4b8"
+      }
+    },
+    "compute": {
+      "machine": "arm64",
+      "visible_cpus": 18,
+      "duckdb_threads": 18,
+      "peak_rss_gib": 0.7232208251953125,
+      "wall_seconds": 2.1766207089967793
+    }
+  },
+  "replay": {
+    "scope": "open_development_multi_hour_event_and_synthetic_receipt_replay",
+    "receipt_time_evidence": "synthetic_from_open_archive_event_times",
+    "compute": {
+      "machine": "arm64",
+      "visible_cpus": 18,
+      "duckdb_threads": 18,
+      "peak_rss_gib": 5.0274505615234375,
+      "wall_seconds": 76.04304741600936,
+      "hardware_runtime": {
+        "machine": "arm64",
+        "physical_cores_visible": 18,
+        "os_cpu_count": 18,
+        "core_clusters": [
+          6,
+          12
+        ],
+        "configured_performance_cores": 12,
+        "configured_efficiency_cores": 6,
+        "unified_memory_gb": 128.0,
+        "power_source": "AC Power",
+        "required_power_source": "AC Power",
+        "power_modes": {
+          "Battery Power": 0,
+          "AC Power": 2
+        },
+        "required_ac_power_mode": 2,
+        "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+        "thermal_limits": {},
+        "python_version": "3.12.11"
+      }
+    }
+  },
+  "operational_weather": {
+    "provider": "solar-snapshots-v1",
+    "weather": {
+      "feature_count": 14,
+      "features": [
+        "bt",
+        "bx_gsm",
+        "by_gsm",
+        "bz_gsm",
+        "bz_min_3h",
+        "density_cm3",
+        "dst",
+        "dst_min_6h",
+        "f107",
+        "kp",
+        "kp_max_24h",
+        "proton_flux_10mev",
+        "temperature_k",
+        "wind_speed"
+      ],
+      "watermark_age_seconds": 4440,
+      "availability_age_seconds": 140,
+      "quality_flags": []
+    },
+    "performance": {
+      "repetitions": 20,
+      "cached_path_p95_ms": 2.906167006585747
+    },
+    "gates": {
+      "target_snapshot_verified": true,
+      "critical_operational_fields_present": true,
+      "source_watermark_causal": true,
+      "source_watermark_within_two_hours": true,
+      "receipt_within_fifteen_minutes": true,
+      "browser_weather_value_replaced": true,
+      "browser_weather_freshness_replaced": true,
+      "real_a6_bundle_loaded": true,
+      "trusted_weather_provider_reported": true,
+      "real_bundle_request_succeeds": true,
+      "missing_wspr_still_selects_physics": true,
+      "response_uses_server_weather_freshness": true,
+      "cached_path_p95_below_100ms": true,
+      "locked_outcomes_unread": true
+    }
+  },
+  "orchestration": {
+    "synthetic": true,
+    "execution": {
+      "workers": 2,
+      "threads_per_band": 9,
+      "maximum_compute_threads": 18,
+      "maximum_concurrent_workers_observed": 2,
+      "bands_finalized": 10,
+      "wall_seconds": 0.1753502500068862
+    },
+    "gates": {
+      "signed_manifest_accepted": true,
+      "manifest_tampering_rejected": true,
+      "all_ten_hf_bands_finalized": true,
+      "two_workers_observed": true,
+      "all_eighteen_m5_threads_allocated": true,
+      "prune_runs_after_total_success": true,
+      "band_failure_prevents_prune": true,
+      "band_count_mismatch_prevents_prune": true,
+      "cpu_oversubscription_rejected": true,
+      "locked_outcomes_unread": true
+    }
+  },
+  "research_connector": {
+    "provider": "wspr.live-research-v1",
+    "research_only": true,
+    "target_hour": "2026-07-16T02:00:00+00:00",
+    "source_checkpoint_sha256": "424a1a3b7ba27f2fa50581ee4c043471fd72b1f53448cf2c27170f5701f28f6a",
+    "performance": {
+      "elapsed_seconds": 23.114187,
+      "peak_rss_mib": 57.625
+    },
+    "gates": {
+      "all_hf_bands_observed": true,
+      "checkpoint_sha256": true,
+      "disk_spool_removed": true,
+      "no_target_write_in_dry_run": true,
+      "nonempty_completed_hour": true,
+      "one_bounded_source_request": true,
+      "research_only": true,
+      "streaming_peak_rss_below_512_mib": true
+    }
+  },
+  "real_source_hour": {
+    "provider": "wspr.live-research-v1",
+    "research_only": true,
+    "target_hour": "2026-07-16T02:00:00+00:00",
+    "source_checkpoint_sha256": "424a1a3b7ba27f2fa50581ee4c043471fd72b1f53448cf2c27170f5701f28f6a",
+    "completion_manifest_sha256": "485555c0b2c7e8abf8274fc8d3cd9653c076efad13ebea458caff89479d1c5e9",
+    "source_record_count": 287694,
+    "feature_cell_count": 75055,
+    "watermark_versions": {
+      "failed": 1,
+      "corrected": 1
+    },
+    "gates": {
+      "signed_manifest_v2_accepted": true,
+      "exact_failed_and_corrected_versions": true,
+      "truncated_version_all_band_invalidated": true,
+      "corrected_version_all_band_complete": true,
+      "stored_observation_counts_match_manifest": true,
+      "watermark_observation_counts_match_manifest": true,
+      "feature_counts_match_watermarks": true,
+      "source_total_matches_exact_target_count": true,
+      "incomplete_four_lag_window_fails_closed": true,
+      "locked_outcomes_unread": true
+    }
+  },
+  "research_schedule": {
+    "provider": "wspr.live-research-v1",
+    "research_only": true,
+    "subscriber_facing_authorized": false,
+    "target_hour": "2026-07-16T16:00:00+00:00",
+    "source_record_count": 207554,
+    "feature_cell_count": 66616,
+    "connector": {
+      "elapsed_seconds": 109.06827,
+      "peak_rss_mib": 95.031,
+      "source_request_count": 1
+    },
+    "finalizer": {
+      "maximum_compute_threads": 18,
+      "threads_per_band": 9,
+      "wall_seconds": 114.606367,
+      "workers": 2
+    },
+    "health": {
+      "status": "healthy",
+      "continuous_completed_hours": 14,
+      "consecutive_failures": 0,
+      "freshness_seconds": 1510
+    },
+    "schedule": {
+      "label": "org.propulse.wspr-research",
+      "minute": 15,
+      "run_at_load": true,
+      "watchdog_label": "org.propulse.wspr-research-health",
+      "watchdog_minutes": [
+        0,
+        30
+      ],
+      "coverage_label": "org.propulse.wspr-research-coverage",
+      "coverage_hours": [
+        6,
+        18
+      ],
+      "coverage_minute": 45,
+      "runtime_storage": "internal_owner_only",
+      "large_ml_storage": "projects_volume"
+    },
+    "watchdog": {
+      "decision": "healthy",
+      "alerts": [],
+      "thresholds": {
+        "max_runtime_bytes": 2147483648,
+        "stale_seconds": 7200
+      },
+      "observations": {
+        "continuous_completed_hours": 14,
+        "coverage_audit_age_seconds": 323,
+        "coverage_audit_due": false,
+        "coverage_decision": "collecting",
+        "coverage_query_chunk_hours": 24,
+        "coverage_window_lag_hours": 0,
+        "dynamic_freshness_seconds": 1510,
+        "health_record_age_seconds": 0,
+        "last_completed_target_hour": "2026-07-16T16:00:00+00:00",
+        "latest_settled_target_hour": "2026-07-16T16:00:00+00:00",
+        "runtime_bytes": 332405,
+        "shadow_completed_hours": 14,
+        "shadow_completion_rate": 1.0,
+        "shadow_expected_hours": 14,
+        "shadow_missing_hours": 0,
+        "shadow_required_hours": 720
+      },
+      "delivery": {
+        "local_notification_enabled": true,
+        "notification_attempted": false,
+        "notification_delivered": false,
+        "remote_attempted": true,
+        "remote_configured": true,
+        "remote_delivered": true,
+        "remote_error_type": null,
+        "state_changed": false
+      },
+      "delivery_test": {
+        "decision": "pass",
+        "accepted": true,
+        "generated_at": "2026-07-16T04:50:25.757254+00:00"
+      }
+    },
+    "gates": {
+      "signed_manifest_v2_accepted": true,
+      "receipt_complete_research_only": true,
+      "receipt_identity_free": true,
+      "receipt_manifest_hash_linked": true,
+      "receipt_manifest_counts_exact": true,
+      "receipt_gates_all_pass": true,
+      "all_hf_bands_present": true,
+      "target_observation_counts_exact": true,
+      "target_watermarks_complete_and_exact": true,
+      "target_feature_total_exact": true,
+      "health_matches_latest_receipt": true,
+      "m5_multicore_bounded": true,
+      "transient_spool_removed": true,
+      "launchd_job_loaded_and_clean_exit": true,
+      "launchd_hourly_and_restart_enabled": true,
+      "launchd_runtime_internal_and_exact": true,
+      "launchd_research_gate_explicit": true,
+      "launchd_owner_only_and_secret_free": true,
+      "launchd_logs_on_internal_home": true,
+      "watchdog_current_status_healthy": true,
+      "watchdog_job_loaded_and_clean_exit": true,
+      "watchdog_local_delivery_smoke_passed": true,
+      "watchdog_twice_hourly_and_restart_enabled": true,
+      "watchdog_thresholds_and_runtime_exact": true,
+      "watchdog_owner_only_and_secret_free": true,
+      "watchdog_local_notification_enabled": true,
+      "watchdog_logs_on_internal_home": true,
+      "coverage_audit_operational_private_and_bounded": true,
+      "coverage_job_loaded_and_clean_exit": true,
+      "coverage_twice_daily_and_restart_enabled": true,
+      "coverage_runtime_and_query_bound_exact": true,
+      "coverage_owner_only_and_secret_free": true,
+      "coverage_logs_on_internal_home": true,
+      "locked_outcomes_unread": true
+    }
+  },
+  "research_shadow_progress": {
+    "decision": "collecting",
+    "operational_status": "healthy",
+    "window": {
+      "completed_hours": 14,
+      "completion_rate": 1.0,
+      "continuous_completed_hours": 14,
+      "expected_hours": 14,
+      "last_completed_target_hour": "2026-07-16T16:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T16:00:00+00:00",
+      "minimum_hours": 720,
+      "missing_hours": 0,
+      "start_target_hour": "2026-07-16T03:00:00+00:00"
+    },
+    "totals": {
+      "feature_cells": 933688,
+      "records_by_band": {
+        "10m": 85014,
+        "12m": 34156,
+        "15m": 150247,
+        "160m": 23903,
+        "17m": 145537,
+        "20m": 1084051,
+        "30m": 624343,
+        "40m": 938420,
+        "60m": 22590,
+        "80m": 187614
+      },
+      "source_records": 3295875
+    },
+    "performance": {
+      "completion_latency_max_seconds": 2802.150802,
+      "completion_latency_p95_seconds": 2102.3155372999995,
+      "connector_peak_rss_max_mib": 161.0,
+      "connector_wall_p95_seconds": 111.69136355,
+      "finalizer_wall_p95_seconds": 738.38145035
+    },
+    "gates": {
+      "all_receipts_and_manifests_valid": true,
+      "all_ten_bands_present_each_hour": true,
+      "completed_hours_within_7200_seconds": true,
+      "locked_outcomes_unread": true,
+      "m5_multicore_profile_exact": true,
+      "minimum_30_day_window_complete": false,
+      "no_future_target_receipts": true,
+      "one_source_request_per_hour": true,
+      "receipt_timestamps_causal": true,
+      "scheduled_completion_rate_at_least_99_percent": true,
+      "secret_file_owner_only": true
+    }
+  },
+  "research_shadow_coverage": {
+    "schema_version": 1,
+    "generated_at": "2026-07-16T17:25:35.868269+00:00",
+    "scope": "wspr_shadow_aggregate_coverage_and_source_drift",
+    "decision": "collecting",
+    "operational_status": "healthy",
+    "provider": "wspr.live-research-v1",
+    "transform_version": "wspr-opportunity-duckdb-v1",
+    "research_only": true,
+    "window": {
+      "start": "2026-07-16T03:00:00+00:00",
+      "end": "2026-07-16T16:00:00+00:00",
+      "expected_hours": 14,
+      "completed_hours": 14,
+      "missing_hours": 0,
+      "completion_rate": 1.0,
+      "completed_band_hours": 140,
+      "required_hours": 720,
+      "provenance": {
+        "source_scope": "wspr_research_shadow_progress",
+        "progress_sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74",
+        "scheduled_start": "2026-07-16T03:00:00+00:00",
+        "scheduled_end": "2026-07-16T16:00:00+00:00",
+        "scheduled_expected_hours": 14,
+        "scheduled_completed_hours": 14,
+        "scheduled_missing_hours": 0,
+        "audited_start": "2026-07-16T03:00:00+00:00",
+        "audited_end": "2026-07-16T16:00:00+00:00",
+        "audited_expected_hours": 14
+      }
+    },
+    "coverage": {
+      "observed_bands": [
+        "10m",
+        "12m",
+        "15m",
+        "160m",
+        "17m",
+        "20m",
+        "30m",
+        "40m",
+        "60m",
+        "80m"
+      ],
+      "observed_utc_hours": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "by_band": [
+        {
+          "band": "160m",
+          "feature_cells": 7061,
+          "sampled_rows": 28077,
+          "band_hours": 14
+        },
+        {
+          "band": "80m",
+          "feature_cells": 53493,
+          "sampled_rows": 218801,
+          "band_hours": 14
+        },
+        {
+          "band": "60m",
+          "feature_cells": 6357,
+          "sampled_rows": 24710,
+          "band_hours": 14
+        },
+        {
+          "band": "40m",
+          "feature_cells": 202517,
+          "sampled_rows": 1032150,
+          "band_hours": 14
+        },
+        {
+          "band": "30m",
+          "feature_cells": 149951,
+          "sampled_rows": 707544,
+          "band_hours": 14
+        },
+        {
+          "band": "20m",
+          "feature_cells": 284747,
+          "sampled_rows": 1267377,
+          "band_hours": 14
+        },
+        {
+          "band": "17m",
+          "feature_cells": 72038,
+          "sampled_rows": 194590,
+          "band_hours": 14
+        },
+        {
+          "band": "15m",
+          "feature_cells": 79356,
+          "sampled_rows": 219207,
+          "band_hours": 14
+        },
+        {
+          "band": "12m",
+          "feature_cells": 24418,
+          "sampled_rows": 55212,
+          "band_hours": 14
+        },
+        {
+          "band": "10m",
+          "feature_cells": 53750,
+          "sampled_rows": 134521,
+          "band_hours": 14
+        }
+      ],
+      "by_utc_hour": [
+        {
+          "utc_hour": 3,
+          "feature_cells": 69980,
+          "sampled_rows": 300286,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 4,
+          "feature_cells": 67829,
+          "sampled_rows": 294118,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 5,
+          "feature_cells": 69276,
+          "sampled_rows": 296153,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 6,
+          "feature_cells": 68749,
+          "sampled_rows": 292216,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 7,
+          "feature_cells": 69328,
+          "sampled_rows": 309892,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 8,
+          "feature_cells": 66793,
+          "sampled_rows": 293962,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 9,
+          "feature_cells": 58896,
+          "sampled_rows": 261369,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 10,
+          "feature_cells": 58546,
+          "sampled_rows": 257846,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 11,
+          "feature_cells": 60923,
+          "sampled_rows": 256399,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 12,
+          "feature_cells": 65735,
+          "sampled_rows": 255447,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 13,
+          "feature_cells": 68923,
+          "sampled_rows": 268985,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 14,
+          "feature_cells": 71404,
+          "sampled_rows": 277381,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 15,
+          "feature_cells": 70690,
+          "sampled_rows": 266787,
+          "band_hours": 10
+        },
+        {
+          "utc_hour": 16,
+          "feature_cells": 66616,
+          "sampled_rows": 251348,
+          "band_hours": 10
+        }
+      ],
+      "by_distance": [
+        {
+          "distance_bucket": "<1,000 km",
+          "feature_cells": 204884,
+          "sampled_rows": 1344723,
+          "band_hours": 140
+        },
+        {
+          "distance_bucket": "1,000-3,000 km",
+          "feature_cells": 313498,
+          "sampled_rows": 1644673,
+          "band_hours": 140
+        },
+        {
+          "distance_bucket": "3,000-6,000 km",
+          "feature_cells": 109343,
+          "sampled_rows": 373893,
+          "band_hours": 140
+        },
+        {
+          "distance_bucket": "6,000-10,000 km",
+          "feature_cells": 208874,
+          "sampled_rows": 339986,
+          "band_hours": 140
+        },
+        {
+          "distance_bucket": "10,000+ km",
+          "feature_cells": 97089,
+          "sampled_rows": 178914,
+          "band_hours": 140
+        }
+      ],
+      "regional_fields": [
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "160m",
+          "feature_cells": 1854,
+          "completed_hours": 14,
+          "sampled_rows": 9269,
+          "eligible_region_count": 13,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "160m",
+          "feature_cells": 793,
+          "completed_hours": 13,
+          "sampled_rows": 6569,
+          "eligible_region_count": 13,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "160m",
+          "feature_cells": 718,
+          "completed_hours": 12,
+          "sampled_rows": 2417,
+          "eligible_region_count": 13,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "QF",
+          "band": "160m",
+          "feature_cells": 563,
+          "completed_hours": 14,
+          "sampled_rows": 1760,
+          "eligible_region_count": 13,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "160m",
+          "feature_cells": 403,
+          "completed_hours": 14,
+          "sampled_rows": 992,
+          "eligible_region_count": 13,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "160m",
+          "feature_cells": 401,
+          "completed_hours": 14,
+          "sampled_rows": 900,
+          "eligible_region_count": 13,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "160m",
+          "feature_cells": 392,
+          "completed_hours": 14,
+          "sampled_rows": 898,
+          "eligible_region_count": 13,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "160m",
+          "feature_cells": 356,
+          "completed_hours": 14,
+          "sampled_rows": 1552,
+          "eligible_region_count": 13,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "QE",
+          "band": "160m",
+          "feature_cells": 353,
+          "completed_hours": 14,
+          "sampled_rows": 848,
+          "eligible_region_count": 13,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "160m",
+          "feature_cells": 250,
+          "completed_hours": 14,
+          "sampled_rows": 699,
+          "eligible_region_count": 13,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "160m",
+          "feature_cells": 242,
+          "completed_hours": 12,
+          "sampled_rows": 536,
+          "eligible_region_count": 13,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "160m",
+          "feature_cells": 231,
+          "completed_hours": 11,
+          "sampled_rows": 455,
+          "eligible_region_count": 13,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "80m",
+          "feature_cells": 6532,
+          "completed_hours": 14,
+          "sampled_rows": 36019,
+          "eligible_region_count": 32,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "80m",
+          "feature_cells": 6311,
+          "completed_hours": 14,
+          "sampled_rows": 17305,
+          "eligible_region_count": 32,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "80m",
+          "feature_cells": 6276,
+          "completed_hours": 14,
+          "sampled_rows": 17442,
+          "eligible_region_count": 32,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "80m",
+          "feature_cells": 4787,
+          "completed_hours": 14,
+          "sampled_rows": 22877,
+          "eligible_region_count": 32,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "80m",
+          "feature_cells": 4014,
+          "completed_hours": 14,
+          "sampled_rows": 15641,
+          "eligible_region_count": 32,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "80m",
+          "feature_cells": 3897,
+          "completed_hours": 14,
+          "sampled_rows": 11981,
+          "eligible_region_count": 32,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "80m",
+          "feature_cells": 3051,
+          "completed_hours": 14,
+          "sampled_rows": 11053,
+          "eligible_region_count": 32,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "80m",
+          "feature_cells": 2960,
+          "completed_hours": 14,
+          "sampled_rows": 8215,
+          "eligible_region_count": 32,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "80m",
+          "feature_cells": 2765,
+          "completed_hours": 14,
+          "sampled_rows": 32630,
+          "eligible_region_count": 32,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "CN",
+          "band": "80m",
+          "feature_cells": 2265,
+          "completed_hours": 14,
+          "sampled_rows": 11376,
+          "eligible_region_count": 32,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "80m",
+          "feature_cells": 1837,
+          "completed_hours": 14,
+          "sampled_rows": 11383,
+          "eligible_region_count": 32,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "EL",
+          "band": "80m",
+          "feature_cells": 1548,
+          "completed_hours": 14,
+          "sampled_rows": 6964,
+          "eligible_region_count": 32,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "60m",
+          "feature_cells": 1635,
+          "completed_hours": 14,
+          "sampled_rows": 5408,
+          "eligible_region_count": 9,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "60m",
+          "feature_cells": 1133,
+          "completed_hours": 14,
+          "sampled_rows": 4880,
+          "eligible_region_count": 9,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "60m",
+          "feature_cells": 834,
+          "completed_hours": 14,
+          "sampled_rows": 3514,
+          "eligible_region_count": 9,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "60m",
+          "feature_cells": 611,
+          "completed_hours": 14,
+          "sampled_rows": 2157,
+          "eligible_region_count": 9,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "EL",
+          "band": "60m",
+          "feature_cells": 496,
+          "completed_hours": 9,
+          "sampled_rows": 3628,
+          "eligible_region_count": 9,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "60m",
+          "feature_cells": 381,
+          "completed_hours": 9,
+          "sampled_rows": 649,
+          "eligible_region_count": 9,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "IN",
+          "band": "60m",
+          "feature_cells": 360,
+          "completed_hours": 13,
+          "sampled_rows": 2323,
+          "eligible_region_count": 9,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "60m",
+          "feature_cells": 241,
+          "completed_hours": 7,
+          "sampled_rows": 390,
+          "eligible_region_count": 9,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "60m",
+          "feature_cells": 237,
+          "completed_hours": 12,
+          "sampled_rows": 730,
+          "eligible_region_count": 9,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "40m",
+          "feature_cells": 26556,
+          "completed_hours": 14,
+          "sampled_rows": 164015,
+          "eligible_region_count": 51,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "40m",
+          "feature_cells": 23710,
+          "completed_hours": 14,
+          "sampled_rows": 88933,
+          "eligible_region_count": 51,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "40m",
+          "feature_cells": 23209,
+          "completed_hours": 14,
+          "sampled_rows": 93753,
+          "eligible_region_count": 51,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "40m",
+          "feature_cells": 21146,
+          "completed_hours": 14,
+          "sampled_rows": 144844,
+          "eligible_region_count": 51,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "40m",
+          "feature_cells": 15338,
+          "completed_hours": 14,
+          "sampled_rows": 89540,
+          "eligible_region_count": 51,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "40m",
+          "feature_cells": 14946,
+          "completed_hours": 14,
+          "sampled_rows": 61344,
+          "eligible_region_count": 51,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "40m",
+          "feature_cells": 14248,
+          "completed_hours": 14,
+          "sampled_rows": 83714,
+          "eligible_region_count": 51,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "40m",
+          "feature_cells": 8237,
+          "completed_hours": 14,
+          "sampled_rows": 50134,
+          "eligible_region_count": 51,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "40m",
+          "feature_cells": 7975,
+          "completed_hours": 14,
+          "sampled_rows": 79490,
+          "eligible_region_count": 51,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "40m",
+          "feature_cells": 6590,
+          "completed_hours": 14,
+          "sampled_rows": 32602,
+          "eligible_region_count": 51,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "CN",
+          "band": "40m",
+          "feature_cells": 5430,
+          "completed_hours": 14,
+          "sampled_rows": 31768,
+          "eligible_region_count": 51,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "QG",
+          "band": "40m",
+          "feature_cells": 3237,
+          "completed_hours": 14,
+          "sampled_rows": 15019,
+          "eligible_region_count": 51,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "30m",
+          "feature_cells": 22613,
+          "completed_hours": 14,
+          "sampled_rows": 98393,
+          "eligible_region_count": 47,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "30m",
+          "feature_cells": 16035,
+          "completed_hours": 14,
+          "sampled_rows": 96133,
+          "eligible_region_count": 47,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "30m",
+          "feature_cells": 14726,
+          "completed_hours": 14,
+          "sampled_rows": 48361,
+          "eligible_region_count": 47,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "30m",
+          "feature_cells": 12728,
+          "completed_hours": 14,
+          "sampled_rows": 49021,
+          "eligible_region_count": 47,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "30m",
+          "feature_cells": 12606,
+          "completed_hours": 14,
+          "sampled_rows": 38267,
+          "eligible_region_count": 47,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "30m",
+          "feature_cells": 8759,
+          "completed_hours": 14,
+          "sampled_rows": 37674,
+          "eligible_region_count": 47,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "30m",
+          "feature_cells": 8495,
+          "completed_hours": 14,
+          "sampled_rows": 27581,
+          "eligible_region_count": 47,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "IN",
+          "band": "30m",
+          "feature_cells": 6359,
+          "completed_hours": 14,
+          "sampled_rows": 62850,
+          "eligible_region_count": 47,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "30m",
+          "feature_cells": 6181,
+          "completed_hours": 14,
+          "sampled_rows": 61104,
+          "eligible_region_count": 47,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "30m",
+          "feature_cells": 5820,
+          "completed_hours": 14,
+          "sampled_rows": 25343,
+          "eligible_region_count": 47,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "CN",
+          "band": "30m",
+          "feature_cells": 5159,
+          "completed_hours": 14,
+          "sampled_rows": 25310,
+          "eligible_region_count": 47,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "EL",
+          "band": "30m",
+          "feature_cells": 4160,
+          "completed_hours": 14,
+          "sampled_rows": 52343,
+          "eligible_region_count": 47,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "20m",
+          "feature_cells": 33629,
+          "completed_hours": 14,
+          "sampled_rows": 136056,
+          "eligible_region_count": 106,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "20m",
+          "feature_cells": 32031,
+          "completed_hours": 14,
+          "sampled_rows": 177595,
+          "eligible_region_count": 106,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "20m",
+          "feature_cells": 29552,
+          "completed_hours": 14,
+          "sampled_rows": 131767,
+          "eligible_region_count": 106,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "20m",
+          "feature_cells": 21876,
+          "completed_hours": 14,
+          "sampled_rows": 146705,
+          "eligible_region_count": 106,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "20m",
+          "feature_cells": 20294,
+          "completed_hours": 14,
+          "sampled_rows": 87841,
+          "eligible_region_count": 106,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "20m",
+          "feature_cells": 18050,
+          "completed_hours": 14,
+          "sampled_rows": 80000,
+          "eligible_region_count": 106,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "20m",
+          "feature_cells": 16540,
+          "completed_hours": 14,
+          "sampled_rows": 81107,
+          "eligible_region_count": 106,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "IN",
+          "band": "20m",
+          "feature_cells": 8315,
+          "completed_hours": 14,
+          "sampled_rows": 78185,
+          "eligible_region_count": 106,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "20m",
+          "feature_cells": 8024,
+          "completed_hours": 14,
+          "sampled_rows": 34669,
+          "eligible_region_count": 106,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "20m",
+          "feature_cells": 7884,
+          "completed_hours": 14,
+          "sampled_rows": 30518,
+          "eligible_region_count": 106,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "20m",
+          "feature_cells": 7595,
+          "completed_hours": 14,
+          "sampled_rows": 52899,
+          "eligible_region_count": 106,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "EL",
+          "band": "20m",
+          "feature_cells": 5959,
+          "completed_hours": 14,
+          "sampled_rows": 19778,
+          "eligible_region_count": 106,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "17m",
+          "feature_cells": 8084,
+          "completed_hours": 14,
+          "sampled_rows": 21186,
+          "eligible_region_count": 59,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "17m",
+          "feature_cells": 6393,
+          "completed_hours": 14,
+          "sampled_rows": 16854,
+          "eligible_region_count": 59,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "17m",
+          "feature_cells": 6160,
+          "completed_hours": 14,
+          "sampled_rows": 21281,
+          "eligible_region_count": 59,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "17m",
+          "feature_cells": 5155,
+          "completed_hours": 14,
+          "sampled_rows": 12621,
+          "eligible_region_count": 59,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "17m",
+          "feature_cells": 5095,
+          "completed_hours": 14,
+          "sampled_rows": 19504,
+          "eligible_region_count": 59,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "17m",
+          "feature_cells": 4019,
+          "completed_hours": 14,
+          "sampled_rows": 8793,
+          "eligible_region_count": 59,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "17m",
+          "feature_cells": 3950,
+          "completed_hours": 14,
+          "sampled_rows": 8770,
+          "eligible_region_count": 59,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "17m",
+          "feature_cells": 2818,
+          "completed_hours": 14,
+          "sampled_rows": 9094,
+          "eligible_region_count": 59,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "17m",
+          "feature_cells": 2766,
+          "completed_hours": 14,
+          "sampled_rows": 5997,
+          "eligible_region_count": 59,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "17m",
+          "feature_cells": 2118,
+          "completed_hours": 14,
+          "sampled_rows": 4875,
+          "eligible_region_count": 59,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "CN",
+          "band": "17m",
+          "feature_cells": 1819,
+          "completed_hours": 14,
+          "sampled_rows": 5009,
+          "eligible_region_count": 59,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "EL",
+          "band": "17m",
+          "feature_cells": 1536,
+          "completed_hours": 14,
+          "sampled_rows": 4710,
+          "eligible_region_count": 59,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "15m",
+          "feature_cells": 7701,
+          "completed_hours": 14,
+          "sampled_rows": 18574,
+          "eligible_region_count": 51,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "15m",
+          "feature_cells": 7561,
+          "completed_hours": 14,
+          "sampled_rows": 15986,
+          "eligible_region_count": 51,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "15m",
+          "feature_cells": 7467,
+          "completed_hours": 14,
+          "sampled_rows": 21456,
+          "eligible_region_count": 51,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "15m",
+          "feature_cells": 7218,
+          "completed_hours": 14,
+          "sampled_rows": 18362,
+          "eligible_region_count": 51,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "15m",
+          "feature_cells": 5953,
+          "completed_hours": 14,
+          "sampled_rows": 23965,
+          "eligible_region_count": 51,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "15m",
+          "feature_cells": 5871,
+          "completed_hours": 14,
+          "sampled_rows": 12564,
+          "eligible_region_count": 51,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "15m",
+          "feature_cells": 4055,
+          "completed_hours": 14,
+          "sampled_rows": 9339,
+          "eligible_region_count": 51,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "15m",
+          "feature_cells": 2877,
+          "completed_hours": 14,
+          "sampled_rows": 7200,
+          "eligible_region_count": 51,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "15m",
+          "feature_cells": 2757,
+          "completed_hours": 14,
+          "sampled_rows": 13560,
+          "eligible_region_count": 51,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "15m",
+          "feature_cells": 2573,
+          "completed_hours": 14,
+          "sampled_rows": 5235,
+          "eligible_region_count": 51,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "IN",
+          "band": "15m",
+          "feature_cells": 2335,
+          "completed_hours": 14,
+          "sampled_rows": 17291,
+          "eligible_region_count": 51,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "CN",
+          "band": "15m",
+          "feature_cells": 1986,
+          "completed_hours": 14,
+          "sampled_rows": 4745,
+          "eligible_region_count": 51,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "12m",
+          "feature_cells": 2718,
+          "completed_hours": 14,
+          "sampled_rows": 6056,
+          "eligible_region_count": 23,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "12m",
+          "feature_cells": 2418,
+          "completed_hours": 14,
+          "sampled_rows": 4276,
+          "eligible_region_count": 23,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "12m",
+          "feature_cells": 2383,
+          "completed_hours": 14,
+          "sampled_rows": 4714,
+          "eligible_region_count": 23,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "12m",
+          "feature_cells": 2193,
+          "completed_hours": 14,
+          "sampled_rows": 5313,
+          "eligible_region_count": 23,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "12m",
+          "feature_cells": 1753,
+          "completed_hours": 14,
+          "sampled_rows": 3561,
+          "eligible_region_count": 23,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "12m",
+          "feature_cells": 1720,
+          "completed_hours": 14,
+          "sampled_rows": 3216,
+          "eligible_region_count": 23,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "12m",
+          "feature_cells": 1414,
+          "completed_hours": 14,
+          "sampled_rows": 2288,
+          "eligible_region_count": 23,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "12m",
+          "feature_cells": 1377,
+          "completed_hours": 14,
+          "sampled_rows": 3060,
+          "eligible_region_count": 23,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "12m",
+          "feature_cells": 1302,
+          "completed_hours": 14,
+          "sampled_rows": 5652,
+          "eligible_region_count": 23,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "IN",
+          "band": "12m",
+          "feature_cells": 1074,
+          "completed_hours": 14,
+          "sampled_rows": 4805,
+          "eligible_region_count": 23,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "CN",
+          "band": "12m",
+          "feature_cells": 1047,
+          "completed_hours": 14,
+          "sampled_rows": 2576,
+          "eligible_region_count": 23,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "12m",
+          "feature_cells": 812,
+          "completed_hours": 14,
+          "sampled_rows": 1236,
+          "eligible_region_count": 23,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "origin",
+          "region": "JO",
+          "band": "10m",
+          "feature_cells": 7753,
+          "completed_hours": 14,
+          "sampled_rows": 21577,
+          "eligible_region_count": 30,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "origin",
+          "region": "JN",
+          "band": "10m",
+          "feature_cells": 6226,
+          "completed_hours": 14,
+          "sampled_rows": 13642,
+          "eligible_region_count": 30,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "origin",
+          "region": "EN",
+          "band": "10m",
+          "feature_cells": 4998,
+          "completed_hours": 14,
+          "sampled_rows": 9836,
+          "eligible_region_count": 30,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "origin",
+          "region": "IO",
+          "band": "10m",
+          "feature_cells": 4537,
+          "completed_hours": 14,
+          "sampled_rows": 11812,
+          "eligible_region_count": 30,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "origin",
+          "region": "DM",
+          "band": "10m",
+          "feature_cells": 3953,
+          "completed_hours": 14,
+          "sampled_rows": 8857,
+          "eligible_region_count": 30,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "origin",
+          "region": "EM",
+          "band": "10m",
+          "feature_cells": 3827,
+          "completed_hours": 14,
+          "sampled_rows": 7477,
+          "eligible_region_count": 30,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "origin",
+          "region": "FN",
+          "band": "10m",
+          "feature_cells": 2615,
+          "completed_hours": 14,
+          "sampled_rows": 4269,
+          "eligible_region_count": 30,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "origin",
+          "region": "DN",
+          "band": "10m",
+          "feature_cells": 2060,
+          "completed_hours": 14,
+          "sampled_rows": 7462,
+          "eligible_region_count": 30,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "origin",
+          "region": "IN",
+          "band": "10m",
+          "feature_cells": 2016,
+          "completed_hours": 14,
+          "sampled_rows": 11539,
+          "eligible_region_count": 30,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "origin",
+          "region": "CM",
+          "band": "10m",
+          "feature_cells": 1984,
+          "completed_hours": 14,
+          "sampled_rows": 4163,
+          "eligible_region_count": 30,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "origin",
+          "region": "FM",
+          "band": "10m",
+          "feature_cells": 1835,
+          "completed_hours": 14,
+          "sampled_rows": 3424,
+          "eligible_region_count": 30,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "origin",
+          "region": "CN",
+          "band": "10m",
+          "feature_cells": 1615,
+          "completed_hours": 14,
+          "sampled_rows": 3201,
+          "eligible_region_count": 30,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "160m",
+          "feature_cells": 1226,
+          "completed_hours": 14,
+          "sampled_rows": 6346,
+          "eligible_region_count": 14,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "160m",
+          "feature_cells": 904,
+          "completed_hours": 14,
+          "sampled_rows": 3398,
+          "eligible_region_count": 14,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "160m",
+          "feature_cells": 673,
+          "completed_hours": 12,
+          "sampled_rows": 3022,
+          "eligible_region_count": 14,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "160m",
+          "feature_cells": 632,
+          "completed_hours": 13,
+          "sampled_rows": 2848,
+          "eligible_region_count": 14,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "160m",
+          "feature_cells": 615,
+          "completed_hours": 14,
+          "sampled_rows": 2118,
+          "eligible_region_count": 14,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "160m",
+          "feature_cells": 574,
+          "completed_hours": 14,
+          "sampled_rows": 2576,
+          "eligible_region_count": 14,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "160m",
+          "feature_cells": 374,
+          "completed_hours": 14,
+          "sampled_rows": 1292,
+          "eligible_region_count": 14,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "160m",
+          "feature_cells": 321,
+          "completed_hours": 14,
+          "sampled_rows": 1321,
+          "eligible_region_count": 14,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "160m",
+          "feature_cells": 319,
+          "completed_hours": 11,
+          "sampled_rows": 1171,
+          "eligible_region_count": 14,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "PF",
+          "band": "160m",
+          "feature_cells": 277,
+          "completed_hours": 13,
+          "sampled_rows": 822,
+          "eligible_region_count": 14,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "QF",
+          "band": "160m",
+          "feature_cells": 243,
+          "completed_hours": 14,
+          "sampled_rows": 720,
+          "eligible_region_count": 14,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "160m",
+          "feature_cells": 215,
+          "completed_hours": 14,
+          "sampled_rows": 636,
+          "eligible_region_count": 14,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "80m",
+          "feature_cells": 6542,
+          "completed_hours": 14,
+          "sampled_rows": 32243,
+          "eligible_region_count": 23,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "80m",
+          "feature_cells": 6331,
+          "completed_hours": 14,
+          "sampled_rows": 24719,
+          "eligible_region_count": 23,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "80m",
+          "feature_cells": 5834,
+          "completed_hours": 14,
+          "sampled_rows": 25983,
+          "eligible_region_count": 23,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "80m",
+          "feature_cells": 5347,
+          "completed_hours": 14,
+          "sampled_rows": 15554,
+          "eligible_region_count": 23,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "80m",
+          "feature_cells": 5047,
+          "completed_hours": 14,
+          "sampled_rows": 24525,
+          "eligible_region_count": 23,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "80m",
+          "feature_cells": 3869,
+          "completed_hours": 14,
+          "sampled_rows": 17756,
+          "eligible_region_count": 23,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "80m",
+          "feature_cells": 3464,
+          "completed_hours": 14,
+          "sampled_rows": 12771,
+          "eligible_region_count": 23,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "80m",
+          "feature_cells": 3443,
+          "completed_hours": 14,
+          "sampled_rows": 13742,
+          "eligible_region_count": 23,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "80m",
+          "feature_cells": 3118,
+          "completed_hours": 14,
+          "sampled_rows": 13104,
+          "eligible_region_count": 23,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "80m",
+          "feature_cells": 2582,
+          "completed_hours": 14,
+          "sampled_rows": 18241,
+          "eligible_region_count": 23,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "80m",
+          "feature_cells": 1985,
+          "completed_hours": 14,
+          "sampled_rows": 6521,
+          "eligible_region_count": 23,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "DO",
+          "band": "80m",
+          "feature_cells": 1004,
+          "completed_hours": 14,
+          "sampled_rows": 2680,
+          "eligible_region_count": 23,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "60m",
+          "feature_cells": 1361,
+          "completed_hours": 14,
+          "sampled_rows": 5075,
+          "eligible_region_count": 12,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "60m",
+          "feature_cells": 1134,
+          "completed_hours": 14,
+          "sampled_rows": 5813,
+          "eligible_region_count": 12,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "60m",
+          "feature_cells": 936,
+          "completed_hours": 14,
+          "sampled_rows": 3622,
+          "eligible_region_count": 12,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "60m",
+          "feature_cells": 531,
+          "completed_hours": 14,
+          "sampled_rows": 2394,
+          "eligible_region_count": 12,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "60m",
+          "feature_cells": 487,
+          "completed_hours": 14,
+          "sampled_rows": 1946,
+          "eligible_region_count": 12,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "60m",
+          "feature_cells": 414,
+          "completed_hours": 14,
+          "sampled_rows": 1116,
+          "eligible_region_count": 12,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "60m",
+          "feature_cells": 253,
+          "completed_hours": 14,
+          "sampled_rows": 933,
+          "eligible_region_count": 12,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "60m",
+          "feature_cells": 179,
+          "completed_hours": 14,
+          "sampled_rows": 914,
+          "eligible_region_count": 12,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "60m",
+          "feature_cells": 179,
+          "completed_hours": 14,
+          "sampled_rows": 379,
+          "eligible_region_count": 12,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "60m",
+          "feature_cells": 170,
+          "completed_hours": 14,
+          "sampled_rows": 481,
+          "eligible_region_count": 12,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "60m",
+          "feature_cells": 161,
+          "completed_hours": 14,
+          "sampled_rows": 641,
+          "eligible_region_count": 12,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "DO",
+          "band": "60m",
+          "feature_cells": 120,
+          "completed_hours": 14,
+          "sampled_rows": 284,
+          "eligible_region_count": 12,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "40m",
+          "feature_cells": 25833,
+          "completed_hours": 14,
+          "sampled_rows": 150689,
+          "eligible_region_count": 44,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "40m",
+          "feature_cells": 22374,
+          "completed_hours": 14,
+          "sampled_rows": 180186,
+          "eligible_region_count": 44,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "40m",
+          "feature_cells": 22199,
+          "completed_hours": 14,
+          "sampled_rows": 74827,
+          "eligible_region_count": 44,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "40m",
+          "feature_cells": 18038,
+          "completed_hours": 14,
+          "sampled_rows": 91618,
+          "eligible_region_count": 44,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "40m",
+          "feature_cells": 16850,
+          "completed_hours": 14,
+          "sampled_rows": 85401,
+          "eligible_region_count": 44,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "40m",
+          "feature_cells": 14174,
+          "completed_hours": 14,
+          "sampled_rows": 56860,
+          "eligible_region_count": 44,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "40m",
+          "feature_cells": 11865,
+          "completed_hours": 14,
+          "sampled_rows": 71357,
+          "eligible_region_count": 44,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "40m",
+          "feature_cells": 11381,
+          "completed_hours": 14,
+          "sampled_rows": 64910,
+          "eligible_region_count": 44,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "40m",
+          "feature_cells": 8642,
+          "completed_hours": 14,
+          "sampled_rows": 48012,
+          "eligible_region_count": 44,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "40m",
+          "feature_cells": 7328,
+          "completed_hours": 14,
+          "sampled_rows": 35846,
+          "eligible_region_count": 44,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "40m",
+          "feature_cells": 5963,
+          "completed_hours": 14,
+          "sampled_rows": 55347,
+          "eligible_region_count": 44,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "DO",
+          "band": "40m",
+          "feature_cells": 4031,
+          "completed_hours": 14,
+          "sampled_rows": 15966,
+          "eligible_region_count": 44,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "30m",
+          "feature_cells": 17982,
+          "completed_hours": 14,
+          "sampled_rows": 97140,
+          "eligible_region_count": 37,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "30m",
+          "feature_cells": 16673,
+          "completed_hours": 14,
+          "sampled_rows": 122890,
+          "eligible_region_count": 37,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "30m",
+          "feature_cells": 14650,
+          "completed_hours": 14,
+          "sampled_rows": 49585,
+          "eligible_region_count": 37,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "30m",
+          "feature_cells": 13574,
+          "completed_hours": 14,
+          "sampled_rows": 66576,
+          "eligible_region_count": 37,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "30m",
+          "feature_cells": 11688,
+          "completed_hours": 14,
+          "sampled_rows": 58712,
+          "eligible_region_count": 37,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "30m",
+          "feature_cells": 11263,
+          "completed_hours": 14,
+          "sampled_rows": 65498,
+          "eligible_region_count": 37,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "30m",
+          "feature_cells": 10362,
+          "completed_hours": 14,
+          "sampled_rows": 37670,
+          "eligible_region_count": 37,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "30m",
+          "feature_cells": 7403,
+          "completed_hours": 14,
+          "sampled_rows": 31843,
+          "eligible_region_count": 37,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "30m",
+          "feature_cells": 7111,
+          "completed_hours": 14,
+          "sampled_rows": 33545,
+          "eligible_region_count": 37,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "30m",
+          "feature_cells": 6646,
+          "completed_hours": 14,
+          "sampled_rows": 27246,
+          "eligible_region_count": 37,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "30m",
+          "feature_cells": 4957,
+          "completed_hours": 14,
+          "sampled_rows": 35263,
+          "eligible_region_count": 37,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "DO",
+          "band": "30m",
+          "feature_cells": 3261,
+          "completed_hours": 14,
+          "sampled_rows": 10004,
+          "eligible_region_count": 37,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "20m",
+          "feature_cells": 38398,
+          "completed_hours": 14,
+          "sampled_rows": 196731,
+          "eligible_region_count": 53,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "20m",
+          "feature_cells": 31230,
+          "completed_hours": 14,
+          "sampled_rows": 224640,
+          "eligible_region_count": 53,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "20m",
+          "feature_cells": 29092,
+          "completed_hours": 14,
+          "sampled_rows": 98775,
+          "eligible_region_count": 53,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "20m",
+          "feature_cells": 22775,
+          "completed_hours": 14,
+          "sampled_rows": 112288,
+          "eligible_region_count": 53,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "20m",
+          "feature_cells": 22661,
+          "completed_hours": 14,
+          "sampled_rows": 108725,
+          "eligible_region_count": 53,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "20m",
+          "feature_cells": 20895,
+          "completed_hours": 14,
+          "sampled_rows": 110556,
+          "eligible_region_count": 53,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "20m",
+          "feature_cells": 16391,
+          "completed_hours": 14,
+          "sampled_rows": 57753,
+          "eligible_region_count": 53,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "20m",
+          "feature_cells": 13149,
+          "completed_hours": 14,
+          "sampled_rows": 51977,
+          "eligible_region_count": 53,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "20m",
+          "feature_cells": 10049,
+          "completed_hours": 14,
+          "sampled_rows": 45515,
+          "eligible_region_count": 53,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "20m",
+          "feature_cells": 8207,
+          "completed_hours": 14,
+          "sampled_rows": 26023,
+          "eligible_region_count": 53,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "KO",
+          "band": "20m",
+          "feature_cells": 8115,
+          "completed_hours": 14,
+          "sampled_rows": 25583,
+          "eligible_region_count": 53,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "20m",
+          "feature_cells": 7554,
+          "completed_hours": 14,
+          "sampled_rows": 40477,
+          "eligible_region_count": 53,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "17m",
+          "feature_cells": 10821,
+          "completed_hours": 14,
+          "sampled_rows": 24964,
+          "eligible_region_count": 37,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "17m",
+          "feature_cells": 10060,
+          "completed_hours": 14,
+          "sampled_rows": 38615,
+          "eligible_region_count": 37,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "17m",
+          "feature_cells": 7716,
+          "completed_hours": 14,
+          "sampled_rows": 24250,
+          "eligible_region_count": 37,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "17m",
+          "feature_cells": 6037,
+          "completed_hours": 14,
+          "sampled_rows": 16309,
+          "eligible_region_count": 37,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "17m",
+          "feature_cells": 5497,
+          "completed_hours": 14,
+          "sampled_rows": 12019,
+          "eligible_region_count": 37,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "17m",
+          "feature_cells": 4736,
+          "completed_hours": 14,
+          "sampled_rows": 13387,
+          "eligible_region_count": 37,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "17m",
+          "feature_cells": 4061,
+          "completed_hours": 14,
+          "sampled_rows": 9223,
+          "eligible_region_count": 37,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "17m",
+          "feature_cells": 3241,
+          "completed_hours": 14,
+          "sampled_rows": 10791,
+          "eligible_region_count": 37,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "17m",
+          "feature_cells": 3052,
+          "completed_hours": 14,
+          "sampled_rows": 6724,
+          "eligible_region_count": 37,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "17m",
+          "feature_cells": 2124,
+          "completed_hours": 14,
+          "sampled_rows": 7141,
+          "eligible_region_count": 37,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "17m",
+          "feature_cells": 1972,
+          "completed_hours": 14,
+          "sampled_rows": 3886,
+          "eligible_region_count": 37,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "DO",
+          "band": "17m",
+          "feature_cells": 1555,
+          "completed_hours": 14,
+          "sampled_rows": 3254,
+          "eligible_region_count": 37,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "15m",
+          "feature_cells": 12681,
+          "completed_hours": 14,
+          "sampled_rows": 48805,
+          "eligible_region_count": 35,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "15m",
+          "feature_cells": 12096,
+          "completed_hours": 14,
+          "sampled_rows": 31352,
+          "eligible_region_count": 35,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "15m",
+          "feature_cells": 6574,
+          "completed_hours": 14,
+          "sampled_rows": 17189,
+          "eligible_region_count": 35,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "15m",
+          "feature_cells": 6317,
+          "completed_hours": 14,
+          "sampled_rows": 18994,
+          "eligible_region_count": 35,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "15m",
+          "feature_cells": 6015,
+          "completed_hours": 14,
+          "sampled_rows": 14647,
+          "eligible_region_count": 35,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "15m",
+          "feature_cells": 5466,
+          "completed_hours": 14,
+          "sampled_rows": 16202,
+          "eligible_region_count": 35,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "15m",
+          "feature_cells": 4190,
+          "completed_hours": 14,
+          "sampled_rows": 9595,
+          "eligible_region_count": 35,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "15m",
+          "feature_cells": 3508,
+          "completed_hours": 14,
+          "sampled_rows": 10709,
+          "eligible_region_count": 35,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "15m",
+          "feature_cells": 3349,
+          "completed_hours": 14,
+          "sampled_rows": 7646,
+          "eligible_region_count": 35,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "15m",
+          "feature_cells": 2499,
+          "completed_hours": 14,
+          "sampled_rows": 6434,
+          "eligible_region_count": 35,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "DO",
+          "band": "15m",
+          "feature_cells": 1831,
+          "completed_hours": 14,
+          "sampled_rows": 3531,
+          "eligible_region_count": 35,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "15m",
+          "feature_cells": 1698,
+          "completed_hours": 14,
+          "sampled_rows": 3363,
+          "eligible_region_count": 35,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "12m",
+          "feature_cells": 3756,
+          "completed_hours": 14,
+          "sampled_rows": 10545,
+          "eligible_region_count": 22,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "12m",
+          "feature_cells": 3352,
+          "completed_hours": 14,
+          "sampled_rows": 6669,
+          "eligible_region_count": 22,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "12m",
+          "feature_cells": 2598,
+          "completed_hours": 14,
+          "sampled_rows": 6444,
+          "eligible_region_count": 22,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "12m",
+          "feature_cells": 2083,
+          "completed_hours": 13,
+          "sampled_rows": 4073,
+          "eligible_region_count": 22,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "12m",
+          "feature_cells": 1921,
+          "completed_hours": 14,
+          "sampled_rows": 3539,
+          "eligible_region_count": 22,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "12m",
+          "feature_cells": 1843,
+          "completed_hours": 14,
+          "sampled_rows": 4783,
+          "eligible_region_count": 22,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "12m",
+          "feature_cells": 1677,
+          "completed_hours": 14,
+          "sampled_rows": 3783,
+          "eligible_region_count": 22,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "12m",
+          "feature_cells": 1466,
+          "completed_hours": 14,
+          "sampled_rows": 4003,
+          "eligible_region_count": 22,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "12m",
+          "feature_cells": 1052,
+          "completed_hours": 14,
+          "sampled_rows": 2457,
+          "eligible_region_count": 22,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "12m",
+          "feature_cells": 835,
+          "completed_hours": 14,
+          "sampled_rows": 1375,
+          "eligible_region_count": 22,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "12m",
+          "feature_cells": 783,
+          "completed_hours": 14,
+          "sampled_rows": 1415,
+          "eligible_region_count": 22,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "IL",
+          "band": "12m",
+          "feature_cells": 435,
+          "completed_hours": 11,
+          "sampled_rows": 1830,
+          "eligible_region_count": 22,
+          "coverage_rank": 12
+        },
+        {
+          "dimension": "target",
+          "region": "JN",
+          "band": "10m",
+          "feature_cells": 9204,
+          "completed_hours": 14,
+          "sampled_rows": 32718,
+          "eligible_region_count": 31,
+          "coverage_rank": 1
+        },
+        {
+          "dimension": "target",
+          "region": "JO",
+          "band": "10m",
+          "feature_cells": 8670,
+          "completed_hours": 14,
+          "sampled_rows": 21671,
+          "eligible_region_count": 31,
+          "coverage_rank": 2
+        },
+        {
+          "dimension": "target",
+          "region": "IO",
+          "band": "10m",
+          "feature_cells": 5777,
+          "completed_hours": 14,
+          "sampled_rows": 15125,
+          "eligible_region_count": 31,
+          "coverage_rank": 3
+        },
+        {
+          "dimension": "target",
+          "region": "EM",
+          "band": "10m",
+          "feature_cells": 4062,
+          "completed_hours": 14,
+          "sampled_rows": 8279,
+          "eligible_region_count": 31,
+          "coverage_rank": 4
+        },
+        {
+          "dimension": "target",
+          "region": "DM",
+          "band": "10m",
+          "feature_cells": 3636,
+          "completed_hours": 14,
+          "sampled_rows": 7750,
+          "eligible_region_count": 31,
+          "coverage_rank": 5
+        },
+        {
+          "dimension": "target",
+          "region": "EN",
+          "band": "10m",
+          "feature_cells": 3568,
+          "completed_hours": 14,
+          "sampled_rows": 8759,
+          "eligible_region_count": 31,
+          "coverage_rank": 6
+        },
+        {
+          "dimension": "target",
+          "region": "FN",
+          "band": "10m",
+          "feature_cells": 3549,
+          "completed_hours": 14,
+          "sampled_rows": 7039,
+          "eligible_region_count": 31,
+          "coverage_rank": 7
+        },
+        {
+          "dimension": "target",
+          "region": "DN",
+          "band": "10m",
+          "feature_cells": 2193,
+          "completed_hours": 14,
+          "sampled_rows": 5899,
+          "eligible_region_count": 31,
+          "coverage_rank": 8
+        },
+        {
+          "dimension": "target",
+          "region": "CM",
+          "band": "10m",
+          "feature_cells": 1836,
+          "completed_hours": 14,
+          "sampled_rows": 3772,
+          "eligible_region_count": 31,
+          "coverage_rank": 9
+        },
+        {
+          "dimension": "target",
+          "region": "FM",
+          "band": "10m",
+          "feature_cells": 1716,
+          "completed_hours": 14,
+          "sampled_rows": 2926,
+          "eligible_region_count": 31,
+          "coverage_rank": 10
+        },
+        {
+          "dimension": "target",
+          "region": "IN",
+          "band": "10m",
+          "feature_cells": 1312,
+          "completed_hours": 13,
+          "sampled_rows": 3092,
+          "eligible_region_count": 31,
+          "coverage_rank": 11
+        },
+        {
+          "dimension": "target",
+          "region": "CN",
+          "band": "10m",
+          "feature_cells": 1207,
+          "completed_hours": 14,
+          "sampled_rows": 2066,
+          "eligible_region_count": 31,
+          "coverage_rank": 12
+        }
+      ],
+      "regional_summary": [
+        {
+          "dimension": "origin",
+          "band": "160m",
+          "eligible_region_count": 13,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "80m",
+          "eligible_region_count": 32,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "60m",
+          "eligible_region_count": 9,
+          "reported_region_count": 9
+        },
+        {
+          "dimension": "origin",
+          "band": "40m",
+          "eligible_region_count": 51,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "30m",
+          "eligible_region_count": 47,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "20m",
+          "eligible_region_count": 106,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "17m",
+          "eligible_region_count": 59,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "15m",
+          "eligible_region_count": 51,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "12m",
+          "eligible_region_count": 23,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "origin",
+          "band": "10m",
+          "eligible_region_count": 30,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "160m",
+          "eligible_region_count": 14,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "80m",
+          "eligible_region_count": 23,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "60m",
+          "eligible_region_count": 12,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "40m",
+          "eligible_region_count": 44,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "30m",
+          "eligible_region_count": 37,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "20m",
+          "eligible_region_count": 53,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "17m",
+          "eligible_region_count": 37,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "15m",
+          "eligible_region_count": 35,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "12m",
+          "eligible_region_count": 22,
+          "reported_region_count": 12
+        },
+        {
+          "dimension": "target",
+          "band": "10m",
+          "eligible_region_count": 31,
+          "reported_region_count": 12
+        }
+      ],
+      "regional_suppression": {
+        "minimum_completed_hours": 6,
+        "minimum_feature_cells": 100,
+        "maximum_reported_per_band_and_direction": 12,
+        "grid": "Maidenhead field (2 characters)"
+      }
+    },
+    "drift": {
+      "sample_sufficient": false,
+      "period_hours": 168,
+      "early_start": null,
+      "early_end_exclusive": null,
+      "late_start": null,
+      "late_end_inclusive": null,
+      "early_feature_cells": null,
+      "late_feature_cells": null,
+      "late_to_early_volume_ratio": null,
+      "band_jsd": null,
+      "utc_hour_jsd": null,
+      "distance_jsd": null,
+      "thresholds": {
+        "maximum_distribution_jsd": 0.2,
+        "minimum_volume_ratio": 0.5,
+        "maximum_volume_ratio": 2.0
+      }
+    },
+    "execution": {
+      "query_seconds": {
+        "hourly": 3.115192792000016,
+        "regions": 5.283999458013568,
+        "distance": 16.32215249998262
+      },
+      "database_engine": "PostgreSQL",
+      "query_chunk_hours": 24,
+      "query_chunk_count": 1,
+      "maximum_chunk_seconds": {
+        "hourly": 3.115192792000016,
+        "regions": 5.283999458013568,
+        "distance": 16.32215249998262
+      },
+      "server_identifier_recorded": false
+    },
+    "privacy": {
+      "source_tables": [
+        "public.wspr_feature_watermarks",
+        "public.wspr_path_hourly_features"
+      ],
+      "raw_observation_table_read": false,
+      "station_identity_written": false,
+      "grid4_written": false,
+      "equipment_written": false,
+      "locked_outcomes_read": false
+    },
+    "gates": {
+      "native_m5_validation": true,
+      "window_spans_720_hours": false,
+      "all_band_completion_at_least_99_percent": true,
+      "all_ten_hf_bands_observed": true,
+      "all_24_utc_hours_observed": false,
+      "window_bound_to_signed_scheduled_receipts": true,
+      "database_queries_bounded_to_24_hours": true,
+      "early_late_drift_sample_sufficient": false,
+      "aggregate_source_distribution_stable": false,
+      "region_output_k_suppressed": true,
+      "only_private_aggregate_feature_tables_read": true,
+      "station_identity_absent": true,
+      "grid4_output_absent": true,
+      "equipment_output_absent": true,
+      "locked_outcomes_unread": true
+    },
+    "limitations": [
+      "The audit window is checksum-bound to signed scheduled receipts; manual feature-store hours are excluded.",
+      "Coverage measures what the reporting receiver network observed; it is not uniform geographic sampling.",
+      "Source-volume drift is an operational data gate, not a propagation or model-accuracy comparison.",
+      "Regional rows are broad field-level aggregates and are suppressed below the preregistered cell and duration thresholds."
+    ]
+  },
+  "prospective_capture": {
+    "schema_version": 1,
+    "generated_at": "2026-07-16T17:32:00.377873+00:00",
+    "host_role": "M5 prospective capture",
+    "architecture": "arm64",
+    "schedule": {
+      "source_poll_seconds": {
+        "pskreporter": 300,
+        "rbn": 300,
+        "dxcluster": 120
+      },
+      "aggregation_poll_seconds": 300,
+      "aggregation_settle_minutes": 20,
+      "health_minutes": [
+        2,
+        17,
+        32,
+        47
+      ]
+    },
+    "prospective_window": {
+      "start": "2026-08-01",
+      "end": "2026-09-30",
+      "outcomes_read": false
+    },
+    "source_state": {
+      "pskreporter": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T17:27:39.856332+00:00",
+        "last_success_at": "2026-07-16T17:27:39.856332+00:00",
+        "attempt_age_seconds": 260.521541,
+        "success_age_seconds": 260.521541,
+        "rows_last_run": 2735,
+        "duration_ms": 2744,
+        "error_present": false,
+        "latest_spotted_at": "2026-07-16T17:27:30+00:00",
+        "latest_ingested_at": "2026-07-16T17:27:38.16976+00:00",
+        "latest_available_at": "2026-07-16T17:27:38.16976+00:00",
+        "latest_spot_age_seconds": 270.377873
+      },
+      "rbn": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T17:27:42.751639+00:00",
+        "last_success_at": "2026-07-16T17:27:42.751639+00:00",
+        "attempt_age_seconds": 257.626234,
+        "success_age_seconds": 257.626234,
+        "rows_last_run": 16277,
+        "duration_ms": 5641,
+        "error_present": false,
+        "latest_spotted_at": "2026-07-16T17:27:30+00:00",
+        "latest_ingested_at": "2026-07-16T17:27:37.91078+00:00",
+        "latest_available_at": "2026-07-16T17:27:37.91078+00:00",
+        "latest_spot_age_seconds": 270.377873
+      },
+      "dxcluster": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T17:31:38.30742+00:00",
+        "last_success_at": "2026-07-16T17:31:38.30742+00:00",
+        "attempt_age_seconds": 22.070453,
+        "success_age_seconds": 22.070453,
+        "rows_last_run": 126,
+        "duration_ms": 816,
+        "error_present": false,
+        "latest_spotted_at": "2026-07-16T17:31:00+00:00",
+        "latest_ingested_at": "2026-07-16T17:31:38.068915+00:00",
+        "latest_available_at": "2026-07-16T17:31:38.068915+00:00",
+        "latest_spot_age_seconds": 60.377873
+      },
+      "solar": {
+        "status": "ok",
+        "last_attempt_at": "2026-07-16T17:27:37.44154+00:00",
+        "last_success_at": "2026-07-16T17:27:37.44154+00:00",
+        "success_age_seconds": 262.936333,
+        "rows_last_run": 1,
+        "duration_ms": 328,
+        "error_present": false,
+        "latest_captured_at": "2026-07-16T17:27:37.141+00:00",
+        "capture_age_seconds": 263.236873,
+        "source_observed_at": {
+          "kp": "2026-07-16T17:24:00.000Z",
+          "magnetic_field": "2026-07-16T17:22:00.000Z",
+          "solar_wind": "2026-07-16T17:22:00.000Z",
+          "proton_flux_10mev": "2026-07-16T17:15:00.000Z",
+          "dst": "2026-07-16T16:00:00.000Z"
+        },
+        "source_age_seconds": {
+          "kp": 480.377873,
+          "magnetic_field": 600.377873,
+          "solar_wind": 600.377873,
+          "proton_flux_10mev": 1020.377873,
+          "dst": 5520.377873
+        },
+        "source_current": {
+          "kp": true,
+          "magnetic_field": true,
+          "solar_wind": true,
+          "proton_flux_10mev": false,
+          "dst": true
+        },
+        "required_sources": [
+          "kp",
+          "magnetic_field",
+          "solar_wind",
+          "dst"
+        ]
+      }
+    },
+    "aggregation_state": {
+      "band_hourly": {
+        "hour_utc": "2026-07-16T16:00:00+00:00",
+        "rows_written": 9,
+        "available_at": "2026-07-16T17:22:38.583064+00:00",
+        "hour_age_seconds": 5520.377873,
+        "watermark_last": true
+      },
+      "path_hourly": {
+        "hour_utc": "2026-07-16T16:00:00+00:00",
+        "rows_written": 2678,
+        "available_at": "2026-07-16T17:22:38.368595+00:00",
+        "hour_age_seconds": 5520.377873,
+        "watermark_last": true
+      }
+    },
+    "open_outage_sources": [],
+    "query_error_type": null,
+    "operational_healthy": true,
+    "instant_healthy": true,
+    "continuity": {
+      "hours": 5.9986222611111115,
+      "healthy_receipts": 28,
+      "maximum_allowed_gap_seconds": 1800,
+      "tail_has_no_gap": true,
+      "minimum_hours": 24.0
+    },
+    "gates": {
+      "native_arm64": true,
+      "collector_launchd_running": true,
+      "target_queries_succeeded": true,
+      "pskreporter_current": true,
+      "rbn_current": true,
+      "dxcluster_current": true,
+      "solar_weather_current": true,
+      "band_hourly_current": true,
+      "path_hourly_current": true,
+      "no_open_outages": true,
+      "identity_free_receipt": true,
+      "prospective_outcomes_unread": true,
+      "minimum_continuity_reached": false
+    },
+    "prospective_capture_ready": false,
+    "privacy": {
+      "callsigns_or_grids_in_receipt": false,
+      "user_station_data_collected": false,
+      "raw_upstream_rows_redistributed": false
+    }
+  },
+  "datasets": {
+    "summary": [
+      {
+        "exact_differences": 0,
+        "opportunity_cells": 88466,
+        "lag_cells": 78478,
+        "transform_wall_seconds": 2.1766207089967793,
+        "replay_hours": 48,
+        "replay_spots": 12245675,
+        "replay_opportunity_cells": 3628293,
+        "replay_path_cells": 3218610,
+        "receipt_scenarios": 2,
+        "receipt_rows": 20059,
+        "lag_lookup_cases": 2,
+        "lag_lookup_targets": 128,
+        "lag_availability_mismatches": 0,
+        "lag_maximum_rate_difference": 0.0,
+        "path_p95_ms": 3.3913749939529225,
+        "surface_p95_ms": 10.589041994535364,
+        "visible_cpus": 18,
+        "foundation_gates_passed": 14,
+        "foundation_gates_total": 14,
+        "replay_gates_passed": 15,
+        "replay_gates_total": 15,
+        "migration_gates_passed": 22,
+        "migration_gates_total": 22,
+        "deployment_gates_passed": 15,
+        "deployment_gates_total": 15,
+        "research_health_rollback_gates_passed": 20,
+        "research_health_rollback_gates_total": 20,
+        "research_health_deployment_gates_passed": 21,
+        "research_health_deployment_gates_total": 21,
+        "research_health_endpoint_gates_passed": 8,
+        "research_health_endpoint_gates_total": 8,
+        "research_health_monitor_rollback_gates_passed": 17,
+        "research_health_monitor_rollback_gates_total": 17,
+        "research_health_monitor_deployment_gates_passed": 18,
+        "research_health_monitor_deployment_gates_total": 18,
+        "research_health_external_monitor_gates_passed": 14,
+        "research_health_external_monitor_gates_total": 14,
+        "research_health_external_monitor_age_seconds": 2035,
+        "research_health_external_monitor_event": "schedule",
+        "research_health_hardening_rollback_gates_passed": 18,
+        "research_health_hardening_rollback_gates_total": 18,
+        "research_health_hardening_deployment_gates_passed": 19,
+        "research_health_hardening_deployment_gates_total": 19,
+        "incident_stale_age_seconds": 10227,
+        "incident_recovery_age_seconds": 25,
+        "incident_issue_number": 10,
+        "incident_stale_run_id": 29494058601,
+        "incident_recovery_run_id": 29497729210,
+        "incident_gates_passed": 9,
+        "incident_gates_total": 9,
+        "research_participation_rollback_gates_passed": 13,
+        "research_participation_rollback_gates_total": 13,
+        "research_participation_deployment_gates_passed": 14,
+        "research_participation_deployment_gates_total": 14,
+        "weather_gates_passed": 14,
+        "weather_gates_total": 14,
+        "weather_feature_count": 14,
+        "weather_path_p95_ms": 2.906167006585747,
+        "orchestration_gates_passed": 10,
+        "orchestration_gates_total": 10,
+        "orchestration_threads": 18,
+        "connector_gates_passed": 8,
+        "connector_gates_total": 8,
+        "connector_rows": 287694,
+        "connector_requests": 1,
+        "connector_peak_rss_mib": 57.625,
+        "live_hour_gates_passed": 10,
+        "live_hour_gates_total": 10,
+        "live_hour_feature_cells": 75055,
+        "schedule_gates_passed": 34,
+        "schedule_gates_total": 34,
+        "schedule_source_rows": 207554,
+        "schedule_feature_cells": 66616,
+        "schedule_continuous_hours": 14,
+        "schedule_connector_seconds": 109.06827,
+        "schedule_finalizer_seconds": 114.606367,
+        "schedule_finalizer_workers": 2,
+        "schedule_threads_per_band": 9,
+        "schedule_peak_rss_mib": 95.031,
+        "schedule_target_hour": "2026-07-16T16:00:00+00:00",
+        "shadow_completed_hours": 14,
+        "shadow_required_hours": 720,
+        "shadow_completion_rate_percent": 100.0,
+        "shadow_missing_hours": 0,
+        "shadow_source_records": 3295875,
+        "shadow_feature_cells": 933688,
+        "coverage_expected_hours": 14,
+        "coverage_completed_hours": 14,
+        "coverage_missing_hours": 0,
+        "coverage_feature_cells": 933688,
+        "coverage_sampled_rows": 3882189,
+        "coverage_utc_hours": 14,
+        "coverage_distance_buckets": 5,
+        "coverage_reported_regions": 237,
+        "coverage_drift_sample_sufficient": false,
+        "prospective_sources_current": 4,
+        "prospective_sources_required": 4,
+        "prospective_continuity_hours": 5.9986222611111115,
+        "prospective_continuity_required_hours": 24.0,
+        "prospective_capture_ready": false
+      }
+    ],
+    "parity_rows": [
+      {
+        "month_and_cell": "2024-10 Opportunity cells",
+        "implementation": "Historical builder",
+        "cells": 1803699
+      },
+      {
+        "month_and_cell": "2024-10 Opportunity cells",
+        "implementation": "Shared live transform",
+        "cells": 1803699
+      },
+      {
+        "month_and_cell": "2024-10 Path-hour lag cells",
+        "implementation": "Historical builder",
+        "cells": 1601123
+      },
+      {
+        "month_and_cell": "2024-10 Path-hour lag cells",
+        "implementation": "Shared live transform",
+        "cells": 1601123
+      },
+      {
+        "month_and_cell": "2024-11 Opportunity cells",
+        "implementation": "Historical builder",
+        "cells": 1824594
+      },
+      {
+        "month_and_cell": "2024-11 Opportunity cells",
+        "implementation": "Shared live transform",
+        "cells": 1824594
+      },
+      {
+        "month_and_cell": "2024-11 Path-hour lag cells",
+        "implementation": "Historical builder",
+        "cells": 1617487
+      },
+      {
+        "month_and_cell": "2024-11 Path-hour lag cells",
+        "implementation": "Shared live transform",
+        "cells": 1617487
+      }
+    ],
+    "flow_rows": [
+      {
+        "stage": "Open-month input spots",
+        "rows": 12245675
+      },
+      {
+        "stage": "Opportunity cells",
+        "rows": 3628293
+      },
+      {
+        "stage": "Power-aggregated lag cells",
+        "rows": 3218610
+      }
+    ],
+    "receipt_rows": [
+      {
+        "month": "2024-10",
+        "version": "First +5 minute snapshot",
+        "observations": 9053
+      },
+      {
+        "month": "2024-10",
+        "version": "Corrected +15 minute snapshot",
+        "observations": 10059
+      },
+      {
+        "month": "2024-11",
+        "version": "First +5 minute snapshot",
+        "observations": 9000
+      },
+      {
+        "month": "2024-11",
+        "version": "Corrected +15 minute snapshot",
+        "observations": 10000
+      }
+    ],
+    "latency_rows": [
+      {
+        "request": "Single path",
+        "p95_ms": 3.3913749939529225,
+        "limit_ms": 50
+      },
+      {
+        "request": "288-cell surface",
+        "p95_ms": 10.589041994535364,
+        "limit_ms": 3000
+      }
+    ],
+    "source_band_rows": [
+      {
+        "band": "10m",
+        "observations": 6176
+      },
+      {
+        "band": "12m",
+        "observations": 3339
+      },
+      {
+        "band": "15m",
+        "observations": 13385
+      },
+      {
+        "band": "160m",
+        "observations": 5072
+      },
+      {
+        "band": "17m",
+        "observations": 12740
+      },
+      {
+        "band": "20m",
+        "observations": 85869
+      },
+      {
+        "band": "30m",
+        "observations": 52009
+      },
+      {
+        "band": "40m",
+        "observations": 78583
+      },
+      {
+        "band": "60m",
+        "observations": 3831
+      },
+      {
+        "band": "80m",
+        "observations": 26690
+      }
+    ],
+    "schedule_band_rows": [
+      {
+        "band": "10m",
+        "observations": 7387
+      },
+      {
+        "band": "12m",
+        "observations": 3441
+      },
+      {
+        "band": "15m",
+        "observations": 13548
+      },
+      {
+        "band": "160m",
+        "observations": 735
+      },
+      {
+        "band": "17m",
+        "observations": 13302
+      },
+      {
+        "band": "20m",
+        "observations": 78660
+      },
+      {
+        "band": "30m",
+        "observations": 36247
+      },
+      {
+        "band": "40m",
+        "observations": 48354
+      },
+      {
+        "band": "60m",
+        "observations": 793
+      },
+      {
+        "band": "80m",
+        "observations": 5087
+      }
+    ],
+    "schedule_stage_rows": [
+      {
+        "stage": "Source observations",
+        "count": 207554
+      },
+      {
+        "stage": "Path-hour feature cells",
+        "count": 66616
+      }
+    ],
+    "shadow_progress_rows": [
+      {
+        "window": "30-day receipt shadow",
+        "state": "Completed",
+        "hours": 14
+      },
+      {
+        "window": "30-day receipt shadow",
+        "state": "Remaining",
+        "hours": 706
+      }
+    ],
+    "coverage_band_rows": [
+      {
+        "band": "160m",
+        "feature_cells": 7061,
+        "sampled_rows": 28077,
+        "completed_hours": 14
+      },
+      {
+        "band": "80m",
+        "feature_cells": 53493,
+        "sampled_rows": 218801,
+        "completed_hours": 14
+      },
+      {
+        "band": "60m",
+        "feature_cells": 6357,
+        "sampled_rows": 24710,
+        "completed_hours": 14
+      },
+      {
+        "band": "40m",
+        "feature_cells": 202517,
+        "sampled_rows": 1032150,
+        "completed_hours": 14
+      },
+      {
+        "band": "30m",
+        "feature_cells": 149951,
+        "sampled_rows": 707544,
+        "completed_hours": 14
+      },
+      {
+        "band": "20m",
+        "feature_cells": 284747,
+        "sampled_rows": 1267377,
+        "completed_hours": 14
+      },
+      {
+        "band": "17m",
+        "feature_cells": 72038,
+        "sampled_rows": 194590,
+        "completed_hours": 14
+      },
+      {
+        "band": "15m",
+        "feature_cells": 79356,
+        "sampled_rows": 219207,
+        "completed_hours": 14
+      },
+      {
+        "band": "12m",
+        "feature_cells": 24418,
+        "sampled_rows": 55212,
+        "completed_hours": 14
+      },
+      {
+        "band": "10m",
+        "feature_cells": 53750,
+        "sampled_rows": 134521,
+        "completed_hours": 14
+      }
+    ],
+    "coverage_utc_hour_rows": [
+      {
+        "utc_hour": "03:00",
+        "feature_cells": 69980,
+        "sampled_rows": 300286,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "04:00",
+        "feature_cells": 67829,
+        "sampled_rows": 294118,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "05:00",
+        "feature_cells": 69276,
+        "sampled_rows": 296153,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "06:00",
+        "feature_cells": 68749,
+        "sampled_rows": 292216,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "07:00",
+        "feature_cells": 69328,
+        "sampled_rows": 309892,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "08:00",
+        "feature_cells": 66793,
+        "sampled_rows": 293962,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "09:00",
+        "feature_cells": 58896,
+        "sampled_rows": 261369,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "10:00",
+        "feature_cells": 58546,
+        "sampled_rows": 257846,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "11:00",
+        "feature_cells": 60923,
+        "sampled_rows": 256399,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "12:00",
+        "feature_cells": 65735,
+        "sampled_rows": 255447,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "13:00",
+        "feature_cells": 68923,
+        "sampled_rows": 268985,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "14:00",
+        "feature_cells": 71404,
+        "sampled_rows": 277381,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "15:00",
+        "feature_cells": 70690,
+        "sampled_rows": 266787,
+        "completed_band_hours": 10
+      },
+      {
+        "utc_hour": "16:00",
+        "feature_cells": 66616,
+        "sampled_rows": 251348,
+        "completed_band_hours": 10
+      }
+    ],
+    "coverage_distance_rows": [
+      {
+        "distance_bucket": "<1,000 km",
+        "feature_cells": 204884,
+        "sampled_rows": 1344723
+      },
+      {
+        "distance_bucket": "1,000-3,000 km",
+        "feature_cells": 313498,
+        "sampled_rows": 1644673
+      },
+      {
+        "distance_bucket": "3,000-6,000 km",
+        "feature_cells": 109343,
+        "sampled_rows": 373893
+      },
+      {
+        "distance_bucket": "6,000-10,000 km",
+        "feature_cells": 208874,
+        "sampled_rows": 339986
+      },
+      {
+        "distance_bucket": "10,000+ km",
+        "feature_cells": 97089,
+        "sampled_rows": 178914
+      }
+    ],
+    "coverage_region_rows": [
+      {
+        "band": "160m",
+        "direction": "Origin",
+        "eligible_regions": 13,
+        "reported_regions": 12
+      },
+      {
+        "band": "80m",
+        "direction": "Origin",
+        "eligible_regions": 32,
+        "reported_regions": 12
+      },
+      {
+        "band": "60m",
+        "direction": "Origin",
+        "eligible_regions": 9,
+        "reported_regions": 9
+      },
+      {
+        "band": "40m",
+        "direction": "Origin",
+        "eligible_regions": 51,
+        "reported_regions": 12
+      },
+      {
+        "band": "30m",
+        "direction": "Origin",
+        "eligible_regions": 47,
+        "reported_regions": 12
+      },
+      {
+        "band": "20m",
+        "direction": "Origin",
+        "eligible_regions": 106,
+        "reported_regions": 12
+      },
+      {
+        "band": "17m",
+        "direction": "Origin",
+        "eligible_regions": 59,
+        "reported_regions": 12
+      },
+      {
+        "band": "15m",
+        "direction": "Origin",
+        "eligible_regions": 51,
+        "reported_regions": 12
+      },
+      {
+        "band": "12m",
+        "direction": "Origin",
+        "eligible_regions": 23,
+        "reported_regions": 12
+      },
+      {
+        "band": "10m",
+        "direction": "Origin",
+        "eligible_regions": 30,
+        "reported_regions": 12
+      },
+      {
+        "band": "160m",
+        "direction": "Target",
+        "eligible_regions": 14,
+        "reported_regions": 12
+      },
+      {
+        "band": "80m",
+        "direction": "Target",
+        "eligible_regions": 23,
+        "reported_regions": 12
+      },
+      {
+        "band": "60m",
+        "direction": "Target",
+        "eligible_regions": 12,
+        "reported_regions": 12
+      },
+      {
+        "band": "40m",
+        "direction": "Target",
+        "eligible_regions": 44,
+        "reported_regions": 12
+      },
+      {
+        "band": "30m",
+        "direction": "Target",
+        "eligible_regions": 37,
+        "reported_regions": 12
+      },
+      {
+        "band": "20m",
+        "direction": "Target",
+        "eligible_regions": 53,
+        "reported_regions": 12
+      },
+      {
+        "band": "17m",
+        "direction": "Target",
+        "eligible_regions": 37,
+        "reported_regions": 12
+      },
+      {
+        "band": "15m",
+        "direction": "Target",
+        "eligible_regions": 35,
+        "reported_regions": 12
+      },
+      {
+        "band": "12m",
+        "direction": "Target",
+        "eligible_regions": 22,
+        "reported_regions": 12
+      },
+      {
+        "band": "10m",
+        "direction": "Target",
+        "eligible_regions": 31,
+        "reported_regions": 12
+      }
+    ],
+    "prospective_progress_rows": [
+      {
+        "window": "First-party capture preflight",
+        "state": "Continuous healthy evidence",
+        "hours": 5.9986222611111115
+      },
+      {
+        "window": "First-party capture preflight",
+        "state": "Remaining",
+        "hours": 18.001377738888888
+      }
+    ],
+    "incident_age_rows": [
+      {
+        "state": "Stale monitor run",
+        "heartbeat_age_seconds": 10227
+      },
+      {
+        "state": "Genuine recovery run",
+        "heartbeat_age_seconds": 25
+      }
+    ],
+    "gate_rows": [
+      {
+        "scope": "Foundation",
+        "gate": "open hour transform exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "real bundle loaded",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "client freshness forgery blocked",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "surface forgery blocked",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "server provider unavailable by default",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "serving thread contract",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "telemetry identity free",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "path latency",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "surface latency",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "rolling observation rls",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "sparse feature export revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "lookup service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "four atomic watermarks",
+        "status": "pass"
+      },
+      {
+        "scope": "Foundation",
+        "gate": "minimum rolling retention",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "two open months replayed",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "twenty four utc strata per month",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "event time transform exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "receipt time final parity",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "duplicates idempotent",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "late correction versioned",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "watermark committed last",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "degraded hour flagged",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "bounded lateness and future rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "four lag availability exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "four lag values exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "batch single lookup identical",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "lookup timestamps causal",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "m5 parallel contract",
+        "status": "pass"
+      },
+      {
+        "scope": "Multi-hour replay",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "pending prerequisite migrations executed",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite tables created",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite row level security enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite public read grants present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite user policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "prerequisite functions service only",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "collector availability backfill complete",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "solar provenance columns present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "migration sql executed",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "private tables created",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "row level security enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "public privileges revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "service role privileges present",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "four lag lookup exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "missing watermark returns empty",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "complete watermark constraint enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "thirty hour pruning exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "minimum retention guard enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "rollback restored original object state",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "persistent changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Target PostgreSQL rollback",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "six expected migration versions present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "all release tables present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "all release tables rls enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "intended public read grants present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "private wspr public access revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "private wspr service access present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "user scoped policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "service functions restricted",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "security definer search paths locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "collector availability backfill complete",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "solar provenance columns present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "deployed four lag rpc exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "smoke transaction rolled back",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "migration sql executed",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "private relations created",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "row level security enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "browser privileges revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "service role privileges present",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "security definer search path locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "function service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "identity free schema",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "initial healthy does not alert",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "equal timestamp replay rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "alert transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "recovery transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "transition outbox exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "latest aggregate exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "invalid counter rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "rollback restored original object state",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "persistent changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health rollback",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "migration sql executed or deployed",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "private relations created",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "row level security enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "browser privileges revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "service role privileges present",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "security definer search path locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "function service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "identity free schema",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "initial healthy does not alert",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "equal timestamp replay rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "alert transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "recovery transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "transition outbox exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "latest aggregate exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "invalid counter rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "deployment ledger exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "rollback restored original object state",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "persistent changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health deployment",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "signed heartbeat accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "stored aggregate exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "alert outbox has no failed delivery",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "coarse view remains disabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "private access boundary verified",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Private health endpoint",
+        "gate": "identity free evidence",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "migration sql executed or deployed",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "monitor function created",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "security definer search path locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "function service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "stale heartbeat detected",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "source heartbeat timestamp preserved",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "single stale alert recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "repeated monitor is idempotent",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "genuine heartbeat records recovery",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "fresh heartbeat does not alert",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "missing heartbeat fails closed",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "invalid stale boundary rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "rollback restored original object state",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "persistent changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor rollback",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "migration sql executed or deployed",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "monitor function created",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "security definer search path locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "function service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "stale heartbeat detected",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "source heartbeat timestamp preserved",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "single stale alert recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "repeated monitor is idempotent",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "genuine heartbeat records recovery",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "fresh heartbeat does not alert",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "missing heartbeat fails closed",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "invalid stale boundary rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "deployment ledger exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "rollback restored original object state",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "persistent changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 monitor deployment",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "github workflow concluded success",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "github run url exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "immutable head sha recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "default branch invocation",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "fresh heartbeat evaluated",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "heartbeat not stale",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "no unexpected state transition",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "no failed or exhausted delivery",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "independent schedule configured",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "release workflow push trigger removed",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "public view remains disabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "native m5 evidence validation",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Off-M5 external invocation",
+        "gate": "identity free evidence",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "migration sql executed or deployed",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "security definer search paths locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "claim and complete service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "initial alert recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "event id collision rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "collision rolls back health state",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "duplicate alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "unsupported alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "upper counter rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "direct invalid alert rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "direct counter overflow rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "single active lease enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "stale lease token rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "success completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "recovery transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "failure claim exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "failure completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening rollback",
+        "gate": "failed delivery remains retryable",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "migration sql executed or deployed",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "security definer search paths locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "claim and complete service role only",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "initial alert recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "event id collision rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "collision rolls back health state",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "duplicate alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "unsupported alert name rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "upper counter rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "direct invalid alert rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "direct counter overflow rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "single active lease enforced",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "stale lease token rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "success completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "recovery transition recorded",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "failure claim exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "failure completion exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "failed delivery remains retryable",
+        "status": "pass"
+      },
+      {
+        "scope": "Health outbox hardening deployment",
+        "gate": "deployment ledger exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "stale run failed closed",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "stale age exceeded boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "single durable incident",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "incident opened by stale run",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "issue template identity free",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "recovery run succeeded",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "genuine recovery comment exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "recovery age inside boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Live stale and recovery incident",
+        "gate": "incident closed by recovery run",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "retention acknowledgement column present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "allowed uses constraint validated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "allowed uses are strictly enumerated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "one attempt per signed prediction",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "exact user read delete policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "browser insert update revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "service role write boundary present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "research tables rls enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "rollback restored original boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "persistent test changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes rollback",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "retention acknowledgement column present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "allowed uses constraint validated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "allowed uses are strictly enumerated",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "one attempt per signed prediction",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "exact user read delete policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "browser insert update revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "service role write boundary present",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "research tables rls enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "deployment ledger exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "rollback restored original boundary",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "persistent test changes absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "native m5 runtime",
+        "status": "pass"
+      },
+      {
+        "scope": "Opt-in outcomes deployment",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "target snapshot verified",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "critical operational fields present",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "source watermark causal",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "source watermark within two hours",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "receipt within fifteen minutes",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "browser weather value replaced",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "browser weather freshness replaced",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "real a6 bundle loaded",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "trusted weather provider reported",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "real bundle request succeeds",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "missing wspr still selects physics",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "response uses server weather freshness",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "cached path p95 below 100ms",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "signed manifest accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "manifest tampering rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "all ten hf bands finalized",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "two workers observed",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "all eighteen m5 threads allocated",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "prune runs after total success",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "band failure prevents prune",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "band count mismatch prevents prune",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "cpu oversubscription rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "all hf bands observed",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "checkpoint sha256",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "disk spool removed",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "no target write in dry run",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "nonempty completed hour",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "one bounded source request",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "research only",
+        "status": "pass"
+      },
+      {
+        "scope": "Research source connector",
+        "gate": "streaming peak rss below 512 mib",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "signed manifest v2 accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "exact failed and corrected versions",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "truncated version all band invalidated",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "corrected version all band complete",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "stored observation counts match manifest",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "watermark observation counts match manifest",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "feature counts match watermarks",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "source total matches exact target count",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "incomplete four lag window fails closed",
+        "status": "pass"
+      },
+      {
+        "scope": "Real target source hour",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "signed manifest v2 accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt complete research only",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt identity free",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt manifest hash linked",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt manifest counts exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "receipt gates all pass",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "all hf bands present",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "target observation counts exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "target watermarks complete and exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "target feature total exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "health matches latest receipt",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "m5 multicore bounded",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "transient spool removed",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd job loaded and clean exit",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd hourly and restart enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd runtime internal and exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd research gate explicit",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd owner only and secret free",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "launchd logs on internal home",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog current status healthy",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog job loaded and clean exit",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog local delivery smoke passed",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog twice hourly and restart enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog thresholds and runtime exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog owner only and secret free",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog local notification enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "watchdog logs on internal home",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "coverage audit operational private and bounded",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "coverage job loaded and clean exit",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "coverage twice daily and restart enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "coverage runtime and query bound exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "coverage owner only and secret free",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "coverage logs on internal home",
+        "status": "pass"
+      },
+      {
+        "scope": "Active research schedule",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "all receipts and manifests valid",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "all ten bands present each hour",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "completed hours within 7200 seconds",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "m5 multicore profile exact",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "minimum 30 day window complete",
+        "status": "pending"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "no future target receipts",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "one source request per hour",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "receipt timestamps causal",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "scheduled completion rate at least 99 percent",
+        "status": "pass"
+      },
+      {
+        "scope": "30-day research shadow",
+        "gate": "secret file owner only",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "native m5 validation",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "window spans 720 hours",
+        "status": "pending"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "all band completion at least 99 percent",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "all ten hf bands observed",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "all 24 utc hours observed",
+        "status": "pending"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "window bound to signed scheduled receipts",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "database queries bounded to 24 hours",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "early late drift sample sufficient",
+        "status": "pending"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "aggregate source distribution stable",
+        "status": "pending"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "region output k suppressed",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "only private aggregate feature tables read",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "station identity absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "grid4 output absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "equipment output absent",
+        "status": "pass"
+      },
+      {
+        "scope": "Aggregate coverage and drift",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "native arm64",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "collector launchd running",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "target queries succeeded",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "pskreporter current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "rbn current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "dxcluster current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "solar weather current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "band hourly current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "path hourly current",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "no open outages",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "identity free receipt",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "prospective outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Prospective first-party capture",
+        "gate": "minimum continuity reached",
+        "status": "pending"
+      }
+    ],
+    "blocker_rows": [
+      {
+        "remaining_work": "written subscriber-facing source authorization or a self-operated source",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "30-day real receipt-time shadow coverage and calibration evidence",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "24-hour gap-free first-party capture preflight with nonempty settled aggregates",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "literal full-M5 power-loss delivery proof before exposing System Health",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "opt-in beta outcome evidence and frozen prospective evaluation",
+        "status": "required before live NowCast"
+      }
+    ],
+    "limit_rows": [
+      {
+        "evidence_limit": "archive receipt timestamps are unavailable, so receipt delays are synthetic"
+      },
+      {
+        "evidence_limit": "30-day real receipt-time shadow coverage is still required"
+      },
+      {
+        "evidence_limit": "14 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+      },
+      {
+        "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 6.00/24 required gap-free preflight hours"
+      },
+      {
+        "evidence_limit": "A real stale heartbeat opened and genuine recovery closed one durable GitHub incident, but the stale episode was not caused by physically powering off the M5"
+      }
+    ]
+  }
+}

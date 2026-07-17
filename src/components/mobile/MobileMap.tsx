@@ -10,10 +10,13 @@
 import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { FlatMapView } from "@/components/map/FlatMapView";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
+import { ReachMapControl } from "@/components/map/ReachMapControl";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import { useReachMapSurface } from "@/hooks/useReachMapSurface";
+import { propagationModelVisible } from "@/lib/propagation/modelClient";
 import {
   calculateBandConditions,
   calculateGreatCircleDistance,
@@ -53,6 +56,9 @@ function GlobeLoadingFallback() {
 export function MobileMap() {
   const [activeTab, setActiveTab] = useState<MobileMapTab>("bands");
   const [showPanel, setShowPanel] = useState(false);
+  const [reachMapEnabled, setReachMapEnabled] = useState(false);
+  const [reachMapBand, setReachMapBand] = useState("20m");
+  const [reachMapPersonalized, setReachMapPersonalized] = useState(true);
 
   // Map store
   const viewMode = useMapStore((s) => s.viewMode);
@@ -107,6 +113,18 @@ export function MobileMap() {
 
   const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
   const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? null;
+  const reachMapIsLive = timeOffset === 0 && !absoluteTime;
+  const reachMapState = useReachMapSurface({
+    enabled: reachMapEnabled && reachMapIsLive,
+    renderOverlay: reachMapEnabled && reachMapIsLive,
+    personalized: reachMapPersonalized,
+    band: reachMapBand,
+    validTime: displayTime,
+    weather: {
+      kp: currentKp ?? undefined,
+      f107: currentFlux ?? undefined,
+    },
+  });
 
   // Live spots
   const { spots, isLoading: spotsLoading } = useLiveSpots({
@@ -186,6 +204,28 @@ export function MobileMap() {
             </button>
           ))}
         </div>
+
+        {propagationModelVisible && (
+          <ReachMapControl
+            floating
+            enabled={reachMapEnabled}
+            band={reachMapBand}
+            personalized={reachMapState.personalized}
+            onEnabledChange={setReachMapEnabled}
+            onBandChange={setReachMapBand}
+            onPersonalizedChange={setReachMapPersonalized}
+            state={
+              reachMapIsLive
+                ? reachMapState
+                : {
+                    ...reachMapState,
+                    loading: false,
+                    error: "Return to live time to use NowCast",
+                    cellCount: 0,
+                  }
+            }
+          />
+        )}
 
         {/* Landscape orientation hint */}
         {showLandscapeHint && (

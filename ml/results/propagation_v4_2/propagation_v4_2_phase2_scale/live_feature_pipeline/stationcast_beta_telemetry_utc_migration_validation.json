@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T14:39:57.856131+00:00",
+  "scope": "stationcast_beta_telemetry_utc_target_postgres_rollback_validation",
+  "decision": "pass",
+  "migration_deployed": false,
+  "target_migration_present_before_validation": true,
+  "locked_outcomes_read": false,
+  "persistent_changes": false,
+  "migration": {
+    "path": "supabase/migrations/20260716015000_stationcast_beta_telemetry_utc.sql",
+    "sha256": "3a155db7a1cc9d268c7b0b2b1f3b578242c8a788d5705054a795a48083328094",
+    "base_version": "20260716014000"
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "server_version": "17.6",
+    "connection_identifier_recorded": false
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "wall_seconds": 1.4114808329904918,
+    "psycopg_version": "3.3.4"
+  },
+  "gates": {
+    "utc_hour_constraint_present": true,
+    "record_bucket_is_utc_safe": true,
+    "export_window_is_utc_safe": true,
+    "function_acl_preserved": true,
+    "non_utc_session_records_same_utc_bucket": true,
+    "non_hour_utc_window_rejected": true,
+    "rollback_restored_original_boundary": true,
+    "persistent_test_changes_absent": true,
+    "target_is_postgresql": true,
+    "native_m5_runtime": true,
+    "locked_outcomes_unread": true
+  }
+}

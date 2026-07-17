@@ -21,6 +21,12 @@ interface RBNEntry {
   lsn: Record<string, number>; // spotter callsign -> SNR
 }
 
+export function rbnSpottedAt(nowMs: number, ageSeconds: number): string {
+  const rawTimestamp = nowMs - Math.max(0, ageSeconds) * 1000;
+  const flooredTimestamp = Math.floor(rawTimestamp / 15_000) * 15_000;
+  return new Date(flooredTimestamp).toISOString();
+}
+
 // ---------------------------------------------------------------------------
 // Main collector
 // ---------------------------------------------------------------------------
@@ -59,11 +65,9 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
       const band = frequencyToBand(freqKhz);
       if (!band) continue; // Non-HF, skip
 
-      // H3: Round spotted_at to nearest 15s to stabilize across overlapping fetches
-      const ageMs = (entry.age || 0) * 1000;
-      const rawTs = now - ageMs;
-      const roundedTs = Math.round(rawTs / 15000) * 15000;
-      const spottedAt = new Date(roundedTs).toISOString();
+      // Floor to a stable 15s bucket. Nearest-bucket rounding can create a
+      // local event time after its receipt, which is unsafe for causal replay.
+      const spottedAt = rbnSpottedAt(now, entry.age || 0);
 
       const mode = entry.mode || "CW";
 
@@ -98,13 +102,13 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
 
     const durationMs = Date.now() - start;
     reportHealth("rbn", "ok", count);
-    reportToDb(db, "rbn", "ok", count, durationMs);
+    await reportToDb(db, "rbn", "ok", count, durationMs);
     log("info", "RBN: collection complete", { spots: count, durationMs });
   } catch (err) {
     const durationMs = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
     reportHealth("rbn", "error", count);
-    reportToDb(db, "rbn", "error", count, durationMs, message);
+    await reportToDb(db, "rbn", "error", count, durationMs, message);
     log("error", "RBN: collection failed", { error: message });
   }
 }

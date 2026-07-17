@@ -1,7 +1,15 @@
 import fs from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as cheerio from "cheerio";
+import {
+  SHERWOOD_RANGES,
+  parseSherwoodCell,
+  pickMax,
+  pickMin,
+  pickMinPositive,
+} from "./sherwood-parser.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,35 +19,14 @@ const OUTPUT_FILE = path.resolve(
   __dirname,
   "../src/lib/data/sherwood.generated.ts",
 );
-
-function parseNumbers(text) {
-  const cleaned = String(text)
-    .replace(/\u00a0/g, " ")
-    .replace(/>/g, " ")
-    .replace(/</g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const matches = cleaned.match(/-?\d+(\.\d+)?/g) ?? [];
-  return matches.map((m) => Number(m)).filter((n) => Number.isFinite(n));
-}
-
-function pickMin(samples) {
-  const finite = samples.filter((n) => Number.isFinite(n));
-  if (finite.length === 0) return undefined;
-  return Math.min(...finite);
-}
-
-function pickMax(samples) {
-  const finite = samples.filter((n) => Number.isFinite(n));
-  if (finite.length === 0) return undefined;
-  return Math.max(...finite);
-}
-
-function pickMinPositive(samples) {
-  const finite = samples.filter((n) => Number.isFinite(n) && n > 0);
-  if (finite.length === 0) return undefined;
-  return Math.min(...finite);
-}
+const AUDIT_FILE = path.resolve(
+  __dirname,
+  "../ml/data/audits/equipment/sherwood-import-audit.json",
+);
+const SUMMARY_FILE = path.resolve(
+  __dirname,
+  "../ml/results/equipment/sherwood-import-summary.json",
+);
 
 /**
  * Known radio manufacturers for validation
@@ -120,6 +107,8 @@ async function main() {
     throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
   }
   const html = await res.text();
+  const retrievedAt = new Date().toISOString();
+  const sourceSha256 = createHash("sha256").update(html).digest("hex");
   const $ = cheerio.load(html);
 
   // Identify the receiver table by its header.
@@ -138,6 +127,7 @@ async function main() {
 
   const rows = $(receiverTable).find("tr").toArray();
   const entries = [];
+  const auditRows = [];
 
   for (const [rowIndex, row] of rows.entries()) {
     const cells = $(row).find("td").toArray();
@@ -147,47 +137,95 @@ async function main() {
     const { manufacturer, model } = pickManufacturerModel(deviceText);
     if (!manufacturer || !model) continue;
 
-    const noiseFloorDbmSamples = parseNumbers($(cells[1]).text());
-    const sensitivityUvSamples = parseNumbers($(cells[5]).text());
-    const blockingDbSamples = parseNumbers($(cells[4]).text());
-    const dynamicRangeWideDbSamples = parseNumbers($(cells[10]).text());
-    const wideSpacingKhzSamples = parseNumbers($(cells[11]).text());
-    const dynamicRangeNarrowDbSamples = parseNumbers($(cells[12]).text());
-    const narrowSpacingKhzSamples = parseNumbers($(cells[13]).text());
+    const noiseFloor = parseSherwoodCell(
+      $,
+      cells[1],
+      SHERWOOD_RANGES.noiseFloorDbm,
+    );
+    const sensitivity = parseSherwoodCell(
+      $,
+      cells[5],
+      SHERWOOD_RANGES.sensitivityUv,
+    );
+    const blocking = parseSherwoodCell(
+      $,
+      cells[4],
+      SHERWOOD_RANGES.blockingDb,
+    );
+    const dynamicRangeWide = parseSherwoodCell(
+      $,
+      cells[10],
+      SHERWOOD_RANGES.dynamicRangeDb,
+    );
+    const wideSpacing = parseSherwoodCell(
+      $,
+      cells[11],
+      SHERWOOD_RANGES.spacingKhz,
+    );
+    const dynamicRangeNarrow = parseSherwoodCell(
+      $,
+      cells[12],
+      SHERWOOD_RANGES.dynamicRangeDb,
+    );
+    const narrowSpacing = parseSherwoodCell(
+      $,
+      cells[13],
+      SHERWOOD_RANGES.spacingKhz,
+    );
+    const rejectedValues = [
+      ...noiseFloor.rejectedValues.map((value) => ({ field: "noiseFloorDbm", value })),
+      ...sensitivity.rejectedValues.map((value) => ({ field: "sensitivityUv", value })),
+      ...blocking.rejectedValues.map((value) => ({ field: "blockingDb", value })),
+      ...dynamicRangeWide.rejectedValues.map((value) => ({ field: "dynamicRangeWideDb", value })),
+      ...wideSpacing.rejectedValues.map((value) => ({ field: "wideSpacingKhz", value })),
+      ...dynamicRangeNarrow.rejectedValues.map((value) => ({ field: "dynamicRangeNarrowDb", value })),
+      ...narrowSpacing.rejectedValues.map((value) => ({ field: "narrowSpacingKhz", value })),
+    ];
 
     const entry = {
       key: `${manufacturer}::${model}::${rowIndex}`.toLowerCase(),
       rowIndex,
       manufacturer,
       model,
-      rawDeviceText: deviceText.trim() || undefined,
-      noiseFloorDbm: pickMin(noiseFloorDbmSamples),
-      noiseFloorDbmSamples: noiseFloorDbmSamples.length
-        ? noiseFloorDbmSamples
+      noiseFloorDbm: pickMin(noiseFloor.values),
+      noiseFloorDbmSamples: noiseFloor.values.length
+        ? noiseFloor.values
         : undefined,
-      sensitivityUv: pickMin(sensitivityUvSamples),
-      sensitivityUvSamples: sensitivityUvSamples.length
-        ? sensitivityUvSamples
+      sensitivityUv: pickMin(sensitivity.values),
+      sensitivityUvSamples: sensitivity.values.length
+        ? sensitivity.values
         : undefined,
-      blockingDb: pickMax(blockingDbSamples),
-      blockingDbSamples: blockingDbSamples.length ? blockingDbSamples : undefined,
-      dynamicRangeWideDb: pickMax(dynamicRangeWideDbSamples),
-      dynamicRangeWideDbSamples: dynamicRangeWideDbSamples.length
-        ? dynamicRangeWideDbSamples
+      blockingDb: pickMax(blocking.values),
+      blockingDbSamples: blocking.values.length ? blocking.values : undefined,
+      dynamicRangeWideDb: pickMax(dynamicRangeWide.values),
+      dynamicRangeWideDbSamples: dynamicRangeWide.values.length
+        ? dynamicRangeWide.values
         : undefined,
-      wideSpacingKhz: pickMinPositive(wideSpacingKhzSamples),
-      wideSpacingKhzSamples: wideSpacingKhzSamples.length
-        ? wideSpacingKhzSamples
+      wideSpacingKhz: pickMinPositive(wideSpacing.values),
+      wideSpacingKhzSamples: wideSpacing.values.length
+        ? wideSpacing.values
         : undefined,
-      dynamicRangeNarrowDb: pickMax(dynamicRangeNarrowDbSamples),
-      dynamicRangeNarrowDbSamples: dynamicRangeNarrowDbSamples.length
-        ? dynamicRangeNarrowDbSamples
+      dynamicRangeNarrowDb: pickMax(dynamicRangeNarrow.values),
+      dynamicRangeNarrowDbSamples: dynamicRangeNarrow.values.length
+        ? dynamicRangeNarrow.values
         : undefined,
-      narrowSpacingKhz: pickMinPositive(narrowSpacingKhzSamples),
-      narrowSpacingKhzSamples: narrowSpacingKhzSamples.length
-        ? narrowSpacingKhzSamples
+      narrowSpacingKhz: pickMinPositive(narrowSpacing.values),
+      narrowSpacingKhzSamples: narrowSpacing.values.length
+        ? narrowSpacing.values
         : undefined,
     };
+
+    auditRows.push({
+      key: entry.key,
+      rowIndex,
+      manufacturer,
+      model,
+      rawDeviceText: deviceText.trim() || undefined,
+      rawNoiseFloorText: noiseFloor.rawText || undefined,
+      parsedNoiseFloorText: noiseFloor.parsedText || undefined,
+      acceptedNoiseFloorValues: noiseFloor.values,
+      rejectedValues,
+    });
 
     if (
       entry.dynamicRangeNarrowDb === undefined &&
@@ -210,7 +248,8 @@ async function main() {
 
 /**
  * Generated from ${SHERWOOD_URL}
- * Retrieved: ${new Date().toISOString()}
+ * Retrieved: ${retrievedAt}
+ * Source SHA-256: ${sourceSha256}
  */
 export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = ${JSON.stringify(
     entries,
@@ -220,7 +259,50 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = ${JSON.stringify(
 `;
 
   await fs.writeFile(OUTPUT_FILE, output, "utf8");
+  await fs.mkdir(path.dirname(AUDIT_FILE), { recursive: true });
+  await fs.writeFile(
+    AUDIT_FILE,
+    `${JSON.stringify(
+      {
+        source: SHERWOOD_URL,
+        retrievedAt,
+        sourceSha256,
+        parserVersion: "sherwood-parser-v1",
+        rows: auditRows,
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  const rejectedValueCount = auditRows.reduce(
+    (total, row) => total + row.rejectedValues.length,
+    0,
+  );
+  await fs.mkdir(path.dirname(SUMMARY_FILE), { recursive: true });
+  await fs.writeFile(
+    SUMMARY_FILE,
+    `${JSON.stringify(
+      {
+        source: SHERWOOD_URL,
+        retrievedAt,
+        sourceSha256,
+        parserVersion: "sherwood-parser-v1",
+        tableRowCount: rows.length,
+        acceptedEntryCount: entries.length,
+        auditedDataRowCount: auditRows.length,
+        rejectedValueCount,
+        physicalRanges: SHERWOOD_RANGES,
+        detailedAudit: "ml/data/audits/equipment/sherwood-import-audit.json (ignored)",
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
   console.log(`Wrote ${entries.length} entries to ${OUTPUT_FILE}`);
+  console.log(`Wrote import audit to ${AUDIT_FILE}`);
+  console.log(`Wrote import summary to ${SUMMARY_FILE}`);
 }
 
 main().catch((err) => {

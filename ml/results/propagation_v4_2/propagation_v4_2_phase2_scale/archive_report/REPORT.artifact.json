@@ -1,0 +1,1205 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propagation V4.2: Locked 2025 archive",
+    "description": "Frozen outcome-gate evidence, uncertainty, calibration, slices, and operational decision.",
+    "generatedAt": "2026-07-16T01:04:21.240266+00:00",
+    "cards": [
+      {
+        "id": "candidate",
+        "description": "Opportunity-weighted probability error.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Candidate Brier",
+            "field": "candidate_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "baseline",
+        "description": "Frozen operational benchmark.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "B2 Brier",
+            "field": "b2_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "improvement",
+        "description": "Positive values improve on B2.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Relative improvement",
+            "field": "relative_improvement",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "gates",
+        "description": "Every gate is mandatory.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Gates passed",
+            "field": "gates_passed",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "rows",
+        "description": "Identical rows for candidate and B2.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Rows",
+            "field": "rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "memory",
+        "description": "Bounded M5 scoring process.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Peak RSS GiB",
+            "field": "peak_rss_gb",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "overall_brier",
+        "title": "Gate weighted Brier",
+        "subtitle": "Frozen candidate and B2 on identical outcome rows; lower is better.",
+        "type": "bar",
+        "dataset": "overall_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "model",
+            "type": "ordinal",
+            "label": "Model"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "daily_delta",
+        "title": "Paired UTC-day Brier delta",
+        "subtitle": "Candidate minus B2; negative values improve. The bootstrap resamples these daily aggregates.",
+        "type": "bar",
+        "dataset": "day_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "day",
+            "type": "ordinal",
+            "label": "UTC day"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "band_safety",
+        "title": "Supported-band relative Brier regression",
+        "subtitle": "Candidate relative to B2; negative values improve and positive values regress.",
+        "type": "bar",
+        "dataset": "band_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "relative_brier_regression",
+            "type": "quantitative",
+            "label": "Relative regression"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "distance_safety",
+        "title": "Path-distance Brier delta",
+        "subtitle": "Candidate minus B2 on fixed distance bins; short paths have explicit materiality tolerances.",
+        "type": "bar",
+        "dataset": "distance_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "distance",
+            "type": "ordinal",
+            "label": "Distance"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "reliability",
+        "title": "Gate probability reliability",
+        "subtitle": "Observed opportunity-weighted success versus mean predicted probability.",
+        "type": "line",
+        "dataset": "reliability_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "mean_prediction",
+            "type": "quantitative",
+            "label": "Mean prediction"
+          },
+          "y": {
+            "field": "observed_rate",
+            "type": "quantitative",
+            "label": "Observed rate"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Series"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "gate_table",
+        "title": "Preregistered gate decision",
+        "subtitle": "Every row must pass; evidence is copied from the immutable scorer output.",
+        "dataset": "gate_rows",
+        "sourceId": "gate_result",
+        "defaultSort": {
+          "field": "gate",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "passed",
+            "label": "Status",
+            "type": "text"
+          },
+          {
+            "field": "evidence",
+            "label": "Evidence",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "gate_result",
+        "label": "Frozen V4.2 outcome gate result",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propagation V4.2: Locked 2025 archive"
+      },
+      {
+        "id": "summary",
+        "type": "markdown",
+        "body": "## Technical summary\n\nThe result is a one-shot frozen outcome evaluation. It was not used for fitting or tuning.\n\nThe frozen candidate passed every gate and may advance under the preregistered protocol."
+      },
+      {
+        "id": "cards",
+        "type": "metric-strip",
+        "cardIds": [
+          "candidate",
+          "baseline",
+          "improvement",
+          "gates",
+          "rows",
+          "memory"
+        ]
+      },
+      {
+        "id": "definition",
+        "type": "markdown",
+        "body": "## What the gate measures\n\nBrier score is the opportunity-weighted squared error of the public WSPR single-decode probability. Candidate and B2 receive identical rows. All comparisons are predictive and retrospective; they do not establish causal propagation effects or guaranteed QSOs."
+      },
+      {
+        "id": "overall",
+        "type": "chart",
+        "chartId": "overall_brier",
+        "layout": "full"
+      },
+      {
+        "id": "gate_table_block",
+        "type": "table",
+        "tableId": "gate_table",
+        "layout": "full"
+      },
+      {
+        "id": "temporal",
+        "type": "markdown",
+        "body": "## Transfer must persist through time\n\nThe aggregate point estimate is paired with UTC-day bootstrap uncertainty and daily/weekly stability checks so a few high-volume periods cannot decide advancement."
+      },
+      {
+        "id": "daily",
+        "type": "chart",
+        "chartId": "daily_delta",
+        "layout": "full"
+      },
+      {
+        "id": "slices",
+        "type": "markdown",
+        "body": "## Aggregate performance cannot hide unsafe slices\n\nOnly preregistered supported bands and distances are interpreted. December uses a 2% band ceiling and explicit short-path absolute-or-relative tolerances; the locked archive uses a 3% band ceiling."
+      },
+      {
+        "id": "band",
+        "type": "chart",
+        "chartId": "band_safety",
+        "layout": "full"
+      },
+      {
+        "id": "distance",
+        "type": "chart",
+        "chartId": "distance_safety",
+        "layout": "full"
+      },
+      {
+        "id": "calibration",
+        "type": "markdown",
+        "body": "## Calibrated magnitude matters to the product\n\nReachMap and StationCast consume probability magnitude, so ECE and high-confidence reliability are mandatory alongside Brier."
+      },
+      {
+        "id": "reliability_block",
+        "type": "chart",
+        "chartId": "reliability",
+        "layout": "full"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "body": "## Method and frozen execution\n\nThe scorer streams 100,000-row Arrow batches on native arm64, scores the packaged candidate and frozen B2 on the same feature matrix, and retains additive sufficient statistics only. The access protocol hashes every frozen dependency and records the one-shot attempt before acquisition."
+      },
+      {
+        "id": "limits",
+        "type": "markdown",
+        "body": "## Limitations and robustness\n\nWSPR observations reflect receiver deployment and reporting behavior as well as ionospheric propagation. Supported-slice thresholds limit noisy vetoes but do not eliminate selection effects. Operational fallback and service parity evidence comes from Phase 3, not this archive stream."
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "body": "## Recommended next step\n\nThe frozen candidate passed every gate and may advance under the preregistered protocol."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\n- Does performance transfer to the next locked scope without tuning?\n- Which supported bands or distance regimes set the limiting gate?\n- Does the approved core improve operator choices during the prospective opt-in study?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-16T01:04:21.240266+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "candidate_brier": 0.04096767484040412,
+          "b2_brier": 0.04186089617186164,
+          "relative_improvement": 0.02133784541521433,
+          "gates_passed": 6,
+          "gates_total": 6,
+          "rows": 208372533,
+          "peak_rss_gb": 10.291290283203125
+        }
+      ],
+      "overall_rows": [
+        {
+          "model": "Frozen V4.2 candidate",
+          "brier": 0.04096767484040412
+        },
+        {
+          "model": "Frozen V3/B2",
+          "brier": 0.04186089617186164
+        }
+      ],
+      "day_rows": [
+        {
+          "day": "2025-01-01",
+          "delta_vs_b2": -0.0006171269289358752
+        },
+        {
+          "day": "2025-01-02",
+          "delta_vs_b2": -0.0017352081178709233
+        },
+        {
+          "day": "2025-01-03",
+          "delta_vs_b2": -0.0017503278612053322
+        },
+        {
+          "day": "2025-01-04",
+          "delta_vs_b2": -0.0022799521469926212
+        },
+        {
+          "day": "2025-01-05",
+          "delta_vs_b2": -0.0015566396208042815
+        },
+        {
+          "day": "2025-01-06",
+          "delta_vs_b2": -0.0009424553624912332
+        },
+        {
+          "day": "2025-01-07",
+          "delta_vs_b2": -0.0007253763873667843
+        },
+        {
+          "day": "2025-01-08",
+          "delta_vs_b2": -0.0007192958099765528
+        },
+        {
+          "day": "2025-01-09",
+          "delta_vs_b2": -0.0007639868173483083
+        },
+        {
+          "day": "2025-01-10",
+          "delta_vs_b2": -0.0007624111898858477
+        },
+        {
+          "day": "2025-01-11",
+          "delta_vs_b2": -0.0008618010113588259
+        },
+        {
+          "day": "2025-01-12",
+          "delta_vs_b2": -0.000758652132543329
+        },
+        {
+          "day": "2025-01-13",
+          "delta_vs_b2": -0.0007381017909309229
+        },
+        {
+          "day": "2025-01-14",
+          "delta_vs_b2": -0.000787101593753739
+        },
+        {
+          "day": "2025-01-15",
+          "delta_vs_b2": -0.0008449848171139113
+        },
+        {
+          "day": "2025-01-16",
+          "delta_vs_b2": -0.0009853505202199533
+        },
+        {
+          "day": "2025-01-17",
+          "delta_vs_b2": -0.0010776706139155323
+        },
+        {
+          "day": "2025-01-18",
+          "delta_vs_b2": -0.001024404863643455
+        },
+        {
+          "day": "2025-01-19",
+          "delta_vs_b2": -0.0008742273415468585
+        },
+        {
+          "day": "2025-01-20",
+          "delta_vs_b2": -0.001206248891360548
+        },
+        {
+          "day": "2025-01-21",
+          "delta_vs_b2": -0.001124762635836718
+        },
+        {
+          "day": "2025-01-22",
+          "delta_vs_b2": -0.0010354506674357111
+        },
+        {
+          "day": "2025-01-23",
+          "delta_vs_b2": -0.0009710531809959885
+        },
+        {
+          "day": "2025-01-24",
+          "delta_vs_b2": -0.0010100578747361533
+        },
+        {
+          "day": "2025-01-25",
+          "delta_vs_b2": -0.0009006708035051367
+        },
+        {
+          "day": "2025-01-26",
+          "delta_vs_b2": -0.0007857847834992493
+        },
+        {
+          "day": "2025-01-27",
+          "delta_vs_b2": -0.0009797143157618052
+        },
+        {
+          "day": "2025-01-28",
+          "delta_vs_b2": -0.000855985921588337
+        },
+        {
+          "day": "2025-01-29",
+          "delta_vs_b2": -0.000886968806462933
+        },
+        {
+          "day": "2025-01-30",
+          "delta_vs_b2": -0.0007632789687657265
+        },
+        {
+          "day": "2025-01-31",
+          "delta_vs_b2": -0.0009529699398665575
+        },
+        {
+          "day": "2025-04-01",
+          "delta_vs_b2": -0.0008339009902246508
+        },
+        {
+          "day": "2025-04-02",
+          "delta_vs_b2": -0.006580277863417187
+        },
+        {
+          "day": "2025-04-03",
+          "delta_vs_b2": -0.0009356061965831441
+        },
+        {
+          "day": "2025-04-04",
+          "delta_vs_b2": -0.0005959367293927667
+        },
+        {
+          "day": "2025-04-05",
+          "delta_vs_b2": -0.00043633745689020814
+        },
+        {
+          "day": "2025-04-06",
+          "delta_vs_b2": -0.00029728659175698446
+        },
+        {
+          "day": "2025-04-07",
+          "delta_vs_b2": -0.0004575056404920938
+        },
+        {
+          "day": "2025-04-08",
+          "delta_vs_b2": -0.00045182912440509815
+        },
+        {
+          "day": "2025-04-09",
+          "delta_vs_b2": -0.0005638464671959206
+        },
+        {
+          "day": "2025-04-10",
+          "delta_vs_b2": -0.00046996279290117265
+        },
+        {
+          "day": "2025-04-11",
+          "delta_vs_b2": -0.0005514972533702742
+        },
+        {
+          "day": "2025-04-12",
+          "delta_vs_b2": -0.0003678987749936996
+        },
+        {
+          "day": "2025-04-13",
+          "delta_vs_b2": -0.0004976120761049155
+        },
+        {
+          "day": "2025-04-14",
+          "delta_vs_b2": -0.00065363671351229
+        },
+        {
+          "day": "2025-04-15",
+          "delta_vs_b2": -0.00042345737748127055
+        },
+        {
+          "day": "2025-04-16",
+          "delta_vs_b2": -0.0005741934812726404
+        },
+        {
+          "day": "2025-04-17",
+          "delta_vs_b2": -0.0005953808168340929
+        },
+        {
+          "day": "2025-04-18",
+          "delta_vs_b2": -0.0004649716361008402
+        },
+        {
+          "day": "2025-04-19",
+          "delta_vs_b2": -0.0004982061833301785
+        },
+        {
+          "day": "2025-04-20",
+          "delta_vs_b2": -0.000298719768171668
+        },
+        {
+          "day": "2025-04-21",
+          "delta_vs_b2": -0.000605166031179459
+        },
+        {
+          "day": "2025-04-22",
+          "delta_vs_b2": -0.00047311620153241835
+        },
+        {
+          "day": "2025-04-23",
+          "delta_vs_b2": -0.0006002492936830126
+        },
+        {
+          "day": "2025-04-24",
+          "delta_vs_b2": -0.0005270126351189716
+        },
+        {
+          "day": "2025-04-25",
+          "delta_vs_b2": -0.00045466248382654284
+        },
+        {
+          "day": "2025-04-26",
+          "delta_vs_b2": -0.0005210331438442531
+        },
+        {
+          "day": "2025-04-27",
+          "delta_vs_b2": -0.0005689711843891443
+        },
+        {
+          "day": "2025-04-28",
+          "delta_vs_b2": -0.0006549077749390605
+        },
+        {
+          "day": "2025-04-29",
+          "delta_vs_b2": -0.0006637450760550237
+        },
+        {
+          "day": "2025-04-30",
+          "delta_vs_b2": -0.0007953503804788639
+        },
+        {
+          "day": "2025-07-01",
+          "delta_vs_b2": -0.0011505743587075234
+        },
+        {
+          "day": "2025-07-02",
+          "delta_vs_b2": -0.0009062011744934012
+        },
+        {
+          "day": "2025-07-03",
+          "delta_vs_b2": -0.0012623311710693655
+        },
+        {
+          "day": "2025-07-04",
+          "delta_vs_b2": -0.001046520692332062
+        },
+        {
+          "day": "2025-07-05",
+          "delta_vs_b2": -0.0008312700795708935
+        },
+        {
+          "day": "2025-07-06",
+          "delta_vs_b2": -0.0008126370834516949
+        },
+        {
+          "day": "2025-07-07",
+          "delta_vs_b2": -0.001165725298406417
+        },
+        {
+          "day": "2025-07-08",
+          "delta_vs_b2": -0.0009046779437190886
+        },
+        {
+          "day": "2025-07-09",
+          "delta_vs_b2": -0.0008411050099902534
+        },
+        {
+          "day": "2025-07-10",
+          "delta_vs_b2": -0.0009017152673481132
+        },
+        {
+          "day": "2025-07-11",
+          "delta_vs_b2": -0.0006629909819411139
+        },
+        {
+          "day": "2025-07-12",
+          "delta_vs_b2": -0.0007095281930279487
+        },
+        {
+          "day": "2025-07-13",
+          "delta_vs_b2": -0.0006275857312654301
+        },
+        {
+          "day": "2025-07-14",
+          "delta_vs_b2": -0.0006704846414715346
+        },
+        {
+          "day": "2025-07-15",
+          "delta_vs_b2": -0.0007358566567244318
+        },
+        {
+          "day": "2025-07-16",
+          "delta_vs_b2": -0.0005740331584828673
+        },
+        {
+          "day": "2025-07-17",
+          "delta_vs_b2": -0.0011668915435460309
+        },
+        {
+          "day": "2025-07-18",
+          "delta_vs_b2": -0.0010812921205176212
+        },
+        {
+          "day": "2025-07-19",
+          "delta_vs_b2": -0.0008032536823752018
+        },
+        {
+          "day": "2025-07-20",
+          "delta_vs_b2": -0.0007943127544662726
+        },
+        {
+          "day": "2025-07-21",
+          "delta_vs_b2": -0.0006261233903868679
+        },
+        {
+          "day": "2025-07-22",
+          "delta_vs_b2": -0.0010448803007004834
+        },
+        {
+          "day": "2025-07-23",
+          "delta_vs_b2": -0.0010523899015029634
+        },
+        {
+          "day": "2025-07-24",
+          "delta_vs_b2": -0.0012426350806434769
+        },
+        {
+          "day": "2025-07-25",
+          "delta_vs_b2": -0.0011608441904933445
+        },
+        {
+          "day": "2025-07-26",
+          "delta_vs_b2": -0.0010391481515099193
+        },
+        {
+          "day": "2025-07-27",
+          "delta_vs_b2": -0.000988247494650825
+        },
+        {
+          "day": "2025-07-28",
+          "delta_vs_b2": -0.001177650722272626
+        },
+        {
+          "day": "2025-07-29",
+          "delta_vs_b2": -0.0011181105799815266
+        },
+        {
+          "day": "2025-07-30",
+          "delta_vs_b2": -0.0010547480158730888
+        },
+        {
+          "day": "2025-07-31",
+          "delta_vs_b2": -0.0008991977535983339
+        },
+        {
+          "day": "2025-10-01",
+          "delta_vs_b2": 0.0012173299832130072
+        },
+        {
+          "day": "2025-10-02",
+          "delta_vs_b2": -0.001236068288892278
+        },
+        {
+          "day": "2025-10-03",
+          "delta_vs_b2": -0.0009620668161547177
+        },
+        {
+          "day": "2025-10-04",
+          "delta_vs_b2": -0.000895936832654709
+        },
+        {
+          "day": "2025-10-05",
+          "delta_vs_b2": -0.000883982183007101
+        },
+        {
+          "day": "2025-10-06",
+          "delta_vs_b2": -0.0008106360227051468
+        },
+        {
+          "day": "2025-10-07",
+          "delta_vs_b2": -0.0007691493492609086
+        },
+        {
+          "day": "2025-10-08",
+          "delta_vs_b2": -0.0007507418079738884
+        },
+        {
+          "day": "2025-10-09",
+          "delta_vs_b2": -0.0006749506285784329
+        },
+        {
+          "day": "2025-10-10",
+          "delta_vs_b2": -0.0009502336475736076
+        },
+        {
+          "day": "2025-10-11",
+          "delta_vs_b2": -0.0009394740976488847
+        },
+        {
+          "day": "2025-10-12",
+          "delta_vs_b2": -0.000643195415076063
+        },
+        {
+          "day": "2025-10-13",
+          "delta_vs_b2": -0.0008527951160890931
+        },
+        {
+          "day": "2025-10-14",
+          "delta_vs_b2": -0.0009411310986625829
+        },
+        {
+          "day": "2025-10-15",
+          "delta_vs_b2": -0.0011749106656709432
+        },
+        {
+          "day": "2025-10-16",
+          "delta_vs_b2": -0.0010100070249857915
+        },
+        {
+          "day": "2025-10-17",
+          "delta_vs_b2": -0.0014891603377328172
+        },
+        {
+          "day": "2025-10-18",
+          "delta_vs_b2": -0.0014501113392905093
+        },
+        {
+          "day": "2025-10-19",
+          "delta_vs_b2": -0.0006972298885980152
+        },
+        {
+          "day": "2025-10-20",
+          "delta_vs_b2": -0.001016473921239748
+        },
+        {
+          "day": "2025-10-21",
+          "delta_vs_b2": -0.0011284960855738116
+        },
+        {
+          "day": "2025-10-22",
+          "delta_vs_b2": -0.0011829902075174564
+        },
+        {
+          "day": "2025-10-23",
+          "delta_vs_b2": -0.0009811327435336054
+        },
+        {
+          "day": "2025-10-24",
+          "delta_vs_b2": -0.0010768278439268059
+        },
+        {
+          "day": "2025-10-25",
+          "delta_vs_b2": -0.000929870829327363
+        },
+        {
+          "day": "2025-10-26",
+          "delta_vs_b2": -0.0009397119232508327
+        },
+        {
+          "day": "2025-10-27",
+          "delta_vs_b2": -0.0008220918870362262
+        },
+        {
+          "day": "2025-10-28",
+          "delta_vs_b2": -0.0009006367751488442
+        },
+        {
+          "day": "2025-10-29",
+          "delta_vs_b2": -0.0007251596856990838
+        },
+        {
+          "day": "2025-10-30",
+          "delta_vs_b2": -0.00089768909402832
+        },
+        {
+          "day": "2025-10-31",
+          "delta_vs_b2": -0.0007767116776778438
+        }
+      ],
+      "band_rows": [
+        {
+          "band": "10m",
+          "relative_brier_regression": -0.03160156638193867
+        },
+        {
+          "band": "12m",
+          "relative_brier_regression": -0.038334315853269296
+        },
+        {
+          "band": "15m",
+          "relative_brier_regression": -0.017778059134437196
+        },
+        {
+          "band": "160m",
+          "relative_brier_regression": -0.03737238460301273
+        },
+        {
+          "band": "17m",
+          "relative_brier_regression": -0.019118673132776598
+        },
+        {
+          "band": "20m",
+          "relative_brier_regression": -0.014272748754678433
+        },
+        {
+          "band": "30m",
+          "relative_brier_regression": -0.031331069660769595
+        },
+        {
+          "band": "40m",
+          "relative_brier_regression": -0.022413561907089097
+        },
+        {
+          "band": "60m",
+          "relative_brier_regression": -0.04863083503514798
+        },
+        {
+          "band": "80m",
+          "relative_brier_regression": -0.018137393470481378
+        }
+      ],
+      "distance_rows": [
+        {
+          "distance": "0-500 km",
+          "delta_vs_b2": -0.0018820900175429284
+        },
+        {
+          "distance": "10000-25000 km",
+          "delta_vs_b2": -0.00014006862526744907
+        },
+        {
+          "distance": "1500-3000 km",
+          "delta_vs_b2": -0.0018197941709533483
+        },
+        {
+          "distance": "3000-6000 km",
+          "delta_vs_b2": -0.0005187471181733738
+        },
+        {
+          "distance": "500-1500 km",
+          "delta_vs_b2": -0.0023002416451841923
+        },
+        {
+          "distance": "6000-10000 km",
+          "delta_vs_b2": -0.00016826274066923143
+        }
+      ],
+      "reliability_rows": [
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.0061848686139371195,
+          "observed_rate": 0.005527566395229812
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.07279188473161922,
+          "observed_rate": 0.06734034241380253
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.12314978585992667,
+          "observed_rate": 0.11780170490849765
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.174109625494447,
+          "observed_rate": 0.16692546611032882
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.2235283199418658,
+          "observed_rate": 0.21399975873216318
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.27447838668418206,
+          "observed_rate": 0.26329907145735415
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.32533378631460946,
+          "observed_rate": 0.30953085872891123
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.37549337745440925,
+          "observed_rate": 0.35775543511143904
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.42514373239163583,
+          "observed_rate": 0.4033029977432082
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.47655537106264195,
+          "observed_rate": 0.4552522412045808
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.5252329790808554,
+          "observed_rate": 0.5021529984895811
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.575106991984341,
+          "observed_rate": 0.5528256885230453
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.6219923371020217,
+          "observed_rate": 0.6070003305763866
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.6733789282558732,
+          "observed_rate": 0.6509704948439327
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.7237605973537288,
+          "observed_rate": 0.7001704820522264
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.7735848794552702,
+          "observed_rate": 0.7514313355353499
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.819922835702599,
+          "observed_rate": 0.791993583298857
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.8739561402780689,
+          "observed_rate": 0.8390401589626916
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.9224890738830965,
+          "observed_rate": 0.8825466653924079
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.9723658359425895,
+          "observed_rate": 0.927563605891214
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.0071087581382849934,
+          "observed_rate": 0.00574057960481417
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.071538285277531,
+          "observed_rate": 0.06404036364254899
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.123865001612009,
+          "observed_rate": 0.1110104948493221
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.1738598397099621,
+          "observed_rate": 0.1541408196400823
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.2232457968071358,
+          "observed_rate": 0.20221549378596604
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.27485543652747446,
+          "observed_rate": 0.2492515489838209
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.32409559466956883,
+          "observed_rate": 0.2941404319614845
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.37453593515850603,
+          "observed_rate": 0.33903990848947896
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.4268729979035571,
+          "observed_rate": 0.39029856107024363
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.47324873033462517,
+          "observed_rate": 0.4430741115825738
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.5248994989884207,
+          "observed_rate": 0.48906370449000525
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.570085297214188,
+          "observed_rate": 0.5433077823251417
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.6193130802251298,
+          "observed_rate": 0.6004460363203744
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.6681136528408849,
+          "observed_rate": 0.6610779524492554
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.7226674843645564,
+          "observed_rate": 0.7047121519999943
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.7810255898692328,
+          "observed_rate": 0.7458757073141096
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.8203101929056928,
+          "observed_rate": 0.7816236321118805
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.8737278073392153,
+          "observed_rate": 0.8283026840174065
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.9182618211472464,
+          "observed_rate": 0.8683563714527395
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.9809790639680306,
+          "observed_rate": 0.9397235597664231
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 0.0,
+          "observed_rate": 0.0
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 1.0,
+          "observed_rate": 1.0
+        }
+      ],
+      "gate_rows": [
+        {
+          "gate": "A1_integrity_and_scope",
+          "passed": "pass",
+          "evidence": "{}"
+        },
+        {
+          "gate": "A2_aggregate_performance",
+          "passed": "pass",
+          "evidence": "{\"paired_day\": {\"delta_lower_95\": -0.0010317584843024623, \"delta_median\": -0.0008884046365094413, \"delta_upper_95\": -0.0007975794573396458, \"skill_lower_95\": 0.01916880677749342, \"skill_median\": 0.021230800416928153, \"skill_upper_95\": 0.024533941413821675}, \"relative_improvement\": 0.02133784541521433}"
+        },
+        {
+          "gate": "A3_month_transfer",
+          "passed": "pass",
+          "evidence": "{\"month_deltas\": {\"2025-01\": -0.0010079003654952928, \"2025-04\": -0.0007548560350851066, \"2025-07\": -0.0009379465645645221, \"2025-10\": -0.0008898707564399741}}"
+        },
+        {
+          "gate": "A4_band_safety",
+          "passed": "pass",
+          "evidence": "{\"relative_regressions\": {\"10m\": -0.03160156638193867, \"12m\": -0.038334315853269296, \"15m\": -0.017778059134437196, \"160m\": -0.03737238460301273, \"17m\": -0.019118673132776598, \"20m\": -0.014272748754678433, \"30m\": -0.031331069660769595, \"40m\": -0.022413561907089097, \"60m\": -0.04863083503514798, \"80m\": -0.018137393470481378}}"
+        },
+        {
+          "gate": "A5_calibration",
+          "passed": "pass",
+          "evidence": "{\"ece_delta_vs_b2\": -0.0030112906328222918, \"high_confidence_gap_delta_vs_b2\": -0.005103219643131429}"
+        },
+        {
+          "gate": "A6_operational_contract",
+          "passed": "pass",
+          "evidence": "{\"phase3\": {\"efficiency\": true, \"operational\": true, \"parity\": true, \"privacy_and_provenance\": true}}"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "gate_result",
+      "label": "Frozen V4.2 outcome gate result",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/archive_gate_result.json"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T00:21:40.490119+00:00",
+  "config": {
+    "run_id": "propagation_v4_2_phase2_scale_archive_gate",
+    "archive_namespace": "archive_v4_2_archive",
+    "execution_scope": "locked_archive",
+    "seed": 20260711,
+    "months": [
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
+    "train": {
+      "months": []
+    },
+    "validation": {
+      "months": []
+    },
+    "test": {
+      "months": [
+        "2025-01",
+        "2025-04",
+        "2025-07",
+        "2025-10"
+      ]
+    },
+    "negative_receivers_per_tx_slot": 4,
+    "space_weather_run_id": "propagation_v4_2_phase2_scale_archive_gate",
+    "gates": {
+      "max_exposure_weight_error_fraction": 0.03
+    },
+    "compute": {
+      "duckdb_threads": 18,
+      "duckdb_memory_limit": "80GB",
+      "temp_root": "/Volumes/Projects/PropulseML/tmp/propagation_v4_2_phase2_scale"
+    },
+    "config_path": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_data_config.json"
+  },
+  "task": "hf",
+  "months": [
+    {
+      "month": "2025-01",
+      "task": "hf",
+      "source": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=01/spots.parquet",
+      "output": "/Volumes/Projects/PropulseML/data/processed/archive_v4_2_archive/opportunities/task=hf/year=2025/month=01/part.parquet",
+      "output_size": 443058092,
+      "rows": 52120942,
+      "sampled_rows": 196358178,
+      "positive_rows": 168114492,
+      "weighted_opportunities": 1721635158.0,
+      "weighted_successes": 168114492.0,
+      "weighted_prevalence": 0.0976481522341216,
+      "exact_station_opportunities": 1724860240.0,
+      "exact_positive_opportunities": 168114492.0,
+      "sampling_weight_relative_error": -0.0018697642424640734,
+      "open_path_hours": 33917479,
+      "tx_grids4": 26778,
+      "rx_grids4": 1075,
+      "min_time": "2025-01-01 00:00:00+00:00",
+      "max_time": "2025-01-31 23:00:00+00:00",
+      "receiver_samples_per_tx_slot": 4,
+      "seconds": 14.997965097427368
+    },
+    {
+      "month": "2025-04",
+      "task": "hf",
+      "source": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=04/spots.parquet",
+      "output": "/Volumes/Projects/PropulseML/data/processed/archive_v4_2_archive/opportunities/task=hf/year=2025/month=04/part.parquet",
+      "output_size": 446604904,
+      "rows": 52629262,
+      "sampled_rows": 191440390,
+      "positive_rows": 162443511,
+      "weighted_opportunities": 1927603321.75,
+      "weighted_successes": 162443511.0,
+      "weighted_prevalence": 0.08427227177245343,
+      "exact_station_opportunities": 1929766713.0,
+      "exact_positive_opportunities": 162443511.0,
+      "sampling_weight_relative_error": -0.0011210636163564087,
+      "open_path_hours": 33301471,
+      "tx_grids4": 28709,
+      "rx_grids4": 1010,
+      "min_time": "2025-04-01 00:00:00+00:00",
+      "max_time": "2025-04-30 23:00:00+00:00",
+      "receiver_samples_per_tx_slot": 4,
+      "seconds": 14.629404783248901
+    },
+    {
+      "month": "2025-07",
+      "task": "hf",
+      "source": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=07/spots.parquet",
+      "output": "/Volumes/Projects/PropulseML/data/processed/archive_v4_2_archive/opportunities/task=hf/year=2025/month=07/part.parquet",
+      "output_size": 394982819,
+      "rows": 47444263,
+      "sampled_rows": 165845160,
+      "positive_rows": 138399194,
+      "weighted_opportunities": 1695297088.5,
+      "weighted_successes": 138399194.0,
+      "weighted_prevalence": 0.08163713306583668,
+      "exact_station_opportunities": 1695606973.0,
+      "exact_positive_opportunities": 138399194.0,
+      "sampling_weight_relative_error": -0.00018275726918704998,
+      "open_path_hours": 29164722,
+      "tx_grids4": 28347,
+      "rx_grids4": 1002,
+      "min_time": "2025-07-01 00:00:00+00:00",
+      "max_time": "2025-07-31 23:00:00+00:00",
+      "receiver_samples_per_tx_slot": 4,
+      "seconds": 12.545483112335205
+    },
+    {
+      "month": "2025-10",
+      "task": "hf",
+      "source": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_archive/wspr/year=2025/month=10/spots.parquet",
+      "output": "/Volumes/Projects/PropulseML/data/processed/archive_v4_2_archive/opportunities/task=hf/year=2025/month=10/part.parquet",
+      "output_size": 481614466,
+      "rows": 56178066,
+      "sampled_rows": 218358757,
+      "positive_rows": 189573467,
+      "weighted_opportunities": 1953279487.75,
+      "weighted_successes": 189573467.0,
+      "weighted_prevalence": 0.09705393835798243,
+      "exact_station_opportunities": 1956666708.0,
+      "exact_positive_opportunities": 189573467.0,
+      "sampling_weight_relative_error": -0.0017311176380479408,
+      "open_path_hours": 37368978,
+      "tx_grids4": 28662,
+      "rx_grids4": 1026,
+      "min_time": "2025-10-01 00:00:00+00:00",
+      "max_time": "2025-10-31 23:00:00+00:00",
+      "receiver_samples_per_tx_slot": 4,
+      "seconds": 16.13301181793213
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:18:36.087148+00:00",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scope": "december",
+  "attempt_id": "december-20260715T231616Z",
+  "months": [
+    "2024-12"
+  ],
+  "december_2024_read": true,
+  "locked_2025_read": false,
+  "prospective_read": false,
+  "datasets": {
+    "2024-12": {
+      "path": "ml/data/processed/archive_v4_2_december/dataset_propagation_v4_2_phase2_scale_december_gate_hf.parquet/part-000.parquet",
+      "bytes": 6559121504,
+      "sha256": "0130636e4dcf8f3c7ed74d284df9c0f4341a03221cdad318ddf2d305640bc2cc",
+      "rows": 52101759,
+      "time_range": [
+        "2024-12-01 00:00:00+00:00",
+        "2024-12-31 23:00:00+00:00"
+      ],
+      "feature_count": 91
+    }
+  },
+  "opportunity_manifest": {
+    "path": "ml/data/manifests/propagation_v4_2_phase2_scale_december_gate_hf_opportunities.json",
+    "bytes": 1955,
+    "sha256": "9ee46d872e0819bb1d0d38f5540f01ef84467478ecef4a7592c730bd00f80996"
+  },
+  "source_manifest": {
+    "path": "ml/data/manifests/propagation_v4_2_phase2_scale_december_gate_sources.json",
+    "bytes": 2303,
+    "sha256": "e213d4825dfb6af39f9f16fa0d85d61d0787dc12b55b16bc2c61217c59dcb7a2"
+  },
+  "checks": [
+    {
+      "name": "source month inventory",
+      "passed": true,
+      "detail": "['2024-12']"
+    },
+    {
+      "name": "opportunity month inventory",
+      "passed": true,
+      "detail": "['2024-12']"
+    },
+    {
+      "name": "2024-12 required feature contract",
+      "passed": true,
+      "detail": "[]"
+    },
+    {
+      "name": "2024-12 nonempty",
+      "passed": true,
+      "detail": "52101759"
+    },
+    {
+      "name": "2024-12 exact month",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2024-12 test split only",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2024-12 positive weights",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2024-12 bounded targets",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2024-12 no future weather",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "2024-12 exposure reconstruction",
+      "passed": true,
+      "detail": "-0.0009985787982000353"
+    }
+  ],
+  "summary": {
+    "checks": 10,
+    "failures": 0
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0"
+  },
+  "passed": true
+}

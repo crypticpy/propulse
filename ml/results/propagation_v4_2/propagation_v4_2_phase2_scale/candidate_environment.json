@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:14:14.597156+00:00",
+  "scope": "frozen_phase3_candidate_environment",
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0"
+  },
+  "platform": "macOS-26.5.2-arm64-arm-64bit",
+  "packages": {
+    "python": "3.12.11",
+    "numpy": "2.5.1",
+    "pyarrow": "25.0.0",
+    "polars": "1.42.1",
+    "duckdb": "1.5.4",
+    "xgboost": "3.3.0"
+  },
+  "git_commit_observed_on_m5": "a0371c231a504e6a86e8700a328e075f410fee10",
+  "note": "Exact frozen source and artifact hashes are authoritative because the M5 worktree receives selected files by rsync.",
+  "apple_silicon_contract": {
+    "required_machine": "arm64",
+    "physical_cores": 18,
+    "performance_cores": 12,
+    "efficiency_cores": 6,
+    "duckdb_threads": 18,
+    "parallel_fit_workers": 2,
+    "threads_per_parallel_fit": 9,
+    "arrow_io_threads_per_fit": 4,
+    "arrow_io_threads_single_process": 6,
+    "required_power_source": "AC Power",
+    "required_ac_power_mode": 2,
+    "backend": "native_arm64_xgboost_openmp_cpu",
+    "gpu_backend": "unavailable_xgboost_build_has_no_cuda_and_no_metal_backend",
+    "backend_benchmark": {
+      "candidate": "A4_recent_cycle",
+      "fold": "F3_2024_07",
+      "scale": 20000000,
+      "target_scale": 50000000,
+      "fixed_boost_rounds": 50,
+      "minimum_speedup_to_adopt": 1.5,
+      "maximum_parallel_peak_rss_gb": 80,
+      "maximum_validation_logloss_difference": 1e-06,
+      "fifty_million_backend": "streamed_in_memory_quantile"
+    },
+    "single_process_prediction_threads": 18,
+    "prediction_thread_benchmark_sha256": "3a7c70abebd228e73856b7b7b3d6c5074acd15cc52f84f7f1b50a6a3621434fc"
+  },
+  "source_pipeline_freeze": {
+    "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/source_pipeline_freeze.json",
+    "bytes": 1912,
+    "sha256": "8b6a26504fe95f8cdc8d9c63a8c96aa1bd82aac271702761a50e2e1300e02855"
+  }
+}

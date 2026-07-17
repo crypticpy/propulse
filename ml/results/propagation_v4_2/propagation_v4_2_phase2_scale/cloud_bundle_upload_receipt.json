@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "uploaded_at": "2026-07-17T01:37:14Z",
+  "release_stage": "retrospective_validated_internal",
+  "bucket": {
+    "id": "propagation-models",
+    "public": false,
+    "file_size_limit": 47185920,
+    "allowed_mime_types": [
+      "application/octet-stream"
+    ]
+  },
+  "object": {
+    "bucket": "propagation-models",
+    "key": "a6/254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee.tar.zst",
+    "bytes": 66846932,
+    "sha256": "254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee"
+  },
+  "storage_layout": "ordered-split-object-v1",
+  "storage_parts": [
+    {
+      "index": 0,
+      "key": "a6/254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee.tar.zst.part-000",
+      "bytes": 47185920,
+      "sha256": "d840413240c6475e6c18fb157f463c56bbe9d6c9936c6f3bf6ac0af7158abe1f"
+    },
+    {
+      "index": 1,
+      "key": "a6/254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee.tar.zst.part-001",
+      "bytes": 19661012,
+      "sha256": "1d101bde249de3adef1e110c48a38c11761ecd168ee66f3fac1f0f3e4c0b5138"
+    }
+  ],
+  "storage_part_bytes": 47185920,
+  "upload_protocol": "tus-v1.0.0",
+  "chunk_bytes": 6291456,
+  "remote_verification": "reassembled_full_sha256_download_passed"
+}

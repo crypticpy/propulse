@@ -485,6 +485,7 @@ export interface StationPreset {
   inlineComponentIds?: string[];
   accessoryIds: string[];
   operatingPowerWatts: number;
+  linkedLocationId?: string;
   notes?: string;
   createdAt: string;
 }

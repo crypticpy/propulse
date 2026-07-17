@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T05:00:51.311802+00:00",
+  "config": {
+    "run_id": "archive_v3_eight_month",
+    "seed": 20260711,
+    "months": [
+      "2019-01",
+      "2019-04",
+      "2019-07",
+      "2019-10",
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10"
+    ],
+    "negative_receivers_per_tx_slot": 4,
+    "train": {
+      "months": [
+        "2019-01",
+        "2019-04",
+        "2019-07",
+        "2019-10",
+        "2024-01",
+        "2024-04"
+      ]
+    },
+    "validation": {
+      "months": [
+        "2024-07"
+      ]
+    },
+    "test": {
+      "months": [
+        "2024-10"
+      ]
+    },
+    "learning_curve_rows": [
+      5000000,
+      20000000,
+      50000000
+    ],
+    "primary_train_rows": 50000000,
+    "validation_rows": 5000000,
+    "xgboost_rounds": 1000,
+    "early_stopping_rounds": 75,
+    "config_path": "ml/config/archive_v3_eight_month.json"
+  },
+  "months": [
+    {
+      "month": "2019-01",
+      "source": "ml/data/raw/archive_v3/wspr/year=2019/month=01/wsprspots-2019-01.csv.gz",
+      "source_size": 769176351,
+      "source_sha256": "497b9e5b47e9642fc57c8ed2b4da4d33e3cad5611dd8b0b7978a255a4a92f876",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2019/month=01/spots.parquet",
+      "output_size": 768866927,
+      "rows": 37101656,
+      "unique_rows": 37101656,
+      "min_time": "2019-01-01 00:00:00+00:00",
+      "max_time": "2019-01-31 23:58:00+00:00",
+      "tx_calls": 13712,
+      "rx_calls": 4710,
+      "tx_grids4": 12335,
+      "rx_grids4": 907,
+      "six_meter_rows": 116354,
+      "seconds": 6.320472002029419
+    },
+    {
+      "month": "2019-04",
+      "source": "ml/data/raw/archive_v3/wspr/year=2019/month=04/wsprspots-2019-04.csv.gz",
+      "source_size": 717032066,
+      "source_sha256": "cfd6e40226d1551ecc568067d4905294dd444e99c544b594c1ca477d561c71e0",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2019/month=04/spots.parquet",
+      "output_size": 792451509,
+      "rows": 38142481,
+      "unique_rows": 38142481,
+      "min_time": "2019-04-01 00:00:00+00:00",
+      "max_time": "2019-04-30 23:58:00+00:00",
+      "tx_calls": 14169,
+      "rx_calls": 4240,
+      "tx_grids4": 13093,
+      "rx_grids4": 867,
+      "six_meter_rows": 45505,
+      "seconds": 6.058729887008667
+    },
+    {
+      "month": "2019-07",
+      "source": "ml/data/raw/archive_v3/wspr/year=2019/month=07/wsprspots-2019-07.csv.gz",
+      "source_size": 745408749,
+      "source_sha256": "b5b3bc253931c02e74b1aa3125581ba18c1af8d948f0684e7406184bb3ba9e83",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2019/month=07/spots.parquet",
+      "output_size": 849087868,
+      "rows": 40692737,
+      "unique_rows": 40692737,
+      "min_time": "2019-07-01 00:00:00+00:00",
+      "max_time": "2019-07-31 23:58:00+00:00",
+      "tx_calls": 14761,
+      "rx_calls": 3865,
+      "tx_grids4": 14228,
+      "rx_grids4": 858,
+      "six_meter_rows": 94730,
+      "seconds": 6.4661619663238525
+    },
+    {
+      "month": "2019-10",
+      "source": "ml/data/raw/archive_v3/wspr/year=2019/month=10/wsprspots-2019-10.csv.gz",
+      "source_size": 813387836,
+      "source_sha256": "cd85e29f1a03d8999ed67504cb949ca7de586ae5d8452a1f3545c35992d0f1bd",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2019/month=10/spots.parquet",
+      "output_size": 882900193,
+      "rows": 42404799,
+      "unique_rows": 42404799,
+      "min_time": "2019-10-01 00:00:00+00:00",
+      "max_time": "2019-10-31 23:58:00+00:00",
+      "tx_calls": 14265,
+      "rx_calls": 4195,
+      "tx_grids4": 14000,
+      "rx_grids4": 866,
+      "six_meter_rows": 54123,
+      "seconds": 7.0677170753479
+    },
+    {
+      "month": "2024-01",
+      "source": "ml/data/raw/archive_v3/wspr/year=2024/month=01/wsprspots-2024-01.csv.gz",
+      "source_size": 2814538915,
+      "source_sha256": "9b7a4378eca5beb2c8329373bc3855f25665b339f55bf551ee494ff3dec0e5ab",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2024/month=01/spots.parquet",
+      "output_size": 3201838124,
+      "rows": 150980504,
+      "unique_rows": 150980504,
+      "min_time": "2024-01-01 00:00:00+00:00",
+      "max_time": "2024-01-31 23:58:00+00:00",
+      "tx_calls": 54991,
+      "rx_calls": 5187,
+      "tx_grids4": 24442,
+      "rx_grids4": 1055,
+      "six_meter_rows": 147095,
+      "seconds": 24.045135021209717
+    },
+    {
+      "month": "2024-04",
+      "source": "ml/data/raw/archive_v3/wspr/year=2024/month=04/wsprspots-2024-04.csv.gz",
+      "source_size": 3191157530,
+      "source_sha256": "1aa64371e571d47a67a542c5ae13e0ca165c38832020a873789040cd6b3150e1",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2024/month=04/spots.parquet",
+      "output_size": 3652009931,
+      "rows": 171439522,
+      "unique_rows": 171439522,
+      "min_time": "2024-04-01 00:00:00+00:00",
+      "max_time": "2024-04-30 23:59:00+00:00",
+      "tx_calls": 78617,
+      "rx_calls": 5465,
+      "tx_grids4": 27681,
+      "rx_grids4": 1100,
+      "six_meter_rows": 91446,
+      "seconds": 26.57093119621277
+    },
+    {
+      "month": "2024-07",
+      "source": "ml/data/raw/archive_v3/wspr/year=2024/month=07/wsprspots-2024-07.csv.gz",
+      "source_size": 2543849813,
+      "source_sha256": "8d2e1664793369956a9f0e913a73988cd7e9e4377675c3c2ace9e971f9fd66d3",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2024/month=07/spots.parquet",
+      "output_size": 2940420404,
+      "rows": 139791261,
+      "unique_rows": 139791261,
+      "min_time": "2024-07-01 00:00:00+00:00",
+      "max_time": "2024-07-31 23:58:00+00:00",
+      "tx_calls": 62215,
+      "rx_calls": 4450,
+      "tx_grids4": 25185,
+      "rx_grids4": 981,
+      "six_meter_rows": 126890,
+      "seconds": 21.124511003494263
+    },
+    {
+      "month": "2024-10",
+      "source": "ml/data/raw/archive_v3/wspr/year=2024/month=10/wsprspots-2024-10.csv.gz",
+      "source_size": 3441891979,
+      "source_sha256": "258f051b4355f29e0e744f8f3fc41a991a00f1d51641f2018ad75f19be1e6b14",
+      "output": "ml/data/bronze/archive_v3/wspr/year=2024/month=10/spots.parquet",
+      "output_size": 3977216940,
+      "rows": 189992933,
+      "unique_rows": 189992933,
+      "min_time": "2024-10-01 00:00:00+00:00",
+      "max_time": "2024-10-31 23:58:00+00:00",
+      "tx_calls": 71129,
+      "rx_calls": 5125,
+      "tx_grids4": 27200,
+      "rx_grids4": 1016,
+      "six_meter_rows": 124844,
+      "seconds": 28.091126203536987
+    }
+  ]
+}

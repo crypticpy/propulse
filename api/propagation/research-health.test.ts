@@ -60,6 +60,14 @@ describe("research health endpoint gates", () => {
     expect(response.status).toBe(404);
   });
 
+  it("keeps the coarse view unavailable without evidence-backed activation", async () => {
+    process.env.PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED = "true";
+    const response = await handler(
+      new Request("https://propulse.test/api/propagation/research-health"),
+    );
+    expect(response.status).toBe(404);
+  });
+
   it("rejects unsigned ingest when server configuration is absent", async () => {
     delete process.env.PROPULSE_RESEARCH_HEALTH_INGEST_SECRET;
     const response = await handler(

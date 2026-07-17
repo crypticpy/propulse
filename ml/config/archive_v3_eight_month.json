@@ -1,0 +1,19 @@
+{
+  "run_id": "archive_v3_eight_month",
+  "seed": 20260711,
+  "months": [
+    "2019-01", "2019-04", "2019-07", "2019-10",
+    "2024-01", "2024-04", "2024-07", "2024-10"
+  ],
+  "negative_receivers_per_tx_slot": 4,
+  "train": {
+    "months": ["2019-01", "2019-04", "2019-07", "2019-10", "2024-01", "2024-04"]
+  },
+  "validation": {"months": ["2024-07"]},
+  "test": {"months": ["2024-10"]},
+  "learning_curve_rows": [5000000, 20000000, 50000000],
+  "primary_train_rows": 50000000,
+  "validation_rows": 5000000,
+  "xgboost_rounds": 1000,
+  "early_stopping_rounds": 75
+}

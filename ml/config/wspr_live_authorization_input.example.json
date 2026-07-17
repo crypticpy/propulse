@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "scope": "wspr_live_written_permission",
+  "source": {
+    "id": "wspr_live",
+    "operator": "WSPR.live volunteer service",
+    "service_url": "https://wspr.live/",
+    "terms_url": "https://wspr.live/"
+  },
+  "public_terms": {
+    "url": "https://wspr.live/",
+    "checked_at": "1970-01-01T00:00:00Z",
+    "snapshot_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "request": {
+    "sent_at": "1970-01-01T00:00:00Z",
+    "proposal_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "response": {
+    "received_at": "1970-01-01T00:00:00Z",
+    "decision": "pending",
+    "private_message_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "authorizer_role": "pending",
+    "expires_at": null
+  },
+  "authorized_roles": [],
+  "conditions": {
+    "nonprofit_donation_supported_use": false,
+    "derived_core_results_free_of_charge": false,
+    "profit_oriented_use": false,
+    "raw_rows_redistributed": false,
+    "maximum_private_raw_retention_hours": 0,
+    "maximum_queries_per_completed_utc_hour": 0,
+    "query_window_hours": 0,
+    "all_ten_hf_bands_single_query": false,
+    "identity_free_outputs": false,
+    "attribution": [],
+    "fallback_profile": "pending",
+    "written_conditions_implemented": false
+  },
+  "private_correspondence_in_record": false
+}

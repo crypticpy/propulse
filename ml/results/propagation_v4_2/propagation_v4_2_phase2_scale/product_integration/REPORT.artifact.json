@@ -1,0 +1,780 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propulse Propagation V4.2: Model-to-Product Completion Report",
+    "description": "A source-backed technical decision report covering the 50M A6 experiment, locked evaluation, cloud serving, personalized product integration, operating envelope, and remaining evidence gates.",
+    "generatedAt": "2026-07-17T05:21:58Z",
+    "cards": [
+      {
+        "id": "training_scale",
+        "description": "Rows selected for each frozen A6 component training run.",
+        "dataset": "summary",
+        "sourceId": "model_evidence",
+        "metrics": [
+          {
+            "label": "Training rows",
+            "field": "training_rows",
+            "format": "compact"
+          }
+        ]
+      },
+      {
+        "id": "untouched_rows",
+        "description": "December 2024 plus the locked four-month 2025 archive, neither used for fitting or tuning.",
+        "dataset": "summary",
+        "sourceId": "model_evidence",
+        "metrics": [
+          {
+            "label": "Untouched evaluation rows",
+            "field": "untouched_rows",
+            "format": "compact"
+          }
+        ]
+      },
+      {
+        "id": "locked_skill",
+        "description": "Relative weighted-Brier improvement over frozen V3/B2 across the locked 2025 archive.",
+        "dataset": "summary",
+        "sourceId": "model_evidence",
+        "metrics": [
+          {
+            "label": "Locked archive improvement",
+            "field": "locked_improvement",
+            "format": "percent",
+            "signed": true
+          }
+        ]
+      },
+      {
+        "id": "cloud_latency",
+        "description": "Warm deployed end-to-end sequential path request, including network and trusted-data lookups.",
+        "dataset": "summary",
+        "sourceId": "cloud_benchmark",
+        "metrics": [
+          {
+            "label": "Median cloud path latency (ms)",
+            "field": "median_path_ms",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "reachmap_cells",
+        "description": "Unique global 20-degree by 10-degree Maidenhead fields rendered in both core and personalized modes.",
+        "dataset": "summary",
+        "sourceId": "product_qa",
+        "metrics": [
+          {
+            "label": "ReachMap cells",
+            "field": "reachmap_cells",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "validation_skill",
+        "title": "A6 improves over the frozen baseline in every evaluation scope",
+        "subtitle": "Relative opportunity-weighted Brier improvement; higher is better. Locked scopes were opened once after the model and gates were frozen.",
+        "type": "horizontalBar",
+        "dataset": "validation_scopes",
+        "sourceId": "model_evidence",
+        "encodings": {
+          "x": {
+            "field": "scope",
+            "type": "ordinal",
+            "label": "Evaluation scope"
+          },
+          "y": {
+            "field": "relative_improvement",
+            "type": "quantitative",
+            "label": "Relative Brier improvement",
+            "format": "percent"
+          },
+          "tooltip": [
+            {
+              "field": "candidate_brier",
+              "type": "quantitative",
+              "label": "A6 Brier",
+              "format": "number"
+            },
+            {
+              "field": "baseline_brier",
+              "type": "quantitative",
+              "label": "V3/B2 Brier",
+              "format": "number"
+            },
+            {
+              "field": "rows",
+              "type": "quantitative",
+              "label": "Rows",
+              "format": "compact"
+            }
+          ]
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "deployed_latency",
+        "title": "The deployed service is interactive at path and map scale",
+        "subtitle": "Median end-to-end latency includes internet transit, feature RPCs, validation, model inference, and serialization. The 4,096-cell case is a capacity probe, not the product's 324-cell grid.",
+        "type": "horizontalBar",
+        "dataset": "latency_workloads",
+        "sourceId": "cloud_benchmark",
+        "encodings": {
+          "x": {
+            "field": "workload",
+            "type": "ordinal",
+            "label": "Workload"
+          },
+          "y": {
+            "field": "median_ms",
+            "type": "quantitative",
+            "label": "Median latency (ms)"
+          },
+          "tooltip": [
+            {
+              "field": "p95_ms",
+              "type": "quantitative",
+              "label": "p95 latency (ms)"
+            },
+            {
+              "field": "max_ms",
+              "type": "quantitative",
+              "label": "Maximum latency (ms)"
+            },
+            {
+              "field": "samples",
+              "type": "quantitative",
+              "label": "Samples"
+            }
+          ]
+        },
+        "valueFormat": "number",
+        "unit": "ms",
+        "layout": "full"
+      },
+      {
+        "id": "concurrency_throughput",
+        "title": "One worker reaches 18.7 requests per second with four callers",
+        "subtitle": "Wall throughput rises because feature and weather lookups are I/O-bound. p95 rises at concurrency four, supporting replica-first scaling rather than more XGBoost threads.",
+        "type": "bar",
+        "dataset": "concurrency",
+        "sourceId": "cloud_benchmark",
+        "encodings": {
+          "x": {
+            "field": "callers",
+            "type": "ordinal",
+            "label": "Concurrent callers"
+          },
+          "y": {
+            "field": "wall_rps",
+            "type": "quantitative",
+            "label": "Wall requests per second"
+          },
+          "tooltip": [
+            {
+              "field": "p95_ms",
+              "type": "quantitative",
+              "label": "p95 latency (ms)"
+            }
+          ]
+        },
+        "valueFormat": "number",
+        "unit": "requests/s",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "evaluation_detail",
+        "title": "Frozen evaluation ledger",
+        "subtitle": "Development selected the blend; December and the 2025 archive were untouched outcome gates.",
+        "dataset": "validation_scopes",
+        "sourceId": "model_evidence",
+        "defaultSort": {
+          "field": "scope",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "scope",
+            "label": "Scope",
+            "type": "text"
+          },
+          {
+            "field": "comparison",
+            "label": "Rows and Brier comparison",
+            "type": "text"
+          },
+          {
+            "field": "decision",
+            "label": "Decision",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "operating_envelope",
+        "title": "Initial serving envelope",
+        "subtitle": "Measured on the M5 and translated into conservative single-replica settings.",
+        "dataset": "operating_envelope",
+        "sourceId": "cloud_report",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "dimension",
+            "label": "Resource",
+            "type": "text"
+          },
+          {
+            "field": "configuration",
+            "label": "Measured and initial setting",
+            "type": "text"
+          },
+          {
+            "field": "reason",
+            "label": "Reason",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "product_readiness",
+        "title": "Capability and evidence boundary",
+        "subtitle": "Engineering completion does not promote a scientific claim whose required evidence does not exist yet.",
+        "dataset": "product_readiness",
+        "sourceId": "integration_plan",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "capability",
+            "label": "Capability",
+            "type": "text"
+          },
+          {
+            "field": "evidence_boundary",
+            "label": "Model and evidence boundary",
+            "type": "text"
+          },
+          {
+            "field": "product_decision",
+            "label": "Product status and decision",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "qa_matrix",
+        "title": "Authenticated visual verification",
+        "subtitle": "Each viewport loaded both station and core predictions; projection changes reused the five-minute cache.",
+        "dataset": "qa_matrix",
+        "sourceId": "product_qa",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "viewport",
+            "label": "Viewport and projections",
+            "type": "text"
+          },
+          {
+            "field": "surface_result",
+            "label": "Surface result",
+            "type": "text"
+          },
+          {
+            "field": "cache_layout",
+            "label": "Cache and layout",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "model_evidence",
+        "label": "Frozen A6 experiment and gate evidence",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json"
+      },
+      {
+        "id": "model_card",
+        "label": "Propulse NowCast V4.2 model card",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/MODEL_CARD.md"
+      },
+      {
+        "id": "cloud_benchmark",
+        "label": "Deployed Railway benchmark receipt",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/cloud_benchmark.json"
+      },
+      {
+        "id": "cloud_report",
+        "label": "A6 cloud deployment verification report",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md"
+      },
+      {
+        "id": "integration_plan",
+        "label": "Propagation product and cloud integration plan",
+        "path": "ml/PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md"
+      },
+      {
+        "id": "product_qa",
+        "label": "Sanitized authenticated ReachMap QA receipt",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REACH_MAP_QA.json"
+      },
+      {
+        "id": "uptime_workflow",
+        "label": "Propagation model identity and uptime workflow",
+        "path": ".github/workflows/propagation-uptime-monitor.yml"
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propulse Propagation V4.2: Model-to-Product Completion Report\n\nGenerated 2026-07-17 UTC | Frozen model: **A6 50M retrospective/internal**"
+      },
+      {
+        "id": "answer_first",
+        "type": "markdown",
+        "sourceId": "integration_plan",
+        "body": "## Technical decision\n\n**NowCast is ready for full private-product use and continued shadow evaluation.** The 50M A6 blend passed untouched December 2024 and locked 2025 gates, the exact checksum-verified bundle is deployed behind the authenticated Vercel boundary, and Band Planner plus ReachMap consume the operator's saved location and active shack chain.\n\n**This is not the end of propagation research.** FutureCast, a learned StationCast residual, and 6m remain separate evidence programs. The product correctly labels or withholds them instead of manufacturing a forecast from a NowCast model."
+      },
+      {
+        "id": "metrics",
+        "type": "metric-strip",
+        "cardIds": [
+          "training_scale",
+          "untouched_rows",
+          "locked_skill",
+          "cloud_latency",
+          "reachmap_cells"
+        ]
+      },
+      {
+        "id": "key_findings",
+        "type": "markdown",
+        "sourceId": "model_evidence",
+        "body": "## Key findings\n\n- A6 is a frozen **70% A4 recent-cycle + 30% A5 recency-weighted** probability blend using two independently trained 50M-row XGBoost components and 91 core features.\n- It improves weighted Brier by **2.35%** on development, **2.04%** on untouched December 2024, and **2.13%** over the locked 2025 archive. Every one of the four locked archive months improves.\n- Scale was used only where it earned evidence. The preregistered 100M run was rejected because residual-variance and rare-regime support did not justify another training run.\n- The public core estimates a WSPR single-decode probability. The private station layer is a deterministic equipment/link-budget adjustment, not a second learned model and not a guaranteed-contact claim."
+      },
+      {
+        "id": "validation_chart",
+        "type": "chart",
+        "chartId": "validation_skill",
+        "layout": "full"
+      },
+      {
+        "id": "evaluation_table",
+        "type": "table",
+        "tableId": "evaluation_detail",
+        "layout": "full"
+      },
+      {
+        "id": "methodology",
+        "type": "markdown",
+        "sourceId": "model_card",
+        "body": "## Methodology and model specification\n\nThe core is XGBoost 3.3 histogram trees running native ARM64/OpenMP. Features cover path geometry, solar illumination, completed-hour space weather, band, receiver availability, explicit missingness, and lagged path evidence. Candidate and baseline were scored on identical opportunity-weighted rows. Locked scoring streamed 100,000-row Arrow batches and retained additive sufficient statistics, keeping peak memory bounded instead of loading hundreds of millions of rows at once.\n\nBrier score is the primary metric because the product needs calibrated probability magnitude, not only ranking. The gates also covered paired-day uncertainty, weekly stability, calibration, high-confidence gaps, supported bands, and distance slices. Offline and service predictions matched exactly before deployment."
+      },
+      {
+        "id": "cloud_section",
+        "type": "markdown",
+        "sourceId": "cloud_report",
+        "body": "## Cloud serving and efficiency\n\nThe browser never receives the Railway service credential or raw trusted feature history. A registered user calls same-origin Vercel endpoints; the proxy validates schema and identity, adds the private service credential, and calls the Railway FastAPI service. The service loads one model copy, uses one Uvicorn worker and one XGBoost prediction thread, and returns model identity, profile, confidence, freshness, OOD, missing-feature, and fallback provenance."
+      },
+      {
+        "id": "latency_chart",
+        "type": "chart",
+        "chartId": "deployed_latency",
+        "layout": "full"
+      },
+      {
+        "id": "concurrency_chart",
+        "type": "chart",
+        "chartId": "concurrency_throughput",
+        "layout": "full"
+      },
+      {
+        "id": "operating_table",
+        "type": "table",
+        "tableId": "operating_envelope",
+        "layout": "full"
+      },
+      {
+        "id": "product_section",
+        "type": "markdown",
+        "sourceId": "integration_plan",
+        "body": "## Product integration\n\nBand Planner ranks all ten HF bands in Core 5 W and My Station modes. ReachMap evaluates 324 unique global Maidenhead fields in three bounded chunks, caches results for five minutes, and reuses the same prediction surface across globe, flat, and azimuthal projections. Both surfaces resolve the canonical saved location and active virtual-shack chain, while the open core remains identity-free."
+      },
+      {
+        "id": "readiness_table",
+        "type": "table",
+        "tableId": "product_readiness",
+        "layout": "full"
+      },
+      {
+        "id": "qa_table_block",
+        "type": "table",
+        "tableId": "qa_matrix",
+        "layout": "full"
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "sourceId": "model_card",
+        "body": "## Limitations and robustness\n\nWSPR observations mix propagation with receiver placement, listening/reporting behavior, interference, mode, and local noise. A6 predicts the chance of at least one WSPR decode for a declared path; it does not guarantee a QSO and is not yet prospectively validated. Stale or missing live evidence deliberately falls back to the frozen physics profile.\n\nThe deterministic station adjustment uses declared power, gain, loss, and noise assumptions, so bad shack data produces bad personalization. A learned per-operator residual remains withheld until an opt-in cohort is large enough to address sample size and selection bias. FutureCast needs archived issued forecasts with later outcomes; current synthetic pipeline proofs cannot establish real forecast skill. Six meters requires its own mechanism-specific model and dataset."
+      },
+      {
+        "id": "operations",
+        "type": "markdown",
+        "sourceId": "uptime_workflow",
+        "body": "## Operations and release posture\n\nA scheduled health workflow checks that Railway returns `ok`, requires authentication, stays in shadow mode, exposes only approved profiles, and serves the exact A6 identity. It opens one durable GitHub issue on repeated failure and closes it on recovery. The workflow becomes active on the default branch. Runtime cost must be measured from Railway billing after representative private use; request timing alone is not a defensible dollar estimate."
+      },
+      {
+        "id": "next_steps",
+        "type": "markdown",
+        "sourceId": "integration_plan",
+        "body": "## Recommended next steps\n\n1. Merge the integration branch and manually dispatch the uptime workflow; verify the first scheduled recovery cycle.\n2. Run private operator acceptance on Band Planner and ReachMap, collecting latency, fallback frequency, confidence distribution, and usability defects without using outcomes to retune A6.\n3. Preserve the frozen August-September 2026 prospective window and score it once under the preregistered protocol.\n4. Begin a genuine issued-forecast archive for FutureCast and an explicit opt-in outcome cohort for learned StationCast.\n5. Keep 6m isolated until sporadic-E and mechanism-specific evidence support a dedicated candidate."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\n- Does A6 retain at least 1% relative Brier skill in the frozen prospective window?\n- Which source outages most often force physics fallback, and do users understand the degraded state?\n- Does deterministic station personalization improve operator decisions across power, antenna, loss, and noise regimes?\n- After prospective validation, which residual slice actually justifies more data, a different loss, or a separate mechanism model?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-17T05:21:58Z",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "training_rows": 50000000,
+          "untouched_rows": 260474292,
+          "locked_improvement": 0.02133784541521433,
+          "median_path_ms": 176.027,
+          "reachmap_cells": 324
+        }
+      ],
+      "validation_scopes": [
+        {
+          "order": 1,
+          "scope": "Oct-Nov 2024 development",
+          "role": "Candidate selection",
+          "rows": 110407406,
+          "candidate_brier": 0.043556031740489,
+          "baseline_brier": 0.04460621904281905,
+          "relative_improvement": 0.023543517582647833,
+          "comparison": "A6 0.0435560 | B2 0.0446062",
+          "decision": "+2.354%; selected; 110.4M rows"
+        },
+        {
+          "order": 2,
+          "scope": "December 2024",
+          "role": "Untouched gate",
+          "rows": 52101759,
+          "candidate_brier": 0.043440623903057037,
+          "baseline_brier": 0.04434430409817182,
+          "relative_improvement": 0.020378720863770128,
+          "comparison": "A6 0.0434406 | B2 0.0443443",
+          "decision": "+2.038%; 10/10; 52.1M rows"
+        },
+        {
+          "order": 3,
+          "scope": "Locked 2025 archive",
+          "role": "Untouched gate",
+          "rows": 208372533,
+          "candidate_brier": 0.04096767484040412,
+          "baseline_brier": 0.04186089617186164,
+          "relative_improvement": 0.02133784541521433,
+          "comparison": "A6 0.0409677 | B2 0.0418609",
+          "decision": "+2.134%; 6/6; 208.4M rows"
+        }
+      ],
+      "latency_workloads": [
+        {
+          "workload": "Sequential path",
+          "samples": 30,
+          "median_ms": 176.027,
+          "p95_ms": 343.765,
+          "max_ms": 370.638
+        },
+        {
+          "workload": "144-cell surface",
+          "samples": 10,
+          "median_ms": 190.522,
+          "p95_ms": 569.252,
+          "max_ms": 569.252
+        },
+        {
+          "workload": "288-cell surface",
+          "samples": 10,
+          "median_ms": 198.282,
+          "p95_ms": 226.817,
+          "max_ms": 226.817
+        },
+        {
+          "workload": "4,096-cell surface",
+          "samples": 10,
+          "median_ms": 531.503,
+          "p95_ms": 655.506,
+          "max_ms": 655.506
+        }
+      ],
+      "concurrency": [
+        {
+          "callers": "1",
+          "wall_rps": 5.753,
+          "p95_ms": 192.473
+        },
+        {
+          "callers": "2",
+          "wall_rps": 11.046,
+          "p95_ms": 190.616
+        },
+        {
+          "callers": "4",
+          "wall_rps": 18.746,
+          "p95_ms": 401.131
+        }
+      ],
+      "operating_envelope": [
+        {
+          "dimension": "Model load",
+          "measured": "2.424 s",
+          "initial_setting": "Warm process",
+          "configuration": "2.424 s | Keep process warm",
+          "reason": "Avoid per-request model load"
+        },
+        {
+          "dimension": "Memory",
+          "measured": "1,160 MiB loaded; 1,180 MiB peak",
+          "initial_setting": ">= 2 GiB per replica",
+          "configuration": "1,180 MiB peak | >= 2 GiB",
+          "reason": "About 820 MiB headroom"
+        },
+        {
+          "dimension": "CPU",
+          "measured": "Model compute about 1.94 ms/path locally",
+          "initial_setting": ">= 1 vCPU",
+          "configuration": "1.94 ms/path | >= 1 vCPU",
+          "reason": "Warm requests are I/O-bound"
+        },
+        {
+          "dimension": "Uvicorn workers",
+          "measured": "1",
+          "initial_setting": "1",
+          "configuration": "1 measured | Keep 1 worker",
+          "reason": "Each worker duplicates model RAM"
+        },
+        {
+          "dimension": "XGBoost threads/request",
+          "measured": "1",
+          "initial_setting": "1",
+          "configuration": "1 measured | Keep 1/request",
+          "reason": "Avoid native oversubscription"
+        },
+        {
+          "dimension": "Scale trigger",
+          "measured": "Private-preview load below capacity",
+          "initial_setting": "Add replica before threads",
+          "configuration": "Below capacity | Add replicas first",
+          "reason": "Scale at p95 >750 ms or RAM >80%"
+        }
+      ],
+      "product_readiness": [
+        {
+          "capability": "NowCast core",
+          "model_role": "A6 WSPR decode probability",
+          "evidence": "December + locked 2025 passed",
+          "product": "Deployed and integrated",
+          "evidence_boundary": "A6 decode probability; gates passed",
+          "product_decision": "Integrated; private shadow use",
+          "decision": "Use privately; retain shadow label"
+        },
+        {
+          "capability": "StationCast",
+          "model_role": "Private link-budget adjustment",
+          "evidence": "Service parity + authenticated QA",
+          "product": "Band Planner + ReachMap integrated",
+          "evidence_boundary": "Link budget; QA passed",
+          "product_decision": "Planner + map; show assumptions",
+          "decision": "Use with assumptions visible"
+        },
+        {
+          "capability": "ReachMap",
+          "model_role": "324-cell NowCast surface",
+          "evidence": "Desktop/mobile, core/station QA passed",
+          "product": "Globe, flat, azimuthal",
+          "evidence_boundary": "324 cells; core/station QA",
+          "product_decision": "3 desktop views; private ready",
+          "decision": "Ready for private acceptance"
+        },
+        {
+          "capability": "FutureCast",
+          "model_role": "Separate horizon models",
+          "evidence": "No genuine issued-forecast archive",
+          "product": "Correctly withheld",
+          "evidence_boundary": "Horizon models; no archive",
+          "product_decision": "Withheld; no NowCast relabel",
+          "decision": "Do not relabel NowCast as forecast"
+        },
+        {
+          "capability": "Learned station residual",
+          "model_role": "Opt-in operator calibration",
+          "evidence": "No qualified cohort yet",
+          "product": "Not exposed",
+          "evidence_boundary": "Opt-in residual; no cohort",
+          "product_decision": "Hidden; collect evidence",
+          "decision": "Collect consented evidence first"
+        },
+        {
+          "capability": "6m separate track",
+          "model_role": "Separate mechanism model",
+          "evidence": "Not trained or validated",
+          "product": "No HF-model claim",
+          "evidence_boundary": "Separate; not validated",
+          "product_decision": "No HF claim; isolated",
+          "decision": "Keep isolated"
+        }
+      ],
+      "qa_matrix": [
+        {
+          "viewport": "Desktop 1440x900",
+          "projections": "Globe, flat, azimuthal",
+          "station_cells": "324/324",
+          "core_cells": "324/324",
+          "model_calls": "7 before / 7 after projection changes",
+          "surface_result": "3 views; station/core 324/324",
+          "cache_layout": "7 calls unchanged; no overflow",
+          "overflow": "None at document level"
+        },
+        {
+          "viewport": "Mobile 390x844",
+          "projections": "Globe, flat",
+          "station_cells": "324/324",
+          "core_cells": "324/324",
+          "model_calls": "14 before / 14 after projection changes",
+          "surface_result": "2 views; station/core 324/324",
+          "cache_layout": "14 calls unchanged; no overflow",
+          "overflow": "None at document level"
+        }
+      ]
+    },
+    "accessIssues": []
+  },
+  "sources": [
+    {
+      "id": "model_evidence",
+      "label": "Frozen A6 experiment and gate evidence",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed frozen experiment and gate evidence used in the report snapshot.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json"
+        ]
+      }
+    },
+    {
+      "id": "model_card",
+      "label": "Propulse NowCast V4.2 model card",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/MODEL_CARD.md",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed model card text used for specification and limitations.",
+        "sql": "SELECT content FROM read_text('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/MODEL_CARD.md')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/MODEL_CARD.md"
+        ]
+      }
+    },
+    {
+      "id": "cloud_benchmark",
+      "label": "Deployed Railway benchmark receipt",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/cloud_benchmark.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed deployed-service benchmark receipt used for latency and throughput datasets.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/cloud_benchmark.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/cloud_benchmark.json"
+        ]
+      }
+    },
+    {
+      "id": "cloud_report",
+      "label": "A6 cloud deployment verification report",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed cloud deployment report used for serving topology and operating recommendations.",
+        "sql": "SELECT content FROM read_text('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md"
+        ]
+      }
+    },
+    {
+      "id": "integration_plan",
+      "label": "Propagation product and cloud integration plan",
+      "path": "ml/PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed integration plan used for product status and next-step decisions.",
+        "sql": "SELECT content FROM read_text('ml/PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md')",
+        "tables_used": [
+          "ml/PROPAGATION-PRODUCT-CLOUD-INTEGRATION-PLAN.md"
+        ]
+      }
+    },
+    {
+      "id": "product_qa",
+      "label": "Sanitized authenticated ReachMap QA receipt",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REACH_MAP_QA.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the sanitized authenticated visual QA receipt used for product verification datasets.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REACH_MAP_QA.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REACH_MAP_QA.json"
+        ]
+      }
+    },
+    {
+      "id": "uptime_workflow",
+      "label": "Propagation model identity and uptime workflow",
+      "path": ".github/workflows/propagation-uptime-monitor.yml",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed uptime workflow used for operations and alerting status.",
+        "sql": "SELECT content FROM read_text('.github/workflows/propagation-uptime-monitor.yml')",
+        "tables_used": [
+          ".github/workflows/propagation-uptime-monitor.yml"
+        ]
+      }
+    }
+  ],
+  "package_info": {
+    "root": ".",
+    "manifestPath": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REPORT.artifact.json",
+    "snapshotPath": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REPORT.artifact.json",
+    "originUrl": "artifact://propulse-propagation-v4-2-product-completion"
+  }
+}

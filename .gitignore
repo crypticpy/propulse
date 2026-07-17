@@ -62,5 +62,7 @@ data/exports/
 # ML training data + trained model artifacts (large, derived from DB exports)
 ml/data/
 ml/models/
-ml/.venv/
+ml/.venv
 catboost_info/
+__pycache__/
+*.py[cod]

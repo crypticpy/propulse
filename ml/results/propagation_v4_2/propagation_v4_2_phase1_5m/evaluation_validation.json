@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T02:54:27.050141+00:00",
+  "run_id": "propagation_v4_2_phase1_5m",
+  "input": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+  "checks": {
+    "scope_is_phase1_evaluation": true,
+    "exact_evaluation_months": true,
+    "december_closed": true,
+    "locked_2025_closed": true,
+    "input_inventory_exact": true,
+    "all_input_hashes_verified": true,
+    "artifact_inventory_exact": true,
+    "all_artifact_hashes_verified": true,
+    "row_total_matches_inputs": true,
+    "variant_inventory_exact": true,
+    "month_slices_exact": true,
+    "all_metric_totals_reconcile": true,
+    "common_evaluation_mass": true,
+    "all_metrics_finite": true,
+    "brier_values_bounded": true,
+    "selection_inventory_exact": true,
+    "bootstrap_inventory_exact": true,
+    "bootstrap_intervals_ordered": true,
+    "pairwise_inventory_exact": true,
+    "pairwise_months_exact": true,
+    "pairwise_diagnostics_valid": true,
+    "advancement_rule_reproduces": true,
+    "maximum_three_advance": true,
+    "memory_within_m5_budget": true
+  },
+  "passed": true
+}

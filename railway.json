@@ -1,0 +1,24 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "ml/service/Dockerfile",
+    "watchPatterns": [
+      "ml/service/**",
+      "ml/config/propagation_v4_2_runtime_activation.json",
+      "ml/config/propagation_v4_2_runtime_eligibility.json",
+      "ml/src/archive_v4/station_cast_adapter.py",
+      "ml/src/archive_v4_1/calibration.py",
+      "railway.json"
+    ]
+  },
+  "deploy": {
+    "startCommand": "python production_entrypoint.py",
+    "healthcheckPath": "/v1/propagation/health",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10,
+    "overlapSeconds": 30,
+    "drainingSeconds": 30
+  }
+}

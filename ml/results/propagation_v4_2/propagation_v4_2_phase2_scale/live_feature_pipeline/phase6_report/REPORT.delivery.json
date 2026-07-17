@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "html": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html",
+  "stages": {
+    "validation": "passed",
+    "package": "passed",
+    "verification": "passed"
+  },
+  "counts": {
+    "blocks": 34,
+    "charts": 5,
+    "html": 0,
+    "metrics": 7,
+    "tables": 4
+  },
+  "sourceDialog": "passed",
+  "sourceInteraction": "keyboard_menu_semantic_click",
+  "viewports": [
+    1440,
+    390
+  ],
+  "timings": {
+    "validateAndPackageMs": 1023.9,
+    "staticChartExtractionMs": 976.1,
+    "browserRunMs": 819.2,
+    "readerReadyMs": 49.8,
+    "contentChecksMs": 32,
+    "sourceDialogMs": 32,
+    "responsiveChecksMs": 32,
+    "verificationMs": 825.3,
+    "totalMs": 1854.8
+  },
+  "files": {
+    "artifactSha256": "0eb91327f40f19a3925d03aa4b2ce38a0962d2818b2199d95f0908cf670f798a",
+    "htmlSha256": "f2c9f4f3efef1a034bb8cfbc447b020011aed0524e1addd63bfd4ef0184a1d60",
+    "desktopPreviewSha256": "26dccef3a341cec8049bdca902e2b254941a0c884bd25b01b46981a5f6b9594c",
+    "mobilePreviewSha256": "aa7c5cfc6ed4b8c6be965412932ab009be22c933f5ec37aee23e14a304971f52"
+  },
+  "renderer": {
+    "officialPluginBase": "data-analytics/0.2.8-13ceeea1f599",
+    "isolatedCorrection": "Semantic and enhanced-reader sticky headers are constrained to their content containers so desktop scrollbar width cannot create overflow.",
+    "artifactSchemaChanged": false,
+    "networkAccessRequired": false
+  }
+}

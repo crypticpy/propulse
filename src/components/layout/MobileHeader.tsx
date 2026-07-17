@@ -37,7 +37,7 @@ export function MobileHeader({
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   return (
-    <header className="h-12 flex items-center justify-between px-3 bg-void-black/90 backdrop-blur-sm border-b border-white/10 pt-safe z-50">
+    <header className="h-12 flex items-center justify-between px-2 bg-void-black/90 backdrop-blur-sm border-b border-white/10 pt-safe z-50">
       {/* Brand */}
       <div className="flex shrink-0 items-center gap-1.5">
         <span className="text-base">☀️</span>

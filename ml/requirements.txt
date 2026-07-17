@@ -1,0 +1,14 @@
+duckdb==1.5.4
+fastapi==0.139.0
+httpx==0.28.1
+joblib==1.5.3
+lightgbm==4.6.0
+numpy==2.5.1
+polars==1.42.1
+psycopg[binary]==3.3.4
+pytz==2025.2
+pyarrow==25.0.0
+pydantic==2.13.4
+scikit-learn==1.9.0
+xgboost==3.3.0
+uvicorn==0.51.0

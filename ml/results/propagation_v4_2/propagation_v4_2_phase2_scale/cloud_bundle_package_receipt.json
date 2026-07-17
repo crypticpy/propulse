@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T21:28:14Z",
+  "release_stage": "retrospective_validated_internal",
+  "object": {
+    "bucket": "propagation-models",
+    "key": "a6/254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee.tar.zst",
+    "bytes": 66846932,
+    "sha256": "254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee"
+  },
+  "members": [
+    {
+      "name": "serving_manifest.json",
+      "bytes": 13682,
+      "sha256": "726b5f85bd521ec945ba06102431c223e5a52a067b6c5e035feb1687417b6f28"
+    },
+    {
+      "name": "nowcast_A4_recent_cycle.joblib",
+      "bytes": 110911,
+      "sha256": "b80c59a2c191a96db7a3be77b76af88bc033e84e347d9cf80b837e54c64e333b"
+    },
+    {
+      "name": "nowcast_A4_recent_cycle.json",
+      "bytes": 102939403,
+      "sha256": "60d6f5210c5f4338145c3e2594d706dc1511cbb443677eb168cddc75566a19bd"
+    },
+    {
+      "name": "nowcast_A5_recency_weighted.joblib",
+      "bytes": 109659,
+      "sha256": "d6226d0ddfc894541d241d63ebc20f8b6f2641bc3ec728a194b9c305463f51dc"
+    },
+    {
+      "name": "nowcast_A5_recency_weighted.json",
+      "bytes": 101841851,
+      "sha256": "da867107a5f84d84bc0191647ddea481cf9b43f278f00bba80dc16b852e5d4a7"
+    },
+    {
+      "name": "physics_M1.joblib",
+      "bytes": 4582,
+      "sha256": "0f61adf63b3b8119fda2ea3f739e9f8bd26ff998072ade2e0f32bebf02567913"
+    },
+    {
+      "name": "physics_M1.json",
+      "bytes": 59348757,
+      "sha256": "025d43884046589ddcdcd555a61e07f0d1aa22daed5403cded66a06bc3cb61d4"
+    }
+  ],
+  "compression": {
+    "format": "tar.zst",
+    "zstd_level": 10,
+    "threads": 12
+  },
+  "machine": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "thermal_limits": {},
+    "python_version": "3.12.11"
+  }
+}

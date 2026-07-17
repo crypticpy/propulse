@@ -1,0 +1,500 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T21:46:45.706613+00:00",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scale": 50000000,
+  "scope": "development_only",
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "seed": 20260711,
+  "selected_candidates": [
+    "A4_recent_cycle",
+    "A5_recency_weighted"
+  ],
+  "folds": [
+    "F3_2024_07"
+  ],
+  "sampling_key": "hash(target_hour, band, tx_grid4, rx_grid4, power_bin_dbm, 20260711)",
+  "source_inventory": {
+    "2018-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-000.parquet",
+      "rows": 12846862,
+      "bytes": 1570157307
+    },
+    "2018-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-001.parquet",
+      "rows": 11506481,
+      "bytes": 1412427807
+    },
+    "2018-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-002.parquet",
+      "rows": 12937562,
+      "bytes": 1551721852
+    },
+    "2018-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-003.parquet",
+      "rows": 12512932,
+      "bytes": 1525054387
+    },
+    "2019-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-004.parquet",
+      "rows": 14070053,
+      "bytes": 1720441622
+    },
+    "2019-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-005.parquet",
+      "rows": 14607964,
+      "bytes": 1794444186
+    },
+    "2019-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-006.parquet",
+      "rows": 15945691,
+      "bytes": 1936187808
+    },
+    "2019-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-007.parquet",
+      "rows": 16177757,
+      "bytes": 1986490128
+    },
+    "2020-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-008.parquet",
+      "rows": 19208723,
+      "bytes": 2355806017
+    },
+    "2020-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-009.parquet",
+      "rows": 22425624,
+      "bytes": 2738472049
+    },
+    "2020-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-010.parquet",
+      "rows": 23577008,
+      "bytes": 2839480492
+    },
+    "2020-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-011.parquet",
+      "rows": 23826901,
+      "bytes": 2925325683
+    },
+    "2021-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-012.parquet",
+      "rows": 26214031,
+      "bytes": 3205502381
+    },
+    "2021-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-013.parquet",
+      "rows": 26330607,
+      "bytes": 3296247818
+    },
+    "2021-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-014.parquet",
+      "rows": 30664671,
+      "bytes": 3761046169
+    },
+    "2021-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-015.parquet",
+      "rows": 32778791,
+      "bytes": 4088071744
+    },
+    "2022-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-016.parquet",
+      "rows": 33983659,
+      "bytes": 4252202690
+    },
+    "2022-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-017.parquet",
+      "rows": 40016964,
+      "bytes": 5034749894
+    },
+    "2022-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-018.parquet",
+      "rows": 37172757,
+      "bytes": 4679341086
+    },
+    "2022-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-019.parquet",
+      "rows": 47405806,
+      "bytes": 5959890483
+    },
+    "2023-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-020.parquet",
+      "rows": 47701972,
+      "bytes": 6017268312
+    },
+    "2023-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-021.parquet",
+      "rows": 50062796,
+      "bytes": 6343356871
+    },
+    "2023-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-022.parquet",
+      "rows": 46082754,
+      "bytes": 5865284410
+    },
+    "2023-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-023.parquet",
+      "rows": 55923043,
+      "bytes": 7121175737
+    },
+    "2024-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-024.parquet",
+      "rows": 50778847,
+      "bytes": 6320320869
+    },
+    "2024-02": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-000.parquet",
+      "rows": 54289793,
+      "bytes": 6786291189
+    },
+    "2024-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-025.parquet",
+      "rows": 56027390,
+      "bytes": 7136849835
+    },
+    "2024-05": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-001.parquet",
+      "rows": 50323668,
+      "bytes": 6464830928
+    },
+    "2024-08": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-002.parquet",
+      "rows": 46202412,
+      "bytes": 5936865614
+    },
+    "2024-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-027.parquet",
+      "rows": 55863247,
+      "bytes": 7123431215
+    },
+    "2024-11": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_hf.parquet/part-000.parquet",
+      "rows": 54544159,
+      "bytes": 6906860189
+    }
+  },
+  "cohorts": {
+    "A4_recent_cycle": {
+      "F3_2024_07": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/50m/cohort_A4_recent_cycle_F3_2024_07_50m.parquet",
+        "bytes": 6061669062,
+        "rows": 50000000,
+        "sha256": "80eb42d6f3d4baa1ec9121cddd97b586c690c95665b1eb4e8db73728f0cc974f",
+        "months": [
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01",
+          "2024-02",
+          "2024-04",
+          "2024-05"
+        ],
+        "weight_column": "training_weight",
+        "distribution": {
+          "2022-01": {
+            "rows": 2980144,
+            "opportunities": 85709401.5,
+            "training_weight": 85709401.5
+          },
+          "2022-04": {
+            "rows": 3511498,
+            "opportunities": 106471128.5,
+            "training_weight": 106471128.5
+          },
+          "2022-07": {
+            "rows": 3260883,
+            "opportunities": 91366506.75,
+            "training_weight": 91366506.75
+          },
+          "2022-10": {
+            "rows": 4162732,
+            "opportunities": 112982237.5,
+            "training_weight": 112982237.5
+          },
+          "2023-01": {
+            "rows": 4181834,
+            "opportunities": 109683174.75,
+            "training_weight": 109683174.75
+          },
+          "2023-04": {
+            "rows": 4397615,
+            "opportunities": 124046515.0,
+            "training_weight": 124046515.0
+          },
+          "2023-07": {
+            "rows": 4044154,
+            "opportunities": 117144747.0,
+            "training_weight": 117144747.0
+          },
+          "2023-10": {
+            "rows": 4907397,
+            "opportunities": 134509559.0,
+            "training_weight": 134509559.0
+          },
+          "2024-01": {
+            "rows": 4455810,
+            "opportunities": 118836655.5,
+            "training_weight": 118836655.5
+          },
+          "2024-02": {
+            "rows": 4761072,
+            "opportunities": 124385462.0,
+            "training_weight": 124385462.0
+          },
+          "2024-04": {
+            "rows": 4919074,
+            "opportunities": 157376862.75,
+            "training_weight": 157376862.75
+          },
+          "2024-05": {
+            "rows": 4417787,
+            "opportunities": 143097631.75,
+            "training_weight": 143097631.75
+          }
+        },
+        "nestedness": {
+          "phase1_rows": 20000000,
+          "missing_phase1_keys": 0,
+          "exact_phase1_key_subset": true,
+          "source_scale": 20000000,
+          "source_path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A4_recent_cycle_F3_2024_07_20m.parquet"
+        }
+      }
+    },
+    "A5_recency_weighted": {
+      "F3_2024_07": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/50m/cohort_A5_recency_weighted_F3_2024_07_50m.parquet",
+        "bytes": 6379462849,
+        "rows": 50000000,
+        "sha256": "17d39b4fe3cce6fa0429312d53a92d1bb55e158c8e4e0242f1b2d76afc37b90b",
+        "months": [
+          "2018-01",
+          "2018-04",
+          "2018-07",
+          "2018-10",
+          "2019-01",
+          "2019-04",
+          "2019-07",
+          "2019-10",
+          "2020-01",
+          "2020-04",
+          "2020-07",
+          "2020-10",
+          "2021-01",
+          "2021-04",
+          "2021-07",
+          "2021-10",
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01",
+          "2024-02",
+          "2024-04",
+          "2024-05"
+        ],
+        "weight_column": "recency_training_weight",
+        "distribution": {
+          "2018-01": {
+            "rows": 726375,
+            "opportunities": 13144751.25,
+            "training_weight": 1342585.4197039672
+          },
+          "2018-04": {
+            "rows": 650690,
+            "opportunities": 11993390.25,
+            "training_weight": 1369927.7725268127
+          },
+          "2018-07": {
+            "rows": 729609,
+            "opportunities": 14503734.75,
+            "training_weight": 1861629.2631771762
+          },
+          "2018-10": {
+            "rows": 706677,
+            "opportunities": 14514022.25,
+            "training_weight": 2094553.4788237554
+          },
+          "2019-01": {
+            "rows": 795762,
+            "opportunities": 17526393.75,
+            "training_weight": 2838777.386322122
+          },
+          "2019-04": {
+            "rows": 825546,
+            "opportunities": 19953248.0,
+            "training_weight": 3622513.6493405425
+          },
+          "2019-07": {
+            "rows": 900895,
+            "opportunities": 20362834.25,
+            "training_weight": 4147262.3661225596
+          },
+          "2019-10": {
+            "rows": 913038,
+            "opportunities": 21265621.5,
+            "training_weight": 4866639.537607805
+          },
+          "2020-01": {
+            "rows": 1084717,
+            "opportunities": 25650750.75,
+            "training_weight": 6594877.43474974
+          },
+          "2020-04": {
+            "rows": 1266444,
+            "opportunities": 33281900.0,
+            "training_weight": 9590129.604383655
+          },
+          "2020-07": {
+            "rows": 1330396,
+            "opportunities": 34959480.25,
+            "training_weight": 11313832.973923722
+          },
+          "2020-10": {
+            "rows": 1345027,
+            "opportunities": 34684133.75,
+            "training_weight": 12617282.418076772
+          },
+          "2021-01": {
+            "rows": 1480514,
+            "opportunities": 38892059.5,
+            "training_weight": 15892769.624379518
+          },
+          "2021-04": {
+            "rows": 1487828,
+            "opportunities": 43470216.0,
+            "training_weight": 19891091.210666012
+          },
+          "2021-07": {
+            "rows": 1729033,
+            "opportunities": 48229995.0,
+            "training_weight": 24761585.428279534
+          },
+          "2021-10": {
+            "rows": 1849422,
+            "opportunities": 51781673.0,
+            "training_weight": 29871961.3590569
+          },
+          "2022-01": {
+            "rows": 1917364,
+            "opportunities": 55114550.5,
+            "training_weight": 35733823.38231237
+          },
+          "2022-04": {
+            "rows": 2260262,
+            "opportunities": 68530433.0,
+            "training_weight": 49777847.56816438
+          },
+          "2022-07": {
+            "rows": 2097642,
+            "opportunities": 58797712.5,
+            "training_weight": 47922449.78826302
+          },
+          "2022-10": {
+            "rows": 2679349,
+            "opportunities": 72744112.0,
+            "training_weight": 66575388.21264631
+          },
+          "2023-01": {
+            "rows": 2690752,
+            "opportunities": 70558827.75,
+            "training_weight": 72633248.2063391
+          },
+          "2023-04": {
+            "rows": 2830576,
+            "opportunities": 79807440.75,
+            "training_weight": 91854035.89775397
+          },
+          "2023-07": {
+            "rows": 2603460,
+            "opportunities": 75454375.0,
+            "training_weight": 97604498.38665758
+          },
+          "2023-10": {
+            "rows": 3159415,
+            "opportunities": 86624172.75,
+            "training_weight": 125723705.58612642
+          },
+          "2024-01": {
+            "rows": 2868296,
+            "opportunities": 76460512.5,
+            "training_weight": 124912208.13770376
+          },
+          "2024-02": {
+            "rows": 3061759,
+            "opportunities": 80083775.25,
+            "training_weight": 135827950.11763167
+          },
+          "2024-04": {
+            "rows": 3166554,
+            "opportunities": 101229979.75,
+            "training_weight": 185238549.6751604
+          },
+          "2024-05": {
+            "rows": 2842598,
+            "opportunities": 92029423.5,
+            "training_weight": 175168395.6140561
+          }
+        },
+        "nestedness": {
+          "phase1_rows": 20000000,
+          "missing_phase1_keys": 0,
+          "exact_phase1_key_subset": true,
+          "source_scale": 20000000,
+          "source_path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A5_recency_weighted_F3_2024_07_20m.parquet"
+        }
+      }
+    }
+  },
+  "early_stopping": {
+    "F3_2024_07": {
+      "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase1_5m/sample_early_stopping_2024_07_5m.parquet",
+      "bytes": 566888739,
+      "rows": 5000000,
+      "sha256": "d5d8f05f17437df5d1b04bda8fa19ba6236db2da809e13f98c2cd1aab3d3dd30"
+    }
+  },
+  "calibration": {
+    "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase1_5m/sample_calibration_2024_08_5m.parquet",
+    "bytes": 569609257,
+    "rows": 5000000,
+    "sha256": "2b5739f210dbac15a77e686791a5ff689297ff6e34d8624c321fcc743388fad0"
+  },
+  "phase1_manifest": "ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json",
+  "nested_over_manifest": "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json",
+  "selection_source": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json",
+  "environment": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "python": "3.12.11",
+    "duckdb": "1.5.4",
+    "platform": "macOS-26.5.2-arm64-arm-64bit"
+  },
+  "seconds": 458.1014112910052
+}

@@ -19,6 +19,11 @@ import { gridToLatLon } from "@/lib/utils/grid";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
+import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
+import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { useResearchParticipation } from "@/hooks/useResearchParticipation";
+import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 
 /**
  * Band Planner Page
@@ -32,6 +37,19 @@ import { HelpTooltip } from "@/components/help/HelpTooltip";
 export function BandPlanner() {
   // User station
   const station = useUserStore((s) => s.station);
+  const stationCast = useStationCastContext();
+  const operatingStation = useMemo(
+    () => station && stationCast.location
+      ? {
+          ...station,
+          grid: stationCast.location.grid,
+          lat: stationCast.location.lat,
+          lon: stationCast.location.lon,
+          timezone: stationCast.location.timezone,
+        }
+      : station,
+    [station, stationCast.location],
+  );
   const favoredBands = useUserStore(
     (s) => s.preferences.favoredBands ?? DEFAULT_FAVORED_BANDS,
   );
@@ -95,6 +113,23 @@ export function BandPlanner() {
     refetchFlux();
     refetchMag();
   };
+  const modelWeather = useMemo(
+    () => ({
+      ...(currentKp == null ? {} : { kp: currentKp }),
+      ...(currentFlux == null ? {} : { f107: currentFlux }),
+      ...(currentBz == null ? {} : { bz_gsm: currentBz }),
+    }),
+    [currentKp, currentFlux, currentBz],
+  );
+  const researchParticipation = useResearchParticipation();
+  const modelNowCast = useNowCastBandPredictions({
+    origin: stationCast.location,
+    target: targetCoords,
+    weather: modelWeather,
+    weatherUpdatedAt: bandDataUpdatedAt,
+    deriveEnvelope: stationCast.deriveEnvelope,
+    researchSubjectBinding: researchParticipation.state?.subjectBinding,
+  });
 
   // Parse target grid and calculate coordinates
   const handleTargetChange = useCallback((value: string) => {
@@ -119,7 +154,7 @@ export function BandPlanner() {
   // Calculate forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
     if (
-      !station ||
+      !operatingStation ||
       !targetCoords ||
       currentKp === null ||
       currentFlux === null
@@ -128,15 +163,15 @@ export function BandPlanner() {
     }
 
     return getForecastForPath(
-      station.lat,
-      station.lon,
+      operatingStation.lat,
+      operatingStation.lon,
       targetCoords.lat,
       targetCoords.lon,
       currentKp,
       currentFlux,
       new Date(),
     );
-  }, [station, targetCoords, currentKp, currentFlux]);
+  }, [operatingStation, targetCoords, currentKp, currentFlux]);
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {
@@ -214,7 +249,7 @@ export function BandPlanner() {
       : allBands;
 
   // Mobile viewport: render MobileBandPlanner with all hook data
-  if (isMobile && !station) {
+  if (isMobile && !operatingStation) {
     return (
       <div className="p-4">
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
@@ -229,10 +264,10 @@ export function BandPlanner() {
       </div>
     );
   }
-  if (isMobile && station) {
+  if (isMobile && operatingStation) {
     return (
       <MobileBandPlanner
-        station={station}
+        station={operatingStation}
         currentKp={currentKp}
         currentFlux={currentFlux}
         currentBz={currentBz}
@@ -240,6 +275,12 @@ export function BandPlanner() {
         bandDataUpdatedAt={bandDataUpdatedAt}
         bandIsRefetching={bandIsRefetching}
         refetchBandData={refetchBandData}
+        deriveEnvelope={stationCast.deriveEnvelope}
+        modelWeather={modelWeather}
+        modelWeatherUpdatedAt={bandDataUpdatedAt}
+        researchSubjectBinding={researchParticipation.state?.subjectBinding}
+        stationChainName={stationCast.chain?.name}
+        locationName={stationCast.location?.name}
       />
     );
   }
@@ -387,7 +428,7 @@ export function BandPlanner() {
         )}
 
         {/* Station check */}
-        {!station && (
+        {!operatingStation && (
           <Card>
             <div className="text-center py-8">
               <svg
@@ -421,7 +462,7 @@ export function BandPlanner() {
           </Card>
         )}
 
-        {station && (
+        {operatingStation && (
           <>
             {/* Target input */}
             <Card>
@@ -443,7 +484,7 @@ export function BandPlanner() {
                     <span>
                       Your QTH:{" "}
                       <span className="text-white font-mono">
-                        {station.grid}
+                        {operatingStation.grid}
                       </span>
                     </span>
                     {targetCoords && (
@@ -534,6 +575,15 @@ export function BandPlanner() {
                 </div>
               </div>
             </Card>
+
+            {targetCoords && modelNowCast.visible && (
+              <NowCastBandPanel
+                state={modelNowCast}
+                bands={HF_MODEL_BANDS}
+                stationLabel={stationCast.chain?.name}
+                locationLabel={stationCast.location?.name}
+              />
+            )}
 
             {/* No target selected */}
             {!targetCoords && (
@@ -1049,9 +1099,9 @@ export function BandPlanner() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     <div>
                       <div className="text-xs text-gray-400 mb-1">From</div>
-                      <div className="font-mono text-white">{station.grid}</div>
+                      <div className="font-mono text-white">{operatingStation.grid}</div>
                       <div className="text-xs text-gray-500">
-                        {station.lat.toFixed(2)}°, {station.lon.toFixed(2)}°
+                        {operatingStation.lat.toFixed(2)}°, {operatingStation.lon.toFixed(2)}°
                       </div>
                     </div>
                     <div>
@@ -1069,8 +1119,8 @@ export function BandPlanner() {
                       <div className="font-mono text-white">
                         {Math.round(
                           calculateGreatCircleDistance(
-                            station.lat,
-                            station.lon,
+                            operatingStation.lat,
+                            operatingStation.lon,
                             targetCoords.lat,
                             targetCoords.lon,
                           ),

@@ -1,0 +1,1252 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T19:43:02.734282+00:00",
+  "scope": "phase6_technical_model_and_release_readiness",
+  "decision": "withheld",
+  "locked_prospective_outcomes_read": false,
+  "input_inventory": {
+    "model": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/FINAL_REPORT_EVIDENCE.json",
+      "sha256": "45350056b18a071a86e0b079d4195e47503e8fe22ec7ce8530bf1ded76fe015e",
+      "bytes": 22817
+    },
+    "release": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
+      "sha256": "bfd969651c94a497e280475ff5c24348af751ffec6c2bbc7a0669438f7514b8c",
+      "bytes": 9692
+    },
+    "runtime_eligibility": {
+      "path": "ml/config/propagation_v4_2_runtime_eligibility.json",
+      "sha256": "fe22d83614bd239d0e03801fa2976c853aa21f65a73c24f64449a1f151108b38",
+      "bytes": 474
+    },
+    "runtime_activation": {
+      "path": "ml/config/propagation_v4_2_runtime_activation.json",
+      "sha256": "701b5c29d091350c36d941dd5cf3c319a5ecb050521a22dbfc75a5fda68ff27b",
+      "bytes": 330
+    },
+    "beta_rollback": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/propagation_beta_protocol_migration_validation.json",
+      "sha256": "af8ab19a1a01e18031f3d408c16949f16ba7518dfb1a02a5bc3f631b075190a4",
+      "bytes": 1801
+    },
+    "beta_deployment": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/propagation_beta_protocol_deployment_validation.json",
+      "sha256": "1a7e11d0225e2de7d79d3a3b1c7dbe669dee4e6ea29799a8baefecab4e077727",
+      "bytes": 1839
+    },
+    "wspr": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
+      "sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74",
+      "bytes": 1794
+    },
+    "coverage": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
+      "sha256": "0db9e2ca3efe2ecbfbebe1f8e27663b3d6d84ea2f119c13414ef1b11002bd1c5",
+      "bytes": 70639
+    },
+    "capture": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
+      "sha256": "fc6ff2545fc13e5a70e4edfcfff4f0f62e81feafee933c62c332badd623be7ec",
+      "bytes": 5502
+    },
+    "beta_config": {
+      "path": "ml/config/propagation_v4_2_beta_protocol.json",
+      "sha256": "a9bf11681502357c0b37d343bc8ce0429fd094c337eb3757a5406934b4b5449e",
+      "bytes": 1501
+    },
+    "beta_dry_run": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/synthetic_stationcast_beta_dry_run.json",
+      "sha256": "f0aa11e90fe767ff5cd41ff959ea0c811d51a0e4f8b6865177675bb94c26def3",
+      "bytes": 9422
+    },
+    "futurecast": {
+      "path": "ml/results/propagation_v4/futurecast_readiness.json",
+      "sha256": "ce692d9477c243625ba65f6e964387e6283deaf3a3a5a5dcb7286e4e4f13f4d3",
+      "bytes": 1873
+    },
+    "six_meter": {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_release_decision.json",
+      "sha256": "7a60b698f07c84081dfdc4574903b23984a26b40170d5afd3dc4b3342e77b7af",
+      "bytes": 3973
+    }
+  },
+  "datasets": {
+    "summary": [
+      {
+        "selected_candidate": "A6_recent_recency_blend",
+        "archive_improvement": 0.02133784541521433,
+        "locked_rows": 260474292,
+        "archive_months_won": 4,
+        "archive_months_total": 4,
+        "release_gates_passed": 10,
+        "release_gates_total": 21,
+        "beta_rollback_gates": 22,
+        "beta_rollback_total": 22,
+        "beta_deployment_gates": 23,
+        "beta_deployment_total": 23,
+        "wspr_hours": 14,
+        "wspr_required_hours": 720,
+        "coverage_hours": 14,
+        "coverage_required_hours": 720,
+        "coverage_utc_hours": 14,
+        "coverage_distance_buckets": 5,
+        "coverage_drift_sample_sufficient": false,
+        "capture_hours": 6.76304465861111,
+        "capture_required_hours": 24.0,
+        "capture_pipeline_healthy": true,
+        "capture_weather_current_now": false,
+        "capture_weather_availability": 0.9090909090909091,
+        "capture_weather_current_receipts": 30,
+        "capture_weather_sample_receipts": 33,
+        "capture_weather_stale_run": 2,
+        "futurecast_days": 1,
+        "futurecast_required_days": 90,
+        "releaseable_modes": 0,
+        "runtime_eligible_modes": 0,
+        "runtime_activated_modes": 0,
+        "runtime_activation_state": "disabled",
+        "mode_count": 5,
+        "release_decision": "withheld",
+        "six_meter_decision": "withheld",
+        "beta_dry_run_rows": 2000,
+        "beta_dry_run_participants": 50,
+        "beta_dry_run_gates": 16,
+        "beta_dry_run_gate_total": 16,
+        "beta_dry_run_relative_brier_improvement": 0.058823529411764594,
+        "beta_dry_run_release_approved": false
+      }
+    ],
+    "locked_scope_rows": [
+      {
+        "scope": "2024-12",
+        "candidate_brier": 0.043440623903057037,
+        "b2_brier": 0.04434430409817182,
+        "relative_improvement": 0.020378720863770128,
+        "rows": 52101759
+      },
+      {
+        "scope": "2025 aggregate",
+        "candidate_brier": 0.04096767484040412,
+        "b2_brier": 0.04186089617186164,
+        "relative_improvement": 0.02133784541521433,
+        "rows": 208372533
+      },
+      {
+        "scope": "2025-01",
+        "candidate_brier": 0.04246630838805516,
+        "b2_brier": 0.04347420875355045,
+        "relative_improvement": 0.023183869112119893,
+        "rows": 52120942
+      },
+      {
+        "scope": "2025-04",
+        "candidate_brier": 0.03826858503907948,
+        "b2_brier": 0.03902344107416458,
+        "relative_improvement": 0.019343656384645636,
+        "rows": 52629262
+      },
+      {
+        "scope": "2025-07",
+        "candidate_brier": 0.039702025315924955,
+        "b2_brier": 0.04063997188048948,
+        "relative_improvement": 0.023079409782141402,
+        "rows": 47444263
+      },
+      {
+        "scope": "2025-10",
+        "candidate_brier": 0.04340886477044602,
+        "b2_brier": 0.04429873552688599,
+        "relative_improvement": 0.020087949370471092,
+        "rows": 56178066
+      }
+    ],
+    "gate_group_rows": [
+      {
+        "track": "Frozen model",
+        "passed": 3,
+        "required": 3,
+        "completion": 1.0
+      },
+      {
+        "track": "Live data",
+        "passed": 0,
+        "required": 4,
+        "completion": 0.0
+      },
+      {
+        "track": "Operations",
+        "passed": 2,
+        "required": 3,
+        "completion": 0.6666666666666666
+      },
+      {
+        "track": "Personalized beta",
+        "passed": 5,
+        "required": 6,
+        "completion": 0.8333333333333334
+      },
+      {
+        "track": "Locked prospective",
+        "passed": 0,
+        "required": 2,
+        "completion": 0.0
+      },
+      {
+        "track": "Future modes",
+        "passed": 0,
+        "required": 3,
+        "completion": 0.0
+      }
+    ],
+    "collection_progress_rows": [
+      {
+        "evidence_track": "First-party capture",
+        "observed": 6.76304465861111,
+        "required": 24.0,
+        "unit": "gap-free pipeline hours",
+        "completion": 0.2817935274421296
+      },
+      {
+        "evidence_track": "WSPR shadow",
+        "observed": 14.0,
+        "required": 720.0,
+        "unit": "completed hours",
+        "completion": 0.019444444444444445
+      },
+      {
+        "evidence_track": "Aggregate coverage",
+        "observed": 14.0,
+        "required": 720.0,
+        "unit": "complete all-band hours",
+        "completion": 0.019444444444444445
+      },
+      {
+        "evidence_track": "FutureCast issuance",
+        "observed": 1,
+        "required": 90,
+        "unit": "consecutive legal days",
+        "completion": 0.011111111111111112
+      }
+    ],
+    "mode_rows": [
+      {
+        "mode": "core nowcast",
+        "status": "shadow_only",
+        "eligible_scope": "none",
+        "passed": 5,
+        "required": 12,
+        "completion": 0.4166666666666667,
+        "remaining": 7
+      },
+      {
+        "mode": "stationcast deterministic",
+        "status": "shadow_only",
+        "eligible_scope": "none",
+        "passed": 9,
+        "required": 15,
+        "completion": 0.6,
+        "remaining": 6
+      },
+      {
+        "mode": "stationcast learned",
+        "status": "withheld",
+        "eligible_scope": "none",
+        "passed": 0,
+        "required": 1,
+        "completion": 0.0,
+        "remaining": 1
+      },
+      {
+        "mode": "futurecast",
+        "status": "withheld",
+        "eligible_scope": "none",
+        "passed": 0,
+        "required": 1,
+        "completion": 0.0,
+        "remaining": 1
+      },
+      {
+        "mode": "six meter",
+        "status": "withheld",
+        "eligible_scope": "none",
+        "passed": 0,
+        "required": 1,
+        "completion": 0.0,
+        "remaining": 1
+      },
+      {
+        "mode": "system health view",
+        "status": "hidden",
+        "eligible_scope": "none",
+        "passed": 5,
+        "required": 10,
+        "completion": 0.5,
+        "remaining": 5
+      }
+    ],
+    "gate_rows": [
+      {
+        "gate": "archive candidate frozen and passed",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "phase3 serving candidate validated",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "phase3 native m5 openmp evidence",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "prospective capture has 24 continuous hours",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "wspr shadow has 720 hours at 99 percent",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "wspr aggregate coverage and drift passed",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "subscriber recent path source authorized",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "research health boundaries deployed",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "stale and recovery incident exercised",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "literal full m5 outage exercised",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "participation boundary deployed",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "beta protocol boundary deployed",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "beta telemetry boundary deployed",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "beta stop event producers validated",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "beta protocol preregistered",
+        "status": "pass",
+        "passed": true
+      },
+      {
+        "gate": "stationcast beta passed",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "prospective window closed",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "nowcast prospective evaluation passed",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "learned stationcast release evidence passed",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "futurecast 90 day horizon evidence passed",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "six meter mechanism release evidence passed",
+        "status": "pending",
+        "passed": false
+      }
+    ],
+    "beta_metric_rows": [
+      {
+        "model": "Frozen core",
+        "brier": 0.17,
+        "ece": 0.10000000000000003,
+        "synthetic": true
+      },
+      {
+        "model": "Deterministic StationCast",
+        "brier": 0.16000000000000003,
+        "ece": 0.0,
+        "synthetic": true
+      }
+    ],
+    "beta_gate_rows": [
+      {
+        "gate": "minimum participants",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "minimum weighted primary outcomes",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "minimum tier a outcomes",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "minimum calendar days",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "minimum supported bands",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "minimum geography cells",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "minimum capability cells",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "participant weight share bounded",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "relative brier improvement",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "cluster bootstrap upper below zero",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "ece degradation bounded",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "high confidence gap degradation bounded",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "high confidence overprediction below stop",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "no reportable stratum regression",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "tier a and all grade direction agree",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      },
+      {
+        "gate": "no active stop condition",
+        "status": "exercised",
+        "passed": true,
+        "evidence": "synthetic only"
+      }
+    ],
+    "next_steps": [
+      {
+        "order": 1,
+        "action": "Sustain nonempty first-party capture for 24 gap-free pipeline hours",
+        "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
+        "current": "6.76/24 hours"
+      },
+      {
+        "order": 2,
+        "action": "Accumulate 720 permitted receipt-time WSPR shadow hours",
+        "why": "Measures real completeness, gaps, freshness, latency, and fallback behavior.",
+        "current": "14/720 hours"
+      },
+      {
+        "order": 3,
+        "action": "Obtain written subscriber-source authorization or operate an independent source",
+        "why": "Research-only WSPR access cannot authorize product-serving recent-path features.",
+        "current": "missing signed authorization artifact"
+      },
+      {
+        "order": 4,
+        "action": "Run the coordinated literal M5 power-loss recovery proof",
+        "why": "Must prove off-device detection and genuine restart without sacrificing the active duration clocks.",
+        "current": "not yet run"
+      },
+      {
+        "order": 5,
+        "action": "Run opt-in alpha and preregistered StationCast beta",
+        "why": "Only paired operator outcomes can support a personalization claim.",
+        "current": "collection disabled; infrastructure deployed"
+      },
+      {
+        "order": 6,
+        "action": "Open the frozen 2026-08-01 through 2026-09-30 window once",
+        "why": "The final NowCast release decision requires untouched prospective evidence.",
+        "current": "future and unread"
+      }
+    ],
+    "blocker_rows": [
+      {
+        "blocker": "futurecast 90 day horizon evidence passed",
+        "status": "required"
+      },
+      {
+        "blocker": "learned stationcast release evidence passed",
+        "status": "required"
+      },
+      {
+        "blocker": "literal full m5 outage exercised",
+        "status": "required"
+      },
+      {
+        "blocker": "nowcast prospective evaluation passed",
+        "status": "required"
+      },
+      {
+        "blocker": "prospective capture has 24 continuous hours",
+        "status": "required"
+      },
+      {
+        "blocker": "prospective window closed",
+        "status": "required"
+      },
+      {
+        "blocker": "six meter mechanism release evidence passed",
+        "status": "required"
+      },
+      {
+        "blocker": "stationcast beta passed",
+        "status": "required"
+      },
+      {
+        "blocker": "subscriber recent path source authorized",
+        "status": "required"
+      },
+      {
+        "blocker": "wspr aggregate coverage and drift passed",
+        "status": "required"
+      },
+      {
+        "blocker": "wspr shadow has 720 hours at 99 percent",
+        "status": "required"
+      }
+    ]
+  },
+  "release_readiness": {
+    "schema_version": 1,
+    "generated_at": "2026-07-16T19:43:02.236013+00:00",
+    "scope": "phase6_mode_specific_release_readiness",
+    "decision": "withheld",
+    "valid_fail_closed_decision": true,
+    "locked_prospective_outcomes_read": false,
+    "runtime": {
+      "machine": "arm64",
+      "physical_cores_visible": 18,
+      "xgboost_openmp_evidence": true
+    },
+    "evidence": {
+      "archive_protocol": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/outcome_protocol_manifest.json",
+        "exists": true,
+        "sha256": "725fcaa87e34028cd5730d04c67e3e494599be6d82ba04512cf2f50f640df579",
+        "schema_version": 1,
+        "decision": null
+      },
+      "phase3": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/phase3_candidate_validation.json",
+        "exists": true,
+        "sha256": "fcdb7a3d57788f4885ff2124ccd82fda11567e9e8b61b9d126e702b826947a5f",
+        "schema_version": 1,
+        "decision": null
+      },
+      "wspr_shadow": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
+        "exists": true,
+        "sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74",
+        "schema_version": 1,
+        "decision": "collecting"
+      },
+      "wspr_coverage_drift": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
+        "exists": true,
+        "sha256": "0db9e2ca3efe2ecbfbebe1f8e27663b3d6d84ea2f119c13414ef1b11002bd1c5",
+        "schema_version": 1,
+        "decision": "collecting"
+      },
+      "recent_path_source_authorization": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/source_authorization.json",
+        "exists": false,
+        "error": "missing"
+      },
+      "prospective_capture": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
+        "exists": true,
+        "sha256": "fc6ff2545fc13e5a70e4edfcfff4f0f62e81feafee933c62c332badd623be7ec",
+        "schema_version": 1,
+        "decision": null
+      },
+      "health_hardening": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_hardening_deployment_validation.json",
+        "exists": true,
+        "sha256": "38df695596282f647aa373c063b1c613e7dafdd36db48a66574b620b43b11ed8",
+        "schema_version": 1,
+        "decision": null
+      },
+      "health_external_monitor": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_external_monitor_validation.json",
+        "exists": true,
+        "sha256": "d65ffc9d0a55c01c52f29f562f75e67e246c21738d88d7c40ea3a3629a1847d0",
+        "schema_version": 1,
+        "decision": "pass"
+      },
+      "stale_recovery": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_health_incident_delivery_validation.json",
+        "exists": true,
+        "sha256": "7f114b312422410da22f166911a69acd8866f49e68d40ca7a83a67d1d99a784b",
+        "schema_version": 1,
+        "decision": "pass"
+      },
+      "literal_m5_outage": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/m5_full_outage_recovery_validation.json",
+        "exists": false,
+        "error": "missing"
+      },
+      "participation_boundary": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/research_participation_deployment_validation.json",
+        "exists": true,
+        "sha256": "f743d535cc2782c5bc3b069bcdd450153f311f967f4f2e618488a0e864bae413",
+        "schema_version": 1,
+        "decision": "pass"
+      },
+      "beta_protocol_boundary": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/propagation_beta_protocol_deployment_validation.json",
+        "exists": true,
+        "sha256": "1a7e11d0225e2de7d79d3a3b1c7dbe669dee4e6ea29799a8baefecab4e077727",
+        "schema_version": 1,
+        "decision": "pass"
+      },
+      "beta_telemetry_boundary": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_telemetry_utc_deployment_validation.json",
+        "exists": true,
+        "sha256": "abe693a1224de221f2ed85e84ac9c4528a6a45ca36b260a7cf13b47ef491a69f",
+        "schema_version": 1,
+        "decision": "pass"
+      },
+      "beta_stop_producers": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_stop_producer_validation.json",
+        "exists": true,
+        "sha256": "09cf398cdcc92d782958e8c5c0c03ce84588d766be7be5bb21136ef2602409e0",
+        "schema_version": 1,
+        "decision": "pass"
+      },
+      "stationcast_beta": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_release_decision.json",
+        "exists": false,
+        "error": "missing"
+      },
+      "nowcast_prospective": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/nowcast_prospective_release_decision.json",
+        "exists": false,
+        "error": "missing"
+      },
+      "learned_stationcast": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/learned_stationcast_release_decision.json",
+        "exists": false,
+        "error": "missing"
+      },
+      "futurecast": {
+        "path": "ml/results/propagation_v4/futurecast_readiness.json",
+        "exists": true,
+        "sha256": "ce692d9477c243625ba65f6e964387e6283deaf3a3a5a5dcb7286e4e4f13f4d3",
+        "schema_version": 2,
+        "decision": null
+      },
+      "futurecast_gate": {
+        "path": "ml/results/propagation_v4/futurecast_release_decision.json",
+        "exists": false,
+        "error": "missing"
+      },
+      "six_meter": {
+        "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_release_decision.json",
+        "exists": true,
+        "sha256": "7a60b698f07c84081dfdc4574903b23984a26b40170d5afd3dc4b3342e77b7af",
+        "schema_version": 1,
+        "decision": "withheld"
+      },
+      "beta_protocol": {
+        "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
+        "exists": true,
+        "sha256": "884cd75ecf95c20afbd14c6f57a2622dcf24e2d5f8899846129a84ca42601a9f"
+      }
+    },
+    "gates": {
+      "archive_candidate_frozen_and_passed": true,
+      "phase3_serving_candidate_validated": true,
+      "phase3_native_m5_openmp_evidence": true,
+      "prospective_capture_has_24_continuous_hours": false,
+      "wspr_shadow_has_720_hours_at_99_percent": false,
+      "wspr_aggregate_coverage_and_drift_passed": false,
+      "subscriber_recent_path_source_authorized": false,
+      "research_health_boundaries_deployed": true,
+      "stale_and_recovery_incident_exercised": true,
+      "literal_full_m5_outage_exercised": false,
+      "participation_boundary_deployed": true,
+      "beta_protocol_boundary_deployed": true,
+      "beta_telemetry_boundary_deployed": true,
+      "beta_stop_event_producers_validated": true,
+      "beta_protocol_preregistered": true,
+      "stationcast_beta_passed": false,
+      "prospective_window_closed": false,
+      "nowcast_prospective_evaluation_passed": false,
+      "learned_stationcast_release_evidence_passed": false,
+      "futurecast_90_day_horizon_evidence_passed": false,
+      "six_meter_mechanism_release_evidence_passed": false
+    },
+    "beta_collection": {
+      "status": "disabled",
+      "blockers": [
+        "prospective_capture_has_24_continuous_hours",
+        "wspr_shadow_has_720_hours_at_99_percent",
+        "wspr_aggregate_coverage_and_drift_passed",
+        "subscriber_recent_path_source_authorized",
+        "literal_full_m5_outage_exercised"
+      ]
+    },
+    "mode_decisions": {
+      "core_nowcast": {
+        "status": "shadow_only",
+        "blockers": [
+          "prospective_capture_has_24_continuous_hours",
+          "wspr_shadow_has_720_hours_at_99_percent",
+          "wspr_aggregate_coverage_and_drift_passed",
+          "subscriber_recent_path_source_authorized",
+          "literal_full_m5_outage_exercised",
+          "prospective_window_closed",
+          "nowcast_prospective_evaluation_passed"
+        ]
+      },
+      "stationcast_deterministic": {
+        "status": "shadow_only",
+        "blockers": [
+          "prospective_capture_has_24_continuous_hours",
+          "wspr_shadow_has_720_hours_at_99_percent",
+          "wspr_aggregate_coverage_and_drift_passed",
+          "subscriber_recent_path_source_authorized",
+          "literal_full_m5_outage_exercised",
+          "stationcast_beta_passed"
+        ]
+      },
+      "stationcast_learned": {
+        "status": "withheld",
+        "blockers": [
+          "learned_stationcast_release_evidence_passed"
+        ]
+      },
+      "futurecast": {
+        "status": "withheld",
+        "horizons_hours": [
+          3,
+          6,
+          12,
+          24
+        ],
+        "released_horizons_hours": [],
+        "withheld_horizons_hours": [
+          3,
+          6,
+          12,
+          24
+        ],
+        "blockers": [
+          "futurecast_90_day_horizon_evidence_passed"
+        ]
+      },
+      "six_meter": {
+        "status": "withheld",
+        "blockers": [
+          "six_meter_mechanism_release_evidence_passed"
+        ]
+      },
+      "system_health_view": {
+        "status": "hidden",
+        "blockers": [
+          "prospective_capture_has_24_continuous_hours",
+          "wspr_shadow_has_720_hours_at_99_percent",
+          "wspr_aggregate_coverage_and_drift_passed",
+          "subscriber_recent_path_source_authorized",
+          "literal_full_m5_outage_exercised"
+        ]
+      }
+    },
+    "supported_scope_release_ready": false,
+    "public_release": {
+      "status": "withheld",
+      "releaseable_modes": [],
+      "unsupported_modes_may_remain_withheld": true
+    }
+  },
+  "beta_boundary": {
+    "rollback": {
+      "schema_version": 1,
+      "generated_at": "2026-07-16T13:11:36.367024+00:00",
+      "scope": "propagation_beta_protocol_target_postgres_rollback_validation",
+      "decision": "pass",
+      "migration_deployed": false,
+      "locked_outcomes_read": false,
+      "persistent_changes": false,
+      "migration": {
+        "path": "supabase/migrations/20260716013000_propagation_beta_protocol.sql",
+        "sha256": "1e792da6e6d982d2f5d02ef40df6a3797c79e77056b94d18a365d783c9883a82"
+      },
+      "database": {
+        "engine": "PostgreSQL",
+        "server_version": "17.6",
+        "connection_identifier_recorded": false
+      },
+      "runtime": {
+        "machine": "arm64",
+        "physical_cores_visible": 18,
+        "wall_seconds": 1.5926723750017118,
+        "psycopg_version": "3.3.4"
+      },
+      "gates": {
+        "exact_beta_columns_present": true,
+        "profile_is_required_and_bounded": true,
+        "equipment_classes_are_nullable": true,
+        "all_constraints_validated": true,
+        "capability_classes_strictly_enumerated": true,
+        "retention_is_bounded_to_730_days": true,
+        "exact_security_definer_functions_present": true,
+        "function_search_paths_hardened": true,
+        "functions_are_service_role_only": true,
+        "equipment_consent_removal_scrubs_classes": true,
+        "outcome_consent_removal_deletes_account_bound_rows": true,
+        "withdrawal_deletes_all_account_bound_rows": true,
+        "retention_prune_is_bounded_and_locked": true,
+        "aggregate_export_has_privacy_thresholds": true,
+        "privacy_comments_prohibit_exact_station_values": true,
+        "browser_prediction_writes_remain_revoked": true,
+        "service_role_prediction_insert_remains_available": true,
+        "rollback_restored_original_boundary": true,
+        "persistent_test_changes_absent": true,
+        "target_is_postgresql": true,
+        "native_m5_runtime": true,
+        "locked_outcomes_unread": true
+      }
+    },
+    "deployment": {
+      "schema_version": 1,
+      "generated_at": "2026-07-16T13:12:51.967880+00:00",
+      "scope": "propagation_beta_protocol_target_postgres_deployment_validation",
+      "decision": "pass",
+      "migration_deployed": true,
+      "locked_outcomes_read": false,
+      "persistent_changes": false,
+      "migration": {
+        "path": "supabase/migrations/20260716013000_propagation_beta_protocol.sql",
+        "sha256": "1e792da6e6d982d2f5d02ef40df6a3797c79e77056b94d18a365d783c9883a82"
+      },
+      "database": {
+        "engine": "PostgreSQL",
+        "server_version": "17.6",
+        "connection_identifier_recorded": false
+      },
+      "runtime": {
+        "machine": "arm64",
+        "physical_cores_visible": 18,
+        "wall_seconds": 1.5162974589911755,
+        "psycopg_version": "3.3.4"
+      },
+      "gates": {
+        "exact_beta_columns_present": true,
+        "profile_is_required_and_bounded": true,
+        "equipment_classes_are_nullable": true,
+        "all_constraints_validated": true,
+        "capability_classes_strictly_enumerated": true,
+        "retention_is_bounded_to_730_days": true,
+        "exact_security_definer_functions_present": true,
+        "function_search_paths_hardened": true,
+        "functions_are_service_role_only": true,
+        "equipment_consent_removal_scrubs_classes": true,
+        "outcome_consent_removal_deletes_account_bound_rows": true,
+        "withdrawal_deletes_all_account_bound_rows": true,
+        "retention_prune_is_bounded_and_locked": true,
+        "aggregate_export_has_privacy_thresholds": true,
+        "privacy_comments_prohibit_exact_station_values": true,
+        "browser_prediction_writes_remain_revoked": true,
+        "service_role_prediction_insert_remains_available": true,
+        "deployment_ledger_exact": true,
+        "rollback_restored_original_boundary": true,
+        "persistent_test_changes_absent": true,
+        "target_is_postgresql": true,
+        "native_m5_runtime": true,
+        "locked_outcomes_unread": true
+      }
+    },
+    "synthetic_scorer_dry_run": {
+      "schema_version": 1,
+      "generated_at": "2026-07-16T15:33:54.251324+00:00",
+      "scope": "synthetic_stationcast_beta_dry_run",
+      "protocol_version": "propagation-v4.2-stationcast-beta-2026-07-16",
+      "runtime": {
+        "machine": "arm64",
+        "physical_cores_visible": 18,
+        "polars_threads": 18,
+        "wall_seconds": 0.024308833002578467
+      },
+      "inputs": {
+        "private_export_sha256": "e9228e1950c1da609868b70629a362c66d9b90fd952115bf2ffcf09ff2acf0e2",
+        "private_export_path_recorded": false,
+        "config_path": "ml/config/propagation_v4_2_beta_protocol.json",
+        "config_sha256": "a9bf11681502357c0b37d343bc8ce0429fd094c337eb3757a5406934b4b5449e",
+        "private_export_receipt_valid": null,
+        "private_export_receipt_validation_errors": [],
+        "private_export_receipt_sha256": null,
+        "private_input_binding_errors": [],
+        "operations_receipt_valid": true,
+        "operations_receipt_validation_errors": [],
+        "operations_receipt_sha256": "72e9fdef2899aaea2e6ffddd1d3d82ce0322da5ce55086d9fdde887889e5cff6",
+        "stop_monitor_receipt_sha256": null,
+        "stop_monitor_receipt_path_recorded": false
+      },
+      "decision": "synthetic_pass",
+      "release_approved": false,
+      "primary_cohort_reportable": true,
+      "input_rows": 2000,
+      "primary_rows": 2000,
+      "participants": 50,
+      "calendar_days": 30,
+      "participant_cap": {
+        "cap_per_participant": 40.0,
+        "largest_weight_share": 0.02,
+        "effective_outcomes": 2000.0
+      },
+      "tier_a_weighted_outcomes": 1000.0,
+      "metrics": {
+        "core": {
+          "brier": 0.17,
+          "log_loss": 0.5261345160161731,
+          "roc_auc": 0.8,
+          "pr_auc": 0.7400000000000001,
+          "ece": 0.10000000000000003,
+          "high_confidence_max_gap": 0.10000000000000009,
+          "high_confidence_max_overprediction": 0.0
+        },
+        "stationcast": {
+          "brier": 0.16000000000000003,
+          "log_loss": 0.5004024235381879,
+          "roc_auc": 0.8,
+          "pr_auc": 0.7400000000000001,
+          "ece": 0.0,
+          "high_confidence_max_gap": 0.0,
+          "high_confidence_max_overprediction": 0.0
+        },
+        "relative_brier_improvement": 0.058823529411764594,
+        "paired_brier_delta": -0.009999999999999981,
+        "tier_sensitivity_delta": {
+          "tier_a": -0.009999999999999976,
+          "tiers_a_b": -0.009999999999999978,
+          "all": -0.009999999999999978
+        },
+        "cluster_bootstrap": {
+          "clusters": 50,
+          "repetitions": 2000,
+          "lower_95": -0.009999999999999976,
+          "median": -0.009999999999999976,
+          "upper_95": -0.009999999999999976
+        }
+      },
+      "coverage": {
+        "supported_band_cells": 5,
+        "geography_cells": 4,
+        "capability_cells": 3
+      },
+      "reportable_strata": [
+        {
+          "dimension": "band",
+          "value": "10m",
+          "participants": 50,
+          "outcomes": 400,
+          "weighted_outcomes": 400.0,
+          "core_brier": 0.16999999999999993,
+          "stationcast_brier": 0.16,
+          "relative_brier_change": -0.058823529411764296
+        },
+        {
+          "dimension": "band",
+          "value": "15m",
+          "participants": 50,
+          "outcomes": 400,
+          "weighted_outcomes": 400.0,
+          "core_brier": 0.16999999999999993,
+          "stationcast_brier": 0.16,
+          "relative_brier_change": -0.058823529411764296
+        },
+        {
+          "dimension": "band",
+          "value": "20m",
+          "participants": 50,
+          "outcomes": 400,
+          "weighted_outcomes": 400.0,
+          "core_brier": 0.16999999999999993,
+          "stationcast_brier": 0.16,
+          "relative_brier_change": -0.058823529411764296
+        },
+        {
+          "dimension": "band",
+          "value": "40m",
+          "participants": 50,
+          "outcomes": 400,
+          "weighted_outcomes": 400.0,
+          "core_brier": 0.16999999999999993,
+          "stationcast_brier": 0.16,
+          "relative_brier_change": -0.058823529411764296
+        },
+        {
+          "dimension": "band",
+          "value": "80m",
+          "participants": 50,
+          "outcomes": 400,
+          "weighted_outcomes": 400.0,
+          "core_brier": 0.16999999999999993,
+          "stationcast_brier": 0.16,
+          "relative_brier_change": -0.058823529411764296
+        },
+        {
+          "dimension": "origin_field",
+          "value": "EM",
+          "participants": 13,
+          "outcomes": 520,
+          "weighted_outcomes": 520.0,
+          "core_brier": 0.1699999999999999,
+          "stationcast_brier": 0.15999999999999992,
+          "relative_brier_change": -0.05882352941176463
+        },
+        {
+          "dimension": "origin_field",
+          "value": "FN",
+          "participants": 13,
+          "outcomes": 520,
+          "weighted_outcomes": 520.0,
+          "core_brier": 0.1699999999999999,
+          "stationcast_brier": 0.15999999999999992,
+          "relative_brier_change": -0.05882352941176463
+        },
+        {
+          "dimension": "origin_field",
+          "value": "IO",
+          "participants": 12,
+          "outcomes": 480,
+          "weighted_outcomes": 480.0,
+          "core_brier": 0.1699999999999999,
+          "stationcast_brier": 0.1599999999999999,
+          "relative_brier_change": -0.058823529411764795
+        },
+        {
+          "dimension": "origin_field",
+          "value": "JN",
+          "participants": 12,
+          "outcomes": 480,
+          "weighted_outcomes": 480.0,
+          "core_brier": 0.1699999999999999,
+          "stationcast_brier": 0.1599999999999999,
+          "relative_brier_change": -0.058823529411764795
+        },
+        {
+          "dimension": "capability_cell",
+          "value": "100_500w|1_3db|3_6dbi|catalog",
+          "participants": 16,
+          "outcomes": 640,
+          "weighted_outcomes": 640.0,
+          "core_brier": 0.16999999999999987,
+          "stationcast_brier": 0.15999999999999975,
+          "relative_brier_change": -0.058823529411765454
+        },
+        {
+          "dimension": "capability_cell",
+          "value": "25_100w|1_3db|3_6dbi|catalog",
+          "participants": 17,
+          "outcomes": 680,
+          "weighted_outcomes": 680.0,
+          "core_brier": 0.16999999999999987,
+          "stationcast_brier": 0.15999999999999975,
+          "relative_brier_change": -0.058823529411765454
+        },
+        {
+          "dimension": "capability_cell",
+          "value": "5_25w|1_3db|3_6dbi|catalog",
+          "participants": 17,
+          "outcomes": 680,
+          "weighted_outcomes": 680.0,
+          "core_brier": 0.16999999999999987,
+          "stationcast_brier": 0.15999999999999975,
+          "relative_brier_change": -0.058823529411765454
+        },
+        {
+          "dimension": "station_tx_class",
+          "value": "100_500w",
+          "participants": 16,
+          "outcomes": 640,
+          "weighted_outcomes": 640.0,
+          "core_brier": 0.16999999999999987,
+          "stationcast_brier": 0.15999999999999975,
+          "relative_brier_change": -0.058823529411765454
+        },
+        {
+          "dimension": "station_tx_class",
+          "value": "25_100w",
+          "participants": 17,
+          "outcomes": 680,
+          "weighted_outcomes": 680.0,
+          "core_brier": 0.16999999999999987,
+          "stationcast_brier": 0.15999999999999975,
+          "relative_brier_change": -0.058823529411765454
+        },
+        {
+          "dimension": "station_tx_class",
+          "value": "5_25w",
+          "participants": 17,
+          "outcomes": 680,
+          "weighted_outcomes": 680.0,
+          "core_brier": 0.16999999999999987,
+          "stationcast_brier": 0.15999999999999975,
+          "relative_brier_change": -0.058823529411765454
+        },
+        {
+          "dimension": "station_loss_class",
+          "value": "1_3db",
+          "participants": 50,
+          "outcomes": 2000,
+          "weighted_outcomes": 2000.0,
+          "core_brier": 0.17,
+          "stationcast_brier": 0.16000000000000003,
+          "relative_brier_change": -0.058823529411764594
+        },
+        {
+          "dimension": "station_antenna_class",
+          "value": "3_6dbi",
+          "participants": 50,
+          "outcomes": 2000,
+          "weighted_outcomes": 2000.0,
+          "core_brier": 0.17,
+          "stationcast_brier": 0.16000000000000003,
+          "relative_brier_change": -0.058823529411764594
+        },
+        {
+          "dimension": "station_rx_class",
+          "value": "catalog",
+          "participants": 50,
+          "outcomes": 2000,
+          "weighted_outcomes": 2000.0,
+          "core_brier": 0.17,
+          "stationcast_brier": 0.16000000000000003,
+          "relative_brier_change": -0.058823529411764594
+        },
+        {
+          "dimension": "evidence_tier",
+          "value": "A",
+          "participants": 50,
+          "outcomes": 1000,
+          "weighted_outcomes": 1000.0,
+          "core_brier": 0.17,
+          "stationcast_brier": 0.16000000000000006,
+          "relative_brier_change": -0.05882352941176443
+        },
+        {
+          "dimension": "evidence_tier",
+          "value": "B",
+          "participants": 50,
+          "outcomes": 1000,
+          "weighted_outcomes": 1000.0,
+          "core_brier": 0.17,
+          "stationcast_brier": 0.16000000000000003,
+          "relative_brier_change": -0.058823529411764594
+        }
+      ],
+      "active_stop_conditions": [],
+      "gates": {
+        "minimum_participants": true,
+        "minimum_weighted_primary_outcomes": true,
+        "minimum_tier_a_outcomes": true,
+        "minimum_calendar_days": true,
+        "minimum_supported_bands": true,
+        "minimum_geography_cells": true,
+        "minimum_capability_cells": true,
+        "participant_weight_share_bounded": true,
+        "relative_brier_improvement": true,
+        "cluster_bootstrap_upper_below_zero": true,
+        "ece_degradation_bounded": true,
+        "high_confidence_gap_degradation_bounded": true,
+        "high_confidence_overprediction_below_stop": true,
+        "no_reportable_stratum_regression": true,
+        "tier_a_and_all_grade_direction_agree": true,
+        "no_active_stop_condition": true
+      },
+      "blockers": [],
+      "privacy": {
+        "participant_identifiers_written": false,
+        "exact_grid4_written": false,
+        "raw_station_inventory_written": false,
+        "subthreshold_cells_written": false
+      },
+      "synthetic_gate_passed": true
+    }
+  }
+}

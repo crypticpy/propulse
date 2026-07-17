@@ -1351,6 +1351,37 @@ export function AzimuthalView({
     ctx.scale(zoom, zoom);
     ctx.translate(-CENTER, -CENTER);
 
+    // Draw probability-surface cells below arcs and markers.
+    for (const layer of Object.values(overlayLayers)) {
+      const cells =
+        layer.type === "cells"
+          ? layer.cells
+          : layer.type === "mixed"
+            ? (layer.cells ?? [])
+            : [];
+      for (const cell of cells) {
+        const corners = [
+          [cell.lat + cell.heightDeg / 2, cell.lon - cell.widthDeg / 2],
+          [cell.lat + cell.heightDeg / 2, cell.lon + cell.widthDeg / 2],
+          [cell.lat - cell.heightDeg / 2, cell.lon + cell.widthDeg / 2],
+          [cell.lat - cell.heightDeg / 2, cell.lon - cell.widthDeg / 2],
+        ];
+        ctx.save();
+        ctx.globalAlpha = cell.opacity ?? 0.45;
+        ctx.fillStyle = cell.color;
+        ctx.beginPath();
+        corners.forEach(([lat, lon], index) => {
+          const projected = azimuthalProject(lat, lon, center.lat, center.lon);
+          const point = projToCanvas(projected);
+          if (index === 0) ctx.moveTo(point.x, point.y);
+          else ctx.lineTo(point.x, point.y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
     // Draw overlay arcs first (under markers)
     for (const layer of Object.values(overlayLayers)) {
       const arcs =

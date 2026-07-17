@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T20:48:42.608160+00:00",
+  "run_id": "propagation_v4_2_performance_recovery",
+  "input": "ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json",
+  "checks": {
+    "scope_is_observed_diagnosis": true,
+    "exact_months": true,
+    "december_closed": true,
+    "locked_2025_closed": true,
+    "all_input_hashes_verified": true,
+    "input_inventory_exact": true,
+    "month_slices_exact": true,
+    "row_totals_reconcile": true,
+    "opportunity_totals_reconcile": true,
+    "b2_brier_reconciles": true,
+    "m2_brier_reconciles": true,
+    "blend_weight_bounded": true,
+    "band_router_complete": true,
+    "band_router_values_valid": true,
+    "stable_router_values_valid": true,
+    "bootstrap_intervals_ordered": true,
+    "memory_within_m5_budget": true
+  },
+  "passed": true
+}

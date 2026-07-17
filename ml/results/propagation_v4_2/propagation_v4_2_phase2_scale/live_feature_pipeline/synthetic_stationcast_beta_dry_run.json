@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T15:33:54.251324+00:00",
+  "scope": "synthetic_stationcast_beta_dry_run",
+  "protocol_version": "propagation-v4.2-stationcast-beta-2026-07-16",
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "polars_threads": 18,
+    "wall_seconds": 0.024308833002578467
+  },
+  "inputs": {
+    "private_export_sha256": "e9228e1950c1da609868b70629a362c66d9b90fd952115bf2ffcf09ff2acf0e2",
+    "private_export_path_recorded": false,
+    "config_path": "ml/config/propagation_v4_2_beta_protocol.json",
+    "config_sha256": "a9bf11681502357c0b37d343bc8ce0429fd094c337eb3757a5406934b4b5449e",
+    "private_export_receipt_valid": null,
+    "private_export_receipt_validation_errors": [],
+    "private_export_receipt_sha256": null,
+    "private_input_binding_errors": [],
+    "operations_receipt_valid": true,
+    "operations_receipt_validation_errors": [],
+    "operations_receipt_sha256": "72e9fdef2899aaea2e6ffddd1d3d82ce0322da5ce55086d9fdde887889e5cff6",
+    "stop_monitor_receipt_sha256": null,
+    "stop_monitor_receipt_path_recorded": false
+  },
+  "decision": "synthetic_pass",
+  "release_approved": false,
+  "primary_cohort_reportable": true,
+  "input_rows": 2000,
+  "primary_rows": 2000,
+  "participants": 50,
+  "calendar_days": 30,
+  "participant_cap": {
+    "cap_per_participant": 40.0,
+    "largest_weight_share": 0.02,
+    "effective_outcomes": 2000.0
+  },
+  "tier_a_weighted_outcomes": 1000.0,
+  "metrics": {
+    "core": {
+      "brier": 0.17,
+      "log_loss": 0.5261345160161731,
+      "roc_auc": 0.8,
+      "pr_auc": 0.7400000000000001,
+      "ece": 0.10000000000000003,
+      "high_confidence_max_gap": 0.10000000000000009,
+      "high_confidence_max_overprediction": 0.0
+    },
+    "stationcast": {
+      "brier": 0.16000000000000003,
+      "log_loss": 0.5004024235381879,
+      "roc_auc": 0.8,
+      "pr_auc": 0.7400000000000001,
+      "ece": 0.0,
+      "high_confidence_max_gap": 0.0,
+      "high_confidence_max_overprediction": 0.0
+    },
+    "relative_brier_improvement": 0.058823529411764594,
+    "paired_brier_delta": -0.009999999999999981,
+    "tier_sensitivity_delta": {
+      "tier_a": -0.009999999999999976,
+      "tiers_a_b": -0.009999999999999978,
+      "all": -0.009999999999999978
+    },
+    "cluster_bootstrap": {
+      "clusters": 50,
+      "repetitions": 2000,
+      "lower_95": -0.009999999999999976,
+      "median": -0.009999999999999976,
+      "upper_95": -0.009999999999999976
+    }
+  },
+  "coverage": {
+    "supported_band_cells": 5,
+    "geography_cells": 4,
+    "capability_cells": 3
+  },
+  "reportable_strata": [
+    {
+      "dimension": "band",
+      "value": "10m",
+      "participants": 50,
+      "outcomes": 400,
+      "weighted_outcomes": 400.0,
+      "core_brier": 0.16999999999999993,
+      "stationcast_brier": 0.16,
+      "relative_brier_change": -0.058823529411764296
+    },
+    {
+      "dimension": "band",
+      "value": "15m",
+      "participants": 50,
+      "outcomes": 400,
+      "weighted_outcomes": 400.0,
+      "core_brier": 0.16999999999999993,
+      "stationcast_brier": 0.16,
+      "relative_brier_change": -0.058823529411764296
+    },
+    {
+      "dimension": "band",
+      "value": "20m",
+      "participants": 50,
+      "outcomes": 400,
+      "weighted_outcomes": 400.0,
+      "core_brier": 0.16999999999999993,
+      "stationcast_brier": 0.16,
+      "relative_brier_change": -0.058823529411764296
+    },
+    {
+      "dimension": "band",
+      "value": "40m",
+      "participants": 50,
+      "outcomes": 400,
+      "weighted_outcomes": 400.0,
+      "core_brier": 0.16999999999999993,
+      "stationcast_brier": 0.16,
+      "relative_brier_change": -0.058823529411764296
+    },
+    {
+      "dimension": "band",
+      "value": "80m",
+      "participants": 50,
+      "outcomes": 400,
+      "weighted_outcomes": 400.0,
+      "core_brier": 0.16999999999999993,
+      "stationcast_brier": 0.16,
+      "relative_brier_change": -0.058823529411764296
+    },
+    {
+      "dimension": "origin_field",
+      "value": "EM",
+      "participants": 13,
+      "outcomes": 520,
+      "weighted_outcomes": 520.0,
+      "core_brier": 0.1699999999999999,
+      "stationcast_brier": 0.15999999999999992,
+      "relative_brier_change": -0.05882352941176463
+    },
+    {
+      "dimension": "origin_field",
+      "value": "FN",
+      "participants": 13,
+      "outcomes": 520,
+      "weighted_outcomes": 520.0,
+      "core_brier": 0.1699999999999999,
+      "stationcast_brier": 0.15999999999999992,
+      "relative_brier_change": -0.05882352941176463
+    },
+    {
+      "dimension": "origin_field",
+      "value": "IO",
+      "participants": 12,
+      "outcomes": 480,
+      "weighted_outcomes": 480.0,
+      "core_brier": 0.1699999999999999,
+      "stationcast_brier": 0.1599999999999999,
+      "relative_brier_change": -0.058823529411764795
+    },
+    {
+      "dimension": "origin_field",
+      "value": "JN",
+      "participants": 12,
+      "outcomes": 480,
+      "weighted_outcomes": 480.0,
+      "core_brier": 0.1699999999999999,
+      "stationcast_brier": 0.1599999999999999,
+      "relative_brier_change": -0.058823529411764795
+    },
+    {
+      "dimension": "capability_cell",
+      "value": "100_500w|1_3db|3_6dbi|catalog",
+      "participants": 16,
+      "outcomes": 640,
+      "weighted_outcomes": 640.0,
+      "core_brier": 0.16999999999999987,
+      "stationcast_brier": 0.15999999999999975,
+      "relative_brier_change": -0.058823529411765454
+    },
+    {
+      "dimension": "capability_cell",
+      "value": "25_100w|1_3db|3_6dbi|catalog",
+      "participants": 17,
+      "outcomes": 680,
+      "weighted_outcomes": 680.0,
+      "core_brier": 0.16999999999999987,
+      "stationcast_brier": 0.15999999999999975,
+      "relative_brier_change": -0.058823529411765454
+    },
+    {
+      "dimension": "capability_cell",
+      "value": "5_25w|1_3db|3_6dbi|catalog",
+      "participants": 17,
+      "outcomes": 680,
+      "weighted_outcomes": 680.0,
+      "core_brier": 0.16999999999999987,
+      "stationcast_brier": 0.15999999999999975,
+      "relative_brier_change": -0.058823529411765454
+    },
+    {
+      "dimension": "station_tx_class",
+      "value": "100_500w",
+      "participants": 16,
+      "outcomes": 640,
+      "weighted_outcomes": 640.0,
+      "core_brier": 0.16999999999999987,
+      "stationcast_brier": 0.15999999999999975,
+      "relative_brier_change": -0.058823529411765454
+    },
+    {
+      "dimension": "station_tx_class",
+      "value": "25_100w",
+      "participants": 17,
+      "outcomes": 680,
+      "weighted_outcomes": 680.0,
+      "core_brier": 0.16999999999999987,
+      "stationcast_brier": 0.15999999999999975,
+      "relative_brier_change": -0.058823529411765454
+    },
+    {
+      "dimension": "station_tx_class",
+      "value": "5_25w",
+      "participants": 17,
+      "outcomes": 680,
+      "weighted_outcomes": 680.0,
+      "core_brier": 0.16999999999999987,
+      "stationcast_brier": 0.15999999999999975,
+      "relative_brier_change": -0.058823529411765454
+    },
+    {
+      "dimension": "station_loss_class",
+      "value": "1_3db",
+      "participants": 50,
+      "outcomes": 2000,
+      "weighted_outcomes": 2000.0,
+      "core_brier": 0.17,
+      "stationcast_brier": 0.16000000000000003,
+      "relative_brier_change": -0.058823529411764594
+    },
+    {
+      "dimension": "station_antenna_class",
+      "value": "3_6dbi",
+      "participants": 50,
+      "outcomes": 2000,
+      "weighted_outcomes": 2000.0,
+      "core_brier": 0.17,
+      "stationcast_brier": 0.16000000000000003,
+      "relative_brier_change": -0.058823529411764594
+    },
+    {
+      "dimension": "station_rx_class",
+      "value": "catalog",
+      "participants": 50,
+      "outcomes": 2000,
+      "weighted_outcomes": 2000.0,
+      "core_brier": 0.17,
+      "stationcast_brier": 0.16000000000000003,
+      "relative_brier_change": -0.058823529411764594
+    },
+    {
+      "dimension": "evidence_tier",
+      "value": "A",
+      "participants": 50,
+      "outcomes": 1000,
+      "weighted_outcomes": 1000.0,
+      "core_brier": 0.17,
+      "stationcast_brier": 0.16000000000000006,
+      "relative_brier_change": -0.05882352941176443
+    },
+    {
+      "dimension": "evidence_tier",
+      "value": "B",
+      "participants": 50,
+      "outcomes": 1000,
+      "weighted_outcomes": 1000.0,
+      "core_brier": 0.17,
+      "stationcast_brier": 0.16000000000000003,
+      "relative_brier_change": -0.058823529411764594
+    }
+  ],
+  "active_stop_conditions": [],
+  "gates": {
+    "minimum_participants": true,
+    "minimum_weighted_primary_outcomes": true,
+    "minimum_tier_a_outcomes": true,
+    "minimum_calendar_days": true,
+    "minimum_supported_bands": true,
+    "minimum_geography_cells": true,
+    "minimum_capability_cells": true,
+    "participant_weight_share_bounded": true,
+    "relative_brier_improvement": true,
+    "cluster_bootstrap_upper_below_zero": true,
+    "ece_degradation_bounded": true,
+    "high_confidence_gap_degradation_bounded": true,
+    "high_confidence_overprediction_below_stop": true,
+    "no_reportable_stratum_regression": true,
+    "tier_a_and_all_grade_direction_agree": true,
+    "no_active_stop_condition": true
+  },
+  "blockers": [],
+  "privacy": {
+    "participant_identifiers_written": false,
+    "exact_grid4_written": false,
+    "raw_station_inventory_written": false,
+    "subthreshold_cells_written": false
+  },
+  "synthetic_gate_passed": true
+}

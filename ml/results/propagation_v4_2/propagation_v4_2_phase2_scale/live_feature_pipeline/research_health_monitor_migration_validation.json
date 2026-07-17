@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T07:12:56.688731+00:00",
+  "scope": "research_health_monitor_target_postgres_rollback_validation",
+  "decision": "pass",
+  "locked_outcomes_read": false,
+  "migration_deployed": false,
+  "persistent_changes": false,
+  "migration": {
+    "path": "supabase/migrations/20260716002000_propagation_research_health_monitor.sql",
+    "sha256": "c4b93404f18e7115e4fc3f88cebb7cc1331cb3bf3a077248c3a32c1e23d5ee9a"
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "server_version": "17.6",
+    "connection_identifier_recorded": false
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "wall_seconds": 1.9923798330128193,
+    "psycopg_version": "3.3.4"
+  },
+  "gates": {
+    "migration_sql_executed_or_deployed": true,
+    "monitor_function_created": true,
+    "security_definer_search_path_locked": true,
+    "function_service_role_only": true,
+    "stale_heartbeat_detected": true,
+    "source_heartbeat_timestamp_preserved": true,
+    "single_stale_alert_recorded": true,
+    "repeated_monitor_is_idempotent": true,
+    "genuine_heartbeat_records_recovery": true,
+    "fresh_heartbeat_does_not_alert": true,
+    "missing_heartbeat_fails_closed": true,
+    "invalid_stale_boundary_rejected": true,
+    "rollback_restored_original_object_state": true,
+    "persistent_changes_absent": true,
+    "target_is_postgresql": true,
+    "native_m5_runtime": true,
+    "locked_outcomes_unread": true
+  }
+}

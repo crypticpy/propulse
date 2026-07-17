@@ -180,7 +180,7 @@ export async function collectSatellites(db: SupabaseClient): Promise<void> {
     const status = failedGroups.length > 0 ? "warning" : "ok";
 
     reportHealth("satellites", status, allRows.length);
-    reportToDb(
+    await reportToDb(
       db,
       "satellites",
       status,
@@ -202,7 +202,7 @@ export async function collectSatellites(db: SupabaseClient): Promise<void> {
     const durationMs = Date.now() - start;
     const msg = err instanceof Error ? err.message : String(err);
     reportHealth("satellites", "error", 0);
-    reportToDb(db, "satellites", "error", 0, durationMs, msg);
+    await reportToDb(db, "satellites", "error", 0, durationMs, msg);
     log("error", "Satellite TLE collection failed", { error: msg });
   }
 }

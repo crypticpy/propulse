@@ -4,5 +4,8 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+REF_UPDATES="$(cat)"
+
 node scripts/check-push-size.mjs
-npm run verify
+PROPULSE_PUSH_REF_UPDATES="$REF_UPDATES" \
+  node scripts/pre-push-checks.mjs "${1:-origin}"

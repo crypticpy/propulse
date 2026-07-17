@@ -1,0 +1,3 @@
+import { nodePropagationHandler } from "../_lib/nodePropagationHandler.js";
+
+export default nodePropagationHandler("capabilities");

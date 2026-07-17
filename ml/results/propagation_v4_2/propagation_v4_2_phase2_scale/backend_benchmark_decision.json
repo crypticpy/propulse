@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T16:23:56Z",
+  "scope": "training_and_early_stopping_only",
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "selected_backend": "streamed_in_memory_quantile",
+  "checks": {
+    "minimum_speedup": true,
+    "validation_logloss_parity": true,
+    "parallel_memory_budget": true
+  },
+  "speedup": 2.6032760297944684,
+  "validation_logloss_difference": 0.0,
+  "projected_parallel_peak_rss_gb": 72.81051635742188,
+  "memory_scale_factor": 2.5,
+  "workers": 2,
+  "benchmark_results": {
+    "external_memory_quantile": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json",
+    "streamed_in_memory_quantile": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json"
+  }
+}

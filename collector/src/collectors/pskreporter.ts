@@ -104,7 +104,7 @@ export async function collectPskReporter(db: SupabaseClient): Promise<void> {
 
     const durationMs = Date.now() - start;
     reportHealth("pskreporter", "ok", count);
-    reportToDb(db, "pskreporter", "ok", count, durationMs);
+    await reportToDb(db, "pskreporter", "ok", count, durationMs);
     log("info", "PSKReporter: collection complete", {
       spots: count,
       durationMs,
@@ -113,7 +113,7 @@ export async function collectPskReporter(db: SupabaseClient): Promise<void> {
     const durationMs = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
     reportHealth("pskreporter", "error", count);
-    reportToDb(db, "pskreporter", "error", count, durationMs, message);
+    await reportToDb(db, "pskreporter", "error", count, durationMs, message);
     log("error", "PSKReporter: collection failed", { error: message });
   }
 }

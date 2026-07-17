@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/ITU-R-Study-Group-3/ITU-R-HF.git",
+  "tag": "v14.3",
+  "commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "architecture": "arm64",
+  "commands": [
+    [
+      "make",
+      "clean"
+    ],
+    [
+      "make",
+      "all",
+      "CC=clang",
+      "CFLAGS=-std=c99 -fPIC -Wall -Wextra -O2 -I../Src/P372/",
+      "LDFLAGS=-dynamiclib -lm"
+    ],
+    [
+      "make",
+      "clean"
+    ],
+    [
+      "make",
+      "all",
+      "CC=clang",
+      "CFLAGS=-std=c99 -fPIC -Wall -Wextra -O2 -I../Src/P533/",
+      "LDFLAGS=-dynamiclib -lm"
+    ],
+    [
+      "make",
+      "clean"
+    ],
+    [
+      "make",
+      "all",
+      "CC=clang",
+      "CFLAGS=-std=c99 -fPIC -Wall -Wextra -O2",
+      "LDFLAGS=-lm"
+    ]
+  ],
+  "self_reported_version": "ITURHFProp Version: Jul 12 2026\nP533 Version: 14.2",
+  "version_note": "Official tag v14.3 self-reports P533 14.2; preserve both values.",
+  "artifacts": [
+    {
+      "path": "ITURHFProp/Linux/ITURHFProp",
+      "bytes": 105352,
+      "sha256": "14a483f016350ae305b3f62f405e1c764cbfede7c37ac8398aebfe2f97d50dad"
+    },
+    {
+      "path": "P533/Linux/libp533.so",
+      "bytes": 105896,
+      "sha256": "82bb264bb78edf3e5924758858bb4d1b204989d6f4c8fb8f227acb372fc10b8c"
+    },
+    {
+      "path": "P372/Linux/libp372.so",
+      "bytes": 35208,
+      "sha256": "782f2874ab364bda214e481e4d90224678d5f7ae61f1a5b43399fd9338f59724"
+    }
+  ],
+  "smoke_fixture": {
+    "name": "Austin-to-London 20m four-hour circuit",
+    "rows": [
+      {
+        "month": 4,
+        "hour": 0,
+        "frequency_mhz": 14.1,
+        "distance_km": 7910.38,
+        "bmuf_mhz": 12.15,
+        "operational_muf_mhz": 15.19,
+        "received_power_dbw": -168.63,
+        "snr_db": -76.85,
+        "basic_circuit_reliability": 0.0,
+        "overall_circuit_reliability": 0.0,
+        "overall_scatter_reliability": 0.0
+      },
+      {
+        "month": 4,
+        "hour": 6,
+        "frequency_mhz": 14.1,
+        "distance_km": 7910.38,
+        "bmuf_mhz": 12.19,
+        "operational_muf_mhz": 15.23,
+        "received_power_dbw": -167.58,
+        "snr_db": -70.55,
+        "basic_circuit_reliability": 0.0,
+        "overall_circuit_reliability": 0.0,
+        "overall_scatter_reliability": 0.0
+      },
+      {
+        "month": 4,
+        "hour": 12,
+        "frequency_mhz": 14.1,
+        "distance_km": 7910.38,
+        "bmuf_mhz": 18.87,
+        "operational_muf_mhz": 21.69,
+        "received_power_dbw": -174.75,
+        "snr_db": -51.76,
+        "basic_circuit_reliability": 0.0,
+        "overall_circuit_reliability": 0.0,
+        "overall_scatter_reliability": 0.0
+      },
+      {
+        "month": 4,
+        "hour": 18,
+        "frequency_mhz": 14.1,
+        "distance_km": 7910.38,
+        "bmuf_mhz": 21.41,
+        "operational_muf_mhz": 24.62,
+        "received_power_dbw": -175.91,
+        "snr_db": -38.8,
+        "basic_circuit_reliability": 0.0148,
+        "overall_circuit_reliability": 0.0148,
+        "overall_scatter_reliability": 0.0148
+      }
+    ]
+  },
+  "redistribution": "Source is not vendored; reproduce from the pinned official repository."
+}

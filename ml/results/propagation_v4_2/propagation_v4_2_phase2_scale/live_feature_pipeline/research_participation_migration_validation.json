@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T08:45:19.997357+00:00",
+  "scope": "research_participation_target_postgres_rollback_validation",
+  "decision": "pass",
+  "migration_deployed": false,
+  "locked_outcomes_read": false,
+  "persistent_changes": false,
+  "migration": {
+    "path": "supabase/migrations/20260716003000_propagation_research_participation.sql",
+    "sha256": "edd1c6844dd4c8cc19c934a4c19a6824c185262fd008074bd861efa0bd11befe"
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "server_version": "17.6",
+    "connection_identifier_recorded": false
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "wall_seconds": 6.150325957976747,
+    "psycopg_version": "3.3.4"
+  },
+  "gates": {
+    "retention_acknowledgement_column_present": true,
+    "allowed_uses_constraint_validated": true,
+    "allowed_uses_are_strictly_enumerated": true,
+    "one_attempt_per_signed_prediction": true,
+    "exact_user_read_delete_policies_present": true,
+    "browser_insert_update_revoked": true,
+    "service_role_write_boundary_present": true,
+    "research_tables_rls_enabled": true,
+    "rollback_restored_original_boundary": true,
+    "persistent_test_changes_absent": true,
+    "target_is_postgresql": true,
+    "native_m5_runtime": true,
+    "locked_outcomes_unread": true
+  }
+}

@@ -9,7 +9,7 @@ const MAX_PUSH_LINE_CHANGES = Number.parseInt(
 const allowLargePush = process.env.ALLOW_LARGE_PUSH === "1";
 
 function git(args) {
-  return execSync(`git ${args}`, { encoding: "utf8" }).trim();
+  return execSync(`git -c core.fsmonitor=false ${args}`, { encoding: "utf8" }).trim();
 }
 
 function fail(message) {

@@ -1,0 +1,30 @@
+{
+  "run_id": "propagation_v4_2_phase2_scale_december_gate",
+  "archive_namespace": "archive_v4_2_december",
+  "execution_scope": "locked_december",
+  "seed": 20260711,
+  "months": [
+    "2024-12"
+  ],
+  "train": {
+    "months": []
+  },
+  "validation": {
+    "months": []
+  },
+  "test": {
+    "months": [
+      "2024-12"
+    ]
+  },
+  "negative_receivers_per_tx_slot": 4,
+  "space_weather_run_id": "propagation_v4_2_phase2_scale_december_gate",
+  "gates": {
+    "max_exposure_weight_error_fraction": 0.03
+  },
+  "compute": {
+    "duckdb_threads": 18,
+    "duckdb_memory_limit": "80GB",
+    "temp_root": "/Volumes/Projects/PropulseML/tmp/propagation_v4_2_phase2_scale"
+  }
+}

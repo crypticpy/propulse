@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T17:29:28.644857+00:00",
+  "scope": "active_wspr_research_schedule_validation",
+  "decision": "pass",
+  "locked_outcomes_read": false,
+  "research_only": true,
+  "subscriber_facing_authorized": false,
+  "provider": "wspr.live-research-v1",
+  "target_hour": "2026-07-16T16:00:00+00:00",
+  "source_record_count": 207554,
+  "records_by_band": {
+    "10m": 7387,
+    "12m": 3441,
+    "15m": 13548,
+    "160m": 735,
+    "17m": 13302,
+    "20m": 78660,
+    "30m": 36247,
+    "40m": 48354,
+    "60m": 793,
+    "80m": 5087
+  },
+  "feature_cell_count": 66616,
+  "connector": {
+    "elapsed_seconds": 109.06827,
+    "peak_rss_mib": 95.031,
+    "source_request_count": 1
+  },
+  "finalizer": {
+    "maximum_compute_threads": 18,
+    "threads_per_band": 9,
+    "wall_seconds": 114.606367,
+    "workers": 2
+  },
+  "health": {
+    "status": "healthy",
+    "continuous_completed_hours": 14,
+    "consecutive_failures": 0,
+    "freshness_seconds": 1510
+  },
+  "schedule": {
+    "label": "org.propulse.wspr-research",
+    "minute": 15,
+    "run_at_load": true,
+    "watchdog_label": "org.propulse.wspr-research-health",
+    "watchdog_minutes": [
+      0,
+      30
+    ],
+    "coverage_label": "org.propulse.wspr-research-coverage",
+    "coverage_hours": [
+      6,
+      18
+    ],
+    "coverage_minute": 45,
+    "runtime_storage": "internal_owner_only",
+    "large_ml_storage": "projects_volume"
+  },
+  "watchdog": {
+    "decision": "healthy",
+    "alerts": [],
+    "thresholds": {
+      "max_runtime_bytes": 2147483648,
+      "stale_seconds": 7200
+    },
+    "observations": {
+      "continuous_completed_hours": 14,
+      "coverage_audit_age_seconds": 323,
+      "coverage_audit_due": false,
+      "coverage_decision": "collecting",
+      "coverage_query_chunk_hours": 24,
+      "coverage_window_lag_hours": 0,
+      "dynamic_freshness_seconds": 1510,
+      "health_record_age_seconds": 0,
+      "last_completed_target_hour": "2026-07-16T16:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T16:00:00+00:00",
+      "runtime_bytes": 332405,
+      "shadow_completed_hours": 14,
+      "shadow_completion_rate": 1.0,
+      "shadow_expected_hours": 14,
+      "shadow_missing_hours": 0,
+      "shadow_required_hours": 720
+    },
+    "delivery": {
+      "local_notification_enabled": true,
+      "notification_attempted": false,
+      "notification_delivered": false,
+      "remote_attempted": true,
+      "remote_configured": true,
+      "remote_delivered": true,
+      "remote_error_type": null,
+      "state_changed": false
+    },
+    "delivery_test": {
+      "decision": "pass",
+      "accepted": true,
+      "generated_at": "2026-07-16T04:50:25.757254+00:00"
+    }
+  },
+  "coverage": {
+    "decision": "collecting",
+    "operational_status": "healthy",
+    "window": {
+      "start": "2026-07-16T03:00:00+00:00",
+      "end": "2026-07-16T16:00:00+00:00",
+      "expected_hours": 14,
+      "completed_hours": 14,
+      "missing_hours": 0,
+      "completion_rate": 1.0,
+      "completed_band_hours": 140,
+      "required_hours": 720,
+      "provenance": {
+        "source_scope": "wspr_research_shadow_progress",
+        "progress_sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74",
+        "scheduled_start": "2026-07-16T03:00:00+00:00",
+        "scheduled_end": "2026-07-16T16:00:00+00:00",
+        "scheduled_expected_hours": 14,
+        "scheduled_completed_hours": 14,
+        "scheduled_missing_hours": 0,
+        "audited_start": "2026-07-16T03:00:00+00:00",
+        "audited_end": "2026-07-16T16:00:00+00:00",
+        "audited_expected_hours": 14
+      }
+    },
+    "execution": {
+      "query_seconds": {
+        "hourly": 3.115192792000016,
+        "regions": 5.283999458013568,
+        "distance": 16.32215249998262
+      },
+      "database_engine": "PostgreSQL",
+      "query_chunk_hours": 24,
+      "query_chunk_count": 1,
+      "maximum_chunk_seconds": {
+        "hourly": 3.115192792000016,
+        "regions": 5.283999458013568,
+        "distance": 16.32215249998262
+      },
+      "server_identifier_recorded": false
+    },
+    "privacy": {
+      "source_tables": [
+        "public.wspr_feature_watermarks",
+        "public.wspr_path_hourly_features"
+      ],
+      "raw_observation_table_read": false,
+      "station_identity_written": false,
+      "grid4_written": false,
+      "equipment_written": false,
+      "locked_outcomes_read": false
+    }
+  },
+  "execution": {
+    "target_requests": 21,
+    "validation_wall_seconds": 2.347532207990298
+  },
+  "gates": {
+    "signed_manifest_v2_accepted": true,
+    "receipt_complete_research_only": true,
+    "receipt_identity_free": true,
+    "receipt_manifest_hash_linked": true,
+    "receipt_manifest_counts_exact": true,
+    "receipt_gates_all_pass": true,
+    "all_hf_bands_present": true,
+    "target_observation_counts_exact": true,
+    "target_watermarks_complete_and_exact": true,
+    "target_feature_total_exact": true,
+    "health_matches_latest_receipt": true,
+    "m5_multicore_bounded": true,
+    "transient_spool_removed": true,
+    "launchd_job_loaded_and_clean_exit": true,
+    "launchd_hourly_and_restart_enabled": true,
+    "launchd_runtime_internal_and_exact": true,
+    "launchd_research_gate_explicit": true,
+    "launchd_owner_only_and_secret_free": true,
+    "launchd_logs_on_internal_home": true,
+    "watchdog_current_status_healthy": true,
+    "watchdog_job_loaded_and_clean_exit": true,
+    "watchdog_local_delivery_smoke_passed": true,
+    "watchdog_twice_hourly_and_restart_enabled": true,
+    "watchdog_thresholds_and_runtime_exact": true,
+    "watchdog_owner_only_and_secret_free": true,
+    "watchdog_local_notification_enabled": true,
+    "watchdog_logs_on_internal_home": true,
+    "coverage_audit_operational_private_and_bounded": true,
+    "coverage_job_loaded_and_clean_exit": true,
+    "coverage_twice_daily_and_restart_enabled": true,
+    "coverage_runtime_and_query_bound_exact": true,
+    "coverage_owner_only_and_secret_free": true,
+    "coverage_logs_on_internal_home": true,
+    "locked_outcomes_unread": true
+  }
+}

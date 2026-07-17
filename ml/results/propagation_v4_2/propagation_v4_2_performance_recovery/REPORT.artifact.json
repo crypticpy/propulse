@@ -1,0 +1,1193 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propagation V4.2 Phase 0 Performance Diagnosis",
+    "description": "Paired six-month diagnosis of frozen V3/B2 and raw V4/M2 with development-selected blends and routers.",
+    "generatedAt": "2026-07-12T20:59:25.407410+00:00",
+    "cards": [
+      {
+        "id": "rows",
+        "description": "Six full observed 2024 months.",
+        "dataset": "summary",
+        "sourceId": "diagnosis",
+        "metrics": [
+          {
+            "label": "Observed rows",
+            "field": "observed_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "b2",
+        "description": "October plus November; lower is better.",
+        "dataset": "summary",
+        "sourceId": "diagnosis",
+        "metrics": [
+          {
+            "label": "Evaluation B2 Brier",
+            "field": "evaluation_b2_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "m2_delta",
+        "description": "Positive values favor B2.",
+        "dataset": "summary",
+        "sourceId": "diagnosis",
+        "metrics": [
+          {
+            "label": "Raw M2 minus B2",
+            "field": "raw_m2_delta",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "best_delta",
+        "description": "October plus November paired delta.",
+        "dataset": "summary",
+        "sourceId": "diagnosis",
+        "metrics": [
+          {
+            "label": "Best policy minus B2",
+            "field": "best_policy_delta",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "blend_weight",
+        "description": "Selected on February, April, May, and August.",
+        "dataset": "summary",
+        "sourceId": "diagnosis",
+        "metrics": [
+          {
+            "label": "Blend B2 weight",
+            "field": "selected_b2_weight",
+            "format": "percent"
+          }
+        ]
+      },
+      {
+        "id": "peak_rss",
+        "description": "Bounded-memory M5 streaming run.",
+        "dataset": "summary",
+        "sourceId": "diagnosis",
+        "metrics": [
+          {
+            "label": "Peak RSS GB",
+            "field": "peak_rss_gb",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "month_comparison",
+        "title": "Frozen V3 and raw V4 performance by observed month",
+        "subtitle": "Opportunity-weighted Brier on identical full-month rows; lower is better.",
+        "type": "bar",
+        "dataset": "month_comparison",
+        "sourceId": "diagnosis",
+        "encodings": {
+          "x": {
+            "field": "month",
+            "type": "ordinal",
+            "label": "Month"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          },
+          "color": {
+            "field": "candidate",
+            "type": "nominal",
+            "label": "Candidate"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "policy_comparison",
+        "title": "No-retraining policy comparison",
+        "subtitle": "October plus November opportunity-weighted Brier; policies were selected only on four earlier months.",
+        "type": "bar",
+        "dataset": "policy_rows",
+        "sourceId": "diagnosis",
+        "encodings": {
+          "x": {
+            "field": "policy",
+            "type": "ordinal",
+            "label": "Policy"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "band_delta",
+        "title": "Raw M2 error difference by band",
+        "subtitle": "Raw M2 minus B2 Brier across all six observed months; negative values favor M2.",
+        "type": "bar",
+        "dataset": "band_rows",
+        "sourceId": "diagnosis",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "m2_minus_b2_brier",
+            "type": "quantitative",
+            "label": "M2 minus B2 Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "distance_delta",
+        "title": "Raw M2 error difference by path distance",
+        "subtitle": "Raw M2 minus B2 Brier across all six observed months; negative values favor M2.",
+        "type": "bar",
+        "dataset": "distance_rows",
+        "sourceId": "diagnosis",
+        "encodings": {
+          "x": {
+            "field": "distance",
+            "type": "ordinal",
+            "label": "Distance"
+          },
+          "y": {
+            "field": "m2_minus_b2_brier",
+            "type": "quantitative",
+            "label": "M2 minus B2 Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "blend_curve",
+        "title": "Convex blend sensitivity",
+        "subtitle": "B2 weight from zero (raw M2) to one (frozen V3); selected on four development months.",
+        "type": "line",
+        "dataset": "blend_curve",
+        "sourceId": "diagnosis",
+        "encodings": {
+          "x": {
+            "field": "b2_weight",
+            "type": "quantitative",
+            "label": "B2 weight",
+            "format": "percent"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          },
+          "color": {
+            "field": "scope",
+            "type": "nominal",
+            "label": "Evidence scope"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "bootstrap",
+        "title": "Paired-day uncertainty on October and November",
+        "subtitle": "Two thousand UTC-day resamples; negative deltas favor the candidate over B2.",
+        "dataset": "bootstrap_rows",
+        "sourceId": "diagnosis",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "policy",
+            "label": "Policy",
+            "type": "text"
+          },
+          {
+            "field": "lower_95",
+            "label": "Lower 95%",
+            "format": "number"
+          },
+          {
+            "field": "median",
+            "label": "Median",
+            "format": "number"
+          },
+          {
+            "field": "upper_95",
+            "label": "Upper 95%",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "regimes",
+        "title": "Operational regime diagnostics",
+        "subtitle": "Paired error by history, solar, geomagnetic, missingness, and coarse receiver latitude state.",
+        "dataset": "regime_rows",
+        "sourceId": "diagnosis",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "dimension",
+            "label": "Dimension",
+            "type": "text"
+          },
+          {
+            "field": "slice",
+            "label": "Slice",
+            "type": "text"
+          },
+          {
+            "field": "m2_minus_b2_brier",
+            "label": "M2 minus B2",
+            "format": "number"
+          },
+          {
+            "field": "opportunities",
+            "label": "Opportunities",
+            "format": "number"
+          },
+          {
+            "field": "rows",
+            "label": "Rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "band_distance",
+        "title": "Strongest and weakest band-distance cells",
+        "subtitle": "Eight cells at each extreme across all observed months; routing requires four-month development stability.",
+        "dataset": "band_distance_extremes",
+        "sourceId": "diagnosis",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "cell",
+            "label": "Band-distance",
+            "type": "text"
+          },
+          {
+            "field": "m2_minus_b2_brier",
+            "label": "M2 minus B2",
+            "format": "number"
+          },
+          {
+            "field": "opportunities",
+            "label": "Opportunities",
+            "format": "number"
+          },
+          {
+            "field": "stable_choice",
+            "label": "Stable choice",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "diagnosis",
+        "label": "V4.2 paired streaming diagnosis",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propagation V4.2 Phase 0 Performance Diagnosis"
+      },
+      {
+        "id": "answer",
+        "type": "markdown",
+        "body": "## Answer first\n\nEvery development-selected blend and router collapsed to **frozen B2** at Brier 0.04460622; none added value. The six-month evidence does **not** justify blindly scaling the existing M2. It supports controlled recency, sampling, iteration-capacity, and mixture-of-experts ablations before another 50M-row training run. December 2024 and all 2025 outcomes remain closed."
+      },
+      {
+        "id": "headline",
+        "type": "metric-strip",
+        "cardIds": [
+          "rows",
+          "b2",
+          "m2_delta",
+          "best_delta",
+          "blend_weight",
+          "peak_rss"
+        ]
+      },
+      {
+        "id": "months",
+        "type": "chart",
+        "chartId": "month_comparison",
+        "layout": "full"
+      },
+      {
+        "id": "month_explainer",
+        "type": "markdown",
+        "body": "## Why this comparison matters\n\nBoth frozen models were scored on identical natural-distribution rows and opportunity weights. The comparison therefore isolates model behavior from sample composition. V3/B2 includes a per-band calibrator; M2 is intentionally raw here so representation and ranking are not hidden by another post-hoc calibration search."
+      },
+      {
+        "id": "policies",
+        "type": "chart",
+        "chartId": "policy_comparison",
+        "layout": "full"
+      },
+      {
+        "id": "bootstrap_table",
+        "type": "table",
+        "tableId": "bootstrap",
+        "layout": "full"
+      },
+      {
+        "id": "band",
+        "type": "chart",
+        "chartId": "band_delta",
+        "layout": "full"
+      },
+      {
+        "id": "distance",
+        "type": "chart",
+        "chartId": "distance_delta",
+        "layout": "full"
+      },
+      {
+        "id": "specialists",
+        "type": "markdown",
+        "body": "## Specialist signal\n\nThe development-only band router assigns raw M2 to no complete band. The stricter router found 0 band-distance cells where M2 won in every one of February, April, May, and August with sufficient support. These are candidate expert boundaries, not production routing rules."
+      },
+      {
+        "id": "blend",
+        "type": "chart",
+        "chartId": "blend_curve",
+        "layout": "full"
+      },
+      {
+        "id": "regime_table",
+        "type": "table",
+        "tableId": "regimes",
+        "layout": "full"
+      },
+      {
+        "id": "cell_table",
+        "type": "table",
+        "tableId": "band_distance",
+        "layout": "full"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "body": "## Method\n\nThe scorer streamed 317,250,669 rows from six full Parquet months in 100,000-row batches. It retained only weighted squared-error and cross-error sufficient statistics. Blend weight, band routing, and stable band-distance routing were selected on February, April, May, and August; October and November evaluated those policies. Every input checksum was verified. The run used 9.93 GB peak RSS over 21.2 minutes."
+      },
+      {
+        "id": "interpretation",
+        "type": "markdown",
+        "body": "## What to do next\n\nRun the preregistered 5M A0-A5 ablations first. A0 must reproduce V3 under the current pipeline. A1 isolates missingness flags. A2/A3 isolate natural versus balanced historical sampling. A4/A5 test recent-cycle training and recency weighting. A6/A7 test a simple ensemble and band-aware experts only if the trained candidates show complementary cross-month residuals or stable specialties. Only the strongest three advance to 20M and at most two to 50M. A 100M run remains conditional on an improving learning curve."
+      },
+      {
+        "id": "limits",
+        "type": "markdown",
+        "body": "## Limits\n\nThis is diagnosis on previously observed outcomes, not a new validation claim. The target is conditional WSPR single-decode probability for inferred-active path-hours, not generic QSO success. Public receiver participation and equipment remain incompletely observed. No result here authorizes December 2024, the locked 2025 archive, or production replacement."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-12T20:59:25.407410+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "observed_rows": 317250669,
+          "evaluation_rows": 110407406,
+          "evaluation_b2_brier": 0.0446062190428188,
+          "evaluation_m2_brier": 0.04585355726212668,
+          "raw_m2_delta": 0.001247338219307878,
+          "best_policy_brier": 0.0446062190428188,
+          "best_policy_delta": 0.0,
+          "selected_b2_weight": 1.0,
+          "peak_rss_gb": 9.92926025390625,
+          "wall_minutes": 21.17621526943306
+        }
+      ],
+      "month_comparison": [
+        {
+          "month": "2024-02",
+          "candidate": "B2 frozen V3",
+          "brier": 0.04801962521449276,
+          "opportunities": 1417403596.25,
+          "rows": 54289793
+        },
+        {
+          "month": "2024-02",
+          "candidate": "Raw M2",
+          "brier": 0.05080000955124364,
+          "opportunities": 1417403596.25,
+          "rows": 54289793
+        },
+        {
+          "month": "2024-04",
+          "candidate": "B2 frozen V3",
+          "brier": 0.03940075779148916,
+          "opportunities": 1793658806.75,
+          "rows": 56027390
+        },
+        {
+          "month": "2024-04",
+          "candidate": "Raw M2",
+          "brier": 0.04341211617397364,
+          "opportunities": 1793658806.75,
+          "rows": 56027390
+        },
+        {
+          "month": "2024-05",
+          "candidate": "B2 frozen V3",
+          "brier": 0.03923726267989452,
+          "opportunities": 1630644331.5,
+          "rows": 50323668
+        },
+        {
+          "month": "2024-05",
+          "candidate": "Raw M2",
+          "brier": 0.041511367094704786,
+          "opportunities": 1630644331.5,
+          "rows": 50323668
+        },
+        {
+          "month": "2024-08",
+          "candidate": "B2 frozen V3",
+          "brier": 0.03900704379649179,
+          "opportunities": 1552510405.5,
+          "rows": 46202412
+        },
+        {
+          "month": "2024-08",
+          "candidate": "Raw M2",
+          "brier": 0.041015175091146314,
+          "opportunities": 1552510405.5,
+          "rows": 46202412
+        },
+        {
+          "month": "2024-10",
+          "candidate": "B2 frozen V3",
+          "brier": 0.04361913794828978,
+          "opportunities": 1876872971.0,
+          "rows": 55863247
+        },
+        {
+          "month": "2024-10",
+          "candidate": "Raw M2",
+          "brier": 0.04485653317367198,
+          "opportunities": 1876872971.0,
+          "rows": 55863247
+        },
+        {
+          "month": "2024-11",
+          "candidate": "B2 frozen V3",
+          "brier": 0.045681752004264865,
+          "opportunities": 1722518874.75,
+          "rows": 54544159
+        },
+        {
+          "month": "2024-11",
+          "candidate": "Raw M2",
+          "brier": 0.0469399242044501,
+          "opportunities": 1722518874.75,
+          "rows": 54544159
+        }
+      ],
+      "policy_rows": [
+        {
+          "policy": "B2 frozen V3",
+          "brier": 0.0446062190428188,
+          "delta_vs_b2": 0.0
+        },
+        {
+          "policy": "Raw M2",
+          "brier": 0.04585355726212668,
+          "delta_vs_b2": 0.001247338219307878
+        },
+        {
+          "policy": "Fixed blend",
+          "brier": 0.0446062190428188,
+          "delta_vs_b2": 0.0
+        },
+        {
+          "policy": "Band router",
+          "brier": 0.04460621904281908,
+          "delta_vs_b2": 0.0
+        },
+        {
+          "policy": "Stable band-distance router",
+          "brier": 0.044606219042819056,
+          "delta_vs_b2": 0.0
+        }
+      ],
+      "band_rows": [
+        {
+          "band": "10m",
+          "m2_minus_b2_brier": 0.000895128417841673,
+          "router_choice": "B2",
+          "opportunities": 643694253.0
+        },
+        {
+          "band": "12m",
+          "m2_minus_b2_brier": 0.00118696301390845,
+          "router_choice": "B2",
+          "opportunities": 136199887.0
+        },
+        {
+          "band": "20m",
+          "m2_minus_b2_brier": 0.0018436846147484587,
+          "router_choice": "B2",
+          "opportunities": 4000673923.5
+        },
+        {
+          "band": "17m",
+          "m2_minus_b2_brier": 0.001973328181577652,
+          "router_choice": "B2",
+          "opportunities": 421266881.25
+        },
+        {
+          "band": "60m",
+          "m2_minus_b2_brier": 0.0021020210177445584,
+          "router_choice": "B2",
+          "opportunities": 28679730.0
+        },
+        {
+          "band": "15m",
+          "m2_minus_b2_brier": 0.0021240989173743827,
+          "router_choice": "B2",
+          "opportunities": 572277641.0
+        },
+        {
+          "band": "30m",
+          "m2_minus_b2_brier": 0.0023164312652237326,
+          "router_choice": "B2",
+          "opportunities": 1418894516.5
+        },
+        {
+          "band": "40m",
+          "m2_minus_b2_brier": 0.0031481950408179527,
+          "router_choice": "B2",
+          "opportunities": 2326064685.5
+        },
+        {
+          "band": "160m",
+          "m2_minus_b2_brier": 0.003381324433795338,
+          "router_choice": "B2",
+          "opportunities": 35984748.25
+        },
+        {
+          "band": "80m",
+          "m2_minus_b2_brier": 0.00365759766120214,
+          "router_choice": "B2",
+          "opportunities": 409872719.75
+        }
+      ],
+      "distance_rows": [
+        {
+          "distance": "0-500 km",
+          "m2_minus_b2_brier": 0.002891436858236507,
+          "opportunities": 681280175.25
+        },
+        {
+          "distance": "10000-25000 km",
+          "m2_minus_b2_brier": 0.00031921684979038106,
+          "opportunities": 1223455181.0
+        },
+        {
+          "distance": "1500-3000 km",
+          "m2_minus_b2_brier": 0.0057669341008709935,
+          "opportunities": 1103374509.5
+        },
+        {
+          "distance": "3000-6000 km",
+          "m2_minus_b2_brier": 0.00173265586783123,
+          "opportunities": 1463999147.0
+        },
+        {
+          "distance": "500-1500 km",
+          "m2_minus_b2_brier": 0.005528222752551451,
+          "opportunities": 1745528320.75
+        },
+        {
+          "distance": "6000-10000 km",
+          "m2_minus_b2_brier": 0.0004082933123567556,
+          "opportunities": 3775971652.25
+        }
+      ],
+      "blend_curve": [
+        {
+          "b2_weight": 0.0,
+          "scope": "Development selection",
+          "brier": 0.04398308598584347
+        },
+        {
+          "b2_weight": 0.0,
+          "scope": "October + November",
+          "brier": 0.04585355726212668
+        },
+        {
+          "b2_weight": 0.05,
+          "scope": "Development selection",
+          "brier": 0.04372368673341339
+        },
+        {
+          "b2_weight": 0.05,
+          "scope": "October + November",
+          "brier": 0.045677965460366544
+        },
+        {
+          "b2_weight": 0.1,
+          "scope": "Development selection",
+          "brier": 0.043476808060401384
+        },
+        {
+          "b2_weight": 0.1,
+          "scope": "October + November",
+          "brier": 0.04551429206816377
+        },
+        {
+          "b2_weight": 0.15,
+          "scope": "Development selection",
+          "brier": 0.04324244996680745
+        },
+        {
+          "b2_weight": 0.15,
+          "scope": "October + November",
+          "brier": 0.04536253708551831
+        },
+        {
+          "b2_weight": 0.2,
+          "scope": "Development selection",
+          "brier": 0.04302061245263161
+        },
+        {
+          "b2_weight": 0.2,
+          "scope": "October + November",
+          "brier": 0.04522270051243022
+        },
+        {
+          "b2_weight": 0.25,
+          "scope": "Development selection",
+          "brier": 0.042811295517873826
+        },
+        {
+          "b2_weight": 0.25,
+          "scope": "October + November",
+          "brier": 0.04509478234889944
+        },
+        {
+          "b2_weight": 0.3,
+          "scope": "Development selection",
+          "brier": 0.04261449916253412
+        },
+        {
+          "b2_weight": 0.3,
+          "scope": "October + November",
+          "brier": 0.04497878259492601
+        },
+        {
+          "b2_weight": 0.35,
+          "scope": "Development selection",
+          "brier": 0.04243022338661249
+        },
+        {
+          "b2_weight": 0.35,
+          "scope": "October + November",
+          "brier": 0.04487470125050992
+        },
+        {
+          "b2_weight": 0.4,
+          "scope": "Development selection",
+          "brier": 0.042258468190108936
+        },
+        {
+          "b2_weight": 0.4,
+          "scope": "October + November",
+          "brier": 0.04478253831565118
+        },
+        {
+          "b2_weight": 0.45,
+          "scope": "Development selection",
+          "brier": 0.04209923357302346
+        },
+        {
+          "b2_weight": 0.45,
+          "scope": "October + November",
+          "brier": 0.04470229379034979
+        },
+        {
+          "b2_weight": 0.5,
+          "scope": "Development selection",
+          "brier": 0.04195251953535605
+        },
+        {
+          "b2_weight": 0.5,
+          "scope": "October + November",
+          "brier": 0.044633967674605715
+        },
+        {
+          "b2_weight": 0.55,
+          "scope": "Development selection",
+          "brier": 0.04181832607710672
+        },
+        {
+          "b2_weight": 0.55,
+          "scope": "October + November",
+          "brier": 0.04457755996841899
+        },
+        {
+          "b2_weight": 0.6,
+          "scope": "Development selection",
+          "brier": 0.04169665319827547
+        },
+        {
+          "b2_weight": 0.6,
+          "scope": "October + November",
+          "brier": 0.044533070671789604
+        },
+        {
+          "b2_weight": 0.65,
+          "scope": "Development selection",
+          "brier": 0.04158750089886229
+        },
+        {
+          "b2_weight": 0.65,
+          "scope": "October + November",
+          "brier": 0.044500499784717554
+        },
+        {
+          "b2_weight": 0.7,
+          "scope": "Development selection",
+          "brier": 0.04149086917886719
+        },
+        {
+          "b2_weight": 0.7,
+          "scope": "October + November",
+          "brier": 0.04447984730720286
+        },
+        {
+          "b2_weight": 0.75,
+          "scope": "Development selection",
+          "brier": 0.04140675803829016
+        },
+        {
+          "b2_weight": 0.75,
+          "scope": "October + November",
+          "brier": 0.0444711132392455
+        },
+        {
+          "b2_weight": 0.8,
+          "scope": "Development selection",
+          "brier": 0.04133516747713121
+        },
+        {
+          "b2_weight": 0.8,
+          "scope": "October + November",
+          "brier": 0.044474297580845486
+        },
+        {
+          "b2_weight": 0.85,
+          "scope": "Development selection",
+          "brier": 0.04127609749539033
+        },
+        {
+          "b2_weight": 0.85,
+          "scope": "October + November",
+          "brier": 0.044489400332002806
+        },
+        {
+          "b2_weight": 0.9,
+          "scope": "Development selection",
+          "brier": 0.04122954809306753
+        },
+        {
+          "b2_weight": 0.9,
+          "scope": "October + November",
+          "brier": 0.044516421492717465
+        },
+        {
+          "b2_weight": 0.95,
+          "scope": "Development selection",
+          "brier": 0.041195519270162795
+        },
+        {
+          "b2_weight": 0.95,
+          "scope": "October + November",
+          "brier": 0.044555361062989456
+        },
+        {
+          "b2_weight": 1.0,
+          "scope": "Development selection",
+          "brier": 0.041174011026676144
+        },
+        {
+          "b2_weight": 1.0,
+          "scope": "October + November",
+          "brier": 0.0446062190428188
+        }
+      ],
+      "regime_rows": [
+        {
+          "dimension": "History",
+          "slice": "no_recent_history",
+          "m2_minus_b2_brier": 0.00028209304914092806,
+          "b2_brier": 0.010863539197134248,
+          "m2_brier": 0.011145632246275176,
+          "opportunities": 4247789415.25,
+          "rows": 93917082
+        },
+        {
+          "dimension": "History",
+          "slice": "recent_1h",
+          "m2_minus_b2_brier": 0.004360468237237819,
+          "b2_brier": 0.07577547497110623,
+          "m2_brier": 0.08013594320834405,
+          "opportunities": 4563463145.75,
+          "rows": 189370888
+        },
+        {
+          "dimension": "History",
+          "slice": "recent_24h",
+          "m2_minus_b2_brier": 0.0011454974756049847,
+          "b2_brier": 0.02696836018160737,
+          "m2_brier": 0.028113857657212353,
+          "opportunities": 1182356424.75,
+          "rows": 33962699
+        },
+        {
+          "dimension": "F107",
+          "slice": "100-150",
+          "m2_minus_b2_brier": 0.0030429915280809836,
+          "b2_brier": 0.04173774777577975,
+          "m2_brier": 0.044780739303860735,
+          "opportunities": 1413010523.0,
+          "rows": 45667929
+        },
+        {
+          "dimension": "F107",
+          "slice": "150-200",
+          "m2_minus_b2_brier": 0.002242080027761384,
+          "b2_brier": 0.0438088829347966,
+          "m2_brier": 0.046050962962557986,
+          "opportunities": 3714834999.25,
+          "rows": 123388504
+        },
+        {
+          "dimension": "F107",
+          "slice": "200_plus",
+          "m2_minus_b2_brier": 0.002018749561456576,
+          "b2_brier": 0.041537608891221614,
+          "m2_brier": 0.04355635845267819,
+          "opportunities": 4865763463.5,
+          "rows": 148194236
+        },
+        {
+          "dimension": "Geomagnetic",
+          "slice": "disturbed_4_plus",
+          "m2_minus_b2_brier": 0.0016554588732413389,
+          "b2_brier": 0.03853048046599982,
+          "m2_brier": 0.04018593933924116,
+          "opportunities": 780824569.25,
+          "rows": 23987721
+        },
+        {
+          "dimension": "Geomagnetic",
+          "slice": "quiet_under_2",
+          "m2_minus_b2_brier": 0.0024798837204010257,
+          "b2_brier": 0.04311154006547245,
+          "m2_brier": 0.045591423785873476,
+          "opportunities": 5310197091.25,
+          "rows": 170956042
+        },
+        {
+          "dimension": "Geomagnetic",
+          "slice": "unsettled_2_to_4",
+          "m2_minus_b2_brier": 0.002047410940658946,
+          "b2_brier": 0.04223211267755236,
+          "m2_brier": 0.0442795236182113,
+          "opportunities": 3902587325.25,
+          "rows": 122306906
+        },
+        {
+          "dimension": "Missingness",
+          "slice": "1-3",
+          "m2_minus_b2_brier": 0.0022409578714105358,
+          "b2_brier": 0.042458792592740956,
+          "m2_brier": 0.04469975046415149,
+          "opportunities": 9890970845.75,
+          "rows": 314088523
+        },
+        {
+          "dimension": "Missingness",
+          "slice": "4-8",
+          "m2_minus_b2_brier": 0.002691221209394891,
+          "b2_brier": 0.041163016621742474,
+          "m2_brier": 0.043854237831137365,
+          "opportunities": 13323485.75,
+          "rows": 422896
+        },
+        {
+          "dimension": "Missingness",
+          "slice": "9_plus",
+          "m2_minus_b2_brier": 0.0028034464099433443,
+          "b2_brier": 0.03721353011728656,
+          "m2_brier": 0.0400169765272299,
+          "opportunities": 89314654.25,
+          "rows": 2739250
+        },
+        {
+          "dimension": "Receiver Latitude",
+          "slice": "equatorial",
+          "m2_minus_b2_brier": 0.002056154967702499,
+          "b2_brier": 0.022319156763115813,
+          "m2_brier": 0.024375311730818312,
+          "opportunities": 31933976.75,
+          "rows": 1229549
+        },
+        {
+          "dimension": "Receiver Latitude",
+          "slice": "north_high",
+          "m2_minus_b2_brier": 0.002133795495510689,
+          "b2_brier": 0.04165640670382642,
+          "m2_brier": 0.04379020219933711,
+          "opportunities": 4900736628.5,
+          "rows": 143568574
+        },
+        {
+          "dimension": "Receiver Latitude",
+          "slice": "north_mid",
+          "m2_minus_b2_brier": 0.0024646494992016585,
+          "b2_brier": 0.0455773889038823,
+          "m2_brier": 0.04804203840308396,
+          "opportunities": 4570586198.5,
+          "rows": 158633598
+        },
+        {
+          "dimension": "Receiver Latitude",
+          "slice": "south_high",
+          "m2_minus_b2_brier": 0.0005064404146817685,
+          "b2_brier": 0.020846782719185636,
+          "m2_brier": 0.021353223133867404,
+          "opportunities": 19326774.25,
+          "rows": 467760
+        },
+        {
+          "dimension": "Receiver Latitude",
+          "slice": "south_mid",
+          "m2_minus_b2_brier": 0.0013884229255747456,
+          "b2_brier": 0.0217668189944776,
+          "m2_brier": 0.023155241920052347,
+          "opportunities": 471025407.75,
+          "rows": 13351188
+        }
+      ],
+      "band_distance_extremes": [
+        {
+          "cell": "160m|6000-10000 km",
+          "m2_minus_b2_brier": 2.1515465919355126e-05,
+          "b2_brier": 0.0007961695460714027,
+          "m2_brier": 0.0008176850119907578,
+          "opportunities": 10034099.0,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "80m|10000-25000 km",
+          "m2_minus_b2_brier": 2.9905553192827693e-05,
+          "b2_brier": 0.001402658763215305,
+          "m2_brier": 0.0014325643164081327,
+          "opportunities": 24948411.0,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "80m|6000-10000 km",
+          "m2_minus_b2_brier": 6.348766200772195e-05,
+          "b2_brier": 0.0017641619334761711,
+          "m2_brier": 0.001827649595483893,
+          "opportunities": 157724115.5,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "20m|0-500 km",
+          "m2_minus_b2_brier": 8.413983858028898e-05,
+          "b2_brier": 0.02474260952891647,
+          "m2_brier": 0.024826749367496757,
+          "opportunities": 247918120.5,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "10m|10000-25000 km",
+          "m2_minus_b2_brier": 0.0001711090048633311,
+          "b2_brier": 0.018390537186133003,
+          "m2_brier": 0.018561646190996334,
+          "opportunities": 67737402.75,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "40m|10000-25000 km",
+          "m2_minus_b2_brier": 0.00017202296201697127,
+          "b2_brier": 0.004133268220721879,
+          "m2_brier": 0.00430529118273885,
+          "opportunities": 288311647.75,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "160m|10000-25000 km",
+          "m2_minus_b2_brier": 0.000175558984437065,
+          "b2_brier": 0.00255721597836124,
+          "m2_brier": 0.002732774962798305,
+          "opportunities": 1323511.5,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "10m|6000-10000 km",
+          "m2_minus_b2_brier": 0.00028132644083371516,
+          "b2_brier": 0.024606675575009264,
+          "m2_brier": 0.02488800201584298,
+          "opportunities": 217969873.5,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "30m|500-1500 km",
+          "m2_minus_b2_brier": 0.006145352964988707,
+          "b2_brier": 0.11852304268392903,
+          "m2_brier": 0.12466839564891774,
+          "opportunities": 242610747.25,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "30m|1500-3000 km",
+          "m2_minus_b2_brier": 0.0061494693327004135,
+          "b2_brier": 0.09937259884406403,
+          "m2_brier": 0.10552206817676445,
+          "opportunities": 148075118.75,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "80m|1500-3000 km",
+          "m2_minus_b2_brier": 0.006184637252032152,
+          "b2_brier": 0.05842895822119247,
+          "m2_brier": 0.06461359547322462,
+          "opportunities": 44995044.5,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "160m|500-1500 km",
+          "m2_minus_b2_brier": 0.006229510628042237,
+          "b2_brier": 0.0852871901922144,
+          "m2_brier": 0.09151670082025663,
+          "opportunities": 11825182.0,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "40m|0-500 km",
+          "m2_minus_b2_brier": 0.007382039762521372,
+          "b2_brier": 0.118769287124954,
+          "m2_brier": 0.12615132688747538,
+          "opportunities": 171217453.25,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "80m|0-500 km",
+          "m2_minus_b2_brier": 0.008480886642606267,
+          "b2_brier": 0.1370612425453126,
+          "m2_brier": 0.14554212918791887,
+          "opportunities": 34101703.5,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "40m|500-1500 km",
+          "m2_minus_b2_brier": 0.009597526491474537,
+          "b2_brier": 0.1214501307745867,
+          "m2_brier": 0.13104765726606124,
+          "opportunities": 415664796.75,
+          "stable_choice": "B2"
+        },
+        {
+          "cell": "80m|500-1500 km",
+          "m2_minus_b2_brier": 0.009984328093933084,
+          "b2_brier": 0.10783609018299117,
+          "m2_brier": 0.11782041827692426,
+          "opportunities": 84484818.75,
+          "stable_choice": "B2"
+        }
+      ],
+      "bootstrap_rows": [
+        {
+          "policy": "Raw M2",
+          "lower_95": 0.0011359539175385058,
+          "median": 0.001246441065915903,
+          "upper_95": 0.0013578534256373385
+        },
+        {
+          "policy": "Selected Blend",
+          "lower_95": 0.0,
+          "median": 0.0,
+          "upper_95": 0.0
+        },
+        {
+          "policy": "Band Router",
+          "lower_95": 0.0,
+          "median": 0.0,
+          "upper_95": 0.0
+        },
+        {
+          "policy": "Stable Band Distance Router",
+          "lower_95": 0.0,
+          "median": 0.0,
+          "upper_95": 0.0
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "diagnosis",
+      "label": "V4.2 paired streaming diagnosis",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json"
+        ]
+      }
+    }
+  ]
+}

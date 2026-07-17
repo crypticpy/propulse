@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T18:17:52.298504+00:00",
+  "host_role": "M5 prospective capture",
+  "architecture": "arm64",
+  "schedule": {
+    "source_poll_seconds": {
+      "pskreporter": 300,
+      "rbn": 300,
+      "dxcluster": 120
+    },
+    "aggregation_poll_seconds": 300,
+    "aggregation_settle_minutes": 20,
+    "health_minutes": [
+      2,
+      17,
+      32,
+      47
+    ],
+    "fresh_source_cycle_max_age_seconds": 120,
+    "settle_timeout_seconds": 360,
+    "settle_wait_seconds": 51.89267070798087,
+    "settle_source_status_queries": 6
+  },
+  "prospective_window": {
+    "start": "2026-08-01",
+    "end": "2026-09-30",
+    "outcomes_read": false
+  },
+  "source_state": {
+    "pskreporter": {
+      "status": "ok",
+      "last_attempt_at": "2026-07-16T18:17:39.294482+00:00",
+      "last_success_at": "2026-07-16T18:17:39.294482+00:00",
+      "attempt_age_seconds": 13.004022,
+      "success_age_seconds": 13.004022,
+      "rows_last_run": 2361,
+      "duration_ms": 2143,
+      "error_present": false,
+      "latest_spotted_at": "2026-07-16T18:17:36+00:00",
+      "latest_ingested_at": "2026-07-16T18:17:37.908986+00:00",
+      "latest_available_at": "2026-07-16T18:17:37.908986+00:00",
+      "latest_spot_age_seconds": 16.298504
+    },
+    "rbn": {
+      "status": "ok",
+      "last_attempt_at": "2026-07-16T18:17:46.958005+00:00",
+      "last_success_at": "2026-07-16T18:17:46.958005+00:00",
+      "attempt_age_seconds": 5.340499,
+      "success_age_seconds": 5.340499,
+      "rows_last_run": 24666,
+      "duration_ms": 9795,
+      "error_present": false,
+      "latest_spotted_at": "2026-07-16T18:17:30+00:00",
+      "latest_ingested_at": "2026-07-16T18:17:38.018735+00:00",
+      "latest_available_at": "2026-07-16T18:17:38.018735+00:00",
+      "latest_spot_age_seconds": 22.298504
+    },
+    "dxcluster": {
+      "status": "ok",
+      "last_attempt_at": "2026-07-16T18:17:38.043117+00:00",
+      "last_success_at": "2026-07-16T18:17:38.043117+00:00",
+      "attempt_age_seconds": 14.255387,
+      "success_age_seconds": 14.255387,
+      "rows_last_run": 108,
+      "duration_ms": 644,
+      "error_present": false,
+      "latest_spotted_at": "2026-07-16T18:17:00+00:00",
+      "latest_ingested_at": "2026-07-16T18:17:37.907664+00:00",
+      "latest_available_at": "2026-07-16T18:17:37.907664+00:00",
+      "latest_spot_age_seconds": 52.298504
+    },
+    "solar": {
+      "status": "ok",
+      "last_attempt_at": "2026-07-16T18:17:37.522165+00:00",
+      "last_success_at": "2026-07-16T18:17:37.522165+00:00",
+      "success_age_seconds": 14.776339,
+      "rows_last_run": 1,
+      "duration_ms": 353,
+      "error_present": false,
+      "latest_captured_at": "2026-07-16T18:17:37.281+00:00",
+      "capture_age_seconds": 15.017504,
+      "source_observed_at": {
+        "kp": "2026-07-16T18:14:00.000Z",
+        "magnetic_field": "2026-07-16T17:54:00.000Z",
+        "solar_wind": "2026-07-16T17:54:00.000Z",
+        "proton_flux_10mev": "2026-07-16T17:45:00.000Z",
+        "dst": "2026-07-16T17:00:00.000Z"
+      },
+      "source_age_seconds": {
+        "kp": 232.298504,
+        "magnetic_field": 1432.298504,
+        "solar_wind": 1432.298504,
+        "proton_flux_10mev": 1972.298504,
+        "dst": 4672.298504
+      },
+      "source_current": {
+        "kp": true,
+        "magnetic_field": false,
+        "solar_wind": false,
+        "proton_flux_10mev": false,
+        "dst": true
+      },
+      "required_sources": [
+        "kp",
+        "magnetic_field",
+        "solar_wind",
+        "dst"
+      ]
+    }
+  },
+  "aggregation_state": {
+    "band_hourly": {
+      "hour_utc": "2026-07-16T16:00:00+00:00",
+      "rows_written": 9,
+      "available_at": "2026-07-16T17:22:38.583064+00:00",
+      "hour_age_seconds": 8272.298504,
+      "watermark_last": true
+    },
+    "path_hourly": {
+      "hour_utc": "2026-07-16T16:00:00+00:00",
+      "rows_written": 2678,
+      "available_at": "2026-07-16T17:22:38.368595+00:00",
+      "hour_age_seconds": 8272.298504,
+      "watermark_last": true
+    }
+  },
+  "open_outage_sources": [],
+  "query_error_type": null,
+  "operational_healthy": false,
+  "pipeline_healthy": true,
+  "instant_healthy": false,
+  "continuity": {
+    "hours": 6.76304465861111,
+    "healthy_receipts": 33,
+    "tail_has_no_gap": true,
+    "weather_sample_receipts": 33,
+    "weather_current_receipts": 30,
+    "weather_availability": 0.9090909090909091,
+    "maximum_consecutive_weather_stale_samples": 2,
+    "basis": "gap_free_pipeline_with_measured_weather_availability",
+    "maximum_allowed_gap_seconds": 1800,
+    "minimum_hours": 24.0,
+    "minimum_weather_availability": 0.95,
+    "weather_sample_window_hours": 24.0,
+    "maximum_allowed_consecutive_weather_stale_samples": 2
+  },
+  "gates": {
+    "native_arm64": true,
+    "collector_launchd_running": true,
+    "target_queries_succeeded": true,
+    "pskreporter_current": true,
+    "rbn_current": true,
+    "dxcluster_current": true,
+    "solar_weather_current": false,
+    "band_hourly_current": true,
+    "path_hourly_current": true,
+    "no_open_outages": true,
+    "identity_free_receipt": true,
+    "prospective_outcomes_unread": true,
+    "minimum_continuity_reached": false,
+    "weather_availability_at_least_95_percent": false,
+    "weather_stale_run_within_limit": true
+  },
+  "prospective_capture_ready": false,
+  "privacy": {
+    "callsigns_or_grids_in_receipt": false,
+    "user_station_data_collected": false,
+    "raw_upstream_rows_redistributed": false
+  }
+}

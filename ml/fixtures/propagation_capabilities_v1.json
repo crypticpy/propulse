@@ -1,0 +1,41 @@
+{
+  "schema_version": "propagation-capabilities-v1",
+  "inference_mode": "shadow",
+  "service_execution_enabled": true,
+  "model_loaded": true,
+  "loaded_profiles": ["nowcast", "physics"],
+  "runtime_activation_valid": true,
+  "runtime_activation_errors": [],
+  "beta_collection_enabled": false,
+  "modes": {
+    "system_health_view": {
+      "internal_available": true,
+      "released_eligible": false
+    },
+    "beta_collection": {
+      "internal_available": false,
+      "released_eligible": false
+    },
+    "core_nowcast": {
+      "internal_available": true,
+      "released_eligible": false
+    },
+    "stationcast_deterministic": {
+      "internal_available": true,
+      "released_eligible": false
+    },
+    "stationcast_learned": {
+      "internal_available": false,
+      "released_eligible": false
+    },
+    "futurecast": {
+      "internal_available": false,
+      "released_eligible": false,
+      "released_horizons_hours": []
+    },
+    "six_meter": {
+      "internal_available": false,
+      "released_eligible": false
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T18:46:33.062746+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery_november_gate",
+  "scope": "untouched_november_gate_integrity",
+  "attempt_id": "november-fe4f874f7a514075bcb6f48e3333d0e9",
+  "months": [
+    "2024-11"
+  ],
+  "november_gate_read": true,
+  "locked_archive_test_read": false,
+  "dataset": {
+    "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_hf.parquet/part-000.parquet",
+    "bytes": 6906860189,
+    "sha256": "3987e3ef18e7ed3f3b8888664bc61503486ab8cb0063a26ecfbb911779106d6b"
+  },
+  "success_marker": {
+    "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_hf.parquet/_SUCCESS",
+    "bytes": 9,
+    "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+  },
+  "source_manifest": {
+    "path": "ml/data/manifests/propagation_v4_1_calibration_recovery_november_gate_sources.json",
+    "bytes": 2264,
+    "sha256": "5a7c0d10402ca665142345e2fac0136c099a4d54f5e7e0535b8175d49b65d468"
+  },
+  "bronze_manifest": {
+    "path": "ml/data/manifests/propagation_v4_1_calibration_recovery_november_gate_bronze.json",
+    "bytes": 1804,
+    "sha256": "ceecde417b0ef28c8354f70a8c94f47fbe66bfb1aa9f4fe7319b1a937ca874fb"
+  },
+  "opportunity_manifest": {
+    "path": "ml/data/manifests/propagation_v4_1_calibration_recovery_november_gate_hf_opportunities.json",
+    "bytes": 2060,
+    "sha256": "559de1f443ecb740e54a5468df03b7d80d0c8d1556a2eed7cb7ba1397ee17bce"
+  },
+  "rows": 54544159,
+  "time_range": [
+    "2024-11-01T00:00:00+00:00",
+    "2024-11-30T23:00:00+00:00"
+  ],
+  "weighted_opportunities": 1722518874.75,
+  "weighted_successes": 177175963.0,
+  "checks": [
+    {
+      "name": "dataset nonempty",
+      "passed": true,
+      "detail": 54544159
+    },
+    {
+      "name": "test split only",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "November 2024 only",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "positive opportunity weights",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "target bounds",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "no future weather availability",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "target hours present",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "opportunity month coverage",
+      "passed": true,
+      "detail": [
+        "2024-11"
+      ]
+    },
+    {
+      "name": "source manifest entries",
+      "passed": true,
+      "detail": 3
+    },
+    {
+      "name": "bronze month coverage",
+      "passed": true,
+      "detail": 1
+    },
+    {
+      "name": "exposure reconstruction 2024-11",
+      "passed": true,
+      "detail": 0.0007757956973714807
+    }
+  ],
+  "summary": {
+    "checks": 11,
+    "failures": 0
+  },
+  "passed": true
+}

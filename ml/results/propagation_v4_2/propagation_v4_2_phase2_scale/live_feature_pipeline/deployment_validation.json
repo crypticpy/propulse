@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T02:58:48.003266+00:00",
+  "scope": "target_postgres_post_deployment_validation",
+  "migration_deployed": true,
+  "locked_outcomes_read": false,
+  "persistent_test_rows": false,
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260711000000_path_hourly_stats.sql",
+      "sha256": "2d2a88324d5f9a98aac9a316f173d24ae3224b783b6c7bacd3f9371202ee9829"
+    },
+    {
+      "path": "supabase/migrations/20260712000000_space_weather_forecasts.sql",
+      "sha256": "ff74b7caa1914a6f18c660fc8b0a297b42797fffcf984a6d50ba57e9af4dfc2a"
+    },
+    {
+      "path": "supabase/migrations/20260712001000_propagation_v4_product.sql",
+      "sha256": "479e1070230b234bfe7333964391c8c9a4c7af4e47f443582f73baa002aebbb3"
+    },
+    {
+      "path": "supabase/migrations/20260712002000_collector_availability.sql",
+      "sha256": "bc08443a4c8a5568cca88b13744d39220c90a207975abd737b7650fac4280973"
+    },
+    {
+      "path": "supabase/migrations/20260715000000_solar_snapshot_provenance.sql",
+      "sha256": "bc54c1c514a2bd9607c4b3bb9e9e07a82119cba6bc5fe32eba4ac0ffe33a908b"
+    },
+    {
+      "path": "supabase/migrations/20260716000000_wspr_live_feature_store.sql",
+      "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212"
+    }
+  ],
+  "database": {
+    "engine": "PostgreSQL",
+    "server_version": "17.6",
+    "connection_identifier_recorded": false
+  },
+  "compute": {
+    "machine": "arm64",
+    "wall_seconds": 4.839397917006863,
+    "psycopg_version": "3.3.4"
+  },
+  "gates": {
+    "six_expected_migration_versions_present": true,
+    "all_release_tables_present": true,
+    "all_release_tables_rls_enabled": true,
+    "intended_public_read_grants_present": true,
+    "private_wspr_public_access_revoked": true,
+    "private_wspr_service_access_present": true,
+    "user_scoped_policies_present": true,
+    "service_functions_restricted": true,
+    "security_definer_search_paths_locked": true,
+    "collector_availability_backfill_complete": true,
+    "solar_provenance_columns_present": true,
+    "deployed_four_lag_rpc_exact": true,
+    "smoke_transaction_rolled_back": true,
+    "target_is_postgresql": true,
+    "locked_outcomes_unread": true
+  },
+  "decision": "pass"
+}

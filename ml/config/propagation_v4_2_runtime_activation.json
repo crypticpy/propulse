@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "scope": "phase6_runtime_activation",
+  "activation_state": "disabled",
+  "product_activation_recorded": false,
+  "approved_modes": [],
+  "locked_prospective_outcomes_read": false,
+  "source_readiness_sha256": "bfd969651c94a497e280475ff5c24348af751ffec6c2bbc7a0669438f7514b8c",
+  "activated_at": null
+}

@@ -9,6 +9,9 @@ describe("SolarImageCard", () => {
   });
 
   it("uses a stable URL and recovers declaratively after a transient failure", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      new Date("2026-07-15T12:10:00.000Z").getTime(),
+    );
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(

@@ -1,0 +1,2811 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T17:25:35.868269+00:00",
+  "scope": "wspr_shadow_aggregate_coverage_and_source_drift",
+  "decision": "collecting",
+  "operational_status": "healthy",
+  "provider": "wspr.live-research-v1",
+  "transform_version": "wspr-opportunity-duckdb-v1",
+  "research_only": true,
+  "window": {
+    "start": "2026-07-16T03:00:00+00:00",
+    "end": "2026-07-16T16:00:00+00:00",
+    "expected_hours": 14,
+    "completed_hours": 14,
+    "missing_hours": 0,
+    "completion_rate": 1.0,
+    "completed_band_hours": 140,
+    "required_hours": 720,
+    "provenance": {
+      "source_scope": "wspr_research_shadow_progress",
+      "progress_sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74",
+      "scheduled_start": "2026-07-16T03:00:00+00:00",
+      "scheduled_end": "2026-07-16T16:00:00+00:00",
+      "scheduled_expected_hours": 14,
+      "scheduled_completed_hours": 14,
+      "scheduled_missing_hours": 0,
+      "audited_start": "2026-07-16T03:00:00+00:00",
+      "audited_end": "2026-07-16T16:00:00+00:00",
+      "audited_expected_hours": 14
+    }
+  },
+  "coverage": {
+    "observed_bands": [
+      "10m",
+      "12m",
+      "15m",
+      "160m",
+      "17m",
+      "20m",
+      "30m",
+      "40m",
+      "60m",
+      "80m"
+    ],
+    "observed_utc_hours": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "by_band": [
+      {
+        "band": "160m",
+        "feature_cells": 7061,
+        "sampled_rows": 28077,
+        "band_hours": 14
+      },
+      {
+        "band": "80m",
+        "feature_cells": 53493,
+        "sampled_rows": 218801,
+        "band_hours": 14
+      },
+      {
+        "band": "60m",
+        "feature_cells": 6357,
+        "sampled_rows": 24710,
+        "band_hours": 14
+      },
+      {
+        "band": "40m",
+        "feature_cells": 202517,
+        "sampled_rows": 1032150,
+        "band_hours": 14
+      },
+      {
+        "band": "30m",
+        "feature_cells": 149951,
+        "sampled_rows": 707544,
+        "band_hours": 14
+      },
+      {
+        "band": "20m",
+        "feature_cells": 284747,
+        "sampled_rows": 1267377,
+        "band_hours": 14
+      },
+      {
+        "band": "17m",
+        "feature_cells": 72038,
+        "sampled_rows": 194590,
+        "band_hours": 14
+      },
+      {
+        "band": "15m",
+        "feature_cells": 79356,
+        "sampled_rows": 219207,
+        "band_hours": 14
+      },
+      {
+        "band": "12m",
+        "feature_cells": 24418,
+        "sampled_rows": 55212,
+        "band_hours": 14
+      },
+      {
+        "band": "10m",
+        "feature_cells": 53750,
+        "sampled_rows": 134521,
+        "band_hours": 14
+      }
+    ],
+    "by_utc_hour": [
+      {
+        "utc_hour": 3,
+        "feature_cells": 69980,
+        "sampled_rows": 300286,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 4,
+        "feature_cells": 67829,
+        "sampled_rows": 294118,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 5,
+        "feature_cells": 69276,
+        "sampled_rows": 296153,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 6,
+        "feature_cells": 68749,
+        "sampled_rows": 292216,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 7,
+        "feature_cells": 69328,
+        "sampled_rows": 309892,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 8,
+        "feature_cells": 66793,
+        "sampled_rows": 293962,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 9,
+        "feature_cells": 58896,
+        "sampled_rows": 261369,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 10,
+        "feature_cells": 58546,
+        "sampled_rows": 257846,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 11,
+        "feature_cells": 60923,
+        "sampled_rows": 256399,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 12,
+        "feature_cells": 65735,
+        "sampled_rows": 255447,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 13,
+        "feature_cells": 68923,
+        "sampled_rows": 268985,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 14,
+        "feature_cells": 71404,
+        "sampled_rows": 277381,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 15,
+        "feature_cells": 70690,
+        "sampled_rows": 266787,
+        "band_hours": 10
+      },
+      {
+        "utc_hour": 16,
+        "feature_cells": 66616,
+        "sampled_rows": 251348,
+        "band_hours": 10
+      }
+    ],
+    "by_distance": [
+      {
+        "distance_bucket": "<1,000 km",
+        "feature_cells": 204884,
+        "sampled_rows": 1344723,
+        "band_hours": 140
+      },
+      {
+        "distance_bucket": "1,000-3,000 km",
+        "feature_cells": 313498,
+        "sampled_rows": 1644673,
+        "band_hours": 140
+      },
+      {
+        "distance_bucket": "3,000-6,000 km",
+        "feature_cells": 109343,
+        "sampled_rows": 373893,
+        "band_hours": 140
+      },
+      {
+        "distance_bucket": "6,000-10,000 km",
+        "feature_cells": 208874,
+        "sampled_rows": 339986,
+        "band_hours": 140
+      },
+      {
+        "distance_bucket": "10,000+ km",
+        "feature_cells": 97089,
+        "sampled_rows": 178914,
+        "band_hours": 140
+      }
+    ],
+    "regional_fields": [
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "160m",
+        "feature_cells": 1854,
+        "completed_hours": 14,
+        "sampled_rows": 9269,
+        "eligible_region_count": 13,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "160m",
+        "feature_cells": 793,
+        "completed_hours": 13,
+        "sampled_rows": 6569,
+        "eligible_region_count": 13,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "160m",
+        "feature_cells": 718,
+        "completed_hours": 12,
+        "sampled_rows": 2417,
+        "eligible_region_count": 13,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "QF",
+        "band": "160m",
+        "feature_cells": 563,
+        "completed_hours": 14,
+        "sampled_rows": 1760,
+        "eligible_region_count": 13,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "160m",
+        "feature_cells": 403,
+        "completed_hours": 14,
+        "sampled_rows": 992,
+        "eligible_region_count": 13,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "160m",
+        "feature_cells": 401,
+        "completed_hours": 14,
+        "sampled_rows": 900,
+        "eligible_region_count": 13,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "160m",
+        "feature_cells": 392,
+        "completed_hours": 14,
+        "sampled_rows": 898,
+        "eligible_region_count": 13,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "160m",
+        "feature_cells": 356,
+        "completed_hours": 14,
+        "sampled_rows": 1552,
+        "eligible_region_count": 13,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "QE",
+        "band": "160m",
+        "feature_cells": 353,
+        "completed_hours": 14,
+        "sampled_rows": 848,
+        "eligible_region_count": 13,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "160m",
+        "feature_cells": 250,
+        "completed_hours": 14,
+        "sampled_rows": 699,
+        "eligible_region_count": 13,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "160m",
+        "feature_cells": 242,
+        "completed_hours": 12,
+        "sampled_rows": 536,
+        "eligible_region_count": 13,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "160m",
+        "feature_cells": 231,
+        "completed_hours": 11,
+        "sampled_rows": 455,
+        "eligible_region_count": 13,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "80m",
+        "feature_cells": 6532,
+        "completed_hours": 14,
+        "sampled_rows": 36019,
+        "eligible_region_count": 32,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "80m",
+        "feature_cells": 6311,
+        "completed_hours": 14,
+        "sampled_rows": 17305,
+        "eligible_region_count": 32,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "80m",
+        "feature_cells": 6276,
+        "completed_hours": 14,
+        "sampled_rows": 17442,
+        "eligible_region_count": 32,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "80m",
+        "feature_cells": 4787,
+        "completed_hours": 14,
+        "sampled_rows": 22877,
+        "eligible_region_count": 32,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "80m",
+        "feature_cells": 4014,
+        "completed_hours": 14,
+        "sampled_rows": 15641,
+        "eligible_region_count": 32,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "80m",
+        "feature_cells": 3897,
+        "completed_hours": 14,
+        "sampled_rows": 11981,
+        "eligible_region_count": 32,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "80m",
+        "feature_cells": 3051,
+        "completed_hours": 14,
+        "sampled_rows": 11053,
+        "eligible_region_count": 32,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "80m",
+        "feature_cells": 2960,
+        "completed_hours": 14,
+        "sampled_rows": 8215,
+        "eligible_region_count": 32,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "80m",
+        "feature_cells": 2765,
+        "completed_hours": 14,
+        "sampled_rows": 32630,
+        "eligible_region_count": 32,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "CN",
+        "band": "80m",
+        "feature_cells": 2265,
+        "completed_hours": 14,
+        "sampled_rows": 11376,
+        "eligible_region_count": 32,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "80m",
+        "feature_cells": 1837,
+        "completed_hours": 14,
+        "sampled_rows": 11383,
+        "eligible_region_count": 32,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "EL",
+        "band": "80m",
+        "feature_cells": 1548,
+        "completed_hours": 14,
+        "sampled_rows": 6964,
+        "eligible_region_count": 32,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "60m",
+        "feature_cells": 1635,
+        "completed_hours": 14,
+        "sampled_rows": 5408,
+        "eligible_region_count": 9,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "60m",
+        "feature_cells": 1133,
+        "completed_hours": 14,
+        "sampled_rows": 4880,
+        "eligible_region_count": 9,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "60m",
+        "feature_cells": 834,
+        "completed_hours": 14,
+        "sampled_rows": 3514,
+        "eligible_region_count": 9,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "60m",
+        "feature_cells": 611,
+        "completed_hours": 14,
+        "sampled_rows": 2157,
+        "eligible_region_count": 9,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "EL",
+        "band": "60m",
+        "feature_cells": 496,
+        "completed_hours": 9,
+        "sampled_rows": 3628,
+        "eligible_region_count": 9,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "60m",
+        "feature_cells": 381,
+        "completed_hours": 9,
+        "sampled_rows": 649,
+        "eligible_region_count": 9,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "IN",
+        "band": "60m",
+        "feature_cells": 360,
+        "completed_hours": 13,
+        "sampled_rows": 2323,
+        "eligible_region_count": 9,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "60m",
+        "feature_cells": 241,
+        "completed_hours": 7,
+        "sampled_rows": 390,
+        "eligible_region_count": 9,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "60m",
+        "feature_cells": 237,
+        "completed_hours": 12,
+        "sampled_rows": 730,
+        "eligible_region_count": 9,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "40m",
+        "feature_cells": 26556,
+        "completed_hours": 14,
+        "sampled_rows": 164015,
+        "eligible_region_count": 51,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "40m",
+        "feature_cells": 23710,
+        "completed_hours": 14,
+        "sampled_rows": 88933,
+        "eligible_region_count": 51,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "40m",
+        "feature_cells": 23209,
+        "completed_hours": 14,
+        "sampled_rows": 93753,
+        "eligible_region_count": 51,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "40m",
+        "feature_cells": 21146,
+        "completed_hours": 14,
+        "sampled_rows": 144844,
+        "eligible_region_count": 51,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "40m",
+        "feature_cells": 15338,
+        "completed_hours": 14,
+        "sampled_rows": 89540,
+        "eligible_region_count": 51,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "40m",
+        "feature_cells": 14946,
+        "completed_hours": 14,
+        "sampled_rows": 61344,
+        "eligible_region_count": 51,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "40m",
+        "feature_cells": 14248,
+        "completed_hours": 14,
+        "sampled_rows": 83714,
+        "eligible_region_count": 51,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "40m",
+        "feature_cells": 8237,
+        "completed_hours": 14,
+        "sampled_rows": 50134,
+        "eligible_region_count": 51,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "40m",
+        "feature_cells": 7975,
+        "completed_hours": 14,
+        "sampled_rows": 79490,
+        "eligible_region_count": 51,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "40m",
+        "feature_cells": 6590,
+        "completed_hours": 14,
+        "sampled_rows": 32602,
+        "eligible_region_count": 51,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "CN",
+        "band": "40m",
+        "feature_cells": 5430,
+        "completed_hours": 14,
+        "sampled_rows": 31768,
+        "eligible_region_count": 51,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "QG",
+        "band": "40m",
+        "feature_cells": 3237,
+        "completed_hours": 14,
+        "sampled_rows": 15019,
+        "eligible_region_count": 51,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "30m",
+        "feature_cells": 22613,
+        "completed_hours": 14,
+        "sampled_rows": 98393,
+        "eligible_region_count": 47,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "30m",
+        "feature_cells": 16035,
+        "completed_hours": 14,
+        "sampled_rows": 96133,
+        "eligible_region_count": 47,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "30m",
+        "feature_cells": 14726,
+        "completed_hours": 14,
+        "sampled_rows": 48361,
+        "eligible_region_count": 47,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "30m",
+        "feature_cells": 12728,
+        "completed_hours": 14,
+        "sampled_rows": 49021,
+        "eligible_region_count": 47,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "30m",
+        "feature_cells": 12606,
+        "completed_hours": 14,
+        "sampled_rows": 38267,
+        "eligible_region_count": 47,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "30m",
+        "feature_cells": 8759,
+        "completed_hours": 14,
+        "sampled_rows": 37674,
+        "eligible_region_count": 47,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "30m",
+        "feature_cells": 8495,
+        "completed_hours": 14,
+        "sampled_rows": 27581,
+        "eligible_region_count": 47,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "IN",
+        "band": "30m",
+        "feature_cells": 6359,
+        "completed_hours": 14,
+        "sampled_rows": 62850,
+        "eligible_region_count": 47,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "30m",
+        "feature_cells": 6181,
+        "completed_hours": 14,
+        "sampled_rows": 61104,
+        "eligible_region_count": 47,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "30m",
+        "feature_cells": 5820,
+        "completed_hours": 14,
+        "sampled_rows": 25343,
+        "eligible_region_count": 47,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "CN",
+        "band": "30m",
+        "feature_cells": 5159,
+        "completed_hours": 14,
+        "sampled_rows": 25310,
+        "eligible_region_count": 47,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "EL",
+        "band": "30m",
+        "feature_cells": 4160,
+        "completed_hours": 14,
+        "sampled_rows": 52343,
+        "eligible_region_count": 47,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "20m",
+        "feature_cells": 33629,
+        "completed_hours": 14,
+        "sampled_rows": 136056,
+        "eligible_region_count": 106,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "20m",
+        "feature_cells": 32031,
+        "completed_hours": 14,
+        "sampled_rows": 177595,
+        "eligible_region_count": 106,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "20m",
+        "feature_cells": 29552,
+        "completed_hours": 14,
+        "sampled_rows": 131767,
+        "eligible_region_count": 106,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "20m",
+        "feature_cells": 21876,
+        "completed_hours": 14,
+        "sampled_rows": 146705,
+        "eligible_region_count": 106,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "20m",
+        "feature_cells": 20294,
+        "completed_hours": 14,
+        "sampled_rows": 87841,
+        "eligible_region_count": 106,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "20m",
+        "feature_cells": 18050,
+        "completed_hours": 14,
+        "sampled_rows": 80000,
+        "eligible_region_count": 106,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "20m",
+        "feature_cells": 16540,
+        "completed_hours": 14,
+        "sampled_rows": 81107,
+        "eligible_region_count": 106,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "IN",
+        "band": "20m",
+        "feature_cells": 8315,
+        "completed_hours": 14,
+        "sampled_rows": 78185,
+        "eligible_region_count": 106,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "20m",
+        "feature_cells": 8024,
+        "completed_hours": 14,
+        "sampled_rows": 34669,
+        "eligible_region_count": 106,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "20m",
+        "feature_cells": 7884,
+        "completed_hours": 14,
+        "sampled_rows": 30518,
+        "eligible_region_count": 106,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "20m",
+        "feature_cells": 7595,
+        "completed_hours": 14,
+        "sampled_rows": 52899,
+        "eligible_region_count": 106,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "EL",
+        "band": "20m",
+        "feature_cells": 5959,
+        "completed_hours": 14,
+        "sampled_rows": 19778,
+        "eligible_region_count": 106,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "17m",
+        "feature_cells": 8084,
+        "completed_hours": 14,
+        "sampled_rows": 21186,
+        "eligible_region_count": 59,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "17m",
+        "feature_cells": 6393,
+        "completed_hours": 14,
+        "sampled_rows": 16854,
+        "eligible_region_count": 59,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "17m",
+        "feature_cells": 6160,
+        "completed_hours": 14,
+        "sampled_rows": 21281,
+        "eligible_region_count": 59,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "17m",
+        "feature_cells": 5155,
+        "completed_hours": 14,
+        "sampled_rows": 12621,
+        "eligible_region_count": 59,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "17m",
+        "feature_cells": 5095,
+        "completed_hours": 14,
+        "sampled_rows": 19504,
+        "eligible_region_count": 59,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "17m",
+        "feature_cells": 4019,
+        "completed_hours": 14,
+        "sampled_rows": 8793,
+        "eligible_region_count": 59,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "17m",
+        "feature_cells": 3950,
+        "completed_hours": 14,
+        "sampled_rows": 8770,
+        "eligible_region_count": 59,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "17m",
+        "feature_cells": 2818,
+        "completed_hours": 14,
+        "sampled_rows": 9094,
+        "eligible_region_count": 59,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "17m",
+        "feature_cells": 2766,
+        "completed_hours": 14,
+        "sampled_rows": 5997,
+        "eligible_region_count": 59,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "17m",
+        "feature_cells": 2118,
+        "completed_hours": 14,
+        "sampled_rows": 4875,
+        "eligible_region_count": 59,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "CN",
+        "band": "17m",
+        "feature_cells": 1819,
+        "completed_hours": 14,
+        "sampled_rows": 5009,
+        "eligible_region_count": 59,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "EL",
+        "band": "17m",
+        "feature_cells": 1536,
+        "completed_hours": 14,
+        "sampled_rows": 4710,
+        "eligible_region_count": 59,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "15m",
+        "feature_cells": 7701,
+        "completed_hours": 14,
+        "sampled_rows": 18574,
+        "eligible_region_count": 51,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "15m",
+        "feature_cells": 7561,
+        "completed_hours": 14,
+        "sampled_rows": 15986,
+        "eligible_region_count": 51,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "15m",
+        "feature_cells": 7467,
+        "completed_hours": 14,
+        "sampled_rows": 21456,
+        "eligible_region_count": 51,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "15m",
+        "feature_cells": 7218,
+        "completed_hours": 14,
+        "sampled_rows": 18362,
+        "eligible_region_count": 51,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "15m",
+        "feature_cells": 5953,
+        "completed_hours": 14,
+        "sampled_rows": 23965,
+        "eligible_region_count": 51,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "15m",
+        "feature_cells": 5871,
+        "completed_hours": 14,
+        "sampled_rows": 12564,
+        "eligible_region_count": 51,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "15m",
+        "feature_cells": 4055,
+        "completed_hours": 14,
+        "sampled_rows": 9339,
+        "eligible_region_count": 51,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "15m",
+        "feature_cells": 2877,
+        "completed_hours": 14,
+        "sampled_rows": 7200,
+        "eligible_region_count": 51,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "15m",
+        "feature_cells": 2757,
+        "completed_hours": 14,
+        "sampled_rows": 13560,
+        "eligible_region_count": 51,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "15m",
+        "feature_cells": 2573,
+        "completed_hours": 14,
+        "sampled_rows": 5235,
+        "eligible_region_count": 51,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "IN",
+        "band": "15m",
+        "feature_cells": 2335,
+        "completed_hours": 14,
+        "sampled_rows": 17291,
+        "eligible_region_count": 51,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "CN",
+        "band": "15m",
+        "feature_cells": 1986,
+        "completed_hours": 14,
+        "sampled_rows": 4745,
+        "eligible_region_count": 51,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "12m",
+        "feature_cells": 2718,
+        "completed_hours": 14,
+        "sampled_rows": 6056,
+        "eligible_region_count": 23,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "12m",
+        "feature_cells": 2418,
+        "completed_hours": 14,
+        "sampled_rows": 4276,
+        "eligible_region_count": 23,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "12m",
+        "feature_cells": 2383,
+        "completed_hours": 14,
+        "sampled_rows": 4714,
+        "eligible_region_count": 23,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "12m",
+        "feature_cells": 2193,
+        "completed_hours": 14,
+        "sampled_rows": 5313,
+        "eligible_region_count": 23,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "12m",
+        "feature_cells": 1753,
+        "completed_hours": 14,
+        "sampled_rows": 3561,
+        "eligible_region_count": 23,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "12m",
+        "feature_cells": 1720,
+        "completed_hours": 14,
+        "sampled_rows": 3216,
+        "eligible_region_count": 23,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "12m",
+        "feature_cells": 1414,
+        "completed_hours": 14,
+        "sampled_rows": 2288,
+        "eligible_region_count": 23,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "12m",
+        "feature_cells": 1377,
+        "completed_hours": 14,
+        "sampled_rows": 3060,
+        "eligible_region_count": 23,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "12m",
+        "feature_cells": 1302,
+        "completed_hours": 14,
+        "sampled_rows": 5652,
+        "eligible_region_count": 23,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "IN",
+        "band": "12m",
+        "feature_cells": 1074,
+        "completed_hours": 14,
+        "sampled_rows": 4805,
+        "eligible_region_count": 23,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "CN",
+        "band": "12m",
+        "feature_cells": 1047,
+        "completed_hours": 14,
+        "sampled_rows": 2576,
+        "eligible_region_count": 23,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "12m",
+        "feature_cells": 812,
+        "completed_hours": 14,
+        "sampled_rows": 1236,
+        "eligible_region_count": 23,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "origin",
+        "region": "JO",
+        "band": "10m",
+        "feature_cells": 7753,
+        "completed_hours": 14,
+        "sampled_rows": 21577,
+        "eligible_region_count": 30,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "origin",
+        "region": "JN",
+        "band": "10m",
+        "feature_cells": 6226,
+        "completed_hours": 14,
+        "sampled_rows": 13642,
+        "eligible_region_count": 30,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "origin",
+        "region": "EN",
+        "band": "10m",
+        "feature_cells": 4998,
+        "completed_hours": 14,
+        "sampled_rows": 9836,
+        "eligible_region_count": 30,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "origin",
+        "region": "IO",
+        "band": "10m",
+        "feature_cells": 4537,
+        "completed_hours": 14,
+        "sampled_rows": 11812,
+        "eligible_region_count": 30,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "origin",
+        "region": "DM",
+        "band": "10m",
+        "feature_cells": 3953,
+        "completed_hours": 14,
+        "sampled_rows": 8857,
+        "eligible_region_count": 30,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "origin",
+        "region": "EM",
+        "band": "10m",
+        "feature_cells": 3827,
+        "completed_hours": 14,
+        "sampled_rows": 7477,
+        "eligible_region_count": 30,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "origin",
+        "region": "FN",
+        "band": "10m",
+        "feature_cells": 2615,
+        "completed_hours": 14,
+        "sampled_rows": 4269,
+        "eligible_region_count": 30,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "origin",
+        "region": "DN",
+        "band": "10m",
+        "feature_cells": 2060,
+        "completed_hours": 14,
+        "sampled_rows": 7462,
+        "eligible_region_count": 30,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "origin",
+        "region": "IN",
+        "band": "10m",
+        "feature_cells": 2016,
+        "completed_hours": 14,
+        "sampled_rows": 11539,
+        "eligible_region_count": 30,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "origin",
+        "region": "CM",
+        "band": "10m",
+        "feature_cells": 1984,
+        "completed_hours": 14,
+        "sampled_rows": 4163,
+        "eligible_region_count": 30,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "origin",
+        "region": "FM",
+        "band": "10m",
+        "feature_cells": 1835,
+        "completed_hours": 14,
+        "sampled_rows": 3424,
+        "eligible_region_count": 30,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "origin",
+        "region": "CN",
+        "band": "10m",
+        "feature_cells": 1615,
+        "completed_hours": 14,
+        "sampled_rows": 3201,
+        "eligible_region_count": 30,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "160m",
+        "feature_cells": 1226,
+        "completed_hours": 14,
+        "sampled_rows": 6346,
+        "eligible_region_count": 14,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "160m",
+        "feature_cells": 904,
+        "completed_hours": 14,
+        "sampled_rows": 3398,
+        "eligible_region_count": 14,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "160m",
+        "feature_cells": 673,
+        "completed_hours": 12,
+        "sampled_rows": 3022,
+        "eligible_region_count": 14,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "160m",
+        "feature_cells": 632,
+        "completed_hours": 13,
+        "sampled_rows": 2848,
+        "eligible_region_count": 14,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "160m",
+        "feature_cells": 615,
+        "completed_hours": 14,
+        "sampled_rows": 2118,
+        "eligible_region_count": 14,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "160m",
+        "feature_cells": 574,
+        "completed_hours": 14,
+        "sampled_rows": 2576,
+        "eligible_region_count": 14,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "160m",
+        "feature_cells": 374,
+        "completed_hours": 14,
+        "sampled_rows": 1292,
+        "eligible_region_count": 14,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "160m",
+        "feature_cells": 321,
+        "completed_hours": 14,
+        "sampled_rows": 1321,
+        "eligible_region_count": 14,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "160m",
+        "feature_cells": 319,
+        "completed_hours": 11,
+        "sampled_rows": 1171,
+        "eligible_region_count": 14,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "PF",
+        "band": "160m",
+        "feature_cells": 277,
+        "completed_hours": 13,
+        "sampled_rows": 822,
+        "eligible_region_count": 14,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "QF",
+        "band": "160m",
+        "feature_cells": 243,
+        "completed_hours": 14,
+        "sampled_rows": 720,
+        "eligible_region_count": 14,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "160m",
+        "feature_cells": 215,
+        "completed_hours": 14,
+        "sampled_rows": 636,
+        "eligible_region_count": 14,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "80m",
+        "feature_cells": 6542,
+        "completed_hours": 14,
+        "sampled_rows": 32243,
+        "eligible_region_count": 23,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "80m",
+        "feature_cells": 6331,
+        "completed_hours": 14,
+        "sampled_rows": 24719,
+        "eligible_region_count": 23,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "80m",
+        "feature_cells": 5834,
+        "completed_hours": 14,
+        "sampled_rows": 25983,
+        "eligible_region_count": 23,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "80m",
+        "feature_cells": 5347,
+        "completed_hours": 14,
+        "sampled_rows": 15554,
+        "eligible_region_count": 23,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "80m",
+        "feature_cells": 5047,
+        "completed_hours": 14,
+        "sampled_rows": 24525,
+        "eligible_region_count": 23,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "80m",
+        "feature_cells": 3869,
+        "completed_hours": 14,
+        "sampled_rows": 17756,
+        "eligible_region_count": 23,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "80m",
+        "feature_cells": 3464,
+        "completed_hours": 14,
+        "sampled_rows": 12771,
+        "eligible_region_count": 23,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "80m",
+        "feature_cells": 3443,
+        "completed_hours": 14,
+        "sampled_rows": 13742,
+        "eligible_region_count": 23,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "80m",
+        "feature_cells": 3118,
+        "completed_hours": 14,
+        "sampled_rows": 13104,
+        "eligible_region_count": 23,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "80m",
+        "feature_cells": 2582,
+        "completed_hours": 14,
+        "sampled_rows": 18241,
+        "eligible_region_count": 23,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "80m",
+        "feature_cells": 1985,
+        "completed_hours": 14,
+        "sampled_rows": 6521,
+        "eligible_region_count": 23,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "DO",
+        "band": "80m",
+        "feature_cells": 1004,
+        "completed_hours": 14,
+        "sampled_rows": 2680,
+        "eligible_region_count": 23,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "60m",
+        "feature_cells": 1361,
+        "completed_hours": 14,
+        "sampled_rows": 5075,
+        "eligible_region_count": 12,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "60m",
+        "feature_cells": 1134,
+        "completed_hours": 14,
+        "sampled_rows": 5813,
+        "eligible_region_count": 12,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "60m",
+        "feature_cells": 936,
+        "completed_hours": 14,
+        "sampled_rows": 3622,
+        "eligible_region_count": 12,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "60m",
+        "feature_cells": 531,
+        "completed_hours": 14,
+        "sampled_rows": 2394,
+        "eligible_region_count": 12,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "60m",
+        "feature_cells": 487,
+        "completed_hours": 14,
+        "sampled_rows": 1946,
+        "eligible_region_count": 12,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "60m",
+        "feature_cells": 414,
+        "completed_hours": 14,
+        "sampled_rows": 1116,
+        "eligible_region_count": 12,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "60m",
+        "feature_cells": 253,
+        "completed_hours": 14,
+        "sampled_rows": 933,
+        "eligible_region_count": 12,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "60m",
+        "feature_cells": 179,
+        "completed_hours": 14,
+        "sampled_rows": 914,
+        "eligible_region_count": 12,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "60m",
+        "feature_cells": 179,
+        "completed_hours": 14,
+        "sampled_rows": 379,
+        "eligible_region_count": 12,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "60m",
+        "feature_cells": 170,
+        "completed_hours": 14,
+        "sampled_rows": 481,
+        "eligible_region_count": 12,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "60m",
+        "feature_cells": 161,
+        "completed_hours": 14,
+        "sampled_rows": 641,
+        "eligible_region_count": 12,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "DO",
+        "band": "60m",
+        "feature_cells": 120,
+        "completed_hours": 14,
+        "sampled_rows": 284,
+        "eligible_region_count": 12,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "40m",
+        "feature_cells": 25833,
+        "completed_hours": 14,
+        "sampled_rows": 150689,
+        "eligible_region_count": 44,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "40m",
+        "feature_cells": 22374,
+        "completed_hours": 14,
+        "sampled_rows": 180186,
+        "eligible_region_count": 44,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "40m",
+        "feature_cells": 22199,
+        "completed_hours": 14,
+        "sampled_rows": 74827,
+        "eligible_region_count": 44,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "40m",
+        "feature_cells": 18038,
+        "completed_hours": 14,
+        "sampled_rows": 91618,
+        "eligible_region_count": 44,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "40m",
+        "feature_cells": 16850,
+        "completed_hours": 14,
+        "sampled_rows": 85401,
+        "eligible_region_count": 44,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "40m",
+        "feature_cells": 14174,
+        "completed_hours": 14,
+        "sampled_rows": 56860,
+        "eligible_region_count": 44,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "40m",
+        "feature_cells": 11865,
+        "completed_hours": 14,
+        "sampled_rows": 71357,
+        "eligible_region_count": 44,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "40m",
+        "feature_cells": 11381,
+        "completed_hours": 14,
+        "sampled_rows": 64910,
+        "eligible_region_count": 44,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "40m",
+        "feature_cells": 8642,
+        "completed_hours": 14,
+        "sampled_rows": 48012,
+        "eligible_region_count": 44,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "40m",
+        "feature_cells": 7328,
+        "completed_hours": 14,
+        "sampled_rows": 35846,
+        "eligible_region_count": 44,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "40m",
+        "feature_cells": 5963,
+        "completed_hours": 14,
+        "sampled_rows": 55347,
+        "eligible_region_count": 44,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "DO",
+        "band": "40m",
+        "feature_cells": 4031,
+        "completed_hours": 14,
+        "sampled_rows": 15966,
+        "eligible_region_count": 44,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "30m",
+        "feature_cells": 17982,
+        "completed_hours": 14,
+        "sampled_rows": 97140,
+        "eligible_region_count": 37,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "30m",
+        "feature_cells": 16673,
+        "completed_hours": 14,
+        "sampled_rows": 122890,
+        "eligible_region_count": 37,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "30m",
+        "feature_cells": 14650,
+        "completed_hours": 14,
+        "sampled_rows": 49585,
+        "eligible_region_count": 37,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "30m",
+        "feature_cells": 13574,
+        "completed_hours": 14,
+        "sampled_rows": 66576,
+        "eligible_region_count": 37,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "30m",
+        "feature_cells": 11688,
+        "completed_hours": 14,
+        "sampled_rows": 58712,
+        "eligible_region_count": 37,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "30m",
+        "feature_cells": 11263,
+        "completed_hours": 14,
+        "sampled_rows": 65498,
+        "eligible_region_count": 37,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "30m",
+        "feature_cells": 10362,
+        "completed_hours": 14,
+        "sampled_rows": 37670,
+        "eligible_region_count": 37,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "30m",
+        "feature_cells": 7403,
+        "completed_hours": 14,
+        "sampled_rows": 31843,
+        "eligible_region_count": 37,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "30m",
+        "feature_cells": 7111,
+        "completed_hours": 14,
+        "sampled_rows": 33545,
+        "eligible_region_count": 37,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "30m",
+        "feature_cells": 6646,
+        "completed_hours": 14,
+        "sampled_rows": 27246,
+        "eligible_region_count": 37,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "30m",
+        "feature_cells": 4957,
+        "completed_hours": 14,
+        "sampled_rows": 35263,
+        "eligible_region_count": 37,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "DO",
+        "band": "30m",
+        "feature_cells": 3261,
+        "completed_hours": 14,
+        "sampled_rows": 10004,
+        "eligible_region_count": 37,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "20m",
+        "feature_cells": 38398,
+        "completed_hours": 14,
+        "sampled_rows": 196731,
+        "eligible_region_count": 53,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "20m",
+        "feature_cells": 31230,
+        "completed_hours": 14,
+        "sampled_rows": 224640,
+        "eligible_region_count": 53,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "20m",
+        "feature_cells": 29092,
+        "completed_hours": 14,
+        "sampled_rows": 98775,
+        "eligible_region_count": 53,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "20m",
+        "feature_cells": 22775,
+        "completed_hours": 14,
+        "sampled_rows": 112288,
+        "eligible_region_count": 53,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "20m",
+        "feature_cells": 22661,
+        "completed_hours": 14,
+        "sampled_rows": 108725,
+        "eligible_region_count": 53,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "20m",
+        "feature_cells": 20895,
+        "completed_hours": 14,
+        "sampled_rows": 110556,
+        "eligible_region_count": 53,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "20m",
+        "feature_cells": 16391,
+        "completed_hours": 14,
+        "sampled_rows": 57753,
+        "eligible_region_count": 53,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "20m",
+        "feature_cells": 13149,
+        "completed_hours": 14,
+        "sampled_rows": 51977,
+        "eligible_region_count": 53,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "20m",
+        "feature_cells": 10049,
+        "completed_hours": 14,
+        "sampled_rows": 45515,
+        "eligible_region_count": 53,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "20m",
+        "feature_cells": 8207,
+        "completed_hours": 14,
+        "sampled_rows": 26023,
+        "eligible_region_count": 53,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "KO",
+        "band": "20m",
+        "feature_cells": 8115,
+        "completed_hours": 14,
+        "sampled_rows": 25583,
+        "eligible_region_count": 53,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "20m",
+        "feature_cells": 7554,
+        "completed_hours": 14,
+        "sampled_rows": 40477,
+        "eligible_region_count": 53,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "17m",
+        "feature_cells": 10821,
+        "completed_hours": 14,
+        "sampled_rows": 24964,
+        "eligible_region_count": 37,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "17m",
+        "feature_cells": 10060,
+        "completed_hours": 14,
+        "sampled_rows": 38615,
+        "eligible_region_count": 37,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "17m",
+        "feature_cells": 7716,
+        "completed_hours": 14,
+        "sampled_rows": 24250,
+        "eligible_region_count": 37,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "17m",
+        "feature_cells": 6037,
+        "completed_hours": 14,
+        "sampled_rows": 16309,
+        "eligible_region_count": 37,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "17m",
+        "feature_cells": 5497,
+        "completed_hours": 14,
+        "sampled_rows": 12019,
+        "eligible_region_count": 37,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "17m",
+        "feature_cells": 4736,
+        "completed_hours": 14,
+        "sampled_rows": 13387,
+        "eligible_region_count": 37,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "17m",
+        "feature_cells": 4061,
+        "completed_hours": 14,
+        "sampled_rows": 9223,
+        "eligible_region_count": 37,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "17m",
+        "feature_cells": 3241,
+        "completed_hours": 14,
+        "sampled_rows": 10791,
+        "eligible_region_count": 37,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "17m",
+        "feature_cells": 3052,
+        "completed_hours": 14,
+        "sampled_rows": 6724,
+        "eligible_region_count": 37,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "17m",
+        "feature_cells": 2124,
+        "completed_hours": 14,
+        "sampled_rows": 7141,
+        "eligible_region_count": 37,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "17m",
+        "feature_cells": 1972,
+        "completed_hours": 14,
+        "sampled_rows": 3886,
+        "eligible_region_count": 37,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "DO",
+        "band": "17m",
+        "feature_cells": 1555,
+        "completed_hours": 14,
+        "sampled_rows": 3254,
+        "eligible_region_count": 37,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "15m",
+        "feature_cells": 12681,
+        "completed_hours": 14,
+        "sampled_rows": 48805,
+        "eligible_region_count": 35,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "15m",
+        "feature_cells": 12096,
+        "completed_hours": 14,
+        "sampled_rows": 31352,
+        "eligible_region_count": 35,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "15m",
+        "feature_cells": 6574,
+        "completed_hours": 14,
+        "sampled_rows": 17189,
+        "eligible_region_count": 35,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "15m",
+        "feature_cells": 6317,
+        "completed_hours": 14,
+        "sampled_rows": 18994,
+        "eligible_region_count": 35,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "15m",
+        "feature_cells": 6015,
+        "completed_hours": 14,
+        "sampled_rows": 14647,
+        "eligible_region_count": 35,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "15m",
+        "feature_cells": 5466,
+        "completed_hours": 14,
+        "sampled_rows": 16202,
+        "eligible_region_count": 35,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "15m",
+        "feature_cells": 4190,
+        "completed_hours": 14,
+        "sampled_rows": 9595,
+        "eligible_region_count": 35,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "15m",
+        "feature_cells": 3508,
+        "completed_hours": 14,
+        "sampled_rows": 10709,
+        "eligible_region_count": 35,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "15m",
+        "feature_cells": 3349,
+        "completed_hours": 14,
+        "sampled_rows": 7646,
+        "eligible_region_count": 35,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "15m",
+        "feature_cells": 2499,
+        "completed_hours": 14,
+        "sampled_rows": 6434,
+        "eligible_region_count": 35,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "DO",
+        "band": "15m",
+        "feature_cells": 1831,
+        "completed_hours": 14,
+        "sampled_rows": 3531,
+        "eligible_region_count": 35,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "15m",
+        "feature_cells": 1698,
+        "completed_hours": 14,
+        "sampled_rows": 3363,
+        "eligible_region_count": 35,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "12m",
+        "feature_cells": 3756,
+        "completed_hours": 14,
+        "sampled_rows": 10545,
+        "eligible_region_count": 22,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "12m",
+        "feature_cells": 3352,
+        "completed_hours": 14,
+        "sampled_rows": 6669,
+        "eligible_region_count": 22,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "12m",
+        "feature_cells": 2598,
+        "completed_hours": 14,
+        "sampled_rows": 6444,
+        "eligible_region_count": 22,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "12m",
+        "feature_cells": 2083,
+        "completed_hours": 13,
+        "sampled_rows": 4073,
+        "eligible_region_count": 22,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "12m",
+        "feature_cells": 1921,
+        "completed_hours": 14,
+        "sampled_rows": 3539,
+        "eligible_region_count": 22,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "12m",
+        "feature_cells": 1843,
+        "completed_hours": 14,
+        "sampled_rows": 4783,
+        "eligible_region_count": 22,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "12m",
+        "feature_cells": 1677,
+        "completed_hours": 14,
+        "sampled_rows": 3783,
+        "eligible_region_count": 22,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "12m",
+        "feature_cells": 1466,
+        "completed_hours": 14,
+        "sampled_rows": 4003,
+        "eligible_region_count": 22,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "12m",
+        "feature_cells": 1052,
+        "completed_hours": 14,
+        "sampled_rows": 2457,
+        "eligible_region_count": 22,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "12m",
+        "feature_cells": 835,
+        "completed_hours": 14,
+        "sampled_rows": 1375,
+        "eligible_region_count": 22,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "12m",
+        "feature_cells": 783,
+        "completed_hours": 14,
+        "sampled_rows": 1415,
+        "eligible_region_count": 22,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "IL",
+        "band": "12m",
+        "feature_cells": 435,
+        "completed_hours": 11,
+        "sampled_rows": 1830,
+        "eligible_region_count": 22,
+        "coverage_rank": 12
+      },
+      {
+        "dimension": "target",
+        "region": "JN",
+        "band": "10m",
+        "feature_cells": 9204,
+        "completed_hours": 14,
+        "sampled_rows": 32718,
+        "eligible_region_count": 31,
+        "coverage_rank": 1
+      },
+      {
+        "dimension": "target",
+        "region": "JO",
+        "band": "10m",
+        "feature_cells": 8670,
+        "completed_hours": 14,
+        "sampled_rows": 21671,
+        "eligible_region_count": 31,
+        "coverage_rank": 2
+      },
+      {
+        "dimension": "target",
+        "region": "IO",
+        "band": "10m",
+        "feature_cells": 5777,
+        "completed_hours": 14,
+        "sampled_rows": 15125,
+        "eligible_region_count": 31,
+        "coverage_rank": 3
+      },
+      {
+        "dimension": "target",
+        "region": "EM",
+        "band": "10m",
+        "feature_cells": 4062,
+        "completed_hours": 14,
+        "sampled_rows": 8279,
+        "eligible_region_count": 31,
+        "coverage_rank": 4
+      },
+      {
+        "dimension": "target",
+        "region": "DM",
+        "band": "10m",
+        "feature_cells": 3636,
+        "completed_hours": 14,
+        "sampled_rows": 7750,
+        "eligible_region_count": 31,
+        "coverage_rank": 5
+      },
+      {
+        "dimension": "target",
+        "region": "EN",
+        "band": "10m",
+        "feature_cells": 3568,
+        "completed_hours": 14,
+        "sampled_rows": 8759,
+        "eligible_region_count": 31,
+        "coverage_rank": 6
+      },
+      {
+        "dimension": "target",
+        "region": "FN",
+        "band": "10m",
+        "feature_cells": 3549,
+        "completed_hours": 14,
+        "sampled_rows": 7039,
+        "eligible_region_count": 31,
+        "coverage_rank": 7
+      },
+      {
+        "dimension": "target",
+        "region": "DN",
+        "band": "10m",
+        "feature_cells": 2193,
+        "completed_hours": 14,
+        "sampled_rows": 5899,
+        "eligible_region_count": 31,
+        "coverage_rank": 8
+      },
+      {
+        "dimension": "target",
+        "region": "CM",
+        "band": "10m",
+        "feature_cells": 1836,
+        "completed_hours": 14,
+        "sampled_rows": 3772,
+        "eligible_region_count": 31,
+        "coverage_rank": 9
+      },
+      {
+        "dimension": "target",
+        "region": "FM",
+        "band": "10m",
+        "feature_cells": 1716,
+        "completed_hours": 14,
+        "sampled_rows": 2926,
+        "eligible_region_count": 31,
+        "coverage_rank": 10
+      },
+      {
+        "dimension": "target",
+        "region": "IN",
+        "band": "10m",
+        "feature_cells": 1312,
+        "completed_hours": 13,
+        "sampled_rows": 3092,
+        "eligible_region_count": 31,
+        "coverage_rank": 11
+      },
+      {
+        "dimension": "target",
+        "region": "CN",
+        "band": "10m",
+        "feature_cells": 1207,
+        "completed_hours": 14,
+        "sampled_rows": 2066,
+        "eligible_region_count": 31,
+        "coverage_rank": 12
+      }
+    ],
+    "regional_summary": [
+      {
+        "dimension": "origin",
+        "band": "160m",
+        "eligible_region_count": 13,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "80m",
+        "eligible_region_count": 32,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "60m",
+        "eligible_region_count": 9,
+        "reported_region_count": 9
+      },
+      {
+        "dimension": "origin",
+        "band": "40m",
+        "eligible_region_count": 51,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "30m",
+        "eligible_region_count": 47,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "20m",
+        "eligible_region_count": 106,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "17m",
+        "eligible_region_count": 59,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "15m",
+        "eligible_region_count": 51,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "12m",
+        "eligible_region_count": 23,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "origin",
+        "band": "10m",
+        "eligible_region_count": 30,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "160m",
+        "eligible_region_count": 14,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "80m",
+        "eligible_region_count": 23,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "60m",
+        "eligible_region_count": 12,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "40m",
+        "eligible_region_count": 44,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "30m",
+        "eligible_region_count": 37,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "20m",
+        "eligible_region_count": 53,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "17m",
+        "eligible_region_count": 37,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "15m",
+        "eligible_region_count": 35,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "12m",
+        "eligible_region_count": 22,
+        "reported_region_count": 12
+      },
+      {
+        "dimension": "target",
+        "band": "10m",
+        "eligible_region_count": 31,
+        "reported_region_count": 12
+      }
+    ],
+    "regional_suppression": {
+      "minimum_completed_hours": 6,
+      "minimum_feature_cells": 100,
+      "maximum_reported_per_band_and_direction": 12,
+      "grid": "Maidenhead field (2 characters)"
+    }
+  },
+  "drift": {
+    "sample_sufficient": false,
+    "period_hours": 168,
+    "early_start": null,
+    "early_end_exclusive": null,
+    "late_start": null,
+    "late_end_inclusive": null,
+    "early_feature_cells": null,
+    "late_feature_cells": null,
+    "late_to_early_volume_ratio": null,
+    "band_jsd": null,
+    "utc_hour_jsd": null,
+    "distance_jsd": null,
+    "thresholds": {
+      "maximum_distribution_jsd": 0.2,
+      "minimum_volume_ratio": 0.5,
+      "maximum_volume_ratio": 2.0
+    }
+  },
+  "execution": {
+    "query_seconds": {
+      "hourly": 3.115192792000016,
+      "regions": 5.283999458013568,
+      "distance": 16.32215249998262
+    },
+    "database_engine": "PostgreSQL",
+    "query_chunk_hours": 24,
+    "query_chunk_count": 1,
+    "maximum_chunk_seconds": {
+      "hourly": 3.115192792000016,
+      "regions": 5.283999458013568,
+      "distance": 16.32215249998262
+    },
+    "server_identifier_recorded": false
+  },
+  "privacy": {
+    "source_tables": [
+      "public.wspr_feature_watermarks",
+      "public.wspr_path_hourly_features"
+    ],
+    "raw_observation_table_read": false,
+    "station_identity_written": false,
+    "grid4_written": false,
+    "equipment_written": false,
+    "locked_outcomes_read": false
+  },
+  "gates": {
+    "native_m5_validation": true,
+    "window_spans_720_hours": false,
+    "all_band_completion_at_least_99_percent": true,
+    "all_ten_hf_bands_observed": true,
+    "all_24_utc_hours_observed": false,
+    "window_bound_to_signed_scheduled_receipts": true,
+    "database_queries_bounded_to_24_hours": true,
+    "early_late_drift_sample_sufficient": false,
+    "aggregate_source_distribution_stable": false,
+    "region_output_k_suppressed": true,
+    "only_private_aggregate_feature_tables_read": true,
+    "station_identity_absent": true,
+    "grid4_output_absent": true,
+    "equipment_output_absent": true,
+    "locked_outcomes_unread": true
+  },
+  "limitations": [
+    "The audit window is checksum-bound to signed scheduled receipts; manual feature-store hours are excluded.",
+    "Coverage measures what the reporting receiver network observed; it is not uniform geographic sampling.",
+    "Source-volume drift is an operational data gate, not a propagation or model-accuracy comparison.",
+    "Regional rows are broad field-level aggregates and are suppressed below the preregistered cell and duration thresholds."
+  ]
+}

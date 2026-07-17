@@ -1,0 +1,368 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T19:25:40.146914+00:00",
+  "scope": "futurecast_v1_synthetic_engineering_proof",
+  "data_scope": "synthetic_fixture",
+  "decision": "engineering_pipeline_validated_model_skill_unproven",
+  "release_approved": false,
+  "production_performance_claim_permitted": false,
+  "config": {
+    "run_id": "futurecast_v1_issued_90d",
+    "horizons_hours": [
+      3,
+      6,
+      12,
+      24
+    ],
+    "split_days": {
+      "train": 60,
+      "calibration": 15,
+      "gate": 15
+    },
+    "calibration_subsplit_days": {
+      "early_stopping": 5,
+      "isotonic_fit": 5,
+      "identity_guard": 5
+    },
+    "minimum_calibration_rows": 10000
+  },
+  "checksums": {
+    "config": "c26dcae90862e5008006888dbfa77a3cf5ca59192b807c0955acdd006764eea4",
+    "source": "e908e479821daaf1aa9c03eb4ee2980d15be3eaed8578ac9782a68ac3597c405",
+    "examples": "97a08259cf3190d7d4e1f2722500223070a7f5d6e75836cb80750718fabcae30",
+    "training": "f4a561d484f26f8f6802e19197558808d947798ae76cd379491c16440b9c4a10",
+    "p533": "1a52560535ee56d6dbd5bb836e397710438d2a72a159383cc9c6f6cb7225b1c6",
+    "decision": "8918cae38a549560a2c5926058a36442c569daf61493122d1fbb90cc7903c580"
+  },
+  "examples": {
+    "window": {
+      "start": "2026-01-01",
+      "end": "2026-03-31",
+      "days": 90
+    },
+    "partitions": 360,
+    "rows": 720000,
+    "rows_by_split": {
+      "calibration": 120000,
+      "gate": 120000,
+      "train": 480000
+    },
+    "rows_by_horizon": {
+      "3": 180000,
+      "6": 180000,
+      "12": 180000,
+      "24": 180000
+    },
+    "all_leakage_gates_passed": true,
+    "grid4_in_model_matrix": false
+  },
+  "training": {
+    "models": 8,
+    "parallelism": {
+      "workers": 2,
+      "threads_per_worker": 9,
+      "total_xgboost_threads": 18,
+      "process_start_method": "spawn",
+      "max_tasks_per_child": 1,
+      "per_fit_rss_limit_gib": 48.0,
+      "combined_rss_limit_gib": 96.0,
+      "conservative_combined_peak_rss_gib": 1.0823974609375
+    },
+    "gate_rows_read": false,
+    "models_summary": [
+      {
+        "horizon_hours": 3,
+        "profile": "direct",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 651,
+        "calibration_method": "isotonic",
+        "wall_seconds": 68.16653787498944,
+        "peak_rss_gib": 0.454864501953125
+      },
+      {
+        "horizon_hours": 3,
+        "profile": "weather_only",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 1137,
+        "calibration_method": "isotonic",
+        "wall_seconds": 123.24682162498357,
+        "peak_rss_gib": 0.54119873046875
+      },
+      {
+        "horizon_hours": 6,
+        "profile": "direct",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 1072,
+        "calibration_method": "isotonic",
+        "wall_seconds": 139.51982820799458,
+        "peak_rss_gib": 0.50823974609375
+      },
+      {
+        "horizon_hours": 6,
+        "profile": "weather_only",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 1115,
+        "calibration_method": "isotonic",
+        "wall_seconds": 147.73352329200134,
+        "peak_rss_gib": 0.5324249267578125
+      },
+      {
+        "horizon_hours": 12,
+        "profile": "direct",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 643,
+        "calibration_method": "isotonic",
+        "wall_seconds": 91.82157633299357,
+        "peak_rss_gib": 0.45379638671875
+      },
+      {
+        "horizon_hours": 12,
+        "profile": "weather_only",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 1199,
+        "calibration_method": "isotonic",
+        "wall_seconds": 125.65069145799498,
+        "peak_rss_gib": 0.5383148193359375
+      },
+      {
+        "horizon_hours": 24,
+        "profile": "direct",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 507,
+        "calibration_method": "isotonic",
+        "wall_seconds": 64.06025470898021,
+        "peak_rss_gib": 0.419464111328125
+      },
+      {
+        "horizon_hours": 24,
+        "profile": "weather_only",
+        "train_rows": 120000,
+        "early_stopping_rows": 10000,
+        "calibration_fit_rows": 10000,
+        "calibration_guard_rows": 10000,
+        "best_iteration": 1178,
+        "calibration_method": "isotonic",
+        "wall_seconds": 74.49374920799164,
+        "peak_rss_gib": 0.532012939453125
+      }
+    ]
+  },
+  "p533": {
+    "equivalent_forecast_inputs": true,
+    "observed_weather_substituted": false,
+    "gate_labels_read": false,
+    "execution": {
+      "workers": 18,
+      "sample_rows": 60000,
+      "unique_circuits": 56450,
+      "wall_seconds": 206.7996813750069
+    },
+    "self_reported_version": "ITURHFProp Version: Jul 16 2026\nP533 Version: 14.2"
+  },
+  "gate": {
+    "scored_once": true,
+    "post_gate_tuning_permitted": false,
+    "released_horizons_hours": [],
+    "withheld_horizons_hours": [
+      3,
+      6,
+      12,
+      24
+    ],
+    "horizons": [
+      {
+        "horizon_hours": 3,
+        "status": "withheld",
+        "release_approved": false,
+        "issue_days": 15,
+        "best_baseline": "weather_only",
+        "relative_brier_improvement": -1.0337430976100288,
+        "paired_issue_day_brier_delta_upper_95": 0.0005233882527277014,
+        "maximum_supported_band_relative_brier_regression": 2.3137676078554223,
+        "direct": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.2649593333333333,
+          "weighted_brier": 0.0008206964796489428,
+          "weighted_log_loss": 0.5236549889504029,
+          "expected_calibration_error": 0.026064769694939136
+        },
+        "best_baseline_metrics": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.2649593333333333,
+          "weighted_brier": 0.0004035398967614895,
+          "weighted_log_loss": 0.5226135166762254,
+          "expected_calibration_error": 0.00950663964917452
+        },
+        "p533_sample_rows": 7500,
+        "p533_weighted_brier": 0.026631346615095173,
+        "peak_rss_gib": 0.3320770263671875,
+        "gates_passed": 5,
+        "gates_total": 10,
+        "gates": {
+          "minimum_gate_issue_days": true,
+          "minimum_gate_opportunities": true,
+          "relative_brier_improvement": false,
+          "paired_issue_day_upper_95_below_zero": false,
+          "calibration": false,
+          "supported_band_safety": false,
+          "p533_forecast_input_diagnostic": true,
+          "source_and_training_integrity": true,
+          "production_issued_evidence": false,
+          "m5_rss_within_limit": true
+        }
+      },
+      {
+        "horizon_hours": 6,
+        "status": "withheld",
+        "release_approved": false,
+        "issue_days": 15,
+        "best_baseline": "weather_only",
+        "relative_brier_improvement": -2.1173054679303975,
+        "paired_issue_day_brier_delta_upper_95": 0.0007366439174957871,
+        "maximum_supported_band_relative_brier_regression": 5.90323719765208,
+        "direct": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.2897613333333333,
+          "weighted_brier": 0.0009301927390996808,
+          "weighted_log_loss": 0.5520324466770904,
+          "expected_calibration_error": 0.027467046970075033
+        },
+        "best_baseline_metrics": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.2897613333333333,
+          "weighted_brier": 0.00029839640313377526,
+          "weighted_log_loss": 0.5505732537083257,
+          "expected_calibration_error": 0.00807460637100205
+        },
+        "p533_sample_rows": 7500,
+        "p533_weighted_brier": 0.02640730495712818,
+        "peak_rss_gib": 0.3679656982421875,
+        "gates_passed": 5,
+        "gates_total": 10,
+        "gates": {
+          "minimum_gate_issue_days": true,
+          "minimum_gate_opportunities": true,
+          "relative_brier_improvement": false,
+          "paired_issue_day_upper_95_below_zero": false,
+          "calibration": false,
+          "supported_band_safety": false,
+          "p533_forecast_input_diagnostic": true,
+          "source_and_training_integrity": true,
+          "production_issued_evidence": false,
+          "m5_rss_within_limit": true
+        }
+      },
+      {
+        "horizon_hours": 12,
+        "status": "withheld",
+        "release_approved": false,
+        "issue_days": 15,
+        "best_baseline": "weather_only",
+        "relative_brier_improvement": -0.9873841023538206,
+        "paired_issue_day_brier_delta_upper_95": 0.0005466694788682263,
+        "maximum_supported_band_relative_brier_regression": 2.1484577730925496,
+        "direct": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.2702793333333333,
+          "weighted_brier": 0.0008984608267391891,
+          "weighted_log_loss": 0.5257004729555279,
+          "expected_calibration_error": 0.02667866277871826
+        },
+        "best_baseline_metrics": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.2702793333333333,
+          "weighted_brier": 0.00045208212427334446,
+          "weighted_log_loss": 0.5246112750268704,
+          "expected_calibration_error": 0.00912560550844337
+        },
+        "p533_sample_rows": 7500,
+        "p533_weighted_brier": 0.025764456365115863,
+        "peak_rss_gib": 0.388671875,
+        "gates_passed": 5,
+        "gates_total": 10,
+        "gates": {
+          "minimum_gate_issue_days": true,
+          "minimum_gate_opportunities": true,
+          "relative_brier_improvement": false,
+          "paired_issue_day_upper_95_below_zero": false,
+          "calibration": false,
+          "supported_band_safety": false,
+          "p533_forecast_input_diagnostic": true,
+          "source_and_training_integrity": true,
+          "production_issued_evidence": false,
+          "m5_rss_within_limit": true
+        }
+      },
+      {
+        "horizon_hours": 24,
+        "status": "withheld",
+        "release_approved": false,
+        "issue_days": 15,
+        "best_baseline": "weather_only",
+        "relative_brier_improvement": -3.2110492821846677,
+        "paired_issue_day_brier_delta_upper_95": 0.0016806807672519338,
+        "maximum_supported_band_relative_brier_regression": 7.6206058050031285,
+        "direct": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.21330266666666667,
+          "weighted_brier": 0.0019808127914023245,
+          "weighted_log_loss": 0.4751259103731303,
+          "expected_calibration_error": 0.04124176364859935
+        },
+        "best_baseline_metrics": {
+          "weighted_opportunities": 3000000.0,
+          "weighted_prevalence": 0.21330266666666667,
+          "weighted_brier": 0.0004703846140633838,
+          "weighted_log_loss": 0.4712220596295078,
+          "expected_calibration_error": 0.009741526502325284
+        },
+        "p533_sample_rows": 7500,
+        "p533_weighted_brier": 0.02475762008906437,
+        "peak_rss_gib": 0.4000396728515625,
+        "gates_passed": 5,
+        "gates_total": 10,
+        "gates": {
+          "minimum_gate_issue_days": true,
+          "minimum_gate_opportunities": true,
+          "relative_brier_improvement": false,
+          "paired_issue_day_upper_95_below_zero": false,
+          "calibration": false,
+          "supported_band_safety": false,
+          "p533_forecast_input_diagnostic": true,
+          "source_and_training_integrity": true,
+          "production_issued_evidence": false,
+          "m5_rss_within_limit": true
+        }
+      }
+    ]
+  },
+  "privacy": {
+    "raw_wspr_observations_read": false,
+    "station_identity_read": false,
+    "equipment_read": false,
+    "private_grid4_copied_to_repository": false,
+    "locked_core_outcomes_read": false
+  },
+  "interpretation": "This proves the frozen M5 streaming, training, physics, scoring, privacy, and withholding machinery. Synthetic horizon skill is a negative control and is not evidence of production performance."
+}

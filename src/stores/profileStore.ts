@@ -550,9 +550,13 @@ export const useProfileStore = create<ProfileStore>()(
       // === Rank System ===
 
       updateRankData: (updates) =>
-        set((state) => ({
-          operatorRank: { ...state.operatorRank, ...updates },
-        })),
+        set((state) => {
+          const changed = (Object.keys(updates) as Array<keyof OperatorRank>)
+            .some((key) => !Object.is(state.operatorRank[key], updates[key]));
+          return changed
+            ? { operatorRank: { ...state.operatorRank, ...updates } }
+            : state;
+        }),
 
       setCardSignature: (signature) =>
         set((state) => ({

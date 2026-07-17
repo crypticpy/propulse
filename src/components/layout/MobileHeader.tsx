@@ -37,9 +37,9 @@ export function MobileHeader({
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   return (
-    <header className="h-12 flex items-center justify-between px-3 bg-void-black/90 backdrop-blur-sm border-b border-white/10 pt-safe z-50">
+    <header className="h-12 flex items-center justify-between px-2 bg-void-black/90 backdrop-blur-sm border-b border-white/10 pt-safe z-50">
       {/* Brand */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <span className="text-base">☀️</span>
         <span className="font-orbitron text-[11px] font-bold tracking-wider text-gradient-orange">
           PROPULSE
@@ -47,13 +47,13 @@ export function MobileHeader({
       </div>
 
       {/* Center: Band/Mode + Propagation conditions */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1">
         <BandModePill />
         <ConditionsPill />
       </div>
 
       {/* Right: alerts + settings */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         {alertCount > 0 && (
           <button
             onClick={onAlertClick}

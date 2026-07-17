@@ -6,7 +6,7 @@
  * feature gates that control card visual effects.
  */
 
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect } from "react";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
@@ -120,7 +120,13 @@ export interface OperatorRankState {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useOperatorRank(): OperatorRankState {
+export interface UseOperatorRankOptions {
+  persist?: boolean;
+}
+
+export function useOperatorRank(
+  { persist = false }: UseOperatorRankOptions = {},
+): OperatorRankState {
   // 0. Auth gate — gamification requires a signed-in account
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
@@ -240,17 +246,16 @@ export function useOperatorRank(): OperatorRankState {
   ]);
 
   // 3. Side effect: persist rank if it changed (skip when override is active)
-  const prevRankRef = useRef<RankTier>(operatorRank.currentRank);
-
   useEffect(() => {
-    if (!isAuthenticated || isLoading || rankOverride) return;
+    if (!persist || !isAuthenticated || isLoading || rankOverride) return;
 
     const { rank, rankPoints, unlockedBackgrounds } = computed;
+    const storedRank = useProfileStore.getState().operatorRank;
 
     // Only update when the computed rank differs from the stored rank
-    if (rank !== operatorRank.currentRank) {
+    if (rank !== storedRank.currentRank) {
       const transition = {
-        from: operatorRank.currentRank,
+        from: storedRank.currentRank,
         to: rank,
         timestamp: new Date().toISOString(),
         pointsAtTransition: rankPoints,
@@ -259,18 +264,17 @@ export function useOperatorRank(): OperatorRankState {
       updateRankData({
         currentRank: rank,
         rankPoints,
-        rankHistory: [...operatorRank.rankHistory, transition],
+        rankHistory: [...storedRank.rankHistory, transition],
         unlockedBackgrounds,
       });
-
-      prevRankRef.current = rank;
-    } else if (rankPoints !== operatorRank.rankPoints) {
+    } else if (rankPoints !== storedRank.rankPoints) {
       // Points changed but rank didn't -- still persist the latest total
       updateRankData({ rankPoints });
     }
   }, [
     isAuthenticated,
     isLoading,
+    persist,
     rankOverride,
     computed,
     operatorRank.currentRank,

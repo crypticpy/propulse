@@ -190,7 +190,7 @@ function App() {
   }, [recordLogin]);
 
   // Rank-up celebration — invoke hook to trigger rank computation side-effects
-  useOperatorRank();
+  useOperatorRank({ persist: true });
   const rankHistory = useProfileStore((s) => s.operatorRank.rankHistory);
   const rankCelebrationSeen = useProfileStore((s) => s.rankCelebrationSeen);
   const markCelebrationSeen = useProfileStore((s) => s.markCelebrationSeen);

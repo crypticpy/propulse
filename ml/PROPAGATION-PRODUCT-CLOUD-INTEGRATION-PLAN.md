@@ -21,16 +21,19 @@
 > inference, served an authenticated prediction, and rejected incomplete startup.
 > Phase C's authenticated same-origin proxy and browser client are implemented and
 > pass focused tests, lint, and the production build on the M5. Remaining cloud
-> gates are the directly approved private object export, Railway/Vercel preview
-> deployment, cloud load/cost measurements, continuous monitoring, and the final
-> deployed smoke test. The existing Vercel `crypticpys-projects/propulse` branch
-> preview now has its four encrypted server variables. A distinct
+> gates are Railway/Vercel preview deployment, cloud load/cost measurements,
+> continuous monitoring, and the final deployed smoke test. The A6 archive is now
+> stored as two private, checksum-bound Supabase objects below the provider's
+> per-object limit. The upload receipt records both part hashes and confirms the
+> reassembled 66,846,932-byte archive matches SHA-256
+> `254cf6c45be056cf6bb700a5f4183838f81fecffceaa567dc7ae852881713fee`.
+> The existing Vercel `crypticpys-projects/propulse` branch preview has its four
+> encrypted server variables. A distinct
 > `propulse-inference` service and HTTPS domain exist inside the existing Railway
 > `propulse-collector` project; the collector service is unchanged. Railway's
 > required variables are staged with deploys suppressed, service mode is `shadow`,
-> and concurrency remains one worker with one XGBoost thread. No inference
-> deployment exists yet because the model object has not crossed the external
-> export gate.
+> and concurrency remains one worker with one XGBoost thread. The inference
+> deployment and cloud validation remain open.
 >
 > A local production-path A6 benchmark on the M5 measured 2.424 seconds to load,
 > 1,160 MiB peak RSS after load, and 1,180 MiB after the maximum surface request.
@@ -218,8 +221,10 @@ and the service loads the exact A6 internal manifest on the M5.
   `propagation-models/a6/<bundle_sha256>.tar.zst`.
 - [x] Download to a temporary path, verify the outer archive checksum, safely
   extract, verify every manifest member, then atomically expose the bundle.
-- [ ] Upload the bundle only from the M5 promotion command. Commit the small
+- [x] Upload the bundle only from the M5 promotion command. Commit the small
   promotion receipt, never the private service key or large artifact.
+  Receipt: `cloud_bundle_upload_receipt.json`; layout
+  `ordered-split-object-v1`; remote verification passed the reassembled SHA-256.
 - [ ] Run one cloud worker initially with one XGBoost thread, then load test 1,
   2, and 4 workers before changing concurrency. The M5's six-worker serving
   profile does not automatically fit a smaller cloud allocation.

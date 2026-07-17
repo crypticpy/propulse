@@ -21,11 +21,26 @@
 > inference, served an authenticated prediction, and rejected incomplete startup.
 > Phase C's authenticated same-origin proxy and browser client are implemented and
 > pass focused tests, lint, and the production build on the M5. Remaining cloud
-> gates are the explicitly approved private object upload, Railway/Vercel preview
+> gates are the directly approved private object export, Railway/Vercel preview
 > deployment, cloud load/cost measurements, continuous monitoring, and the final
-> deployed smoke test. ReachMap now scores two bounded 144-cell chunks, retains
-> successful cells when one chunk fails, and reports actual profile, stale-input,
-> fallback, and partial coverage. Band Planner reports the same states per band.
+> deployed smoke test. The existing Vercel `crypticpys-projects/propulse` branch
+> preview now has its four encrypted server variables. A distinct
+> `propulse-inference` service and HTTPS domain exist inside the existing Railway
+> `propulse-collector` project; the collector service is unchanged. Railway's
+> required variables are staged with deploys suppressed, service mode is `shadow`,
+> and concurrency remains one worker with one XGBoost thread. No inference
+> deployment exists yet because the model object has not crossed the external
+> export gate.
+>
+> A local production-path A6 benchmark on the M5 measured 2.424 seconds to load,
+> 1,160 MiB peak RSS after load, and 1,180 MiB after the maximum surface request.
+> Warmed median latency was 1.941 ms for a path, 5.429 ms for 144 cells, 8.660 ms
+> for 288 cells, and 114.124 ms for 4,096 cells. The first Railway allocation must
+> therefore provide at least 2 GiB RAM; 1 GiB is not viable. These are local
+> single-process results, not substitutes for deployed latency and concurrency
+> measurements. ReachMap now scores two bounded 144-cell chunks, retains successful
+> cells when one chunk fails, and reports actual profile, stale-input, fallback,
+> and partial coverage. Band Planner reports the same states per band.
 > Full `npm run verify` passes on the M5: 422 Python tests, 114 TypeScript/Node
 > tests, lint, the production build, and all bundle budgets.
 >
@@ -213,8 +228,13 @@ and the service loads the exact A6 internal manifest on the M5.
   bounded workers, and a server-to-server secret are valid.
 - [ ] Populate those settings plus the telemetry sink in Railway and verify the
   deployed dependencies.
+  Current status: the service/store credentials, immutable bundle URL/checksum,
+  provider/transform, exact origins, `shadow` mode, 60-second weather cache, one
+  worker, and one prediction thread are staged with deploys suppressed. External
+  telemetry retention and deployed dependency checks remain open.
 - [ ] Confirm cold-start time, model RSS, path p50/p95, 4,096-cell surface
   p50/p95, concurrent request behavior, and monthly compute/storage estimates.
+  Local M5 preflight is recorded above; repeat in Railway at 1/2/4 workers.
 - [ ] Configure external continuous monitoring; Railway's deployment health
   check establishes readiness but is not continuous uptime monitoring.
 

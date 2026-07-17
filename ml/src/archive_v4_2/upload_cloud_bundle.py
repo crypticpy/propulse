@@ -62,6 +62,23 @@ def auth_headers(service_key: str) -> dict[str, str]:
     }
 
 
+def bucket_is_missing(response: httpx.Response) -> bool:
+    if response.status_code == 404:
+        return True
+    if response.status_code != 400:
+        return False
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    return (
+        isinstance(payload, dict)
+        and str(payload.get("statusCode")) == "404"
+        and payload.get("error") == "Bucket not found"
+        and payload.get("message") == "Bucket not found"
+    )
+
+
 def direct_storage_origin(supabase_url: str) -> str:
     parsed = urlparse(supabase_url.rstrip("/"))
     if parsed.scheme != "https" or not parsed.netloc.endswith(".supabase.co"):
@@ -86,7 +103,7 @@ def ensure_private_bucket(
         headers=headers,
     )
     minimum_limit = max(100 * 1024 * 1024, required_bytes)
-    if response.status_code == 404:
+    if bucket_is_missing(response):
         created = client.post(
             f"{base}/storage/v1/bucket",
             headers=headers,

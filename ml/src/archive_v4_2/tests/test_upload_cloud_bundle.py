@@ -66,6 +66,61 @@ class CloudBundleUploadTests(unittest.TestCase):
             ["GET", "POST", "GET"],
         )
 
+    def test_creates_bucket_for_supabase_wrapped_not_found_response(self):
+        requests = []
+        get_count = 0
+
+        def handler(request):
+            nonlocal get_count
+            requests.append(request)
+            if request.method == "GET":
+                get_count += 1
+                if get_count == 1:
+                    return httpx.Response(400, json={
+                        "statusCode": "404",
+                        "error": "Bucket not found",
+                        "message": "Bucket not found",
+                    })
+                return httpx.Response(200, json={
+                    "id": "propagation-models",
+                    "public": False,
+                    "file_size_limit": 100 * 1024 * 1024,
+                    "allowed_mime_types": ["application/zstd"],
+                })
+            return httpx.Response(201)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            bucket = ensure_private_bucket(
+                client,
+                "https://projectref.supabase.co",
+                SERVICE_KEY,
+                "propagation-models",
+                70 * 1024 * 1024,
+            )
+        self.assertFalse(bucket["public"])
+        self.assertEqual(
+            [request.method for request in requests],
+            ["GET", "POST", "GET"],
+        )
+
+    def test_other_bad_bucket_response_remains_an_error(self):
+        def handler(request):
+            return httpx.Response(400, json={
+                "statusCode": "400",
+                "error": "Invalid request",
+                "message": "Bucket configuration is invalid",
+            })
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            with self.assertRaisesRegex(RuntimeError, "HTTP 400"):
+                ensure_private_bucket(
+                    client,
+                    "https://projectref.supabase.co",
+                    SERVICE_KEY,
+                    "propagation-models",
+                    70 * 1024 * 1024,
+                )
+
     def test_uploads_in_tus_chunks_and_checks_offsets(self):
         with tempfile.TemporaryDirectory() as temporary:
             archive = Path(temporary) / "bundle.tar.zst"

@@ -1,20 +1,32 @@
 import { LoaderCircle, RadioTower, TriangleAlert, X } from "lucide-react";
 import type { ReachMapSurfaceState } from "@/hooks/useReachMapSurface";
+import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import { reachMapProfileLabel } from "@/lib/propagation/reachMapSurface";
 
-const BANDS = ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"];
+function formatAge(seconds: number | null): string | null {
+  if (seconds === null) return null;
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3_600) return `${Math.round(seconds / 60)}m`;
+  return `${Math.round(seconds / 3_600)}h`;
+}
 
 export function ReachMapControl({
   enabled,
   band,
+  personalized,
+  floating = false,
   onEnabledChange,
   onBandChange,
+  onPersonalizedChange,
   state,
 }: {
   enabled: boolean;
   band: string;
+  personalized: boolean;
+  floating?: boolean;
   onEnabledChange: (enabled: boolean) => void;
   onBandChange: (band: string) => void;
+  onPersonalizedChange: (personalized: boolean) => void;
   state: ReachMapSurfaceState;
 }) {
   if (!enabled) {
@@ -22,7 +34,7 @@ export function ReachMapControl({
       <button
         type="button"
         onClick={() => onEnabledChange(true)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+        className={`${floating ? "absolute right-3 top-3 z-30 border border-white/15 bg-void-black/90 shadow-lg backdrop-blur-md" : ""} flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors`}
         title="Show model reach probability"
       >
         <RadioTower size={14} aria-hidden="true" />
@@ -33,8 +45,11 @@ export function ReachMapControl({
 
   return (
     <div
-      className="absolute left-3 top-3 z-30 max-w-xs border border-white/15 bg-void-black/95 shadow-xl backdrop-blur-md rounded-md p-3"
-      style={{ width: "min(320px, calc(100% - 24px))" }}
+      className="absolute left-3 z-30 max-w-xs border border-white/15 bg-void-black/95 shadow-xl backdrop-blur-md rounded-md p-3"
+      style={{
+        width: "min(320px, calc(100% - 24px))",
+        top: floating ? 48 : 80,
+      }}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -42,7 +57,8 @@ export function ReachMapControl({
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white">ReachMap</div>
             <div className="text-[10px] text-gray-400 truncate">
-              {state.personalized ? "Personalized station chain" : "Core model, default 5 W"}
+              {state.locationName ?? "Operating location required"}
+              {state.personalized && state.chainName ? ` · ${state.chainName}` : ""}
             </div>
           </div>
         </div>
@@ -56,8 +72,39 @@ export function ReachMapControl({
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1" role="group" aria-label="ReachMap band">
-        {BANDS.map((option) => (
+      <div
+        className="mt-3 grid grid-cols-2 rounded-md bg-white/5 p-0.5"
+        role="group"
+        aria-label="ReachMap probability mode"
+      >
+        <button
+          type="button"
+          onClick={() => onPersonalizedChange(false)}
+          className={`h-7 rounded text-[11px] font-medium transition-colors ${
+            !personalized ? "bg-plasma-orange text-black" : "text-gray-300 hover:bg-white/10"
+          }`}
+        >
+          Core 5 W
+        </button>
+        <button
+          type="button"
+          onClick={() => onPersonalizedChange(true)}
+          disabled={!state.stationAvailable}
+          title={state.stationAvailable ? "Use the active station chain" : "Configure an active station chain"}
+          className={`h-7 rounded text-[11px] font-medium transition-colors ${
+            personalized && state.stationAvailable
+              ? "bg-plasma-orange text-black"
+              : state.stationAvailable
+                ? "text-gray-300 hover:bg-white/10"
+                : "cursor-not-allowed text-gray-600"
+          }`}
+        >
+          My Station
+        </button>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="ReachMap band">
+        {HF_MODEL_BANDS.map((option) => (
           <button
             key={option}
             type="button"
@@ -111,7 +158,7 @@ export function ReachMapControl({
               )}
               <span className={state.status === "partial" ? "text-caution-amber" : undefined}>
                 {state.cellCount}/{state.expectedCellCount} cells ·{" "}
-                {reachMapProfileLabel(state.profile)}
+                {reachMapProfileLabel(state.profile)} · WSPR
               </span>
             </div>
             <div className="mt-1 truncate text-gray-500" title={state.modelVersion ?? undefined}>
@@ -122,13 +169,19 @@ export function ReachMapControl({
                   : state.fallbackCellCount > 0
                     ? "Physics fallback active"
                     : "Verified recent path data active"}
+              {state.meanConfidence !== null
+                ? ` · ${Math.round(state.meanConfidence * 100)}% confidence`
+                : ""}
+              {formatAge(state.maxDataAgeSeconds)
+                ? ` · oldest input ${formatAge(state.maxDataAgeSeconds)}`
+                : ""}
               {state.modelVersion ? ` · ${state.modelVersion}` : ""}
             </div>
           </>
         )}
       </div>
       <div className="mt-2 border-t border-white/10 pt-2 text-[9px] text-gray-500">
-        FutureCast horizons withheld pending the prospective forecast archive.
+        Live NowCast only. FutureCast horizons require prospective forecast evidence.
       </div>
     </div>
   );

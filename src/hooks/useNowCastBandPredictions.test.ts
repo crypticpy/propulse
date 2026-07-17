@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNowCastRequests,
-  resolveNowCastCapabilityAccess,
   summarizeNowCastResults,
 } from "./useNowCastBandPredictions";
+import { resolveNowCastCapabilityAccess } from "@/lib/propagation/capabilityAccess";
 import capabilitiesFixture from "../../ml/fixtures/propagation_capabilities_v1.json";
 import type {
   PropagationCapabilitiesResponse,

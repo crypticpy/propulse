@@ -104,10 +104,7 @@ import { useReplayStore } from "@/stores/replayStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
-import {
-  propagationModelShadow,
-  propagationModelVisible,
-} from "@/lib/propagation/modelClient";
+import { propagationModelVisible } from "@/lib/propagation/modelClient";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -262,6 +259,7 @@ export function PropSphere() {
   const [showOptimalBandHelp, setShowOptimalBandHelp] = useState(false);
   const [reachMapEnabled, setReachMapEnabled] = useState(false);
   const [reachMapBand, setReachMapBand] = useState("20m");
+  const [reachMapPersonalized, setReachMapPersonalized] = useState(true);
 
   // Keyboard shortcuts help overlay
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
@@ -542,8 +540,9 @@ export function PropSphere() {
     return addHours(new Date(), timeOffset);
   }, [timeOffset]);
   const reachMapState = useReachMapSurface({
-    enabled: (reachMapEnabled || propagationModelShadow) && timeOffset === 0,
-    renderOverlay: propagationModelVisible && reachMapEnabled,
+    enabled: reachMapEnabled && timeOffset === 0,
+    renderOverlay: reachMapEnabled,
+    personalized: reachMapPersonalized,
     band: reachMapBand,
     validTime: displayTime,
     weather: {
@@ -878,8 +877,10 @@ export function PropSphere() {
                   <ReachMapControl
                     enabled={reachMapEnabled}
                     band={reachMapBand}
+                    personalized={reachMapState.personalized}
                     onEnabledChange={setReachMapEnabled}
                     onBandChange={setReachMapBand}
+                    onPersonalizedChange={setReachMapPersonalized}
                     state={
                       timeOffset === 0
                         ? reachMapState

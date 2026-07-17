@@ -10,11 +10,10 @@ import {
   propagationModelEnabled,
   propagationModelMode,
   type PathPredictionRequest,
-  type PropagationCapabilitiesResponse,
-  type PropagationModelMode,
   type PropagationPrediction,
   type ResearchSubjectBinding,
 } from "@/lib/propagation/modelClient";
+import { resolveNowCastCapabilityAccess } from "@/lib/propagation/capabilityAccess";
 import type {
   StationCalculationOptions,
   StationFeatureEnvelope,
@@ -115,33 +114,6 @@ export interface NowCastBandPredictions {
   fallbackBands: string[];
   staleInputBands: string[];
   nowcastBands: string[];
-}
-
-export interface NowCastCapabilityAccess {
-  coreNowCast: boolean;
-  stationCast: boolean;
-}
-
-export function resolveNowCastCapabilityAccess(
-  capabilities: PropagationCapabilitiesResponse | undefined,
-  mode: PropagationModelMode,
-): NowCastCapabilityAccess {
-  if (
-    !capabilities ||
-    mode === "off" ||
-    !capabilities.service_execution_enabled ||
-    !capabilities.model_loaded ||
-    !capabilities.runtime_activation_valid
-  ) {
-    return { coreNowCast: false, stationCast: false };
-  }
-  const field = mode === "internal" ? "internal_available" : "released_eligible";
-  const coreNowCast = capabilities.modes.core_nowcast[field];
-  return {
-    coreNowCast,
-    stationCast:
-      coreNowCast && capabilities.modes.stationcast_deterministic[field],
-  };
 }
 
 export function summarizeNowCastResults(

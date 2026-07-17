@@ -11,11 +11,14 @@ import {
 import type { PropagationPrediction } from "./modelClient";
 
 describe("ReachMap surface contract", () => {
-  it("builds a stable 15-degree global grid", () => {
+  it("builds one stable cell for every four-character Maidenhead field", () => {
     const cells = buildReachMapGrid();
-    expect(cells).toHaveLength(288);
-    expect(new Set(cells.map((cell) => cell.id)).size).toBe(288);
+    expect(cells).toHaveLength(324);
+    expect(new Set(cells.map((cell) => cell.id)).size).toBe(324);
+    expect(new Set(cells.map((cell) => cell.targetGrid4)).size).toBe(324);
+    expect(cells.every((cell) => cell.widthDeg === 20 && cell.heightDeg === 10)).toBe(true);
     expect(cells.every((cell) => /^[A-R]{2}[0-9]{2}$/.test(cell.targetGrid4))).toBe(true);
+    expect(() => buildReachMapGrid(15, 10)).toThrow("divide the globe exactly");
   });
 
   it("uses a distinct ordered probability palette", () => {
@@ -63,7 +66,7 @@ describe("ReachMap surface contract", () => {
     expect(coreCell.label).toContain("40%");
   });
 
-  it("splits the global surface into two stable bounded requests", () => {
+  it("splits the global surface into stable bounded requests", () => {
     const { request } = buildReachMapRequest({
       origin: { lat: 30.3, lon: -97.7 },
       band: "20m",
@@ -73,9 +76,10 @@ describe("ReachMap surface contract", () => {
       deriveEnvelope: () => null,
     });
     const chunks = chunkReachMapSurfaceRequest(request);
-    expect(chunks).toHaveLength(2);
-    expect(chunks.map((chunk) => chunk.cells.length)).toEqual([144, 144]);
+    expect(chunks).toHaveLength(3);
+    expect(chunks.map((chunk) => chunk.cells.length)).toEqual([144, 144, 36]);
     expect(chunks.flatMap((chunk) => chunk.cells)).toEqual(request.cells);
+    expect(request.data_freshness_seconds).toBeUndefined();
     expect(() => chunkReachMapSurfaceRequest(request, 0)).toThrow("between 1 and 4,096");
   });
 
@@ -111,6 +115,9 @@ describe("ReachMap surface contract", () => {
       profile: "mixed",
       fallbackCellCount: 1,
       staleInputCellCount: 1,
+      oodCellCount: 1,
+      meanConfidence: 0.7,
+      maxDataAgeSeconds: null,
     });
   });
 });

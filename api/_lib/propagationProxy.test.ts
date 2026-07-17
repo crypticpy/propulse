@@ -239,7 +239,10 @@ describe("propagation proxy", () => {
 
   it("maps timeouts and sanitizes upstream authentication failures", async () => {
     const timeout = vi.fn(async () => {
-      throw new DOMException("timed out", "TimeoutError");
+      const crossRealmTimeout = Object.assign(Object.create(null), {
+        name: "TimeoutError",
+      });
+      throw crossRealmTimeout;
     });
     const timeoutResponse = await handlePropagationProxy(
       request("path"),

@@ -503,9 +503,10 @@ function throttled(
 
 function timeoutFailure(error: unknown): boolean {
   return (
-    error instanceof DOMException && error.name === "TimeoutError"
-  ) || (
-    error instanceof Error && error.name === "TimeoutError"
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "TimeoutError"
   );
 }
 

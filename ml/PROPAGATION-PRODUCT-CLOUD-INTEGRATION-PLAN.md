@@ -8,10 +8,12 @@
 > `https://propulse-inference-production.up.railway.app`; anonymous inference is
 > rejected. The existing Railway collector service was not modified.
 >
-> Vercel preview deployment `dpl_FN1gXF1vaapsMfRfcKdDZsFUNaBX` at commit
-> `3f498dea` now adapts the Web Request/Response proxy core to the Vercel Node
-> runtime without weakening authentication, schema validation, request limits,
-> timeouts, or response checks. A confirmed ephemeral Supabase user received
+> The corrected Vercel project environment is verified at deployment
+> `dpl_HpUkkqbYCs8u9vZdS4BHdVKYpbLA`
+> (`https://propulse-qgnfyb2z2-crypticpys-projects.vercel.app`). Its Web
+> Request/Response proxy core runs in the Vercel Node runtime without weakening
+> authentication, schema validation, request limits, timeouts, or response
+> checks. A confirmed ephemeral Supabase user received
 > health, capabilities, and a personalized path response through the complete
 > browser-to-Vercel-to-Railway chain; the account was deleted afterward. With a
 > complete verified WSPR lag window, the exact A6 model returned profile
@@ -25,8 +27,9 @@
 > 531.50 ms median and 655.51 ms p95. Local model-process evidence remains 2.424
 > seconds load time, 1,160 MiB RSS after load, and 1,180 MiB after a maximum
 > surface, so 2 GiB RAM and 1 vCPU remain the minimum starting allocation.
-> Continuous off-platform uptime/cost monitoring is still open; exact monthly
-> cost will be recorded from the provider meter after representative private use.
+> The off-device uptime workflow is implemented and will begin scheduling when
+> this branch reaches the default branch. Exact monthly cost remains open and
+> will be recorded from the provider meter after representative private use.
 >
 > Phase D is complete in commits `46a704ec` and `57999611`. Band Planner now
 > uses the canonical active saved location and virtual-shack chain for all ten
@@ -63,10 +66,21 @@
 >
 > The deployment evidence and visual explanation are in
 > [`cloud_deployment/CLOUD_REPORT.md`](results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md).
-> The next work is Phase F operational continuity, external uptime/cost
-> monitoring, the selected-region ReachMap inspector, and the consolidated
-> product/research visual report. Genuine FutureCast horizons remain blocked on
-> their preregistered prospective archive rather than on software plumbing.
+> The consolidated source-backed product/research report is in
+> [`product_integration/REPORT.html`](results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REPORT.html),
+> with its canonical data contract in
+> [`REPORT.artifact.json`](results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REPORT.artifact.json)
+> and sanitized authenticated QA receipt in
+> [`REACH_MAP_QA.json`](results/propagation_v4_2/propagation_v4_2_phase2_scale/product_integration/REACH_MAP_QA.json).
+> The renderer validated 22 blocks, three native charts, five metrics, four
+> tables, source-dialog interaction, and contained layouts at 1,440 and 390
+> pixels. Five projection screenshots preserve the visual product proof.
+>
+> The next work is branch review/merge, first uptime-workflow dispatch, Phase F
+> operational continuity, provider-meter cost measurement, and the
+> selected-region ReachMap inspector. Genuine FutureCast horizons remain
+> blocked on their preregistered issued-forecast archive rather than on software
+> plumbing.
 >
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Active model plan: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md).
@@ -503,10 +517,12 @@ Vercel preview endpoints without printing secrets or private station data.
 
 ## Immediate resume instruction
 
-On the M5, pull the branch and read this plan plus its controlling documents and
-the cloud deployment report. Begin Phase D; do not retrain A6. Use the deployed
-same-origin client and capability contract to bind the active saved location and
-active virtual-shack chain into Band Planner. Preserve actual `nowcast` versus
-`physics` profile, freshness, confidence, OOD, and partial-failure states. Then
-complete Phase E's core/personalized ReachMap controls and map-mode verification.
-Keep every collector and the unread prospective outcome boundary unchanged.
+On the M5, pull the branch and read this plan, the consolidated product report,
+and its controlling documents. Do not retrain A6. Review and merge the completed
+cloud, Band Planner, ReachMap, uptime-workflow, and report changes; manually
+dispatch the uptime workflow and verify its first scheduled recovery cycle.
+Then continue Phase F without resetting evidence clocks, add the selected-region
+ReachMap inspector, and record real Railway cost after representative private
+use. Keep every collector and the unread prospective outcome boundary unchanged.
+Do not begin genuine FutureCast training before the qualifying issued archive
+and later outcomes exist.

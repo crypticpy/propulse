@@ -136,10 +136,13 @@ key is present in these artifacts.
   remains unread and unchanged.
 - FutureCast is correctly unavailable. Synthetic pipeline success is not a real
   future forecast.
-- The deployment has readiness health checks, but external continuous uptime and
-  billing monitors are still required.
+- The deployment has readiness health checks. The scheduled GitHub uptime and
+  model-identity workflow is implemented and activates on the default branch;
+  provider-meter billing measurement still requires representative private use.
 - WSPR operational-use permission remains an explicit general-release dependency.
-- The next engineering step is Phase D: bind saved location and active virtual
-  shack context into Band Planner, then finish the core/personalized ReachMap UX.
+- Band Planner and the core/personalized 324-cell ReachMap are now integrated
+  and authenticated on desktop and mobile. The consolidated research, serving,
+  product, and QA result is in
+  [`../product_integration/REPORT.html`](../product_integration/REPORT.html).
 
 The cloud path itself no longer blocks product integration.

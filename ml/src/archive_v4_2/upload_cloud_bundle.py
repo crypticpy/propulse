@@ -81,6 +81,23 @@ def bucket_is_missing(response: httpx.Response) -> bool:
     )
 
 
+def object_is_missing(response: httpx.Response) -> bool:
+    if response.status_code == 404:
+        return True
+    if response.status_code != 400:
+        return False
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    return (
+        isinstance(payload, dict)
+        and str(payload.get("statusCode")) == "404"
+        and payload.get("error") == "not_found"
+        and payload.get("message") == "Object not found"
+    )
+
+
 def direct_storage_origin(supabase_url: str) -> str:
     parsed = urlparse(supabase_url.rstrip("/"))
     if parsed.scheme != "https" or not parsed.netloc.endswith(".supabase.co"):
@@ -317,7 +334,7 @@ def verify_remote_object(
     digest = hashlib.sha256()
     copied = 0
     with client.stream("GET", url, headers=auth_headers(service_key)) as response:
-        if response.status_code == 404:
+        if object_is_missing(response):
             return False
         if response.status_code != 200:
             raise RuntimeError(
@@ -356,7 +373,7 @@ def verify_remote_archive(
             url,
             headers=auth_headers(service_key),
         ) as response:
-            if response.status_code == 404:
+            if object_is_missing(response):
                 return False
             if response.status_code != 200:
                 raise RuntimeError(

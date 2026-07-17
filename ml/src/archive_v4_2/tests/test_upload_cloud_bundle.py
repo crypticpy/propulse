@@ -15,6 +15,7 @@ from upload_cloud_bundle import (
     ensure_private_bucket,
     upload_resumable,
     verify_remote_archive,
+    verify_remote_object,
 )
 
 
@@ -182,6 +183,62 @@ class CloudBundleUploadTests(unittest.TestCase):
                     )[0]["sha256"],
                 )
         self.assertTrue(verified)
+
+    def test_wrapped_missing_object_is_absent_not_an_upload_error(self):
+        part = {
+            "index": 0,
+            "key": "a6/bundle.tar.zst.part-000",
+            "offset": 0,
+            "bytes": 4,
+            "sha256": "0" * 64,
+        }
+
+        def handler(request):
+            return httpx.Response(400, json={
+                "statusCode": "404",
+                "error": "not_found",
+                "message": "Object not found",
+            })
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            self.assertFalse(verify_remote_object(
+                client,
+                "https://projectref.supabase.co",
+                SERVICE_KEY,
+                "propagation-models",
+                part["key"],
+                part["bytes"],
+                part["sha256"],
+            ))
+            self.assertFalse(verify_remote_archive(
+                client,
+                "https://projectref.supabase.co",
+                SERVICE_KEY,
+                "propagation-models",
+                [part],
+                part["bytes"],
+                part["sha256"],
+            ))
+
+    def test_other_object_400_response_remains_an_error(self):
+        def handler(request):
+            return httpx.Response(400, json={
+                "statusCode": "400",
+                "error": "invalid_request",
+                "message": "Object key is invalid",
+            })
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            with self.assertRaisesRegex(RuntimeError, "HTTP 400"):
+                verify_remote_object(
+                    client,
+                    "https://projectref.supabase.co",
+                    SERVICE_KEY,
+                    "propagation-models",
+                    "a6/bundle.tar.zst.part-000",
+                    4,
+                    "0" * 64,
+                )
 
     def test_uploads_only_the_selected_archive_slice(self):
         with tempfile.TemporaryDirectory() as temporary:

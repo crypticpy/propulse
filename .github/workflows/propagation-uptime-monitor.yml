@@ -1,0 +1,112 @@
+name: Propagation inference uptime monitor
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: propagation-inference-uptime-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    env:
+      HEALTH_ENDPOINT: https://propulse-inference-production.up.railway.app/v1/propagation/health
+      EXPECTED_MODEL: propagation_v4_2_phase2_scale-a6-retrospective-internal-50000000
+    steps:
+      - name: Check inference health and immutable model identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          healthy=false
+          reason="inference endpoint unavailable"
+          for attempt in 1 2 3 4; do
+            if curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --max-time 20 \
+              --output /tmp/propagation-health-response.json \
+              "${HEALTH_ENDPOINT}"; then
+              if jq -e \
+                --arg expected_model "${EXPECTED_MODEL}" \
+                '.status == "ok" and
+                 .inference_mode == "shadow" and
+                 .service_auth_enabled == true and
+                 .model_version == $expected_model and
+                 (.profiles | index("nowcast") != null) and
+                 (.profiles | index("physics") != null)' \
+                /tmp/propagation-health-response.json >/dev/null; then
+                healthy=true
+                reason=""
+                break
+              fi
+              reason="inference health contract or model identity mismatch"
+            fi
+            sleep 10
+          done
+          jq -n \
+            --argjson healthy "${healthy}" \
+            --arg reason "${reason}" \
+            --arg checked_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{healthy: $healthy, reason: $reason, checkedAt: $checked_at}' \
+            > /tmp/propagation-uptime.json
+          jq . /tmp/propagation-uptime.json
+
+      - name: Reconcile durable GitHub incident
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          marker='<!-- propulse-inference-uptime-monitor -->'
+          title='[Propagation uptime] Inference service alert'
+          repository="${GITHUB_REPOSITORY}"
+          issue_number="$({
+            gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/${repository}/issues?state=open&per_page=100"
+          } | jq -r --arg marker "${marker}" \
+            '[.[] | select((has("pull_request") | not) and ((.body // "") | contains($marker)))][0].number // empty')"
+          healthy="$(jq -r '.healthy' /tmp/propagation-uptime.json)"
+          if [[ "${healthy}" == "true" ]]; then
+            if [[ -n "${issue_number}" ]]; then
+              printf '%s\n' \
+                "${marker}" \
+                'The independent monitor observed the expected A6 inference service again. Closing this incident.' \
+                > /tmp/propagation-uptime-recovery.md
+              gh issue comment "${issue_number}" \
+                --repo "${repository}" \
+                --body-file /tmp/propagation-uptime-recovery.md
+              gh issue close "${issue_number}" \
+                --repo "${repository}" \
+                --reason completed
+            fi
+            exit 0
+          fi
+
+          reason="$(jq -r '.reason' /tmp/propagation-uptime.json)"
+          checked_at="$(jq -r '.checkedAt' /tmp/propagation-uptime.json)"
+          printf '%s\n' \
+            "${marker}" \
+            'The independent GitHub-hosted monitor detected a Propulse inference availability problem.' \
+            '' \
+            "- Reason: ${reason}" \
+            "- Checked at: ${checked_at}" \
+            '' \
+            'This incident contains aggregate service state only. It excludes user data, station data, secrets, and request payloads.' \
+            > /tmp/propagation-uptime-alert.md
+          if [[ -z "${issue_number}" ]]; then
+            gh issue create \
+              --repo "${repository}" \
+              --title "${title}" \
+              --body-file /tmp/propagation-uptime-alert.md
+          fi
+          exit 1

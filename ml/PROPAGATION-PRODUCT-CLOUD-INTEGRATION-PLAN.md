@@ -28,10 +28,45 @@
 > Continuous off-platform uptime/cost monitoring is still open; exact monthly
 > cost will be recorded from the provider meter after representative private use.
 >
+> Phase D is complete in commits `46a704ec` and `57999611`. Band Planner now
+> uses the canonical active saved location and virtual-shack chain for all ten
+> modeled HF bands, compares Core with deterministic StationCast, and exposes
+> confidence, freshness, profile, fallback/OOD state, station effects, and the
+> exact model identity without calling feature importance causal.
+>
+> Phase E's current-surface product gate is complete in commit `96e456ef`.
+> ReachMap now scores 324 unique 20-by-10-degree Maidenhead fields, rather than
+> duplicating four-character targets inside an arbitrary square grid. It uses
+> live capability negotiation, server-owned freshness, abortable three-chunk
+> requests, five-minute TanStack caching, explicit Core/My Station controls,
+> all ten HF bands, and the canonical saved location/chain. Hidden shadow
+> surface calls were removed. The shared surface renders on desktop globe, flat,
+> and azimuthal views and on mobile globe and flat views.
+>
+> Authenticated Playwright QA used a disposable confirmed Supabase user and the
+> complete Vercel-to-Railway path. Desktop and mobile each returned capabilities
+> plus three Station and three Core surface chunks at HTTP 200, displayed
+> `324/324` cells from exact A6, changed Core/Station state, reused cached Station
+> data, and issued no new inference request while switching projections. Canvas
+> dimensions/data and screenshots were nonblank; document width matched both
+> 1,440-pixel desktop and 390-pixel mobile viewports. The test account was
+> deleted. Physics fallback was visibly labeled because the server reported the
+> recent path input stale; it was never labeled A6 NowCast.
+>
+> The independent research-heartbeat workflow is already active on the default
+> branch; its five most recent scheduled runs passed on July 17. A separate
+> staggered `propagation-uptime-monitor.yml` now verifies the public,
+> identity-free Railway health contract, shadow mode, service authentication,
+> exact A6 model identity, and both loaded profiles. It reconciles one durable
+> GitHub incident and closes it only after recovery. Its schedule activates when
+> this integration branch reaches the default branch.
+>
 > The deployment evidence and visual explanation are in
 > [`cloud_deployment/CLOUD_REPORT.md`](results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md).
-> The next product work is Phase D: bind saved location and the active virtual
-> shack to Band Planner, then finish the core/personalized ReachMap experience.
+> The next work is Phase F operational continuity, external uptime/cost
+> monitoring, the selected-region ReachMap inspector, and the consolidated
+> product/research visual report. Genuine FutureCast horizons remain blocked on
+> their preregistered prospective archive rather than on software plumbing.
 >
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Active model plan: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md).
@@ -68,7 +103,7 @@ Do not weaken the scientific protocol:
 | A6 core NowCast | complete | retrospective archive passed; prospective open | integrate and show as experimental |
 | Physics fallback | complete | validated fallback | always available and visibly identified |
 | Deterministic StationCast | complete | archive math/parity passed; operator beta open | integrate and show as experimental |
-| ReachMap current surface | complete foundation | local rendering/service tests passed | integrate and refine in all map modes |
+| ReachMap current surface | product integrated | authenticated cloud, cache, canvas, desktop/mobile QA passed | use privately; add selected-region inspector |
 | System Health | aggregate endpoint complete | outage and duration gates open | show to the private team |
 | FutureCast pipeline | synthetic end-to-end proof complete | genuine 90-day archive immature | build UI/API contracts; show collection status only |
 | Genuine FutureCast models | trainer/scorer complete | no real model trained or passed | train once after the first legal window matures |
@@ -229,8 +264,12 @@ and the service loads the exact A6 internal manifest on the M5.
 - [ ] Record monthly compute, private model storage, and egress cost from provider
   meters after at least one representative week. Do not extrapolate a dollar
   estimate from a short synthetic load test.
-- [ ] Configure external continuous monitoring; Railway's deployment health
-  check establishes readiness but is not continuous uptime monitoring.
+- [x] Configure independent continuous research-heartbeat monitoring. The
+  default-branch GitHub workflow is active and its latest five scheduled runs
+  passed.
+- [ ] Activate the new Railway inference uptime workflow by merging it to the
+  default branch, manually dispatch it once, and confirm its healthy contract
+  before counting the inference monitor as operational.
 
 **Exit gate:** a clean Railway deployment downloads and verifies the bundle,
 reports the expected hashes/profile, serves test path and surface calls, and
@@ -263,23 +302,23 @@ payloads.
 
 **Owner:** M5 implementation and verification with Railway/Supabase test environment.
 
-- [ ] Make the active saved operating location and active virtual-shack chain
+- [x] Make the active saved operating location and active virtual-shack chain
   the canonical prediction context.
-- [ ] Show current probabilities in Band Planner for every supported HF band.
-- [ ] Show model version, valid time, freshness, confidence, selected profile,
+- [x] Show current probabilities in Band Planner for every supported HF band.
+- [x] Show model version, valid time, freshness, confidence, selected profile,
   and out-of-distribution/fallback state in compact operator-facing UI.
-- [ ] Provide core-versus-personalized comparison: the open path probability,
+- [x] Provide core-versus-personalized comparison: the open path probability,
   StationCast probability, and the largest deterministic station-chain effects.
-- [ ] Never imply causation from XGBoost feature importance; top factors are
+- [x] Never imply causation from XGBoost feature importance; top factors are
   predictive context only.
-- [ ] Label non-WSPR modes as estimated feasibility until CW/digital/voice heads
+- [x] Label non-WSPR modes as estimated feasibility until CW/digital/voice heads
   pass their own external validation.
-- [ ] Allow saved locations and portable station presets to produce different
+- [x] Allow saved locations and portable station presets to produce different
   predictions without rewriting the user's primary shack.
-- [ ] Validate incomplete equipment, custom components, unusual feed-line loss,
+- [x] Validate incomplete equipment, custom components, unusual feed-line loss,
   directional antennas, receive-only antennas, QRP, high power, and unsupported
   band combinations.
-- [ ] Preserve the physics fallback when verified recent WSPR history is absent.
+- [x] Preserve the physics fallback when verified recent WSPR history is absent.
   A fallback result remains useful and visible, but must not be labeled A6
   NowCast.
 
@@ -290,14 +329,16 @@ the expected direction when tested station parameters change.
 
 **Owner:** M5 implementation and verification; PropSphere and surface API.
 
-- [ ] Render current core and StationCast surfaces in globe, flat, and azimuthal
+- [x] Render current core and StationCast surfaces in globe, flat, and azimuthal
   modes with a shared probability legend.
-- [ ] Add an explicit core/personalized comparison control rather than hiding
+- [x] Add an explicit core/personalized comparison control rather than hiding
   one result.
-- [ ] Support band, saved location, station preset, and mode selection.
+- [x] Support all modeled bands plus the canonical active saved location and
+  station preset/chain. Keep the surface mode explicitly fixed to WSPR until a
+  non-WSPR head passes its own validation; do not offer a misleading selector.
 - [ ] Show hover/tap details for target region, bearing, distance, probability,
   confidence, valid time, freshness, and profile.
-- [ ] Use stable cell geometry and avoid recomputing identical five-minute
+- [x] Use stable cell geometry and avoid recomputing identical five-minute
   surfaces. Start with browser/TanStack caching; add shared Redis only if cloud
   measurements justify it.
 - [ ] Add a forecast timeline that supports `now`, `+3`, `+6`, `+12`, and `+24`.
@@ -308,8 +349,13 @@ the expected direction when tested station parameters change.
   as an additional model prediction.
 - [ ] Respect reduced-motion settings and validate animation cancellation,
   mobile controls, text fit, map labels, GPU/canvas load, and no overlay overlap.
-- [ ] Capture Playwright desktop/mobile screenshots and canvas-pixel checks for
-  every map projection, core/personalized state, and data fallback.
+- [x] Capture Playwright desktop/mobile screenshots and canvas-data checks for
+  every projection supported on each form factor, core/personalized state, and
+  data fallback.
+
+Current-surface exit gate result: passed. Target-region tap/hover detail remains
+operator-facing polish; the future timeline and animation remain intentionally
+blocked from forecast display until real FutureCast horizons pass their gates.
 
 **Exit gate:** the private product provides an understandable current propagation
 map today and is contract-ready for real FutureCast horizons later.

@@ -163,6 +163,22 @@ export function maidenheadGrid4(lat, lon) {
   return `${String.fromCharCode(65 + Math.floor(adjustedLon / 20))}${String.fromCharCode(65 + Math.floor(adjustedLat / 10))}${Math.floor((adjustedLon % 20) / 2)}${Math.floor(adjustedLat % 10)}`;
 }
 
+export function canonicalSupabaseUrl(rawUrl, projectRef) {
+  const parsedUrl = new URL(rawUrl);
+  const expectedOrigin = `https://${projectRef}.supabase.co`;
+  if (
+    parsedUrl.origin !== expectedOrigin ||
+    parsedUrl.pathname !== "/" ||
+    parsedUrl.search ||
+    parsedUrl.hash ||
+    parsedUrl.username ||
+    parsedUrl.password
+  ) {
+    throw new Error(`refusing to seed origin ${parsedUrl.origin}; expected ${expectedOrigin}`);
+  }
+  return expectedOrigin;
+}
+
 function snapshotNotes(label) {
   return `${FIXTURE_MARKER} ${label}; safe to replace by rerunning the fixture.`;
 }
@@ -493,7 +509,8 @@ export function buildFixture(userId, profile = {}, runAt = new Date()) {
   const locations = [
     {
       id: fixtureId("location", 0), user_id: userId, name: "Home QTH (Synthetic Fixture)",
-      grid: "DM79", lat: 39.74, lon: -104.99, timezone: "America/Denver", type: "home",
+      grid: profilePatch.grid, lat: profilePatch.lat, lon: profilePatch.lon,
+      timezone: profilePatch.timezone, type: "home",
       created_at: "2026-02-18T12:00:00.000Z",
     },
     {
@@ -592,24 +609,47 @@ async function countRows(query, label) {
   return count ?? 0;
 }
 
+export function findForeignFixtureRow(rows, userId) {
+  return rows.find((row) => row.user_id !== userId) ?? null;
+}
+
 async function assertFixtureOwnership(client, userId, fixture) {
-  const probes = [
-    ["inline_components", "id", fixture.inlineComponents[0].id],
-    ["station_chains", "id", fixture.chains[0].id],
-    ["equipment_history", "id", fixture.history[0].id],
-    ["log_entries", "id", fixture.qsos[0].id],
-    ["dxcc_worked", "id", fixture.dxcc[0].id],
+  const groups = [
+    ["inline_components", fixture.inlineComponents],
+    ["station_chains", fixture.chains],
+    ["equipment_history", fixture.history],
+    ["log_entries", fixture.qsos],
+    ["dxcc_worked", fixture.dxcc],
   ];
-  for (const [table, idColumn, id] of probes) {
-    const { data, error } = await client
-      .from(table)
-      .select("user_id")
-      .eq(idColumn, id)
-      .maybeSingle();
-    if (error) throw new Error(`${table} ownership check failed: ${error.message}`);
-    if (data && data.user_id !== userId) {
-      throw new Error(`refusing to reassign the existing ${FIXTURE_PREFIX} from another user`);
+  for (const [table, rows] of groups) {
+    for (let offset = 0; offset < rows.length; offset += 100) {
+      const ids = rows.slice(offset, offset + 100).map((row) => row.id);
+      const { data, error } = await client.from(table).select("id,user_id").in("id", ids);
+      if (error) throw new Error(`${table} ownership check failed: ${error.message}`);
+      const foreignRow = findForeignFixtureRow(data ?? [], userId);
+      if (foreignRow) {
+        throw new Error(`refusing to reassign the existing ${FIXTURE_PREFIX} from another user`);
+      }
     }
+  }
+
+  const dxccKeys = new Map(
+    fixture.dxcc.map((row) => [`${row.entity_id}:${row.band}:${row.mode}`, row]),
+  );
+  const { data: existingDxcc, error: dxccError } = await client
+    .from("dxcc_worked")
+    .select("id,entity_id,band,mode,confirmation_method")
+    .eq("user_id", userId)
+    .in("entity_id", fixture.dxcc.map((row) => row.entity_id));
+  if (dxccError) throw new Error(`dxcc_worked natural-key check failed: ${dxccError.message}`);
+  const realCollision = (existingDxcc ?? []).find((row) => {
+    const fixtureRow = dxccKeys.get(`${row.entity_id}:${row.band}:${row.mode}`);
+    return fixtureRow &&
+      row.id !== fixtureRow.id &&
+      !row.confirmation_method?.startsWith(FIXTURE_PREFIX);
+  });
+  if (realCollision) {
+    throw new Error("refusing to overwrite existing non-fixture DXCC progress");
   }
 }
 
@@ -630,7 +670,7 @@ async function verifyRemote(client, userId, fixture) {
     station_presets: await countRows(client.from("station_presets").select("id", { count: "exact", head: true }).eq("user_id", userId).like("id", idPattern), "station_presets"),
     station_chains: await countRows(client.from("station_chains").select("id", { count: "exact", head: true }).eq("user_id", userId).like("id", idPattern), "station_chains"),
     equipment_history: await countRows(client.from("equipment_history").select("id", { count: "exact", head: true }).eq("user_id", userId).like("id", idPattern), "equipment_history"),
-    log_entries: await countRows(client.from("log_entries").select("id", { count: "exact", head: true }).eq("user_id", userId).like("notes", `${FIXTURE_MARKER}%`), "log_entries"),
+    log_entries: await countRows(client.from("log_entries").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("last_device_id", FIXTURE_PREFIX).like("notes", `${FIXTURE_MARKER}%`), "log_entries"),
     dxcc_worked: await countRows(client.from("dxcc_worked").select("id", { count: "exact", head: true }).eq("user_id", userId).like("confirmation_method", `${FIXTURE_PREFIX}%`), "dxcc_worked"),
     achievements: await countRows(client.from("achievements").select("id", { count: "exact", head: true }).eq("user_id", userId).like("id", idPattern), "achievements"),
   };
@@ -642,15 +682,12 @@ async function verifyRemote(client, userId, fixture) {
 }
 
 export async function seedOwnerFixture({ email, apply, projectRef = DEFAULT_PROJECT_REF }) {
-  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+  const rawUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url.startsWith("https://") || !serviceRoleKey) {
+  if (!rawUrl || !serviceRoleKey) {
     throw new Error("SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY are required");
   }
-  const actualProjectRef = new URL(url).hostname.split(".")[0];
-  if (actualProjectRef !== projectRef) {
-    throw new Error(`refusing to seed project ${actualProjectRef}; expected ${projectRef}`);
-  }
+  const url = canonicalSupabaseUrl(rawUrl, projectRef);
 
   const client = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -676,7 +713,7 @@ export async function seedOwnerFixture({ email, apply, projectRef = DEFAULT_PROJ
   await upsertRows(client, "station_chains", fixture.chains, "id");
   await upsertRows(client, "equipment_history", fixture.history, "id");
   await upsertRows(client, "log_entries", fixture.qsos, "id");
-  await upsertRows(client, "dxcc_worked", fixture.dxcc, "id");
+  await upsertRows(client, "dxcc_worked", fixture.dxcc, "user_id,entity_id,band,mode");
   await upsertRows(client, "achievements", fixture.achievements, "user_id,id");
 
   const { error: statsError } = await client.rpc("update_profile_stats", { target_user_id: user.id });

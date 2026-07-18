@@ -5,6 +5,8 @@ import {
   FIXTURE_MARKER,
   FIXTURE_PREFIX,
   buildFixture,
+  canonicalSupabaseUrl,
+  findForeignFixtureRow,
   fixtureCounts,
   maidenheadGrid4,
   stableUuid,
@@ -64,6 +66,10 @@ test("profile seeding preserves existing identity and location fields", () => {
   assert.equal(fixture.profile.active_location_id, "portable-real");
   assert.deepEqual(fixture.profile.interests, ["Emergency Communications"]);
   assert.equal(fixture.profile.rank_override, "ethereal");
+  assert.equal(fixture.locations[0].grid, "FN31");
+  assert.equal(fixture.locations[0].lat, 41.3);
+  assert.equal(fixture.locations[0].lon, -72.9);
+  assert.equal(fixture.locations[0].timezone, "America/New_York");
 });
 
 test("QSO records are uniquely pageable and explicitly synthetic", () => {
@@ -87,4 +93,29 @@ test("stable UUIDs and grid conversion are valid", () => {
   assert.match(stableUuid("qso-1"), /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(maidenheadGrid4(39.74, -104.99), "DM79");
   assert.equal(maidenheadGrid4(51.5, -0.1), "IO91");
+});
+
+test("service-role requests require the exact canonical Supabase origin", () => {
+  assert.equal(
+    canonicalSupabaseUrl("https://project-ref.supabase.co/", "project-ref"),
+    "https://project-ref.supabase.co",
+  );
+  assert.throws(
+    () => canonicalSupabaseUrl("https://project-ref.attacker.example", "project-ref"),
+    /refusing to seed origin/,
+  );
+  assert.throws(
+    () => canonicalSupabaseUrl("https://project-ref.supabase.co/rest/v1", "project-ref"),
+    /refusing to seed origin/,
+  );
+});
+
+test("ownership validation detects a conflict at a non-zero index", () => {
+  const rows = [
+    { id: "fixture-1", user_id: USER_ID },
+    { id: "fixture-2", user_id: USER_ID },
+    { id: "fixture-3", user_id: "22222222-2222-4222-8222-222222222222" },
+  ];
+  assert.deepEqual(findForeignFixtureRow(rows, USER_ID), rows[2]);
+  assert.equal(findForeignFixtureRow(rows.slice(0, 2), USER_ID), null);
 });

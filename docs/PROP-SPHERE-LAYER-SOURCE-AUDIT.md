@@ -1,6 +1,6 @@
 # PropSphere Layer Construction and Source Audit
 
-**Audit date:** 2026-07-18  
+**Audit date:** 2026-07-18
 **Scope:** PropSphere globe, flat-map, and azimuthal layer controls, request
 lifecycle, upstream durability, renderer composition, and GPU/network budgets.
 

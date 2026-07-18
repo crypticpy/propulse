@@ -34,8 +34,10 @@ export function compactAuroraPayload(data: unknown): CompactAuroraPayload {
     ? record.coordinates.filter(
         (coordinate): coordinate is [number, number, number] =>
           Array.isArray(coordinate) &&
-          coordinate.length >= 3 &&
-          coordinate.slice(0, 3).every((value) => typeof value === "number") &&
+          coordinate.length === 3 &&
+          coordinate.every(
+            (value) => typeof value === "number" && Number.isFinite(value),
+          ) &&
           coordinate[2] >= MIN_RENDERED_PROBABILITY,
       )
     : [];

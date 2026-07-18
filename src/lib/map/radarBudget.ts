@@ -17,3 +17,14 @@ export function radarRawTextureBytes(): number {
     RADAR_TEXTURE_BUDGET.tilesPerAxis * RADAR_TEXTURE_BUDGET.tileSize;
   return canvasSize ** 2 * 4 * RADAR_TEXTURE_BUDGET.maxFrames;
 }
+
+export function selectInitialRadarFrameIndex(
+  framesToLoad: readonly number[],
+  pastCount: number,
+): number | undefined {
+  for (let index = framesToLoad.length - 1; index >= 0; index -= 1) {
+    const frameIndex = framesToLoad[index];
+    if (frameIndex < pastCount) return frameIndex;
+  }
+  return framesToLoad[framesToLoad.length - 1];
+}

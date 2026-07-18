@@ -69,8 +69,18 @@ export function compactSSTPayload(data: unknown): CompactSSTPayload {
   let timestamp: string | null = null;
   for (const candidate of rows) {
     if (!Array.isArray(candidate)) continue;
-    const lat = Number(candidate[latIndex]);
-    const rawLon = Number(candidate[lonIndex]);
+    const latitudeValue = candidate[latIndex];
+    const longitudeValue = candidate[lonIndex];
+    const latitudeMissing =
+      latitudeValue == null ||
+      (typeof latitudeValue === "string" && latitudeValue.trim() === "");
+    const longitudeMissing =
+      longitudeValue == null ||
+      (typeof longitudeValue === "string" && longitudeValue.trim() === "");
+    if (latitudeMissing || longitudeMissing) continue;
+
+    const lat = Number(latitudeValue);
+    const rawLon = Number(longitudeValue);
     const sst = Number(candidate[sstIndex]);
     if (!Number.isFinite(lat) || !Number.isFinite(rawLon)) continue;
     if (candidate[sstIndex] == null || !Number.isFinite(sst)) continue;
@@ -89,7 +99,7 @@ export function compactSSTPayload(data: unknown): CompactSSTPayload {
 
 /** Fallback response when upstream data is unavailable */
 function fallbackResponse(corsHeaders: Record<string, string>): Response {
-  return new Response(JSON.stringify({ rows: [] }), {
+  return new Response(JSON.stringify({ rows: [], timestamp: null }), {
     status: 200,
     headers: {
       ...corsHeaders,

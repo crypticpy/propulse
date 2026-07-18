@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBandActivityHistory,
   createBandActivitySnapshot,
-} from "./bandActivityWaterfall";
+} from "@/lib/map/bandActivityWaterfall";
 
 const NOW = Date.UTC(2026, 6, 18, 21, 20, 0);
 
@@ -12,7 +12,7 @@ describe("band activity waterfall", () => {
       [
         { band: "20m", time: new Date(NOW - 10_000) },
         { band: "20m", time: new Date(NOW - 20_000) },
-        { band: "40M", time: new Date(NOW - 45_000) },
+        { band: "40M", time: new Date(NOW - 45_000).toISOString() },
         { band: "unknown", time: new Date(NOW - 5_000) },
       ],
       NOW,
@@ -36,5 +36,14 @@ describe("band activity waterfall", () => {
     );
     expect(row?.bands["6m"]).toBe(100);
     expect(row?.bands["20m"]).toBe(0);
+  });
+
+  it("rejects invalid bucket contracts", () => {
+    expect(() => buildBandActivityHistory([], NOW, 0)).toThrow(
+      "bucketMs must be a positive finite number",
+    );
+    expect(() => buildBandActivityHistory([], NOW, Number.NaN)).toThrow(
+      "bucketMs must be a positive finite number",
+    );
   });
 });

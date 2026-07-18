@@ -59,9 +59,10 @@ flowchart LR
 | Aurora coordinates | 65,160 | only probability >=10 | typically >99% |
 | SST grid rows | 41,472 | about 2,600 before null filtering | about 94% |
 
-Radar still loads the newest observation first, then fills at most five recent
-frames sequentially. Its scrubber now exposes only frames that are actually
-loaded, so selecting an older unloaded timestamp cannot blank the globe.
+Radar's five-frame cap includes the newest observation: it loads that frame
+first, then fills the other four slots sequentially from the bounded recent
+set. Its scrubber now exposes only frames that are actually loaded, so selecting
+an older unloaded timestamp cannot blank the globe.
 
 ## Source policy
 
@@ -137,7 +138,7 @@ Sources are classified as follows:
 
 ## Composition rules
 
-Only one full-globe quantitative surface layer may be active at a time:
+Only one exclusive quantitative surface layer may be active at a time:
 
 `Weather Radar`, `GOES-East Cloud`, `TEC`, `SST`, `MUF`, or `HF Noise Floor`.
 
@@ -147,20 +148,26 @@ visualization correctness rule, not a subscription or feature gate.
 
 ## Production probes during the audit
 
-- RainViewer manifest and every selected z2 tile: healthy.
-- NASA GIBS corrected GOES z2 coverage: 12 valid tiles; the four unsupported
-  coordinates are no longer requested.
-- NOAA OVATION aurora: healthy; 65,160 upstream coordinates, only 245 at or
-  above the renderer's current 10% threshold in the sampled response.
-- NASA FIRMS: healthy.
-- NOAA D-RAP: healthy.
-- Sporadic-E and ducting endpoints: healthy, but correctly reclassified as
-  computed empirical layers.
-- NOAA experimental TEC: returned an explicit unavailable payload.
-- Lightning edge route: collector unavailable and underlying raw-source
-  authorization incomplete; now blocked before any request.
-- WSPR edge route: intentionally disabled by the pre-existing permission gate;
-  now blocked before any request.
+Probe window: `2026-07-18T22:33:49Z` to `2026-07-18T22:39:01Z` from the M5.
+Payload sizes are encoded response bytes. `Fallback` describes the observed
+response, not whether the source has a fallback implementation.
+
+| Product | Source time and cache evidence | Probe result | Fallback | Payload and renderer bound |
+|---|---|---|---|---|
+| RainViewer | Manifest generated `2026-07-18T22:30:32Z`; latest observation `22:30:00Z`; `Cache-Control: no-cache` | Manifest `200`; all z2 coordinates `x=0..3`, `y=0..3` returned `200` | no | 818-byte manifest; 16 tiles/frame; five total frames; 80-request and 20 MiB raw-texture caps |
+| NASA GIBS GOES-East | `default` subdaily slot; source does not expose observation age in the tile response | All 12 supported z2 coordinates `x=0..2`, `y=0..3` returned `200` | no | 12 tiles; unsupported `x=3` is never requested; URL refreshes every 10 minutes |
+| NOAA OVATION | Observation `2026-07-18T22:27:00Z`; forecast `23:47:00Z`; `max-age=60`, sampled `Age: 51` | Upstream `200`; 65,160 source coordinates, 264 at the renderer's >=10 threshold | no | 918,326-byte upstream baseline; edge emits only the 264 renderable tuples in this sample |
+| NASA FIRMS | Vercel probe `Date: 2026-07-18T22:39:00Z`; cache miss during audit | `/api/fires/hotspots` returned `200` | no | 402,569 bytes; response and renderer capped at 5,000 hotspots |
+| NOAA D-RAP | Product valid `2026-07-18T22:31Z`; source `Last-Modified: 22:37:53Z`, `max-age=60` | Source returned `200` | no | 42,469 bytes; solar resource cache controls renderer refresh |
+| Sporadic-E model | Generated `2026-07-18T21:49:21.675Z` | Edge returned `200`, 374 empirical regions | no | 22,917 bytes; computed climatology, not an observed feed |
+| Ducting model | Generated `2026-07-18T21:49:22.052Z` | Edge returned `200`, 646 empirical regions | no | 38,010 bytes; computed climatology, not an NWP forecast |
+| NOAA TEC experiment | Probe `Date: 2026-07-18T22:39:01Z`; no usable observation timestamp | Edge returned `200` with `available:false` | yes | 46 bytes; zero grid cells; client source gate prevents requests |
+| SST baseline | Production before merge returned the upstream daily aggregate | Edge returned `200`; compact preview required Vercel authentication | no | 2,427,205-byte/41,472-row baseline; repaired query targets about 2,600 cells before null filtering |
+| Lightning | No authorized collector or source timestamp exists | Client source gate prevents the request | n/a | zero client requests and zero rendered strikes |
+| WSPR | Permission gate intentionally closed | Client source gate prevents the request | n/a | zero client requests and zero rendered paths |
+
+The exact probe commands are reproducible with `curl`, `stat`, and `jq`; tile
+coordinates and caps are asserted in the committed GOES and radar unit tests.
 
 ## Remaining source upgrades
 

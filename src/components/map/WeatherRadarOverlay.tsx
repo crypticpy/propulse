@@ -27,7 +27,10 @@ import React, {
 import * as THREE from "three";
 import type { RadarManifest } from "@/lib/api/radar";
 import { getRadarTileUrlForFrame, getAllRadarFrames } from "@/lib/api/radar";
-import { RADAR_TEXTURE_BUDGET } from "@/lib/map/radarBudget";
+import {
+  RADAR_TEXTURE_BUDGET,
+  selectInitialRadarFrameIndex,
+} from "@/lib/map/radarBudget";
 
 /** Radar animation control state, exported for scrubber UI */
 export interface RadarAnimationState {
@@ -254,8 +257,14 @@ function WeatherRadarOverlayInner({
       return tex;
     };
 
-    // Load the latest past frame first for immediate display
-    const latestIdx = Math.min(pastCount - 1, allFrames.length - 1);
+    // Prefer the newest observation within the bounded set, then any latest
+    // frame if a manifest contains nowcast data only.
+    const latestIdx = selectInitialRadarFrameIndex(framesToLoad, pastCount);
+    if (latestIdx === undefined) {
+      setIsLoading(false);
+      return;
+    }
+
     loadFrame(latestIdx)
       .then((texture) => {
         if (cancelled || !texture) return;

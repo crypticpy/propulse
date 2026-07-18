@@ -3,7 +3,7 @@ import {
   getGIBSTileUrl,
   getLatestGIBSDate,
   GOES_EAST_Z2_TILE_LIMITS,
-} from "./goes";
+} from "@/lib/api/goes";
 
 describe("NASA GIBS GOES tile contract", () => {
   it("uses the supported Level6 matrix and latest subdaily slot", () => {

@@ -25,7 +25,10 @@ export interface BandActivityRow {
   bands: Record<string, number>;
 }
 
-type ActivitySpot = Pick<LiveSpot, "band" | "time">;
+type ActivitySpot = {
+  band?: LiveSpot["band"];
+  time: LiveSpot["time"] | string | number;
+};
 
 function emptyCounts(): Record<string, number> {
   return Object.fromEntries(WATERFALL_BAND_NAMES.map((band) => [band, 0]));
@@ -35,6 +38,11 @@ function normalizedBandName(band: string | undefined): string | null {
   if (!band) return null;
   const normalized = band.toLowerCase().trim();
   return WATERFALL_BAND_SET.has(normalized) ? normalized : null;
+}
+
+function spotTimestamp(time: ActivitySpot["time"]): number {
+  const date = time instanceof Date ? time : new Date(time);
+  return date.getTime();
 }
 
 function normalizeRows(
@@ -62,13 +70,20 @@ export function buildBandActivityHistory(
   bucketMs = WATERFALL_SAMPLE_INTERVAL_MS,
   maxRows = WATERFALL_MAX_ROWS,
 ): BandActivityRow[] {
+  if (!Number.isFinite(bucketMs) || bucketMs <= 0) {
+    throw new RangeError("bucketMs must be a positive finite number");
+  }
+  if (!Number.isInteger(maxRows) || maxRows <= 0) {
+    throw new RangeError("maxRows must be a positive integer");
+  }
+
   const newestBucket = Math.floor(now / bucketMs) * bucketMs;
   const oldestBucket = newestBucket - (maxRows - 1) * bucketMs;
   const buckets = new Map<number, Record<string, number>>();
 
   for (const spot of spots) {
     const band = normalizedBandName(spot.band);
-    const timestamp = spot.time.getTime();
+    const timestamp = spotTimestamp(spot.time);
     if (!band || !Number.isFinite(timestamp)) continue;
 
     const bucket = Math.floor(timestamp / bucketMs) * bucketMs;

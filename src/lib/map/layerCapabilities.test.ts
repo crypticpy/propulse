@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getLayerAvailability,
+  normalizeExclusiveLayers,
   toggleExclusiveLayer,
 } from "./layerCapabilities";
 
@@ -33,6 +34,20 @@ describe("PropSphere renderer capability matrix", () => {
       radar: true,
       goesCloud: false,
       muf: false,
+      spots: true,
+    });
+  });
+
+  it("normalizes profile and preset writes with a deterministic preference", () => {
+    expect(
+      normalizeExclusiveLayers(
+        { radar: true, goesCloud: true, muf: true, spots: true },
+        "muf",
+      ),
+    ).toEqual({
+      radar: false,
+      goesCloud: false,
+      muf: true,
       spots: true,
     });
   });

@@ -35,9 +35,7 @@ export function getGIBSTileUrl(
 }
 
 /**
- * Fetch the latest available date for a GIBS layer.
- * GIBS imagery is typically available with a ~3 hour delay.
- * Returns today's date as GIBS handles missing dates gracefully.
+ * Return the dynamic latest slot used by subdaily GIBS imagery.
  */
 export function getLatestGIBSDate(): string {
   return "default";

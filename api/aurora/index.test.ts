@@ -13,6 +13,8 @@ describe("aurora payload compaction", () => {
           [30, 70, 10],
           [40, 75, 80],
           ["bad", 1, 99],
+          [50, 80, 99, 1],
+          [60, 80, Number.POSITIVE_INFINITY],
         ],
       }),
     ).toEqual({

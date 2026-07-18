@@ -69,6 +69,26 @@ const EXCLUSIVE_SURFACE_LAYER_SET = new Set<PropSphereLayerKey>(
   EXCLUSIVE_SURFACE_LAYERS,
 );
 
+export function normalizeExclusiveLayers<T extends Record<string, boolean>>(
+  layers: T,
+  preferredLayer?: PropSphereLayerKey,
+): T {
+  const next = { ...layers };
+  const enabled = EXCLUSIVE_SURFACE_LAYERS.filter(
+    (candidate) => next[candidate] === true,
+  );
+  if (enabled.length <= 1) return next;
+
+  const keep =
+    enabled.find((candidate) => candidate === preferredLayer) ?? enabled[0];
+  for (const candidate of enabled) {
+    if (candidate !== keep) {
+      (next as Record<string, boolean>)[candidate] = false;
+    }
+  }
+  return next;
+}
+
 export function toggleExclusiveLayer<T extends Record<string, boolean>>(
   layers: T,
   layerKey: keyof T & PropSphereLayerKey,
@@ -76,15 +96,9 @@ export function toggleExclusiveLayer<T extends Record<string, boolean>>(
   const enabling = !layers[layerKey];
   const next = { ...layers, [layerKey]: enabling };
 
-  if (enabling && EXCLUSIVE_SURFACE_LAYER_SET.has(layerKey)) {
-    for (const candidate of EXCLUSIVE_SURFACE_LAYERS) {
-      if (candidate !== layerKey && candidate in next) {
-        (next as Record<string, boolean>)[candidate] = false;
-      }
-    }
-  }
-
-  return next;
+  const preferred =
+    enabling && EXCLUSIVE_SURFACE_LAYER_SET.has(layerKey) ? layerKey : undefined;
+  return normalizeExclusiveLayers(next, preferred);
 }
 
 export function getLayerAvailability(

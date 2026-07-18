@@ -7,7 +7,11 @@ import type {
 import type { OperatingProfile, SpotFilters } from "@/types/operatingProfile";
 import type { SatelliteCategory } from "@/types/satellite";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { toggleExclusiveLayer } from "@/lib/map/layerCapabilities";
+import {
+  EXCLUSIVE_SURFACE_LAYERS,
+  normalizeExclusiveLayers,
+  toggleExclusiveLayer,
+} from "@/lib/map/layerCapabilities";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -1326,7 +1330,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   applyPreset: (preset) => {
     saveActiveProfile(null);
     return set({
-      layers: { ...LAYER_PRESETS[preset] },
+      layers: normalizeExclusiveLayers({ ...LAYER_PRESETS[preset] }),
       activePreset: preset,
       activeProfile: null,
     });
@@ -1357,12 +1361,17 @@ export const useMapStore = create<MapState>((set, get) => ({
     // 5. Persist active profile
     saveActiveProfile(profile);
 
+    const mergedLayers = {
+      ...get().layers,
+      ...profile.layers,
+    };
+    const preferredSurfaceLayer = EXCLUSIVE_SURFACE_LAYERS.find(
+      (layer) => profile.layers[layer],
+    );
+
     // 6. Apply all state at once
     set({
-      layers: {
-        ...get().layers,
-        ...profile.layers,
-      },
+      layers: normalizeExclusiveLayers(mergedLayers, preferredSurfaceLayer),
       spotFilters,
       // profile.autoFollow now handled by watchStore.autoPan
       mapStyle: profile.mapStyle,

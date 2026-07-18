@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getGIBSTileUrl } from "@/lib/api/goes";
 
 const MINUTE = 60 * 1000;
+const GOES_REFRESH_INTERVAL = 10 * MINUTE;
 
 export function useGOESImagery(enabled = true) {
   const {
@@ -10,11 +11,14 @@ export function useGOESImagery(enabled = true) {
     error,
   } = useQuery({
     queryKey: ["goes-imagery"],
-    queryFn: () => getGIBSTileUrl(),
+    queryFn: () => {
+      const refreshSlot = Math.floor(Date.now() / GOES_REFRESH_INTERVAL);
+      return `${getGIBSTileUrl()}?refresh=${refreshSlot}`;
+    },
     enabled,
-    staleTime: 10 * MINUTE,
+    staleTime: GOES_REFRESH_INTERVAL,
     gcTime: 30 * MINUTE,
-    refetchInterval: enabled ? 10 * MINUTE : false,
+    refetchInterval: enabled ? GOES_REFRESH_INTERVAL : false,
     refetchOnWindowFocus: false,
   });
 

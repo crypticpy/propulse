@@ -28,7 +28,9 @@
     "import:sherwood": "node scripts/import-sherwood.mjs",
     "bridge": "cd bridge && npm run dev",
     "bridge:build": "cd bridge && npm run build",
-    "rank:manifest": "node scripts/generate-rank-manifest.mjs"
+    "rank:manifest": "node scripts/generate-rank-manifest.mjs",
+    "fixture:owner": "node scripts/seed-owner-fixture.mjs",
+    "test:owner-fixture": "node --test scripts/seed-owner-fixture.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -254,7 +254,10 @@ reject the legacy shared-HMAC model outcome receipt when beta collection is
 active. Separately keyed owner-only HMAC telemetry and stop-monitor receipts may
 remain inside the M5/owner audit boundary; their keys never enter the product
 API or model outcome service and require distinct purposes, key IDs, rotation,
-and verification tests. Keep both outcome flags false until explicit release.
+and verification tests. Private-key provisioning never enables model-outcome
+receipt issuance. Keep that issuance fail-closed, and keep both outcome flags
+false, until all eight preflight gates pass and an explicit beta release is
+recorded.
 
 **Pass:** all eight preflight gates in
 `PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md` pass literally.

@@ -5,7 +5,11 @@ import { invalidateSolarCache } from "@/lib/utils/idbCache";
 
 const SOURCE = "noaa-k-index" as const;
 
-function envelope(ageMs = 0, value = 2): SolarEnvelope<Array<{ kp: number }>> {
+function envelope(
+  ageMs = 0,
+  value = 2,
+  fetchedAgeMs = ageMs,
+): SolarEnvelope<Array<{ kp: number }>> {
   const now = Date.now();
   return {
     schemaVersion: SOLAR_SCHEMA_VERSION,
@@ -14,7 +18,7 @@ function envelope(ageMs = 0, value = 2): SolarEnvelope<Array<{ kp: number }>> {
     product: "3-hour observed, estimated, and predicted planetary Kp",
     data: [{ kp: value }],
     observedAt: new Date(now - ageMs).toISOString(),
-    fetchedAt: new Date(now).toISOString(),
+    fetchedAt: new Date(now - fetchedAgeMs).toISOString(),
     sourceUrl: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json",
   };
 }
@@ -38,6 +42,17 @@ describe("solar query client cache contract", () => {
     expect((await fetchSolarResource(SOURCE)).cacheOutcome).toBe("network");
     expect((await fetchSolarResource(SOURCE)).cacheOutcome).toBe("fresh-cache");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a freshly fetched K-index snapshot late in its three-hour bucket", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(envelope(179 * 60_000, 2, 0)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resource = await fetchSolarResource(SOURCE);
+    expect(resource.state).toBe("fresh");
+    expect(resource.envelope.data).toEqual([{ kp: 2 }]);
   });
 
   it("preserves a soft-expired last-good response when revalidation fails", async () => {

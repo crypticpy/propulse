@@ -223,9 +223,13 @@ for the exact subscriber-facing use.
 
 ### 2B. Complete the 720-hour research shadow
 
-Require 720 expected consecutive hours, at least 99% completion, all ten HF
-bands per completed hour, no unresolved integrity errors, valid signed schedule
-and coverage receipts, and sufficiently separated early/late drift slices.
+Use one fixed span of 720 consecutive expected wall-clock hours. At least 713
+hours must be exact completed hours, which is the preregistered 99% threshold;
+at most seven expected hours may remain explicitly missing. Never synthesize a
+completed hour, hide a gap, or extend the window after seeing outcomes. Require
+all ten HF bands per completed hour, no unresolved integrity errors, valid
+signed schedule and coverage receipts, and sufficiently separated early/late
+drift slices. The operational target remains all 720 hours complete.
 
 ### 2C. Perform the literal outage proof
 
@@ -241,8 +245,13 @@ and coverage receipts, and sufficiently separated early/late drift slices.
 
 Complete the migrations and rollback checks for consent, attempt, outcome,
 retention, aggregate export, RLS, service-role access, telemetry, and every stop
-counter producer. Verify the model service and product API use the same signed
-receipt schema and secret. Keep both outcome flags false until explicit release.
+counter producer. Keep one versioned signed-receipt schema, but do not share a
+symmetric signing secret across the model service and product API. Make the
+model service the issuer: its private key signs receipts, while the product API
+receives only pinned public verification keys. Include algorithm, key ID,
+schema version, issued time, expiry, overlap, rotation, and revocation rules;
+reject the legacy shared-HMAC receipt when beta collection is active. Keep both
+outcome flags false until explicit release.
 
 **Pass:** all eight preflight gates in
 `PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md` pass literally.
@@ -438,7 +447,7 @@ and untouched evaluation controls.
 | WSPR scheduler healthy | Immediate | RPC repair, exact-hour validation |
 | First-party 24-hour gate | 24+ hours after last continuity reset | No further gaps; weather freshness gates |
 | Owner production acceptance | After account access | Login plus Workstream 1 QA |
-| WSPR 720-hour gate | 30+ uninterrupted days from defensible start | Source availability, authorization for intended use |
+| WSPR 720-hour gate | 30 calendar days from defensible start | Fixed expected-hour window, at least 713 exact hours, source availability, authorization for intended use |
 | Prospective freeze receipt | Before 2026-08-01 | Healthy collectors, immutable artifacts |
 | NowCast outcome scoring | After 2026-09-30 | Unread locked window closed and hashed |
 | Earliest FutureCast evidence | Approximately 2026-10-14 | Uninterrupted common issuances plus mature +24 outcome |

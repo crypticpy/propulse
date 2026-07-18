@@ -863,7 +863,7 @@ export default defineConfig(({ mode }) => {
       qrzDevProxy(),
       layerDevProxy(),
       VitePWA({
-        registerType: "prompt",
+        registerType: "autoUpdate",
         includeAssets: ["propulse.svg"],
         manifest: {
           name: "Propulse — Ham Radio Propagation Dashboard",
@@ -887,6 +887,8 @@ export default defineConfig(({ mode }) => {
           enabled: true,
         },
         workbox: {
+          skipWaiting: true,
+          clientsClaim: true,
           // Install only the application shell and its synchronous imports.
           // Lazy routes are cached after use so installing Propulse does not
           // download every radio, mapping, and 3D feature up front.

@@ -11,8 +11,12 @@
 import { useMemo } from "react";
 import { Card } from "@/components/ui";
 import { useSolarFlux, useKIndex } from "@/hooks/useSolarData";
-import { calculateBandConditions, getConditionColor } from "@/lib/utils/bands";
-import type { BandStatus, BandCondition, VHFCondition } from "@/types/solar";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
+import {
+  getRankedBandPredictions,
+  isDaytime,
+} from "@/lib/propagation/bandRanking";
+import { getConditionColor } from "@/lib/utils/bands";
 
 /**
  * Icon component for predictions/forecast
@@ -97,75 +101,6 @@ function SignalIcon({
   );
 }
 
-/**
- * Band prediction with opening status
- */
-interface BandPrediction {
-  band: string;
-  freq: string;
-  condition: BandCondition | VHFCondition;
-  isOpening: boolean;
-  description: string;
-  signalStrength: "high" | "medium" | "low";
-}
-
-/**
- * Determine if it's currently daytime (UTC based, simplified)
- */
-function isDaytime(): boolean {
-  const hour = new Date().getUTCHours();
-  // Rough approximation: 6-18 UTC is "daytime" for most paths
-  return hour >= 6 && hour < 18;
-}
-
-/**
- * Get signal strength from condition
- */
-function getSignalStrength(
-  condition: BandCondition | VHFCondition,
-): "high" | "medium" | "low" {
-  if (condition === "Excellent" || condition === "Aurora") {
-    return "high";
-  }
-  if (condition === "Good") {
-    return "medium";
-  }
-  return "low";
-}
-
-/**
- * Get description for band opening
- */
-function getOpeningDescription(
-  band: string,
-  condition: BandCondition | VHFCondition,
-  isDay: boolean,
-): string {
-  const bandNum = parseInt(band);
-
-  if (condition === "Aurora") {
-    return "VHF aurora scatter";
-  }
-
-  if (condition === "Excellent") {
-    if (bandNum <= 20) return isDay ? "Work worldwide DX" : "Long-haul DX open";
-    return isDay ? "Strong opening — call CQ" : "Excellent night path";
-  }
-
-  if (condition === "Good") {
-    if (bandNum <= 30) {
-      return isDay ? "Solid DX path" : "Good night path";
-    }
-    return "Open — try CQ DX";
-  }
-
-  if (condition === "Fair") {
-    return "Marginal — monitor";
-  }
-
-  return "Weak signals";
-}
-
 export interface PredictionsCardProps {
   /** Custom class name */
   className?: string;
@@ -196,6 +131,8 @@ export function PredictionsCard({
   // Get current solar data
   const { data: solarFluxData, isLoading: sfiLoading } = useSolarFlux();
   const { data: kIndexData, isLoading: kpLoading } = useKIndex();
+  const stationCast = useStationCastContext();
+  const isDay = isDaytime(stationCast.location?.lon);
 
   // Calculate current conditions
   const currentSfi = useMemo(() => {
@@ -220,49 +157,15 @@ export function PredictionsCard({
       return [];
     }
 
-    const isDay = isDaytime();
-    const bandConditions = calculateBandConditions(currentKp, currentSfi);
-
-    // Map to predictions with current time period
-    const allPredictions: BandPrediction[] = bandConditions.map(
-      (band: BandStatus) => {
-        const condition = isDay ? band.dayCondition : band.nightCondition;
-        const isOpening =
-          condition === "Excellent" ||
-          condition === "Good" ||
-          condition === "Aurora";
-
-        return {
-          band: band.name,
-          freq: band.freq,
-          condition,
-          isOpening,
-          description: getOpeningDescription(band.name, condition, isDay),
-          signalStrength: getSignalStrength(condition),
-        };
-      },
+    return getRankedBandPredictions(
+      currentKp,
+      currentSfi,
+      isDay,
+      maxPredictions,
     );
-
-    // Filter to only opening bands and sort by condition quality
-    const openingBands = allPredictions.filter((p) => p.isOpening);
-
-    // Sort by condition (Excellent/Aurora > Good)
-    openingBands.sort((a, b) => {
-      const order: Record<string, number> = {
-        Excellent: 0,
-        Aurora: 1,
-        Good: 2,
-        Fair: 3,
-        Poor: 4,
-      };
-      return (order[a.condition] ?? 5) - (order[b.condition] ?? 5);
-    });
-
-    return openingBands.slice(0, maxPredictions);
-  }, [currentSfi, currentKp, maxPredictions]);
+  }, [currentSfi, currentKp, isDay, maxPredictions]);
 
   const isLoading = sfiLoading || kpLoading;
-  const isDay = isDaytime();
 
   return (
     <Card
@@ -323,12 +226,10 @@ export function PredictionsCard({
       ) : predictions.length === 0 ? (
         <div className="text-sm text-gray-400 py-2">
           <div className="flex items-center gap-2">
-            <span className="text-alert-red">No openings predicted</span>
+            <span className="text-alert-red">Solar data unavailable</span>
           </div>
           <div className="text-xs text-gray-400 mt-1">
-            {currentKp !== null && currentKp >= 5
-              ? "High geomagnetic activity"
-              : "Conditions unfavorable"}
+            Current SFI and Kp are required for band estimates
           </div>
         </div>
       ) : (

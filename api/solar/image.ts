@@ -1,4 +1,5 @@
 import { applyRateLimit } from "../_lib/rateLimit";
+import { isErrorNamed } from "../_lib/runtimeError";
 import {
   isSolarImageProduct,
   SOLAR_IMAGE_PRODUCTS,
@@ -69,7 +70,7 @@ export default async function handler(request: Request): Promise<Response> {
       },
     });
   } catch (cause) {
-    const timedOut = cause instanceof DOMException && cause.name === "AbortError";
+    const timedOut = isErrorNamed(cause, "AbortError", "TimeoutError");
     console.warn(JSON.stringify({ event: "solar_media_fetch", kind: "image", productId, outcome: timedOut ? "timeout" : "failure", durationMs: Date.now() - startedAt }));
     return error(timedOut ? "Solar image provider timed out" : "Solar image provider is unavailable", timedOut ? 504 : 502);
   } finally {

@@ -1,4 +1,5 @@
 import { applyRateLimit } from "./rateLimit";
+import { isErrorNamed } from "./runtimeError";
 import {
   SOLAR_SCHEMA_VERSION,
   type SolarEnvelope,
@@ -136,10 +137,7 @@ function classifyFailure(error: unknown): {
       upstreamStatus: error.status,
     };
   }
-  if (
-    error instanceof DOMException &&
-    (error.name === "AbortError" || error.name === "TimeoutError")
-  ) {
+  if (isErrorNamed(error, "AbortError", "TimeoutError")) {
     return {
       code: "TIMEOUT",
       status: 504,

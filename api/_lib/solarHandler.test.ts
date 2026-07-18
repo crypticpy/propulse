@@ -59,7 +59,7 @@ function upstreamResponse(input: string | URL | Request): Response {
   if (url.includes("3-day-solar-geomag")) {
     return new Response(forecastText, { headers: { "Content-Type": "text/plain" } });
   }
-  if (url.includes("DONKI/CMEAnalysis")) return json(cme);
+  if (url.includes("CMEAnalysis")) return json(cme);
   if (url.includes("noaa-scales")) return json(scales);
   if (url.includes("products/alerts")) return json(alerts);
   if (url.includes("xray-flares-latest")) return json(latestXray);
@@ -164,6 +164,46 @@ describe("solar edge route contracts", () => {
     expect(response.status).toBe(502);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect((await response.json()).error.code).toBe("WRONG_CONTENT_TYPE");
+  });
+
+  it("uses the direct CCMC CME service before the Open API fallback", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (url.includes("kauai.ccmc.gsfc.nasa.gov")) {
+        return Promise.resolve(new Response("down", { status: 503 }));
+      }
+      return Promise.resolve(upstreamResponse(input));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await SOLAR_ROUTES["/api/solar/cme"](
+      new Request("https://propulse.test/api/solar/cme"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "kauai.ccmc.gsfc.nasa.gov",
+    );
+    expect(String(fetchMock.mock.calls[1][0])).toContain("api.nasa.gov");
+    expect((await response.json()).warnings).toContain(
+      "NASA CCMC direct DONKI was unavailable; api.nasa.gov fallback is in use.",
+    );
+  });
+
+  it("classifies abort-like failures without a DOMException constructor", async () => {
+    vi.stubGlobal("DOMException", undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue({ name: "AbortError" }),
+    );
+
+    const response = await SOLAR_ROUTES["/api/solar/flux"](
+      new Request("https://propulse.test/api/solar/flux"),
+    );
+
+    expect(response.status).toBe(504);
+    expect((await response.json()).error.code).toBe("TIMEOUT");
   });
 
   it.each([

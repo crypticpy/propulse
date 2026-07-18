@@ -52,8 +52,12 @@ every gate passed:
    issuer and holds the private signing key; the product API receives only
    pinned public verification keys. Receipts carry an algorithm, key ID, schema
    version, issued time, and expiry, with tested overlap, rotation, revocation,
-   and unknown-key rejection. The legacy shared-HMAC receipt is rejected while
-   beta collection is active. Both independent outcome flags remain false
+   and unknown-key rejection. The legacy shared-HMAC **model outcome** receipt
+   is rejected while beta collection is active. Separately keyed owner-only
+   HMAC telemetry and stop-monitor receipts remain permitted: their keys stay
+   inside the M5/owner audit boundary, are never provisioned to the product API
+   or model outcome service, use distinct purposes and key IDs, and have tested
+   rotation and verification. Both independent outcome flags remain false
    until an explicit beta release.
 8. The System Health reader may remain hidden; enabling it is not a substitute
    for any model or beta gate.

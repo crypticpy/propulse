@@ -19,6 +19,34 @@ function getAllowedOrigin(): string {
 const AURORA_URL =
   "https://services.swpc.noaa.gov/json/ovation_aurora_latest.json";
 
+const MIN_RENDERED_PROBABILITY = 10;
+
+interface CompactAuroraPayload {
+  "Observation Time": string;
+  "Forecast Time": string;
+  coordinates: [number, number, number][];
+}
+
+export function compactAuroraPayload(data: unknown): CompactAuroraPayload {
+  const raw = data && typeof data === "object" ? data : {};
+  const record = raw as Record<string, unknown>;
+  const coordinates = Array.isArray(record.coordinates)
+    ? record.coordinates.filter(
+        (coordinate): coordinate is [number, number, number] =>
+          Array.isArray(coordinate) &&
+          coordinate.length >= 3 &&
+          coordinate.slice(0, 3).every((value) => typeof value === "number") &&
+          coordinate[2] >= MIN_RENDERED_PROBABILITY,
+      )
+    : [];
+
+  return {
+    "Observation Time": String(record["Observation Time"] ?? ""),
+    "Forecast Time": String(record["Forecast Time"] ?? ""),
+    coordinates,
+  };
+}
+
 function fallbackResponse(corsHeaders: Record<string, string>): Response {
   return new Response(
     JSON.stringify({
@@ -65,9 +93,9 @@ export default async function handler(request: Request): Promise<Response> {
       return fallbackResponse(corsHeaders);
     }
 
-    const data = await response.text();
+    const data = compactAuroraPayload(await response.json());
 
-    return new Response(data, {
+    return new Response(JSON.stringify(data), {
       status: 200,
       headers: {
         ...corsHeaders,

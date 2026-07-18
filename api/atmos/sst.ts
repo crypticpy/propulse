@@ -21,9 +21,68 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-/** NOAA ERDDAP OISST v2.1 — latest SST at surface, 5-degree stride */
+/** NOAA ERDDAP OISST v2.1 — latest SST at surface, 5-degree grid. */
 const SST_URL =
-  "https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21Agg.json?sst[(last)][(0.0)][(-90):5:(90)][(0):5:(360)]";
+  "https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21Agg.json?sst[(last)][(0.0)][(-90):20:(90)][(0):20:(360)]";
+
+interface CompactSSTRow {
+  lat: number;
+  lon: number;
+  sst: number;
+}
+
+interface CompactSSTPayload {
+  rows: CompactSSTRow[];
+  timestamp: string | null;
+}
+
+export function compactSSTPayload(data: unknown): CompactSSTPayload {
+  if (!data || typeof data !== "object") {
+    return { rows: [], timestamp: null };
+  }
+
+  const table = (data as Record<string, unknown>).table;
+  if (!table || typeof table !== "object") {
+    return { rows: [], timestamp: null };
+  }
+
+  const { columnNames, rows } = table as {
+    columnNames?: unknown;
+    rows?: unknown;
+  };
+  if (!Array.isArray(columnNames) || !Array.isArray(rows)) {
+    return { rows: [], timestamp: null };
+  }
+
+  const timeIndex = columnNames.indexOf("time");
+  const latIndex = columnNames.indexOf("latitude");
+  const lonIndex = columnNames.indexOf("longitude");
+  const sstIndex = columnNames.indexOf("sst");
+  if (latIndex < 0 || lonIndex < 0 || sstIndex < 0) {
+    return { rows: [], timestamp: null };
+  }
+
+  const compactRows: CompactSSTRow[] = [];
+  let timestamp: string | null = null;
+  for (const candidate of rows) {
+    if (!Array.isArray(candidate)) continue;
+    const lat = Number(candidate[latIndex]);
+    const rawLon = Number(candidate[lonIndex]);
+    const sst = Number(candidate[sstIndex]);
+    if (!Number.isFinite(lat) || !Number.isFinite(rawLon)) continue;
+    if (candidate[sstIndex] == null || !Number.isFinite(sst)) continue;
+    if (!timestamp && timeIndex >= 0 && candidate[timeIndex] != null) {
+      timestamp = String(candidate[timeIndex]);
+    }
+    compactRows.push({
+      lat,
+      lon: rawLon > 180 ? rawLon - 360 : rawLon,
+      sst,
+    });
+  }
+
+  return { rows: compactRows, timestamp };
+}
 
 /** Fallback response when upstream data is unavailable */
 function fallbackResponse(corsHeaders: Record<string, string>): Response {
@@ -66,9 +125,9 @@ export default async function handler(request: Request): Promise<Response> {
       return fallbackResponse(corsHeaders);
     }
 
-    const data = await response.text();
+    const data = compactSSTPayload(await response.json());
 
-    return new Response(data, {
+    return new Response(JSON.stringify(data), {
       status: 200,
       headers: {
         ...corsHeaders,

@@ -12,16 +12,26 @@ export type GOESLayer =
 /** Default layer (works day and night) */
 const DEFAULT_LAYER: GOESLayer = "GOES-East_ABI_Band13_Clean_Infrared";
 
+/** NASA GIBS TileMatrixSetLimits for the GOES-East layer at matrix 2. */
+export const GOES_EAST_Z2_TILE_LIMITS = {
+  minX: 0,
+  maxX: 2,
+  minY: 0,
+  maxY: 3,
+} as const;
+
 /**
  * Build a GIBS WMTS tile URL template for MapLibre GL.
  * Returns a URL with {z}/{y}/{x} placeholders.
  */
 export function getGIBSTileUrl(
   layer: GOESLayer = DEFAULT_LAYER,
-  date?: string, // YYYY-MM-DD format, defaults to today
+  time?: string,
 ): string {
-  const dateStr = date ?? new Date().toISOString().split("T")[0];
-  return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${dateStr}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`;
+  // This is a subdaily layer. NASA's `default` slot tracks the latest valid
+  // 10-minute image and avoids guessing a timestamp that may not exist.
+  const timeSlot = time ?? "default";
+  return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer}/default/${timeSlot}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
 }
 
 /**
@@ -30,10 +40,5 @@ export function getGIBSTileUrl(
  * Returns today's date as GIBS handles missing dates gracefully.
  */
 export function getLatestGIBSDate(): string {
-  // GIBS uses UTC dates. Use yesterday if before 06:00 UTC (imagery delay)
-  const now = new Date();
-  if (now.getUTCHours() < 6) {
-    now.setUTCDate(now.getUTCDate() - 1);
-  }
-  return now.toISOString().split("T")[0];
+  return "default";
 }

@@ -7,6 +7,7 @@ import type {
 import type { OperatingProfile, SpotFilters } from "@/types/operatingProfile";
 import type { SatelliteCategory } from "@/types/satellite";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { toggleExclusiveLayer } from "@/lib/map/layerCapabilities";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -212,7 +213,7 @@ export const LAYER_PRESETS = {
     satelliteFootprints: false,
     ft8Spotter: false,
     goesCloud: false,
-    tec: true,
+    tec: false,
     repeaters: false,
     riverGauges: false,
     aprs: false,
@@ -1315,10 +1316,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         saveActiveProfile(null);
       }
       const updates: Partial<MapState> = {
-        layers: {
-          ...state.layers,
-          [layer]: !state.layers[layer],
-        },
+        layers: toggleExclusiveLayer(state.layers, layer),
       };
       if (state.activePreset !== null) updates.activePreset = null;
       if (state.activeProfile !== null) updates.activeProfile = null;

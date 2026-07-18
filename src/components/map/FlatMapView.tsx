@@ -3226,7 +3226,7 @@ export function FlatMapView({
   const { station, preferences } = useUserStore();
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
-  const { data: auroraData } = useAuroraData();
+  const { data: auroraData } = useAuroraData(layers.aurora);
   const currentSFI = useCurrentSFI();
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();

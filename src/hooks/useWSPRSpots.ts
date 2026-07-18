@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMapStore } from "@/stores/mapStore";
+import { WSPR_LIVE_SOURCE_ENABLED } from "@/lib/map/layerCapabilities";
 
 export interface WSPRSpot {
   callsign: string;
@@ -93,12 +94,13 @@ async function fetchWSPRSpots(band: string): Promise<WSPRResponse> {
 
 export function useWSPRSpots(band: string = "20m") {
   const wsprEnabled = useMapStore((state) => state.layers.wspr);
+  const queryEnabled = wsprEnabled && WSPR_LIVE_SOURCE_ENABLED;
   const query = useQuery({
     queryKey: [...WSPR_QUERY_KEY, band],
     queryFn: () => fetchWSPRSpots(band),
-    enabled: wsprEnabled,
+    enabled: queryEnabled,
     staleTime: 2 * MINUTE,
-    refetchInterval: wsprEnabled ? 2 * MINUTE : false,
+    refetchInterval: queryEnabled ? 2 * MINUTE : false,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });

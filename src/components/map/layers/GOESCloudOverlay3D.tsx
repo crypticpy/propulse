@@ -14,6 +14,7 @@
 import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { useGOESImagery } from "@/hooks/useGOESImagery";
+import { GOES_EAST_Z2_TILE_LIMITS } from "@/lib/api/goes";
 
 // =============================================================================
 // CONSTANTS
@@ -77,10 +78,20 @@ export function GOESCloudOverlay3D() {
 
     let disposed = false;
 
-    // Load all tiles for zoom level 2 (4x4 grid)
+    // Load only the tiles inside NASA's advertised GOES-East matrix limits.
+    // The uncovered eastern column remains transparent instead of producing
+    // four predictable 404 responses on every activation.
     const promises: Promise<void>[] = [];
-    for (let y = 0; y < TILES_PER_AXIS; y++) {
-      for (let x = 0; x < TILES_PER_AXIS; x++) {
+    for (
+      let y = GOES_EAST_Z2_TILE_LIMITS.minY;
+      y <= GOES_EAST_Z2_TILE_LIMITS.maxY;
+      y++
+    ) {
+      for (
+        let x = GOES_EAST_Z2_TILE_LIMITS.minX;
+        x <= GOES_EAST_Z2_TILE_LIMITS.maxX;
+        x++
+      ) {
         const url = tileUrl
           .replace("{z}", String(ZOOM))
           .replace("{y}", String(y))

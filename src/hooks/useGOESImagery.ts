@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getGIBSTileUrl, getLatestGIBSDate } from "@/lib/api/goes";
+import { getGIBSTileUrl } from "@/lib/api/goes";
 
 const MINUTE = 60 * 1000;
 
@@ -10,10 +10,7 @@ export function useGOESImagery(enabled = true) {
     error,
   } = useQuery({
     queryKey: ["goes-imagery"],
-    queryFn: () => {
-      const date = getLatestGIBSDate();
-      return getGIBSTileUrl(undefined, date);
-    },
+    queryFn: () => getGIBSTileUrl(),
     enabled,
     staleTime: 10 * MINUTE,
     gcTime: 30 * MINUTE,

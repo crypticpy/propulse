@@ -307,12 +307,11 @@ function WeatherRadarOverlayInner({
     };
   }, [manifest, allFrames, pastCount, framesToLoad]);
 
-  // Animation timer — does NOT depend on loadedCount to avoid restarts
+  const hasAnimationFrames = framesRef.current.size >= 2;
+
   useEffect(() => {
     if (!isPlaying || activeFrameRef.current < 0) return;
-
-    // Need at least 2 frames to animate
-    if (framesRef.current.size < 2) return;
+    if (!hasAnimationFrames) return;
 
     let timeoutId: ReturnType<typeof setTimeout>;
     let stopped = false;
@@ -342,7 +341,7 @@ function WeatherRadarOverlayInner({
       stopped = true;
       clearTimeout(timeoutId);
     };
-  }, [isPlaying, pastCount, loadedVersion]);
+  }, [isPlaying, pastCount, hasAnimationFrames]);
 
   // Update material texture when frame changes or new frames load
   useEffect(() => {

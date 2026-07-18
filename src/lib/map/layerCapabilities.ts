@@ -8,7 +8,16 @@ export interface LayerAvailability {
   reason?: string;
 }
 
-const PROP_SPHERE_LAYER_KEYS = [
+function requireAllLayerKeys<const Keys extends readonly PropSphereLayerKey[]>(
+  keys: Keys &
+    (Exclude<PropSphereLayerKey, Keys[number]> extends never
+      ? unknown
+      : { missingLayerKeys: Exclude<PropSphereLayerKey, Keys[number]> }),
+): Keys {
+  return keys;
+}
+
+const PROP_SPHERE_LAYER_KEYS = requireAllLayerKeys([
   "terminator",
   "greyline",
   "aurora",
@@ -48,7 +57,7 @@ const PROP_SPHERE_LAYER_KEYS = [
   "aprs",
   "tropical",
   "sst",
-] as const satisfies readonly PropSphereLayerKey[];
+] as const satisfies readonly PropSphereLayerKey[]);
 
 const PROP_SPHERE_LAYER_KEY_SET = new Set<string>(PROP_SPHERE_LAYER_KEYS);
 const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([

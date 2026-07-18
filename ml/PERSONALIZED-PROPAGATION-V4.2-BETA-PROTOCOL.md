@@ -5,6 +5,8 @@
 > [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md)
 > and the frozen A6 archive decision in
 > [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md).
+> Current sequencing:
+> [`PROPAGATION-FORWARD-EXECUTION-PLAN.md`](PROPAGATION-FORWARD-EXECUTION-PLAN.md).
 > Collection remains disabled until every preflight gate below passes.
 
 ## Decision question
@@ -21,16 +23,22 @@ core.
 
 ## Preflight gates
 
-All gates are required before enabling either outcome flag or the research
-receipt secret:
+The model-service private signing key may be provisioned earlier through the
+approved secret manager, but provisioning never enables issuance. All gates
+are required before enabling either outcome flag or signed receipt issuance;
+the model service fails closed until an explicit beta release records that
+every gate passed:
 
 1. The frozen A6 archive decision and Phase 3 bundle hashes remain unchanged.
 2. The first-party prospective collector has at least 24 continuous healthy
    hours with all required sources current and nonempty settled band/path
    aggregates.
-3. The permitted WSPR receipt-time shadow has at least 720 expected hours, at
-   least 99% completion, all ten HF bands per completed hour, and no unresolved
-   integrity error.
+3. The permitted WSPR receipt-time shadow spans one fixed 720-consecutive-hour
+   wall-clock window and has at least 713 exact completed hours (at least 99%).
+   At most seven expected hours may remain explicitly missing; a missing hour
+   cannot be synthesized, hidden, or replaced by extending the window after
+   outcomes are visible. Every completed hour has all ten HF bands and no
+   unresolved integrity errors. The operational target remains 720/720.
 4. Subscriber-facing recent-path data has written authorization or comes from
    a documented self-operated source. Research-only WSPR access is insufficient.
 5. A controlled full-M5 outage has been detected by the off-M5 monitor and the
@@ -39,8 +47,18 @@ receipt secret:
    and aggregate-telemetry migrations pass rollback and deployed-state
    validation. Every preregistered stop counter also has a validated producer;
    an unimplemented producer may not be represented as an observed zero.
-7. The model service and product API expose the same receipt schema and secret;
-   both independent outcome flags remain false until an explicit beta release.
+7. The model service and product API expose the same versioned receipt schema,
+   but do not share a symmetric signing secret. The model service is the sole
+   issuer and holds the private signing key; the product API receives only
+   pinned public verification keys. Receipts carry an algorithm, key ID, schema
+   version, issued time, and expiry, with tested overlap, rotation, revocation,
+   and unknown-key rejection. The legacy shared-HMAC **model outcome** receipt
+   is rejected while beta collection is active. Separately keyed owner-only
+   HMAC telemetry and stop-monitor receipts remain permitted: their keys stay
+   inside the M5/owner audit boundary, are never provisioned to the product API
+   or model outcome service, use distinct purposes and key IDs, and have tested
+   rotation and verification. Both independent outcome flags remain false
+   until an explicit beta release.
 8. The System Health reader may remain hidden; enabling it is not a substitute
    for any model or beta gate.
 

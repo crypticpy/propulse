@@ -4,6 +4,7 @@
  * Wraps the entire app and decides what to render based on auth state:
  * - If Supabase is not configured → render children (local dev bypass)
  * - If auth is not initialized yet → render AuthLoadingScreen
+ * - If password recovery is active → render LoginPage's password form
  * - If user is not authenticated → render LoginPage
  * - If user is authenticated → render children
  */
@@ -25,6 +26,7 @@ interface AuthGateProps {
 
 export function AuthGate({ children }: AuthGateProps) {
   const initialized = useAuthStore((s) => s.initialized);
+  const isRecoveryMode = useAuthStore((s) => s.isRecoveryMode);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
   // Local dev bypass — no Supabase configured
@@ -37,8 +39,9 @@ export function AuthGate({ children }: AuthGateProps) {
     return <AuthLoadingScreen />;
   }
 
-  // Not authenticated — show login page
-  if (!isAuthenticated) {
+  // Recovery creates a temporary authenticated session, but the password form
+  // must remain visible until updatePassword completes.
+  if (isRecoveryMode || !isAuthenticated) {
     return (
       <Suspense fallback={<AuthLoadingScreen />}>
         <LoginPage />

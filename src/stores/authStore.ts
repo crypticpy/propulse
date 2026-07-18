@@ -94,18 +94,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       try {
         const supabase = getSupabase();
 
-        // Retrieve any existing session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        set({
-          user: session?.user ?? null,
-          session: session ?? null,
-          initialized: true,
-        });
-
-        // Listen for auth state changes (sign-in, sign-out, token refresh, recovery)
+        // Subscribe before retrieving the session. Supabase emits recovery
+        // events immediately after exchanging the callback URL for a session.
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange((event, session) => {
@@ -116,22 +106,33 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             session: session ?? null,
           });
 
-          // Detect password recovery flow
           if (event === "PASSWORD_RECOVERY") {
             set({ isRecoveryMode: true });
           }
 
-          // Clear session expired flag on successful sign-in (covers magic link flow)
           if (event === "SIGNED_IN") {
             set({ sessionExpired: false });
           }
 
-          // Detect session expiry (signed out while previously authenticated)
-          if (event === "SIGNED_OUT" && prevUser !== null) {
-            set({ sessionExpired: true });
+          if (event === "SIGNED_OUT") {
+            set({
+              isRecoveryMode: false,
+              sessionExpired: prevUser !== null,
+            });
           }
         });
         authSubscription = subscription;
+
+        // Retrieve any existing session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        set({
+          user: session?.user ?? null,
+          session: session ?? null,
+          initialized: true,
+        });
       } catch (err) {
         set({
           initialized: true,

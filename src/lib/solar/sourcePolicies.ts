@@ -57,6 +57,9 @@ export const SOLAR_SOURCE_POLICIES: Record<
     maxBytes: 48_000,
     criticality: "critical",
     group: "now",
+    // The timestamp identifies the start of a three-hour Kp bucket. Treat the
+    // endpoint as a current snapshot so valid late-bucket estimates survive.
+    freshnessBasis: "fetchedAt",
   }),
   "noaa-solar-flux": policy({
     id: "noaa-solar-flux",

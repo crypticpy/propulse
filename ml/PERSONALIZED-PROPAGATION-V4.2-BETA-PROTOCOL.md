@@ -23,8 +23,11 @@ core.
 
 ## Preflight gates
 
-All gates are required before enabling either outcome flag or the research
-receipt secret:
+The model-service private signing key may be provisioned earlier through the
+approved secret manager, but provisioning never enables issuance. All gates
+are required before enabling either outcome flag or signed receipt issuance;
+the model service fails closed until an explicit beta release records that
+every gate passed:
 
 1. The frozen A6 archive decision and Phase 3 bundle hashes remain unchanged.
 2. The first-party prospective collector has at least 24 continuous healthy

@@ -1,5 +1,11 @@
 # Personalized Propagation V4: Multi-Year Model and Product Execution Plan
 
+> Forward execution status, audited 2026-07-18:
+> [`PROPAGATION-FORWARD-EXECUTION-PLAN.md`](PROPAGATION-FORWARD-EXECUTION-PLAN.md)
+> is the current sequencing and handoff authority for all unfinished work. This
+> V4 file remains the north star, and the frozen scientific protocols remain
+> authoritative for their individual gates.
+>
 > Status, 2026-07-16: V4.2 performance recovery has completed the 50M model,
 > untouched December 2024 gate, and locked 2025 archive gate. The frozen A6
 > NowCast is approved for visible internal integration in the private prelaunch

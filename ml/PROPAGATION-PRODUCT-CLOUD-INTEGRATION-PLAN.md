@@ -1,7 +1,10 @@
 # Propagation Product and Cloud Integration Plan
 
-> Status, 2026-07-17: Phases A, B's deployment path, and C are complete on the
-> M5. The exact 66,846,932-byte A6 archive was reassembled and hash-verified from
+> Status, 2026-07-18: Phases A-E are complete, merged to `main`, and live at
+> [propulse.cloud](https://propulse.cloud). The current sequencing and handoff
+> authority for all remaining work is
+> [`PROPAGATION-FORWARD-EXECUTION-PLAN.md`](PROPAGATION-FORWARD-EXECUTION-PLAN.md).
+> The exact 66,846,932-byte A6 archive was reassembled and hash-verified from
 > two private Supabase objects, then loaded by the dedicated Railway
 > `propulse-inference` service in `shadow` mode with one worker and one XGBoost
 > thread. Deployment `f2b7c130-0a73-4afa-a619-d9260d7d885d` is healthy at
@@ -27,8 +30,8 @@
 > 531.50 ms median and 655.51 ms p95. Local model-process evidence remains 2.424
 > seconds load time, 1,160 MiB RSS after load, and 1,180 MiB after a maximum
 > surface, so 2 GiB RAM and 1 vCPU remain the minimum starting allocation.
-> The off-device uptime workflow is implemented and will begin scheduling when
-> this branch reaches the default branch. Exact monthly cost remains open and
+> The off-device uptime workflow is implemented and active on the default
+> branch; its latest ten scheduled runs on July 18 succeeded. Exact monthly cost remains open and
 > will be recorded from the provider meter after representative private use.
 >
 > Phase D is complete in commits `46a704ec` and `57999611`. Band Planner now
@@ -56,13 +59,11 @@
 > deleted. Physics fallback was visibly labeled because the server reported the
 > recent path input stale; it was never labeled A6 NowCast.
 >
-> The independent research-heartbeat workflow is already active on the default
-> branch; its five most recent scheduled runs passed on July 17. A separate
-> staggered `propagation-uptime-monitor.yml` now verifies the public,
+> The independent research-heartbeat workflow is active on the default branch.
+> The separate staggered `propagation-uptime-monitor.yml` verifies the public,
 > identity-free Railway health contract, shadow mode, service authentication,
 > exact A6 model identity, and both loaded profiles. It reconciles one durable
-> GitHub incident and closes it only after recovery. Its schedule activates when
-> this integration branch reaches the default branch.
+> GitHub incident and closes it only after recovery. Its schedule is active.
 >
 > The deployment evidence and visual explanation are in
 > [`cloud_deployment/CLOUD_REPORT.md`](results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md).
@@ -76,9 +77,9 @@
 > tables, source-dialog interaction, and contained layouts at 1,440 and 390
 > pixels. Five projection screenshots preserve the visual product proof.
 >
-> The next work is branch review/merge, first uptime-workflow dispatch, Phase F
-> operational continuity, provider-meter cost measurement, and the
-> selected-region ReachMap inspector. Genuine FutureCast horizons remain
+> The next work is Phase F operational continuity, owner acceptance,
+> provider-meter cost measurement, and the selected-region ReachMap inspector.
+> Genuine FutureCast horizons remain
 > blocked on their preregistered issued-forecast archive rather than on software
 > plumbing.
 >

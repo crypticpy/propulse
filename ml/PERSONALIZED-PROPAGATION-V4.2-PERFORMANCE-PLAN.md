@@ -1,5 +1,11 @@
 # Personalized Propagation V4.2: Performance Recovery and Product Plan
 
+> Forward execution status, audited 2026-07-18:
+> [`PROPAGATION-FORWARD-EXECUTION-PLAN.md`](PROPAGATION-FORWARD-EXECUTION-PLAN.md)
+> consolidates the remaining operational, product, prospective, beta,
+> FutureCast, 6m, and open-release work. Phases 0-5 here remain complete and
+> frozen; stale historical checkboxes do not reopen them.
+>
 > Status, 2026-07-16: Phases 0-5 are complete on the M5. The frozen 50M A6
 > blend passed untouched December 2024 and the four-month locked 2025 archive.
 > Phase 6 shadow, opt-in, and prospective evidence remains open; the frozen

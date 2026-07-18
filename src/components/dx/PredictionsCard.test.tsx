@@ -1,8 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PredictionsCard } from "@/components/dx/PredictionsCard";
 import {
   getRankedBandPredictions,
   isDaytime,
 } from "@/lib/propagation/bandRanking";
+
+const mocks = vi.hoisted(() => ({
+  longitude: -97,
+  solarFlux: [{ flux: 180 }],
+  kIndex: [{ kp_index: 1 }],
+}));
+
+vi.mock("@/hooks/useSolarData", () => ({
+  useSolarFlux: () => ({ data: mocks.solarFlux, isLoading: false }),
+  useKIndex: () => ({ data: mocks.kIndex, isLoading: false }),
+}));
+
+vi.mock("@/hooks/useStationCastContext", () => ({
+  useStationCastContext: () => ({ location: { lon: mocks.longitude } }),
+}));
+
+beforeEach(() => {
+  mocks.longitude = -97;
+  mocks.solarFlux = [{ flux: 180 }];
+  mocks.kIndex = [{ kp_index: 1 }];
+});
 
 describe("getRankedBandPredictions", () => {
   it("returns the best available bands when every condition is marginal", () => {
@@ -30,5 +53,25 @@ describe("getRankedBandPredictions", () => {
 
     expect(isDaytime(-97, afternoonInTexas)).toBe(true);
     expect(isDaytime(120, afternoonInTexas)).toBe(false);
+  });
+});
+
+describe("PredictionsCard", () => {
+  it("uses the station longitude when rendering the day/night state", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-18T20:00:00Z"));
+    const { rerender } = render(<PredictionsCard />);
+    expect(screen.getByText("Daytime")).toBeTruthy();
+
+    mocks.longitude = 120;
+    rerender(<PredictionsCard />);
+    expect(screen.getByText("Nighttime")).toBeTruthy();
+  });
+
+  it("keeps one result visible when maxPredictions is non-positive", () => {
+    render(<PredictionsCard maxPredictions={0} />);
+
+    expect(screen.queryByText("Solar data unavailable")).toBeNull();
+    expect(screen.getAllByText(/m$/)).toHaveLength(1);
   });
 });

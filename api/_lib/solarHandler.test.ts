@@ -186,8 +186,40 @@ describe("solar edge route contracts", () => {
       "kauai.ccmc.gsfc.nasa.gov",
     );
     expect(String(fetchMock.mock.calls[1][0])).toContain("api.nasa.gov");
-    expect((await response.json()).warnings).toContain(
+    const body = await response.json();
+    expect(body.sourceUrl).toBe("https://api.nasa.gov/DONKI/CMEAnalysis");
+    expect(body.warnings).toContain(
       "NASA CCMC direct DONKI was unavailable; api.nasa.gov fallback is in use.",
+    );
+  });
+
+  it("leaves time for CME fallback when the primary provider stalls", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!url.includes("kauai.ccmc.gsfc.nasa.gov")) {
+        return Promise.resolve(upstreamResponse(input));
+      }
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject({ name: "AbortError" }),
+          { once: true },
+        );
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const responsePromise = SOLAR_ROUTES["/api/solar/cme"](
+      new Request("https://propulse.test/api/solar/cme"),
+    );
+    await vi.advanceTimersByTimeAsync(3_000);
+    const response = await responsePromise;
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((await response.json()).sourceUrl).toBe(
+      "https://api.nasa.gov/DONKI/CMEAnalysis",
     );
   });
 

@@ -133,6 +133,7 @@ export function PredictionsCard({
   const { data: kIndexData, isLoading: kpLoading } = useKIndex();
   const stationCast = useStationCastContext();
   const isDay = isDaytime(stationCast.location?.lon);
+  const predictionLimit = Math.max(1, maxPredictions);
 
   // Calculate current conditions
   const currentSfi = useMemo(() => {
@@ -161,9 +162,9 @@ export function PredictionsCard({
       currentKp,
       currentSfi,
       isDay,
-      maxPredictions,
+      predictionLimit,
     );
-  }, [currentSfi, currentKp, isDay, maxPredictions]);
+  }, [currentSfi, currentKp, isDay, predictionLimit]);
 
   const isLoading = sfiLoading || kpLoading;
 

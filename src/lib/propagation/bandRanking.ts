@@ -14,7 +14,7 @@ export interface BandPrediction {
   signalStrength: "high" | "medium" | "low";
 }
 
-const CONDITION_ORDER: Record<string, number> = {
+const CONDITION_ORDER: Record<BandCondition | VHFCondition, number> = {
   Excellent: 0,
   Aurora: 1,
   Good: 2,

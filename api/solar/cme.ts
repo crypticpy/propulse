@@ -3,6 +3,9 @@ import { createSolarHandler, fetchSolarUpstream } from "../_lib/solarHandler";
 
 export const config = { runtime: "edge" };
 
+const CCMC_ATTEMPT_TIMEOUT_MS = 3_000;
+const NASA_OPEN_API_CME_SOURCE = "https://api.nasa.gov/DONKI/CMEAnalysis";
+
 interface CmeLoadResult {
   value: unknown;
   source: "ccmc-direct" | "nasa-open-api";
@@ -23,7 +26,34 @@ function ccmcCmeUrl(): string {
 function openApiCmeUrl(): string {
   const { start, end } = cmeDateRange();
   const key = process.env.NASA_API_KEY || "DEMO_KEY";
-  return `https://api.nasa.gov/DONKI/CMEAnalysis?startDate=${start}&endDate=${end}&mostAccurateOnly=true&api_key=${encodeURIComponent(key)}`;
+  return `${NASA_OPEN_API_CME_SOURCE}?startDate=${start}&endDate=${end}&mostAccurateOnly=true&api_key=${encodeURIComponent(key)}`;
+}
+
+async function loadCcmc(
+  signal: AbortSignal,
+  maxBytes: number,
+): Promise<unknown> {
+  const controller = new AbortController();
+  const forwardAbort = () => controller.abort(signal.reason);
+  if (signal.aborted) {
+    forwardAbort();
+  } else {
+    signal.addEventListener("abort", forwardAbort, { once: true });
+  }
+  const timeout = setTimeout(
+    () => controller.abort(),
+    CCMC_ATTEMPT_TIMEOUT_MS,
+  );
+  try {
+    return await fetchSolarUpstream(ccmcCmeUrl(), {
+      signal: controller.signal,
+      accept: "json",
+      maxBytes,
+    });
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener("abort", forwardAbort);
+  }
 }
 
 export default createSolarHandler({
@@ -31,11 +61,7 @@ export default createSolarHandler({
   load: async (signal, policy): Promise<CmeLoadResult> => {
     try {
       return {
-        value: await fetchSolarUpstream(ccmcCmeUrl(), {
-          signal,
-          accept: "json",
-          maxBytes: policy.maxUpstreamBytes,
-        }),
+        value: await loadCcmc(signal, policy.maxUpstreamBytes),
         source: "ccmc-direct",
       };
     } catch (error) {
@@ -72,6 +98,12 @@ export default createSolarHandler({
         );
       }
     }
-    return warnings.length > 0 ? { ...adapted, warnings } : adapted;
+    return {
+      ...adapted,
+      ...(result.source === "nasa-open-api"
+        ? { sourceUrl: NASA_OPEN_API_CME_SOURCE }
+        : {}),
+      ...(warnings.length > 0 ? { warnings } : {}),
+    };
   },
 });

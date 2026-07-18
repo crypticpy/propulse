@@ -310,7 +310,7 @@ export function createSolarHandler<T>(
         data: adapted.data,
         observedAt: adapted.observedAt,
         fetchedAt,
-        sourceUrl: policy.sourceUrl,
+        sourceUrl: adapted.sourceUrl ?? policy.sourceUrl,
         ...(adapted.warnings?.length ? { warnings: adapted.warnings } : {}),
       };
       const serialized = JSON.stringify(envelope);

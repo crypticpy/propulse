@@ -224,7 +224,7 @@ for the exact subscriber-facing use.
 ### 2B. Complete the 720-hour research shadow
 
 Require 720 expected consecutive hours, at least 99% completion, all ten HF
-bands per completed hour, no unresolved integrity error, valid signed schedule
+bands per completed hour, no unresolved integrity errors, valid signed schedule
 and coverage receipts, and sufficiently separated early/late drift slices.
 
 ### 2C. Perform the literal outage proof

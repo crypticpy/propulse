@@ -5,19 +5,15 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/globals.css";
 import { runStoreDecompositionMigration } from "@/lib/migrations/userStoreMigration";
+import { installStaleChunkRecovery } from "@/lib/pwa/staleChunkRecovery";
 
 // Run one-time migration from monolithic userStore (v14) to decomposed stores
 // Must execute synchronously before React renders and stores hydrate
 runStoreDecompositionMigration();
 
-// Auto-reload on stale chunk errors after redeployment.
-// When Vercel deploys a new build, chunk hashes change. Users with a cached
-// index.html will reference old chunk filenames that no longer exist, causing
-// "Failed to fetch dynamically imported module" errors. This handler reloads
-// the page once to pick up the new index.html.
-window.addEventListener("vite:preloadError", () => {
-  window.location.reload();
-});
+// Recover once from a stale PWA shell after a deployment. The recovery helper
+// clears only HTTP asset caches/service workers and guards against reload loops.
+installStaleChunkRecovery();
 
 // Development utilities: attach __seedEquipment / __clearEquipment to window
 if (import.meta.env.DEV) {

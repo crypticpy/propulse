@@ -305,7 +305,7 @@ export interface LabelOptions {
   tileLabels: boolean;
 }
 
-interface MapState {
+export interface MapState {
   // View settings
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;

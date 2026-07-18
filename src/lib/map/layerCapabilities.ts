@@ -1,11 +1,14 @@
+import type { MapState } from "@/stores/mapStore";
+
 export type PropSphereViewMode = "globe" | "flat" | "azimuthal";
+export type PropSphereLayerKey = keyof MapState["layers"];
 
 export interface LayerAvailability {
   available: boolean;
   reason?: string;
 }
 
-const FLAT_UNSUPPORTED_LAYERS = new Set([
+const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "beacons",
   "drap",
   "ducting",
@@ -24,9 +27,12 @@ const FLAT_UNSUPPORTED_LAYERS = new Set([
   "sporadicE",
   "sst",
   "tec",
-]);
+] as const satisfies readonly PropSphereLayerKey[];
+const FLAT_UNSUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
+  FLAT_UNSUPPORTED_LAYER_KEYS,
+);
 
-const AZIMUTHAL_SUPPORTED_LAYERS = new Set([
+const AZIMUTHAL_SUPPORTED_LAYER_KEYS = [
   "earthquakes",
   "fires",
   "labels",
@@ -36,7 +42,10 @@ const AZIMUTHAL_SUPPORTED_LAYERS = new Set([
   "spotTraces",
   "terminator",
   "weather",
-]);
+] as const satisfies readonly PropSphereLayerKey[];
+const AZIMUTHAL_SUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
+  AZIMUTHAL_SUPPORTED_LAYER_KEYS,
+);
 
 export const WSPR_LIVE_SOURCE_ENABLED =
   import.meta.env.VITE_WSPR_LIVE_ENABLED === "true";
@@ -54,13 +63,15 @@ export const EXCLUSIVE_SURFACE_LAYERS = [
   "sst",
   "muf",
   "noiseFloor",
-] as const;
+] as const satisfies readonly PropSphereLayerKey[];
 
-const EXCLUSIVE_SURFACE_LAYER_SET = new Set<string>(EXCLUSIVE_SURFACE_LAYERS);
+const EXCLUSIVE_SURFACE_LAYER_SET = new Set<PropSphereLayerKey>(
+  EXCLUSIVE_SURFACE_LAYERS,
+);
 
 export function toggleExclusiveLayer<T extends Record<string, boolean>>(
   layers: T,
-  layerKey: keyof T & string,
+  layerKey: keyof T & PropSphereLayerKey,
 ): T {
   const enabling = !layers[layerKey];
   const next = { ...layers, [layerKey]: enabling };
@@ -101,11 +112,17 @@ export function getLayerAvailability(
     };
   }
 
-  if (viewMode === "flat" && FLAT_UNSUPPORTED_LAYERS.has(layerKey)) {
+  if (
+    viewMode === "flat" &&
+    FLAT_UNSUPPORTED_LAYERS.has(layerKey as PropSphereLayerKey)
+  ) {
     return { available: false, reason: "Available in Globe view" };
   }
 
-  if (viewMode === "azimuthal" && !AZIMUTHAL_SUPPORTED_LAYERS.has(layerKey)) {
+  if (
+    viewMode === "azimuthal" &&
+    !AZIMUTHAL_SUPPORTED_LAYERS.has(layerKey as PropSphereLayerKey)
+  ) {
     return { available: false, reason: "Not available in Azimuthal view" };
   }
 

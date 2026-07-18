@@ -21,9 +21,12 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-/** NOAA ERDDAP OISST v2.1 — latest SST at surface, 5-degree grid. */
+/** NOAA OISST is a 0.25-degree grid; every 20th source cell yields 5 degrees. */
+const SST_SOURCE_GRID_DEGREES = 0.25;
+const SST_OUTPUT_GRID_DEGREES = 5;
+const SST_INDEX_STRIDE = SST_OUTPUT_GRID_DEGREES / SST_SOURCE_GRID_DEGREES;
 const SST_URL =
-  "https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21Agg.json?sst[(last)][(0.0)][(-90):20:(90)][(0):20:(360)]";
+  `https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21Agg.json?sst[(last)][(0.0)][(-90):${SST_INDEX_STRIDE}:(90)][(0):${SST_INDEX_STRIDE}:(360)]`;
 
 interface CompactSSTRow {
   lat: number;

@@ -58,6 +58,12 @@ const FRAME_BATCH_SIZE = 1;
 /** Max loaded frame textures in GPU memory. */
 const MAX_FRAMES = RADAR_TEXTURE_BUDGET.maxFrames;
 
+function getLoadedFrameIndices(
+  frames: ReadonlyMap<number, THREE.Texture>,
+): number[] {
+  return Array.from(frames.keys()).sort((a, b) => a - b);
+}
+
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const loader = new THREE.ImageLoader();
@@ -207,9 +213,7 @@ function WeatherRadarOverlayInner({
   }, [allFrames]);
 
   const setFrame = useCallback((displayIndex: number) => {
-    const loadedIndices = Array.from(framesRef.current.keys()).sort(
-      (a, b) => a - b,
-    );
+    const loadedIndices = getLoadedFrameIndices(framesRef.current);
     const sourceIndex = loadedIndices[displayIndex];
     if (sourceIndex === undefined) return;
     setActiveFrameIndex(sourceIndex);
@@ -303,8 +307,7 @@ function WeatherRadarOverlayInner({
         const frameMap = framesRef.current;
         if (frameMap.size < 2) return prev;
 
-        // Get sorted loaded frame indices
-        const loadedIndices = Array.from(frameMap.keys()).sort((a, b) => a - b);
+        const loadedIndices = getLoadedFrameIndices(frameMap);
         const currentPos = loadedIndices.indexOf(prev);
         const nextPos = (currentPos + 1) % loadedIndices.length;
         const next = loadedIndices[nextPos];
@@ -336,9 +339,7 @@ function WeatherRadarOverlayInner({
 
   // Export animation state
   useEffect(() => {
-    const loadedIndices = Array.from(framesRef.current.keys()).sort(
-      (a, b) => a - b,
-    );
+    const loadedIndices = getLoadedFrameIndices(framesRef.current);
     onAnimationState?.({
       frameCount: loadedIndices.length,
       activeIndex: loadedIndices.indexOf(activeFrameIndex),

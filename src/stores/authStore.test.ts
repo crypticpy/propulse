@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase", () => ({
   }),
 }));
 
-import { useAuthStore } from "./authStore";
+import { useAuthStore } from "@/stores/authStore";
 
 type AuthListener = (event: AuthChangeEvent, session: Session | null) => void;
 
@@ -40,13 +40,15 @@ afterEach(() => {
 });
 
 describe("authStore.initialize", () => {
-  it("subscribes before session retrieval and records password recovery", async () => {
+  it("orders initialization and manages the recovery lifecycle", async () => {
+    const callOrder: string[] = [];
     let listener: AuthListener | undefined;
     let resolveSession!: (value: {
       data: { session: Session | null };
     }) => void;
 
     authMocks.onAuthStateChange.mockImplementation((callback: AuthListener) => {
+      callOrder.push("onAuthStateChange");
       listener = callback;
       return {
         data: {
@@ -54,16 +56,19 @@ describe("authStore.initialize", () => {
         },
       };
     });
-    authMocks.getSession.mockReturnValue(
-      new Promise((resolve) => {
-        resolveSession = resolve;
-      }),
+    authMocks.getSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          callOrder.push("getSession");
+          resolveSession = resolve;
+        }),
     );
 
     const initializing = useAuthStore.getState().initialize();
 
     expect(authMocks.onAuthStateChange).toHaveBeenCalledOnce();
     expect(authMocks.getSession).toHaveBeenCalledOnce();
+    expect(callOrder).toEqual(["onAuthStateChange", "getSession"]);
 
     const user = { id: "owner" } as Session["user"];
     const session = { user } as Session;
@@ -77,6 +82,15 @@ describe("authStore.initialize", () => {
       session,
       initialized: true,
       isRecoveryMode: true,
+    });
+
+    listener?.("SIGNED_OUT", null);
+
+    expect(useAuthStore.getState()).toMatchObject({
+      user: null,
+      session: null,
+      isRecoveryMode: false,
+      sessionExpired: true,
     });
   });
 });

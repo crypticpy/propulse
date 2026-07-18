@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase", () => ({
   getSupabase: vi.fn(),
 }));
 
-import { AuthGate } from "./AuthGate";
+import { AuthGate } from "@/components/auth/AuthGate";
 import { useAuthStore } from "@/stores/authStore";
 
 const user = { id: "owner" } as User;

@@ -108,6 +108,18 @@ test("service-role requests require the exact canonical Supabase origin", () => 
     () => canonicalSupabaseUrl("https://project-ref.supabase.co/rest/v1", "project-ref"),
     /refusing to seed origin/,
   );
+  assert.throws(
+    () => canonicalSupabaseUrl("https://user:pass@project-ref.supabase.co/", "project-ref"),
+    /refusing to seed origin/,
+  );
+  assert.throws(
+    () => canonicalSupabaseUrl("https://project-ref.supabase.co/?x=1", "project-ref"),
+    /refusing to seed origin/,
+  );
+  assert.throws(
+    () => canonicalSupabaseUrl("https://project-ref.supabase.co/#fragment", "project-ref"),
+    /refusing to seed origin/,
+  );
 });
 
 test("ownership validation detects a conflict at a non-zero index", () => {

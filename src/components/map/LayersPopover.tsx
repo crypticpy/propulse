@@ -27,6 +27,10 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 import BasemapCategory from "./layers/BasemapCategory";
 import SatelliteFilters from "./layers/SatelliteFilters";
+import {
+  getLayerAvailability,
+  type PropSphereViewMode,
+} from "@/lib/map/layerCapabilities";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -220,10 +224,12 @@ function PillToggle({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: () => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -231,11 +237,14 @@ function PillToggle({
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
-        onChange();
+        if (!disabled) onChange();
       }}
-      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+      className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+        disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+      } ${
         checked ? "bg-signal-green" : "bg-white/10"
       }`}
     >
@@ -315,13 +324,29 @@ function CategoryRow({
 
 // ─── Submenu toggle row ───────────────────────────────────────────────────────
 
-function ToggleRow({ item }: { item: LayerToggle }) {
-  const active = item.getValue();
+function ToggleRow({
+  item,
+  viewMode,
+}: {
+  item: LayerToggle;
+  viewMode: PropSphereViewMode;
+}) {
+  const availability = getLayerAvailability(item.key, viewMode);
+  const active = availability.available && item.getValue();
   return (
     <div
-      title={item.title}
-      className="flex items-center h-[30px] px-1 rounded hover:bg-white/[0.06] transition-colors cursor-pointer"
-      onClick={item.onToggle}
+      title={
+        availability.available
+          ? item.title
+          : `${item.title}: ${availability.reason}`
+      }
+      aria-disabled={!availability.available}
+      className={`flex items-center h-[30px] px-1 rounded transition-colors ${
+        availability.available
+          ? "hover:bg-white/[0.06] cursor-pointer"
+          : "cursor-not-allowed opacity-45"
+      }`}
+      onClick={availability.available ? item.onToggle : undefined}
     >
       <span
         className={`w-1.5 h-1.5 rounded-full mr-2 shrink-0 transition-colors ${
@@ -339,6 +364,7 @@ function ToggleRow({ item }: { item: LayerToggle }) {
         checked={active}
         onChange={item.onToggle}
         label={item.label}
+        disabled={!availability.available}
       />
     </div>
   );
@@ -382,7 +408,10 @@ export function LayersPopover() {
 
   // ── Active count for button badge ──
   const activeCount =
-    Object.values(layers).filter(Boolean).length + (autoRotate ? 1 : 0);
+    Object.entries(layers).filter(
+      ([key, enabled]) =>
+        enabled && getLayerAvailability(key, viewMode).available,
+    ).length + (autoRotate ? 1 : 0);
 
   // ── Slider handlers ──
   const handleSpotChange = useCallback(
@@ -524,8 +553,9 @@ export function LayersPopover() {
           },
           {
             key: "spectrumRing",
-            label: "Spectrum Waterfall",
-            title: "Equatorial ring showing band activity waterfall over time",
+            label: "Band Activity Waterfall",
+            title:
+              "Equatorial history of real PSKReporter, RBN, and local decode activity by band",
             getValue: () => layers.spectrumRing,
             onToggle: () => toggleLayer("spectrumRing"),
           },
@@ -610,7 +640,7 @@ export function LayersPopover() {
         items: [
           {
             key: "goesCloud",
-            label: "GOES Cloud",
+            label: "GOES-East Cloud",
             title: "GOES-East satellite cloud imagery from NASA GIBS",
             getValue: () => layers.goesCloud,
             onToggle: () => toggleLayer("goesCloud"),
@@ -672,7 +702,7 @@ export function LayersPopover() {
             key: "sporadicE",
             label: "Sporadic E",
             title:
-              "Sporadic E cloud probability at ionospheric E-layer altitude",
+              "Empirical seasonal/time-of-day Sporadic E climatology, not live ionosonde observations",
             getValue: () => layers.sporadicE,
             onToggle: () => toggleLayer("sporadicE"),
           },
@@ -686,8 +716,9 @@ export function LayersPopover() {
           },
           {
             key: "ducting",
-            label: "Tropo Ducting",
-            title: "Tropospheric ducting probability regions for VHF/UHF",
+            label: "Ducting Climatology",
+            title:
+              "Empirical coastal, seasonal, and time-of-day ducting estimate, not a live weather forecast",
             getValue: () => layers.ducting,
             onToggle: () => toggleLayer("ducting"),
           },
@@ -793,7 +824,10 @@ export function LayersPopover() {
   const enabledCounts = useMemo(() => {
     const counts: Record<string, { enabled: number; total: number }> = {};
     for (const cat of categories) {
-      const enabled = cat.items.filter((i) => i.getValue()).length;
+      const enabled = cat.items.filter(
+        (item) =>
+          getLayerAvailability(item.key, viewMode).available && item.getValue(),
+      ).length;
       counts[cat.id] = { enabled, total: cat.items.length };
     }
     // Display section: count band height arcs as the only toggle
@@ -802,7 +836,7 @@ export function LayersPopover() {
       total: 1,
     };
     return counts;
-  }, [categories, uiPrefs.bandHeightArcs]);
+  }, [categories, uiPrefs.bandHeightArcs, viewMode]);
 
   // ── Position calculation ──
   useEffect(() => {
@@ -1180,7 +1214,11 @@ export function LayersPopover() {
                   ) : activeCategoryDef ? (
                     <div className="space-y-0.5">
                       {activeCategoryDef.items.map((item) => (
-                        <ToggleRow key={item.key} item={item} />
+                        <ToggleRow
+                          key={item.key}
+                          item={item}
+                          viewMode={viewMode}
+                        />
                       ))}
                       {/* Satellite filters inline (Activity category) */}
                       {activeCategory === "activity" && layers.satellites && (

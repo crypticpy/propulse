@@ -310,6 +310,16 @@ function getLocationFromCallsign(
   return null;
 }
 
+function normalizeSpotDate(value: unknown): Date | null {
+  const date =
+    value instanceof Date
+      ? value
+      : typeof value === "string" || typeof value === "number"
+        ? new Date(value)
+        : null;
+  return date && Number.isFinite(date.getTime()) ? date : null;
+}
+
 /**
  * Resolve spot locations from grid/callsign with fallback chain
  * Priority: grid locator > callsign prefix > continent
@@ -318,6 +328,9 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
   const resolved: ResolvedSpot[] = [];
 
   for (const spot of spots) {
+    const time = normalizeSpotDate(spot.time);
+    if (!time) continue;
+
     // Try to resolve spotter location
     const spotterLoc =
       spot.spotterLat !== undefined && spot.spotterLon !== undefined
@@ -344,7 +357,7 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
       dxLon: dxLoc.lon,
       mode: spot.mode || "UNKNOWN",
       frequency: spot.frequency,
-      time: spot.time,
+      time,
       callsign: spot.dx,
       spotter: spot.spotter,
       source: spot.source,

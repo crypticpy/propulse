@@ -5,6 +5,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchWsprSpots } from "@/lib/api/wspr";
+import { WSPR_LIVE_SOURCE_ENABLED } from "@/lib/map/layerCapabilities";
 
 // Query key for cache management
 export const WSPR_SPOTS_QUERY_KEY = ["wspr-spots"] as const;
@@ -20,13 +21,14 @@ const MINUTE = 60 * 1000;
  * @param enabled - Whether to fetch data (pass layers.wspr)
  */
 export function useWsprSpots(enabled = true) {
+  const queryEnabled = enabled && WSPR_LIVE_SOURCE_ENABLED;
   const { data, isLoading, error } = useQuery({
     queryKey: WSPR_SPOTS_QUERY_KEY,
     queryFn: ({ signal }) => fetchWsprSpots(signal),
-    enabled,
+    enabled: queryEnabled,
     staleTime: 2 * MINUTE,
     gcTime: 10 * MINUTE,
-    refetchInterval: enabled ? 2 * MINUTE : false,
+    refetchInterval: queryEnabled ? 2 * MINUTE : false,
     refetchOnWindowFocus: false,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),

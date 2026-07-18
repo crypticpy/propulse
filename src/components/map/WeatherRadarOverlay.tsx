@@ -5,8 +5,8 @@
  * Loads frames (past + nowcast) as CanvasTexture objects, auto-cycles through
  * them, and exports animation control state for an external scrubber UI.
  *
- * Uses zoom 3 (8×8 = 64 tiles per frame, 2048px canvas) to keep request
- * count manageable. Max 6 loaded frames to limit GPU memory.
+ * Uses zoom 2 (4x4 = 16 tiles per frame, 1024px canvas). Five loaded frames
+ * consume about 20 MiB of raw RGBA texture memory instead of hundreds of MiB.
  *
  * Frame loading strategy:
  * 1. Load the latest past frame first for immediate display
@@ -27,6 +27,10 @@ import React, {
 import * as THREE from "three";
 import type { RadarManifest } from "@/lib/api/radar";
 import { getRadarTileUrlForFrame, getAllRadarFrames } from "@/lib/api/radar";
+import {
+  RADAR_TEXTURE_BUDGET,
+  selectInitialRadarFrameIndex,
+} from "@/lib/map/radarBudget";
 
 /** Radar animation control state, exported for scrubber UI */
 export interface RadarAnimationState {
@@ -46,17 +50,22 @@ interface WeatherRadarOverlayProps {
   onAnimationState?: (state: RadarAnimationState) => void;
 }
 
-/** Zoom 3 with 512px tiles: 8×8 = 64 tiles, 4096px canvas (4× sharper) */
-const ZOOM_LEVEL = 3;
-const TILES_PER_AXIS = 8;
-const TILE_SIZE = 512;
-const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 4096
+const ZOOM_LEVEL = RADAR_TEXTURE_BUDGET.zoom;
+const TILES_PER_AXIS = RADAR_TEXTURE_BUDGET.tilesPerAxis;
+const TILE_SIZE = RADAR_TEXTURE_BUDGET.tileSize;
+const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE;
 /** Tiles to load concurrently — keep low to avoid 429 rate limits */
 const TILE_BATCH_SIZE = 8;
 /** Load one frame at a time to avoid hammering the API */
 const FRAME_BATCH_SIZE = 1;
-/** Max loaded frame textures in GPU memory (no eviction — 6 × 2048px is fine) */
-const MAX_FRAMES = 6;
+/** Max loaded frame textures in GPU memory. */
+const MAX_FRAMES = RADAR_TEXTURE_BUDGET.maxFrames;
+
+function getLoadedFrameIndices(
+  frames: ReadonlyMap<number, THREE.Texture>,
+): number[] {
+  return Array.from(frames.keys()).sort((a, b) => a - b);
+}
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -122,7 +131,7 @@ function boostRadarColors(ctx: CanvasRenderingContext2D, w: number, h: number) {
 }
 
 /**
- * Load all z=3 radar tiles for a frame and composite them onto a canvas.
+ * Load the global radar tiles for a frame and composite them onto a canvas.
  */
 async function compositeRadarTilesForFrame(
   manifest: RadarManifest,
@@ -148,12 +157,19 @@ async function compositeRadarTilesForFrame(
       ZOOM_LEVEL,
       t.x,
       t.y,
-      TILE_SIZE as 256 | 512,
+      TILE_SIZE,
     );
     return () => loadImage(url);
   });
 
   const results = await loadInBatches(tasks, TILE_BATCH_SIZE);
+
+  const loadedTileCount = results.filter(
+    (result) => result.status === "fulfilled",
+  ).length;
+  if (loadedTileCount === 0) {
+    throw new Error("RainViewer returned no usable radar tiles");
+  }
 
   results.forEach((result, i) => {
     if (result.status === "fulfilled") {
@@ -199,8 +215,11 @@ function WeatherRadarOverlayInner({
     return Array.from({ length: MAX_FRAMES }, (_, i) => startIdx + i);
   }, [allFrames]);
 
-  const setFrame = useCallback((idx: number) => {
-    setActiveFrameIndex(idx);
+  const setFrame = useCallback((displayIndex: number) => {
+    const loadedIndices = getLoadedFrameIndices(framesRef.current);
+    const sourceIndex = loadedIndices[displayIndex];
+    if (sourceIndex === undefined) return;
+    setActiveFrameIndex(sourceIndex);
     setIsPlaying(false);
   }, []);
 
@@ -238,34 +257,48 @@ function WeatherRadarOverlayInner({
       return tex;
     };
 
-    // Load the latest past frame first for immediate display
-    const latestIdx = Math.min(pastCount - 1, allFrames.length - 1);
-    loadFrame(latestIdx)
-      .then(() => {
+    // Prefer the newest observation within the bounded set, then any latest
+    // frame if a manifest contains nowcast data only.
+    const latestIdx = selectInitialRadarFrameIndex(framesToLoad, pastCount);
+    if (latestIdx === undefined) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loadOrder = [
+      latestIdx,
+      ...framesToLoad.filter((index) => index !== latestIdx),
+    ];
+    const loadSequentially = async () => {
+      let displayedFrame = false;
+      for (let i = 0; i < loadOrder.length; i += FRAME_BATCH_SIZE) {
         if (cancelled) return;
-        setActiveFrameIndex(latestIdx);
-        setIsLoading(false);
+        const batch = loadOrder.slice(i, i + FRAME_BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map((index) => loadFrame(index)),
+        );
 
-        // Load remaining frames from our limited set, one at a time
-        const remaining = framesToLoad.filter((i) => i !== latestIdx);
-
-        const loadSequentially = async () => {
-          for (let i = 0; i < remaining.length; i += FRAME_BATCH_SIZE) {
-            if (cancelled) return;
-            const batch = remaining.slice(i, i + FRAME_BATCH_SIZE);
-            await Promise.allSettled(batch.map((idx) => loadFrame(idx)));
-            // Small delay between frames to be gentle on RainViewer
-            if (!cancelled && i + FRAME_BATCH_SIZE < remaining.length) {
-              await new Promise((r) => setTimeout(r, 500));
-            }
+        if (!displayedFrame) {
+          const firstLoaded = results.find(
+            (result): result is PromiseFulfilledResult<THREE.CanvasTexture> =>
+              result.status === "fulfilled" && result.value !== null,
+          );
+          if (firstLoaded && !cancelled) {
+            const sourceIndex = batch[results.indexOf(firstLoaded)];
+            setActiveFrameIndex(sourceIndex);
+            setIsLoading(false);
+            displayedFrame = true;
           }
-        };
+        }
 
-        loadSequentially();
-      })
-      .catch(() => {
-        // Radar overlay is non-critical
-      });
+        if (!cancelled && i + FRAME_BATCH_SIZE < loadOrder.length) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+      if (!cancelled && !displayedFrame) setIsLoading(false);
+    };
+
+    void loadSequentially();
 
     return () => {
       cancelled = true;
@@ -274,12 +307,11 @@ function WeatherRadarOverlayInner({
     };
   }, [manifest, allFrames, pastCount, framesToLoad]);
 
-  // Animation timer — does NOT depend on loadedCount to avoid restarts
+  const hasAnimationFrames = framesRef.current.size >= 2;
+
   useEffect(() => {
     if (!isPlaying || activeFrameRef.current < 0) return;
-
-    // Need at least 2 frames to animate
-    if (framesRef.current.size < 2) return;
+    if (!hasAnimationFrames) return;
 
     let timeoutId: ReturnType<typeof setTimeout>;
     let stopped = false;
@@ -291,8 +323,7 @@ function WeatherRadarOverlayInner({
         const frameMap = framesRef.current;
         if (frameMap.size < 2) return prev;
 
-        // Get sorted loaded frame indices
-        const loadedIndices = Array.from(frameMap.keys()).sort((a, b) => a - b);
+        const loadedIndices = getLoadedFrameIndices(frameMap);
         const currentPos = loadedIndices.indexOf(prev);
         const nextPos = (currentPos + 1) % loadedIndices.length;
         const next = loadedIndices[nextPos];
@@ -310,7 +341,7 @@ function WeatherRadarOverlayInner({
       stopped = true;
       clearTimeout(timeoutId);
     };
-  }, [isPlaying, pastCount]);
+  }, [isPlaying, pastCount, hasAnimationFrames]);
 
   // Update material texture when frame changes or new frames load
   useEffect(() => {
@@ -324,13 +355,14 @@ function WeatherRadarOverlayInner({
 
   // Export animation state
   useEffect(() => {
+    const loadedIndices = getLoadedFrameIndices(framesRef.current);
     onAnimationState?.({
-      frameCount: allFrames.length,
-      activeIndex: activeFrameIndex,
+      frameCount: loadedIndices.length,
+      activeIndex: loadedIndices.indexOf(activeFrameIndex),
       isPlaying,
       isLoading,
-      timestamps: allFrames.map((f) => f.time),
-      isNowcast: allFrames.map((_, i) => i >= pastCount),
+      timestamps: loadedIndices.map((index) => allFrames[index].time),
+      isNowcast: loadedIndices.map((index) => index >= pastCount),
       hasNexrad: false,
       setFrame,
       togglePlay,
@@ -344,6 +376,7 @@ function WeatherRadarOverlayInner({
     onAnimationState,
     setFrame,
     togglePlay,
+    loadedVersion,
   ]);
 
   const geometry = useMemo(

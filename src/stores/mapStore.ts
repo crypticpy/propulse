@@ -7,6 +7,11 @@ import type {
 import type { OperatingProfile, SpotFilters } from "@/types/operatingProfile";
 import type { SatelliteCategory } from "@/types/satellite";
 import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  EXCLUSIVE_SURFACE_LAYERS,
+  normalizeExclusiveLayers,
+  toggleExclusiveLayer,
+} from "@/lib/map/layerCapabilities";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -212,7 +217,7 @@ export const LAYER_PRESETS = {
     satelliteFootprints: false,
     ft8Spotter: false,
     goesCloud: false,
-    tec: true,
+    tec: false,
     repeaters: false,
     riverGauges: false,
     aprs: false,
@@ -304,7 +309,7 @@ export interface LabelOptions {
   tileLabels: boolean;
 }
 
-interface MapState {
+export interface MapState {
   // View settings
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
@@ -1315,10 +1320,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         saveActiveProfile(null);
       }
       const updates: Partial<MapState> = {
-        layers: {
-          ...state.layers,
-          [layer]: !state.layers[layer],
-        },
+        layers: toggleExclusiveLayer(state.layers, layer),
       };
       if (state.activePreset !== null) updates.activePreset = null;
       if (state.activeProfile !== null) updates.activeProfile = null;
@@ -1328,7 +1330,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   applyPreset: (preset) => {
     saveActiveProfile(null);
     return set({
-      layers: { ...LAYER_PRESETS[preset] },
+      layers: normalizeExclusiveLayers({ ...LAYER_PRESETS[preset] }),
       activePreset: preset,
       activeProfile: null,
     });
@@ -1359,12 +1361,17 @@ export const useMapStore = create<MapState>((set, get) => ({
     // 5. Persist active profile
     saveActiveProfile(profile);
 
+    const mergedLayers = {
+      ...get().layers,
+      ...profile.layers,
+    };
+    const preferredSurfaceLayer = EXCLUSIVE_SURFACE_LAYERS.find(
+      (layer) => profile.layers[layer],
+    );
+
     // 6. Apply all state at once
     set({
-      layers: {
-        ...get().layers,
-        ...profile.layers,
-      },
+      layers: normalizeExclusiveLayers(mergedLayers, preferredSurfaceLayer),
       spotFilters,
       // profile.autoFollow now handled by watchStore.autoPan
       mapStyle: profile.mapStyle,

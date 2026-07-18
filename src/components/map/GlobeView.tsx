@@ -159,40 +159,14 @@ import { useDuctingForecast } from "@/hooks/useDuctingForecast";
 import { useSatellites } from "@/hooks/useSatellites";
 import { calculateNVISAtLocation } from "@/lib/utils/nvisCalculation";
 import { getTerminatorPoints } from "@/lib/utils/sun";
-
-// ---------------------------------------------------------------------------
-// Spectrum Waterfall band activity accumulator
-// ---------------------------------------------------------------------------
-
-/** Canonical band list for the waterfall ring */
-const WATERFALL_BAND_NAMES = [
-  "160m",
-  "80m",
-  "60m",
-  "40m",
-  "30m",
-  "20m",
-  "17m",
-  "15m",
-  "12m",
-  "10m",
-  "6m",
-  "2m",
-];
-
-/** Maximum rows to retain in the rolling window */
-const WATERFALL_MAX_ROWS = 20;
-
-/** Sampling interval in milliseconds (30 seconds) */
-const WATERFALL_SAMPLE_INTERVAL_MS = 30_000;
-
-/** Maximum spot count per band used for normalisation (0-100 scale) */
-const WATERFALL_NORMALIZE_MAX = 50;
-
-interface BandActivityRow {
-  timestamp: number;
-  bands: Record<string, number>;
-}
+import {
+  buildBandActivityHistory,
+  createBandActivitySnapshot,
+  WATERFALL_BAND_NAMES,
+  WATERFALL_MAX_ROWS,
+  WATERFALL_SAMPLE_INTERVAL_MS,
+  type BandActivityRow,
+} from "@/lib/map/bandActivityWaterfall";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -810,7 +784,7 @@ const GlobeScene = React.memo(function GlobeScene({
 
   const station = useUserStore((s) => s.station);
   const pins = usePinStore((s) => s.pins);
-  const { data: auroraData } = useAuroraData();
+  const { data: auroraData } = useAuroraData(layers.aurora);
   const currentSFI = useCurrentSFI();
   const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
   const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
@@ -878,14 +852,18 @@ const GlobeScene = React.memo(function GlobeScene({
   // Fetch live spots for the grid glow overlay
   const { spots: liveSpots } = useLiveSpots({
     grid: station?.grid,
-    enabled: layers.spots || layers.spotTraces,
+    enabled:
+      layers.spots ||
+      layers.spotTraces ||
+      layers.gridActivity ||
+      layers.spectrumRing,
   });
 
   // Resolve spot locations so glow positions match where arcs land
   const resolvedGlowSpots = useMemo(() => {
-    if (!layers.spots && !layers.spotTraces) return [];
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return [];
     return resolveSpotLocations(liveSpots);
-  }, [liveSpots, layers.spots, layers.spotTraces]);
+  }, [liveSpots, layers.spots, layers.spotTraces, layers.gridActivity]);
 
   // Track which spot IDs have already triggered glows (avoid re-firing on every render)
   const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
@@ -896,7 +874,7 @@ const GlobeScene = React.memo(function GlobeScene({
   // Feed new resolved spots into glowSpots via effect (NOT useMemo — refs must
   // only be mutated in effects to avoid double-firing in React strict mode).
   useEffect(() => {
-    if (!layers.spots && !layers.spotTraces) return;
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
     const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
     const prevIds = prevGlowSpotIdsRef.current;
     const currentIds = new Set<string>();
@@ -943,6 +921,7 @@ const GlobeScene = React.memo(function GlobeScene({
     resolvedGlowSpots,
     layers.spots,
     layers.spotTraces,
+    layers.gridActivity,
     uiPrefs.spotColorMode,
   ]);
 
@@ -1061,63 +1040,30 @@ const GlobeScene = React.memo(function GlobeScene({
   liveSpotsRef.current = liveSpots;
 
   useEffect(() => {
-    // Only run the sampling interval when the spectrum ring layer is active
+    if (!layers.spectrumRing) {
+      waterfallRowsRef.current = [];
+      setWaterfallRows([]);
+      return;
+    }
+
+    if (waterfallRowsRef.current.length > 0 || liveSpots.length === 0) return;
+    const history = buildBandActivityHistory(liveSpots);
+    waterfallRowsRef.current = history;
+    setWaterfallRows(history);
+  }, [layers.spectrumRing, liveSpots]);
+
+  useEffect(() => {
     if (!layers.spectrumRing) return;
 
-    // Sample function: count spots per band from current liveSpots
     const sampleBandCounts = () => {
-      const counts: Record<string, number> = {};
-      for (const name of WATERFALL_BAND_NAMES) {
-        counts[name] = 0;
-      }
-
-      for (const spot of liveSpotsRef.current) {
-        let band = spot.band;
-        if (!band) continue;
-        band = band.toLowerCase().trim();
-        if (band in counts) {
-          counts[band]++;
-        }
-      }
-
-      // Normalise to 0-100 scale
-      const normalised: Record<string, number> = {};
-      for (const name of WATERFALL_BAND_NAMES) {
-        normalised[name] = Math.min(
-          100,
-          (counts[name] / WATERFALL_NORMALIZE_MAX) * 100,
-        );
-      }
-
-      const row: BandActivityRow = {
-        timestamp: Date.now(),
-        bands: normalised,
-      };
-
-      const rows = waterfallRowsRef.current;
-      rows.push(row);
-      if (rows.length > WATERFALL_MAX_ROWS) {
-        rows.splice(0, rows.length - WATERFALL_MAX_ROWS);
-      }
+      const row = createBandActivitySnapshot(liveSpotsRef.current);
+      if (!row) return;
+      const rows = [...waterfallRowsRef.current, row].slice(
+        -WATERFALL_MAX_ROWS,
+      );
       waterfallRowsRef.current = rows;
-      setWaterfallRows([...rows]);
+      setWaterfallRows(rows);
     };
-
-    // Take an initial sample immediately
-    sampleBandCounts();
-
-    // Seed baseline if no spots — makes ring structure visible
-    if (waterfallRowsRef.current.length === 1) {
-      const firstRow = waterfallRowsRef.current[0];
-      const hasData = Object.values(firstRow.bands).some((v) => v > 0);
-      if (!hasData) {
-        firstRow.bands["20m"] = 8;
-        firstRow.bands["40m"] = 5;
-        firstRow.bands["15m"] = 3;
-        firstRow.bands["10m"] = 2;
-        setWaterfallRows([...waterfallRowsRef.current]);
-      }
-    }
 
     const intervalId = setInterval(
       sampleBandCounts,

@@ -30,8 +30,7 @@ export function useLightning(enabled = true) {
     gcTime: 5 * MINUTE,
     refetchInterval: queryEnabled ? 1 * MINUTE : false,
     refetchOnWindowFocus: false,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retry: false,
   });
 
   return {

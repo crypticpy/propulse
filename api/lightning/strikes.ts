@@ -4,8 +4,8 @@
  * Fetches buffered lightning strikes from the Propulse collector service,
  * which maintains a persistent WebSocket connection to Blitzortung.
  *
- * Requires COLLECTOR_URL environment variable pointing to the collector's
- * HTTP endpoint on Railway (e.g., https://collector-xyz.up.railway.app).
+ * Requires explicit LIGHTNING_LIVE_SOURCE_ENABLED approval plus COLLECTOR_URL.
+ * Until both are present, the endpoint returns a cacheable unavailable state.
  *
  * Cache: 10 seconds with 5 second stale-while-revalidate
  */
@@ -30,6 +30,24 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+function unavailable(reason: string) {
+  return new Response(
+    JSON.stringify({
+      strikes: [],
+      available: false,
+      reason,
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "s-maxage=60, stale-while-revalidate=300",
+        ...CORS_HEADERS,
+      },
+    },
+  );
+}
+
 export default async function handler(req: Request) {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -42,31 +60,25 @@ export default async function handler(req: Request) {
     });
   }
 
+  // Lightning remains disabled until an authorized live source is approved.
+  // Keeping this server-side prevents stale clients from contacting a collector.
+  if (process.env.LIGHTNING_LIVE_SOURCE_ENABLED !== "true") {
+    return unavailable("Live lightning source is not enabled.");
+  }
+
   const limited = applyRateLimit(req, "lightning/strikes", 20, 60);
   if (limited) return limited;
 
   const collectorUrl = process.env.COLLECTOR_URL;
 
   if (!collectorUrl) {
-    return new Response(
-      JSON.stringify({
-        strikes: [],
-        error: "COLLECTOR_URL not configured. Lightning data unavailable.",
-      }),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "s-maxage=60",
-          ...CORS_HEADERS,
-        },
-      },
-    );
+    return unavailable("Lightning collector is not configured.");
   }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8_000);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
 
+  try {
     const response = await fetch(`${collectorUrl}/lightning`, {
       headers: {
         Accept: "application/json",
@@ -75,46 +87,21 @@ export default async function handler(req: Request) {
       signal: controller.signal,
     });
 
-    clearTimeout(timeout);
-
     if (!response.ok) {
-      return new Response(
-        JSON.stringify({
-          error: `Collector returned ${response.status}`,
-          strikes: [],
-        }),
-        {
-          status: 502,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-store",
-            ...CORS_HEADERS,
-          },
-        },
-      );
+      return unavailable(`Lightning collector returned ${response.status}.`);
     }
 
     const data = await response.json();
 
     // Validate response shape
     if (!data || !Array.isArray(data.strikes)) {
-      return new Response(
-        JSON.stringify({ error: "Invalid collector response", strikes: [] }),
-        {
-          status: 502,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-store",
-            ...CORS_HEADERS,
-          },
-        },
-      );
+      return unavailable("Lightning collector response was invalid.");
     }
 
     // Cap strikes to prevent canvas performance issues
     const strikes = data.strikes.slice(0, 5000);
 
-    return new Response(JSON.stringify({ strikes }), {
+    return new Response(JSON.stringify({ strikes, available: true }), {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "s-maxage=10, stale-while-revalidate=5",
@@ -122,24 +109,13 @@ export default async function handler(req: Request) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    const isTimeout = message.includes("abort");
-
-    return new Response(
-      JSON.stringify({
-        error: isTimeout
-          ? "Collector request timed out"
-          : `Failed to fetch lightning data: ${message}`,
-        strikes: [],
-      }),
-      {
-        status: isTimeout ? 504 : 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-store",
-          ...CORS_HEADERS,
-        },
-      },
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+    return unavailable(
+      isTimeout
+        ? "Lightning collector request timed out."
+        : "Lightning collector is temporarily unavailable.",
     );
+  } finally {
+    clearTimeout(timeout);
   }
 }

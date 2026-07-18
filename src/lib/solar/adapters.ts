@@ -29,6 +29,7 @@ import {
 export interface AdaptedProduct<T> {
   data: T;
   observedAt: string;
+  sourceUrl?: string;
   warnings?: string[];
 }
 

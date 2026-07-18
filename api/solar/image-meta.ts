@@ -1,4 +1,5 @@
 import { applyRateLimit } from "../_lib/rateLimit";
+import { isErrorNamed } from "../_lib/runtimeError";
 import {
   isSolarImageProduct,
   SOLAR_IMAGE_PRODUCTS,
@@ -50,7 +51,7 @@ export default async function handler(request: Request): Promise<Response> {
       },
     );
   } catch (cause) {
-    console.warn(JSON.stringify({ event: "solar_media_fetch", kind: "image-metadata", productId, outcome: cause instanceof DOMException && cause.name === "AbortError" ? "timeout" : "failure", durationMs: Date.now() - startedAt }));
+    console.warn(JSON.stringify({ event: "solar_media_fetch", kind: "image-metadata", productId, outcome: isErrorNamed(cause, "AbortError", "TimeoutError") ? "timeout" : "failure", durationMs: Date.now() - startedAt }));
     return new Response(
       JSON.stringify({ error: { code: "IMAGE_METADATA_UNAVAILABLE", message: "Image timestamp is temporarily unavailable" } }),
       { status: 502, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },

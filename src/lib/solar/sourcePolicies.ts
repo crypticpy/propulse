@@ -213,7 +213,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     provider: "NASA DONKI",
     product: "Most-accurate CME analysis",
     endpoint: "/api/solar/cme",
-    sourceUrl: "https://api.nasa.gov/DONKI/CMEAnalysis",
+    sourceUrl:
+      "https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/CMEAnalysis",
     softTtlMs: HOUR,
     hardTtlMs: 6 * HOUR,
     refetchMs: HOUR,

@@ -1,6 +1,7 @@
 /** Private signed ingest and double-gated coarse view for NowCast research health. */
 
 import { applyRateLimit } from "../_lib/rateLimit";
+import { isErrorNamed } from "../_lib/runtimeError";
 import { propagationRuntimeModeIsActivated } from "../../src/lib/propagation/runtimeActivation";
 import {
   parseResearchHealthPayload,
@@ -181,7 +182,7 @@ export async function deliverPendingAlerts(
       lastError =
         error instanceof Error && /^webhook returned \d{3}$/.test(error.message)
           ? error.message
-          : error instanceof DOMException && error.name === "TimeoutError"
+          : isErrorNamed(error, "AbortError", "TimeoutError")
             ? "webhook timed out"
             : "webhook request failed";
     }

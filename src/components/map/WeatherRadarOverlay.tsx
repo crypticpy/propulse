@@ -265,32 +265,40 @@ function WeatherRadarOverlayInner({
       return;
     }
 
-    loadFrame(latestIdx)
-      .then((texture) => {
-        if (cancelled || !texture) return;
-        setActiveFrameIndex(latestIdx);
-        setIsLoading(false);
+    const loadOrder = [
+      latestIdx,
+      ...framesToLoad.filter((index) => index !== latestIdx),
+    ];
+    const loadSequentially = async () => {
+      let displayedFrame = false;
+      for (let i = 0; i < loadOrder.length; i += FRAME_BATCH_SIZE) {
+        if (cancelled) return;
+        const batch = loadOrder.slice(i, i + FRAME_BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map((index) => loadFrame(index)),
+        );
 
-        // Load remaining frames from our limited set, one at a time
-        const remaining = framesToLoad.filter((i) => i !== latestIdx);
-
-        const loadSequentially = async () => {
-          for (let i = 0; i < remaining.length; i += FRAME_BATCH_SIZE) {
-            if (cancelled) return;
-            const batch = remaining.slice(i, i + FRAME_BATCH_SIZE);
-            await Promise.allSettled(batch.map((idx) => loadFrame(idx)));
-            // Small delay between frames to be gentle on RainViewer
-            if (!cancelled && i + FRAME_BATCH_SIZE < remaining.length) {
-              await new Promise((r) => setTimeout(r, 500));
-            }
+        if (!displayedFrame) {
+          const firstLoaded = results.find(
+            (result): result is PromiseFulfilledResult<THREE.CanvasTexture> =>
+              result.status === "fulfilled" && result.value !== null,
+          );
+          if (firstLoaded && !cancelled) {
+            const sourceIndex = batch[results.indexOf(firstLoaded)];
+            setActiveFrameIndex(sourceIndex);
+            setIsLoading(false);
+            displayedFrame = true;
           }
-        };
+        }
 
-        loadSequentially();
-      })
-      .catch(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+        if (!cancelled && i + FRAME_BATCH_SIZE < loadOrder.length) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+      if (!cancelled && !displayedFrame) setIsLoading(false);
+    };
+
+    void loadSequentially();
 
     return () => {
       cancelled = true;
@@ -334,7 +342,7 @@ function WeatherRadarOverlayInner({
       stopped = true;
       clearTimeout(timeoutId);
     };
-  }, [isPlaying, pastCount]);
+  }, [isPlaying, pastCount, loadedVersion]);
 
   // Update material texture when frame changes or new frames load
   useEffect(() => {

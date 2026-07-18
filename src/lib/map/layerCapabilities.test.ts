@@ -23,6 +23,16 @@ describe("PropSphere renderer capability matrix", () => {
     expect(getLayerAvailability("earthquakes", "flat")).toEqual({
       available: true,
     });
+    expect(getLayerAvailability("stateBorders", "flat")).toEqual({
+      available: true,
+    });
+  });
+
+  it("rejects stale or external layer keys", () => {
+    expect(getLayerAvailability("not-a-layer", "globe")).toEqual({
+      available: false,
+      reason: "Unknown layer control",
+    });
   });
 
   it("keeps only one full-globe surface data overlay active", () => {

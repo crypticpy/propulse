@@ -8,6 +8,57 @@ export interface LayerAvailability {
   reason?: string;
 }
 
+const PROP_SPHERE_LAYER_KEYS = [
+  "terminator",
+  "greyline",
+  "aurora",
+  "muf",
+  "nvis",
+  "spots",
+  "spotTraces",
+  "nightLights",
+  "labels",
+  "satellites",
+  "earthquakes",
+  "weather",
+  "lightning",
+  "wspr",
+  "contestQsos",
+  "loggedQsos",
+  "fires",
+  "radar",
+  "issTracker",
+  "gridActivity",
+  "ionosphere",
+  "rayPath",
+  "drap",
+  "geomagField",
+  "noiseFloor",
+  "meteorShowers",
+  "beacons",
+  "spectrumRing",
+  "ducting",
+  "sporadicE",
+  "satelliteFootprints",
+  "ft8Spotter",
+  "goesCloud",
+  "tec",
+  "repeaters",
+  "riverGauges",
+  "aprs",
+  "tropical",
+  "sst",
+] as const satisfies readonly PropSphereLayerKey[];
+
+const PROP_SPHERE_LAYER_KEY_SET = new Set<string>(PROP_SPHERE_LAYER_KEYS);
+const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([
+  "stateBorders",
+  "maidenheadGrid",
+  "gridLabels",
+  "tileLabels",
+  "autoRotate",
+]);
+
 const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "beacons",
   "drap",
@@ -105,6 +156,13 @@ export function getLayerAvailability(
   layerKey: string,
   viewMode: PropSphereViewMode,
 ): LayerAvailability {
+  if (
+    !PROP_SPHERE_LAYER_KEY_SET.has(layerKey) &&
+    !PROP_SPHERE_DISPLAY_CONTROL_KEYS.has(layerKey)
+  ) {
+    return { available: false, reason: "Unknown layer control" };
+  }
+
   if (layerKey === "wspr" && !WSPR_LIVE_SOURCE_ENABLED) {
     return {
       available: false,

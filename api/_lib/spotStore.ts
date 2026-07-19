@@ -1,4 +1,4 @@
-import { isErrorNamed } from "./runtimeError";
+import { isErrorNamed } from "./runtimeError.js";
 
 export type StoredSpotSource = "pskreporter" | "rbn" | "dxcluster";
 

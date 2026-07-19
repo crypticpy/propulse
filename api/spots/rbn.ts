@@ -1,12 +1,12 @@
 /** Reverse Beacon Network UI feed backed by the central collector store. */
 
-import { applyRateLimit } from "../_lib/rateLimit";
+import { applyRateLimit } from "../_lib/rateLimit.js";
 import {
   spotCacheHeaders,
   spotJsonResponse,
   spotOptionsResponse,
-} from "../_lib/spotResponse";
-import { meterBandNumber, readStoredSpots } from "../_lib/spotStore";
+} from "../_lib/spotResponse.js";
+import { meterBandNumber, readStoredSpots } from "../_lib/spotStore.js";
 
 function requestedBands(value: string | null): string[] | undefined {
   if (!value) return undefined;

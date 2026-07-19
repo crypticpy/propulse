@@ -122,6 +122,7 @@ export function PinMarker({
   const headMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const glowRingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const shadowCircleMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const hoverScaleRef = useRef(1);
   const [isHovered, setIsHovered] = useState(false);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
@@ -169,15 +170,22 @@ export function PinMarker({
   }, [onHover, pinId]);
 
   // Animate pin (gentle bobbing motion) and apply globe occlusion
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera, clock }, delta) => {
     if (groupRef.current) {
-      // Keep a stable screen size at local zoom, then apply hover emphasis.
+      // Camera-distance scaling must update immediately so the pin cannot lag
+      // behind zoom. Smooth only the small hover emphasis independently.
       groupRef.current.position.copy(basePosition);
       groupRef.current.getWorldPosition(worldPosition);
       const screenScale = getScreenSpaceScale(
         camera.position.distanceTo(worldPosition),
       );
-      const targetScale = screenScale * (isHovered ? 1.2 : 1);
+      const hoverTarget = isHovered ? 1.2 : 1;
+      hoverScaleRef.current = THREE.MathUtils.lerp(
+        hoverScaleRef.current,
+        hoverTarget,
+        1 - Math.exp(-12 * delta),
+      );
+      const targetScale = screenScale * hoverScaleRef.current;
       groupRef.current.scale.setScalar(targetScale);
 
       // Gentle bob animation, scaled with the marker so it stays local.

@@ -8,12 +8,16 @@ export function getUnitSphereScale(
   equatorialRadius: number,
   polarRadius: number,
 ): GlobeScale {
-  const safeEquatorialRadius = Math.max(Number.EPSILON, equatorialRadius);
-  const safePolarRadius = Math.max(Number.EPSILON, polarRadius);
+  if (!Number.isFinite(equatorialRadius) || equatorialRadius <= 0) {
+    throw new RangeError("Equatorial radius must be a positive finite number");
+  }
+  if (!Number.isFinite(polarRadius) || polarRadius <= 0) {
+    throw new RangeError("Polar radius must be a positive finite number");
+  }
 
   return [
-    1 / safeEquatorialRadius,
-    1 / safeEquatorialRadius,
-    1 / safePolarRadius,
+    1 / equatorialRadius,
+    1 / equatorialRadius,
+    1 / polarRadius,
   ];
 }

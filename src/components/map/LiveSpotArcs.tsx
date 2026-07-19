@@ -11,9 +11,9 @@
  * are present in the same geographic area.
  */
 
-import React, { useMemo, useEffect, useRef } from "react";
+import React, { useMemo, useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
@@ -47,6 +47,7 @@ import {
 import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useReplayStore } from "@/stores/replayStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
+import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -576,12 +577,13 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
   const tmpScale = useMemo(() => new THREE.Vector3(), []);
   const tmpQuaternion = useMemo(() => new THREE.Quaternion(), []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
     const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
     mesh.count = count;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
     for (let i = 0; i < count; i++) {
       const ep = endpoints[i];
@@ -596,26 +598,45 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
         continue;
       }
 
-      // Position on globe surface
-      const [x, y, z] = latLonTo3D(ep.lat, ep.lon, 1.006);
-      tmpPosition.set(x, y, z);
-      tmpScale.set(ep.size, ep.size, ep.size);
-      tmpMatrix.compose(tmpPosition, tmpQuaternion, tmpScale);
-      mesh.setMatrixAt(i, tmpMatrix);
-
       // Per-instance color
       tmpColor.set(ep.color);
       mesh.setColorAt(i, tmpColor);
     }
 
-    // Flag GPU uploads
-    if (mesh.instanceMatrix) {
-      mesh.instanceMatrix.needsUpdate = true;
-    }
     if (mesh.instanceColor) {
       mesh.instanceColor.needsUpdate = true;
     }
-  }, [endpoints, tmpMatrix, tmpColor, tmpPosition, tmpScale, tmpQuaternion]);
+  }, [endpoints, tmpMatrix, tmpColor]);
+
+  useFrame(({ camera }) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
+    mesh.count = count;
+
+    for (let i = 0; i < count; i++) {
+      const ep = endpoints[i];
+
+      if (!Number.isFinite(ep.lat) || !Number.isFinite(ep.lon)) {
+        tmpMatrix.makeScale(0, 0, 0);
+        mesh.setMatrixAt(i, tmpMatrix);
+        continue;
+      }
+
+      const [x, y, z] = latLonTo3D(ep.lat, ep.lon, 1.006);
+      tmpPosition.set(x, y, z);
+      const size = getScreenSpaceWorldSize(
+        ep.size,
+        camera.position.distanceTo(tmpPosition),
+      );
+      tmpScale.setScalar(size);
+      tmpMatrix.compose(tmpPosition, tmpQuaternion, tmpScale);
+      mesh.setMatrixAt(i, tmpMatrix);
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
+  });
 
   return (
     <instancedMesh

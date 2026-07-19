@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import {
+  getScreenSpaceScale,
+  getScreenSpaceWorldSize,
+} from "@/lib/map/screenSpaceScale";
 
 describe("getScreenSpaceScale", () => {
   it("keeps overview markers at their authored size", () => {
@@ -14,5 +17,10 @@ describe("getScreenSpaceScale", () => {
 
   it("keeps an elevated trace head bounded at street-level distance", () => {
     expect(getScreenSpaceScale(0.008)).toBeCloseTo(0.005333, 6);
+  });
+
+  it("shrinks an instanced spot endpoint's world radius at deep zoom", () => {
+    expect(getScreenSpaceWorldSize(0.008, 1.5)).toBe(0.008);
+    expect(getScreenSpaceWorldSize(0.008, 0.015)).toBeCloseTo(0.00008, 8);
   });
 });

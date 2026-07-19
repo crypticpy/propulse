@@ -246,12 +246,10 @@ export function PassbandDetail({
   // ── Effective FFT source: prefer audio FFT (high-res) over radio scope ──
   const effectiveFrame = audioFftFrame ?? frame;
 
-  // Audio FFT is in dBFS (-∞..0), radio scope is in dBm-ish.
-  // Auto-range for audio FFT so the waterfall colors map correctly.
+  // Audio FFT is in dBFS (-∞..0), radio scope is in dBm-ish. Each source is
+  // normalized with its own range (mirrors SpectrumScope/Waterfall): the radio
+  // (CI-V) bins keep the dBm-scale min/range even while audio FFT streams.
   const isAudioFft = !!audioFftFrame;
-  const effectiveMinDb = isAudioFft ? -120 : minDb;
-  const effectiveMaxDb = isAudioFft ? -20 : maxDb;
-  const effectiveRange = Math.max(1, effectiveMaxDb - effectiveMinDb);
 
   // Clear waterfall when FFT source type changes (radio ↔ audio)
   const prevAudioFftRef = useRef(isAudioFft);
@@ -316,13 +314,13 @@ export function PassbandDetail({
         civBins,
         civStartHz,
         civSpanHz,
-        civMinDb: effectiveMinDb,
-        civRange: effectiveRange,
+        civMinDb: minDb,
+        civRange: Math.max(1, maxDb - minDb),
         audioBins,
         audioStartHz,
         audioSpanHz,
-        audioMinDb: effectiveMinDb,
-        audioRange: effectiveRange,
+        audioMinDb: -120,
+        audioRange: 100,
         passbandStartHz: pb.startHz,
         passbandEndHz: pb.endHz,
         fadeHz: 200,
@@ -336,7 +334,7 @@ export function PassbandDetail({
       const data = row.data;
       const lutData = lut;
       for (let x = 0; x < w; x++) {
-        const idx = Math.floor(normalizedBuf[x]! * 255);
+        const idx = Math.round(normalizedBuf[x]! * 255);
         const base = idx * 3;
         data[x * 4] = lutData[base]!;
         data[x * 4 + 1] = lutData[base + 1]!;
@@ -354,8 +352,8 @@ export function PassbandDetail({
     tuning,
     zoomView,
     lut,
-    effectiveMinDb,
-    effectiveRange,
+    minDb,
+    maxDb,
   ]);
 
   // ── Overlay rendering (passband, VFO, notch markers) ───────────────────

@@ -167,6 +167,36 @@ export function Waterfall({
   const normalizedBufRef = useRef<Float32Array | null>(null);
   const rowBufRef = useRef<Uint8Array | null>(null);
   const multiRowBufRef = useRef<Uint8Array | null>(null);
+  const fallbackRowImageRef = useRef<ImageData | null>(null);
+
+  // Latest render inputs consumed by the append effect below. Updated every
+  // render so a newly-arrived frame always paints with the current view,
+  // tuning, and levels, while the effect depends only on `frame` — mutating
+  // tuning or levels no longer re-runs it and appends a duplicate row.
+  const renderInputsRef = useRef({
+    effectiveView,
+    lut,
+    minDb,
+    range,
+    rowHeight,
+    speed,
+    audioFrame,
+    audioMinDbVal,
+    audioMaxDbVal,
+    tuning,
+  });
+  renderInputsRef.current = {
+    effectiveView,
+    lut,
+    minDb,
+    range,
+    rowHeight,
+    speed,
+    audioFrame,
+    audioMinDbVal,
+    audioMaxDbVal,
+    tuning,
+  };
 
   const rendererRef = useRef<"webgl2" | "2d" | "none">("none");
   const glRef = useRef<WebGL2RenderingContext | null>(null);
@@ -491,10 +521,26 @@ export function Waterfall({
     [frame, onViewChange, view],
   );
 
-  // Render + append new FFT line.
+  // Render + append new FFT line. Depends only on `frame` (a fresh object per
+  // FFT update); view/tuning/level inputs are read from renderInputsRef so
+  // mutating them (e.g. dragging a passband edge) never appends a duplicate
+  // row and the waterfall scrolls at the true frame rate.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !frame || !effectiveView) return;
+    if (!canvas || !frame) return;
+    const {
+      effectiveView,
+      lut,
+      minDb,
+      range,
+      rowHeight,
+      speed,
+      audioFrame,
+      audioMinDbVal,
+      audioMaxDbVal,
+      tuning,
+    } = renderInputsRef.current;
+    if (!effectiveView) return;
 
     const width = canvas.width;
     const height = canvas.height;
@@ -648,7 +694,14 @@ export function Waterfall({
         Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
       ctx.drawImage(canvas, 0, lines);
 
-      const imgData = ctx.createImageData(width, 1);
+      // Reuse the row ImageData; reallocate only when the width changes.
+      if (
+        !fallbackRowImageRef.current ||
+        fallbackRowImageRef.current.width !== width
+      ) {
+        fallbackRowImageRef.current = ctx.createImageData(width, 1);
+      }
+      const imgData = fallbackRowImageRef.current!;
       const data = imgData.data;
       for (let x = 0; x < width; x++) {
         const i = x * 4;
@@ -662,19 +715,7 @@ export function Waterfall({
       }
     });
     return () => cancelAnimationFrame(rafId);
-  }, [
-    effectiveView,
-    frame,
-    lut,
-    minDb,
-    range,
-    rowHeight,
-    speed,
-    audioFrame,
-    audioMinDbVal,
-    audioMaxDbVal,
-    tuning,
-  ]);
+  }, [frame]);
 
   const tuningPositions = useMemo(() => {
     if (!tuning || !effectiveView) return null;

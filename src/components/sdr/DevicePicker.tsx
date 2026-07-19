@@ -58,10 +58,14 @@ function DaemonAddressProbe({
   const enumerationTimeoutRef = useRef<number | null>(null);
   // Read the latest callbacks via refs so the probe effects don't re-run on
   // callback identity churn (which previously drove an infinite render loop).
+  // Synced in an effect, not during render, so an abandoned StrictMode render
+  // can't leak its callbacks into the committed tree.
   const onDevicesRef = useRef(onDevices);
-  onDevicesRef.current = onDevices;
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+  useEffect(() => {
+    onDevicesRef.current = onDevices;
+    onErrorRef.current = onError;
+  });
   const clearEnumerationTimeout = useCallback(() => {
     if (enumerationTimeoutRef.current !== null) {
       window.clearTimeout(enumerationTimeoutRef.current);

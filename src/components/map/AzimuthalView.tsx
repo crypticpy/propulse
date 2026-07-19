@@ -22,6 +22,10 @@ import {
   azimuthalUnproject,
   type AzimuthalPoint,
 } from "@/lib/utils/azimuthal";
+import {
+  buildCellColorLut,
+  renderAzimuthalCellRaster,
+} from "@/lib/map/azimuthalCellRaster";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -1328,6 +1332,39 @@ export function AzimuthalView({
     return { lat: station.lat, lon: station.lon };
   }, [station]);
 
+  // Rasterize probability-surface cells per pixel via inverse projection.
+  // Cells far from the center distort so much that polygon corners are
+  // meaningless (they sweep across the disk near the antipode).
+  const cellRasterCanvas = useMemo(() => {
+    if (!center) {
+      return null;
+    }
+    const cells = Object.values(overlayLayers).flatMap((layer) =>
+      layer.type === "cells"
+        ? layer.cells
+        : layer.type === "mixed"
+          ? (layer.cells ?? [])
+          : [],
+    );
+    if (cells.length === 0) {
+      return null;
+    }
+    const raster = renderAzimuthalCellRaster(buildCellColorLut(cells), {
+      sizePx: CANVAS_SIZE,
+      centerPx: CENTER,
+      radiusPx: RADIUS,
+      centerLat: center.lat,
+      centerLon: center.lon,
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = CANVAS_SIZE;
+    canvas.height = CANVAS_SIZE;
+    canvas
+      .getContext("2d")
+      ?.putImageData(new ImageData(raster, CANVAS_SIZE, CANVAS_SIZE), 0, 0);
+    return canvas;
+  }, [center, overlayLayers]);
+
   // Draw renderer-agnostic overlay layers (contest overlays, etc.) on a separate canvas
   useEffect(() => {
     const canvas = contestOverlayCanvasRef.current;
@@ -1352,34 +1389,8 @@ export function AzimuthalView({
     ctx.translate(-CENTER, -CENTER);
 
     // Draw probability-surface cells below arcs and markers.
-    for (const layer of Object.values(overlayLayers)) {
-      const cells =
-        layer.type === "cells"
-          ? layer.cells
-          : layer.type === "mixed"
-            ? (layer.cells ?? [])
-            : [];
-      for (const cell of cells) {
-        const corners = [
-          [cell.lat + cell.heightDeg / 2, cell.lon - cell.widthDeg / 2],
-          [cell.lat + cell.heightDeg / 2, cell.lon + cell.widthDeg / 2],
-          [cell.lat - cell.heightDeg / 2, cell.lon + cell.widthDeg / 2],
-          [cell.lat - cell.heightDeg / 2, cell.lon - cell.widthDeg / 2],
-        ];
-        ctx.save();
-        ctx.globalAlpha = cell.opacity ?? 0.45;
-        ctx.fillStyle = cell.color;
-        ctx.beginPath();
-        corners.forEach(([lat, lon], index) => {
-          const projected = azimuthalProject(lat, lon, center.lat, center.lon);
-          const point = projToCanvas(projected);
-          if (index === 0) ctx.moveTo(point.x, point.y);
-          else ctx.lineTo(point.x, point.y);
-        });
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
+    if (cellRasterCanvas) {
+      ctx.drawImage(cellRasterCanvas, 0, 0);
     }
 
     // Draw overlay arcs first (under markers)
@@ -1465,7 +1476,7 @@ export function AzimuthalView({
     }
 
     ctx.restore();
-  }, [center, overlayLayers, zoom]);
+  }, [center, overlayLayers, zoom, cellRasterCanvas]);
 
   // Get subsolar point for day/night blending
   const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);

@@ -7,7 +7,7 @@ import { insertSpots, reportToDb } from "../lib/db-helpers.js";
 
 const RBN_URL = "https://www.hamqth.com/rbn_data.php?data=1&age=900";
 
-const USER_AGENT = "Propulse-Collector/1.0";
+const USER_AGENT = "Propulse-Collector/1.1 (contact@propulse.cloud)";
 
 // ---------------------------------------------------------------------------
 // Response shape from HamQTH RBN feed
@@ -43,7 +43,8 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
         Accept: "application/json",
         "User-Agent": USER_AGENT,
       },
-      signal: AbortSignal.timeout(30_000),
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!response.ok) {

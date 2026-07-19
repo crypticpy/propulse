@@ -481,7 +481,9 @@ export function SpectrumScope({
 
           const gridColor = `rgba(255,255,255,${gridOpacityNow})`;
           bgCtx.strokeStyle = gridColor;
-          bgCtx.lineWidth = 1;
+          // The bg canvas is sized in device pixels like the main canvas, so
+          // grid strokes need the same DPR scaling as every other stroke.
+          bgCtx.lineWidth = 1 * (renderDprRef.current || 1);
 
           if (gridLinesNow > 0) {
             for (let i = 1; i <= gridLinesNow; i++) {

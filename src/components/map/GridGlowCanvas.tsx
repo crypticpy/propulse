@@ -60,6 +60,9 @@ const MAX_PEAK_INTENSITY = 1.0;
 /** Boost added to peak intensity when a duplicate spot arrives */
 const DUPLICATE_BOOST = 0.15;
 
+/** Small floor for the "radial" mode glow radius so tiny/degenerate cells still render */
+const MIN_RADIAL_RADIUS_PX = 4;
+
 // ---------------------------------------------------------------------------
 // Easing helpers (inline, no dependencies)
 // ---------------------------------------------------------------------------
@@ -176,14 +179,28 @@ export class GridGlowRenderer {
   /**
    * Draw all active glows onto the canvas context.
    *
-   * @param ctx     Canvas 2D rendering context
-   * @param project Function converting (lat, lon) → canvas pixel coordinates
-   * @param now     Current timestamp (same time-base used in addGlow)
+   * @param ctx             Canvas 2D rendering context
+   * @param project         Function converting (lat, lon) → canvas pixel
+   *                        coordinates. May report `visible: false` when the
+   *                        projected point falls outside the visible map
+   *                        area (used by "radial" mode).
+   * @param now             Current timestamp (same time-base used in addGlow)
+   * @param projectionMode  "rect" (default) draws an axis-aligned rect from
+   *                        two projected corners — correct for the flat
+   *                        equirectangular view. "radial" projects the cell
+   *                        center plus all four corners and draws a
+   *                        radial-gradient circle instead, since projections
+   *                        like azimuthal equidistant warp the cell into a
+   *                        non-axis-aligned quad.
    */
   draw(
     ctx: CanvasRenderingContext2D,
-    project: (lat: number, lon: number) => { x: number; y: number },
+    project: (
+      lat: number,
+      lon: number,
+    ) => { x: number; y: number; visible?: boolean },
     now: number,
+    projectionMode: "rect" | "radial" = "rect",
   ): void {
     // Prune expired glows first
     this.pruneExpired(now);
@@ -198,6 +215,51 @@ export class GridGlowRenderer {
       const glow = this.glows[i];
       const intensity = this.computeIntensity(glow, now);
       if (intensity <= 0) continue;
+
+      const alpha = intensity;
+      const rgba = colorWithAlpha(glow.color, alpha);
+      const rgbaMid = colorWithAlpha(glow.color, alpha * 0.5);
+      const rgbaTransparent = colorWithAlpha(glow.color, 0);
+
+      if (projectionMode === "radial") {
+        const cellCenterLat = (glow.minLat + glow.maxLat) / 2;
+        const cellCenterLon = (glow.minLon + glow.maxLon) / 2;
+        const center = project(cellCenterLat, cellCenterLon);
+        if (center.visible === false) continue;
+
+        const corners = [
+          project(glow.maxLat, glow.minLon),
+          project(glow.maxLat, glow.maxLon),
+          project(glow.minLat, glow.minLon),
+          project(glow.minLat, glow.maxLon),
+        ];
+
+        let radius = MIN_RADIAL_RADIUS_PX;
+        for (const corner of corners) {
+          if (corner.visible === false) continue;
+          const dx = corner.x - center.x;
+          const dy = corner.y - center.y;
+          radius = Math.max(radius, Math.sqrt(dx * dx + dy * dy));
+        }
+
+        const gradient = ctx.createRadialGradient(
+          center.x,
+          center.y,
+          0,
+          center.x,
+          center.y,
+          radius,
+        );
+        gradient.addColorStop(0, rgba);
+        gradient.addColorStop(0.6, rgbaMid);
+        gradient.addColorStop(1, rgbaTransparent);
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
 
       // Project geographic corners to canvas pixels.
       // maxLat → top of screen (lower Y), minLat → bottom (higher Y).
@@ -220,14 +282,8 @@ export class GridGlowRenderer {
       const radius = Math.sqrt(w * w + h * h) / 2;
 
       const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      const alpha = intensity;
-
-      // Parse the color and build rgba stops
-      const rgba = colorWithAlpha(glow.color, alpha);
-      const rgbaTransparent = colorWithAlpha(glow.color, 0);
-
       gradient.addColorStop(0, rgba);
-      gradient.addColorStop(0.6, colorWithAlpha(glow.color, alpha * 0.5));
+      gradient.addColorStop(0.6, rgbaMid);
       gradient.addColorStop(1, rgbaTransparent);
 
       ctx.fillStyle = gradient;

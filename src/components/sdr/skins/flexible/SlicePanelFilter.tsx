@@ -6,6 +6,7 @@
  */
 
 import { getModeTextClass, getModeBgClass } from "@/lib/sdr/modeColors";
+import { dedupeModeTokens, normalizeModeDisplay } from "@/lib/sdr/modeTokens";
 
 // ─── Filter presets by mode category ─────────────────────────────────────────
 
@@ -43,49 +44,8 @@ const DIGI_PRESETS = [
   { label: "4K", low: 0, high: 4000 },
 ];
 
-const MODE_PRIORITY = [
-  "LSB",
-  "USB",
-  "CW",
-  "CW-R",
-  "RTTY",
-  "RTTY-R",
-  "AM",
-  "FM",
-  "WFM",
-  "FT8",
-  "FT4",
-] as const;
-
-function normalizeMode(mode: string): string {
-  const m = mode.toUpperCase().trim().replace(/_/g, "-");
-  if (m === "CWR" || m === "CW R") return "CW-R";
-  if (m === "RTTYR" || m === "RTTY R") return "RTTY-R";
-  return m;
-}
-
-function buildModeButtons(availableModes: string[]): string[] {
-  const source = availableModes.length > 0 ? availableModes : [...MODE_PRIORITY];
-  const dedup = new Map<string, string>();
-
-  for (const mode of source) {
-    const key = normalizeMode(mode);
-    if (!key || dedup.has(key)) continue;
-    dedup.set(key, key);
-  }
-
-  return [...dedup.values()].sort((a, b) => {
-    const aIdx = MODE_PRIORITY.indexOf(a as (typeof MODE_PRIORITY)[number]);
-    const bIdx = MODE_PRIORITY.indexOf(b as (typeof MODE_PRIORITY)[number]);
-    const aRank = aIdx === -1 ? MODE_PRIORITY.length : aIdx;
-    const bRank = bIdx === -1 ? MODE_PRIORITY.length : bIdx;
-    if (aRank !== bRank) return aRank - bRank;
-    return a.localeCompare(b);
-  });
-}
-
 function getPresetsForMode(mode: string) {
-  const m = normalizeMode(mode);
+  const m = normalizeModeDisplay(mode);
   if (m === "CW" || m === "CW-R") return CW_PRESETS;
   if (m === "AM" || m === "FM" || m === "NFM" || m === "WFM")
     return AM_FM_PRESETS;
@@ -125,25 +85,25 @@ export function SlicePanelFilter({
   supportsFilter,
   canControl,
 }: SlicePanelFilterProps) {
-  const modeButtons = buildModeButtons(availableModes);
+  const modeButtons = dedupeModeTokens(availableModes);
   const presets = getPresetsForMode(currentMode);
   const currentBw = filterHigh - filterLow;
-  const normalizedCurrentMode = normalizeMode(currentMode);
+  const normalizedCurrentMode = normalizeModeDisplay(currentMode);
 
   return (
     <div className="space-y-2">
       {/* Mode grid */}
       {supportsMode && modeButtons.length > 0 && (
         <div className="grid grid-cols-4 gap-1">
-          {modeButtons.map((m) => {
-            const isActive = normalizeMode(m) === normalizedCurrentMode;
-            const colors = `${getModeBgClass(m)} ${getModeTextClass(m)}`;
+          {modeButtons.map((entry) => {
+            const isActive = entry.display === normalizedCurrentMode;
+            const colors = `${getModeBgClass(entry.display)} ${getModeTextClass(entry.display)}`;
 
             return (
               <button
-                key={m}
+                key={entry.display}
                 type="button"
-                onClick={() => onModeChange(m)}
+                onClick={() => onModeChange(entry.raw)}
                 disabled={!canControl}
                 className={`px-1 py-1 text-[10px] font-bold rounded border transition-colors
                   disabled:opacity-40 disabled:cursor-not-allowed ${
@@ -152,7 +112,7 @@ export function SlicePanelFilter({
                       : "bg-white/5 border-white/10 text-gray-500 hover:bg-white/10 hover:text-gray-300"
                   }`}
               >
-                {m}
+                {entry.display}
               </button>
             );
           })}

@@ -99,7 +99,7 @@ export function FlexFreqAxis({
         hz,
         xPercent,
         label: formatTickLabel(hz, step),
-        isCenter: hz === centerHz,
+        isCenter: Math.abs(hz - centerHz) < step / 2,
       });
     }
 

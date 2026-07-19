@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 
 export interface FlexBottomBarProps {
   daemonConnected: boolean;
   radioName: string | null;
   ptt: boolean;
   fftEnabled: boolean;
-  audioEnabled: boolean;
   cpuPercent: number | null;
   memoryMb: number | null;
   vfo?: "A" | "B" | null;
@@ -20,7 +19,7 @@ function formatUtc(): string {
   return `${hh}:${mm}:${ss}Z`;
 }
 
-export function FlexBottomBar({
+export const FlexBottomBar = memo(function FlexBottomBar({
   daemonConnected,
   radioName,
   ptt,
@@ -108,4 +107,4 @@ export function FlexBottomBar({
       </div>
     </div>
   );
-}
+});

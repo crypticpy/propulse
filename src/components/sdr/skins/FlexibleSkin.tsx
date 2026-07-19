@@ -33,6 +33,8 @@ import type { EqBand } from "@/lib/audio/eqTypes";
 import type { GainStage } from "@/lib/radio/protocol";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { DEFAULT_FFT_STREAM_FPS } from "@/lib/sdr/fftStreamParams";
+import { dedupeModeTokens } from "@/lib/sdr/modeTokens";
+import { computePassbandHz } from "@/components/sdr/waterfallPalette";
 import type { SdrSkinProps } from "./types";
 
 /** RX gain stage names — constant, lives outside the component to avoid re-creation. */
@@ -43,19 +45,9 @@ const TX_GAIN_STAGE_KEYS = [
   "VOXGAIN",
   "MONITOR",
 ] as const;
-const DEFAULT_SLICE_MODES = [
-  "LSB",
-  "USB",
-  "CW",
-  "CW-R",
-  "RTTY",
-  "RTTY-R",
-  "AM",
-  "FM",
-  "WFM",
-  "FT8",
-  "FT4",
-] as const;
+
+/** Stable empty-array fallback — avoids a fresh [] identity every render. */
+const EMPTY_ANTENNAS: string[] = [];
 
 function normalizeToken(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -63,25 +55,6 @@ function normalizeToken(value: string): string {
 
 function stageToken(stage: GainStage): string {
   return normalizeToken(`${stage.name} ${stage.label ?? ""}`);
-}
-
-function modeSortRank(mode: string): number {
-  const m = normalizeToken(mode);
-  const ORDER = [
-    "LSB",
-    "USB",
-    "CW",
-    "CWR",
-    "RTTY",
-    "RTTYR",
-    "AM",
-    "FM",
-    "WFM",
-    "FT8",
-    "FT4",
-  ];
-  const idx = ORDER.indexOf(m);
-  return idx === -1 ? ORDER.length : idx;
 }
 
 function isTxGainStage(stage: GainStage): boolean {
@@ -107,20 +80,7 @@ function isRxGainStage(stage: GainStage): boolean {
 }
 
 function buildSliceModes(modes: string[]): string[] {
-  const source = modes.length > 0 ? modes : [...DEFAULT_SLICE_MODES];
-  const deduped = new Map<string, string>();
-
-  for (const mode of source) {
-    const key = normalizeToken(mode);
-    if (!key || deduped.has(key)) continue;
-    deduped.set(key, mode.toUpperCase());
-  }
-
-  return [...deduped.values()].sort((a, b) => {
-    const rankDelta = modeSortRank(a) - modeSortRank(b);
-    if (rankDelta !== 0) return rankDelta;
-    return a.localeCompare(b);
-  });
+  return dedupeModeTokens(modes).map((entry) => entry.raw.toUpperCase());
 }
 
 export function FlexibleSkin(props: SdrSkinProps) {
@@ -188,6 +148,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
   const onSplitToggle = controls.onSplitToggle;
   const onIfShift = controls.onIfShift;
   const onCwSpeed = controls.onCwSpeed;
+  const onVfoChange = controls.onVfoChange;
 
   const hasRadio = !!radio.connectedDeviceId;
   const hasFft = canStreamFft && fftEnabled && !!lastFftFrame;
@@ -611,7 +572,9 @@ export function FlexibleSkin(props: SdrSkinProps) {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [onWheelTune]);
+    // hasFft gates whether topSpectrumContainerRef's element is mounted —
+    // re-run once it mounts so the listener actually attaches.
+  }, [onWheelTune, hasFft]);
 
   const measureWaterfall = useCallback(() => {
     if (waterfallContainerRef.current) {
@@ -626,7 +589,9 @@ export function FlexibleSkin(props: SdrSkinProps) {
     if (waterfallContainerRef.current)
       ro.observe(waterfallContainerRef.current);
     return () => ro.disconnect();
-  }, [measureWaterfall]);
+    // hasFft gates whether waterfallContainerRef's element is mounted —
+    // re-run once it mounts so the observer actually attaches.
+  }, [measureWaterfall, hasFft]);
 
   // Track center column width for slice flag positioning
   const centerColRef = useRef<HTMLDivElement>(null);
@@ -649,29 +614,12 @@ export function FlexibleSkin(props: SdrSkinProps) {
     const viewStart = waterfallView.centerHz - waterfallView.spanHz / 2;
     const hzPerPx = waterfallView.spanHz / centerWidth;
 
-    // Compute passband edges (same logic as computePassbandHz)
-    const mode = (effectiveState.mode ?? "USB").toUpperCase();
-    const filterLow = effectiveState.filter?.low ?? 300;
-    const filterHigh = effectiveState.filter?.high ?? 2700;
-    let pbStartHz: number;
-    let pbEndHz: number;
-
-    if (mode === "LSB") {
-      pbStartHz = effectiveState.freq - filterHigh;
-      pbEndHz = effectiveState.freq - filterLow;
-    } else if (mode === "AM" || mode === "FM" || mode === "WFM") {
-      pbStartHz = effectiveState.freq - filterHigh;
-      pbEndHz = effectiveState.freq + filterHigh;
-    } else if (mode === "CW" || mode === "CWR") {
-      const center = (filterLow + filterHigh) / 2;
-      const half = (filterHigh - filterLow) / 2;
-      pbStartHz = effectiveState.freq + center - half;
-      pbEndHz = effectiveState.freq + center + half;
-    } else {
-      // USB and default
-      pbStartHz = effectiveState.freq + filterLow;
-      pbEndHz = effectiveState.freq + filterHigh;
-    }
+    const { startHz: pbStartHz, endHz: pbEndHz } = computePassbandHz({
+      freqHz: effectiveState.freq,
+      filterLowHz: effectiveState.filter?.low ?? 300,
+      filterHighHz: effectiveState.filter?.high ?? 2700,
+      mode: effectiveState.mode ?? "USB",
+    });
 
     const pbEndX = (pbEndHz - viewStart) / hzPerPx;
     const pbStartX = (pbStartHz - viewStart) / hzPerPx;
@@ -702,6 +650,34 @@ export function FlexibleSkin(props: SdrSkinProps) {
     effectiveState?.filter?.high,
     centerWidth,
   ]);
+
+  // ── Stable handlers for FlexVfoDisplay (memoized; re-rendered at the FFT
+  // frame rate, so these must not be recreated as inline arrows) ──────────
+  const vfoSwapSupported =
+    radio.canControlConnected &&
+    radio.selectedDevice?.capabilities.commands?.vfo === true;
+  const currentVfo = effectiveState?.vfo;
+
+  const handleVfoSwap = useCallback(() => {
+    onVfoChange(currentVfo === "B" ? "A" : "B");
+  }, [onVfoChange, currentVfo]);
+
+  const nbEnabled = effectiveState?.nb?.enabled;
+  const nbThreshold = effectiveState?.nb?.threshold;
+  const handleNbToggle = useCallback(() => {
+    onNbChange(!nbEnabled, nbThreshold ?? 50);
+  }, [onNbChange, nbEnabled, nbThreshold]);
+
+  const nrEnabled = effectiveState?.nr?.enabled;
+  const nrLevel = effectiveState?.nr?.level;
+  const handleNrToggle = useCallback(() => {
+    onNrChange(!nrEnabled, nrLevel ?? 5);
+  }, [onNrChange, nrEnabled, nrLevel]);
+
+  const agcEnabled = effectiveState?.agc;
+  const handleAgcToggle = useCallback(() => {
+    onAgcToggle(!agcEnabled);
+  }, [onAgcToggle, agcEnabled]);
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0f] overflow-hidden">
@@ -745,37 +721,15 @@ export function FlexibleSkin(props: SdrSkinProps) {
               txMeter={effectiveState?.txMeter}
               cwSpeed={effectiveState?.cwSpeed}
               ifShift={effectiveState?.ifShift}
-              onVfoSwap={
-                radio.canControlConnected &&
-                radio.selectedDevice?.capabilities.commands?.vfo === true
-                  ? () =>
-                      controls.onVfoChange(
-                        effectiveState?.vfo === "B" ? "A" : "B",
-                      )
-                  : undefined
-              }
+              onVfoSwap={vfoSwapSupported ? handleVfoSwap : undefined}
               onNbToggle={
-                radio.canControlConnected
-                  ? () =>
-                      controls.onNbChange(
-                        !effectiveState?.nb?.enabled,
-                        effectiveState?.nb?.threshold ?? 50,
-                      )
-                  : undefined
+                radio.canControlConnected ? handleNbToggle : undefined
               }
               onNrToggle={
-                radio.canControlConnected
-                  ? () =>
-                      controls.onNrChange(
-                        !effectiveState?.nr?.enabled,
-                        effectiveState?.nr?.level ?? 5,
-                      )
-                  : undefined
+                radio.canControlConnected ? handleNrToggle : undefined
               }
               onAgcToggle={
-                radio.canControlConnected
-                  ? () => controls.onAgcToggle(!effectiveState?.agc)
-                  : undefined
+                radio.canControlConnected ? handleAgcToggle : undefined
               }
               onLockToggle={
                 radio.canControlConnected ? controls.onLockToggle : undefined
@@ -1051,7 +1005,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
             hasMultipleAntennas={
               (radio.selectedDevice?.capabilities.antennas.length ?? 0) > 1
             }
-            antennas={radio.selectedDevice?.capabilities.antennas ?? []}
+            antennas={radio.selectedDevice?.capabilities.antennas ?? EMPTY_ANTENNAS}
             ft8DecoderEnabled={ft8.ft8DecoderEnabled}
             ft8DecoderMode={ft8.ft8DecoderMode}
             ft8CycleProgress={ft8.ft8CycleProgress}
@@ -1083,7 +1037,6 @@ export function FlexibleSkin(props: SdrSkinProps) {
         radioName={radioName}
         ptt={effectiveState?.ptt ?? false}
         fftEnabled={fftEnabled}
-        audioEnabled={radio.audioEnabled}
         cpuPercent={lastDaemonStatus?.cpu_percent ?? null}
         memoryMb={lastDaemonStatus?.memory_mb ?? null}
         vfo={effectiveState?.vfo ?? null}

@@ -574,6 +574,8 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
   const tmpMatrix = useMemo(() => new THREE.Matrix4(), []);
   const tmpColor = useMemo(() => new THREE.Color(), []);
   const tmpPosition = useMemo(() => new THREE.Vector3(), []);
+  const tmpWorldPosition = useMemo(() => new THREE.Vector3(), []);
+  const cameraWorldPosition = useMemo(() => new THREE.Vector3(), []);
   const tmpScale = useMemo(() => new THREE.Vector3(), []);
   const tmpQuaternion = useMemo(() => new THREE.Quaternion(), []);
 
@@ -614,6 +616,8 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
 
     const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
     mesh.count = count;
+    mesh.updateWorldMatrix(true, false);
+    camera.getWorldPosition(cameraWorldPosition);
 
     for (let i = 0; i < count; i++) {
       const ep = endpoints[i];
@@ -626,9 +630,10 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
 
       const [x, y, z] = latLonTo3D(ep.lat, ep.lon, 1.006);
       tmpPosition.set(x, y, z);
+      tmpWorldPosition.copy(tmpPosition).applyMatrix4(mesh.matrixWorld);
       const size = getScreenSpaceWorldSize(
         ep.size,
-        camera.position.distanceTo(tmpPosition),
+        cameraWorldPosition.distanceTo(tmpWorldPosition),
       );
       tmpScale.setScalar(size);
       tmpMatrix.compose(tmpPosition, tmpQuaternion, tmpScale);

@@ -7,8 +7,11 @@ import {
   startHealthServer,
   setActiveConfig,
 } from "./health.js";
-import { collectPskReporter } from "./collectors/pskreporter.js";
-import { collectRbn } from "./collectors/rbn.js";
+import {
+  startPskReporter,
+  stopPskReporter,
+} from "./collectors/pskreporter.js";
+import { startRbn, stopRbn } from "./collectors/rbn.js";
 import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
 import { collectForecasts } from "./collectors/forecast.js";
@@ -68,15 +71,17 @@ async function main(): Promise<void> {
   const db = getDb(config);
   const { pollIntervals } = config;
 
-  // Register spot collectors (intervals configurable via POLL_* env vars)
+  // Start durable spot streams. Both consumers reconnect and flush bounded
+  // batches to Supabase, so provider latency cannot block the scheduler.
   if (config.enabledSources.has("pskreporter")) {
-    register("pskreporter", pollIntervals.pskreporter, () =>
-      collectPskReporter(db),
-    );
+    startPskReporter(db);
   }
   if (config.enabledSources.has("rbn")) {
-    register("rbn", pollIntervals.rbn, () => collectRbn(db));
+    startRbn(db);
   }
+
+  // The generic DX Cluster source requires a legitimate receive-only cluster
+  // identity. It remains opt-in via COLLECTOR_ENABLED_SOURCES.
   if (config.enabledSources.has("dxcluster")) {
     register("dxcluster", pollIntervals.dxcluster, () => collectDxCluster(db));
   }
@@ -129,6 +134,8 @@ async function main(): Promise<void> {
   // Graceful shutdown
   const shutdown = (): void => {
     log("info", "Shutting down...");
+    stopPskReporter();
+    stopRbn();
     stopLightning();
     stopAll();
     process.exit(0);

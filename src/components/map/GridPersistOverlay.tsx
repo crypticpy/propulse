@@ -20,6 +20,7 @@ import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { GridActivity } from "@/hooks/useGridActivityMap";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // CONSTANTS
@@ -113,13 +114,17 @@ function buildSharedQuadGeometry(): THREE.BufferGeometry {
       const bottomLeft = (row + 1) * vertsPerSide + col;
       const bottomRight = bottomLeft + 1;
 
+      // Winding is CCW-outward under the lat/lon->XYZ mapping in the vertex
+      // shader below (verified numerically: (v1-v0)x(v2-v0) points along the
+      // outward radial direction with this order) — required for FrontSide
+      // to cull the far hemisphere instead of the near one.
       indices[ii++] = topLeft;
-      indices[ii++] = bottomLeft;
       indices[ii++] = topRight;
+      indices[ii++] = bottomLeft;
 
       indices[ii++] = topRight;
-      indices[ii++] = bottomLeft;
       indices[ii++] = bottomRight;
+      indices[ii++] = bottomLeft;
     }
   }
 
@@ -228,8 +233,9 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
       fragmentShader: PERSIST_FRAGMENT_SHADER,
       transparent: true,
       blending: THREE.AdditiveBlending,
+      depthTest: false,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
     });
     return { geometry: geo, material: mat };
   }, []);
@@ -327,7 +333,7 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
       args={[geometry, material, MAX_INSTANCES]}
       frustumCulled={false}
       count={0}
-      renderOrder={3}
+      renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
     />
   );
 }

@@ -30,6 +30,7 @@ import {
   formatBeaconFrequency,
   BEACON_FREQUENCIES,
 } from "@/lib/data/beaconNetwork";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -328,7 +329,9 @@ function BeaconMarker({
         ref={markerRef}
         geometry={diamondGeo}
         onClick={handleClick}
-        renderOrder={isActive ? 3 : 1}
+        renderOrder={
+          GLOBE_LAYER_ORDER.markers + (isActive ? 0.2 : 0.1)
+        }
       >
         <meshBasicMaterial
           ref={materialRef}
@@ -342,7 +345,11 @@ function BeaconMarker({
 
       {/* Active beacon glow */}
       {isActive && (
-        <mesh ref={glowRef} geometry={activeGlowGeo} renderOrder={0}>
+        <mesh
+          ref={glowRef}
+          geometry={activeGlowGeo}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
+        >
           <meshBasicMaterial
             ref={glowMatRef}
             color={BEACON_GLOW_COLOR}

@@ -8,6 +8,7 @@
 import { useMemo } from "react";
 import { Line } from "@react-three/drei";
 import { getTerminatorPoints } from "@/lib/utils/sun";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 interface TerminatorProps {
   /** Current display time */
@@ -74,6 +75,9 @@ export function Terminator({
       dashScale={standardMode ? 30 : 50}
       dashSize={standardMode ? 5 : 3}
       gapSize={standardMode ? 3 : 1}
+      depthTest={false}
+      depthWrite={false}
+      renderOrder={GLOBE_LAYER_ORDER.nightShade - 0.1}
     />
   );
 }

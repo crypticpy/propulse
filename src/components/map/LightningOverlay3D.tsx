@@ -23,6 +23,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { LightningStrike } from "@/lib/api/lightning";
 import { getUpDirection, latLonTo3D } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -262,7 +263,7 @@ export const LightningOverlay3D = React.memo(
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
         >
           <sphereGeometry args={[1, 12, 12]} />
           <meshBasicMaterial
@@ -280,7 +281,7 @@ export const LightningOverlay3D = React.memo(
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
         >
           <sphereGeometry args={[1, 12, 12]} />
           <meshBasicMaterial
@@ -298,7 +299,7 @@ export const LightningOverlay3D = React.memo(
           ref={ringRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
         >
           <ringGeometry args={[0.5, 1.0, 24]} />
           <meshBasicMaterial

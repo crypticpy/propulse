@@ -15,6 +15,7 @@ import React, { useRef, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { bandFromFreqMHz } from "@/lib/utils/bandFromFreq";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -171,6 +172,7 @@ export const WSPROverlay3D = React.memo(function WSPROverlay3D({
         transparent: true,
         opacity: 0.85,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.NormalBlending,
       }),
     [],
@@ -279,7 +281,7 @@ export const WSPROverlay3D = React.memo(function WSPROverlay3D({
         ref={lineRef}
         material={material}
         frustumCulled={false}
-        renderOrder={7}
+        renderOrder={GLOBE_LAYER_ORDER.arcs}
       />
     </group>
   );

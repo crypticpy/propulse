@@ -20,6 +20,7 @@ import {
   UNIT_GLOBE_ELLIPSOID,
   UNIT_GLOBE_SCALE,
 } from "@/lib/map/globeGeometry";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import * as THREE from "three";
 
 const ALIGN_ROTATION_X = -Math.PI / 2;
@@ -55,7 +56,7 @@ export function TiledLabels() {
             mat.depthWrite = false;
             mat.needsUpdate = true;
           }
-          mesh.renderOrder = 4;
+          mesh.renderOrder = GLOBE_LAYER_ORDER.tileLabels;
         }
       });
     };

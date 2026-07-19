@@ -14,6 +14,7 @@
 import { useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { getGrayLineZone } from "@/lib/utils/grayline";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 interface GrayLineZoneProps {
   /** Current display time */
@@ -123,12 +124,13 @@ export function GrayLineZone({ date, visible = true }: GrayLineZoneProps) {
   }
 
   return (
-    <mesh geometry={geometry}>
+    <mesh geometry={geometry} renderOrder={GLOBE_LAYER_ORDER.nightShade - 0.05}>
       <meshBasicMaterial
         color="#ffaa00"
         transparent
         opacity={0.15}
         side={THREE.DoubleSide}
+        depthTest={false}
         depthWrite={false}
       />
     </mesh>

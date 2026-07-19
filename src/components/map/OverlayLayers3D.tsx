@@ -11,6 +11,7 @@ import * as THREE from "three";
 import { useMapStore } from "@/stores/mapStore";
 import { getPathPoints } from "@/lib/utils/path";
 import { latLonToPosition3D } from "@/hooks/useSpotFocus";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import type { OverlayArc, OverlayCell, OverlayMarker } from "@/types/mapOverlays";
 
 const DEFAULT_MARKER_SIZE = 0.006;
@@ -68,13 +69,13 @@ function OverlayCells({ cells }: { cells: OverlayCell[] }) {
   if (cells.length === 0) return null;
   // depthTest off: depth-buffer contention with the tile surface discards
   // the discs everywhere except the limb. FrontSide culls far-side cells
-  // geometrically (discs face outward). renderOrder 8 draws above tiles and
-  // labels but below the night shading shells (9-11).
+  // geometrically (discs face outward). Paint order comes from the shared
+  // globe ladder (see globeRenderOrder.ts).
   return (
     <instancedMesh
       ref={meshRef}
       args={[undefined, undefined, cells.length]}
-      renderOrder={8}
+      renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
       frustumCulled={false}
     >
       <circleGeometry args={[1, 20]} />
@@ -128,20 +129,28 @@ export function OverlayLayers3D() {
           lineWidth={arc.width ?? 1}
           transparent
           opacity={arc.opacity ?? 0.7}
+          depthTest={false}
           depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
       ))}
 
       {markers.map((marker) => {
         const size = marker.size ? DEFAULT_MARKER_SIZE * (marker.size / 6) : DEFAULT_MARKER_SIZE;
         return (
-          <mesh key={marker.id} position={markerToPosition(marker)}>
+          <mesh
+            key={marker.id}
+            position={markerToPosition(marker)}
+            renderOrder={GLOBE_LAYER_ORDER.markers}
+          >
             <sphereGeometry args={[size, 10, 10]} />
+            {/* depthTest stays on: protruding spheres get free far-side
+                culling from the opaque globe's depth buffer. */}
             <meshBasicMaterial
               color={marker.color}
               transparent
               opacity={marker.opacity ?? 0.9}
-              depthTest={false}
+              depthTest={true}
               depthWrite={false}
             />
           </mesh>

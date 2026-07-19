@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 interface NightLightsOverlayProps {
   /** Current display time */
@@ -156,7 +157,7 @@ export function NightLightsOverlay({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <mesh renderOrder={11}>
+    <mesh renderOrder={GLOBE_LAYER_ORDER.nightLights}>
       {/* Slightly larger than Earth sphere to prevent z-fighting */}
       <primitive object={geometry} attach="geometry" />
       <primitive object={materialRef.current} attach="material" />

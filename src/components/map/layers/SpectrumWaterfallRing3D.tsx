@@ -17,6 +17,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -246,7 +247,7 @@ export const SpectrumWaterfallRing3D = React.memo(
           ref={meshRef}
           args={[cellGeometry, undefined, maxInstances]}
           frustumCulled={false}
-          renderOrder={6}
+          renderOrder={GLOBE_LAYER_ORDER.hud + 0.1}
         >
           <meshBasicMaterial
             transparent

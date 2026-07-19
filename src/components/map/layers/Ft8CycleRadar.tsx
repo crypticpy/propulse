@@ -17,6 +17,7 @@
 import React, { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -158,16 +159,20 @@ export const Ft8CycleRadar = React.memo(function Ft8CycleRadar({
   });
 
   return (
-    <mesh ref={meshRef} renderOrder={2}>
+    <mesh ref={meshRef} renderOrder={GLOBE_LAYER_ORDER.markers}>
       <ringGeometry args={[RING_INNER, RING_OUTER, RING_SEGMENTS]} />
+      {/* FrontSide: the ring faces outward (lookAt away from globe center),
+          so backface culling hides it when the QTH is on the far side —
+          required because depthTest is off. */}
       <meshBasicMaterial
         ref={materialRef}
         color={RING_COLOR}
         transparent
         opacity={BASE_OPACITY}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
+        depthTest={false}
         toneMapped={false}
       />
     </mesh>

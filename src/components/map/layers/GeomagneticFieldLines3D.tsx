@@ -19,6 +19,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { latLonToVector3 } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -216,7 +217,9 @@ export const GeomagneticFieldLines3D = React.memo(
       return lines;
     }, []);
 
-    // Material for the tubes
+    // Material for the tubes. Field lines protrude well above the globe
+    // (up to 3R), so depth testing against the opaque tile sphere gives
+    // correct far-side occlusion for free (see globeRenderOrder.ts rule 1).
     const tubeMaterial = useMemo(() => {
       const color = getKpColor(kp);
       return new THREE.MeshBasicMaterial({
@@ -224,7 +227,7 @@ export const GeomagneticFieldLines3D = React.memo(
         transparent: true,
         opacity: 0.55,
         depthWrite: false,
-        depthTest: false,
+        depthTest: true,
         side: THREE.DoubleSide,
       });
     }, [kp]);
@@ -237,7 +240,7 @@ export const GeomagneticFieldLines3D = React.memo(
         transparent: true,
         opacity: 1.0,
         depthWrite: false,
-        depthTest: false,
+        depthTest: true,
       });
     }, [kp]);
 
@@ -293,14 +296,17 @@ export const GeomagneticFieldLines3D = React.memo(
 
     // Don't render in completely quiet conditions with Kp 0
     // Still render at Kp 0 for visual interest but very subtle
+    // renderOrder must sit on each mesh — Three.js does not inherit it
+    // from the parent group.
     return (
-      <group name="geomagnetic-field-lines" renderOrder={9}>
+      <group name="geomagnetic-field-lines">
         {/* Field line tubes */}
         {fieldLines.map((line, i) => (
           <mesh
             key={`tube-${i}`}
             geometry={line.geometry}
             material={tubeMaterial}
+            renderOrder={GLOBE_LAYER_ORDER.volumes}
           />
         ))}
 
@@ -313,6 +319,7 @@ export const GeomagneticFieldLines3D = React.memo(
             }}
             geometry={particleGeometry}
             material={particleMaterial}
+            renderOrder={GLOBE_LAYER_ORDER.volumes + 0.1}
           />
         ))}
       </group>

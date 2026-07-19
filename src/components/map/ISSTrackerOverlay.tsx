@@ -19,6 +19,7 @@ import * as THREE from "three";
 import { useISSTracker } from "@/hooks/useISSTracker";
 import type { UseISSTrackerResult } from "@/hooks/useISSTracker";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -487,7 +488,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
     <group position={position}>
       <group ref={groupRef}>
         {/* Invisible click target — larger hitbox for easier clicking */}
-        <mesh onClick={handleClick} renderOrder={0}>
+        <mesh onClick={handleClick} renderOrder={GLOBE_LAYER_ORDER.markers}>
           <planeGeometry args={[0.06, 0.04]} />
           <meshBasicMaterial
             transparent
@@ -499,7 +500,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
         </mesh>
 
         {/* Glow circle behind model */}
-        <mesh renderOrder={0}>
+        <mesh renderOrder={GLOBE_LAYER_ORDER.markers}>
           <circleGeometry args={[0.03, 32]} />
           <meshBasicMaterial
             ref={glowRef}
@@ -514,7 +515,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
         </mesh>
 
         {/* Central body module */}
-        <mesh onClick={handleClick} renderOrder={2}>
+        <mesh onClick={handleClick} renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}>
           <boxGeometry args={[0.012, 0.006, 0.003]} />
           <meshBasicMaterial
             ref={bodyRef}
@@ -522,11 +523,16 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
             transparent
             opacity={0.95}
             depthTest={false}
+            depthWrite={false}
           />
         </mesh>
 
         {/* Left solar array */}
-        <mesh position={[-0.018, 0, 0]} onClick={handleClick} renderOrder={1}>
+        <mesh
+          position={[-0.018, 0, 0]}
+          onClick={handleClick}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+        >
           <planeGeometry args={[0.018, 0.008]} />
           <meshBasicMaterial
             ref={leftPanelRef}
@@ -535,11 +541,16 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
             opacity={0.8}
             side={THREE.DoubleSide}
             depthTest={false}
+            depthWrite={false}
           />
         </mesh>
 
         {/* Right solar array */}
-        <mesh position={[0.018, 0, 0]} onClick={handleClick} renderOrder={1}>
+        <mesh
+          position={[0.018, 0, 0]}
+          onClick={handleClick}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+        >
           <planeGeometry args={[0.018, 0.008]} />
           <meshBasicMaterial
             ref={rightPanelRef}
@@ -548,6 +559,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
             opacity={0.8}
             side={THREE.DoubleSide}
             depthTest={false}
+            depthWrite={false}
           />
         </mesh>
 
@@ -555,7 +567,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
         <mesh
           position={[-0.008, 0.005, 0]}
           rotation={[Math.PI / 2, 0, 0]}
-          renderOrder={1}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
         >
           <planeGeometry args={[0.006, 0.003]} />
           <meshBasicMaterial
@@ -564,12 +576,13 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
             opacity={0.6}
             side={THREE.DoubleSide}
             depthTest={false}
+            depthWrite={false}
           />
         </mesh>
         <mesh
           position={[0.008, 0.005, 0]}
           rotation={[Math.PI / 2, 0, 0]}
-          renderOrder={1}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
         >
           <planeGeometry args={[0.006, 0.003]} />
           <meshBasicMaterial
@@ -578,6 +591,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
             opacity={0.6}
             side={THREE.DoubleSide}
             depthTest={false}
+            depthWrite={false}
           />
         </mesh>
 
@@ -701,6 +715,8 @@ function ISSOrbitRing({ orbitTrack, alt }: ISSOrbitRingProps) {
           transparent
           opacity={0.15}
           depthTest={false}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
       ))}
       {/* Future orbit (brighter) */}
@@ -713,6 +729,8 @@ function ISSOrbitRing({ orbitTrack, alt }: ISSOrbitRingProps) {
           transparent
           opacity={0.4}
           depthTest={false}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
       ))}
     </>
@@ -804,6 +822,8 @@ function ISSGroundTrack({ orbitTrack }: ISSGroundTrackProps) {
           transparent
           opacity={0.1}
           depthTest={false}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
           dashed
           dashSize={0.01}
           gapSize={0.008}
@@ -817,6 +837,7 @@ function ISSGroundTrack({ orbitTrack }: ISSGroundTrackProps) {
           position={pos}
           geometry={dotGeometry}
           material={dotMaterial}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
         />
       ))}
     </>
@@ -878,6 +899,8 @@ function ISSFootprint({ lat, lon, alt }: ISSFootprintProps) {
       transparent
       opacity={0.2}
       depthTest={false}
+      depthWrite={false}
+      renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
     />
   );
 }
@@ -909,6 +932,8 @@ function ISSConnector({ iss }: ISSConnectorProps) {
       transparent
       opacity={0.15}
       depthTest={false}
+      depthWrite={false}
+      renderOrder={GLOBE_LAYER_ORDER.arcs}
       dashed
       dashSize={0.008}
       gapSize={0.006}

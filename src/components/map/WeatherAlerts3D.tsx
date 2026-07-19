@@ -21,6 +21,7 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -284,7 +285,10 @@ function AlertMarker({
   return (
     <group ref={groupRef} position={basePosition} rotation={rotation}>
       {/* Pin stem (vertical line from surface) */}
-      <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
+      <mesh
+        position={[0, STEM_HEIGHT / 2, 0]}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+      >
         <primitive object={sharedStemGeom} attach="geometry" />
         <meshBasicMaterial
           ref={stemMaterialRef}
@@ -292,6 +296,7 @@ function AlertMarker({
           transparent
           opacity={0.7}
           depthTest={false}
+          depthWrite={false}
         />
       </mesh>
 
@@ -301,7 +306,7 @@ function AlertMarker({
         onClick={handleClick}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
-        renderOrder={2}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}
       >
         <primitive object={sharedHeadGeom} attach="geometry" />
         <meshBasicMaterial
@@ -310,6 +315,7 @@ function AlertMarker({
           transparent
           opacity={isHovered ? 1 : 0.85}
           depthTest={false}
+          depthWrite={false}
         />
       </mesh>
 
@@ -317,7 +323,7 @@ function AlertMarker({
       <mesh
         ref={glowRef as unknown as React.Ref<THREE.Mesh>}
         rotation={[Math.PI / 2, 0, 0]}
-        renderOrder={0}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
       >
         <ringGeometry args={[SIZE * 0.6, SIZE * 1.0, 32]} />
         <meshBasicMaterial

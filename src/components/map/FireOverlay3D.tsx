@@ -20,6 +20,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { FireHotspot } from "@/lib/api/fires";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -150,12 +151,22 @@ export const FireOverlay3D = React.memo(
 
     return (
       <group name="fire-overlay">
-        {/* Outer glow -- orange, additive blending, low opacity */}
+        {/* Outer glow -- orange, additive blending, low opacity.
+            Unlike the tangent-disc overlays, these are genuine solid
+            spheres centered at GLOBE_RADIUS (1.006) with radius up to
+            0.008 -- the camera-facing hemisphere spans roughly 1.006 to
+            1.014, well clear of the base globe surface (radius 1.0), so
+            depthTest (left at its material default of true) correctly
+            passes without the tangent-plane depth-discard bug. Depth
+            writing stays off so overlapping hotspots/other transparent
+            layers still blend. renderOrder still needs to follow the
+            contract so this sits correctly relative to other surfaceArea
+            layers and the surfaceTexture layers below it. */}
         <instancedMesh
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
@@ -172,7 +183,7 @@ export const FireOverlay3D = React.memo(
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.surfaceArea + 0.1}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial

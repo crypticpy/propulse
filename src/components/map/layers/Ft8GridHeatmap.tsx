@@ -18,6 +18,7 @@ import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Ft8SpotterDecode } from "@/hooks/useFt8SpotterData";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { gridToLatLon } from "@/lib/utils/grid";
 
 // ---------------------------------------------------------------------------
@@ -209,11 +210,16 @@ export const Ft8GridHeatmap = React.memo(function Ft8GridHeatmap({
     <instancedMesh
       ref={meshRef}
       args={[geometry, undefined, MAX_GRIDS]}
+      renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
       frustumCulled={false}
     >
+      {/* depthTest stays on: these are protruding sphere dots, so the depth
+          buffer (which only holds the opaque globe) culls the far side for
+          free — no occlusion hook needed. */}
       <meshBasicMaterial
         blending={THREE.AdditiveBlending}
         depthWrite={false}
+        depthTest={true}
         transparent
         toneMapped={false}
       />

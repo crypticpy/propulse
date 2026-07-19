@@ -18,6 +18,7 @@ import { useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { getPathPoints, getLongPathPoints } from "@/lib/utils/path";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // Animation constants
 const ANIMATION_SPEED = 0.5; // Speed of dash flow animation
@@ -141,6 +142,9 @@ function AnimatedDashedLine({
       dashed
       dashSize={dashSize}
       gapSize={gapSize}
+      depthTest={false}
+      depthWrite={false}
+      renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
     />
   );
 }
@@ -185,6 +189,8 @@ function GlowLine({
       opacity={baseOpacity}
       transparent
       depthWrite={false}
+      depthTest={false}
+      renderOrder={GLOBE_LAYER_ORDER.arcs}
     />
   );
 }
@@ -261,6 +267,7 @@ function DirectionChevron({
       position={position}
       rotation={rotation}
       geometry={geometry}
+      renderOrder={GLOBE_LAYER_ORDER.arcs + 0.2}
     >
       <meshBasicMaterial
         ref={materialRef}
@@ -269,6 +276,7 @@ function DirectionChevron({
         opacity={opacity}
         side={THREE.DoubleSide}
         depthWrite={false}
+        depthTest={false}
       />
     </mesh>
   );
@@ -401,6 +409,9 @@ export function PathArc({
           dashed={isLongPath}
           dashSize={isLongPath ? 0.03 : undefined}
           gapSize={isLongPath ? 0.02 : undefined}
+          depthTest={false}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
         />
       )}
 

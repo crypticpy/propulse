@@ -19,6 +19,7 @@ import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import { getModeColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Radius offset to prevent z-fighting with globe surface */
 const SURFACE_OFFSET = 1.000002;
@@ -293,7 +294,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
       <mesh
         rotation={[Math.PI / 2, 0, 0]}
         position={[0, 0.001, 0]}
-        renderOrder={0}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
       >
         <ringGeometry args={[HEAD_SIZE * 0.8, HEAD_SIZE * 1.5, 6]} />
         <meshBasicMaterial
@@ -308,7 +309,10 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
       </mesh>
 
       {/* 2. Stem — thin cylinder from surface to head */}
-      <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
+      <mesh
+        position={[0, STEM_HEIGHT / 2, 0]}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+      >
         <primitive object={stemGeometry} attach="geometry" />
         <meshBasicMaterial
           ref={stemMaterialRef}
@@ -328,7 +332,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         onClick={handleClick}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
-        renderOrder={3}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.3}
         scale={[sizeMultiplier, sizeMultiplier, 1]}
       >
         <meshBasicMaterial
@@ -344,7 +348,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
       <mesh
         ref={headGlowMeshRef}
         position={[0, STEM_HEIGHT, 0]}
-        renderOrder={2}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}
       >
         <circleGeometry args={[HEAD_SIZE * 2, 32]} />
         <meshBasicMaterial

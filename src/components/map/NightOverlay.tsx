@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 interface NightOverlayProps {
   /** Current display time */
@@ -104,7 +105,7 @@ export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <mesh renderOrder={10}>
+    <mesh renderOrder={GLOBE_LAYER_ORDER.nightShade}>
       <primitive object={geometry} attach="geometry" />
       <primitive object={materialRef.current} attach="material" />
     </mesh>

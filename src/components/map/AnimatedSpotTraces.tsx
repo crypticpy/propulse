@@ -36,6 +36,7 @@ import {
 import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // TYPES
@@ -359,28 +360,47 @@ const TraceAnimation = React.memo(
           opacity={0.8}
           transparent
           depthWrite={false}
+          depthTest={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
 
         {/* Head — inner solid sphere */}
-        <mesh ref={headRef} visible={false}>
+        <mesh
+          ref={headRef}
+          visible={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
+        >
           <sphereGeometry args={[HEAD_RADIUS, 8, 8]} />
-          <meshBasicMaterial color={color} depthWrite={false} />
+          <meshBasicMaterial
+            color={color}
+            depthWrite={false}
+            depthTest={false}
+          />
         </mesh>
 
         {/* Head — outer glow sphere */}
-        <mesh ref={headGlowRef} visible={false}>
+        <mesh
+          ref={headGlowRef}
+          visible={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs + 0.2}
+        >
           <sphereGeometry args={[HEAD_GLOW_RADIUS, 8, 8]} />
           <meshBasicMaterial
             color={color}
             transparent
             opacity={0.25}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
 
         {/* Landing pulse ring */}
-        <mesh ref={ringRef} visible={false}>
+        <mesh
+          ref={ringRef}
+          visible={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs + 0.3}
+        >
           <ringGeometry args={[LANDING_RING_MIN * 0.8, LANDING_RING_MIN, 32]} />
           <meshBasicMaterial
             ref={ringMaterialRef}
@@ -389,6 +409,7 @@ const TraceAnimation = React.memo(
             opacity={0.7}
             side={THREE.DoubleSide}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

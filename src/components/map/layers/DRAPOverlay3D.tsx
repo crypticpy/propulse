@@ -23,6 +23,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { GLOBE_LAYER_ORDER, GLOBE_OVERLAY_MATERIAL } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // TYPES
@@ -166,15 +167,14 @@ export const DRAPOverlay3D = React.memo(
     if (!texture) return null;
 
     return (
-      <mesh renderOrder={7}>
+      <mesh renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
         <sphereGeometry args={[1.015, 128, 64, Math.PI]} />
         <meshBasicMaterial
           ref={materialRef}
           map={texture}
-          transparent
           opacity={0.7}
-          depthWrite={false}
-          side={THREE.DoubleSide}
+          side={THREE.FrontSide}
+          {...GLOBE_OVERLAY_MATERIAL}
         />
       </mesh>
     );

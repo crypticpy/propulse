@@ -21,6 +21,7 @@ import { useFrame } from "@react-three/fiber";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { calculateLayerHeights } from "@/lib/utils/ionosphere";
 import { useCurrentSFI } from "@/hooks/useMUFData";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -241,6 +242,7 @@ function createLayerMaterial(
     fragmentShader,
     transparent: true,
     depthWrite: false,
+    depthTest: false,
     side: THREE.FrontSide,
     blending: THREE.NormalBlending,
   });
@@ -311,7 +313,11 @@ export function IonosphericShells({ displayTime }: IonosphericShellsProps) {
   return (
     <group>
       {materials.map((mat, i) => (
-        <mesh key={i} renderOrder={i + 1} frustumCulled={false}>
+        <mesh
+          key={i}
+          renderOrder={GLOBE_LAYER_ORDER.volumes + i * 0.1}
+          frustumCulled={false}
+        >
           <sphereGeometry
             args={[layerRadii[i], SPHERE_SEGMENTS, SPHERE_SEGMENTS]}
           />

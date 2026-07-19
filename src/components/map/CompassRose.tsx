@@ -10,6 +10,7 @@ import { useMemo, useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Cardinal and intercardinal direction labels */
 const CARDINAL_DIRECTIONS = [
@@ -285,6 +286,8 @@ function BearingLine({
       transparent
       opacity={0.9}
       depthTest={false}
+      depthWrite={false}
+      renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
     />
   );
 }
@@ -395,6 +398,8 @@ export function CompassRose({
         transparent
         opacity={0.6}
         depthTest={false}
+        depthWrite={false}
+        renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
       />
 
       {/* Inner ring for visual depth */}
@@ -405,6 +410,8 @@ export function CompassRose({
         transparent
         opacity={0.3}
         depthTest={false}
+        depthWrite={false}
+        renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
       />
 
       {/* Tick marks for cardinal/intercardinal directions */}
@@ -417,12 +424,14 @@ export function CompassRose({
           transparent
           opacity={tick.isCardinal ? 0.8 : 0.5}
           depthTest={false}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
         />
       ))}
 
       {/* Beam width wedge (behind bearing line) */}
       {beamWedgeGeometry && (
-        <mesh geometry={beamWedgeGeometry} renderOrder={0}>
+        <mesh geometry={beamWedgeGeometry} renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}>
           <meshBasicMaterial
             color={COLORS.beamWedge}
             transparent

@@ -16,6 +16,7 @@
 import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // TYPES
@@ -284,7 +285,11 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      depthTest: false,
+      // FrontSide: geometry is projected exactly onto the sphere surface by
+      // the vertex shader (see GLOW_VERTEX_SHADER), so standard front-face
+      // winding culls far-side patches — matches the OverlayLayers3D pattern.
+      side: THREE.FrontSide,
     });
     return { geometry: geo, material: mat };
   }, []);
@@ -510,7 +515,7 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
       ref={meshRef}
       args={[geometry, material, POOL_SIZE]}
       frustumCulled={false}
-      renderOrder={3}
+      renderOrder={GLOBE_LAYER_ORDER.surfaceArea + 0.2}
     />
   );
 }

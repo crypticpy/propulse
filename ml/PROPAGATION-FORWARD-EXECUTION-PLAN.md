@@ -1,6 +1,6 @@
 # Propagation Forward Execution Plan
 
-> Status: active execution plan, audited 2026-07-18.
+> Status: active execution plan, audited 2026-07-19.
 >
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Frozen model protocol and evidence: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md).
@@ -22,13 +22,13 @@ another retrospective model search.
 
 The immediate critical path is:
 
-1. repair the failed WSPR research collector and determine whether its 45-hour
-   continuity clock can be recovered honestly;
-2. rebuild the first-party prospective collector's 24-hour clean preflight;
-3. establish a real owner login and conduct private product acceptance;
-4. obtain written permission for the proposed WSPR.live uses or replace that
+1. accumulate and verify the Railway collector's 24-hour clean preflight;
+2. complete private owner acceptance against the repaired production product;
+3. obtain written permission for the proposed WSPR.live uses or replace that
    source with an authorized first-party source;
-5. complete the controlled M5 outage proof;
+4. establish a cloud-native WSPR/FutureCast evidence path before any hosted
+   feature depends on those inputs;
+5. prove continuity while the M5 is physically offline;
 6. freeze the prospective evaluation artifacts before 2026-08-01;
 7. capture 2026-08-01 through 2026-09-30 without reading outcomes, then score
    once after the window closes;
@@ -46,6 +46,12 @@ The immediate critical path is:
   deployed privately to Railway in `shadow` mode.
 - The authenticated Vercel-to-Railway inference path is live at
   [propulse.cloud](https://propulse.cloud).
+- The first-party PSK Reporter, RBN, solar-weather, forecast, satellite,
+  aggregation, and health collector is live on Railway and persists to
+  Supabase. The M5 collector LaunchAgents are disabled and unloaded.
+- Production spot APIs, all 16 Solar Pulse contracts, authenticated
+  capabilities, and authenticated surface inference were reverified after the
+  migration. Unapproved or unconfigured providers fail closed in the product.
 - Band Planner, deterministic StationCast, the 324-cell ReachMap, confidence,
   freshness, profile, fallback, and exact model identity are integrated.
 - Desktop and mobile authenticated end-to-end QA passed with exact A6 and
@@ -60,31 +66,33 @@ The immediate critical path is:
 
 ### Open incidents and clocks
 
-- **WSPR collector incident:** the M5 WSPR research scheduler has 16 consecutive
-  failures. The current failure originates in the Supabase
-  `prune_wspr_observations` RPC returning HTTP 500. The last completed hour is
-  2026-07-17T23:00Z and the failed target begins at 2026-07-18T00:00Z.
-- **WSPR evidence:** 45 continuous hours were completed before the incident,
-  against the 720-hour gate. The continuity receipt is invalid while the
-  scheduler and coverage audit are failing.
-- **First-party inputs:** PSK Reporter, RBN, DX Cluster, and required
-  solar/geomagnetic inputs are currently present, but continuity reset to
-  0.417/24 hours after an outage. `prospective_capture_ready` is false.
-- **FutureCast archive:** both required NOAA products are being captured, with
-  three qualifying common days out of 90 and no invalid captures. Every real
+- **WSPR evidence:** the former M5 research scheduler is not a production
+  service and its earlier 45-hour continuity receipt is not accepted for a
+  hosted release. The evidence clock remains open until an authorized,
+  cloud-native capture path is established and passes the frozen rules.
+- **First-party inputs:** PSK Reporter, RBN, required solar/geomagnetic inputs,
+  forecasts, and satellite TLEs are now collected on Railway. The new cloud
+  continuity clock must mature without borrowing the old M5 clock. DX Cluster
+  remains explicitly unavailable pending an approved durable identity/source.
+- **FutureCast archive:** three historical qualifying common issuance days are
+  preserved, but they do not establish a cloud continuity clock. Cloud-native
+  issuance capture must be verified before the 90-day gate resumes. Every real
   +3/+6/+12/+24 horizon remains withheld for insufficient history.
 - **WSPR authorization:** the permission request is prepared but not sent.
   Subscriber-facing use is not authorized.
-- **Physical outage proof:** non-destructive preflight passed, but a literal
-  controlled M5 shutdown has not been performed.
+- **Cloud independence proof:** production has passed functional checks with the
+  old M5 collectors unloaded. A recorded full M5-off continuity interval is
+  still required for the formal evidence receipt.
 - **Cloud cost:** real Railway, Supabase, and Vercel meter values after a
   representative week have not yet been recorded.
-- **Owner acceptance:** no persistent owner test session has yet covered all
-  saved locations, shack presets, bands, profiles, fallbacks, and viewports.
+- **Owner acceptance:** owner login and password recovery now work. The full
+  saved-location, shack-preset, band, profile, fallback, and viewport matrix is
+  still open.
 
-If FutureCast capture remains uninterrupted, 2026-07-16 is day one, the 90th
-issuance day is 2026-10-13, and the +24-hour outcome matures on approximately
-2026-10-14. This is an earliest possible evidence date, not a release promise.
+FutureCast has no current release date. Its earliest evidence date can be
+calculated only after authorized cloud-native capture records a new defensible
+day one; the +24-hour outcome matures one day after its 90th qualifying common
+issuance day.
 
 ## Historical plan disposition
 
@@ -102,7 +110,7 @@ issuance day is 2026-10-13, and the +24-hour outcome matures on approximately
 
 **Priority:** blocking, begin immediately.
 
-### 0A. Establish owner access
+### 0A. Establish owner access - complete
 
 - Confirm the intended owner email exists in Supabase Auth.
 - If absent, use the normal Supabase invitation or product registration flow;
@@ -115,31 +123,30 @@ issuance day is 2026-10-13, and the +24-hour outcome matures on approximately
 **Pass:** the owner can authenticate in production and load protected product
 surfaces without an administrator bypass.
 
-### 0B. Repair the WSPR prune failure
+Completed 2026-07-19 through the normal production Auth flow. Redirects target
+`https://propulse.cloud`; no administrator password or persistent test account
+is part of the product contract.
 
-- Reproduce the `prune_wspr_observations` HTTP 500 using database logs and a
-  least-privilege SQL call.
-- Inspect function definition, schema qualification, ownership, grants,
-  statement timeout, row volume, indexes, locks, and return type.
-- Add a reversible migration and an explicit rollback test. Bound deletes by
-  time and batch size so maintenance cannot hold an unbounded transaction.
-- Apply the migration, run the prune RPC directly, then run one scheduler hour
-  and one coverage audit.
-- Catch up missing hours in chronological order only where the upstream source
-  still exposes receipt-time-correct data. Never synthesize a completed hour.
-- Recompute signed progress and coverage receipts from persisted evidence.
-- Decide from the actual source timestamps whether the original 45-hour clock
-  remains continuous. If any hour cannot be recovered exactly, restart the
-  720-hour clock and preserve the incident in the report.
+### 0B. Establish an authorized cloud WSPR evidence path
+
+- Keep hosted WSPR-dependent NowCast selection and FutureCast evidence disabled
+  until written source authorization exists.
+- Deploy the authorized collector/issuance worker to Railway or another
+  approved always-on cloud runtime, with Supabase as durable state.
+- Reuse bounded, indexed retention and immutable receipt rules. Never make a
+  laptop scheduler part of the serving or evidence chain.
+- Start a new continuity clock from cloud receipts; do not carry forward the
+  interrupted M5 clock.
 
 **Pass:** zero consecutive failures, at least three newly completed exact hours,
 valid signed progress and coverage receipts, all ten HF bands in every completed
-hour, and a defensible continuity start.
+hour, a defensible cloud continuity start, and no M5 runtime dependency.
 
 ### 0C. Rewarm first-party prospective capture
 
-- Let the existing PSK Reporter, RBN, DX Cluster, and space-weather collector
-  run without rewriting or deleting the outage history.
+- Let the Railway PSK Reporter, RBN, and space-weather collector run without
+  rewriting or deleting outage history. Keep DX Cluster explicitly unavailable
+  until an approved source is configured.
 - Diagnose any repeated source lag and prove the existing fallback labels.
 - Require 24 consecutive gap-free hours, at least 95% fresh-weather
   availability, no stale run longer than two quarter-hour samples, and current
@@ -231,15 +238,14 @@ all ten HF bands per completed hour, no unresolved integrity errors, valid
 signed schedule and coverage receipts, and sufficiently separated early/late
 drift slices. The operational target remains all 720 hours complete.
 
-### 2C. Perform the literal outage proof
+### 2C. Perform the literal cloud-independence proof
 
-- Schedule a controlled window with the owner.
-- Arm the immutable off-M5 challenge, physically stop or shut down the M5, and
-  verify one incident opens from off-device evidence.
-- Restore the M5 and verify the incident closes only after the real publisher,
-  collectors, health receipts, and freshness recover.
-- Preserve timestamps and sanitized receipts. A process restart or synthetic
-  heartbeat is not a full-machine outage proof.
+- Schedule a controlled window with the owner and physically stop or shut down
+  the M5.
+- Verify Vercel, Railway inference, Railway collection, Supabase persistence,
+  authenticated prediction, and fresh source receipts continue normally.
+- Preserve timestamps and sanitized receipts. The expected result is no cloud
+  production incident attributable to the M5 outage.
 
 ### 2D. Validate beta infrastructure
 
@@ -402,10 +408,13 @@ No new source enters frozen A6. IGS, GIRO, NWP, or other additions require a
 separate preregistered ablation with availability-time, licensing, missingness,
 and untouched evaluation controls.
 
-## M5 compute and storage policy
+## Compute and storage policy
 
-- Run collectors, database work, training, scoring, and product QA on the M5
-  Max. The M3 is source/Git transport only.
+- Run always-on collectors and inference on Railway and persist operational
+  state in Supabase. Run product delivery and authenticated proxies on Vercel.
+- Use the M5 Max only for offline archive materialization, training, locked
+  scoring, report generation, and explicitly initiated administration. No
+  production availability or evidence clock may depend on it staying online.
 - Keep large ignored data, model, cache, and report artifacts on the external
   `Projects` SSD under `/Volumes/Projects/PropulseML` when mounted.
 - Verify native ARM64 Python and libraries; do not train through Rosetta.
@@ -431,7 +440,7 @@ and untouched evaluation controls.
 
 ### Agent can execute
 
-- WSPR incident diagnosis, migrations, tests, receipts, and catch-up;
+- authorized cloud WSPR implementation, migrations, tests, and receipts;
 - collector validation and preflight receipts;
 - product inspector and acceptance tooling;
 - prospective freezes, scoring, reports, and open-source packaging;
@@ -442,7 +451,7 @@ and untouched evaluation controls.
 
 - approve account invitation if no owner Auth user exists;
 - send the immutable WSPR permission email and privately retain the response;
-- schedule and approve the physical M5 outage window;
+- schedule and approve the physical M5-off cloud-independence window;
 - conduct the private owner acceptance session; and
 - recruit and consent alpha/beta operators when preflight passes.
 
@@ -450,13 +459,13 @@ and untouched evaluation controls.
 
 | Milestone | Earliest target | Blocking dependencies |
 |---|---:|---|
-| WSPR scheduler healthy | Immediate | RPC repair, exact-hour validation |
+| Authorized cloud WSPR capture healthy | No calendar promise | Written source decision, cloud worker, exact-hour validation |
 | First-party 24-hour gate | 24+ hours after last continuity reset | No further gaps; weather freshness gates |
 | Owner production acceptance | After account access | Login plus Workstream 1 QA |
 | WSPR 720-hour gate | 30 calendar days from defensible start | Fixed expected-hour window, at least 713 exact hours, source availability, authorization for intended use |
 | Prospective freeze receipt | Before 2026-08-01 | Healthy collectors, immutable artifacts |
 | NowCast outcome scoring | After 2026-09-30 | Unread locked window closed and hashed |
-| Earliest FutureCast evidence | Approximately 2026-10-14 | Uninterrupted common issuances plus mature +24 outcome |
+| Earliest FutureCast evidence | 91+ days after a defensible new cloud start | Uninterrupted common issuances plus mature +24 outcome |
 | Alpha/beta start | No calendar promise | Every preregistered preflight gate |
 | Public research/model release | No calendar promise | Applicable prospective, legal, privacy, and claim gates |
 
@@ -473,7 +482,7 @@ and untouched evaluation controls.
 | Third-party revision/latency leakage | `issued_at`/`available_at`, payload hashes, source-specific fallbacks |
 | Model drift | prospective slices, freshness/OOD states, baselines, no silent refit |
 | Cloud cost or latency growth | provider meters, p95/SLO alerts, replica scaling from measured load |
-| M5/external SSD outage | off-device monitor, controlled proof, storage health and recovery procedure |
+| M5/external SSD outage | no production dependency; bounded offline research jobs, checksummed artifacts, and recoverable storage procedure |
 | Attractive but invalid FutureCast output | horizon-by-horizon fail-closed release; synthetic output never shown as forecast |
 
 ## Definition of done
@@ -511,18 +520,19 @@ complete for the current V4 objective only when:
 
 ## Resume instruction
 
-On the M5:
+From any authenticated administration workstation:
 
 ```text
 Read ml/PROPAGATION-FORWARD-EXECUTION-PLAN.md and the linked frozen protocols.
-Resume Workstream 0. First repair and validate the WSPR prune/scheduler failure,
-then rebuild the first-party 24-hour clock. Do not retrain A6, inspect the locked
-prospective outcomes, enable beta collection, or release a FutureCast horizon.
+Resume Workstream 0. First verify the Railway collector's 24-hour clock, then
+establish the authorized cloud WSPR evidence path. Do not retrain A6, inspect
+the locked prospective outcomes, enable beta collection, or release a
+FutureCast horizon.
 Use the external Projects SSD for large ignored artifacts and native bounded M5
-multicore execution for data/model work. Update this plan's status and evidence
-links after each accepted gate.
+multicore execution only for offline data/model work. Update this plan's status
+and evidence links after each accepted gate.
 ```
 
-The first implementation session ends only after the WSPR root cause is fixed
-or documented as a precise blocker, three exact hours prove recovery, the
-continuity decision is recorded, and the next owner-controlled action is clear.
+The next implementation session ends only after Railway continuity is recorded,
+the authorized WSPR cloud path is implemented or documented as a precise
+provider blocker, and the next owner-controlled action is clear.

@@ -73,7 +73,7 @@ interface UseSatellitesResult {
 // Hook Implementation
 // ---------------------------------------------------------------------------
 
-export function useSatellites(): UseSatellitesResult {
+export function useSatellites(enabled = true): UseSatellitesResult {
   const { station } = useUserStore();
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
@@ -93,8 +93,9 @@ export function useSatellites(): UseSatellitesResult {
   } = useQuery({
     queryKey: ["satellites", "tle", enabledGroups],
     queryFn: () => fetchAllEnabledTLEGroups(enabledGroups),
+    enabled,
     staleTime: TLE_STALE_TIME,
-    refetchInterval: TLE_REFETCH_INTERVAL,
+    refetchInterval: enabled ? TLE_REFETCH_INTERVAL : false,
     retry: 2,
     placeholderData: (previousData) => previousData,
   });
@@ -104,12 +105,13 @@ export function useSatellites(): UseSatellitesResult {
   // -------------------------------------------------------------------------
 
   useEffect(() => {
+    if (!enabled) return;
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, POSITION_UPDATE_INTERVAL);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [enabled]);
 
   // -------------------------------------------------------------------------
   // Compute Satellite Positions (Celestrak + Custom TLEs)

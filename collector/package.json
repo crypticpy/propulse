@@ -10,17 +10,20 @@
     "forecast:once": "node dist/forecastArchive.js",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
+    "mqtt": "^5.15.2",
     "ws": "^8.21.1"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
     "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
-    "typescript": "~5.7.3"
+    "typescript": "~5.7.3",
+    "vitest": "^3.2.7"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -1,5 +1,21 @@
 # Propagation Product and Cloud Integration Plan
 
+> Operations update, 2026-07-19: the always-on first-party collector now runs
+> as the Railway `propulse-collector` service and writes durable observations
+> and health receipts to Supabase. The old M5 prospective-collector LaunchAgents
+> are disabled and unloaded; production does not depend on the M5 being online.
+> PSK Reporter uses the provider's MQTT stream and RBN uses the official
+> authenticated relay streams. DX Cluster is fail-closed pending an approved
+> durable identity/source. Vercel spot APIs read the Supabase-backed data and the
+> authenticated propagation proxy reaches the separate Railway inference
+> service. Solar Pulse's 16 production contracts and the authenticated
+> capabilities/surface paths were reverified at HTTP 200. PropSphere now gates
+> unconfigured RepeaterBook, APRS.fi, lightning, TEC, and WSPR sources instead
+> of polling them, gates satellite work by layer visibility, and updates the
+> spectrum waterfall only when its input changes. The M5 remains available for
+> offline archive materialization, training, locked scoring, report generation,
+> and explicitly initiated administrative promotion only.
+>
 > Status, 2026-07-18: Phases A-E are complete, merged to `main`, and live at
 > [propulse.cloud](https://propulse.cloud). The current sequencing and handoff
 > authority for all remaining work is
@@ -9,7 +25,9 @@
 > `propulse-inference` service in `shadow` mode with one worker and one XGBoost
 > thread. Deployment `f2b7c130-0a73-4afa-a619-d9260d7d885d` is healthy at
 > `https://propulse-inference-production.up.railway.app`; anonymous inference is
-> rejected. The existing Railway collector service was not modified.
+> rejected. At that July 18 inference checkpoint, the existing Railway
+> collector service had not yet been modified; the July 19 operations update
+> above supersedes that deployment detail.
 >
 > The corrected Vercel project environment is verified at deployment
 > `dpl_HpUkkqbYCs8u9vZdS4BHdVKYpbLA`
@@ -181,8 +199,10 @@ Railway propagation FastAPI service
     |
     +--> Supabase trusted weather and WSPR lag-feature RPCs
 
-M5 Max
+Railway collector
     +--> operational/future-issuance collectors --> Supabase
+
+M5 Max (offline/research only)
     +--> bounded streaming training/scoring --> Projects SSD
     +--> signed model/report artifact promotion --> private model storage
 ```
@@ -192,9 +212,9 @@ M5 Max
 | Platform | Responsibility |
 |---|---|
 | Vercel | React application, same-origin propagation proxy, authentication boundary, request throttling |
-| Railway | always-on FastAPI/XGBoost inference service; no model training |
+| Railway | always-on FastAPI/XGBoost inference plus the independent always-on first-party collector; no model training |
 | Supabase | authentication, current weather, verified lag features, aggregate health, consented beta data, private model object storage |
-| M5 Max | all collectors, archive materialization, training, locked scoring, report generation, and promotion signing |
+| M5 Max | offline archive materialization, training, locked scoring, report generation, and explicitly initiated promotion signing; never a production runtime dependency |
 | Projects SSD | raw/derived research datasets, Parquet partitions, caches, spools, and write-once run outputs |
 | GitHub | source, small manifests/receipts, tests, documentation, reports, and eventually open model release assets |
 
@@ -375,12 +395,24 @@ blocked from forecast display until real FutureCast horizons pass their gates.
 **Exit gate:** the private product provides an understandable current propagation
 map today and is contract-ready for real FutureCast horizons later.
 
-## Phase F: keep the M5 evidence and data engines running
+## Phase F: keep cloud evidence and data engines running
 
-**Owner:** M5 Max only. Large data stays on `/Volumes/Projects/PropulseML`.
+**Owner:** Railway and Supabase for always-on capture; M5 only for bounded
+offline research. Large ignored research data stays on
+`/Volumes/Projects/PropulseML`.
 
-- [ ] Preserve the current PSK Reporter, RBN, DX Cluster, solar-weather, WSPR
-  shadow, coverage-audit, health, and FutureCast issuance LaunchAgents.
+- [x] Move first-party PSK Reporter, RBN, solar-weather, satellite, forecast,
+  aggregate, and health collection to Railway with Supabase persistence.
+- [x] Disable and unload the old M5 prospective-collector LaunchAgents so
+  production remains available when the M5 is asleep or offline.
+- [x] Make PSK Reporter and RBN durable streaming sources with bounded batching,
+  reconnect behavior, and explicit health receipts.
+- [x] Fail DX Cluster closed until a legitimate durable cluster identity/source
+  is approved; never substitute generated data or an unreliable anonymous feed.
+- [ ] Move any authorized WSPR shadow and FutureCast issuance capture needed by
+  the product evidence program to cloud infrastructure before relying on it for
+  a hosted feature. Local M5 research capture may continue only as research and
+  cannot be a production dependency.
 - [ ] Finish the 24-hour pipeline/weather preflight without resetting continuity
   solely because an upstream NOAA observation is late.
 - [ ] Complete the signed 720-hour WSPR receipt and aggregate coverage window.

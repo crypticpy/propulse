@@ -1142,9 +1142,17 @@ Publish every month and every failure.
 
 ### First-party prospective capture
 
-The M5 runs a separate always-on collector for PSK Reporter, RBN, DX Cluster,
-and current NOAA/Kyoto solar/geomagnetic measurements. Network fetches run
-concurrently; the CPU-heavy band/path reductions run as PostgreSQL set
+> **Retired production procedure, 2026-07-19:** the first-party production
+> collector now runs on Railway and persists to Supabase. The M5 LaunchAgents
+> `org.propulse.prospective-collector` and
+> `org.propulse.prospective-collector-health` are disabled and unloaded. Do not
+> run the installation commands below for production. This section is retained
+> only to explain historical receipts. Current operational authority is
+> [`PROPAGATION-FORWARD-EXECUTION-PLAN.md`](PROPAGATION-FORWARD-EXECUTION-PLAN.md).
+
+Historically, the M5 ran a separate always-on collector for PSK Reporter, RBN,
+DX Cluster, and current NOAA/Kyoto solar/geomagnetic measurements. Network
+fetches ran concurrently; the CPU-heavy band/path reductions ran as PostgreSQL set
 operations rather than materializing raw hours in Node.
 Both reductions wait 20 minutes after the hour and publish durable watermarks
 only after the aggregate RPC returns. The owner-only watchdog runs at minutes

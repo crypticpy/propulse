@@ -1,5 +1,15 @@
 # Personalized Propagation V4.2: Performance Recovery and Product Plan
 
+> Deployment ownership update, 2026-07-19: the scientific protocol and frozen
+> A6 results in this file are unchanged, but its earlier M5 LaunchAgent status
+> entries are historical. Always-on first-party production collection now runs
+> on Railway and persists to Supabase; the old M5 prospective-collector agents
+> are disabled and unloaded. Production inference remains on Railway and the
+> product edge remains on Vercel. The M5 is an offline research/training and
+> administrative workstation only. Do not re-enable an M5 collector as a
+> production dependency. Current sequencing is defined by the forward execution
+> plan linked below.
+>
 > Forward execution status, audited 2026-07-18:
 > [`PROPAGATION-FORWARD-EXECUTION-PLAN.md`](PROPAGATION-FORWARD-EXECUTION-PLAN.md)
 > consolidates the remaining operational, product, prospective, beta,

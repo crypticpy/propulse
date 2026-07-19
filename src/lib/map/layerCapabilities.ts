@@ -116,6 +116,12 @@ export const LIGHTNING_LIVE_SOURCE_ENABLED =
 export const TEC_LIVE_SOURCE_ENABLED =
   import.meta.env.VITE_TEC_LIVE_ENABLED === "true";
 
+export const REPEATERBOOK_LIVE_SOURCE_ENABLED =
+  import.meta.env.VITE_REPEATERBOOK_LIVE_ENABLED === "true";
+
+export const APRS_LIVE_SOURCE_ENABLED =
+  import.meta.env.VITE_APRS_LIVE_ENABLED === "true";
+
 export const EXCLUSIVE_SURFACE_LAYERS = [
   "radar",
   "goesCloud",
@@ -190,6 +196,20 @@ export function getLayerAvailability(
     return {
       available: false,
       reason: "NOAA's experimental TEC feed is currently unavailable",
+    };
+  }
+
+  if (layerKey === "repeaters" && !REPEATERBOOK_LIVE_SOURCE_ENABLED) {
+    return {
+      available: false,
+      reason: "RepeaterBook access is pending provider approval",
+    };
+  }
+
+  if (layerKey === "aprs" && !APRS_LIVE_SOURCE_ENABLED) {
+    return {
+      available: false,
+      reason: "APRS.fi access is not configured",
     };
   }
 

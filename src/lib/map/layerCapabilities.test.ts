@@ -35,6 +35,17 @@ describe("PropSphere renderer capability matrix", () => {
     });
   });
 
+  it("disables provider-backed layers until approved access is configured", () => {
+    expect(getLayerAvailability("repeaters", "globe")).toEqual({
+      available: false,
+      reason: "RepeaterBook access is pending provider approval",
+    });
+    expect(getLayerAvailability("aprs", "globe")).toEqual({
+      available: false,
+      reason: "APRS.fi access is not configured",
+    });
+  });
+
   it("keeps only one full-globe surface data overlay active", () => {
     const next = toggleExclusiveLayer(
       { radar: false, goesCloud: true, muf: true, spots: true },

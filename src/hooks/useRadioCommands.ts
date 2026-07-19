@@ -97,6 +97,14 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
       pendingTimeoutsRef.current[id] = window.setTimeout(() => {
         pendingCommandIdsRef.current.delete(id);
         delete pendingTimeoutsRef.current[id];
+        // A command that never gets a response would leave its optimistic
+        // draft applied forever. Reconcile to confirmed daemon state — but
+        // only when nothing newer is in flight, so an old timeout can't
+        // clobber a newer command's optimistic state.
+        if (pendingCommandIdsRef.current.size === 0) {
+          setDraftState(connectedStateRef.current);
+          setLastResponseError("Radio command timed out");
+        }
       }, 10_000);
       return id;
     },

@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { CollectorConfig } from "./types.js";
+import type { CollectorConfig, PollIntervals } from "./types.js";
 import { log } from "./logger.js";
 import {
   getBufferedStrikes,
@@ -17,7 +17,37 @@ const lastSuccessTimes: Record<string, number> = {};
 let activeConfig: Pick<CollectorConfig, "pollIntervals" | "retention"> | null =
   null;
 
-const SOURCE_STALE_MS = 10 * 60_000; // 10 minutes
+const STREAM_STALE_MS = 10 * 60_000;
+const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
+  dxcluster: "dxcluster",
+  solar: "solar",
+  forecasts: "forecasts",
+  satellites: "satellites",
+  aggregator: "aggregator",
+  "path-aggregator": "aggregator",
+};
+
+export function getSourceStaleMs(
+  source: string,
+  pollIntervals: PollIntervals,
+): number {
+  const intervalKey = POLL_INTERVAL_SOURCES[source];
+  if (!intervalKey) return STREAM_STALE_MS;
+
+  return Math.max(STREAM_STALE_MS, pollIntervals[intervalKey] * 2);
+}
+
+export function isSourceStale(
+  source: string,
+  lastSuccess: number | undefined,
+  now: number,
+  pollIntervals: PollIntervals,
+): boolean {
+  return (
+    lastSuccess === undefined ||
+    now - lastSuccess > getSourceStaleMs(source, pollIntervals)
+  );
+}
 
 export function reportHealth(
   source: string,
@@ -70,7 +100,10 @@ export function startHealthServer(port: number): http.Server {
 
     for (const source of Object.keys(lastRuns)) {
       const lastSuccess = lastSuccessTimes[source];
-      if (lastSuccess === undefined || now - lastSuccess > SOURCE_STALE_MS) {
+      const stale = activeConfig
+        ? isSourceStale(source, lastSuccess, now, activeConfig.pollIntervals)
+        : lastSuccess === undefined || now - lastSuccess > STREAM_STALE_MS;
+      if (stale) {
         degradedSources.push(source);
       }
     }

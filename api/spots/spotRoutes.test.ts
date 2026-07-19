@@ -4,6 +4,7 @@ import pskReporterHandler from "./pskreporter";
 import rbnHandler from "./rbn";
 
 const NOW = new Date("2026-07-19T14:00:00Z");
+let requestedSources: string[];
 
 function storedRow(source: "pskreporter" | "rbn" | "dxcluster") {
   return {
@@ -29,6 +30,7 @@ function storedRow(source: "pskreporter" | "rbn" | "dxcluster") {
 }
 
 beforeEach(() => {
+  requestedSources = [];
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   vi.stubEnv("VITE_SUPABASE_URL", "https://project.supabase.co");
@@ -37,10 +39,16 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input: string | URL | Request) => {
       const url = new URL(String(input instanceof Request ? input.url : input));
-      const source = url.searchParams.get("source")?.replace("eq.", "") as
-        | "pskreporter"
-        | "rbn"
-        | "dxcluster";
+      const rawSource = url.searchParams.get("source");
+      if (
+        rawSource !== "eq.pskreporter" &&
+        rawSource !== "eq.rbn" &&
+        rawSource !== "eq.dxcluster"
+      ) {
+        throw new Error(`Unexpected source query: ${rawSource}`);
+      }
+      requestedSources.push(rawSource);
+      const source = rawSource.slice(3) as "pskreporter" | "rbn" | "dxcluster";
       return new Response(JSON.stringify([storedRow(source)]), {
         headers: { "Content-Type": "application/json" },
       });
@@ -67,6 +75,11 @@ describe("stored spot edge routes", () => {
     );
 
     expect([psk.status, rbn.status, dx.status]).toEqual([200, 200, 200]);
+    expect(requestedSources).toEqual([
+      "eq.pskreporter",
+      "eq.rbn",
+      "eq.dxcluster",
+    ]);
     expect(psk.headers.get("X-Propulse-Spot-Status")).toBe("ok");
     expect(await psk.json()).toMatchObject({
       spots: [
@@ -123,16 +136,20 @@ describe("stored spot edge routes", () => {
       new Request("https://propulse.cloud/api/spots/pskreporter?grid=not-a-grid"),
     );
     const invalidBand = await rbnHandler(
-      new Request("https://propulse.cloud/api/spots/rbn?band=20m!"),
+      new Request("https://propulse.cloud/api/spots/rbn?band=20,,40"),
+    );
+    const invalidMode = await rbnHandler(
+      new Request("https://propulse.cloud/api/spots/rbn?mode=CW,"),
     );
     const wrongMethod = await dxClusterHandler(
       new Request("https://propulse.cloud/api/spots/dxcluster", { method: "POST" }),
     );
-    expect([invalidGrid.status, invalidBand.status, wrongMethod.status]).toEqual([
-      400,
-      400,
-      405,
-    ]);
+    expect([
+      invalidGrid.status,
+      invalidBand.status,
+      invalidMode.status,
+      wrongMethod.status,
+    ]).toEqual([400, 400, 400, 405]);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

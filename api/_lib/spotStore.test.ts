@@ -109,6 +109,19 @@ describe("central spot store", () => {
     });
   });
 
+  it("never caches a live response beyond its remaining freshness", () => {
+    const headers = spotCacheHeaders({
+      rows: [],
+      status: "ok",
+      observedAt: "2026-07-19T13:31:00Z",
+      fetchedAt: "2026-07-19T14:00:00Z",
+      staleAfterSeconds: 30 * 60,
+    });
+    expect(headers["Cache-Control"]).toBe(
+      "s-maxage=30, stale-while-revalidate=30, stale-if-error=30",
+    );
+  });
+
   it("degrades without throwing when storage is missing or rejects the request", async () => {
     const missing = await readStoredSpots(
       "dxcluster",

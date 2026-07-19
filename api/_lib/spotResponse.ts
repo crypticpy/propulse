@@ -33,10 +33,26 @@ export function spotOptionsResponse(): Response {
 }
 
 export function spotCacheHeaders(result: SpotStoreResult): Record<string, string> {
+  const fetchedMs = Date.parse(result.fetchedAt);
+  const observedMs = result.observedAt ? Date.parse(result.observedAt) : Number.NaN;
+  const remainingSeconds =
+    result.status === "ok" && Number.isFinite(fetchedMs) && Number.isFinite(observedMs)
+      ? Math.max(
+          0,
+          Math.floor(
+            (observedMs + result.staleAfterSeconds * 1_000 - fetchedMs) / 1_000,
+          ),
+        )
+      : 0;
+  const sharedMaxAge = Math.min(30, remainingSeconds);
+  const allowedStaleSeconds = Math.max(0, remainingSeconds - sharedMaxAge);
   return {
     "Cache-Control":
       result.status === "ok"
-        ? "s-maxage=30, stale-while-revalidate=300, stale-if-error=86400"
+        ? `s-maxage=${sharedMaxAge}, stale-while-revalidate=${Math.min(
+            300,
+            allowedStaleSeconds,
+          )}, stale-if-error=${allowedStaleSeconds}`
         : "s-maxage=15, stale-while-revalidate=60",
     "X-Propulse-Spot-Status": result.status,
     ...(result.observedAt

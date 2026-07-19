@@ -14,14 +14,30 @@ export const config = {
 
 function requestedBands(value: string | null): string[] | undefined {
   if (!value) return undefined;
-  if (!/^[\d,]+$/.test(value)) return [];
-  return value.split(",").map((band) => `${Number.parseInt(band, 10)}m`);
+  const bands = value.split(",");
+  const allowedBands = new Set([
+    "160",
+    "80",
+    "60",
+    "40",
+    "30",
+    "20",
+    "17",
+    "15",
+    "12",
+    "10",
+    "6",
+    "2",
+  ]);
+  if (bands.some((band) => !allowedBands.has(band))) return [];
+  return bands.map((band) => `${band}m`);
 }
 
 function requestedModes(value: string | null): string[] | undefined {
   if (!value) return undefined;
-  if (!/^[A-Za-z0-9,]+$/.test(value)) return [];
-  return value.split(",").map((mode) => mode.toUpperCase());
+  const modes = value.split(",");
+  if (modes.some((mode) => !/^[A-Za-z0-9]+$/.test(mode))) return [];
+  return modes.map((mode) => mode.toUpperCase());
 }
 
 export default async function handler(req: Request) {

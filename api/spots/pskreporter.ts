@@ -6,17 +6,17 @@
  * prevents a slow public service from consuming an entire function invocation.
  */
 
-import { applyRateLimit } from "../_lib/rateLimit";
+import { applyRateLimit } from "../_lib/rateLimit.js";
 import {
   spotCacheHeaders,
   spotJsonResponse,
   spotOptionsResponse,
-} from "../_lib/spotResponse";
-import { readStoredSpots } from "../_lib/spotStore";
+} from "../_lib/spotResponse.js";
+import { readStoredSpots } from "../_lib/spotStore.js";
 
 const GRID_REGEX = /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?$/;
 
-export default async function handler(req: Request) {
+async function handler(req: Request) {
   if (req.method === "OPTIONS") {
     return spotOptionsResponse();
   }
@@ -78,3 +78,5 @@ export default async function handler(req: Request) {
     spotCacheHeaders(result),
   );
 }
+
+export default { fetch: handler };

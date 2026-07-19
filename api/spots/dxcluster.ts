@@ -1,14 +1,14 @@
 /** DX Cluster UI feed backed by the central collector store. */
 
-import { applyRateLimit } from "../_lib/rateLimit";
+import { applyRateLimit } from "../_lib/rateLimit.js";
 import {
   spotCacheHeaders,
   spotJsonResponse,
   spotOptionsResponse,
-} from "../_lib/spotResponse";
-import { readStoredSpots } from "../_lib/spotStore";
+} from "../_lib/spotResponse.js";
+import { readStoredSpots } from "../_lib/spotStore.js";
 
-export default async function handler(req: Request) {
+async function handler(req: Request) {
   if (req.method === "OPTIONS") {
     return spotOptionsResponse();
   }
@@ -55,3 +55,5 @@ export default async function handler(req: Request) {
     spotCacheHeaders(result),
   );
 }
+
+export default { fetch: handler };

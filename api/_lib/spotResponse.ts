@@ -1,4 +1,4 @@
-import type { SpotStoreResult } from "./spotStore";
+import type { SpotStoreResult } from "./spotStore.js";
 
 function allowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.cloud";

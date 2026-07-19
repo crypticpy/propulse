@@ -14,6 +14,15 @@ const reconnectTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const connectedPorts = new Set<number>();
 let batcher: SpotBatcher | null = null;
 let stopped = false;
+let rbnCallsign = "";
+
+export function normalizeRbnCallsign(value: string | undefined): string {
+  const callsign = value?.trim().toUpperCase() || "";
+  if (!/^[A-Z0-9/]{3,16}$/.test(callsign)) {
+    throw new Error("RBN_LOGIN_CALLSIGN must be a valid receive-only callsign");
+  }
+  return callsign;
+}
 
 export function rbnSpottedAt(nowMs: number, ageSeconds: number): string {
   const rawTimestamp = nowMs - Math.max(0, ageSeconds) * 1000;
@@ -135,6 +144,7 @@ function connectPort(port: number): void {
   socket.setTimeout(2 * 60_000);
 
   socket.on("connect", () => {
+    socket.write(`${rbnCallsign}\r\n`);
     connectedPorts.add(port);
     updateConnectionHealth();
     log("info", "RBN relay connected", { port, mode, samplePercent: percent });
@@ -167,6 +177,7 @@ function connectPort(port: number): void {
 
 export function startRbn(db: SupabaseClient): void {
   if (batcher) return;
+  rbnCallsign = normalizeRbnCallsign(process.env.RBN_LOGIN_CALLSIGN);
   stopped = false;
   batcher = new SpotBatcher({ db, source: "rbn" });
   batcher.start();

@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { parseRbnLine, rbnSpottedAt, shouldSampleRbn } from "./rbn.js";
+import {
+  normalizeRbnCallsign,
+  parseRbnLine,
+  rbnSpottedAt,
+  shouldSampleRbn,
+} from "./rbn.js";
+
+describe("normalizeRbnCallsign", () => {
+  it("normalizes a configured receive-only callsign", () => {
+    expect(normalizeRbnCallsign(" kb0el ")).toBe("KB0EL");
+  });
+
+  it("rejects missing or invalid identities", () => {
+    expect(() => normalizeRbnCallsign(undefined)).toThrow(
+      "RBN_LOGIN_CALLSIGN",
+    );
+    expect(() => normalizeRbnCallsign("not a call")).toThrow(
+      "RBN_LOGIN_CALLSIGN",
+    );
+  });
+});
 
 describe("rbnSpottedAt", () => {
   it("floors receipt-derived timestamps to a stable causal bucket", () => {

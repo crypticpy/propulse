@@ -80,7 +80,10 @@ function isRxGainStage(stage: GainStage): boolean {
 }
 
 function buildSliceModes(modes: string[]): string[] {
-  return dedupeModeTokens(modes).map((entry) => entry.raw.toUpperCase());
+  // Keep the device's exact raw tokens: SlicePanelFilter sends entry.raw back
+  // through onModeChange, and a case-sensitive daemon would reject a token we
+  // uppercased. Display normalization happens via entry.display in the panel.
+  return dedupeModeTokens(modes).map((entry) => entry.raw);
 }
 
 export function FlexibleSkin(props: SdrSkinProps) {

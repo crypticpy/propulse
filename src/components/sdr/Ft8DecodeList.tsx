@@ -46,12 +46,20 @@ export function Ft8DecodeList({
   const listRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
-  // Auto-scroll to top when new decodes arrive
+  // Identity of the newest decode. Keying the auto-scroll on the count fails
+  // once the 500-cap buffer saturates (length stops changing), so track the
+  // newest row instead.
+  const newest = decodes[0];
+  const newestKey = newest
+    ? `${newest.epochMs ?? newest.time}-${newest.deltaFrequency}-${newest.message}`
+    : null;
+
+  // Auto-scroll to top when a new decode arrives
   useEffect(() => {
     if (autoScroll && listRef.current) {
       listRef.current.scrollTop = 0;
     }
-  }, [decodes.length, autoScroll]);
+  }, [newestKey, autoScroll]);
 
   const handleScroll = () => {
     if (!listRef.current) return;

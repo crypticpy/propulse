@@ -159,7 +159,9 @@ export class PskReporterUploader {
       frequency: dialFrequencyHz + decode.deltaFrequency,
       snr: decode.snr,
       mode: decode.mode,
-      timestamp: new Date(decode.time).toISOString(),
+      // decode.time is ms-since-UTC-midnight, not epoch ms. Use the absolute
+      // epoch anchor when present, falling back to now.
+      timestamp: new Date(decode.epochMs ?? Date.now()).toISOString(),
     };
 
     this.addDecode(entry);

@@ -156,7 +156,6 @@ export function SpotTagOverlay({
 
     const result: VisibleSpot[] = [];
     for (const s of spots) {
-      if (result.length >= maxSpots) break;
       const freqHz = s.freq * 1000; // ClusterSpotMessage freq is in kHz
       if (freqHz < viewStartHz || freqHz > viewEndHz) continue;
 
@@ -169,7 +168,9 @@ export function SpotTagOverlay({
       });
     }
 
-    return result;
+    // Newest spots win when there are more in view than maxSpots.
+    result.sort((a, b) => a.ageMin - b.ageMin);
+    return result.slice(0, maxSpots);
   }, [spots, centerHz, spanHz, maxSpots]);
 
   const handleClick = useCallback(

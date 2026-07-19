@@ -127,7 +127,7 @@ export function parseFoxMessage(message: string): FoxCallPair[] {
  *
  * Also considers explicit Fox multi-call messages as strong evidence.
  *
- * @param decodes  Array of enriched decode-like objects with message, parsedCallsign, and time
+ * @param decodes  Array of enriched decode-like objects with message, parsedCallsign, and epochMs
  * @param windowMs Time window in ms to consider (default 60000 = 1 minute)
  * @param threshold Minimum unique hounds required to declare a DXpedition (default 5)
  * @returns The suspected Fox callsign (uppercase), or null
@@ -136,17 +136,19 @@ export function detectDxpedition(
   decodes: Array<{
     message: string;
     parsedCallsign: string | null;
-    time: number;
+    epochMs: number;
   }>,
   windowMs: number = 60000,
   threshold: number = 5,
 ): string | null {
   if (decodes.length === 0) return null;
 
-  // Find the most recent decode time to define the analysis window
+  // Find the most recent decode time to define the analysis window. Uses
+  // epochMs (absolute), not the midnight-wrapping time, so the window doesn't
+  // exclude the newest decodes right after 00:00 UTC.
   let maxTime = 0;
   for (const d of decodes) {
-    if (d.time > maxTime) maxTime = d.time;
+    if (d.epochMs > maxTime) maxTime = d.epochMs;
   }
   const windowStart = maxTime - windowMs;
 
@@ -157,7 +159,7 @@ export function detectDxpedition(
   const foxMultiCallsigns = new Map<string, number>();
 
   for (const d of decodes) {
-    if (d.time < windowStart) continue;
+    if (d.epochMs < windowStart) continue;
 
     const msg = d.message.trim();
 

@@ -9,7 +9,7 @@
  * via the right-click context menu.
  */
 
-import { useMemo, type KeyboardEvent } from "react";
+import { memo, useMemo, type KeyboardEvent } from "react";
 import type { RadioState, DeviceInfo } from "@/lib/radio/protocol";
 import { ALL_BANDS } from "@/types/user";
 import type { BandId } from "@/types/user";
@@ -124,7 +124,7 @@ function formatBytes(bytes: number): string {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FlexSideControls({
+export const FlexSideControls = memo(function FlexSideControls({
   effectiveState,
   selectedDevice,
   canControlConnected,
@@ -682,4 +682,4 @@ export function FlexSideControls({
       </div>
     </div>
   );
-}
+});

@@ -243,6 +243,9 @@ export function getWaterfallPaletteLutWithGamma(
     lut[i * 3 + 2] = b;
   }
 
+  // Dragging the gamma slider generates a fresh key per step, so bound the
+  // cache — reset once it grows large (regeneration is cheap).
+  if (GAMMA_LUT_CACHE.size >= 64) GAMMA_LUT_CACHE.clear();
   GAMMA_LUT_CACHE.set(key, lut);
   return lut;
 }

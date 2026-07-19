@@ -56,6 +56,16 @@ function DaemonAddressProbe({
 }) {
   const failureReportedRef = useRef(false);
   const enumerationTimeoutRef = useRef<number | null>(null);
+  // Read the latest callbacks via refs so the probe effects don't re-run on
+  // callback identity churn (which previously drove an infinite render loop).
+  // Synced in an effect, not during render, so an abandoned StrictMode render
+  // can't leak its callbacks into the committed tree.
+  const onDevicesRef = useRef(onDevices);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onDevicesRef.current = onDevices;
+    onErrorRef.current = onError;
+  });
   const clearEnumerationTimeout = useCallback(() => {
     if (enumerationTimeoutRef.current !== null) {
       window.clearTimeout(enumerationTimeoutRef.current);
@@ -72,7 +82,7 @@ function DaemonAddressProbe({
     onMessage: (message) => {
       if (isDevicesListMessage(message)) {
         clearEnumerationTimeout();
-        onDevices(message.devices);
+        onDevicesRef.current(message.devices);
       }
       if (
         isDaemonResponseMessage(message) &&
@@ -81,7 +91,9 @@ function DaemonAddressProbe({
       ) {
         clearEnumerationTimeout();
         failureReportedRef.current = true;
-        onError(message.error ?? "Daemon rejected device enumeration");
+        onErrorRef.current(
+          message.error ?? "Daemon rejected device enumeration",
+        );
       }
     },
   });
@@ -90,9 +102,11 @@ function DaemonAddressProbe({
     if (!enabled || !probe.error || failureReportedRef.current) return;
     clearEnumerationTimeout();
     failureReportedRef.current = true;
-    onError(probe.error);
-  }, [clearEnumerationTimeout, enabled, onError, probe.error]);
+    onErrorRef.current(probe.error);
+  }, [clearEnumerationTimeout, enabled, probe.error]);
 
+  // Reset the failure flag and (re)arm the enumeration timeout only when the
+  // target url or enabled state changes — never on every render.
   useEffect(() => {
     failureReportedRef.current = false;
     clearEnumerationTimeout();
@@ -102,11 +116,13 @@ function DaemonAddressProbe({
       enumerationTimeoutRef.current = null;
       if (failureReportedRef.current) return;
       failureReportedRef.current = true;
-      onError("Timed out while enumerating devices at this daemon address");
+      onErrorRef.current(
+        "Timed out while enumerating devices at this daemon address",
+      );
     }, 12_000);
 
     return clearEnumerationTimeout;
-  }, [authToken, clearEnumerationTimeout, enabled, onError, url]);
+  }, [clearEnumerationTimeout, enabled, url]);
 
   return null;
 }
@@ -147,6 +163,22 @@ function DiscoveredDaemonRow({
   const radios = daemon.txt.radios || "";
   const version = daemon.txt.version || "";
 
+  const handleProbeDevices = useCallback((devices: DeviceInfo[]) => {
+    setFetchState({ status: "success", devices });
+  }, []);
+
+  const handleProbeError = useCallback(
+    (error: string) => {
+      if (candidateIndex + 1 < urls.length) {
+        setCandidateIndex((index) => index + 1);
+        setFetchState({ status: "loading" });
+      } else {
+        setFetchState({ status: "error", error });
+      }
+    },
+    [candidateIndex, urls.length],
+  );
+
   return (
     <div className="px-3 py-2">
       {url ? (
@@ -155,17 +187,8 @@ function DiscoveredDaemonRow({
           url={url}
           enabled={isOpen && fetchState.status !== "success"}
           authToken={authToken}
-          onDevices={(devices) =>
-            setFetchState({ status: "success", devices })
-          }
-          onError={(error) => {
-            if (candidateIndex + 1 < urls.length) {
-              setCandidateIndex((index) => index + 1);
-              setFetchState({ status: "loading" });
-            } else {
-              setFetchState({ status: "error", error });
-            }
-          }}
+          onDevices={handleProbeDevices}
+          onError={handleProbeError}
         />
       ) : null}
       <button

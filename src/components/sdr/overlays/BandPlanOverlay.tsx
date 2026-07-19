@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from "react";
-import { getSegmentForFrequency, getBandPlan } from "@/lib/data/bandplans";
+import { getBandPlan } from "@/lib/data/bandplans";
 import { getBandForFrequency } from "@/lib/data/bandRanges";
 import type { BandSegment, ITURegion } from "@/types/bandplan";
 
@@ -158,11 +158,8 @@ export function BandPlanOverlay({
     const band = getBandForFrequency(midKHz);
     if (!band) return null;
 
-    // Check if we have a matching segment at the center frequency
-    const seg = getSegmentForFrequency(midKHz, region);
-    if (!seg) return null;
-
-    // If band edges are visible, mark them
+    // Derive edges from the band itself so they still render when the center
+    // frequency sits in an inter-segment gap (e.g. 60 m channelized band).
     const bandPlan = getBandPlan(band, region);
     if (!bandPlan) return null;
 

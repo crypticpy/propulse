@@ -183,11 +183,16 @@ export function ClassicSkin(props: SdrSkinProps) {
         onPickFrequencyHz={interaction.onPickFrequencyHz}
         onSelectRangeHz={interaction.onSelectRangeHz}
         ft8DecodeOverlay={
-          ft8.ft8DecoderEnabled && ft8.ft8EnrichedDecodes.length > 0 ? (
+          ft8.ft8DecoderEnabled &&
+          ft8.ft8EnrichedDecodes.length > 0 &&
+          fft.waterfallView &&
+          fft.tuningOverlay ? (
             <Ft8DecodeOverlay
               decodes={ft8.ft8EnrichedDecodes}
-              audioLow={200}
-              audioHigh={3000}
+              viewCenterHz={fft.waterfallView.centerHz}
+              viewSpanHz={fft.waterfallView.spanHz}
+              dialHz={fft.tuningOverlay.freqHz}
+              mode={fft.tuningOverlay.mode}
             />
           ) : undefined
         }

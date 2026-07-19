@@ -308,34 +308,49 @@ function QsoProgressRow({
 
 // ─── FateActiveQsos — Active QSO progress section ───────────────────────────
 
+/** Dwell after a QSO completes before the row starts to fade (ms). */
+const FADE_DELAY_MS = 10_000;
+/** Fade animation length — must match the row's opacity transition (ms). */
+const FADE_DURATION_MS = 1_500;
+
 function FateActiveQsos({
   qsoTracker,
 }: {
   qsoTracker: Map<string, QsoSequenceState>;
 }) {
-  // Track completed QSOs that are fading out
+  // Track completed QSOs that are fading out / fully hidden.
   const [fadingOut, setFadingOut] = useState<Set<string>>(new Set());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const fadeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+
+  // Per-callsign timers, keyed "<call>:fade" / "<call>:hide". Timers are only
+  // cleared on unmount or when a callsign restarts its QSO — never on a routine
+  // decode batch. (The old code cancelled every timer on each batch, so FT4's
+  // 10s fade never survived the 7.5s batch cadence.)
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
+  // Callsigns whose fade has already been scheduled — guards against
+  // re-scheduling every time a fresh qsoTracker Map arrives.
+  const scheduledRef = useRef<Set<string>>(new Set());
 
-  // Detect newly completed QSOs and schedule fade-out
+  // Deliberately keyed on qsoTracker only (not fadingOut/hidden): a setState
+  // from a firing timer must not re-run this effect and cancel sibling timers.
   useEffect(() => {
     for (const [callsign, state] of qsoTracker) {
-      if (
-        state.isComplete &&
-        !fadingOut.has(callsign) &&
-        !hidden.has(callsign)
-      ) {
-        // Start fade-out after 10 seconds
+      if (state.isComplete) {
+        // Schedule the two-stage fade exactly once per completion.
+        if (scheduledRef.current.has(callsign)) continue;
+        scheduledRef.current.add(callsign);
+
         const fadeTimer = setTimeout(() => {
           setFadingOut((prev) => {
             const next = new Set(prev);
             next.add(callsign);
             return next;
           });
-          // After fade animation completes (1.5s), hide the row
+          timersRef.current.delete(`${callsign}:fade`);
+
+          // After the fade animation completes, remove the row entirely.
           const hideTimer = setTimeout(() => {
             setHidden((prev) => {
               const next = new Set(prev);
@@ -347,30 +362,75 @@ function FateActiveQsos({
               next.delete(callsign);
               return next;
             });
-            fadeTimersRef.current.delete(callsign);
-          }, 1500);
-          fadeTimersRef.current.set(callsign + ":hide", hideTimer);
-        }, 10_000);
-        fadeTimersRef.current.set(callsign, fadeTimer);
+            timersRef.current.delete(`${callsign}:hide`);
+          }, FADE_DURATION_MS);
+          timersRef.current.set(`${callsign}:hide`, hideTimer);
+        }, FADE_DELAY_MS);
+        timersRef.current.set(`${callsign}:fade`, fadeTimer);
+      } else if (scheduledRef.current.has(callsign)) {
+        // QSO restarted (e.g. a fresh CQ from the same station): cancel the
+        // pending fade and let the row reappear so it can re-complete later.
+        const fadeTimer = timersRef.current.get(`${callsign}:fade`);
+        const hideTimer = timersRef.current.get(`${callsign}:hide`);
+        if (fadeTimer) clearTimeout(fadeTimer);
+        if (hideTimer) clearTimeout(hideTimer);
+        timersRef.current.delete(`${callsign}:fade`);
+        timersRef.current.delete(`${callsign}:hide`);
+        scheduledRef.current.delete(callsign);
+        setFadingOut((prev) => {
+          if (!prev.has(callsign)) return prev;
+          const next = new Set(prev);
+          next.delete(callsign);
+          return next;
+        });
+        setHidden((prev) => {
+          if (!prev.has(callsign)) return prev;
+          const next = new Set(prev);
+          next.delete(callsign);
+          return next;
+        });
       }
     }
 
-    // Clean up timers for callsigns no longer in tracker
-    const timers = fadeTimersRef.current;
-    for (const [key, timer] of timers) {
-      const callsign = key.replace(/:hide$/, "");
-      if (!qsoTracker.has(callsign)) {
-        clearTimeout(timer);
-        timers.delete(key);
-      }
+    // Drop bookkeeping for callsigns the tracker has evicted (LRU/expiry), so
+    // scheduledRef/fadingOut/hidden don't grow unbounded over a long session.
+    // Their rows are gone from the UI already; cancelling the timers is safe.
+    for (const callsign of scheduledRef.current) {
+      if (qsoTracker.has(callsign)) continue;
+      const fadeTimer = timersRef.current.get(`${callsign}:fade`);
+      const hideTimer = timersRef.current.get(`${callsign}:hide`);
+      if (fadeTimer) clearTimeout(fadeTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+      timersRef.current.delete(`${callsign}:fade`);
+      timersRef.current.delete(`${callsign}:hide`);
+      scheduledRef.current.delete(callsign);
+      setFadingOut((prev) => {
+        if (!prev.has(callsign)) return prev;
+        const next = new Set(prev);
+        next.delete(callsign);
+        return next;
+      });
+      setHidden((prev) => {
+        if (!prev.has(callsign)) return prev;
+        const next = new Set(prev);
+        next.delete(callsign);
+        return next;
+      });
     }
+  }, [qsoTracker]);
 
+  // Clear every timer only on unmount. Also reset the "scheduled" guard so that
+  // StrictMode's dev remount (which fires this cleanup, then re-runs the
+  // scheduling effect) re-arms the fade timers instead of skipping them.
+  useEffect(() => {
+    const timers = timersRef.current;
+    const scheduled = scheduledRef.current;
     return () => {
-      for (const timer of timers.values()) {
-        clearTimeout(timer);
-      }
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
+      scheduled.clear();
     };
-  }, [qsoTracker, fadingOut, hidden]);
+  }, []);
 
   // Collect visible QSOs: active (non-complete) + recently completed that haven't fully hidden
   const visibleEntries = Array.from(qsoTracker.entries())
@@ -505,15 +565,20 @@ export function FateDirectedMessages({
 }: FateDirectedMessagesProps) {
   const quickLog = useQSOStore((s) => s.quickLog);
 
-  // Auto-scroll to bottom when new directed messages arrive
+  // Auto-scroll to bottom when a new directed message arrives. Keying on
+  // directed.length fails once the 500-cap buffer saturates (length stops
+  // changing), so track the newest row's identity instead (buffer is
+  // newest-first, so directed[0] is the newest).
   const listRef = useRef<HTMLDivElement>(null);
-  const prevCountRef = useRef(directed.length);
+  const newestDirected = directed[0];
+  const newestDirectedKey = newestDirected
+    ? `${newestDirected.epochMs}-${newestDirected.deltaFrequency}-${newestDirected.message}`
+    : null;
   useEffect(() => {
-    if (directed.length > prevCountRef.current && listRef.current) {
+    if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-    prevCountRef.current = directed.length;
-  }, [directed.length]);
+  }, [newestDirectedKey]);
 
   const handleQuickLog = useCallback(
     (callsign: string) => {

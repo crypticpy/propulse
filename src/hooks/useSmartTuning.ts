@@ -16,7 +16,10 @@ type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
 
 export interface UseSmartTuningOptions {
   connectedDeviceId: string | null;
-  daemonSendCommand: (cmd: string, params?: Record<string, unknown>) => void;
+  daemonSendCommand: (
+    cmd: string,
+    params?: Record<string, unknown>,
+  ) => string | null;
   lastFftFrame: FftFrame | null;
   tuningStepHz: number;
   effectiveState: RadioState | null;
@@ -161,10 +164,11 @@ export function useSmartTuning(
         snappedHz = Math.round(hz / tuningStepHz) * tuningStepHz;
       }
 
-      daemonSendCommand("radio:tune", {
+      const sentId = daemonSendCommand("radio:tune", {
         device_id: connectedDeviceId,
         freq: snappedHz,
       });
+      if (sentId === null) return;
       setDraftState((s) => (s ? { ...s, freq: snappedHz } : s));
       updateFreqDisplay(snappedHz);
     },
@@ -211,10 +215,11 @@ export function useSmartTuning(
         snappedHz = currentHz + direction * stepHz;
       }
 
-      daemonSendCommand("radio:tune", {
+      const sentId = daemonSendCommand("radio:tune", {
         device_id: connectedDeviceId,
         freq: snappedHz,
       });
+      if (sentId === null) return;
       setDraftState((s) => (s ? { ...s, freq: snappedHz } : s));
       updateFreqDisplay(snappedHz);
     },

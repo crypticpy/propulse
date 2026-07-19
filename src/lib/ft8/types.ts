@@ -8,8 +8,25 @@
 // Worker Inbound Messages (main thread -> Worker)
 // ============================================================================
 
+/**
+ * Flat decode-depth config passed to the worker at init. Produced by
+ * {@link serializeDecodeDepthForWorker} from the `sdrFt8DecodeDepth` setting.
+ */
+export interface Ft8DecodeDepthWorkerConfig {
+  /** Number of LDPC decode iterations (higher = deeper, slower). */
+  maxIterations: number;
+  /** Subtraction passes for overlapping signals. */
+  subtractionPasses: number;
+  /** SNR threshold for a valid decode (dB). */
+  minSnr: number;
+}
+
 export type Ft8WorkerInbound =
-  | { type: "init"; protocol: "FT8" | "FT4" }
+  | {
+      type: "init";
+      protocol: "FT8" | "FT4";
+      decodeDepth?: Ft8DecodeDepthWorkerConfig;
+    }
   | { type: "audio"; samples: Float32Array; sampleRate: number }
   | { type: "setProtocol"; protocol: "FT8" | "FT4" }
   | { type: "stop" };

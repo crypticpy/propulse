@@ -7,6 +7,7 @@
  */
 
 import { useMemo } from "react";
+import { DEFAULT_FFT_STREAM_FPS } from "@/lib/sdr/fftStreamParams";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ export interface FlexTimeAxisProps {
   speed: number;
   /** Pixel height of the waterfall container */
   containerHeight: number;
-  /** FFT frames per second (default 20) */
+  /** FFT frames per second (default DEFAULT_FFT_STREAM_FPS) */
   fps?: number;
   /** Pixel rows per FFT frame (default 1). */
   rowHeight?: number;
@@ -55,7 +56,8 @@ function computeLabels(
   fps: number,
   rowHeight: number,
 ): TimeLabel[] {
-  const pixelsPerSecond = speed * fps * Math.max(1, Math.round(rowHeight));
+  const pixelsPerSecond =
+    Math.max(1, Math.round(speed)) * fps * Math.max(1, Math.round(rowHeight));
   if (
     !Number.isFinite(pixelsPerSecond) ||
     pixelsPerSecond <= 0 ||
@@ -86,7 +88,7 @@ function computeLabels(
 export function FlexTimeAxis({
   speed,
   containerHeight,
-  fps = 20,
+  fps = DEFAULT_FFT_STREAM_FPS,
   rowHeight = 1,
   className = "",
 }: FlexTimeAxisProps) {

@@ -73,6 +73,19 @@ const SIZE_CONFIG = {
   normal: { labelText: "text-[10px]", sliderH: "h-1.5" },
 } as const;
 
+// ─── Accent color mapping ────────────────────────────────────────────────────
+// Static (non-interpolated) classes so Tailwind's JIT can see every variant.
+
+const DEFAULT_ACCENT_CLASS = "accent-cosmic-cyan";
+
+const ACCENT_CLASSES: Record<string, string> = {
+  "cosmic-cyan": DEFAULT_ACCENT_CLASS,
+  "signal-green": "accent-signal-green",
+  "plasma-orange": "accent-plasma-orange",
+  "caution-amber": "accent-caution-amber",
+  "alert-red": "accent-alert-red",
+};
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function GainSlider({
@@ -135,7 +148,9 @@ export function GainSlider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         disabled={disabled}
-        className={`w-full ${cfg.sliderH} accent-${accentColor} disabled:opacity-40`}
+        className={`w-full ${cfg.sliderH} ${
+          ACCENT_CLASSES[accentColor] ?? DEFAULT_ACCENT_CLASS
+        } disabled:opacity-40`}
       />
     </div>
   );

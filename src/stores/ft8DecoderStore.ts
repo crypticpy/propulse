@@ -81,6 +81,7 @@ function toFt8Decode(
     id: crypto.randomUUID(),
     timestamp: now,
     time: d.time,
+    epochMs: d.epochMs,
     snr: d.snr,
     deltaTime: d.deltaTime,
     deltaFrequency: d.deltaFrequency,
@@ -101,9 +102,16 @@ function toFt8Decode(
 
 /** Convert an Ft8Decode record back to a WsjtxDecode for display. */
 function toWsjtxDecode(d: Ft8Decode): WsjtxDecode {
+  // Rows written before epochMs was persisted rebuild the absolute anchor
+  // from the ingest timestamp, so restored history keeps epoch-time ordering
+  // (consumers fall back to 0 when the anchor is missing).
+  const parsedTimestamp = Date.parse(d.timestamp);
   return {
     isNew: false,
     time: d.time,
+    epochMs:
+      d.epochMs ??
+      (Number.isFinite(parsedTimestamp) ? parsedTimestamp : undefined),
     snr: d.snr,
     deltaTime: d.deltaTime,
     deltaFrequency: d.deltaFrequency,
@@ -147,9 +155,16 @@ export const useFt8DecoderStore = create<Ft8DecoderStoreState>((set, get) => ({
   addDecodes: (newDecodes, freqHz, band, myCallsign) => {
     if (newDecodes.length === 0) return;
 
+    // Ensure every decode carries an absolute wall-clock anchor. Native
+    // decodes already set epochMs; WSJT-X-sourced decodes only carry `time`
+    // (ms-since-UTC-midnight), so fall back to the ingest time.
+    const stamped = newDecodes.map((d) =>
+      d.epochMs != null ? d : { ...d, epochMs: Date.now() },
+    );
+
     // Prepend to display buffer, cap at DISPLAY_BUFFER_CAP
     set((s) => {
-      const merged = [...newDecodes, ...s.decodes].slice(0, DISPLAY_BUFFER_CAP);
+      const merged = [...stamped, ...s.decodes].slice(0, DISPLAY_BUFFER_CAP);
       return {
         decodes: merged,
         stats: {
@@ -162,7 +177,7 @@ export const useFt8DecoderStore = create<Ft8DecoderStoreState>((set, get) => ({
     });
 
     // Convert to IDB records and write-through (fire-and-forget)
-    const idbRecords = newDecodes.map((d) =>
+    const idbRecords = stamped.map((d) =>
       toFt8Decode(d, freqHz, band, myCallsign),
     );
     addFt8Decodes(idbRecords).catch(console.error);

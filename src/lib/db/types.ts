@@ -212,6 +212,8 @@ export interface Ft8Decode {
   timestamp: string;
   /** ms since midnight UTC (WSJT-X protocol field) */
   time: number;
+  /** Absolute ms since Unix epoch of the decode's cycle start (absent on rows written before this field existed) */
+  epochMs?: number;
   /** Signal-to-noise ratio (dB) */
   snr: number;
   /** Time offset (seconds) */

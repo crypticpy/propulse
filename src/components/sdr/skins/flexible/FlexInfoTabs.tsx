@@ -6,7 +6,7 @@
  * Renders compact rows optimized for the 280px sidebar width.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type {
   WsjtxStatus,
   WsjtxDecode,
@@ -39,7 +39,7 @@ const TAB_LABELS: Record<InfoTab, string> = {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FlexInfoTabs({
+export const FlexInfoTabs = memo(function FlexInfoTabs({
   wsjtxStatus,
   wsjtxDecodes,
   clusterSpots,
@@ -108,7 +108,7 @@ export function FlexInfoTabs({
       </div>
     </div>
   );
-}
+});
 
 // ─── Decodes tab ─────────────────────────────────────────────────────────────
 

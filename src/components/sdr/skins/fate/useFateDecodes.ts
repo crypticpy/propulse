@@ -6,7 +6,7 @@
  * and splits decodes into "all" vs. "directed at me" buckets.
  */
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import type { WsjtxDecode } from "@/lib/radio/protocol";
 import { extractCallInfo, isCQMessage } from "@/lib/ft8/ft8MessageParser";
 import { gridDistance, gridBearing, isValidGrid } from "@/lib/utils/grid";
@@ -23,7 +23,14 @@ import {
 export interface EnrichedDecode {
   // Original WsjtxDecode fields
   isNew: boolean;
+  /** Time-of-day anchor: ms since UTC midnight (WRAPS at 00:00). Display only. */
   time: number;
+  /**
+   * Absolute wall-clock anchor: ms since Unix epoch. Monotonic across the
+   * UTC-midnight boundary — use this (never `time`) for ordering, staleness,
+   * expiry, and cycle identity. Always populated by store ingest.
+   */
+  epochMs: number;
   snr: number;
   deltaTime: number;
   deltaFrequency: number;
@@ -103,9 +110,13 @@ export function useFateDecodes(
     const myGridValid = myGrid && isValidGrid(myGrid);
     const myCallUpper = myCallsign?.toUpperCase() ?? null;
 
-    // Track new stations discovered in *this* computation pass
+    // Track new stations discovered in *this* computation pass.
+    // NOTE: This memo is pure — it only *reads* seenCallsignsRef. The persistent
+    // set is updated in a useEffect after commit (see below), so StrictMode's
+    // double render can't strand NEW badges by pre-marking callsigns as seen.
     let newStationsThisPass = 0;
     const callsignSet = new Set<string>();
+    const seenThisPass = new Set<string>();
 
     const enriched: EnrichedDecode[] = decodes.map((d, idx) => {
       const parsed = extractCallInfo(d.message);
@@ -140,26 +151,38 @@ export function useFateDecodes(
         }
       }
 
-      // New-station tracking
+      // New-station tracking (pure read — no ref mutation here). A callsign is
+      // "new" the first time it appears this pass AND it was not committed to
+      // the persistent set by an earlier batch.
       const callUpper = parsedCallsign?.toUpperCase() ?? null;
       let isNewStation = false;
       if (callUpper) {
         callsignSet.add(callUpper);
-        if (!seenCallsignsRef.current.has(callUpper)) {
-          seenCallsignsRef.current.add(callUpper);
+        const firstThisPass = !seenThisPass.has(callUpper);
+        seenThisPass.add(callUpper);
+        if (firstThisPass && !seenCallsignsRef.current.has(callUpper)) {
           isNewStation = true;
           newStationsThisPass++;
         }
       }
 
-      // Cycle ID: FT8 = 15s cycles, FT4 = 7.5s cycles
+      // Absolute wall-clock anchor (ms since Unix epoch). addDecodes stamps
+      // epochMs on every live decode and loadRecent restores or rebuilds it
+      // for IDB rows, so it is effectively always present; the `?? 0`
+      // fallback only satisfies the optional source type.
+      const epochMs = d.epochMs ?? 0;
+
+      // Cycle ID: FT8 = 15s cycles, FT4 = 7.5s cycles. Derived from epochMs (not
+      // the midnight-wrapping `time`) so cycle identity stays monotonic across
+      // 00:00 UTC. Cycle lengths divide evenly into a day, so boundaries align.
       const cycleDurationMs = d.mode === "FT4" ? 7500 : 15000;
-      const cycleId = Math.floor(d.time / cycleDurationMs);
+      const cycleId = Math.floor(epochMs / cycleDurationMs);
 
       return {
         // Spread original fields
         isNew: d.isNew,
         time: d.time,
+        epochMs,
         snr: d.snr,
         deltaTime: d.deltaTime,
         deltaFrequency: d.deltaFrequency,
@@ -215,6 +238,17 @@ export function useFateDecodes(
 
     return { enriched, directed, stats };
   }, [decodes, myCallsign, myGrid]);
+
+  // Commit this batch's callsigns to the persistent "seen" set *after* render.
+  // Keeping the mutation out of the memo makes NEW-badge detection resilient to
+  // StrictMode's double render; Set.add is idempotent so the double-invoked
+  // effect can't corrupt the set either.
+  useEffect(() => {
+    for (const e of result.enriched) {
+      const call = e.parsedCallsign?.toUpperCase();
+      if (call) seenCallsignsRef.current.add(call);
+    }
+  }, [result]);
 
   return result;
 }

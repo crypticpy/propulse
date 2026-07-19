@@ -6,7 +6,7 @@
  * enriched decode list.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Ft8CycleIndicator } from "./Ft8CycleIndicator";
 import { Ft8BandPresetBar } from "./Ft8BandPresetBar";
 import { Ft8DecodeList } from "./Ft8DecodeList";
@@ -62,19 +62,35 @@ export function Ft8DecoderPanel({
 
   const sessionStats = useFt8SessionStore((s) => s.sessionStats);
 
-  // Track last 20 cycle decode counts for sparkline
-  const cycleCountsRef = useRef<number[]>([]);
+  // Per-cycle decode counts for the sparkline (last 20 cycles), kept in state
+  // so the chart reflects the current cycle rather than trailing one render.
+  // Cycle boundaries are detected from cycleProgress resets, so empty cycles
+  // register as 0; cyclesCompleted only increments on cycles that had decodes.
+  const [cycleCounts, setCycleCounts] = useState<number[]>([]);
+  const prevProgressRef = useRef(cycleProgress);
   const prevCyclesRef = useRef(stats.cyclesCompleted);
 
   useEffect(() => {
-    if (stats.cyclesCompleted > prevCyclesRef.current) {
-      cycleCountsRef.current = [
-        ...cycleCountsRef.current,
-        stats.lastCycleDecodes,
-      ].slice(-20);
+    const prevProgress = prevProgressRef.current;
+    prevProgressRef.current = cycleProgress;
+
+    if (!enabled) {
+      // Keep the cycle baseline synced while idle so re-enabling the decoder
+      // doesn't record a phantom cycle from stale counts.
+      prevCyclesRef.current = stats.cyclesCompleted;
+      return;
     }
+
+    // A cycle boundary is where progress resets from the end back to the start.
+    const rolledOver = prevProgress >= 0.5 && cycleProgress < 0.5;
+    if (!rolledOver) return;
+
+    const hadDecodes = stats.cyclesCompleted > prevCyclesRef.current;
     prevCyclesRef.current = stats.cyclesCompleted;
-  }, [stats.cyclesCompleted, stats.lastCycleDecodes]);
+    setCycleCounts((prev) =>
+      [...prev, hadDecodes ? stats.lastCycleDecodes : 0].slice(-20),
+    );
+  }, [enabled, cycleProgress, stats.cyclesCompleted, stats.lastCycleDecodes]);
 
   return (
     <div className="rounded border border-white/10 bg-void-black/60">
@@ -137,10 +153,7 @@ export function Ft8DecoderPanel({
           </div>
 
           {/* Session stats dashboard */}
-          <Ft8StatsDashboard
-            stats={sessionStats}
-            cycleCounts={cycleCountsRef.current}
-          />
+          <Ft8StatsDashboard stats={sessionStats} cycleCounts={cycleCounts} />
 
           {/* Time sync warning */}
           {timeSyncResult && !timeSyncResult.isAcceptable && (

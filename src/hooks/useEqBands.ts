@@ -66,10 +66,20 @@ export function useEqBands(): EqBandHandlers {
 
   const handleUpdateEqBand = useCallback(
     (id: string, freqHz: number, q: number, gainDb: number) => {
+      const clampedFreqHz = Math.max(20, Math.min(20000, freqHz));
+      const clampedQ = Math.max(0.1, Math.min(50, q));
+      const clampedGainDb = Math.max(-24, Math.min(24, gainDb));
       const current = useSettingsStore.getState().sdrEqBands;
       useSettingsStore.getState().updatePreferences({
         sdrEqBands: current.map((b: EqBand) =>
-          b.id === id ? { ...b, freqHz, q, gainDb } : b,
+          b.id === id
+            ? {
+                ...b,
+                freqHz: clampedFreqHz,
+                q: clampedQ,
+                gainDb: clampedGainDb,
+              }
+            : b,
         ),
       });
     },

@@ -365,6 +365,10 @@ export function SpectrumScope({
     g: 0,
     b: 0,
   });
+  // Cached gradient-fill objects (rebuilt only when color/opacity/height change).
+  const fillGradKeyRef = useRef<string>("");
+  const fillGradRef = useRef<CanvasGradient | null>(null);
+  const glowGradRef = useRef<CanvasGradient | null>(null);
 
   useEffect(() => {
     // Mark the expensive FFT->points mapping dirty when its inputs change.
@@ -477,7 +481,9 @@ export function SpectrumScope({
 
           const gridColor = `rgba(255,255,255,${gridOpacityNow})`;
           bgCtx.strokeStyle = gridColor;
-          bgCtx.lineWidth = 1;
+          // The bg canvas is sized in device pixels like the main canvas, so
+          // grid strokes need the same DPR scaling as every other stroke.
+          bgCtx.lineWidth = 1 * (renderDprRef.current || 1);
 
           if (gridLinesNow > 0) {
             for (let i = 1; i <= gridLinesNow; i++) {
@@ -660,7 +666,7 @@ export function SpectrumScope({
           const hasFilterCb = !!onFilterChangeNow;
           const edgeAlpha = hasFilterCb ? 0.4 : 0.2;
           ctx.strokeStyle = `rgba(0, 200, 255, ${edgeAlpha})`;
-          ctx.lineWidth = hasFilterCb ? 2 : 1;
+          ctx.lineWidth = (hasFilterCb ? 2 : 1) * dpr;
           ctx.beginPath();
           ctx.moveTo(pbX0, 0);
           ctx.lineTo(pbX0, h);
@@ -692,14 +698,14 @@ export function SpectrumScope({
             }
 
             ctx.strokeStyle = tuningLineColorNow + "66";
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 3 * dpr;
             ctx.beginPath();
             ctx.moveTo(vfoX, arrowHeight);
             ctx.lineTo(vfoX, h);
             ctx.stroke();
 
             ctx.strokeStyle = tuningLineColorNow + "d9";
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1 * dpr;
             ctx.beginPath();
             ctx.moveTo(vfoX, arrowHeight);
             ctx.lineTo(vfoX, h);
@@ -894,36 +900,48 @@ export function SpectrumScope({
 
       // ── Gradient fill ─────────────────────────────────────────
       if (showGradientFillNow) {
-        const grad = ctx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(
-          0,
-          `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.8})`,
-        );
-        grad.addColorStop(
-          0.4,
-          `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.3})`,
-        );
-        grad.addColorStop(
-          1,
-          `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.02})`,
-        );
+        // Rebuild the vertical gradients only when color/opacity/height change.
+        const gradKey = `${traceR},${traceG},${traceB}|${fillOpacityNow}|${h}`;
+        if (
+          fillGradKeyRef.current !== gradKey ||
+          !fillGradRef.current ||
+          !glowGradRef.current
+        ) {
+          fillGradKeyRef.current = gradKey;
+          const grad = ctx.createLinearGradient(0, 0, 0, h);
+          grad.addColorStop(
+            0,
+            `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.8})`,
+          );
+          grad.addColorStop(
+            0.4,
+            `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.3})`,
+          );
+          grad.addColorStop(
+            1,
+            `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.02})`,
+          );
+          fillGradRef.current = grad;
 
-        ctx.fillStyle = grad;
+          const glowGrad = ctx.createLinearGradient(0, 0, 0, h);
+          glowGrad.addColorStop(
+            0,
+            `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 1.2})`,
+          );
+          glowGrad.addColorStop(
+            0.5,
+            `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.4})`,
+          );
+          glowGrad.addColorStop(1, `rgba(${traceR},${traceG},${traceB}, 0)`);
+          glowGradRef.current = glowGrad;
+        }
+
+        ctx.fillStyle = fillGradRef.current!;
         ctx.fill(fillPath);
 
-        const glowGrad = ctx.createLinearGradient(0, 0, 0, h);
-        glowGrad.addColorStop(
-          0,
-          `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 1.2})`,
-        );
-        glowGrad.addColorStop(
-          0.5,
-          `rgba(${traceR},${traceG},${traceB}, ${fillOpacityNow * 0.4})`,
-        );
-        glowGrad.addColorStop(1, `rgba(${traceR},${traceG},${traceB}, 0)`);
         ctx.save();
         ctx.clip(fillPath);
-        ctx.fillStyle = glowGrad;
+        ctx.fillStyle = glowGradRef.current!;
         ctx.fillRect(0, 0, w, h);
         ctx.restore();
       }
@@ -934,7 +952,7 @@ export function SpectrumScope({
         peakPath.moveTo(0, yPeakBuf[0]!);
         for (let x = 1; x < w; x++) peakPath.lineTo(x, yPeakBuf[x]!);
         ctx.strokeStyle = `rgba(${traceR},${traceG},${traceB}, 0.35)`;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 * dpr;
         ctx.stroke(peakPath);
       }
 
@@ -946,7 +964,7 @@ export function SpectrumScope({
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 3;
         ctx.strokeStyle = `rgba(${traceR},${traceG},${traceB}, 0.3)`;
-        ctx.lineWidth = lineWidthPxNow + 2;
+        ctx.lineWidth = (lineWidthPxNow + 2) * dpr;
         ctx.stroke(linePath);
         ctx.restore();
       }
@@ -959,7 +977,7 @@ export function SpectrumScope({
         ctx.shadowOffsetY = 2;
       }
       ctx.strokeStyle = `rgb(${traceR},${traceG},${traceB})`;
-      ctx.lineWidth = lineWidthPxNow;
+      ctx.lineWidth = lineWidthPxNow * dpr;
       ctx.stroke(linePath);
 
       if (lineShadowNow) {
@@ -976,7 +994,7 @@ export function SpectrumScope({
         if (t < 0 || t > 1) continue;
         const x = Math.round(t * (w - 1));
         ctx.strokeStyle = colorForOverlay(o.color);
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 * dpr;
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h);

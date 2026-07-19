@@ -41,6 +41,49 @@ function dialFreqForFKey(key: string): number | null {
   return entry?.freqHz ?? null;
 }
 
+// ---- Interactive-target detection -------------------------------------------
+
+/** ARIA roles that indicate the element handles its own keyboard input. */
+const INTERACTIVE_ROLES = new Set([
+  "button",
+  "link",
+  "checkbox",
+  "radio",
+  "switch",
+  "tab",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "option",
+  "textbox",
+  "combobox",
+  "searchbox",
+  "spinbutton",
+  "slider",
+]);
+
+/**
+ * True when the event target is a control that should receive the keystroke
+ * itself (form fields, buttons, links, contenteditable, ARIA widgets). Single-
+ * letter and Space shortcuts must not steal keys from these — e.g. Space
+ * activating a focused button, or "c"/"d" being typed into a field.
+ */
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLButtonElement ||
+    target instanceof HTMLAnchorElement
+  ) {
+    return true;
+  }
+  if (target.isContentEditable) return true;
+  const role = target.getAttribute("role");
+  return role != null && INTERACTIVE_ROLES.has(role);
+}
+
 // ---- Hook interface ---------------------------------------------------------
 
 export interface UseFateKeyboardOptions {
@@ -82,7 +125,9 @@ export function useFateKeyboard({
     let best: EnrichedDecode | null = null;
     for (const d of decodes) {
       if (d.isCQ && d.parsedCallsign) {
-        if (!best || d.time > best.time) {
+        // Compare by epochMs (absolute), not the midnight-wrapping time, so the
+        // newest CQ is still picked across 00:00 UTC.
+        if (!best || d.epochMs > best.epochMs) {
           best = d;
         }
       }
@@ -116,11 +161,9 @@ export function useFateKeyboard({
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabledRef.current) return;
 
-    // Don't intercept when focus is on an input/textarea/select
-    const target = e.target;
-    if (target instanceof HTMLInputElement) return;
-    if (target instanceof HTMLTextAreaElement) return;
-    if (target instanceof HTMLSelectElement) return;
+    // Don't intercept when focus is on a control that handles its own keys
+    // (form fields, buttons, links, contenteditable, ARIA widgets).
+    if (isInteractiveTarget(e.target)) return;
 
     const key = e.key;
 
@@ -136,9 +179,9 @@ export function useFateKeyboard({
 
     // ---- Space: Quick-log last CQ callsign ----------------------------------
     if (key === " ") {
-      e.preventDefault(); // prevent page scroll
       const cs = lastCqCallsignRef.current;
       if (cs) {
+        e.preventDefault(); // suppress page scroll only when we actually act
         onQuickLogRef.current(cs);
       }
       return;

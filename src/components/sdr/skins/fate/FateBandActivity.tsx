@@ -86,7 +86,9 @@ function compareDecode(
 
   switch (field) {
     case "time":
-      return (a.time - b.time) * mul;
+      // Order by absolute time (epochMs) so "newest first" stays correct across
+      // UTC midnight; the UTC column still shows time-of-day.
+      return (a.epochMs - b.epochMs) * mul;
     case "snr":
       return (a.snr - b.snr) * mul;
     case "deltaFrequency":
@@ -621,16 +623,19 @@ export function FateBandActivity({
     setShowJump(!atTop);
   }, []);
 
-  // Auto-scroll to top when new decodes arrive (if auto-scroll active)
-  const prevDecodeLenRef = useRef(decodes.length);
+  // Auto-scroll to top when a new decode arrives (if auto-scroll active).
+  // Keying on decodes.length fails once the 500-cap buffer saturates (length
+  // stops changing), so track the newest row's identity instead. The enriched
+  // buffer is newest-first, so decodes[0] is the newest row.
+  const newest = decodes[0];
+  const newestKey = newest
+    ? `${newest.epochMs}-${newest.deltaFrequency}-${newest.message}`
+    : null;
   useEffect(() => {
-    if (decodes.length !== prevDecodeLenRef.current) {
-      prevDecodeLenRef.current = decodes.length;
-      if (autoScrollRef.current && scrollRef.current) {
-        scrollRef.current.scrollTop = 0;
-      }
+    if (autoScrollRef.current && scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
     }
-  }, [decodes.length]);
+  }, [newestKey]);
 
   // Jump to latest
   const jumpToLatest = useCallback(() => {

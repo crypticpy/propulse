@@ -114,8 +114,13 @@ export function RotaryKnob({
     [sensitivity, onChange, min, max, scale],
   );
 
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  // Ends the drag for both pointerup and pointercancel (touch interruption).
+  // Capture may already be released on cancel, so guard the release.
+  const endDrag = useCallback((e: React.PointerEvent) => {
+    const el = e.target as HTMLElement;
+    if (el.hasPointerCapture(e.pointerId)) {
+      el.releasePointerCapture(e.pointerId);
+    }
     dragRef.current = null;
   }, []);
 
@@ -133,7 +138,8 @@ export function RotaryKnob({
         height={size}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
         style={{
           cursor: disabled ? "default" : dragRef.current ? "grabbing" : "grab",
         }}

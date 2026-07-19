@@ -3,7 +3,7 @@
  *
  * Browser requests read the centrally collected spot store. Only the collector
  * talks to PSK Reporter, which keeps polling within the provider's guidance and
- * prevents a slow public service from consuming an entire edge invocation.
+ * prevents a slow public service from consuming an entire function invocation.
  */
 
 import { applyRateLimit } from "../_lib/rateLimit";
@@ -13,10 +13,6 @@ import {
   spotOptionsResponse,
 } from "../_lib/spotResponse";
 import { readStoredSpots } from "../_lib/spotStore";
-
-export const config = {
-  runtime: "edge",
-};
 
 const GRID_REGEX = /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?$/;
 

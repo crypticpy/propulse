@@ -8,10 +8,6 @@ import {
 } from "../_lib/spotResponse";
 import { meterBandNumber, readStoredSpots } from "../_lib/spotStore";
 
-export const config = {
-  runtime: "edge",
-};
-
 function requestedBands(value: string | null): string[] | undefined {
   if (!value) return undefined;
   const bands = value.split(",");

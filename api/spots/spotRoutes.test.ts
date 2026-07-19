@@ -62,7 +62,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("stored spot edge routes", () => {
+describe("stored spot routes", () => {
   it("preserves each existing spot shape inside a versioned envelope", async () => {
     const psk = await pskReporterHandler(
       new Request("https://propulse.cloud/api/spots/pskreporter?grid=DM79&limit=50"),

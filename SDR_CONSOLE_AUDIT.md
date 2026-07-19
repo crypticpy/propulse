@@ -114,7 +114,7 @@ Every fix agent re-verified its finding against source before patching; anything
 
 ## Execution notes (post-fix)
 
-- **All waves executed and verified.** Lint (`--max-warnings 0`), the full vitest suite (267/267), `tsc -b` + Vite build, and bundle budgets are green on every commit. Bridge and Rust-daemon test suites were not run (neither component was touched; all changes are under `src/`).
+- **All waves executed and verified.** Lint (`--max-warnings 0`), the full vitest suite (267/267), `tsc -b` + Vite build, and bundle budgets are green on every commit. The bridge and Rust-daemon suites were skipped during the per-wave loops (neither component is touched; all changes are under `src/`) but both ran green in the full pre-push `npm run verify`.
 - **Implementation choices worth knowing during device testing:**
   - M-12: fixed by clearing the decode buffer directly on band hop (`clearDecodes()`) instead of the off/on decoder flap — the decoder now stays running across band changes.
   - M-5: decode depth threads `maxIterations` into the worker's LDPC budget; `subtractionPasses`/`minSnr` are carried but the current WASM interface exposes no hook for them. Depth changes restart the decoder.

@@ -8,10 +8,6 @@ import {
 } from "../_lib/spotResponse";
 import { readStoredSpots } from "../_lib/spotStore";
 
-export const config = {
-  runtime: "edge",
-};
-
 export default async function handler(req: Request) {
   if (req.method === "OPTIONS") {
     return spotOptionsResponse();

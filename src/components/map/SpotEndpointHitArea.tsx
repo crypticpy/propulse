@@ -9,17 +9,18 @@
  */
 
 import { useRef, useCallback, useMemo } from "react";
-import { ThreeEvent } from "@react-three/fiber";
+import { ThreeEvent, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ResolvedSpot } from "./LiveSpotArcs";
 import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import type { SpotSource } from "@/types/livespot";
+import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 
 /** Default hit radius for spot detection */
 const DEFAULT_HIT_RADIUS = 0.025;
 
 /** Radius offset from globe surface */
-const SURFACE_OFFSET = 1.015;
+const SURFACE_OFFSET = 1.000002;
 
 export interface SpotEndpointHitAreaProps {
   /** Latitude in decimal degrees */
@@ -105,6 +106,7 @@ export function SpotEndpointHitArea({
   onHoverEnd,
 }: SpotEndpointHitAreaProps) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   // Calculate 3D position
   const position = useMemo(
@@ -161,6 +163,14 @@ export function SpotEndpointHitArea({
   const handlePointerLeave = useCallback(() => {
     onHoverEnd?.();
   }, [onHoverEnd]);
+
+  useFrame(({ camera }) => {
+    if (!meshRef.current) return;
+    meshRef.current.getWorldPosition(worldPosition);
+    meshRef.current.scale.setScalar(
+      getScreenSpaceScale(camera.position.distanceTo(worldPosition)),
+    );
+  });
 
   return (
     <mesh

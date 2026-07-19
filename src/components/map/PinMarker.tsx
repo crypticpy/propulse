@@ -14,6 +14,7 @@ import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 
 /** Default pin color - cyan to match app theme */
 const DEFAULT_COLOR = "#22D3EE";
@@ -22,7 +23,7 @@ const DEFAULT_COLOR = "#22D3EE";
 const DEFAULT_SIZE = 0.025;
 
 /** Radius offset to prevent z-fighting with globe surface */
-const SURFACE_OFFSET = 1.02;
+const SURFACE_OFFSET = 1.000002;
 
 /** Height of the pin stem above the globe surface */
 const STEM_HEIGHT = 0.06;
@@ -122,6 +123,7 @@ export function PinMarker({
   const glowRingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const shadowCircleMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   // Globe occlusion - fade out pins on the far side
   const { opacityRef: occlusionRef, opacity: occlusionOpacity } =
@@ -167,20 +169,23 @@ export function PinMarker({
   }, [onHover, pinId]);
 
   // Animate pin (gentle bobbing motion) and apply globe occlusion
-  useFrame(({ clock }) => {
+  useFrame(({ camera, clock }) => {
     if (groupRef.current) {
-      // Gentle bob animation
-      const time = clock.elapsedTime * 1.5;
-      const bobOffset = Math.sin(time) * 0.003;
-
-      // Apply bob along the up direction (reuse pre-allocated vector)
-      tempBobVec.copy(upDirection).multiplyScalar(bobOffset);
-      groupRef.current.position.copy(basePosition).add(tempBobVec);
-
-      // Scale up slightly when hovered (reuse pre-allocated vector)
-      const targetScale = isHovered ? 1.2 : 1;
+      // Keep a stable screen size at local zoom, then apply hover emphasis.
+      groupRef.current.position.copy(basePosition);
+      groupRef.current.getWorldPosition(worldPosition);
+      const screenScale = getScreenSpaceScale(
+        camera.position.distanceTo(worldPosition),
+      );
+      const targetScale = screenScale * (isHovered ? 1.2 : 1);
       tempScaleVec.set(targetScale, targetScale, targetScale);
       groupRef.current.scale.lerp(tempScaleVec, 0.1);
+
+      // Gentle bob animation, scaled with the marker so it stays local.
+      const time = clock.elapsedTime * 1.5;
+      const bobOffset = Math.sin(time) * 0.003 * screenScale;
+      tempBobVec.copy(upDirection).multiplyScalar(bobOffset);
+      groupRef.current.position.add(tempBobVec);
     }
 
     // Apply globe occlusion to all materials

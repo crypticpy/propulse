@@ -10,6 +10,7 @@ import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 
 /** Default marker color - plasma orange */
 const DEFAULT_COLOR = "#FF6B35";
@@ -18,7 +19,7 @@ const DEFAULT_COLOR = "#FF6B35";
 const DEFAULT_SIZE = 0.02;
 
 /** Radius offset to prevent z-fighting with globe surface */
-const SURFACE_OFFSET = 1.02;
+const SURFACE_OFFSET = 1.000002;
 
 export interface SpotMarkerProps {
   /** Latitude in degrees */
@@ -95,6 +96,7 @@ export function SpotMarker({
   onClick,
   onHover,
 }: SpotMarkerProps) {
+  const groupRef = useRef<THREE.Group>(null);
   const markerRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -102,6 +104,7 @@ export function SpotMarker({
   const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   const [isHovered, setIsHovered] = useState(false);
+  const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   // Globe occlusion - fade out markers on the far side
   const { opacityRef: occlusionRef, opacity: occlusionOpacity } =
@@ -142,8 +145,15 @@ export function SpotMarker({
   }, [onHover]);
 
   // Animate glow effect and apply globe occlusion
-  useFrame(({ clock }) => {
+  useFrame(({ camera, clock }) => {
     const occlusion = occlusionRef.current;
+
+    if (groupRef.current) {
+      groupRef.current.getWorldPosition(worldPosition);
+      groupRef.current.scale.setScalar(
+        getScreenSpaceScale(camera.position.distanceTo(worldPosition)),
+      );
+    }
 
     if (glowRef.current && materialRef.current) {
       // Pulsing glow effect
@@ -173,7 +183,7 @@ export function SpotMarker({
   const glowSize = size * 2;
 
   return (
-    <group position={position}>
+    <group ref={groupRef} position={position}>
       {/* Glow sprite behind marker */}
       <mesh ref={glowRef} renderOrder={0}>
         <circleGeometry args={[glowSize, 32]} />

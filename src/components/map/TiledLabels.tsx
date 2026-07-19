@@ -78,6 +78,8 @@ export function TiledLabels() {
             url: LABEL_TILE_URL,
             shape: "ellipsoid",
             useRecommendedSettings: true,
+            levels: 20,
+            tileDimension: 512,
           } as any // eslint-disable-line @typescript-eslint/no-explicit-any
         }
       />

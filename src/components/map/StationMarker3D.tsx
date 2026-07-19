@@ -7,8 +7,9 @@ import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 
-const GLOBE_RADIUS = 1.006;
+const GLOBE_RADIUS = 1.000002;
 
 interface StationMarker3DProps {
   lat: number;
@@ -21,12 +22,23 @@ export const StationMarker3D = React.memo(function StationMarker3D({
   lon,
   callsign,
 }: StationMarker3DProps) {
+  const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
+  const worldPositionRef = useRef(new THREE.Vector3());
   const [x, y, z] = latLonTo3D(lat, lon, GLOBE_RADIUS);
 
-  useFrame(({ clock }) => {
+  useFrame(({ camera, clock }) => {
     const t = clock.getElapsedTime();
+
+    if (groupRef.current) {
+      groupRef.current.getWorldPosition(worldPositionRef.current);
+      groupRef.current.scale.setScalar(
+        getScreenSpaceScale(
+          camera.position.distanceTo(worldPositionRef.current),
+        ),
+      );
+    }
 
     // Pulse the marker
     if (meshRef.current) {
@@ -47,7 +59,7 @@ export const StationMarker3D = React.memo(function StationMarker3D({
   });
 
   return (
-    <group position={[x, y, z]}>
+    <group ref={groupRef} position={[x, y, z]}>
       {/* Pulsing ring */}
       <mesh ref={ringRef} renderOrder={10}>
         <ringGeometry args={[0.003, 0.004, 32]} />

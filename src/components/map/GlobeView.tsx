@@ -114,6 +114,10 @@ import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { getGreylineIntensity } from "@/lib/utils/greyline";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import {
+  getGlobeNavigationTuning,
+  getMinimumGlobeDistance,
+} from "@/lib/map/globeNavigation";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
@@ -291,7 +295,7 @@ function latLonToCameraPosition(
 
 function CameraController() {
   const controlsRef = useRef<OrbitControlsType>(null);
-  const { camera } = useThree();
+  const { camera, gl, size } = useThree();
   const { targetPosition, isFocusing } = useSpotFocus();
   const centerLocation = useMapStore((state) => state.centerLocation);
   const clearCenterLocation = useMapStore((state) => state.clearCenterLocation);
@@ -300,7 +304,25 @@ function CameraController() {
   const autoRotate = useMapStore((state) => state.autoRotate);
   const observatoryMode = useMapStore((state) => state.observatoryMode);
   const autoRotateSpeed = useMapStore((state) => state.autoRotateSpeed);
+  const mapStyle = useMapStore((state) => state.mapStyle);
+  const subscriptionTier = useProfileStore((state) => state.subscriptionTier);
   const prevPresetIdRef = useRef<string | null>(null);
+
+  const cameraProvider = useMemo(
+    () => selectTileProvider(mapStyle, subscriptionTier),
+    [mapStyle, subscriptionTier],
+  );
+  const minimumDistance = useMemo(
+    () =>
+      getMinimumGlobeDistance({
+        maxZoom: cameraProvider.maxZoom,
+        tileSize: cameraProvider.tileSize,
+        viewportHeight: size.height * gl.getPixelRatio(),
+        fieldOfView:
+          camera instanceof THREE.PerspectiveCamera ? camera.fov : 45,
+      }),
+    [camera, cameraProvider, gl, size.height],
+  );
 
   // Dynamic OrbitControls auto-rotate speed from store
   // OrbitControls autoRotateSpeed 2.0 = 30 seconds per orbit at 60 fps
@@ -309,6 +331,43 @@ function CameraController() {
     () => 2.0 * (30 / Math.max(60, autoRotateSpeed)),
     [autoRotateSpeed],
   );
+
+  // OrbitControls sensitivity is distance-from-target based. Retune it after
+  // every camera change so local navigation stays precise near the surface.
+  const updateNavigationTuning = useCallback(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const tuning = getGlobeNavigationTuning(
+      camera.position.length(),
+      minimumDistance,
+    );
+    controls.zoomSpeed = tuning.zoomSpeed;
+    controls.rotateSpeed = tuning.rotateSpeed;
+    controls.autoRotateSpeed =
+      computedRotateSpeed * tuning.autoRotateScale;
+
+    if (
+      camera instanceof THREE.PerspectiveCamera &&
+      Math.abs(camera.near - tuning.near) /
+        Math.max(camera.near, tuning.near) >
+        0.01
+    ) {
+      camera.near = tuning.near;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, computedRotateSpeed, minimumDistance]);
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    updateNavigationTuning();
+    controls.addEventListener("change", updateNavigationTuning);
+    return () => {
+      controls.removeEventListener("change", updateNavigationTuning);
+    };
+  }, [updateNavigationTuning]);
 
   // Observatory mode — read station for camera-to-home animation
   const station = useProfileStore((s) => s.station);
@@ -691,14 +750,11 @@ function CameraController() {
       enablePan={false}
       enableZoom={true}
       enableRotate={!observatoryMode}
-      zoomSpeed={0.5}
-      minDistance={1.15}
+      minDistance={minimumDistance}
       maxDistance={4}
-      rotateSpeed={0.5}
       dampingFactor={0.1}
       enableDamping
       autoRotate={autoRotate}
-      autoRotateSpeed={computedRotateSpeed}
     />
   );
 }
@@ -2028,8 +2084,8 @@ export function GlobeView({
             makeDefault
             position={[0, 0, 2.5 / zoom]}
             fov={45}
-            near={0.1}
-            far={1000}
+            near={0.01}
+            far={200}
           />
           <Suspense fallback={<GlobeLoader />}>
             <GlobeScene

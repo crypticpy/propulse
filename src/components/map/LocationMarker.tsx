@@ -13,6 +13,9 @@ import { useMemo, useRef, useState, memo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
+import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+
+const SURFACE_OFFSET = 1.000002;
 
 // Difficulty level type (1-5 scale)
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
@@ -108,9 +111,11 @@ function LocationMarkerInner({
   showDifficultyTag = true,
   sizeScale = 1.0,
 }: LocationMarkerProps) {
+  const groupRef = useRef<THREE.Group>(null);
   const markerRef = useRef<THREE.Mesh>(null);
   const pulseRef = useRef<THREE.Mesh>(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   // Determine final color - use difficulty color for targets, or explicit color
   const finalColor = useMemo(() => {
@@ -122,11 +127,18 @@ function LocationMarkerInner({
 
   // Calculate 3D position
   const position = useMemo(() => {
-    return latLonToVector3(lat, lon, 1.01);
+    return latLonToVector3(lat, lon, SURFACE_OFFSET);
   }, [lat, lon]);
 
   // Pulse animation for target markers
-  useFrame(({ clock }) => {
+  useFrame(({ camera, clock }) => {
+    if (groupRef.current) {
+      groupRef.current.getWorldPosition(worldPosition);
+      groupRef.current.scale.setScalar(
+        getScreenSpaceScale(camera.position.distanceTo(worldPosition)),
+      );
+    }
+
     if (pulseRef.current && type === "target") {
       const scale = 1 + Math.sin(clock.elapsedTime * 3) * 0.3;
       pulseRef.current.scale.set(scale, scale, scale);
@@ -143,7 +155,7 @@ function LocationMarkerInner({
   const isHome = type === "home";
 
   return (
-    <group position={position}>
+    <group ref={groupRef} position={position}>
       {/* Pulse ring for target markers */}
       {type === "target" && (
         <mesh ref={pulseRef}>

@@ -18,9 +18,10 @@ import * as THREE from "three";
 import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import { getModeColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 
 /** Radius offset to prevent z-fighting with globe surface */
-const SURFACE_OFFSET = 1.02;
+const SURFACE_OFFSET = 1.000002;
 
 /** Height of the pin stem above the globe surface */
 const STEM_HEIGHT = 0.08;
@@ -188,6 +189,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
   // Pre-allocate reusable vectors to avoid per-frame GC pressure
   const tempBobVec = useMemo(() => new THREE.Vector3(), []);
   const tempScaleVec = useMemo(() => new THREE.Vector3(), []);
+  const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   // Calculate rotation to align pin with surface normal
   const rotation = useMemo(() => {
@@ -234,9 +236,15 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
 
     // Gentle bob animation along the up direction
     if (groupRef.current) {
-      const bobOffset = Math.sin(time * 1.5) * 0.003;
+      groupRef.current.position.copy(basePosition);
+      groupRef.current.getWorldPosition(worldPosition);
+      const screenScale = getScreenSpaceScale(
+        camera.position.distanceTo(worldPosition),
+      );
+      groupRef.current.scale.setScalar(screenScale);
+      const bobOffset = Math.sin(time * 1.5) * 0.003 * screenScale;
       tempBobVec.copy(upDirection).multiplyScalar(bobOffset);
-      groupRef.current.position.copy(basePosition).add(tempBobVec);
+      groupRef.current.position.add(tempBobVec);
     }
 
     // Hover: lerp head scale to 1.2

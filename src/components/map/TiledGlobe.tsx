@@ -21,6 +21,7 @@ import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
 import { WGS84_RADIUS } from "3d-tiles-renderer/core";
 import type { TileProviderConfig } from "@/lib/tiles/types";
 import { CompatibleXYZTilesPlugin } from "@/lib/tiles/CompatibleXYZTilesPlugin";
+import { getXYZTilePluginOptions } from "@/lib/tiles/xyzOptions";
 import { getAccessToken } from "@/lib/api/authFetch";
 
 // ---------------------------------------------------------------------------
@@ -190,16 +191,8 @@ export function TiledGlobe({
     >
       <TilesPlugin
         plugin={CompatibleXYZTilesPlugin}
-        args={
-          {
-            url: provider.url,
-            shape: "ellipsoid",
-            useRecommendedSettings: true,
-            maxZoom: provider.maxZoom,
-            tileWidth: provider.tileSize,
-            tileHeight: provider.tileSize,
-          } as any // eslint-disable-line @typescript-eslint/no-explicit-any -- R3F TilesPlugin accepts object or array
-        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- R3F types args as an array although this plugin accepts an options object
+        args={getXYZTilePluginOptions(provider) as any}
       />
       <TilesPlugin
         plugin={TilesFadePlugin}

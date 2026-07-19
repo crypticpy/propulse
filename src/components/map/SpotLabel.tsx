@@ -20,7 +20,7 @@ import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
 
 /** Offset from globe surface to prevent z-fighting */
-const SURFACE_OFFSET = 1.012;
+const SURFACE_OFFSET = 1.000002;
 
 export interface SpotLabelProps {
   /** Latitude in decimal degrees */

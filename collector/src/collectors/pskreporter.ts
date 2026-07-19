@@ -7,9 +7,9 @@ import { reportHealth } from "../health.js";
 import { insertSpots, reportToDb } from "../lib/db-helpers.js";
 
 const PSK_URL =
-  "https://retrieve.pskreporter.info/query?flowStartSeconds=-900&rronly=1&noactive=1";
+  "https://retrieve.pskreporter.info/query?flowStartSeconds=-900&rronly=1&noactive=1&appcontact=contact%40propulse.cloud";
 
-const USER_AGENT = "Propulse-Collector/1.0";
+const USER_AGENT = "Propulse-Collector/1.1 (contact@propulse.cloud)";
 
 // ---------------------------------------------------------------------------
 // XML attribute parser (no DOM parser in lean Node service)
@@ -33,8 +33,12 @@ export async function collectPskReporter(db: SupabaseClient): Promise<void> {
     log("info", "PSKReporter: fetching spots");
 
     const response = await fetch(PSK_URL, {
-      headers: { "User-Agent": USER_AGENT },
-      signal: AbortSignal.timeout(30_000),
+      headers: {
+        Accept: "application/xml, text/xml;q=0.9",
+        "User-Agent": USER_AGENT,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!response.ok) {

@@ -7,7 +7,7 @@ import { insertSpots, reportToDb } from "../lib/db-helpers.js";
 
 const DXC_URL = "https://www.hamqth.com/dxc_csv.php?limit=200";
 
-const USER_AGENT = "Propulse-Collector/1.0";
+const USER_AGENT = "Propulse-Collector/1.1 (contact@propulse.cloud)";
 
 // ---------------------------------------------------------------------------
 // Mode extraction from comment string
@@ -106,8 +106,12 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
     log("info", "DXCluster: fetching spots");
 
     const response = await fetch(DXC_URL, {
-      headers: { "User-Agent": USER_AGENT },
-      signal: AbortSignal.timeout(30_000),
+      headers: {
+        Accept: "text/plain, text/csv;q=0.9",
+        "User-Agent": USER_AGENT,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!response.ok) {

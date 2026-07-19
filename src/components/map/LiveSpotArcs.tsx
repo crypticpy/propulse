@@ -583,32 +583,24 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
-    mesh.count = count;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
+    const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
     for (let i = 0; i < count; i++) {
       const ep = endpoints[i];
 
-      // Validate coordinates
       if (!Number.isFinite(ep.lat) || !Number.isFinite(ep.lon)) {
-        // Zero-scale to hide invalid entries
-        tmpMatrix.makeScale(0, 0, 0);
-        mesh.setMatrixAt(i, tmpMatrix);
         tmpColor.set("#000000");
-        mesh.setColorAt(i, tmpColor);
-        continue;
+      } else {
+        tmpColor.set(ep.color);
       }
-
-      // Per-instance color
-      tmpColor.set(ep.color);
       mesh.setColorAt(i, tmpColor);
     }
 
     if (mesh.instanceColor) {
       mesh.instanceColor.needsUpdate = true;
     }
-  }, [endpoints, tmpMatrix, tmpColor]);
+  }, [endpoints, tmpColor]);
 
   useFrame(({ camera }) => {
     const mesh = meshRef.current;

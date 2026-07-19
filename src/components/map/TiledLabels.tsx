@@ -14,14 +14,21 @@ import {
   TilesPlugin,
 } from "3d-tiles-renderer/r3f";
 import { TilesFadePlugin } from "3d-tiles-renderer/plugins";
-import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
-import { WGS84_HEIGHT, WGS84_RADIUS } from "3d-tiles-renderer/core";
+import {
+  Ellipsoid,
+  TilesRenderer as TilesRendererImpl,
+} from "3d-tiles-renderer/three";
+import { WGS84_RADIUS } from "3d-tiles-renderer/core";
 import { CompatibleXYZTilesPlugin } from "@/lib/tiles/CompatibleXYZTilesPlugin";
-import { getUnitSphereScale } from "@/lib/map/globeGeometry";
+import { getUnitGlobeProjection } from "@/lib/map/globeGeometry";
 import * as THREE from "three";
 
 const ALIGN_ROTATION_X = -Math.PI / 2;
-const UNIT_GLOBE_SCALE = getUnitSphereScale(WGS84_RADIUS, WGS84_HEIGHT);
+const UNIT_GLOBE_PROJECTION = getUnitGlobeProjection(WGS84_RADIUS);
+const UNIT_GLOBE_SCALE = UNIT_GLOBE_PROJECTION.scale;
+const UNIT_GLOBE_ELLIPSOID = new Ellipsoid(
+  ...UNIT_GLOBE_PROJECTION.ellipsoidRadii,
+);
 
 /** CartoDB dark_only_labels tile URL */
 const LABEL_TILE_URL =
@@ -69,6 +76,7 @@ export function TiledLabels() {
     <TilesRendererR3F
       ref={tilesRef}
       errorTarget={6}
+      ellipsoid={UNIT_GLOBE_ELLIPSOID}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       group={groupProps as any}
     >

@@ -17,12 +17,15 @@ import {
   TilesFadePlugin,
   UpdateOnChangePlugin,
 } from "3d-tiles-renderer/plugins";
-import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
-import { WGS84_HEIGHT, WGS84_RADIUS } from "3d-tiles-renderer/core";
+import {
+  Ellipsoid,
+  TilesRenderer as TilesRendererImpl,
+} from "3d-tiles-renderer/three";
+import { WGS84_RADIUS } from "3d-tiles-renderer/core";
 import type { TileProviderConfig } from "@/lib/tiles/types";
 import { CompatibleXYZTilesPlugin } from "@/lib/tiles/CompatibleXYZTilesPlugin";
 import { getXYZTilePluginOptions } from "@/lib/tiles/xyzOptions";
-import { getUnitSphereScale } from "@/lib/map/globeGeometry";
+import { getUnitGlobeProjection } from "@/lib/map/globeGeometry";
 import { getAccessToken } from "@/lib/api/authFetch";
 
 // ---------------------------------------------------------------------------
@@ -43,11 +46,15 @@ const ALIGN_ROTATION_X = -Math.PI / 2;
 const ALIGN_ROTATION_Y = 0;
 
 /**
- * Scale WGS84 metre geometry onto the unit sphere used by every Propulse
- * overlay and by OrbitControls. Correcting the polar axis separately removes
- * the ellipsoid/sphere altitude error that becomes kilometers at local zoom.
+ * Generate tiles directly on a metre-scale sphere, then uniformly scale it to
+ * the unit sphere used by Propulse overlays and OrbitControls. Keeping the
+ * renderer transform uniform preserves its screen-space-error calculations.
  */
-const UNIT_GLOBE_SCALE = getUnitSphereScale(WGS84_RADIUS, WGS84_HEIGHT);
+const UNIT_GLOBE_PROJECTION = getUnitGlobeProjection(WGS84_RADIUS);
+const UNIT_GLOBE_SCALE = UNIT_GLOBE_PROJECTION.scale;
+const UNIT_GLOBE_ELLIPSOID = new Ellipsoid(
+  ...UNIT_GLOBE_PROJECTION.ellipsoidRadii,
+);
 
 /** Number of tile-load errors within ERROR_WINDOW_MS that triggers onError. */
 const ERROR_THRESHOLD = 5;
@@ -189,6 +196,7 @@ export function TiledGlobe({
       key={provider.id}
       ref={tilesRef}
       errorTarget={2}
+      ellipsoid={UNIT_GLOBE_ELLIPSOID}
       fetchOptions={fetchOptionsRef.current}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- R3F spreads partial props onto <primitive>
       group={groupProps as any}

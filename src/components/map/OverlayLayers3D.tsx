@@ -66,14 +66,23 @@ function OverlayCells({ cells }: { cells: OverlayCell[] }) {
   }, [cells]);
 
   if (cells.length === 0) return null;
+  // depthTest off: depth-buffer contention with the tile surface discards
+  // the discs everywhere except the limb. FrontSide culls far-side cells
+  // geometrically (discs face outward). renderOrder 8 draws above tiles and
+  // labels but below the night shading shells (9-11).
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, cells.length]}>
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, cells.length]}
+      renderOrder={8}
+      frustumCulled={false}
+    >
       <circleGeometry args={[1, 20]} />
       <meshBasicMaterial
         transparent
         opacity={0.52}
+        depthTest={false}
         depthWrite={false}
-        side={THREE.DoubleSide}
       />
     </instancedMesh>
   );

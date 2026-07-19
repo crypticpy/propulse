@@ -13,6 +13,10 @@ import { useUserStore } from "@/stores/userStore";
 import { useForecastDisplayPrefs } from "@/stores/userStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
+import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
+import { useResearchParticipation } from "@/hooks/useResearchParticipation";
+import { latLonToGrid } from "@/lib/utils/grid";
 import {
   getForecastForPath,
   getBestWindows,
@@ -147,6 +151,13 @@ const BAND_SORT_ORDER: Record<string, number> = {
   "80m": 7,
 };
 
+// Probability tone thresholds match NowCastBandPanel
+function nowCastTone(probability: number): string {
+  if (probability >= 0.5) return "text-signal-green";
+  if (probability >= 0.2) return "text-caution-amber";
+  return "text-gray-200";
+}
+
 /**
  * Adjust color saturation by mixing toward/away from perceptual gray.
  * amount > 0: desaturate (toward gray). amount < 0: boost (away from gray).
@@ -184,13 +195,16 @@ export function PropagationForecastMini({
     data: kIndexData,
     isLoading: kLoading,
     isError: kError,
+    dataUpdatedAt: kUpdatedAt,
   } = useKIndex();
   const {
     data: solarFluxData,
     isLoading: sfiLoading,
     isError: sfiError,
+    dataUpdatedAt: fluxUpdatedAt,
   } = useSolarFlux();
-  const { data: magnetometerData } = useMagnetometer();
+  const { data: magnetometerData, dataUpdatedAt: magUpdatedAt } =
+    useMagnetometer();
 
   // Get current Kp and SFI values (null when data unavailable)
   const currentKp = useMemo(() => {
@@ -220,6 +234,43 @@ export function PropagationForecastMini({
         ?.bz_gsm ?? null
     );
   }, [magnetometerData]);
+
+  // NowCast model predictions (Railway-served) shown alongside the physics forecast
+  const stationCast = useStationCastContext();
+  const researchParticipation = useResearchParticipation();
+  const modelWeather = useMemo(
+    () => ({
+      ...(currentKp == null ? {} : { kp: currentKp }),
+      ...(currentSfi == null ? {} : { f107: currentSfi }),
+      ...(currentBz == null ? {} : { bz_gsm: currentBz }),
+    }),
+    [currentKp, currentSfi, currentBz],
+  );
+  const modelWeatherUpdatedAt =
+    Math.max(kUpdatedAt || 0, fluxUpdatedAt || 0, magUpdatedAt || 0) ||
+    undefined;
+  const nowCastTarget = useMemo(() => {
+    if (!target) {
+      return null;
+    }
+    try {
+      return {
+        grid: target.grid ?? latLonToGrid(target.lat, target.lon, 4),
+        lat: target.lat,
+        lon: target.lon,
+      };
+    } catch {
+      return null;
+    }
+  }, [target]);
+  const modelNowCast = useNowCastBandPredictions({
+    origin: stationCast.location,
+    target: nowCastTarget,
+    weather: modelWeather,
+    weatherUpdatedAt: modelWeatherUpdatedAt,
+    deriveEnvelope: stationCast.deriveEnvelope,
+    researchSubjectBinding: researchParticipation.state?.subjectBinding,
+  });
 
   // Helper function to get SFI color
   const getSfiColor = (sfi: number): string => {
@@ -278,6 +329,21 @@ export function PropagationForecastMini({
 
   // Hours to show from preferences
   const hoursToShow = forecastDisplay.hoursToShow;
+
+  // NowCast chips for the currently displayed bands (empty when the model
+  // capability is unavailable — the physics forecast stands alone)
+  const nowCastChips = !modelNowCast.visible
+    ? []
+    : displayBands.flatMap((band) => {
+        const prediction = modelNowCast.predictions.get(band);
+        if (!prediction) {
+          return [];
+        }
+        const probability = modelNowCast.personalized
+          ? prediction.personalized_probability
+          : prediction.core_probability;
+        return [{ band, prediction, probability }];
+      });
 
   // Generate 24-hour forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
@@ -984,6 +1050,46 @@ export function PropagationForecastMini({
             </div>
           </div>
         </div>
+
+        {/* NowCast model chips — live ML predictions alongside the physics forecast */}
+        {nowCastChips.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-1 text-xs overflow-hidden">
+            <span
+              className="text-[10px] font-mono font-semibold text-cyan-300 uppercase tracking-wide flex-shrink-0 cursor-help"
+              title={`${modelNowCast.personalized ? "NOWCAST + STATIONCAST" : "NOWCAST"} MODEL\nLive ML band predictions (WSPR single-decode probability) from the model service.\nShown alongside the physics forecast above — computed independently from it.`}
+            >
+              NowCast
+            </span>
+            {nowCastChips.map(({ band, prediction, probability }) => (
+              <div
+                key={band}
+                className="font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.06] flex items-center gap-1 flex-shrink-0 cursor-help"
+                title={`NOWCAST MODEL — ${band}\nProfile: ${prediction.profile === "physics" ? "Physics fallback" : "NowCast ML"}\nCore probability: ${(prediction.core_probability * 100).toFixed(1)}%${
+                  modelNowCast.personalized
+                    ? `\nYour station: ${(prediction.personalized_probability * 100).toFixed(1)}%`
+                    : ""
+                }\nConfidence: ${Math.round(prediction.confidence * 100)}%${
+                  prediction.ood_flags.length > 0
+                    ? `\nOut of distribution: ${prediction.ood_flags.join(", ")}`
+                    : ""
+                }`}
+              >
+                <span className="text-gray-300">{band}</span>
+                <span className={`font-semibold ${nowCastTone(probability)}`}>
+                  {Math.round(probability * 100)}%
+                </span>
+                {prediction.ood_flags.length > 0 && (
+                  <span className="text-caution-amber font-bold">!</span>
+                )}
+              </div>
+            ))}
+            {modelNowCast.pending && (
+              <span className="text-gray-500 animate-pulse flex-shrink-0">
+                &hellip;
+              </span>
+            )}
+          </div>
+        )}
 
         {/* BOTTOM: Footer - detailed or compact */}
         {forecastDisplay.detailedFooter ? (

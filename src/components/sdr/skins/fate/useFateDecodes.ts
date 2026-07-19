@@ -166,9 +166,10 @@ export function useFateDecodes(
         }
       }
 
-      // Absolute wall-clock anchor (ms since Unix epoch). ft8DecoderStore.addDecodes
-      // stamps epochMs on every buffered decode, so it is effectively always
-      // present; the `?? 0` fallback only satisfies the optional source type.
+      // Absolute wall-clock anchor (ms since Unix epoch). addDecodes stamps
+      // epochMs on every live decode and loadRecent restores or rebuilds it
+      // for IDB rows, so it is effectively always present; the `?? 0`
+      // fallback only satisfies the optional source type.
       const epochMs = d.epochMs ?? 0;
 
       // Cycle ID: FT8 = 15s cycles, FT4 = 7.5s cycles. Derived from epochMs (not

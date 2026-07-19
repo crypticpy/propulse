@@ -81,6 +81,7 @@ function toFt8Decode(
     id: crypto.randomUUID(),
     timestamp: now,
     time: d.time,
+    epochMs: d.epochMs,
     snr: d.snr,
     deltaTime: d.deltaTime,
     deltaFrequency: d.deltaFrequency,
@@ -101,9 +102,16 @@ function toFt8Decode(
 
 /** Convert an Ft8Decode record back to a WsjtxDecode for display. */
 function toWsjtxDecode(d: Ft8Decode): WsjtxDecode {
+  // Rows written before epochMs was persisted rebuild the absolute anchor
+  // from the ingest timestamp, so restored history keeps epoch-time ordering
+  // (consumers fall back to 0 when the anchor is missing).
+  const parsedTimestamp = Date.parse(d.timestamp);
   return {
     isNew: false,
     time: d.time,
+    epochMs:
+      d.epochMs ??
+      (Number.isFinite(parsedTimestamp) ? parsedTimestamp : undefined),
     snr: d.snr,
     deltaTime: d.deltaTime,
     deltaFrequency: d.deltaFrequency,

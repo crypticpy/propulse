@@ -118,7 +118,7 @@ Every fix agent re-verified its finding against source before patching; anything
 - **Implementation choices worth knowing during device testing:**
   - M-12: fixed by clearing the decode buffer directly on band hop (`clearDecodes()`) instead of the off/on decoder flap — the decoder now stays running across band changes.
   - M-5: decode depth threads `maxIterations` into the worker's LDPC budget; `subtractionPasses`/`minSnr` are carried but the current WASM interface exposes no hook for them. Depth changes restart the decoder.
-  - Epoch anchor: `WsjtxDecode.epochMs` (absolute ms) is stamped by the native bridge (cycle start) and fallback-stamped at store ingest; it is not persisted to IndexedDB.
+  - Epoch anchor: `WsjtxDecode.epochMs` (absolute ms) is stamped by the native bridge (cycle start) and fallback-stamped at store ingest. It is persisted to IndexedDB and restored on load; rows written before the field existed rebuild it from the record's ingest timestamp (PR #33 Codex review).
   - H-2: session stats are recorded once per new decode in `useFt8DecodeEnricher` via a marker-walk; IndexedDB-restored rows (`isNew === false`) are excluded.
   - L-6: the waterfall now appends rows only on new radio FFT frames — audio-FFT arrival no longer drives appends. Watch cadence on rigs whose CI-V scope streams slower than the audio FFT.
 - **Extras fixed beyond the numbered findings:** dead `autoAudioStartRef` removed from `SdrConsole.tsx`; native decodes labeled via a shared `NATIVE_INSTANCE_ID`; dead `FlexSmeter.tsx` and `ft8WidebandDecoder.ts` deleted.

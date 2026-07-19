@@ -160,6 +160,10 @@ import { useSatellites } from "@/hooks/useSatellites";
 import { calculateNVISAtLocation } from "@/lib/utils/nvisCalculation";
 import { getTerminatorPoints } from "@/lib/utils/sun";
 import {
+  APRS_LIVE_SOURCE_ENABLED,
+  REPEATERBOOK_LIVE_SOURCE_ENABLED,
+} from "@/lib/map/layerCapabilities";
+import {
   buildBandActivityHistory,
   createBandActivitySnapshot,
   WATERFALL_BAND_NAMES,
@@ -790,9 +794,13 @@ const GlobeScene = React.memo(function GlobeScene({
   const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
   const { strikes: lightningStrikes } = useLightning(layers.lightning);
   const { hotspots: fireHotspots } = useFires(layers.fires);
-  const { repeaters } = useRepeaters(layers.repeaters);
+  const { repeaters } = useRepeaters(
+    layers.repeaters && REPEATERBOOK_LIVE_SOURCE_ENABLED,
+  );
   const { gauges: riverGauges } = useRiverGauges(layers.riverGauges);
-  const { stations: aprsStations } = useAPRSStations(layers.aprs);
+  const { stations: aprsStations } = useAPRSStations(
+    layers.aprs && APRS_LIVE_SOURCE_ENABLED,
+  );
   const { cyclones: tropicalCyclones } = useTropicalCyclones(layers.tropical);
   const { manifest: radarManifest } = useWeatherRadar(layers.radar);
   // ── New layer data hooks (Wave 8A) ─────────────────────────────────────
@@ -832,7 +840,9 @@ const GlobeScene = React.memo(function GlobeScene({
   );
   const { regions: sporadicERegions } = useSporadicE();
   const { regions: ductingRegions } = useDuctingForecast();
-  const { satellites: satelliteData } = useSatellites();
+  const { satellites: satelliteData } = useSatellites(
+    layers.satellites || layers.satelliteFootprints,
+  );
 
   // FT8 enriched decodes for Ft8DecodeLayer3D (Zustand works in R3F reconciler)
   const ft8MyCallsign = useFt8SessionStore((s) => s.myCallsign);

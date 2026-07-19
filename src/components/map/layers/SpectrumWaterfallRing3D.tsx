@@ -15,7 +15,6 @@
 
 import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 
@@ -147,8 +146,8 @@ export const SpectrumWaterfallRing3D = React.memo(
       });
     }, [bandNames, cellAngle]);
 
-    // Update instances each frame
-    useFrame(() => {
+    // Rebuild instances only when data or the highlighted band changes.
+    useEffect(() => {
       const mesh = meshRef.current;
       if (!mesh) return;
 
@@ -227,7 +226,15 @@ export const SpectrumWaterfallRing3D = React.memo(
           mesh.instanceColor.needsUpdate = true;
         }
       }
-    });
+    }, [
+      activeBandIndex,
+      bandActivity,
+      bandNames,
+      cellAngle,
+      hasRenderableData,
+      maxInstances,
+      numBands,
+    ]);
 
     // Early exit
     if (!hasRenderableData) return null;

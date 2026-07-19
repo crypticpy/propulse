@@ -34,9 +34,32 @@ function row(overrides: Record<string, unknown> = {}) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("central spot store", () => {
+  it("prefers server-side Supabase configuration in edge routes", async () => {
+    vi.stubEnv("SUPABASE_URL", "https://server-project.supabase.co");
+    vi.stubEnv("SUPABASE_ANON_KEY", "server-anon-key");
+    vi.stubEnv("VITE_SUPABASE_URL", "https://client-project.supabase.co");
+    vi.stubEnv("VITE_SUPABASE_ANON_KEY", "client-anon-key");
+    const fetcher = vi.fn(async () => new Response(JSON.stringify([row()])));
+
+    const result = await readStoredSpots(
+      "pskreporter",
+      { limit: 50 },
+      { fetcher, now: () => NOW },
+    );
+
+    expect(result.status).toBe("ok");
+    expect(String(fetcher.mock.calls[0][0])).toContain(
+      "https://server-project.supabase.co/rest/v1/spot_history",
+    );
+    expect(fetcher.mock.calls[0][1]?.headers).toMatchObject({
+      apikey: "server-anon-key",
+    });
+  });
+
   it("queries the grid-filtered store and accepts only current validated rows", async () => {
     const fetcher = vi.fn(async () =>
       new Response(JSON.stringify([row(), { source: "pskreporter" }]), {

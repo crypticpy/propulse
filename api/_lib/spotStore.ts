@@ -23,12 +23,22 @@ export interface SpotHistoryRow {
 
 export type SpotStoreStatus = "ok" | "stale" | "unavailable";
 
+export type SpotStoreFailureReason =
+  | "configuration_missing"
+  | "upstream_http"
+  | "invalid_payload"
+  | "response_too_large"
+  | "timeout"
+  | "network_error";
+
 export interface SpotStoreResult {
   rows: SpotHistoryRow[];
   status: SpotStoreStatus;
   observedAt: string | null;
   fetchedAt: string;
   staleAfterSeconds: number;
+  failureReason: SpotStoreFailureReason | null;
+  upstreamStatus: number | null;
 }
 
 export interface SpotStoreOptions {
@@ -163,6 +173,8 @@ function emptyResult(
   now: number,
   status: Exclude<SpotStoreStatus, "ok">,
   observedAt: string | null = null,
+  failureReason: SpotStoreFailureReason | null = null,
+  upstreamStatus: number | null = null,
 ): SpotStoreResult {
   return {
     rows: [],
@@ -170,7 +182,33 @@ function emptyResult(
     observedAt,
     fetchedAt: new Date(now).toISOString(),
     staleAfterSeconds: STALE_AFTER_SECONDS[source],
+    failureReason,
+    upstreamStatus,
   };
+}
+
+function unavailableResult(
+  source: StoredSpotSource,
+  now: number,
+  failureReason: SpotStoreFailureReason,
+  upstreamStatus: number | null = null,
+): SpotStoreResult {
+  console.warn(
+    JSON.stringify({
+      event: "spot_store_read_failed",
+      source,
+      failureReason,
+      upstreamStatus,
+    }),
+  );
+  return emptyResult(
+    source,
+    now,
+    "unavailable",
+    null,
+    failureReason,
+    upstreamStatus,
+  );
 }
 
 export async function readStoredSpots(
@@ -181,7 +219,7 @@ export async function readStoredSpots(
   const dependencies = { ...DEFAULT_DEPENDENCIES, ...overrides };
   const now = dependencies.now();
   const config = dependencies.storageConfig();
-  if (!config) return emptyResult(source, now, "unavailable");
+  if (!config) return unavailableResult(source, now, "configuration_missing");
 
   const query = new URLSearchParams({
     select:
@@ -219,11 +257,11 @@ export async function readStoredSpots(
       },
     );
     if (!response.ok) {
-      return emptyResult(source, now, "unavailable");
+      return unavailableResult(source, now, "upstream_http", response.status);
     }
     const payload = await readBoundedJson(response);
     if (!Array.isArray(payload)) {
-      return emptyResult(source, now, "unavailable");
+      return unavailableResult(source, now, "invalid_payload");
     }
     const rows = payload
       .map((row) => parseRow(row, source))
@@ -240,9 +278,19 @@ export async function readStoredSpots(
       observedAt,
       fetchedAt: new Date(now).toISOString(),
       staleAfterSeconds,
+      failureReason: null,
+      upstreamStatus: null,
     };
-  } catch {
-    return emptyResult(source, now, "unavailable");
+  } catch (error) {
+    const reason: SpotStoreFailureReason =
+      error instanceof RangeError
+        ? "response_too_large"
+        : error instanceof SyntaxError
+          ? "invalid_payload"
+          : error instanceof DOMException && error.name === "AbortError"
+            ? "timeout"
+            : "network_error";
+    return unavailableResult(source, now, reason);
   } finally {
     clearTimeout(timeoutId);
   }

@@ -13,9 +13,10 @@ import {
   TilesRenderer as TilesRendererR3F,
   TilesPlugin,
 } from "3d-tiles-renderer/r3f";
-import { XYZTilesPlugin, TilesFadePlugin } from "3d-tiles-renderer/plugins";
+import { TilesFadePlugin } from "3d-tiles-renderer/plugins";
 import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
 import { WGS84_RADIUS } from "3d-tiles-renderer/core";
+import { CompatibleXYZTilesPlugin } from "@/lib/tiles/CompatibleXYZTilesPlugin";
 import * as THREE from "three";
 
 const ALIGN_ROTATION_X = -Math.PI / 2;
@@ -71,7 +72,7 @@ export function TiledLabels() {
       group={groupProps as any}
     >
       <TilesPlugin
-        plugin={XYZTilesPlugin}
+        plugin={CompatibleXYZTilesPlugin}
         args={
           {
             url: LABEL_TILE_URL,

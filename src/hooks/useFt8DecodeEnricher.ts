@@ -6,9 +6,11 @@
  * enriched array updated each cycle.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFt8DecoderStore } from "@/stores/ft8DecoderStore";
+import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 import { useDXCCStore } from "@/stores/dxccStore";
+import { NATIVE_INSTANCE_ID } from "@/lib/ft8/ft8Bridge";
 import { extractCallInfo } from "@/lib/ft8/ft8MessageParser";
 import {
   gridToLatLon,
@@ -42,9 +44,10 @@ export function useFt8DecodeEnricher(
 ): Ft8EnrichedDecode[] {
   const decodes = useFt8DecoderStore((s) => s.decodes);
   const isWorked = useDXCCStore((s) => s.isWorked);
+  const recordDecode = useFt8SessionStore((s) => s.recordDecode);
   const { myCallsign, myGrid, neededDxcc, neededGrids } = options;
 
-  return useMemo(() => {
+  const enriched = useMemo(() => {
     const myCallUpper = myCallsign?.toUpperCase();
 
     return decodes
@@ -143,8 +146,41 @@ export function useFt8DecodeEnricher(
           isDupe,
           isNeeded,
           isCallingMe,
-          source: d.instanceId ? "bridge" : "native",
+          // The native decoder stamps NATIVE_INSTANCE_ID; any other instanceId
+          // (or an external WSJT-X relay) is treated as a bridge source.
+          source: d.instanceId === NATIVE_INSTANCE_ID ? "native" : "bridge",
         };
       });
   }, [decodes, myCallsign, myGrid, neededDxcc, neededGrids, isWorked]);
+
+  // Feed session statistics exactly once per newly-seen decode. The decode
+  // buffer is newest-first, so we walk from the front until we reach the last
+  // decode we already recorded. This runs on decode identity (not per render)
+  // and cannot double-count when both native and WSJT-X feed the same buffer.
+  const lastRecordedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (enriched.length === 0) return;
+
+    const keyOf = (d: Ft8EnrichedDecode): string =>
+      `${d.epochMs ?? d.time}|${d.deltaFrequency}|${d.message}`;
+
+    const marker = lastRecordedKeyRef.current;
+    const fresh: Ft8EnrichedDecode[] = [];
+    for (const d of enriched) {
+      if (keyOf(d) === marker) break;
+      fresh.push(d);
+    }
+    lastRecordedKeyRef.current = keyOf(enriched[0]);
+
+    for (const d of fresh) {
+      // Skip decodes restored from IndexedDB (isNew === false) so historical
+      // rows don't inflate this session's stats.
+      if (!d.isNew) continue;
+      // recordDecode still counts callsign-less decodes toward totalDecodes;
+      // its internal guard ignores the empty string for unique-callsign stats.
+      recordDecode(d.callsign ?? "", d.country, d.grid, d.distanceKm);
+    }
+  }, [enriched, recordDecode]);
+
+  return enriched;
 }

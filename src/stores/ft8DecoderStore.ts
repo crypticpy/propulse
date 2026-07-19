@@ -147,9 +147,16 @@ export const useFt8DecoderStore = create<Ft8DecoderStoreState>((set, get) => ({
   addDecodes: (newDecodes, freqHz, band, myCallsign) => {
     if (newDecodes.length === 0) return;
 
+    // Ensure every decode carries an absolute wall-clock anchor. Native
+    // decodes already set epochMs; WSJT-X-sourced decodes only carry `time`
+    // (ms-since-UTC-midnight), so fall back to the ingest time.
+    const stamped = newDecodes.map((d) =>
+      d.epochMs != null ? d : { ...d, epochMs: Date.now() },
+    );
+
     // Prepend to display buffer, cap at DISPLAY_BUFFER_CAP
     set((s) => {
-      const merged = [...newDecodes, ...s.decodes].slice(0, DISPLAY_BUFFER_CAP);
+      const merged = [...stamped, ...s.decodes].slice(0, DISPLAY_BUFFER_CAP);
       return {
         decodes: merged,
         stats: {
@@ -162,7 +169,7 @@ export const useFt8DecoderStore = create<Ft8DecoderStoreState>((set, get) => ({
     });
 
     // Convert to IDB records and write-through (fire-and-forget)
-    const idbRecords = newDecodes.map((d) =>
+    const idbRecords = stamped.map((d) =>
       toFt8Decode(d, freqHz, band, myCallsign),
     );
     addFt8Decodes(idbRecords).catch(console.error);

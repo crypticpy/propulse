@@ -178,7 +178,14 @@ export interface WsjtxStatus {
 
 export interface WsjtxDecode {
   isNew: boolean;
+  /** Ms since UTC midnight (WSJT-X UDP convention) — wraps every 24h. */
   time: number;
+  /**
+   * Absolute wall-clock time (ms since Unix epoch) of the decode's cycle
+   * start. Present on native decodes and stamped as a fallback at store
+   * ingest. Unlike `time`, this is safe for absolute-time math.
+   */
+  epochMs?: number;
   snr: number;
   deltaTime: number;
   deltaFrequency: number;

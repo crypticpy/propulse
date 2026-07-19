@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { WsjtxDecode } from "@/lib/radio/protocol";
 import { Ft8DecoderBridge } from "@/lib/ft8/ft8Bridge";
+import { serializeDecodeDepthForWorker } from "@/lib/ft8/ft8DecodeSensitivity";
 import { createGetUserMediaSource } from "@/lib/ft8/getUserMediaSource";
 import type { AudioSourceHandle } from "@/lib/ft8/audioSource";
 import { PskReporterUploader } from "@/lib/ft8/pskReporterUploader";
@@ -28,6 +29,7 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
   const ft8Enabled = useSettingsStore((s) => s.sdrFt8DecoderEnabled);
   const ft8Mode = useSettingsStore((s) => s.sdrFt8Mode);
   const ft8AudioDeviceId = useSettingsStore((s) => s.sdrFt8AudioDeviceId);
+  const ft8DecodeDepth = useSettingsStore((s) => s.sdrFt8DecodeDepth);
   const pskReporterEnabled = useSettingsStore(
     (s) => s.sdrFt8PskReporterEnabled,
   );
@@ -57,7 +59,7 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
     const bridge = new Ft8DecoderBridge();
     bridgeRef.current = bridge;
 
-    const unsubDecode = bridge.onDecode((decodes) => {
+    const unsubDecode = bridge.onDecode((decodes, cycleStartMs) => {
       // Stats are updated by addDecodes() (called via onDecodesRef) in
       // ft8DecoderStore — no separate updateStats call here to avoid
       // double-counting totalDecodes and cyclesCompleted.
@@ -70,6 +72,9 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
         const dialHz = session.currentDialFreqHz ?? 0;
         const sender = session.myCallsign.toUpperCase();
         const senderGrid = session.myGrid.toUpperCase();
+        // cycleStartMs is the absolute epoch time of this decode cycle; d.time
+        // is only ms-since-UTC-midnight and would resolve to 1970 if parsed.
+        const timestamp = new Date(cycleStartMs).toISOString();
         for (const d of decodes) {
           if (!d.callsign) continue;
           const entry: PskReportEntry = {
@@ -80,7 +85,7 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
             frequency: dialHz + d.deltaFrequency,
             snr: d.snr,
             mode: d.mode,
-            timestamp: new Date(d.time).toISOString(),
+            timestamp,
           };
           uploader.addDecode(entry);
         }
@@ -95,7 +100,7 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
       useFt8DecoderStore.getState().setError(message);
     });
 
-    bridge.start(ft8Mode);
+    bridge.start(ft8Mode, serializeDecodeDepthForWorker(ft8DecodeDepth));
     useFt8DecoderStore.getState().setEnabled(true);
     useFt8DecoderStore.getState().updateStats({ workerReady: true });
 
@@ -127,7 +132,9 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
       uploaderRef.current = null;
       useFt8DecoderStore.getState().reset();
     };
-  }, [ft8Enabled, ft8Mode, ft8AudioDeviceId]);
+    // ft8DecodeDepth is read at start; changing it restarts the decoder so the
+    // new LDPC depth takes effect.
+  }, [ft8Enabled, ft8Mode, ft8AudioDeviceId, ft8DecodeDepth]);
 
   // PSK Reporter uploader lifecycle — separate effect so toggling the
   // setting or changing callsign/grid does not restart the decoder.

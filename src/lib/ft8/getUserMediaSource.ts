@@ -36,6 +36,9 @@ export function createGetUserMediaSource(
   let mediaStream: MediaStream | null = null;
   let sourceNode: MediaStreamAudioSourceNode | null = null;
   let processorNode: ScriptProcessorNode | null = null;
+  // Set when stop() runs while start()'s getUserMedia is still pending, so the
+  // async continuation can release the stream instead of orphaning the mic.
+  let stopRequested = false;
 
   const audioHandlers: Array<
     (samples: Float32Array, sampleRate: number) => void
@@ -61,6 +64,7 @@ export function createGetUserMediaSource(
   const handle: AudioSourceHandle = {
     async start(): Promise<void> {
       if (state === "active") return;
+      stopRequested = false;
 
       try {
         // 1. Acquire the media stream
@@ -76,7 +80,15 @@ export function createGetUserMediaSource(
           },
         };
 
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // If teardown ran while getUserMedia was pending, stop() could not see
+        // this stream yet. Release it now rather than leaving the mic captured.
+        if (stopRequested) {
+          for (const track of stream.getTracks()) track.stop();
+          return;
+        }
+        mediaStream = stream;
 
         // 2. Build the Web Audio graph
         audioCtx = new AudioContext();
@@ -107,6 +119,9 @@ export function createGetUserMediaSource(
     },
 
     stop(): void {
+      // Signal any in-flight start() to abort once getUserMedia resolves.
+      stopRequested = true;
+
       // Disconnect Web Audio nodes
       if (processorNode) {
         processorNode.onaudioprocess = null;

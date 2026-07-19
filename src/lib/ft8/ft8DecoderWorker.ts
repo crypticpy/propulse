@@ -15,6 +15,7 @@ import type {
   Ft8WorkerInbound,
   Ft8WorkerOutbound,
   Ft8RawDecode,
+  Ft8DecodeDepthWorkerConfig,
 } from "./types";
 import { resampleTo12k } from "./resample";
 
@@ -48,8 +49,8 @@ const FT4_CYCLE_SEC = 7.5;
 /** Maximum candidates to pass to ft8_decode */
 const MAX_CANDIDATES = 200;
 
-/** Maximum LDPC iterations */
-const MAX_LDPC_ITER = 20;
+/** Fallback LDPC iterations when no decode-depth config is supplied. */
+const DEFAULT_LDPC_ITER = 20;
 
 /** How often to post cycleProgress updates (ms) */
 const PROGRESS_INTERVAL_MS = 250;
@@ -62,6 +63,10 @@ let wasmModule: EmscriptenModule | null = null;
 let protocol: "FT8" | "FT4" = "FT8";
 let blockSize = 0;
 let initialized = false;
+
+// LDPC iteration budget — driven by the sdrFt8DecodeDepth setting, read at
+// init. Defaults to DEFAULT_LDPC_ITER until an init config overrides it.
+let maxLdpcIter = DEFAULT_LDPC_ITER;
 
 // Ring buffer for accumulating one cycle of 12 kHz audio
 let cycleBuffer: Float32Array | null = null;
@@ -149,8 +154,12 @@ async function loadWasmModule(): Promise<EmscriptenModule> {
 // Initialization
 // ---------------------------------------------------------------------------
 
-async function handleInit(proto: "FT8" | "FT4"): Promise<void> {
+async function handleInit(
+  proto: "FT8" | "FT4",
+  decodeDepth?: Ft8DecodeDepthWorkerConfig,
+): Promise<void> {
   protocol = proto;
+  maxLdpcIter = decodeDepth?.maxIterations ?? DEFAULT_LDPC_ITER;
 
   try {
     // Load WASM module if not already loaded
@@ -304,7 +313,7 @@ function runDecodeAndReset(): void {
       "ft8_decode",
       "number",
       ["number", "number"],
-      [MAX_CANDIDATES, MAX_LDPC_ITER],
+      [MAX_CANDIDATES, maxLdpcIter],
     ) as number;
 
     // Read results
@@ -463,7 +472,7 @@ self.onmessage = (event: MessageEvent<Ft8WorkerInbound>) => {
 
   switch (msg.type) {
     case "init":
-      handleInit(msg.protocol).catch((err) => {
+      handleInit(msg.protocol, msg.decodeDepth).catch((err) => {
         const message = err instanceof Error ? err.message : String(err);
         postError(`Unhandled init error: ${message}`);
       });

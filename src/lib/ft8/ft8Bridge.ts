@@ -9,8 +9,12 @@ import type {
   Ft8WorkerInbound,
   Ft8WorkerOutbound,
   Ft8RawDecode,
+  Ft8DecodeDepthWorkerConfig,
 } from "./types";
 import { extractCallInfo } from "./ft8MessageParser";
+
+/** Stamped on every native decode so the source can be identified downstream. */
+export const NATIVE_INSTANCE_ID = "propulse-native";
 
 // ---------------------------------------------------------------------------
 // Public handler types
@@ -42,8 +46,17 @@ export class Ft8DecoderBridge {
   // Lifecycle
   // -------------------------------------------------------------------------
 
-  /** Spin up the decoder worker and begin listening for messages. */
-  start(protocol: "FT8" | "FT4"): void {
+  /**
+   * Spin up the decoder worker and begin listening for messages.
+   *
+   * The optional `decodeDepth` config (derived from the `sdrFt8DecodeDepth`
+   * setting) tunes weak-signal decoding; it is read once at start, so a depth
+   * change takes effect on the next decoder start.
+   */
+  start(
+    protocol: "FT8" | "FT4",
+    decodeDepth?: Ft8DecodeDepthWorkerConfig,
+  ): void {
     this.protocol = protocol;
 
     // Create the worker using Vite's ?worker inline URL pattern.
@@ -57,7 +70,7 @@ export class Ft8DecoderBridge {
 
     this.worker.onerror = (e: ErrorEvent) => this.emitError(e.message);
 
-    this.send({ type: "init", protocol });
+    this.send({ type: "init", protocol, decodeDepth });
   }
 
   /** Stop the worker and clean up resources. */
@@ -183,6 +196,7 @@ export class Ft8DecoderBridge {
       const decode: WsjtxDecode = {
         isNew: true,
         time: msSinceMidnight,
+        epochMs: cycleStartMs,
         snr: raw.snr,
         deltaTime: raw.timeSec,
         deltaFrequency: Math.round(raw.freqHz),
@@ -191,7 +205,7 @@ export class Ft8DecoderBridge {
         lowConfidence: raw.ldpcErrors > 0,
         callsign: callInfo.callsign,
         grid: callInfo.grid,
-        instanceId: "propulse-native",
+        instanceId: NATIVE_INSTANCE_ID,
       };
 
       results.push(decode);

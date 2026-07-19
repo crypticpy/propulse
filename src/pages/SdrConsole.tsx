@@ -132,7 +132,17 @@ export function SdrConsole() {
   const ft8Decoder = useFt8Decoder({
     onDecodes: useCallback(
       (decodes: WsjtxDecode[]) => {
-        ft8AddDecodes(decodes);
+        // Persist decodes with the current dial frequency / band / callsign so
+        // IndexedDB history rows aren't stored with undefined context.
+        const radio = useRadioStore.getState();
+        const deviceId = radio.connectedDeviceId;
+        const dialHz = deviceId
+          ? radio.radioStateById[deviceId]?.freq
+          : undefined;
+        const band = dialHz != null ? freqToBand(dialHz) : undefined;
+        const myCallsign =
+          useFt8SessionStore.getState().myCallsign || undefined;
+        ft8AddDecodes(decodes, dialHz, band, myCallsign);
       },
       [ft8AddDecodes],
     ),
@@ -149,8 +159,10 @@ export function SdrConsole() {
   const autoConnectAttemptedRef = useRef(false);
   const autoConfigAttemptedRef = useRef(false);
   const autoFftStartRef = useRef<Record<string, boolean>>({});
-  const autoAudioStartRef = useRef<Record<string, boolean>>({});
   const audioRestartAttemptsRef = useRef<Record<string, number>>({});
+  // Latest WSJT-X dial frequency (Hz) for tagging external decodes; a ref so
+  // the WS message handler doesn't depend on wsjtxStatus state.
+  const wsjtxDialRef = useRef<number | undefined>(undefined);
   const lastAudioFrameAtRef = useRef(0);
   const [waterfallSpanHz, setWaterfallSpanHz] = useState<number | null>(null);
 
@@ -399,6 +411,9 @@ export function SdrConsole() {
         if (msg.state.connected && needsStreamResyncRef.current) {
           needsStreamResyncRef.current = false;
           if (desiredFftRef.current) {
+            // Mark auto-start as done so the auto-start effect doesn't also
+            // emit a duplicate stream:fft:start for this device.
+            autoFftStartRef.current[msg.device_id] = true;
             requestFftStart(api.sendCommand, msg.device_id);
           }
           if (desiredAudioRef.current) {
@@ -475,11 +490,16 @@ export function SdrConsole() {
         return;
       }
       if (isWsjtxStatusMessage(msg)) {
+        wsjtxDialRef.current = msg.status.frequency;
         setWsjtxStatus(msg.status);
         return;
       }
       if (isWsjtxDecodeMessage(msg)) {
-        ft8AddDecodes([msg.decode]);
+        const dialHz = wsjtxDialRef.current;
+        const band = dialHz != null ? freqToBand(dialHz) : undefined;
+        const myCallsign =
+          useFt8SessionStore.getState().myCallsign || undefined;
+        ft8AddDecodes([msg.decode], dialHz, band, myCallsign);
         return;
       }
       if (isClusterSpotMessage(msg)) {
@@ -512,14 +532,14 @@ export function SdrConsole() {
       if (frame.kind === "fft") {
         if (!desiredFftRef.current) return;
         clearStreamStartTimeout("fft");
-        setFftEnabled(true);
+        if (!useSdrStore.getState().fftEnabled) setFftEnabled(true);
         setFrame(frame);
         return;
       }
 
       if (!desiredAudioRef.current) return;
       clearStreamStartTimeout("audio");
-      setAudioEnabled(true);
+      if (!useSdrStore.getState().audioEnabled) setAudioEnabled(true);
 
       const audioFrame: AudioFrameData = {
         sampleRate: frame.sampleRate,
@@ -846,11 +866,11 @@ export function SdrConsole() {
     autoConfigAttemptedRef.current = false;
     setDiscoveredDaemons([]);
     setWsjtxStatus(null);
+    wsjtxDialRef.current = undefined;
     ft8ClearDecodes();
     setClusterSpots([]);
     setWaterfallSpanHz(null);
     autoFftStartRef.current = {};
-    autoAudioStartRef.current = {};
     audioRestartAttemptsRef.current = {};
     lastAudioFrameAtRef.current = 0;
     desiredFftRef.current = false;
@@ -910,7 +930,6 @@ export function SdrConsole() {
     autoConnectAttemptedRef.current = false;
     autoConfigAttemptedRef.current = false;
     autoFftStartRef.current = {};
-    autoAudioStartRef.current = {};
     audioRestartAttemptsRef.current = {};
     lastAudioFrameAtRef.current = 0;
     needsStreamResyncRef.current = true;
@@ -964,15 +983,28 @@ export function SdrConsole() {
     setSelectedDeviceId,
   ]);
 
-  // Keep frequency input synced to connected radio state.
+  // Keep frequency input synced to connected radio state. Keyed on the numeric
+  // frequency (not the connectedState object, which gets a fresh identity on
+  // every radio:state push) so unchanged polls don't clobber in-progress edits.
+  const freqInputRef = useRef(freqInput);
+  freqInputRef.current = freqInput;
   useEffect(() => {
-    if (!connectedState) return;
+    const freq = connectedState?.freq;
+    if (freq == null) return;
+    // Don't overwrite the field while the user is actively editing it.
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLInputElement &&
+      active.value === freqInputRef.current
+    ) {
+      return;
+    }
     const base =
       freqUnit === "MHz"
-        ? connectedState.freq / 1_000_000
+        ? freq / 1_000_000
         : freqUnit === "kHz"
-          ? connectedState.freq / 1_000
-          : connectedState.freq;
+          ? freq / 1_000
+          : freq;
     const text =
       freqUnit === "MHz"
         ? base.toFixed(6)
@@ -980,7 +1012,7 @@ export function SdrConsole() {
           ? base.toFixed(3)
           : Math.round(base).toString();
     setFreqInput(text);
-  }, [connectedState, freqUnit]);
+  }, [connectedState?.freq, freqUnit]);
 
   useEffect(() => {
     setWaterfallSpanHz(null);
@@ -1239,13 +1271,17 @@ export function SdrConsole() {
   const openDevicePicker = useCallback(() => setDevicePickerOpen(true), []);
   const openSdrSettings = useCallback(() => setSdrSettingsOpen(true), []);
 
+  // Isolate the connected device's S-meter so another device's ticks (which
+  // mutate the smeterById map) don't rebuild skinProps and re-render the skin.
+  const smeterDbm = connectedDeviceId
+    ? smeterById[connectedDeviceId]
+    : undefined;
+
   const skinProps: SdrSkinProps = useMemo(
     () => ({
       radio: {
         effectiveState,
-        smeterDbm: connectedDeviceId
-          ? smeterById[connectedDeviceId]
-          : undefined,
+        smeterDbm,
         fftEnabled,
         audioEnabled,
         selectedDevice: controlDevice,
@@ -1441,7 +1477,7 @@ export function SdrConsole() {
     [
       effectiveState,
       connectedDeviceId,
-      smeterById,
+      smeterDbm,
       fftEnabled,
       audioEnabled,
       controlDevice,

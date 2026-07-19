@@ -60,8 +60,12 @@ export function meterBandNumber(value: string): number | null {
 }
 
 function configuredStorage(): { baseUrl: string; anonKey: string } | null {
-  const rawUrl = process.env.VITE_SUPABASE_URL?.trim();
-  const anonKey = process.env.VITE_SUPABASE_ANON_KEY?.trim();
+  const rawUrl = (
+    process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
+  )?.trim();
+  const anonKey = (
+    process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY
+  )?.trim();
   if (!rawUrl || !anonKey) return null;
   try {
     const parsed = new URL(rawUrl);

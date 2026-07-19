@@ -37,6 +37,13 @@ export interface Ft8EnrichedDecode extends WsjtxDecode {
   isCQ: boolean;
   /** True if this is a new DXCC/grid/state not previously worked */
   isNew: boolean;
+  /**
+   * The underlying WsjtxDecode.isNew: true for decodes received live this
+   * session, false for rows restored from IndexedDB history or replayed by
+   * WSJT-X. (The enriched `isNew` above shadows the raw flag with
+   * "unworked DXCC" semantics, so the live/restored signal is carried here.)
+   */
+  isLiveDecode: boolean;
   /** True if this callsign has been worked before on this band */
   isDupe: boolean;
   /** True if this entity/grid/state is needed for an award */

@@ -6,7 +6,7 @@
  * enriched array updated each cycle.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useFt8DecoderStore } from "@/stores/ft8DecoderStore";
 import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 import { useDXCCStore } from "@/stores/dxccStore";
@@ -27,6 +27,15 @@ import {
 
 /** Maximum number of enriched decodes to produce (matches display buffer cap) */
 const MAX_ENRICHED = 500;
+
+/**
+ * Identity of the newest decode already recorded into session stats.
+ * Module-scoped (not per-hook-instance): the enricher is mounted by several
+ * views (SDR console, globe, flat map) that all feed the single session-stats
+ * store, so a per-instance marker would re-record the whole buffer on every
+ * remount and double-count when two views are mounted at once.
+ */
+let lastRecordedKey: string | null = null;
 
 interface UseFt8DecodeEnricherOptions {
   /** Operator's callsign for isCallingMe detection */
@@ -143,6 +152,7 @@ export function useFt8DecodeEnricher(
           bearingDeg,
           isCQ,
           isNew,
+          isLiveDecode: d.isNew,
           isDupe,
           isNeeded,
           isCallingMe,
@@ -155,27 +165,29 @@ export function useFt8DecodeEnricher(
 
   // Feed session statistics exactly once per newly-seen decode. The decode
   // buffer is newest-first, so we walk from the front until we reach the last
-  // decode we already recorded. This runs on decode identity (not per render)
-  // and cannot double-count when both native and WSJT-X feed the same buffer.
-  const lastRecordedKeyRef = useRef<string | null>(null);
+  // decode we already recorded. The shared module-scoped marker keeps this
+  // exactly-once across remounts and across multiple mounted enricher
+  // instances (all effects run on the same thread, so a second instance sees
+  // the marker the first one just advanced and records nothing).
   useEffect(() => {
     if (enriched.length === 0) return;
 
     const keyOf = (d: Ft8EnrichedDecode): string =>
       `${d.epochMs ?? d.time}|${d.deltaFrequency}|${d.message}`;
 
-    const marker = lastRecordedKeyRef.current;
+    const marker = lastRecordedKey;
     const fresh: Ft8EnrichedDecode[] = [];
     for (const d of enriched) {
       if (keyOf(d) === marker) break;
       fresh.push(d);
     }
-    lastRecordedKeyRef.current = keyOf(enriched[0]);
+    lastRecordedKey = keyOf(enriched[0]);
 
     for (const d of fresh) {
-      // Skip decodes restored from IndexedDB (isNew === false) so historical
-      // rows don't inflate this session's stats.
-      if (!d.isNew) continue;
+      // Skip IndexedDB-restored / WSJT-X-replayed rows so historical decodes
+      // don't inflate this session's stats. (Not the enriched `isNew`, which
+      // means "unworked DXCC entity".)
+      if (!d.isLiveDecode) continue;
       // recordDecode still counts callsign-less decodes toward totalDecodes;
       // its internal guard ignores the empty string for unique-callsign stats.
       recordDecode(d.callsign ?? "", d.country, d.grid, d.distanceKm);

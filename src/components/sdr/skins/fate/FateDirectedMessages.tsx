@@ -391,6 +391,32 @@ function FateActiveQsos({
         });
       }
     }
+
+    // Drop bookkeeping for callsigns the tracker has evicted (LRU/expiry), so
+    // scheduledRef/fadingOut/hidden don't grow unbounded over a long session.
+    // Their rows are gone from the UI already; cancelling the timers is safe.
+    for (const callsign of scheduledRef.current) {
+      if (qsoTracker.has(callsign)) continue;
+      const fadeTimer = timersRef.current.get(`${callsign}:fade`);
+      const hideTimer = timersRef.current.get(`${callsign}:hide`);
+      if (fadeTimer) clearTimeout(fadeTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+      timersRef.current.delete(`${callsign}:fade`);
+      timersRef.current.delete(`${callsign}:hide`);
+      scheduledRef.current.delete(callsign);
+      setFadingOut((prev) => {
+        if (!prev.has(callsign)) return prev;
+        const next = new Set(prev);
+        next.delete(callsign);
+        return next;
+      });
+      setHidden((prev) => {
+        if (!prev.has(callsign)) return prev;
+        const next = new Set(prev);
+        next.delete(callsign);
+        return next;
+      });
+    }
   }, [qsoTracker]);
 
   // Clear every timer only on unmount. Also reset the "scheduled" guard so that

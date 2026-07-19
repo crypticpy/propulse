@@ -47,6 +47,7 @@ import { RepeaterOverlay3D } from "./RepeaterOverlay3D";
 import { RiverGaugeOverlay3D } from "./RiverGaugeOverlay3D";
 import { APRSOverlay3D } from "./APRSOverlay3D";
 import { TropicalCycloneOverlay3D } from "./TropicalCycloneOverlay3D";
+import { QsoLocationsOverlay3D } from "./QsoLocationsOverlay3D";
 import { StationMarker3D } from "./StationMarker3D";
 import {
   WeatherRadarOverlay,
@@ -108,6 +109,8 @@ import { useRepeaters } from "@/hooks/useRepeaters";
 import { useRiverGauges } from "@/hooks/useRiverGauges";
 import { useAPRSStations } from "@/hooks/useAPRSStations";
 import { useTropicalCyclones } from "@/hooks/useTropicalCyclones";
+import { useContestQsoLocations } from "@/hooks/useContestQsoLocations";
+import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -858,6 +861,8 @@ const GlobeScene = React.memo(function GlobeScene({
     layers.aprs && APRS_LIVE_SOURCE_ENABLED,
   );
   const { cyclones: tropicalCyclones } = useTropicalCyclones(layers.tropical);
+  const contestQsoData = useContestQsoLocations(layers.contestQsos);
+  const loggedQsoData = useLoggedQsoLocations(layers.loggedQsos);
   const { manifest: radarManifest } = useWeatherRadar(layers.radar);
   // ── New layer data hooks (Wave 8A) ─────────────────────────────────────
   const { beacons, currentBeacon, activeTransmissions } = useBeaconNetwork();
@@ -1376,6 +1381,16 @@ const GlobeScene = React.memo(function GlobeScene({
         {/* === Activity Layers === */}
         {layers.wspr && wsprSpots.length > 0 && (
           <WSPROverlay3D spots={wsprSpots} />
+        )}
+
+        {/* QSO location markers -- contest + logbook, mirrors FlatMapView's
+            drawContestQsos/drawLoggedQsos band-color dot semantics */}
+        {((layers.contestQsos && contestQsoData) ||
+          (layers.loggedQsos && loggedQsoData)) && (
+          <QsoLocationsOverlay3D
+            contestQsos={contestQsoData?.qsos ?? []}
+            loggedQsos={loggedQsoData?.qsos ?? []}
+          />
         )}
 
         {layers.beacons && beacons && beacons.length > 0 && (

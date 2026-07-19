@@ -26,6 +26,8 @@ export interface ReachMapRequestOptions {
   origin: { lat: number; lon: number };
   band: string;
   validTime: Date;
+  /** Defaults to validTime (live NowCast). Earlier for FutureCast horizons. */
+  issueTime?: Date;
   declaredPowerWatts: number;
   weather?: OperationalSpaceWeather;
   personalizationEnabled?: boolean;
@@ -107,7 +109,7 @@ export function buildReachMapRequest(
     grid,
     request: {
       origin_grid4: latLonToGrid(options.origin.lat, options.origin.lon, 4),
-      issue_time: timestamp,
+      issue_time: (options.issueTime ?? options.validTime).toISOString(),
       valid_time: timestamp,
       band: options.band,
       mode: "WSPR",

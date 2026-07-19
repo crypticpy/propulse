@@ -9,7 +9,11 @@ import {
   type PropagationPrediction,
   type SurfacePredictionRequest,
 } from "@/lib/propagation/modelClient";
-import { resolveNowCastCapabilityAccess } from "@/lib/propagation/capabilityAccess";
+import {
+  resolveFutureCastHorizons,
+  resolveNowCastCapabilityAccess,
+} from "@/lib/propagation/capabilityAccess";
+import type { FutureCastHorizonHours } from "@/lib/propagation/runtimeActivation";
 import {
   buildReachMapRequest,
   chunkReachMapSurfaceRequest,
@@ -46,6 +50,10 @@ export interface ReachMapSurfaceState {
   locationName: string | null;
   chainName: string | null;
   validTime: string | null;
+  /** FutureCast horizons the prediction service has activated. */
+  futureCastHorizons: FutureCastHorizonHours[];
+  /** The active FutureCast horizon, or null when viewing live NowCast. */
+  horizonHours: FutureCastHorizonHours | null;
 }
 
 async function fetchReachMapSurface(
@@ -76,6 +84,12 @@ export function useReachMapSurface(options: {
   personalized: boolean;
   band: string;
   validTime: Date;
+  /**
+   * Hours ahead of live time that validTime represents (0 = live NowCast).
+   * Non-zero offsets require a matching activated FutureCast horizon.
+   * Pass null for an arbitrary absolute time, which no model surface covers.
+   */
+  timeOffsetHours?: number | null;
   weather?: OperationalSpaceWeather;
 }): ReachMapSurfaceState {
   const { location, chain, deriveEnvelope, hasConfiguredChain } = useStationCastContext();
@@ -92,11 +106,22 @@ export function useReachMapSurface(options: {
     retry: 1,
   });
   const access = resolveNowCastCapabilityAccess(capabilities.data, propagationModelMode);
+  const futureCastHorizons = resolveFutureCastHorizons(
+    capabilities.data,
+    propagationModelMode,
+  );
+  const timeOffsetHours = options.timeOffsetHours === undefined ? 0 : options.timeOffsetHours;
+  const horizonHours =
+    futureCastHorizons.find((horizon) => horizon === timeOffsetHours) ?? null;
+  const timeAllowed = timeOffsetHours === 0 || horizonHours !== null;
   const stationAvailable = access.stationCast && hasConfiguredChain;
   const personalized = options.personalized && stationAvailable;
   const prepared = useMemo(() => {
-    if (!options.enabled || !location || !access.coreNowCast) return null;
+    if (!options.enabled || !timeAllowed || !location || !access.coreNowCast) return null;
     const validTime = new Date(timeBucket);
+    const issueTime = horizonHours !== null
+      ? new Date(timeBucket - horizonHours * 3_600_000)
+      : validTime;
     const weather = JSON.parse(weatherKey) as OperationalSpaceWeather;
     const referenceEnvelope = personalized
       ? deriveEnvelope(options.band, { mode: "WSPR" })
@@ -109,6 +134,7 @@ export function useReachMapSurface(options: {
       origin: location,
       band: options.band,
       validTime,
+      issueTime,
       declaredPowerWatts,
       weather,
       personalizationEnabled: personalized,
@@ -118,10 +144,12 @@ export function useReachMapSurface(options: {
   }, [
     access.coreNowCast,
     deriveEnvelope,
+    horizonHours,
     location,
     options.band,
     options.enabled,
     personalized,
+    timeAllowed,
     timeBucket,
     weatherKey,
   ]);
@@ -138,6 +166,7 @@ export function useReachMapSurface(options: {
       prepared?.request.origin_grid4,
       options.band,
       timeBucket,
+      horizonHours,
       prepared?.request.declared_power_watts,
       stationFingerprint,
       weatherKey,
@@ -194,14 +223,20 @@ export function useReachMapSurface(options: {
     error = capabilities.error instanceof Error
       ? capabilities.error.message
       : "Could not verify prediction capabilities";
-  } else if (
-    options.enabled &&
-    (capabilities.isPending || (access.coreNowCast && surface.isPending))
-  ) {
+  } else if (options.enabled && capabilities.isPending) {
     status = "loading";
   } else if (options.enabled && !access.coreNowCast) {
     status = "unavailable";
     error = "NowCast is not available from the prediction service";
+  } else if (options.enabled && !timeAllowed) {
+    status = "unavailable";
+    error = futureCastHorizons.length === 0
+      ? "Return to live time to use NowCast"
+      : `Set time to live or a FutureCast horizon (${futureCastHorizons
+          .map((horizon) => `+${horizon}h`)
+          .join(", ")})`;
+  } else if (options.enabled && surface.isPending) {
+    status = "loading";
   } else if (options.enabled && surface.error) {
     status = "unavailable";
     error = surface.error instanceof Error ? surface.error.message : "ReachMap request failed";
@@ -223,5 +258,7 @@ export function useReachMapSurface(options: {
     locationName: location?.name ?? null,
     chainName: chain?.name ?? null,
     validTime: prepared?.request.valid_time ?? null,
+    futureCastHorizons,
+    horizonHours,
   };
 }

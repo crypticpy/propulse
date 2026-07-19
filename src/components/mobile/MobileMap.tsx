@@ -113,13 +113,13 @@ export function MobileMap() {
 
   const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
   const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? null;
-  const reachMapIsLive = timeOffset === 0 && !absoluteTime;
   const reachMapState = useReachMapSurface({
-    enabled: reachMapEnabled && reachMapIsLive,
-    renderOverlay: reachMapEnabled && reachMapIsLive,
+    enabled: reachMapEnabled,
+    renderOverlay: reachMapEnabled,
     personalized: reachMapPersonalized,
     band: reachMapBand,
     validTime: displayTime,
+    timeOffsetHours: absoluteTime ? null : timeOffset,
     weather: {
       kp: currentKp ?? undefined,
       f107: currentFlux ?? undefined,
@@ -214,16 +214,7 @@ export function MobileMap() {
             onEnabledChange={setReachMapEnabled}
             onBandChange={setReachMapBand}
             onPersonalizedChange={setReachMapPersonalized}
-            state={
-              reachMapIsLive
-                ? reachMapState
-                : {
-                    ...reachMapState,
-                    loading: false,
-                    error: "Return to live time to use NowCast",
-                    cellCount: 0,
-                  }
-            }
+            state={reachMapState}
           />
         )}
 

@@ -540,11 +540,12 @@ export function PropSphere() {
     return addHours(new Date(), timeOffset);
   }, [timeOffset]);
   const reachMapState = useReachMapSurface({
-    enabled: reachMapEnabled && timeOffset === 0,
+    enabled: reachMapEnabled,
     renderOverlay: reachMapEnabled,
     personalized: reachMapPersonalized,
     band: reachMapBand,
     validTime: displayTime,
+    timeOffsetHours: timeOffset,
     weather: {
       kp: miniKp ?? undefined,
       f107: miniSfi ?? undefined,
@@ -881,16 +882,7 @@ export function PropSphere() {
                     onEnabledChange={setReachMapEnabled}
                     onBandChange={setReachMapBand}
                     onPersonalizedChange={setReachMapPersonalized}
-                    state={
-                      timeOffset === 0
-                        ? reachMapState
-                        : {
-                            ...reachMapState,
-                            loading: false,
-                            error: "Return to live time to use NowCast",
-                            cellCount: 0,
-                          }
-                    }
+                    state={reachMapState}
                   />
                 )}
 

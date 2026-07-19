@@ -157,6 +157,9 @@ export function ReachMapControl({
                 <TriangleAlert size={12} className="shrink-0 text-caution-amber" />
               )}
               <span className={state.status === "partial" ? "text-caution-amber" : undefined}>
+                {state.horizonHours !== null
+                  ? `FutureCast +${state.horizonHours}h · `
+                  : ""}
                 {state.cellCount}/{state.expectedCellCount} cells ·{" "}
                 {reachMapProfileLabel(state.profile)} · WSPR
               </span>
@@ -181,7 +184,11 @@ export function ReachMapControl({
         )}
       </div>
       <div className="mt-2 border-t border-white/10 pt-2 text-[9px] text-gray-500">
-        Live NowCast only. FutureCast horizons require prospective forecast evidence.
+        {state.futureCastHorizons.length > 0
+          ? `Live NowCast + FutureCast ${state.futureCastHorizons
+              .map((horizon) => `+${horizon}h`)
+              .join(" / ")} via the time slider.`
+          : "Live NowCast only. FutureCast horizons require prospective forecast evidence."}
       </div>
     </div>
   );

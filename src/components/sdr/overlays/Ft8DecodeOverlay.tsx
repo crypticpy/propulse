@@ -2,7 +2,13 @@
  * Ft8DecodeOverlay -- Canvas overlay that renders FT8/FT4 decode markers
  * on top of the waterfall display.
  *
- * Markers are drawn at the audio frequency of each decode with color coding:
+ * Each decode's audio offset (deltaFrequency) is converted to an absolute RF
+ * frequency using the dial frequency + mode, then positioned against the RF
+ * waterfall view (centerHz/spanHz) — matching BandPlanOverlay/SpotTagOverlay.
+ * Markers therefore cluster in the passband near the dial rather than being
+ * stretched across the whole view.
+ *
+ * Markers are drawn with color coding:
  * - Green:    CQ stations
  * - Cyan:     Regular QSO
  * - Orange:   Needed entity
@@ -14,16 +20,21 @@
  */
 
 import { useEffect, useRef } from "react";
+import { audioHzToRfHz } from "@/components/sdr/waterfallPalette";
 import type { Ft8EnrichedDecode } from "@/lib/ft8/ft8EnrichedDecode";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 export interface Ft8DecodeOverlayProps {
   decodes: Ft8EnrichedDecode[];
-  /** Audio range low Hz (typically 200) */
-  audioLow: number;
-  /** Audio range high Hz (typically 3000) */
-  audioHigh: number;
+  /** RF view center in Hz (matches the waterfall view) */
+  viewCenterHz: number;
+  /** RF view span in Hz (matches the waterfall view) */
+  viewSpanHz: number;
+  /** Dial (carrier) frequency in Hz — decode audio offsets are relative to this */
+  dialHz: number;
+  /** Radio mode (USB/LSB/CW/…) — determines sideband direction */
+  mode: string;
 }
 
 // ─── Color helpers ───────────────────────────────────────────────────────────
@@ -76,8 +87,10 @@ const LABEL_PAD_Y = 1;
 
 export function Ft8DecodeOverlay({
   decodes,
-  audioLow,
-  audioHigh,
+  viewCenterHz,
+  viewSpanHz,
+  dialHz,
+  mode,
 }: Ft8DecodeOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number>(0);
@@ -86,33 +99,38 @@ export function Ft8DecodeOverlay({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Auto-detect dimensions from CSS layout
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    if (width === 0 || height === 0) return;
+    const draw = () => {
+      // Auto-detect dimensions from CSS layout
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (width === 0 || height === 0) return;
 
-    // Match canvas backing store to CSS size for sharp rendering
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const cw = Math.max(1, Math.floor(width * dpr));
-    const ch = Math.max(1, Math.floor(height * dpr));
+      // Match canvas backing store to CSS size for sharp rendering
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const cw = Math.max(1, Math.floor(width * dpr));
+      const ch = Math.max(1, Math.floor(height * dpr));
 
-    if (canvas.width !== cw || canvas.height !== ch) {
-      canvas.width = cw;
-      canvas.height = ch;
-    }
+      if (canvas.width !== cw || canvas.height !== ch) {
+        canvas.width = cw;
+        canvas.height = ch;
+      }
 
-    // Cancel any pending frame before scheduling a new one
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-
-    rafRef.current = requestAnimationFrame(() => {
       const ctx = canvas.getContext("2d", { alpha: true });
       if (!ctx) return;
 
       ctx.clearRect(0, 0, cw, ch);
 
-      if (decodes.length === 0 || audioHigh <= audioLow) return;
+      if (
+        decodes.length === 0 ||
+        !Number.isFinite(viewCenterHz) ||
+        !Number.isFinite(viewSpanHz) ||
+        viewSpanHz <= 0 ||
+        !Number.isFinite(dialHz)
+      ) {
+        return;
+      }
 
-      const audioRange = audioHigh - audioLow;
+      const viewStartHz = viewCenterHz - viewSpanHz / 2;
 
       // Sort by priority so important markers render on top
       const sorted = [...decodes].sort(
@@ -134,9 +152,11 @@ export function Ft8DecodeOverlay({
         const audioHz = decode.deltaFrequency;
         if (!Number.isFinite(audioHz)) continue;
 
-        // Map audio Hz to pixel X within the overlay
-        const t = (audioHz - audioLow) / audioRange;
-        if (t < -0.01 || t > 1.01) continue;
+        // Convert the decode's audio offset to absolute RF, then place it
+        // against the RF waterfall view (mode-aware sideband direction).
+        const rfHz = audioHzToRfHz(audioHz, dialHz, mode);
+        const t = (rfHz - viewStartHz) / viewSpanHz;
+        if (t < 0 || t > 1) continue; // outside the visible RF view
 
         const x = Math.round(t * width);
         const color = getMarkerColor(decode);
@@ -263,12 +283,26 @@ export function Ft8DecodeOverlay({
       }
 
       ctx.restore();
-    });
+    };
+
+    // Cancel any pending frame before scheduling a new one
+    const scheduleDraw = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(draw);
+    };
+
+    scheduleDraw();
+
+    // Redraw on container resize so a stretched/blank bitmap can't linger
+    // for an entire FT8 cycle.
+    const ro = new ResizeObserver(scheduleDraw);
+    ro.observe(canvas);
 
     return () => {
+      ro.disconnect();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [decodes, audioLow, audioHigh]);
+  }, [decodes, viewCenterHz, viewSpanHz, dialHz, mode]);
 
   return (
     <canvas

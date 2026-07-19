@@ -55,6 +55,12 @@ export function spotCacheHeaders(result: SpotStoreResult): Record<string, string
           )}, stale-if-error=${allowedStaleSeconds}`
         : "s-maxage=15, stale-while-revalidate=60",
     "X-Propulse-Spot-Status": result.status,
+    ...(result.failureReason
+      ? { "X-Propulse-Spot-Failure": result.failureReason }
+      : {}),
+    ...(result.upstreamStatus !== null
+      ? { "X-Propulse-Spot-Upstream-Status": String(result.upstreamStatus) }
+      : {}),
     ...(result.observedAt
       ? { "X-Propulse-Spot-Observed-At": result.observedAt }
       : {}),

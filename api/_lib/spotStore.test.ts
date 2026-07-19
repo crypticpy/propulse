@@ -139,6 +139,8 @@ describe("central spot store", () => {
       observedAt: "2026-07-19T13:31:00Z",
       fetchedAt: "2026-07-19T14:00:00Z",
       staleAfterSeconds: 30 * 60,
+      failureReason: null,
+      upstreamStatus: null,
     });
     expect(headers["Cache-Control"]).toBe(
       "s-maxage=30, stale-while-revalidate=30, stale-if-error=30",
@@ -151,7 +153,12 @@ describe("central spot store", () => {
       { limit: 50 },
       { now: () => NOW, storageConfig: () => null },
     );
-    expect(missing).toMatchObject({ rows: [], status: "unavailable" });
+    expect(missing).toMatchObject({
+      rows: [],
+      status: "unavailable",
+      failureReason: "configuration_missing",
+      upstreamStatus: null,
+    });
 
     const rejected = await readStoredSpots(
       "dxcluster",
@@ -162,7 +169,16 @@ describe("central spot store", () => {
         storageConfig: () => CONFIG,
       },
     );
-    expect(rejected).toMatchObject({ rows: [], status: "unavailable" });
+    expect(rejected).toMatchObject({
+      rows: [],
+      status: "unavailable",
+      failureReason: "upstream_http",
+      upstreamStatus: 503,
+    });
+    expect(spotCacheHeaders(rejected)).toMatchObject({
+      "X-Propulse-Spot-Failure": "upstream_http",
+      "X-Propulse-Spot-Upstream-Status": "503",
+    });
   });
 
   it("rejects oversized store responses before parsing them", async () => {
@@ -178,6 +194,10 @@ describe("central spot store", () => {
         storageConfig: () => CONFIG,
       },
     );
-    expect(result).toMatchObject({ rows: [], status: "unavailable" });
+    expect(result).toMatchObject({
+      rows: [],
+      status: "unavailable",
+      failureReason: "response_too_large",
+    });
   });
 });

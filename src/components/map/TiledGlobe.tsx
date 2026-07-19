@@ -14,13 +14,13 @@ import {
   TilesPlugin,
 } from "3d-tiles-renderer/r3f";
 import {
-  XYZTilesPlugin,
   TilesFadePlugin,
   UpdateOnChangePlugin,
 } from "3d-tiles-renderer/plugins";
 import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
 import { WGS84_RADIUS } from "3d-tiles-renderer/core";
 import type { TileProviderConfig } from "@/lib/tiles/types";
+import { CompatibleXYZTilesPlugin } from "@/lib/tiles/CompatibleXYZTilesPlugin";
 import { getAccessToken } from "@/lib/api/authFetch";
 
 // ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ export function TiledGlobe({
       onLoadError={handleLoadError}
     >
       <TilesPlugin
-        plugin={XYZTilesPlugin}
+        plugin={CompatibleXYZTilesPlugin}
         args={
           {
             url: provider.url,

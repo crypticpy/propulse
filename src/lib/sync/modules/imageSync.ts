@@ -223,7 +223,6 @@ export const imageSync: SyncModule = {
     }
 
     if (!rows || rows.length === 0) {
-      console.log("[imageSync] No new images to pull");
       return null;
     }
 

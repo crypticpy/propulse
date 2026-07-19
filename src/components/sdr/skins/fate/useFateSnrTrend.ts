@@ -5,15 +5,20 @@
  * keyed by uppercase callsign string. Designed to feed inline sparkline
  * charts in the decode table rows.
  *
- * - Uses useRef-based storage so history persists across renders without
- *   causing unnecessary re-renders.
- * - Deduplicates by cycleId — only the latest SNR per callsign per cycle
- *   is recorded (prevents inflated history from duplicate decode messages).
+ * - Uses useRef-based storage so history persists across renders; ingestion
+ *   happens in a useEffect (not a useMemo) so StrictMode's double render can't
+ *   double-append. A pure useState snapshot is published for consumers.
+ * - Deduplicates by cycle identity — each callsign records at most one SNR per
+ *   decode cycle. Cycle identity is the epochMs-derived `cycleId`, which is
+ *   monotonic across UTC midnight, so already-ingested cycles are skipped
+ *   instead of being re-pushed as garbage.
+ * - Values are appended oldest-first (index 0 = oldest) so sparklines read
+ *   left-to-right in time and trend arrows point the right way.
  * - LRU eviction caps the map at MAX_CALLSIGNS to bound memory.
  * - Clears all history on band change so stale cross-band data never leaks.
  */
 
-import { useRef, useMemo } from "react";
+import { useRef, useEffect, useState } from "react";
 import type { EnrichedDecode } from "./useFateDecodes";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -29,7 +34,11 @@ const MAX_CALLSIGNS = 200;
 interface CallsignEntry {
   /** Ring buffer of SNR values (oldest first, newest last). */
   snrValues: number[];
-  /** The cycleId of the most recently recorded SNR for dedup. */
+  /**
+   * Highest cycle identity already ingested for this callsign. Decodes at or
+   * below this cycle are skipped (already recorded). Monotonic because cycleId
+   * is epochMs-derived.
+   */
   lastCycleId: number;
   /** Monotonic counter bumped on every access — used for LRU eviction. */
   lastAccess: number;
@@ -56,8 +65,16 @@ export function useFateSnrTrend(
   const accessCounterRef = useRef(0);
   const prevBandRef = useRef<string | null>(activeBand);
 
-  // Snapshot the current trend data into a new Map whenever decodes change.
-  const trendMap = useMemo(() => {
+  // Published snapshot consumed by sparklines. Updated only from the effect.
+  const [trendMap, setTrendMap] = useState<Map<string, number[]>>(
+    () => new Map(),
+  );
+
+  // Ingest happens in an effect (post-commit), not a memo, so StrictMode's
+  // double render can't double-append. Ingestion is also idempotent on its own:
+  // the "skip cycles at or below lastCycleId" guard means re-running over the
+  // same decode buffer records nothing new.
+  useEffect(() => {
     const history = historyRef.current;
 
     // ── Band-change reset ──────────────────────────────────────────────
@@ -66,8 +83,11 @@ export function useFateSnrTrend(
       prevBandRef.current = activeBand;
     }
 
-    // ── Ingest new decodes ─────────────────────────────────────────────
-    for (const d of decodes) {
+    // ── Ingest new decodes, oldest-first ───────────────────────────────
+    // The decode buffer is newest-first; iterate in reverse so cycles are
+    // ingested in chronological order and appended oldest-first.
+    for (let i = decodes.length - 1; i >= 0; i--) {
+      const d = decodes[i];
       const call = d.parsedCallsign?.toUpperCase();
       if (!call) continue;
 
@@ -77,19 +97,15 @@ export function useFateSnrTrend(
         // Bump LRU access counter
         entry.lastAccess = ++accessCounterRef.current;
 
-        // Deduplicate: only record one SNR per callsign per cycle.
-        // If we already have a reading for this cycle, overwrite the
-        // last value (latest decode in the cycle wins).
-        if (entry.lastCycleId === d.cycleId) {
-          entry.snrValues[entry.snrValues.length - 1] = d.snr;
-        } else {
-          // New cycle — append to ring buffer
-          entry.snrValues.push(d.snr);
-          if (entry.snrValues.length > MAX_HISTORY) {
-            entry.snrValues.shift();
-          }
-          entry.lastCycleId = d.cycleId;
+        // Skip cycles we have already ingested for this callsign (including
+        // the current highest). Only genuinely newer cycles append.
+        if (d.cycleId <= entry.lastCycleId) continue;
+
+        entry.snrValues.push(d.snr);
+        if (entry.snrValues.length > MAX_HISTORY) {
+          entry.snrValues.shift();
         }
+        entry.lastCycleId = d.cycleId;
       } else {
         // First sighting of this callsign
         history.set(call, {
@@ -115,13 +131,13 @@ export function useFateSnrTrend(
       }
     }
 
-    // ── Build output snapshot ──────────────────────────────────────────
+    // ── Publish output snapshot ────────────────────────────────────────
     const result = new Map<string, number[]>();
     for (const [call, entry] of history) {
-      // Return a copy so consumers can't mutate internal state
+      // Copy so consumers can't mutate internal state
       result.set(call, [...entry.snrValues]);
     }
-    return result;
+    setTrendMap(result);
   }, [decodes, activeBand]);
 
   return trendMap;

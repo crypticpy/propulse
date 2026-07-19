@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useQSOStore } from "@/stores/qsoStore";
+import { useFt8DecoderStore } from "@/stores/ft8DecoderStore";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import { useLogbook } from "@/hooks/useLogbook";
 import { useFateDecodes } from "./useFateDecodes";
@@ -77,6 +78,12 @@ function useAudioAnalyser(enabled: boolean): AnalyserNode | null {
         }
 
         ctx = new AudioContext();
+        // Browsers increasingly start AudioContexts suspended until a user
+        // gesture; resume so the analyser receives real samples instead of
+        // reading silence and pinning the meter at zero.
+        if (ctx.state === "suspended") {
+          void ctx.resume().catch(() => undefined);
+        }
         const source = ctx.createMediaStreamSource(stream);
         const node = ctx.createAnalyser();
         node.fftSize = 2048;
@@ -270,8 +277,12 @@ export function FateSkin(props: SdrSkinProps) {
   });
 
   // ── Band-change clearing ──────────────────────────────────────────────
-  // When the operator hops bands (via F-key or radio), toggle the decoder
-  // off then back on to clear the stale decode buffer for the new band.
+  // When the operator hops bands (via F-key or radio), flush the stale decode
+  // buffer so the new band starts clean. We clear the store buffer directly
+  // rather than toggling the decoder off/on: the old flap turned the decoder
+  // OFF immediately and scheduled ON at +200ms, so two band hops within 200ms
+  // cancelled the pending ON and left the decoder stranded OFF. Clearing the
+  // buffer keeps the decoder running the whole time.
   const prevBandRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -280,15 +291,7 @@ export function FateSkin(props: SdrSkinProps) {
 
     // Only clear when transitioning between two known bands
     if (prev != null && activeBand != null && prev !== activeBand) {
-      if (ft8EnabledRef.current) {
-        // Toggle off
-        onFt8ToggleRef.current();
-        // Toggle back on after a brief delay to let the buffer flush
-        const id = window.setTimeout(() => {
-          onFt8ToggleRef.current();
-        }, 200);
-        return () => window.clearTimeout(id);
-      }
+      useFt8DecoderStore.getState().clearDecodes();
     }
   }, [activeBand]);
 

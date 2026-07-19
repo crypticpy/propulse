@@ -12,11 +12,12 @@
  * restarts the sequence after completion.
  *
  * Uses useRef-based storage (like useFateSnrTrend) so the tracker persists
- * across renders without causing unnecessary re-renders. A useMemo snapshot
- * is returned whenever the directed array changes.
+ * across renders. Mutation happens in a useEffect (not a useMemo) so StrictMode's
+ * double render can't corrupt the state machine; a useState snapshot is published
+ * whenever the directed array changes.
  */
 
-import { useRef, useMemo } from "react";
+import { useRef, useEffect, useState } from "react";
 import type { EnrichedDecode } from "./useFateDecodes";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -49,7 +50,10 @@ export interface QsoSequenceState {
   reportSent: string | null;
   /** Grid received from the other station. */
   gridReceived: string | null;
-  /** Timestamp of the latest stage update (ms since midnight). */
+  /**
+   * Timestamp of the latest stage update: absolute ms since Unix epoch
+   * (epochMs). Monotonic across UTC midnight so expiry/sort math stays correct.
+   */
   lastUpdateTime: number;
   /** Whether the QSO is considered complete (73 or RR73 seen from both sides). */
   isComplete: boolean;
@@ -196,17 +200,30 @@ export function useFateQsoTracker(
   const trackerRef = useRef<Map<string, TrackerEntry>>(new Map());
   const accessCounterRef = useRef(0);
 
-  const snapshot = useMemo(() => {
+  // Published snapshot consumed by the UI. Updated only from the effect below.
+  const [snapshot, setSnapshot] = useState<Map<string, QsoSequenceState>>(
+    () => new Map(),
+  );
+
+  // Mutation runs in an effect (post-commit), not a memo, so StrictMode's double
+  // render can't advance stages or capture reports twice. Re-processing the same
+  // directed buffer is idempotent: stage progression is forward-only, and reports
+  // are captured only on advance.
+  useEffect(() => {
     const tracker = trackerRef.current;
     const myCallUpper = myCallsign?.toUpperCase() ?? null;
 
-    // If no callsign configured, return empty map
+    // If no callsign configured, publish an empty map and reset the tracker.
     if (!myCallUpper) {
-      return new Map<string, QsoSequenceState>();
+      tracker.clear();
+      setSnapshot(new Map<string, QsoSequenceState>());
+      return;
     }
 
-    // ── Sort directed by time (chronological processing) ──────────────
-    const sorted = [...directed].sort((a, b) => a.time - b.time);
+    // ── Sort directed by absolute time (chronological processing) ──────
+    // Use epochMs, not the midnight-wrapping `time`, so ordering is stable
+    // across 00:00 UTC.
+    const sorted = [...directed].sort((a, b) => a.epochMs - b.epochMs);
 
     // ── Process each directed message ─────────────────────────────────
     for (const decode of sorted) {
@@ -233,7 +250,7 @@ export function useFateQsoTracker(
             reportReceived: null,
             reportSent: null,
             gridReceived: grid,
-            lastUpdateTime: decode.time,
+            lastUpdateTime: decode.epochMs,
             isComplete: false,
           };
           continue;
@@ -244,21 +261,24 @@ export function useFateQsoTracker(
 
         // Advance the stage
         existing.state.stage = stage;
-        existing.state.lastUpdateTime = decode.time;
+        existing.state.lastUpdateTime = decode.epochMs;
 
         // Capture report/grid values
         if (grid && !existing.state.gridReceived) {
           existing.state.gridReceived = grid;
         }
 
-        // Determine if the report is "received" or "sent" based on who sent the message
+        // Attribute the report by the *transmitter*. Parser field naming is
+        // counter-intuitive: `senderCallsign` = CALL1 = the addressed station
+        // (recipient), `parsedCallsign` = CALL2 = the transmitter. So if the
+        // other station transmitted this message, they sent us the report.
         if (report) {
-          const sender = decode.senderCallsign?.toUpperCase() ?? null;
-          if (sender === otherCall) {
-            // They sent us a report
+          const transmitter = decode.parsedCallsign?.toUpperCase() ?? null;
+          if (transmitter === otherCall) {
+            // They transmitted a report to us
             existing.state.reportReceived = report;
           } else {
-            // We sent them a report (visible in decode stream)
+            // We transmitted a report to them (visible in decode stream)
             existing.state.reportSent = report;
           }
         }
@@ -286,16 +306,18 @@ export function useFateQsoTracker(
             reportReceived: null,
             reportSent: null,
             gridReceived: grid,
-            lastUpdateTime: decode.time,
+            lastUpdateTime: decode.epochMs,
             isComplete: stage === "rr73" || stage === "73",
           },
           lastAccess: ++accessCounterRef.current,
         };
 
-        // Capture report on first sighting
+        // Capture report on first sighting. Attribute by transmitter
+        // (parsedCallsign = CALL2), not the addressed station (senderCallsign
+        // = CALL1); see the note in the advance branch above.
         if (report) {
-          const sender = decode.senderCallsign?.toUpperCase() ?? null;
-          if (sender === otherCall) {
+          const transmitter = decode.parsedCallsign?.toUpperCase() ?? null;
+          if (transmitter === otherCall) {
             entry.state.reportReceived = report;
           } else {
             entry.state.reportSent = report;
@@ -327,9 +349,11 @@ export function useFateQsoTracker(
     }
 
     // ── Auto-expire stale sequences ──────────────────────────────────
-    // Find the most recent time in the directed array to use as "now"
-    // (since time is ms-since-midnight, not epoch).
-    const latestTime = sorted.length > 0 ? sorted[sorted.length - 1].time : 0;
+    // Use the most recent absolute time (epochMs) in the directed array as
+    // "now". lastUpdateTime is also epochMs, so the difference stays correct
+    // across UTC midnight instead of swinging hugely negative.
+    const latestTime =
+      sorted.length > 0 ? sorted[sorted.length - 1].epochMs : 0;
 
     if (latestTime > 0) {
       for (const [key, entry] of tracker) {
@@ -339,13 +363,13 @@ export function useFateQsoTracker(
       }
     }
 
-    // ── Build output snapshot ────────────────────────────────────────
+    // ── Publish output snapshot ──────────────────────────────────────
     const result = new Map<string, QsoSequenceState>();
     for (const [call, entry] of tracker) {
-      // Return a copy so consumers can't mutate internal state
+      // Copy so consumers can't mutate internal state
       result.set(call, { ...entry.state });
     }
-    return result;
+    setSnapshot(result);
   }, [directed, myCallsign]);
 
   return snapshot;

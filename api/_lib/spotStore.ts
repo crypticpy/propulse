@@ -1,3 +1,5 @@
+import { isErrorNamed } from "./runtimeError";
+
 export type StoredSpotSource = "pskreporter" | "rbn" | "dxcluster";
 
 export interface SpotHistoryRow {
@@ -287,7 +289,7 @@ export async function readStoredSpots(
         ? "response_too_large"
         : error instanceof SyntaxError
           ? "invalid_payload"
-          : error instanceof DOMException && error.name === "AbortError"
+          : isErrorNamed(error, "AbortError", "TimeoutError")
             ? "timeout"
             : "network_error";
     return unavailableResult(source, now, reason);

@@ -45,13 +45,12 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
   // Main lifecycle: start/stop decoder when settings change
   useEffect(() => {
     if (!ft8Enabled) {
-      // Tear down
+      // Tear down (the uploader is owned by the PSK Reporter effect below,
+      // which also keys on ft8Enabled)
       audioRef.current?.stop();
       audioRef.current = null;
       bridgeRef.current?.stop();
       bridgeRef.current = null;
-      uploaderRef.current?.stop();
-      uploaderRef.current = null;
       useFt8DecoderStore.getState().reset();
       return;
     }
@@ -128,8 +127,6 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
       bridge.stop();
       bridgeRef.current = null;
       audioRef.current = null;
-      uploaderRef.current?.stop();
-      uploaderRef.current = null;
       useFt8DecoderStore.getState().reset();
     };
     // ft8DecodeDepth is read at start; changing it restarts the decoder so the
@@ -137,7 +134,10 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
   }, [ft8Enabled, ft8Mode, ft8AudioDeviceId, ft8DecodeDepth]);
 
   // PSK Reporter uploader lifecycle — separate effect so toggling the
-  // setting or changing callsign/grid does not restart the decoder.
+  // setting or changing callsign/grid does not restart the decoder. This
+  // effect is the uploader's sole owner: the decoder effect must not touch
+  // uploaderRef, or a decoder restart (mode/device/depth change) would null
+  // the uploader without this effect ever recreating it.
   useEffect(() => {
     // Tear down any existing uploader first
     uploaderRef.current?.stop();

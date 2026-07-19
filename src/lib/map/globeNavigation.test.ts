@@ -33,7 +33,7 @@ describe("globe navigation", () => {
 
     expect(local.zoomSpeed).toBeLessThan(orbital.zoomSpeed / 100);
     expect(local.rotateSpeed).toBeLessThan(orbital.rotateSpeed / 100);
-    expect(local.rotateSpeed).toBeCloseTo(0.000012, 7);
+    expect(local.rotateSpeed).toBeCloseTo(0.000025, 7);
     expect(local.autoRotateScale).toBeLessThan(orbital.autoRotateScale / 100);
     expect(local.near).toBeLessThan(orbital.near);
   });

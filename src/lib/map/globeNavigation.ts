@@ -70,7 +70,7 @@ export function getGlobeNavigationTuning(
     cameraDistance - GLOBE_RADIUS,
   );
   const safeDistance = Math.max(cameraDistance, GLOBE_RADIUS);
-  const localRotateFactor = 0.12 + 0.17 * altitude;
+  const localRotateFactor = 0.25 + 0.08 * altitude;
 
   return {
     zoomSpeed: clamp((3.5 * altitude) / safeDistance, 1e-6, 0.65),

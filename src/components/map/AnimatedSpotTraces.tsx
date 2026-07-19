@@ -35,6 +35,7 @@ import {
 } from "@/lib/utils/spotColors";
 import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useUIInteractionPrefs } from "@/stores/userStore";
+import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 
 // =============================================================================
 // TYPES
@@ -153,6 +154,11 @@ const TraceAnimation = React.memo(
     // Pre-compute endpoint
     const endpoint = useMemo(() => points[points.length - 1], [points]);
     const totalSegments = points.length - 1;
+    const currentPointVector = useMemo(() => new THREE.Vector3(), []);
+    const endpointVector = useMemo(
+      () => new THREE.Vector3(...endpoint),
+      [endpoint],
+    );
 
     // Billboard quaternion for the landing ring — face outward from globe center
     const ringQuaternion = useMemo(() => {
@@ -216,6 +222,14 @@ const TraceAnimation = React.memo(
 
         const pointIndex = Math.min(visibleSegments, totalSegments);
         const currentPoint = points[pointIndex];
+        currentPointVector.set(
+          currentPoint[0],
+          currentPoint[1],
+          currentPoint[2],
+        );
+        const headScreenScale = getScreenSpaceScale(
+          state.camera.position.distanceTo(currentPointVector),
+        );
 
         // --- Integrated landing blend ---
         // When the head reaches the final 15% of travel, the landing ring
@@ -236,7 +250,8 @@ const TraceAnimation = React.memo(
           );
           headRef.current.visible = true;
           // Scale down from 1.0 to 0.0 during blend
-          const headScale = inLandingBlend ? 1 - easedBlendT : 1;
+          const headScale =
+            headScreenScale * (inLandingBlend ? 1 - easedBlendT : 1);
           headRef.current.scale.setScalar(headScale);
         }
         if (headGlowRef.current) {
@@ -246,7 +261,8 @@ const TraceAnimation = React.memo(
             currentPoint[2],
           );
           headGlowRef.current.visible = true;
-          const glowScale = inLandingBlend ? 1 - easedBlendT : 1;
+          const glowScale =
+            headScreenScale * (inLandingBlend ? 1 - easedBlendT : 1);
           headGlowRef.current.scale.setScalar(glowScale);
           // Also fade the glow material opacity
           const glowMat = headGlowRef.current
@@ -258,15 +274,19 @@ const TraceAnimation = React.memo(
 
         // Landing ring: starts expanding during the blend portion of travel
         if (inLandingBlend && ringRef.current && ringMaterialRef.current) {
+          const ringScreenScale = getScreenSpaceScale(
+            state.camera.position.distanceTo(endpointVector),
+          );
           if (!ringRef.current.visible) {
             ringRef.current.visible = true;
             ringRef.current.position.set(endpoint[0], endpoint[1], endpoint[2]);
             ringRef.current.quaternion.copy(ringQuaternion);
           }
           const ringScale =
-            (LANDING_RING_MIN +
+            ringScreenScale *
+            ((LANDING_RING_MIN +
               easedBlendT * (LANDING_RING_MAX - LANDING_RING_MIN)) /
-            LANDING_RING_MIN;
+              LANDING_RING_MIN);
           ringRef.current.scale.set(ringScale, ringScale, ringScale);
           // Ring fades from 0.7 to 0 as blend completes
           ringMaterialRef.current.opacity = 0.7 * (1 - easedBlendT);

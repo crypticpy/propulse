@@ -38,9 +38,24 @@ describe("WidgetShell state contract", () => {
     );
     expect(screen.getByText("123 sfu")).not.toBeNull();
     expect(screen.getByText(/Last validated data remains visible/i)).not.toBeNull();
+    expect(screen.queryByText(/refresh failed/i)).toBeNull();
     expect(screen.getByRole("link", { name: "NOAA SWPC" }).getAttribute("href")).toBe(
       "https://services.swpc.noaa.gov/",
     );
+  });
+
+  it("distinguishes a failed refresh from an older observation", () => {
+    render(
+      <WidgetShell
+        title="Solar wind"
+        state="stale"
+        staleMessage="The latest refresh failed. Last validated data remains visible."
+      >
+        <p>412 km/s</p>
+      </WidgetShell>,
+    );
+    expect(screen.getByText(/latest refresh failed/i)).not.toBeNull();
+    expect(screen.getByText("412 km/s")).not.toBeNull();
   });
 
   it("does not render decision content when no usable data exists", () => {

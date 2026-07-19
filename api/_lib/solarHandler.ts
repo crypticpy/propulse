@@ -10,6 +10,7 @@ import {
 import type { AdaptedProduct } from "../../src/lib/solar/adapters";
 import { SolarValidationError } from "../../src/lib/solar/normalization";
 import {
+  getSolarEdgeCacheTtlMs,
   getSolarSourcePolicy,
   type SolarSourcePolicy,
 } from "../../src/lib/solar/sourcePolicies";
@@ -321,8 +322,12 @@ export function createSolarHandler<T>(
           "PAYLOAD_TOO_LARGE",
         );
       }
-      const softSeconds = Math.max(1, Math.floor(policy.softTtlMs / 1_000));
-      const staleSeconds = Math.max(1, Math.floor((policy.hardTtlMs - policy.softTtlMs) / 1_000));
+      const cacheTtlMs = getSolarEdgeCacheTtlMs(policy);
+      const cacheSeconds = Math.max(1, Math.floor(cacheTtlMs / 1_000));
+      const staleSeconds = Math.max(
+        1,
+        Math.floor((policy.hardTtlMs - cacheTtlMs) / 1_000),
+      );
       console.info(
         JSON.stringify({
           event: "solar_provider_fetch",
@@ -338,7 +343,7 @@ export function createSolarHandler<T>(
         status: 200,
         headers: {
           "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": `public, s-maxage=${softSeconds}, stale-while-revalidate=${staleSeconds}, stale-if-error=${staleSeconds}`,
+          "Cache-Control": `public, s-maxage=${cacheSeconds}, stale-while-revalidate=${staleSeconds}, stale-if-error=${staleSeconds}`,
           "X-Solar-Schema": String(SOLAR_SCHEMA_VERSION),
           "X-Solar-Source": options.sourceId,
           ...corsHeaders(request),

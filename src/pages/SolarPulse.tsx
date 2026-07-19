@@ -75,6 +75,9 @@ function sourceProps<T>(view: SolarResourceView<T>) {
     provider: view.resource?.envelope.provider ?? policy.provider,
     sourceUrl: view.resource?.envelope.sourceUrl ?? policy.sourceUrl,
     hasData: hasData(view),
+    staleMessage: view.resource?.lastError
+      ? "The latest refresh failed. Last validated data remains visible."
+      : "The latest validated observation is older than this product's normal cadence. Last validated data remains visible.",
     onRetry: () => void view.query.refetch(),
   };
 }
@@ -312,6 +315,11 @@ export function SolarPulse() {
             observedAt={guidanceObservedAt}
             provider="NOAA SWPC inputs"
             hasData={guidanceHasData}
+            partialMessage={
+              current.guidance.missing.length > 0
+                ? "One or more required inputs are unavailable; conclusions are intentionally limited."
+                : "One or more inputs are delayed; conclusions are intentionally limited."
+            }
           >
             <div className="flex h-full flex-col justify-between gap-5">
               <div>

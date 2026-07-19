@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import dxClusterHandler from "./dxcluster";
-import pskReporterHandler from "./pskreporter";
-import rbnHandler from "./rbn";
+import dxClusterRoute from "./dxcluster.js";
+import pskReporterRoute from "./pskreporter.js";
+import rbnRoute from "./rbn.js";
+
+const dxClusterHandler = dxClusterRoute.fetch;
+const pskReporterHandler = pskReporterRoute.fetch;
+const rbnHandler = rbnRoute.fetch;
 
 const NOW = new Date("2026-07-19T14:00:00Z");
 let requestedSources: string[];

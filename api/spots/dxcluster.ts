@@ -8,7 +8,7 @@ import {
 } from "../_lib/spotResponse.js";
 import { readStoredSpots } from "../_lib/spotStore.js";
 
-export default async function handler(req: Request) {
+async function handler(req: Request) {
   if (req.method === "OPTIONS") {
     return spotOptionsResponse();
   }
@@ -55,3 +55,5 @@ export default async function handler(req: Request) {
     spotCacheHeaders(result),
   );
 }
+
+export default { fetch: handler };

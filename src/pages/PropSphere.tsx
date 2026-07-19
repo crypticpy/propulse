@@ -1041,6 +1041,7 @@ export function PropSphere() {
                   <FlatMapView
                     displayTime={displayTime}
                     onLocationClick={handleLocationClick}
+                    fillContainer
                   />
                 )}
                 {viewMode === "azimuthal" && (

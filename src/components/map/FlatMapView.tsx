@@ -5077,8 +5077,10 @@ export function FlatMapView({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full min-h-[400px] bg-deep-space overflow-hidden relative select-none ${
-        fillContainer ? "" : "rounded-xl flex items-center justify-center"
+      className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
+        fillContainer
+          ? ""
+          : "min-h-[400px] rounded-xl flex items-center justify-center"
       }`}
     >
       {!mapImage && mapStyle === "satellite" && (

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readStoredSpots, spotCacheHeaders } from "./spotStore";
+import { spotCacheHeaders } from "./spotResponse";
+import { meterBandNumber, readStoredSpots } from "./spotStore";
 
 const NOW = Date.parse("2026-07-19T14:00:00Z");
 const CONFIG = {
@@ -64,6 +65,22 @@ describe("central spot store", () => {
       apikey: "anon-key",
       Authorization: "Bearer anon-key",
     });
+  });
+
+  it("enforces the stored meter-band contract centrally", async () => {
+    expect(meterBandNumber("20m")).toBe(20);
+    expect(meterBandNumber("70cm")).toBeNull();
+    const result = await readStoredSpots(
+      "rbn",
+      { limit: 50 },
+      {
+        fetcher: async () =>
+          new Response(JSON.stringify([row({ source: "rbn", band: "invalid" })])),
+        now: () => NOW,
+        storageConfig: () => CONFIG,
+      },
+    );
+    expect(result).toMatchObject({ rows: [], status: "stale" });
   });
 
   it("does not serve stale observations as live spots", async () => {

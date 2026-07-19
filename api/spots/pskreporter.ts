@@ -7,7 +7,12 @@
  */
 
 import { applyRateLimit } from "../_lib/rateLimit";
-import { readStoredSpots, spotCacheHeaders } from "../_lib/spotStore";
+import {
+  spotCacheHeaders,
+  spotJsonResponse,
+  spotOptionsResponse,
+} from "../_lib/spotResponse";
+import { readStoredSpots } from "../_lib/spotStore";
 
 export const config = {
   runtime: "edge",
@@ -15,36 +20,12 @@ export const config = {
 
 const GRID_REGEX = /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?$/;
 
-function getAllowedOrigin(): string {
-  return process.env.ALLOWED_ORIGIN || "https://propulse.cloud";
-}
-
-function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "X-Content-Type-Options": "nosniff",
-      ...headers,
-    },
-  });
-}
-
 export default async function handler(req: Request) {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400",
-      },
-    });
+    return spotOptionsResponse();
   }
   if (req.method !== "GET") {
-    return jsonResponse({ error: "Method not allowed", spots: [] }, 405, {
+    return spotJsonResponse({ error: "Method not allowed", spots: [] }, 405, {
       Allow: "GET, OPTIONS",
       "Cache-Control": "no-store",
     });
@@ -58,13 +39,13 @@ export default async function handler(req: Request) {
   const limit = Math.min(Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit), 200);
   const grid = url.searchParams.get("grid") || "";
   if (grid && !GRID_REGEX.test(grid)) {
-    return jsonResponse({ error: "Invalid grid format", spots: [] }, 400, {
+    return spotJsonResponse({ error: "Invalid grid format", spots: [] }, 400, {
       "Cache-Control": "no-store",
     });
   }
   const mode = url.searchParams.get("mode") || "";
   if (mode && !/^[A-Za-z0-9]+$/.test(mode)) {
-    return jsonResponse({ error: "Invalid mode format", spots: [] }, 400, {
+    return spotJsonResponse({ error: "Invalid mode format", spots: [] }, 400, {
       "Cache-Control": "no-store",
     });
   }
@@ -85,7 +66,7 @@ export default async function handler(req: Request) {
     sNR: row.snr ?? undefined,
   }));
 
-  return jsonResponse(
+  return spotJsonResponse(
     {
       spots,
       meta: {

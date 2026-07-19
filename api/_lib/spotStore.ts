@@ -52,6 +52,13 @@ const STALE_AFTER_SECONDS: Record<StoredSpotSource, number> = {
   dxcluster: 30 * 60,
 };
 
+const METER_BAND_REGEX = /^(160|80|60|40|30|20|17|15|12|10|6|2)m$/;
+
+export function meterBandNumber(value: string): number | null {
+  const match = value.match(METER_BAND_REGEX);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
 function configuredStorage(): { baseUrl: string; anonKey: string } | null {
   const rawUrl = process.env.VITE_SUPABASE_URL?.trim();
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY?.trim();
@@ -120,7 +127,8 @@ function parseRow(value: unknown, source: StoredSpotSource): SpotHistoryRow | nu
     typeof row.rx_callsign !== "string" ||
     typeof row.frequency_khz !== "number" ||
     !Number.isFinite(row.frequency_khz) ||
-    typeof row.band !== "string"
+    typeof row.band !== "string" ||
+    meterBandNumber(row.band) === null
   ) {
     return null;
   }
@@ -234,17 +242,4 @@ export async function readStoredSpots(
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-export function spotCacheHeaders(result: SpotStoreResult): Record<string, string> {
-  return {
-    "Cache-Control":
-      result.status === "ok"
-        ? "s-maxage=30, stale-while-revalidate=300, stale-if-error=86400"
-        : "s-maxage=15, stale-while-revalidate=60",
-    "X-Propulse-Spot-Status": result.status,
-    ...(result.observedAt
-      ? { "X-Propulse-Spot-Observed-At": result.observedAt }
-      : {}),
-  };
 }

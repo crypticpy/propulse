@@ -1,42 +1,23 @@
 /** DX Cluster UI feed backed by the central collector store. */
 
 import { applyRateLimit } from "../_lib/rateLimit";
-import { readStoredSpots, spotCacheHeaders } from "../_lib/spotStore";
+import {
+  spotCacheHeaders,
+  spotJsonResponse,
+  spotOptionsResponse,
+} from "../_lib/spotResponse";
+import { readStoredSpots } from "../_lib/spotStore";
 
 export const config = {
   runtime: "edge",
 };
 
-function getAllowedOrigin(): string {
-  return process.env.ALLOWED_ORIGIN || "https://propulse.cloud";
-}
-
-function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "X-Content-Type-Options": "nosniff",
-      ...headers,
-    },
-  });
-}
-
 export default async function handler(req: Request) {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400",
-      },
-    });
+    return spotOptionsResponse();
   }
   if (req.method !== "GET") {
-    return jsonResponse({ error: "Method not allowed", spots: [] }, 405, {
+    return spotJsonResponse({ error: "Method not allowed", spots: [] }, 405, {
       Allow: "GET, OPTIONS",
       "Cache-Control": "no-store",
     });
@@ -62,7 +43,7 @@ export default async function handler(req: Request) {
     dxcc: row.dxcc ?? undefined,
   }));
 
-  return jsonResponse(
+  return spotJsonResponse(
     {
       spots,
       meta: {

@@ -1,27 +1,16 @@
 /** Reverse Beacon Network UI feed backed by the central collector store. */
 
 import { applyRateLimit } from "../_lib/rateLimit";
-import { readStoredSpots, spotCacheHeaders } from "../_lib/spotStore";
+import {
+  spotCacheHeaders,
+  spotJsonResponse,
+  spotOptionsResponse,
+} from "../_lib/spotResponse";
+import { meterBandNumber, readStoredSpots } from "../_lib/spotStore";
 
 export const config = {
   runtime: "edge",
 };
-
-function getAllowedOrigin(): string {
-  return process.env.ALLOWED_ORIGIN || "https://propulse.cloud";
-}
-
-function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "X-Content-Type-Options": "nosniff",
-      ...headers,
-    },
-  });
-}
 
 function requestedBands(value: string | null): string[] | undefined {
   if (!value) return undefined;
@@ -37,18 +26,10 @@ function requestedModes(value: string | null): string[] | undefined {
 
 export default async function handler(req: Request) {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400",
-      },
-    });
+    return spotOptionsResponse();
   }
   if (req.method !== "GET") {
-    return jsonResponse({ error: "Method not allowed", spots: [] }, 405, {
+    return spotJsonResponse({ error: "Method not allowed", spots: [] }, 405, {
       Allow: "GET, OPTIONS",
       "Cache-Control": "no-store",
     });
@@ -63,7 +44,7 @@ export default async function handler(req: Request) {
   const bands = requestedBands(url.searchParams.get("band"));
   const modes = requestedModes(url.searchParams.get("mode"));
   if (bands?.length === 0 || modes?.length === 0) {
-    return jsonResponse({ error: "Invalid filter format", spots: [] }, 400, {
+    return spotJsonResponse({ error: "Invalid filter format", spots: [] }, 400, {
       "Cache-Control": "no-store",
     });
   }
@@ -76,7 +57,7 @@ export default async function handler(req: Request) {
     dx_pfx: "",
     dx_cont: row.continent || "",
     freq: row.frequency_khz,
-    band: Number.parseInt(row.band, 10) || 0,
+    band: meterBandNumber(row.band) ?? 0,
     mode: row.mode || "CW",
     db: row.snr ?? 0,
     wpm: row.wpm ?? 0,
@@ -84,7 +65,7 @@ export default async function handler(req: Request) {
     spotted_time: row.spotted_at,
   }));
 
-  return jsonResponse(
+  return spotJsonResponse(
     {
       spots,
       meta: {

@@ -31,6 +31,10 @@ import {
   RADAR_TEXTURE_BUDGET,
   selectInitialRadarFrameIndex,
 } from "@/lib/map/radarBudget";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_OVERLAY_MATERIAL,
+} from "@/lib/map/globeRenderOrder";
 
 /** Radar animation control state, exported for scrubber UI */
 export interface RadarAnimationState {
@@ -73,6 +77,16 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     loader.setCrossOrigin("anonymous");
     loader.load(url, resolve, undefined, reject);
   });
+}
+
+/** Retry a single tile once after a short backoff before giving up on it. */
+async function loadImageWithRetry(url: string): Promise<HTMLImageElement> {
+  try {
+    return await loadImage(url);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return loadImage(url);
+  }
 }
 
 async function loadInBatches<T>(
@@ -159,11 +173,12 @@ async function compositeRadarTilesForFrame(
       t.y,
       TILE_SIZE,
     );
-    return () => loadImage(url);
+    return () => loadImageWithRetry(url);
   });
 
   const results = await loadInBatches(tasks, TILE_BATCH_SIZE);
 
+  const tilesTotal = tiles.length;
   const loadedTileCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
@@ -183,6 +198,23 @@ async function compositeRadarTilesForFrame(
       );
     }
   });
+
+  if (loadedTileCount < tilesTotal) {
+    // framesRef caches a frame's texture the first (and only) time it loads
+    // — a partial composite here would pin transparent holes in the
+    // animation rotation until the next RainViewer manifest refetch
+    // (~10 min). Warn and drop the frame instead of caching a splotchy
+    // result; loadFrame's caller already treats a rejected composite as a
+    // skipped frame.
+    console.warn(
+      `[WeatherRadarOverlay] Incomplete tile coverage for frame ${frame.time}: ` +
+        `${loadedTileCount}/${tilesTotal} tiles (` +
+        `${Math.round((loadedTileCount / tilesTotal) * 100)}%). Dropping frame.`,
+    );
+    throw new Error(
+      `Incomplete radar tile coverage: ${loadedTileCount}/${tilesTotal}`,
+    );
+  }
 
   boostRadarColors(ctx, CANVAS_SIZE, CANVAS_SIZE);
   return canvas;
@@ -394,16 +426,14 @@ function WeatherRadarOverlayInner({
     return null;
 
   return (
-    <mesh geometry={geometry} renderOrder={6}>
+    <mesh geometry={geometry} renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
       <meshBasicMaterial
         ref={materialRef}
-        transparent
         opacity={0.88}
-        depthWrite={false}
-        depthTest={false}
         blending={THREE.NormalBlending}
         side={THREE.FrontSide}
         map={framesRef.current.get(activeFrameIndex) ?? null}
+        {...GLOBE_OVERLAY_MATERIAL}
       />
     </mesh>
   );

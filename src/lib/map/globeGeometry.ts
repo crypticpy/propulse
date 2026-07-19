@@ -1,3 +1,6 @@
+import { WGS84_RADIUS } from "3d-tiles-renderer/core";
+import { Ellipsoid } from "3d-tiles-renderer/three";
+
 export type GlobeScale = [number, number, number];
 
 export interface UnitGlobeProjection {
@@ -22,3 +25,10 @@ export function getUnitGlobeProjection(radius: number): UnitGlobeProjection {
     scale: [scale, scale, scale],
   };
 }
+
+/** Shared geometry for every tile layer rendered on the unit globe. */
+export const UNIT_GLOBE_PROJECTION = getUnitGlobeProjection(WGS84_RADIUS);
+export const UNIT_GLOBE_SCALE = UNIT_GLOBE_PROJECTION.scale;
+export const UNIT_GLOBE_ELLIPSOID = new Ellipsoid(
+  ...UNIT_GLOBE_PROJECTION.ellipsoidRadii,
+);

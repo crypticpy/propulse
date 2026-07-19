@@ -17,15 +17,14 @@ import {
   TilesFadePlugin,
   UpdateOnChangePlugin,
 } from "3d-tiles-renderer/plugins";
-import {
-  Ellipsoid,
-  TilesRenderer as TilesRendererImpl,
-} from "3d-tiles-renderer/three";
-import { WGS84_RADIUS } from "3d-tiles-renderer/core";
+import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
 import type { TileProviderConfig } from "@/lib/tiles/types";
 import { CompatibleXYZTilesPlugin } from "@/lib/tiles/CompatibleXYZTilesPlugin";
 import { getXYZTilePluginOptions } from "@/lib/tiles/xyzOptions";
-import { getUnitGlobeProjection } from "@/lib/map/globeGeometry";
+import {
+  UNIT_GLOBE_ELLIPSOID,
+  UNIT_GLOBE_SCALE,
+} from "@/lib/map/globeGeometry";
 import { getAccessToken } from "@/lib/api/authFetch";
 
 // ---------------------------------------------------------------------------
@@ -44,17 +43,6 @@ import { getAccessToken } from "@/lib/api/authFetch";
 // ---------------------------------------------------------------------------
 const ALIGN_ROTATION_X = -Math.PI / 2;
 const ALIGN_ROTATION_Y = 0;
-
-/**
- * Generate tiles directly on a metre-scale sphere, then uniformly scale it to
- * the unit sphere used by Propulse overlays and OrbitControls. Keeping the
- * renderer transform uniform preserves its screen-space-error calculations.
- */
-const UNIT_GLOBE_PROJECTION = getUnitGlobeProjection(WGS84_RADIUS);
-const UNIT_GLOBE_SCALE = UNIT_GLOBE_PROJECTION.scale;
-const UNIT_GLOBE_ELLIPSOID = new Ellipsoid(
-  ...UNIT_GLOBE_PROJECTION.ellipsoidRadii,
-);
 
 /** Number of tile-load errors within ERROR_WINDOW_MS that triggers onError. */
 const ERROR_THRESHOLD = 5;

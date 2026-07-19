@@ -27,18 +27,12 @@ const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
 /**
- * Primary TLE source — Celestrak amateur radio group
- */
-const CELESTRAK_URL =
-  "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle";
-
-/**
  * Secondary TLE source — AMSAT (always available, amateur sats only)
  */
 const AMSAT_URL = "https://www.amsat.org/tle/current/nasabare.txt";
 
 /**
- * Proxy fallback matching the app's existing proxy pattern
+ * Same-origin endpoint that owns Celestrak rate limiting and fallbacks.
  */
 const PROXY_URL = "/api/satellites/tle";
 
@@ -732,7 +726,7 @@ export function getLastTLEMeta(): TLEMeta | null {
 /**
  * Fetch TLE data from multiple sources with graceful fallback.
  *
- * Order: Celestrak → Vite/Vercel proxy → AMSAT
+ * Order: Vite/Vercel proxy → AMSAT
  *
  * Respects Celestrak rate limits by caching results for a minimum of
  * 2 hours (their update cadence). If all sources fail, returns the
@@ -765,29 +759,8 @@ export async function fetchTLEData(): Promise<TLEData[]> {
 }
 
 async function _fetchTLEFromSources(): Promise<TLEData[]> {
-  // Try direct Celestrak fetch first
-  try {
-    const response = await fetch(CELESTRAK_URL, {
-      signal: AbortSignal.timeout(10000),
-    });
-    if (response.ok) {
-      const text = await response.text();
-      const parsed = parseTLEText(text);
-      if (parsed.length > 0) {
-        return parsed;
-      }
-    }
-    // Celestrak returns 403 when rate-limited — don't retry
-    if (response.status === 403 || response.status === 429) {
-      console.warn(
-        `[Satellites] Celestrak rate-limited (HTTP ${response.status}), trying fallbacks`,
-      );
-    }
-  } catch {
-    // CORS blocked, timeout, or firewall block — fall through
-  }
-
-  // Try proxy endpoint (Vite dev proxy or Vercel edge function)
+  // The same-origin endpoint centralizes caching and prevents every browser
+  // from independently consuming Celestrak's shared request allowance.
   try {
     const response = await fetch(PROXY_URL, {
       signal: AbortSignal.timeout(10000),
@@ -809,7 +782,7 @@ async function _fetchTLEFromSources(): Promise<TLEData[]> {
       }
     }
   } catch {
-    // Proxy also failed
+    // Proxy failed; AMSAT remains a browser-compatible emergency fallback.
   }
 
   // Try AMSAT as secondary source (no CORS issues, amateur sats only)
@@ -833,7 +806,7 @@ async function _fetchTLEFromSources(): Promise<TLEData[]> {
 
   // All external sources failed
   console.warn(
-    "[Satellites] All TLE sources unavailable (Celestrak, proxy, AMSAT)",
+    "[Satellites] All TLE sources unavailable (proxy, AMSAT)",
   );
   return [];
 }
@@ -852,7 +825,7 @@ const _groupCache = new Map<string, { data: TLEData[]; time: number }>();
  * Fetch TLE data for a specific Celestrak group.
  *
  * For the "amateur" group, delegates to `fetchTLEData()` which has a
- * 3-source fallback chain (Celestrak → proxy → AMSAT). For all other
+ * proxy-owned Celestrak/AMSAT fallback chain. For all other
  * groups, fetches via the proxy endpoint only (the edge function
  * handles Celestrak on the server side).
  *

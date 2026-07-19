@@ -3,13 +3,13 @@ import { XYZTilesPlugin } from "3d-tiles-renderer/plugins";
 type XYZTilesPluginOptions = ConstructorParameters<typeof XYZTilesPlugin>[0];
 
 interface SyntheticTileset {
-  asset: { version: string };
+  asset?: { version: string };
   root: { children: unknown[] };
 }
 
 interface XYZPluginInternals {
-  tiles: {
-    preprocessTileset: (
+  tiles?: {
+    preprocessTileset?: (
       tileset: SyntheticTileset,
       baseUrl: string,
     ) => unknown;
@@ -35,11 +35,17 @@ export class CompatibleXYZTilesPlugin extends XYZTilesPlugin {
 
   getTileset(baseUrl: string): SyntheticTileset {
     const { tiles } = this as unknown as XYZPluginInternals;
+    if (!tiles || typeof tiles.preprocessTileset !== "function") {
+      throw new Error(
+        "CompatibleXYZTilesPlugin requires XYZTilesPlugin preprocessing internals",
+      );
+    }
+
     const preprocessTileset = tiles.preprocessTileset;
     const basePrototype = XYZTilesPlugin.prototype as unknown as XYZPluginPrototype;
 
     tiles.preprocessTileset = (tileset, url) => {
-      if (tileset.asset.version === "1.1") {
+      if (tileset.asset?.version === "1.1") {
         tileset.asset.version = "1.0";
       }
       return preprocessTileset.call(tiles, tileset, url);

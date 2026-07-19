@@ -32,7 +32,13 @@ import {
 } from "@/lib/utils/path";
 import { getFrequencyLimits } from "@/lib/api/muf";
 import { useActiveMode } from "@/hooks/useActiveBandMode";
-import { useSolarFlux } from "@/hooks/useSolarData";
+import { useKIndex, useMagnetometer, useSolarFlux } from "@/hooks/useSolarData";
+import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
+import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
+import { useResearchParticipation } from "@/hooks/useResearchParticipation";
+import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
+import { latLonToGrid } from "@/lib/utils/grid";
 import { Card } from "@/components/ui/Card";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
@@ -364,7 +370,7 @@ export function PathAnalysis({
   const activeMode = useActiveMode();
 
   // Fetch current solar data for frequency limits
-  const { data: solarFluxData } = useSolarFlux();
+  const { data: solarFluxData, dataUpdatedAt: fluxUpdatedAt } = useSolarFlux();
 
   const currentSfi = useMemo(() => {
     if (!solarFluxData || solarFluxData.length === 0) {
@@ -372,6 +378,55 @@ export function PathAnalysis({
     }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
+
+  // NowCast model predictions for this path, shown alongside the physics stack
+  const stationCast = useStationCastContext();
+  const researchParticipation = useResearchParticipation();
+  const { data: kIndexData, dataUpdatedAt: kUpdatedAt } = useKIndex();
+  const { data: magnetometerData, dataUpdatedAt: magUpdatedAt } =
+    useMagnetometer();
+  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
+  const currentBz =
+    magnetometerData
+      ?.slice()
+      .reverse()
+      .find((d) => typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm))
+      ?.bz_gsm ?? null;
+  const modelWeather = useMemo(
+    () => ({
+      ...(currentKp == null ? {} : { kp: currentKp }),
+      ...(solarFluxData && solarFluxData.length > 0
+        ? { f107: currentSfi }
+        : {}),
+      ...(currentBz == null ? {} : { bz_gsm: currentBz }),
+    }),
+    [currentKp, solarFluxData, currentSfi, currentBz],
+  );
+  const modelWeatherUpdatedAt =
+    Math.max(kUpdatedAt || 0, fluxUpdatedAt || 0, magUpdatedAt || 0) ||
+    undefined;
+  const nowCastTarget = useMemo(() => {
+    if (!target) {
+      return null;
+    }
+    try {
+      return {
+        grid: target.grid ?? latLonToGrid(target.lat, target.lon, 4),
+        lat: target.lat,
+        lon: target.lon,
+      };
+    } catch {
+      return null;
+    }
+  }, [target]);
+  const modelNowCast = useNowCastBandPredictions({
+    origin: stationCast.location,
+    target: nowCastTarget,
+    weather: modelWeather,
+    weatherUpdatedAt: modelWeatherUpdatedAt,
+    deriveEnvelope: stationCast.deriveEnvelope,
+    researchSubjectBinding: researchParticipation.state?.subjectBinding,
+  });
 
   // Check if current target is already saved
   const isTargetSaved = useMemo(() => {
@@ -1007,6 +1062,19 @@ export function PathAnalysis({
 
           {/* Frequency Limits Section */}
           <FrequencyLimitsDisplay limits={frequencyLimits} />
+
+          {/* NowCast Model Section */}
+          {modelNowCast.visible && (
+            <div className="pt-3 mt-3 border-t border-white/5">
+              <NowCastBandPanel
+                state={modelNowCast}
+                bands={HF_MODEL_BANDS}
+                stationLabel={stationCast.chain?.name}
+                locationLabel={stationCast.location?.name}
+                compact
+              />
+            </div>
+          )}
 
           {/* Radio Suggestions Section */}
           {analysisRadio && (

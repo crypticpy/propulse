@@ -115,6 +115,15 @@ describe("solar edge route contracts", () => {
     expect(bytes).toBeLessThanOrEqual(getSolarSourcePolicy(body.sourceId).maxBytes);
   });
 
+  it("revalidates hourly Dst at the polling cadence, not its usability limit", async () => {
+    const response = await SOLAR_ROUTES["/api/solar/dst"](
+      new Request("https://propulse.test/api/solar/dst"),
+    );
+
+    expect(response.headers.get("cache-control")).toContain("s-maxage=900");
+    expect(getSolarSourcePolicy("noaa-dst").softTtlMs).toBe(2 * 60 * 60_000);
+  });
+
   it("keeps the exact flux and flux-forecast routes independent", async () => {
     const fluxResponse = await SOLAR_ROUTES["/api/solar/flux"](
       new Request("https://propulse.test/api/solar/flux"),

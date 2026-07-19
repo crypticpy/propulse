@@ -68,8 +68,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     product: "Observed 10.7 cm radio flux",
     endpoint: "/api/solar/flux",
     sourceUrl: "https://services.swpc.noaa.gov/json/f107_cm_flux.json",
-    softTtlMs: 4 * HOUR,
-    hardTtlMs: DAY,
+    softTtlMs: 8 * HOUR,
+    hardTtlMs: 36 * HOUR,
     refetchMs: 4 * HOUR,
     maxRows: 45,
     maxUpstreamBytes: 256_000,
@@ -84,8 +84,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     product: "RTSW one-minute IMF Bz, By, and Bt",
     endpoint: "/api/solar/magnetometer",
     sourceUrl: "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json",
-    softTtlMs: 5 * MINUTE,
-    hardTtlMs: 30 * MINUTE,
+    softTtlMs: 15 * MINUTE,
+    hardTtlMs: HOUR,
     refetchMs: 2 * MINUTE,
     maxRows: 90,
     maxUpstreamBytes: 2_000_000,
@@ -100,8 +100,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     product: "One-day flare and >=10 MeV proton probabilities",
     endpoint: "/api/solar/probabilities",
     sourceUrl: "https://services.swpc.noaa.gov/json/solar_probabilities.json",
-    softTtlMs: 6 * HOUR,
-    hardTtlMs: DAY,
+    softTtlMs: 36 * HOUR,
+    hardTtlMs: 3 * DAY,
     refetchMs: 4 * HOUR,
     maxRows: 1,
     maxUpstreamBytes: 64_000,
@@ -117,8 +117,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     endpoint: "/api/solar/sunspots",
     sourceUrl:
       "https://services.swpc.noaa.gov/json/solar-cycle/sunspots.json",
-    softTtlMs: 35 * DAY,
-    hardTtlMs: 75 * DAY,
+    softTtlMs: 65 * DAY,
+    hardTtlMs: 120 * DAY,
     refetchMs: DAY,
     maxRows: 36,
     maxUpstreamBytes: 750_000,
@@ -151,8 +151,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     endpoint: "/api/solar/protons",
     sourceUrl:
       "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json",
-    softTtlMs: 5 * MINUTE,
-    hardTtlMs: 30 * MINUTE,
+    softTtlMs: 15 * MINUTE,
+    hardTtlMs: HOUR,
     refetchMs: 2 * MINUTE,
     maxRows: 120,
     maxUpstreamBytes: 1_500_000,
@@ -167,8 +167,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     product: "Kyoto disturbance storm time index",
     endpoint: "/api/solar/dst",
     sourceUrl: "https://services.swpc.noaa.gov/products/kyoto-dst.json",
-    softTtlMs: 30 * MINUTE,
-    hardTtlMs: 2 * HOUR,
+    softTtlMs: 2 * HOUR,
+    hardTtlMs: 6 * HOUR,
     refetchMs: 15 * MINUTE,
     maxRows: 72,
     maxUpstreamBytes: 128_000,
@@ -201,8 +201,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     endpoint: "/api/solar/flux-forecast",
     sourceUrl:
       "https://services.swpc.noaa.gov/text/3-day-solar-geomag-predictions.txt",
-    softTtlMs: 4 * HOUR,
-    hardTtlMs: DAY,
+    softTtlMs: 8 * HOUR,
+    hardTtlMs: 36 * HOUR,
     refetchMs: 4 * HOUR,
     maxRows: 3,
     maxUpstreamBytes: 64_000,
@@ -252,8 +252,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     product: "Alerts, watches, warnings, and summaries",
     endpoint: "/api/solar/alerts",
     sourceUrl: "https://services.swpc.noaa.gov/products/alerts.json",
-    softTtlMs: MINUTE,
-    hardTtlMs: 10 * MINUTE,
+    softTtlMs: 5 * MINUTE,
+    hardTtlMs: 30 * MINUTE,
     refetchMs: MINUTE,
     maxRows: 40,
     maxUpstreamBytes: 500_000,
@@ -288,8 +288,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     endpoint: "/api/solar/wind-mag",
     sourceUrl:
       "https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json",
-    softTtlMs: 5 * MINUTE,
-    hardTtlMs: 30 * MINUTE,
+    softTtlMs: 15 * MINUTE,
+    hardTtlMs: HOUR,
     refetchMs: 2 * MINUTE,
     maxRows: 1,
     maxUpstreamBytes: 8_000,
@@ -305,8 +305,8 @@ export const SOLAR_SOURCE_POLICIES: Record<
     endpoint: "/api/solar/wind-plasma",
     sourceUrl:
       "https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json",
-    softTtlMs: 5 * MINUTE,
-    hardTtlMs: 30 * MINUTE,
+    softTtlMs: 15 * MINUTE,
+    hardTtlMs: HOUR,
     refetchMs: 2 * MINUTE,
     maxRows: 1,
     maxUpstreamBytes: 8_000,
@@ -344,4 +344,9 @@ export const SOLAR_QUERY_KEYS: Record<
 
 export function getSolarSourcePolicy(id: SolarSourceId): SolarSourcePolicy {
   return SOLAR_SOURCE_POLICIES[id];
+}
+
+/** Keep edge revalidation cadence independent from observation usability. */
+export function getSolarEdgeCacheTtlMs(policy: SolarSourcePolicy): number {
+  return Math.min(policy.refetchMs, policy.softTtlMs);
 }

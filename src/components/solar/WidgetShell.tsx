@@ -40,6 +40,8 @@ export interface WidgetShellProps {
   sourceUrl?: string;
   hasData?: boolean;
   message?: string;
+  staleMessage?: string;
+  partialMessage?: string;
   onRetry?: () => void;
   action?: ReactNode;
   children: ReactNode;
@@ -56,6 +58,8 @@ export function WidgetShell({
   sourceUrl,
   hasData = true,
   message,
+  staleMessage,
+  partialMessage,
   onRetry,
   action,
   children,
@@ -126,12 +130,14 @@ export function WidgetShell({
 
       {state === "stale" && (
         <div className="border-b border-amber-300/10 bg-amber-300/[0.06] px-4 py-2 text-xs leading-5 text-amber-100/80 sm:px-5">
-          The latest refresh failed or is overdue. Last validated data remains visible.
+          {staleMessage ??
+            "The latest validated observation is older than normal. Last validated data remains visible."}
         </div>
       )}
       {state === "partial" && (
         <div className="border-b border-amber-300/10 bg-amber-300/[0.06] px-4 py-2 text-xs leading-5 text-amber-100/80 sm:px-5">
-          Some inputs are unavailable; conclusions are intentionally limited.
+          {partialMessage ??
+            "Some inputs are delayed or unavailable; conclusions are intentionally limited."}
         </div>
       )}
 

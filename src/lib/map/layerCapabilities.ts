@@ -69,6 +69,7 @@ const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([
 ]);
 
 const FLAT_UNSUPPORTED_LAYER_KEYS = [
+  "aprs",
   "beacons",
   "drap",
   "ducting",
@@ -82,11 +83,14 @@ const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "nvis",
   "radar",
   "rayPath",
+  "repeaters",
+  "riverGauges",
   "satelliteFootprints",
   "spectrumRing",
   "sporadicE",
   "sst",
   "tec",
+  "tropical",
 ] as const satisfies readonly PropSphereLayerKey[];
 const FLAT_UNSUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
   FLAT_UNSUPPORTED_LAYER_KEYS,

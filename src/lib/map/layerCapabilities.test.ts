@@ -14,6 +14,11 @@ describe("PropSphere renderer capability matrix", () => {
     expect(getLayerAvailability("spectrumRing", "azimuthal").available).toBe(
       false,
     );
+    // These four have globe implementations only — FlatMapView has no
+    // hooks or draw code for them, so claiming flat support was a lie.
+    for (const key of ["repeaters", "riverGauges", "aprs", "tropical"]) {
+      expect(getLayerAvailability(key, "flat").available).toBe(false);
+    }
   });
 
   it("allows layers implemented by the selected renderer", () => {

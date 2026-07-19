@@ -79,6 +79,8 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
   const gainDebounceRef = useRef<Record<string, number>>({});
   const filterDebounceRef = useRef<number | null>(null);
   const pendingCommandIdsRef = useRef(new Set<string>());
+  // Conservative eviction: drop a pending id if its response never arrives.
+  const pendingTimeoutsRef = useRef<Record<string, number>>({});
   const connectedStateRef = useRef(connectedState);
   connectedStateRef.current = connectedState;
 
@@ -92,6 +94,10 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         return null;
       }
       pendingCommandIdsRef.current.add(id);
+      pendingTimeoutsRef.current[id] = window.setTimeout(() => {
+        pendingCommandIdsRef.current.delete(id);
+        delete pendingTimeoutsRef.current[id];
+      }, 10_000);
       return id;
     },
     [daemonSendCommand, setLastResponseError],
@@ -99,6 +105,11 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
 
   const handleCommandResponse = useCallback((id: string, success: boolean) => {
     if (!pendingCommandIdsRef.current.delete(id)) return false;
+    const timeout = pendingTimeoutsRef.current[id];
+    if (timeout !== undefined) {
+      window.clearTimeout(timeout);
+      delete pendingTimeoutsRef.current[id];
+    }
     if (!success) setDraftState(connectedStateRef.current);
     return true;
   }, []);
@@ -116,8 +127,13 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
 
   useEffect(() => {
     const pendingCommandIds = pendingCommandIdsRef.current;
+    const pendingTimeouts = pendingTimeoutsRef.current;
     return () => {
       clearDelayedCommands();
+      for (const id of Object.keys(pendingTimeouts)) {
+        window.clearTimeout(pendingTimeouts[id]);
+        delete pendingTimeouts[id];
+      }
       pendingCommandIds.clear();
     };
   }, [clearDelayedCommands, connectedDeviceId]);

@@ -417,6 +417,7 @@ export function parseBinaryFrame(data: ArrayBuffer): RadioBinaryFrame | null {
 
   if (frameType === FRAME_TYPE_AUDIO) {
     if (data.byteLength < 6) return null;
+    if ((data.byteLength - 6) % 2 !== 0) return null;
     const sampleRate = dv.getUint32(2, true);
     const samples = new Int16Array(data, 6);
     return { kind: "audio", devIdx, sampleRate, samples };

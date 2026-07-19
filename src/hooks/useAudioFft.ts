@@ -117,11 +117,8 @@ export function useAudioFft({
   // ── Worker lifecycle ────────────────────────────────────────────────────
   useEffect(() => {
     if (!enabled) {
-      // Tear down worker when disabled
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
+      // Worker (if any) was already torn down by the previous effect's
+      // cleanup, so there is nothing left to terminate here.
       setFrame(null);
       return;
     }

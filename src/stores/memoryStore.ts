@@ -107,6 +107,12 @@ export const useMemoryStore = create<MemoryState>()(
       version: 1,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ sdrMemories: state.sdrMemories }),
+      migrate: (persisted: unknown, _version: number) => {
+        const state = persisted as Record<string, unknown>;
+        // No schema changes yet. Future bumps add per-version branches here
+        // (e.g. `if (version < 2) { ... }`) so saved memories survive upgrades.
+        return state as unknown as MemoryState;
+      },
     },
   ),
 );

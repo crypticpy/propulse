@@ -178,8 +178,7 @@ export function PinMarker({
         camera.position.distanceTo(worldPosition),
       );
       const targetScale = screenScale * (isHovered ? 1.2 : 1);
-      tempScaleVec.set(targetScale, targetScale, targetScale);
-      groupRef.current.scale.lerp(tempScaleVec, 0.1);
+      groupRef.current.scale.setScalar(targetScale);
 
       // Gentle bob animation, scaled with the marker so it stays local.
       const time = clock.elapsedTime * 1.5;
@@ -210,7 +209,6 @@ export function PinMarker({
 
   // Pre-allocate reusable vectors to avoid per-frame GC pressure
   const tempBobVec = useMemo(() => new THREE.Vector3(), []);
-  const tempScaleVec = useMemo(() => new THREE.Vector3(), []);
 
   // Create pin head geometry (inverted cone/teardrop pointing down)
   const headGeometry = useMemo(() => {

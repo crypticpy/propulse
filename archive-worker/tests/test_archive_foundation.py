@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = ROOT / "supabase/migrations/20260719000000_propagation_archive_foundation.sql"
 FORECAST_MIGRATION = ROOT / "supabase/migrations/20260719001000_propagation_forecast_lifecycle.sql"
 COST_MIGRATION = ROOT / "supabase/migrations/20260719002000_propagation_cost_operations.sql"
+HARDENING_MIGRATION = ROOT / "supabase/migrations/20260720000000_propagation_archive_review_hardening.sql"
 PRUNE = ROOT / "collector/src/aggregator/prune.ts"
 
 
@@ -388,6 +389,15 @@ class ArchiveFoundationTests(unittest.TestCase):
         self.assertIn("signature text not null", sql)
         self.assertIn("locked evidence requires an audited hold reference", sql)
         self.assertIn("check (not object_deletion_enabled)", sql)
+
+    def test_review_hardening_is_forward_only_and_fail_closed(self) -> None:
+        sql = HARDENING_MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("revoke all on function public.prune_wspr_observations", sql)
+        self.assertIn("unique (source, source_id)", sql)
+        self.assertIn("ensure_propagation_ingest_partitions", sql)
+        self.assertIn("(n::real / total::real) as share", sql)
+        self.assertIn("archive dataset configuration not found", sql)
+        self.assertIn("compacted exact-byte forecast requires archive metadata", sql)
 
     def test_cost_forecasts_are_private_durable_receipts(self) -> None:
         sql = COST_MIGRATION.read_text(encoding="utf-8").lower()

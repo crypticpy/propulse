@@ -152,12 +152,15 @@ export async function queryBandHourlyStats(
 
 // ─── Realtime Spot Subscription ─────────────────────────────────────────────
 
-const realtimeSpotTable = (() => {
+function getRealtimeSpotTable(): "spot_history" | "spot_history_partitioned_v1" {
   const configured = import.meta.env.VITE_SPOT_HISTORY_REALTIME_TABLE?.trim();
   if (!configured || configured === "spot_history") return "spot_history";
   if (configured === "spot_history_partitioned_v1") return configured;
-  throw new Error("VITE_SPOT_HISTORY_REALTIME_TABLE is not an approved relation");
-})();
+  console.error(
+    "VITE_SPOT_HISTORY_REALTIME_TABLE is not an approved relation; falling back to spot_history",
+  );
+  return "spot_history";
+}
 
 /**
  * Subscribe to new spots via Supabase Realtime (postgres_changes on spot_history).
@@ -183,7 +186,7 @@ export function subscribeToSpots(callback: (spot: SpotHistoryRow) => void): {
         {
           event: "INSERT",
           schema: "public",
-          table: realtimeSpotTable,
+          table: getRealtimeSpotTable(),
         },
         (payload: { new: SpotHistoryRow }) => {
           if (payload.new) {

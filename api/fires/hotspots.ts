@@ -19,7 +19,12 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-/** Maximum number of hotspots to return */
+/**
+ * Maximum number of hotspots to return. The world CSV arrives grouped by
+ * satellite orbit, so the cap must be applied AFTER a full parse — taking
+ * the first N file rows silently drops whole continents (North America
+ * was entirely absent). Keep the highest-FRP fires globally instead.
+ */
 const MAX_HOTSPOTS = 5000;
 
 export default async function handler(req: Request) {
@@ -143,7 +148,7 @@ function parseCsv(csv: string): {
     frp: number;
   }[] = [];
 
-  for (let i = 1; i < lines.length && hotspots.length < MAX_HOTSPOTS; i++) {
+  for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",");
     if (cols.length < header.length) continue;
 
@@ -159,6 +164,11 @@ function parseCsv(csv: string): {
       confidence: confIdx !== -1 ? cols[confIdx].trim() : "nominal",
       frp: frpIdx !== -1 ? parseFloat(cols[frpIdx]) || 0 : 0,
     });
+  }
+
+  if (hotspots.length > MAX_HOTSPOTS) {
+    hotspots.sort((a, b) => b.frp - a.frp);
+    hotspots.length = MAX_HOTSPOTS;
   }
 
   return hotspots;

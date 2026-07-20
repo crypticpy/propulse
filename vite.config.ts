@@ -925,7 +925,7 @@ function layerDevProxy(): Plugin {
             confidence: string;
             frp: number;
           }[] = [];
-          for (let i = 1; i < lines.length && hotspots.length < 5000; i++) {
+          for (let i = 1; i < lines.length; i++) {
             const cols = lines[i].split(",");
             const lat = parseFloat(cols[latIdx]);
             const lon = parseFloat(cols[lonIdx]);
@@ -938,6 +938,12 @@ function layerDevProxy(): Plugin {
               confidence: confIdx !== -1 ? cols[confIdx].trim() : "nominal",
               frp: frpIdx !== -1 ? parseFloat(cols[frpIdx]) || 0 : 0,
             });
+          }
+          // The world CSV is grouped by satellite orbit, so a first-N cap
+          // drops whole continents (NA was absent). Keep top fires by FRP.
+          if (hotspots.length > 5000) {
+            hotspots.sort((a, b) => b.frp - a.frp);
+            hotspots.length = 5000;
           }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ hotspots }));

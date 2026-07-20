@@ -8,6 +8,7 @@ import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 const GLOBE_RADIUS = 1.000002;
 
@@ -61,7 +62,7 @@ export const StationMarker3D = React.memo(function StationMarker3D({
   return (
     <group ref={groupRef} position={[x, y, z]}>
       {/* Pulsing ring */}
-      <mesh ref={ringRef} renderOrder={10}>
+      <mesh ref={ringRef} renderOrder={GLOBE_LAYER_ORDER.markers}>
         <ringGeometry args={[0.003, 0.004, 32]} />
         <meshBasicMaterial
           color="#f97316"
@@ -74,7 +75,7 @@ export const StationMarker3D = React.memo(function StationMarker3D({
       </mesh>
 
       {/* Core dot */}
-      <mesh ref={meshRef} renderOrder={10}>
+      <mesh ref={meshRef} renderOrder={GLOBE_LAYER_ORDER.markers}>
         <sphereGeometry args={[0.003, 12, 12]} />
         <meshBasicMaterial
           color="#f97316"
@@ -94,7 +95,7 @@ export const StationMarker3D = React.memo(function StationMarker3D({
         anchorY="bottom"
         outlineWidth={0.001}
         outlineColor="#000000"
-        renderOrder={11}
+        renderOrder={GLOBE_LAYER_ORDER.nightShade}
         font={undefined}
         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         {...({ "material-depthTest": false } as any)}

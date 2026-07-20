@@ -16,6 +16,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { latLonToVector3 } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -189,6 +190,9 @@ export const TerminatorEnhancement3D = React.memo(
           transparent: true,
           opacity: 0.8,
           depthWrite: false,
+          // depthTest stays on: protruding geometry keeps depthTest for
+          // free far-side culling from the opaque globe's depth buffer.
+          depthTest: true,
           blending: THREE.AdditiveBlending,
         }),
       [],
@@ -244,7 +248,7 @@ export const TerminatorEnhancement3D = React.memo(
     return (
       <group name="terminator-enhancement">
         {/* Outer glow band */}
-        <mesh geometry={bandGeometry} renderOrder={5}>
+        <mesh geometry={bandGeometry} renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
           <meshBasicMaterial
             ref={bandMaterialRef}
             color={GLOW_COLOR}
@@ -252,12 +256,15 @@ export const TerminatorEnhancement3D = React.memo(
             opacity={intensity * 0.25}
             side={THREE.DoubleSide}
             depthWrite={false}
+            // depthTest stays on: protruding geometry keeps depthTest for
+            // free far-side culling from the opaque globe's depth buffer.
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
 
         {/* Inner brighter band */}
-        <mesh geometry={innerBandGeometry} renderOrder={5}>
+        <mesh geometry={innerBandGeometry} renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
           <meshBasicMaterial
             ref={innerBandMaterialRef}
             color={INNER_GLOW_COLOR}
@@ -265,6 +272,9 @@ export const TerminatorEnhancement3D = React.memo(
             opacity={intensity * 0.4}
             side={THREE.DoubleSide}
             depthWrite={false}
+            // depthTest stays on: protruding geometry keeps depthTest for
+            // free far-side culling from the opaque globe's depth buffer.
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -278,7 +288,7 @@ export const TerminatorEnhancement3D = React.memo(
             }}
             geometry={particleGeometry}
             material={particleMaterial}
-            renderOrder={5}
+            renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}
           />
         ))}
       </group>

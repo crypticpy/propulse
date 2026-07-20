@@ -14,7 +14,10 @@
  *      and culls the far side for free.
  *   2. Take an explicit renderOrder from GLOBE_LAYER_ORDER. An unset
  *      renderOrder defaults to 0 and paints before the ladder, losing to
- *      every other overlay regardless of geometry.
+ *      every other overlay regardless of geometry. Paint order comes ONLY
+ *      from renderOrder for depthTest:false overlays — geometric altitude
+ *      does NOT decide visibility between them, so slot assignment must
+ *      reflect intended visual stacking.
  *   3. Handle far-side visibility. Protruding geometry gets it from rule 1
  *      (depth test). Surface-conforming geometry must handle it
  *      geometrically: outward-facing discs/patches use FrontSide (backface
@@ -96,11 +99,20 @@ export const GLOBE_OVERLAY_MATERIAL = {
  * is renderOrder's job — but they keep geometry from intersecting the tile
  * surface at deep zoom and preserve parallax between bands.
  *
- *   surface textures  1.007–1.02
- *   area patches      1.005–1.012
- *   reference lines   1.008–1.009
- *   arc base          1.003 (peak altitude varies)
- *   volumes           1.015 (aurora) to ~1.24 (F2 shell)
- *   markers           1.005–1.03
+ *   tile globe/base          exactly 1.0 (perfect sphere — getUnitGlobeProjection
+ *                            builds [r,r,r]; NOT an oblate ellipsoid)
+ *   surface-hugging markers  1.000002 (SpotMarker/SpotCluster/PinMarker/
+ *                            StationMarker3D) — deliberately below
+ *                            GLOBE_MIN_OVERLAY_RADIUS so deep-zoom markers hug
+ *                            the tiles; safe only because they are depthTest:false
+ *   surface textures         1.007–1.02 (MUF 1.007, radar 1.007, SST 1.01,
+ *                            noise floor 1.012, GOES/DRAP 1.015, TEC 1.02)
+ *   area patches             1.005–1.012 (ReachMap cells 1.008, satellite
+ *                            footprints 1.01, sporadic-E 1.025)
+ *   reference lines          1.008–1.009
+ *   arcs                     base 1.003–1.009, apex dynamic
+ *   volumes                  aurora 1.015, ionospheric shells ~1.067–1.24
+ *   night shade / lights     nightShade 1.02, nightLights 1.021
+ *   hud                      NVIS dome 1.008+, spectrum ring 1.18–1.40
  */
 export const GLOBE_MIN_OVERLAY_RADIUS = 1.003;

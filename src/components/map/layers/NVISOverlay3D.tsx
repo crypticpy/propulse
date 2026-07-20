@@ -401,7 +401,9 @@ function RippleRing({
       ref={ringRef}
       position={centerPosition}
       quaternion={quaternion}
-      renderOrder={GLOBE_LAYER_ORDER.hud}
+      // Highlight: radar-ping ripple paints above the dome fill and the
+      // concentric distance rings.
+      renderOrder={GLOBE_LAYER_ORDER.hud + 0.04}
     >
       <primitive object={ringGeo} attach="geometry" />
       <meshBasicMaterial
@@ -580,6 +582,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
   return (
     <group>
       {/* NVIS dome hemisphere with gradient */}
+      {/* Dome fill paints first, below the distance rings and ripple highlight. */}
       <mesh
         position={position}
         quaternion={quaternion}
@@ -604,7 +607,8 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           key={`ring-${i}`}
           position={ringCenterPosition}
           quaternion={ringQuaternion}
-          renderOrder={GLOBE_LAYER_ORDER.hud}
+          // Ring/outline: paints above the dome fill, below the ripple highlight.
+          renderOrder={GLOBE_LAYER_ORDER.hud + 0.02}
         >
           <primitive object={geo} attach="geometry" />
           <meshBasicMaterial

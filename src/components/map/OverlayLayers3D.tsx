@@ -71,11 +71,13 @@ function OverlayCells({ cells }: { cells: OverlayCell[] }) {
   // the discs everywhere except the limb. FrontSide culls far-side cells
   // geometrically (discs face outward). Paint order comes from the shared
   // globe ladder (see globeRenderOrder.ts).
+  // +0.05: paint ReachMap cells above satellite footprints (bare surfaceArea)
+  // but below hazard glow dots (surfaceArea + 0.1) so the reach map stays visible.
   return (
     <instancedMesh
       ref={meshRef}
       args={[undefined, undefined, cells.length]}
-      renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
+      renderOrder={GLOBE_LAYER_ORDER.surfaceArea + 0.05}
       frustumCulled={false}
     >
       <circleGeometry args={[1, 20]} />

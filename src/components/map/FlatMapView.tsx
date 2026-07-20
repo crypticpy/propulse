@@ -3181,6 +3181,11 @@ export function FlatMapView({
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const target = useMapStore((s) => s.target);
+
+  // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
+  useEffect(() => {
+    glowRendererRef.current.persistEdges = layers.gridActivity;
+  }, [layers.gridActivity]);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
@@ -3382,7 +3387,7 @@ export function FlatMapView({
   // Feed new spots into the grid glow renderer when spots arrive.
   // Uses resolvedSpots (not raw spots) so the glow grid matches where the dot lands.
   useEffect(() => {
-    if (!layers.spots && !layers.spotTraces) return;
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
     const now = Date.now();
     const currentIds = new Set<string>();
     const prevIds = prevGlowSpotIdsRef.current;
@@ -3442,7 +3447,13 @@ export function FlatMapView({
       };
       glowRafRef.current = requestAnimationFrame(tick);
     }
-  }, [resolvedSpots, layers.spots, layers.spotTraces, spotColorMode]);
+  }, [
+    resolvedSpots,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    spotColorMode,
+  ]);
 
   // Clean up glow RAF on unmount
   useEffect(() => {
@@ -4725,7 +4736,7 @@ export function FlatMapView({
 
     // Draw grid glow pulses (after base map / terminator / labels, before spot arcs)
     if (
-      (layers.spots || layers.spotTraces) &&
+      (layers.spots || layers.spotTraces || layers.gridActivity) &&
       glowRendererRef.current.hasActiveGlows()
     ) {
       const glowProject = (lat: number, lon: number) =>

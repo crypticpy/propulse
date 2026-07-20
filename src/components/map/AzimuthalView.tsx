@@ -1316,6 +1316,11 @@ export function AzimuthalView({
   const [glowTick, setGlowTick] = useState(0);
   const glowRafRef = useRef<number>(0);
   const layers = useMapStore((s) => s.layers);
+
+  // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
+  useEffect(() => {
+    glowRendererRef.current.persistEdges = layers.gridActivity;
+  }, [layers.gridActivity]);
   const target = useMapStore((s) => s.target);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const labelOptions = useMapStore((s) => s.labelOptions);
@@ -1590,7 +1595,7 @@ export function AzimuthalView({
 
   // Feed new spots into the grid glow renderer when spots arrive.
   useEffect(() => {
-    if (!layers.spots && !layers.spotTraces) return;
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
     const now = Date.now();
     const currentIds = new Set<string>();
     const prevIds = prevGlowSpotIdsRef.current;
@@ -1640,7 +1645,13 @@ export function AzimuthalView({
       };
       glowRafRef.current = requestAnimationFrame(tick);
     }
-  }, [resolvedSpots, layers.spots, layers.spotTraces, spotColorMode]);
+  }, [
+    resolvedSpots,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    spotColorMode,
+  ]);
 
   // Clean up glow RAF on unmount
   useEffect(() => {
@@ -1974,7 +1985,7 @@ export function AzimuthalView({
 
     // Draw grid glow pulses (before spot arcs, after bearing labels)
     if (
-      (layers.spots || layers.spotTraces) &&
+      (layers.spots || layers.spotTraces || layers.gridActivity) &&
       glowRendererRef.current.hasActiveGlows()
     ) {
       const glowProject = (lat: number, lon: number) => {

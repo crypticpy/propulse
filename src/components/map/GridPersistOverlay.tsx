@@ -8,9 +8,12 @@
  * Technical approach:
  * - Single InstancedMesh with a pool of 500 instances (only active grids draw)
  * - Shared subdivided quad geometry (3x3) — vertex shader projects onto sphere
- * - Per-instance attributes: bounds (vec4), color (vec3), intensity (float)
+ * - Per-instance attributes: bounds (vec4), color (vec3), intensity (float),
+ *   last-spot time (float, seconds relative to a component-local epoch)
  * - Vertex shader maps UV → lat/lon via instance bounds → 3D sphere position
- * - Fragment shader applies radial gradient with soft glow and bloom halo
+ * - Fragment shader applies radial gradient with soft glow and bloom halo,
+ *   plus a glowing cell-edge stroke that holds for 60s after the most recent
+ *   spot and fades out by 90s (driven by a per-frame uNowSec clock uniform)
  * - Additive blending, no depth write — layers naturally with the globe
  *
  * Follows the same coordinate system and rendering patterns as GridGlowOverlay.
@@ -144,14 +147,17 @@ const PERSIST_VERTEX_SHADER = /* glsl */ `
   // Per-instance attributes
   attribute vec4 instanceBounds;    // x=minLon, y=minLat, z=maxLon, w=maxLat
   attribute float instanceIntensity;
+  attribute float instanceLastSpotSec; // last spot time, epoch-relative seconds
 
   varying vec2 vUv;
   varying float vIntensity;
   varying vec3 vColor;
+  varying float vLastSpotSec;
 
   void main() {
     vUv = uv;
     vIntensity = instanceIntensity;
+    vLastSpotSec = instanceLastSpotSec;
 
     // instanceColor is automatically provided by THREE.InstancedMesh
     // when setColorAt() is used — accessed via the built-in attribute
@@ -181,9 +187,12 @@ const PERSIST_VERTEX_SHADER = /* glsl */ `
 `;
 
 const PERSIST_FRAGMENT_SHADER = /* glsl */ `
+  uniform float uNowSec; // current time, epoch-relative seconds
+
   varying vec2 vUv;
   varying float vIntensity;
   varying vec3 vColor;
+  varying float vLastSpotSec;
 
   void main() {
     // Distance from center of the grid quad (UV 0.5, 0.5)
@@ -205,6 +214,24 @@ const PERSIST_FRAGMENT_SHADER = /* glsl */ `
     float bloom = exp(-dist * 6.0) * vIntensity * 0.35;
     alpha += bloom;
 
+    // Glowing cell-edge stroke for recently active grids. The cell spans
+    // 2 deg of longitude by 1 deg of latitude, so scale UV distances into
+    // degrees for a uniform-width stroke on all four sides.
+    float edgeDeg = min(
+      min(vUv.x, 1.0 - vUv.x) * 2.0,
+      min(vUv.y, 1.0 - vUv.y)
+    );
+    float edge = 1.0 - smoothstep(0.0, 0.12, edgeDeg);
+
+    // Hold the edge fully lit for 60s after the last spot, fade out by 90s
+    float age = max(uNowSec - vLastSpotSec, 0.0);
+    float edgeLife = 1.0 - smoothstep(60.0, 90.0, age);
+
+    // Brief brightness pop right after a spot lands
+    float pop = 1.0 + 1.5 * (1.0 - smoothstep(0.0, 2.0, age));
+
+    alpha += edge * edgeLife * pop * (0.45 + vIntensity * 0.4);
+
     gl_FragColor = vec4(vColor, alpha);
   }
 `;
@@ -225,12 +252,20 @@ export interface GridPersistOverlayProps {
 export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
 
+  // Component-local epoch — spot times and the clock uniform are stored as
+  // seconds relative to this, keeping values small enough for float32 in
+  // the shader (raw epoch-ms would lose all sub-second precision).
+  const epochMs = useMemo(() => Date.now(), []);
+
   // Build shared geometry and material once
   const { geometry, material } = useMemo(() => {
     const geo = buildSharedQuadGeometry();
     const mat = new THREE.ShaderMaterial({
       vertexShader: PERSIST_VERTEX_SHADER,
       fragmentShader: PERSIST_FRAGMENT_SHADER,
+      uniforms: {
+        uNowSec: { value: 0 },
+      },
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthTest: false,
@@ -241,9 +276,10 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
   }, []);
 
   // Pre-allocate instance buffer attributes
-  const { boundsAttr, intensityAttr } = useMemo(() => {
+  const { boundsAttr, intensityAttr, lastSpotAttr } = useMemo(() => {
     const boundsArray = new Float32Array(MAX_INSTANCES * 4);
     const intensityArray = new Float32Array(MAX_INSTANCES);
+    const lastSpotArray = new Float32Array(MAX_INSTANCES);
 
     const bounds = new THREE.InstancedBufferAttribute(boundsArray, 4);
     bounds.setUsage(THREE.DynamicDrawUsage);
@@ -251,10 +287,18 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
     const intensity = new THREE.InstancedBufferAttribute(intensityArray, 1);
     intensity.setUsage(THREE.DynamicDrawUsage);
 
+    const lastSpot = new THREE.InstancedBufferAttribute(lastSpotArray, 1);
+    lastSpot.setUsage(THREE.DynamicDrawUsage);
+
     geometry.setAttribute("instanceBounds", bounds);
     geometry.setAttribute("instanceIntensity", intensity);
+    geometry.setAttribute("instanceLastSpotSec", lastSpot);
 
-    return { boundsAttr: bounds, intensityAttr: intensity };
+    return {
+      boundsAttr: bounds,
+      intensityAttr: intensity,
+      lastSpotAttr: lastSpot,
+    };
   }, [geometry]);
 
   // Pre-allocate reusable objects (avoid per-frame GC pressure)
@@ -269,12 +313,16 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
     const mesh = meshRef.current;
     if (!mesh) return;
 
+    // Advance the shared clock every frame so edge strokes fade in real time
+    material.uniforms.uNowSec.value = (Date.now() - epochMs) / 1000;
+
     // Skip full rebuild if the activity map reference is the same
     if (activityMap === prevMapRef.current) return;
     prevMapRef.current = activityMap;
 
     const boundsArray = boundsAttr.array as Float32Array;
     const intensityArray = intensityAttr.array as Float32Array;
+    const lastSpotArray = lastSpotAttr.array as Float32Array;
 
     let idx = 0;
 
@@ -292,6 +340,9 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
 
       // Set instance intensity based on spot count
       intensityArray[idx] = Math.min(0.8, 0.35 + activity.spotCount * 0.02);
+
+      // Set last-spot time (epoch-relative seconds) for the edge stroke
+      lastSpotArray[idx] = (activity.lastSpotTime - epochMs) / 1000;
 
       // Set instance transform (identity — shader handles positioning)
       mesh.setMatrixAt(idx, identityMatrix);
@@ -318,6 +369,7 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
     // Mark attributes as needing GPU upload
     boundsAttr.needsUpdate = true;
     intensityAttr.needsUpdate = true;
+    lastSpotAttr.needsUpdate = true;
 
     if (mesh.instanceMatrix) {
       mesh.instanceMatrix.needsUpdate = true;

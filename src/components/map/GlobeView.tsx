@@ -1464,7 +1464,7 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
 
         {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
-        {(layers.spots || layers.spotTraces) && (
+        {(layers.spots || layers.spotTraces || layers.gridActivity) && (
           <GridGlowOverlay spots={glowSpots} />
         )}
 

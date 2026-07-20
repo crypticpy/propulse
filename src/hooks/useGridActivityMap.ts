@@ -15,7 +15,7 @@
  * Stale entries (older than windowMinutes) are pruned on each update.
  */
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 
 // =============================================================================
 // TYPES
@@ -56,6 +56,9 @@ const COLOR_RAMP: Array<{ minCount: number; color: string }> = [
 
 /** Default rolling window duration in minutes. */
 const DEFAULT_WINDOW_MINUTES = 30;
+
+/** How often stale entries are pruned when no new spots arrive (ms). */
+const PRUNE_INTERVAL_MS = 30_000;
 
 // =============================================================================
 // COORDINATE HELPERS
@@ -132,6 +135,15 @@ export function useGridActivityMap(
   const prevSpotsRef = useRef<ActivitySpot[]>([]);
   const processedCountRef = useRef(0);
 
+  // Clock-driven prune tick — without this, entries older than the window
+  // linger indefinitely whenever the spot feed goes quiet (the memo below
+  // only re-runs when the spots array changes).
+  const [pruneTick, setPruneTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setPruneTick((t) => t + 1), PRUNE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
   // Compute the activity map — this runs on every render but is cheap:
   // it only processes newly added spots and prunes stale entries.
   const activityMap = useMemo(() => {
@@ -206,9 +218,10 @@ export function useGridActivityMap(
 
     resultRef.current = result;
     return result;
-    // Re-compute when spots array ref or length changes, or window changes
+    // Re-compute when spots array ref or length changes, the window changes,
+    // or the periodic prune tick fires
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spots, spots.length, windowMinutes]);
+  }, [spots, spots.length, windowMinutes, pruneTick]);
 
   return activityMap;
 }

@@ -56,10 +56,21 @@ export async function fetchLightningStrikes(
     return [];
   }
 
-  return data.strikes.map((s) => ({
-    lat: s.lat,
-    lon: s.lon,
-    time: s.time,
-    currentKA: s.current_kA,
-  }));
+  // The collector's buffer can emit the same strike twice (one per feed
+  // subscription); dedupe on the (lat, lon, time) identity so downstream
+  // instance caps count real strikes.
+  const seen = new Set<string>();
+  const strikes: LightningStrike[] = [];
+  for (const s of data.strikes) {
+    const key = `${s.lat}|${s.lon}|${s.time}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    strikes.push({
+      lat: s.lat,
+      lon: s.lon,
+      time: s.time,
+      currentKA: s.current_kA,
+    });
+  }
+  return strikes;
 }

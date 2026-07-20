@@ -17,6 +17,7 @@ import pyarrow.parquet as pq
 from psycopg import sql
 from psycopg.rows import dict_row
 
+from .crypto import receipt_hmac_key_bytes
 from .database import ArchiveDatabase
 from .datasets import DATASETS, Dataset
 from .parquet import verify_parquet
@@ -76,10 +77,8 @@ def _target_summary(
 def _signature(details: dict[str, object], secret: str | None) -> str | None:
     if secret is None:
         return None
-    if len(secret.encode()) < 32:
-        raise RuntimeError("ARCHIVE_RECEIPT_HMAC_KEY must contain at least 32 bytes")
     payload = json.dumps(details, sort_keys=True, separators=(",", ":")).encode()
-    return hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    return hmac.new(receipt_hmac_key_bytes(secret), payload, hashlib.sha256).hexdigest()
 
 
 def restore_manifest(

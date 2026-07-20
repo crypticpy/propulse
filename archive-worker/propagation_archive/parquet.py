@@ -41,13 +41,6 @@ ORDER BY {dataset.time_column}, {dataset.key_column}
 """
 
 
-def _normalized_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    normalized: list[dict[str, Any]] = []
-    for row in rows:
-        normalized.append({key: value for key, value in row.items()})
-    return normalized
-
-
 def export_partition(
     connection: psycopg.Connection[Any],
     dataset: Dataset,
@@ -88,7 +81,7 @@ def export_partition(
             cursor.itersize = batch_rows
             cursor.execute(_query(dataset), (range_start, range_end))
             while rows := cursor.fetchmany(batch_rows):
-                records = _normalized_rows(list(rows))
+                records = list(rows)
                 table = pa.Table.from_pylist(records, schema=dataset.schema)
                 writer.write_table(table, row_group_size=row_group_rows)
                 batches += 1

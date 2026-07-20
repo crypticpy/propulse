@@ -282,6 +282,42 @@ class ArchiveFoundationTests(unittest.TestCase):
         self.assertEqual([item["prefix"] for item in requests], ["", "spot_history_v1"])
         client.close()
 
+    def test_tus_upload_retries_transient_chunk_failures_with_backoff(self) -> None:
+        patch_attempts = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal patch_attempts
+            if request.method == "POST":
+                return httpx.Response(201, headers={"location": "https://uploads.example/tus/1"})
+            if request.method == "HEAD":
+                return httpx.Response(200, headers={"Upload-Offset": "0"})
+            if request.method == "PATCH":
+                patch_attempts += 1
+                if patch_attempts == 1:
+                    return httpx.Response(503, text="retry")
+                return httpx.Response(
+                    204,
+                    headers={"Upload-Offset": str(len(b"archive-bytes"))},
+                )
+            raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        storage = SupabaseArchiveStorage(
+            "https://abcdefghijklmnopqrst.supabase.co", "s" * 40, client=client
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "archive.parquet.zst"
+            source.write_bytes(b"archive-bytes")
+            with (
+                patch.object(storage, "ensure_private_bucket"),
+                patch.object(storage, "verify", side_effect=(False, True)),
+                patch("propagation_archive.storage.time.sleep") as sleep,
+            ):
+                storage.upload(source, "dataset/archive.parquet.zst")
+        self.assertEqual(patch_attempts, 2)
+        sleep.assert_called_once_with(3)
+        client.close()
+
     def test_reconciliation_reports_missing_orphaned_and_mismatched_objects(self) -> None:
         class Database:
             recorded: dict[str, object] | None = None

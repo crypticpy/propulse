@@ -282,13 +282,13 @@ class SupabaseArchiveStorage:
         offset = 0
         with source.open("rb") as handle:
             while offset < size:
-                handle.seek(offset)
-                chunk = handle.read(min(TUS_CHUNK_BYTES, size - offset))
-                if not chunk:
-                    raise RuntimeError("local archive ended before upload completed")
                 for attempt, delay in enumerate((0, 3, 5, 10), start=1):
                     if delay:
                         time.sleep(delay)
+                    handle.seek(offset)
+                    chunk = handle.read(min(TUS_CHUNK_BYTES, size - offset))
+                    if not chunk:
+                        raise RuntimeError("local archive ended before upload completed")
                     try:
                         patched = self.client.patch(
                             location,
@@ -304,7 +304,9 @@ class SupabaseArchiveStorage:
                         if attempt == 4:
                             raise
                         offset = self._tus_offset(location)
-                        break
+                        if offset >= size:
+                            break
+                        continue
                     if patched.status_code == 204:
                         try:
                             next_offset = int(patched.headers["Upload-Offset"])
@@ -320,7 +322,9 @@ class SupabaseArchiveStorage:
                             f"{patched.text[:300]}"
                         )
                     offset = self._tus_offset(location)
-                    break
+                    if offset >= size:
+                        break
+                    continue
                 else:
                     raise RuntimeError("TUS retry loop ended unexpectedly")
         if offset != size:

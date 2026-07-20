@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "html": "/Users/crypticpy/Projects/propulse/ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html",
+  "stages": {
+    "validation": "passed",
+    "package": "passed",
+    "verification": "passed"
+  },
+  "counts": {
+    "blocks": 34,
+    "charts": 5,
+    "html": 0,
+    "metrics": 7,
+    "tables": 4
+  },
+  "sourceDialog": "passed",
+  "sourceInteraction": "keyboard_menu_semantic_click",
+  "viewports": [
+    1440,
+    390
+  ],
+  "timings": {
+    "validateAndPackageMs": 1136.3,
+    "staticChartExtractionMs": 1078.5,
+    "browserRunMs": 902.4,
+    "readerReadyMs": 53.1,
+    "contentChecksMs": 32,
+    "sourceDialogMs": 32,
+    "responsiveChecksMs": 32,
+    "verificationMs": 909.8,
+    "totalMs": 2051.4
+  },
+  "files": {
+    "artifactSha256": "0bfa69a222b661d109880d8bd3dc901cc3f397d0d6c3b74e98c61127cf70672f",
+    "htmlSha256": "a30fa54f3ea288a20c6d26fe887768be2127453478fe50118b9caee341fe5ada",
+    "desktopPreviewSha256": "26cc7a695443cdb64404b406034357df33689b2d88503d22e46d24ce412d8d9f",
+    "mobilePreviewSha256": "a87d4c1fc266fbf1aefb8794f220db9b152a94a8facb0e18c4f03c1fa7f1fad6"
+  },
+  "renderer": {
+    "officialPluginBase": "data-analytics/0.2.8-13ceeea1f599",
+    "isolatedCorrection": "Semantic and enhanced-reader sticky headers are constrained to their content containers so desktop scrollbar width cannot create overflow.",
+    "artifactSchemaChanged": false,
+    "networkAccessRequired": false
+  }
+}

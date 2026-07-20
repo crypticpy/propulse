@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T00:20:42.112384+00:00",
+  "run_id": "propagation_v4_2_phase2_scale_archive_gate",
+  "config_path": "ml/data/manifests/propagation_v4_2_phase2_scale_archive_data_config.json",
+  "sources": [
+    {
+      "role": "Primary WSPR decode and inferred-exposure observations",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=01/wsprspots-2025-01.csv.gz",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-01.csv.gz",
+      "retrieved_at": "2026-07-15T23:35:43+00:00",
+      "bytes": 3148313660,
+      "sha256": "48cdbaac2d674056d287bb38d0d8ace0513e6976b67752460c9f5ac2e2cf064a",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://www.wsprnet.org/archive/",
+      "license_note": "No explicit redistribution license is stated; raw files remain ignored.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Primary WSPR decode and inferred-exposure observations",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=04/wsprspots-2025-04.csv.gz",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-04.csv.gz",
+      "retrieved_at": "2026-07-16T00:17:33+00:00",
+      "bytes": 3064579701,
+      "sha256": "d9958a158009e56fb10c4c3ffe33a94c98d53e5995b49771cfe4d675c2d34c73",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://www.wsprnet.org/archive/",
+      "license_note": "No explicit redistribution license is stated; raw files remain ignored.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Primary WSPR decode and inferred-exposure observations",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=07/wsprspots-2025-07.csv.gz",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-07.csv.gz",
+      "retrieved_at": "2026-07-16T00:18:06+00:00",
+      "bytes": 2608683723,
+      "sha256": "c1146a6cccf25be68873b024c44df5e9df8004a826c11b7fa57a36f1e1eb06ba",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://www.wsprnet.org/archive/",
+      "license_note": "No explicit redistribution license is stated; raw files remain ignored.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Primary WSPR decode and inferred-exposure observations",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/wspr/year=2025/month=10/wsprspots-2025-10.csv.gz",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-10.csv.gz",
+      "retrieved_at": "2026-07-16T00:18:52+00:00",
+      "bytes": 3572498361,
+      "sha256": "d2bd00f71d8453510210cef48a8bb119b1199cbc24942e2e8d16a9f04e1762ed",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://www.wsprnet.org/archive/",
+      "license_note": "No explicit redistribution license is stated; raw files remain ignored.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Lagged hourly solar-wind and geomagnetic features",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/omni/omni2_2025.dat",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2025.dat",
+      "retrieved_at": "2026-07-16T00:18:52+00:00",
+      "bytes": 2873280,
+      "sha256": "0c1cbad73ad812883a4c1ab49fbe30dda842d65efb89f5c0ea9f3447f9f52a5b",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://omniweb.gsfc.nasa.gov/html/ow_data.html",
+      "license_note": "NASA/SPDF acknowledgement required; definitive or reprocessed values.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Lagged hourly high-cadence geomagnetic index",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/gfz/hp60-2025-01.json",
+      "url": "https://kp.gfz.de/app/json/?start=2024-12-30T00:00:00Z&end=2025-02-01T01:00:00Z&index=Hp60",
+      "retrieved_at": "2026-07-16T00:18:53+00:00",
+      "bytes": 22560,
+      "sha256": "cce73f16c7b59a3b87d5d394f4de8ff7af3861fced57e6d11f7e34333fdcbe8d",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://kp.gfz.de/en/hp30-hp60/data",
+      "license_note": "GFZ Hp60 is provided under CC BY 4.0; retain attribution.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Lagged hourly high-cadence geomagnetic index",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/gfz/hp60-2025-04.json",
+      "url": "https://kp.gfz.de/app/json/?start=2025-03-30T00:00:00Z&end=2025-05-01T01:00:00Z&index=Hp60",
+      "retrieved_at": "2026-07-16T00:18:55+00:00",
+      "bytes": 21900,
+      "sha256": "3efca93d659918ce2a815000599117dc32e4b71a7dfa762b132474ffc81cc66b",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://kp.gfz.de/en/hp30-hp60/data",
+      "license_note": "GFZ Hp60 is provided under CC BY 4.0; retain attribution.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Lagged hourly high-cadence geomagnetic index",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/gfz/hp60-2025-07.json",
+      "url": "https://kp.gfz.de/app/json/?start=2025-06-29T00:00:00Z&end=2025-08-01T01:00:00Z&index=Hp60",
+      "retrieved_at": "2026-07-16T00:18:56+00:00",
+      "bytes": 22586,
+      "sha256": "f507c44e5d102cc09764e2891d672a1c4de687ea865619ae21fd9eb4e8f5ca3a",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://kp.gfz.de/en/hp30-hp60/data",
+      "license_note": "GFZ Hp60 is provided under CC BY 4.0; retain attribution.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Lagged hourly high-cadence geomagnetic index",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_archive/gfz/hp60-2025-10.json",
+      "url": "https://kp.gfz.de/app/json/?start=2025-09-29T00:00:00Z&end=2025-11-01T01:00:00Z&index=Hp60",
+      "retrieved_at": "2026-07-16T00:18:56+00:00",
+      "bytes": 22570,
+      "sha256": "13c19960ecb301496a92608c6de82facfa81f25ffaa64eb32ee08a3a093bba6d",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://kp.gfz.de/en/hp30-hp60/data",
+      "license_note": "GFZ Hp60 is provided under CC BY 4.0; retain attribution.",
+      "parser_version": "archive_v3_schema_1"
+    }
+  ]
+}

@@ -1,0 +1,936 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:13:45.960360+00:00",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scope": "synthetic_december_dry_run",
+  "synthetic": true,
+  "months": [
+    "2024-12"
+  ],
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "prospective_read": false,
+  "rows": 560000,
+  "metrics": {
+    "candidate": {
+      "overall": {
+        "weighted_brier": 0.044,
+        "opportunities": 56000000.0,
+        "rows": 560000,
+        "expected_calibration_error": 0.002,
+        "maximum_calibration_error": 0.002,
+        "bins": [
+          {
+            "bin": 0,
+            "lower": 0.0,
+            "upper": 0.1,
+            "mean_prediction": 0.05,
+            "observed_rate": 0.052000000000000005,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 1,
+            "lower": 0.1,
+            "upper": 0.2,
+            "mean_prediction": 0.15,
+            "observed_rate": 0.152,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 2,
+            "lower": 0.2,
+            "upper": 0.3,
+            "mean_prediction": 0.25,
+            "observed_rate": 0.252,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 3,
+            "lower": 0.3,
+            "upper": 0.4,
+            "mean_prediction": 0.35,
+            "observed_rate": 0.352,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 4,
+            "lower": 0.4,
+            "upper": 0.5,
+            "mean_prediction": 0.45,
+            "observed_rate": 0.452,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 5,
+            "lower": 0.5,
+            "upper": 0.6,
+            "mean_prediction": 0.55,
+            "observed_rate": 0.552,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 6,
+            "lower": 0.6,
+            "upper": 0.7,
+            "mean_prediction": 0.65,
+            "observed_rate": 0.652,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 7,
+            "lower": 0.7,
+            "upper": 0.8,
+            "mean_prediction": 0.75,
+            "observed_rate": 0.752,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 8,
+            "lower": 0.8,
+            "upper": 0.9,
+            "mean_prediction": 0.85,
+            "observed_rate": 0.852,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 9,
+            "lower": 0.9,
+            "upper": 1.0,
+            "mean_prediction": 0.95,
+            "observed_rate": 0.952,
+            "opportunities": 1000000.0
+          }
+        ]
+      },
+      "slices": {
+        "month": [
+          {
+            "key": "2024-12",
+            "weighted_brier": 0.044,
+            "opportunities": 56000000.0,
+            "rows": 560000
+          }
+        ],
+        "day": [
+          {
+            "key": "2024-12-01",
+            "weighted_brier": 0.043949999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-02",
+            "weighted_brier": 0.044,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-03",
+            "weighted_brier": 0.04405,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-04",
+            "weighted_brier": 0.0441,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-05",
+            "weighted_brier": 0.043899999999999995,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-06",
+            "weighted_brier": 0.043949999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-07",
+            "weighted_brier": 0.044,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-08",
+            "weighted_brier": 0.04405,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-09",
+            "weighted_brier": 0.0441,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-10",
+            "weighted_brier": 0.043899999999999995,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-11",
+            "weighted_brier": 0.043949999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-12",
+            "weighted_brier": 0.044,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-13",
+            "weighted_brier": 0.04405,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-14",
+            "weighted_brier": 0.0441,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-15",
+            "weighted_brier": 0.043899999999999995,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-16",
+            "weighted_brier": 0.043949999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-17",
+            "weighted_brier": 0.044,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-18",
+            "weighted_brier": 0.04405,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-19",
+            "weighted_brier": 0.0441,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-20",
+            "weighted_brier": 0.043899999999999995,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-21",
+            "weighted_brier": 0.043949999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-22",
+            "weighted_brier": 0.044,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-23",
+            "weighted_brier": 0.04405,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-24",
+            "weighted_brier": 0.0441,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-25",
+            "weighted_brier": 0.043899999999999995,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-26",
+            "weighted_brier": 0.043949999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-27",
+            "weighted_brier": 0.044,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-28",
+            "weighted_brier": 0.04405,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          }
+        ],
+        "week": [
+          {
+            "key": "week-1",
+            "weighted_brier": 0.04394,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-2",
+            "weighted_brier": 0.043969999999999995,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-3",
+            "weighted_brier": 0.044,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-4",
+            "weighted_brier": 0.04403,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-5",
+            "weighted_brier": 0.044059999999999995,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          }
+        ],
+        "band": [
+          {
+            "key": "160m",
+            "weighted_brier": 0.044,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "80m",
+            "weighted_brier": 0.044039999999999996,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "60m",
+            "weighted_brier": 0.044079999999999994,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "40m",
+            "weighted_brier": 0.04412,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "30m",
+            "weighted_brier": 0.04416,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "20m",
+            "weighted_brier": 0.044199999999999996,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "17m",
+            "weighted_brier": 0.044239999999999995,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "15m",
+            "weighted_brier": 0.04428,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "12m",
+            "weighted_brier": 0.04432,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "10m",
+            "weighted_brier": 0.04436,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          }
+        ],
+        "distance": [
+          {
+            "key": "0-500 km",
+            "weighted_brier": 0.044,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "500-1500 km",
+            "weighted_brier": 0.04403,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "1500-3000 km",
+            "weighted_brier": 0.044059999999999995,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "3000-6000 km",
+            "weighted_brier": 0.04409,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "6000-10000 km",
+            "weighted_brier": 0.04412,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "10000-25000 km",
+            "weighted_brier": 0.044149999999999995,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          }
+        ]
+      }
+    },
+    "B2_frozen_v3": {
+      "overall": {
+        "weighted_brier": 0.046,
+        "opportunities": 56000000.0,
+        "rows": 560000,
+        "expected_calibration_error": 0.002,
+        "maximum_calibration_error": 0.002,
+        "bins": [
+          {
+            "bin": 0,
+            "lower": 0.0,
+            "upper": 0.1,
+            "mean_prediction": 0.05,
+            "observed_rate": 0.052000000000000005,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 1,
+            "lower": 0.1,
+            "upper": 0.2,
+            "mean_prediction": 0.15,
+            "observed_rate": 0.152,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 2,
+            "lower": 0.2,
+            "upper": 0.3,
+            "mean_prediction": 0.25,
+            "observed_rate": 0.252,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 3,
+            "lower": 0.3,
+            "upper": 0.4,
+            "mean_prediction": 0.35,
+            "observed_rate": 0.352,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 4,
+            "lower": 0.4,
+            "upper": 0.5,
+            "mean_prediction": 0.45,
+            "observed_rate": 0.452,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 5,
+            "lower": 0.5,
+            "upper": 0.6,
+            "mean_prediction": 0.55,
+            "observed_rate": 0.552,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 6,
+            "lower": 0.6,
+            "upper": 0.7,
+            "mean_prediction": 0.65,
+            "observed_rate": 0.652,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 7,
+            "lower": 0.7,
+            "upper": 0.8,
+            "mean_prediction": 0.75,
+            "observed_rate": 0.752,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 8,
+            "lower": 0.8,
+            "upper": 0.9,
+            "mean_prediction": 0.85,
+            "observed_rate": 0.852,
+            "opportunities": 1000000.0
+          },
+          {
+            "bin": 9,
+            "lower": 0.9,
+            "upper": 1.0,
+            "mean_prediction": 0.95,
+            "observed_rate": 0.952,
+            "opportunities": 1000000.0
+          }
+        ]
+      },
+      "slices": {
+        "month": [
+          {
+            "key": "2024-12",
+            "weighted_brier": 0.046,
+            "opportunities": 56000000.0,
+            "rows": 560000
+          }
+        ],
+        "day": [
+          {
+            "key": "2024-12-01",
+            "weighted_brier": 0.04595,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-02",
+            "weighted_brier": 0.046,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-03",
+            "weighted_brier": 0.04605,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-04",
+            "weighted_brier": 0.0461,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-05",
+            "weighted_brier": 0.045899999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-06",
+            "weighted_brier": 0.04595,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-07",
+            "weighted_brier": 0.046,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-08",
+            "weighted_brier": 0.04605,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-09",
+            "weighted_brier": 0.0461,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-10",
+            "weighted_brier": 0.045899999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-11",
+            "weighted_brier": 0.04595,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-12",
+            "weighted_brier": 0.046,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-13",
+            "weighted_brier": 0.04605,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-14",
+            "weighted_brier": 0.0461,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-15",
+            "weighted_brier": 0.045899999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-16",
+            "weighted_brier": 0.04595,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-17",
+            "weighted_brier": 0.046,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-18",
+            "weighted_brier": 0.04605,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-19",
+            "weighted_brier": 0.0461,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-20",
+            "weighted_brier": 0.045899999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-21",
+            "weighted_brier": 0.04595,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-22",
+            "weighted_brier": 0.046,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-23",
+            "weighted_brier": 0.04605,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-24",
+            "weighted_brier": 0.0461,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-25",
+            "weighted_brier": 0.045899999999999996,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-26",
+            "weighted_brier": 0.04595,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-27",
+            "weighted_brier": 0.046,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          },
+          {
+            "key": "2024-12-28",
+            "weighted_brier": 0.04605,
+            "opportunities": 2000000.0,
+            "rows": 20000
+          }
+        ],
+        "week": [
+          {
+            "key": "week-1",
+            "weighted_brier": 0.04594,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-2",
+            "weighted_brier": 0.04597,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-3",
+            "weighted_brier": 0.046,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-4",
+            "weighted_brier": 0.04603,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          },
+          {
+            "key": "week-5",
+            "weighted_brier": 0.04606,
+            "opportunities": 12000000.0,
+            "rows": 120000
+          }
+        ],
+        "band": [
+          {
+            "key": "160m",
+            "weighted_brier": 0.046,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "80m",
+            "weighted_brier": 0.04604,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "60m",
+            "weighted_brier": 0.046079999999999996,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "40m",
+            "weighted_brier": 0.04612,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "30m",
+            "weighted_brier": 0.04616,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "20m",
+            "weighted_brier": 0.0462,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "17m",
+            "weighted_brier": 0.046239999999999996,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "15m",
+            "weighted_brier": 0.04628,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "12m",
+            "weighted_brier": 0.04632,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          },
+          {
+            "key": "10m",
+            "weighted_brier": 0.04636,
+            "opportunities": 5000000.0,
+            "rows": 50000
+          }
+        ],
+        "distance": [
+          {
+            "key": "0-500 km",
+            "weighted_brier": 0.046,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "500-1500 km",
+            "weighted_brier": 0.04603,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "1500-3000 km",
+            "weighted_brier": 0.04606,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "3000-6000 km",
+            "weighted_brier": 0.04609,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "6000-10000 km",
+            "weighted_brier": 0.04612,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          },
+          {
+            "key": "10000-25000 km",
+            "weighted_brier": 0.04615,
+            "opportunities": 6000000.0,
+            "rows": 60000
+          }
+        ]
+      }
+    }
+  },
+  "decision": {
+    "gates": [
+      {
+        "id": "G1_integrity_and_scope",
+        "passed": true,
+        "integrity_passed": true,
+        "locked_2025_read": false
+      },
+      {
+        "id": "G2_overall_performance",
+        "passed": true,
+        "relative_improvement": 0.0434782608695653,
+        "minimum_relative_improvement": 0.01,
+        "paired_day": {
+          "delta_lower_95": -0.0020000000000000018,
+          "delta_median": -0.0020000000000000018,
+          "delta_upper_95": -0.001999999999999995,
+          "skill_lower_95": 0.04345464421510048,
+          "skill_median": 0.0434782608695653,
+          "skill_upper_95": 0.04350190320826541
+        }
+      },
+      {
+        "id": "G3_temporal_value",
+        "passed": true,
+        "qualified_days": 28,
+        "day_wins": 28,
+        "day_win_fraction": 1.0,
+        "minimum_day_win_fraction": 0.75,
+        "week_relative_regressions": {
+          "week-1": -0.043535045711798004,
+          "week-2": -0.043506634761801166,
+          "week-3": -0.0434782608695653,
+          "week-4": -0.04344992396263314,
+          "week-5": -0.0434216239687365
+        }
+      },
+      {
+        "id": "G4_band_safety",
+        "passed": true,
+        "relative_regressions": {
+          "10m": -0.043140638481449556,
+          "12m": -0.04317789291882557,
+          "15m": -0.043215211754537686,
+          "160m": -0.0434782608695653,
+          "17m": -0.04325259515570934,
+          "20m": -0.04329004329004338,
+          "30m": -0.0433275563258233,
+          "40m": -0.04336513443191681,
+          "60m": -0.04340277777777779,
+          "80m": -0.04344048653344923
+        },
+        "maximum_relative_regression": 0.02
+      },
+      {
+        "id": "G5_short_path_materiality",
+        "passed": true,
+        "bins": {
+          "0-500 km": {
+            "delta": -0.0020000000000000018,
+            "tolerance": 0.00046,
+            "passed": true
+          },
+          "500-1500 km": {
+            "delta": -0.0020000000000000018,
+            "tolerance": 0.0004603,
+            "passed": true
+          },
+          "1500-3000 km": {
+            "delta": -0.0020000000000000018,
+            "tolerance": 0.0004606,
+            "passed": true
+          }
+        }
+      },
+      {
+        "id": "G6_calibration",
+        "passed": true,
+        "ece_delta_vs_b2": 0.0,
+        "high_confidence_gap_delta_vs_b2": 0.0
+      },
+      {
+        "id": "G7_operational_fallback",
+        "passed": true
+      },
+      {
+        "id": "G8_serving_parity",
+        "passed": true
+      },
+      {
+        "id": "G9_privacy_and_provenance",
+        "passed": true
+      },
+      {
+        "id": "G10_efficiency",
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "failed_gates": [],
+    "bootstrap": {
+      "delta_lower_95": -0.0020000000000000018,
+      "delta_median": -0.0020000000000000018,
+      "delta_upper_95": -0.001999999999999995,
+      "skill_lower_95": 0.04345464421510048,
+      "skill_median": 0.0434782608695653,
+      "skill_upper_95": 0.04350190320826541
+    }
+  },
+  "compute": {
+    "machine": "synthetic-fixture",
+    "wall_seconds": 12.5,
+    "peak_rss_gb": 1.25
+  }
+}

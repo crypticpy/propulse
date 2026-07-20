@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:17:52.102763+00:00",
+  "run_id": "propagation_v4_2_phase2_scale_december_gate",
+  "config_path": "ml/data/manifests/propagation_v4_2_phase2_scale_december_data_config.json",
+  "sources": [
+    {
+      "role": "Primary WSPR decode and inferred-exposure observations",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_december/wspr/year=2024/month=12/wsprspots-2024-12.csv.gz",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2024-12.csv.gz",
+      "retrieved_at": "2026-07-15T23:17:21+00:00",
+      "bytes": 3132148662,
+      "sha256": "96b483194c865567ec177b36c6d440883e724c24da0c62619363b7733703dec8",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://www.wsprnet.org/archive/",
+      "license_note": "No explicit redistribution license is stated; raw files remain ignored.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Lagged hourly solar-wind and geomagnetic features",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_december/omni/omni2_2024.dat",
+      "url": "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2024.dat",
+      "retrieved_at": "2026-07-15T23:17:22+00:00",
+      "bytes": 2881152,
+      "sha256": "41f3b5891ce3f1220719d5c1ea808f3014f28a1704557d3363eefb5ee7c249b1",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://omniweb.gsfc.nasa.gov/html/ow_data.html",
+      "license_note": "NASA/SPDF acknowledgement required; definitive or reprocessed values.",
+      "parser_version": "archive_v3_schema_1"
+    },
+    {
+      "role": "Lagged hourly high-cadence geomagnetic index",
+      "path": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_december/gfz/hp60-2024-12.json",
+      "url": "https://kp.gfz.de/app/json/?start=2024-11-29T00:00:00Z&end=2025-01-01T01:00:00Z&index=Hp60",
+      "retrieved_at": "2026-07-15T23:17:23+00:00",
+      "bytes": 22506,
+      "sha256": "cd3dadd95677958127fb4c93161a105bd32770eb9ee3b053001b0f0903c06113",
+      "source_status": "public archive snapshot",
+      "terms_url": "https://kp.gfz.de/en/hp30-hp60/data",
+      "license_note": "GFZ Hp60 is provided under CC BY 4.0; retain attribution.",
+      "parser_version": "archive_v3_schema_1"
+    }
+  ]
+}

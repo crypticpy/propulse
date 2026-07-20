@@ -300,7 +300,7 @@ function AnimatedHopLine({
       dashed
       dashSize={0.02}
       gapSize={0.012}
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
     />
@@ -326,7 +326,7 @@ function StaticHopLine({
       lineWidth={lineWidth}
       opacity={0.85}
       transparent
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
     />
@@ -365,7 +365,7 @@ function HopGlowLine({
       opacity={0.14}
       transparent
       depthWrite={false}
-      depthTest={false}
+      depthTest={true}
       renderOrder={GLOBE_LAYER_ORDER.arcs}
     />
   );
@@ -442,7 +442,7 @@ function IonosphereBounceHighlight({
           transparent
           opacity={0.9}
           depthWrite={false}
-          depthTest={false}
+          depthTest={true}
         />
       </mesh>
 
@@ -460,7 +460,7 @@ function IonosphereBounceHighlight({
           transparent
           opacity={0.4}
           depthWrite={false}
-          depthTest={false}
+          depthTest={true}
         />
       </mesh>
 
@@ -472,7 +472,7 @@ function IonosphereBounceHighlight({
           transparent
           opacity={0.1}
           depthWrite={false}
-          depthTest={false}
+          depthTest={true}
         />
       </mesh>
     </group>

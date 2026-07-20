@@ -97,7 +97,7 @@ function QsoDotField({
       <meshBasicMaterial
         transparent
         opacity={opacity}
-        depthTest={false}
+        depthTest={true}
         depthWrite={false}
       />
     </instancedMesh>

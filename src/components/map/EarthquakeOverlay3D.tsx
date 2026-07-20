@@ -137,7 +137,7 @@ export const EarthquakeOverlay3D = React.memo(
                   color={color}
                   transparent
                   opacity={0.7}
-                  depthTest={false}
+                  depthTest={true}
                   depthWrite={false}
                   side={THREE.FrontSide}
                 />
@@ -157,7 +157,7 @@ export const EarthquakeOverlay3D = React.memo(
                   color={color}
                   transparent
                   opacity={0.15}
-                  depthTest={false}
+                  depthTest={true}
                   depthWrite={false}
                   blending={THREE.AdditiveBlending}
                   side={THREE.FrontSide}

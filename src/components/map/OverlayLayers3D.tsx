@@ -67,10 +67,9 @@ function OverlayCells({ cells }: { cells: OverlayCell[] }) {
   }, [cells]);
 
   if (cells.length === 0) return null;
-  // depthTest off: depth-buffer contention with the tile surface discards
-  // the discs everywhere except the limb. FrontSide culls far-side cells
-  // geometrically (discs face outward). Paint order comes from the shared
-  // globe ladder (see globeRenderOrder.ts).
+  // depthTest on: the GlobeDepthDome supplies a clean analytic depth surface
+  // below the discs, so the depth test clips far-side cells exactly (see
+  // globeRenderOrder.ts). Paint order comes from the shared globe ladder.
   // +0.05: paint ReachMap cells above satellite footprints (bare surfaceArea)
   // but below hazard glow dots (surfaceArea + 0.1) so the reach map stays visible.
   return (
@@ -84,7 +83,7 @@ function OverlayCells({ cells }: { cells: OverlayCell[] }) {
       <meshBasicMaterial
         transparent
         opacity={0.52}
-        depthTest={false}
+        depthTest={true}
         depthWrite={false}
       />
     </instancedMesh>
@@ -131,7 +130,7 @@ export function OverlayLayers3D() {
           lineWidth={arc.width ?? 1}
           transparent
           opacity={arc.opacity ?? 0.7}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />

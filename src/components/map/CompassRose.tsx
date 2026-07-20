@@ -285,7 +285,7 @@ function BearingLine({
       lineWidth={2}
       transparent
       opacity={0.9}
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
     />
@@ -397,7 +397,7 @@ export function CompassRose({
         lineWidth={1}
         transparent
         opacity={0.6}
-        depthTest={false}
+        depthTest={true}
         depthWrite={false}
         renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
       />
@@ -409,7 +409,7 @@ export function CompassRose({
         lineWidth={1}
         transparent
         opacity={0.3}
-        depthTest={false}
+        depthTest={true}
         depthWrite={false}
         renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
       />
@@ -423,7 +423,7 @@ export function CompassRose({
           lineWidth={tick.isCardinal ? 2 : 1}
           transparent
           opacity={tick.isCardinal ? 0.8 : 0.5}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.hud + 0.2}
         />
@@ -437,7 +437,7 @@ export function CompassRose({
             transparent
             opacity={0.15}
             side={THREE.DoubleSide}
-            depthTest={false}
+            depthTest={true}
             depthWrite={false}
           />
         </mesh>

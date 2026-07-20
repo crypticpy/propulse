@@ -9,6 +9,7 @@ import * as THREE from "three";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 const GLOBE_RADIUS = 1.000002;
 
@@ -29,10 +30,16 @@ export const StationMarker3D = React.memo(function StationMarker3D({
   const worldPositionRef = useRef(new THREE.Vector3());
   const [x, y, z] = latLonTo3D(lat, lon, GLOBE_RADIUS);
 
+  // Tile-hugging marker below the depth dome — depthTest stays off, so the
+  // far side must fade out via CPU occlusion (globe stacking contract 1b).
+  const { opacityRef } = useGlobeOcclusion(lat, lon);
+
   useFrame(({ camera, clock }) => {
     const t = clock.getElapsedTime();
+    const occlusion = opacityRef.current;
 
     if (groupRef.current) {
+      groupRef.current.visible = occlusion > 0.01;
       groupRef.current.getWorldPosition(worldPositionRef.current);
       groupRef.current.scale.setScalar(
         getScreenSpaceScale(
@@ -45,6 +52,8 @@ export const StationMarker3D = React.memo(function StationMarker3D({
     if (meshRef.current) {
       const scale = 1 + Math.sin(t * 2) * 0.15;
       meshRef.current.scale.setScalar(scale);
+      (meshRef.current.material as THREE.MeshBasicMaterial).opacity =
+        0.9 * occlusion;
     }
 
     // Expand and fade the ring
@@ -52,10 +61,8 @@ export const StationMarker3D = React.memo(function StationMarker3D({
       const phase = (t * 0.8) % 2;
       const ringScale = 1 + phase * 2;
       ringRef.current.scale.setScalar(ringScale);
-      (ringRef.current.material as THREE.MeshBasicMaterial).opacity = Math.max(
-        0,
-        0.6 - phase * 0.3,
-      );
+      (ringRef.current.material as THREE.MeshBasicMaterial).opacity =
+        Math.max(0, 0.6 - phase * 0.3) * occlusion;
     }
   });
 

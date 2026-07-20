@@ -129,7 +129,7 @@ export const RepeaterOverlay3D = React.memo(
             transparent
             opacity={0.6}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
           />
         </instancedMesh>
       </group>

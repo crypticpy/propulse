@@ -412,7 +412,7 @@ function RippleRing({
         transparent
         opacity={0}
         side={THREE.DoubleSide}
-        depthTest={false}
+        depthTest={true}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
       />
@@ -595,7 +595,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           transparent
           opacity={opacityMin}
           side={THREE.DoubleSide}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           blending={THREE.NormalBlending}
         />
@@ -619,7 +619,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
             transparent
             opacity={opacityMin * fraction}
             side={THREE.DoubleSide}
-            depthTest={false}
+            depthTest={true}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
           />

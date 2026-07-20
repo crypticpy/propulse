@@ -537,7 +537,7 @@ const SpotArc = React.memo(function SpotArc({
       opacity={opacity}
       transparent
       renderOrder={GLOBE_LAYER_ORDER.arcs}
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
     />
   );

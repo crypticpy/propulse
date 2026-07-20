@@ -178,7 +178,7 @@ const FootprintDisc = React.memo(function FootprintDisc({
         opacity={isSelected ? 0.4 : 0.22}
         side={THREE.DoubleSide}
         depthWrite={false}
-        depthTest={false}
+        depthTest={true}
       />
     </mesh>
   );

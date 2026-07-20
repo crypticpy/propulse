@@ -70,7 +70,7 @@ function latLonAltToVector3(
  * Convert lat/lon to surface position (for ground track, footprint, connector base).
  */
 function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
-  const radius = GLOBE_RADIUS + 0.002;
+  const radius = GLOBE_RADIUS + 0.005;
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
 
@@ -714,7 +714,7 @@ function ISSOrbitRing({ orbitTrack, alt }: ISSOrbitRingProps) {
           lineWidth={1.5}
           transparent
           opacity={0.15}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
@@ -728,7 +728,7 @@ function ISSOrbitRing({ orbitTrack, alt }: ISSOrbitRingProps) {
           lineWidth={1.5}
           transparent
           opacity={0.4}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
@@ -796,7 +796,7 @@ function ISSGroundTrack({ orbitTrack }: ISSGroundTrackProps) {
         color: "#ffffff",
         transparent: true,
         opacity: 0.2,
-        depthTest: false,
+        depthTest: true,
         depthWrite: false,
       }),
     [],
@@ -821,7 +821,7 @@ function ISSGroundTrack({ orbitTrack }: ISSGroundTrackProps) {
           lineWidth={1}
           transparent
           opacity={0.1}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
           dashed
@@ -898,7 +898,7 @@ function ISSFootprint({ lat, lon, alt }: ISSFootprintProps) {
       lineWidth={1}
       transparent
       opacity={0.2}
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
     />
@@ -931,7 +931,7 @@ function ISSConnector({ iss }: ISSConnectorProps) {
       lineWidth={0.5}
       transparent
       opacity={0.15}
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.arcs}
       dashed

@@ -99,7 +99,7 @@ function latLonAltToVector3(
  * Convert lat/lon to surface position (for ground track lines).
  */
 function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
-  const radius = GLOBE_RADIUS + 0.002; // Tiny offset above surface
+  const radius = GLOBE_RADIUS + 0.005; // Tiny offset above surface
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
 
@@ -547,7 +547,7 @@ function GroundTrack({ satellite }: GroundTrackProps) {
           lineWidth={1.5}
           transparent
           opacity={0.4}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />

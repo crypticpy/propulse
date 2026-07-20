@@ -18,6 +18,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Repeater } from "@/lib/api/repeaters";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -120,7 +121,7 @@ export const RepeaterOverlay3D = React.memo(
           ref={meshRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial

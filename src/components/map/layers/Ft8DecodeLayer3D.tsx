@@ -19,6 +19,7 @@ import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Ft8EnrichedDecode } from "@/lib/ft8/ft8EnrichedDecode";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -462,6 +463,7 @@ export const Ft8DecodeLayer3D = React.memo(function Ft8DecodeLayer3D({
       <instancedMesh
         ref={instancedRef}
         args={[markerGeometry, markerMaterial, MAX_MARKERS]}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
         frustumCulled={false}
       />
 
@@ -470,6 +472,7 @@ export const Ft8DecodeLayer3D = React.memo(function Ft8DecodeLayer3D({
         <lineSegments
           ref={arcLineRef}
           material={arcMaterial}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
           frustumCulled={false}
         />
       )}

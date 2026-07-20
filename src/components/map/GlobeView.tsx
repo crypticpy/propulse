@@ -41,12 +41,14 @@ import { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
 import { WeatherAlerts3D } from "./WeatherAlerts3D";
 import { WeatherAlertFlyout } from "./WeatherAlertFlyout";
 import { WeatherAlertModal } from "./WeatherAlertModal";
+import { FireFlyout } from "./FireFlyout";
 import { LightningOverlay3D } from "./LightningOverlay3D";
 import { FireOverlay3D } from "./FireOverlay3D";
 import { RepeaterOverlay3D } from "./RepeaterOverlay3D";
 import { RiverGaugeOverlay3D } from "./RiverGaugeOverlay3D";
 import { APRSOverlay3D } from "./APRSOverlay3D";
 import { TropicalCycloneOverlay3D } from "./TropicalCycloneOverlay3D";
+import { QsoLocationsOverlay3D } from "./QsoLocationsOverlay3D";
 import { StationMarker3D } from "./StationMarker3D";
 import {
   WeatherRadarOverlay,
@@ -102,12 +104,15 @@ import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useEarthquakes } from "@/hooks/useEarthquakes";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import type { WeatherAlert } from "@/lib/api/weather";
+import type { FireHotspot } from "@/lib/api/fires";
 import { useLightning } from "@/hooks/useLightning";
 import { useFires } from "@/hooks/useFires";
 import { useRepeaters } from "@/hooks/useRepeaters";
 import { useRiverGauges } from "@/hooks/useRiverGauges";
 import { useAPRSStations } from "@/hooks/useAPRSStations";
 import { useTropicalCyclones } from "@/hooks/useTropicalCyclones";
+import { useContestQsoLocations } from "@/hooks/useContestQsoLocations";
+import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -163,10 +168,6 @@ import { useDuctingForecast } from "@/hooks/useDuctingForecast";
 import { useSatellites } from "@/hooks/useSatellites";
 import { calculateNVISAtLocation } from "@/lib/utils/nvisCalculation";
 import { getTerminatorPoints } from "@/lib/utils/sun";
-import {
-  APRS_LIVE_SOURCE_ENABLED,
-  REPEATERBOOK_LIVE_SOURCE_ENABLED,
-} from "@/lib/map/layerCapabilities";
 import {
   buildBandActivityHistory,
   createBandActivitySnapshot,
@@ -801,6 +802,10 @@ interface GlobeSceneProps {
     alert: WeatherAlert,
     screenPos: { x: number; y: number },
   ) => void;
+  onFireClick?: (
+    hotspot: FireHotspot,
+    screenPos: { x: number; y: number },
+  ) => void;
   onRadarAnimState?: (state: RadarAnimationState) => void;
 }
 
@@ -818,6 +823,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onSpotHoverEnd,
   onClusterClick,
   onAlertClick,
+  onFireClick,
   onRadarAnimState,
 }: GlobeSceneProps) {
   const layers = useMapStore((s) => s.layers);
@@ -850,14 +856,12 @@ const GlobeScene = React.memo(function GlobeScene({
   const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
   const { strikes: lightningStrikes } = useLightning(layers.lightning);
   const { hotspots: fireHotspots } = useFires(layers.fires);
-  const { repeaters } = useRepeaters(
-    layers.repeaters && REPEATERBOOK_LIVE_SOURCE_ENABLED,
-  );
+  const { repeaters } = useRepeaters(layers.repeaters);
   const { gauges: riverGauges } = useRiverGauges(layers.riverGauges);
-  const { stations: aprsStations } = useAPRSStations(
-    layers.aprs && APRS_LIVE_SOURCE_ENABLED,
-  );
+  const { stations: aprsStations } = useAPRSStations(layers.aprs);
   const { cyclones: tropicalCyclones } = useTropicalCyclones(layers.tropical);
+  const contestQsoData = useContestQsoLocations(layers.contestQsos);
+  const loggedQsoData = useLoggedQsoLocations(layers.loggedQsos);
   const { manifest: radarManifest } = useWeatherRadar(layers.radar);
   // ── New layer data hooks (Wave 8A) ─────────────────────────────────────
   const { beacons, currentBeacon, activeTransmissions } = useBeaconNetwork();
@@ -1300,7 +1304,7 @@ const GlobeScene = React.memo(function GlobeScene({
           <LightningOverlay3D strikes={lightningStrikes} />
         )}
         {layers.fires && fireHotspots.length > 0 && (
-          <FireOverlay3D hotspots={fireHotspots} />
+          <FireOverlay3D hotspots={fireHotspots} onFireClick={onFireClick} />
         )}
         {layers.repeaters && repeaters.length > 0 && (
           <RepeaterOverlay3D repeaters={repeaters} />
@@ -1378,6 +1382,16 @@ const GlobeScene = React.memo(function GlobeScene({
           <WSPROverlay3D spots={wsprSpots} />
         )}
 
+        {/* QSO location markers -- contest + logbook, mirrors FlatMapView's
+            drawContestQsos/drawLoggedQsos band-color dot semantics */}
+        {((layers.contestQsos && contestQsoData) ||
+          (layers.loggedQsos && loggedQsoData)) && (
+          <QsoLocationsOverlay3D
+            contestQsos={contestQsoData?.qsos ?? []}
+            loggedQsos={loggedQsoData?.qsos ?? []}
+          />
+        )}
+
         {layers.beacons && beacons && beacons.length > 0 && (
           <BeaconNetworkOverlay3D
             beacons={beacons}
@@ -1450,7 +1464,7 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
 
         {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
-        {(layers.spots || layers.spotTraces) && (
+        {(layers.spots || layers.spotTraces || layers.gridActivity) && (
           <GridGlowOverlay spots={glowSpots} />
         )}
 
@@ -1698,6 +1712,12 @@ export function GlobeView({
     null,
   );
 
+  // State for fire hotspot flyout
+  const [clickedFireData, setClickedFireData] = useState<{
+    hotspot: FireHotspot;
+    screenPos: { x: number; y: number };
+  } | null>(null);
+
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
   // Use ref for allSpots to avoid re-filtering on every DX cluster update
@@ -1921,6 +1941,7 @@ export function GlobeView({
       setFlyoutPosition(null);
       setTooltipPosition(null);
       setHoveredTargetPos(null);
+      setClickedFireData(null);
       setClickedAlertData({ alert, screenPos });
     },
     [setFlyoutPosition, setTooltipPosition],
@@ -1937,6 +1958,28 @@ export function GlobeView({
 
   const handleAlertFlyoutClose = useCallback(() => {
     setClickedAlertData(null);
+  }, []);
+
+  // Handle fire hotspot click - show fire flyout
+  const handleFireClick = useCallback(
+    (hotspot: FireHotspot, screenPos: { x: number; y: number }) => {
+      // Clear all other flyouts (mutual exclusion)
+      setHoveredPinData(null);
+      setHoveredSpotData(null);
+      setHoveredSpotPos(null);
+      setSelectedCluster(null);
+      setClusterScreenPos(null);
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      setHoveredTargetPos(null);
+      setClickedAlertData(null);
+      setClickedFireData({ hotspot, screenPos });
+    },
+    [setFlyoutPosition, setTooltipPosition],
+  );
+
+  const handleFireFlyoutClose = useCallback(() => {
+    setClickedFireData(null);
   }, []);
 
   // Handle edit pin from PinFlyout
@@ -2112,6 +2155,7 @@ export function GlobeView({
               onSpotHoverEnd={handleSpotHoverEnd}
               onClusterClick={handleClusterClick}
               onAlertClick={handleAlertClick}
+              onFireClick={handleFireClick}
               onRadarAnimState={setRadarAnimState}
             />
           </Suspense>
@@ -2189,7 +2233,8 @@ export function GlobeView({
           !hoveredTargetPos &&
           !hoveredSpotData &&
           !selectedCluster &&
-          !clickedAlertData
+          !clickedAlertData &&
+          !clickedFireData
         }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
@@ -2215,7 +2260,8 @@ export function GlobeView({
           !flyoutPosition &&
           !hoveredPinData &&
           !selectedCluster &&
-          !clickedAlertData
+          !clickedAlertData &&
+          !clickedFireData
         }
         position={hoveredSpotPos || { x: 0, y: 0 }}
         spot={hoveredSpotData}
@@ -2271,6 +2317,14 @@ export function GlobeView({
       <WeatherAlertModal
         alert={alertModalData}
         onClose={handleAlertModalClose}
+      />
+
+      {/* Fire hotspot flyout - shown when clicking a fire marker */}
+      <FireFlyout
+        visible={!!clickedFireData}
+        position={clickedFireData?.screenPos ?? { x: 0, y: 0 }}
+        hotspot={clickedFireData?.hotspot ?? null}
+        onClose={handleFireFlyoutClose}
       />
 
       {/* FT8 Spotter HUD — cycle timer, decode count, stats */}

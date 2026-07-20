@@ -7,14 +7,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchTECData } from "@/lib/api/tec";
 import type { TECData } from "@/lib/api/tec";
-import { TEC_LIVE_SOURCE_ENABLED } from "@/lib/map/layerCapabilities";
 
 const MINUTE = 60 * 1000;
 
 const EMPTY_TEC: TECData = { grid: [], timestamp: null, available: false };
 
 export function useTEC(enabled = true) {
-  const queryEnabled = enabled && TEC_LIVE_SOURCE_ENABLED;
+  const queryEnabled = enabled;
   const { data, isLoading, error } = useQuery<TECData>({
     queryKey: ["ionospheric-tec"],
     queryFn: ({ signal }) => fetchTECData(signal),

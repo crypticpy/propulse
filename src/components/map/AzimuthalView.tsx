@@ -16,12 +16,16 @@ import { useDXStore } from "@/stores/dxStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics, getDistance } from "@/lib/utils/path";
+import { getPathMetrics, getDistance, getPathPoints } from "@/lib/utils/path";
 import {
   azimuthalProject,
   azimuthalUnproject,
   type AzimuthalPoint,
 } from "@/lib/utils/azimuthal";
+import {
+  buildCellColorLut,
+  renderAzimuthalCellRaster,
+} from "@/lib/map/azimuthalCellRaster";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -113,6 +117,27 @@ function canvasToProj(
 }
 
 /**
+ * Resize a 2D overlay canvas's backing store to match its CSS display size
+ * at the device pixel ratio (fixes blur on large/HiDPI screens), and apply a
+ * transform so all existing draw code keeps working unchanged in the
+ * logical CANVAS_SIZE x CANVAS_SIZE coordinate space.
+ */
+function applyCanvasDprTransform(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  displaySize: number,
+): void {
+  const dpr = window.devicePixelRatio || 1;
+  const backingSize = Math.round(displaySize * dpr);
+  if (canvas.width !== backingSize || canvas.height !== backingSize) {
+    canvas.width = backingSize;
+    canvas.height = backingSize;
+  }
+  const scaleFactor = backingSize / CANVAS_SIZE;
+  ctx.setTransform(scaleFactor, 0, 0, scaleFactor, 0, 0);
+}
+
+/**
  * Draw distance rings at specified intervals
  */
 function drawDistanceRings(ctx: CanvasRenderingContext2D) {
@@ -146,6 +171,9 @@ function drawDistanceRings(ctx: CanvasRenderingContext2D) {
  * Draw bearing labels around the outer edge
  */
 function drawBearingLabels(ctx: CanvasRenderingContext2D) {
+  // Save/restore so the textBaseline = "middle" set below doesn't leak into
+  // downstream draw calls that assume the default "alphabetic" baseline.
+  ctx.save();
   const cardinalDirections = [
     { angle: 0, label: "N" },
     { angle: 45, label: "NE" },
@@ -195,6 +223,7 @@ function drawBearingLabels(ctx: CanvasRenderingContext2D) {
     const y = CENTER + Math.sin(radians) * labelRadius;
     ctx.fillText(label, x, y);
   }
+  ctx.restore();
 }
 
 /**
@@ -444,8 +473,51 @@ function drawNoQTHMessage(ctx: CanvasRenderingContext2D) {
 }
 
 /**
- * Draw live spot arcs on the azimuthal projection
- * In azimuthal equidistant projection, great circles appear as straight lines!
+ * Build a Path2D tracing the great-circle path between two points under the
+ * azimuthal projection. Only great circles that pass through the projection
+ * center render as straight lines here; spotter/DX pairs almost never do, so
+ * the path is approximated by sampling and projecting points along the true
+ * great circle. Segments where a sample falls outside the visible disk
+ * (dist > 1) are skipped, matching the existing endpoint-clip behavior.
+ */
+function buildGreatCirclePath(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  centerLat: number,
+  centerLon: number,
+  numPoints = 32,
+): Path2D {
+  const path = new Path2D();
+  const points = getPathPoints(lat1, lon1, lat2, lon2, numPoints);
+  let inPath = false;
+
+  for (const pt of points) {
+    const proj = azimuthalProject(pt.lat, pt.lon, centerLat, centerLon);
+    const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
+
+    if (dist > 1) {
+      inPath = false;
+      continue;
+    }
+
+    const canvasPt = projToCanvas(proj);
+    if (!inPath) {
+      path.moveTo(canvasPt.x, canvasPt.y);
+      inPath = true;
+    } else {
+      path.lineTo(canvasPt.x, canvasPt.y);
+    }
+  }
+
+  return path;
+}
+
+/**
+ * Draw live spot arcs on the azimuthal projection.
+ * Paths are sampled great circles (see buildGreatCirclePath) — they are only
+ * straight lines when the path happens to pass through the projection center.
  */
 function drawSpotArcs(
   ctx: CanvasRenderingContext2D,
@@ -494,11 +566,16 @@ function drawSpotArcs(
     ctx.shadowColor = color;
     ctx.shadowBlur = 3;
 
-    // In azimuthal projection, great circles are straight lines!
-    ctx.beginPath();
-    ctx.moveTo(spotterCanvas.x, spotterCanvas.y);
-    ctx.lineTo(dxCanvas.x, dxCanvas.y);
-    ctx.stroke();
+    // Sample and project the true great-circle path (see buildGreatCirclePath)
+    const path = buildGreatCirclePath(
+      spot.spotterLat,
+      spot.spotterLon,
+      spot.dxLat,
+      spot.dxLon,
+      centerLat,
+      centerLon,
+    );
+    ctx.stroke(path);
 
     // Draw endpoint dots
     ctx.fillStyle = color;
@@ -535,7 +612,8 @@ function drawSpotArcs(
 
 /**
  * Draw a highlighted arc for the selected DX cluster spot.
- * In azimuthal equidistant projection, great circles are straight lines.
+ * Path is a sampled great circle (see buildGreatCirclePath) — only straight
+ * when it happens to pass through the projection center.
  */
 function drawSelectedSpotArc(
   ctx: CanvasRenderingContext2D,
@@ -568,25 +646,29 @@ function drawSelectedSpotArc(
 
   ctx.save();
 
+  // Sample and project the true great-circle path (see buildGreatCirclePath)
+  const path = buildGreatCirclePath(
+    spot.spotterLat,
+    spot.spotterLon,
+    spot.dxLat,
+    spot.dxLon,
+    centerLat,
+    centerLon,
+  );
+
   // Draw glow line
-  ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.lineTo(ex, ey);
   ctx.strokeStyle = glowColor;
   ctx.lineWidth = 6;
   ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
   ctx.shadowBlur = 12;
-  ctx.stroke();
+  ctx.stroke(path);
 
   // Draw main line
-  ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.lineTo(ex, ey);
   ctx.strokeStyle = highlightColor;
   ctx.lineWidth = 2.5;
   ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
   ctx.shadowBlur = 8;
-  ctx.stroke();
+  ctx.stroke(path);
 
   // Draw spotter endpoint (ring)
   if (spotterDist <= 1) {
@@ -1234,6 +1316,11 @@ export function AzimuthalView({
   const [glowTick, setGlowTick] = useState(0);
   const glowRafRef = useRef<number>(0);
   const layers = useMapStore((s) => s.layers);
+
+  // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
+  useEffect(() => {
+    glowRendererRef.current.persistEdges = layers.gridActivity;
+  }, [layers.gridActivity]);
   const target = useMapStore((s) => s.target);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const labelOptions = useMapStore((s) => s.labelOptions);
@@ -1328,6 +1415,39 @@ export function AzimuthalView({
     return { lat: station.lat, lon: station.lon };
   }, [station]);
 
+  // Rasterize probability-surface cells per pixel via inverse projection.
+  // Cells far from the center distort so much that polygon corners are
+  // meaningless (they sweep across the disk near the antipode).
+  const cellRasterCanvas = useMemo(() => {
+    if (!center) {
+      return null;
+    }
+    const cells = Object.values(overlayLayers).flatMap((layer) =>
+      layer.type === "cells"
+        ? layer.cells
+        : layer.type === "mixed"
+          ? (layer.cells ?? [])
+          : [],
+    );
+    if (cells.length === 0) {
+      return null;
+    }
+    const raster = renderAzimuthalCellRaster(buildCellColorLut(cells), {
+      sizePx: CANVAS_SIZE,
+      centerPx: CENTER,
+      radiusPx: RADIUS,
+      centerLat: center.lat,
+      centerLon: center.lon,
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = CANVAS_SIZE;
+    canvas.height = CANVAS_SIZE;
+    canvas
+      .getContext("2d")
+      ?.putImageData(new ImageData(raster, CANVAS_SIZE, CANVAS_SIZE), 0, 0);
+    return canvas;
+  }, [center, overlayLayers]);
+
   // Draw renderer-agnostic overlay layers (contest overlays, etc.) on a separate canvas
   useEffect(() => {
     const canvas = contestOverlayCanvasRef.current;
@@ -1340,7 +1460,9 @@ export function AzimuthalView({
       return;
     }
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    applyCanvasDprTransform(canvas, ctx, displaySize);
+
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     if (!center) {
       return;
     }
@@ -1352,34 +1474,8 @@ export function AzimuthalView({
     ctx.translate(-CENTER, -CENTER);
 
     // Draw probability-surface cells below arcs and markers.
-    for (const layer of Object.values(overlayLayers)) {
-      const cells =
-        layer.type === "cells"
-          ? layer.cells
-          : layer.type === "mixed"
-            ? (layer.cells ?? [])
-            : [];
-      for (const cell of cells) {
-        const corners = [
-          [cell.lat + cell.heightDeg / 2, cell.lon - cell.widthDeg / 2],
-          [cell.lat + cell.heightDeg / 2, cell.lon + cell.widthDeg / 2],
-          [cell.lat - cell.heightDeg / 2, cell.lon + cell.widthDeg / 2],
-          [cell.lat - cell.heightDeg / 2, cell.lon - cell.widthDeg / 2],
-        ];
-        ctx.save();
-        ctx.globalAlpha = cell.opacity ?? 0.45;
-        ctx.fillStyle = cell.color;
-        ctx.beginPath();
-        corners.forEach(([lat, lon], index) => {
-          const projected = azimuthalProject(lat, lon, center.lat, center.lon);
-          const point = projToCanvas(projected);
-          if (index === 0) ctx.moveTo(point.x, point.y);
-          else ctx.lineTo(point.x, point.y);
-        });
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
+    if (cellRasterCanvas) {
+      ctx.drawImage(cellRasterCanvas, 0, 0);
     }
 
     // Draw overlay arcs first (under markers)
@@ -1465,7 +1561,7 @@ export function AzimuthalView({
     }
 
     ctx.restore();
-  }, [center, overlayLayers, zoom]);
+  }, [center, overlayLayers, zoom, cellRasterCanvas, displaySize]);
 
   // Get subsolar point for day/night blending
   const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
@@ -1499,7 +1595,7 @@ export function AzimuthalView({
 
   // Feed new spots into the grid glow renderer when spots arrive.
   useEffect(() => {
-    if (!layers.spots && !layers.spotTraces) return;
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
     const now = Date.now();
     const currentIds = new Set<string>();
     const prevIds = prevGlowSpotIdsRef.current;
@@ -1549,7 +1645,13 @@ export function AzimuthalView({
       };
       glowRafRef.current = requestAnimationFrame(tick);
     }
-  }, [resolvedSpots, layers.spots, layers.spotTraces, spotColorMode]);
+  }, [
+    resolvedSpots,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    spotColorMode,
+  ]);
 
   // Clean up glow RAF on unmount
   useEffect(() => {
@@ -1700,8 +1802,11 @@ export function AzimuthalView({
       }
 
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      // Use the logical CANVAS_SIZE (not canvas.width/height, which are now
+      // DPR-scaled backing-store pixels) so hit-testing stays in the same
+      // coordinate space as the draw code.
+      const scaleX = CANVAS_SIZE / rect.width;
+      const scaleY = CANVAS_SIZE / rect.height;
 
       const canvasX = (event.clientX - rect.left) * scaleX;
       const canvasY = (event.clientY - rect.top) * scaleY;
@@ -1734,8 +1839,11 @@ export function AzimuthalView({
       }
 
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      // Use the logical CANVAS_SIZE (not canvas.width/height, which are now
+      // DPR-scaled backing-store pixels) so hit-testing stays in the same
+      // coordinate space as the draw code.
+      const scaleX = CANVAS_SIZE / rect.width;
+      const scaleY = CANVAS_SIZE / rect.height;
 
       const canvasX = (event.clientX - rect.left) * scaleX;
       const canvasY = (event.clientY - rect.top) * scaleY;
@@ -1797,6 +1905,8 @@ export function AzimuthalView({
     if (!ctx) {
       return;
     }
+
+    applyCanvasDprTransform(canvas, ctx, displaySize);
 
     // Clear overlay canvas (transparent background)
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -1875,18 +1985,24 @@ export function AzimuthalView({
 
     // Draw grid glow pulses (before spot arcs, after bearing labels)
     if (
-      (layers.spots || layers.spotTraces) &&
+      (layers.spots || layers.spotTraces || layers.gridActivity) &&
       glowRendererRef.current.hasActiveGlows()
     ) {
       const glowProject = (lat: number, lon: number) => {
         const proj = azimuthalProject(lat, lon, center.lat, center.lon);
-        return projToCanvas(proj);
+        const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
+        const canvasPt = projToCanvas(proj);
+        return { x: canvasPt.x, y: canvasPt.y, visible: dist <= 1 };
       };
-      glowRendererRef.current.draw(ctx, glowProject, Date.now());
+      // "radial" mode: azimuthal grid cells are warped quads, not axis-
+      // aligned rects, so the renderer draws a projected-center circle
+      // instead of a rect built from two corners.
+      glowRendererRef.current.draw(ctx, glowProject, Date.now(), "radial");
     }
 
-    // Draw live spot arcs (straight lines in azimuthal projection)
-    if (layers.spots && resolvedSpots.length > 0) {
+    // Draw live spot arcs (sampled great circles). Traces-alone (spotTraces
+    // without spots) still shows the arcs — traces isn't a separate layer.
+    if ((layers.spots || layers.spotTraces) && resolvedSpots.length > 0) {
       drawSpotArcs(
         ctx,
         resolvedSpots,
@@ -1955,6 +2071,7 @@ export function AzimuthalView({
     lightningStrikes,
     fireHotspots,
     glowTick,
+    displaySize,
   ]);
 
   return (
@@ -1974,7 +2091,21 @@ export function AzimuthalView({
           height: displaySize,
         }}
       />
-      {/* 2D canvas for overlays (on top of WebGL) */}
+      {/* Renderer-agnostic overlay canvas (contest overlays, etc.) — sits
+          below the UI overlay canvas so it doesn't occlude the home marker
+          and target label, which must stay on top. */}
+      <canvas
+        ref={contestOverlayCanvasRef}
+        width={CANVAS_SIZE}
+        height={CANVAS_SIZE}
+        className="absolute pointer-events-none"
+        style={{
+          imageRendering: "auto",
+          width: displaySize,
+          height: displaySize,
+        }}
+      />
+      {/* 2D canvas for overlays (on top of WebGL and the contest overlay) */}
       <canvas
         ref={overlayCanvasRef}
         width={CANVAS_SIZE}
@@ -1985,18 +2116,6 @@ export function AzimuthalView({
         className="absolute cursor-crosshair"
         aria-label="Azimuthal projection map centered on your location - click to select target, scroll to zoom"
         role="img"
-        style={{
-          imageRendering: "auto",
-          width: displaySize,
-          height: displaySize,
-        }}
-      />
-      {/* Renderer-agnostic overlay canvas (contest overlays, etc.) */}
-      <canvas
-        ref={contestOverlayCanvasRef}
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
-        className="absolute pointer-events-none"
         style={{
           imageRendering: "auto",
           width: displaySize,

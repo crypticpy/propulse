@@ -11,6 +11,7 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Default marker color - plasma orange */
 const DEFAULT_COLOR = "#FF6B35";
@@ -185,7 +186,7 @@ export function SpotMarker({
   return (
     <group ref={groupRef} position={position}>
       {/* Glow sprite behind marker */}
-      <mesh ref={glowRef} renderOrder={0}>
+      <mesh ref={glowRef} renderOrder={GLOBE_LAYER_ORDER.markers}>
         <circleGeometry args={[glowSize, 32]} />
         <meshBasicMaterial
           ref={materialRef}
@@ -204,7 +205,7 @@ export function SpotMarker({
         onClick={handleClick}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
-        renderOrder={1}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}
       >
         <sphereGeometry args={[size, 16, 16]} />
         <meshBasicMaterial
@@ -217,7 +218,7 @@ export function SpotMarker({
       </mesh>
 
       {/* Emissive ring for additional glow effect */}
-      <mesh renderOrder={0}>
+      <mesh renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}>
         <ringGeometry args={[size * 1.2, size * 1.5, 32]} />
         <meshBasicMaterial
           ref={ringMaterialRef}

@@ -30,4 +30,22 @@ describe("NASA GIBS GOES tile contract", () => {
       "/2026-07-18T21:20:00Z/GoogleMapsCompatible_Level6/",
     );
   });
+
+  it("uses the Level7 matrix set for GeoColor layers", () => {
+    expect(getGIBSTileUrl("GOES-East_ABI_GeoColor")).toBe(
+      "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",
+    );
+    expect(getGIBSTileUrl("GOES-West_ABI_GeoColor")).toBe(
+      "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-West_ABI_GeoColor/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",
+    );
+  });
+
+  it("uses the Level6 matrix set for GOES-West infrared and Air Mass", () => {
+    expect(getGIBSTileUrl("GOES-West_ABI_Band13_Clean_Infrared")).toBe(
+      "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-West_ABI_Band13_Clean_Infrared/default/default/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png",
+    );
+    expect(getGIBSTileUrl("GOES-East_ABI_Air_Mass")).toBe(
+      "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_Air_Mass/default/default/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png",
+    );
+  });
 });

@@ -21,6 +21,7 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -239,7 +240,9 @@ function AlertMarker({
     (event: THREE.Event) => {
       const e = event as unknown as { stopPropagation: () => void };
       e.stopPropagation();
-      if (!onAlertClick) return;
+      // Ignore clicks on markers hidden behind the globe — the hit mesh
+      // still raycasts even when the visuals are faded out.
+      if (!onAlertClick || occlusionOpacity < 0.2) return;
 
       // Project 3D position to screen coordinates
       const worldPos = new THREE.Vector3(0, STEM_HEIGHT + SIZE * 2, 0);
@@ -260,14 +263,28 @@ function AlertMarker({
         y: screenY + offsetY,
       });
     },
-    [alert, onAlertClick, camera, canvasSize],
+    [alert, onAlertClick, camera, canvasSize, occlusionOpacity],
   );
 
-  const handlePointerEnter = useCallback((event: THREE.Event) => {
-    const e = event as unknown as { stopPropagation: () => void };
-    e.stopPropagation();
-    setIsHovered(true);
-  }, []);
+  // DOM click on the emoji glyph — pixel-accurate to what the user sees
+  const handleEmojiClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!onAlertClick || occlusionOpacity < 0.2) return;
+      onAlertClick(alert, { x: e.clientX, y: e.clientY });
+    },
+    [alert, onAlertClick, occlusionOpacity],
+  );
+
+  const handlePointerEnter = useCallback(
+    (event: THREE.Event) => {
+      const e = event as unknown as { stopPropagation: () => void };
+      e.stopPropagation();
+      if (occlusionOpacity < 0.2) return;
+      setIsHovered(true);
+    },
+    [occlusionOpacity],
+  );
 
   const handlePointerLeave = useCallback(() => {
     setIsHovered(false);
@@ -284,7 +301,10 @@ function AlertMarker({
   return (
     <group ref={groupRef} position={basePosition} rotation={rotation}>
       {/* Pin stem (vertical line from surface) */}
-      <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
+      <mesh
+        position={[0, STEM_HEIGHT / 2, 0]}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+      >
         <primitive object={sharedStemGeom} attach="geometry" />
         <meshBasicMaterial
           ref={stemMaterialRef}
@@ -292,16 +312,14 @@ function AlertMarker({
           transparent
           opacity={0.7}
           depthTest={false}
+          depthWrite={false}
         />
       </mesh>
 
       {/* Pin head (sphere at top of stem) */}
       <mesh
         position={[0, STEM_HEIGHT + SIZE, 0]}
-        onClick={handleClick}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-        renderOrder={2}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}
       >
         <primitive object={sharedHeadGeom} attach="geometry" />
         <meshBasicMaterial
@@ -310,6 +328,27 @@ function AlertMarker({
           transparent
           opacity={isHovered ? 1 : 0.85}
           depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Invisible enlarged hit target — spans the pin head through the
+          emoji glyph so clicks aimed at the visible icon actually land.
+          colorWrite=false keeps it out of the framebuffer entirely while
+          still participating in raycasts. */}
+      <mesh
+        position={[0, STEM_HEIGHT + SIZE * 2, 0]}
+        onClick={handleClick}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+      >
+        <sphereGeometry args={[SIZE * 3.5, 8, 8]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          colorWrite={false}
+          depthTest={false}
+          depthWrite={false}
         />
       </mesh>
 
@@ -317,7 +356,7 @@ function AlertMarker({
       <mesh
         ref={glowRef as unknown as React.Ref<THREE.Mesh>}
         rotation={[Math.PI / 2, 0, 0]}
-        renderOrder={0}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
       >
         <ringGeometry args={[SIZE * 0.6, SIZE * 1.0, 32]} />
         <meshBasicMaterial
@@ -352,12 +391,17 @@ function AlertMarker({
           <div
             ref={emojiContainerRef}
             className="flex items-center justify-center"
+            onClick={handleEmojiClick}
+            onMouseEnter={() => occlusionOpacity >= 0.2 && setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
             style={{
               width: `${initBoxSize}px`,
               height: `${initBoxSize}px`,
               fontSize: `${initFontSize}px`,
               lineHeight: 1,
               filter: `drop-shadow(0 0 ${Math.max(4, initFontSize / 4)}px ${color})`,
+              pointerEvents: occlusionOpacity >= 0.2 ? "auto" : "none",
+              cursor: "pointer",
             }}
           >
             {emoji}

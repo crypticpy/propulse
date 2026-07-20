@@ -21,6 +21,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { DuctingRegion } from "@/hooks/useDuctingForecast";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // TYPES
@@ -184,17 +185,17 @@ export const DuctingOverlay3D = React.memo(
           ref={meshRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={8}
+          renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
         >
           <sphereGeometry args={[1, 12, 6, 0, Math.PI * 2, 0, 0.35]} />
           <meshBasicMaterial
             ref={materialRef}
             transparent
             opacity={0.45}
+            depthTest={false}
             depthWrite={false}
             blending={THREE.NormalBlending}
-            side={THREE.DoubleSide}
-            vertexColors
+            side={THREE.FrontSide}
           />
         </instancedMesh>
       </group>

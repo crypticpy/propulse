@@ -12,8 +12,8 @@ Accordingly:
 
 - the historical research pipeline downloads the WSPRnet monthly archive and
   publishes only source requests, hashes, schemas, and aggregate results;
-- `/api/wspr/spots` returns `503` by default and can query WSPR.live only when
-  `WSPR_LIVE_RESEARCH_PROXY_ENABLED=true` is deliberately set for research;
+- `/api/wspr/spots` proxies live WSPR.live observations (always on; Propulse
+  is a free non-profit product, which fits WSPR.live's non-commercial terms);
 - the private `wspr_live_connector.py` is separately double-gated for internal
   research, uses one exact-hour streaming query, and remains unscheduled until
   that research mode is deliberately enabled;

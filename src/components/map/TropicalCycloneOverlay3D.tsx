@@ -22,6 +22,7 @@ import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { TropicalCyclone, StormCategory } from "@/lib/api/tropical";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -115,10 +116,16 @@ function ForecastTrackLine({ cyclone }: ForecastTrackLineProps) {
       transparent: true,
       opacity: 0.6,
       depthWrite: false,
+      depthTest: false,
     });
   }, [category]);
 
-  return <primitive object={new THREE.Line(geometry, material)} />;
+  return (
+    <primitive
+      object={new THREE.Line(geometry, material)}
+      renderOrder={GLOBE_LAYER_ORDER.markers}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +148,7 @@ function StormLabel({ cyclone }: StormLabelProps) {
       anchorY="bottom"
       outlineWidth={0.002}
       outlineColor="#000000"
-      renderOrder={5}
+      renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}
       font={undefined}
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       {...({ "material-depthTest": false } as any)}
@@ -274,7 +281,7 @@ export const TropicalCycloneOverlay3D = React.memo(
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
         >
           <sphereGeometry args={[1, 8, 8]} />
           <meshBasicMaterial
@@ -292,7 +299,7 @@ export const TropicalCycloneOverlay3D = React.memo(
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
         >
           <sphereGeometry args={[1, 8, 8]} />
           <meshBasicMaterial

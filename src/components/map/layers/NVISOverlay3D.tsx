@@ -34,6 +34,7 @@ import {
 } from "@/components/map/lib/globeCoords";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useMapStore } from "@/stores/mapStore";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -400,7 +401,9 @@ function RippleRing({
       ref={ringRef}
       position={centerPosition}
       quaternion={quaternion}
-      renderOrder={12}
+      // Highlight: radar-ping ripple paints above the dome fill and the
+      // concentric distance rings.
+      renderOrder={GLOBE_LAYER_ORDER.hud + 0.04}
     >
       <primitive object={ringGeo} attach="geometry" />
       <meshBasicMaterial
@@ -409,6 +412,7 @@ function RippleRing({
         transparent
         opacity={0}
         side={THREE.DoubleSide}
+        depthTest={false}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
       />
@@ -578,7 +582,12 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
   return (
     <group>
       {/* NVIS dome hemisphere with gradient */}
-      <mesh position={position} quaternion={quaternion} renderOrder={12}>
+      {/* Dome fill paints first, below the distance rings and ripple highlight. */}
+      <mesh
+        position={position}
+        quaternion={quaternion}
+        renderOrder={GLOBE_LAYER_ORDER.hud}
+      >
         <primitive object={domeGeometry} attach="geometry" />
         <meshBasicMaterial
           ref={domeMaterialRef}
@@ -586,6 +595,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           transparent
           opacity={opacityMin}
           side={THREE.DoubleSide}
+          depthTest={false}
           depthWrite={false}
           blending={THREE.NormalBlending}
         />
@@ -597,7 +607,8 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           key={`ring-${i}`}
           position={ringCenterPosition}
           quaternion={ringQuaternion}
-          renderOrder={12}
+          // Ring/outline: paints above the dome fill, below the ripple highlight.
+          renderOrder={GLOBE_LAYER_ORDER.hud + 0.02}
         >
           <primitive object={geo} attach="geometry" />
           <meshBasicMaterial
@@ -608,6 +619,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
             transparent
             opacity={opacityMin * fraction}
             side={THREE.DoubleSide}
+            depthTest={false}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
           />

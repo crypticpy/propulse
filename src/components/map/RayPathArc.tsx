@@ -31,6 +31,7 @@ import {
   IONOSPHERE_LAYER_NAMES,
   heightToRadius,
 } from "./IonosphericShells";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -299,6 +300,9 @@ function AnimatedHopLine({
       dashed
       dashSize={0.02}
       gapSize={0.012}
+      depthTest={false}
+      depthWrite={false}
+      renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
     />
   );
 }
@@ -322,6 +326,9 @@ function StaticHopLine({
       lineWidth={lineWidth}
       opacity={0.85}
       transparent
+      depthTest={false}
+      depthWrite={false}
+      renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
     />
   );
 }
@@ -358,6 +365,8 @@ function HopGlowLine({
       opacity={0.14}
       transparent
       depthWrite={false}
+      depthTest={false}
+      renderOrder={GLOBE_LAYER_ORDER.arcs}
     />
   );
 }
@@ -421,7 +430,11 @@ function IonosphereBounceHighlight({
   return (
     <group>
       {/* Core bright sphere */}
-      <mesh ref={coreRef} position={position}>
+      <mesh
+        ref={coreRef}
+        position={position}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
+      >
         <sphereGeometry args={[0.012, 16, 16]} />
         <meshBasicMaterial
           ref={coreMtlRef}
@@ -429,11 +442,17 @@ function IonosphereBounceHighlight({
           transparent
           opacity={0.9}
           depthWrite={false}
+          depthTest={false}
         />
       </mesh>
 
       {/* Pulsing ring (torus) oriented radially outward */}
-      <mesh ref={ringRef} position={position} quaternion={quaternion}>
+      <mesh
+        ref={ringRef}
+        position={position}
+        quaternion={quaternion}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+      >
         <torusGeometry args={[0.022, 0.003, 12, 32]} />
         <meshBasicMaterial
           ref={ringMtlRef}
@@ -441,17 +460,19 @@ function IonosphereBounceHighlight({
           transparent
           opacity={0.4}
           depthWrite={false}
+          depthTest={false}
         />
       </mesh>
 
       {/* Outer glow sphere */}
-      <mesh position={position}>
+      <mesh position={position} renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}>
         <sphereGeometry args={[0.028, 12, 12]} />
         <meshBasicMaterial
           color={color}
           transparent
           opacity={0.1}
           depthWrite={false}
+          depthTest={false}
         />
       </mesh>
     </group>

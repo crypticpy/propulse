@@ -153,12 +153,11 @@ adapter applies after either open-core profile.
 | PSK Reporter/RBN/DX Cluster | UI activity and future model research | never substitute into a V4.2 WSPR lag feature |
 
 WSPR.live publicly allows its service for research/projects whose results are
-free and prohibits commercial or profit-oriented use. Propulse is open-source
-and nonprofit, but a donation/subscription-supported product is not assumed to
-qualify. The existing `WSPR_LIVE_RESEARCH_PROXY_ENABLED` flag remains off in
-production until the operator gives written permission for this exact use and
-query volume. If permission is not granted, use an authorized/self-operated
-ingest rather than routing around the restriction.
+free and prohibits commercial or profit-oriented use. Propulse is a free
+non-profit product (paid tiers only cover hosting costs), which the operator
+has determined fits those terms, so the `/api/wspr/spots` proxy is always on.
+If WSPR.live ever objects to this use or query volume, switch to an
+authorized/self-operated ingest rather than routing around the restriction.
 
 ## Feature Contract
 

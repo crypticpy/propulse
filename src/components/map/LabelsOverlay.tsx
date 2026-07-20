@@ -28,6 +28,7 @@ import {
   MAIDENHEAD_LAT_LINES,
   type ViewportBounds,
 } from "@/lib/utils/maidenheadGrid";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // Major world cities
 const MAJOR_CITIES = [
@@ -397,6 +398,7 @@ function buildNightAwareBorderMaterial(
     `,
     transparent: true,
     depthWrite: false,
+    depthTest: false,
   });
 }
 
@@ -480,6 +482,7 @@ export function LabelsOverlay({
         transparent: true,
         opacity: 0.35,
         depthWrite: false,
+        depthTest: false,
       }),
     [],
   );
@@ -717,7 +720,7 @@ export function LabelsOverlay({
         <lineSegments
           geometry={borderGeometry}
           material={borderMaterialRef.current}
-          renderOrder={5}
+          renderOrder={GLOBE_LAYER_ORDER.referenceLines}
         />
       )}
 
@@ -726,7 +729,7 @@ export function LabelsOverlay({
         <lineSegments
           geometry={stateBorderGeometry}
           material={stateBorderMaterialRef.current}
-          renderOrder={5}
+          renderOrder={GLOBE_LAYER_ORDER.referenceLines}
         />
       )}
 
@@ -757,7 +760,7 @@ export function LabelsOverlay({
         <lineSegments
           geometry={gridGeometry}
           material={gridMaterial}
-          renderOrder={5}
+          renderOrder={GLOBE_LAYER_ORDER.referenceLines}
         />
       )}
 

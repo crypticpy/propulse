@@ -7,14 +7,18 @@
  * 1024x1024 canvas.
  *
  * Radius: 1.015 (globe is r=1.0)
- * renderOrder: 5
- * NormalBlending, opacity 0.35
+ * renderOrder: GLOBE_LAYER_ORDER.surfaceTexture
+ * NormalBlending, opacity 0.55
  */
 
 import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { useGOESImagery } from "@/hooks/useGOESImagery";
 import { GOES_EAST_Z2_TILE_LIMITS } from "@/lib/api/goes";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_OVERLAY_MATERIAL,
+} from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // CONSTANTS
@@ -40,6 +44,16 @@ function loadTileImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+/** Retry a single tile once after a short backoff before giving up on it. */
+async function loadTileImageWithRetry(url: string): Promise<HTMLImageElement> {
+  try {
+    return await loadTileImage(url);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return loadTileImage(url);
+  }
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -54,15 +68,18 @@ export function GOESCloudOverlay3D() {
     [],
   );
 
-  // Material: NormalBlending, transparent, opacity 0.35
+  // Material: NormalBlending, transparent, opacity 0.55.
+  // FrontSide + depthTest:false (via GLOBE_OVERLAY_MATERIAL) per the globe
+  // stacking contract — with depthTest left at its default (true), this
+  // sphere loses the depth contest against the opaque tile globe and is
+  // discarded everywhere except the limb.
   const material = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        transparent: true,
-        opacity: 0.35,
+        opacity: 0.55,
         blending: THREE.NormalBlending,
-        side: THREE.DoubleSide,
-        depthWrite: false,
+        side: THREE.FrontSide,
+        ...GLOBE_OVERLAY_MATERIAL,
       }),
     [],
   );
@@ -97,7 +114,7 @@ export function GOESCloudOverlay3D() {
           .replace("{y}", String(y))
           .replace("{x}", String(x));
         promises.push(
-          loadTileImage(url)
+          loadTileImageWithRetry(url)
             .then((img) => {
               if (!disposed) ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE);
             })
@@ -111,6 +128,9 @@ export function GOESCloudOverlay3D() {
     Promise.all(promises).then(() => {
       if (disposed || !meshRef.current) return;
       const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
       texture.needsUpdate = true;
       const mat = meshRef.current!.material as THREE.MeshBasicMaterial;
       if (mat.map) mat.map.dispose();
@@ -138,7 +158,7 @@ export function GOESCloudOverlay3D() {
       ref={meshRef}
       geometry={geometry}
       material={material}
-      renderOrder={5}
+      renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}
     />
   );
 }

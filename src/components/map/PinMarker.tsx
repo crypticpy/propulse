@@ -15,6 +15,7 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Default pin color - cyan to match app theme */
 const DEFAULT_COLOR = "#22D3EE";
@@ -250,7 +251,10 @@ export function PinMarker({
   return (
     <group ref={groupRef} position={basePosition} rotation={rotation}>
       {/* Pin stem (vertical line from surface) */}
-      <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
+      <mesh
+        position={[0, STEM_HEIGHT / 2, 0]}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+      >
         <primitive object={stemGeometry} attach="geometry" />
         <meshBasicMaterial
           ref={stemMaterialRef}
@@ -268,7 +272,7 @@ export function PinMarker({
         onClick={handleClick}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
-        renderOrder={2}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}
       >
         <primitive object={headGeometry} attach="geometry" />
         <meshBasicMaterial
@@ -281,7 +285,7 @@ export function PinMarker({
       </mesh>
 
       {/* Glow ring at base */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} renderOrder={0}>
+      <mesh rotation={[Math.PI / 2, 0, 0]} renderOrder={GLOBE_LAYER_ORDER.markers}>
         <ringGeometry args={[size * 0.8, size * 1.2, 32]} />
         <meshBasicMaterial
           ref={glowRingMaterialRef}
@@ -298,7 +302,7 @@ export function PinMarker({
       <mesh
         rotation={[Math.PI / 2, 0, 0]}
         position={[0, 0.001, 0]}
-        renderOrder={0}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
       >
         <circleGeometry args={[size * 0.6, 16]} />
         <meshBasicMaterial

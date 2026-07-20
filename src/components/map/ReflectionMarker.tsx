@@ -11,6 +11,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,8 +113,13 @@ export function ReflectionMarker({
 
   return (
     <group>
-      {/* Core sphere */}
-      <mesh ref={meshRef} position={position}>
+      {/* Core sphere — depthTest stays on: protruding spheres get free
+          far-side culling from the opaque globe's depth buffer. */}
+      <mesh
+        ref={meshRef}
+        position={position}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+      >
         <sphereGeometry args={[sphereRadius, 12, 12]} />
         <meshBasicMaterial
           ref={materialRef}
@@ -126,7 +132,11 @@ export function ReflectionMarker({
 
       {/* Outer glow — reflection markers only */}
       {type === "reflection" && (
-        <mesh ref={glowRef} position={position}>
+        <mesh
+          ref={glowRef}
+          position={position}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
+        >
           <sphereGeometry args={[sphereRadius * GLOW_SCALE, 12, 12]} />
           <meshBasicMaterial
             ref={glowMaterialRef}

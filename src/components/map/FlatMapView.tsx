@@ -95,6 +95,7 @@ import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import { useLightning } from "@/hooks/useLightning";
 import { useFires } from "@/hooks/useFires";
 import { useWsprSpots } from "@/hooks/useWspr";
+import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
@@ -918,11 +919,14 @@ function drawAurora(
   minProbability: number = 10,
   width: number = MAP_WIDTH,
   height: number = MAP_HEIGHT,
+  zoomScale = 1.0,
 ) {
   // Filter coordinates with aurora above threshold
   const filteredCoords = auroraData.coordinates.filter(
     (coord) => coord.aurora >= minProbability,
   );
+
+  const zoomDamp = Math.max(1, zoomScale);
 
   // Save current context state
   ctx.save();
@@ -934,9 +938,10 @@ function drawAurora(
     const { x, y } = latLonToCanvas(coord.lat, coord.lon, width, height);
     const color = getAuroraColor(coord.aurora);
     const opacity = getAuroraOpacity(coord.aurora);
+    const radius = 8 / zoomDamp;
 
     // Draw glowing point
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, 8);
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
     gradient.addColorStop(0, color);
     gradient.addColorStop(0.5, color);
     gradient.addColorStop(1, "transparent");
@@ -944,7 +949,7 @@ function drawAurora(
     ctx.globalAlpha = opacity;
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -1335,39 +1340,6 @@ function drawLoggedQsos(
 
   ctx.globalAlpha = 1;
   ctx.restore();
-}
-
-/** Band-to-color mapping for QSO overlays */
-function getQsoBandColor(band: string): string {
-  const b = band.toLowerCase().replace(/[^0-9.]/g, "");
-  switch (b) {
-    case "160":
-      return "#ff6688";
-    case "80":
-      return "#ff8844";
-    case "60":
-      return "#ff9933";
-    case "40":
-      return "#ffaa22";
-    case "30":
-      return "#ffcc00";
-    case "20":
-      return "#ffdd00";
-    case "17":
-      return "#ccee22";
-    case "15":
-      return "#88ee44";
-    case "12":
-      return "#44dd88";
-    case "10":
-      return "#44ccff";
-    case "6":
-      return "#6688ff";
-    case "2":
-      return "#aa66ff";
-    default:
-      return "#aa88ff"; // VHF/UHF+
-  }
 }
 
 /**
@@ -3209,6 +3181,11 @@ export function FlatMapView({
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const target = useMapStore((s) => s.target);
+
+  // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
+  useEffect(() => {
+    glowRendererRef.current.persistEdges = layers.gridActivity;
+  }, [layers.gridActivity]);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
@@ -3264,7 +3241,7 @@ export function FlatMapView({
 
   // Satellite positions for 2D overlay
   const { satellites: satPositions, selectedSatellite: selectedSat } =
-    useSatellites();
+    useSatellites(layers.satellites);
 
   // Hazard overlay data — hooks only fetch when layer is enabled
   const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
@@ -3410,7 +3387,7 @@ export function FlatMapView({
   // Feed new spots into the grid glow renderer when spots arrive.
   // Uses resolvedSpots (not raw spots) so the glow grid matches where the dot lands.
   useEffect(() => {
-    if (!layers.spots && !layers.spotTraces) return;
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
     const now = Date.now();
     const currentIds = new Set<string>();
     const prevIds = prevGlowSpotIdsRef.current;
@@ -3470,7 +3447,13 @@ export function FlatMapView({
       };
       glowRafRef.current = requestAnimationFrame(tick);
     }
-  }, [resolvedSpots, layers.spots, layers.spotTraces, spotColorMode]);
+  }, [
+    resolvedSpots,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    spotColorMode,
+  ]);
 
   // Clean up glow RAF on unmount
   useEffect(() => {
@@ -4610,66 +4593,7 @@ export function FlatMapView({
 
     // Draw aurora overlay
     if (layers.aurora && auroraData) {
-      drawAurora(ctx, auroraData, 10, renderWidth, renderHeight);
-    }
-
-    // Draw earthquake markers
-    if (layers.earthquakes && earthquakeData.length > 0) {
-      drawEarthquakes(
-        ctx,
-        earthquakeData,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
-    }
-
-    // Draw weather alert markers
-    if (layers.weather && weatherAlerts.length > 0) {
-      drawWeatherAlerts(
-        ctx,
-        weatherAlerts,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
-    }
-
-    // Draw lightning strikes
-    if (layers.lightning && lightningStrikes.length > 0) {
-      drawLightning(
-        ctx,
-        lightningStrikes,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
-    }
-
-    // Draw fire hotspots
-    if (layers.fires && fireHotspots.length > 0) {
-      drawFires(ctx, fireHotspots, renderWidth, renderHeight, zoom.scale);
-    }
-
-    // Draw WSPR propagation paths
-    if (layers.wspr && wsprSpots.length > 0) {
-      drawWsprPaths(ctx, wsprSpots, renderWidth, renderHeight, zoom.scale);
-    }
-
-    // Draw logged QSO arcs (behind contest QSOs — more transparent)
-    if (layers.loggedQsos && loggedQsoData) {
-      drawLoggedQsos(ctx, loggedQsoData, renderWidth, renderHeight, zoom.scale);
-    }
-
-    // Draw contest QSO arcs (on top — more opaque, multiplier rings)
-    if (layers.contestQsos && contestQsoData) {
-      drawContestQsos(
-        ctx,
-        contestQsoData,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
+      drawAurora(ctx, auroraData, 10, renderWidth, renderHeight, zoom.scale);
     }
 
     // Draw night lights (city lights on dark side)
@@ -4751,9 +4675,68 @@ export function FlatMapView({
       );
     }
 
+    // Draw earthquake markers
+    if (layers.earthquakes && earthquakeData.length > 0) {
+      drawEarthquakes(
+        ctx,
+        earthquakeData,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
+    }
+
+    // Draw weather alert markers
+    if (layers.weather && weatherAlerts.length > 0) {
+      drawWeatherAlerts(
+        ctx,
+        weatherAlerts,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
+    }
+
+    // Draw lightning strikes
+    if (layers.lightning && lightningStrikes.length > 0) {
+      drawLightning(
+        ctx,
+        lightningStrikes,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
+    }
+
+    // Draw fire hotspots
+    if (layers.fires && fireHotspots.length > 0) {
+      drawFires(ctx, fireHotspots, renderWidth, renderHeight, zoom.scale);
+    }
+
+    // Draw WSPR propagation paths
+    if (layers.wspr && wsprSpots.length > 0) {
+      drawWsprPaths(ctx, wsprSpots, renderWidth, renderHeight, zoom.scale);
+    }
+
+    // Draw logged QSO arcs (behind contest QSOs — more transparent)
+    if (layers.loggedQsos && loggedQsoData) {
+      drawLoggedQsos(ctx, loggedQsoData, renderWidth, renderHeight, zoom.scale);
+    }
+
+    // Draw contest QSO arcs (on top — more opaque, multiplier rings)
+    if (layers.contestQsos && contestQsoData) {
+      drawContestQsos(
+        ctx,
+        contestQsoData,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
+    }
+
     // Draw grid glow pulses (after base map / terminator / labels, before spot arcs)
     if (
-      (layers.spots || layers.spotTraces) &&
+      (layers.spots || layers.spotTraces || layers.gridActivity) &&
       glowRendererRef.current.hasActiveGlows()
     ) {
       const glowProject = (lat: number, lon: number) =>
@@ -4778,7 +4761,10 @@ export function FlatMapView({
     }
 
     // Draw live spot arcs (dimmed for non-matched when watch is active)
-    if (layers.spots && resolvedSpots.length > 0) {
+    // Arcs draw for either "Spots" or "Spot Traces" — Spot Traces shows clean
+    // arcs without labels/hover/selected-arc treatment, which stay gated on
+    // layers.spots only below.
+    if ((layers.spots || layers.spotTraces) && resolvedSpots.length > 0) {
       drawSpotArcs(
         ctx,
         resolvedSpots,
@@ -5077,8 +5063,10 @@ export function FlatMapView({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full min-h-[400px] bg-deep-space overflow-hidden relative select-none ${
-        fillContainer ? "" : "rounded-xl flex items-center justify-center"
+      className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
+        fillContainer
+          ? ""
+          : "min-h-[400px] rounded-xl flex items-center justify-center"
       }`}
     >
       {!mapImage && mapStyle === "satellite" && (
@@ -5131,6 +5119,9 @@ export function FlatMapView({
             myLon={station?.lon}
             width={displaySize.width}
             height={displaySize.height}
+            offsetX={zoom.offsetX}
+            offsetY={zoom.offsetY}
+            scale={zoom.scale}
           />
         )}
       </div>

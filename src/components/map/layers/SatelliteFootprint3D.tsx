@@ -16,6 +16,7 @@
 import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { getUpDirection } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -169,7 +170,7 @@ const FootprintDisc = React.memo(function FootprintDisc({
   }, [lat, lon]);
 
   return (
-    <mesh quaternion={quaternion} renderOrder={6}>
+    <mesh quaternion={quaternion} renderOrder={GLOBE_LAYER_ORDER.surfaceArea}>
       <primitive object={capGeometry} attach="geometry" />
       <meshBasicMaterial
         color={color}

@@ -25,6 +25,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RiverGauge } from "@/lib/api/gauges";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -173,12 +174,11 @@ export const RiverGaugeOverlay3D = React.memo(
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
             color="#ffffff"
-            vertexColors
             transparent
             opacity={0.3}
             depthWrite={false}
@@ -192,12 +192,11 @@ export const RiverGaugeOverlay3D = React.memo(
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
-          renderOrder={3}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
             color="#ffffff"
-            vertexColors
             transparent
             opacity={0.7}
             depthWrite={false}

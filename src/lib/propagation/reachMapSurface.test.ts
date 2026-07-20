@@ -83,6 +83,23 @@ describe("ReachMap surface contract", () => {
     expect(() => chunkReachMapSurfaceRequest(request, 0)).toThrow("between 1 and 4,096");
   });
 
+  it("issues FutureCast requests at live time for a future valid time", () => {
+    const build = (issueTime?: Date) => buildReachMapRequest({
+      origin: { lat: 30.3, lon: -97.7 },
+      band: "20m",
+      validTime: new Date("2026-07-16T18:00:00Z"),
+      issueTime,
+      declaredPowerWatts: 5,
+      personalizationEnabled: false,
+      deriveEnvelope: () => null,
+    }).request;
+    const futurecast = build(new Date("2026-07-16T12:00:00Z"));
+    expect(futurecast.issue_time).toBe("2026-07-16T12:00:00.000Z");
+    expect(futurecast.valid_time).toBe("2026-07-16T18:00:00.000Z");
+    const live = build();
+    expect(live.issue_time).toBe(live.valid_time);
+  });
+
   it("summarizes actual fallback and stale-input evidence", () => {
     const grid = buildReachMapGrid();
     const base: PropagationPrediction = {

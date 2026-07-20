@@ -20,6 +20,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useActiveFrequency } from "@/hooks/useActiveBandMode";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // TYPES
@@ -200,8 +201,9 @@ export const NoiseFloorOverlay3D = React.memo(
         vertexShader,
         fragmentShader,
         transparent: true,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         depthWrite: false,
+        depthTest: false,
       });
     }, [noiseTexture]);
 
@@ -226,7 +228,7 @@ export const NoiseFloorOverlay3D = React.memo(
 
     return (
       <group name="noise-floor-overlay">
-        <mesh renderOrder={9}>
+        <mesh renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
           <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
           <primitive object={material} attach="material" ref={materialRef} />
         </mesh>

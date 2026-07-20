@@ -3,7 +3,10 @@ import {
   buildNowCastRequests,
   summarizeNowCastResults,
 } from "./useNowCastBandPredictions";
-import { resolveNowCastCapabilityAccess } from "@/lib/propagation/capabilityAccess";
+import {
+  resolveFutureCastHorizons,
+  resolveNowCastCapabilityAccess,
+} from "@/lib/propagation/capabilityAccess";
 import capabilitiesFixture from "../../ml/fixtures/propagation_capabilities_v1.json";
 import type {
   PropagationCapabilitiesResponse,
@@ -117,6 +120,56 @@ describe("resolveNowCastCapabilityAccess", () => {
       coreNowCast: false,
       stationCast: false,
     });
+  });
+});
+
+describe("resolveFutureCastHorizons", () => {
+  const capabilities = capabilitiesFixture as PropagationCapabilitiesResponse;
+  const withFutureCast = (
+    futurecast: Partial<PropagationCapabilitiesResponse["modes"]["futurecast"]>,
+  ): PropagationCapabilitiesResponse => ({
+    ...capabilities,
+    modes: {
+      ...capabilities.modes,
+      futurecast: { ...capabilities.modes.futurecast, ...futurecast },
+    },
+  });
+
+  it("returns no horizons when futurecast is not activated", () => {
+    expect(resolveFutureCastHorizons(capabilities, "internal")).toEqual([]);
+    expect(resolveFutureCastHorizons(capabilities, "released")).toEqual([]);
+  });
+
+  it("grants every defined horizon in internal mode", () => {
+    expect(resolveFutureCastHorizons(
+      withFutureCast({ internal_available: true }),
+      "internal",
+    )).toEqual([3, 6, 12, 24]);
+  });
+
+  it("limits released mode to the released horizons", () => {
+    expect(resolveFutureCastHorizons(
+      withFutureCast({
+        internal_available: true,
+        released_eligible: true,
+        released_horizons_hours: [3, 6],
+      }),
+      "released",
+    )).toEqual([3, 6]);
+  });
+
+  it("fails closed when the service or model is unavailable", () => {
+    const activated = withFutureCast({ internal_available: true });
+    expect(resolveFutureCastHorizons(activated, "off")).toEqual([]);
+    expect(resolveFutureCastHorizons(undefined, "internal")).toEqual([]);
+    expect(resolveFutureCastHorizons(
+      { ...activated, model_loaded: false },
+      "internal",
+    )).toEqual([]);
+    expect(resolveFutureCastHorizons(
+      { ...activated, runtime_activation_valid: false },
+      "internal",
+    )).toEqual([]);
   });
 });
 

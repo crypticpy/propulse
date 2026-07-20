@@ -18,6 +18,7 @@ import { Billboard, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // TYPES
@@ -130,20 +131,21 @@ export const EarthquakeOverlay3D = React.memo(
               <mesh
                 geometry={circleGeo}
                 scale={[size, size, size]}
-                renderOrder={3}
+                renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
               >
                 <meshBasicMaterial
                   color={color}
                   transparent
                   opacity={0.7}
+                  depthTest={false}
                   depthWrite={false}
-                  side={THREE.DoubleSide}
+                  side={THREE.FrontSide}
                 />
               </mesh>
 
               {/* Glow ring with additive blending + pulse animation */}
               <mesh
-                renderOrder={3}
+                renderOrder={GLOBE_LAYER_ORDER.surfaceArea + 0.1}
                 ref={(el: THREE.Mesh | null) => {
                   glowRefs.current[i] = el;
                   glowBaseScales.current[i] = size * 1.5;
@@ -155,9 +157,10 @@ export const EarthquakeOverlay3D = React.memo(
                   color={color}
                   transparent
                   opacity={0.15}
+                  depthTest={false}
                   depthWrite={false}
                   blending={THREE.AdditiveBlending}
-                  side={THREE.DoubleSide}
+                  side={THREE.FrontSide}
                 />
               </mesh>
 

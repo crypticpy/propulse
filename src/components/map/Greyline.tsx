@@ -19,6 +19,7 @@ import {
   type GreylineIntensity,
   getGreylineVisualParams,
 } from "@/lib/utils/greyline";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 interface GreylineProps {
   /** Current display time */
@@ -149,13 +150,14 @@ export function Greyline({
   });
 
   return (
-    <mesh geometry={geometry}>
+    <mesh geometry={geometry} renderOrder={GLOBE_LAYER_ORDER.nightShade - 0.08}>
       <meshBasicMaterial
         ref={materialRef}
         color={actualColor}
         opacity={actualOpacity}
         transparent
         side={THREE.DoubleSide}
+        depthTest={false}
         depthWrite={false}
       />
     </mesh>

@@ -12,6 +12,7 @@ import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSpotFocus, latLonToPosition3D } from "@/hooks/useSpotFocus";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Plasma orange color for the highlight effect */
 const PLASMA_ORANGE = "#FF6B35";
@@ -58,6 +59,17 @@ export function SpotHighlight({
     const pos = latLonToPosition3D(focusedSpot.dxLat, focusedSpot.dxLon, 1.025);
     return new THREE.Vector3(pos.x, pos.y, pos.z);
   }, [focusedSpot]);
+
+  // Orient the flat rings/halo tangent to the globe surface, front face
+  // outward — without this they sit in the world XY plane and appear
+  // edge-on at most spot positions.
+  const surfaceQuaternion = useMemo(() => {
+    if (!position) return null;
+    return new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1),
+      position.clone().normalize(),
+    );
+  }, [position]);
 
   // Refs for all animated elements — driven by a single useFrame
   const ringRefs = useRef<(THREE.Mesh | null)[]>([null, null, null]);
@@ -119,21 +131,25 @@ export function SpotHighlight({
     }
   });
 
-  if (!isVisible || !position) {
+  if (!isVisible || !position || !surfaceQuaternion) {
     return null;
   }
 
+  // renderOrder sits on each mesh — Three.js does not inherit it from the
+  // parent group. FrontSide on the tangent discs culls the far hemisphere
+  // (depthTest is off); the center sphere protrudes above the surface, so
+  // it keeps depthTest for free far-side occlusion.
   return (
-    <group renderOrder={1}>
+    <group position={position} quaternion={surfaceQuaternion}>
       {/* Outer glow halo */}
-      <mesh ref={haloRef} position={position}>
+      <mesh ref={haloRef} renderOrder={GLOBE_LAYER_ORDER.markers}>
         <circleGeometry args={[RING_BASE_SIZE * 4, 32]} />
         <meshBasicMaterial
           ref={haloMatRef}
           color={color}
           transparent
           opacity={0.15}
-          side={THREE.DoubleSide}
+          side={THREE.FrontSide}
           depthWrite={false}
           depthTest={false}
         />
@@ -146,7 +162,7 @@ export function SpotHighlight({
           ref={(el) => {
             ringRefs.current[index] = el;
           }}
-          position={position}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
         >
           <ringGeometry args={[RING_BASE_SIZE * 0.8, RING_BASE_SIZE, 32]} />
           <meshBasicMaterial
@@ -156,7 +172,7 @@ export function SpotHighlight({
             color={index === 0 ? PLASMA_ORANGE_BRIGHT : color}
             transparent
             opacity={ringOpacities[index]}
-            side={THREE.DoubleSide}
+            side={THREE.FrontSide}
             depthWrite={false}
             depthTest={false}
           />
@@ -164,14 +180,14 @@ export function SpotHighlight({
       ))}
 
       {/* Glowing center point */}
-      <mesh ref={glowPointRef} position={position}>
+      <mesh ref={glowPointRef} renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}>
         <sphereGeometry args={[RING_BASE_SIZE * 0.4, 16, 16]} />
         <meshBasicMaterial
           ref={glowPointMatRef}
           color={PLASMA_ORANGE_BRIGHT}
           transparent
           opacity={0.9}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
         />
       </mesh>

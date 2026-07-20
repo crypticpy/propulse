@@ -143,16 +143,17 @@ export function azimuthalUnproject(
   const phi1 = centerLat * DEG_TO_RAD;
   const lambda0 = centerLon * DEG_TO_RAD;
 
-  // Scale back from unit circle to angular distance
-  const rho = Math.sqrt(x * x + projY * projY) * Math.PI;
+  // Normalized projected radius on the unit disk; the lat/lon formulas below
+  // must use this unscaled value so it cancels against x/projY consistently.
+  const rhoNorm = Math.sqrt(x * x + projY * projY);
 
   // Handle center point
-  if (rho < 0.0001) {
+  if (rhoNorm * Math.PI < 0.0001) {
     return { lat: centerLat, lon: centerLon };
   }
 
   // Clamp to valid range (can't be more than pi radians away)
-  const c = Math.min(rho, Math.PI);
+  const c = Math.min(rhoNorm * Math.PI, Math.PI);
 
   const sinC = Math.sin(c);
   const cosC = Math.cos(c);
@@ -161,7 +162,10 @@ export function azimuthalUnproject(
 
   // Calculate latitude
   const phi = Math.asin(
-    Math.max(-1, Math.min(1, cosC * sinPhi1 + (projY * sinC * cosPhi1) / rho)),
+    Math.max(
+      -1,
+      Math.min(1, cosC * sinPhi1 + (projY * sinC * cosPhi1) / rhoNorm),
+    ),
   );
 
   // Calculate longitude
@@ -175,7 +179,7 @@ export function azimuthalUnproject(
   } else {
     lambda =
       lambda0 +
-      Math.atan2(x * sinC, rho * cosPhi1 * cosC - projY * sinPhi1 * sinC);
+      Math.atan2(x * sinC, rhoNorm * cosPhi1 * cosC - projY * sinPhi1 * sinC);
   }
 
   // Normalize longitude to -180 to 180

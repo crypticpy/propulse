@@ -22,6 +22,7 @@ import {
   latLonToVector3,
   getUpDirection,
 } from "@/components/map/lib/globeCoords";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -161,7 +162,7 @@ function ShowerMarker({
         quaternion={surfaceQuaternion}
         geometry={scatterGeo}
         scale={[scatterScale, scatterScale, 1]}
-        renderOrder={6}
+        renderOrder={GLOBE_LAYER_ORDER.volumes}
       >
         <meshBasicMaterial
           color={color}
@@ -180,7 +181,7 @@ function ShowerMarker({
         quaternion={surfaceQuaternion}
         geometry={starburstGeo}
         scale={[scale, scale, scale]}
-        renderOrder={8}
+        renderOrder={GLOBE_LAYER_ORDER.volumes + 0.2}
       >
         <lineBasicMaterial
           color={color}
@@ -192,7 +193,7 @@ function ShowerMarker({
       </lineSegments>
 
       {/* Central glow sphere */}
-      <mesh position={position} renderOrder={7}>
+      <mesh position={position} renderOrder={GLOBE_LAYER_ORDER.volumes + 0.1}>
         <sphereGeometry args={[0.005 * scale, 12, 12]} />
         <meshBasicMaterial
           color={color}
@@ -212,7 +213,7 @@ function ShowerMarker({
             particleRefs.current[particleBaseIndex + pi] = el;
           }}
           geometry={particleGeo}
-          renderOrder={7}
+          renderOrder={GLOBE_LAYER_ORDER.volumes + 0.1}
         >
           <meshBasicMaterial
             color={color}

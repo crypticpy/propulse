@@ -22,6 +22,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSST } from "@/hooks/useSST";
 import type { SSTDataPoint } from "@/lib/api/sst";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // CONSTANTS
@@ -183,8 +184,9 @@ export const SSTOverlay3D = React.memo(function SSTOverlay3D() {
       vertexShader,
       fragmentShader,
       transparent: true,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       depthWrite: false,
+      depthTest: false,
     });
   }, [sstTexture]);
 
@@ -209,7 +211,7 @@ export const SSTOverlay3D = React.memo(function SSTOverlay3D() {
 
   return (
     <group name="sst-overlay">
-      <mesh renderOrder={5}>
+      <mesh renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
         <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
         <primitive object={material} attach="material" ref={materialRef} />
       </mesh>

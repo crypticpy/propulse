@@ -4,8 +4,9 @@
  * Fetches buffered lightning strikes from the Propulse collector service,
  * which maintains a persistent WebSocket connection to Blitzortung.
  *
- * Requires explicit LIGHTNING_LIVE_SOURCE_ENABLED approval plus COLLECTOR_URL.
- * Until both are present, the endpoint returns a cacheable unavailable state.
+ * COLLECTOR_URL overrides the default Railway collector deployment.
+ * If the collector is unreachable, the endpoint returns a cacheable
+ * unavailable state instead of an error.
  *
  * Cache: 10 seconds with 5 second stale-while-revalidate
  */
@@ -60,20 +61,12 @@ export default async function handler(req: Request) {
     });
   }
 
-  // Lightning remains disabled until an authorized live source is approved.
-  // Keeping this server-side prevents stale clients from contacting a collector.
-  if (process.env.LIGHTNING_LIVE_SOURCE_ENABLED !== "true") {
-    return unavailable("Live lightning source is not enabled.");
-  }
-
   const limited = applyRateLimit(req, "lightning/strikes", 20, 60);
   if (limited) return limited;
 
-  const collectorUrl = process.env.COLLECTOR_URL;
-
-  if (!collectorUrl) {
-    return unavailable("Lightning collector is not configured.");
-  }
+  const collectorUrl =
+    process.env.COLLECTOR_URL ||
+    "https://collector-production-a966.up.railway.app";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);

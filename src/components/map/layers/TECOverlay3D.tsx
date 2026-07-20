@@ -21,6 +21,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useTEC } from "@/hooks/useTEC";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
 // CONSTANTS
@@ -192,8 +193,9 @@ export const TECOverlay3D = React.memo(function TECOverlay3D() {
       vertexShader,
       fragmentShader,
       transparent: true,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       depthWrite: false,
+      depthTest: false,
     });
   }, [tecTexture]);
 
@@ -223,7 +225,7 @@ export const TECOverlay3D = React.memo(function TECOverlay3D() {
 
   return (
     <group name="tec-overlay">
-      <mesh renderOrder={6}>
+      <mesh renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
         <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
         <primitive object={material} attach="material" ref={materialRef} />
       </mesh>

@@ -566,6 +566,20 @@ export function LayersPopover() {
             getValue: () => layers.satelliteFootprints,
             onToggle: () => toggleLayer("satelliteFootprints"),
           },
+          {
+            key: "aprs",
+            label: "APRS Stations",
+            title: "Live APRS station positions from aprs.fi",
+            getValue: () => layers.aprs,
+            onToggle: () => toggleLayer("aprs"),
+          },
+          {
+            key: "repeaters",
+            label: "Repeaters",
+            title: "Nearby repeater sites from RepeaterBook",
+            getValue: () => layers.repeaters,
+            onToggle: () => toggleLayer("repeaters"),
+          },
         ],
       },
       {
@@ -631,6 +645,20 @@ export function LayersPopover() {
             getValue: () => layers.radar,
             onToggle: () => toggleLayer("radar"),
           },
+          {
+            key: "tropical",
+            label: "Tropical Cyclones",
+            title: "Active tropical cyclone tracks and forecast cones",
+            getValue: () => layers.tropical,
+            onToggle: () => toggleLayer("tropical"),
+          },
+          {
+            key: "riverGauges",
+            label: "River Gauges",
+            title: "USGS river gauges at flood stage",
+            getValue: () => layers.riverGauges,
+            onToggle: () => toggleLayer("riverGauges"),
+          },
         ],
       },
       {
@@ -652,6 +680,14 @@ export function LayersPopover() {
               "Total Electron Content heatmap \u2014 higher TEC improves HF propagation on higher bands",
             getValue: () => layers.tec,
             onToggle: () => toggleLayer("tec"),
+          },
+          {
+            key: "sst",
+            label: "Sea Surface Temp",
+            title:
+              "Sea surface temperature \u2014 warm water fuels marine ducting",
+            getValue: () => layers.sst,
+            onToggle: () => toggleLayer("sst"),
           },
         ],
       },

@@ -69,6 +69,7 @@ const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([
 ]);
 
 const FLAT_UNSUPPORTED_LAYER_KEYS = [
+  "aprs",
   "beacons",
   "drap",
   "ducting",
@@ -82,11 +83,14 @@ const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "nvis",
   "radar",
   "rayPath",
+  "repeaters",
+  "riverGauges",
   "satelliteFootprints",
   "spectrumRing",
   "sporadicE",
   "sst",
   "tec",
+  "tropical",
 ] as const satisfies readonly PropSphereLayerKey[];
 const FLAT_UNSUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
   FLAT_UNSUPPORTED_LAYER_KEYS,
@@ -106,21 +110,6 @@ const AZIMUTHAL_SUPPORTED_LAYER_KEYS = [
 const AZIMUTHAL_SUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
   AZIMUTHAL_SUPPORTED_LAYER_KEYS,
 );
-
-export const WSPR_LIVE_SOURCE_ENABLED =
-  import.meta.env.VITE_WSPR_LIVE_ENABLED === "true";
-
-export const LIGHTNING_LIVE_SOURCE_ENABLED =
-  import.meta.env.VITE_LIGHTNING_LIVE_ENABLED === "true";
-
-export const TEC_LIVE_SOURCE_ENABLED =
-  import.meta.env.VITE_TEC_LIVE_ENABLED === "true";
-
-export const REPEATERBOOK_LIVE_SOURCE_ENABLED =
-  import.meta.env.VITE_REPEATERBOOK_LIVE_ENABLED === "true";
-
-export const APRS_LIVE_SOURCE_ENABLED =
-  import.meta.env.VITE_APRS_LIVE_ENABLED === "true";
 
 export const EXCLUSIVE_SURFACE_LAYERS = [
   "radar",
@@ -176,41 +165,6 @@ export function getLayerAvailability(
     !PROP_SPHERE_DISPLAY_CONTROL_KEYS.has(layerKey)
   ) {
     return { available: false, reason: "Unknown layer control" };
-  }
-
-  if (layerKey === "wspr" && !WSPR_LIVE_SOURCE_ENABLED) {
-    return {
-      available: false,
-      reason: "Live WSPR access is pending source permission",
-    };
-  }
-
-  if (layerKey === "lightning" && !LIGHTNING_LIVE_SOURCE_ENABLED) {
-    return {
-      available: false,
-      reason: "Live lightning access is pending an authorized source",
-    };
-  }
-
-  if (layerKey === "tec" && !TEC_LIVE_SOURCE_ENABLED) {
-    return {
-      available: false,
-      reason: "NOAA's experimental TEC feed is currently unavailable",
-    };
-  }
-
-  if (layerKey === "repeaters" && !REPEATERBOOK_LIVE_SOURCE_ENABLED) {
-    return {
-      available: false,
-      reason: "RepeaterBook access is pending provider approval",
-    };
-  }
-
-  if (layerKey === "aprs" && !APRS_LIVE_SOURCE_ENABLED) {
-    return {
-      available: false,
-      reason: "APRS.fi access is not configured",
-    };
   }
 
   if (

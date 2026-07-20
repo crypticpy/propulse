@@ -29,6 +29,12 @@ export interface Ft8DecodeLayerFlatProps {
   showLabels?: boolean;
   /** Maximum age in ms before markers fully fade (default 5 minutes) */
   ageMaxMs?: number;
+  /** Map pan offset X in pixels, from FlatMapView's zoom state (default 0) */
+  offsetX?: number;
+  /** Map pan offset Y in pixels, from FlatMapView's zoom state (default 0) */
+  offsetY?: number;
+  /** Map zoom scale factor, from FlatMapView's zoom state (default 1) */
+  scale?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,11 +70,21 @@ export function Ft8DecodeLayerFlat(props: Ft8DecodeLayerFlatProps) {
     ) {
       canvas.width = logicalWidth * dpr;
       canvas.height = logicalHeight * dpr;
-      ctx.scale(dpr, dpr);
     }
 
-    ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Apply the same pan/zoom transform as the main map canvas so markers
+    // and arcs track the base map instead of staying pinned in place (see
+    // contestOverlayCanvasRef in FlatMapView.tsx for the reference pattern).
+    ctx.translate(props.offsetX ?? 0, props.offsetY ?? 0);
+    ctx.scale(props.scale ?? 1, props.scale ?? 1);
+
     drawFt8DecodeLayerFlat(ctx, props);
+
+    ctx.restore();
 
     rafRef.current = requestAnimationFrame(draw);
   }, [props]);

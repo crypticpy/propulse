@@ -48,6 +48,7 @@ import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useReplayStore } from "@/stores/replayStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -535,6 +536,9 @@ const SpotArc = React.memo(function SpotArc({
       lineWidth={lineWidth}
       opacity={opacity}
       transparent
+      renderOrder={GLOBE_LAYER_ORDER.arcs}
+      depthTest={false}
+      depthWrite={false}
     />
   );
 });
@@ -563,10 +567,17 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
 
-  // Shared geometry and material — allocated once
+  // Shared geometry and material — allocated once. depthTest stays on:
+  // the endpoint spheres protrude above the surface, so the depth buffer
+  // (opaque globe only) culls the far side for free.
   const geometry = useMemo(() => new THREE.SphereGeometry(1, 8, 8), []);
   const material = useMemo(
-    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.7 }),
+    () =>
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0.7,
+        depthWrite: false,
+      }),
     [],
   );
 
@@ -641,6 +652,7 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
       args={[geometry, material, MAX_ENDPOINT_INSTANCES]}
       frustumCulled={false}
       count={0}
+      renderOrder={GLOBE_LAYER_ORDER.markers}
     />
   );
 });

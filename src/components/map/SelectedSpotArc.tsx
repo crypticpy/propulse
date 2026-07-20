@@ -18,6 +18,7 @@ import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
 } from "@/lib/data/prefixLocations";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Plasma orange for the selected arc */
 const PLASMA_ORANGE = "#FF6B35";
@@ -223,6 +224,7 @@ export function SelectedSpotArc() {
       const mat = glowLineRef.current.material;
       mat.blending = THREE.AdditiveBlending;
       mat.depthWrite = false;
+      mat.depthTest = false;
       mat.needsUpdate = true;
     }
   });
@@ -232,6 +234,7 @@ export function SelectedSpotArc() {
     if (mainLineRef.current?.material) {
       const mat = mainLineRef.current.material;
       mat.depthWrite = false;
+      mat.depthTest = false;
       mat.needsUpdate = true;
     }
   });
@@ -259,6 +262,7 @@ export function SelectedSpotArc() {
         lineWidth={6}
         transparent
         opacity={0.15}
+        renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
       />
 
       {/* Main arc line — plasma orange with breathing animation */}
@@ -269,30 +273,36 @@ export function SelectedSpotArc() {
         lineWidth={3}
         transparent
         opacity={0.9}
+        renderOrder={GLOBE_LAYER_ORDER.arcs}
       />
 
       {/* Spotter endpoint sphere */}
       {spotterPos && (
-        <mesh position={spotterPos}>
+        <mesh position={spotterPos} renderOrder={GLOBE_LAYER_ORDER.markers}>
           <sphereGeometry args={[0.008, 12, 12]} />
           <meshBasicMaterial
             color={PLASMA_ORANGE}
             transparent
             opacity={0.9}
             depthWrite={false}
+            depthTest={false}
           />
         </mesh>
       )}
 
       {/* Spotter glow sphere */}
       {spotterGlowPos && (
-        <mesh position={spotterGlowPos}>
+        <mesh
+          position={spotterGlowPos}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+        >
           <sphereGeometry args={[0.013, 10, 10]} />
           <meshBasicMaterial
             color={PLASMA_ORANGE}
             transparent
             opacity={0.12}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -300,26 +310,34 @@ export function SelectedSpotArc() {
 
       {/* DX endpoint sphere (slightly larger) */}
       {dxPos && (
-        <mesh position={dxPos}>
+        <mesh
+          position={dxPos}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.2}
+        >
           <sphereGeometry args={[0.01, 12, 12]} />
           <meshBasicMaterial
             color={PLASMA_ORANGE}
             transparent
             opacity={0.9}
             depthWrite={false}
+            depthTest={false}
           />
         </mesh>
       )}
 
       {/* DX glow sphere */}
       {dxGlowPos && (
-        <mesh position={dxGlowPos}>
+        <mesh
+          position={dxGlowPos}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.3}
+        >
           <sphereGeometry args={[0.016, 10, 10]} />
           <meshBasicMaterial
             color={PLASMA_ORANGE}
             transparent
             opacity={0.12}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

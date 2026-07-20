@@ -506,8 +506,9 @@ function qrzDevProxy(): Plugin {
 
 // ─── Layer dev proxy plugin ────────────────────────────────────────────────
 // Handles API endpoints that only run on Vercel in production:
-// - Sporadic E, Ducting, WSPR: computed models (pure math, no external deps)
-// - Lightning: fetches from collector service (COLLECTOR_URL env var)
+// - Sporadic E, Ducting: computed models (pure math, no external deps)
+// - WSPR: proxies the public wspr.live ClickHouse API
+// - Lightning: fetches from collector service (COLLECTOR_URL overrides default)
 // - Fires: proxies to NASA FIRMS (FIRMS_MAP_KEY env var)
 
 function layerDevProxy(): Plugin {
@@ -699,24 +700,130 @@ function layerDevProxy(): Plugin {
         );
       });
 
-      // WSPR observations are never synthesized in development. Without an
-      // API runtime, the layer shows its existing unavailable/error state.
+      // ── WSPR: proxy live wspr.live observations (real data, no synthesis) ──
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/wspr/spots")) return next();
+
+        const WSPR_BAND_CODES: Record<string, number> = {
+          "160m": 1,
+          "80m": 3,
+          "60m": 5,
+          "40m": 7,
+          "30m": 10,
+          "20m": 14,
+          "17m": 18,
+          "15m": 21,
+          "12m": 24,
+          "10m": 28,
+          "6m": 50,
+        };
+        const url = new URL(req.url, "http://localhost");
+        const requestedBand = url.searchParams.get("band") ?? "all";
+        const bandCode = WSPR_BAND_CODES[requestedBand];
+        if (requestedBand !== "all" && bandCode == null) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: "Unsupported WSPR band",
+              source: "wspr.live",
+              spots: [],
+            }),
+          );
+          return;
+        }
+
+        try {
+          const bandPredicate = bandCode == null ? "" : ` AND band = ${bandCode}`;
+          const query =
+            "SELECT tx_sign, tx_lat, tx_lon, tx_loc, " +
+            "rx_sign, rx_lat, rx_lon, rx_loc, band, frequency, snr, power, " +
+            "drift, distance, time FROM wspr.rx " +
+            `WHERE time > subtractMinutes(now(), 30)${bandPredicate} ` +
+            "ORDER BY time DESC LIMIT 300 FORMAT JSONEachRow";
+          const wRes = await fetch(
+            `https://db1.wspr.live/?query=${encodeURIComponent(query)}`,
+            {
+              headers: {
+                Accept: "application/json",
+                "User-Agent": "Propulse/1.0 (Dev Proxy)",
+              },
+            },
+          );
+          if (!wRes.ok) {
+            res.writeHead(502, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                error: "Live WSPR source unavailable",
+                source: "wspr.live",
+                live: false,
+                spots: [],
+              }),
+            );
+            return;
+          }
+          const text = await wRes.text();
+          const spots = text
+            .split("\n")
+            .filter((line) => line.trim().length > 0)
+            .flatMap((line) => {
+              try {
+                const row = JSON.parse(line);
+                return [
+                  {
+                    txCallsign: row.tx_sign,
+                    txGrid: row.tx_loc,
+                    txLat: row.tx_lat,
+                    txLon: row.tx_lon,
+                    rxCallsign: row.rx_sign,
+                    rxGrid: row.rx_loc,
+                    rxLat: row.rx_lat,
+                    rxLon: row.rx_lon,
+                    band: row.band,
+                    frequency: row.frequency,
+                    snr: row.snr,
+                    power: row.power,
+                    drift: row.drift,
+                    distance: row.distance,
+                    time: row.time,
+                  },
+                ];
+              } catch {
+                return [];
+              }
+            });
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              source: "wspr.live",
+              live: true,
+              band: requestedBand,
+              count: spots.length,
+              fetchedAt: new Date().toISOString(),
+              spots,
+            }),
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          res.writeHead(502, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: `WSPR fetch failed: ${msg}`,
+              source: "wspr.live",
+              live: false,
+              spots: [],
+            }),
+          );
+        }
+      });
 
       // ── Lightning: fetch from collector service ────────────────────
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith("/api/lightning/strikes")) return next();
 
-        const collectorUrl = process.env.COLLECTOR_URL;
-        if (!collectorUrl) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              strikes: [],
-              note: "COLLECTOR_URL not set in .env — lightning data unavailable in dev. Set it to your Railway collector URL.",
-            }),
-          );
-          return;
-        }
+        const collectorUrl =
+          process.env.COLLECTOR_URL ||
+          "https://collector-production-a966.up.railway.app";
 
         try {
           const controller = new AbortController();
@@ -818,7 +925,7 @@ function layerDevProxy(): Plugin {
             confidence: string;
             frp: number;
           }[] = [];
-          for (let i = 1; i < lines.length && hotspots.length < 5000; i++) {
+          for (let i = 1; i < lines.length; i++) {
             const cols = lines[i].split(",");
             const lat = parseFloat(cols[latIdx]);
             const lon = parseFloat(cols[lonIdx]);
@@ -832,11 +939,94 @@ function layerDevProxy(): Plugin {
               frp: frpIdx !== -1 ? parseFloat(cols[frpIdx]) || 0 : 0,
             });
           }
+          // The world CSV is grouped by satellite orbit, so a first-N cap
+          // drops whole continents (NA was absent). Keep top fires by FRP.
+          if (hotspots.length > 5000) {
+            hotspots.sort((a, b) => b.frp - a.frp);
+            hotspots.length = 5000;
+          }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ hotspots }));
         } catch {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ hotspots: [] }));
+        }
+      });
+
+      // ── TEC: NOAA SWPC GloTEC index -> latest grid (two-hop fetch) ──
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/atmos/tec")) return next();
+
+        const empty = () => {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ grid: [], timestamp: null, available: false }));
+        };
+
+        try {
+          const indexRes = await fetch(
+            "https://services.swpc.noaa.gov/products/glotec/geojson_2d_urt.json",
+            {
+              headers: {
+                Accept: "application/json",
+                "User-Agent": "Propulse/1.0 (Dev Proxy)",
+              },
+            },
+          );
+          if (!indexRes.ok) return empty();
+
+          const index = (await indexRes.json()) as
+            | { url?: string; time_tag?: string }[]
+            | undefined;
+          const latest = Array.isArray(index)
+            ? index[index.length - 1]
+            : undefined;
+          if (!latest?.url) return empty();
+
+          const gridUrl = latest.url.startsWith("http")
+            ? latest.url
+            : `https://services.swpc.noaa.gov${latest.url}`;
+
+          const gridRes = await fetch(gridUrl, {
+            headers: {
+              Accept: "application/geo+json, application/json",
+              "User-Agent": "Propulse/1.0 (Dev Proxy)",
+            },
+          });
+          if (!gridRes.ok) return empty();
+
+          const geojson = await gridRes.json();
+          const features = Array.isArray(geojson?.features)
+            ? geojson.features
+            : [];
+          const grid: { lat: number; lon: number; tec: number }[] = [];
+          for (const feature of features) {
+            const coords = feature?.geometry?.coordinates;
+            const tec = feature?.properties?.tec;
+            if (
+              Array.isArray(coords) &&
+              coords.length >= 2 &&
+              typeof tec === "number" &&
+              Number.isFinite(tec)
+            ) {
+              grid.push({ lon: coords[0], lat: coords[1], tec });
+            }
+          }
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              grid,
+              timestamp:
+                typeof geojson?.time_tag === "string"
+                  ? geojson.time_tag
+                  : null,
+              available: grid.length > 0,
+            }),
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          console.error(`[dev-proxy] TEC fetch failed: ${msg}`);
+          empty();
         }
       });
     },
@@ -1113,6 +1303,18 @@ export default defineConfig(({ mode }) => {
             }
           },
         },
+        // NWS weather alerts proxy (dev only) - mirrors Vercel `/api/weather/alerts`
+        // api.weather.gov drops direct browser connections intermittently and
+        // wants an identifying User-Agent, which browser fetch cannot set.
+        "/api/weather/alerts": {
+          target: "https://api.weather.gov",
+          changeOrigin: true,
+          headers: {
+            Accept: "application/geo+json",
+            "User-Agent": "(Propulse, contact@propulse.app)",
+          },
+          rewrite: () => "/alerts/active?status=actual&message_type=alert",
+        },
         // Satellite TLE proxy (dev only) - mirrors Vercel `/api/satellites/tle`
         // Uses AMSAT as primary (reliable) with Celestrak as rewrite target backup
         "/api/satellites/tle": {
@@ -1141,14 +1343,20 @@ export default defineConfig(({ mode }) => {
           },
         },
         // AtmosPulse data proxies (dev only)
-        "/api/atmos/tec": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/experimental/products/tec/tecmap-latest.json",
-        },
+        // TEC has a two-step (index -> latest grid) fetch and is handled by
+        // the `layerDevProxy` middleware below instead of a single-hop proxy.
         "/api/atmos/repeaters": {
           target: "https://www.repeaterbook.com",
           changeOrigin: true,
+          // RepeaterBook requires approved-client token auth (March 2026).
+          // Without REPEATERBOOK_APP_TOKEN upstream 401s and the client
+          // falls back to an empty repeater list.
+          headers: {
+            "User-Agent": "Propulse/1.0 (Ham Radio Dashboard)",
+            ...(process.env.REPEATERBOOK_APP_TOKEN
+              ? { "X-RB-App-Token": process.env.REPEATERBOOK_APP_TOKEN }
+              : {}),
+          },
           rewrite: (pathStr: string) => {
             try {
               const url = new URL(`http://local${pathStr}`);

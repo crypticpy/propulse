@@ -26,6 +26,7 @@ import React, {
 import { useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 
 // =============================================================================
@@ -384,10 +385,11 @@ const BurstTraceAnimation = React.memo(
           transparent
           depthWrite={false}
           depthTest={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
 
         {/* Head -- inner solid sphere */}
-        <mesh ref={headRef} visible={false}>
+        <mesh ref={headRef} visible={false} renderOrder={GLOBE_LAYER_ORDER.arcs}>
           <sphereGeometry args={[HEAD_RADIUS, 8, 8]} />
           <meshBasicMaterial
             color={color}
@@ -397,7 +399,11 @@ const BurstTraceAnimation = React.memo(
         </mesh>
 
         {/* Head -- outer glow sphere with additive blending */}
-        <mesh ref={headGlowRef} visible={false}>
+        <mesh
+          ref={headGlowRef}
+          visible={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
+        >
           <sphereGeometry args={[HEAD_GLOW_RADIUS, 8, 8]} />
           <meshBasicMaterial
             color={color}
@@ -410,7 +416,11 @@ const BurstTraceAnimation = React.memo(
         </mesh>
 
         {/* Landing ring -- inner */}
-        <mesh ref={innerRingRef} visible={false}>
+        <mesh
+          ref={innerRingRef}
+          visible={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
+        >
           <ringGeometry args={[0.0008, 0.001, 32]} />
           <meshBasicMaterial
             ref={innerRingMatRef}
@@ -425,7 +435,11 @@ const BurstTraceAnimation = React.memo(
         </mesh>
 
         {/* Landing ring -- outer */}
-        <mesh ref={outerRingRef} visible={false}>
+        <mesh
+          ref={outerRingRef}
+          visible={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
+        >
           <ringGeometry args={[0.0008, 0.001, 32]} />
           <meshBasicMaterial
             ref={outerRingMatRef}

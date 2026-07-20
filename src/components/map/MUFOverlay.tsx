@@ -31,6 +31,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 interface MUFOverlayProps {
   /** Current display time */
@@ -334,6 +335,7 @@ export function MUFOverlay({
       transparent: true,
       side: THREE.FrontSide,
       depthWrite: false,
+      depthTest: false,
     });
   }
 
@@ -366,7 +368,7 @@ export function MUFOverlay({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <mesh>
+    <mesh renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
       <primitive object={geometry} attach="geometry" />
       <primitive object={materialRef.current} attach="material" />
     </mesh>

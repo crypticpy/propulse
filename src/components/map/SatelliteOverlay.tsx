@@ -24,6 +24,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
 import { calculateGroundTrack } from "@/lib/api/satellites";
 import { getTransponder } from "@/lib/data/satelliteTransponders";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import {
   CATEGORY_META,
   formatFreqMHz,
@@ -406,7 +407,7 @@ function SatelliteMarker({
   return (
     <group position={position}>
       {/* Glow circle behind marker */}
-      <mesh rotation={diamondRotation} renderOrder={0}>
+      <mesh rotation={diamondRotation} renderOrder={GLOBE_LAYER_ORDER.markers}>
         <planeGeometry args={[MARKER_SIZE * 3, MARKER_SIZE * 3]} />
         <meshBasicMaterial
           ref={glowMaterialRef}
@@ -425,7 +426,7 @@ function SatelliteMarker({
         rotation={diamondRotation}
         scale={[markerScale, markerScale, markerScale]}
         onClick={handleClick}
-        renderOrder={1}
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
       >
         <boxGeometry args={[MARKER_SIZE, MARKER_SIZE, MARKER_SIZE * 0.3]} />
         <meshBasicMaterial
@@ -434,12 +435,13 @@ function SatelliteMarker({
           transparent
           opacity={0.85}
           depthTest={false}
+          depthWrite={false}
         />
       </mesh>
 
       {/* Selection ring */}
       {isSelected && (
-        <mesh renderOrder={0}>
+        <mesh renderOrder={GLOBE_LAYER_ORDER.markers}>
           <ringGeometry args={[MARKER_SIZE * 1.8, MARKER_SIZE * 2.2, 32]} />
           <meshBasicMaterial
             color={color}
@@ -546,6 +548,8 @@ function GroundTrack({ satellite }: GroundTrackProps) {
           transparent
           opacity={0.4}
           depthTest={false}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
       ))}
     </>

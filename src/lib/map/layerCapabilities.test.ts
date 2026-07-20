@@ -14,6 +14,11 @@ describe("PropSphere renderer capability matrix", () => {
     expect(getLayerAvailability("spectrumRing", "azimuthal").available).toBe(
       false,
     );
+    // These four have globe implementations only — FlatMapView has no
+    // hooks or draw code for them, so claiming flat support was a lie.
+    for (const key of ["repeaters", "riverGauges", "aprs", "tropical"]) {
+      expect(getLayerAvailability(key, "flat").available).toBe(false);
+    }
   });
 
   it("allows layers implemented by the selected renderer", () => {
@@ -35,15 +40,10 @@ describe("PropSphere renderer capability matrix", () => {
     });
   });
 
-  it("disables provider-backed layers until approved access is configured", () => {
-    expect(getLayerAvailability("repeaters", "globe")).toEqual({
-      available: false,
-      reason: "RepeaterBook access is pending provider approval",
-    });
-    expect(getLayerAvailability("aprs", "globe")).toEqual({
-      available: false,
-      reason: "APRS.fi access is not configured",
-    });
+  it("keeps live-source layers enabled without env flags", () => {
+    for (const key of ["repeaters", "aprs", "wspr", "lightning", "tec"]) {
+      expect(getLayerAvailability(key, "globe")).toEqual({ available: true });
+    }
   });
 
   it("keeps only one full-globe surface data overlay active", () => {

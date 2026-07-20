@@ -839,6 +839,82 @@ function layerDevProxy(): Plugin {
           res.end(JSON.stringify({ hotspots: [] }));
         }
       });
+
+      // ── TEC: NOAA SWPC GloTEC index -> latest grid (two-hop fetch) ──
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/atmos/tec")) return next();
+
+        const empty = () => {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ grid: [], timestamp: null, available: false }));
+        };
+
+        try {
+          const indexRes = await fetch(
+            "https://services.swpc.noaa.gov/products/glotec/geojson_2d_urt.json",
+            {
+              headers: {
+                Accept: "application/json",
+                "User-Agent": "Propulse/1.0 (Dev Proxy)",
+              },
+            },
+          );
+          if (!indexRes.ok) return empty();
+
+          const index = (await indexRes.json()) as
+            | { url?: string; time_tag?: string }[]
+            | undefined;
+          const latest = Array.isArray(index)
+            ? index[index.length - 1]
+            : undefined;
+          if (!latest?.url) return empty();
+
+          const gridUrl = latest.url.startsWith("http")
+            ? latest.url
+            : `https://services.swpc.noaa.gov${latest.url}`;
+
+          const gridRes = await fetch(gridUrl, {
+            headers: {
+              Accept: "application/geo+json, application/json",
+              "User-Agent": "Propulse/1.0 (Dev Proxy)",
+            },
+          });
+          if (!gridRes.ok) return empty();
+
+          const geojson = await gridRes.json();
+          const features = Array.isArray(geojson?.features)
+            ? geojson.features
+            : [];
+          const grid: { lat: number; lon: number; tec: number }[] = [];
+          for (const feature of features) {
+            const coords = feature?.geometry?.coordinates;
+            const tec = feature?.properties?.tec;
+            if (
+              Array.isArray(coords) &&
+              coords.length >= 2 &&
+              typeof tec === "number"
+            ) {
+              grid.push({ lon: coords[0], lat: coords[1], tec });
+            }
+          }
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              grid,
+              timestamp:
+                typeof geojson?.time_tag === "string"
+                  ? geojson.time_tag
+                  : null,
+              available: grid.length > 0,
+            }),
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          console.error(`[dev-proxy] TEC fetch failed: ${msg}`);
+          empty();
+        }
+      });
     },
   };
 }
@@ -1141,11 +1217,8 @@ export default defineConfig(({ mode }) => {
           },
         },
         // AtmosPulse data proxies (dev only)
-        "/api/atmos/tec": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/experimental/products/tec/tecmap-latest.json",
-        },
+        // TEC has a two-step (index -> latest grid) fetch and is handled by
+        // the `layerDevProxy` middleware below instead of a single-hop proxy.
         "/api/atmos/repeaters": {
           target: "https://www.repeaterbook.com",
           changeOrigin: true,

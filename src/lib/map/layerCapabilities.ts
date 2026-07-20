@@ -199,7 +199,7 @@ export function getLayerAvailability(
   if (layerKey === "tec" && !TEC_LIVE_SOURCE_ENABLED) {
     return {
       available: false,
-      reason: "NOAA's experimental TEC feed is currently unavailable",
+      reason: "TEC display is disabled in this build (VITE_TEC_LIVE_ENABLED)",
     };
   }
 

@@ -62,13 +62,17 @@ const T0_KELVIN = 290;
 /**
  * Man-made noise coefficients from ITU-R P.372-16 Table 1.
  * Formula: Fm = c - d * log10(f_MHz)
+ *
+ * P.372 defines four environment categories (city/business, residential,
+ * rural, quiet rural); "city" and "business" map to the same canonical
+ * category. Values match noiseModel.ts.
  */
 const MAN_MADE_COEFFICIENTS: Record<UrbanLevel, { c: number; d: number }> = {
   city: { c: 76.8, d: 27.7 },
-  business: { c: 72.5, d: 27.7 },
-  residential: { c: 67.2, d: 27.7 },
-  rural: { c: 53.6, d: 28.6 },
-  quiet_rural: { c: 44.2, d: 29.4 },
+  business: { c: 76.8, d: 27.7 },
+  residential: { c: 72.5, d: 27.7 },
+  rural: { c: 67.2, d: 27.7 },
+  quiet_rural: { c: 53.6, d: 28.6 },
 };
 
 /**

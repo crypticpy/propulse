@@ -780,10 +780,10 @@ export function PropagationForecastMini({
                 </span>
               )}
               {estimatedMuf !== null && (
-                <span>
-                  <span className="text-gray-400">MUF</span>{" "}
+                <span title="Global estimate from SFI/Kp -- not the path-specific MUF (see Path Analysis)">
+                  <span className="text-gray-400">EST MUF</span>{" "}
                   <span className="text-cyan-400">
-                    {estimatedMuf.toFixed(1)}
+                    ≈{Math.round(estimatedMuf)}
                   </span>
                 </span>
               )}

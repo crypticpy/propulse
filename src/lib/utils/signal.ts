@@ -831,18 +831,20 @@ export function estimateHops(
   distanceKm: number,
   layerHeight: number = 300,
 ): number {
-  // Average skip distance varies with layer height
-  // Geometry: hop ≈ 2 × √(2 × R × h) for small angles
-  // For F2 at 300km: hop ≈ 2500km, scales with √height
+  // Maximum single-hop ground distance (radio-horizon geometry):
+  // hop_max ≈ 2 × √(2 × R × h) for small angles.
+  // For F2 at 300 km this gives ≈ 3900 km; scales with √height.
   const R = 6371; // Earth radius in km
-  const avgHopDistance = 2 * Math.sqrt(2 * R * layerHeight);
+  const maxHopDistance = 2 * Math.sqrt(2 * R * layerHeight);
 
   if (distanceKm <= 0) {
     return 1;
   }
 
-  // Calculate hops, minimum 1
-  const hops = Math.ceil(distanceKm / avgHopDistance);
+  // Dividing by the maximum hop length gives the minimum hop count — the
+  // standard assumption, since the fewest-hop mode suffers the least loss
+  // and usually dominates the received signal.
+  const hops = Math.ceil(distanceKm / maxHopDistance);
   return Math.max(1, Math.min(hops, 10)); // Cap at 10 hops
 }
 

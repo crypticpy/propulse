@@ -45,7 +45,14 @@ export interface PropagationClassifierInput {
 
 export interface PropagationModeResult {
   primaryMode: PropagationMode;
+  /**
+   * Raw heuristic score (0-100) for the winning mode. This is a hand-tuned
+   * ranking figure, not a calibrated probability -- prefer `confidenceLabel`
+   * for display and keep this field for sorting/comparison only.
+   */
   confidence: number;
+  /** Qualitative match strength derived from `confidence`. */
+  confidenceLabel: "Low match" | "Moderate match" | "High match";
   description: string;
   characteristics: string[];
   operationalAdvice: string;
@@ -66,6 +73,14 @@ interface ModeMetadata {
   characteristics: string[];
   operationalAdvice: string;
   color: string;
+}
+
+function confidenceLabelFor(
+  probability: number,
+): PropagationModeResult["confidenceLabel"] {
+  if (probability >= 70) return "High match";
+  if (probability >= 40) return "Moderate match";
+  return "Low match";
 }
 
 const MODE_METADATA: Record<PropagationMode, ModeMetadata> = {
@@ -419,22 +434,24 @@ function scoreGrayLine(input: PropagationClassifierInput): ModeProbability {
 function scoreLongPath(input: PropagationClassifierInput): ModeProbability {
   const { distanceKm, frequencyMHz, sfi, isDaytime } = input;
 
-  if (distanceKm <= 20000) {
-    if (distanceKm > 15000)
-      return {
-        mode: "long_path",
-        probability: 10,
-        reason: `Distance ${Math.round(distanceKm)} km is long but below the long-path threshold`,
-      };
+  // Long path travels the *other* way around the great circle, so its length
+  // is (circumference - shortPath). The great-circle short-path maximum is
+  // ~20,037 km (antipodal), which means long path only becomes a realistic
+  // alternative as the short path approaches antipodal. Below ~15,000 km
+  // short-path the long path (>~25,000 km) is simply too long to compete.
+  if (distanceKm < 15000) {
     return {
       mode: "long_path",
       probability: 0,
-      reason: `Distance ${Math.round(distanceKm)} km -- short path is much shorter`,
+      reason: `Short-path distance ${Math.round(distanceKm)} km -- far from antipodal, long path not competitive`,
     };
   }
 
   const longPathDist = EARTH_CIRCUMFERENCE_KM - distanceKm;
-  let prob = 60;
+  // Antipodal proximity 0..1: 0 at 15,000 km short-path, 1 near antipode.
+  const antipodalProximity = clamp((distanceKm - 15000) / 5000, 0, 1);
+
+  let prob = 20 + antipodalProximity * 45;
   if (sfi >= 120) prob += 10;
   else if (sfi < 80) prob -= 15;
   if (frequencyMHz >= 14 && frequencyMHz <= 21) prob += 10;
@@ -442,8 +459,8 @@ function scoreLongPath(input: PropagationClassifierInput): ModeProbability {
 
   return {
     mode: "long_path",
-    probability: clamp(prob, 10, 90),
-    reason: `Short-path distance ${Math.round(distanceKm)} km suggests long-path (~${Math.round(longPathDist)} km) propagation`,
+    probability: clamp(prob, 5, 90),
+    reason: `Near-antipodal path (${Math.round(distanceKm)} km short-path): long-path propagation viable (~${Math.round(longPathDist)} km the long way around)`,
   };
 }
 
@@ -521,6 +538,7 @@ export function classifyPropagationMode(
     return {
       primaryMode: "unknown",
       confidence: 0,
+      confidenceLabel: confidenceLabelFor(0),
       description: meta.description,
       characteristics: meta.characteristics,
       operationalAdvice: meta.operationalAdvice,
@@ -531,6 +549,7 @@ export function classifyPropagationMode(
   return {
     primaryMode: best.mode,
     confidence: best.probability,
+    confidenceLabel: confidenceLabelFor(best.probability),
     description: meta.description,
     characteristics: meta.characteristics,
     operationalAdvice: meta.operationalAdvice,

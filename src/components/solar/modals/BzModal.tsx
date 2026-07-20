@@ -608,8 +608,9 @@ export const BzModal: React.FC<BzModalProps> = ({
             <p>
               <strong className="text-white">Timing:</strong> Solar wind
               measured at the L1 Lagrange point (where DSCOVR/ACE satellites
-              orbit) is about 15-60 minutes ahead of reaching Earth, depending
-              on solar wind speed. Bz can serve as an early warning for
+              orbit) is about 30-60 minutes ahead of reaching Earth (up to
+              ~80 minutes in slow solar wind), depending on solar wind speed.
+              Bz can serve as an early warning for
               geomagnetic activity.
             </p>
           </div>

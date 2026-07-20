@@ -56,25 +56,19 @@ export function getRadioImpact(
           };
 
     case "RADIO_BLACKOUT":
+      // D-layer absorption ~1/f^2 raises the LUF and closes the LOWEST dayside
+      // bands first; the highest bands penetrate, night-side paths are spared.
       return priority === "CRITICAL"
         ? {
-            affectedBands: [
-              "10m",
-              "12m",
-              "15m",
-              "17m",
-              "20m",
-              "30m",
-              "40m",
-              "60m",
-              "80m",
-            ],
-            recommendation: "All HF degraded. Wait for conditions to recover.",
+            affectedBands: ["80m", "60m", "40m", "30m", "20m", "17m", "15m"],
+            recommendation:
+              "Higher bands penetrate flare absorption best; low bands work only on night-side paths.",
             estimatedDuration: "2-8 hours",
           }
         : {
-            affectedBands: ["10m", "12m", "15m", "17m", "20m"],
-            recommendation: "Move to 40m or lower bands.",
+            affectedBands: ["80m", "60m", "40m"],
+            recommendation:
+              "Higher bands penetrate flare absorption best; low bands work only on night-side paths.",
             estimatedDuration: "1-2 hours",
           };
 
@@ -93,17 +87,19 @@ export function getRadioImpact(
           };
 
     case "SOLAR_FLARE":
+      // Same physics as RADIO_BLACKOUT: the lowest dayside bands are absorbed
+      // first and worst; the highest bands penetrate flare absorption best.
       return priority === "CRITICAL"
         ? {
-            affectedBands: ["10m", "12m", "15m", "17m", "20m", "30m"],
+            affectedBands: ["80m", "60m", "40m", "30m", "20m"],
             recommendation:
-              "X-class flare probable. Expect HF degradation on sunlit side.",
+              "Higher bands penetrate flare absorption best; low bands work only on night-side paths.",
             estimatedDuration: "1-4 hours",
           }
         : {
-            affectedBands: ["10m", "12m", "15m"],
+            affectedBands: ["80m", "60m", "40m"],
             recommendation:
-              "M-class flare probable. Watch for short-wave fadeout on daytime paths.",
+              "Higher bands penetrate flare absorption best; low bands work only on night-side paths.",
             estimatedDuration: "30 min - 2 hours",
           };
 

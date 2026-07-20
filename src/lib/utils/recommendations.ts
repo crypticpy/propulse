@@ -147,7 +147,7 @@ function annotateWithCorrelation(
     case "surprise":
       return `${reason} (surprise opening detected -- ${bandCorrelation.spotCount} spots despite model prediction)`;
     case "discrepancy":
-      return `${reason} (caution: model predicts Good but no spots detected)`;
+      return `${reason} (caution: model predicts ${bandCorrelation.modelStatus} but no spots detected)`;
     case "unverified":
       return `${reason} (unverified -- no recent spots)`;
     default:

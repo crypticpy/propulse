@@ -83,7 +83,7 @@ export function computeSquintAngle(
 /**
  * Compute Free Space Path Loss (FSPL) in dB.
  *
- * FSPL = 20*log10(d_km) + 20*log10(f_MHz) + 32.44
+ * FSPL = 20*log10(d_km) + 20*log10(f_MHz) + 32.45
  *
  * @param distanceKm - Slant range from observer to satellite in km
  * @param frequencyMHz - Operating frequency in MHz
@@ -94,7 +94,7 @@ export function computePathLoss(
   frequencyMHz: number,
 ): number {
   if (distanceKm <= 0 || frequencyMHz <= 0) return 0;
-  return 20 * Math.log10(distanceKm) + 20 * Math.log10(frequencyMHz) + 32.44;
+  return 20 * Math.log10(distanceKm) + 20 * Math.log10(frequencyMHz) + 32.45;
 }
 
 /**

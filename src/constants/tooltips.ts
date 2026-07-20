@@ -13,12 +13,12 @@ export const SOLAR_TOOLTIPS = {
     "K-index — geomagnetic disturbance on a 0-9 scale. Lower is better: 0-2 quiet, 3-4 unsettled, 5+ storm conditions.",
   aIndex:
     "Planetary A — a daily geomagnetic measure. Propulse shows NOAA’s official predicted value in forecast context; Kp conversions are labelled estimated ap-equivalent.",
-  bz: "Bz — vertical component of the interplanetary magnetic field (nT). Negative Bz can trigger geomagnetic storms.",
+  bz: "Bz — north-south (GSM z) component of the interplanetary magnetic field (nT). Negative Bz can trigger geomagnetic storms.",
   ssn: "Sunspot Number — monthly observed international sunspot number used for solar-cycle context; it is not a minute-level condition.",
   solarWind:
     "Solar Wind Speed — velocity of charged particles from the sun (km/s). High speeds can disturb the ionosphere.",
   protonFlux:
-    "Proton Flux — energetic proton density from the sun. Elevated levels cause polar cap absorption events.",
+    "Proton Flux — flux of energetic protons from the Sun (particles per cm² per second). Elevated levels cause polar cap absorption events.",
   xrayFlux:
     "X-ray Flux — solar X-ray intensity. Flares (C/M/X class) can cause sudden ionospheric disturbances.",
   solarCycle:
@@ -35,7 +35,7 @@ export const PROPAGATION_TOOLTIPS = {
   muf: "Maximum Usable Frequency — highest frequency that will refract off the ionosphere for a given path.",
   fot: "Frequency of Optimum Transmission — 85% of MUF; most reliable frequency for a path.",
   luf: "Lowest Usable Frequency — below this, signals are absorbed too heavily by the D-layer.",
-  hpf: "Highest Probable Frequency — statistically most likely usable frequency for 90% of days.",
+  hpf: "Highest Probable Frequency — the upper-decile MUF: the path supports this frequency on only about 10% of days.",
   nvis: "Near Vertical Incidence Skywave — signals sent nearly straight up, covering 0-400 km. Used for regional and emergency comms.",
   greyline:
     "Greyline — the dawn/dusk terminator zone where enhanced propagation occurs due to reduced D-layer absorption.",

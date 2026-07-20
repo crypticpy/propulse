@@ -9,7 +9,7 @@
  * Key physics models:
  * - f0F2 estimation via simplified Chapman model
  * - MUF via Martyn's secant law
- * - D-layer absorption: A = K * (1 + 0.003*R12) * cos(chi)^1.3 / f^2
+ * - D-layer absorption via the shared ITU-R P.533 model (calculateDLayerAbsorption)
  * - Free-space path loss: FSPL = 32.45 + 20*log10(f) + 20*log10(d)
  * - Hop quality scoring combining MUF margin, absorption, and Kp effects
  */
@@ -17,9 +17,10 @@
 import { classifyTerrain, getPathTerrainLoss } from "./terrain";
 import type { TerrainType } from "./terrain";
 import {
+  calculateDLayerAbsorption,
+  calculateZenithAngle,
   estimateFoF2,
   obliqueIncidenceAngle,
-  sfiToR12,
 } from "./ionosphere";
 import { getGeomagneticLatitude } from "./geomagnetic";
 
@@ -28,7 +29,6 @@ const RAD_TO_DEG = 180 / Math.PI;
 const EARTH_RADIUS_KM = 6371;
 const TYPICAL_F2_HOP_KM = 3000;
 const MAX_HOPS = 7;
-const ABSORPTION_K = 677;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -143,31 +143,10 @@ function slerp(
 // Solar geometry
 // ---------------------------------------------------------------------------
 
-function solarDeclination(date: Date): number {
-  const start = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const dayOfYear =
-    Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  return -23.45 * Math.cos((2 * Math.PI * (dayOfYear + 10)) / 365);
-}
-
-function solarZenithAngle(lat: number, lon: number, date: Date): number {
-  const decDeg = solarDeclination(date);
-  const decRad = decDeg * DEG_TO_RAD;
-  const latRad = lat * DEG_TO_RAD;
-
-  const utcHours =
-    date.getUTCHours() +
-    date.getUTCMinutes() / 60 +
-    date.getUTCSeconds() / 3600;
-  const hourAngleDeg = (utcHours - 12) * 15 + lon;
-  const hourAngleRad = hourAngleDeg * DEG_TO_RAD;
-
-  const cosZenith =
-    Math.sin(latRad) * Math.sin(decRad) +
-    Math.cos(latRad) * Math.cos(decRad) * Math.cos(hourAngleRad);
-
-  return Math.acos(Math.max(-1, Math.min(1, cosZenith))) * RAD_TO_DEG;
-}
+// Solar zenith angle is delegated to the shared calculateZenithAngle in
+// ionosphere.ts, which derives it from the SunCalc-based subsolar point
+// (equation-of-time corrected) instead of the previous mean-sun approximation
+// that could be off by up to ~4 deg of hour angle (~16 min).
 
 // ---------------------------------------------------------------------------
 // Ionospheric parameter estimation
@@ -225,31 +204,6 @@ export function calculateMUF(
   const incidenceDeg = obliqueIncidenceAngle(elevationDeg, reflectionHeightKm);
   const secantFactor = 1 / Math.max(0.05, Math.cos(incidenceDeg * DEG_TO_RAD));
   return f0F2 * secantFactor;
-}
-
-function estimateAbsorption(
-  frequencyMHz: number,
-  zenithDeg: number,
-  sfi: number,
-): number {
-  if (zenithDeg >= 98) return 0;
-
-  let dayFactor = 1.0;
-  if (zenithDeg >= 90) dayFactor = (98 - zenithDeg) / 8;
-
-  const r12 = sfiToR12(sfi);
-  const activityFactor = 1 + 0.003 * r12;
-  const cosZ = Math.cos(Math.min(zenithDeg, 89) * DEG_TO_RAD);
-  const zenithFactor = Math.pow(Math.max(0.01, cosZ), 1.3);
-  const freqFactor = 1 / Math.pow(Math.max(frequencyMHz, 1.5), 2);
-
-  return Math.max(
-    0,
-    Math.min(
-      50,
-      ABSORPTION_K * activityFactor * zenithFactor * freqFactor * dayFactor,
-    ),
-  );
 }
 
 function freeSpacePathLoss(frequencyMHz: number, distanceKm: number): number {
@@ -319,7 +273,7 @@ export function calculateReflectionPoints(
   for (let i = 0; i < numHops; i++) {
     const fraction = (2 * i + 1) / (2 * numHops);
     const { lat, lon } = slerp(startLat, startLon, endLat, endLon, fraction);
-    const zenith = solarZenithAngle(lat, lon, date);
+    const zenith = calculateZenithAngle(lat, lon, date);
 
     points.push({
       lat,
@@ -345,12 +299,17 @@ export function evaluateHopQuality(
   kp: number,
   hopDistanceKm: number,
 ): HopQuality {
-  const zenith = solarZenithAngle(reflectionLat, reflectionLon, date);
+  const zenith = calculateZenithAngle(reflectionLat, reflectionLon, date);
   const f0F2 = estimateFoF2(zenith, sfi);
   const hmF2 = estimateHmF2(zenith);
   const elevDeg = hopElevationAngle(hopDistanceKm, hmF2);
   const muf = calculateMUF(f0F2, elevDeg, hmF2);
-  const absorptionDb = estimateAbsorption(frequencyMHz, zenith, sfi);
+  const absorptionDb = calculateDLayerAbsorption(
+    frequencyMHz,
+    zenith,
+    sfi,
+    elevDeg,
+  );
   const isFrequencySupported = frequencyMHz <= muf;
   const qualityScore = scoreHop(
     frequencyMHz,

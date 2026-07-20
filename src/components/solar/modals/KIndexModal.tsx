@@ -183,7 +183,7 @@ function getAuroraVisibility(kIndex: number): string {
   if (kIndex === 8) {
     return "Texas, Florida, Mediterranean (~35° latitude)";
   }
-  return "Visible from most of the world (equatorial regions)";
+  return "Visible into the deep-southern US, Mexico, and southern Europe (roughly 30–40° latitude; ~25° in the most extreme historic storms)";
 }
 
 /**

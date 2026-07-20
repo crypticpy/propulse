@@ -382,13 +382,16 @@ export function getEsRegionalForecast(date: Date, latDeg: number): EsForecast {
       "Any Es activity will likely be limited to 10m.";
   }
 
-  // Exceptional openings (very high probability) can reach 144 MHz
+  // Very high probability: strong 6m season with routine extension toward
+  // 70 MHz. 2m (144 MHz) Es exists but is a rare, brief event even at peak
+  // season — it is mentioned, not promised as the expected ceiling.
   if (probability >= 0.8) {
-    expectedCeilingMHz = 144;
+    expectedCeilingMHz = 70;
     typicalDurationMinutes = 240;
     description =
-      "Peak Es season with excellent conditions. 6m wide open, with rare chance of " +
-      "2m Es openings. Extended multi-hop paths across continents possible.";
+      "Peak Es season with excellent conditions. 6m wide open with extension " +
+      "toward 70 MHz likely; rare, brief 2m Es openings are possible. " +
+      "Extended multi-hop paths across continents possible.";
   }
 
   return {

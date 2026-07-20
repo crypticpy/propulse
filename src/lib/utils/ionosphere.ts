@@ -259,25 +259,27 @@ export function calculateF0F2(
  * It exists mainly during daylight and contributes to absorption
  * and some short-distance propagation.
  *
- * Based on Chapman theory:
- * f0E = f0E_noon * cos^n(chi)
- * where chi is the solar zenith angle and n is typically 0.6
+ * Uses the standard solar-activity-dependent form (Davies, "Ionospheric
+ * Radio"; consistent with ITU-R P.533 E-layer screening):
+ * f0E = 0.9 * [(180 + 1.44 * R12) * cos(chi)]^0.25
+ * where chi is the solar zenith angle and R12 the smoothed sunspot number.
  *
  * @param zenithAngle - Solar zenith angle in degrees (0 = sun overhead, 90 = horizon)
- * @returns f0E in MHz (0-4 MHz, near 0 at night)
+ * @param sfi - Solar Flux Index (default 120, moderate activity)
+ * @returns f0E in MHz (0-4.5 MHz, near 0 at night)
  *
  * @example
  * ```typescript
- * // Sun directly overhead
- * const f0E = calculateF0E(0);
- * // Returns approximately 3.5-4 MHz
+ * // Sun directly overhead at R12 ~ 100
+ * const f0E = calculateF0E(0, 150);
+ * // Returns approximately 3.8 MHz
  *
  * // Sun at horizon (twilight)
- * const f0E_twilight = calculateF0E(90);
+ * const f0E_twilight = calculateF0E(90, 150);
  * // Returns approximately 0 MHz
  * ```
  */
-export function calculateF0E(zenithAngle: number): number {
+export function calculateF0E(zenithAngle: number, sfi: number = 120): number {
   // No E layer at night (zenith > 90)
   if (zenithAngle >= 98) {
     return 0;
@@ -289,11 +291,10 @@ export function calculateF0E(zenithAngle: number): number {
     return 0.5 * twilightFactor;
   }
 
-  // Daytime E layer
-  // f0E = 3.5 * cos(chi)^0.6 for typical noon conditions
-  // The 3.5 MHz is a typical f0E_noon value
-  const cosZenith = Math.cos(zenithAngle * DEG_TO_RAD);
-  const f0E = 3.5 * Math.pow(Math.max(0, cosZenith), 0.6);
+  // Daytime E layer: f0E = 0.9 * [(180 + 1.44 * R12) * cos(chi)]^0.25
+  const r12 = sfiToR12(sfi);
+  const cosZenith = Math.max(0, Math.cos(zenithAngle * DEG_TO_RAD));
+  const f0E = 0.9 * Math.pow((180 + 1.44 * r12) * cosZenith, 0.25);
 
   return Math.max(0, Math.min(4.5, f0E));
 }
@@ -610,7 +611,7 @@ export function getIonosphericParameters(
 
   // Calculate critical frequencies
   const f0F2 = calculateF0F2(sfi, lat, localSolarHour, month, geomagLat);
-  const f0E = calculateF0E(zenithAngle);
+  const f0E = calculateF0E(zenithAngle, sfi);
   const f0F1 = calculateF0F1(zenithAngle, sfi);
 
   // Calculate MUF factor
@@ -670,6 +671,10 @@ export function getAbsorptionAtLocation(
  * @param sfi - Solar Flux Index
  * @param requiredSNR - Required signal-to-noise ratio in dB (default 10)
  * @param txPower - Transmitter power in dBW (default 30 = 1kW)
+ * @param elevationDeg - Ray take-off elevation in degrees (default 15, a
+ *   typical single-hop F2 DX angle). Oblique rays traverse a longer slant
+ *   path through the D layer, so LUF is evaluated at the path's actual
+ *   obliquity rather than vertical incidence.
  * @returns LUF in MHz
  */
 export function calculateLUF(
@@ -677,6 +682,7 @@ export function calculateLUF(
   sfi: number,
   requiredSNR: number = 10,
   txPower: number = 30,
+  elevationDeg: number = 15,
 ): number {
   // At night, absorption is minimal, so LUF is very low
   if (zenithAngle >= 90) {
@@ -695,7 +701,12 @@ export function calculateLUF(
 
   for (let i = 0; i < 20; i++) {
     const mid = (low + high) / 2;
-    const absorption = calculateDLayerAbsorption(mid, zenithAngle, sfi);
+    const absorption = calculateDLayerAbsorption(
+      mid,
+      zenithAngle,
+      sfi,
+      elevationDeg,
+    );
 
     if (absorption > maxAcceptableAbsorption) {
       low = mid;

@@ -290,8 +290,8 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
           </h3>
           <p className="text-sm text-gray-400 mb-4">
             We are currently in Solar Cycle 25, which began in December 2019.
-            The cycle is expected to peak around 2024-2025 with maximum activity
-            levels.
+            Solar Cycle 25 reached its maximum in October 2024; activity
+            remains elevated near the peak of the cycle.
           </p>
           <div className="relative h-4 bg-white/5 rounded-full overflow-hidden">
             {/* Cycle progress bar */}

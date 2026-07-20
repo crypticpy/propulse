@@ -383,22 +383,25 @@ export function getKIndexDescription(kp: number): string {
   if (kp <= 2) {
     return "Quiet";
   }
-  if (kp <= 4) {
+  if (kp <= 3) {
     return "Unsettled";
   }
-  if (kp <= 5) {
+  if (kp < 5) {
     return "Active";
   }
-  if (kp <= 6) {
-    return "Minor Storm";
+  if (kp < 6) {
+    return "Minor Storm (G1)";
   }
-  if (kp <= 7) {
-    return "Moderate Storm";
+  if (kp < 7) {
+    return "Moderate Storm (G2)";
   }
-  if (kp <= 8) {
-    return "Strong Storm";
+  if (kp < 8) {
+    return "Strong Storm (G3)";
   }
-  return "Severe Storm";
+  if (kp < 9) {
+    return "Severe Storm (G4)";
+  }
+  return "Extreme Storm (G5)";
 }
 
 /**

@@ -424,7 +424,7 @@ export function SolarPulse() {
                 tone={resources.latestFlare.data?.max_class.startsWith("M") || resources.latestFlare.data?.max_class.startsWith("X") ? "rose" : "cyan"}
               />
             </WidgetShell>
-            <WidgetShell title="D-RAP grid" eyebrow="Sunlit-side absorption model" {...sourceProps(resources.drap)}>
+            <WidgetShell title="D-RAP grid" eyebrow="HF absorption model" {...sourceProps(resources.drap)}>
               <MetricValue
                 value={formatNumber(maxDrapFrequency, 1)}
                 unit="MHz max"

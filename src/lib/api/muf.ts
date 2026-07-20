@@ -316,23 +316,24 @@ export function calculateFOT(muf: number): number {
 /**
  * Calculate Highest Probable Frequency
  *
- * HPF = 0.90 × MUF
+ * HPF = 1.15 × MUF
  *
- * The HPF is used for lower reliability operations where some
- * propagation failures are acceptable. It provides more bandwidth
- * than FOT but with less reliability.
+ * The HPF is the upper-decile MUF: the frequency that propagates on roughly
+ * 10% of days, above the median MUF. It captures the day-to-day upward
+ * variability of the ionosphere, so it sits above the (median) MUF, not below
+ * it. Operating near the HPF is opportunistic and unreliable.
  *
- * @param muf - Maximum Usable Frequency in MHz
+ * @param muf - Maximum Usable Frequency (median) in MHz
  * @returns HPF in MHz
  *
  * @example
  * ```typescript
  * const hpf = calculateHPF(21.5);
- * // Returns 19.35 MHz (90% of MUF)
+ * // Returns 24.725 MHz (115% of MUF)
  * ```
  */
 export function calculateHPF(muf: number): number {
-  return muf * 0.9;
+  return muf * 1.15;
 }
 
 /**
@@ -346,7 +347,7 @@ export function calculateHPF(muf: number): number {
  * - Below LUF: D-layer absorption too high
  * - Above MUF: F-layer won't reflect the signal
  * - FOT: Recommended operating frequency (85% of MUF)
- * - HPF: Maximum frequency for lower reliability operation (90% of MUF)
+ * - HPF: Upper-decile frequency for opportunistic operation (~115% of MUF)
  *
  * @param lat - Latitude of path midpoint
  * @param lon - Longitude of path midpoint

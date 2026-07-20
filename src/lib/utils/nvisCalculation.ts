@@ -98,9 +98,10 @@ function estimateFoF2(
   const baseFoF2 = 2.5 + 0.035 * sfiNormalized;
 
   // Diurnal variation: foF2 peaks around 14:00 local solar time
-  // Nighttime foF2 drops to ~40-60% of daytime value
+  // Nighttime foF2 drops to ~40-60% of daytime value (the F2 layer persists
+  // after sunset via plasmaspheric refilling; it does not collapse like E/F1)
   const hourAngle = ((localSolarHour - 14) / 12) * Math.PI; // peaks at 14:00
-  const diurnalFactor = 0.55 + 0.45 * Math.cos(hourAngle);
+  const diurnalFactor = 0.7 + 0.3 * Math.cos(hourAngle);
 
   // Latitude factor: mid-latitudes (30-50) have highest foF2
   // Equatorial anomaly gives higher values near +/-15 degrees

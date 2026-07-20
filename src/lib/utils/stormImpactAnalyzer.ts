@@ -275,17 +275,20 @@ function resolveAffectedBands(alert: SolarAlert): string[] {
       return bandsFromDegradationMap(kp);
     }
     case "RADIO_BLACKOUT":
+      // Flare D-layer absorption scales ~1/f^2, so it raises the LUF and
+      // closes the LOWEST dayside bands first; the highest bands penetrate.
       return alert.priority === "CRITICAL"
-        ? ["10m", "12m", "15m", "17m", "20m", "30m", "40m", "60m", "80m"]
-        : ["10m", "12m", "15m", "17m", "20m"];
+        ? ["80m", "60m", "40m", "30m", "20m", "17m", "15m"]
+        : ["80m", "60m", "40m"];
     case "PROTON_EVENT":
       return alert.priority === "CRITICAL"
         ? ["10m", "12m", "15m", "17m", "20m", "30m", "40m"]
         : ["10m", "12m", "15m", "17m", "20m"];
     case "SOLAR_FLARE":
+      // Same physics as RADIO_BLACKOUT: lowest dayside bands absorbed first.
       return alert.priority === "CRITICAL"
-        ? ["10m", "12m", "15m", "17m", "20m", "30m"]
-        : ["10m", "12m", "15m"];
+        ? ["80m", "60m", "40m", "30m", "20m"]
+        : ["80m", "60m", "40m"];
     case "CME_INCOMING":
       return ["10m", "12m", "15m", "17m", "20m"];
     case "IMF_SOUTHWARD":
@@ -337,10 +340,10 @@ function buildEquipmentImpacts(
 
     if (overallSeverity === "extreme" || fraction >= 0.8) {
       severity = "severe";
-      desc = `Your ${ant.name} (${ant.type}): All primary bands severely degraded. Signal strength may drop 4-6 S-units. DX paths over 3000 km likely closed on ${overlap.join(", ")}.`;
+      desc = `Your ${ant.name} (${ant.type}): All primary bands severely degraded. Substantial signal loss on affected paths; long DX paths likely closed on ${overlap.join(", ")}.`;
     } else if (overallSeverity === "severe" || fraction >= 0.5) {
       severity = "moderate";
-      desc = `Your ${ant.name} (${ant.type}): Signal strength will drop 2-4 S-units on ${overlap.join(", ")}. DX paths over 5000 km likely closed.`;
+      desc = `Your ${ant.name} (${ant.type}): Noticeable signal loss on ${overlap.join(", ")}; some long DX paths degraded.`;
     } else {
       severity = "mild";
       desc = `Your ${ant.name} (${ant.type}): Mild fading expected on ${overlap.join(", ")}. Short-path contacts may still work.`;
@@ -368,13 +371,16 @@ function buildBandTimeline(
     const rank = BAND_RANK[band] ?? 5;
     const recovery = RECOVERY_HOURS[band] ?? [2, 8];
 
-    // Blackout types: higher bands closed, lower bands degraded
+    // Blackout/flare types: D-layer absorption (~1/f^2) closes the LOWEST
+    // dayside bands first; the highest bands penetrate best. rank is the
+    // index into ALL_HF_BANDS (high freq -> low freq), so the high-rank
+    // (low-frequency) bands are the ones knocked out.
     const isCritical = priority === "CRITICAL";
     const isBlackout = type === "RADIO_BLACKOUT" || type === "SOLAR_FLARE";
 
     let currentStatus: BandTimelineEntry["currentStatus"];
     if (isBlackout) {
-      currentStatus = rank < 4 ? "closed" : "degraded";
+      currentStatus = rank >= 6 ? "closed" : "degraded";
     } else if (isCritical) {
       currentStatus = rank < 3 ? "closed" : "degraded";
     } else {
@@ -452,23 +458,32 @@ function buildAlternatives(
     }
   }
 
-  // During radio blackouts, night paths and low bands survive
+  // During radio blackouts / flares the sunlit D-layer absorbs the LOW bands
+  // worst (absorption ~1/f^2); the HIGH bands penetrate best, and night-side
+  // paths escape D-layer absorption entirely (the D-layer vanishes after dark).
   if (type === "RADIO_BLACKOUT" || type === "SOLAR_FLARE") {
-    if (!affectedSet.has("40m")) {
+    if (!affectedSet.has("15m")) {
       alts.push({
-        band: "40m",
+        band: "15m",
         mode: "CW/SSB",
         reason:
-          "Lower HF less affected by D-layer absorption. Try night paths.",
+          "Higher bands penetrate flare D-layer absorption best (it falls as 1/f^2).",
       });
     }
-    if (!affectedSet.has("80m")) {
+    if (!affectedSet.has("10m")) {
       alts.push({
-        band: "80m",
-        mode: "CW",
-        reason: "Night-side paths on 80m may still be viable.",
+        band: "10m",
+        mode: "CW/SSB",
+        reason:
+          "Highest HF band suffers the least flare absorption -- try dayside DX here first.",
       });
     }
+    alts.push({
+      band: "80m",
+      mode: "CW",
+      reason:
+        "Night-side paths escape D-layer absorption entirely -- work the dark hemisphere on low bands.",
+    });
   }
 
   // During proton events, avoid polar but mid-lat may work

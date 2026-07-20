@@ -22,10 +22,22 @@ export function getSubsolarPoint(date: Date): { lat: number; lon: number } {
     date.getUTCMinutes() / 60 +
     date.getUTCSeconds() / 3600;
 
-  // Subsolar longitude: It's solar noon (sun overhead) at this longitude
-  // At 12:00 UTC, sun is overhead at 0° longitude
-  // Sun moves west 15° per hour
-  let subsolarLon = (12 - utcHours) * 15;
+  // Subsolar longitude: it's apparent solar noon (sun overhead) at this
+  // longitude. Mean sun crosses 0° at 12:00 UTC and moves west 15°/hour;
+  // the equation of time (apparent minus mean solar time, ±16 min over the
+  // year) shifts the true subsolar meridian by up to ~4°.
+  const start = Date.UTC(date.getUTCFullYear(), 0, 1);
+  const dayOfYear = (date.getTime() - start) / 86_400_000;
+  const gamma = ((2 * Math.PI) / 365) * dayOfYear;
+  // Spencer (1971) Fourier series, accurate to ~0.1 min
+  const eotMinutes =
+    229.18 *
+    (0.000075 +
+      0.001868 * Math.cos(gamma) -
+      0.032077 * Math.sin(gamma) -
+      0.014615 * Math.cos(2 * gamma) -
+      0.040849 * Math.sin(2 * gamma));
+  let subsolarLon = (12 - utcHours) * 15 - eotMinutes * 0.25;
 
   // Normalize to -180 to 180
   if (subsolarLon > 180) {

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from uuid import UUID
 
+from .crypto import receipt_hmac_key_bytes
 from .database import ArchiveDatabase
 from .datasets import DATASETS
 from .parquet import verify_parquet
@@ -22,8 +23,7 @@ def verify_replica(
     target_label: str,
     receipt_hmac_key: str,
 ) -> dict[str, object]:
-    if len(receipt_hmac_key.encode()) < 32:
-        raise RuntimeError("ARCHIVE_RECEIPT_HMAC_KEY must contain at least 32 bytes")
+    signing_key = receipt_hmac_key_bytes(receipt_hmac_key)
     path = replica_path.resolve(strict=True)
     if not path.is_file():
         raise RuntimeError("replica path is not a regular file")
@@ -57,7 +57,7 @@ def verify_replica(
         "replica_path_persisted": False,
     }
     payload = json.dumps(details, sort_keys=True, separators=(",", ":")).encode()
-    signature = hmac.new(receipt_hmac_key.encode(), payload, hashlib.sha256).hexdigest()
+    signature = hmac.new(signing_key, payload, hashlib.sha256).hexdigest()
     locator_hash = hashlib.sha256(str(path).encode()).hexdigest()
     receipt_id = database.record_replica(
         manifest_id=manifest_id,

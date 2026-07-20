@@ -43,6 +43,24 @@ SELECT pg_temp.assert_true(
   'only the public spot reader may be anonymous'
 );
 
+INSERT INTO public.spot_history (
+  source, spotted_at, tx_callsign, tx_grid, rx_callsign,
+  frequency_khz, band, mode
+)
+SELECT
+  'pskreporter', now() - interval '1 minute', 'SHARE80',
+  CASE WHEN sample <= 8 THEN 'FN20' ELSE 'EM10' END,
+  'SHARERX' || sample, 14074, '20m', 'FT8'
+FROM generate_series(1, 10) AS series(sample);
+SELECT public.refresh_callsign_fields(interval '1 day');
+SELECT pg_temp.assert_true(
+  (SELECT field = 'FN' AND sightings = 8 AND abs(share - 0.8) < 0.0001
+   FROM public.callsign_fields WHERE callsign = 'SHARE80'),
+  'callsign dominance must preserve fractional 80 percent shares'
+);
+DELETE FROM public.callsign_fields WHERE callsign = 'SHARE80';
+DELETE FROM public.spot_history WHERE tx_callsign = 'SHARE80';
+
 DO $$
 DECLARE
   benchmark_id uuid;
@@ -51,9 +69,6 @@ DECLARE
   transition_rejected boolean := false;
   result jsonb;
 BEGIN
-  PERFORM public.ensure_propagation_hot_partitions(
-    'spot_history_v1', '2026-07-19 00:00Z', '2026-07-20 00:00Z'
-  );
   PERFORM public.ingest_spot_history_rows(jsonb_build_array(jsonb_build_object(
     'source', 'pskreporter', 'spotted_at', '2026-07-19 10:00Z',
     'tx_callsign', 'CUTOVER1', 'tx_grid', 'FN20',
@@ -126,7 +141,7 @@ BEGIN
     'spot_history_v1', 'partitioned', null, 'integration writer cutover'
   );
   PERFORM public.ingest_spot_history_rows(jsonb_build_array(jsonb_build_object(
-    'source', 'dxcluster', 'spotted_at', '2026-07-19 12:00Z',
+    'source', 'dxcluster', 'spotted_at', '2026-08-23 12:00Z',
     'tx_callsign', 'CUTOVER3', 'tx_grid', 'PM95',
     'rx_callsign', 'READER3', 'rx_grid', 'QF56',
     'frequency_khz', 21025, 'band', '15m', 'mode', 'CW'
@@ -156,9 +171,6 @@ DECLARE
   reader_id uuid;
   result jsonb;
 BEGIN
-  PERFORM public.ensure_propagation_hot_partitions(
-    'wspr_observations_v1', '2026-07-19 10:00Z', '2026-07-19 13:00Z'
-  );
   PERFORM public.ingest_wspr_observation_rows(jsonb_build_array(jsonb_build_object(
     'source', 'wsprnet', 'source_id', 'cutover-observation-1',
     'observation_key_sha256', repeat('1', 64),
@@ -209,8 +221,8 @@ BEGIN
   PERFORM public.ingest_wspr_observation_rows(jsonb_build_array(jsonb_build_object(
     'source', 'wsprnet', 'source_id', 'cutover-observation-3',
     'observation_key_sha256', repeat('3', 64),
-    'event_time', '2026-07-19 12:02Z', 'received_at', '2026-07-19 12:03Z',
-    'slot_epoch', 1003, 'target_hour', '2026-07-19 12:00Z',
+    'event_time', '2026-08-23 12:02Z', 'received_at', '2026-08-23 12:03Z',
+    'slot_epoch', 1003, 'target_hour', '2026-08-23 12:00Z',
     'band', '20m', 'tx_call', 'WSPR05', 'tx_grid4', 'PM95',
     'rx_call', 'WSPR06', 'rx_grid4', 'QF56', 'power_bin_dbm', 30,
     'snr_db', -7, 'mode', 'WSPR', 'ingest_version', 'integration-v1'
@@ -218,8 +230,8 @@ BEGIN
   PERFORM public.ingest_wspr_observation_rows(jsonb_build_array(jsonb_build_object(
     'source', 'wsprnet', 'source_id', 'cutover-observation-3',
     'observation_key_sha256', repeat('3', 64),
-    'event_time', '2026-07-19 12:02Z', 'received_at', '2026-07-19 12:03Z',
-    'slot_epoch', 1003, 'target_hour', '2026-07-19 12:00Z',
+    'event_time', '2026-08-23 12:02Z', 'received_at', '2026-08-23 12:03Z',
+    'slot_epoch', 1003, 'target_hour', '2026-08-23 12:00Z',
     'band', '20m', 'tx_call', 'WSPR05', 'tx_grid4', 'PM95',
     'rx_call', 'WSPR06', 'rx_grid4', 'QF56', 'power_bin_dbm', 30,
     'snr_db', -7, 'mode', 'WSPR', 'ingest_version', 'integration-v1'
@@ -232,6 +244,30 @@ BEGIN
       AND (SELECT count(*) = 1 FROM public.wspr_observation_keys_v1
            WHERE source_id = 'cutover-observation-3'),
     'authoritative WSPR writer must preserve global dedup without legacy writes'
+  );
+  PERFORM public.ingest_wspr_observation_rows(jsonb_build_array(
+    jsonb_build_object(
+      'source', 'wsprnet', 'observation_key_sha256', repeat('4', 64),
+      'event_time', '2026-08-23 12:04Z', 'received_at', '2026-08-23 12:05Z',
+      'slot_epoch', 1004, 'target_hour', '2026-08-23 12:00Z',
+      'band', '20m', 'tx_call', 'WSPR07', 'tx_grid4', 'FN20',
+      'rx_call', 'WSPR08', 'rx_grid4', 'EM10', 'power_bin_dbm', 30,
+      'snr_db', -8, 'mode', 'WSPR', 'ingest_version', 'integration-v1'
+    ),
+    jsonb_build_object(
+      'source', 'wsprnet', 'observation_key_sha256', repeat('5', 64),
+      'event_time', '2026-08-23 12:06Z', 'received_at', '2026-08-23 12:07Z',
+      'slot_epoch', 1005, 'target_hour', '2026-08-23 12:00Z',
+      'band', '20m', 'tx_call', 'WSPR09', 'tx_grid4', 'IO91',
+      'rx_call', 'WSPR10', 'rx_grid4', 'JN18', 'power_bin_dbm', 30,
+      'snr_db', -6, 'mode', 'WSPR', 'ingest_version', 'integration-v1'
+    )
+  ));
+  PERFORM pg_temp.assert_true(
+    (SELECT count(*) = 2 FROM public.wspr_observation_keys_v1
+     WHERE source = 'wsprnet' AND source_id IS NULL
+       AND observation_key_sha256 IN (repeat('4', 64), repeat('5', 64))),
+    'missing provider IDs must not collapse distinct WSPR observations'
   );
   PERFORM public.set_propagation_hot_store_cutover(
     'wspr_observations_v1', 'legacy', null, 'integration rollback'

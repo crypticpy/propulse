@@ -26,7 +26,9 @@ afterEach(() => {
 
 function setRequiredEnvironment(): void {
   Object.assign(process.env, REQUIRED_ENV);
-  for (const key of touched.slice(2)) delete process.env[key];
+  for (const key of touched.slice(Object.keys(REQUIRED_ENV).length)) {
+    delete process.env[key];
+  }
 }
 
 describe("archive retention configuration", () => {

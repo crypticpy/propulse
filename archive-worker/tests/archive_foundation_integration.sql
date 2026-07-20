@@ -17,6 +17,12 @@ BEGIN
     'public.prune_propagation_archive_manifest(uuid,integer,timestamptz)',
     'EXECUTE'
   );
+  ASSERT NOT has_function_privilege(
+    'anon', 'public.prune_wspr_observations(interval)', 'EXECUTE'
+  );
+  ASSERT has_function_privilege(
+    'service_role', 'public.prune_wspr_observations(interval)', 'EXECUTE'
+  );
 END;
 $$;
 
@@ -235,6 +241,38 @@ BEGIN
       true, true, true, true, '{"fixture":true}'
     );
   END LOOP;
+END;
+$$;
+
+DO $$
+DECLARE
+  archived_hash constant text := repeat('7', 64);
+BEGIN
+  INSERT INTO public.space_weather_forecast_payloads (
+    payload_sha256, source, product, issued_at, ingested_at,
+    parser_version, source_url, raw_payload, created_at,
+    archive_manifest_id, archive_object_bucket, archive_object_path,
+    raw_payload_bytes, raw_payload_archived_at,
+    source_object_bucket, source_object_path, source_object_sha256,
+    source_object_bytes, source_object_verified_at
+  ) VALUES (
+    archived_hash, 'noaa', 'archived-v2-trigger-fixture',
+    '2025-01-16T00:00:00Z', '2025-01-16T00:01:00Z',
+    'forecast-v2-integration', 'https://example.invalid/archived-v2', null,
+    '2025-01-16T00:01:00Z',
+    (SELECT id FROM public.propagation_archive_manifests
+     WHERE dataset = 'forecast_payloads_v1' LIMIT 1),
+    'propagation-archives', 'forecast_payloads_v1/archived-v2.parquet.zst',
+    128, '2026-07-19T00:00:00Z',
+    'propagation-archives',
+    'forecast_payload_bytes_v1/payload-' || archived_hash || '.bin',
+    archived_hash, 128, '2026-07-19T00:00:00Z'
+  );
+  ASSERT (SELECT raw_payload IS NULL
+          FROM public.space_weather_forecast_payloads
+          WHERE payload_sha256 = archived_hash);
+  DELETE FROM public.space_weather_forecast_payloads
+  WHERE payload_sha256 = archived_hash;
 END;
 $$;
 

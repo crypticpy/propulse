@@ -4,6 +4,27 @@ import { log } from "../logger.js";
 
 let lastPruneDate: string | null = null;
 
+interface RpcError {
+  message: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+}
+
+type RpcFailure = Error & {
+  postgresCode?: string;
+  details?: string;
+  hint?: string;
+};
+
+function toRpcFailure(prefix: string, error: RpcError): RpcFailure {
+  const failure = new Error(`${prefix}: ${error.message}`) as RpcFailure;
+  failure.postgresCode = error.code;
+  failure.details = error.details;
+  failure.hint = error.hint;
+  return failure;
+}
+
 /**
  * Run fail-closed retention maintenance once per day.
  *
@@ -21,36 +42,34 @@ export async function pruneOldData(
   const today = now.toISOString().slice(0, 10);
   if (lastPruneDate === today) return;
 
-  if (!config.archive.pruningEnabled) {
+  if (
+    !config.archive.pruningEnabled
+    && !config.archive.forecastCompactionEnabled
+  ) {
     lastPruneDate = today;
     log("info", "Retention maintenance skipped", {
-      reason: "ARCHIVE_PRUNING_ENABLED is false",
+      reason:
+        "ARCHIVE_PRUNING_ENABLED and ARCHIVE_FORECAST_COMPACTION_ENABLED are false",
     });
     return;
   }
 
   const startedAt = Date.now();
   try {
-    const { data: retention, error } = await db.rpc(
-      "run_propagation_retention_maintenance",
-      {
-        p_archive_pruning_enabled: true,
-        p_batch_size: config.archive.pruneBatchSize,
-        p_now: now.toISOString(),
-      },
-    );
-    if (error) {
-      const failure = new Error(
-        `retention maintenance RPC failed: ${error.message}`,
-      ) as Error & {
-        postgresCode?: string;
-        details?: string;
-        hint?: string;
-      };
-      failure.postgresCode = error.code;
-      failure.details = error.details;
-      failure.hint = error.hint;
-      throw failure;
+    let retention: unknown = null;
+    if (config.archive.pruningEnabled) {
+      const { data, error } = await db.rpc(
+        "run_propagation_retention_maintenance",
+        {
+          p_archive_pruning_enabled: true,
+          p_batch_size: config.archive.pruneBatchSize,
+          p_now: now.toISOString(),
+        },
+      );
+      if (error) {
+        throw toRpcFailure("retention maintenance RPC failed", error);
+      }
+      retention = data;
     }
     let forecastCompaction: unknown = null;
     if (config.archive.forecastCompactionEnabled) {
@@ -63,23 +82,13 @@ export async function pruneOldData(
         },
       );
       if (compactionError) {
-        const failure = new Error(
-          `forecast compaction RPC failed: ${compactionError.message}`,
-        ) as Error & {
-          postgresCode?: string;
-          details?: string;
-          hint?: string;
-        };
-        failure.postgresCode = compactionError.code;
-        failure.details = compactionError.details;
-        failure.hint = compactionError.hint;
-        throw failure;
+        throw toRpcFailure("forecast compaction RPC failed", compactionError);
       }
       forecastCompaction = data;
     }
 
     lastPruneDate = today;
-    log("info", "Retention maintenance complete", {
+    log("info", "Archive maintenance complete", {
       result: { retention, forecastCompaction },
       batchSize: config.archive.pruneBatchSize,
       durationMs: Date.now() - startedAt,

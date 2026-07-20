@@ -44,7 +44,26 @@ async function handler(): Promise<Response> {
     }
   }
 
-  const stored = await readStoredSpots("rbn", { limit: 5 });
+  let capturedUrl = "";
+  let capturedInit: Record<string, unknown> = {};
+  let upstreamBody = "";
+  const stored = await readStoredSpots(
+    "rbn",
+    { limit: 5 },
+    {
+      fetcher: async (input, init) => {
+        capturedUrl = String(input);
+        capturedInit = {
+          redirect: init?.redirect,
+          headerKeys: init?.headers ? Object.keys(init.headers) : [],
+        };
+        const response = await fetch(input, init);
+        const clone = response.clone();
+        upstreamBody = (await clone.text()).slice(0, 300);
+        return response;
+      },
+    },
+  );
 
   return new Response(
     JSON.stringify({
@@ -60,6 +79,9 @@ async function handler(): Promise<Response> {
       storedRows: stored.rows.length,
       storedFailure: stored.failureReason ?? null,
       storedUpstreamStatus: stored.upstreamStatus ?? null,
+      capturedUrl,
+      capturedInit,
+      upstreamBody,
     }),
     { headers: { "content-type": "application/json" } },
   );

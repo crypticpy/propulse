@@ -1,13 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NormalizedSpot } from "../types.js";
 import { frequencyToBand } from "../transforms/bands.js";
+import { gridToLatLon, isValidGrid } from "../transforms/grid.js";
 import { log } from "../logger.js";
 import { reportHealth } from "../health.js";
 import { insertSpots, reportToDb } from "../lib/db-helpers.js";
 
-const DXC_URL = "https://www.hamqth.com/dxc_csv.php?limit=200";
+const DXHEAT_URL = "https://dxheat.com/source/spots/?a=200";
+const HAMQTH_URL = "https://www.hamqth.com/dxc_csv.php?limit=200";
 
 const USER_AGENT = "Propulse-Collector/1.1 (contact@propulse.cloud)";
+
+// A feed whose newest spot is older than this is considered stalled and the
+// fallback source is tried (HamQTH has stalled for hours at a time).
+const FRESHNESS_WINDOW_MS = 30 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Mode extraction from comment string
@@ -95,7 +101,203 @@ function parseHamQTHTime(timeDate: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Main collector
+// DXHeat time parsing: Time "19:32" + Date "20/07/26" (DD/MM/YY, UTC)
+// ---------------------------------------------------------------------------
+
+function parseDxHeatTime(time: string, date: string): string | null {
+  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(time?.trim() ?? "");
+  const dateMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2})$/.exec(date?.trim() ?? "");
+  if (!timeMatch || !dateMatch) return null;
+
+  const parsed = new Date(
+    Date.UTC(
+      2000 + parseInt(dateMatch[3], 10),
+      parseInt(dateMatch[2], 10) - 1,
+      parseInt(dateMatch[1], 10),
+      parseInt(timeMatch[1], 10),
+      parseInt(timeMatch[2], 10),
+      0,
+      0,
+    ),
+  );
+  return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+// ---------------------------------------------------------------------------
+// Feed fetchers — each returns normalized spots (may be empty)
+// ---------------------------------------------------------------------------
+
+interface DxHeatSpot {
+  Spotter?: string;
+  Frequency?: string;
+  DXCall?: string;
+  Time?: string;
+  Date?: string;
+  Valid?: boolean;
+  Comment?: string;
+  Mode?: string;
+  Continent_dx?: string;
+  DXLocator?: string;
+}
+
+async function fetchDxHeat(): Promise<NormalizedSpot[]> {
+  const response = await fetch(DXHEAT_URL, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": USER_AGENT,
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(12_000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`DXHeat HTTP ${response.status} ${response.statusText}`);
+  }
+
+  const payload = (await response.json()) as DxHeatSpot[];
+  if (!Array.isArray(payload)) {
+    throw new Error("DXHeat: unexpected payload shape");
+  }
+
+  const spots: NormalizedSpot[] = [];
+
+  for (const item of payload) {
+    if (item.Valid === false) continue;
+
+    const dx = item.DXCall?.trim();
+    const spotter = item.Spotter?.trim();
+    if (!dx || !spotter) continue;
+
+    const frequencyKhz = parseFloat(item.Frequency ?? "0");
+    if (isNaN(frequencyKhz) || frequencyKhz === 0) continue;
+
+    const band = frequencyToBand(frequencyKhz);
+    if (!band) continue; // Non-HF, skip
+
+    const spottedAt = parseDxHeatTime(item.Time ?? "", item.Date ?? "");
+    if (!spottedAt) continue;
+
+    const grid = item.DXLocator?.trim().toUpperCase() || null;
+    const hasGrid = grid !== null && isValidGrid(grid);
+    const coords = hasGrid ? gridToLatLon(grid) : null;
+
+    spots.push({
+      source: "dxcluster",
+      spotted_at: spottedAt,
+      tx_callsign: dx,
+      tx_grid: hasGrid ? grid : null,
+      tx_lat: coords?.lat ?? null,
+      tx_lon: coords?.lon ?? null,
+      rx_callsign: spotter,
+      rx_grid: null,
+      rx_lat: null,
+      rx_lon: null,
+      frequency_khz: Math.round(frequencyKhz * 10) / 10,
+      band,
+      mode: item.Mode?.trim() || extractMode(item.Comment ?? ""),
+      snr: null,
+      wpm: null,
+      comment: item.Comment?.trim() || null,
+      dxcc: null,
+      continent: item.Continent_dx?.trim() || null,
+    });
+  }
+
+  return spots;
+}
+
+async function fetchHamQTH(): Promise<NormalizedSpot[]> {
+  const response = await fetch(HAMQTH_URL, {
+    headers: {
+      Accept: "text/plain, text/csv;q=0.9",
+      "User-Agent": USER_AGENT,
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(12_000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HamQTH HTTP ${response.status} ${response.statusText}`);
+  }
+
+  const csvText = await response.text();
+  const lines = csvText.trim().split("\n");
+  const spots: NormalizedSpot[] = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const fields = line.split("^");
+    if (fields.length < 11) continue;
+
+    const [
+      spotter,
+      freqStr,
+      dx,
+      comment,
+      timeDate,
+      _lotw,
+      _eqsl,
+      continent,
+      _band,
+      _country,
+      dxccStr,
+    ] = fields;
+
+    // Skip header line
+    if (spotter === "Spotter") continue;
+
+    // H5: Skip rows with empty/whitespace-only callsigns
+    if (!dx?.trim() || !spotter?.trim()) continue;
+
+    const frequencyKhz = parseFloat(freqStr || "0");
+    if (isNaN(frequencyKhz) || frequencyKhz === 0) continue;
+
+    const band = frequencyToBand(frequencyKhz);
+    if (!band) continue; // Non-HF, skip
+
+    const spottedAt = parseHamQTHTime(timeDate || "");
+    const mode = extractMode(comment || "");
+    const dxcc = parseInt(dxccStr || "0", 10);
+
+    spots.push({
+      source: "dxcluster",
+      spotted_at: spottedAt,
+      tx_callsign: dx,
+      tx_grid: null,
+      tx_lat: null,
+      tx_lon: null,
+      rx_callsign: spotter,
+      rx_grid: null,
+      rx_lat: null,
+      rx_lon: null,
+      frequency_khz: Math.round(frequencyKhz * 10) / 10,
+      band,
+      mode,
+      snr: null,
+      wpm: null,
+      comment: comment || null,
+      dxcc: !isNaN(dxcc) && dxcc > 0 ? dxcc : null,
+      continent: continent || null,
+    });
+  }
+
+  return spots;
+}
+
+function newestSpotAge(spots: NormalizedSpot[]): number {
+  let newest = 0;
+  for (const spot of spots) {
+    const t = Date.parse(spot.spotted_at);
+    if (!isNaN(t) && t > newest) newest = t;
+  }
+  return newest === 0 ? Infinity : Date.now() - newest;
+}
+
+// ---------------------------------------------------------------------------
+// Main collector — DXHeat primary, HamQTH fallback when the primary errors,
+// returns nothing, or has silently stalled (newest spot outside the window).
 // ---------------------------------------------------------------------------
 
 export async function collectDxCluster(db: SupabaseClient): Promise<void> {
@@ -105,80 +307,35 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
   try {
     log("info", "DXCluster: fetching spots");
 
-    const response = await fetch(DXC_URL, {
-      headers: {
-        Accept: "text/plain, text/csv;q=0.9",
-        "User-Agent": USER_AGENT,
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(12_000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    let spots: NormalizedSpot[] = [];
+    let feed = "dxheat";
+    try {
+      spots = await fetchDxHeat();
+    } catch (err) {
+      log("warn", "DXCluster: DXHeat fetch failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
-    const csvText = await response.text();
-    const lines = csvText.trim().split("\n");
-    const spots: NormalizedSpot[] = [];
+    if (spots.length === 0 || newestSpotAge(spots) > FRESHNESS_WINDOW_MS) {
+      try {
+        const fallback = await fetchHamQTH();
+        if (
+          fallback.length > 0 &&
+          newestSpotAge(fallback) < newestSpotAge(spots)
+        ) {
+          spots = fallback;
+          feed = "hamqth";
+        }
+      } catch (err) {
+        log("warn", "DXCluster: HamQTH fallback failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
 
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line) continue;
-
-      const fields = line.split("^");
-      if (fields.length < 11) continue;
-
-      const [
-        spotter,
-        freqStr,
-        dx,
-        comment,
-        timeDate,
-        _lotw,
-        _eqsl,
-        continent,
-        _band,
-        _country,
-        dxccStr,
-      ] = fields;
-
-      // Skip header line
-      if (spotter === "Spotter") continue;
-
-      // H5: Skip rows with empty/whitespace-only callsigns
-      if (!dx?.trim() || !spotter?.trim()) continue;
-
-      const frequencyKhz = parseFloat(freqStr || "0");
-      if (isNaN(frequencyKhz) || frequencyKhz === 0) continue;
-
-      const band = frequencyToBand(frequencyKhz);
-      if (!band) continue; // Non-HF, skip
-
-      const spottedAt = parseHamQTHTime(timeDate || "");
-      const mode = extractMode(comment || "");
-      const dxcc = parseInt(dxccStr || "0", 10);
-
-      spots.push({
-        source: "dxcluster",
-        spotted_at: spottedAt,
-        tx_callsign: dx,
-        tx_grid: null,
-        tx_lat: null,
-        tx_lon: null,
-        rx_callsign: spotter,
-        rx_grid: null,
-        rx_lat: null,
-        rx_lon: null,
-        frequency_khz: Math.round(frequencyKhz * 10) / 10,
-        band,
-        mode,
-        snr: null,
-        wpm: null,
-        comment: comment || null,
-        dxcc: !isNaN(dxcc) && dxcc > 0 ? dxcc : null,
-        continent: continent || null,
-      });
+    if (spots.length === 0) {
+      throw new Error("All DX cluster feeds returned no spots");
     }
 
     count = await insertSpots(db, spots, "dxcluster");
@@ -188,6 +345,7 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
     await reportToDb(db, "dxcluster", "ok", count, durationMs);
     log("info", "DXCluster: collection complete", {
       spots: count,
+      feed,
       durationMs,
     });
   } catch (err) {

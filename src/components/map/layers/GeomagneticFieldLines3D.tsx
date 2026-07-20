@@ -63,8 +63,13 @@ const PARTICLES_PER_LINE = 3;
 /** Particle radius */
 const PARTICLE_RADIUS = 0.006;
 
-/** Latitudes at which field lines emerge from each pole */
-const FIELD_LINE_LATITUDES = [65, 70, 75, 80];
+/**
+ * Magnetic latitudes at which field lines emerge from each hemisphere.
+ * L = 1/cos²(λ), so these give L-shells of ~1.7, 2.1, 2.6, and 3.6 —
+ * nested loops that fit the MAX_FIELD_EXTENT display volume. Auroral
+ * latitudes (65°+) map to L-shells of 5.6-33 R and cannot close inside it.
+ */
+const FIELD_LINE_LATITUDES = [40, 46, 52, 58];
 
 /** Number of longitude divisions per latitude ring */
 const LONGITUDE_DIVISIONS = 8;
@@ -121,10 +126,12 @@ const MAG_FRAME = buildMagneticFrame();
 /**
  * Generate a single dipole field line curve from a starting magnetic latitude.
  *
- * Magnetic dipole equation: r(θ) = L · cos²(θ)
+ * Magnetic dipole equation: r(θ) = L · sin²(θ)
  *   θ = magnetic colatitude (0 at north pole, π at south pole)
- *   L = equatorial crossing distance = R / cos²(λ)
+ *   L = equatorial crossing distance = R / cos²(λ) = R / sin²(θ₀)
  *       where λ is the magnetic latitude of the footpoint
+ * r is clamped to MAX_FIELD_EXTENT so oversized shells flatten against
+ * the display boundary instead of leaving the scene.
  *
  * The line is traced from the northern footpoint (colatitude θ_start)
  * symmetrically through the equator to the southern footpoint (π − θ_start).
@@ -139,12 +146,9 @@ function generateFieldLineCurve(
   // Magnetic colatitude of the footpoint
   const startColatRad = ((90 - startMagLat) * Math.PI) / 180;
 
-  // L-shell: equatorial crossing distance
-  const cosLambda = Math.cos(startColatRad);
-  const L = Math.min(
-    GLOBE_RADIUS / (cosLambda * cosLambda),
-    MAX_FIELD_EXTENT * GLOBE_RADIUS,
-  );
+  // L-shell: equatorial crossing distance, R / sin²(θ₀)
+  const sinColat = Math.sin(startColatRad);
+  const L = GLOBE_RADIUS / (sinColat * sinColat);
 
   // Rotate the meridional plane of this line around the magnetic axis
   const lonRad = (lonOffset * Math.PI) / 180;
@@ -165,7 +169,7 @@ function generateFieldLineCurve(
 
     const cosT = Math.cos(theta);
     const sinT = Math.sin(theta);
-    const r = L * cosT * cosT;
+    const r = Math.min(L * sinT * sinT, MAX_FIELD_EXTENT * GLOBE_RADIUS);
 
     // Decompose into axial (along magUp) and radial (in meridional plane)
     // Polar → Cartesian: axial = r·cos(θ), radial = r·sin(θ)

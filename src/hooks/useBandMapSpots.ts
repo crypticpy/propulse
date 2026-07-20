@@ -3,7 +3,7 @@
  *
  * Merges spots from two sources:
  * 1. Bridge (WSJT-X decodes via wsjtxStore) — real-time, no polling
- * 2. Supabase (spot_history table) — 15s polling
+ * 2. Supabase (spot_history_live cutover view) — 15s polling
  *
  * Returns a flat array of BandMapSpot objects filtered by the selected band.
  */
@@ -105,7 +105,7 @@ export function useBandMapSpots(
       }));
   }, [wsjtxDecodes, wsjtxStatus, wsjtxConnected, range, timeRangeMinutes]);
 
-  // ── Supabase (spot_history) spots ───────────────────────────────────────
+  // ── Supabase (spot_history_live) spots ──────────────────────────────────
 
   const startTime = useMemo(() => {
     const d = new Date();
@@ -120,7 +120,7 @@ export function useBandMapSpots(
       const supabase = getSupabase() as any;
 
       const { data, error } = await supabase
-        .from("spot_history")
+        .from("spot_history_live")
         .select("tx_callsign, frequency_khz, mode, snr, spotted_at, dxcc")
         .eq("band", band)
         .gte("spotted_at", startTime.toISOString())

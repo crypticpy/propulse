@@ -19,6 +19,7 @@ TARGET = datetime(2026, 7, 15, 20, tzinfo=timezone.utc)
 class FakeStore:
     def __init__(self):
         self.features = []
+        self.compact = []
         self.watermarks = []
         self.events = []
 
@@ -46,6 +47,10 @@ class FakeStore:
         self.events.append("features")
         self.features.extend(rows)
 
+    def upsert_compact_page(self, rows):
+        self.events.append("compact")
+        self.compact.extend(rows)
+
     def upsert_watermark(self, row):
         self.events.append("watermark")
         self.watermarks.append(row)
@@ -72,6 +77,7 @@ class WsprFinalizerTests(unittest.TestCase):
             page_size=100,
         ))
         self.assertEqual(pages, [])
+        self.assertEqual(requests[0].url.path, "/rest/v1/wspr_observations_live")
         self.assertEqual(requests[0].url.params["band"], "eq.20m")
 
     def test_postgrest_lookup_continues_after_server_capped_page(self):
@@ -202,6 +208,36 @@ class WsprFinalizerTests(unittest.TestCase):
         )
         self.assertEqual(count, 10)
 
+    def test_postgrest_feature_writers_use_audited_rpcs(self):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, json=1)
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+        feature_rows = [{"target_hour": TARGET.isoformat()}]
+        compact_rows = [{"target_hour": TARGET.isoformat(), "rx_grid4s": ["IO91"]}]
+        store.upsert_feature_page(feature_rows)
+        store.upsert_compact_page(compact_rows)
+
+        self.assertEqual(
+            [request.url.path for request in requests],
+            [
+                "/rest/v1/rpc/ingest_wspr_feature_rows",
+                "/rest/v1/rpc/ingest_wspr_compact_feature_rows",
+            ],
+        )
+        self.assertEqual(requests[0].read(), b'{"p_rows":[{"target_hour":"2026-07-15T20:00:00+00:00"}]}')
+        self.assertEqual(
+            requests[1].read(),
+            b'{"p_rows":[{"target_hour":"2026-07-15T20:00:00+00:00","rx_grid4s":["IO91"]}]}',
+        )
+
     def test_finalizer_streams_pages_and_commits_watermark_last(self):
         store = FakeStore()
         result = finalize_hour(
@@ -221,8 +257,20 @@ class WsprFinalizerTests(unittest.TestCase):
         self.assertGreater(result["feature_cell_count"], 6)
         self.assertEqual(result["transform_version"], TRANSFORM_VERSION)
         self.assertEqual(store.events[-1], "watermark")
+        self.assertIn("compact", store.events)
+        self.assertLess(store.events.index("compact"), store.events.index("watermark"))
         self.assertEqual(len(store.watermarks), 1)
         self.assertEqual(len(store.features), result["feature_cell_count"])
+        self.assertEqual(len(store.compact), result["compact_group_count"])
+        self.assertGreater(result["compact_group_count"], 0)
+        self.assertEqual(
+            sum(len(row["rx_grid4s"]) for row in store.compact),
+            result["feature_cell_count"],
+        )
+        self.assertTrue(all(
+            row["rx_grid4s"] == sorted(row["rx_grid4s"])
+            for row in store.compact
+        ))
         self.assertTrue(all(row["provider"] == "approved-fixture" for row in store.features))
 
     def test_finalizer_refuses_manifest_count_mismatch_before_publish(self):
@@ -241,6 +289,7 @@ class WsprFinalizerTests(unittest.TestCase):
                 threads=2,
             )
         self.assertEqual(store.features, [])
+        self.assertEqual(store.compact, [])
         self.assertEqual(store.watermarks, [])
 
     def test_finalizer_refuses_unconfirmed_source_before_io(self):

@@ -102,7 +102,7 @@ export function useContestPropIntel(band?: string): UseContestPropIntelResult {
       const supabase = getSupabase() as any;
 
       let query = supabase
-        .from("spot_history")
+        .from("spot_history_live")
         .select("*")
         .gte("spotted_at", sinceIso)
         .order("spotted_at", { ascending: false })

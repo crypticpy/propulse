@@ -3,7 +3,14 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from wspr_ingest import ingest_observations, normalize_observation, power_bin_dbm
+import httpx
+
+from wspr_ingest import (
+    PostgrestObservationStore,
+    ingest_observations,
+    normalize_observation,
+    power_bin_dbm,
+)
 
 
 RECEIPT = datetime(2026, 7, 16, 1, 5, tzinfo=timezone.utc)
@@ -32,6 +39,30 @@ class FakeStore:
 
 
 class WsprIngestTests(unittest.TestCase):
+    def test_postgrest_store_uses_server_authoritative_cutover_rpc(self):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, json=1)
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        store = PostgrestObservationStore(
+            base_url="https://example.supabase.co",
+            service_key="secret",
+            client=client,
+        )
+        store.insert_observation_page([{"source": "approved-fixture"}])
+        self.assertEqual(
+            requests[0].url.path,
+            "/rest/v1/rpc/ingest_wspr_observation_rows",
+        )
+        self.assertEqual(
+            requests[0].read(),
+            b'{"p_rows":[{"source":"approved-fixture"}]}',
+        )
+        client.close()
+
     def test_normalization_matches_archive_slot_grid_and_power_contract(self):
         row = normalize_observation(
             raw_observation(),

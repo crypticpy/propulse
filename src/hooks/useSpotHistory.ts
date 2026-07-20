@@ -1,9 +1,9 @@
 /**
  * TanStack Query hook for fetching raw spot history from Supabase.
  *
- * Queries `spot_history` — individual spots from PSKReporter, RBN, and
+ * Queries `spot_history_live` — individual spots from PSKReporter, RBN, and
  * DX Cluster with callsigns, grids, coordinates, frequency, band, mode,
- * and SNR. 14-day rolling window, ~21M rows/day.
+ * and SNR. The view follows the reversible legacy/partitioned cutover.
  *
  * **Important**: Always provide a time window and reasonable limit to
  * avoid pulling excessive data.
@@ -87,7 +87,7 @@ export function useSpotHistory(options: {
       const supabase = getSupabase() as any;
 
       let query = supabase
-        .from("spot_history")
+        .from("spot_history_live")
         .select("*")
         .gte("spotted_at", startTime.toISOString())
         .lte("spotted_at", endTime.toISOString())

@@ -72,6 +72,8 @@ SHADOW_EVENT_FIELDS = {
     "station_feature_contract",
     "path_history_provider",
     "path_history_transform_version",
+    "path_history_hit",
+    "physics_fallback",
     "operational_weather_provider",
     "profile_counts",
     "source_freshness",
@@ -450,6 +452,10 @@ def validate_shadow_telemetry_privacy(event: Mapping[str, Any]) -> None:
         raise PrivacyBoundaryViolation("unsafe propagation shadow telemetry mode")
     if set(event.get("source_freshness", {})) != FRESHNESS_FIELDS:
         raise PrivacyBoundaryViolation("unsafe propagation freshness telemetry")
+    if not isinstance(event.get("path_history_hit"), bool) or not isinstance(
+        event.get("physics_fallback"), bool
+    ):
+        raise PrivacyBoundaryViolation("unsafe propagation path-history telemetry")
     for name in (
         "core_probability_summary",
         "personalized_probability_summary",

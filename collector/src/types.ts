@@ -56,6 +56,12 @@ export interface RetentionDays {
   tle: number;
 }
 
+export interface ArchiveControls {
+  pruningEnabled: boolean;
+  forecastCompactionEnabled: boolean;
+  pruneBatchSize: number;
+}
+
 export interface CollectorConfig {
   supabaseUrl: string;
   supabaseServiceKey: string;
@@ -65,6 +71,7 @@ export interface CollectorConfig {
   aggregationSettleMinutes: number;
   pollIntervals: PollIntervals;
   retention: RetentionDays;
+  archive: ArchiveControls;
 }
 
 export type LogLevel = "debug" | "info" | "warn" | "error";

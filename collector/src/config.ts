@@ -25,6 +25,21 @@ function parseMinutes(envVar: string | undefined, defaultMinutes: number): numbe
   return minutes;
 }
 
+function parseBoolean(envVar: string | undefined, defaultValue: boolean): boolean {
+  if (envVar === undefined) return defaultValue;
+  const normalized = envVar.trim().toLowerCase();
+  if (normalized === "true" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "0") return false;
+  return defaultValue;
+}
+
+function parseBatchSize(envVar: string | undefined, defaultSize: number): number {
+  if (!envVar) return defaultSize;
+  const size = parseInt(envVar, 10);
+  if (isNaN(size) || size < 1 || size > 50_000) return defaultSize;
+  return size;
+}
+
 export function loadConfig(): CollectorConfig {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -69,8 +84,24 @@ export function loadConfig(): CollectorConfig {
     retention: {
       spots: parseDays(process.env.RETENTION_SPOTS, 7),
       health: parseDays(process.env.RETENTION_HEALTH, 7),
-      solar: parseDays(process.env.RETENTION_SOLAR, 90),
-      tle: parseDays(process.env.RETENTION_TLE, 30),
+      solar: parseDays(process.env.RETENTION_SOLAR, 120),
+      tle: parseDays(process.env.RETENTION_TLE, 7),
+    },
+    archive: {
+      // This flag is deliberately false by default. The database has a second,
+      // independently disabled control and sealed-manifest/restore gates.
+      pruningEnabled: parseBoolean(
+        process.env.ARCHIVE_PRUNING_ENABLED,
+        false,
+      ),
+      forecastCompactionEnabled: parseBoolean(
+        process.env.ARCHIVE_FORECAST_COMPACTION_ENABLED,
+        false,
+      ),
+      pruneBatchSize: parseBatchSize(
+        process.env.ARCHIVE_PRUNE_BATCH_SIZE,
+        10_000,
+      ),
     },
   };
 }

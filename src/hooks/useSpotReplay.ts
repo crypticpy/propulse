@@ -1,7 +1,7 @@
 /**
  * TanStack Query hook for spot replay functionality.
  *
- * Queries `spot_history` in Supabase for a configurable time window around a
+ * Queries `spot_history_live` in Supabase for a configurable time window around a
  * center timestamp, supporting band/mode/grid filters. Designed to power a
  * scrubber-style replay UI where the user drags through past propagation.
  *
@@ -166,7 +166,7 @@ export function useSpotReplay(options: UseSpotReplayOptions): {
       const supabase = getSupabase() as any;
 
       let query = supabase
-        .from("spot_history")
+        .from("spot_history_live")
         .select("*")
         .gte("spotted_at", startTime.toISOString())
         .lte("spotted_at", endTime.toISOString())

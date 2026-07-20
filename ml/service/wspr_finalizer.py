@@ -55,6 +55,17 @@ FEATURE_COLUMNS = (
     "sampled_rows",
     "positive_rows",
 )
+COMPACT_FEATURE_COLUMNS = (
+    "target_hour",
+    "band",
+    "tx_grid4",
+    "rx_grid4s",
+    "success_rates",
+    "successes",
+    "opportunities",
+    "sampled_rows",
+    "positive_rows",
+)
 
 
 def aware_utc(value: datetime, label: str) -> datetime:
@@ -75,6 +86,8 @@ class FinalizerStore(Protocol):
     ) -> Iterable[list[dict[str, Any]]]: ...
 
     def upsert_feature_page(self, rows: list[dict[str, Any]]) -> None: ...
+
+    def upsert_compact_page(self, rows: list[dict[str, Any]]) -> None: ...
 
     def upsert_watermark(self, row: dict[str, Any]) -> None: ...
 
@@ -115,7 +128,7 @@ class PostgrestFinalizerStore:
         for attempt in range(self.max_read_attempts):
             try:
                 response = self.client.get(
-                    f"{self.base_url}/rest/v1/wspr_observations_rolling",
+                    f"{self.base_url}/rest/v1/wspr_observations_live",
                     headers=self.headers(),
                     params=params,
                 )
@@ -192,20 +205,28 @@ class PostgrestFinalizerStore:
     def upsert_feature_page(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
-        conflict = (
-            "target_hour,band,tx_grid4,rx_grid4,provider,"
-            "transform_version,available_at"
-        )
         try:
             response = self.client.post(
-                f"{self.base_url}/rest/v1/wspr_path_hourly_features",
-                headers=self.headers(upsert=True),
-                params={"on_conflict": conflict},
-                json=rows,
+                f"{self.base_url}/rest/v1/rpc/ingest_wspr_feature_rows",
+                headers=self.headers(),
+                json={"p_rows": rows},
             )
             response.raise_for_status()
         except httpx.HTTPError as error:
             raise RuntimeError("WSPR feature-page upsert failed") from error
+
+    def upsert_compact_page(self, rows: list[dict[str, Any]]) -> None:
+        if not rows:
+            return
+        try:
+            response = self.client.post(
+                f"{self.base_url}/rest/v1/rpc/ingest_wspr_compact_feature_rows",
+                headers=self.headers(),
+                json={"p_rows": rows},
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as error:
+            raise RuntimeError("compact WSPR feature-page upsert failed") from error
 
     def upsert_watermark(self, row: dict[str, Any]) -> None:
         conflict = (
@@ -407,6 +428,43 @@ def finalize_hour(
             feature_rows.append(row)
         store.upsert_feature_page(feature_rows)
         feature_count += len(feature_rows)
+    compact_cursor = connection.execute(
+        """
+        SELECT target_hour, band, tx_grid4,
+               list(rx_grid4 ORDER BY rx_grid4) AS rx_grid4s,
+               list(success_rate ORDER BY rx_grid4) AS success_rates,
+               list(successes ORDER BY rx_grid4) AS successes,
+               list(opportunities ORDER BY rx_grid4) AS opportunities,
+               list(sampled_rows ORDER BY rx_grid4) AS sampled_rows,
+               list(positive_rows ORDER BY rx_grid4) AS positive_rows
+        FROM path_hour_cells
+        GROUP BY target_hour, band, tx_grid4
+        ORDER BY tx_grid4
+        """
+    )
+    compact_count = 0
+    compact_page_size = min(page_size, 250)
+    while page := compact_cursor.fetchmany(compact_page_size):
+        compact_rows = []
+        for values in page:
+            row = dict(zip(COMPACT_FEATURE_COLUMNS, values))
+            for key, value in list(row.items()):
+                if isinstance(value, datetime):
+                    row[key] = aware_utc(value, key).isoformat()
+                elif hasattr(value, "tolist"):
+                    row[key] = value.tolist()
+            row.update({
+                "available_at": available_at.isoformat(),
+                "source_watermark": source_watermark.isoformat(),
+                "provider": provider,
+                "transform_version": TRANSFORM_VERSION,
+                "cell_quality_flags": [
+                    list(quality_flags) for _ in row["rx_grid4s"]
+                ],
+            })
+            compact_rows.append(row)
+        store.upsert_compact_page(compact_rows)
+        compact_count += len(compact_rows)
     status = "complete" if not quality_flags else "degraded"
     watermark = {
         "target_hour": target_hour.isoformat(),
@@ -421,7 +479,7 @@ def finalize_hour(
         "quality_flags": list(quality_flags),
     }
     store.upsert_watermark(watermark)
-    return watermark
+    return {**watermark, "compact_group_count": compact_count}
 
 
 def parse_time(value: str) -> datetime:

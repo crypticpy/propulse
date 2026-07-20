@@ -48,19 +48,17 @@ class PostgrestObservationStore:
             return
         try:
             response = self.client.post(
-                f"{self.base_url}/rest/v1/wspr_observations_rolling",
+                f"{self.base_url}/rest/v1/rpc/ingest_wspr_observation_rows",
                 headers={
                     "apikey": self.service_key,
                     "Authorization": f"Bearer {self.service_key}",
                     "Content-Type": "application/json",
-                    "Prefer": "resolution=ignore-duplicates,return=minimal",
                 },
-                params={"on_conflict": "observation_key_sha256"},
-                json=rows,
+                json={"p_rows": rows},
             )
             response.raise_for_status()
         except httpx.HTTPError as error:
-            raise RuntimeError("rolling WSPR observation upsert failed") from error
+            raise RuntimeError("rolling WSPR observation ingest failed") from error
 
 
 def parse_time(value: str | datetime, label: str) -> datetime:

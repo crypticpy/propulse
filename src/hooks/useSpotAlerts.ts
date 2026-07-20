@@ -32,7 +32,7 @@ const DEDUP_WINDOW_MS = 5 * 60 * 1000;
 /** Max alerts per minute (rate limit) */
 const MAX_ALERTS_PER_MINUTE = 10;
 
-/** Polling interval for spot_history when realtime not available */
+/** Polling interval for spot_history_live when realtime is unavailable */
 const POLL_INTERVAL_MS = 15_000;
 
 /** Max alert history entries to keep in memory */
@@ -60,7 +60,7 @@ function dedupKey(callsign: string, band: string): string {
   return `${callsign.toUpperCase()}::${band.toLowerCase()}`;
 }
 
-/** Convert a Supabase spot_history row to SpotLike */
+/** Convert a Supabase spot_history_live row to SpotLike */
 function rowToSpotLike(row: SpotHistoryRow): SpotLike {
   return {
     callsign: row.tx_call,

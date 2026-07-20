@@ -53,7 +53,7 @@ async function resolveLastComputedHour(
 }
 
 /**
- * Aggregate spot_history into path_hourly_stats — one row per
+ * Aggregate spot_history_live into path_hourly_stats — one row per
  * (hour, band, mode_class, tx_field, rx_field). These cells are the ML
  * training data for the path_open / SNR models (ml/README.md), so unlike
  * raw spots they are never pruned. The heavy lifting happens inside
@@ -64,7 +64,7 @@ export async function computePathHourlyStats(
   db: SupabaseClient,
   config?: CollectorConfig,
 ): Promise<number> {
-  // Catch-up window matches spot retention (default 7 days)
+  // Catch-up remains bounded by the configured hot spot window.
   const maxCatchupHours = (config?.retention.spots ?? 7) * 24;
 
   const settleMinutes = config?.aggregationSettleMinutes ?? 20;

@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NormalizedSpot } from "../types.js";
 
 // ---------------------------------------------------------------------------
-// Batch insert with chunking (500-row batches, upsert with dedup)
+// Batch insert through the server-authoritative reversible hot-store writer.
+// The RPC keeps legacy, dual-write, and partitioned modes out of collector
+// configuration so one audited database control owns the cutover.
 // ---------------------------------------------------------------------------
 
 export async function insertSpots(
@@ -14,9 +16,8 @@ export async function insertSpots(
   let attempted = 0;
   for (let i = 0; i < spots.length; i += 500) {
     const chunk = spots.slice(i, i + 500);
-    const { error } = await db.from("spot_history").upsert(chunk, {
-      onConflict: "source,tx_callsign,rx_callsign,frequency_khz,spotted_at",
-      ignoreDuplicates: true,
+    const { error } = await db.rpc("ingest_spot_history_rows", {
+      p_rows: chunk,
     });
     if (error) throw new Error(`[${source}] Insert failed: ${error.message}`);
     attempted += chunk.length;

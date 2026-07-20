@@ -3,7 +3,7 @@ import { reportHealth } from "../health.js";
 import { reportToDb } from "../lib/db-helpers.js";
 import { log } from "../logger.js";
 
-const PARSER_VERSION = "forecast-v1";
+const PARSER_VERSION = "forecast-v2-exact-bytes";
 const FORECAST_45_URL =
   "https://services.swpc.noaa.gov/json/45-day-forecast.json";
 const FORECAST_3DAY_URL =
@@ -21,7 +21,12 @@ interface ParsedForecast {
   product: string;
   issuedAt: string;
   sourceUrl: string;
-  rawPayload: unknown;
+  rawPayloadBytes: ArrayBuffer;
+  rawPayload: {
+    content_type: string;
+    encoding: "base64";
+    body_base64: string;
+  };
   values: ForecastValue[];
 }
 
@@ -31,6 +36,8 @@ export interface ForecastProductReceipt {
   issuedAt: string;
   capturedAt: string;
   payloadSha256: string;
+  payloadBytes: number;
+  rawObjectPath: string;
   valueCount: number;
   metrics: string[];
   validStart: string;
@@ -84,7 +91,27 @@ function valuesFromLine(text: string, label: string): number[] {
   return (line.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
 }
 
-export function parse45DayForecast(payload: Forecast45Payload): ParsedForecast {
+function encodedBytes(value: string): ArrayBuffer {
+  const bytes = new TextEncoder().encode(value);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
+function preservedPayload(
+  bytes: ArrayBuffer,
+  contentType: string,
+): ParsedForecast["rawPayload"] {
+  return {
+    content_type: contentType,
+    encoding: "base64",
+    body_base64: Buffer.from(bytes).toString("base64"),
+  };
+}
+
+export function parse45DayForecast(
+  payload: Forecast45Payload,
+  rawPayloadBytes = encodedBytes(JSON.stringify(payload)),
+  contentType = "application/json",
+): ParsedForecast {
   if (!payload.issued || !Array.isArray(payload.data)) {
     throw new Error("Invalid NOAA 45-day forecast payload");
   }
@@ -105,12 +132,17 @@ export function parse45DayForecast(payload: Forecast45Payload): ParsedForecast {
     product: "noaa_45_day_ap_f107",
     issuedAt: new Date(payload.issued).toISOString(),
     sourceUrl: FORECAST_45_URL,
-    rawPayload: payload,
+    rawPayloadBytes,
+    rawPayload: preservedPayload(rawPayloadBytes, contentType),
     values,
   };
 }
 
-export function parse3DayForecast(text: string): ParsedForecast {
+export function parse3DayForecast(
+  text: string,
+  rawPayloadBytes = encodedBytes(text),
+  contentType = "text/plain",
+): ParsedForecast {
   const issueText = text.match(/^:Issued:\s+(.+)$/m)?.[1];
   if (!issueText) throw new Error("NOAA 3-day product has no issue time");
   const issuedAt = parseUtcIssue(issueText.trim());
@@ -154,26 +186,41 @@ export function parse3DayForecast(text: string): ParsedForecast {
     product: "noaa_3_day_solar_geomagnetic",
     issuedAt,
     sourceUrl: FORECAST_3DAY_URL,
-    rawPayload: { text },
+    rawPayloadBytes,
+    rawPayload: preservedPayload(rawPayloadBytes, contentType),
     values,
   };
 }
 
-async function sha256(value: unknown): Promise<string> {
-  const encoded = new TextEncoder().encode(JSON.stringify(value));
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
+export async function sha256PayloadBytes(value: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", value);
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
 
-async function fetchText(url: string): Promise<string> {
+async function fetchPayload(url: string): Promise<{
+  bytes: ArrayBuffer;
+  contentType: string;
+  text: string;
+}> {
   const response = await fetch(url, {
     headers: { "User-Agent": "Propulse-Collector/1.0" },
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
-  return response.text();
+  const bytes = await response.arrayBuffer();
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (error) {
+    throw new Error(`Non-UTF-8 forecast payload from ${url}`, { cause: error });
+  }
+  return {
+    bytes,
+    contentType: response.headers.get("content-type") ?? "application/octet-stream",
+    text,
+  };
 }
 
 const FORECAST_HORIZONS = [3, 6, 12, 24] as const;
@@ -216,7 +263,44 @@ async function persist(
   forecast: ParsedForecast,
   capturedAt: string,
 ): Promise<ForecastProductReceipt> {
-  const payloadSha256 = await sha256(forecast.rawPayload);
+  const payloadSha256 = await sha256PayloadBytes(forecast.rawPayloadBytes);
+  const issuedAt = new Date(forecast.issuedAt);
+  const rawObjectPath = [
+    "forecast_payload_bytes_v1/schema=1",
+    `year=${issuedAt.getUTCFullYear()}`,
+    `month=${String(issuedAt.getUTCMonth() + 1).padStart(2, "0")}`,
+    `day=${String(issuedAt.getUTCDate()).padStart(2, "0")}`,
+    `payload-${payloadSha256}.bin`,
+  ].join("/");
+  const bucket = db.storage.from("propagation-archives");
+  const { error: uploadError } = await bucket.upload(
+    rawObjectPath,
+    forecast.rawPayloadBytes,
+    {
+      cacheControl: "31536000",
+      contentType: "application/octet-stream",
+      upsert: false,
+    },
+  );
+  if (
+    uploadError
+    && !uploadError.message.toLowerCase().includes("already exists")
+  ) {
+    throw new Error(`Forecast byte upload failed: ${uploadError.message}`);
+  }
+  const { data: downloaded, error: downloadError } = await bucket.download(rawObjectPath);
+  if (downloadError || !downloaded) {
+    throw new Error(
+      `Forecast byte verification download failed: ${downloadError?.message ?? "empty body"}`,
+    );
+  }
+  const downloadedBytes = await downloaded.arrayBuffer();
+  if (
+    downloadedBytes.byteLength !== forecast.rawPayloadBytes.byteLength
+    || await sha256PayloadBytes(downloadedBytes) !== payloadSha256
+  ) {
+    throw new Error("Forecast byte object failed size or SHA-256 verification");
+  }
   const { error: payloadError } = await db
     .from("space_weather_forecast_payloads")
     .upsert(
@@ -229,6 +313,11 @@ async function persist(
         parser_version: PARSER_VERSION,
         source_url: forecast.sourceUrl,
         raw_payload: forecast.rawPayload,
+        source_object_bucket: "propagation-archives",
+        source_object_path: rawObjectPath,
+        source_object_sha256: payloadSha256,
+        source_object_bytes: forecast.rawPayloadBytes.byteLength,
+        source_object_verified_at: capturedAt,
       },
       { onConflict: "payload_sha256", ignoreDuplicates: true },
     );
@@ -266,6 +355,8 @@ async function persist(
     issuedAt: forecast.issuedAt,
     capturedAt,
     payloadSha256,
+    payloadBytes: forecast.rawPayloadBytes.byteLength,
+    rawObjectPath,
     valueCount: rows.length,
     metrics: [...new Set(forecast.values.map((row) => row.metric))].sort(),
     validStart: new Date(Math.min(...validTimes)).toISOString(),
@@ -280,10 +371,16 @@ export async function collectForecastsStrict(
   db: SupabaseClient,
 ): Promise<ForecastCollectionReceipt> {
   const [json45, text3day] = await Promise.all([
-    fetchText(FORECAST_45_URL).then((text) =>
-      parse45DayForecast(JSON.parse(text) as Forecast45Payload),
+    fetchPayload(FORECAST_45_URL).then((payload) =>
+      parse45DayForecast(
+        JSON.parse(payload.text) as Forecast45Payload,
+        payload.bytes,
+        payload.contentType,
+      ),
     ),
-    fetchText(FORECAST_3DAY_URL).then(parse3DayForecast),
+    fetchPayload(FORECAST_3DAY_URL).then((payload) =>
+      parse3DayForecast(payload.text, payload.bytes, payload.contentType),
+    ),
   ]);
   const capturedAt = new Date().toISOString();
   const products = await Promise.all([

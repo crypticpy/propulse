@@ -810,6 +810,8 @@ def shadow_telemetry_event(
         "station_feature_contract": str(responses[0]["feature_contract"]),
         "path_history_provider": path_history_provider,
         "path_history_transform_version": path_history_transform_version,
+        "path_history_hit": not stale_history and path_history_provider != "unavailable",
+        "physics_fallback": stale_history or path_history_provider == "unavailable",
         "operational_weather_provider": operational_weather_provider,
         "profile_counts": dict(sorted(profiles.items())),
         "source_freshness": {

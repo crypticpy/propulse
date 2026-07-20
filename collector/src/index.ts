@@ -65,6 +65,7 @@ async function main(): Promise<void> {
     logLevel: config.logLevel,
     pollIntervals: config.pollIntervals,
     retention: config.retention,
+    archive: config.archive,
     aggregationSettleMinutes: config.aggregationSettleMinutes,
   });
 
@@ -120,8 +121,8 @@ async function main(): Promise<void> {
     ),
   );
 
-  // Auto-prune: retention periods configurable via RETENTION_* env vars
-  // band_hourly_stats is never pruned — aggregates preserved forever for ML
+  // Fail-closed retention maintenance. Historical deletion additionally
+  // requires database controls, sealed manifests, and dataset restore gates.
   register("prune", pollIntervals.prune, () => pruneOldData(db, config));
 
   // Start all scheduled tasks

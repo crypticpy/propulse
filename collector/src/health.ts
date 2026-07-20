@@ -14,8 +14,10 @@ interface SourceStatus {
 
 const lastRuns: Record<string, SourceStatus> = {};
 const lastSuccessTimes: Record<string, number> = {};
-let activeConfig: Pick<CollectorConfig, "pollIntervals" | "retention"> | null =
-  null;
+let activeConfig: Pick<
+  CollectorConfig,
+  "pollIntervals" | "retention" | "archive"
+> | null = null;
 
 const STREAM_STALE_MS = 10 * 60_000;
 const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
@@ -61,7 +63,7 @@ export function reportHealth(
 }
 
 export function setActiveConfig(
-  config: Pick<CollectorConfig, "pollIntervals" | "retention">,
+  config: Pick<CollectorConfig, "pollIntervals" | "retention" | "archive">,
 ): void {
   activeConfig = config;
 }
@@ -124,6 +126,7 @@ export function startHealthServer(port: number): http.Server {
               config: {
                 pollIntervals: activeConfig.pollIntervals,
                 retention: activeConfig.retention,
+                archive: activeConfig.archive,
               },
             }
           : {}),

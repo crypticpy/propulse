@@ -247,7 +247,7 @@ export async function readStoredSpots(
   const timeoutId = setTimeout(() => controller.abort(), STORE_TIMEOUT_MS);
   try {
     const response = await dependencies.fetcher(
-      `${config.baseUrl}/rest/v1/spot_history?${query}`,
+      `${config.baseUrl}/rest/v1/spot_history_live?${query}`,
       {
         headers: {
           Accept: "application/json",

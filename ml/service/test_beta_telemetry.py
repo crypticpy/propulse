@@ -80,6 +80,8 @@ def telemetry_event() -> dict:
         "station_feature_contract": "station-chain-v1",
         "path_history_provider": "approved-provider-v1",
         "path_history_transform_version": "wspr-opportunity-duckdb-v1",
+        "path_history_hit": True,
+        "physics_fallback": False,
         "operational_weather_provider": "solar-snapshots-v1",
         "profile_counts": {"nowcast": 1},
         "source_freshness": {

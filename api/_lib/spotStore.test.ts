@@ -53,7 +53,7 @@ describe("central spot store", () => {
 
     expect(result.status).toBe("ok");
     expect(String(fetcher.mock.calls[0][0])).toContain(
-      "https://server-project.supabase.co/rest/v1/spot_history",
+      "https://server-project.supabase.co/rest/v1/spot_history_live",
     );
     expect(fetcher.mock.calls[0][1]?.headers).toMatchObject({
       apikey: "server-anon-key",
@@ -77,7 +77,7 @@ describe("central spot store", () => {
     expect(result.observedAt).toBe("2026-07-19T13:55:00Z");
     const [requestUrl, requestInit] = fetcher.mock.calls[0];
     const url = new URL(String(requestUrl));
-    expect(url.pathname).toBe("/rest/v1/spot_history");
+    expect(url.pathname).toBe("/rest/v1/spot_history_live");
     expect(url.searchParams.get("source")).toBe("eq.pskreporter");
     expect(url.searchParams.get("spotted_at")).toBe(
       "gte.2026-07-19T13:30:00.000Z",

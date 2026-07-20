@@ -81,6 +81,27 @@ describe("archive-gated retention maintenance", () => {
     );
   });
 
+  it("can compact forecast payloads without enabling row pruning", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { compacted_rows: 2 },
+      error: null,
+    });
+    const db = { rpc } as unknown as SupabaseClient;
+    const now = new Date("2026-07-25T01:00:00Z");
+
+    await pruneOldData(db, config(false, true), now);
+
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith(
+      "run_propagation_forecast_payload_compaction",
+      {
+        p_archive_forecast_compaction_enabled: true,
+        p_batch_size: 10_000,
+        p_now: now.toISOString(),
+      },
+    );
+  });
+
   it("surfaces database gate failures instead of reporting success", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,

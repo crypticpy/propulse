@@ -398,7 +398,8 @@ class ArchiveFoundationTests(unittest.TestCase):
 
     def test_collector_has_no_direct_historical_delete(self) -> None:
         source = PRUNE.read_text(encoding="utf-8")
-        self.assertIn("ARCHIVE_PRUNING_ENABLED is false", source)
+        self.assertIn("!config.archive.pruningEnabled", source)
+        self.assertIn("!config.archive.forecastCompactionEnabled", source)
         self.assertIn("run_propagation_retention_maintenance", source)
         for table in ("spot_history", "solar_snapshots", "collector_health", "satellite_tle"):
             self.assertNotIn(f'.from("{table}")', source)

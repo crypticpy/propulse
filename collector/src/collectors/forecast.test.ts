@@ -169,7 +169,7 @@ ${kRows}`;
     const receipt = await collectForecastsStrict(db as never);
 
     expect(receipt.products).toHaveLength(2);
-    expect(objects).toHaveLength(2);
+    expect(objects.size).toBe(2);
     expect(payloadRows).toHaveLength(2);
     expect(payloadRows[0].source_object_path).toContain(
       payloadRows[0].payload_sha256,

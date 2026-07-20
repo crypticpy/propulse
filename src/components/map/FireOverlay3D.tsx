@@ -42,6 +42,8 @@ const MIN_PICK_RADIUS = 0.015;
 
 const dummy = new THREE.Object3D();
 const pickPoint = new THREE.Vector3();
+const pickRay = new THREE.Ray();
+const pickInverse = new THREE.Matrix4();
 
 // ---------------------------------------------------------------------------
 // Props
@@ -169,7 +171,12 @@ export const FireOverlay3D = React.memo(
         const data = cachedDataRef.current;
         if (!data) return;
 
-        const ray = raycaster.ray;
+        // Cached positions are in this mesh's local space, but the raycaster
+        // ray is in world space (the globe sits inside a tilt-rotation group)
+        // — transform the ray into local space before comparing.
+        const ray = pickRay
+          .copy(raycaster.ray)
+          .applyMatrix4(pickInverse.copy(this.matrixWorld).invert());
         let bestSlot = -1;
         let bestRayDist = Infinity;
         let bestDist = 0;
@@ -199,7 +206,7 @@ export const FireOverlay3D = React.memo(
               data[offset],
               data[offset + 1],
               data[offset + 2],
-            ),
+            ).applyMatrix4(this.matrixWorld),
             object: this,
             instanceId: bestSlot,
           } as THREE.Intersection);

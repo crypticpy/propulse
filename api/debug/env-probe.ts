@@ -1,10 +1,11 @@
 // TEMPORARY diagnostic endpoint — reports which Supabase host the runtime
 // resolves and the status of a minimal REST probe. No secrets are returned
 // (the host is already public in the client bundle; only lengths of keys).
+// Runs on the same Node runtime and readStoredSpots path as api/spots/*.
 // Delete after the spots outage diagnosis is complete.
-export const config = { runtime: "edge" };
+import { readStoredSpots } from "../_lib/spotStore.js";
 
-export default async function handler(): Promise<Response> {
+async function handler(): Promise<Response> {
   const rawUrl = (
     process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ""
   ).trim();
@@ -36,12 +37,14 @@ export default async function handler(): Promise<Response> {
         },
       );
       probeStatus = response.status;
-      probeBody = (await response.text()).slice(0, 300);
+      probeBody = (await response.text()).slice(0, 200);
     } catch (error) {
       probeStatus = -2;
       probeBody = error instanceof Error ? error.message : String(error);
     }
   }
+
+  const stored = await readStoredSpots("rbn", { limit: 5 });
 
   return new Response(
     JSON.stringify({
@@ -53,7 +56,13 @@ export default async function handler(): Promise<Response> {
       anonKeyLen: anonKey.length,
       probeStatus,
       probeBody,
+      storedStatus: stored.status,
+      storedRows: stored.rows.length,
+      storedFailure: stored.failureReason ?? null,
+      storedUpstreamStatus: stored.upstreamStatus ?? null,
     }),
     { headers: { "content-type": "application/json" } },
   );
 }
+
+export default { fetch: handler };

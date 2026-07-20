@@ -20,32 +20,47 @@ import { getExternalNoiseFigure } from "./noiseModel";
 import type { NoiseEnvironment } from "./noiseModel";
 
 /**
- * Mode-specific parameters for signal calculations
- * Bandwidth affects noise floor; minSNR affects decode/copy threshold
+ * Reference bandwidth (Hz) for SNR reporting.
+ *
+ * WSJT-X and the amateur digital-mode community quote SNR in a 2500 Hz
+ * reference bandwidth. We compute SNR in this same reference so the mode
+ * thresholds below (which are all published/quoted in 2500 Hz) are compared
+ * honestly. A mode's real detection bandwidth is narrower; its extra
+ * sensitivity lives in the threshold, not in a mode-specific noise floor.
+ */
+const REFERENCE_BANDWIDTH_HZ = 2500;
+
+/**
+ * Mode-specific parameters for signal calculations.
+ *
+ * `bandwidth` is the mode's nominal detection bandwidth (informational).
+ * `minSNR` is the minimum SNR for reliable copy/decode, expressed in the
+ * 2500 Hz reference bandwidth (see REFERENCE_BANDWIDTH_HZ) so all modes are
+ * directly comparable.
  */
 export const MODE_PARAMETERS: Record<OperatingMode, ModeParameters> = {
   SSB: {
     name: "Single Sideband",
     bandwidth: 2400,
-    minSNR: -6,
+    minSNR: 3, // ~+3 dB in 2.4 kHz (~2500 Hz ref) for readable voice
     typicalPower: 100,
   },
   CW: {
     name: "Continuous Wave",
     bandwidth: 500,
-    minSNR: -15,
+    minSNR: -8, // typical human-copy threshold, 2500 Hz ref
     typicalPower: 100,
   },
   FT8: {
     name: "FT8 Digital",
     bandwidth: 50,
-    minSNR: -21, // Reports at -21, can decode to -24
+    minSNR: -21, // WSJT-X published threshold in 2500 Hz ref
     typicalPower: 50,
   },
   RTTY: {
     name: "Radio Teletype",
     bandwidth: 300,
-    minSNR: -10,
+    minSNR: -5, // 2500 Hz ref
     typicalPower: 100,
   },
 };
@@ -318,14 +333,16 @@ function calculateNoiseFloor(
  * SNR calculation based on:
  * - Transmit power (converted to dBm)
  * - Total path loss
- * - Mode bandwidth (affects noise floor)
+ * - The 2500 Hz reference noise floor (WSJT-X convention; mode-independent)
  * - Antenna gains
  *
  * SNR = P_tx(dBm) + G_ant(dBi) - PathLoss(dB) - NoiseFloor(dBm)
  *
  * @param txPowerWatts - Transmitter power in watts
  * @param pathLossDb - Total path loss in dB (from calculateTotalPathLoss)
- * @param mode - Operating mode for bandwidth consideration
+ * @param mode - Operating mode (kept for API compatibility; SNR is now reported
+ *   in the shared 2500 Hz reference bandwidth, so mode sensitivity lives in the
+ *   per-mode minSNR threshold rather than in the noise floor)
  * @param antennaGainDbi - Combined TX+RX antenna gain in dBi (default 0)
  * @returns Expected SNR in dB (can be negative for weak signals)
  *
@@ -343,7 +360,7 @@ function calculateNoiseFloor(
 export function calculateExpectedSNR(
   txPowerWatts: number,
   pathLossDb: number,
-  mode: OperatingMode,
+  _mode: OperatingMode,
   antennaGainDbi: number = 0,
   frequencyMHz?: number,
   noiseEnvironment?: NoiseEnvironment,
@@ -356,10 +373,13 @@ export function calculateExpectedSNR(
   // Convert TX power to dBm (1W = 30 dBm)
   const txPowerDbm = 10 * Math.log10(txPowerWatts * 1000);
 
-  // Get mode bandwidth for noise calculation
-  const modeParams = MODE_PARAMETERS[mode];
+  // Compute the noise floor (and hence SNR) in the 2500 Hz reference bandwidth
+  // used by WSJT-X and the mode thresholds. Using each mode's narrow detection
+  // bandwidth here would inflate the SNR (e.g. ~+17 dB for FT8's 50 Hz) while
+  // still comparing against 2500 Hz-referenced thresholds -- the optimism bug.
+  // The mode's sensitivity is captured by MODE_PARAMETERS.minSNR instead.
   const noiseFloor = calculateNoiseFloor(
-    modeParams.bandwidth,
+    REFERENCE_BANDWIDTH_HZ,
     15,
     frequencyMHz,
     noiseEnvironment,

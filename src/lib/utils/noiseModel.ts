@@ -43,14 +43,18 @@ export interface AtmosphericNoiseOptions {
 
 const T0_KELVIN = 290;
 
+// ITU-R P.372-16 Table (Fam = c - d*log10(f_MHz), c is Fam at 3 MHz).
+// The prior table was shifted one category too quiet (residential carried the
+// rural value, etc.); these are the canonical business/residential/rural/quiet
+// categories mapped onto this module's environment keys.
 const MAN_MADE_COEFFICIENTS: Record<
   NoiseEnvironment,
   { c: number; d: number }
 > = {
-  city: { c: 76.8, d: 27.7 },
-  residential: { c: 67.2, d: 27.7 },
-  rural: { c: 53.6, d: 28.6 },
-  quiet_rural: { c: 44.2, d: 29.4 },
+  city: { c: 76.8, d: 27.7 }, // business / city
+  residential: { c: 72.5, d: 27.7 },
+  rural: { c: 67.2, d: 27.7 },
+  quiet_rural: { c: 53.6, d: 28.6 },
 };
 
 const MIN_FREQUENCY_MHZ = 1.0;

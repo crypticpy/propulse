@@ -16,6 +16,12 @@
 
 import { classifyTerrain, getPathTerrainLoss } from "./terrain";
 import type { TerrainType } from "./terrain";
+import {
+  estimateFoF2,
+  obliqueIncidenceAngle,
+  sfiToR12,
+} from "./ionosphere";
+import { getGeomagneticLatitude } from "./geomagnetic";
 
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
@@ -167,22 +173,10 @@ function solarZenithAngle(lat: number, lon: number, date: Date): number {
 // Ionospheric parameter estimation
 // ---------------------------------------------------------------------------
 
-function estimateF0F2(zenithDeg: number, sfi: number): number {
-  const effectiveSfi = Math.max(sfi, 65);
-  const baseCoeff = 1.2 + 0.016 * effectiveSfi;
-
-  if (zenithDeg < 90) {
-    const cosZ = Math.cos(zenithDeg * DEG_TO_RAD);
-    const f0F2 = baseCoeff * Math.sqrt(Math.max(0, cosZ));
-    return Math.max(1.5, Math.min(15, f0F2));
-  }
-
-  const twilightCosZ = Math.cos(85 * DEG_TO_RAD);
-  const twilightF0F2 = baseCoeff * Math.sqrt(Math.max(0, twilightCosZ));
-  const nightDepth = Math.min((zenithDeg - 90) / 60, 1);
-  const nightFraction = 0.7 * (1 - nightDepth) + 0.3;
-  return Math.max(1.5, Math.min(15, twilightF0F2 * nightFraction));
-}
+// foF2 estimation is delegated to the shared, CCIR/URSI-calibrated
+// estimateFoF2 in ionosphere.ts so the ray-trace engine and the ionosphere
+// model no longer disagree (the previous local (1.2 + 0.016*SFI)*sqrt(cos chi)
+// heuristic produced ~3.6 MHz at SFI 150 noon, far below observed magnitudes).
 
 function estimateHmF2(zenithDeg: number): number {
   const clampedZenith = Math.min(zenithDeg, 90);
@@ -196,16 +190,40 @@ function estimateHmF2(zenithDeg: number): number {
   return Math.max(200, Math.min(400, hmF2));
 }
 
-function hopElevationAngle(hopDistanceKm: number, hmF2: number): number {
+/**
+ * Ray take-off elevation angle for a symmetric single hop over a spherical
+ * earth (ITU-R P.533 geometry). For a ground distance D and reflection height
+ * h, with half-hop central angle psi = D / (2 * Re):
+ *   tan(elevation) = [cos(psi) - Re/(Re + h)] / sin(psi)
+ *
+ * The previous flat-earth atan(h / (D/2)) overestimated the elevation (~11.3
+ * deg vs ~4.3 deg on a 3000 km / 300 km hop) and so mis-stated the oblique MUF.
+ */
+export function hopElevationAngle(
+  hopDistanceKm: number,
+  reflectionHeightKm: number,
+): number {
   if (hopDistanceKm <= 0) return 90;
-  const halfHop = hopDistanceKm / 2;
-  const elevationRad = Math.atan(hmF2 / halfHop);
-  return Math.max(1, elevationRad * RAD_TO_DEG);
+  const psi = hopDistanceKm / (2 * EARTH_RADIUS_KM);
+  const ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + reflectionHeightKm);
+  const tanElev = (Math.cos(psi) - ratio) / Math.sin(psi);
+  const elevationDeg = Math.atan(tanElev) * RAD_TO_DEG;
+  return Math.max(1, elevationDeg);
 }
 
-function calculateMUF(f0F2: number, elevationDeg: number): number {
-  const sinElev = Math.sin(Math.max(1, elevationDeg) * DEG_TO_RAD);
-  const secantFactor = Math.min(1 / sinElev, 12);
+/**
+ * Oblique MUF via the secant law with proper spherical incidence geometry:
+ * MUF = foF2 * sec(i), where i is the angle of incidence at the reflection
+ * height (obliqueIncidenceAngle). For a 3000 km / ~300 km hop this gives a
+ * secant factor of ~3.0-3.6, consistent with M(3000)F2.
+ */
+export function calculateMUF(
+  f0F2: number,
+  elevationDeg: number,
+  reflectionHeightKm: number,
+): number {
+  const incidenceDeg = obliqueIncidenceAngle(elevationDeg, reflectionHeightKm);
+  const secantFactor = 1 / Math.max(0.05, Math.cos(incidenceDeg * DEG_TO_RAD));
   return f0F2 * secantFactor;
 }
 
@@ -219,7 +237,7 @@ function estimateAbsorption(
   let dayFactor = 1.0;
   if (zenithDeg >= 90) dayFactor = (98 - zenithDeg) / 8;
 
-  const r12 = Math.max(0, (sfi - 63.7) / 0.728);
+  const r12 = sfiToR12(sfi);
   const activityFactor = 1 + 0.003 * r12;
   const cosZ = Math.cos(Math.min(zenithDeg, 89) * DEG_TO_RAD);
   const zenithFactor = Math.pow(Math.max(0.01, cosZ), 1.3);
@@ -249,6 +267,7 @@ function scoreHop(
   absorptionDb: number,
   kp: number,
   reflectionLat: number,
+  reflectionLon: number,
 ): number {
   const mufRatio = muf > 0 ? frequencyMHz / muf : 999;
 
@@ -261,10 +280,15 @@ function scoreHop(
 
   const absorptionPenalty = Math.min(40, absorptionDb * 1.3);
 
+  // Auroral-zone degradation keys off geomagnetic latitude (IGRF-13 dipole),
+  // not geographic latitude: the auroral oval follows the geomagnetic pole,
+  // so a ~60 deg geomagnetic threshold is the physically correct trigger.
   let kpPenalty = 0;
-  const absLat = Math.abs(reflectionLat);
-  if (absLat > 55) {
-    const latFactor = Math.min(1, (absLat - 55) / 20);
+  const geomagLat = Math.abs(
+    getGeomagneticLatitude(reflectionLat, reflectionLon),
+  );
+  if (geomagLat > 60) {
+    const latFactor = Math.min(1, (geomagLat - 60) / 20);
     kpPenalty = latFactor * kp * 3;
   }
 
@@ -322,10 +346,10 @@ export function evaluateHopQuality(
   hopDistanceKm: number,
 ): HopQuality {
   const zenith = solarZenithAngle(reflectionLat, reflectionLon, date);
-  const f0F2 = estimateF0F2(zenith, sfi);
+  const f0F2 = estimateFoF2(zenith, sfi);
   const hmF2 = estimateHmF2(zenith);
   const elevDeg = hopElevationAngle(hopDistanceKm, hmF2);
-  const muf = calculateMUF(f0F2, elevDeg);
+  const muf = calculateMUF(f0F2, elevDeg, hmF2);
   const absorptionDb = estimateAbsorption(frequencyMHz, zenith, sfi);
   const isFrequencySupported = frequencyMHz <= muf;
   const qualityScore = scoreHop(
@@ -334,6 +358,7 @@ export function evaluateHopQuality(
     absorptionDb,
     kp,
     reflectionLat,
+    reflectionLon,
   );
 
   return {

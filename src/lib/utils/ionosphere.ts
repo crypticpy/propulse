@@ -32,6 +32,96 @@ const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
 /**
+ * Mean earth radius in km (used for spherical ray geometry)
+ */
+const EARTH_RADIUS_KM = 6371;
+
+/**
+ * Convert Solar Flux Index (SFI) to the 12-month smoothed sunspot number R12.
+ *
+ * Uses the canonical inverse of the CCIR relation SFI = 63.7 + 0.728 * R12,
+ * i.e. R12 = (SFI - 63.7) / 0.728, clamped at >= 0. Shared by the D-layer
+ * absorption model and the ray-trace engine so both agree on solar activity.
+ *
+ * @param sfi - Solar Flux Index (10.7 cm flux)
+ * @returns R12 (>= 0)
+ */
+export function sfiToR12(sfi: number): number {
+  return Math.max(0, (sfi - 63.7) / 0.728);
+}
+
+/**
+ * Angle of incidence at a reflecting/absorbing layer for a spherical earth.
+ *
+ * Given the ray take-off elevation angle and the layer height, the incidence
+ * angle at the layer follows from the law of sines on the earth-centre triangle:
+ *   sin(i) = (Re / (Re + h)) * cos(elevation)
+ * (ITU-R P.533 oblique-incidence geometry). At vertical incidence (elevation
+ * 90 deg) this returns 0; at grazing take-off it approaches ~90 deg.
+ *
+ * @param elevationDeg - Ray take-off elevation angle in degrees (0-90)
+ * @param heightKm - Reflection/absorption layer height in km
+ * @returns Incidence angle at the layer in degrees
+ */
+export function obliqueIncidenceAngle(
+  elevationDeg: number,
+  heightKm: number,
+): number {
+  const ratio = EARTH_RADIUS_KM / (EARTH_RADIUS_KM + heightKm);
+  const sinI = ratio * Math.cos(elevationDeg * DEG_TO_RAD);
+  return Math.asin(Math.max(-1, Math.min(1, sinI))) * RAD_TO_DEG;
+}
+
+/**
+ * Shared solar-zenith-angle estimator for the F2 critical frequency.
+ *
+ * Single calibrated heuristic used by both the ionosphere model and the
+ * multi-hop ray-trace engine so their foF2 values agree. Calibrated to
+ * CCIR/URSI magnitudes: mid-latitude daytime foF2 ~6-8 MHz at SFI 70 and
+ * ~9-12 MHz at SFI 150-200, with night values ~40-60% of daytime resting
+ * on a solar-scaled floor (~2-3.5 MHz). Day/night follow a Chapman-like
+ * cos(chi)^0.4 shape blended into a persistent night floor.
+ *
+ * @param zenithDeg - Solar zenith angle in degrees (0 overhead, 90 horizon, >90 night)
+ * @param sfi - Solar Flux Index
+ * @returns foF2 in MHz
+ */
+export function estimateFoF2(zenithDeg: number, sfi: number): number {
+  const effectiveSfi = Math.max(65, Math.min(300, sfi));
+
+  // Overhead (chi = 0) daytime peak critical frequency, linear in SFI:
+  // ~8 MHz at SFI 70, ~11 MHz at SFI 150, ~13 MHz at SFI 200.
+  const peak = 5.3 + 0.0385 * effectiveSfi;
+
+  // Persistent night floor scales gently with solar activity (2.0-3.5 MHz).
+  const nightFloor = 2.0 + (1.5 * (effectiveSfi - 65)) / 235;
+
+  // Nighttime critical frequency ~= half the daytime peak, never below the floor.
+  const nightValue = Math.max(nightFloor, 0.5 * peak);
+
+  let f0F2: number;
+  if (zenithDeg <= 90) {
+    const cosChi = Math.max(0, Math.cos(zenithDeg * DEG_TO_RAD));
+    // Blend from the night resting value (chi = 90) up to the overhead peak.
+    f0F2 = nightValue + (peak - nightValue) * Math.pow(cosChi, 0.4);
+  } else {
+    // Post-sunset decay from the night value toward (but not below) the floor.
+    const nightDepth = Math.min((zenithDeg - 90) / 60, 1);
+    f0F2 = nightValue * (1 - 0.25 * nightDepth);
+  }
+
+  return Math.max(nightFloor * 0.9, Math.min(16, f0F2));
+}
+
+/**
+ * Approximate solar declination (deg) from month, using a mid-month day count.
+ */
+function approximateSolarDeclination(month: number): number {
+  const dayOfYear = (month - 1) * 30.4 + 15;
+  return -23.45 * Math.cos((2 * Math.PI * (dayOfYear + 10)) / 365);
+}
+
+/**
  * Complete ionospheric parameters for a location and time
  */
 export interface IonosphericParameters {
@@ -106,18 +196,18 @@ export function calculateF0F2(
   month: number,
   geomagLat?: number,
 ): number {
-  // Ensure SFI has a reasonable minimum (quiet sun conditions)
-  const effectiveSFI = Math.max(sfi, 65);
-
-  // Base critical frequency from SFI
-  // f0F2 = 0.15 * sqrt(SFI - 60) + 4 is a simplified approximation
-  // This gives roughly 4 MHz at quiet sun (SFI=65) to 12 MHz at active sun (SFI=300)
-  const baseFoF2 = 0.15 * Math.sqrt(Math.max(effectiveSFI - 60, 5)) + 4;
-
-  // Diurnal variation: f0F2 peaks in early afternoon (13-15 local time)
-  // Night values drop to 40-60% of peak
-  const hourRad = (hour - 14) * 15 * DEG_TO_RAD; // Peak at 14:00 local
-  const diurnalFactor = 0.65 + 0.35 * Math.cos(hourRad);
+  // Day/night magnitude comes from the single shared, CCIR/URSI-calibrated
+  // estimator (see estimateFoF2). We derive an effective solar zenith angle
+  // from latitude, local hour and month so both this model and the ray-trace
+  // engine rest on one calibration rather than two disagreeing formulas.
+  const decRad = approximateSolarDeclination(month) * DEG_TO_RAD;
+  const hourAngleRad = (hour - 12) * 15 * DEG_TO_RAD; // 0 at local solar noon
+  const latRad = lat * DEG_TO_RAD;
+  const cosChi =
+    Math.sin(latRad) * Math.sin(decRad) +
+    Math.cos(latRad) * Math.cos(decRad) * Math.cos(hourAngleRad);
+  const zenith = Math.acos(Math.max(-1, Math.min(1, cosChi))) * RAD_TO_DEG;
+  const baseFoF2 = estimateFoF2(zenith, sfi);
 
   // Latitude variation
   // Equatorial anomaly: f0F2 peaks at ~15-20 degrees from magnetic equator
@@ -153,20 +243,10 @@ export function calculateF0F2(
     ? 1.0 + seasonalAmplitude
     : 1.0 - seasonalAmplitude;
 
-  // Night-time reduction
-  // f0F2 drops significantly at night but never completely disappears
-  const nightFactor =
-    hour >= 6 && hour <= 18
-      ? 1.0
-      : 0.5 +
-        0.2 * Math.cos(((hour < 6 ? hour + 24 : hour) - 24) * (Math.PI / 12));
-
-  const f0F2 =
-    baseFoF2 *
-    diurnalFactor *
-    latFactor *
-    seasonalFactor *
-    Math.max(0.4, nightFactor);
+  // Diurnal and night behaviour are already captured by the zenith-based
+  // baseFoF2; here we only apply the latitude (equatorial anomaly) and
+  // seasonal modifiers on top of the shared calibration.
+  const f0F2 = baseFoF2 * latFactor * seasonalFactor;
 
   // Clamp to realistic range (2-18 MHz)
   return Math.max(2.0, Math.min(18.0, f0F2));
@@ -317,8 +397,8 @@ export function calculateLayerHeights(
  *
  * MUF = f0F2 * M(3000)F2
  *
- * Based on simplified Shimazaki formula:
- * M(3000)F2 = 1 / (0.0196 * hmF2/1000 + 0.1)
+ * Based on the Shimazaki relation between hmF2 and M(3000)F2:
+ * M(3000)F2 ~= 1490 / (hmF2 + 176), with hmF2 in km.
  *
  * Higher layers (larger hmF2) give lower M factors (more vertical ray paths)
  * Lower layers (smaller hmF2) give higher M factors (more oblique paths work)
@@ -334,16 +414,15 @@ export function calculateLayerHeights(
  *
  * // Higher layer at night
  * const m_night = calculateM3000F2(350);
- * // Returns approximately 3.0
+ * // Returns approximately 2.8
  * ```
  */
 export function calculateM3000F2(hmF2: number): number {
-  // Shimazaki formula (simplified)
-  // M(3000)F2 = 1 / (0.0196 * hmF2/1000 + 0.1)
-  // This is an approximation; the full ITU-R formula is more complex
-
-  const hmF2_normalized = hmF2 / 1000; // Convert to Mm for formula
-  const m3000 = 1.0 / (0.0196 * hmF2_normalized + 0.1);
+  // Shimazaki inverse: M(3000)F2 ~= 1490 / (hmF2 + 176), hmF2 in km.
+  // Yields ~3.5 at hmF2 250 km down to ~3.0 at 320 km. The previous form
+  // 1/(0.0196*hmF2/1000 + 0.1) mishandled units (hmF2 already in km) and
+  // always saturated at the 4.5 ceiling.
+  const m3000 = 1490 / (hmF2 + 176);
 
   // Clamp to realistic range
   return Math.max(2.0, Math.min(4.5, m3000));
@@ -359,29 +438,36 @@ export function calculateM3000F2(hmF2: number): number {
  * - Absorption follows solar zenith angle (day only)
  * - Low frequencies are heavily absorbed, high frequencies pass through
  *
- * Based on simplified ITU-R / CCIR model:
- * L = K * (1 + 0.003 * R12) * cos(chi)^1.3 * f^(-2)
+ * Based on the ITU-R P.533 non-deviative absorption form:
+ * L = K * sec(i) * (1 + 0.003 * R12) * cos(0.881 * chi) / (f + fL)^2
+ *
+ * where sec(i) is the obliquity of the D-region crossing (h ~= 90 km),
+ * cos(0.881 * chi) is the P.533 solar-zenith dependence, and (f + fL) with
+ * fL ~= 1.2 MHz is the electron gyro-frequency correction that replaces the
+ * pure 1/f^2 law.
  *
  * @param frequency - Operating frequency in MHz
  * @param zenithAngle - Solar zenith angle in degrees
  * @param sfi - Solar Flux Index (proxy for R12)
+ * @param elevationDeg - Ray take-off elevation in degrees (default 90 = vertical)
  * @returns Absorption in dB (single pass through D-layer)
  *
  * @example
  * ```typescript
- * // 7 MHz during noon (high absorption on 40m)
- * const absorption = calculateDLayerAbsorption(7, 30, 120);
- * // Returns approximately 15-20 dB
+ * // 7 MHz during noon, near-vertical (high absorption on 40m)
+ * const absorption = calculateDLayerAbsorption(7, 20, 120);
+ * // Returns approximately 10-15 dB
  *
  * // 21 MHz during noon (low absorption on 15m)
- * const absorption_15m = calculateDLayerAbsorption(21, 30, 120);
- * // Returns approximately 2-3 dB
+ * const absorption_15m = calculateDLayerAbsorption(21, 20, 120);
+ * // Returns approximately 1-2 dB
  * ```
  */
 export function calculateDLayerAbsorption(
   frequency: number,
   zenithAngle: number,
   sfi: number,
+  elevationDeg: number = 90,
 ): number {
   // No absorption at night (D-layer disappears)
   if (zenithAngle >= 98) {
@@ -394,28 +480,29 @@ export function calculateDLayerAbsorption(
     dayFactor = (98 - zenithAngle) / 8;
   }
 
-  // Convert SFI to approximate R12 (smoothed sunspot number)
-  // R12 = 0.7 * (SFI - 63.7) approximately
-  const r12 = Math.max(0, 0.7 * (sfi - 63.7));
+  // Solar activity factor via the shared SFI -> R12 conversion.
+  const activityFactor = 1 + 0.003 * sfiToR12(sfi);
 
-  // Solar activity factor
-  const activityFactor = 1 + 0.003 * r12;
+  // P.533 solar-zenith dependence cos(0.881 * chi), clamped >= 0 (replaces the
+  // previous cos(chi)^1.3 which decayed too fast at low sun elevation).
+  const zenithFactor = Math.max(0, Math.cos(0.881 * zenithAngle * DEG_TO_RAD));
 
-  // Zenith angle factor (Chapman function approximation)
-  // cos(chi)^1.3 for daytime
-  const cosZenith = Math.cos(Math.min(89, zenithAngle) * DEG_TO_RAD);
-  const zenithFactor = Math.pow(Math.max(0.01, cosZenith), 1.3);
+  // Gyro-frequency-corrected frequency factor: 1/(f + fL)^2 with fL ~= 1.2 MHz
+  // (the ordinary-wave longitudinal gyro-frequency term) instead of 1/f^2.
+  const fL = 1.2;
+  const freqFactor = 1.0 / Math.pow(Math.max(frequency, 1.5) + fL, 2);
 
-  // Frequency factor (inverse square law)
-  // Absorption drops rapidly with increasing frequency
-  const freqFactor = 1.0 / Math.pow(Math.max(frequency, 1.5), 2);
+  // Obliquity of the D-region crossing (h ~= 90 km): a low-angle ray traverses
+  // a much longer slant path and is absorbed more. sec(i) = 1 at vertical.
+  const incidenceDeg = obliqueIncidenceAngle(elevationDeg, 90);
+  const secI = 1 / Math.max(0.05, Math.cos(incidenceDeg * DEG_TO_RAD));
 
   // Base absorption coefficient
-  // Empirically tuned to give reasonable values
-  // ~677 gives roughly 20 dB at 7 MHz, noon, moderate solar activity
+  // ~677 gives roughly 10-15 dB at 7 MHz, noon, moderate solar activity, vertical
   const K = 677;
 
-  const absorption = K * activityFactor * zenithFactor * freqFactor * dayFactor;
+  const absorption =
+    K * secI * activityFactor * zenithFactor * freqFactor * dayFactor;
 
   // Clamp to realistic range (0-50 dB single pass)
   return Math.max(0, Math.min(50, absorption));

@@ -43,7 +43,7 @@ export interface AtmosphericNoiseOptions {
 
 const T0_KELVIN = 290;
 
-// ITU-R P.372-16 Table (Fam = c - d*log10(f_MHz), c is Fam at 3 MHz).
+// ITU-R P.372-16 Table (Fam = c - d*log10(f_MHz), c is Fam at 1 MHz).
 // The prior table was shifted one category too quiet (residential carried the
 // rural value, etc.); these are the canonical business/residential/rural/quiet
 // categories mapped onto this module's environment keys.

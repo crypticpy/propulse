@@ -892,7 +892,8 @@ function layerDevProxy(): Plugin {
             if (
               Array.isArray(coords) &&
               coords.length >= 2 &&
-              typeof tec === "number"
+              typeof tec === "number" &&
+              Number.isFinite(tec)
             ) {
               grid.push({ lon: coords[0], lat: coords[1], tec });
             }

@@ -10,8 +10,7 @@ export type GOESLayer =
   | "GOES-West_ABI_Band13_Clean_Infrared"
   | "GOES-East_ABI_GeoColor"
   | "GOES-West_ABI_GeoColor"
-  | "GOES-East_ABI_Air_Mass"
-  | "MODIS_Terra_CorrectedReflectance_TrueColor";
+  | "GOES-East_ABI_Air_Mass";
 
 /** Default layer (works day and night) */
 const DEFAULT_LAYER: GOESLayer = "GOES-East_ABI_Band13_Clean_Infrared";
@@ -22,13 +21,6 @@ const DEFAULT_LAYER: GOESLayer = "GOES-East_ABI_Band13_Clean_Infrared";
  * resolution (Level7). Requesting the wrong matrix set returns a 400
  * InvalidParameterValue error — verified live against GIBS'
  * WMTSCapabilities.xml on 2026-07-19.
- *
- * Note: MODIS_Terra_CorrectedReflectance_TrueColor actually publishes at
- * Level9 with a .jpeg (not .png) tile format, so it 404s through this
- * builder regardless of matrix set. It predates this map, is unused
- * elsewhere in the codebase, and fixing its format is outside this pass's
- * scope — left at its pre-existing (already-broken) Level6 value rather
- * than a still-broken partial fix.
  */
 const GIBS_TILE_MATRIX_SET: Record<GOESLayer, string> = {
   "GOES-East_ABI_Band13_Clean_Infrared": "GoogleMapsCompatible_Level6",
@@ -36,7 +28,6 @@ const GIBS_TILE_MATRIX_SET: Record<GOESLayer, string> = {
   "GOES-East_ABI_GeoColor": "GoogleMapsCompatible_Level7",
   "GOES-West_ABI_GeoColor": "GoogleMapsCompatible_Level7",
   "GOES-East_ABI_Air_Mass": "GoogleMapsCompatible_Level6",
-  MODIS_Terra_CorrectedReflectance_TrueColor: "GoogleMapsCompatible_Level6",
 };
 
 /** NASA GIBS TileMatrixSetLimits for the GOES-East layer at matrix 2. */

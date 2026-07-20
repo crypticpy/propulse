@@ -5,7 +5,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchLightningStrikes } from "@/lib/api/lightning";
-import { LIGHTNING_LIVE_SOURCE_ENABLED } from "@/lib/map/layerCapabilities";
 
 // Query key for cache management
 export const LIGHTNING_QUERY_KEY = ["lightning"] as const;
@@ -21,7 +20,7 @@ const MINUTE = 60 * 1000;
  * @param enabled - Whether to fetch data (pass layers.lightning)
  */
 export function useLightning(enabled = true) {
-  const queryEnabled = enabled && LIGHTNING_LIVE_SOURCE_ENABLED;
+  const queryEnabled = enabled;
   const { data, isLoading, error } = useQuery({
     queryKey: LIGHTNING_QUERY_KEY,
     queryFn: ({ signal }) => fetchLightningStrikes(signal),

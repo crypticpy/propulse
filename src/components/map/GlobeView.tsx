@@ -167,10 +167,6 @@ import { useSatellites } from "@/hooks/useSatellites";
 import { calculateNVISAtLocation } from "@/lib/utils/nvisCalculation";
 import { getTerminatorPoints } from "@/lib/utils/sun";
 import {
-  APRS_LIVE_SOURCE_ENABLED,
-  REPEATERBOOK_LIVE_SOURCE_ENABLED,
-} from "@/lib/map/layerCapabilities";
-import {
   buildBandActivityHistory,
   createBandActivitySnapshot,
   WATERFALL_BAND_NAMES,
@@ -853,13 +849,9 @@ const GlobeScene = React.memo(function GlobeScene({
   const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
   const { strikes: lightningStrikes } = useLightning(layers.lightning);
   const { hotspots: fireHotspots } = useFires(layers.fires);
-  const { repeaters } = useRepeaters(
-    layers.repeaters && REPEATERBOOK_LIVE_SOURCE_ENABLED,
-  );
+  const { repeaters } = useRepeaters(layers.repeaters);
   const { gauges: riverGauges } = useRiverGauges(layers.riverGauges);
-  const { stations: aprsStations } = useAPRSStations(
-    layers.aprs && APRS_LIVE_SOURCE_ENABLED,
-  );
+  const { stations: aprsStations } = useAPRSStations(layers.aprs);
   const { cyclones: tropicalCyclones } = useTropicalCyclones(layers.tropical);
   const contestQsoData = useContestQsoLocations(layers.contestQsos);
   const loggedQsoData = useLoggedQsoLocations(layers.loggedQsos);

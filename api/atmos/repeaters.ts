@@ -3,6 +3,9 @@
  * Fetches nearby repeaters from RepeaterBook.com API to avoid CORS.
  *
  * Source: https://www.repeaterbook.com/api/export.php
+ * RepeaterBook requires approved-client token auth (X-RB-App-Token) as of
+ * March 2026 — set REPEATERBOOK_APP_TOKEN once access is granted. Until
+ * then upstream returns 401 and this endpoint degrades to empty results.
  * Cache: 1 hour with 10-minute stale-while-revalidate
  */
 
@@ -61,11 +64,13 @@ export default async function handler(request: Request): Promise<Response> {
   const apiUrl = `${REPEATERBOOK_URL}?callsign=&city=&state=&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&dist=${encodeURIComponent(dist)}`;
 
   try {
+    const token = process.env.REPEATERBOOK_APP_TOKEN;
     const response = await fetch(apiUrl, {
       signal: AbortSignal.timeout(10_000),
       headers: {
         Accept: "application/json",
         "User-Agent": "Propulse/1.0 (Ham Radio Dashboard)",
+        ...(token ? { "X-RB-App-Token": token } : {}),
       },
     });
 

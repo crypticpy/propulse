@@ -384,7 +384,7 @@ const BurstTraceAnimation = React.memo(
           opacity={0.8}
           transparent
           depthWrite={false}
-          depthTest={false}
+          depthTest={true}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
 
@@ -394,7 +394,7 @@ const BurstTraceAnimation = React.memo(
           <meshBasicMaterial
             color={color}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
           />
         </mesh>
 
@@ -410,7 +410,7 @@ const BurstTraceAnimation = React.memo(
             transparent
             opacity={0.25}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -429,7 +429,7 @@ const BurstTraceAnimation = React.memo(
             opacity={0.7}
             side={THREE.DoubleSide}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -448,7 +448,7 @@ const BurstTraceAnimation = React.memo(
             opacity={0.5}
             side={THREE.DoubleSide}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

@@ -130,7 +130,7 @@ export function GrayLineZone({ date, visible = true }: GrayLineZoneProps) {
         transparent
         opacity={0.15}
         side={THREE.DoubleSide}
-        depthTest={false}
+        depthTest={true}
         depthWrite={false}
       />
     </mesh>

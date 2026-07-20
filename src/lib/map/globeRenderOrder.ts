@@ -2,28 +2,31 @@
  * Stacking contract for the 3D globe scene (GlobeView).
  *
  * Every transparent overlay must:
- *   1. Disable depth WRITING always. Disable depth TESTING for
- *      surface-conforming geometry — tangent discs/patches, draped sphere
- *      textures, surface-hugging lines. Those dip below the sphere chord
- *      and lose the depth contest against the opaque tile globe, getting
- *      discarded everywhere except the limb (the "red ring" bug).
- *      PROTRUDING 3D geometry (marker spheres, field-line tubes, anything
- *      whose visible half sits clearly above the surface) should KEEP
- *      depthTest: true — the depth buffer only ever holds the opaque globe
- *      (every overlay is depthWrite: false), so depth testing costs nothing
- *      and culls the far side for free.
+ *   1. Disable depth WRITING always. Keep depth TESTING ON. The depth
+ *      buffer holds only the opaque globe plus the GlobeDepthDome — an
+ *      invisible depth-only sphere at GLOBE_DEPTH_DOME_RADIUS (just above
+ *      the tile meshes, below GLOBE_MIN_OVERLAY_RADIUS). The dome gives
+ *      every overlay a clean analytic surface to test against: near-side
+ *      geometry at >= GLOBE_MIN_OVERLAY_RADIUS always wins the contest
+ *      (no tile-mesh z-fighting, no "red ring" discards), and far-side
+ *      geometry is occluded per-fragment by the GPU for free.
+ *      depthTest: false is reserved for exactly three cases:
+ *        a. invisible hit-target geometry (opacity 0 / colorWrite false);
+ *        b. tile-hugging markers placed BELOW the dome (r = 1.000002 so
+ *           deep-zoom markers sit on the tiles) — these must CPU-fade the
+ *           far side via useGlobeOcclusion / useGlobeOcclusionBatch;
+ *        c. FrontSide full-sphere texture drapes (GLOBE_OVERLAY_MATERIAL
+ *           spreaders) — backface culling already removes the far
+ *           hemisphere, so they never bleed.
  *   2. Take an explicit renderOrder from GLOBE_LAYER_ORDER. An unset
  *      renderOrder defaults to 0 and paints before the ladder, losing to
- *      every other overlay regardless of geometry. Paint order comes ONLY
- *      from renderOrder for depthTest:false overlays — geometric altitude
- *      does NOT decide visibility between them, so slot assignment must
- *      reflect intended visual stacking.
- *   3. Handle far-side visibility. Protruding geometry gets it from rule 1
- *      (depth test). Surface-conforming geometry must handle it
- *      geometrically: outward-facing discs/patches use FrontSide (backface
- *      culling removes the far hemisphere); camera-facing/billboarded
- *      geometry must cull by dot(cameraDir, surfaceNormal) — see
- *      useGlobeOcclusion / useGlobeOcclusionBatch.
+ *      every other overlay regardless of geometry. Because overlays never
+ *      write depth, paint order BETWEEN overlays comes ONLY from
+ *      renderOrder — geometric altitude does NOT decide visibility between
+ *      them, so slot assignment must reflect intended visual stacking.
+ *   3. Far-side visibility is handled by rule 1: the depth test against
+ *      the dome culls it. Only the depthTest:false exceptions above need
+ *      geometric handling (FrontSide culling or the occlusion hooks).
  *
  * Slots (higher paints later, i.e. on top):
  *   base            opaque tile globe — depth-tested, no explicit renderOrder
@@ -84,9 +87,12 @@ export const GLOBE_LAYER_SLOTS: readonly GlobeLayerSlot[] = [
 ];
 
 /**
- * Shared material flags for transparent overlays (rule 1 above). Spread into
- * JSX materials (`<meshBasicMaterial {...GLOBE_OVERLAY_MATERIAL} />`) or
- * imperative material params.
+ * Shared material flags for FrontSide full-sphere texture drapes (rule 1c
+ * above). Spread into JSX materials
+ * (`<meshBasicMaterial {...GLOBE_OVERLAY_MATERIAL} />`) or imperative
+ * material params. Drapes keep depthTest: false — backface culling already
+ * handles the far side, and skipping the depth test keeps them immune to
+ * tile-fade depth artifacts.
  */
 export const GLOBE_OVERLAY_MATERIAL = {
   transparent: true,
@@ -116,3 +122,12 @@ export const GLOBE_OVERLAY_MATERIAL = {
  *   hud                      NVIS dome 1.008+, spectrum ring 1.18–1.40
  */
 export const GLOBE_MIN_OVERLAY_RADIUS = 1.003;
+
+/**
+ * Radius of the GlobeDepthDome — an invisible, depth-only sphere rendered
+ * with the opaque base (colorWrite: false, depthWrite: true). It sits above
+ * the tile meshes (exactly 1.0, with chords dipping below) and below
+ * GLOBE_MIN_OVERLAY_RADIUS, so depth-tested overlays win the near-side
+ * contest and get exact far-side occlusion from the GPU.
+ */
+export const GLOBE_DEPTH_DOME_RADIUS = 1.001;

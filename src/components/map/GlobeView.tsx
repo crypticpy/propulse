@@ -23,6 +23,7 @@ import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getBearing, getDistance } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
+import { GlobeDepthDome } from "./GlobeDepthDome";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
 import { selectTileProvider } from "@/lib/tiles/providers";
@@ -1218,6 +1219,11 @@ const GlobeScene = React.memo(function GlobeScene({
 
       {/* Earth tilt group — rotates the globe and all surface overlays */}
       <group rotation={[0, 0, (rotation.x * Math.PI) / 180]}>
+        {/* Depth-only occlusion sphere — gives depth-tested overlays a clean
+            analytic surface so the far side clips correctly (see
+            globeRenderOrder.ts) */}
+        <GlobeDepthDome />
+
         {/* Globe click/hover handler wrapping the Earth */}
         <GlobeClickHandler
           onLocationClick={handleGlobeClick}

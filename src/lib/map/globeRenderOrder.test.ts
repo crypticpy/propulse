@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  GLOBE_DEPTH_DOME_RADIUS,
   GLOBE_LAYER_ORDER,
   GLOBE_LAYER_SLOTS,
+  GLOBE_MIN_OVERLAY_RADIUS,
   GLOBE_OVERLAY_MATERIAL,
 } from "./globeRenderOrder";
 
@@ -24,11 +26,16 @@ describe("GLOBE_LAYER_ORDER", () => {
     expect(GLOBE_LAYER_ORDER.base).toBe(0);
   });
 
-  it("disables depth test and write for transparent overlays", () => {
+  it("disables depth test and write for sphere texture drapes", () => {
     expect(GLOBE_OVERLAY_MATERIAL).toEqual({
       transparent: true,
       depthTest: false,
       depthWrite: false,
     });
+  });
+
+  it("keeps the depth dome above the tile surface and below overlays", () => {
+    expect(GLOBE_DEPTH_DOME_RADIUS).toBeGreaterThan(1.0);
+    expect(GLOBE_DEPTH_DOME_RADIUS).toBeLessThan(GLOBE_MIN_OVERLAY_RADIUS);
   });
 });

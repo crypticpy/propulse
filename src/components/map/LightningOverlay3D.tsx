@@ -271,7 +271,7 @@ export const LightningOverlay3D = React.memo(
             transparent
             opacity={0.8}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
@@ -289,7 +289,7 @@ export const LightningOverlay3D = React.memo(
             transparent
             opacity={0.95}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
@@ -307,7 +307,7 @@ export const LightningOverlay3D = React.memo(
             transparent
             opacity={0.6}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
             side={THREE.DoubleSide}
           />

@@ -116,7 +116,7 @@ function ForecastTrackLine({ cyclone }: ForecastTrackLineProps) {
       transparent: true,
       opacity: 0.6,
       depthWrite: false,
-      depthTest: false,
+      depthTest: true,
     });
   }, [category]);
 
@@ -289,7 +289,7 @@ export const TropicalCycloneOverlay3D = React.memo(
             transparent
             opacity={0.4}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
@@ -307,7 +307,7 @@ export const TropicalCycloneOverlay3D = React.memo(
             transparent
             opacity={0.85}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
           />
         </instancedMesh>
 

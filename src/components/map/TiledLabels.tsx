@@ -54,6 +54,10 @@ export function TiledLabels() {
           if (mat) {
             mat.transparent = true;
             mat.depthWrite = false;
+            // Label tiles drape at the tile-surface radius, BELOW the
+            // GlobeDepthDome — they must skip the depth test or the dome
+            // would occlude them. FrontSide culling handles the far side.
+            mat.depthTest = false;
             mat.needsUpdate = true;
           }
           mesh.renderOrder = GLOBE_LAYER_ORDER.tileLabels;

@@ -27,7 +27,7 @@ interface TerminatorProps {
 function latLonTo3D(
   lat: number,
   lon: number,
-  radius: number = 1.002,
+  radius: number = 1.005,
 ): [number, number, number] {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
@@ -75,7 +75,7 @@ export function Terminator({
       dashScale={standardMode ? 30 : 50}
       dashSize={standardMode ? 5 : 3}
       gapSize={standardMode ? 3 : 1}
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.nightShade - 0.1}
     />

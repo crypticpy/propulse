@@ -253,7 +253,7 @@ export const SpectrumWaterfallRing3D = React.memo(
             transparent
             opacity={0.75}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
             side={THREE.DoubleSide}
             vertexColors

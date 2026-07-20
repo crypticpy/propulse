@@ -398,7 +398,7 @@ function buildNightAwareBorderMaterial(
     `,
     transparent: true,
     depthWrite: false,
-    depthTest: false,
+    depthTest: true,
   });
 }
 
@@ -482,7 +482,7 @@ export function LabelsOverlay({
         transparent: true,
         opacity: 0.35,
         depthWrite: false,
-        depthTest: false,
+        depthTest: true,
       }),
     [],
   );

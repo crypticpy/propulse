@@ -142,7 +142,7 @@ function AnimatedDashedLine({
       dashed
       dashSize={dashSize}
       gapSize={gapSize}
-      depthTest={false}
+      depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
     />
@@ -189,7 +189,7 @@ function GlowLine({
       opacity={baseOpacity}
       transparent
       depthWrite={false}
-      depthTest={false}
+      depthTest={true}
       renderOrder={GLOBE_LAYER_ORDER.arcs}
     />
   );
@@ -276,7 +276,7 @@ function DirectionChevron({
         opacity={opacity}
         side={THREE.DoubleSide}
         depthWrite={false}
-        depthTest={false}
+        depthTest={true}
       />
     </mesh>
   );
@@ -409,7 +409,7 @@ export function PathArc({
           dashed={isLongPath}
           dashSize={isLongPath ? 0.03 : undefined}
           gapSize={isLongPath ? 0.02 : undefined}
-          depthTest={false}
+          depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
         />

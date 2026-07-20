@@ -285,7 +285,7 @@ export function SelectedSpotArc() {
             transparent
             opacity={0.9}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
           />
         </mesh>
       )}
@@ -302,7 +302,7 @@ export function SelectedSpotArc() {
             transparent
             opacity={0.12}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -320,7 +320,7 @@ export function SelectedSpotArc() {
             transparent
             opacity={0.9}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
           />
         </mesh>
       )}
@@ -337,7 +337,7 @@ export function SelectedSpotArc() {
             transparent
             opacity={0.12}
             depthWrite={false}
-            depthTest={false}
+            depthTest={true}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

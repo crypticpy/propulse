@@ -157,7 +157,7 @@ export function Greyline({
         opacity={actualOpacity}
         transparent
         side={THREE.DoubleSide}
-        depthTest={false}
+        depthTest={true}
         depthWrite={false}
       />
     </mesh>

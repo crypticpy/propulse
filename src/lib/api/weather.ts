@@ -1,6 +1,7 @@
 /**
  * NOAA Weather Alerts API client
- * Fetches active weather alerts for the US from weather.gov
+ * Fetches active weather alerts for the US via the /api/weather/alerts
+ * proxy (api.weather.gov drops direct browser connections intermittently).
  */
 
 /**
@@ -62,8 +63,7 @@ interface NWSAlertsResponse {
   features: NWSAlertFeature[];
 }
 
-const NWS_ALERTS_URL =
-  "https://api.weather.gov/alerts/active?status=actual&message_type=alert";
+const NWS_ALERTS_URL = "/api/weather/alerts";
 
 const VALID_SEVERITIES = new Set([
   "Extreme",
@@ -210,13 +210,7 @@ function computeCentroid(
 export async function fetchWeatherAlerts(
   signal?: AbortSignal,
 ): Promise<WeatherAlert[]> {
-  const response = await fetch(NWS_ALERTS_URL, {
-    signal,
-    headers: {
-      Accept: "application/geo+json",
-      "User-Agent": "(Propulse, contact@propulse.app)",
-    },
-  });
+  const response = await fetch(NWS_ALERTS_URL, { signal });
 
   if (!response.ok) {
     throw new Error(`HTTP error ${response.status}: ${response.statusText}`);

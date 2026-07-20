@@ -1297,6 +1297,18 @@ export default defineConfig(({ mode }) => {
             }
           },
         },
+        // NWS weather alerts proxy (dev only) - mirrors Vercel `/api/weather/alerts`
+        // api.weather.gov drops direct browser connections intermittently and
+        // wants an identifying User-Agent, which browser fetch cannot set.
+        "/api/weather/alerts": {
+          target: "https://api.weather.gov",
+          changeOrigin: true,
+          headers: {
+            Accept: "application/geo+json",
+            "User-Agent": "(Propulse, contact@propulse.app)",
+          },
+          rewrite: () => "/alerts/active?status=actual&message_type=alert",
+        },
         // Satellite TLE proxy (dev only) - mirrors Vercel `/api/satellites/tle`
         // Uses AMSAT as primary (reliable) with Celestrak as rewrite target backup
         "/api/satellites/tle": {

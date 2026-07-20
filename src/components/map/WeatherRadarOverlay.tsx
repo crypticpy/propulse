@@ -1,12 +1,15 @@
 /**
  * WeatherRadarOverlay Component
  *
- * Renders animated RainViewer precipitation radar data on the 3D globe.
+ * Renders animated RainViewer precipitation radar data on the 3D globe,
+ * with higher-fidelity IEM NEXRAD tiles composited on top over CONUS for
+ * past frames that have a matching time-offset product.
  * Loads frames (past + nowcast) as CanvasTexture objects, auto-cycles through
  * them, and exports animation control state for an external scrubber UI.
  *
  * Uses zoom 2 (4x4 = 16 tiles per frame, 1024px canvas). Five loaded frames
  * consume about 20 MiB of raw RGBA texture memory instead of hundreds of MiB.
+ * NEXRAD tiles are fetched at zoom 5 and scaled down onto the same canvas.
  *
  * Frame loading strategy:
  * 1. Load the latest past frame first for immediate display
@@ -27,6 +30,12 @@ import React, {
 import * as THREE from "three";
 import type { RadarManifest } from "@/lib/api/radar";
 import { getRadarTileUrlForFrame, getAllRadarFrames } from "@/lib/api/radar";
+import type { NexradProduct } from "@/lib/api/nexrad";
+import {
+  NEXRAD_FRAME_PRODUCTS,
+  NEXRAD_US_BOUNDS_Z5,
+  getNexradTileUrl,
+} from "@/lib/api/nexrad";
 import {
   RADAR_TEXTURE_BUDGET,
   selectInitialRadarFrameIndex,
@@ -64,6 +73,11 @@ const TILE_BATCH_SIZE = 8;
 const FRAME_BATCH_SIZE = 1;
 /** Max loaded frame textures in GPU memory. */
 const MAX_FRAMES = RADAR_TEXTURE_BUDGET.maxFrames;
+/** IEM NEXRAD tiles are fetched at zoom 5 and scaled onto the zoom-2 canvas. */
+const NEXRAD_ZOOM = 5;
+const NEXRAD_TILE_SCALE = TILE_SIZE / 2 ** (NEXRAD_ZOOM - ZOOM_LEVEL);
+/** Oldest NEXRAD time-offset product IEM publishes (see NEXRAD_FRAME_PRODUCTS). */
+const NEXRAD_MAX_AGE_MINUTES = 60;
 
 function getLoadedFrameIndices(
   frames: ReadonlyMap<number, THREE.Texture>,
@@ -145,12 +159,74 @@ function boostRadarColors(ctx: CanvasRenderingContext2D, w: number, h: number) {
 }
 
 /**
+ * Map a RainViewer frame's observation time to the closest available IEM
+ * NEXRAD time-offset product (5-minute steps, up to 60 minutes old). NEXRAD
+ * has no forecast data, so callers should never pass a nowcast frame's time.
+ */
+function resolveNexradProduct(frameTimeSec: number): NexradProduct | null {
+  const minutesAgo = Math.round((Date.now() / 1000 - frameTimeSec) / 60);
+  if (minutesAgo < -2 || minutesAgo > NEXRAD_MAX_AGE_MINUTES) return null;
+  const offsetSteps = Math.min(
+    NEXRAD_FRAME_PRODUCTS.length - 1,
+    Math.max(0, Math.round(minutesAgo / 5)),
+  );
+  return NEXRAD_FRAME_PRODUCTS[NEXRAD_FRAME_PRODUCTS.length - 1 - offsetSteps];
+}
+
+/**
+ * Load IEM NEXRAD tiles for the CONUS bounding box and composite them onto
+ * an existing canvas, scaled down from zoom 5 to the canvas's zoom-2 space.
+ * Returns true if at least one tile was drawn.
+ */
+async function compositeNexradOverlay(
+  ctx: CanvasRenderingContext2D,
+  frameTimeSec: number,
+): Promise<boolean> {
+  const product = resolveNexradProduct(frameTimeSec);
+  if (!product) return false;
+
+  const tiles: { x: number; y: number }[] = [];
+  for (let y = NEXRAD_US_BOUNDS_Z5.yMin; y <= NEXRAD_US_BOUNDS_Z5.yMax; y++) {
+    for (let x = NEXRAD_US_BOUNDS_Z5.xMin; x <= NEXRAD_US_BOUNDS_Z5.xMax; x++) {
+      tiles.push({ x, y });
+    }
+  }
+
+  const tasks = tiles.map((t) => {
+    const url = getNexradTileUrl(product, NEXRAD_ZOOM, t.x, t.y);
+    return () => loadImageWithRetry(url);
+  });
+
+  const results = await loadInBatches(tasks, TILE_BATCH_SIZE);
+
+  let drewAny = false;
+  results.forEach((result, i) => {
+    if (result.status === "fulfilled") {
+      const tile = tiles[i];
+      ctx.drawImage(
+        result.value,
+        tile.x * NEXRAD_TILE_SCALE,
+        tile.y * NEXRAD_TILE_SCALE,
+        NEXRAD_TILE_SCALE,
+        NEXRAD_TILE_SCALE,
+      );
+      drewAny = true;
+    }
+  });
+
+  return drewAny;
+}
+
+/**
  * Load the global radar tiles for a frame and composite them onto a canvas.
+ * When `includeNexrad` is true (past frames only — NEXRAD has no forecast
+ * data), higher-fidelity IEM NEXRAD tiles are layered on top over CONUS.
  */
 async function compositeRadarTilesForFrame(
   manifest: RadarManifest,
   frame: { time: number; path: string },
-): Promise<HTMLCanvasElement> {
+  includeNexrad: boolean,
+): Promise<{ canvas: HTMLCanvasElement; hasNexrad: boolean }> {
   const canvas = document.createElement("canvas");
   canvas.width = CANVAS_SIZE;
   canvas.height = CANVAS_SIZE;
@@ -216,8 +292,12 @@ async function compositeRadarTilesForFrame(
     );
   }
 
+  const hasNexrad = includeNexrad
+    ? await compositeNexradOverlay(ctx, frame.time)
+    : false;
+
   boostRadarColors(ctx, CANVAS_SIZE, CANVAS_SIZE);
-  return canvas;
+  return { canvas, hasNexrad };
 }
 
 function WeatherRadarOverlayInner({
@@ -225,6 +305,9 @@ function WeatherRadarOverlayInner({
   onAnimationState,
 }: WeatherRadarOverlayProps) {
   const framesRef = useRef<Map<number, THREE.CanvasTexture>>(new Map());
+  // Tracks which loaded frame indices got a NEXRAD CONUS overlay composited
+  // in, for the "NEXRAD" source badge in the scrubber UI.
+  const nexradFramesRef = useRef<Set<number>>(new Set());
   // loadedVersion bumps on each new frame load to trigger re-renders
   // without being in the animation effect's dependency array
   const [loadedVersion, setLoadedVersion] = useState(0);
@@ -264,6 +347,7 @@ function WeatherRadarOverlayInner({
     let cancelled = false;
     const map = new Map<number, THREE.CanvasTexture>();
     framesRef.current = map;
+    nexradFramesRef.current = new Set();
     setLoadedVersion(0);
     setActiveFrameIndex(-1);
     setIsLoading(true);
@@ -275,8 +359,20 @@ function WeatherRadarOverlayInner({
       const frame = allFrames[idx];
       if (!frame) return null;
 
-      const canvas = await compositeRadarTilesForFrame(manifest, frame);
+      // NEXRAD publishes only observed (past) data — never for nowcast frames.
+      const isNowcast = idx >= pastCount;
+      const { canvas, hasNexrad } = await compositeRadarTilesForFrame(
+        manifest,
+        frame,
+        !isNowcast,
+      );
       if (cancelled) return null;
+
+      if (hasNexrad) {
+        nexradFramesRef.current.add(idx);
+      } else {
+        nexradFramesRef.current.delete(idx);
+      }
 
       const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -395,7 +491,7 @@ function WeatherRadarOverlayInner({
       isLoading,
       timestamps: loadedIndices.map((index) => allFrames[index].time),
       isNowcast: loadedIndices.map((index) => index >= pastCount),
-      hasNexrad: false,
+      hasNexrad: nexradFramesRef.current.has(activeFrameIndex),
       setFrame,
       togglePlay,
     });

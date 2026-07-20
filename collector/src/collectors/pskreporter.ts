@@ -99,7 +99,7 @@ export function startPskReporter(db: SupabaseClient): void {
   });
 
   client.on("connect", () => {
-    client?.subscribe(PSK_TOPIC, { qos: 0 }, (error) => {
+    client?.subscribe(PSK_TOPIC, { qos: 0 }, (error?: Error | null) => {
       if (error) {
         batcher?.setConnected(false);
         log("error", "PSKReporter MQTT subscription failed", {
@@ -112,7 +112,7 @@ export function startPskReporter(db: SupabaseClient): void {
     });
   });
 
-  client.on("message", (_topic, message) => {
+  client.on("message", (_topic: string, message: Buffer) => {
     try {
       const payload = JSON.parse(message.toString("utf8")) as PskReporterPayload;
       const spot = normalizePskReporterPayload(payload);
@@ -126,7 +126,7 @@ export function startPskReporter(db: SupabaseClient): void {
 
   client.on("offline", () => batcher?.setConnected(false));
   client.on("close", () => batcher?.setConnected(false));
-  client.on("error", (error) => {
+  client.on("error", (error: Error) => {
     batcher?.setConnected(false);
     log("warn", "PSKReporter MQTT connection error", {
       error: error.message,

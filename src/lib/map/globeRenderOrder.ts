@@ -3,9 +3,12 @@
  *
  * Every transparent overlay must:
  *   1. Disable depth WRITING always. Keep depth TESTING ON. The depth
- *      buffer holds only the opaque globe plus the GlobeDepthDome — an
+ *      buffer holds only the base globe plus the GlobeDepthDome — an
  *      invisible depth-only sphere at GLOBE_DEPTH_DOME_RADIUS (just above
- *      the tile meshes, below GLOBE_MIN_OVERLAY_RADIUS). The dome gives
+ *      the tile meshes, below GLOBE_MIN_OVERLAY_RADIUS). The dome renders
+ *      transparent-pass at renderOrder 1: after the basemap (the XYZ tile
+ *      meshes are transparent-pass at renderOrder 0), before every ladder
+ *      overlay — see GlobeDepthDome.tsx for why. The dome gives
  *      every overlay a clean analytic surface to test against: near-side
  *      geometry at >= GLOBE_MIN_OVERLAY_RADIUS always wins the contest
  *      (no tile-mesh z-fighting, no "red ring" discards), and far-side
@@ -125,7 +128,7 @@ export const GLOBE_MIN_OVERLAY_RADIUS = 1.003;
 
 /**
  * Radius of the GlobeDepthDome — an invisible, depth-only sphere rendered
- * with the opaque base (colorWrite: false, depthWrite: true). It sits above
+ * right after the basemap (colorWrite: false, depthWrite: true). It sits above
  * the tile meshes (exactly 1.0, with chords dipping below) and below
  * GLOBE_MIN_OVERLAY_RADIUS, so depth-tested overlays win the near-side
  * contest and get exact far-side occlusion from the GPU.

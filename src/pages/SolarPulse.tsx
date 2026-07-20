@@ -101,7 +101,7 @@ function MetricValue({
   };
   return (
     <div>
-      <p className={`bg-gradient-to-br ${colors[tone]} bg-clip-text font-mono text-4xl font-bold tracking-tight text-transparent sm:text-5xl`}>
+      <p className={`bg-gradient-to-br ${colors[tone]} bg-clip-text font-mono text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl`}>
         {value}
         {unit && <span className="ml-2 text-base font-medium text-slate-400">{unit}</span>}
       </p>

@@ -25,7 +25,7 @@ const stateStyle: Record<SolarWidgetState, string> = {
 };
 
 function formatAge(milliseconds: number): string {
-  if (milliseconds < 60_000) return "under a minute ago";
+  if (milliseconds < 60_000) return "just now";
   if (milliseconds < 60 * 60_000) return `${Math.floor(milliseconds / 60_000)}m ago`;
   if (milliseconds < 24 * 60 * 60_000) return `${Math.floor(milliseconds / 3_600_000)}h ago`;
   return `${Math.floor(milliseconds / 86_400_000)}d ago`;
@@ -90,14 +90,23 @@ export function WidgetShell({
       <header className="flex items-start justify-between gap-3 border-b border-white/[0.07] px-4 py-3.5 sm:px-5">
         <div className="min-w-0">
           {eyebrow && (
-            <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <p
+              className="mb-1 truncate text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-500"
+              title={eyebrow}
+            >
               {eyebrow}
             </p>
           )}
-          <h2 className="truncate text-sm font-semibold text-slate-100 sm:text-base">{title}</h2>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+          <h2 className="truncate text-sm font-semibold text-slate-100 sm:text-base" title={title}>
+            {title}
+          </h2>
+          <div className="mt-1 flex items-center gap-x-2 overflow-hidden whitespace-nowrap text-xs text-slate-500">
             {age !== null && (
-              <time dateTime={observedAt ?? undefined} title={new Date(parsed).toISOString()}>
+              <time
+                className="shrink-0"
+                dateTime={observedAt ?? undefined}
+                title={new Date(parsed).toISOString()}
+              >
                 Observed {formatAge(age)}
               </time>
             )}
@@ -106,12 +115,13 @@ export function WidgetShell({
                 href={sourceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded text-slate-500 underline decoration-white/20 underline-offset-2 hover:text-slate-300"
+                className="min-w-0 truncate rounded text-slate-500 underline decoration-white/20 underline-offset-2 hover:text-slate-300"
+                title={provider}
               >
                 {provider}
               </a>
             ) : provider ? (
-              <span>{provider}</span>
+              <span className="min-w-0 truncate" title={provider}>{provider}</span>
             ) : null}
           </div>
         </div>

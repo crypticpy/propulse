@@ -14,7 +14,7 @@ type MetadataState = "loading" | "ready" | "error";
 
 function ageLabel(timestamp: string): string {
   const age = Math.max(0, Date.now() - Date.parse(timestamp));
-  if (age < 60_000) return "under a minute ago";
+  if (age < 60_000) return "just now";
   if (age < 3_600_000) return `${Math.floor(age / 60_000)}m ago`;
   return `${Math.floor(age / 3_600_000)}h ago`;
 }

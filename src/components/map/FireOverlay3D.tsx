@@ -17,6 +17,7 @@
 
 import React, { useRef, useCallback } from "react";
 import { useFrame } from "@react-three/fiber";
+import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { FireHotspot } from "@/lib/api/fires";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
@@ -32,11 +33,15 @@ const MAX_INSTANCES = 5000;
 /** Globe-surface radius for hotspot placement (matches other overlays) */
 const GLOBE_RADIUS = 1.006;
 
+/** Minimum pick radius (world units) so small fires stay clickable */
+const MIN_PICK_RADIUS = 0.015;
+
 // ---------------------------------------------------------------------------
-// Module-level dummy -- reused every frame, never recreated
+// Module-level dummies -- reused every frame/raycast, never recreated
 // ---------------------------------------------------------------------------
 
 const dummy = new THREE.Object3D();
+const pickPoint = new THREE.Vector3();
 
 // ---------------------------------------------------------------------------
 // Props
@@ -44,6 +49,11 @@ const dummy = new THREE.Object3D();
 
 interface FireOverlay3DProps {
   hotspots: FireHotspot[];
+  /** Called when a hotspot marker is clicked, with viewport screen coords */
+  onFireClick?: (
+    hotspot: FireHotspot,
+    screenPos: { x: number; y: number },
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,7 +61,7 @@ interface FireOverlay3DProps {
 // ---------------------------------------------------------------------------
 
 export const FireOverlay3D = React.memo(
-  function FireOverlay3D({ hotspots }: FireOverlay3DProps) {
+  function FireOverlay3D({ hotspots, onFireClick }: FireOverlay3DProps) {
     const glowRef = useRef<THREE.InstancedMesh>(null);
     const coreRef = useRef<THREE.InstancedMesh>(null);
 
@@ -146,6 +156,82 @@ export const FireOverlay3D = React.memo(
       }
     });
 
+    // Analytic picking: the default InstancedMesh raycast intersects every
+    // triangle of all 5000 sphere instances on each pointer event, which is
+    // far too slow. Instead, treat each cached hotspot as a point and pick
+    // the near-side one closest to the pointer ray within a generous radius.
+    const pickRaycast = useCallback(
+      function (
+        this: THREE.InstancedMesh,
+        raycaster: THREE.Raycaster,
+        intersects: THREE.Intersection[],
+      ) {
+        const data = cachedDataRef.current;
+        if (!data) return;
+
+        const ray = raycaster.ray;
+        let bestSlot = -1;
+        let bestRayDist = Infinity;
+        let bestDist = 0;
+
+        for (let slot = 0; slot < cachedCountRef.current; slot++) {
+          const offset = slot * 5;
+          pickPoint.set(data[offset], data[offset + 1], data[offset + 2]);
+
+          // Skip hotspots on the far side of the globe (behind the horizon
+          // as seen from the ray origin, i.e. the camera).
+          if (pickPoint.dot(ray.origin) < 1.0) continue;
+
+          const rayDist = ray.distanceToPoint(pickPoint);
+          const pickRadius = Math.max(data[offset + 3] * 3, MIN_PICK_RADIUS);
+          if (rayDist < pickRadius && rayDist < bestRayDist) {
+            bestRayDist = rayDist;
+            bestDist = ray.origin.distanceTo(pickPoint);
+            bestSlot = slot;
+          }
+        }
+
+        if (bestSlot >= 0) {
+          const offset = bestSlot * 5;
+          intersects.push({
+            distance: bestDist,
+            point: new THREE.Vector3(
+              data[offset],
+              data[offset + 1],
+              data[offset + 2],
+            ),
+            object: this,
+            instanceId: bestSlot,
+          } as THREE.Intersection);
+        }
+      },
+      [],
+    );
+
+    const handleClick = useCallback(
+      (e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        if (!onFireClick || e.instanceId === undefined) return;
+        const data = cachedDataRef.current;
+        if (!data) return;
+        const origIdx = data[e.instanceId * 5 + 4];
+        const hotspot = hotspots[origIdx];
+        if (!hotspot) return;
+        onFireClick(hotspot, {
+          x: e.nativeEvent.clientX,
+          y: e.nativeEvent.clientY,
+        });
+      },
+      [hotspots, onFireClick],
+    );
+
+    const handlePointerOver = useCallback(() => {
+      document.body.style.cursor = "pointer";
+    }, []);
+    const handlePointerOut = useCallback(() => {
+      document.body.style.cursor = "";
+    }, []);
+
     // Nothing to render -- avoid allocating GPU resources
     if (hotspots.length === 0) return null;
 
@@ -167,6 +253,10 @@ export const FireOverlay3D = React.memo(
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
           renderOrder={GLOBE_LAYER_ORDER.surfaceArea}
+          raycast={pickRaycast}
+          onClick={onFireClick ? handleClick : undefined}
+          onPointerOver={onFireClick ? handlePointerOver : undefined}
+          onPointerOut={onFireClick ? handlePointerOut : undefined}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
@@ -196,8 +286,9 @@ export const FireOverlay3D = React.memo(
       </group>
     );
   },
-  // Custom comparator: only re-render when the hotspots array reference changes
-  (prev, next) => prev.hotspots === next.hotspots,
+  // Custom comparator: re-render only on hotspots/handler reference changes
+  (prev, next) =>
+    prev.hotspots === next.hotspots && prev.onFireClick === next.onFireClick,
 );
 
 export default FireOverlay3D;

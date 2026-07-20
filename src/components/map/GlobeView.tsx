@@ -41,6 +41,7 @@ import { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
 import { WeatherAlerts3D } from "./WeatherAlerts3D";
 import { WeatherAlertFlyout } from "./WeatherAlertFlyout";
 import { WeatherAlertModal } from "./WeatherAlertModal";
+import { FireFlyout } from "./FireFlyout";
 import { LightningOverlay3D } from "./LightningOverlay3D";
 import { FireOverlay3D } from "./FireOverlay3D";
 import { RepeaterOverlay3D } from "./RepeaterOverlay3D";
@@ -103,6 +104,7 @@ import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useEarthquakes } from "@/hooks/useEarthquakes";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import type { WeatherAlert } from "@/lib/api/weather";
+import type { FireHotspot } from "@/lib/api/fires";
 import { useLightning } from "@/hooks/useLightning";
 import { useFires } from "@/hooks/useFires";
 import { useRepeaters } from "@/hooks/useRepeaters";
@@ -800,6 +802,10 @@ interface GlobeSceneProps {
     alert: WeatherAlert,
     screenPos: { x: number; y: number },
   ) => void;
+  onFireClick?: (
+    hotspot: FireHotspot,
+    screenPos: { x: number; y: number },
+  ) => void;
   onRadarAnimState?: (state: RadarAnimationState) => void;
 }
 
@@ -817,6 +823,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onSpotHoverEnd,
   onClusterClick,
   onAlertClick,
+  onFireClick,
   onRadarAnimState,
 }: GlobeSceneProps) {
   const layers = useMapStore((s) => s.layers);
@@ -1297,7 +1304,7 @@ const GlobeScene = React.memo(function GlobeScene({
           <LightningOverlay3D strikes={lightningStrikes} />
         )}
         {layers.fires && fireHotspots.length > 0 && (
-          <FireOverlay3D hotspots={fireHotspots} />
+          <FireOverlay3D hotspots={fireHotspots} onFireClick={onFireClick} />
         )}
         {layers.repeaters && repeaters.length > 0 && (
           <RepeaterOverlay3D repeaters={repeaters} />
@@ -1705,6 +1712,12 @@ export function GlobeView({
     null,
   );
 
+  // State for fire hotspot flyout
+  const [clickedFireData, setClickedFireData] = useState<{
+    hotspot: FireHotspot;
+    screenPos: { x: number; y: number };
+  } | null>(null);
+
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
   // Use ref for allSpots to avoid re-filtering on every DX cluster update
@@ -1928,6 +1941,7 @@ export function GlobeView({
       setFlyoutPosition(null);
       setTooltipPosition(null);
       setHoveredTargetPos(null);
+      setClickedFireData(null);
       setClickedAlertData({ alert, screenPos });
     },
     [setFlyoutPosition, setTooltipPosition],
@@ -1944,6 +1958,28 @@ export function GlobeView({
 
   const handleAlertFlyoutClose = useCallback(() => {
     setClickedAlertData(null);
+  }, []);
+
+  // Handle fire hotspot click - show fire flyout
+  const handleFireClick = useCallback(
+    (hotspot: FireHotspot, screenPos: { x: number; y: number }) => {
+      // Clear all other flyouts (mutual exclusion)
+      setHoveredPinData(null);
+      setHoveredSpotData(null);
+      setHoveredSpotPos(null);
+      setSelectedCluster(null);
+      setClusterScreenPos(null);
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      setHoveredTargetPos(null);
+      setClickedAlertData(null);
+      setClickedFireData({ hotspot, screenPos });
+    },
+    [setFlyoutPosition, setTooltipPosition],
+  );
+
+  const handleFireFlyoutClose = useCallback(() => {
+    setClickedFireData(null);
   }, []);
 
   // Handle edit pin from PinFlyout
@@ -2119,6 +2155,7 @@ export function GlobeView({
               onSpotHoverEnd={handleSpotHoverEnd}
               onClusterClick={handleClusterClick}
               onAlertClick={handleAlertClick}
+              onFireClick={handleFireClick}
               onRadarAnimState={setRadarAnimState}
             />
           </Suspense>
@@ -2196,7 +2233,8 @@ export function GlobeView({
           !hoveredTargetPos &&
           !hoveredSpotData &&
           !selectedCluster &&
-          !clickedAlertData
+          !clickedAlertData &&
+          !clickedFireData
         }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
@@ -2222,7 +2260,8 @@ export function GlobeView({
           !flyoutPosition &&
           !hoveredPinData &&
           !selectedCluster &&
-          !clickedAlertData
+          !clickedAlertData &&
+          !clickedFireData
         }
         position={hoveredSpotPos || { x: 0, y: 0 }}
         spot={hoveredSpotData}
@@ -2278,6 +2317,14 @@ export function GlobeView({
       <WeatherAlertModal
         alert={alertModalData}
         onClose={handleAlertModalClose}
+      />
+
+      {/* Fire hotspot flyout - shown when clicking a fire marker */}
+      <FireFlyout
+        visible={!!clickedFireData}
+        position={clickedFireData?.screenPos ?? { x: 0, y: 0 }}
+        hotspot={clickedFireData?.hotspot ?? null}
+        onClose={handleFireFlyoutClose}
       />
 
       {/* FT8 Spotter HUD — cycle timer, decode count, stats */}

@@ -179,7 +179,6 @@ export const RiverGaugeOverlay3D = React.memo(
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
             color="#ffffff"
-            vertexColors
             transparent
             opacity={0.3}
             depthWrite={false}
@@ -198,7 +197,6 @@ export const RiverGaugeOverlay3D = React.memo(
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
             color="#ffffff"
-            vertexColors
             transparent
             opacity={0.7}
             depthWrite={false}

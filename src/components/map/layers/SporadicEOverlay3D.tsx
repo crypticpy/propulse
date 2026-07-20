@@ -171,7 +171,6 @@ export const SporadicEOverlay3D = React.memo(
             depthWrite={false}
             blending={THREE.NormalBlending}
             side={THREE.FrontSide}
-            vertexColors
           />
         </instancedMesh>
       </group>

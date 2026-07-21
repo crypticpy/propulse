@@ -73,7 +73,7 @@ fi
 /usr/bin/caffeinate -dimsu "${ROOT}/ml/.venv/bin/python" \
   "${ROOT}/ml/service/wspr_scheduler.py" \
   --completion-manifest "${MANIFEST}" \
-  --workers 1 \
+  --workers 2 \
   --threads-per-band 9 \
   --page-size 250 \
   --retention-hours 30 \

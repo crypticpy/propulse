@@ -21,6 +21,7 @@ import {
   type HourlyForecast,
   type BestWindow,
 } from "@/lib/utils/bands";
+import { useActiveMode } from "@/hooks/useActiveBandMode";
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { gridToLatLon } from "@/lib/utils/grid";
 import type { UserStation } from "@/types/user";
@@ -108,11 +109,13 @@ export function MobileBandPlanner({
   // Expanded band card
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
 
+  const activeMode = useActiveMode();
   const modelNowCast = useNowCastBandPredictions({
     origin: station,
     target: targetCoords,
     weather: modelWeather,
     weatherUpdatedAt: modelWeatherUpdatedAt,
+    mode: activeMode,
     deriveEnvelope,
     researchSubjectBinding,
   });
@@ -319,6 +322,7 @@ export function MobileBandPlanner({
             bands={HF_MODEL_BANDS}
             stationLabel={stationChainName}
             locationLabel={locationName}
+            mode={activeMode}
             compact
           />
         )}

@@ -11,7 +11,7 @@ import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useForecastDisplayPrefs } from "@/stores/userStore";
-import { useActiveBand } from "@/hooks/useActiveBandMode";
+import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
@@ -183,6 +183,7 @@ export function PropagationForecastMini({
   const target = useMapStore((s) => s.target);
   const { station } = useUserStore();
   const activeBand = useActiveBand();
+  const activeMode = useActiveMode();
   const forecastDisplay = useForecastDisplayPrefs();
   const updateForecastDisplay = useUserStore((s) => s.updateForecastDisplay);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -270,6 +271,7 @@ export function PropagationForecastMini({
     target: nowCastTarget,
     weather: modelWeather,
     weatherUpdatedAt: modelWeatherUpdatedAt,
+    mode: activeMode,
     deriveEnvelope: stationCast.deriveEnvelope,
     researchSubjectBinding: researchParticipation.state?.subjectBinding,
   });
@@ -1062,7 +1064,11 @@ export function PropagationForecastMini({
           <div className="flex items-center gap-1.5 mt-1 text-xs overflow-hidden">
             <span
               className="text-[10px] font-mono font-semibold text-cyan-300 uppercase tracking-wide flex-shrink-0 cursor-help"
-              title={`${modelNowCast.personalized ? "NOWCAST + STATIONCAST" : "NOWCAST"} MODEL\nLive ML band predictions (WSPR single-decode probability) from the model service.\nShown alongside the physics forecast above — computed independently from it.`}
+              title={`${modelNowCast.personalized ? "NOWCAST + STATIONCAST" : "NOWCAST"} MODEL\nLive ML band predictions from the model service.\nPath (WSPR): chance a single WSPR transmission would be decoded on this path.${
+                modelNowCast.personalized
+                  ? `\nYour ${activeMode}: that path probability adapted to your equipment and mode threshold.`
+                  : ""
+              }\nShown alongside the physics forecast above — computed independently from it.`}
             >
               NowCast
             </span>
@@ -1070,9 +1076,9 @@ export function PropagationForecastMini({
               <div
                 key={band}
                 className="font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.06] flex items-center gap-1 flex-shrink-0 cursor-help"
-                title={`NOWCAST MODEL — ${band}\nProfile: ${prediction.profile === "physics" ? "Physics fallback" : "NowCast ML"}\nCore probability: ${(prediction.core_probability * 100).toFixed(1)}%${
+                title={`NOWCAST MODEL — ${band}\nProfile: ${prediction.profile === "physics" ? "Physics fallback (live WSPR history stale)" : "NowCast ML (live WSPR history)"}\nPath (WSPR): ${(prediction.core_probability * 100).toFixed(1)}%${
                   modelNowCast.personalized
-                    ? `\nYour station: ${(prediction.personalized_probability * 100).toFixed(1)}%`
+                    ? `\nYour ${activeMode}: ${(prediction.personalized_probability * 100).toFixed(1)}%`
                     : ""
                 }\nConfidence: ${Math.round(prediction.confidence * 100)}%${
                   prediction.ood_flags.length > 0
@@ -1594,6 +1600,10 @@ export function PropagationForecastMini({
         sfi={currentSfi}
         stationCallsign={station?.callsign || ""}
         targetName={target?.name || target?.grid || "Target"}
+        nowCast={modelNowCast}
+        mode={activeMode}
+        stationLabel={stationCast.chain?.name}
+        locationLabel={stationCast.location?.name}
       />
 
       {/* Help Modal */}

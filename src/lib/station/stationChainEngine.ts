@@ -158,6 +158,8 @@ function clampNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
+// snrThresholdDb values use the WSJT-X convention: SNR referenced to a
+// 2500 Hz noise bandwidth, so thresholds are directly comparable across modes.
 const MODE_LINK_ASSUMPTIONS: Record<
   string,
   { bandwidthHz: number; snrThresholdDb: number }
@@ -166,7 +168,11 @@ const MODE_LINK_ASSUMPTIONS: Record<
   FT8: { bandwidthHz: 50, snrThresholdDb: -21 },
   FT4: { bandwidthHz: 90, snrThresholdDb: -17.5 },
   CW: { bandwidthHz: 100, snrThresholdDb: -15 },
+  DATA: { bandwidthHz: 500, snrThresholdDb: -10 },
+  RTTY: { bandwidthHz: 250, snrThresholdDb: -5 },
   SSB: { bandwidthHz: 2400, snrThresholdDb: 10 },
+  AM: { bandwidthHz: 6000, snrThresholdDb: 15 },
+  FM: { bandwidthHz: 12000, snrThresholdDb: 19 },
 };
 
 function stableFingerprint(value: unknown): string {

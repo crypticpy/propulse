@@ -21,6 +21,7 @@ import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
+import { useActiveMode } from "@/hooks/useActiveBandMode";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
@@ -122,11 +123,13 @@ export function BandPlanner() {
     [currentKp, currentFlux, currentBz],
   );
   const researchParticipation = useResearchParticipation();
+  const activeMode = useActiveMode();
   const modelNowCast = useNowCastBandPredictions({
     origin: stationCast.location,
     target: targetCoords,
     weather: modelWeather,
     weatherUpdatedAt: bandDataUpdatedAt,
+    mode: activeMode,
     deriveEnvelope: stationCast.deriveEnvelope,
     researchSubjectBinding: researchParticipation.state?.subjectBinding,
   });
@@ -582,6 +585,7 @@ export function BandPlanner() {
                 bands={HF_MODEL_BANDS}
                 stationLabel={stationCast.chain?.name}
                 locationLabel={stationCast.location?.name}
+                mode={activeMode}
               />
             )}
 

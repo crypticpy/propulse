@@ -14,8 +14,21 @@ interface NowCastBandPanelProps {
   bands: readonly string[];
   stationLabel?: string;
   locationLabel?: string;
+  /** Operator's selected mode; personalizes the "Your …" probability row. */
+  mode?: string;
   compact?: boolean;
 }
+
+const PATH_PROBABILITY_TITLE =
+  "Probability that a single WSPR transmission on this path would be decoded " +
+  "right now — the model's native measurement of whether the path is open.";
+
+const NOWCAST_CHIP_TITLE =
+  "Served by the ML model using live WSPR path history for this route.";
+
+const PHYSICS_CHIP_TITLE =
+  "Live WSPR path history is stale or unavailable, so this band is served by " +
+  "the physics-trained fallback model at reduced confidence.";
 
 function probabilityTone(probability: number): string {
   if (probability >= 0.5) return "text-signal-green";
@@ -41,12 +54,21 @@ export function NowCastBandPanel({
   bands,
   stationLabel,
   locationLabel,
+  mode,
   compact = false,
 }: NowCastBandPanelProps) {
   if (!state.visible) return null;
   const firstPrediction = [...state.predictions.values()][0];
   const pathAge = formatAge(firstPrediction?.data_freshness.path_history);
   const weatherAge = formatAge(firstPrediction?.data_freshness.space_weather);
+  const modeLabel = (mode ?? "").trim().toUpperCase();
+  const personalizedLabel = modeLabel && modeLabel !== "WSPR"
+    ? `Your ${modeLabel}`
+    : "Your station";
+  const personalizedTitle = modeLabel && modeLabel !== "WSPR"
+    ? `The WSPR path probability adapted to your equipment and ${modeLabel}'s ` +
+      "decode threshold — the odds this contact is workable in your mode."
+    : "The WSPR path probability adapted to your equipment (power, antenna, losses).";
 
   return (
     <Card>
@@ -73,7 +95,11 @@ export function NowCastBandPanel({
                   {stationLabel}
                 </span>
               )}
-              <span>WSPR single-decode probability</span>
+              <span>
+                {state.personalized && modeLabel && modeLabel !== "WSPR"
+                  ? `WSPR path probability + your ${modeLabel} outlook`
+                  : "WSPR single-decode probability"}
+              </span>
             </div>
           </div>
         </div>
@@ -117,21 +143,42 @@ export function NowCastBandPanel({
                   <span className="font-mono text-sm font-semibold text-white">
                     {band}
                   </span>
-                  <span className="text-[11px] text-gray-500">
+                  <span
+                    className={`cursor-help text-[11px] ${
+                      prediction.profile === "physics"
+                        ? "text-caution-amber/80"
+                        : "text-gray-500"
+                    }`}
+                    title={
+                      prediction.profile === "physics"
+                        ? PHYSICS_CHIP_TITLE
+                        : NOWCAST_CHIP_TITLE
+                    }
+                  >
                     {prediction.profile === "physics" ? "Physics" : "NowCast"}
                   </span>
                 </div>
 
                 <div className="mt-3 space-y-1.5 text-xs">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-500">Core</span>
+                    <span
+                      className="cursor-help text-gray-500"
+                      title={PATH_PROBABILITY_TITLE}
+                    >
+                      Path (WSPR)
+                    </span>
                     <span className="font-mono text-gray-200">
                       {(prediction.core_probability * 100).toFixed(1)}%
                     </span>
                   </div>
                   {state.personalized && (
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-gray-400">Your station</span>
+                      <span
+                        className="cursor-help text-gray-400"
+                        title={personalizedTitle}
+                      >
+                        {personalizedLabel}
+                      </span>
                       <span
                         className={`font-mono font-semibold ${probabilityTone(
                           prediction.personalized_probability,

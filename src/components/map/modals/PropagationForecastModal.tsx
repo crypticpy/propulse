@@ -7,6 +7,9 @@
 
 import { useMemo } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
+import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
+import type { NowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import {
   getForecastStatusColor,
   type HourlyForecast,
@@ -23,6 +26,12 @@ interface PropagationForecastModalProps {
   sfi: number;
   stationCallsign: string;
   targetName: string;
+  /** Live ML NowCast for the same path, shown alongside the physics forecast. */
+  nowCast?: NowCastBandPredictions;
+  /** Operator's selected mode, used for the personalized probability row. */
+  mode?: string;
+  stationLabel?: string;
+  locationLabel?: string;
 }
 
 // Bands to display (top to bottom - high bands first)
@@ -82,6 +91,10 @@ export function PropagationForecastModal({
   sfi,
   stationCallsign,
   targetName,
+  nowCast,
+  mode,
+  stationLabel,
+  locationLabel,
 }: PropagationForecastModalProps) {
   // Group best windows by quality
   const windowsByQuality = useMemo(() => {
@@ -396,6 +409,17 @@ export function PropagationForecastModal({
           </div>
         </div>
 
+        {/* Live ML NowCast for the same path (independent of the physics chart) */}
+        {nowCast && (
+          <NowCastBandPanel
+            state={nowCast}
+            bands={HF_MODEL_BANDS}
+            stationLabel={stationLabel}
+            locationLabel={locationLabel}
+            mode={mode}
+          />
+        )}
+
         {/* Best Windows Recommendations */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Top Recommendations */}
@@ -572,6 +596,49 @@ export function PropagationForecastModal({
                 <li>Each column is an hour of the day (UTC time)</li>
                 <li>Green = excellent propagation expected</li>
                 <li>The orange line shows the current time</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-1">
+                Two Independent Predictions
+              </h4>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>
+                  The 24-hour chart is a physics forecast computed from solar
+                  flux and Kp — an outlook for planning your day
+                </li>
+                <li>
+                  NowCast is a machine-learned estimate for right now, trained
+                  on millions of real WSPR reports over this kind of path
+                </li>
+                <li>
+                  They are computed independently, so small disagreements are
+                  normal — trust NowCast for “now,” the chart for “later”
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-1">
+                From Path to Your Mode
+              </h4>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>
+                  “Path (WSPR)” is the chance a single WSPR transmission would
+                  be decoded — the most sensitive probe of an open path
+                </li>
+                <li>
+                  “Your mode” re-scores that for your equipment and the mode
+                  selected in the top bar (SSB voice needs roughly 38 dB more
+                  signal than WSPR; FT8 sits in between)
+                </li>
+                <li>
+                  A path can be open for digital modes while still too weak for
+                  voice — that gap is exactly what the two numbers show
+                </li>
+                <li>
+                  A “Physics” tag means live WSPR history was stale for that
+                  band, so a physics-trained fallback served the estimate
+                </li>
               </ul>
             </div>
             <div>

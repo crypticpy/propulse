@@ -424,6 +424,7 @@ export function PathAnalysis({
     target: nowCastTarget,
     weather: modelWeather,
     weatherUpdatedAt: modelWeatherUpdatedAt,
+    mode: activeMode,
     deriveEnvelope: stationCast.deriveEnvelope,
     researchSubjectBinding: researchParticipation.state?.subjectBinding,
   });
@@ -1071,6 +1072,7 @@ export function PathAnalysis({
                 bands={HF_MODEL_BANDS}
                 stationLabel={stationCast.chain?.name}
                 locationLabel={stationCast.location?.name}
+                mode={activeMode}
                 compact
               />
             </div>

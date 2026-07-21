@@ -75,6 +75,38 @@ describe("buildNowCastRequests", () => {
     });
   });
 
+  it("threads the operator's mode into the request and station envelope", () => {
+    const envelopeModes: string[] = [];
+    const requests = buildNowCastRequests(
+      {
+        origin: { grid: "EM10ab", lat: 30, lon: -97 },
+        target: { grid: "IO91aa", lat: 51.5, lon: -0.1 },
+        mode: "ssb",
+        deriveEnvelope: (_band, options) => {
+          envelopeModes.push(options?.mode ?? "missing");
+          return null;
+        },
+      },
+      new Date("2026-07-12T12:00:00Z"),
+    );
+
+    expect(requests.every((request) => request.mode === "SSB")).toBe(true);
+    expect(envelopeModes).toEqual(Array(10).fill("SSB"));
+  });
+
+  it("defaults the mode to WSPR when none is supplied", () => {
+    const requests = buildNowCastRequests(
+      {
+        origin: { grid: "EM10ab", lat: 30, lon: -97 },
+        target: { grid: "IO91aa", lat: 51.5, lon: -0.1 },
+        deriveEnvelope: () => null,
+      },
+      new Date("2026-07-12T12:00:00Z"),
+    );
+
+    expect(requests.every((request) => request.mode === "WSPR")).toBe(true);
+  });
+
   it("omits the station chain when only the core mode is activated", () => {
     const requests = buildNowCastRequests(
       {

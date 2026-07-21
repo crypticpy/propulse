@@ -26,6 +26,12 @@ export interface NowCastBandInput {
   target: { grid: string; lat: number; lon: number } | null;
   weather?: OperationalSpaceWeather;
   weatherUpdatedAt?: number;
+  /**
+   * Operator's selected mode. Core probability stays the WSPR single-decode
+   * estimand; the station envelope carries this mode's SNR threshold so the
+   * personalized probability answers "can I work them in this mode?".
+   */
+  mode?: string;
   deriveEnvelope: (
     band: string,
     options?: StationCalculationOptions,
@@ -55,6 +61,7 @@ export function buildNowCastRequests(
   const weatherAge = input.weatherUpdatedAt
     ? Math.max(0, Math.round((issuedAt.getTime() - input.weatherUpdatedAt) / 1000))
     : 86_400;
+  const mode = (input.mode ?? "WSPR").trim().toUpperCase() || "WSPR";
   return HF_MODEL_BANDS.map((band) => {
     const preliminary = buildCorePathFeatures({
       origin: input.origin!,
@@ -66,7 +73,7 @@ export function buildNowCastRequests(
     });
     const envelope = personalizationEnabled
       ? input.deriveEnvelope(band, {
-          mode: "WSPR",
+          mode,
           targetBearingDeg: bearingDegrees(preliminary),
         })
       : null;
@@ -84,7 +91,7 @@ export function buildNowCastRequests(
       issue_time: issuedAt.toISOString(),
       valid_time: issuedAt.toISOString(),
       band,
-      mode: "WSPR",
+      mode,
       declared_power_watts: declaredPower,
       features: { target_grid4: targetGrid4, values },
       ...(envelope ? { station: envelope } : {}),

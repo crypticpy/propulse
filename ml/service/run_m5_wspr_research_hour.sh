@@ -68,7 +68,7 @@ fi
   --spool-dir "${SPOOL_DIR}" \
   --manifest-output "${MANIFEST}" \
   --result-output "${CONNECTOR_RESULT}" \
-  --page-size 5000
+  --page-size 1000
 
 /usr/bin/caffeinate -dimsu "${ROOT}/ml/.venv/bin/python" \
   "${ROOT}/ml/service/wspr_scheduler.py" \

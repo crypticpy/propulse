@@ -9,7 +9,6 @@ interface ImportMetaEnv {
     | "off" | "internal" | "released"
     | "shadow" | "active";
   readonly VITE_PROPAGATION_V4_ENABLED?: string;
-  readonly VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED?: string;
   readonly VITE_PROPAGATION_RESEARCH_OUTCOMES_ENABLED?: string;
   readonly VITE_SPOT_HISTORY_REALTIME_TABLE?:
     | "spot_history"

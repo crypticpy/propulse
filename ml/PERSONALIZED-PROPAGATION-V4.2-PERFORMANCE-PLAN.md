@@ -1,5 +1,10 @@
 # Personalized Propagation V4.2: Performance Recovery and Product Plan
 
+> **Decommission note, 2026-07-21.** The private research-health boundary and
+> its migration described later in this file were removed along with the whole
+> live-WSPR pipeline (Supabase migrations `20260721110000`/`112000`/`120000`).
+> Treat those deliverables as historical record only — do not rebuild them.
+>
 > Deployment ownership update, 2026-07-19: the scientific protocol and frozen
 > A6 results in this file are unchanged, but its earlier M5 LaunchAgent status
 > entries are historical. Always-on first-party production collection now runs

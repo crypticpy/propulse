@@ -1,5 +1,14 @@
 # Personalized Propagation V4.2: M5 Execution Runbook
 
+> **Decommissioned in part, 2026-07-21.** The live-WSPR pipeline and its
+> research-health apparatus referenced below no longer exist: the
+> `PROPULSE_RESEARCH_HEALTH_*` / `VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED`
+> env vars, `ml/service/run_m5_research_health_migration.sh`,
+> `ml/src/archive_v4_2/validate_research_health_endpoint.py`, and the
+> `research-health-monitor.yml` workflow were all removed (Supabase migrations
+> `20260721110000`/`112000`/`120000`). Do not follow those steps or rebuild
+> them. Historical record only.
+
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md)  
 > Active method: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md)  
 > Machine: Apple M5 Max, 128 GB unified memory, 18 CPU cores  

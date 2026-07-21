@@ -1,5 +1,10 @@
 # WSPR Operational Source Decision
 
+> **Decommissioned 2026-07-21.** The live-WSPR pipeline this document governed
+> was removed (code, LaunchAgents, Supabase `wspr_*` stores). WSPR data is used
+> only for offline base-model training from the public wspr.live archive.
+> Historical record only — do not rebuild the live pipeline.
+
 > Decision date: 2026-07-12. Production status: blocked pending written
 > permission or an independently permitted upstream feed.
 

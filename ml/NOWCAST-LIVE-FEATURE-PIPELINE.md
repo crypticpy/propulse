@@ -1,5 +1,12 @@
 # NowCast Live Feature Pipeline
 
+> **Decommissioned 2026-07-21.** This pipeline was removed end to end: the M5
+> LaunchAgents, `ml/service` connector/scheduler/finalizer code, research-health
+> heartbeat endpoints, and the Supabase `wspr_*` stores. NowCast/FutureCast are
+> served by the pre-trained Railway models with the physics fallback; path
+> history is permanently unavailable and the service fails closed to the physics
+> profile by design. Historical record only — do not rebuild.
+
 > Status: design and release gates frozen before V4.2 Phase 3 candidate freeze.
 > This document does not authorize a live data source or enable NowCast in the
 > product. Until every release gate below passes, Propulse must mark path

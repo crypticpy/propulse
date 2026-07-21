@@ -165,34 +165,70 @@ class PostgrestPruner:
         base_url: str,
         service_key: str,
         timeout_seconds: float = 30.0,
+        max_write_attempts: int = 4,
+        retry_base_seconds: float = 1.0,
+        sleep: Callable[[float], None] = time.sleep,
         client: httpx.Client | None = None,
     ) -> None:
         if not base_url.strip() or not service_key.strip():
             raise RuntimeError("feature-store URL and service key are required")
+        if max_write_attempts < 1 or max_write_attempts > 8:
+            raise ValueError("max_write_attempts must be between 1 and 8")
+        if retry_base_seconds < 0 or retry_base_seconds > 30:
+            raise ValueError("retry_base_seconds must be between 0 and 30")
         self.base_url = base_url.rstrip("/")
         self.service_key = service_key
+        self.max_write_attempts = max_write_attempts
+        self.retry_base_seconds = retry_base_seconds
+        self.sleep = sleep
         self.client = client or httpx.Client(timeout=timeout_seconds)
+
+    @staticmethod
+    def _error_is_transient(error: httpx.HTTPError) -> bool:
+        if isinstance(error, httpx.HTTPStatusError):
+            status = error.response.status_code
+            return status in {408, 425, 429} or status >= 500
+        return isinstance(error, httpx.TransportError)
+
+    @staticmethod
+    def _error_detail(error: httpx.HTTPError) -> str:
+        if isinstance(error, httpx.HTTPStatusError):
+            body = error.response.text.strip()
+            return f" (status {error.response.status_code}: {body[:500]})"
+        return ""
 
     def prune(self, *, older_than_hours: int) -> int:
         if older_than_hours < 27:
             raise ValueError("rolling WSPR retention cannot be shorter than 27 hours")
-        try:
-            response = self.client.post(
-                f"{self.base_url}/rest/v1/rpc/prune_wspr_observations",
-                headers={
-                    "apikey": self.service_key,
-                    "Authorization": f"Bearer {self.service_key}",
-                    "Content-Type": "application/json",
-                },
-                json={"older_than": f"{older_than_hours} hours"},
-            )
-            response.raise_for_status()
-            value = response.json()
-        except (httpx.HTTPError, ValueError) as error:
-            raise RuntimeError("rolling WSPR prune failed") from error
-        if not isinstance(value, int) or value < 0:
-            raise RuntimeError("rolling WSPR prune returned an invalid row count")
-        return value
+        # Pruning deletes strictly-older rows, so retrying after a transient
+        # failure just removes whatever the rolled-back attempt left behind.
+        for attempt in range(self.max_write_attempts):
+            try:
+                response = self.client.post(
+                    f"{self.base_url}/rest/v1/rpc/prune_wspr_observations",
+                    headers={
+                        "apikey": self.service_key,
+                        "Authorization": f"Bearer {self.service_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"older_than": f"{older_than_hours} hours"},
+                )
+                response.raise_for_status()
+                value = response.json()
+            except httpx.HTTPError as error:
+                final_attempt = attempt + 1 == self.max_write_attempts
+                if final_attempt or not self._error_is_transient(error):
+                    raise RuntimeError(
+                        "rolling WSPR prune failed" + self._error_detail(error)
+                    ) from error
+                self.sleep(self.retry_base_seconds * (2 ** attempt))
+                continue
+            except ValueError as error:
+                raise RuntimeError("rolling WSPR prune failed") from error
+            if not isinstance(value, int) or value < 0:
+                raise RuntimeError("rolling WSPR prune returned an invalid row count")
+            return value
+        raise AssertionError("prune retry loop exhausted without returning")
 
 
 Finalizer = Callable[[CompletionManifest, str, int], dict[str, Any]]

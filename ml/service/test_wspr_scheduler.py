@@ -4,9 +4,12 @@ import hashlib
 import unittest
 from datetime import datetime, timezone
 
+import httpx
+
 from wspr_finalizer import HF_BANDS
 from wspr_scheduler import (
     CompletionManifest,
+    PostgrestPruner,
     completion_signature,
     run_completed_hour,
 )
@@ -158,6 +161,53 @@ class WsprSchedulerTests(unittest.TestCase):
                 workers=100,
                 threads_per_band=100,
             )
+
+    def test_postgrest_pruner_retries_a_transient_server_error(self) -> None:
+        requests = []
+        sleeps = []
+
+        def handler(request):
+            requests.append(request)
+            if len(requests) == 1:
+                return httpx.Response(
+                    500,
+                    json={
+                        "code": "57014",
+                        "message": "canceling statement due to statement timeout",
+                    },
+                )
+            return httpx.Response(200, json=42)
+
+        pruner = PostgrestPruner(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            retry_base_seconds=0.25,
+            sleep=sleeps.append,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        self.assertEqual(pruner.prune(older_than_hours=30), 42)
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(sleeps, [0.25])
+
+    def test_postgrest_pruner_does_not_retry_a_contract_error(self) -> None:
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(400, json={"message": "bad interval"})
+
+        pruner = PostgrestPruner(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            sleep=lambda _: self.fail("contract errors must not retry"),
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "rolling WSPR prune failed"):
+            pruner.prune(older_than_hours=30)
+
+        self.assertEqual(len(requests), 1)
 
 
 if __name__ == "__main__":

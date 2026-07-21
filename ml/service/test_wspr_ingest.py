@@ -63,6 +63,57 @@ class WsprIngestTests(unittest.TestCase):
         )
         client.close()
 
+    def test_postgrest_store_retries_a_transient_server_error(self):
+        requests = []
+        sleeps = []
+
+        def handler(request):
+            requests.append(request)
+            if len(requests) == 1:
+                return httpx.Response(
+                    500,
+                    json={
+                        "code": "57014",
+                        "message": "canceling statement due to statement timeout",
+                    },
+                )
+            return httpx.Response(200, json=1)
+
+        store = PostgrestObservationStore(
+            base_url="https://example.supabase.co",
+            service_key="secret",
+            retry_base_seconds=0.25,
+            sleep=sleeps.append,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        store.insert_observation_page([{"source": "approved-fixture"}])
+
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(sleeps, [0.25])
+
+    def test_postgrest_store_does_not_retry_a_contract_error(self):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(400, json={"message": "bad rows"})
+
+        store = PostgrestObservationStore(
+            base_url="https://example.supabase.co",
+            service_key="secret",
+            sleep=lambda _: self.fail("contract errors must not retry"),
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "rolling WSPR observation ingest failed",
+        ):
+            store.insert_observation_page([{"source": "approved-fixture"}])
+
+        self.assertEqual(len(requests), 1)
+
     def test_normalization_matches_archive_slot_grid_and_power_contract(self):
         row = normalize_observation(
             raw_observation(),

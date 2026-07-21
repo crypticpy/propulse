@@ -118,11 +118,20 @@ class PostgrestFinalizerStore:
         self.client = client or httpx.Client(timeout=timeout_seconds)
 
     @staticmethod
-    def _read_error_is_transient(error: httpx.HTTPError) -> bool:
+    def _error_is_transient(error: httpx.HTTPError) -> bool:
         if isinstance(error, httpx.HTTPStatusError):
             status = error.response.status_code
             return status in {408, 425, 429} or status >= 500
         return isinstance(error, httpx.TransportError)
+
+    @staticmethod
+    def _write_error_detail(error: httpx.HTTPError) -> str:
+        # Surface the PostgREST error body — the HTTP status alone hides
+        # the SQLSTATE/message needed to tell a timeout from bad rows.
+        if isinstance(error, httpx.HTTPStatusError):
+            body = error.response.text.strip()
+            return f" (status {error.response.status_code}: {body[:500]})"
+        return ""
 
     def _read_page(self, params: dict[str, str]) -> Any:
         for attempt in range(self.max_read_attempts):
@@ -136,7 +145,7 @@ class PostgrestFinalizerStore:
                 return response.json()
             except httpx.HTTPError as error:
                 final_attempt = attempt + 1 == self.max_read_attempts
-                if final_attempt or not self._read_error_is_transient(error):
+                if final_attempt or not self._error_is_transient(error):
                     raise RuntimeError(
                         "rolling WSPR observation lookup failed"
                     ) from error
@@ -202,46 +211,66 @@ class PostgrestFinalizerStore:
                 page.append({key: value for key, value in raw.items() if key != "id"})
             yield page
 
+    def _post_with_retry(
+        self,
+        url: str,
+        *,
+        failure_message: str,
+        json_body: Any,
+        params: dict[str, str] | None = None,
+        upsert: bool = False,
+    ) -> None:
+        # Every write here is an idempotent ON CONFLICT upsert, so transient
+        # failures (statement timeouts, other 5xx, transport drops) are safe
+        # to retry under the same backoff policy reads use.
+        for attempt in range(self.max_read_attempts):
+            try:
+                response = self.client.post(
+                    url,
+                    headers=self.headers(upsert=upsert),
+                    params=params,
+                    json=json_body,
+                )
+                response.raise_for_status()
+                return
+            except httpx.HTTPError as error:
+                final_attempt = attempt + 1 == self.max_read_attempts
+                if final_attempt or not self._error_is_transient(error):
+                    raise RuntimeError(
+                        failure_message + self._write_error_detail(error)
+                    ) from error
+                self.sleep(self.retry_base_seconds * (2 ** attempt))
+        raise AssertionError("write retry loop exhausted without returning")
+
     def upsert_feature_page(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
-        try:
-            response = self.client.post(
-                f"{self.base_url}/rest/v1/rpc/ingest_wspr_feature_rows",
-                headers=self.headers(),
-                json={"p_rows": rows},
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as error:
-            raise RuntimeError("WSPR feature-page upsert failed") from error
+        self._post_with_retry(
+            f"{self.base_url}/rest/v1/rpc/ingest_wspr_feature_rows",
+            failure_message="WSPR feature-page upsert failed",
+            json_body={"p_rows": rows},
+        )
 
     def upsert_compact_page(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
-        try:
-            response = self.client.post(
-                f"{self.base_url}/rest/v1/rpc/ingest_wspr_compact_feature_rows",
-                headers=self.headers(),
-                json={"p_rows": rows},
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as error:
-            raise RuntimeError("compact WSPR feature-page upsert failed") from error
+        self._post_with_retry(
+            f"{self.base_url}/rest/v1/rpc/ingest_wspr_compact_feature_rows",
+            failure_message="compact WSPR feature-page upsert failed",
+            json_body={"p_rows": rows},
+        )
 
     def upsert_watermark(self, row: dict[str, Any]) -> None:
         conflict = (
             "target_hour,band,provider,transform_version,available_at"
         )
-        try:
-            response = self.client.post(
-                f"{self.base_url}/rest/v1/wspr_feature_watermarks",
-                headers=self.headers(upsert=True),
-                params={"on_conflict": conflict},
-                json=row,
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as error:
-            raise RuntimeError("WSPR feature watermark upsert failed") from error
+        self._post_with_retry(
+            f"{self.base_url}/rest/v1/wspr_feature_watermarks",
+            failure_message="WSPR feature watermark upsert failed",
+            json_body=row,
+            params={"on_conflict": conflict},
+            upsert=True,
+        )
 
     def invalidate_watermark_version(
         self,

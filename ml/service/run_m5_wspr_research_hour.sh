@@ -75,7 +75,7 @@ fi
   --completion-manifest "${MANIFEST}" \
   --workers 2 \
   --threads-per-band 9 \
-  --page-size 5000 \
+  --page-size 1000 \
   --retention-hours 30 \
   --result-output "${SCHEDULER_RESULT}"
 

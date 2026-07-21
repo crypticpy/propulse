@@ -238,6 +238,57 @@ class WsprFinalizerTests(unittest.TestCase):
             b'{"p_rows":[{"target_hour":"2026-07-15T20:00:00+00:00","rx_grid4s":["IO91"]}]}',
         )
 
+    def test_postgrest_feature_writer_retries_a_statement_timeout(self):
+        requests = []
+        sleeps = []
+
+        def handler(request):
+            requests.append(request)
+            if len(requests) == 1:
+                return httpx.Response(
+                    500,
+                    json={
+                        "code": "57014",
+                        "message": "canceling statement due to statement timeout",
+                    },
+                )
+            return httpx.Response(200, json=1)
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            retry_base_seconds=0.25,
+            sleep=sleeps.append,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        store.upsert_feature_page([{"target_hour": TARGET.isoformat()}])
+
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(sleeps, [0.25])
+
+    def test_postgrest_feature_writer_does_not_retry_a_contract_error(self):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(400, json={"message": "bad rows"})
+
+        store = PostgrestFinalizerStore(
+            base_url="https://feature-store.test",
+            service_key="secret",
+            sleep=lambda _: self.fail("contract errors must not retry"),
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "WSPR feature-page upsert failed",
+        ):
+            store.upsert_feature_page([{"target_hour": TARGET.isoformat()}])
+
+        self.assertEqual(len(requests), 1)
+
     def test_finalizer_streams_pages_and_commits_watermark_last(self):
         store = FakeStore()
         result = finalize_hour(

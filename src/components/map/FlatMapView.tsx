@@ -77,6 +77,12 @@ import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { LabelOptions } from "@/stores/mapStore";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 import {
+  createFlatTileLayer,
+  type FlatTileLayer,
+} from "@/lib/tiles/flatTileLayer";
+import { selectTileProvider } from "@/lib/tiles/providers";
+import { useProfileStore } from "@/stores/profileStore";
+import {
   getMaidenheadFields,
   MAIDENHEAD_LON_LINES,
   MAIDENHEAD_LAT_LINES,
@@ -126,6 +132,10 @@ interface FlatMapViewProps {
 // Map dimensions
 const MAP_WIDTH = 1024;
 const MAP_HEIGHT = 512;
+
+// Maximum zoom-in scale. 64 gives a ~5.6° longitude window (metro scale);
+// the satellite tile layer keeps imagery sharp all the way in.
+const MAX_ZOOM_SCALE = 64;
 
 // Hit-testing (screen-space) radii for hover interactions
 const PIN_HIT_RADIUS_SQ = 14 * 14;
@@ -3140,6 +3150,10 @@ export function FlatMapView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+  // XYZ tile compositor for the satellite style (sharp imagery when zoomed in)
+  const tileLayerRef = useRef<FlatTileLayer | null>(null);
+  // Bumped when an async tile finishes loading, forcing a recomposite
+  const [tileEpoch, setTileEpoch] = useState(0);
 
   const [displaySize, setDisplaySize] = useState({
     width: MAP_WIDTH,
@@ -3186,6 +3200,24 @@ export function FlatMapView({
   useEffect(() => {
     glowRendererRef.current.persistEdges = layers.gridActivity;
   }, [layers.gridActivity]);
+
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+
+  // Create/replace the satellite tile layer when the style or provider changes
+  useEffect(() => {
+    if (mapStyle === "standard") {
+      return;
+    }
+    const provider = selectTileProvider("satellite", subscriptionTier);
+    const layer = createFlatTileLayer(provider, () =>
+      setTileEpoch((epoch) => epoch + 1),
+    );
+    tileLayerRef.current = layer;
+    return () => {
+      layer.dispose();
+      tileLayerRef.current = null;
+    };
+  }, [mapStyle, subscriptionTier]);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
@@ -4015,7 +4047,10 @@ export function FlatMapView({
         baseOffsetY = z.offsetY;
       }
 
-      const targetScale = Math.max(1, Math.min(10, baseScale * delta));
+      const targetScale = Math.max(
+        1,
+        Math.min(MAX_ZOOM_SCALE, baseScale * delta),
+      );
 
       // Calculate new offset to zoom toward mouse position
       const scaleFactor = targetScale / baseScale;
@@ -4165,7 +4200,7 @@ export function FlatMapView({
     const mapY = ((90 - preset.center.lat) / 180) * displaySize.height;
 
     // Calculate offset to center the preset point in the viewport at the target scale
-    const targetScale = Math.max(1, Math.min(10, preset.zoom));
+    const targetScale = Math.max(1, Math.min(MAX_ZOOM_SCALE, preset.zoom));
     const targetOffsetX = displaySize.width / 2 - mapX * targetScale;
     const targetOffsetY = displaySize.height / 2 - mapY * targetScale;
 
@@ -4479,7 +4514,10 @@ export function FlatMapView({
   const handleGesturePinchZoom = useCallback(
     (scaleDelta: number, centerX: number, centerY: number) => {
       setZoom((prev) => {
-        const newScale = Math.max(1, Math.min(10.0, prev.scale * scaleDelta));
+        const newScale = Math.max(
+          1,
+          Math.min(MAX_ZOOM_SCALE, prev.scale * scaleDelta),
+        );
         // Zoom toward the pinch center point
         const factor = newScale / prev.scale;
         const newOffsetX = centerX - factor * (centerX - prev.offsetX);
@@ -4561,6 +4599,18 @@ export function FlatMapView({
       ? getStandardMapCanvas()
       : mapImage!;
     ctx.drawImage(baseImage, 0, 0, renderWidth, renderHeight);
+
+    // Composite sharp satellite tiles over the low-res base once zoomed in
+    if (!isStandard && tileLayerRef.current) {
+      tileLayerRef.current.draw(ctx, {
+        scale: zoom.scale,
+        offsetX: zoom.offsetX,
+        offsetY: zoom.offsetY,
+        renderWidth,
+        renderHeight,
+        devicePixelRatio: dpr,
+      });
+    }
 
     // Draw MUF overlay (before night side so it's properly darkened)
     if (layers.muf && currentSFI) {
@@ -5026,6 +5076,7 @@ export function FlatMapView({
     watchEnabled,
     matchedSpotIds,
     glowTick,
+    tileEpoch,
     satPositions,
     selectedSat,
     earthquakeData,

@@ -14,12 +14,6 @@ import { Cpu } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { QUERY_KEYS } from "@/hooks/useSolarData";
 import { useBridge } from "@/hooks/useBridge";
-import {
-  RESEARCH_HEALTH_ENABLED,
-  RESEARCH_HEALTH_QUERY_KEY,
-  useResearchHealth,
-} from "@/hooks/useResearchHealth";
-import { evaluateResearchHealthResponse } from "@/lib/propagation/researchHealth";
 import type { ServiceStatus } from "@/hooks/useHealthMonitor";
 
 // ---------------------------------------------------------------------------
@@ -40,10 +34,6 @@ interface ServiceDef {
   queryKey: readonly string[] | null; // null = on-demand / no cache entry expected
   staleThreshold: number;
   idleReason?: string; // shown when service has no cache entry
-  evaluateData?: (
-    value: unknown,
-    staleThresholdMs: number,
-  ) => DerivedServiceState;
 }
 
 interface CategoryDef {
@@ -201,26 +191,6 @@ const CATEGORIES: CategoryDef[] = [
       },
     ],
   },
-  ...(RESEARCH_HEALTH_ENABLED
-    ? [
-        {
-          id: "propagation-models",
-          title: "Propagation Models",
-          accentColor: "caution-amber",
-          accentHex: "#ffd166",
-          icon: "model" as const,
-          services: [
-            {
-              id: "nowcast-research",
-              name: "NowCast Research Pipeline",
-              queryKey: RESEARCH_HEALTH_QUERY_KEY,
-              staleThreshold: 2 * HOUR,
-              evaluateData: evaluateResearchHealthResponse,
-            },
-          ],
-        },
-      ]
-    : []),
 ];
 
 // ---------------------------------------------------------------------------
@@ -323,12 +293,6 @@ const SERVICE_INFO: Record<string, ServiceInfo> = {
     howUsed:
       "Satellite pass predictions for the PropSphere map overlay. Shows when amateur radio satellites will be overhead.",
   },
-  "nowcast-research": {
-    whatIsIt:
-      "Aggregate operational status for the internal NowCast research pipeline. It contains no station, path, or equipment records.",
-    howUsed:
-      "Monitors freshness and continuity during gated validation. It does not enable NowCast predictions or replace the physics fallback.",
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -421,18 +385,9 @@ interface DerivedServiceState {
   errorMessage?: string;
 }
 
-interface QueryStateSnapshot {
-  status: "pending" | "error" | "success";
-  dataUpdatedAt: number;
-  fetchStatus: "fetching" | "paused" | "idle";
-  error: unknown;
-  data: unknown;
-}
-
 function deriveServiceState(
   svc: ServiceDef,
   queryClient: ReturnType<typeof useQueryClient>,
-  liveQueryState: QueryStateSnapshot | undefined,
   nowMs: number,
 ): DerivedServiceState {
   // On-demand services with no query key
@@ -440,7 +395,7 @@ function deriveServiceState(
     return { status: "idle", lastUpdated: undefined };
   }
 
-  const queryState = liveQueryState ?? queryClient.getQueryState(svc.queryKey);
+  const queryState = queryClient.getQueryState(svc.queryKey);
 
   if (!queryState) {
     return { status: "idle", lastUpdated: undefined };
@@ -468,9 +423,6 @@ function deriveServiceState(
 
   // Has data -- check freshness
   if (status === "success" || dataUpdatedAt > 0) {
-    if (svc.evaluateData) {
-      return svc.evaluateData(queryState.data, svc.staleThreshold);
-    }
     const age = nowMs - dataUpdatedAt;
     if (age <= svc.staleThreshold) {
       return { status: "healthy", lastUpdated: dataUpdatedAt };
@@ -936,13 +888,6 @@ function ServiceDetail({
 export function SystemHealthPage() {
   const queryClient = useQueryClient();
   const bridge = useBridge({ enabled: false });
-  const {
-    data: researchHealthData,
-    dataUpdatedAt: researchHealthDataUpdatedAt,
-    error: researchHealthError,
-    fetchStatus: researchHealthFetchStatus,
-    status: researchHealthStatus,
-  } = useResearchHealth();
 
   // Periodic clock update re-evaluates cache freshness.
   const [statusNow, setStatusNow] = useState(() => Date.now());
@@ -965,31 +910,10 @@ export function SystemHealthPage() {
       ...cat,
       services: cat.services.map((svc) => ({
         ...svc,
-        ...deriveServiceState(
-          svc,
-          queryClient,
-          svc.id === "nowcast-research"
-            ? {
-                status: researchHealthStatus,
-                dataUpdatedAt: researchHealthDataUpdatedAt,
-                fetchStatus: researchHealthFetchStatus,
-                error: researchHealthError,
-                data: researchHealthData,
-              }
-            : undefined,
-          statusNow,
-        ),
+        ...deriveServiceState(svc, queryClient, statusNow),
       })),
     }));
-  }, [
-    queryClient,
-    researchHealthData,
-    researchHealthDataUpdatedAt,
-    researchHealthError,
-    researchHealthFetchStatus,
-    researchHealthStatus,
-    statusNow,
-  ]);
+  }, [queryClient, statusNow]);
 
   // Aggregate counts
   const allServices = useMemo(

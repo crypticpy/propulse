@@ -36,7 +36,7 @@ class PostgrestObservationStore:
         base_url: str,
         service_key: str,
         timeout_seconds: float = 30.0,
-        max_write_attempts: int = 4,
+        max_write_attempts: int = 6,
         retry_base_seconds: float = 1.0,
         sleep: Callable[[float], None] = time.sleep,
         client: httpx.Client | None = None,

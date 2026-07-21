@@ -16,6 +16,8 @@ import type { SignalPrediction, SUnit } from "@/types/signal";
 import { traceRayPath } from "./rayTrace";
 import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
 import { getEsSeasonalProbability } from "./sporadicE";
+import { getGeomagneticCondition } from "./solarConversions";
+import { getSubsolarPoint } from "./sun";
 
 /**
  * Band configuration with frequency and propagation characteristics
@@ -380,28 +382,9 @@ export function getKIndexColor(kp: number): string {
  * @returns Human-readable description
  */
 export function getKIndexDescription(kp: number): string {
-  if (kp <= 2) {
-    return "Quiet";
-  }
-  if (kp <= 3) {
-    return "Unsettled";
-  }
-  if (kp < 5) {
-    return "Active";
-  }
-  if (kp < 6) {
-    return "Minor Storm (G1)";
-  }
-  if (kp < 7) {
-    return "Moderate Storm (G2)";
-  }
-  if (kp < 8) {
-    return "Strong Storm (G3)";
-  }
-  if (kp < 9) {
-    return "Severe Storm (G4)";
-  }
-  return "Extreme Storm (G5)";
+  // Delegates to the single Kp-label source so every surface (solar
+  // dashboard, map ticker, modals) uses identical wording and thresholds.
+  return getGeomagneticCondition(kp);
 }
 
 /**
@@ -933,8 +916,13 @@ export function getEnhancedBandConditions(
       adjustedSNR -= penalty;
     }
 
-    // Clamp SNR to realistic range
-    adjustedSNR = Math.max(-30, Math.min(-5, Math.round(adjustedSNR)));
+    // Remember the total penalty so the uncertainty interval can be shifted
+    // by the same amount — the displayed center must sit inside its range.
+    const snrShift = adjustedSNR - signalPred.expectedSNR;
+
+    // Clamp SNR to the same range as the uncertainty interval (signal.ts
+    // clamps snrLow/snrHigh to [-30, +30])
+    adjustedSNR = Math.max(-30, Math.min(30, Math.round(adjustedSNR)));
 
     // Determine status based on adjusted SNR
     let status: PathBandCondition["status"];
@@ -984,10 +972,29 @@ export function getEnhancedBandConditions(
       }
     }
 
-    // Recalculate S-unit based on adjusted SNR
-    // Approximate: SNR of -10 dB typically corresponds to around S5-S6 for FT8
-    // We'll use the signal prediction's S-unit but note it's based on unadjusted path loss
     const { sUnit } = signalPred;
+
+    // Shift the uncertainty interval by the same Kp/SFI penalties applied to
+    // the center estimate (and pin it to -30 when the band is closed) so the
+    // displayed center, range, and status all come from one number.
+    const displayPred: SignalPrediction = { ...signalPred };
+    if (isBandClosed) {
+      displayPred.snrLow = -30;
+      displayPred.snrHigh = -30;
+    } else {
+      if (displayPred.snrLow !== undefined) {
+        displayPred.snrLow = Math.max(
+          -30,
+          Math.min(30, Math.round((displayPred.snrLow + snrShift) * 10) / 10),
+        );
+      }
+      if (displayPred.snrHigh !== undefined) {
+        displayPred.snrHigh = Math.max(
+          -30,
+          Math.min(30, Math.round((displayPred.snrHigh + snrShift) * 10) / 10),
+        );
+      }
+    }
 
     return {
       band: band.name,
@@ -998,7 +1005,7 @@ export function getEnhancedBandConditions(
       sUnit,
       pathLoss: signalPred.pathLoss,
       absorptionLoss: absorptionDb,
-      signalPrediction: signalPred,
+      signalPrediction: displayPred,
       antennaGainDbi,
     };
   });
@@ -1119,7 +1126,8 @@ const FORECAST_BANDS = [
 
 /**
  * Calculate path illumination at a specific time
- * Simplified version that uses subsolar point calculation
+ * Uses the canonical subsolar point from sun.ts (equation-of-time corrected)
+ * so the forecast's day/night logic matches the visual terminator overlays.
  */
 function getPathIlluminationAtTime(
   homeLat: number,
@@ -1128,23 +1136,7 @@ function getPathIlluminationAtTime(
   targetLon: number,
   date: Date,
 ): number {
-  // Calculate subsolar point for given time
-  const dayOfYear = Math.floor(
-    (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) /
-      (1000 * 60 * 60 * 24),
-  );
-  const declination = -23.45 * Math.cos((2 * Math.PI * (dayOfYear + 10)) / 365);
-  const utcHours =
-    date.getUTCHours() +
-    date.getUTCMinutes() / 60 +
-    date.getUTCSeconds() / 3600;
-  let subsolarLon = (12 - utcHours) * 15;
-  if (subsolarLon > 180) {
-    subsolarLon -= 360;
-  }
-  if (subsolarLon < -180) {
-    subsolarLon += 360;
-  }
+  const subsolar = getSubsolarPoint(date);
 
   // Sample points along path
   const numPoints = 10;
@@ -1159,8 +1151,8 @@ function getPathIlluminationAtTime(
     const distance = calculateGreatCircleDistance(
       lat,
       lon,
-      declination,
-      subsolarLon,
+      subsolar.lat,
+      subsolar.lon,
     );
     if (distance < 10018) {
       // ~90° at Earth's surface

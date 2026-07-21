@@ -151,10 +151,13 @@ export function apToKp(ap: number): number {
  * @returns Description of geomagnetic conditions
  */
 export function getGeomagneticCondition(kp: number): string {
-  if (kp < 2) {
+  // NOAA convention: Kp 0-2 quiet, 3 unsettled, 4 active, 5+ storm (G1-G5).
+  // This is the single source for Kp labels — bands.ts getKIndexDescription
+  // delegates here so the solar dashboard and map ticker always agree.
+  if (kp <= 2) {
     return "Quiet";
   }
-  if (kp < 4) {
+  if (kp <= 3) {
     return "Unsettled";
   }
   if (kp < 5) {

@@ -48,7 +48,7 @@ export const PROPAGATION_TOOLTIPS = {
   propagationIndex:
     "Global Conditions Score — an uncalibrated 0-100 heuristic using 40% SFI, 40% Kp, and 20% Bz when available. It is not a probability or path forecast.",
   bandCondition:
-    "Band Condition — predicted signal quality for a band: Excellent, Good, Fair, Poor, or Closed.",
+    "Band Condition — a global outlook estimated from SFI and Kp only, with no specific path. Path panels (Band Conditions, Path Analysis) model your actual path and can legitimately differ.",
   forecastConfidence:
     "Forecast evidence — a qualitative coverage label based on available inputs and disturbance. It is not a calibrated probability.",
 } as const;

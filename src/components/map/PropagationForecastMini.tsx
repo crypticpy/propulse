@@ -17,6 +17,8 @@ import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 import { latLonToGrid } from "@/lib/utils/grid";
+import { getMidpoint } from "@/lib/utils/path";
+import { estimateMUF } from "@/lib/api/muf";
 import {
   getForecastForPath,
   getBestWindows,
@@ -604,12 +606,18 @@ export function PropagationForecastMini({
 
   const hopCount = pathDistance ? Math.ceil(pathDistance / 3000) : null;
 
-  const estimatedMuf = useMemo(() => {
-    if (currentSfi === null || currentKp === null) return null;
-    const baseMuf = 8 + (currentSfi - 70) * 0.12;
-    const kpPenalty = currentKp > 4 ? (currentKp - 4) * 2 : 0;
-    return Math.max(5, Math.min(35, baseMuf - kpPenalty));
-  }, [currentSfi, currentKp]);
+  // Path MUF from the same model Path Analysis uses (estimateMUF at the
+  // great-circle midpoint, at displayTime) so both panels always agree.
+  const pathMuf = useMemo(() => {
+    if (!station || !target || currentSfi === null) return null;
+    const midpoint = getMidpoint(
+      station.lat,
+      station.lon,
+      target.lat,
+      target.lon,
+    );
+    return estimateMUF(midpoint.lat, midpoint.lon, currentSfi, displayTime);
+  }, [station, target, currentSfi, displayTime]);
 
   // Settings popover: ESC key and click-outside handler
   useEffect(() => {
@@ -779,12 +787,10 @@ export function PropagationForecastMini({
                   )}
                 </span>
               )}
-              {estimatedMuf !== null && (
-                <span title="Global estimate from SFI/Kp -- not the path-specific MUF (see Path Analysis)">
-                  <span className="text-gray-400">EST MUF</span>{" "}
-                  <span className="text-cyan-400">
-                    ≈{Math.round(estimatedMuf)}
-                  </span>
+              {pathMuf !== null && (
+                <span title="MUF at the path midpoint -- same model as Path Analysis">
+                  <span className="text-gray-400">MUF</span>{" "}
+                  <span className="text-cyan-400">{pathMuf.toFixed(1)}</span>
                 </span>
               )}
             </div>

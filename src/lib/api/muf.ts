@@ -15,11 +15,7 @@
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
   calculateDLayerAbsorption,
-  calculateF0F2,
-  calculateM3000F2,
-  calculateLayerHeights,
   calculateZenithAngle,
-  calculateLocalSolarHour,
 } from "@/lib/utils/ionosphere";
 import type { FrequencyLimits } from "@/types/propagation";
 
@@ -164,16 +160,52 @@ export function generateMUFGrid(
  * @param muf - MUF value in MHz
  * @returns Object with color string and band description
  */
+/**
+ * 8-band MUF color scale — same stops and thresholds as the globe MUF
+ * shader (MUFOverlay.tsx) and the MUFLegend component. Colors interpolate
+ * between stops exactly like the shader so the flat map, globe, and legend
+ * all agree.
+ */
+const MUF_COLOR_STOPS: Array<{ threshold: number; rgb: [number, number, number]; band: string }> =
+  [
+    { threshold: 3, rgb: [115, 20, 31], band: "< 3 MHz (no HF)" },
+    { threshold: 5, rgb: [217, 46, 38], band: "3-5 MHz (80m)" },
+    { threshold: 7, rgb: [242, 128, 26], band: "5-7 MHz (40m)" },
+    { threshold: 10, rgb: [242, 184, 26], band: "7-10 MHz (30m)" },
+    { threshold: 14, rgb: [191, 224, 51], band: "10-14 MHz (20m)" },
+    { threshold: 21, rgb: [38, 199, 102], band: "14-21 MHz (15m)" },
+    { threshold: 28, rgb: [26, 184, 217], band: "21-28 MHz (10m)" },
+    { threshold: Infinity, rgb: [77, 89, 235], band: "> 28 MHz (6m+)" },
+  ];
+
 export function getMUFColor(muf: number): { color: string; band: string } {
-  if (muf < 7) {
-    return { color: "#ef4444", band: "< 7 MHz (80m-160m)" }; // Red - low bands only
-  } else if (muf < 14) {
-    return { color: "#eab308", band: "7-14 MHz (40m-20m)" }; // Yellow - 40m-20m
-  } else if (muf < 21) {
-    return { color: "#22c55e", band: "14-21 MHz (20m-15m)" }; // Green - 20m-15m
-  } else {
-    return { color: "#3b82f6", band: "> 21 MHz (15m-10m)" }; // Blue - high bands open
+  // Below the first threshold: flat deep maroon (matches shader)
+  if (muf < MUF_COLOR_STOPS[0].threshold) {
+    const [r, g, b] = MUF_COLOR_STOPS[0].rgb;
+    return { color: `rgb(${r},${g},${b})`, band: MUF_COLOR_STOPS[0].band };
   }
+
+  for (let i = 1; i < MUF_COLOR_STOPS.length; i++) {
+    const stop = MUF_COLOR_STOPS[i];
+    if (muf < stop.threshold) {
+      // Interpolate from this stop's color toward the next stop's color
+      // across the [prevThreshold, threshold) range — same as the shader.
+      const prevThreshold = MUF_COLOR_STOPS[i - 1].threshold;
+      const next = MUF_COLOR_STOPS[Math.min(i + 1, MUF_COLOR_STOPS.length - 1)];
+      const span = stop.threshold - prevThreshold;
+      const t = span > 0 && Number.isFinite(span) ? (muf - prevThreshold) / span : 0;
+      const r = Math.round(stop.rgb[0] + (next.rgb[0] - stop.rgb[0]) * t);
+      const g = Math.round(stop.rgb[1] + (next.rgb[1] - stop.rgb[1]) * t);
+      const b = Math.round(stop.rgb[2] + (next.rgb[2] - stop.rgb[2]) * t);
+      return { color: `rgb(${r},${g},${b})`, band: stop.band };
+    }
+  }
+
+  const last = MUF_COLOR_STOPS[MUF_COLOR_STOPS.length - 1];
+  return {
+    color: `rgb(${last.rgb[0]},${last.rgb[1]},${last.rgb[2]})`,
+    band: last.band,
+  };
 }
 
 /**
@@ -390,76 +422,4 @@ export function getFrequencyLimits(
     luf,
     hpf,
   };
-}
-
-/**
- * Enhanced MUF estimation using the detailed ionospheric model
- *
- * This function provides a more accurate MUF calculation by using
- * the ionospheric parameters from ionosphere.ts, including proper
- * f0F2 and M(3000)F2 calculations.
- *
- * Use this when higher accuracy is needed and computational cost
- * is acceptable. For visualization and quick estimates, the basic
- * estimateMUF function is sufficient.
- *
- * @param lat - Latitude in degrees
- * @param lon - Longitude in degrees
- * @param sfi - Solar Flux Index (typically 65-300)
- * @param date - Date/time for calculation
- * @param useDetailedModel - Whether to use the detailed ionospheric model (default true)
- * @returns Estimated MUF in MHz
- *
- * @example
- * ```typescript
- * // Use detailed ionospheric model for accuracy
- * const muf = estimateMUFEnhanced(45, -93, 120, new Date(), true);
- *
- * // Fall back to simple model for speed
- * const mufSimple = estimateMUFEnhanced(45, -93, 120, new Date(), false);
- * ```
- */
-export function estimateMUFEnhanced(
-  lat: number,
-  lon: number,
-  sfi: number,
-  date: Date,
-  useDetailedModel: boolean = true,
-): number {
-  if (!useDetailedModel) {
-    return estimateMUF(lat, lon, sfi, date);
-  }
-
-  // Use detailed ionospheric model
-  const month = date.getUTCMonth() + 1;
-  const localSolarHour = calculateLocalSolarHour(lon, date);
-
-  // Calculate f0F2 using the detailed model
-  const f0F2 = calculateF0F2(sfi, lat, localSolarHour, month);
-
-  // Calculate layer heights for M(3000)F2
-  const heights = calculateLayerHeights(lat, month, sfi);
-
-  // Calculate M(3000)F2 factor
-  const m3000F2 = calculateM3000F2(heights.hmF2);
-
-  // Calculate zenith angle for day/night corrections
-  const zenith = calculateZenithAngle(lat, lon, date);
-
-  // MUF = f0F2 × M(3000)F2
-  let muf = f0F2 * m3000F2;
-
-  // Apply night-time correction
-  // At night, the ionosphere weakens but doesn't disappear immediately
-  if (zenith > 90) {
-    const nightDepth = Math.min((zenith - 90) / 90, 1);
-    muf *= 0.6 - nightDepth * 0.2;
-  } else if (zenith > 80) {
-    // Twilight transition
-    const twilightFactor = (90 - zenith) / 10;
-    muf *= 0.6 + 0.4 * twilightFactor;
-  }
-
-  // Ensure minimum reasonable value
-  return Math.max(3.5, muf);
 }

@@ -8,6 +8,7 @@
  */
 
 import { useMemo } from "react";
+import { estimateMUF } from "@/lib/api/muf";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { getDistance, getMidpoint } from "@/lib/utils/path";
 import { getSubsolarPoint, isPointInDaylight } from "@/lib/utils/sun";
@@ -252,16 +253,6 @@ function scoreToLevel(score: number): FeasibilityLevel {
 }
 
 /**
- * Estimate MUF using simplified formula
- * MUF = 0.3 * SFI * cos(midpoint_latitude)
- * Clamped between 7 and 50 MHz
- */
-function estimateMUF(midpointLat: number, sfi: number): number {
-  const muf = 0.3 * sfi * Math.cos((midpointLat * Math.PI) / 180);
-  return Math.max(7, Math.min(50, muf));
-}
-
-/**
  * Determine optimal band based on distance, time of day, and MUF
  */
 function determineOptimalBand(
@@ -423,8 +414,9 @@ export function useFeasibility(
       solarFactor.score +
       geomagFactor.score;
 
-    // Estimate MUF
-    const mufEstimate = estimateMUF(midpoint.lat, sfi);
+    // Estimate MUF at the path midpoint — same model as Path Analysis and
+    // the map MUF overlays (src/lib/api/muf.ts)
+    const mufEstimate = estimateMUF(midpoint.lat, midpoint.lon, sfi, time);
 
     // Determine optimal band
     const optimalBand = determineOptimalBand(
@@ -513,8 +505,9 @@ export function calculateFeasibility(
     solarFactor.score +
     geomagFactor.score;
 
-  // Estimate MUF
-  const mufEstimate = estimateMUF(midpoint.lat, sfi);
+  // Estimate MUF at the path midpoint — same model as Path Analysis and
+  // the map MUF overlays (src/lib/api/muf.ts)
+  const mufEstimate = estimateMUF(midpoint.lat, midpoint.lon, sfi, time);
 
   // Determine optimal band
   const optimalBand = determineOptimalBand(

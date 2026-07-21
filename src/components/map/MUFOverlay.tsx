@@ -1,17 +1,14 @@
 /**
  * MUFOverlay Component
  *
- * Renders a high-fidelity MUF (Maximum Usable Frequency) overlay on the globe
- * using a GLSL fragment shader with an ionospheric model incorporating:
+ * Renders the MUF (Maximum Usable Frequency) overlay on the globe using a
+ * GLSL fragment shader.
  *
- * - Solar Flux Index (SFI) as the primary driver of foF2
- * - Solar zenith angle with realistic Chapman-layer ionization
- * - Equatorial anomaly (Appleton anomaly) dual crests at +/-15 deg geomagnetic latitude
- * - Seasonal tilt (summer hemisphere enhancement)
- * - Kp geomagnetic depression at mid-latitudes, auroral enhancement at high-lat
- * - Gradual day/night transition through the twilight zone
- * - Sunrise enhancement effect
- * - Fresnel limb darkening for visual depth
+ * IMPORTANT: the shader's calculateMUF() is an exact port of estimateMUF()
+ * in src/lib/api/muf.ts — the single MUF model shared by Path Analysis, the
+ * mini forecast panel, and the flat-map MUF overlay. Any change to one MUST
+ * be mirrored in the other, or the globe will color a location differently
+ * than the numbers shown elsewhere in the app.
  *
  * Color gradient (8 bands, smooth interpolation):
  *   <3 MHz   deep maroon (nighttime, no HF)
@@ -38,8 +35,6 @@ interface MUFOverlayProps {
   date: Date;
   /** Solar Flux Index */
   sfi: number;
-  /** Kp geomagnetic index (0-9) */
-  kp?: number;
   /** Overlay opacity (0-1) */
   opacity?: number;
 }
@@ -73,8 +68,6 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   uniform vec3 sunPosition;
   uniform float sfi;
-  uniform float kp;
-  uniform float dayOfYear;
   uniform float opacity;
 
   varying vec3 vNormal;
@@ -89,142 +82,44 @@ const fragmentShader = /* glsl */ `
   #define DEG 0.01745329  // PI/180
   #define RAD 57.2957795  // 180/PI
 
-  // Geomagnetic north pole (IGRF-13 epoch 2025, approximate)
-  // ~80.7 N, -72.7 W  (Ellesmere Island area)
-  const float MAG_POLE_LAT = 80.7 * 0.01745329;
-  const float MAG_POLE_LON = -72.7 * 0.01745329;
-
   // ---------------------------------------------------------------------------
-  // Geomagnetic latitude (dipole approximation)
-  //   sin(magLat) = sin(lat)*sin(poleLat) + cos(lat)*cos(poleLat)*cos(lon-poleLon)
+  // MUF calculation — EXACT PORT of estimateMUF() in src/lib/api/muf.ts.
+  // Keep the two in lockstep: this shader colors the globe with the same
+  // numbers Path Analysis and the flat-map overlay display.
   // ---------------------------------------------------------------------------
-  float geomagLat(vec3 pos) {
-    float lat = asin(clamp(pos.y, -1.0, 1.0));
-    float lon = atan(pos.z, -pos.x); // globe coord system
+  float calculateMUF(vec3 pos, vec3 sunPos, float solarFlux) {
+    // Base critical frequency (f0F2) from SFI
+    float effectiveSFI = max(solarFlux, 65.0);
+    float f0F2 = 0.15 * sqrt(max(effectiveSFI - 60.0, 5.0)) + 4.0;
 
-    float sinMagLat = sin(lat) * sin(MAG_POLE_LAT)
-                    + cos(lat) * cos(MAG_POLE_LAT) * cos(lon - MAG_POLE_LON);
-    return asin(clamp(sinMagLat, -1.0, 1.0));
-  }
+    // Solar zenith angle: cos(chi) is the dot product of the surface point
+    // and the subsolar direction (both unit vectors)
+    float cosChi = clamp(dot(pos, sunPos), -1.0, 1.0);
+    float chiDeg = acos(cosChi) * RAD;
 
-  // ---------------------------------------------------------------------------
-  // Smooth-step helpers
-  // ---------------------------------------------------------------------------
-  float smootherstep(float edge0, float edge1, float x) {
-    float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
-    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-  }
+    // Latitude correction factor (slightly higher MUF near the equator)
+    float geoLat = asin(clamp(pos.y, -1.0, 1.0)); // radians
+    float latFactor = 1.0 + 0.1 * cos(abs(geoLat));
 
-  // ---------------------------------------------------------------------------
-  // MUF calculation
-  // ---------------------------------------------------------------------------
-  float calculateMUF(vec3 pos, vec3 sunPos, float solarFlux, float kpIdx, float doy) {
-    // ── 1. Base foF2 from SFI (empirical fit to IRI model) ───────────────
-    // foF2 ~ 1.2 + 0.013 * SFI  (MHz)  — simplified URSI median
-    float foF2_base = 1.2 + 0.013 * solarFlux;
+    float mufFactor = 3.6;
+    float muf;
 
-    // ── 2. Solar zenith angle ────────────────────────────────────────────
-    float cosChi = dot(pos, sunPos);                    // cos(zenith)
-    float chi = acos(clamp(cosChi, -1.0, 1.0));        // zenith angle (rad)
-    float chiDeg = chi * RAD;
-
-    // ── 3. Chapman ionization factor ─────────────────────────────────────
-    // The Chapman function for foF2: foF2 ∝ (cos chi)^0.3  (day)
-    // with a smooth transition into the night side.
-    float dayFactor;
-    if (chiDeg < 75.0) {
-      // Full day — Chapman production
-      dayFactor = pow(max(cosChi, 0.001), 0.3);
-    } else if (chiDeg < 100.0) {
-      // Twilight zone (75-100 deg) — smooth sigmoid transition
-      float dayEdge = pow(cos(75.0 * DEG), 0.3);
-      float nightEdge = 0.18; // residual nighttime foF2 fraction
-      float t = smootherstep(75.0, 100.0, chiDeg);
-      dayFactor = mix(dayEdge, nightEdge, t);
+    if (chiDeg > 90.0) {
+      // Night side — exponential decay with depth into night
+      float nightDepth = (chiDeg - 90.0) / 90.0;
+      muf = f0F2 * 2.0 * (1.0 - nightDepth * 0.4);
+    } else if (chiDeg > 80.0) {
+      // Twilight transition (80-90 deg)
+      float twilightFactor = (90.0 - chiDeg) / 10.0;
+      float dayMUF = f0F2 * mufFactor * pow(max(cosChi, 0.0), 0.5);
+      float nightMUF = f0F2 * 2.0;
+      muf = nightMUF + (dayMUF - nightMUF) * twilightFactor;
     } else {
-      // Deep night — slow residual decay
-      float nightDepth = (chiDeg - 100.0) / 80.0;      // 0..1 over 80 deg
-      dayFactor = 0.18 * (1.0 - nightDepth * 0.35);
-      dayFactor = max(dayFactor, 0.08);
+      // Day side — full solar ionization
+      muf = f0F2 * mufFactor * pow(max(cosChi, 0.0), 0.5);
     }
 
-    float foF2 = foF2_base * dayFactor;
-
-    // ── 4. Latitude + geographic latitude correction ─────────────────────
-    float geoLat = asin(clamp(pos.y, -1.0, 1.0));     // geographic lat (rad)
-    float absGeoLat = abs(geoLat);
-
-    // Mid-latitude enhancement (F2 layer thicker at ~30-45 deg)
-    float midLatBoost = 1.0 + 0.12 * exp(-pow((absGeoLat * RAD - 35.0) / 20.0, 2.0));
-    foF2 *= midLatBoost;
-
-    // ── 5. Equatorial (Appleton) anomaly ─────────────────────────────────
-    // Creates dual crests of enhanced foF2 at ~+/-15 deg geomagnetic latitude.
-    // The anomaly is strongest on the dayside and around local afternoon.
-    float magLat = geomagLat(pos);
-    float absMagLat = abs(magLat) * RAD;  // degrees
-
-    // Anomaly shape: Gaussian centred at 15 deg mag-lat with ~8 deg width
-    float crest = exp(-pow((absMagLat - 15.0) / 8.0, 2.0));
-
-    // Anomaly strength depends on solar zenith — strongest in daytime
-    float anomalyDayside = smootherstep(95.0, 70.0, chiDeg); // 0 at night, 1 on day
-    float anomalyStrength = 0.35 * anomalyDayside * crest;
-
-    // Add a slight local-time asymmetry — stronger in afternoon
-    // (Use longitude offset from subsolar point as a proxy for local time)
-    float lonDiff = atan(pos.z, -pos.x) - atan(sunPos.z, -sunPos.x);
-    float localTimeShift = sin(lonDiff) * 0.08 * anomalyDayside;
-
-    foF2 *= (1.0 + anomalyStrength + localTimeShift);
-
-    // ── 6. Seasonal correction ───────────────────────────────────────────
-    // Summer hemisphere has ~15% higher foF2 due to longer UV exposure.
-    // Use day-of-year to determine which hemisphere is in summer.
-    float declination = 23.44 * sin((doy - 81.0) / 365.0 * 2.0 * PI) * DEG;
-    float seasonSign = sign(geoLat) * sign(declination); // +1 if same hemisphere as summer
-    float seasonalBoost = 1.0 + 0.12 * seasonSign * (1.0 - exp(-absGeoLat * 2.0));
-    foF2 *= seasonalBoost;
-
-    // ── 7. Sunrise enhancement ───────────────────────────────────────────
-    // There is a transient pre-sunrise/sunrise peak in foF2 as the D-layer
-    // has not yet formed to absorb, but E/F production is beginning.
-    // Model as a bump at chi ~85-95 deg on the "approaching sunrise" side.
-    // Detect sunrise side: morning side has negative local hour angle
-    float hourAngle = atan(pos.z, -pos.x) - atan(sunPos.z, -sunPos.x);
-    // Normalize to [-PI, PI]
-    hourAngle = hourAngle - 2.0 * PI * floor((hourAngle + PI) / (2.0 * PI));
-    bool isMorningSide = hourAngle > 0.0;
-
-    if (isMorningSide && chiDeg > 80.0 && chiDeg < 100.0) {
-      float srPeak = exp(-pow((chiDeg - 90.0) / 6.0, 2.0));
-      foF2 *= (1.0 + 0.15 * srPeak);
-    }
-
-    // ── 8. Kp geomagnetic correction ─────────────────────────────────────
-    // Storm effects: high Kp depresses mid-lat foF2 ("negative storm phase")
-    // but can enhance auroral zone foF2 via particle precipitation.
-    float kpNorm = kpIdx / 9.0;  // 0..1
-
-    // Mid-latitude depression — strongest at 30-60 deg
-    float midLatWeight = exp(-pow((absGeoLat * RAD - 45.0) / 25.0, 2.0));
-    float kpDepression = 1.0 - 0.22 * kpNorm * kpNorm * midLatWeight;
-
-    // High-latitude (auroral) enhancement
-    float auroralWeight = exp(-pow((absMagLat - 67.0) / 8.0, 2.0));
-    float kpAuroralBoost = 1.0 + 0.30 * kpNorm * auroralWeight;
-
-    foF2 *= kpDepression * kpAuroralBoost;
-
-    // ── 9. MUF from foF2 ────────────────────────────────────────────────
-    // MUF(3000)F2 ≈ foF2 * M(3000)F2
-    // M-factor for a 3000km path is typically 2.8 - 3.8.
-    // We use a latitude-dependent M-factor (higher at equator).
-    float mFactor = 3.2 + 0.4 * cos(absGeoLat);
-
-    float muf = foF2 * mFactor;
-
-    return max(muf, 1.5);
+    return max(3.5, muf * latFactor);
   }
 
   // ---------------------------------------------------------------------------
@@ -276,7 +171,7 @@ const fragmentShader = /* glsl */ `
   // Main
   // ---------------------------------------------------------------------------
   void main() {
-    float muf = calculateMUF(vWorldPosition, sunPosition, sfi, kp, dayOfYear);
+    float muf = calculateMUF(vWorldPosition, sunPosition, sfi);
     vec3 color = getMUFColor(muf);
 
     // ── Fresnel limb darkening ──────────────────────────────────────────
@@ -291,21 +186,9 @@ const fragmentShader = /* glsl */ `
 /** Reusable vector for sun direction updates (avoids allocation per effect) */
 const _sunVec = new THREE.Vector3();
 
-export function MUFOverlay({
-  date,
-  sfi,
-  kp = 2,
-  opacity = 0.45,
-}: MUFOverlayProps) {
+export function MUFOverlay({ date, sfi, opacity = 0.45 }: MUFOverlayProps) {
   // Calculate subsolar point for the shader
   const subsolar = useMemo(() => getSubsolarPoint(date), [date]);
-
-  // Day of year for seasonal correction
-  const dayOfYear = useMemo(() => {
-    const start = new Date(date.getFullYear(), 0, 0);
-    const diff = date.getTime() - start.getTime();
-    return Math.floor(diff / (1000 * 60 * 60 * 24));
-  }, [date]);
 
   // Memoize the 128x128 sphere geometry separately (33K vertices, created once)
   const geometry = useMemo(() => new THREE.SphereGeometry(1.007, 128, 128), []);
@@ -326,8 +209,6 @@ export function MUFOverlay({
           ),
         },
         sfi: { value: sfi },
-        kp: { value: kp },
-        dayOfYear: { value: dayOfYear },
         opacity: { value: opacity },
       },
       vertexShader,
@@ -354,10 +235,8 @@ export function MUFOverlay({
 
     materialRef.current.uniforms.sunPosition.value.copy(_sunVec);
     materialRef.current.uniforms.sfi.value = sfi;
-    materialRef.current.uniforms.kp.value = kp;
-    materialRef.current.uniforms.dayOfYear.value = dayOfYear;
     materialRef.current.uniforms.opacity.value = opacity;
-  }, [subsolar, sfi, kp, dayOfYear, opacity]);
+  }, [subsolar, sfi, opacity]);
 
   // Dispose GPU resources on unmount
   useEffect(() => {

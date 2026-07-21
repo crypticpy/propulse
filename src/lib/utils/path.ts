@@ -5,6 +5,8 @@
  * between two points on Earth for radio communication analysis.
  */
 
+import { getSubsolarPoint } from "./sun";
+
 const EARTH_RADIUS_KM = 6371;
 const EARTH_CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM; // ~40,030 km
 const DEG_TO_RAD = Math.PI / 180;
@@ -336,7 +338,7 @@ export function getPathIllumination(
   let daylightCount = 0;
 
   // We need to check each point - simplified check using subsolar distance
-  const subsolar = getSubsolarPointSimple(date);
+  const subsolar = getSubsolarPoint(date);
 
   for (const point of points) {
     const angle = getDistance(point.lat, point.lon, subsolar.lat, subsolar.lon);
@@ -349,30 +351,4 @@ export function getPathIllumination(
   }
 
   return (daylightCount / points.length) * 100;
-}
-
-/**
- * Simplified subsolar point calculation for path illumination
- * (To avoid importing the full sun.ts and potential circular deps)
- */
-function getSubsolarPointSimple(date: Date): { lat: number; lon: number } {
-  // Day of year (approximate)
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date.getTime() - start.getTime();
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  // Approximate declination using sine wave
-  const declination = -23.45 * Math.cos((2 * Math.PI * (dayOfYear + 10)) / 365);
-
-  // Subsolar longitude based on UTC time
-  const utcHours =
-    date.getUTCHours() +
-    date.getUTCMinutes() / 60 +
-    date.getUTCSeconds() / 3600;
-  const lon = (12 - utcHours) * 15;
-
-  return {
-    lat: declination,
-    lon: lon > 180 ? lon - 360 : lon < -180 ? lon + 360 : lon,
-  };
 }

@@ -1285,12 +1285,7 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* MUF overlay */}
         {layers.muf && currentSFI && (
-          <MUFOverlay
-            date={displayTime}
-            sfi={currentSFI}
-            kp={currentKp}
-            opacity={0.45}
-          />
+          <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
         )}
 
         {/* Satellite overlay */}

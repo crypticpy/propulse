@@ -35,6 +35,10 @@ export interface DXSpot {
   spotterLat?: number;
   /** Spotter longitude (estimated from grid) */
   spotterLon?: number;
+  /** True when dxLat/dxLon are a callsign-prefix or continent centroid, not locator-derived */
+  dxLocApprox?: boolean;
+  /** True when spotterLat/spotterLon are a callsign-prefix or continent centroid, not locator-derived */
+  spotterLocApprox?: boolean;
 }
 
 /**

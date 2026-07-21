@@ -131,9 +131,10 @@ export function useGridActivityMap(
   const accRef = useRef<Map<string, GridAccumulator>>(new Map());
   const resultRef = useRef<Map<string, GridActivity>>(new Map());
 
-  // Track the previous spots array reference and length to detect new data.
-  const prevSpotsRef = useRef<ActivitySpot[]>([]);
-  const processedCountRef = useRef(0);
+  // Spots already counted, keyed by position+timestamp. The parent rebuilds
+  // its array on every fetch tick, so the same spot arrives many times —
+  // without this the accumulator re-counts it and inflates density.
+  const seenRef = useRef<Map<string, number>>(new Map());
 
   // Clock-driven prune tick — without this, entries older than the window
   // linger indefinitely whenever the spot feed goes quiet (the memo below
@@ -148,23 +149,17 @@ export function useGridActivityMap(
   // it only processes newly added spots and prunes stale entries.
   const activityMap = useMemo(() => {
     const acc = accRef.current;
+    const seen = seenRef.current;
     const windowMs = windowMinutes * 60 * 1000;
     const now = Date.now();
     const cutoff = now - windowMs;
 
-    // Detect when the spots array reference changes (new data from parent)
-    if (spots !== prevSpotsRef.current) {
-      prevSpotsRef.current = spots;
-      processedCountRef.current = 0;
-    }
-
-    // Process newly added spots
-    const startIdx = processedCountRef.current;
-    for (let i = startIdx; i < spots.length; i++) {
-      const spot = spots[i];
-
-      // Validate lat/lon bounds
+    // Process spots not counted yet
+    for (const spot of spots) {
+      // Validate lat/lon bounds (NaN-safe — NaN fails every comparison)
       if (
+        !Number.isFinite(spot.lat) ||
+        !Number.isFinite(spot.lon) ||
         spot.lat < -90 ||
         spot.lat > 90 ||
         spot.lon < -180 ||
@@ -172,6 +167,15 @@ export function useGridActivityMap(
       ) {
         continue;
       }
+      if (spot.timestamp <= cutoff) {
+        continue; // already outside the rolling window
+      }
+
+      const key = `${spot.lat},${spot.lon},${spot.timestamp}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.set(key, spot.timestamp);
 
       const grid = latLonToGrid4(spot.lat, spot.lon);
 
@@ -183,7 +187,6 @@ export function useGridActivityMap(
 
       entry.timestamps.push(spot.timestamp);
     }
-    processedCountRef.current = spots.length;
 
     // Prune stale timestamps and remove empty grids
     const gridsToRemove: string[] = [];
@@ -199,6 +202,12 @@ export function useGridActivityMap(
 
     for (const grid of gridsToRemove) {
       acc.delete(grid);
+    }
+
+    for (const [key, ts] of seen) {
+      if (ts <= cutoff) {
+        seen.delete(key);
+      }
     }
 
     // Build the output GridActivity map
@@ -218,10 +227,10 @@ export function useGridActivityMap(
 
     resultRef.current = result;
     return result;
-    // Re-compute when spots array ref or length changes, the window changes,
-    // or the periodic prune tick fires
+    // Re-compute when the spots array changes, the window changes, or the
+    // periodic prune tick fires
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spots, spots.length, windowMinutes, pruneTick]);
+  }, [spots, windowMinutes, pruneTick]);
 
   return activityMap;
 }

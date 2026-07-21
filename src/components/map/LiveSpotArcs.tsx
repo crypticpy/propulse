@@ -280,6 +280,10 @@ export interface ResolvedSpot {
   /** Spotter (reporting station) callsign */
   spotter?: string;
   source: SpotSource;
+  /** True when the spotter position is a callsign-prefix centroid, not a real locator */
+  spotterLocApprox: boolean;
+  /** True when the DX position is a callsign-prefix centroid, not a real locator */
+  dxLocApprox: boolean;
 }
 
 /**
@@ -333,18 +337,30 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
     const time = normalizeSpotDate(spot.time);
     if (!time) continue;
 
-    // Try to resolve spotter location
-    const spotterLoc =
+    // Try to resolve spotter location — locator-derived positions are exact;
+    // callsign-prefix centroids (resolved here, or pre-baked upstream and
+    // flagged on the LiveSpot) are country-level approximations.
+    const spotterCoords =
       spot.spotterLat !== undefined && spot.spotterLon !== undefined
         ? { lat: spot.spotterLat, lon: spot.spotterLon }
-        : getLocationFromGrid(spot.spotterGrid) ||
-          getLocationFromCallsign(spot.spotter);
+        : null;
+    const spotterGridLoc = spotterCoords
+      ? null
+      : getLocationFromGrid(spot.spotterGrid);
+    const spotterLoc =
+      spotterCoords || spotterGridLoc || getLocationFromCallsign(spot.spotter);
+    const spotterApprox = spotterCoords
+      ? spot.spotterLocApprox === true
+      : !spotterGridLoc;
 
     // Try to resolve DX location
-    const dxLoc =
+    const dxCoords =
       spot.dxLat !== undefined && spot.dxLon !== undefined
         ? { lat: spot.dxLat, lon: spot.dxLon }
-        : getLocationFromGrid(spot.dxGrid) || getLocationFromCallsign(spot.dx);
+        : null;
+    const dxGridLoc = dxCoords ? null : getLocationFromGrid(spot.dxGrid);
+    const dxLoc = dxCoords || dxGridLoc || getLocationFromCallsign(spot.dx);
+    const dxApprox = dxCoords ? spot.dxLocApprox === true : !dxGridLoc;
 
     // Skip if we couldn't resolve both locations
     if (!spotterLoc || !dxLoc) {
@@ -363,6 +379,8 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
       callsign: spot.dx,
       spotter: spot.spotter,
       source: spot.source,
+      spotterLocApprox: spotterApprox,
+      dxLocApprox: dxApprox,
     });
   }
 

@@ -1566,20 +1566,20 @@ export function AzimuthalView({
   // Get subsolar point for day/night blending
   const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
 
-  // Fetch live spots when spots layer is enabled
+  // Fetch live spots when spots, spot traces, or grid activity is enabled
   const { spots } = useLiveSpots({
     grid: station?.grid,
-    enabled: layers.spots || layers.spotTraces,
+    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     refetchInterval: 60000,
   });
 
   // Resolve spot locations and limit to 50 for performance
   const resolvedSpots = useMemo(() => {
-    if (!layers.spots && !layers.spotTraces) {
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) {
       return [];
     }
     return resolveSpotLocations(spots).slice(0, 50);
-  }, [spots, layers.spots, layers.spotTraces]);
+  }, [spots, layers.spots, layers.spotTraces, layers.gridActivity]);
 
   // Resolve selected DX cluster spot location for highlight arc
   const resolvedSelectedSpot = useMemo(() => {
@@ -1609,26 +1609,32 @@ export function AzimuthalView({
       const staggerOffset = isInitialLoad ? Math.random() * 1000 : 0;
       const timestamp = now - staggerOffset;
 
-      try {
-        const dxGrid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
-        glowRendererRef.current.addGlow({
-          gridSquare: dxGrid4,
-          color,
-          timestamp,
-        } satisfies GridGlowSpot);
-      } catch {
-        // Skip if coordinates out of range
+      // Prefix-centroid fallbacks are excluded — a country centroid can sit
+      // in open ocean, so only real locators light 4-char grid squares.
+      if (!spot.dxLocApprox) {
+        try {
+          const dxGrid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
+          glowRendererRef.current.addGlow({
+            gridSquare: dxGrid4,
+            color,
+            timestamp,
+          } satisfies GridGlowSpot);
+        } catch {
+          // Skip if coordinates out of range
+        }
       }
 
-      try {
-        const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
-        glowRendererRef.current.addGlow({
-          gridSquare: spGrid4,
-          color,
-          timestamp,
-        } satisfies GridGlowSpot);
-      } catch {
-        // Skip if coordinates out of range
+      if (!spot.spotterLocApprox) {
+        try {
+          const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
+          glowRendererRef.current.addGlow({
+            gridSquare: spGrid4,
+            color,
+            timestamp,
+          } satisfies GridGlowSpot);
+        } catch {
+          // Skip if coordinates out of range
+        }
       }
     }
 

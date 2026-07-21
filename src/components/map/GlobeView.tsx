@@ -960,26 +960,34 @@ const GlobeScene = React.memo(function GlobeScene({
       const staggerOffset = isInitialLoad ? Math.random() * 1000 : 0;
       const ts = Date.now() - staggerOffset;
 
-      // Derive 2-char grid field from resolved lat/lon so glow matches dot position
-      try {
-        const grid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
-        newSpots.push({
-          gridField: grid4.slice(0, 2),
-          color,
-          timestamp: ts,
-        });
-      } catch {
-        // Skip if coordinates out of range
+      // Derive 2-char grid field from resolved lat/lon so glow matches dot
+      // position. Skip prefix-centroid fallbacks — a country centroid can sit
+      // in open ocean or the wrong field, so only real locators light grids.
+      if (!spot.dxLocApprox) {
+        try {
+          const grid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
+          newSpots.push({
+            gridField: grid4.slice(0, 2),
+            color,
+            timestamp: ts,
+          });
+        } catch {
+          // Skip if coordinates out of range
+        }
       }
 
-      try {
-        const grid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
-        const field = grid4.slice(0, 2);
-        if (!newSpots.some((r) => r.gridField === field && r.color === color)) {
-          newSpots.push({ gridField: field, color, timestamp: ts });
+      if (!spot.spotterLocApprox) {
+        try {
+          const grid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
+          const field = grid4.slice(0, 2);
+          if (
+            !newSpots.some((r) => r.gridField === field && r.color === color)
+          ) {
+            newSpots.push({ gridField: field, color, timestamp: ts });
+          }
+        } catch {
+          // Skip if coordinates out of range
         }
-      } catch {
-        // Skip if coordinates out of range
       }
     }
 
@@ -998,14 +1006,20 @@ const GlobeScene = React.memo(function GlobeScene({
 
   // ── Grid activity persistence overlay ────────────────────────────────────
   // Convert resolved glow spots to ActivitySpot[] for the grid activity hook.
-  // Each spot produces two activity entries (spotter + DX positions).
+  // Each spot produces up to two activity entries (spotter + DX positions).
+  // Prefix-centroid fallbacks are excluded — 4-char squares demand a real
+  // locator, or country centroids light mid-ocean squares.
   const activitySpots = useMemo((): ActivitySpot[] => {
     if (!layers.gridActivity) return [];
     const out: ActivitySpot[] = [];
     for (const s of resolvedGlowSpots) {
       const ts = s.time.getTime();
-      out.push({ lat: s.dxLat, lon: s.dxLon, timestamp: ts });
-      out.push({ lat: s.spotterLat, lon: s.spotterLon, timestamp: ts });
+      if (!s.dxLocApprox) {
+        out.push({ lat: s.dxLat, lon: s.dxLon, timestamp: ts });
+      }
+      if (!s.spotterLocApprox) {
+        out.push({ lat: s.spotterLat, lon: s.spotterLon, timestamp: ts });
+      }
     }
     return out;
   }, [resolvedGlowSpots, layers.gridActivity]);

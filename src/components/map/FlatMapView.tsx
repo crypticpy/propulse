@@ -1889,24 +1889,34 @@ function drawSpotGridHighlights(
 
   const gridKeys = new Set<string>();
   for (const spot of spots) {
+    // Prefix-centroid fallbacks are excluded — a country centroid can sit
+    // in open ocean, so only real locators highlight grid squares.
     if (useSubsquare) {
       // 6-char subsquare: 5 minutes lon (1/12°) × 2.5 minutes lat (1/24°)
-      const dxLonIdx = Math.floor((spot.dxLon + 180) * 12);
-      const dxLatIdx = Math.floor((spot.dxLat + 90) * 24);
-      gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
+      if (!spot.dxLocApprox) {
+        const dxLonIdx = Math.floor((spot.dxLon + 180) * 12);
+        const dxLatIdx = Math.floor((spot.dxLat + 90) * 24);
+        gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
+      }
 
-      const spLonIdx = Math.floor((spot.spotterLon + 180) * 12);
-      const spLatIdx = Math.floor((spot.spotterLat + 90) * 24);
-      gridKeys.add(`${spLonIdx},${spLatIdx}`);
+      if (!spot.spotterLocApprox) {
+        const spLonIdx = Math.floor((spot.spotterLon + 180) * 12);
+        const spLatIdx = Math.floor((spot.spotterLat + 90) * 24);
+        gridKeys.add(`${spLonIdx},${spLatIdx}`);
+      }
     } else {
       // 4-char square: 2° lon × 1° lat
-      const dxLonIdx = Math.floor((spot.dxLon + 180) / 2);
-      const dxLatIdx = Math.floor(spot.dxLat + 90);
-      gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
+      if (!spot.dxLocApprox) {
+        const dxLonIdx = Math.floor((spot.dxLon + 180) / 2);
+        const dxLatIdx = Math.floor(spot.dxLat + 90);
+        gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
+      }
 
-      const spLonIdx = Math.floor((spot.spotterLon + 180) / 2);
-      const spLatIdx = Math.floor(spot.spotterLat + 90);
-      gridKeys.add(`${spLonIdx},${spLatIdx}`);
+      if (!spot.spotterLocApprox) {
+        const spLonIdx = Math.floor((spot.spotterLon + 180) / 2);
+        const spLatIdx = Math.floor(spot.spotterLat + 90);
+        gridKeys.add(`${spLonIdx},${spLatIdx}`);
+      }
     }
   }
 
@@ -3360,20 +3370,26 @@ export function FlatMapView({
     lon: number;
   } | null>(null);
 
-  // Fetch live spots when spots or spot traces layer is enabled
+  // Fetch live spots when spots, spot traces, or grid activity is enabled
   const { spots } = useLiveSpots({
     grid: station?.grid,
-    enabled: layers.spots || layers.spotTraces,
+    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     refetchInterval: 60000,
   });
 
   // Resolve spot locations and limit by display density setting
   const resolvedSpots = useMemo(() => {
-    if (!layers.spots && !layers.spotTraces) {
+    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) {
       return [];
     }
     return resolveSpotLocations(spots).slice(0, displayDensity);
-  }, [spots, layers.spots, layers.spotTraces, displayDensity]);
+  }, [
+    spots,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    displayDensity,
+  ]);
 
   // Resolve the selected DX cluster spot into a ResolvedSpot for arc highlighting
   const resolvedSelectedSpot = useMemo((): ResolvedSpot | null => {
@@ -3413,6 +3429,8 @@ export function FlatMapView({
       callsign: selectedSpot.dx,
       spotter: selectedSpot.spotter,
       source: selectedSpotSource,
+      spotterLocApprox: false,
+      dxLocApprox: false,
     };
   }, [selectedSpot]);
 
@@ -3437,26 +3455,32 @@ export function FlatMapView({
       const staggerOffset = isInitialLoad ? Math.random() * 1000 : 0;
       const timestamp = now - staggerOffset;
 
-      try {
-        const dxGrid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
-        glowRendererRef.current.addGlow({
-          gridSquare: dxGrid4,
-          color,
-          timestamp,
-        } satisfies GridGlowSpot);
-      } catch {
-        // Skip glow if coordinates are out of range
+      // Prefix-centroid fallbacks are excluded — a country centroid can sit
+      // in open ocean, so only real locators light 4-char grid squares.
+      if (!spot.dxLocApprox) {
+        try {
+          const dxGrid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
+          glowRendererRef.current.addGlow({
+            gridSquare: dxGrid4,
+            color,
+            timestamp,
+          } satisfies GridGlowSpot);
+        } catch {
+          // Skip glow if coordinates are out of range
+        }
       }
 
-      try {
-        const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
-        glowRendererRef.current.addGlow({
-          gridSquare: spGrid4,
-          color,
-          timestamp,
-        } satisfies GridGlowSpot);
-      } catch {
-        // Skip glow if coordinates are out of range
+      if (!spot.spotterLocApprox) {
+        try {
+          const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
+          glowRendererRef.current.addGlow({
+            gridSquare: spGrid4,
+            color,
+            timestamp,
+          } satisfies GridGlowSpot);
+        } catch {
+          // Skip glow if coordinates are out of range
+        }
       }
       newCount++;
     }

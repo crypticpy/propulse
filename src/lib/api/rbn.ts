@@ -59,7 +59,9 @@ function transformHamQTHRBNEntry(
   const dxPrefix = extractPrefixFromCallsign(callsign);
   const dxLocation = getLocationFromPrefix(dxPrefix);
 
-  const mode = entry.mode === "CW" ? "CW" : "RTTY";
+  // RBN skimmers report the actual mode (CW, FT8, FT4, RTTY, PSK…) —
+  // pass it through instead of collapsing everything non-CW to RTTY.
+  const mode = entry.mode || "CW";
 
   return {
     id: `rbn_${callsign}_${timeUnix}`,
@@ -76,6 +78,10 @@ function transformHamQTHRBNEntry(
     spotterLon: spotterLocation?.lon,
     dxLat: dxLocation?.lat,
     dxLon: dxLocation?.lon,
+    // RBN has no locators — these coords are prefix centroids, not
+    // real positions. Flag them so grid highlights skip these spots.
+    spotterLocApprox: spotterLocation ? true : undefined,
+    dxLocApprox: dxLocation ? true : undefined,
   };
 }
 
@@ -203,18 +209,23 @@ function transformRBNSpot(spot: RBNSpot): LiveSpot {
     spotter: spot.de_pfx || "RBN",
     dx: spot.callsign,
     frequency: Math.round(spot.freq),
-    mode: spot.mode === "CW" ? "CW" : "RTTY",
+    // RBN skimmers report the actual mode (CW, FT8, FT4, RTTY, PSK…) —
+    // pass it through instead of collapsing everything non-CW to RTTY.
+    mode: spot.mode || "CW",
     band,
     time: new Date(spot.time * 1000),
     source: "RBN",
     snr: spot.db,
     wpm: spot.wpm,
     comment: `${spot.db} dB ${spot.wpm} WPM`,
-    // Geolocation from prefix/continent lookup
+    // Geolocation from prefix/continent lookup — centroids, not real
+    // positions. Flag them so grid highlights skip these spots.
     spotterLat: spotterLocation?.lat,
     spotterLon: spotterLocation?.lon,
     dxLat: dxLocation?.lat,
     dxLon: dxLocation?.lon,
+    spotterLocApprox: spotterLocation ? true : undefined,
+    dxLocApprox: dxLocation ? true : undefined,
   };
 }
 

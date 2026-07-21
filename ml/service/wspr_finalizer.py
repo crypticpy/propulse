@@ -100,6 +100,7 @@ class PostgrestFinalizerStore:
         service_key: str,
         timeout_seconds: float = 30.0,
         max_read_attempts: int = 4,
+        max_write_attempts: int = 6,
         retry_base_seconds: float = 1.0,
         sleep: Callable[[float], None] = time.sleep,
         client: httpx.Client | None = None,
@@ -108,11 +109,14 @@ class PostgrestFinalizerStore:
             raise RuntimeError("feature-store URL and service key are required")
         if max_read_attempts < 1 or max_read_attempts > 8:
             raise ValueError("max_read_attempts must be between 1 and 8")
+        if max_write_attempts < 1 or max_write_attempts > 8:
+            raise ValueError("max_write_attempts must be between 1 and 8")
         if retry_base_seconds < 0 or retry_base_seconds > 30:
             raise ValueError("retry_base_seconds must be between 0 and 30")
         self.base_url = base_url.rstrip("/")
         self.service_key = service_key
         self.max_read_attempts = max_read_attempts
+        self.max_write_attempts = max_write_attempts
         self.retry_base_seconds = retry_base_seconds
         self.sleep = sleep
         self.client = client or httpx.Client(timeout=timeout_seconds)
@@ -223,7 +227,7 @@ class PostgrestFinalizerStore:
         # Every write here is an idempotent ON CONFLICT upsert, so transient
         # failures (statement timeouts, other 5xx, transport drops) are safe
         # to retry under the same backoff policy reads use.
-        for attempt in range(self.max_read_attempts):
+        for attempt in range(self.max_write_attempts):
             try:
                 response = self.client.post(
                     url,
@@ -234,7 +238,7 @@ class PostgrestFinalizerStore:
                 response.raise_for_status()
                 return
             except httpx.HTTPError as error:
-                final_attempt = attempt + 1 == self.max_read_attempts
+                final_attempt = attempt + 1 == self.max_write_attempts
                 if final_attempt or not self._error_is_transient(error):
                     raise RuntimeError(
                         failure_message + self._write_error_detail(error)

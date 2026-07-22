@@ -98,7 +98,17 @@ export function adaptKp(value: unknown, maxRows = 72): AdaptedProduct<KpPoint[]>
   if (currentRows.length === 0) {
     throw new SolarValidationError("Kp response contains forecasts but no current observation", "empty");
   }
-  return { data, observedAt: latestTimestamp(currentRows, (point) => point.time_tag) };
+  // NOAA's forecast feed marks the current UTC day's not-yet-final 3-hour bins as "estimated",
+  // so the latest non-predicted bin sits hours ahead of now. observedAt reports data validity
+  // and must never be in the future; clamp it to now (a real upstream stall still surfaces as
+  // staleness once wall-clock passes the last issued bin).
+  const latestNonPredicted = Date.parse(
+    latestTimestamp(currentRows, (point) => point.time_tag),
+  );
+  return {
+    data,
+    observedAt: new Date(Math.min(latestNonPredicted, Date.now())).toISOString(),
+  };
 }
 
 export function adaptSolarFlux(

@@ -66,7 +66,7 @@ describe("solar provider adapters", () => {
     ).toThrow(/between 0 and 100/);
   });
 
-  it("sorts official three-hour Kp intervals and preserves observed/predicted semantics", () => {
+  it("sorts official three-hour Kp intervals and clamps observedAt to now for future estimated bins", () => {
     const result = adaptKp(reversedKp);
     expect(result.data.map((point) => point.kind)).toEqual([
       "observed",
@@ -74,7 +74,9 @@ describe("solar provider adapters", () => {
       "predicted",
       "predicted",
     ]);
-    expect(result.observedAt).toBe("2026-07-15T21:00:00.000Z");
+    // The 21:00Z bin is an "estimated" same-day value two hours ahead of the mocked now;
+    // observedAt must not report a future observation, so it clamps to now (19:00Z).
+    expect(result.observedAt).toBe("2026-07-15T19:00:00.000Z");
   });
 
   it("rejects minute-grain Kp rows from the official three-hour contract", () => {

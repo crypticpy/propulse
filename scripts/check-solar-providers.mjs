@@ -99,7 +99,10 @@ async function checkData([
   assert(response.headers.get("content-type")?.includes("application/json"), "wrong content type");
   assert(response.headers.get("x-solar-schema") === String(SCHEMA_VERSION), "wrong schema header");
   assert(response.headers.get("x-solar-source") === sourceId, "wrong source header");
-  assert(response.headers.get("cache-control")?.includes("stale-if-error"), "missing stale-if-error policy");
+  // Vercel's edge consumes s-maxage/stale-while-revalidate/stale-if-error for its own cache and
+  // serves the client a bare `public`, so assert cacheability (which still separates a healthy
+  // success from the `no-store, max-age=0` error path) rather than a CDN-stripped directive.
+  assert(response.headers.get("cache-control")?.includes("public"), "response is not cacheable (expected public)");
   assert(body?.schemaVersion === SCHEMA_VERSION, "wrong envelope schema version");
   assert(body?.sourceId === sourceId, "wrong envelope sourceId");
   assert(typeof body?.provider === "string" && body.provider.length > 0, "provider missing");
@@ -123,7 +126,7 @@ async function checkImageMetadata(product) {
   assert(typeof body?.sourceUrl === "string" && body.sourceUrl.startsWith("https://"), "source URL missing");
   parseTimestamp(body.checkedAt, "checkedAt");
   if (body.observedAt !== null) parseTimestamp(body.observedAt, "observedAt");
-  assert(response.headers.get("cache-control")?.includes("stale-if-error"), "missing stale-if-error policy");
+  assert(response.headers.get("cache-control")?.includes("public"), "response is not cacheable (expected public)");
   return { name: `image-meta:${product}`, durationMs, bytes: bytes.byteLength };
 }
 
@@ -139,7 +142,7 @@ async function checkAnimation(product) {
     assert(typeof frame?.url === "string" && frame.url.startsWith("/api/solar/frame?"), "unsafe frame URL");
     parseTimestamp(frame?.time_tag, "frame time_tag");
   }
-  assert(response.headers.get("cache-control")?.includes("stale-if-error"), "missing stale-if-error policy");
+  assert(response.headers.get("cache-control")?.includes("public"), "response is not cacheable (expected public)");
   return { name: `animation:${product}`, durationMs, bytes: bytes.byteLength };
 }
 

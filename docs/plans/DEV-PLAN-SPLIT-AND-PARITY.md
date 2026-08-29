@@ -13,6 +13,8 @@
 
 ## 1. E1 — Scenes & Kiosk (Milestone M1)
 
+> **Status: shipped in PR #49 (2026-08-29)** — kiosk store/route/chrome, wake lock, break-in, QR handoff, `?scene=` deep link, live smoke-tested. Deviations: scenes are config-built on `/kiosk` rather than `captureCurrent()` snapshots (revisit if capture demand appears); `DataAgeBadge` stall tolerance deferred into E3's display work.
+
 | Item | Target |
 |---|---|
 | Scene model + store | `src/stores/sceneStore.ts` — persisted Zustand store (versioned, migrate pattern per CLAUDE.md). `Scene = { id, name, layoutMode, mapLayers, panels, createdAt }`. Actions: `captureCurrent()` (reads `mapStore` layout + layer state via `getState()`), `apply(id)`, CRUD, `rotation: { enabled, intervalSec, sceneIds }` |
@@ -25,6 +27,8 @@
 Verify: scene capture/apply round-trips layout+layers; kiosk survives a feed outage (kill network, badges age, no spinner); rotation + break-in unit-testable as pure reducer logic.
 
 ## 2. E2 — Parity batch 1: computed/static panels (M1)
+
+> **Status: shipped in PR #49 (2026-08-29)** — all eight items. G19 landed as mechanism only: EarthSphere upgrades to `/textures/months/earth-day-MM.jpg` when the monthly Blue Marble assets are dropped into `public/textures/months/` (12 files, NASA Visible Earth, pending owner download approval). Planets use an in-repo Schlyter Keplerian implementation per §0 (no ephemeris dep).
 
 All client-side, no new feeds; each lands as a kiosk-ready card. Moon (G6) via existing `suncalc`; world clocks (G7) via `Intl` + a small city list in `src/lib/data/`; named countdowns (G11) generalize `ContestCountdown`; quick-reference overlay (G12) — one-keystroke (`?`) modal over data already in `src/lib/data/` (band plans, Q-codes, prosigns); planets (G16) — visibility list, dep decision per §0; seasonal basemaps (G19) — 12 Blue Marble months, swap on the 1st (asset-size check against bundle budget — candidates for lazy fetch, not bundle); WWV/WWVH markers (G20) — static marker layer + path rating via existing path math; **ON-AIR banner (G23)** — `rigStore` PTT state → fullscreen banner + TX timer component, kiosk-aware.
 
@@ -69,7 +73,7 @@ New proxies written portable-by-construction (§0): tides G4 (NOAA CO-OPS), UV G
 
 ## 9. Milestones
 
-- **M1** = E1 + E2 + LICENSE → merge. *A kiosk-mode PropPulse with rotating scenes, break-in alerts, and 8 new panels.*
+- **M1** = E1 + E2 + LICENSE → merge. *A kiosk-mode PropPulse with rotating scenes, break-in alerts, and 8 new panels.* ✅ **Merged 2026-08-29 (PR #49).**
 - **M2** = E3 + E4 → merge. *Paired displays managed from a phone; Band Verdict on every dashboard.*
 - **M3** = E5 + E6 + E7 → merge. *`propulse.local` full Open Core; parity complete; Launch Wall.*
 - **M4** = Phase-3 forecast-engine work — separate dev plan when M3 closes (eval harness first; the dead WSPR ingest stays dead; any historical store is designed fresh under an approved budget cap).

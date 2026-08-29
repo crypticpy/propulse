@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactAuroraPayload } from "./index";
+import { compactAuroraPayload } from "../_lib/handlers/aurora";
 
 describe("aurora payload compaction", () => {
   it("keeps only coordinates the renderer can display", () => {

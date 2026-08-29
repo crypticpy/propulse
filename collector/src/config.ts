@@ -76,6 +76,10 @@ export function loadConfig(): CollectorConfig {
       forecasts: parseIntervalMs(process.env.POLL_FORECASTS, 6 * 60 * 60_000),
       satellites: parseIntervalMs(process.env.POLL_SATELLITES, 2 * 60 * 60_000),
       aggregator: parseIntervalMs(process.env.POLL_AGGREGATOR, 5 * 60_000),
+      forecastSnapshot: parseIntervalMs(
+        process.env.POLL_FORECAST_SNAPSHOT,
+        5 * 60_000,
+      ),
       prune: parseIntervalMs(process.env.POLL_PRUNE, 60 * 60_000),
     },
 

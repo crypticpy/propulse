@@ -15,6 +15,7 @@ import { startRbn, stopRbn } from "./collectors/rbn.js";
 import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
 import { collectForecasts } from "./collectors/forecast.js";
+import { collectForecastSnapshot } from "./collectors/forecastSnapshot.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
@@ -119,6 +120,12 @@ async function main(): Promise<void> {
     runTrackedAggregation(db, "path-aggregator", () =>
       computePathHourlyStats(db, config),
     ),
+  );
+
+  // Forecast snapshot logger (M4 F1) — records the physics per-band p_open
+  // for the current hour; the first write per hour wins, later ticks no-op.
+  register("forecast-snapshot", pollIntervals.forecastSnapshot, () =>
+    collectForecastSnapshot(db),
   );
 
   // Fail-closed retention maintenance. Historical deletion additionally

@@ -22,6 +22,7 @@ function config(
       forecasts: 21_600_000,
       satellites: 7_200_000,
       aggregator: 300_000,
+      forecastSnapshot: 300_000,
       prune: 3_600_000,
     },
     retention: { spots: 7, health: 7, solar: 120, tle: 7 },

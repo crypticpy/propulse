@@ -7,11 +7,64 @@ import {
   densifyTruth,
   evaluateForecasts,
   hourOfDay,
+  longestCoverageStreakDays,
   nearestRankPercentile,
   reliabilityBins,
   renderReport,
   skillScore,
 } from "./forecast-eval-core.mjs";
+
+describe("longestCoverageStreakDays", () => {
+  function fullDay(dayIso) {
+    return Array.from(
+      { length: 24 },
+      (_, h) => `${dayIso}T${String(h).padStart(2, "0")}:00:00.000Z`,
+    );
+  }
+
+  it("counts an unbroken run of fully covered days", () => {
+    const hours = [
+      ...fullDay("2026-08-10"),
+      ...fullDay("2026-08-11"),
+      ...fullDay("2026-08-12"),
+    ];
+    assert.equal(longestCoverageStreakDays(hours), 3);
+  });
+
+  it("resets the streak at a day gap instead of pooling total hours", () => {
+    // 3 covered days + 2-day outage + 2 covered days = 5 days of hours,
+    // but the longest consecutive run is only 3.
+    const hours = [
+      ...fullDay("2026-08-10"),
+      ...fullDay("2026-08-11"),
+      ...fullDay("2026-08-12"),
+      ...fullDay("2026-08-15"),
+      ...fullDay("2026-08-16"),
+    ];
+    assert.equal(longestCoverageStreakDays(hours), 3);
+  });
+
+  it("does not count sparse days toward the streak", () => {
+    // 14 days x 1 hour each is 14 distinct days but zero covered days.
+    const hours = Array.from(
+      { length: 14 },
+      (_, d) => `2026-08-${String(10 + d).padStart(2, "0")}T10:00:00.000Z`,
+    );
+    assert.equal(longestCoverageStreakDays(hours), 0);
+  });
+
+  it("tolerates partial days above the per-day minimum", () => {
+    const hours = [
+      ...fullDay("2026-08-10").slice(0, 21), // 21/24 hours still covered
+      ...fullDay("2026-08-11"),
+    ];
+    assert.equal(longestCoverageStreakDays(hours), 2);
+    assert.equal(
+      longestCoverageStreakDays(hours, { minHoursPerDay: 24 }),
+      1,
+    );
+  });
+});
 
 describe("nearestRankPercentile", () => {
   it("returns nearest-rank values", () => {

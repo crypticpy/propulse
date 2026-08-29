@@ -16,7 +16,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { evaluateForecasts, renderReport } from "./lib/forecast-eval-core.mjs";
+import {
+  evaluateForecasts,
+  longestCoverageStreakDays,
+  renderReport,
+} from "./lib/forecast-eval-core.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -46,6 +50,14 @@ function argValue(flag, fallback) {
 const baselineDays = argValue("--baseline-days", 90);
 const percentile = argValue("--percentile", 25);
 const minSpots = argValue("--min-spots", 5);
+
+// Out-of-range values would silently corrupt the metrics (e.g. a percentile
+// above 100 makes every threshold NaN, labelling every outcome closed).
+if (baselineDays <= 0) fail(`--baseline-days must be positive (got ${baselineDays})`);
+if (percentile <= 0 || percentile > 100) {
+  fail(`--percentile must be in (0, 100] (got ${percentile})`);
+}
+if (minSpots < 0) fail(`--min-spots must be >= 0 (got ${minSpots})`);
 
 const envLocal = readEnvLocal();
 const supabaseUrl = (
@@ -117,11 +129,15 @@ if (snapshots.length === 0) {
 }
 
 const snapshotHourSet = new Set(snapshots.map((s) => s.hour_utc));
-const snapshotDays = snapshotHourSet.size / 24;
-if (snapshotDays < 14) {
+// The F1 gate reads "14 consecutive days": require an unbroken run of UTC
+// days with near-full coverage, so sparse snapshots after collector outages
+// cannot pass as evidence.
+const streakDays = longestCoverageStreakDays(snapshotHourSet);
+if (streakDays < 14) {
   console.warn(
-    `[eval-forecast] WARNING: only ~${snapshotDays.toFixed(1)} days of snapshots — ` +
-      "below the 14-day gate; treat this report as a harness smoke test, not evidence.",
+    `[eval-forecast] WARNING: longest consecutive-day snapshot streak is ${streakDays}d ` +
+      "(days with >=20/24 hours) — below the 14-day gate; treat this report " +
+      "as a harness smoke test, not evidence.",
   );
 }
 

@@ -36,6 +36,41 @@ export function hourOfDay(hourUtc) {
   return new Date(hourUtc).getUTCHours();
 }
 
+/**
+ * Longest run of consecutive UTC days that each have at least
+ * `minHoursPerDay` distinct snapshot hours. The F1 evidence gate reads
+ * "14 consecutive days of snapshots"; dividing distinct hours by 24 would
+ * let coverage scattered across outage gaps masquerade as a continuous run.
+ * @param {Iterable<string>} hoursUtc ISO hour timestamps
+ * @param {{minHoursPerDay?: number}} [opts]
+ * @returns {number} length in days of the longest qualifying streak
+ */
+export function longestCoverageStreakDays(hoursUtc, { minHoursPerDay = 20 } = {}) {
+  /** @type {Map<number, Set<number>>} */
+  const hoursPerDay = new Map();
+  for (const hour of hoursUtc) {
+    const ms = Date.parse(hour);
+    if (!Number.isFinite(ms)) continue;
+    const day = Math.floor(ms / 86_400_000);
+    const set = hoursPerDay.get(day);
+    if (set) set.add(Math.floor(ms / 3_600_000));
+    else hoursPerDay.set(day, new Set([Math.floor(ms / 3_600_000)]));
+  }
+  const covered = [...hoursPerDay.entries()]
+    .filter(([, hours]) => hours.size >= minHoursPerDay)
+    .map(([day]) => day)
+    .sort((a, b) => a - b);
+  let best = 0;
+  let run = 0;
+  let prev = null;
+  for (const day of covered) {
+    run = prev !== null && day === prev + 1 ? run + 1 : 1;
+    prev = day;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
 function climKey(band, hod) {
   return `${band}|${hod}`;
 }

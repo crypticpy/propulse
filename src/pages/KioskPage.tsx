@@ -59,12 +59,13 @@ export function KioskPage() {
   };
 
   // Device autostart contract: /kiosk?start=1 (kiosk browsers are already
-  // fullscreen, and a fullscreen request without a user gesture would fail)
+  // fullscreen, and a fullscreen request without a user gesture would fail).
+  // Optional &scene=<id> picks the starting scene.
   const autoStarted = useRef(false);
   useEffect(() => {
     if (searchParams.get("start") === "1" && !autoStarted.current) {
       autoStarted.current = true;
-      launch(undefined, false);
+      launch(searchParams.get("scene") ?? undefined, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);

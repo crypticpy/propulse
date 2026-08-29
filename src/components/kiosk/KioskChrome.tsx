@@ -4,6 +4,7 @@ import { useKioskStore, applySceneToMap } from "@/stores/kioskStore";
 import { useAlertsStore } from "@/stores/alertsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { KioskQr } from "@/components/kiosk/KioskQr";
 import type { SolarAlert } from "@/types/alerts";
 
 const CONTROLS_HIDE_MS = 4000;
@@ -169,6 +170,9 @@ export function KioskChrome() {
           Exit kiosk
         </button>
       </div>
+
+      {/* Corner QR — pull this view up on a phone */}
+      <KioskQr />
 
       {/* Alert break-in takeover */}
       {breakInAlert && (

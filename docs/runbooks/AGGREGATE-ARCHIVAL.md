@@ -62,13 +62,17 @@ sealed backlog while pruning is disabled. Per day:
 3. **Seal** — only after verification, write
    `path_hourly_stats-<day>.manifest.json` beside it (`rowCount`, `sha256`,
    `sizeBytes`, `columns`, `exportedAt`). A sealed day is never re-exported.
-4. **Prune (gated)** — only when `ARCHIVE_PATH_STATS_PRUNE=true`, call the
-   RPC `prune_archived_path_hourly_stats(day, manifest.rowCount)`. The
-   function re-counts live rows inside the database and **refuses to delete
-   unless the live count exactly equals the manifest count** (rows added
-   after archiving, a partial prior delete, or a wrong manifest all abort).
-   It runs with a function-level 120 s statement timeout (a full day is ~80K
-   rows) and is executable by `service_role` only.
+4. **Prune (gated)** — only when `ARCHIVE_PATH_STATS_PRUNE=true`. The
+   collector first re-downloads the archived object and checks it still
+   hashes to the manifest's SHA-256, then calls the RPC
+   `prune_archived_path_hourly_stats(day, manifest.rowCount)`. The function
+   re-counts live rows inside the database and **refuses to delete unless
+   the live count exactly equals the manifest count** (rows added after
+   archiving, a partial prior delete, or a wrong manifest all abort), and
+   after deleting it verifies the deleted row count too — a mismatch from a
+   concurrent write raises and rolls the whole delete back. It runs with a
+   function-level 120 s statement timeout (a full day is ~80K rows) and is
+   executable by `service_role` only.
 
 Export and prune are decoupled: with the flag off (the default), archives
 still accumulate in storage and the hot table keeps everything — turning the
@@ -134,7 +138,13 @@ CSV column order matches the table.
   source reports `error`, and the day is retried next pass. No manifest means
   no prune, ever. A stale unsealed object left by an interrupted run (object
   exists, no manifest) is overwritten and re-verified automatically on the
-  next pass — only a manifest seals a day.
+  next pass — only a manifest seals a day. A corrupt or wrong-shape manifest
+  is likewise treated as unsealed: the day is re-exported, re-verified, and
+  re-sealed.
+- **Archived object corrupted after sealing** → the pre-prune hash check
+  fails and nothing is deleted; the hot rows remain the copy of record until
+  the archive is repaired (delete the bad object + manifest and let the day
+  re-export).
 - **Prune RPC count mismatch** → the RPC raises and deletes nothing; the day
   stays hot and sealed. Investigate whether rows were backfilled after
   sealing (should be impossible: the aggregator catch-up window is 7 days,

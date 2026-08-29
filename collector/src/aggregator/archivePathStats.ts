@@ -181,6 +181,22 @@ async function fetchLiveDayCount(
   return count ?? 0;
 }
 
+/** A day is sealed only by a manifest with the exact expected shape. */
+function isSealedManifest(value: unknown, day: string): value is DayManifest {
+  if (typeof value !== "object" || value === null) return false;
+  const m = value as Partial<DayManifest>;
+  return (
+    m.dataset === DATASET &&
+    m.schemaVersion === SCHEMA_VERSION &&
+    m.day === day &&
+    typeof m.rowCount === "number" &&
+    Number.isInteger(m.rowCount) &&
+    m.rowCount >= 0 &&
+    typeof m.sha256 === "string" &&
+    /^[0-9a-f]{64}$/.test(m.sha256)
+  );
+}
+
 async function downloadManifest(
   db: SupabaseClient,
   day: string,
@@ -189,7 +205,20 @@ async function downloadManifest(
     .from(BUCKET)
     .download(manifestObjectPath(day));
   if (error || !data) return null;
-  return JSON.parse(await data.text()) as DayManifest;
+  // A malformed or wrong-shape manifest does not seal a day. Treating it as
+  // unsealed routes the day back through exportDay, which re-verifies the
+  // data object and re-seals the manifest (both uploads tolerate existing
+  // objects), instead of wedging every subsequent pass on a JSON.parse throw.
+  try {
+    const parsed: unknown = JSON.parse(await data.text());
+    if (isSealedManifest(parsed, day)) return parsed;
+  } catch {
+    // fall through to the invalid-manifest path
+  }
+  log("warn", "Ignoring invalid path-archive manifest; day treated as unsealed", {
+    day,
+  });
+  return null;
 }
 
 async function downloadObjectBytes(
@@ -287,6 +316,18 @@ async function pruneDay(
 ): Promise<number> {
   const live = await fetchLiveDayCount(db, manifest.day);
   if (live === 0) return 0; // already pruned
+  // Last look before the destructive step: the archived object must still
+  // hash to what its manifest sealed, or the hot rows are the only copy.
+  const stored = await downloadObjectBytes(
+    db.storage.from(BUCKET),
+    archiveObjectPath(manifest.day),
+    manifest.day,
+  );
+  if (sha256Hex(stored) !== manifest.sha256) {
+    throw new Error(
+      `archived object SHA-256 mismatch vs manifest for ${manifest.day} — refusing to prune`,
+    );
+  }
   const { data, error } = await db.rpc("prune_archived_path_hourly_stats", {
     p_day: manifest.day,
     p_expected_rows: manifest.rowCount,
@@ -298,6 +339,19 @@ async function pruneDay(
 }
 
 // ── Entry point ──────────────────────────────────────────────────────────────
+
+// First archivable day that may still need work under the current controls.
+// Days behind the cursor were fully handled by an earlier pass this process
+// lifetime, so steady-state passes skip straight past the sealed backlog
+// instead of re-downloading every manifest hourly. Purely in-memory by
+// design: changing any archive control implies a process restart (Railway
+// env change), which resets the cursor and forces one full rescan.
+let scanCursorDay: string | null = null;
+
+/** Test hook: forget the skip-ahead cursor. */
+export function resetScanCursor(): void {
+  scanCursorDay = null;
+}
 
 export interface ArchivePassResult {
   daysArchived: number;
@@ -321,7 +375,9 @@ export async function runArchivePass(
   const oldestDay = await fetchOldestDay(db);
   if (!oldestDay) return result;
 
-  const days = archivableDays(oldestDay, nowMs, controls.hotDays);
+  const startDay =
+    scanCursorDay && scanCursorDay > oldestDay ? scanCursorDay : oldestDay;
+  const days = archivableDays(startDay, nowMs, controls.hotDays);
 
   // Budget counts days that needed real work (an export and/or a prune).
   // Sealed days needing neither are skipped for free, so the pass always
@@ -359,6 +415,9 @@ export async function runArchivePass(
     }
 
     if (worked) budget -= 1;
+    // The day is fully handled under current controls; a throw above leaves
+    // the cursor pointing at it so the failed day is retried next pass.
+    scanCursorDay = addDays(day, 1);
   }
 
   return result;

@@ -49,6 +49,10 @@ describe("evaluateDbSize", () => {
     expect(evaluateDbSize(report(3072), 3072).ok).toBe(true);
     expect(evaluateDbSize(report(3073), 3072).ok).toBe(false);
   });
+
+  it("compares raw bytes so a sub-MiB breach still trips the guard", () => {
+    expect(evaluateDbSize(report(3072.4), 3072).ok).toBe(false);
+  });
 });
 
 // Exercises the durable write path: the status persisted to the DB must be

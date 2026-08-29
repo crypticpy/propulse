@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -7,6 +8,7 @@ import {
   archiveObjectPath,
   csvField,
   manifestObjectPath,
+  resetScanCursor,
   runArchivePass,
   toCsv,
   type PathStatsRow,
@@ -105,6 +107,27 @@ const CONTROLS: PathArchiveControls = {
   maxDaysPerRun: 1,
 };
 
+const FAKE_SHA = "a".repeat(64);
+
+/** A manifest that passes the sealed-shape validation. */
+function sealedManifest(day: string, sha256 = FAKE_SHA): Uint8Array {
+  return new Uint8Array(
+    Buffer.from(
+      JSON.stringify({
+        dataset: "path_hourly_stats",
+        schemaVersion: 1,
+        day,
+        rowCount: 3,
+        sha256,
+        sizeBytes: 100,
+        columns: PATH_STATS_COLUMNS,
+        exportedAt: "2026-08-01T00:00:00Z",
+      }),
+      "utf8",
+    ),
+  );
+}
+
 interface QueryRecord {
   table: string;
   select?: string;
@@ -121,6 +144,7 @@ interface UploadOpts {
 class FakeStorage {
   objects = new Map<string, Uint8Array>();
   uploads: { path: string; opts?: UploadOpts }[] = [];
+  downloads: string[] = [];
   corruptOnDownload: string | null = null;
 
   async upload(
@@ -139,6 +163,7 @@ class FakeStorage {
   async download(
     path: string,
   ): Promise<{ data: Blob | null; error: { message: string } | null }> {
+    this.downloads.push(path);
     const bytes = this.objects.get(path);
     if (!bytes) return { data: null, error: { message: "Object not found" } };
     const served =
@@ -220,6 +245,10 @@ function makeDb(storage: FakeStorage, opts: FakeDbOptions): SupabaseClient {
 }
 
 describe("runArchivePass", () => {
+  beforeEach(() => {
+    resetScanCursor();
+  });
+
   it("exports, verifies, seals, and prunes an archivable day", async () => {
     const storage = new FakeStorage();
     const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
@@ -294,19 +323,14 @@ describe("runArchivePass", () => {
 
   it("skips re-export for sealed days and only retries the prune", async () => {
     const storage = new FakeStorage();
-    const sealed = {
-      dataset: "path_hourly_stats",
-      schemaVersion: 1,
-      day: "2026-05-01",
-      rowCount: 3,
-      sha256: "abc",
-      sizeBytes: 100,
-      columns: PATH_STATS_COLUMNS,
-      exportedAt: "2026-08-01T00:00:00Z",
-    };
+    // The sealed object must be present and hash-match its manifest for the
+    // prune to proceed.
+    const gzBytes = new Uint8Array([1, 2, 3, 4]);
+    const realSha = createHash("sha256").update(gzBytes).digest("hex");
+    storage.objects.set(archiveObjectPath("2026-05-01"), gzBytes);
     storage.objects.set(
       manifestObjectPath("2026-05-01"),
-      new Uint8Array(Buffer.from(JSON.stringify(sealed), "utf8")),
+      sealedManifest("2026-05-01", realSha),
     );
     const pageQueries: QueryRecord[] = [];
     const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
@@ -327,12 +351,7 @@ describe("runArchivePass", () => {
     const storage = new FakeStorage();
     storage.objects.set(
       manifestObjectPath("2026-05-01"),
-      new Uint8Array(
-        Buffer.from(
-          JSON.stringify({ day: "2026-05-01", rowCount: 3 }),
-          "utf8",
-        ),
-      ),
+      sealedManifest("2026-05-01"),
     );
     const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
     const db = makeDb(storage, { liveCount: () => 0, rpcCalls });
@@ -357,12 +376,7 @@ describe("runArchivePass", () => {
     // and it must not consume the per-run budget (the stall regression).
     storage.objects.set(
       manifestObjectPath("2026-05-01"),
-      new Uint8Array(
-        Buffer.from(
-          JSON.stringify({ day: "2026-05-01", rowCount: 3 }),
-          "utf8",
-        ),
-      ),
+      sealedManifest("2026-05-01"),
     );
     const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
     const db = makeDb(storage, { liveCount: () => 3, rpcCalls });
@@ -400,5 +414,73 @@ describe("runArchivePass", () => {
       toCsv(DAY_ROWS),
     );
     expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(true);
+  });
+
+  it("treats a corrupt manifest as unsealed and re-seals the day", async () => {
+    const storage = new FakeStorage();
+    storage.objects.set(
+      manifestObjectPath("2026-05-01"),
+      new Uint8Array(Buffer.from("not json{", "utf8")),
+    );
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    const result = await runArchivePass(
+      db,
+      { ...CONTROLS, pruneEnabled: false },
+      NOW,
+    );
+
+    expect(result.daysArchived).toBe(1);
+    const manifestBytes = storage.objects.get(
+      manifestObjectPath("2026-05-01"),
+    );
+    const manifest = JSON.parse(Buffer.from(manifestBytes!).toString("utf8"));
+    expect(manifest.rowCount).toBe(3);
+    expect(manifest.dataset).toBe("path_hourly_stats");
+  });
+
+  it("refuses to prune when the archived object no longer matches its manifest", async () => {
+    const storage = new FakeStorage();
+    storage.objects.set(
+      archiveObjectPath("2026-05-01"),
+      new Uint8Array([9, 9, 9]),
+    );
+    storage.objects.set(
+      manifestObjectPath("2026-05-01"),
+      sealedManifest("2026-05-01", FAKE_SHA),
+    );
+    const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
+    const db = makeDb(storage, { liveCount: () => 3, rpcCalls });
+
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /refusing to prune/,
+    );
+    expect(rpcCalls).toEqual([]);
+  });
+
+  it("does not rescan days confirmed done in an earlier pass", async () => {
+    const storage = new FakeStorage();
+    storage.objects.set(
+      manifestObjectPath("2026-05-01"),
+      sealedManifest("2026-05-01"),
+    );
+    const db = makeDb(storage, { liveCount: () => 3 });
+    const controls = { ...CONTROLS, pruneEnabled: false };
+    const sealedManifestPath = manifestObjectPath("2026-05-01");
+
+    await runArchivePass(db, controls, NOW); // handles 05-01 (skip) + 05-02
+    const downloadsAfterFirstPass = storage.downloads.filter(
+      (p) => p === sealedManifestPath,
+    ).length;
+
+    const second = await runArchivePass(db, controls, NOW);
+
+    // The cursor starts the second pass after the handled days: the sealed
+    // manifest is not re-downloaded, and the pass still makes progress.
+    expect(
+      storage.downloads.filter((p) => p === sealedManifestPath).length,
+    ).toBe(downloadsAfterFirstPass);
+    expect(second.daysArchived).toBe(1);
+    expect(storage.objects.has(archiveObjectPath("2026-05-03"))).toBe(true);
   });
 });

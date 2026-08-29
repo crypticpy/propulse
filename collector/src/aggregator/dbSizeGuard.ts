@@ -50,7 +50,9 @@ export function evaluateDbSize(
     .slice(0, 3)
     .map((t) => `${t.table_name}=${mb(t.total_bytes)}MB`)
     .join(", ");
-  const ok = totalMb <= budgetMb;
+  // Compare raw bytes — totalMb is rounded for display only, and rounding
+  // before comparing would hide a breach of less than half a MiB.
+  const ok = report.database_bytes <= budgetMb * 1024 * 1024;
   return {
     ok,
     totalMb,

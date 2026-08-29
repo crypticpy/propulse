@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   PHYSICS_ALGO_VERSION,
   buildPhysicsSnapshotRows,
+  collectForecastSnapshot,
   computePhysicsBandScores,
   hourBucketUtc,
 } from "./forecastSnapshot.js";
@@ -58,6 +60,94 @@ describe("hourBucketUtc", () => {
     expect(hourBucketUtc(Date.parse("2026-08-29T12:00:00.000Z"))).toBe(
       "2026-08-29T12:00:00.000Z",
     );
+  });
+});
+
+describe("collectForecastSnapshot", () => {
+  interface FakeDb {
+    db: SupabaseClient;
+    upserts: unknown[];
+    healthInserts: Array<Record<string, unknown>>;
+  }
+
+  function fakeDb(solarRow: Record<string, unknown> | null): FakeDb {
+    const upserts: unknown[] = [];
+    const healthInserts: Array<Record<string, unknown>> = [];
+    const db = {
+      from(table: string) {
+        if (table === "solar_snapshots") {
+          return {
+            select: () => ({
+              order: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({ data: solarRow, error: null }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "forecast_snapshots") {
+          return {
+            upsert: async (rows: unknown) => {
+              upserts.push(rows);
+              return { error: null };
+            },
+          };
+        }
+        if (table === "collector_health") {
+          return {
+            insert: async (row: Record<string, unknown>) => {
+              healthInserts.push(row);
+              return { error: null };
+            },
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      },
+      rpc: async () => ({ error: null }),
+    } as unknown as SupabaseClient;
+    return { db, upserts, healthInserts };
+  }
+
+  it("writes snapshot rows for a fresh solar reading", async () => {
+    const { db, upserts, healthInserts } = fakeDb({
+      captured_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+      kp_index: 2,
+      sfi: 150,
+    });
+
+    await collectForecastSnapshot(db);
+
+    expect(upserts).toHaveLength(1);
+    expect(upserts[0]).toHaveLength(11);
+    expect(healthInserts[0]?.status).toBe("ok");
+  });
+
+  it("rejects a solar timestamp from the future without writing rows", async () => {
+    const { db, upserts, healthInserts } = fakeDb({
+      captured_at: new Date(Date.now() + 3600_000).toISOString(),
+      kp_index: 2,
+      sfi: 150,
+    });
+
+    await collectForecastSnapshot(db);
+
+    expect(upserts).toHaveLength(0);
+    expect(healthInserts[0]?.status).toBe("error");
+    expect(healthInserts[0]?.error_message).toMatch(/stale or in the future/);
+  });
+
+  it("rejects a stale solar timestamp without writing rows", async () => {
+    const { db, upserts, healthInserts } = fakeDb({
+      captured_at: new Date(Date.now() - 4 * 3600_000).toISOString(),
+      kp_index: 2,
+      sfi: 150,
+    });
+
+    await collectForecastSnapshot(db);
+
+    expect(upserts).toHaveLength(0);
+    expect(healthInserts[0]?.status).toBe("error");
   });
 });
 

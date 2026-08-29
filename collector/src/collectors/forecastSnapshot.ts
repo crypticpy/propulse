@@ -189,10 +189,16 @@ export async function collectForecastSnapshot(
     if (!data || data.kp_index == null || data.sfi == null) {
       throw new Error("No usable solar snapshot (missing kp_index/sfi)");
     }
+    // Reject stale AND future timestamps (clock skew tolerance: 5 min) — a
+    // negative age otherwise passes a plain upper-bound check.
     const solarAgeMs = start - Date.parse(data.captured_at);
-    if (!Number.isFinite(solarAgeMs) || solarAgeMs > MAX_SOLAR_AGE_MS) {
+    if (
+      !Number.isFinite(solarAgeMs) ||
+      solarAgeMs < -5 * 60_000 ||
+      solarAgeMs > MAX_SOLAR_AGE_MS
+    ) {
       throw new Error(
-        `Latest solar snapshot is stale (${data.captured_at}) — skipping forecast snapshot`,
+        `Latest solar snapshot is stale or in the future (${data.captured_at}) — skipping forecast snapshot`,
       );
     }
 

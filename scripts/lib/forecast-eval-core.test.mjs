@@ -113,6 +113,8 @@ describe("evaluateForecasts", () => {
   function syntheticData() {
     // 12 baseline days, one hour-of-day (10:00 UTC), one band.
     // Even days busy (100 spots), odd days dead (0) -> clim p_open = 0.5.
+    // With a 12-day window (cutoff Aug 17 12:00Z), days 10-17 are held-out
+    // training and days 18-21 are the evaluation window.
     const truth = [];
     for (let day = 10; day < 22; day++) {
       truth.push({
@@ -121,7 +123,7 @@ describe("evaluateForecasts", () => {
         spot_count: day % 2 === 0 ? 100 : 0,
       });
     }
-    // Perfect physics forecaster over the last 4 of those hours
+    // Perfect physics forecaster over the evaluation days
     const snapshots = [];
     for (let day = 18; day < 22; day++) {
       snapshots.push({
@@ -141,10 +143,12 @@ describe("evaluateForecasts", () => {
       snapshots,
       truth,
       nowMs,
-      windowsDays: [30],
+      windowsDays: [12],
     });
 
     const [window] = results.windows;
+    // Only the 8 pre-window days train the climatology (held out).
+    assert.equal(window.trainingHours, 8);
     assert.equal(window.sources.length, 1);
     const physics = window.sources[0];
     assert.equal(physics.source, "physics");
@@ -184,7 +188,7 @@ describe("evaluateForecasts", () => {
       snapshots,
       truth,
       nowMs,
-      windowsDays: [30],
+      windowsDays: [12],
     });
     const nowcast = results.windows[0].sources.find(
       (s) => s.source === "nowcast",
@@ -201,13 +205,33 @@ describe("evaluateForecasts", () => {
       snapshots,
       truth,
       nowMs,
-      windowsDays: [30],
+      windowsDays: [12],
     });
     assert.equal(results.sensitivity.length, 3);
     for (const row of results.sensitivity) {
       assert.equal(row.n, 4);
       assert.equal(row.brier, 0);
     }
+  });
+
+  it("holds evaluated hours out of the threshold fit", () => {
+    // All truth inside the evaluation window -> no training rows at all;
+    // thresholds must fall back to minSpots instead of learning from the
+    // outcomes being evaluated.
+    const { truth, snapshots } = syntheticData();
+    const results = evaluateForecasts({
+      snapshots,
+      truth,
+      nowMs,
+      windowsDays: [30],
+    });
+    const [window] = results.windows;
+    assert.equal(window.trainingHours, 0);
+    // With pClim ?? 0 the climatology reference scores its own miss rate.
+    const physics = window.sources[0];
+    assert.equal(physics.n, 4);
+    assert.equal(physics.brier, 0);
+    assert.equal(physics.brierClim, 0.5);
   });
 });
 
@@ -238,6 +262,7 @@ describe("renderReport", () => {
     assert.match(report, /# Forecast evaluation — 2026-08-29/);
     assert.match(report, /## Data coverage/);
     assert.match(report, /max\(5, P25/);
+    assert.match(report, /held-out/);
     assert.match(report, /## 7-day window/);
     assert.match(report, /## 30-day window/);
     assert.match(report, /\| physics \| 0h \| 1 \|/);

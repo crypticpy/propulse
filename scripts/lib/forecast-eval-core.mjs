@@ -11,6 +11,11 @@
  *   percentile of the baseline spot counts, floored at `minSpots`.
  * - Climatology forecast: p_open_clim(b, hod) = fraction of baseline hours
  *   in which (b, hod) was open under the same threshold.
+ * - Held-out fitting: thresholds and climatology are fit ONLY on baseline
+ *   hours strictly before each evaluation window, so an evaluated outcome
+ *   never contributes to the threshold that labels it. With no pre-window
+ *   baseline rows, thresholds fall back to `minSpots` (the report shows the
+ *   training-hour count per window).
  */
 
 /**
@@ -155,7 +160,7 @@ export function skillScore(brier, brierRef) {
  *
  * @param {object} input
  * @param {Array<{hour_utc: string, band: string, source: string, horizon_hours: number, p_open: number}>} input.snapshots
- * @param {Array<{hour_utc: string, band: string, spot_count: number}>} input.truth  raw baseline rows (also serve as climatology)
+ * @param {Array<{hour_utc: string, band: string, spot_count: number}>} input.truth  raw baseline rows; the pre-window portion doubles as climatology training data
  * @param {number} [input.percentile]
  * @param {number} [input.minSpots]
  * @param {number[]} [input.windowsDays]
@@ -173,7 +178,6 @@ export function evaluateForecasts({
     ...new Set([...snapshots.map((s) => s.band), ...truth.map((t) => t.band)]),
   ].sort();
   const denseTruth = densifyTruth(truth, bands);
-  const clim = buildClimatology(denseTruth, { percentile, minSpots });
 
   /** @type {Map<string, number>} spot_count by hour|band */
   const truthByKey = new Map(
@@ -181,8 +185,16 @@ export function evaluateForecasts({
   );
   const aggregatedHours = new Set(truth.map((r) => r.hour_utc));
 
+  // Held-out training: only baseline rows strictly before an evaluation
+  // window may define its thresholds and climatology reference, otherwise
+  // each evaluated outcome would help set the threshold that labels it.
+  const trainingRowsBefore = (sinceMs) =>
+    denseTruth.filter((r) => Date.parse(r.hour_utc) < sinceMs);
+
   const windows = windowsDays.map((days) => {
     const sinceMs = nowMs - days * 86_400_000;
+    const trainingRows = trainingRowsBefore(sinceMs);
+    const clim = buildClimatology(trainingRows, { percentile, minSpots });
 
     // Snapshots inside the window whose target hour has ground truth
     const evaluable = snapshots.filter((s) => {
@@ -274,19 +286,30 @@ export function evaluateForecasts({
         };
       });
 
-    return { days, sources };
+    return {
+      days,
+      trainingHours: new Set(trainingRows.map((r) => r.hour_utc)).size,
+      sources,
+    };
   });
 
-  // Sensitivity of the physics Brier score to the percentile choice
+  // Sensitivity of the physics Brier score to the percentile choice —
+  // held out the same way, against the largest evaluation window.
+  const sensSinceMs = nowMs - Math.max(...windowsDays) * 86_400_000;
+  const sensTraining = trainingRowsBefore(sensSinceMs);
   const sensitivity = [10, 25, 50].map((p) => {
-    const c = buildClimatology(denseTruth, { percentile: p, minSpots });
+    const c = buildClimatology(sensTraining, { percentile: p, minSpots });
     const pairs = snapshots
-      .filter(
-        (s) =>
+      .filter((s) => {
+        const t = Date.parse(s.hour_utc);
+        return (
           s.source === "physics" &&
           s.horizon_hours === 0 &&
-          aggregatedHours.has(s.hour_utc),
-      )
+          t >= sensSinceMs &&
+          t <= nowMs &&
+          aggregatedHours.has(s.hour_utc)
+        );
+      })
       .map((s) => ({
         p: s.p_open,
         outcome:
@@ -337,10 +360,13 @@ export function renderReport(results, meta) {
     `Band open at hour *h* iff \`spot_count >= max(${results.minSpots}, ` +
       `P${results.percentile}(baseline counts for that band+UTC-hour))\`. ` +
       `Climatology reference forecast = baseline open-rate per band+UTC-hour ` +
-      `under the same threshold.`,
+      `under the same threshold. Thresholds and climatology are held-out: ` +
+      `fit only on baseline hours strictly before each evaluation window.`,
   );
   lines.push("");
-  lines.push("### Percentile sensitivity (physics source, all data)");
+  lines.push(
+    "### Percentile sensitivity (physics source, largest window, held-out thresholds)",
+  );
   lines.push("");
   lines.push("| Percentile | n | Base rate | Brier |");
   lines.push("| --- | --- | --- | --- |");
@@ -353,6 +379,11 @@ export function renderReport(results, meta) {
 
   for (const window of results.windows) {
     lines.push(`## ${window.days}-day window`);
+    lines.push("");
+    lines.push(
+      `_Thresholds fit on ${window.trainingHours} held-out baseline hours ` +
+        `(strictly before the window${window.trainingHours === 0 ? "; NONE available — thresholds fell back to minSpots" : ""})._`,
+    );
     lines.push("");
     if (window.sources.length === 0) {
       lines.push("_No evaluable snapshots in this window._");

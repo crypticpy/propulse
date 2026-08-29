@@ -40,6 +40,17 @@ function parseBatchSize(envVar: string | undefined, defaultSize: number): number
   return size;
 }
 
+/** Positive integer without parseBatchSize's 50k cap (budgets can exceed it). */
+function parsePositiveInt(
+  envVar: string | undefined,
+  defaultValue: number,
+): number {
+  if (!envVar) return defaultValue;
+  const value = parseInt(envVar, 10);
+  if (isNaN(value) || value < 1) return defaultValue;
+  return value;
+}
+
 export function loadConfig(): CollectorConfig {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -125,6 +136,6 @@ export function loadConfig(): CollectorConfig {
         ),
       },
     },
-    dbSizeBudgetMb: parseBatchSize(process.env.DB_SIZE_BUDGET_MB, 3072),
+    dbSizeBudgetMb: parsePositiveInt(process.env.DB_SIZE_BUDGET_MB, 3072),
   };
 }

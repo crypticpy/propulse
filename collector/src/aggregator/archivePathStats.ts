@@ -17,7 +17,9 @@
  *
  * A day whose manifest already exists is never re-exported; re-runs only
  * retry the prune step (idempotent — a fully pruned day counts 0 live rows
- * and is skipped). Work is bounded to maxDaysPerRun days per tick.
+ * and is skipped). Sealed days that need no work do not count against the
+ * budget, so exports keep advancing past them even while pruning is
+ * disabled; work is bounded to maxDaysPerRun exported/pruned days per tick.
  *
  * See docs/runbooks/AGGREGATE-ARCHIVAL.md.
  */
@@ -101,23 +103,22 @@ function addDays(day: string, n: number): string {
 
 /**
  * Complete UTC days from oldestDay (inclusive) strictly older than the hot
- * window, capped at maxDays. The newest archivable day is the one ending
- * hotDays ago, so late aggregator catch-up (bounded to RETENTION_SPOTS = 7
- * days) can never append to a day after it is archived.
+ * window. The newest archivable day is the one ending hotDays ago, so late
+ * aggregator catch-up (bounded to RETENTION_SPOTS = 7 days) can never append
+ * to a day after it is archived. Deliberately uncapped: already-sealed days
+ * must stay visible to the pass so it can skip past them, otherwise exports
+ * stall on the oldest sealed day while pruning is disabled. The per-tick
+ * work bound (maxDaysPerRun) is applied by runArchivePass to days that
+ * actually need an export or a prune.
  */
 export function archivableDays(
   oldestDay: string,
   nowMs: number,
   hotDays: number,
-  maxDays: number,
 ): string[] {
   const cutoffDay = utcDayString(nowMs - hotDays * 86_400_000);
   const days: string[] = [];
-  for (
-    let day = oldestDay;
-    day < cutoffDay && days.length < maxDays;
-    day = addDays(day, 1)
-  ) {
+  for (let day = oldestDay; day < cutoffDay; day = addDays(day, 1)) {
     days.push(day);
   }
   return days;
@@ -191,6 +192,20 @@ async function downloadManifest(
   return JSON.parse(await data.text()) as DayManifest;
 }
 
+async function downloadObjectBytes(
+  bucket: ReturnType<SupabaseClient["storage"]["from"]>,
+  objectPath: string,
+  day: string,
+): Promise<Uint8Array> {
+  const { data, error } = await bucket.download(objectPath);
+  if (error || !data) {
+    throw new Error(
+      `archive verification download failed for ${day}: ${error?.message ?? "empty body"}`,
+    );
+  }
+  return new Uint8Array(await data.arrayBuffer());
+}
+
 /** Export one day's rows, upload, verify byte-for-byte, and seal a manifest. */
 async function exportDay(
   db: SupabaseClient,
@@ -202,29 +217,36 @@ async function exportDay(
   const objectPath = archiveObjectPath(day);
   const bucket = db.storage.from(BUCKET);
 
-  const { error: uploadError } = await bucket.upload(objectPath, gz, {
-    contentType: "application/gzip",
+  // The bucket's allowed_mime_types is octet-stream/parquet/json/text only
+  // (propagation-archives foundation migration); application/gzip is rejected.
+  const uploadOpts = {
+    contentType: "application/octet-stream",
     cacheControl: "31536000",
     upsert: false,
-  });
-  if (
-    uploadError &&
-    !uploadError.message.toLowerCase().includes("already exists")
-  ) {
+  };
+  const { error: uploadError } = await bucket.upload(objectPath, gz, uploadOpts);
+  const preExisting =
+    uploadError?.message.toLowerCase().includes("already exists") ?? false;
+  if (uploadError && !preExisting) {
     throw new Error(`archive upload failed for ${day}: ${uploadError.message}`);
   }
 
-  // Verify what storage actually holds (also covers the already-exists case
-  // from an interrupted prior run: content must match this export exactly).
-  const { data: downloaded, error: downloadError } = await bucket.download(
-    objectPath,
-  );
-  if (downloadError || !downloaded) {
-    throw new Error(
-      `archive verification download failed for ${day}: ${downloadError?.message ?? "empty body"}`,
-    );
+  // Verify what storage actually holds. A pre-existing object can only come
+  // from an interrupted prior run (a sealed day never reaches exportDay), so
+  // on mismatch it is safe to overwrite once and re-verify.
+  let storedBytes = await downloadObjectBytes(bucket, objectPath, day);
+  if (sha256Hex(storedBytes) !== sha256 && preExisting) {
+    const { error: replaceError } = await bucket.upload(objectPath, gz, {
+      ...uploadOpts,
+      upsert: true,
+    });
+    if (replaceError) {
+      throw new Error(
+        `archive re-upload failed for ${day}: ${replaceError.message}`,
+      );
+    }
+    storedBytes = await downloadObjectBytes(bucket, objectPath, day);
   }
-  const storedBytes = new Uint8Array(await downloaded.arrayBuffer());
   if (sha256Hex(storedBytes) !== sha256) {
     throw new Error(
       `archive SHA-256 mismatch for ${day} — stored object differs from export; not sealing`,
@@ -299,17 +321,21 @@ export async function runArchivePass(
   const oldestDay = await fetchOldestDay(db);
   if (!oldestDay) return result;
 
-  const days = archivableDays(
-    oldestDay,
-    nowMs,
-    controls.hotDays,
-    controls.maxDaysPerRun,
-  );
+  const days = archivableDays(oldestDay, nowMs, controls.hotDays);
 
+  // Budget counts days that needed real work (an export and/or a prune).
+  // Sealed days needing neither are skipped for free, so the pass always
+  // advances to unexported days even when pruning is disabled and the
+  // sealed backlog grows.
+  let budget = controls.maxDaysPerRun;
   for (const day of days) {
+    if (budget <= 0) break;
+    let worked = false;
+
     let manifest = await downloadManifest(db, day);
     if (!manifest) {
       manifest = await exportDay(db, day);
+      worked = true;
       result.daysArchived += 1;
       result.rowsArchived += manifest.rowCount;
       log("info", "Archived path_hourly_stats day", {
@@ -322,6 +348,7 @@ export async function runArchivePass(
     if (controls.pruneEnabled) {
       const deleted = await pruneDay(db, manifest);
       if (deleted > 0) {
+        worked = true;
         result.daysPruned += 1;
         result.rowsPruned += deleted;
         log("info", "Pruned archived path_hourly_stats day", {
@@ -330,6 +357,8 @@ export async function runArchivePass(
         });
       }
     }
+
+    if (worked) budget -= 1;
   }
 
   return result;

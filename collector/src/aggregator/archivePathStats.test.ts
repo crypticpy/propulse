@@ -57,17 +57,16 @@ describe("archivableDays", () => {
   const NOW = Date.parse("2026-08-29T22:00:00Z");
 
   it("returns nothing when the oldest data is inside the hot window", () => {
-    expect(archivableDays("2026-07-16", NOW, 90, 5)).toEqual([]);
+    expect(archivableDays("2026-07-16", NOW, 90)).toEqual([]);
   });
 
-  it("returns complete days strictly older than the hot window, capped", () => {
+  it("returns every complete day strictly older than the hot window", () => {
     // cutoff day = 2026-07-30 (30 days before NOW), exclusive
-    expect(archivableDays("2026-07-16", NOW, 30, 3)).toEqual([
-      "2026-07-16",
-      "2026-07-17",
-      "2026-07-18",
-    ]);
-    expect(archivableDays("2026-07-28", NOW, 30, 10)).toEqual([
+    const days = archivableDays("2026-07-16", NOW, 30);
+    expect(days).toHaveLength(14);
+    expect(days[0]).toBe("2026-07-16");
+    expect(days[days.length - 1]).toBe("2026-07-29");
+    expect(archivableDays("2026-07-28", NOW, 30)).toEqual([
       "2026-07-28",
       "2026-07-29",
     ]);
@@ -113,15 +112,23 @@ interface QueryRecord {
   filters: { op: string; column: string; value: unknown }[];
 }
 
+interface UploadOpts {
+  upsert?: boolean;
+  contentType?: string;
+  cacheControl?: string;
+}
+
 class FakeStorage {
   objects = new Map<string, Uint8Array>();
+  uploads: { path: string; opts?: UploadOpts }[] = [];
   corruptOnDownload: string | null = null;
 
   async upload(
     path: string,
     body: Uint8Array,
-    opts?: { upsert?: boolean },
+    opts?: UploadOpts,
   ): Promise<{ error: { message: string } | null }> {
+    this.uploads.push({ path, opts });
     if (this.objects.has(path) && !opts?.upsert) {
       return { error: { message: "The resource already exists" } };
     }
@@ -233,6 +240,12 @@ describe("runArchivePass", () => {
       toCsv(DAY_ROWS),
     );
 
+    // The bucket only allows octet-stream/parquet/json/text uploads.
+    const csvUpload = storage.uploads.find(
+      (u) => u.path === archiveObjectPath("2026-05-01"),
+    );
+    expect(csvUpload?.opts?.contentType).toBe("application/octet-stream");
+
     const manifestBytes = storage.objects.get(
       manifestObjectPath("2026-05-01"),
     );
@@ -324,7 +337,10 @@ describe("runArchivePass", () => {
     const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
     const db = makeDb(storage, { liveCount: () => 0, rpcCalls });
 
-    const result = await runArchivePass(db, CONTROLS, NOW);
+    // hotDays 90 before this instant puts the cutoff at 2026-05-02, so
+    // 2026-05-01 is the only archivable day in the pass.
+    const oneDayWindow = Date.parse("2026-07-31T12:00:00Z");
+    const result = await runArchivePass(db, CONTROLS, oneDayWindow);
 
     expect(result).toEqual({
       daysArchived: 0,
@@ -333,5 +349,56 @@ describe("runArchivePass", () => {
       rowsPruned: 0,
     });
     expect(rpcCalls).toEqual([]);
+  });
+
+  it("keeps exporting past sealed days while pruning is disabled", async () => {
+    const storage = new FakeStorage();
+    // Day 1 sealed by a prior pass; with pruning off its rows are still live,
+    // and it must not consume the per-run budget (the stall regression).
+    storage.objects.set(
+      manifestObjectPath("2026-05-01"),
+      new Uint8Array(
+        Buffer.from(
+          JSON.stringify({ day: "2026-05-01", rowCount: 3 }),
+          "utf8",
+        ),
+      ),
+    );
+    const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
+    const db = makeDb(storage, { liveCount: () => 3, rpcCalls });
+
+    const result = await runArchivePass(
+      db,
+      { ...CONTROLS, pruneEnabled: false },
+      NOW,
+    );
+
+    expect(result.daysArchived).toBe(1);
+    expect(storage.objects.has(archiveObjectPath("2026-05-02"))).toBe(true);
+    expect(storage.objects.has(manifestObjectPath("2026-05-02"))).toBe(true);
+    expect(rpcCalls).toEqual([]);
+  });
+
+  it("replaces an unsealed leftover object from an interrupted run", async () => {
+    const storage = new FakeStorage();
+    // Crash artifact: the object exists with stale bytes but was never sealed.
+    storage.objects.set(
+      archiveObjectPath("2026-05-01"),
+      new Uint8Array([9, 9, 9]),
+    );
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    const result = await runArchivePass(
+      db,
+      { ...CONTROLS, pruneEnabled: false },
+      NOW,
+    );
+
+    expect(result.daysArchived).toBe(1);
+    const gz = storage.objects.get(archiveObjectPath("2026-05-01"));
+    expect(gunzipSync(Buffer.from(gz!)).toString("utf8")).toBe(
+      toCsv(DAY_ROWS),
+    );
+    expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(true);
   });
 });

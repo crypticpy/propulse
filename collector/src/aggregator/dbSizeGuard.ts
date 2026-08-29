@@ -83,11 +83,16 @@ export async function checkDbSize(
         budgetMb,
       });
     } else {
+      // In-memory status is "over-budget" (anything but "ok" leaves
+      // last-success unrefreshed, so /health degrades). The durable write
+      // uses "warning" — the only over-budget-shaped status the DB accepts
+      // (collector_health CHECK and record_collector_source_status both
+      // allow only ok/error/warning).
       reportHealth("db-size", "over-budget", verdict.totalMb);
       await reportToDb(
         db,
         "db-size",
-        "over-budget",
+        "warning",
         verdict.totalMb,
         durationMs,
         verdict.message,

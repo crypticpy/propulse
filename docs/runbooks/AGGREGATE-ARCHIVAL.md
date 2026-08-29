@@ -48,7 +48,10 @@ matter *which* table is responsible.
 
 Every `POLL_PATH_ARCHIVE` (default 1 h) the collector archives up to
 `ARCHIVE_PATH_STATS_MAX_DAYS_PER_RUN` (default 2) complete UTC days that are
-older than `ARCHIVE_PATH_STATS_HOT_DAYS` (default 90). Per day:
+older than `ARCHIVE_PATH_STATS_HOT_DAYS` (default 90). The cap counts only
+days that needed real work (an export and/or a prune); already-sealed days
+needing neither are skipped for free, so exports keep advancing past the
+sealed backlog while pruning is disabled. Per day:
 
 1. **Export** — page all rows for the day (keyset on `id`, 1000/page) into a
    CSV, gzip it, and upload to the private `propagation-archives` bucket at
@@ -129,7 +132,9 @@ CSV column order matches the table.
 
 - **Upload/verify/seal fails** → the pass throws, the `path-archive` health
   source reports `error`, and the day is retried next pass. No manifest means
-  no prune, ever.
+  no prune, ever. A stale unsealed object left by an interrupted run (object
+  exists, no manifest) is overwritten and re-verified automatically on the
+  next pass — only a manifest seals a day.
 - **Prune RPC count mismatch** → the RPC raises and deletes nothing; the day
   stays hot and sealed. Investigate whether rows were backfilled after
   sealing (should be impossible: the aggregator catch-up window is 7 days,

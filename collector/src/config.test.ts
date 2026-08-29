@@ -12,6 +12,7 @@ const touched = [
   "ARCHIVE_FORECAST_COMPACTION_ENABLED",
   "ARCHIVE_PRUNE_BATCH_SIZE",
   "ARCHIVE_PATH_STATS_PRUNE",
+  "DB_SIZE_BUDGET_MB",
   "RETENTION_SOLAR",
   "RETENTION_TLE",
 ];
@@ -55,6 +56,9 @@ describe("archive retention configuration", () => {
     process.env.ARCHIVE_FORECAST_COMPACTION_ENABLED = "true";
     process.env.ARCHIVE_PRUNE_BATCH_SIZE = "25000";
     process.env.ARCHIVE_PATH_STATS_PRUNE = "true";
+    // Budgets are not subject to parseBatchSize's 50k cap.
+    process.env.DB_SIZE_BUDGET_MB = "60000";
+    expect(loadConfig().dbSizeBudgetMb).toBe(60_000);
     expect(loadConfig().archive).toEqual({
       pruningEnabled: true,
       forecastCompactionEnabled: true,

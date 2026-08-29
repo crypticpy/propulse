@@ -16,6 +16,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { KioskScene, BreakInLevel } from "@/stores/kioskStore";
+import type { DisplayFit } from "@/stores/mapStore";
+import type { TextScale } from "@/types/user";
 
 /**
  * Scene configuration an owner pushes to a paired display via
@@ -26,6 +28,8 @@ export interface DisplaySceneConfig {
   scenes?: KioskScene[];
   rotation?: { enabled: boolean; intervalSec: number };
   breakInLevel?: BreakInLevel;
+  /** P1: per-display layout override — map fit + text scale for this screen */
+  layout?: { fit?: DisplayFit; textScale?: TextScale };
 }
 
 interface DisplayDeviceState {

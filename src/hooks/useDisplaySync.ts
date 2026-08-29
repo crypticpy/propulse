@@ -9,6 +9,8 @@ import {
   applySceneToMap,
   DEFAULT_SCENES,
 } from "@/stores/kioskStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -63,6 +65,23 @@ export function useDisplaySync(): void {
         rotation: sceneConfig.rotation ?? current.rotation,
         breakInLevel: sceneConfig.breakInLevel ?? current.breakInLevel,
       });
+
+      // P1: per-display layout override. scene_config is server-fed jsonb,
+      // so only apply values that are actually in the unions.
+      const layout = sceneConfig.layout;
+      const fit = layout?.fit;
+      if (fit === "auto" || fit === "compact" || fit === "full") {
+        useMapStore.getState().setDisplayFit(fit);
+      }
+      const scale = layout?.textScale;
+      if (
+        scale === "sm" ||
+        scale === "md" ||
+        scale === "lg" ||
+        scale === "xl"
+      ) {
+        useSettingsStore.getState().updatePreferences({ textScale: scale });
+      }
 
       const kiosk = useKioskStore.getState();
       const wasActive = kiosk.active;

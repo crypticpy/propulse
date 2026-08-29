@@ -408,8 +408,9 @@ export type ITURegion = "ITU1" | "ITU2" | "ITU3";
  * - sm: 90% scale (compact display)
  * - md: 100% scale (default)
  * - lg: 115% scale (larger for older eyes/glasses)
+ * - xl: 137.5% scale (wall/TV displays read from across the room)
  */
-export type TextScale = "sm" | "md" | "lg";
+export type TextScale = "sm" | "md" | "lg" | "xl";
 
 // =============================================================================
 // USER PREFERENCES

@@ -29,8 +29,8 @@ export function useNetAccessibility(): NetAccessibilityClasses {
   const textScale = useSettingsStore((s) => s.textScale ?? "md");
   const highContrast = useSettingsStore((s) => s.highContrast);
 
-  // "lg" text scale ➜ large font mode
-  const isLargeFont = textScale === "lg";
+  // "lg"/"xl" text scale ➜ large font mode
+  const isLargeFont = textScale === "lg" || textScale === "xl";
   const isHighContrast = !!highContrast;
 
   return {

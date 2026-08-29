@@ -37,9 +37,34 @@ export interface TropicalCyclone {
   lastUpdate: string; // ISO timestamp
 }
 
+/** JTWC basin designation for a tracked system */
+export type JtwcBasin = "wpac" | "io" | "shem";
+
+/** A JTWC-tracked system (West Pacific / Indian Ocean / S. Hemisphere) */
+export interface JtwcCyclone {
+  id: string;
+  name: string;
+  basin: JtwcBasin;
+  category: string;
+  warningNumber: number | null;
+  lat: number | null;
+  lon: number | null;
+  maxWinds: number | null;
+  link: string | null;
+}
+
 /** Response shape from our edge proxy */
 interface TropicalResponse {
   activeStorms: TropicalCyclone[];
+  jtwc?: JtwcCyclone[];
+  jtwcAvailable?: boolean;
+}
+
+/** Everything one fetch of /api/atmos/tropical yields */
+export interface TropicalSummary {
+  activeStorms: TropicalCyclone[];
+  jtwc: JtwcCyclone[];
+  jtwcAvailable: boolean;
 }
 
 function windToCategory(wind: number): StormCategory {
@@ -135,12 +160,21 @@ function parseForecastTrack(track: unknown): ForecastPoint[] {
     .filter((p) => p.lat !== 0 || p.lon !== 0);
 }
 
+const EMPTY_SUMMARY: TropicalSummary = {
+  activeStorms: [],
+  jtwc: [],
+  jtwcAvailable: false,
+};
+
 /**
- * Fetch active tropical cyclones from our edge proxy
+ * Fetch active tropical cyclones (NHC + JTWC) from our edge proxy in a
+ * single request.
  */
-export async function fetchTropicalCyclones(): Promise<TropicalCyclone[]> {
-  const res = await fetch("/api/atmos/tropical");
-  if (!res.ok) return [];
+export async function fetchTropicalSummary(
+  signal?: AbortSignal,
+): Promise<TropicalSummary> {
+  const res = await fetch("/api/atmos/tropical", { signal });
+  if (!res.ok) return EMPTY_SUMMARY;
 
   const data: unknown = await res.json();
 
@@ -151,9 +185,13 @@ export async function fetchTropicalCyclones(): Promise<TropicalCyclone[]> {
     "activeStorms" in (data as Record<string, unknown>)
   ) {
     const resp = data as TropicalResponse;
-    return resp.activeStorms;
+    return {
+      activeStorms: resp.activeStorms,
+      jtwc: Array.isArray(resp.jtwc) ? resp.jtwc : [],
+      jtwcAvailable: resp.jtwcAvailable === true,
+    };
   }
 
   // Otherwise parse raw NHC response
-  return parseNHCResponse(data);
+  return { ...EMPTY_SUMMARY, activeStorms: parseNHCResponse(data) };
 }

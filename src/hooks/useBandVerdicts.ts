@@ -10,7 +10,7 @@
  * for 6m. See src/lib/verdict/physicsScore.ts.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SunCalc from "suncalc";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -27,6 +27,10 @@ import type { DXSpot } from "@/types/dxcluster";
 
 const INGEST_INTERVAL_MS = 60_000;
 const SPOT_WINDOW_MINUTES = 30;
+/** How often the path-physics date input is refreshed when nothing else
+ * changes. Solar zenith moves ~1°/4min, so 5 minutes keeps MUF/absorption
+ * current without recomputing the path model on every ingest tick. */
+const PHYSICS_REFRESH_INTERVAL_MS = 5 * 60_000;
 
 export interface BandVerdictEntry {
   band: string;
@@ -85,9 +89,21 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   const isDaylight =
     SunCalc.getPosition(new Date(), stationLat, stationLon).altitude > 0;
 
-  // Per-band physics score, 0..1. The Date captured here refreshes whenever
-  // a dep changes (solar refetch, day/night flank, target edit) — the same
-  // cadence the day/night resolution already moved at.
+  // Periodic tick so the path-physics date can never freeze: with a steady
+  // kp/sfi and unchanged coordinates the memo below would otherwise keep a
+  // Date captured hours earlier on a wall display that never reloads.
+  const [physicsRefreshedAt, setPhysicsRefreshedAt] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(
+      () => setPhysicsRefreshedAt(Date.now()),
+      PHYSICS_REFRESH_INTERVAL_MS,
+    );
+    return () => clearInterval(interval);
+  }, []);
+
+  // Per-band physics score, 0..1. The Date fed to the path model refreshes
+  // on every dep change (solar refetch, day/night flank, target edit) AND
+  // at least every PHYSICS_REFRESH_INTERVAL_MS via the tick above.
   const stationLatDep = station?.lat;
   const stationLonDep = station?.lon;
   const targetLatDep = firstTarget?.lat;
@@ -108,7 +124,7 @@ export function useBandVerdicts(): UseBandVerdictsResult {
         targetLatDep != null && targetLonDep != null
           ? { lat: targetLatDep, lon: targetLonDep }
           : undefined,
-      date: new Date(),
+      date: new Date(physicsRefreshedAt),
     });
   }, [
     currentKp,
@@ -118,6 +134,7 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     stationLonDep,
     targetLatDep,
     targetLonDep,
+    physicsRefreshedAt,
   ]);
 
   // Bin live + cluster spots per band within the confirmation window.

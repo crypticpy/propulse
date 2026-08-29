@@ -10,7 +10,6 @@
  */
 
 import { SOLAR_ROUTES, type EdgeHandler } from "./solarRoutes";
-import { handlePropagationProxy } from "./propagationProxy";
 import {
   handleActivationPota,
   handleActivationSota,
@@ -73,18 +72,12 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/contest/scp": handleContestScp,
   "/api/fires/hotspots": handleFiresHotspots,
   "/api/lightning/strikes": handleLightningStrikes,
-  "/api/propagation/capabilities": (request) =>
-    handlePropagationProxy(request, "capabilities"),
+  // Model-service proxies (/api/propagation/{path,surface,models,health,
+  // capabilities}) are deliberately absent: they verifyAuth against Supabase
+  // and spend the operator's paid inference token — cloud-only. The app
+  // falls back to the local physics engine, same as during any outage.
   "/api/propagation/ducting": handlePropagationDucting,
-  "/api/propagation/health": (request) =>
-    handlePropagationProxy(request, "health"),
-  "/api/propagation/models": (request) =>
-    handlePropagationProxy(request, "models"),
-  "/api/propagation/path": (request) =>
-    handlePropagationProxy(request, "path"),
   "/api/propagation/sporadic-e": handlePropagationSporadicE,
-  "/api/propagation/surface": (request) =>
-    handlePropagationProxy(request, "surface"),
   "/api/satellites/satnogs": handleSatellitesSatnogs,
   "/api/satellites/status": handleSatellitesStatus,
   "/api/satellites/tle": handleSatellitesTle,

@@ -38,6 +38,7 @@ import { resolveAudioDevice } from "./audioResolver.js";
 import { handleApiRequest } from "./apiMount.js";
 import { handleSettingsSyncRequest } from "./settingsSync.js";
 import { startLanDiscovery, stopLanDiscovery } from "./lanDiscovery.js";
+import { isAllowedHost } from "./hostGuard.js";
 
 // ============================================================================
 // Configuration
@@ -176,6 +177,12 @@ function startStaticServer(): void {
   }
 
   const server = http.createServer((req, res) => {
+    // DNS-rebinding defense: only serve requests whose Host names this machine
+    if (!isAllowedHost(req.headers.host, STATIC_HOST)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Invalid Host header");
+      return;
+    }
     handleSettingsSyncRequest(req, res)
       .then((handled) => {
         if (handled) return true;

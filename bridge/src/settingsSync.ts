@@ -10,6 +10,7 @@
  */
 
 import http from "http";
+import crypto from "crypto";
 import fs from "fs";
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import os from "os";
@@ -62,8 +63,9 @@ async function writeStored(stored: StoredSettings): Promise<void> {
   if (!fs.existsSync(DATA_DIR)) {
     await mkdir(DATA_DIR, { recursive: true });
   }
-  // Atomic write: temp file + rename so a crash never leaves a torn blob
-  const tmp = `${SETTINGS_FILE}.tmp`;
+  // Atomic write: unique temp file + rename so a crash or two concurrent
+  // publishes never leave a torn blob
+  const tmp = `${SETTINGS_FILE}.${crypto.randomUUID()}.tmp`;
   await writeFile(tmp, JSON.stringify(stored), "utf8");
   await rename(tmp, SETTINGS_FILE);
 }
@@ -72,16 +74,23 @@ function readBody(req: http.IncomingMessage): Promise<Buffer | null> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let overflowed = false;
     req.on("data", (chunk: Buffer) => {
+      if (overflowed) return;
       size += chunk.length;
       if (size > MAX_BLOB_BYTES) {
+        // Resolve without destroying — the caller answers 413 first, then
+        // drops the connection (a destroyed socket would eat the response)
+        overflowed = true;
+        req.pause();
         resolve(null);
-        req.destroy();
         return;
       }
       chunks.push(chunk);
     });
-    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("end", () => {
+      if (!overflowed) resolve(Buffer.concat(chunks));
+    });
     req.on("error", reject);
   });
 }
@@ -106,7 +115,13 @@ export async function handleSettingsSyncRequest(
   if (req.method === "PUT") {
     const body = await readBody(req);
     if (body === null) {
-      sendJson(res, 413, { error: "Settings blob too large" });
+      res.writeHead(413, {
+        "Content-Type": "application/json; charset=utf-8",
+        Connection: "close",
+      });
+      res.end(JSON.stringify({ error: "Settings blob too large" }), () =>
+        req.destroy(),
+      );
       return true;
     }
     let backup: unknown;

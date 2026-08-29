@@ -46,20 +46,32 @@ SPA and the same `/api/*` handlers the cloud runs:
 
 ```bash
 npm run build                      # SPA → dist/
-cd bridge && npm install && npx tsc && node dist/server.js
+cd bridge && npm install && npm run build && node dist/server.js
 ```
+
+(`npm run build` in `bridge/` compiles the server **and** bundles the portable
+API handlers into `dist/portableRoutes.mjs` — plain `npx tsc` skips the
+bundle and every `/api/*` request will answer 503.)
 
 - WebSocket (rig control, WSJT-X, cluster): `ws://127.0.0.1:9867` —
   **always localhost-only**; rig control never leaves the machine.
 - App + API: `http://<host>:3173` — serves the built SPA and mounts the
-  portable `/api/*` handlers (50 routes: solar, spots, satellites, weather,
-  propagation physics, …) bundled from `api/_lib/portableRoutes.ts`.
+  portable `/api/*` handlers (46 routes: solar, spots, satellites, weather,
+  propagation physics, …) bundled from `api/_lib/portableRoutes.ts`. The
+  NowCast/FutureCast model-service proxies are cloud-only (they authenticate
+  and spend a paid inference token); the app falls back to the local physics
+  engine automatically.
 
 Env (all optional): `BRIDGE_PORT` (9867), `BRIDGE_STATIC_PORT` (3173),
 `BRIDGE_STATIC_HOST` (default 127.0.0.1 — set `0.0.0.0` to serve the LAN;
 this also starts mDNS so devices can reach `http://propulse.local:3173`),
 `BRIDGE_DATA_DIR` (default `~/.propulse` — holds the shared settings blob),
 plus any upstream API keys you use (`FIRMS_MAP_KEY`, `REPEATERBOOK_APP_TOKEN`, …).
+
+> LAN-mode detection keys off the serving origin: port `3173` or a `.local`
+> hostname. If you change `BRIDGE_STATIC_PORT` **and** browse by raw IP, the
+> app can't tell it's bridge-served — the LAN badge and Shack LAN Sync stay
+> hidden (data still works). Keep the default port or use `propulse.local`.
 
 ### Shared shack settings
 

@@ -53,6 +53,12 @@ function loadRoutes(logger: ApiMountLogger): Promise<RouteTable | null> {
   return routesPromise;
 }
 
+/** Mounted handlers are small-payload proxies — cap request bodies hard. */
+const MAX_BODY_BYTES = 1024 * 1024;
+
+/** Sentinel: request body exceeded MAX_BODY_BYTES. */
+class BodyTooLargeError extends Error {}
+
 function toWebRequest(req: http.IncomingMessage): Promise<Request> {
   const host = req.headers.host ?? "127.0.0.1";
   const url = `http://${host}${req.url ?? "/"}`;
@@ -68,16 +74,40 @@ function toWebRequest(req: http.IncomingMessage): Promise<Request> {
     }
   }
 
+  // The rate limiter derives client identity from these headers. Behind
+  // Vercel's edge they are trustworthy; here the client writes them itself,
+  // so pin them to the actual socket address to prevent limit evasion.
+  const remote = req.socket.remoteAddress;
+  if (remote) {
+    headers.set("x-forwarded-for", remote);
+    headers.set("x-real-ip", remote);
+  } else {
+    headers.delete("x-forwarded-for");
+    headers.delete("x-real-ip");
+  }
+
   if (method === "GET" || method === "HEAD") {
     return Promise.resolve(new Request(url, { method, headers }));
   }
 
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () =>
-      resolve(new Request(url, { method, headers, body: Buffer.concat(chunks) })),
-    );
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new BodyTooLargeError());
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (size <= MAX_BODY_BYTES) {
+        resolve(
+          new Request(url, { method, headers, body: Buffer.concat(chunks) }),
+        );
+      }
+    });
     req.on("error", reject);
   });
 }
@@ -134,6 +164,17 @@ export async function handleApiRequest(
     const response = await handler(request);
     await writeNodeResponse(res, response);
   } catch (error) {
+    if (error instanceof BodyTooLargeError) {
+      // Answer first, then drop the still-uploading connection
+      res.writeHead(413, {
+        "Content-Type": "application/json; charset=utf-8",
+        Connection: "close",
+      });
+      res.end(JSON.stringify({ error: "Request body too large" }), () =>
+        req.destroy(),
+      );
+      return true;
+    }
     logger.error("Portable API route failed", {
       pathname,
       error: error instanceof Error ? error.message : String(error),

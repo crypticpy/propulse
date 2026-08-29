@@ -35,6 +35,10 @@ import { CivSpectrumClient, pixelToDb, type CivSpectrumLine } from "./civ.js";
 import { AudioCapture } from "./audioCapture.js";
 import { scanForIcomRadios } from "./discovery.js";
 import { resolveAudioDevice } from "./audioResolver.js";
+import { handleApiRequest } from "./apiMount.js";
+import { handleSettingsSyncRequest } from "./settingsSync.js";
+import { startLanDiscovery, stopLanDiscovery } from "./lanDiscovery.js";
+import { isAllowedHost } from "./hostGuard.js";
 
 // ============================================================================
 // Configuration
@@ -76,6 +80,11 @@ if (isNaN(STATIC_PORT) || STATIC_PORT < 1 || STATIC_PORT > 65535) {
     `Invalid static port number: ${process.env.BRIDGE_STATIC_PORT}`,
   );
 }
+
+// The static/API server stays localhost-only unless explicitly opened to the
+// LAN. Unlike the rig-control WebSocket (which never leaves localhost), the
+// static server only serves the SPA and public-data proxies.
+const STATIC_HOST = process.env.BRIDGE_STATIC_HOST ?? "127.0.0.1";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Resolve frontend dist: monorepo layout (../../dist) or standalone (../frontend-dist)
@@ -168,23 +177,44 @@ function startStaticServer(): void {
   }
 
   const server = http.createServer((req, res) => {
-    handleStaticRequest(req, res).catch((err: unknown) => {
-      logger.error("Static file server request error", {
-        error: err instanceof Error ? err.message : String(err),
+    // DNS-rebinding defense: only serve requests whose Host names this machine
+    if (!isAllowedHost(req.headers.host, STATIC_HOST)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Invalid Host header");
+      return;
+    }
+    handleSettingsSyncRequest(req, res)
+      .then((handled) => {
+        if (handled) return true;
+        return handleApiRequest(req, res, logger);
+      })
+      .then((handled) => {
+        if (!handled) return handleStaticRequest(req, res);
+      })
+      .catch((err: unknown) => {
+        logger.error("Static file server request error", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        if (!res.headersSent) {
+          res.writeHead(500);
+          res.end("Internal Server Error");
+        }
       });
-      if (!res.headersSent) {
-        res.writeHead(500);
-        res.end("Internal Server Error");
-      }
-    });
   });
 
-  server.listen(STATIC_PORT, "127.0.0.1", () => {
+  server.listen(STATIC_PORT, STATIC_HOST, () => {
     logger.info("Static file server listening", {
-      host: "127.0.0.1",
+      host: STATIC_HOST,
       port: STATIC_PORT,
       distDir: DIST_DIR,
     });
+    if (STATIC_HOST !== "127.0.0.1" && STATIC_HOST !== "localhost") {
+      logger.info(
+        "Static server is reachable from the LAN — serving SPA + public-data API only",
+        { host: STATIC_HOST },
+      );
+      startLanDiscovery(STATIC_PORT, logger);
+    }
   });
 
   server.on("error", (err) => {
@@ -3182,7 +3212,7 @@ function startServer(): void {
     const welcomeMessage = createMessage("bridge.welcome", {
       clientId,
       serverVersion: "0.3.0",
-      capabilities: ["rig", "contest", "sync", "cluster", "wsjtx", "static"],
+      capabilities: ["rig", "contest", "sync", "cluster", "wsjtx", "static", "api"],
       staticServerUrl: fs.existsSync(DIST_DIR)
         ? `http://127.0.0.1:${STATIC_PORT}`
         : null,
@@ -3321,6 +3351,8 @@ function startServer(): void {
         client.socket.close(1001, "Server shutting down");
       }
     }
+
+    stopLanDiscovery();
 
     wss.close(() => {
       logger.info("Server closed gracefully");

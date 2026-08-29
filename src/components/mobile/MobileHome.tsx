@@ -19,6 +19,8 @@ import {
   ContestWeatherCard,
   MoonCard,
   WorldClocksCard,
+  EnvironmentCard,
+  DxpeditionsCard,
 } from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
 import type { SolarFluxData, MagnetometerData } from "@/lib/api/types";
@@ -139,6 +141,8 @@ export function MobileHome({
         <div className="space-y-3">
           <MoonCard />
           <WorldClocksCard />
+          <EnvironmentCard />
+          <DxpeditionsCard />
         </div>
       </main>
     </div>

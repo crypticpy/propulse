@@ -15,6 +15,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankBadge } from "@/components/rank/RankBadge";
 import { ConflictBadge } from "@/components/qso/ConflictBadge";
+import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
 
 interface NavItem {
   path: string;
@@ -301,6 +302,7 @@ export function Header({
                   </div>
                 )}
                 <ConflictBadge />
+                <ConnectivityBadge />
                 <SyncStatusIndicator />
                 <HealthStatusIndicator />
                 {/* Profile / Auth */}

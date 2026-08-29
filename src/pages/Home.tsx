@@ -19,6 +19,13 @@ import {
   PlanetsCard,
   WorldClocksCard,
   CountdownsCard,
+  TidesCard,
+  EnvironmentCard,
+  MetarCard,
+  QthScopeCard,
+  VolcanoCard,
+  DxpeditionsCard,
+  NewsFeedCard,
 } from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { PropagationIndexModal } from "@/components/solar/modals/PropagationIndexModal";
@@ -238,6 +245,21 @@ export function Home() {
           <PlanetsCard />
           <WorldClocksCard />
           <CountdownsCard />
+        </div>
+
+        {/* Section 7b: Local environment (E6) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <QthScopeCard />
+          <TidesCard />
+          <EnvironmentCard />
+          <MetarCard />
+        </div>
+
+        {/* Section 7c: DX news & watches (E6) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DxpeditionsCard />
+          <NewsFeedCard />
+          <VolcanoCard />
         </div>
 
         {/* Section 8: Quick Actions */}

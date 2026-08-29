@@ -3,6 +3,7 @@ import { ConditionsPill } from "@/components/map/ConditionsPill";
 import { BandModePill } from "@/components/operating/BandModePill";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
+import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useProfileStore } from "@/stores/profileStore";
@@ -99,6 +100,7 @@ export function MobileHeader({
             </span>
           </button>
         )}
+        <ConnectivityBadge />
         <SyncStatusIndicator />
         <HealthStatusIndicator compact />
         {/* Auth indicator */}

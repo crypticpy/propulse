@@ -29,6 +29,8 @@ import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useDisplaySync } from "@/hooks/useDisplaySync";
+import { useConnectivityTier } from "@/hooks/useConnectivityTier";
+import { useLanSettingsSync } from "@/hooks/useLanSettingsSync";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
@@ -64,6 +66,12 @@ export function Layout() {
   // Device-side Display Wall sync engine — no-op unless a paired identity
   // exists and syncActive is set (see DisplayPairPage/DisplayViewPage).
   useDisplaySync();
+
+  // Keep the connectivity tier (cloud / LAN bridge / offline) current
+  useConnectivityTier();
+
+  // Pull shared shack settings when served by the bridge (no-op elsewhere)
+  useLanSettingsSync();
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts({

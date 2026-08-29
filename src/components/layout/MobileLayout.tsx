@@ -25,6 +25,8 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
+import { useConnectivityTier } from "@/hooks/useConnectivityTier";
+import { useLanSettingsSync } from "@/hooks/useLanSettingsSync";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -82,6 +84,12 @@ export function MobileLayout() {
   useRigBridgeSync();
   // Keep operatingStore synced with rig, WSJT-X, and contest state
   useOperatingSync();
+
+  // Keep the connectivity tier (cloud / LAN bridge / offline) current
+  useConnectivityTier();
+
+  // Pull shared shack settings when served by the bridge (no-op elsewhere)
+  useLanSettingsSync();
 
   // DX spot alert monitoring
   const {

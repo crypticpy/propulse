@@ -18,6 +18,9 @@ import type { SolarCacheOutcome } from "@/lib/solar/contracts";
 // TYPES
 // =============================================================================
 
+/** Which tier is serving the app: hosted cloud, LAN bridge, or no network. */
+export type ConnectivityTier = "cloud" | "lan" | "offline";
+
 export interface SourceStatus {
   /** Current classified error, or null if healthy */
   error: ClassifiedError | null;
@@ -63,6 +66,8 @@ const DEFAULT_STATUS: SourceStatus = {
 interface DataSourceStatusState {
   /** Map of source ID → current status (only populated once a source reports) */
   sources: Partial<Record<DataSourceId, SourceStatus>>;
+  /** Current connectivity tier (kept in sync by useConnectivityTier). */
+  connectivity: ConnectivityTier;
 
   // Actions
 
@@ -87,6 +92,8 @@ interface DataSourceStatusState {
   ) => void;
   /** Update the staleness level for a data source. */
   updateStaleness: (sourceId: DataSourceId, level: StalenessLevel) => void;
+  /** Update the connectivity tier (no-op when unchanged). */
+  setConnectivity: (tier: ConnectivityTier) => void;
   /** Reset all source statuses (e.g. on logout or full reconnect). */
   clearAll: () => void;
 
@@ -120,6 +127,7 @@ interface DataSourceStatusState {
 export const useDataSourceStatus = create<DataSourceStatusState>(
   (set, get) => ({
     sources: {},
+    connectivity: "cloud",
 
     // ========================================================================
     // Actions
@@ -188,6 +196,9 @@ export const useDataSourceStatus = create<DataSourceStatusState>(
           },
         };
       }),
+
+    setConnectivity: (tier) =>
+      set((state) => (state.connectivity === tier ? state : { connectivity: tier })),
 
     clearAll: () => set({ sources: {} }),
 

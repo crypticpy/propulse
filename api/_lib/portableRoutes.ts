@@ -33,10 +33,12 @@ import {
 import { handleContestScp } from "./handlers/contest";
 import { handleFiresHotspots } from "./handlers/fires";
 import { handleLightningStrikes } from "./handlers/lightning";
+import { handleAtmosMetar } from "./handlers/metar";
 import {
   handlePropagationDucting,
   handlePropagationSporadicE,
 } from "./handlers/propagationPhysics";
+import { handleFeedsRss } from "./handlers/rssFeed";
 import {
   handleSatellitesSatnogs,
   handleSatellitesStatus,
@@ -47,6 +49,7 @@ import {
   handleSpotsPskreporter,
   handleSpotsRbn,
 } from "./handlers/spots";
+import { handleAtmosVolcanoes } from "./handlers/volcanoes";
 import { handleWeatherAlerts } from "./handlers/weather";
 import { handleWsprSpots } from "./handlers/wspr";
 // Not extracted (kept whole in its wrapper) but fully portable: Supabase TLE
@@ -61,15 +64,18 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/activation/sota": handleActivationSota,
   "/api/atmos/aprs": handleAtmosAprs,
   "/api/atmos/gauges": handleAtmosGauges,
+  "/api/atmos/metar": handleAtmosMetar,
   "/api/atmos/repeaters": handleAtmosRepeaters,
   "/api/atmos/sst": handleAtmosSst,
   "/api/atmos/tec": handleAtmosTec,
   "/api/atmos/tropical": handleAtmosTropical,
+  "/api/atmos/volcanoes": handleAtmosVolcanoes,
   "/api/atmos/winlink": handleAtmosWinlink,
   "/api/aurora": handleAuroraIndex,
   "/api/callsign/clublog-status": handleCallsignClublogStatus,
   "/api/callsign/lookup": handleCallsignLookup,
   "/api/contest/scp": handleContestScp,
+  "/api/feeds/rss": handleFeedsRss,
   "/api/fires/hotspots": handleFiresHotspots,
   "/api/lightning/strikes": handleLightningStrikes,
   // Model-service proxies (/api/propagation/{path,surface,models,health,

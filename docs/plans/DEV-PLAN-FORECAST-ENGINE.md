@@ -96,6 +96,26 @@
   the inference service for NowCast/FutureCast. If the collector can't reach
   `PROPULSE_INFERENCE_URL`, fall back to a scheduled edge function. Decide at
   implementation; document the choice here.
+- **Implementation decisions (2026-08-29, shipped in `feat/m4-f0-hourly-readers`):**
+  - Host: the collector, as preferred — `collector/src/collectors/forecastSnapshot.ts`,
+    registered like the aggregators (5-min ticks, first upsert per hour wins via
+    `ignoreDuplicates`, solar input rejected if >3h stale). No edge-function
+    fallback was needed.
+  - Physics source only, for now. The Railway inference service exposes
+    per-path (`/path`) and per-origin-surface (`/surface`) predictions —
+    there is no per-band global endpoint, so a global per-band `p_open` for
+    `nowcast`/`futurecast` is not well-defined without choosing a reference
+    origin (which would bias the eval to one location). Logging those two
+    sources needs an aggregation design first (candidates: fixed origin panel
+    averaged; a coarse global cell grid via `/surface`). Until then the 14-day
+    gate runs on `physics`, and F2's first report evaluates physics vs
+    climatology.
+  - Global day/night blend: the frontend picks day or night per station;
+    the global log has no station, so `p_open` = mean of the day and night
+    condition scores. Both conditions and the solar inputs are kept in `meta`
+    (`algo: "bands-v1-daynight-mean"`).
+  - Migration `20260829200000_forecast_snapshots.sql` applied to the live DB
+    2026-08-29 (table + RLS + retention cron verified).
 - Milestone gate: snapshots flowing for ≥14 consecutive days before F2 reports
   are treated as meaningful.
 

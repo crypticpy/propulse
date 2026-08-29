@@ -11,6 +11,7 @@ const touched = [
   "ARCHIVE_PRUNING_ENABLED",
   "ARCHIVE_FORECAST_COMPACTION_ENABLED",
   "ARCHIVE_PRUNE_BATCH_SIZE",
+  "ARCHIVE_PATH_STATS_PRUNE",
   "RETENTION_SOLAR",
   "RETENTION_TLE",
 ];
@@ -41,7 +42,9 @@ describe("archive retention configuration", () => {
       pruningEnabled: false,
       forecastCompactionEnabled: false,
       pruneBatchSize: 10_000,
+      pathStats: { hotDays: 90, pruneEnabled: false, maxDaysPerRun: 2 },
     });
+    expect(config.dbSizeBudgetMb).toBe(3072);
     expect(config.retention.solar).toBe(120);
     expect(config.retention.tle).toBe(7);
   });
@@ -51,19 +54,23 @@ describe("archive retention configuration", () => {
     process.env.ARCHIVE_PRUNING_ENABLED = "true";
     process.env.ARCHIVE_FORECAST_COMPACTION_ENABLED = "true";
     process.env.ARCHIVE_PRUNE_BATCH_SIZE = "25000";
+    process.env.ARCHIVE_PATH_STATS_PRUNE = "true";
     expect(loadConfig().archive).toEqual({
       pruningEnabled: true,
       forecastCompactionEnabled: true,
       pruneBatchSize: 25_000,
+      pathStats: { hotDays: 90, pruneEnabled: true, maxDaysPerRun: 2 },
     });
 
     process.env.ARCHIVE_PRUNING_ENABLED = "yes";
     process.env.ARCHIVE_FORECAST_COMPACTION_ENABLED = "yes";
     process.env.ARCHIVE_PRUNE_BATCH_SIZE = "50001";
+    process.env.ARCHIVE_PATH_STATS_PRUNE = "yes";
     expect(loadConfig().archive).toEqual({
       pruningEnabled: false,
       forecastCompactionEnabled: false,
       pruneBatchSize: 10_000,
+      pathStats: { hotDays: 90, pruneEnabled: false, maxDaysPerRun: 2 },
     });
   });
 });

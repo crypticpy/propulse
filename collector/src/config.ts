@@ -81,6 +81,11 @@ export function loadConfig(): CollectorConfig {
         5 * 60_000,
       ),
       prune: parseIntervalMs(process.env.POLL_PRUNE, 60 * 60_000),
+      dbSizeGuard: parseIntervalMs(
+        process.env.POLL_DB_SIZE_GUARD,
+        6 * 60 * 60_000,
+      ),
+      pathArchive: parseIntervalMs(process.env.POLL_PATH_ARCHIVE, 60 * 60_000),
     },
 
     // Data retention (env vars in DAYS)
@@ -106,6 +111,20 @@ export function loadConfig(): CollectorConfig {
         process.env.ARCHIVE_PRUNE_BATCH_SIZE,
         10_000,
       ),
+      pathStats: {
+        hotDays: parseDays(process.env.ARCHIVE_PATH_STATS_HOT_DAYS, 90),
+        // Fail closed: day exports to storage always run, but archived days
+        // are deleted from the hot table only when this is explicitly true.
+        pruneEnabled: parseBoolean(
+          process.env.ARCHIVE_PATH_STATS_PRUNE,
+          false,
+        ),
+        maxDaysPerRun: parseBatchSize(
+          process.env.ARCHIVE_PATH_STATS_MAX_DAYS_PER_RUN,
+          2,
+        ),
+      },
     },
+    dbSizeBudgetMb: parseBatchSize(process.env.DB_SIZE_BUDGET_MB, 3072),
   };
 }

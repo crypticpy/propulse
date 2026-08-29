@@ -28,6 +28,8 @@ const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
   aggregator: "aggregator",
   "path-aggregator": "aggregator",
   "forecast-snapshot": "forecastSnapshot",
+  "db-size": "dbSizeGuard",
+  "path-archive": "pathArchive",
 };
 
 export function getSourceStaleMs(

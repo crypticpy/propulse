@@ -19,6 +19,8 @@ import { collectForecastSnapshot } from "./collectors/forecastSnapshot.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
+import { checkDbSize } from "./aggregator/dbSizeGuard.js";
+import { archivePathStats } from "./aggregator/archivePathStats.js";
 import { startLightning, stopLightning } from "./collectors/lightning.js";
 import { collectSatellites } from "./collectors/satellites.js";
 import { reportToDb } from "./lib/db-helpers.js";
@@ -135,6 +137,17 @@ async function main(): Promise<void> {
   // Fail-closed retention maintenance. Historical deletion additionally
   // requires database controls, sealed manifests, and dataset restore gates.
   register("prune", pollIntervals.prune, () => pruneOldData(db, config));
+
+  // DB size guard — degrades /health when the database exceeds its budget
+  register("db-size", pollIntervals.dbSizeGuard, () =>
+    checkDbSize(db, config.dbSizeBudgetMb),
+  );
+
+  // path_hourly_stats day archiver — exports days older than the hot window
+  // to storage; deletes them only when ARCHIVE_PATH_STATS_PRUNE=true
+  register("path-archive", pollIntervals.pathArchive, () =>
+    archivePathStats(db, config.archive.pathStats),
+  );
 
   // Start all scheduled tasks
   startAll();

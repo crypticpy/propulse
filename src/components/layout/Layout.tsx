@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect } from "react";
+import { lazy, Suspense, useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Header } from "./Header";
@@ -30,9 +30,16 @@ import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useKioskStore } from "@/stores/kioskStore";
-import { KioskChrome } from "@/components/kiosk/KioskChrome";
 import { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
 import { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
+
+// Kiosk chrome (and its qrcode dep) only loads when kiosk mode activates —
+// keeps the wall-display machinery out of the entry bundle.
+const KioskChrome = lazy(() =>
+  import("@/components/kiosk/KioskChrome").then((m) => ({
+    default: m.KioskChrome,
+  })),
+);
 
 /**
  * Layout - Root layout component with header and background effects
@@ -120,7 +127,9 @@ export function Layout() {
         <ContestGlobalHotkeys />
 
         {isKiosk ? (
-          <KioskChrome />
+          <Suspense fallback={null}>
+            <KioskChrome />
+          </Suspense>
         ) : (
           <Header
             alertCount={activeAlerts.length}

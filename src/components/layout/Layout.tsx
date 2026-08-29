@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useEffect } from "react";
+import { lazy, Suspense, useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Header } from "./Header";
@@ -24,12 +24,22 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
 import { BandSuggestToast } from "@/components/operating/BandSuggestToast";
+import { OnAirBanner } from "@/components/operating/OnAirBanner";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useKioskStore } from "@/stores/kioskStore";
 import { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
 import { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
+
+// Kiosk chrome (and its qrcode dep) only loads when kiosk mode activates —
+// keeps the wall-display machinery out of the entry bundle.
+const KioskChrome = lazy(() =>
+  import("@/components/kiosk/KioskChrome").then((m) => ({
+    default: m.KioskChrome,
+  })),
+);
 
 /**
  * Layout - Root layout component with header and background effects
@@ -43,6 +53,8 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAtmos = location.pathname === "/atmos";
+  // Kiosk mode swaps the normal chrome for the wall-display shell
+  const isKiosk = useKioskStore((s) => s.active);
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts({
@@ -114,17 +126,24 @@ export function Layout() {
         <ContestVoiceManager />
         <ContestGlobalHotkeys />
 
-        <Header
-          alertCount={activeAlerts.length}
-          criticalAlertCount={criticalCount}
-          onAlertClick={() => setShowAlertHistory(true)}
-        />
+        {isKiosk ? (
+          <Suspense fallback={null}>
+            <KioskChrome />
+          </Suspense>
+        ) : (
+          <Header
+            alertCount={activeAlerts.length}
+            criticalAlertCount={criticalCount}
+            onAlertClick={() => setShowAlertHistory(true)}
+          />
+        )}
 
-        {/* Emergency ticker for critical space weather (not on /atmos — has its own alerts) */}
-        {!isAtmos && <EmergencyTickerBar />}
+        {/* Emergency ticker for critical space weather (not on /atmos — has its own alerts; kiosk uses break-in takeover) */}
+        {!isAtmos && !isKiosk && <EmergencyTickerBar />}
 
         {/* Alert Banner - appears below header when alerts are active */}
         {!isAtmos &&
+          !isKiosk &&
           (alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
             <AlertBanner
               alerts={activeAlerts}
@@ -144,8 +163,9 @@ export function Layout() {
         </Suspense>
       </div>
 
-      {/* Toast notifications - fixed position bottom-right (not on /atmos) */}
+      {/* Toast notifications - fixed position bottom-right (not on /atmos or kiosk) */}
       {!isAtmos &&
+        !isKiosk &&
         (alertDisplayStyle === "toast" || alertDisplayStyle === "both") && (
           <AlertToastContainer
             onDismiss={dismissAlert}
@@ -162,8 +182,11 @@ export function Layout() {
       {/* Undo Toast - fixed position bottom-left */}
       <UndoToast />
 
-      {/* DX Spot Alert Toasts (not on /atmos) */}
-      {!isAtmos && (
+      {/* ON-AIR transmit banner — every route, kiosk included */}
+      <OnAirBanner />
+
+      {/* DX Spot Alert Toasts (not on /atmos or kiosk) */}
+      {!isAtmos && !isKiosk && (
         <SpotAlertToastContainer alerts={spotAlerts} onDismiss={() => {}} />
       )}
 
@@ -191,11 +214,11 @@ export function Layout() {
       {/* Auth Modal */}
       <AuthModal />
 
-      {/* Band opening suggest toast — bottom-center (not on /atmos) */}
-      {!isAtmos && <BandSuggestToast />}
+      {/* Band opening suggest toast — bottom-center (not on /atmos or kiosk) */}
+      {!isAtmos && !isKiosk && <BandSuggestToast />}
 
-      {/* Visual alert glow overlay (accessibility — opt-in, not on /atmos) */}
-      {!isAtmos && <AlertGlowOverlay />}
+      {/* Visual alert glow overlay (accessibility — opt-in, not on /atmos or kiosk) */}
+      {!isAtmos && !isKiosk && <AlertGlowOverlay />}
     </div>
   );
 }

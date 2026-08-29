@@ -9,6 +9,7 @@ import { useRef, useMemo, useEffect } from "react";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
+import { useSeasonalDayTexture } from "./hooks/useSeasonalDayTexture";
 
 interface EarthSphereProps {
   /** Callback when Earth is clicked with lat/lon */
@@ -60,7 +61,10 @@ export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   // Load Earth textures
-  const dayTexture = useTexture("/textures/earth-day.jpg");
+  const baseDayTexture = useTexture("/textures/earth-day.jpg");
+  // Graceful upgrade to a monthly Blue Marble texture when one is published
+  // at /textures/months/earth-day-MM.jpg; falls back to the base texture.
+  const dayTexture = useSeasonalDayTexture(baseDayTexture);
 
   // Standard-mode base map texture (vector-like land/ocean fills)
   const standardTexture = useMemo(() => {

@@ -70,6 +70,7 @@ import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { useMapStore } from "@/stores/mapStore";
+import { useKioskStore } from "@/stores/kioskStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useUserStore } from "@/stores/userStore";
 import { BUILTIN_PROFILES } from "@/constants/operatingProfiles";
@@ -137,6 +138,7 @@ type PanelMode = "full" | "mini" | "hidden";
 const ToolbarDivider = () => <div className="w-px h-5 bg-white/10" />;
 
 export function PropSphere() {
+  const isKiosk = useKioskStore((s) => s.active);
   const viewMode = useMapStore((s) => s.viewMode);
   const timeOffset = useMapStore((s) => s.timeOffset);
   const setTimeOffset = useMapStore((s) => s.setTimeOffset);
@@ -307,7 +309,8 @@ export function PropSphere() {
     completeTour,
   } = useOnboardingTour({
     steps: PROPSPHERE_TOUR_STEPS,
-    autoStart: true,
+    // Never auto-start the tour on an unattended kiosk screen
+    autoStart: !isKiosk,
   });
 
   // Handler for grid research from DXSpotList context menu (Feature 2.6)

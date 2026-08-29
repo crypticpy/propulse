@@ -407,6 +407,7 @@ export interface MapState {
     aprs: boolean;
     tropical: boolean;
     sst: boolean;
+    timeStations: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -1094,6 +1095,7 @@ const initialState = {
     aprs: false,
     tropical: false,
     sst: false,
+    timeStations: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,
@@ -1329,11 +1331,17 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   applyPreset: (preset) => {
     saveActiveProfile(null);
-    return set({
-      layers: normalizeExclusiveLayers({ ...LAYER_PRESETS[preset] }),
+    // Presets don't enumerate every layer (e.g. timeStations is intentionally
+    // excluded) -- merge onto the current layers so newer, preset-agnostic
+    // layers keep their existing state instead of failing to type-check.
+    return set((state) => ({
+      layers: normalizeExclusiveLayers({
+        ...state.layers,
+        ...LAYER_PRESETS[preset],
+      }),
       activePreset: preset,
       activeProfile: null,
-    });
+    }));
   },
 
   clearPreset: () => set({ activePreset: null }),

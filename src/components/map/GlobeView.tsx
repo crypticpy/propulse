@@ -138,6 +138,7 @@ import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
 // New overlay components (Wave 8A)
 import NVISOverlay3D from "./layers/NVISOverlay3D";
 import BeaconNetworkOverlay3D from "./layers/BeaconNetworkOverlay3D";
+import TimeStationsOverlay3D from "./layers/TimeStationsOverlay3D";
 import MeteorShowerOverlay3D from "./layers/MeteorShowerOverlay3D";
 import NoiseFloorOverlay3D from "./layers/NoiseFloorOverlay3D";
 import DRAPOverlay3D from "./layers/DRAPOverlay3D";
@@ -1422,6 +1423,8 @@ const GlobeScene = React.memo(function GlobeScene({
         {layers.meteorShowers && activeShowers && activeShowers.length > 0 && (
           <MeteorShowerOverlay3D showers={meteorShowerProps} />
         )}
+
+        {layers.timeStations && <TimeStationsOverlay3D />}
 
         {layers.spectrumRing && (
           <SpectrumWaterfallRing3D

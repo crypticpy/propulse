@@ -13,7 +13,12 @@ import { ClusterPulseCard } from "@/components/dx/ClusterPulseCard";
 import { LogStatsCard } from "@/components/dx/LogStatsCard";
 import { PredictionsCard } from "@/components/dx/PredictionsCard";
 import { HistoryCard } from "@/components/dx/HistoryCard";
-import { AlertsSummary, ContestWeatherCard } from "@/components/dashboard";
+import {
+  AlertsSummary,
+  ContestWeatherCard,
+  MoonCard,
+  WorldClocksCard,
+} from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
 import type { SolarFluxData, MagnetometerData } from "@/lib/api/types";
 
@@ -124,6 +129,12 @@ export function MobileHome({
           <LogStatsCard onClick={onExpandLogStats} />
           <PredictionsCard />
           <HistoryCard onClick={onExpandHistory} />
+        </div>
+
+        {/* Sky & time (curated subset for mobile) */}
+        <div className="space-y-3">
+          <MoonCard />
+          <WorldClocksCard />
         </div>
       </main>
     </div>

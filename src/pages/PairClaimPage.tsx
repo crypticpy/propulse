@@ -13,8 +13,6 @@ function normalizeCode(raw: string): string {
   return raw
     .toUpperCase()
     .replace(/[\s-]/g, "")
-    .replace(/0/g, "O")
-    .replace(/1/g, "I")
     .slice(0, CODE_LENGTH);
 }
 

@@ -29,8 +29,10 @@ describe("normalizePairingCode", () => {
     expect(normalizePairingCode(" ab-c 2de ")).toBe("ABC2DE");
   });
 
-  it("maps typed 0/1 to O/I", () => {
-    expect(normalizePairingCode("0a1bcd")).toBe("OAIBCD");
+  it("leaves ambiguous glyphs alone — they are simply invalid", () => {
+    const normalized = normalizePairingCode("0a1bcd");
+    expect(normalized).toBe("0A1BCD");
+    expect(isValidPairingCode(normalized)).toBe(false);
   });
 });
 

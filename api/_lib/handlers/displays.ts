@@ -31,13 +31,13 @@ export function generatePairingCode(): string {
   return code;
 }
 
-/** Uppercase and strip separators/ambiguous glyphs users may type */
+/**
+ * Uppercase and strip separators. No glyph substitution: the alphabet
+ * contains neither 0/O nor 1/I, so an ambiguous character can never be
+ * part of a real code — it is simply invalid.
+ */
 export function normalizePairingCode(raw: string): string {
-  return raw
-    .toUpperCase()
-    .replace(/[\s-]/g, "")
-    .replace(/0/g, "O")
-    .replace(/1/g, "I");
+  return raw.toUpperCase().replace(/[\s-]/g, "");
 }
 
 export function isValidPairingCode(code: string): boolean {

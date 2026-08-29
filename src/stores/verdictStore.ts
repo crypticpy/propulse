@@ -67,7 +67,6 @@ interface VerdictStore {
 
   /** Feed one batch of per-band evaluations through the engine + machine */
   ingest: (evals: VerdictIngestInput[], now?: number) => void;
-  clearLog: () => void;
   /** The stable (hold-confirmed) verdict for a band, if known */
   getStableVerdict: (band: string) => BandVerdict | null;
 }
@@ -131,8 +130,6 @@ export const useVerdictStore = create<VerdictStore>()(
           log: nextLog,
         });
       },
-
-      clearLog: () => set({ log: [] }),
 
       getStableVerdict: (band) => get().machines[band]?.stable ?? null,
     }),

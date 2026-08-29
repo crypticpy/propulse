@@ -85,8 +85,14 @@ export function useDisplaySync(): void {
         if (cancelled) return;
 
         if (res.status === 404) {
-          // Unknown display or bad token — identity is lost, re-pair.
+          // Unknown display or bad token (e.g. the owner deleted this
+          // display) — stop the kiosk rotation, drop identity, and return
+          // to the pairing screen so a fresh code appears. Navigating to
+          // /display/pair keeps the AuthGate wall-device bypass (route
+          // based) even though clearIdentity() turns syncActive off.
+          useKioskStore.getState().stop();
           clearIdentity();
+          navigate("/display/pair", { replace: true });
           return;
         }
         if (!res.ok) return; // Silent retry — keep showing last state.

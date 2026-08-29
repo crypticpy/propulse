@@ -239,7 +239,10 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
     setSaveError(null);
     try {
       const selectedScenes = kioskScenes.filter((s) => selectedIds.has(s.id));
+      // Spread the existing config first so fields this UI doesn't manage
+      // (e.g. breakInLevel) survive a save.
       const sceneConfig: DisplaySceneConfig = {
+        ...(display.scene_config ?? {}),
         rotation: { enabled: rotationEnabled, intervalSec },
         ...(selectedScenes.length > 0 && { scenes: selectedScenes }),
       };

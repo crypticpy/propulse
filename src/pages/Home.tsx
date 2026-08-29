@@ -9,6 +9,7 @@ import { ClusterPulseCard } from "@/components/dx/ClusterPulseCard";
 import { LogStatsCard } from "@/components/dx/LogStatsCard";
 import { PredictionsCard } from "@/components/dx/PredictionsCard";
 import { HistoryCard } from "@/components/dx/HistoryCard";
+import { BandVerdictPanel } from "@/components/dx/BandVerdictPanel";
 import {
   DashboardHeader,
   AlertsSummary,
@@ -228,7 +229,10 @@ export function Home() {
           <HistoryCard onClick={() => setActiveModal("history")} />
         </div>
 
-        {/* Section 6: Sky & time */}
+        {/* Section 6: Band Verdict */}
+        <BandVerdictPanel />
+
+        {/* Section 7: Sky & time */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MoonCard />
           <PlanetsCard />
@@ -236,11 +240,11 @@ export function Home() {
           <CountdownsCard />
         </div>
 
-        {/* Section 7: Quick Actions */}
+        {/* Section 8: Quick Actions */}
         <QuickActions />
       </main>
 
-      {/* Section 8: Detail Modals */}
+      {/* Section 9: Detail Modals */}
       <PropagationIndexModal
         isOpen={activeModal === "propagation"}
         onClose={() => setActiveModal(null)}

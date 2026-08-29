@@ -14,6 +14,10 @@ import {
   AlertsSummary,
   QuickActions,
   ContestWeatherCard,
+  MoonCard,
+  PlanetsCard,
+  WorldClocksCard,
+  CountdownsCard,
 } from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { PropagationIndexModal } from "@/components/solar/modals/PropagationIndexModal";
@@ -224,11 +228,19 @@ export function Home() {
           <HistoryCard onClick={() => setActiveModal("history")} />
         </div>
 
-        {/* Section 6: Quick Actions */}
+        {/* Section 6: Sky & time */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MoonCard />
+          <PlanetsCard />
+          <WorldClocksCard />
+          <CountdownsCard />
+        </div>
+
+        {/* Section 7: Quick Actions */}
         <QuickActions />
       </main>
 
-      {/* Section 7: Detail Modals */}
+      {/* Section 8: Detail Modals */}
       <PropagationIndexModal
         isOpen={activeModal === "propagation"}
         onClose={() => setActiveModal(null)}

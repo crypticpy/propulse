@@ -13,6 +13,7 @@ import { ClusterPulseCard } from "@/components/dx/ClusterPulseCard";
 import { LogStatsCard } from "@/components/dx/LogStatsCard";
 import { PredictionsCard } from "@/components/dx/PredictionsCard";
 import { HistoryCard } from "@/components/dx/HistoryCard";
+import { BandVerdictPanel } from "@/components/dx/BandVerdictPanel";
 import {
   AlertsSummary,
   ContestWeatherCard,
@@ -122,6 +123,9 @@ export function MobileHome({
             })) ?? []
           }
         />
+
+        {/* Band Verdict */}
+        <BandVerdictPanel />
 
         {/* Vertical stack of activity cards */}
         <div className="space-y-3">

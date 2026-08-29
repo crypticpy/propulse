@@ -10,8 +10,10 @@
  */
 
 import { lazy, Suspense, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { useDisplayStore } from "@/stores/displayStore";
 import { AuthLoadingScreen } from "@/components/auth/AuthLoadingScreen";
 
 const LoginPage = lazy(() =>
@@ -28,9 +30,24 @@ export function AuthGate({ children }: AuthGateProps) {
   const initialized = useAuthStore((s) => s.initialized);
   const isRecoveryMode = useAuthStore((s) => s.isRecoveryMode);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  // Only a device with a real registered identity counts as a sync session
+  // (syncActive alone is a plain localStorage flag anyone could set).
+  const displaySyncActive = useDisplayStore(
+    (s) => s.syncActive && s.displayId !== null && s.deviceToken !== null,
+  );
+  const { pathname } = useLocation();
 
   // Local dev bypass — no Supabase configured
   if (!isSupabaseConfigured) {
+    return <>{children}</>;
+  }
+
+  // Wall-device bypass — a Display Wall device is deliberately anonymous:
+  // it registers on /display/* and, once synced (syncActive), follows kiosk
+  // scenes onto public routes (/map, /solar, …). It authenticates to the
+  // displays API with its device token, never with a user session; RLS
+  // still protects all user data it could reach.
+  if (pathname.startsWith("/display/") || displaySyncActive) {
     return <>{children}</>;
   }
 

@@ -28,6 +28,7 @@ import { OnAirBanner } from "@/components/operating/OnAirBanner";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
+import { useDisplaySync } from "@/hooks/useDisplaySync";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
@@ -55,6 +56,14 @@ export function Layout() {
   const isAtmos = location.pathname === "/atmos";
   // Kiosk mode swaps the normal chrome for the wall-display shell
   const isKiosk = useKioskStore((s) => s.active);
+  // Pairing/holding screens for a wall device are full-bleed on their own —
+  // no header/nav until useDisplaySync (below) flips the device into kiosk
+  // mode and navigates away.
+  const isDisplayRoute = location.pathname.startsWith("/display/");
+
+  // Device-side Display Wall sync engine — no-op unless a paired identity
+  // exists and syncActive is set (see DisplayPairPage/DisplayViewPage).
+  useDisplaySync();
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts({
@@ -130,7 +139,7 @@ export function Layout() {
           <Suspense fallback={null}>
             <KioskChrome />
           </Suspense>
-        ) : (
+        ) : isDisplayRoute ? null : (
           <Header
             alertCount={activeAlerts.length}
             criticalAlertCount={criticalCount}
@@ -139,11 +148,12 @@ export function Layout() {
         )}
 
         {/* Emergency ticker for critical space weather (not on /atmos — has its own alerts; kiosk uses break-in takeover) */}
-        {!isAtmos && !isKiosk && <EmergencyTickerBar />}
+        {!isAtmos && !isKiosk && !isDisplayRoute && <EmergencyTickerBar />}
 
         {/* Alert Banner - appears below header when alerts are active */}
         {!isAtmos &&
           !isKiosk &&
+          !isDisplayRoute &&
           (alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
             <AlertBanner
               alerts={activeAlerts}
@@ -166,6 +176,7 @@ export function Layout() {
       {/* Toast notifications - fixed position bottom-right (not on /atmos or kiosk) */}
       {!isAtmos &&
         !isKiosk &&
+        !isDisplayRoute &&
         (alertDisplayStyle === "toast" || alertDisplayStyle === "both") && (
           <AlertToastContainer
             onDismiss={dismissAlert}
@@ -186,7 +197,7 @@ export function Layout() {
       <OnAirBanner />
 
       {/* DX Spot Alert Toasts (not on /atmos or kiosk) */}
-      {!isAtmos && !isKiosk && (
+      {!isAtmos && !isKiosk && !isDisplayRoute && (
         <SpotAlertToastContainer alerts={spotAlerts} onDismiss={() => {}} />
       )}
 
@@ -215,10 +226,10 @@ export function Layout() {
       <AuthModal />
 
       {/* Band opening suggest toast — bottom-center (not on /atmos or kiosk) */}
-      {!isAtmos && !isKiosk && <BandSuggestToast />}
+      {!isAtmos && !isKiosk && !isDisplayRoute && <BandSuggestToast />}
 
       {/* Visual alert glow overlay (accessibility — opt-in, not on /atmos or kiosk) */}
-      {!isAtmos && !isKiosk && <AlertGlowOverlay />}
+      {!isAtmos && !isKiosk && !isDisplayRoute && <AlertGlowOverlay />}
     </div>
   );
 }

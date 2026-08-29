@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { Session, User } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -9,9 +10,20 @@ vi.mock("@/lib/supabase", () => ({
 
 import { AuthGate } from "@/components/auth/AuthGate";
 import { useAuthStore } from "@/stores/authStore";
+import { useDisplayStore } from "@/stores/displayStore";
 
 const user = { id: "owner" } as User;
 const session = { user } as Session;
+
+function renderGate(path = "/") {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AuthGate>
+        <div>Protected application</div>
+      </AuthGate>
+    </MemoryRouter>,
+  );
+}
 
 function resetAuthState() {
   useAuthStore.setState({
@@ -23,6 +35,7 @@ function resetAuthState() {
     isRecoveryMode: false,
     sessionExpired: false,
   });
+  useDisplayStore.getState().clearIdentity();
 }
 
 afterEach(resetAuthState);
@@ -36,11 +49,7 @@ describe("AuthGate", () => {
       isRecoveryMode: true,
     });
 
-    render(
-      <AuthGate>
-        <div>Protected application</div>
-      </AuthGate>,
-    );
+    renderGate();
 
     expect(await screen.findByLabelText("New password")).toBeTruthy();
     expect(screen.getByLabelText("Confirm new password")).toBeTruthy();
@@ -55,12 +64,34 @@ describe("AuthGate", () => {
       isRecoveryMode: false,
     });
 
-    render(
-      <AuthGate>
-        <div>Protected application</div>
-      </AuthGate>,
-    );
+    renderGate();
 
     expect(screen.getByText("Protected application")).toBeTruthy();
+  });
+
+  it("lets an anonymous wall device through on /display/* routes", () => {
+    // Unauthenticated, auth not even initialized — the device doesn't care.
+    renderGate("/display/pair");
+
+    expect(screen.getByText("Protected application")).toBeTruthy();
+  });
+
+  it("lets a synced display device through on any route", () => {
+    useDisplayStore.getState().setIdentity("display-1", "device-token");
+    useDisplayStore.setState({ syncActive: true });
+    useAuthStore.setState({ initialized: true });
+
+    renderGate("/map");
+
+    expect(screen.getByText("Protected application")).toBeTruthy();
+  });
+
+  it("ignores syncActive without a registered identity", () => {
+    useDisplayStore.setState({ syncActive: true }); // no displayId/token
+    useAuthStore.setState({ initialized: true });
+
+    renderGate("/map");
+
+    expect(screen.queryByText("Protected application")).toBeNull();
   });
 });

@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useLocation } from "react-router-dom";
 import { useKioskStore } from "@/stores/kioskStore";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -573,8 +574,9 @@ function ProgressDots({
 
 export function WelcomeOverlay() {
   const [visible, dismiss] = useWelcomeVisible();
-  // Unattended kiosk screens must never block on a welcome dialog
+  // Unattended kiosk/wall-display screens must never block on a welcome dialog
   const isKiosk = useKioskStore((s) => s.active);
+  const isDisplayRoute = useLocation().pathname.startsWith("/display/");
   const [slide, setSlide] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
 
@@ -619,7 +621,7 @@ export function WelcomeOverlay() {
     }
   }, [visible]);
 
-  if (!visible || isKiosk) return null;
+  if (!visible || isKiosk || isDisplayRoute) return null;
 
   const modal = (
     <div

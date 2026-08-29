@@ -13,6 +13,8 @@
 
 ## 1. E1 — Scenes & Kiosk (Milestone M1)
 
+> **Status: shipped in PR #49 (2026-08-29)** — kiosk store/route/chrome, wake lock, break-in, QR handoff, `?scene=` deep link, live smoke-tested. Deviations: scenes are config-built on `/kiosk` rather than `captureCurrent()` snapshots (revisit if capture demand appears); `DataAgeBadge` stall tolerance deferred into E3's display work.
+
 | Item | Target |
 |---|---|
 | Scene model + store | `src/stores/sceneStore.ts` — persisted Zustand store (versioned, migrate pattern per CLAUDE.md). `Scene = { id, name, layoutMode, mapLayers, panels, createdAt }`. Actions: `captureCurrent()` (reads `mapStore` layout + layer state via `getState()`), `apply(id)`, CRUD, `rotation: { enabled, intervalSec, sceneIds }` |
@@ -26,9 +28,13 @@ Verify: scene capture/apply round-trips layout+layers; kiosk survives a feed out
 
 ## 2. E2 — Parity batch 1: computed/static panels (M1)
 
+> **Status: shipped in PR #49 (2026-08-29)** — all eight items. G19 landed as mechanism only: EarthSphere upgrades to `/textures/months/earth-day-MM.jpg` when the monthly Blue Marble assets are dropped into `public/textures/months/` (12 files, NASA Visible Earth, pending owner download approval). Planets use an in-repo Schlyter Keplerian implementation per §0 (no ephemeris dep).
+
 All client-side, no new feeds; each lands as a kiosk-ready card. Moon (G6) via existing `suncalc`; world clocks (G7) via `Intl` + a small city list in `src/lib/data/`; named countdowns (G11) generalize `ContestCountdown`; quick-reference overlay (G12) — one-keystroke (`?`) modal over data already in `src/lib/data/` (band plans, Q-codes, prosigns); planets (G16) — visibility list, dep decision per §0; seasonal basemaps (G19) — 12 Blue Marble months, swap on the 1st (asset-size check against bundle budget — candidates for lazy fetch, not bundle); WWV/WWVH markers (G20) — static marker layer + path rating via existing path math; **ON-AIR banner (G23)** — `rigStore` PTT state → fullscreen banner + TX timer component, kiosk-aware.
 
 ## 3. E3 — Display Wall baseline (M2)
+
+> **Status: implemented on `feat/split-parity` (2026-08-29), pending M2 merge.** Migration applied to production + ledgered; PostgREST probe green. Backend = first residents of `api/_lib/handlers/` (portable by construction) with a `displaysDevApi` Vite plugin mirroring them in dev. Device identity = bearer token minted once at register, sha256 hash server-side. AuthGate bypasses login on `/display/*` and while a device sync session is live (wall devices are deliberately anonymous). Live-tested: register → code+QR render, reload mid-pairing mints a fresh code, welcome overlay suppressed on display routes. Deviations: device state poll is an edge endpoint (not client supabase-js) so the device needs no anon PostgREST access at all; `DataAgeBadge` remains deferred (fold into P1's per-display layout work); recipes shipped in M1.
 
 - **Migration:** `displays` (id uuid, owner uuid FK, name text, scene_config jsonb, last_seen_at timestamptz) + `display_pairing_codes` (code char(6), display_id, expires_at, claimed_at). RLS: owner-only CRUD; device reads its own row via a scoped claim.
 - **Pairing flow:** `/display/pair` (device: generates identity, shows code + QR, subscribes to pre-pairing Realtime channel) → authenticated owner confirms at `/pair?code=X` → device flips instantly. Edge function only where the anon device needs writes (`api/displays/pair.ts`); everything else client-side supabase-js under RLS.
@@ -37,6 +43,8 @@ All client-side, no new feeds; each lands as a kiosk-ready card. Moon (G6) via e
 - **Recipes:** `docs/recipes/` — Pi labwc autostart + systemd restart wrapper; Fully Kiosk; Windows mini PC (from MULTI-DISPLAY-TECH.md).
 
 ## 4. E4 — Band Verdict v1 (M2)
+
+> **Status: implemented on `feat/split-parity` (2026-08-29), pending M2 merge.** Engine + state machine + store + hook + panel, ~30 unit tests. Deviations: the decision log lives inside `verdictStore.ts` (persisted flip log, 200 entries / 48 h) rather than a separate `decisionLog.ts`; the physics arm is the existing kp/SFI band-condition heuristic (`calculateBandConditions`, day/night at QTH) mapped to 0..1 — per-path P.533 reliability is the v1.1 upgrade once verdicts become path-aware (band-wide verdicts have no single path to run P.533 over).
 
 - `src/lib/verdict/` — `verdictEngine.ts`: per-band P.533 reliability (existing `ionosphere.ts`/`signal.ts`) × live confirmation (DX/RBN/PSK spots binned by band/path from existing stores) → `Confirmed | Likely | Surprise Open | Closed`; `stateMachine.ts`: 20-min hold-to-confirm + hysteresis (no flapping) — pure, unit-tested; `decisionLog.ts`: persisted ring buffer with "why" (inputs at flip time).
 - `src/components/dx/BandVerdictPanel.tsx` — dashboard + kiosk card; per-band chips + "why" popover reading the decision log.
@@ -69,7 +77,7 @@ New proxies written portable-by-construction (§0): tides G4 (NOAA CO-OPS), UV G
 
 ## 9. Milestones
 
-- **M1** = E1 + E2 + LICENSE → merge. *A kiosk-mode PropPulse with rotating scenes, break-in alerts, and 8 new panels.*
+- **M1** = E1 + E2 + LICENSE → merge. *A kiosk-mode PropPulse with rotating scenes, break-in alerts, and 8 new panels.* ✅ **Merged 2026-08-29 (PR #49).**
 - **M2** = E3 + E4 → merge. *Paired displays managed from a phone; Band Verdict on every dashboard.*
 - **M3** = E5 + E6 + E7 → merge. *`propulse.local` full Open Core; parity complete; Launch Wall.*
 - **M4** = Phase-3 forecast-engine work — separate dev plan when M3 closes (eval harness first; the dead WSPR ingest stays dead; any historical store is designed fresh under an approved budget cap).

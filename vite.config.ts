@@ -4,6 +4,10 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import type { Plugin } from "vite";
 import { SOLAR_ROUTES } from "./api/_lib/solarRoutes";
+import {
+  handleDisplayPair,
+  handleDisplayState,
+} from "./api/_lib/handlers/displays";
 
 // ─── Solar API parity plugin ──────────────────────────────────────────────
 // Executes the same edge handlers in local development. Exact route matching
@@ -40,6 +44,63 @@ function solarDevApi(): Plugin {
                 code: "DEV_HANDLER_FAILURE",
                 message: error instanceof Error ? error.message : "Solar dev handler failed",
               },
+            }),
+          );
+        }
+      });
+    },
+  };
+}
+
+// ─── Displays dev API plugin ───────────────────────────────────────────────
+// Executes the Display Wall edge handlers (api/_lib/handlers/displays.ts)
+// in local development, so the pairing flow works under `npm run dev`.
+// Server-side env names fall back to the VITE_-prefixed ones from .env.local.
+function displaysDevApi(): Plugin {
+  const routes: Record<string, (request: Request) => Promise<Response>> = {
+    "/api/displays/pair": handleDisplayPair,
+    "/api/displays/state": handleDisplayState,
+  };
+  return {
+    name: "displays-dev-api",
+    configureServer(server) {
+      process.env.SUPABASE_URL ||= process.env.VITE_SUPABASE_URL;
+      process.env.SUPABASE_ANON_KEY ||= process.env.VITE_SUPABASE_ANON_KEY;
+      server.middlewares.use(async (req, res, next) => {
+        const requestUrl = new URL(req.url ?? "/", "http://localhost");
+        const handler = routes[requestUrl.pathname];
+        if (!handler) return next();
+        try {
+          const headers = new Headers();
+          for (const [name, value] of Object.entries(req.headers)) {
+            if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
+            else if (value !== undefined) headers.set(name, value);
+          }
+          const origin = `http://${req.headers.host ?? "localhost"}`;
+          let body: Buffer | undefined;
+          if (req.method !== "GET" && req.method !== "HEAD") {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) chunks.push(chunk as Buffer);
+            body = Buffer.concat(chunks);
+          }
+          const edgeRequest = new Request(new URL(req.url ?? "/", origin), {
+            method: req.method ?? "GET",
+            headers,
+            body,
+          });
+          const response = await handler(edgeRequest);
+          res.statusCode = response.status;
+          response.headers.forEach((value, name) => res.setHeader(name, value));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (error) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Displays dev handler failed",
             }),
           );
         }
@@ -1049,6 +1110,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       solarDevApi(),
+      displaysDevApi(),
       hamqthDevProxy(),
       qrzDevProxy(),
       layerDevProxy(),

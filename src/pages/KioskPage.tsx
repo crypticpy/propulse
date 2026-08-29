@@ -8,6 +8,7 @@ import {
   type KioskScene,
 } from "@/stores/kioskStore";
 import type { LayoutMode, PresetName } from "@/stores/mapStore";
+import { LaunchWallSection } from "@/components/kiosk/LaunchWallSection";
 
 const LAYOUT_MODES: LayoutMode[] = ["normal", "pro", "lite", "hamclock"];
 const PRESETS: Array<PresetName | ""> = [
@@ -211,6 +212,9 @@ export function KioskPage() {
           </button>
         </div>
       </section>
+
+      {/* Launch Wall (E7): every monitor becomes a kiosk in one click */}
+      <LaunchWallSection scenes={scenes} />
 
       {/* Rotation + alerts */}
       <section className="bg-deep-space/60 border border-white/10 rounded-xl p-4 flex flex-wrap items-center gap-x-8 gap-y-4">

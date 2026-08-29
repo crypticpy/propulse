@@ -109,7 +109,10 @@
     sources needs an aggregation design first (candidates: fixed origin panel
     averaged; a coarse global cell grid via `/surface`). Until then the 14-day
     gate runs on `physics`, and F2's first report evaluates physics vs
-    climatology.
+    climatology. **F1 is therefore complete for the `physics` source only**;
+    capturing `nowcast`/`futurecast` is an explicit open work item (the
+    aggregation design above) and a hard prerequisite for any F4 conclusion
+    about the inference service — see F4.
   - Global day/night blend: the frontend picks day or night per station;
     the global log has no station, so `p_open` = mean of the day and night
     condition scores. Both conditions and the solar inputs are kept in `meta`
@@ -117,14 +120,20 @@
   - Migration `20260829200000_forecast_snapshots.sql` applied to the live DB
     2026-08-29 (table + RLS + retention cron verified).
 - Milestone gate: snapshots flowing for ≥14 consecutive days before F2 reports
-  are treated as meaningful.
+  are treated as meaningful (the harness enforces this as the longest run of
+  consecutive UTC days with ≥20/24 snapshot hours, so post-outage scatter
+  cannot pass as a continuous run).
 
 ### F2 — Scoring job + eval report
 - Outcome label: band open at hour *h* when `spot_count` ≥ a band+hour-specific
   threshold derived from climatology percentiles (document the percentile choice
   and its sensitivity in the first report).
 - Metrics per band and overall, 7-day and 30-day windows: Brier score,
-  reliability curve (10 bins), skill vs physics, skill vs climatology.
+  reliability curve (10 bins), skill vs physics, skill vs climatology. The
+  30-day window is only meaningful once ~30 consecutive days of snapshots
+  exist; before that the report still prints it but flags the actual
+  coverage (the 14-day gate admits reports whose 30-day window is partial —
+  read the coverage line, not the window label).
 - Surface: an `npm run eval:forecast` script in the repo that reads
   `forecast_snapshots` + `band_hourly_stats` and writes
   `docs/reports/forecast-eval-YYYYMMDD.md`. An admin panel only if the reports
@@ -141,6 +150,11 @@
   is offline retraining (wspr.live archive, yearly cadence), feature fixes in
   the inference service, or nothing. If a historical feature store is proposed,
   it gets its own design doc first and lives under the $25/mo cap.
+- **Scope limit while snapshots are physics-only:** F2 reports can support
+  conclusions about physics vs climatology, nothing more. Any F4 decision
+  that touches the inference service (retraining, feature fixes) first
+  requires the `nowcast`/`futurecast` aggregation design (F1 open item),
+  then ≥14 consecutive days of those sources' snapshots scored by F2.
 
 ## 4. Milestones
 

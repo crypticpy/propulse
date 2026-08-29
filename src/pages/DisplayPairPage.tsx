@@ -118,6 +118,13 @@ export function DisplayPairPage() {
           clearIdentity();
           setCodeState(null);
           setExpiresAt(null);
+        } else if (status === "unpaired" && expiresAtRef.current === null) {
+          // Reloaded mid-pairing: the code only lived in component state,
+          // so there is nothing to show for this identity anymore. Abandon
+          // it and mint a fresh one (unclaimed rows are harmless). On
+          // transient "error" we keep polling instead — the display might
+          // actually be paired and must not discard its identity.
+          clearIdentity();
         }
       }
 

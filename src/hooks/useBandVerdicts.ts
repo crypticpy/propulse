@@ -1,10 +1,13 @@
 /**
  * useBandVerdicts — glue hook for the Band Verdict feature (E4).
  *
- * Fuses the physics band-condition model (kp/sfi + day/night at the user's
- * QTH) with live spot activity into per-band VerdictInputs, feeds them
- * through the verdict store on a fixed cadence, and returns the resulting
- * stable verdicts for display.
+ * Fuses the physics band-condition model with live spot activity into
+ * per-band VerdictInputs, feeds them through the verdict store on a fixed
+ * cadence, and returns the resulting stable verdicts for display.
+ *
+ * Physics arm (v1.1, M4 F3): per-path QTH→first-saved-target scores for the
+ * HF bands when a target exists; the kp/sfi day/night table otherwise and
+ * for 6m. See src/lib/verdict/physicsScore.ts.
  */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -13,7 +16,7 @@ import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXStore } from "@/stores/dxStore";
 import { useProfileStore } from "@/stores/profileStore";
-import { calculateBandConditions } from "@/lib/utils/bands";
+import { bandPhysicsScores } from "@/lib/verdict/physicsScore";
 import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import {
   useVerdictStore,
@@ -24,15 +27,6 @@ import type { DXSpot } from "@/types/dxcluster";
 
 const INGEST_INTERVAL_MS = 60_000;
 const SPOT_WINDOW_MINUTES = 30;
-
-/** Physics condition word -> 0..1 score, per the E4 spec */
-const CONDITION_SCORE: Record<string, number> = {
-  Excellent: 0.9,
-  Good: 0.7,
-  Fair: 0.45,
-  Poor: 0.2,
-  Aurora: 0.2,
-};
 
 export interface BandVerdictEntry {
   band: string;
@@ -61,6 +55,9 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();
   const station = useProfileStore((s) => s.station);
+  // First saved target is "the target" by convention (see useBandConditionsTint)
+  const savedTargets = useProfileStore((s) => s.savedTargets);
+  const firstTarget = savedTargets[0];
   // Same grid-keyed query as every other call site — shares the cache and
   // scopes spot confirmation to the operator's region, not the whole world.
   const { spots: liveSpots } = useLiveSpots({ grid: station?.grid });
@@ -88,20 +85,40 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   const isDaylight =
     SunCalc.getPosition(new Date(), stationLat, stationLon).altitude > 0;
 
-  // Per-band physics score, 0..1.
+  // Per-band physics score, 0..1. The Date captured here refreshes whenever
+  // a dep changes (solar refetch, day/night flank, target edit) — the same
+  // cadence the day/night resolution already moved at.
+  const stationLatDep = station?.lat;
+  const stationLonDep = station?.lon;
+  const targetLatDep = firstTarget?.lat;
+  const targetLonDep = firstTarget?.lon;
   const physicsScores = useMemo(() => {
-    const scores = new Map<string, number>();
-    if (currentKp === null || currentSfi === null) return scores;
-    const bandStatuses = calculateBandConditions(currentKp, currentSfi);
-    for (const status of bandStatuses) {
-      const condition = isDaylight ? status.dayCondition : status.nightCondition;
-      const score = CONDITION_SCORE[condition];
-      if (score !== undefined) {
-        scores.set(status.name, score);
-      }
+    if (currentKp === null || currentSfi === null) {
+      return new Map<string, number>();
     }
-    return scores;
-  }, [currentKp, currentSfi, isDaylight]);
+    return bandPhysicsScores({
+      kp: currentKp,
+      sfi: currentSfi,
+      isDaylight,
+      home:
+        stationLatDep != null && stationLonDep != null
+          ? { lat: stationLatDep, lon: stationLonDep }
+          : undefined,
+      target:
+        targetLatDep != null && targetLonDep != null
+          ? { lat: targetLatDep, lon: targetLonDep }
+          : undefined,
+      date: new Date(),
+    });
+  }, [
+    currentKp,
+    currentSfi,
+    isDaylight,
+    stationLatDep,
+    stationLonDep,
+    targetLatDep,
+    targetLonDep,
+  ]);
 
   // Bin live + cluster spots per band within the confirmation window.
   const spotBins = useMemo(() => {

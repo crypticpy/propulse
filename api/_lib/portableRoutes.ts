@@ -20,6 +20,9 @@ import {
   handleAtmosRepeaters,
   handleAtmosSst,
 } from "./handlers/atmos";
+import { handleAtmosAqi } from "./handlers/atmosAqi";
+import { handleAtmosTides } from "./handlers/atmosTides";
+import { handleAtmosUv } from "./handlers/atmosUv";
 import {
   handleAtmosTec,
   handleAtmosTropical,
@@ -63,12 +66,15 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/activation/pota": handleActivationPota,
   "/api/activation/sota": handleActivationSota,
   "/api/atmos/aprs": handleAtmosAprs,
+  "/api/atmos/aqi": handleAtmosAqi,
   "/api/atmos/gauges": handleAtmosGauges,
   "/api/atmos/metar": handleAtmosMetar,
   "/api/atmos/repeaters": handleAtmosRepeaters,
   "/api/atmos/sst": handleAtmosSst,
   "/api/atmos/tec": handleAtmosTec,
+  "/api/atmos/tides": handleAtmosTides,
   "/api/atmos/tropical": handleAtmosTropical,
+  "/api/atmos/uv": handleAtmosUv,
   "/api/atmos/volcanoes": handleAtmosVolcanoes,
   "/api/atmos/winlink": handleAtmosWinlink,
   "/api/aurora": handleAuroraIndex,

@@ -14,6 +14,8 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { useDataSourceStatus } from "@/stores/dataSourceStatusStore";
+import { pushSettingsToBridge } from "@/hooks/useLanSettingsSync";
 import { ResearchParticipationSettings } from "@/components/settings/ResearchParticipationSettings";
 
 /** Format an ISO timestamp for display in the sync status line */
@@ -47,6 +49,12 @@ export function DataAccountSection() {
   const [tileCacheCount, setTileCacheCount] = useState<number | null>(null);
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
+  const isLan = useDataSourceStatus((s) => s.connectivity === "lan");
+  const [lanSyncStatus, setLanSyncStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const { entries, exportADIF } = useLogbook();
 
@@ -436,6 +444,65 @@ export function DataAccountSection() {
           </div>
         )}
       </div>
+
+      {/* ── 1b. Shack LAN Sync (bridge-served devices only) ─────── */}
+      {isLan && (
+        <div className="border-t border-white/10 pt-6 mt-6">
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Shack LAN Sync
+            </h3>
+            <p className="text-sm text-gray-400">
+              This device is served by your shack bridge. It automatically
+              pulls the shared shack settings; publishing makes this device's
+              settings the shared blob every device pulls.
+            </p>
+            <button
+              type="button"
+              disabled={isPublishing}
+              onClick={() => {
+                setIsPublishing(true);
+                setLanSyncStatus(null);
+                pushSettingsToBridge()
+                  .then(() =>
+                    setLanSyncStatus({
+                      type: "success",
+                      message:
+                        "Published. Other shack devices pick this up within 30 seconds.",
+                    }),
+                  )
+                  .catch((error: unknown) =>
+                    setLanSyncStatus({
+                      type: "error",
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : "Could not reach the bridge",
+                    }),
+                  )
+                  .finally(() => setIsPublishing(false));
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                         bg-nebula-blue/20 text-nebula-blue hover:bg-nebula-blue/30
+                         border border-nebula-blue/30 transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPublishing ? "Publishing..." : "Publish Settings to Shack"}
+            </button>
+            {lanSyncStatus && (
+              <p
+                className={`text-xs ${
+                  lanSyncStatus.type === "success"
+                    ? "text-signal-green"
+                    : "text-alert-red"
+                }`}
+              >
+                {lanSyncStatus.message}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── 2. Export Logbook ───────────────────────────────────── */}
       <div className="border-t border-white/10 pt-6 mt-6">

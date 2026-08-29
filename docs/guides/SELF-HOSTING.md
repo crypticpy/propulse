@@ -49,13 +49,25 @@ npm run build                      # SPA → dist/
 cd bridge && npm install && npx tsc && node dist/server.js
 ```
 
-- WebSocket (rig control, WSJT-X, cluster): `ws://<host>:9867`
-- App + API: `http://<host>:3173` (serves `../dist` and mounts
-  `api/_lib/handlers/*` under `/api/*`)
+- WebSocket (rig control, WSJT-X, cluster): `ws://127.0.0.1:9867` —
+  **always localhost-only**; rig control never leaves the machine.
+- App + API: `http://<host>:3173` — serves the built SPA and mounts the
+  portable `/api/*` handlers (50 routes: solar, spots, satellites, weather,
+  propagation physics, …) bundled from `api/_lib/portableRoutes.ts`.
 
 Env (all optional): `BRIDGE_PORT` (9867), `BRIDGE_STATIC_PORT` (3173),
-`BRIDGE_HOST` (default 127.0.0.1 — set `0.0.0.0` to serve the LAN), plus any
-upstream API keys you use (`FIRMS_MAP_KEY`, `REPEATERBOOK_APP_TOKEN`, …).
+`BRIDGE_STATIC_HOST` (default 127.0.0.1 — set `0.0.0.0` to serve the LAN;
+this also starts mDNS so devices can reach `http://propulse.local:3173`),
+`BRIDGE_DATA_DIR` (default `~/.propulse` — holds the shared settings blob),
+plus any upstream API keys you use (`FIRMS_MAP_KEY`, `REPEATERBOOK_APP_TOKEN`, …).
+
+### Shared shack settings
+
+Bridge-served devices show a **Shack LAN Sync** block in Settings → Data.
+One device publishes its settings as the shack-wide blob
+(`PUT /api/bridge/settings`, persisted in `BRIDGE_DATA_DIR`); every other
+bridge-served device pulls it automatically within ~30 s. Pulls are
+automatic, publishing is always an explicit button press.
 
 > Some upstreams need free keys (NASA FIRMS for fire hotspots, RepeaterBook).
 > Without a key those layers show their "source unavailable" state; nothing

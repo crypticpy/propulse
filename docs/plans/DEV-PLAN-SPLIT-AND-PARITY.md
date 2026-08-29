@@ -99,5 +99,5 @@ New proxies written portable-by-construction (§0): tides G4 (NOAA CO-OPS), UV G
 
 - **M1** = E1 + E2 + LICENSE → merge. *A kiosk-mode PropPulse with rotating scenes, break-in alerts, and 8 new panels.* ✅ **Merged 2026-08-29 (PR #49).**
 - **M2** = E3 + E4 → merge. *Paired displays managed from a phone; Band Verdict on every dashboard.* ✅ **Merged 2026-08-29 (PR #50).**
-- **M3** = E5 + E6 + E7 → merge. *`propulse.local` full Open Core; parity complete; Launch Wall.*
+- **M3** = E5 + E6 + E7 → merge. *`propulse.local` full Open Core; parity complete; Launch Wall.* ✅ **Merged 2026-08-29 (PR #51).**
 - **M4** = Phase-3 forecast-engine work — separate dev plan when M3 closes (eval harness first; the dead WSPR ingest stays dead; any historical store is designed fresh under an approved budget cap).

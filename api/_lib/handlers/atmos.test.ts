@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactSSTPayload } from "./sst";
+import { compactSSTPayload } from "./atmos";
 
 describe("SST payload compaction", () => {
   it("drops land cells and normalizes longitudes", () => {

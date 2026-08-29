@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactTECPayload, resolveLatestTECGridUrl } from "./tec";
+import { compactTECPayload, resolveLatestTECGridUrl } from "./atmosSpace";
 
 describe("GloTEC index resolution", () => {
   it("resolves the newest (last) entry and prefixes a relative url", () => {

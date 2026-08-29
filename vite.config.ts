@@ -4,6 +4,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import type { Plugin } from "vite";
 import { SOLAR_ROUTES } from "./api/_lib/solarRoutes";
+import { PORTABLE_ROUTES } from "./api/_lib/portableRoutes";
 import {
   handleDisplayPair,
   handleDisplayState,
@@ -43,6 +44,59 @@ function solarDevApi(): Plugin {
               error: {
                 code: "DEV_HANDLER_FAILURE",
                 message: error instanceof Error ? error.message : "Solar dev handler failed",
+              },
+            }),
+          );
+        }
+      });
+    },
+  };
+}
+
+// ─── Portable routes dev plugin ───────────────────────────────────────────
+// Serves every portable /api/* handler (api/_lib/portableRoutes.ts) in local
+// development. Registered AFTER the inline dev proxies in the plugins array,
+// so their env fallbacks and mock behaviors keep winning; this fills the
+// gaps — each new portable route works under `npm run dev` for free.
+function portableDevApi(): Plugin {
+  return {
+    name: "portable-dev-api",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const requestUrl = new URL(req.url ?? "/", "http://localhost");
+        const handler = PORTABLE_ROUTES[requestUrl.pathname];
+        if (!handler) return next();
+        try {
+          const headers = new Headers();
+          for (const [name, value] of Object.entries(req.headers)) {
+            if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
+            else if (value !== undefined) headers.set(name, value);
+          }
+          const origin = `http://${req.headers.host ?? "localhost"}`;
+          const method = req.method ?? "GET";
+          let body: Buffer | undefined;
+          if (method !== "GET" && method !== "HEAD") {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) chunks.push(chunk as Buffer);
+            body = Buffer.concat(chunks);
+          }
+          const edgeRequest = new Request(new URL(req.url ?? "/", origin), {
+            method,
+            headers,
+            body,
+          });
+          const response = await handler(edgeRequest);
+          res.statusCode = response.status;
+          response.headers.forEach((value, name) => res.setHeader(name, value));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (error) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: {
+                code: "DEV_HANDLER_FAILURE",
+                message: error instanceof Error ? error.message : "Portable dev handler failed",
               },
             }),
           );
@@ -1114,6 +1168,7 @@ export default defineConfig(({ mode }) => {
       hamqthDevProxy(),
       qrzDevProxy(),
       layerDevProxy(),
+      portableDevApi(),
       VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["propulse.svg"],

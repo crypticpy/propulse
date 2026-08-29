@@ -34,6 +34,8 @@ All client-side, no new feeds; each lands as a kiosk-ready card. Moon (G6) via e
 
 ## 3. E3 — Display Wall baseline (M2)
 
+> **Status: implemented on `feat/split-parity` (2026-08-29), pending M2 merge.** Migration applied to production + ledgered; PostgREST probe green. Backend = first residents of `api/_lib/handlers/` (portable by construction) with a `displaysDevApi` Vite plugin mirroring them in dev. Device identity = bearer token minted once at register, sha256 hash server-side. AuthGate bypasses login on `/display/*` and while a device sync session is live (wall devices are deliberately anonymous). Live-tested: register → code+QR render, reload mid-pairing mints a fresh code, welcome overlay suppressed on display routes. Deviations: device state poll is an edge endpoint (not client supabase-js) so the device needs no anon PostgREST access at all; `DataAgeBadge` remains deferred (fold into P1's per-display layout work); recipes shipped in M1.
+
 - **Migration:** `displays` (id uuid, owner uuid FK, name text, scene_config jsonb, last_seen_at timestamptz) + `display_pairing_codes` (code char(6), display_id, expires_at, claimed_at). RLS: owner-only CRUD; device reads its own row via a scoped claim.
 - **Pairing flow:** `/display/pair` (device: generates identity, shows code + QR, subscribes to pre-pairing Realtime channel) → authenticated owner confirms at `/pair?code=X` → device flips instantly. Edge function only where the anon device needs writes (`api/displays/pair.ts`); everything else client-side supabase-js under RLS.
 - **Display route:** `/display/:id` — self-contained, zero-interaction, wake lock, renders assigned scene; re-renders on Realtime broadcast (`display:<id>` via existing `useRealtimeSubscription`), poll-on-reconnect fallback (Realtime is optimization, DB row is truth).
@@ -41,6 +43,8 @@ All client-side, no new feeds; each lands as a kiosk-ready card. Moon (G6) via e
 - **Recipes:** `docs/recipes/` — Pi labwc autostart + systemd restart wrapper; Fully Kiosk; Windows mini PC (from MULTI-DISPLAY-TECH.md).
 
 ## 4. E4 — Band Verdict v1 (M2)
+
+> **Status: implemented on `feat/split-parity` (2026-08-29), pending M2 merge.** Engine + state machine + store + hook + panel, ~30 unit tests. Deviations: the decision log lives inside `verdictStore.ts` (persisted flip log, 200 entries / 48 h) rather than a separate `decisionLog.ts`; the physics arm is the existing kp/SFI band-condition heuristic (`calculateBandConditions`, day/night at QTH) mapped to 0..1 — per-path P.533 reliability is the v1.1 upgrade once verdicts become path-aware (band-wide verdicts have no single path to run P.533 over).
 
 - `src/lib/verdict/` — `verdictEngine.ts`: per-band P.533 reliability (existing `ionosphere.ts`/`signal.ts`) × live confirmation (DX/RBN/PSK spots binned by band/path from existing stores) → `Confirmed | Likely | Surprise Open | Closed`; `stateMachine.ts`: 20-min hold-to-confirm + hysteresis (no flapping) — pure, unit-tested; `decisionLog.ts`: persisted ring buffer with "why" (inputs at flip time).
 - `src/components/dx/BandVerdictPanel.tsx` — dashboard + kiosk card; per-band chips + "why" popover reading the decision log.

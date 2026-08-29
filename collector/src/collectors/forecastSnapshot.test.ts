@@ -119,7 +119,7 @@ describe("collectForecastSnapshot", () => {
     await collectForecastSnapshot(db);
 
     expect(upserts).toHaveLength(1);
-    expect(upserts[0]).toHaveLength(11);
+    expect(upserts[0]).toHaveLength(10);
     expect(healthInserts[0]?.status).toBe("ok");
   });
 
@@ -152,7 +152,7 @@ describe("collectForecastSnapshot", () => {
 });
 
 describe("buildPhysicsSnapshotRows", () => {
-  it("builds one physics row per band for the current hour", () => {
+  it("builds one physics row per HF band for the current hour", () => {
     const rows = buildPhysicsSnapshotRows(
       Date.parse("2026-08-29T12:34:00Z"),
       2,
@@ -160,7 +160,7 @@ describe("buildPhysicsSnapshotRows", () => {
       "2026-08-29T12:30:00Z",
     );
 
-    expect(rows).toHaveLength(11);
+    expect(rows).toHaveLength(10);
     for (const row of rows) {
       expect(row.hour_utc).toBe("2026-08-29T12:00:00.000Z");
       expect(row.source).toBe("physics");
@@ -172,6 +172,9 @@ describe("buildPhysicsSnapshotRows", () => {
       expect(row.meta.sfi).toBe(150);
       expect(row.meta.solar_captured_at).toBe("2026-08-29T12:30:00Z");
     }
-    expect(new Set(rows.map((r) => r.band)).size).toBe(11);
+    expect(new Set(rows.map((r) => r.band)).size).toBe(10);
+    // The collector never ingests VHF, so band_hourly_stats has no 6m truth
+    // — logging a 6m snapshot would poison the eval with fabricated zeros.
+    expect(rows.some((r) => r.band === "6m")).toBe(false);
   });
 });

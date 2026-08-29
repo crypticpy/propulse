@@ -267,6 +267,31 @@ describe("evaluateForecasts", () => {
     }
   });
 
+  it("excludes snapshot bands the ground truth never observes", () => {
+    // 6m never appears in band_hourly_stats (the collector skips VHF) —
+    // its snapshots must not be scored against fabricated zero-count truth.
+    const { truth, snapshots } = syntheticData();
+    for (let day = 18; day < 22; day++) {
+      snapshots.push({
+        hour_utc: `2026-08-${day}T10:00:00.000Z`,
+        band: "6m",
+        source: "physics",
+        horizon_hours: 0,
+        p_open: 0.2,
+      });
+    }
+    const results = evaluateForecasts({
+      snapshots,
+      truth,
+      nowMs,
+      windowsDays: [12],
+    });
+    assert.deepEqual(results.bands, ["20m"]);
+    const physics = results.windows[0].sources[0];
+    assert.equal(physics.n, 4);
+    assert.equal(physics.perBand["6m"], undefined);
+  });
+
   it("holds evaluated hours out of the threshold fit", () => {
     // All truth inside the evaluation window -> no training rows at all;
     // thresholds must fall back to minSpots instead of learning from the

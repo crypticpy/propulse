@@ -209,9 +209,13 @@ export function evaluateForecasts({
   windowsDays = [7, 30],
   nowMs,
 }) {
-  const bands = [
-    ...new Set([...snapshots.map((s) => s.band), ...truth.map((t) => t.band)]),
-  ].sort();
+  // Only bands the ground truth ever observes can be scored. The collector's
+  // ingestion contract skips VHF, so a snapshot band absent from truth (e.g.
+  // 6m) would otherwise be scored against fabricated zero-count rows every
+  // aggregated hour, biasing Brier scores and base rates.
+  const bands = [...new Set(truth.map((t) => t.band))].sort();
+  const bandSet = new Set(bands);
+  const scorable = snapshots.filter((s) => bandSet.has(s.band));
   const denseTruth = densifyTruth(truth, bands);
 
   /** @type {Map<string, number>} spot_count by hour|band */
@@ -232,7 +236,7 @@ export function evaluateForecasts({
     const clim = buildClimatology(trainingRows, { percentile, minSpots });
 
     // Snapshots inside the window whose target hour has ground truth
-    const evaluable = snapshots.filter((s) => {
+    const evaluable = scorable.filter((s) => {
       const t = Date.parse(s.hour_utc);
       return t >= sinceMs && t <= nowMs && aggregatedHours.has(s.hour_utc);
     });
@@ -334,7 +338,7 @@ export function evaluateForecasts({
   const sensTraining = trainingRowsBefore(sensSinceMs);
   const sensitivity = [10, 25, 50].map((p) => {
     const c = buildClimatology(sensTraining, { percentile: p, minSpots });
-    const pairs = snapshots
+    const pairs = scorable
       .filter((s) => {
         const t = Date.parse(s.hour_utc);
         return (

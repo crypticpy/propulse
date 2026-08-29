@@ -146,6 +146,16 @@ export function hourBucketUtc(nowMs: number): string {
   return new Date(Math.floor(nowMs / 3600_000) * 3600_000).toISOString();
 }
 
+/**
+ * Bands the snapshot job logs: HF only. The collector's ingestion contract
+ * skips VHF (transforms/bands.ts), so band_hourly_stats can never provide 6m
+ * ground truth — a 6m snapshot could only ever be scored against fabricated
+ * zero-count rows, biasing the eval.
+ */
+const SNAPSHOT_BANDS = new Set(
+  BANDS.filter((band) => !band.isVhf).map((band) => band.name),
+);
+
 export function buildPhysicsSnapshotRows(
   nowMs: number,
   kp: number,
@@ -153,21 +163,23 @@ export function buildPhysicsSnapshotRows(
   solarCapturedAt: string,
 ): ForecastSnapshotRow[] {
   const hourUtc = hourBucketUtc(nowMs);
-  return computePhysicsBandScores(kp, sfi).map((score) => ({
-    hour_utc: hourUtc,
-    band: score.band,
-    source: "physics",
-    horizon_hours: 0,
-    p_open: score.pOpen,
-    meta: {
-      algo: PHYSICS_ALGO_VERSION,
-      kp,
-      sfi,
-      solar_captured_at: solarCapturedAt,
-      day_condition: score.dayCondition,
-      night_condition: score.nightCondition,
-    },
-  }));
+  return computePhysicsBandScores(kp, sfi)
+    .filter((score) => SNAPSHOT_BANDS.has(score.band))
+    .map((score) => ({
+      hour_utc: hourUtc,
+      band: score.band,
+      source: "physics" as const,
+      horizon_hours: 0,
+      p_open: score.pOpen,
+      meta: {
+        algo: PHYSICS_ALGO_VERSION,
+        kp,
+        sfi,
+        solar_captured_at: solarCapturedAt,
+        day_condition: score.dayCondition,
+        night_condition: score.nightCondition,
+      },
+    }));
 }
 
 // ─── Collector job ──────────────────────────────────────────────────────────

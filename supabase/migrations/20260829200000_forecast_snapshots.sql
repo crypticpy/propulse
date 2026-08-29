@@ -5,8 +5,10 @@
 -- truth later. Log-don't-reconstruct: predictions are only trustworthy for
 -- evaluation if they were written down before the outcome was known.
 --
---   source        'physics' (client P.533 engine port), 'nowcast' or
---                 'futurecast' (Railway model service)
+--   source        'physics' (the client band-conditions heuristic — the
+--                 kp/sfi multiplier table from src/lib/utils/bands.ts, NOT
+--                 the P.533 engine), 'nowcast' or 'futurecast' (Railway
+--                 model service)
 --   horizon_hours 0 for physics/nowcast; hours ahead for futurecast rows
 --                 (the row's hour_utc is the TARGET hour being predicted)
 --   p_open        probability the band is open, [0, 1]

@@ -62,7 +62,12 @@ New proxies written portable-by-construction (§0): tides G4 (NOAA CO-OPS), UV G
 - **Deleted (patch-equivalent already on main):** `codex/fix-globe-deep-zoom`, `fix/k-index-snapshot-freshness`, `fix/pwa-reload-lightning-recovery`, `fix/satellite-proxy-first`, `fix/solar-source-cadence`, `fix/supabase-auth-redirects` + all fully-merged locals (reachmap, doctor-command, salvage, etc.).
 - **Kept, dormant (unique work, stale vs. reworked map or old base):** `codex/fix-globe-pan-scale`, `codex/fix-spot-endpoint-scale` (checked out in a Codex worktree — left untouched), `codex/fix-uniform-tile-scale` (all conflict with post-reachmap map code; if deep-zoom symptoms persist, redo fresh), `rescue/ml-uncommitted-20260720` (snapshot insurance), `feat/sherwood-radio-import` (unmerged importer UI), `wip/guest-logging`, `codex/prd-radio-daemon`, `feat/prd-audit-v2`, `origin/agent/research-health-api` (pre-decommission ops APIs — likely obsolete, owner call).
 
-## 8. Milestones
+## 8. Punchlist (owner-reported, not yet scheduled)
+
+- **P1 — Resolution-aware layout.** On small/low-res displays the map page squishes the globe and side panels into unreadable slivers. Build resolution/viewport detection that switches to a layout that actually fits: collapse side panels into tabs (or a cycling strip) below a width/height breakpoint, scale type up for wall distance, and let the user override per display (fits E3's per-display profile concept — a saved layout per paired screen). Reported 2026-08-29 while kiosk-testing on a small window.
+- **P2 — Globe default orientation.** The globe should initially center on the user's QTH (or an explicit "natural position" toggle), not a fixed default: on a small display the operator's own continent can end up hidden while dead regions fill the screen. Respect auto-rotate when enabled; this is the resting/initial orientation. Reported 2026-08-29.
+
+## 9. Milestones
 
 - **M1** = E1 + E2 + LICENSE → merge. *A kiosk-mode PropPulse with rotating scenes, break-in alerts, and 8 new panels.*
 - **M2** = E3 + E4 → merge. *Paired displays managed from a phone; Band Verdict on every dashboard.*

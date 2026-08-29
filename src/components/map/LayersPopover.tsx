@@ -545,6 +545,14 @@ export function LayersPopover() {
             onToggle: () => toggleLayer("beacons"),
           },
           {
+            key: "timeStations",
+            label: "Time Stations",
+            title:
+              "WWV/WWVH/CHU and peer standard time & frequency broadcast stations",
+            getValue: () => layers.timeStations,
+            onToggle: () => toggleLayer("timeStations"),
+          },
+          {
             key: "meteorShowers",
             label: "Meteor Showers",
             title: "Active meteor shower radiants and 6m scatter zones",

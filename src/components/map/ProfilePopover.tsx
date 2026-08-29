@@ -88,11 +88,14 @@ export function ProfilePopover({
       const profile = BUILTIN_PROFILES[profileId];
 
       if (profileId === "listener") {
-        // 'listener' isn't in LAYER_PRESETS — apply layers directly
-        useMapStore.setState({
-          layers: { ...profile.layers },
+        // 'listener' isn't in LAYER_PRESETS — apply layers directly.
+        // Merge onto current layers so preset-agnostic layers (e.g.
+        // timeStations) keep their existing state instead of being forced
+        // off by a profile that doesn't enumerate them.
+        useMapStore.setState((state) => ({
+          layers: { ...state.layers, ...profile.layers },
           activePreset: null,
-        });
+        }));
         // Apply spotColorMode and visualStyle
         useSettingsStore.getState().updateUIInteraction({
           spotColorMode: profile.spotColorMode,

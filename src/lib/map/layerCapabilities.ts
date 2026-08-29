@@ -57,6 +57,7 @@ const PROP_SPHERE_LAYER_KEYS = requireAllLayerKeys([
   "aprs",
   "tropical",
   "sst",
+  "timeStations",
 ] as const satisfies readonly PropSphereLayerKey[]);
 
 const PROP_SPHERE_LAYER_KEY_SET = new Set<string>(PROP_SPHERE_LAYER_KEYS);
@@ -90,6 +91,7 @@ const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "sporadicE",
   "sst",
   "tec",
+  "timeStations",
   "tropical",
 ] as const satisfies readonly PropSphereLayerKey[];
 const FLAT_UNSUPPORTED_LAYERS = new Set<PropSphereLayerKey>(

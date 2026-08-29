@@ -134,6 +134,24 @@ const AtmosPulse = lazy(() =>
 const KioskPage = lazy(() =>
   import("@/pages/KioskPage").then((m) => ({ default: m.KioskPage })),
 );
+const DisplayPairPage = lazy(() =>
+  import("@/pages/DisplayPairPage").then((m) => ({
+    default: m.DisplayPairPage,
+  })),
+);
+const DisplayViewPage = lazy(() =>
+  import("@/pages/DisplayViewPage").then((m) => ({
+    default: m.DisplayViewPage,
+  })),
+);
+const PairClaimPage = lazy(() =>
+  import("@/pages/PairClaimPage").then((m) => ({
+    default: m.PairClaimPage,
+  })),
+);
+const DisplaysPage = lazy(() =>
+  import("@/pages/DisplaysPage").then((m) => ({ default: m.DisplaysPage })),
+);
 
 /** Redirect helper for old /nets/:netId/* routes that moved to /ncs/:netId/* */
 function NcsRedirect({ suffix }: { suffix: string }) {
@@ -275,6 +293,10 @@ function App() {
             <Route path="/satellites" element={<SatellitesPage />} />
             <Route path="/atmos" element={<AtmosPulse />} />
             <Route path="/kiosk" element={<KioskPage />} />
+            <Route path="/display/pair" element={<DisplayPairPage />} />
+            <Route path="/display/:id" element={<DisplayViewPage />} />
+            <Route path="/pair" element={<PairClaimPage />} />
+            <Route path="/displays" element={<DisplaysPage />} />
             <Route path="/map" element={<MapRoute />} />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />

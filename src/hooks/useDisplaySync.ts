@@ -4,7 +4,11 @@ import {
   useDisplayStore,
   type DisplaySceneConfig,
 } from "@/stores/displayStore";
-import { useKioskStore, applySceneToMap } from "@/stores/kioskStore";
+import {
+  useKioskStore,
+  applySceneToMap,
+  DEFAULT_SCENES,
+} from "@/stores/kioskStore";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -46,34 +50,30 @@ export function useDisplaySync(): void {
     let cancelled = false;
 
     const applyConfig = (sceneConfig: DisplaySceneConfig) => {
+      // Every owner save (updatedAt changed) applies wholesale and restarts
+      // the rotation — including rotation-only changes. No scenes in the
+      // config means the owner cleared the assignment, which falls back to
+      // the stock defaults (a previous push overwrote the local list, so
+      // "local defaults" must be restored explicitly).
       const scenes = sceneConfig.scenes;
       const hasScenes = Array.isArray(scenes) && scenes.length > 0;
-
-      if (hasScenes) {
-        const current = useKioskStore.getState();
-        useKioskStore.setState({
-          scenes,
-          rotation: sceneConfig.rotation ?? current.rotation,
-          breakInLevel: sceneConfig.breakInLevel ?? current.breakInLevel,
-        });
-      }
+      const current = useKioskStore.getState();
+      useKioskStore.setState({
+        scenes: hasScenes ? scenes : DEFAULT_SCENES,
+        rotation: sceneConfig.rotation ?? current.rotation,
+        breakInLevel: sceneConfig.breakInLevel ?? current.breakInLevel,
+      });
 
       const kiosk = useKioskStore.getState();
-      if (!kiosk.active) {
-        // Device was showing the pairing/holding screen — enter kiosk mode
-        // for the first time (mirrors KioskPage's launch sequence).
-        const scene = kiosk.start();
-        if (!scene) return;
-        applySceneToMap(scene);
+      const wasActive = kiosk.active;
+      const scene = kiosk.start(kiosk.scenes[0]?.id);
+      if (!scene) return;
+      applySceneToMap(scene);
+      if (!wasActive) {
+        // First entry from the pairing/holding screen (mirrors KioskPage).
         void document.documentElement.requestFullscreen().catch(() => {});
-        navigate(scene.route);
-      } else if (hasScenes) {
-        // Already rotating — only restart if the owner pushed new scenes.
-        const scene = kiosk.start(scenes![0].id);
-        if (!scene) return;
-        applySceneToMap(scene);
-        navigate(scene.route);
       }
+      navigate(scene.route);
     };
 
     const fetchState = async () => {

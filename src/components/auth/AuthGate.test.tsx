@@ -77,11 +77,21 @@ describe("AuthGate", () => {
   });
 
   it("lets a synced display device through on any route", () => {
+    useDisplayStore.getState().setIdentity("display-1", "device-token");
     useDisplayStore.setState({ syncActive: true });
     useAuthStore.setState({ initialized: true });
 
     renderGate("/map");
 
     expect(screen.getByText("Protected application")).toBeTruthy();
+  });
+
+  it("ignores syncActive without a registered identity", () => {
+    useDisplayStore.setState({ syncActive: true }); // no displayId/token
+    useAuthStore.setState({ initialized: true });
+
+    renderGate("/map");
+
+    expect(screen.queryByText("Protected application")).toBeNull();
   });
 });

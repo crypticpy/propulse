@@ -61,7 +61,9 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();
   const station = useProfileStore((s) => s.station);
-  const { spots: liveSpots } = useLiveSpots();
+  // Same grid-keyed query as every other call site — shares the cache and
+  // scopes spot confirmation to the operator's region, not the whole world.
+  const { spots: liveSpots } = useLiveSpots({ grid: station?.grid });
   const clusterSpots = useDXStore((s) => s.spots);
 
   const kIndexData = kIndexQuery.data;
@@ -78,12 +80,13 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   }, [solarFluxData]);
 
   // Day/night at the user's QTH (fallback to 0,0 when no station is set).
-  const isDaylight = useMemo(() => {
-    const lat = station?.lat ?? 0;
-    const lon = station?.lon ?? 0;
-    const altitude = SunCalc.getPosition(new Date(), lat, lon).altitude;
-    return altitude > 0;
-  }, [station]);
+  // Deliberately NOT memoized: every ingest tick re-renders this hook (the
+  // store sets fresh object identities), so recomputing per render is what
+  // keeps the day/night flank moving on a wall display that never reloads.
+  const stationLat = station?.lat ?? 0;
+  const stationLon = station?.lon ?? 0;
+  const isDaylight =
+    SunCalc.getPosition(new Date(), stationLat, stationLon).altitude > 0;
 
   // Per-band physics score, 0..1.
   const physicsScores = useMemo(() => {

@@ -30,7 +30,11 @@ export function AuthGate({ children }: AuthGateProps) {
   const initialized = useAuthStore((s) => s.initialized);
   const isRecoveryMode = useAuthStore((s) => s.isRecoveryMode);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
-  const displaySyncActive = useDisplayStore((s) => s.syncActive);
+  // Only a device with a real registered identity counts as a sync session
+  // (syncActive alone is a plain localStorage flag anyone could set).
+  const displaySyncActive = useDisplayStore(
+    (s) => s.syncActive && s.displayId !== null && s.deviceToken !== null,
+  );
   const { pathname } = useLocation();
 
   // Local dev bypass — no Supabase configured

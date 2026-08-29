@@ -24,6 +24,7 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
 import { BandSuggestToast } from "@/components/operating/BandSuggestToast";
+import { OnAirBanner } from "@/components/operating/OnAirBanner";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
@@ -171,6 +172,9 @@ export function Layout() {
 
       {/* Undo Toast - fixed position bottom-left */}
       <UndoToast />
+
+      {/* ON-AIR transmit banner — every route, kiosk included */}
+      <OnAirBanner />
 
       {/* DX Spot Alert Toasts (not on /atmos or kiosk) */}
       {!isAtmos && !isKiosk && (

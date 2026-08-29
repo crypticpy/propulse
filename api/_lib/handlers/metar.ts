@@ -29,11 +29,44 @@ const MAX_BBOX_DEGREES = 4;
 /** Hard cap on stations returned, applied after parsing so a truncated
  * response still describes the widest possible spread of stations. */
 const MAX_STATIONS = 200;
-/** Upstream response byte-size guard; text bodies larger than this are
- * treated as needing truncation even if the station count comes in low. */
+/** Upstream response byte-size guard, enforced while streaming so a huge
+ * body is cancelled before it is ever fully buffered. */
 const MAX_RESPONSE_BYTES = 1_000_000;
 
 const ICAO_PATTERN = /^[A-Z0-9]{3,4}$/;
+
+/**
+ * Read a response body as text, cancelling the stream and returning null as
+ * soon as the byte count exceeds `maxBytes` — never buffers past the cap.
+ */
+async function readCappedText(
+  response: Response,
+  maxBytes: number,
+): Promise<string | null> {
+  const declared = Number(response.headers.get("content-length") ?? "0");
+  if (declared > maxBytes) return null;
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
 
 function jsonResponse(
   body: unknown,
@@ -205,8 +238,8 @@ export interface CompactedMetarPayload {
 
 /**
  * Normalize a raw METAR array and apply the station-count cap. `oversizedBytes`
- * lets the caller force truncation based on upstream response size even when
- * the parsed station count alone is under the cap.
+ * lets a caller force truncation when it knows the source body was oversized
+ * even though the parsed station count alone is under the cap.
  */
 export function compactMetarPayload(
   raw: unknown,
@@ -301,8 +334,14 @@ export async function handleAtmosMetar(request: Request): Promise<Response> {
       );
     }
 
-    const text = await response.text();
-    const oversized = text.length > MAX_RESPONSE_BYTES;
+    const text = await readCappedText(response, MAX_RESPONSE_BYTES);
+    if (text === null) {
+      return jsonResponse(
+        { error: "METAR upstream response too large", stations: [] },
+        502,
+        corsHeaders,
+      );
+    }
 
     let parsed: unknown;
     try {
@@ -315,7 +354,7 @@ export async function handleAtmosMetar(request: Request): Promise<Response> {
       );
     }
 
-    const { stations, truncated } = compactMetarPayload(parsed, oversized);
+    const { stations, truncated } = compactMetarPayload(parsed);
 
     return jsonResponse(
       { stations, truncated },

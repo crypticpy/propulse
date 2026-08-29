@@ -165,6 +165,9 @@ export function normalizeCapVolcanoes(raw: unknown): NormalizedVolcano[] {
 
 // ─── Handler ────────────────────────────────────────────────────────────────
 
+/** Upstream body-size guard, enforced while streaming (never fully buffered). */
+const MAX_RESPONSE_BYTES = 2_000_000;
+
 async function fetchJson(url: string): Promise<unknown | null> {
   try {
     const response = await fetch(url, {
@@ -175,7 +178,29 @@ async function fetchJson(url: string): Promise<unknown | null> {
       },
     });
     if (!response.ok) return null;
-    return await response.json();
+    const declared = Number(response.headers.get("content-length") ?? "0");
+    if (declared > MAX_RESPONSE_BYTES) return null;
+    const reader = response.body?.getReader();
+    if (!reader) return null;
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    const merged = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return JSON.parse(new TextDecoder().decode(merged));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error(`Volcano fetch failed for ${url}: ${message}`);

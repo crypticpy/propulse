@@ -134,7 +134,7 @@ export function useWeatherAlertEngine(enabled = true): WeatherAlertItem[] {
   const { rimResult } = useRIM();
   const { alerts: nwsAlerts } = useWeatherAlerts(enabled);
   const kIndexQuery = useKIndex();
-  const { cyclones } = useTropicalCyclones(enabled);
+  const { cyclones, jtwc } = useTropicalCyclones(enabled);
 
   // User notification preferences (for Kp threshold)
   const notifications: NotificationPreferences =
@@ -298,6 +298,37 @@ export function useWeatherAlertEngine(enabled = true): WeatherAlertItem[] {
       });
     }
   }, [enabled, cyclones, emitAlert]);
+
+  // -------------------------------------------------------------------------
+  // Effect: Monitor JTWC-tracked systems (W Pacific / Indian Ocean / S Hem)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!enabled || jtwc.length === 0) return;
+
+    const basinNames: Record<string, string> = {
+      wpac: "West Pacific",
+      io: "Indian Ocean",
+      shem: "Southern Hemisphere",
+    };
+
+    for (const storm of jtwc) {
+      const seenKey = `jtwc-${storm.id}`;
+      if (seenCycloneIdsRef.current.has(seenKey)) continue;
+
+      seenCycloneIdsRef.current.add(seenKey);
+
+      const winds =
+        storm.maxWinds != null ? ` with max winds ${storm.maxWinds} kt` : "";
+      emitAlert({
+        id: makeAlertId("tropical-advisory", seenKey),
+        type: "tropical-advisory",
+        severity: "info",
+        title: `Tropical Advisory: ${storm.name}`,
+        message: `${storm.name} (${basinNames[storm.basin] ?? storm.basin}, JTWC) — ${storm.category}${winds}. Monitor for potential infrastructure and propagation impacts.`,
+        timestamp: Date.now(),
+      });
+    }
+  }, [enabled, jtwc, emitAlert]);
 
   // -------------------------------------------------------------------------
   // Effect: Prune stale alerts from the active list

@@ -33,6 +33,21 @@ describe("bboxAround", () => {
       maxLon: -169,
     });
   });
+
+  it("slides the box inward near the antimeridian instead of overflowing", () => {
+    expect(bboxAround(-17, 179.5, 2)).toEqual({
+      minLat: -19,
+      minLon: 176,
+      maxLat: -15,
+      maxLon: 180,
+    });
+    expect(bboxAround(52, -179.9, 2)).toEqual({
+      minLat: 50,
+      minLon: -180,
+      maxLat: 54,
+      maxLon: -176,
+    });
+  });
 });
 
 describe("haversineKm", () => {

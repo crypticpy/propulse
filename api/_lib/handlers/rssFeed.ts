@@ -79,7 +79,9 @@ export function validateFeedUrl(raw: string): FeedUrlCheck {
   if (url.username !== "" || url.password !== "") {
     return { ok: false, reason: "Credentials in the URL are not allowed" };
   }
-  const host = url.hostname.toLowerCase();
+  // Strip trailing dots first: "localhost." and "printer.local." resolve
+  // like their dotless forms but would slip past every check below
+  const host = url.hostname.toLowerCase().replace(/\.+$/, "");
   if (isIpLiteral(host)) {
     return { ok: false, reason: "IP-literal hosts are not allowed" };
   }
@@ -108,13 +110,14 @@ export function decodeEntities(text: string): string {
     /&(#x?[0-9a-f]+|[a-z]+);/gi,
     (whole, entity: string) => {
       const lower = entity.toLowerCase();
+      // fromCodePoint throws RangeError above 0x10FFFF — finite isn't enough
       if (lower.startsWith("#x")) {
         const code = parseInt(lower.slice(2), 16);
-        return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
+        return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
       }
       if (lower.startsWith("#")) {
         const code = parseInt(lower.slice(1), 10);
-        return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
+        return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
       }
       return NAMED_ENTITIES[lower] ?? whole;
     },

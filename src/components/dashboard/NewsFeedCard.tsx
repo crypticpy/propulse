@@ -37,7 +37,7 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
   const setActiveFeed = useFeedStore((s) => s.setActiveFeed);
 
   const activeFeed = feeds.find((f) => f.id === activeFeedId) ?? feeds[0] ?? null;
-  const { items, status, isLoading } = useRssFeed(activeFeed?.url ?? null);
+  const { items, status, isLoading, error } = useRssFeed(activeFeed?.url ?? null);
 
   const [editing, setEditing] = useState(false);
   const [newUrl, setNewUrl] = useState("");
@@ -65,7 +65,9 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
     setUrlError(null);
   };
 
-  const degraded = status !== "ok";
+  // A 400 from the SSRF gate throws in the hook (no status in the payload) —
+  // surface it instead of rendering an empty ok-state
+  const degraded = status !== "ok" || error != null;
   const statusMessage =
     status === "unreachable"
       ? "Feed unreachable"
@@ -73,7 +75,9 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
         ? "Feed too large"
         : status === "empty"
           ? "No items"
-          : null;
+          : error != null
+            ? "Feed URL rejected or unavailable"
+            : null;
 
   return (
     <Card className={className} role="region" aria-label="News">

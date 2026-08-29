@@ -29,16 +29,19 @@ export interface MetarBbox {
 
 /**
  * Builds a `halfDeg * 2` square bounding box centered on (lat, lon). The
- * center latitude is clamped to +/-88 so the box never crosses a pole and
- * stays within the valid -90..90 latitude range accepted by the server.
+ * center is clamped so the box never leaves the -90..90 / -180..180 ranges
+ * the server accepts: latitude to +/-88, longitude to +/-(180 - halfDeg).
+ * A QTH within halfDeg of the antimeridian slides inward rather than
+ * producing an out-of-range box the server would reject with 400.
  */
 export function bboxAround(lat: number, lon: number, halfDeg: number): MetarBbox {
   const clampedLat = Math.max(-88, Math.min(88, lat));
+  const clampedLon = Math.max(-180 + halfDeg, Math.min(180 - halfDeg, lon));
   return {
     minLat: clampedLat - halfDeg,
-    minLon: lon - halfDeg,
+    minLon: clampedLon - halfDeg,
     maxLat: clampedLat + halfDeg,
-    maxLon: lon + halfDeg,
+    maxLon: clampedLon + halfDeg,
   };
 }
 

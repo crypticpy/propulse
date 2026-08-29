@@ -44,6 +44,18 @@ describe("validateFeedUrl", () => {
     expect(validateFeedUrl("http://intranet/feed").ok).toBe(false);
   });
 
+  it("rejects trailing-dot spellings of blocked hosts", () => {
+    expect(validateFeedUrl("http://localhost./feed").ok).toBe(false);
+    expect(validateFeedUrl("https://printer.local./feed").ok).toBe(false);
+    expect(
+      validateFeedUrl("http://metadata.google.internal./x").ok,
+    ).toBe(false);
+    expect(validateFeedUrl("http://a.home.arpa./feed").ok).toBe(false);
+    expect(validateFeedUrl("http://.../feed").ok).toBe(false);
+    // Trailing dot on a public name is harmless — still allowed
+    expect(validateFeedUrl("https://example.com./feed").ok).toBe(true);
+  });
+
   it("rejects credentials in the URL", () => {
     expect(validateFeedUrl("https://user:pw@example.com/feed").ok).toBe(
       false,
@@ -66,6 +78,14 @@ describe("decodeEntities / stripTags", () => {
 
   it("leaves unknown entities alone", () => {
     expect(decodeEntities("&bogus;")).toBe("&bogus;");
+  });
+
+  it("leaves out-of-range numeric entities alone instead of throwing", () => {
+    expect(decodeEntities("Hello &#xFFFFFFF; world")).toBe(
+      "Hello &#xFFFFFFF; world",
+    );
+    expect(decodeEntities("&#1114112;")).toBe("&#1114112;");
+    expect(decodeEntities("&#x10FFFF;")).toBe("\u{10FFFF}");
   });
 
   it("strips tags and CDATA, collapsing whitespace", () => {

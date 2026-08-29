@@ -10,6 +10,7 @@ import { useColorBlindMode } from "@/hooks/useColorBlindMode";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSync } from "@/hooks/useSync";
 import { useAuthStore } from "@/stores/authStore";
+import { useKioskStore } from "@/stores/kioskStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankUpCelebration } from "@/components/rank/RankUpCelebration";
@@ -130,6 +131,9 @@ const SatellitesPage = lazy(() =>
 const AtmosPulse = lazy(() =>
   import("@/pages/AtmosPulse").then((m) => ({ default: m.AtmosPulse })),
 );
+const KioskPage = lazy(() =>
+  import("@/pages/KioskPage").then((m) => ({ default: m.KioskPage })),
+);
 
 /** Redirect helper for old /nets/:netId/* routes that moved to /ncs/:netId/* */
 function NcsRedirect({ suffix }: { suffix: string }) {
@@ -173,6 +177,9 @@ function App() {
   useHighContrast();
   // Apply color blind mode CSS variable palette to <html>
   useColorBlindMode();
+
+  // Kiosk screens are unattended: suppress first-run wizards and celebrations
+  const isKiosk = useKioskStore((s) => s.active);
 
   // Initialize auth on app boot (checks for existing session, sets up listener)
   const initAuth = useAuthStore((s) => s.initialize);
@@ -236,7 +243,7 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthGate>
-        {showCelebration && celebrationRanks && (
+        {!isKiosk && showCelebration && celebrationRanks && (
           <RankUpCelebration
             fromRank={celebrationRanks.from}
             toRank={celebrationRanks.to}
@@ -244,9 +251,11 @@ function App() {
           />
         )}
         <WelcomeOverlay />
-        <Suspense fallback={null}>
-          <RadioSetupWizard />
-        </Suspense>
+        {!isKiosk && (
+          <Suspense fallback={null}>
+            <RadioSetupWizard />
+          </Suspense>
+        )}
         {upgradeToast && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[600] px-5 py-3 rounded-xl bg-signal-green/20 border border-signal-green/30 backdrop-blur-lg text-signal-green text-sm font-medium shadow-lg animate-fade-in">
             Welcome to Pro! All features unlocked.
@@ -265,6 +274,7 @@ function App() {
             <Route path="/activation" element={<ActivationPage />} />
             <Route path="/satellites" element={<SatellitesPage />} />
             <Route path="/atmos" element={<AtmosPulse />} />
+            <Route path="/kiosk" element={<KioskPage />} />
             <Route path="/map" element={<MapRoute />} />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />

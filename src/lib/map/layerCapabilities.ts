@@ -67,6 +67,7 @@ const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([
   "gridLabels",
   "tileLabels",
   "autoRotate",
+  "qthOrientation",
 ]);
 
 const FLAT_UNSUPPORTED_LAYER_KEYS = [

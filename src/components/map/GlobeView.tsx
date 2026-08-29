@@ -124,6 +124,7 @@ import {
   getGlobeNavigationTuning,
   getMinimumGlobeDistance,
 } from "@/lib/map/globeNavigation";
+import { qthCameraPosition } from "./lib/globeCoords";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
@@ -750,6 +751,29 @@ function CameraController() {
       }
     };
   }, [observatoryMode, station, camera]);
+
+  // ─── Initial orientation: center the operator's QTH on mount ───────────────
+  // Snapshot the stores once — this positions the camera exactly once per
+  // globe mount; all later navigation belongs to the user (or the effects
+  // above). Observatory mode has its own home animation, so skip it here.
+  useEffect(() => {
+    const {
+      globeOrientation,
+      rotation,
+      zoom,
+      observatoryMode: inObservatory,
+    } = useMapStore.getState();
+    if (globeOrientation !== "qth" || inObservatory) return;
+
+    const home = useProfileStore.getState().station;
+    if (!home || home.lat == null || home.lon == null) return;
+
+    camera.position.copy(
+      qthCameraPosition(home.lat, home.lon, 2.5 / zoom, rotation.x),
+    );
+    camera.lookAt(0, 0, 0);
+    controlsRef.current?.update();
+  }, [camera]);
 
   return (
     <OrbitControls

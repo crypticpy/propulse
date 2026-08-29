@@ -23,7 +23,9 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-const ADXO_URL = "https://www.ng3k.com/adxo.html";
+// www.ng3k.com/adxo.html is only a meta-refresh stub (an HTML-level
+// redirect fetch can't follow) — the table lives at /Misc/adxo.html
+const ADXO_URL = "https://ng3k.com/Misc/adxo.html";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 // ─── Types ───────────────────────────────────────────────────────────────────

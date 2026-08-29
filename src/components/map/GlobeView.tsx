@@ -315,6 +315,9 @@ function CameraController() {
   const mapStyle = useMapStore((state) => state.mapStyle);
   const subscriptionTier = useProfileStore((state) => state.subscriptionTier);
   const prevPresetIdRef = useRef<string | null>(null);
+  const presetEffectRanRef = useRef(false);
+  const presetPanRafRef = useRef<number>(0);
+  const qthStartupDoneRef = useRef(false);
 
   const cameraProvider = useMemo(
     () => selectTileProvider(mapStyle, subscriptionTier),
@@ -636,6 +639,9 @@ function CameraController() {
 
   // Animate camera to region preset when activePresetId changes
   useEffect(() => {
+    const isMountRun = !presetEffectRanRef.current;
+    presetEffectRanRef.current = true;
+
     // Skip if preset hasn't actually changed (avoids re-animation on re-renders)
     if (activePresetId === prevPresetIdRef.current) {
       return;
@@ -646,10 +652,22 @@ function CameraController() {
       return;
     }
 
+    // Startup precedence: with "Start at My QTH" active, a persisted preset
+    // must not drive the initial camera — its 500ms animation would finish
+    // after (and overwrite) the QTH orientation applied below.
+    const { globeOrientation, observatoryMode: inObservatory } =
+      useMapStore.getState();
+    if (isMountRun && globeOrientation === "qth" && !inObservatory) {
+      return;
+    }
+
     const preset = regionPresets.find((p) => p.id === activePresetId);
     if (!preset) {
       return;
     }
+
+    // An explicit preset selection wins over a still-pending QTH orientation.
+    qthStartupDoneRef.current = true;
 
     const controls = controlsRef.current;
     const startPosition = camera.position.clone();
@@ -663,6 +681,10 @@ function CameraController() {
     // Smooth animation duration (500ms for responsive navigation)
     const duration = 500;
     const startTime = Date.now();
+
+    if (presetPanRafRef.current) {
+      cancelAnimationFrame(presetPanRafRef.current);
+    }
 
     function animate() {
       const elapsed = Date.now() - startTime;
@@ -679,7 +701,9 @@ function CameraController() {
       controls.update();
 
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        presetPanRafRef.current = requestAnimationFrame(animate);
+      } else {
+        presetPanRafRef.current = 0;
       }
     }
 
@@ -753,26 +777,59 @@ function CameraController() {
   }, [observatoryMode, station, camera]);
 
   // ─── Initial orientation: center the operator's QTH on mount ───────────────
-  // Snapshot the stores once — this positions the camera exactly once per
-  // globe mount; all later navigation belongs to the user (or the effects
-  // above). Observatory mode has its own home animation, so skip it here.
+  // Positions the camera at most once per globe mount. The station can
+  // hydrate or profile-sync after mount, so wait for the first station with
+  // a configured grid (a callsign-only profile has grid "" at lat/lon 0,0 —
+  // not a QTH). The wait ends as soon as the user navigates themselves or
+  // picks a preset. Observatory mode has its own home animation, so skip it.
   useEffect(() => {
-    const {
-      globeOrientation,
-      rotation,
-      zoom,
-      observatoryMode: inObservatory,
-    } = useMapStore.getState();
-    if (globeOrientation !== "qth" || inObservatory) return;
+    const { globeOrientation, observatoryMode: inObservatory } =
+      useMapStore.getState();
+    if (globeOrientation !== "qth" || inObservatory) {
+      qthStartupDoneRef.current = true;
+      return;
+    }
 
-    const home = useProfileStore.getState().station;
-    if (!home || home.lat == null || home.lon == null) return;
+    const applyIfValid = (
+      home: { grid?: string; lat?: number | null; lon?: number | null } | null,
+    ): boolean => {
+      if (qthStartupDoneRef.current) return true;
+      if (!home?.grid || home.lat == null || home.lon == null) return false;
+      qthStartupDoneRef.current = true;
 
-    camera.position.copy(
-      qthCameraPosition(home.lat, home.lon, 2.5 / zoom, rotation.x),
-    );
-    camera.lookAt(0, 0, 0);
-    controlsRef.current?.update();
+      // QTH owns startup: stop a mount-time preset pan that slipped through.
+      if (presetPanRafRef.current) {
+        cancelAnimationFrame(presetPanRafRef.current);
+        presetPanRafRef.current = 0;
+      }
+
+      const { rotation, zoom } = useMapStore.getState();
+      camera.position.copy(
+        qthCameraPosition(home.lat, home.lon, 2.5 / zoom, rotation.x),
+      );
+      camera.lookAt(0, 0, 0);
+      controlsRef.current?.update();
+      return true;
+    };
+
+    if (applyIfValid(useProfileStore.getState().station)) return;
+
+    const unsubscribe = useProfileStore.subscribe((state) => {
+      if (applyIfValid(state.station)) unsubscribe();
+    });
+
+    // The user starting their own navigation cancels the pending orientation.
+    const controls = controlsRef.current;
+    const giveUp = () => {
+      qthStartupDoneRef.current = true;
+      unsubscribe();
+    };
+    controls?.addEventListener("start", giveUp);
+
+    return () => {
+      unsubscribe();
+      controls?.removeEventListener("start", giveUp);
+    };
   }, [camera]);
 
   return (

@@ -124,9 +124,13 @@ async function main(): Promise<void> {
 
   // Forecast snapshot logger (M4 F1) — records the physics per-band p_open
   // for the current hour; the first write per hour wins, later ticks no-op.
-  register("forecast-snapshot", pollIntervals.forecastSnapshot, () =>
-    collectForecastSnapshot(db),
-  );
+  // Gated on the solar source: the writer refuses solar input >3h stale, so
+  // without collectSolar it would just error every tick and degrade /health.
+  if (config.enabledSources.has("solar")) {
+    register("forecast-snapshot", pollIntervals.forecastSnapshot, () =>
+      collectForecastSnapshot(db),
+    );
+  }
 
   // Fail-closed retention maintenance. Historical deletion additionally
   // requires database controls, sealed manifests, and dataset restore gates.

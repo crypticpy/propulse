@@ -15,7 +15,10 @@ import { useUserStore } from "@/stores/userStore";
 import { useLightning } from "@/hooks/useLightning";
 import { useFires } from "@/hooks/useFires";
 import { projectToScope, type ScopeBlip } from "@/lib/utils/scope";
-import { playProximityPing } from "@/lib/audio/proximityPing";
+import {
+  playProximityPing,
+  primeProximityAudio,
+} from "@/lib/audio/proximityPing";
 import { prefersReducedMotion } from "@/lib/utils/a11y";
 
 const RANGES_KM = [100, 250, 500] as const;
@@ -256,7 +259,12 @@ export function QthScopeCard({ className = "" }: QthScopeCardProps) {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setAudioOn((on) => !on)}
+            onClick={() => {
+              // Prime the context inside this gesture: pings fire later
+              // from data effects, where autoplay policy blocks creation
+              if (!audioOn) primeProximityAudio();
+              setAudioOn((on) => !on);
+            }}
             className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
               audioOn
                 ? "border-signal-green/50 text-signal-green"

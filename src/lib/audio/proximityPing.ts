@@ -19,6 +19,20 @@ function getAudioContext(): AudioContext {
 }
 
 /**
+ * Create/resume the context synchronously from a user gesture. Pings fire
+ * later from data effects — outside user activation — where a first-time
+ * AudioContext would be created suspended and stay silent.
+ */
+export function primeProximityAudio(): void {
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === "suspended") void ctx.resume();
+  } catch {
+    // Audio is a courtesy — never let it break the scope
+  }
+}
+
+/**
  * Play a short sonar ping scaled by proximity.
  * proximity 1 = at the QTH (loud, bright), 0 = at scope edge (faint).
  */

@@ -1,14 +1,14 @@
 /**
  * ShortcutsHelpModal Component
  *
- * A standalone keyboard shortcuts help modal that works on every page.
- * Context-aware: shows different shortcut sections depending on the
- * current route (e.g. Map shortcuts only appear on /map).
+ * A standalone help modal that works on every page, with two tabs:
+ * keyboard shortcuts (context-aware per route) and the operator quick
+ * reference (band plan, Q-codes, prosigns — parity item G12).
  *
  * Triggered by the ? key or from the command palette.
  */
 
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import {
@@ -28,6 +28,11 @@ export interface ShortcutsHelpModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+type HelpTab = "shortcuts" | "reference";
+
+// Reference content stays out of the entry bundle
+const ReferencePanel = lazy(() => import("@/components/ui/ReferencePanel"));
 
 // =============================================================================
 // STATIC DATA
@@ -173,6 +178,7 @@ export function ShortcutsHelpModal({
 }: ShortcutsHelpModalProps) {
   const location = useLocation();
   const pathname = location.pathname;
+  const [tab, setTab] = useState<HelpTab>("shortcuts");
 
   const isMapPage = pathname === "/map";
   const isContestPage = pathname === "/contest";
@@ -242,10 +248,12 @@ export function ShortcutsHelpModal({
                   d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
                 />
               </svg>
-              Keyboard Shortcuts
+              {tab === "shortcuts" ? "Keyboard Shortcuts" : "Quick Reference"}
             </h2>
             <p className="mt-1 text-sm text-gray-400">
-              Quick access to Propulse features
+              {tab === "shortcuts"
+                ? "Quick access to Propulse features"
+                : "Band plan, Q-codes, and CW reference"}
             </p>
           </div>
 
@@ -270,53 +278,93 @@ export function ShortcutsHelpModal({
           </button>
         </div>
 
+        {/* Tab row */}
+        <div className="flex gap-1 px-6 pt-4" role="tablist">
+          {(
+            [
+              ["shortcuts", "Shortcuts"],
+              ["reference", "Reference"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                tab === id
+                  ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40"
+                  : "text-gray-400 border border-transparent hover:bg-white/5 hover:text-gray-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-5">
-          {/* Global shortcuts — always shown */}
-          <div>
-            <SectionHeader title="Global" />
-            <div className="space-y-0.5">
-              {GLOBAL_SHORTCUTS.map((s) => (
-                <ShortcutRow
-                  key={s.keys}
-                  keys={s.keys}
-                  description={s.description}
-                />
-              ))}
-            </div>
-          </div>
+          {tab === "reference" && (
+            <Suspense
+              fallback={
+                <p className="text-sm text-gray-500 text-center py-8">
+                  Loading reference…
+                </p>
+              }
+            >
+              <ReferencePanel />
+            </Suspense>
+          )}
 
-          {/* Navigation shortcuts — always shown */}
-          <div>
-            <SectionHeader title="Navigation" />
-            <div className="space-y-0.5">
-              {NAVIGATION_SHORTCUTS.map((s) => (
-                <ShortcutRow
-                  key={s.keys}
-                  keys={s.keys}
-                  description={s.description}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Map shortcuts — only on /map */}
-          {isMapPage && <MapShortcutsSection />}
-
-          {/* Contest shortcuts — only on /contest */}
-          {isContestPage && (
-            <div>
-              <SectionHeader title="Contest" />
-              <div className="space-y-0.5">
-                {CONTEST_SHORTCUTS.map((s) => (
-                  <ShortcutRow
-                    key={s.keys}
-                    keys={s.keys}
-                    description={s.description}
-                  />
-                ))}
+          {tab === "shortcuts" && (
+            <>
+              {/* Global shortcuts — always shown */}
+              <div>
+                <SectionHeader title="Global" />
+                <div className="space-y-0.5">
+                  {GLOBAL_SHORTCUTS.map((s) => (
+                    <ShortcutRow
+                      key={s.keys}
+                      keys={s.keys}
+                      description={s.description}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+
+              {/* Navigation shortcuts — always shown */}
+              <div>
+                <SectionHeader title="Navigation" />
+                <div className="space-y-0.5">
+                  {NAVIGATION_SHORTCUTS.map((s) => (
+                    <ShortcutRow
+                      key={s.keys}
+                      keys={s.keys}
+                      description={s.description}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Map shortcuts — only on /map */}
+              {isMapPage && <MapShortcutsSection />}
+
+              {/* Contest shortcuts — only on /contest */}
+              {isContestPage && (
+                <div>
+                  <SectionHeader title="Contest" />
+                  <div className="space-y-0.5">
+                    {CONTEST_SHORTCUTS.map((s) => (
+                      <ShortcutRow
+                        key={s.keys}
+                        keys={s.keys}
+                        description={s.description}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 

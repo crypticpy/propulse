@@ -191,15 +191,203 @@ export async function handleAtmosTec(request: Request): Promise<Response> {
 }
 
 // ─── GET /api/atmos/tropical ────────────────────────────────────────────────
+//
+// Merges two independent upstreams into one payload:
+//  - NHC CurrentSummaries.json: Atlantic/E.Pacific active storms, passed
+//    through under the pre-existing `activeStorms` field (see
+//    src/lib/api/tropical.ts, which short-circuits on `"activeStorms" in
+//    data` and otherwise normalizes a raw NHC array itself).
+//  - JTWC's RSS feed: West Pacific / Indian Ocean / Southern Hemisphere
+//    active systems, added under a new `jtwc` field. JTWC failures degrade
+//    to `jtwc: []` and never affect the NHC half of the response.
 
 const NHC_URL = "https://www.nhc.noaa.gov/CurrentSummaries.json";
+const JTWC_RSS_URL = "https://www.metoc.navy.mil/jtwc/rss/jtwc.rss";
+
+export type JtwcBasin = "wpac" | "io" | "shem";
+
+export interface JtwcCyclone {
+  id: string;
+  name: string;
+  basin: JtwcBasin;
+  category: string;
+  warningNumber: number | null;
+  lat: number | null;
+  lon: number | null;
+  maxWinds: number | null;
+  link: string | null;
+}
+
+/**
+ * JTWC's RSS groups systems into a handful of fixed regional <item>s keyed
+ * by <guid>. NWPAC-NIO-WARNINGS mixes West Pacific and North Indian Ocean
+ * systems in one item; basin is then resolved per-system below. The
+ * EPAC/CPAC item is NHC's territory and the advisories item covers
+ * pre-cyclone disturbances rather than active cyclones, so both are
+ * ignored here.
+ */
+const JTWC_ITEM_BASIN: Partial<Record<string, JtwcBasin | "mixed">> = {
+  "NWPAC-NIO-WARNINGS": "mixed",
+  "SH-WARNINGS": "shem",
+};
+
+const JTWC_SYSTEM_RE =
+  /<b>\s*(Super Typhoon|Typhoon|Tropical Storm|Tropical Depression|Tropical Cyclone)\s+(\d{2}[A-Za-z])\s*\(([^)]+)\)\s*Warning\s*#?\s*(\d+)\s*<\/b>/gi;
+const JTWC_COORD_RE =
+  /(\d{1,2}(?:\.\d+)?)\s*([NS])\s+(\d{1,3}(?:\.\d+)?)\s*([EW])/;
+const JTWC_WIND_RE = /(?:winds?|intensity)[^.\d]{0,20}(\d{2,3})\s*(?:kt|knots)/i;
+const JTWC_LINK_RE = /<a href=['"]([^'"]+web\.txt)['"]/i;
+
+function jtwcBasinForId(id: string, itemBasin: JtwcBasin | "mixed"): JtwcBasin {
+  if (itemBasin !== "mixed") return itemBasin;
+  return id.toUpperCase().endsWith("W") ? "wpac" : "io";
+}
+
+/**
+ * Parses JTWC's RSS listing into individual active systems. Only the
+ * regional items covering wpac/io/shem are considered; each is scanned for
+ * per-system "<b>Typhoon 20W (Name) Warning #14</b>" headers, with
+ * lat/lon/winds extracted from the surrounding text when present. Malformed
+ * items or systems are skipped rather than failing the whole parse.
+ */
+export function parseJtwcRss(xml: string): JtwcCyclone[] {
+  if (typeof xml !== "string" || xml.length === 0) return [];
+
+  const cyclones: JtwcCyclone[] = [];
+  const itemRe = /<item>([\s\S]*?)<\/item>/g;
+  let itemMatch: RegExpExecArray | null;
+
+  while ((itemMatch = itemRe.exec(xml)) !== null) {
+    try {
+      const itemBlock = itemMatch[1];
+      const guid = itemBlock.match(/<guid>([^<]+)<\/guid>/)?.[1]?.trim();
+      const itemBasin = guid ? JTWC_ITEM_BASIN[guid] : undefined;
+      if (!itemBasin) continue;
+
+      const description = itemBlock.match(
+        /<description>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/description>/,
+      )?.[1];
+      if (!description) continue;
+
+      const headers = [...description.matchAll(JTWC_SYSTEM_RE)];
+      for (let i = 0; i < headers.length; i++) {
+        const header = headers[i];
+        const [, category, id, name, warningNumRaw] = header;
+        const start = header.index ?? 0;
+        const end =
+          i + 1 < headers.length
+            ? (headers[i + 1].index ?? description.length)
+            : description.length;
+        const chunk = description.slice(start, end);
+
+        let lat: number | null = null;
+        let lon: number | null = null;
+        const coordMatch = chunk.match(JTWC_COORD_RE);
+        if (coordMatch) {
+          const parsedLat =
+            parseFloat(coordMatch[1]) *
+            (coordMatch[2].toUpperCase() === "S" ? -1 : 1);
+          const parsedLon =
+            parseFloat(coordMatch[3]) *
+            (coordMatch[4].toUpperCase() === "W" ? -1 : 1);
+          if (Number.isFinite(parsedLat) && Number.isFinite(parsedLon)) {
+            lat = parsedLat;
+            lon = parsedLon;
+          }
+        }
+
+        let maxWinds: number | null = null;
+        const windMatch = chunk.match(JTWC_WIND_RE);
+        if (windMatch) {
+          const parsed = parseInt(windMatch[1], 10);
+          if (Number.isFinite(parsed)) maxWinds = parsed;
+        }
+
+        const warningNumber = warningNumRaw ? parseInt(warningNumRaw, 10) : NaN;
+
+        cyclones.push({
+          id: id.toUpperCase(),
+          name: name.trim(),
+          basin: jtwcBasinForId(id, itemBasin),
+          category,
+          warningNumber: Number.isFinite(warningNumber) ? warningNumber : null,
+          lat,
+          lon,
+          maxWinds,
+          link: chunk.match(JTWC_LINK_RE)?.[1] ?? null,
+        });
+      }
+    } catch {
+      // Skip malformed items rather than failing the whole feed.
+      continue;
+    }
+  }
+
+  return cyclones;
+}
+
+async function fetchJtwcCyclones(): Promise<{
+  jtwc: JtwcCyclone[];
+  jtwcAvailable: boolean;
+}> {
+  try {
+    const response = await fetch(JTWC_RSS_URL, {
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        Accept: "application/rss+xml, text/xml",
+        "User-Agent": "Propulse/1.0 (Ham Radio Solar Dashboard)",
+      },
+    });
+    if (!response.ok) return { jtwc: [], jtwcAvailable: false };
+    return { jtwc: parseJtwcRss(await response.text()), jtwcAvailable: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`JTWC RSS fetch failed: ${message}`);
+    return { jtwc: [], jtwcAvailable: false };
+  }
+}
+
+/**
+ * Fetches and normalizes the NHC payload to an object shape carrying
+ * `activeStorms` (wrapping a bare top-level array, if that's what NHC
+ * returns, so the merged response is always a single JSON object). Returns
+ * null on any failure so the caller can fall back to the pre-existing empty
+ * `activeStorms: []` degraded shape.
+ */
+async function fetchNhcPayload(): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await fetch(NHC_URL, {
+      signal: AbortSignal.timeout(15_000),
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Propulse/1.0 (Ham Radio Solar Dashboard)",
+      },
+    });
+    if (!response.ok) return null;
+
+    const parsed: unknown = JSON.parse(await response.text());
+    if (Array.isArray(parsed)) return { activeStorms: parsed };
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`Tropical cyclone fetch failed: ${message}`);
+    return null;
+  }
+}
 
 function fallbackTropicalResponse(
   corsHeaders: Record<string, string>,
+  jtwc: JtwcCyclone[] = [],
+  jtwcAvailable = false,
 ): Response {
   return new Response(
     JSON.stringify({
       activeStorms: [],
+      jtwc,
+      jtwcAvailable,
     }),
     {
       status: 200,
@@ -229,34 +417,26 @@ export async function handleAtmosTropical(
   const limited = applyRateLimit(request, "atmos/tropical", 10, 60);
   if (limited) return limited;
 
-  try {
-    const response = await fetch(NHC_URL, {
-      signal: AbortSignal.timeout(15_000),
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Propulse/1.0 (Ham Radio Solar Dashboard)",
-      },
-    });
+  const [nhcPayload, { jtwc, jtwcAvailable }] = await Promise.all([
+    fetchNhcPayload(),
+    fetchJtwcCyclones(),
+  ]);
 
-    if (!response.ok) {
-      return fallbackTropicalResponse(corsHeaders);
-    }
+  if (!nhcPayload) {
+    return fallbackTropicalResponse(corsHeaders, jtwc, jtwcAvailable);
+  }
 
-    const data = await response.text();
-
-    return new Response(data, {
+  return new Response(
+    JSON.stringify({ ...nhcPayload, jtwc, jtwcAvailable }),
+    {
       status: 200,
       headers: {
         ...corsHeaders,
         "Content-Type": "application/json",
         "Cache-Control": "s-maxage=900, stale-while-revalidate=300",
       },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error(`Tropical cyclone fetch failed: ${message}`);
-    return fallbackTropicalResponse(corsHeaders);
-  }
+    },
+  );
 }
 
 // ─── GET /api/atmos/winlink ─────────────────────────────────────────────────

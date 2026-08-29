@@ -34,6 +34,7 @@ import {
   handleCallsignLookup,
 } from "./handlers/callsign";
 import { handleContestScp } from "./handlers/contest";
+import { handleDxDxpeditions } from "./handlers/dxpeditions";
 import { handleFiresHotspots } from "./handlers/fires";
 import { handleLightningStrikes } from "./handlers/lightning";
 import { handleAtmosMetar } from "./handlers/metar";
@@ -81,6 +82,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/callsign/clublog-status": handleCallsignClublogStatus,
   "/api/callsign/lookup": handleCallsignLookup,
   "/api/contest/scp": handleContestScp,
+  "/api/dx/dxpeditions": handleDxDxpeditions,
   "/api/feeds/rss": handleFeedsRss,
   "/api/fires/hotspots": handleFiresHotspots,
   "/api/lightning/strikes": handleLightningStrikes,

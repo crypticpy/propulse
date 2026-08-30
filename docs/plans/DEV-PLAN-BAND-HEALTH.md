@@ -56,12 +56,23 @@ the hold/hysteresis machinery stays monotone and testable:
 | --- | --- | --- |
 | `closed` | No prediction, no traffic | — |
 | `forecast` | Model predicts an opening at/for your location (lead time shown) | blended p_open ≥ 0.4 (existing enter threshold) |
-| `stirring` | Traffic detected below verification — "people are appearing" | ≥ 1 spot in the 20-min window, below verified bar |
-| `verified` | **Verified Open** — sustained real traffic | ≥ 6 spots from ≥ 3 unique reporters in 20 min |
+| `stirring` | Traffic detected below verification — "people are appearing" | ≥ 1 observation in the 20-min window, below verified bar |
+| `verified` | **Verified Open** — sustained real traffic | ≥ 6 deduplicated observations from ≥ 3 unique reporters in 20 min |
 | `hot` | Escalating — traffic rising beyond verified | verified + rising trend sustained one full hold |
 
-`surprise` remains the interrupt: `stirring`/`verified` reached while the
-model said closed — surfaced loudly, and logged as a model miss (§8).
+**Observation identity (cross-source dedup).** `spot_history` deduplicates
+only within a source; the same reception report can arrive via PSKReporter,
+RBN, *and* a cluster (RBN feeds clusters). An **observation** is therefore a
+deduplicated `(tx_callsign, rx_callsign, band, 5-min time bucket)` identity —
+the same station pair in the same bucket counts once no matter how many feeds
+carried it. "Reporters" are distinct `rx_callsign` values after dedup. The
+dedup runs server-side in the `band-activity` query (§6), never client-side.
+
+`surprise` is **not a ladder state** — `VERDICT_RANK` stays a total order
+over the five states above, so holds and downgrades remain well-defined. It
+is an orthogonal boolean modifier (plus a logged event, §8) set whenever
+`stirring`+ is reached while the model's blended p_open said closed —
+surfaced loudly in the UI, cleared when the model catches up.
 
 **Trend dimension** (computed per tick, shown as a modifier):
 `rising | steady | falling`. Rate in the trailing 10 min vs the prior
@@ -80,7 +91,7 @@ Example renderings: `Verified Open · rising`, `Hot · crowded`,
 
 Holds: upgrades keep the 5-min hold, downgrades the 20-min hold
 (`stateMachine.ts` unchanged in spirit; ladder ranks extended). The
-verified-bar constants (6 spots / 3 reporters / 20 min) live beside
+verified-bar constants (6 observations / 3 reporters / 20 min) live beside
 `SPOTS_CONFIRM_ENTER` and get the same hysteresis treatment (exit well below
 enter).
 
@@ -89,13 +100,24 @@ enter).
 "Open" is meaningless without *open to whom*. Two scope instances of the
 ladder run per band:
 
-- **Regional** — activity involving your continent/region. Numerator:
-  spots whose tx or rx continent matches yours (spot rows carry
-  `continent`); baseline: climatology of the same slice.
+- **Regional** — activity involving your continent/region. The
+  `spot_history.continent` column **cannot** drive this filter: it is
+  DX-cluster tx-side metadata only, and the PSKReporter/RBN normalizers set
+  it to null (see the §6 field matrix) — filtering on it would silently drop
+  the machine-reported traffic this design relies on. Regional membership is
+  instead derived from endpoint geography: tx region from
+  `tx_grid`/`tx_lat`/`tx_lon` (or callsign-prefix fallback), rx region
+  likewise; a spot qualifies when *either* resolved endpoint matches the
+  operator's region. Rows where neither endpoint resolves are excluded from
+  the scoped numerator **and** from the scoped baseline (same-population
+  rule, §5). Prerequisite: a scoped hourly aggregate with these same keys
+  (BH2 work item, §10) — until it exists, Regional has no climatology and
+  ships as counts-only.
 - **DX** — activity crossing between your Maidenhead field and a saved
   target's field (both directions). `path_hourly_stats`
   (hour × band × mode_class × tx_field × rx_field) is the durable baseline;
-  the live 20-min numerator comes from `spot_history` (§6).
+  the live numerator comes from `spot_history` (§6) filtered on the same
+  field-pair keys.
 
 **DX mode** (operator intent toggle): the headline verdict per band is the DX
 scope; Regional demotes to secondary. Default mode leads with Regional.
@@ -111,11 +133,23 @@ Personalization tiers (in order):
 
 ## 5. Activity Index (over-busy / decaying inputs)
 
-Per band × scope: current 20-min spot rate + unique actives, expressed as a
-percentile against the climatology of the same band × UTC-hour-of-day from
-`band_hourly_stats` (same held-out percentile machinery as the F2 eval
-harness — reuse `scripts/lib/forecast-eval-core.mjs` logic, ported to a
-shared lib).
+Per band × scope: current spot rate + unique actives, expressed as a
+percentile against the climatology of the same band × UTC-hour-of-day (same
+held-out percentile machinery as the F2 eval harness — reuse
+`scripts/lib/forecast-eval-core.mjs` logic, ported to a shared lib).
+
+**Windows must match.** The climatology rows are 60-minute totals, so the
+Activity Index numerator is the **trailing 60-minute** count from
+`spot_history` — comparing a 20-min count against hourly percentiles would
+systematically depress the index. The 20-min window exists only for the §3
+ladder, whose thresholds are absolute counts, not percentiles.
+
+**Scopes must match.** `band_hourly_stats` is global (one row per
+band × hour, no scope keys), so it can baseline only the **global** index —
+that is what BH1 ships. Scoped indexes come later from scoped baselines:
+DX-scope climatology is derivable today by rolling up `path_hourly_stats`
+per field pair; Regional-scope climatology requires the new scoped hourly
+aggregate (§4, BH2). No scope ever borrows another scope's baseline.
 
 Display bands: Quiet (< 25th) / Normal / Busy (≥ 75th) / Exceptional
 (≥ 95th → the Crowded badge). Trend arrow from §3's trend dimension.
@@ -129,17 +163,51 @@ population.
 
 ## 6. Data plumbing (new surface, all inside existing platform)
 
-- **`api/spots/band-activity` edge function**: 20-min counts per band
-  (+ optional scope filters: continent, tx_field/rx_field pair, mode_class)
-  over `spot_history`. Indexed reads, well under the 8-s PostgREST budget;
-  rate-limited like sibling endpoints; cacheable ~60 s.
+**Per-source field availability** (what each feed actually carries at
+ingest — every scope, index, and proxy above must respect this matrix, not
+assume a union):
+
+| Field | PSKReporter | RBN | DX cluster |
+| --- | --- | --- | --- |
+| SNR | ✓ | ✓ | ✗ |
+| WPM | ✗ | ✓ | ✗ |
+| tx grid/lat/lon | ✓ | ✗ (callsign_fields backfill in path aggregation) | sometimes (comment grid / HamQTH coords) |
+| rx grid/lat/lon | ✓ | ✗ (same backfill) | ✗ |
+| continent | ✗ (null) | ✗ (null) | tx-side only, when the feed provides it |
+| TX power | ✗ | ✗ | ✗ |
+
+- **`api/spots/band-activity` edge function**: counts per band over
+  `spot_history` — a trailing 60-min **raw row count** for the Activity
+  Index (the climatology's `spot_count` is `count(*)`, so the numerator
+  must be the same un-deduplicated population), and trailing 20-min
+  **deduplicated observation counts** per the §3 identity for the ladder,
+  whose thresholds are absolute and need dedup for truthfulness
+  (+ optional scope filters: derived region, tx_field/rx_field pair,
+  mode_class). The response also carries **per-source observation counts and
+  first-crossing timestamps** — the badge's provenance ("opened 1417Z · 9
+  reporters · PSKReporter+RBN") comes from this endpoint, *never* from the
+  client's own grid-scoped feeds, which sample a different population and
+  would fabricate a source mix the threshold never saw. Indexed reads, well
+  under the 8-s PostgREST budget; rate-limited like sibling endpoints;
+  cacheable ~60 s.
 - **Climatology snapshot**: per band × hour-of-day percentile table
   (p25/p75/p95 + open threshold), recomputed daily by the collector into a
   small public-read table (≤ 11 bands × 24 h rows per scope) so clients
-  never scan history.
-- Verdict provenance: the ingest batch already carries per-source spots
-  client-side; the ladder records first-crossing timestamps ("opened at")
-  and the contributing source mix for the badge tooltip.
+  never scan history. BH1 populates the global scope only (§5).
+- **`verdict_events` (BH2)** — the durable pre-outcome log the self-scoring
+  in §8 depends on. `forecast_snapshots` cannot serve this role: it stores
+  one global p_open per band × source × hour and has no scope, ladder state,
+  or transition fields. The collector evaluates a **canonical server-side
+  ladder** each tick for the scopes it can compute deterministically (global
+  per band; Regional per band × continent) and appends one row per
+  transition: `(ts, band, scope_type, scope_key, from_state, to_state,
+  inputs jsonb)` — written before outcomes are known, same
+  log-don't-reconstruct rule as forecast_snapshots. Client-side ladders
+  remain for UI immediacy but are never the scored record. DX (field-pair)
+  ladders are client-computed from endpoint counts and are scored at hourly
+  granularity against `path_hourly_stats` instead — 20-min-resolution DX
+  scoring is explicitly out of scope until a bounded field-pair event log
+  proves affordable.
 
 ## 7. Mode-class honesty
 
@@ -152,10 +220,15 @@ should say "verified by digital traffic" when that's what happened.
 
 ## 8. Self-scoring, user feedback, and abuse resistance
 
-- **Self-scoring is structural**: every forecast state change is already
+- **Self-scoring is structural**: hourly per-band probabilities are already
   logged to `forecast_snapshots` before outcomes are known; F2 scores Brier
-  + reliability vs climatology. BH adds scoring of the *ladder's* calls
-  (did `forecast` reach `verified` within the stated lead window?).
+  + reliability vs climatology. Scoring the *ladder's* calls (did
+  `forecast` reach `verified` within the stated lead window?) additionally
+  requires the `verdict_events` log defined in §6 — forecast_snapshots
+  alone cannot reconstruct which scoped state was shown when. Ladder hit
+  rates are therefore a BH4 deliverable gated on the BH2 event log, and are
+  published only for the server-scored scopes (global + Regional); DX calls
+  are scored at hourly granularity via `path_hourly_stats` (§6).
 - **Accuracy panel** (public): rolling 30-day hit rate, Brier vs
   climatology, reliability curve, and the worst recent miss. Showing bad
   months is the point — receipts are the differentiator.
@@ -174,17 +247,23 @@ should say "verified by digital traffic" when that's what happened.
 
 ## 9. Gear/power measurement — viability answer
 
-Direct TX power is **not available live**: PSKReporter/RBN/cluster spots
-carry SNR, WPM, grids, continent — no power field. Only WSPR encodes dBm,
-and live WSPR ingestion stays permanently decommissioned. Viable proxies,
-in order of value:
+Direct TX power is **not available live**: no feed carries a power field
+(see the §6 per-source matrix for what each feed *does* carry — the fields
+are far from uniform across sources). Only WSPR encodes dBm, and live WSPR
+ingestion stays permanently decommissioned. Viable proxies, in order of
+value:
 
-1. **SNR margin analysis** — SNR + grid-pair distance per spot. A path
-   decoding at +15 dB over the mode threshold closes at QRP; near-threshold
-   decodes mean high-power-only. Aggregated per path × band this yields a
-   "power margin" estimate without ever knowing watts. (Requires adding SNR
-   stats to the DX-scope live endpoint; `avg_snr`/`median_snr` already exist
-   in both aggregate tables.)
+1. **SNR margin analysis** — SNR + grid-pair distance per spot, presented
+   strictly as **decode robustness**: a path decoding at +15 dB over the
+   mode threshold has headroom; near-threshold decodes are fragile. Margin
+   alone does *not* establish "closes at QRP" or "high-power-only" — the
+   same received margin can come from very different EIRPs, and distance
+   does not resolve the unknown transmit power or antennas. Power-level
+   claims are reserved for known-power probes (item 2) and explicit model
+   assumptions (item 3). (Requires adding SNR stats to the DX-scope live
+   endpoint; `avg_snr`/`median_snr` already exist in both aggregate
+   tables — and per the §6 matrix, margins exist only for PSKReporter/RBN
+   spots; cluster spots carry no SNR.)
 2. **NCDXF beacon probes** — 18 known 100 W transmitters on 5 bands, spotted
    by RBN skimmers: calibrated path probes with a known denominator (a
    *missing* beacon spot is evidence, unlike ordinary spot absence). Design
@@ -201,17 +280,22 @@ So gear-aware verdicts are viable — via margins, not reported watts.
 Ordered so nothing model-side moves before the M4.b evidence gate
 (≥ 14 consecutive snapshot days, ~2026-09-12; see DEV-PLAN-FORECAST-ENGINE).
 
-### BH1 — Activity Index (no model changes)
-Climatology snapshot table + `band-activity` endpoint + client gauge
-(percentile band, trend arrow, Crowded badge). Verify: unit tests on
-percentile/trend math; endpoint under rate-limit + timeout budgets; gauge
-matches a hand-computed hour.
+### BH1 — Activity Index, global scope (no model changes)
+Climatology snapshot table (global) + `band-activity` endpoint (60-min +
+20-min deduplicated counts, per-source breakdown) + client gauge
+(percentile band, trend arrow, Crowded badge). Scoped indexes wait for
+their baselines (§5). Verify: unit tests on percentile/trend/dedup math;
+endpoint under rate-limit + timeout budgets; gauge matches a hand-computed
+hour.
 
 ### BH2 — Ladder + scopes + provenance (no model changes)
-Extend the verdict engine to the §3 ladder and §4 dual scopes; provenance
+Extend the verdict engine to the §3 ladder and §4 dual scopes; the scoped
+hourly aggregate that gives Regional a baseline (§4); the canonical
+server-side ladder + `verdict_events` log (§6); endpoint-sourced provenance
 timestamps and source mix; DX-mode toggle; mode-class badges. Verify:
 state-machine unit tests (every transition, holds, hysteresis, trend dead
-band); ladder never flaps on recorded quiet/busy fixtures.
+band); ladder never flaps on recorded quiet/busy fixtures; event rows
+written before outcomes on a replayed fixture.
 
 ### BH3 — Opening timeline
 "Likely opens ~40 min" from physics time-sweep + FutureCast horizons where

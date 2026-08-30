@@ -46,6 +46,7 @@ export interface PollIntervals {
   forecasts: number;
   satellites: number;
   aggregator: number;
+  forecastSnapshot: number;
   prune: number;
 }
 

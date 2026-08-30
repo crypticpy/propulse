@@ -27,6 +27,7 @@ const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
   satellites: "satellites",
   aggregator: "aggregator",
   "path-aggregator": "aggregator",
+  "forecast-snapshot": "forecastSnapshot",
 };
 
 export function getSourceStaleMs(

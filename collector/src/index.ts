@@ -15,6 +15,7 @@ import { startRbn, stopRbn } from "./collectors/rbn.js";
 import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
 import { collectForecasts } from "./collectors/forecast.js";
+import { collectForecastSnapshot } from "./collectors/forecastSnapshot.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
@@ -120,6 +121,16 @@ async function main(): Promise<void> {
       computePathHourlyStats(db, config),
     ),
   );
+
+  // Forecast snapshot logger (M4 F1) — records the physics per-band p_open
+  // for the current hour; the first write per hour wins, later ticks no-op.
+  // Gated on the solar source: the writer refuses solar input >3h stale, so
+  // without collectSolar it would just error every tick and degrade /health.
+  if (config.enabledSources.has("solar")) {
+    register("forecast-snapshot", pollIntervals.forecastSnapshot, () =>
+      collectForecastSnapshot(db),
+    );
+  }
 
   // Fail-closed retention maintenance. Historical deletion additionally
   // requires database controls, sealed manifests, and dataset restore gates.

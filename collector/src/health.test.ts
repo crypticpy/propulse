@@ -10,6 +10,7 @@ const pollIntervals: PollIntervals = {
   forecasts: 6 * 60 * 60_000,
   satellites: 2 * 60 * 60_000,
   aggregator: 5 * 60_000,
+  forecastSnapshot: 5 * 60_000,
   prune: 60 * 60_000,
 };
 

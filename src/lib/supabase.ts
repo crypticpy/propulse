@@ -67,24 +67,6 @@ export interface SpotHistoryRow {
   spotted_at: string;
 }
 
-/** Row shape returned by queryBandHourlyStats */
-export interface BandHourlyStatsRow {
-  band: string;
-  hour: number;
-  day_of_year: number;
-  spot_count: number;
-  avg_snr: number | null;
-  kp: number | null;
-  sfi: number | null;
-  bz_gsm: number | null;
-  by_gsm: number | null;
-  bt: number | null;
-  xray_flux: number | null;
-  dst_index: number | null;
-  proton_flux_10mev: number | null;
-  created_at: string;
-}
-
 /**
  * Query spot_history for a given band with optional limit and time filter.
  *
@@ -121,34 +103,8 @@ export async function querySpotHistory(
   return (data ?? []) as SpotHistoryRow[];
 }
 
-/**
- * Query band_hourly_stats for a given band over a time window.
- *
- * @param band - Amateur band designation (e.g., "20m", "40m")
- * @param hours - Number of hours to look back (default 168 = 7 days)
- * @returns Array of hourly stat rows
- */
-export async function queryBandHourlyStats(
-  band: string,
-  hours = 168,
-): Promise<BandHourlyStatsRow[]> {
-  const supabase = getSupabase();
-  const since = new Date(Date.now() - hours * 3600_000).toISOString();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from("band_hourly_stats")
-    .select("*")
-    .eq("band", band)
-    .gt("created_at", since)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(`band_hourly_stats query failed: ${error.message}`);
-  }
-
-  return (data ?? []) as BandHourlyStatsRow[];
-}
+// Hourly aggregate readers (band_hourly_stats / path_hourly_stats) live in
+// src/lib/propagation/hourlyStats.ts — keyed by hour_utc, paged.
 
 // ─── Realtime Spot Subscription ─────────────────────────────────────────────
 

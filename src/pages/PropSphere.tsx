@@ -26,6 +26,7 @@ import {
   PropagationForecastMini,
   BandConditionsPanel,
   MUFLegend,
+  IonosphereLegend,
   RecommendationsPanel,
   OptimalBandsPanel,
   OperatorProfile,
@@ -1040,10 +1041,18 @@ export function PropSphere() {
                 <ContestRatePanel />
               </div>
 
-              {/* MUF Legend (bottom of map when MUF layer active) */}
-              {layers.muf && (
-                <div className="absolute bottom-2 left-2 right-2 z-10">
-                  <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2" />
+              {/* Legends (bottom of map). The ionosphere legend describes the
+                  ray-path bounce markers, which only exist on the globe with a
+                  target set. */}
+              {(layers.muf ||
+                (layers.ionosphere && target && viewMode === "globe")) && (
+                <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-col gap-1">
+                  {layers.ionosphere && target && viewMode === "globe" && (
+                    <IonosphereLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1" />
+                  )}
+                  {layers.muf && (
+                    <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2" />
+                  )}
                 </div>
               )}
 

@@ -15,6 +15,7 @@ import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { useGOESImagery } from "@/hooks/useGOESImagery";
 import { GOES_EAST_Z2_TILE_LIMITS } from "@/lib/api/goes";
+import { drawMercatorAsEquirect } from "@/lib/map/mercatorReproject";
 import {
   GLOBE_LAYER_ORDER,
   GLOBE_OVERLAY_MATERIAL,
@@ -62,9 +63,9 @@ export function GOESCloudOverlay3D() {
   const meshRef = useRef<THREE.Mesh>(null);
   const { tileUrl } = useGOESImagery();
 
-  // Sphere geometry slightly larger than globe (phiStart = Math.PI to align UV)
+  // Sphere geometry slightly larger than globe (default UV matches the basemap)
   const geometry = useMemo(
-    () => new THREE.SphereGeometry(GLOBE_RADIUS, 64, 32, Math.PI),
+    () => new THREE.SphereGeometry(GLOBE_RADIUS, 64, 32),
     [],
   );
 
@@ -88,10 +89,12 @@ export function GOESCloudOverlay3D() {
   useEffect(() => {
     if (!tileUrl || !meshRef.current) return;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = CANVAS_SIZE;
-    canvas.height = CANVAS_SIZE;
-    const ctx = canvas.getContext("2d")!;
+    // Tiles are Web Mercator (GIBS EPSG:3857): composite them as-is, then
+    // resample onto the equirect canvas the sphere's default UVs expect.
+    const mercator = document.createElement("canvas");
+    mercator.width = CANVAS_SIZE;
+    mercator.height = CANVAS_SIZE;
+    const ctx = mercator.getContext("2d")!;
 
     let disposed = false;
 
@@ -127,6 +130,15 @@ export function GOESCloudOverlay3D() {
 
     Promise.all(promises).then(() => {
       if (disposed || !meshRef.current) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = CANVAS_SIZE;
+      canvas.height = CANVAS_SIZE;
+      drawMercatorAsEquirect(
+        canvas.getContext("2d")!,
+        mercator,
+        CANVAS_SIZE,
+        CANVAS_SIZE,
+      );
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.minFilter = THREE.LinearFilter;

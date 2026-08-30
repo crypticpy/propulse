@@ -18,6 +18,7 @@ const pollIntervals: PollIntervals = {
   pathArchive: 60 * 60_000,
   bandClimatology: 24 * 60 * 60_000,
   verdictLadder: 5 * 60_000,
+  inferenceMonitor: 10 * 60_000,
 };
 
 describe("collector health freshness", () => {

@@ -1,9 +1,13 @@
 name: Solar provider synthetic
 
+# Every 6 hours, not hourly: each private-repo run bills a minimum of one
+# Actions minute, and hourly synthetics + the retired 30-min uptime monitor
+# together exhausted the account's included minutes in Aug 2026. Provider
+# contract regressions are still caught same-day at this cadence.
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 */6 * * *"
 
 permissions:
   contents: read
@@ -25,3 +29,14 @@ jobs:
           node-version: 22
       - name: Verify deployed data, metadata, and animation contracts
         run: npm run check:solar:synthetic
+
+      # Outside-in deadman for the Railway project: the inference uptime
+      # monitor now runs inside the collector (collector/src/collectors/
+      # inferenceMonitor.ts), so a Railway-wide outage would silence it.
+      # This is the one probe that still watches Railway from outside —
+      # a dead collector fails this workflow and GitHub emails the owner.
+      - name: Collector liveness deadman
+        if: always()
+        run: |
+          curl --fail --silent --show-error --max-time 20 \
+            https://collector-production-a966.up.railway.app/live

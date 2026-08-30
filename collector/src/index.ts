@@ -26,6 +26,7 @@ import { checkDbSize } from "./aggregator/dbSizeGuard.js";
 import { archivePathStats } from "./aggregator/archivePathStats.js";
 import { startLightning, stopLightning } from "./collectors/lightning.js";
 import { collectSatellites } from "./collectors/satellites.js";
+import { runInferenceMonitor } from "./collectors/inferenceMonitor.js";
 import { reportToDb } from "./lib/db-helpers.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -151,6 +152,12 @@ async function main(): Promise<void> {
   // DB size guard — degrades /health when the database exceeds its budget
   register("db-size", pollIntervals.dbSizeGuard, () =>
     checkDbSize(db, config.dbSizeBudgetMb),
+  );
+
+  // Inference service uptime monitor (moved here from GitHub Actions —
+  // outside-in coverage is the deadman step in solar-provider-synthetic.yml)
+  register("inference-monitor", pollIntervals.inferenceMonitor, () =>
+    runInferenceMonitor(db),
   );
 
   // path_hourly_stats day archiver — exports days older than the hot window

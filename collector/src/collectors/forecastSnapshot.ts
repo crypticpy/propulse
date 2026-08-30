@@ -12,8 +12,9 @@
  *   ported verbatim from src/lib/utils/bands.ts (getCondition /
  *   getVHFCondition / BANDS multipliers) plus the CONDITION_SCORE word→score
  *   map from src/hooks/useBandVerdicts.ts. The frontend picks day or night
- *   per station; the global log has no station, so p_open is the mean of the
- *   day and night scores (both are kept in meta).
+ *   per station; the global log has no station, so p_open blends the day and
+ *   night scores by the ham-weighted planetary lit fraction (P1 — v1 used a
+ *   fixed 0.5 mean; both condition words and f_lit are kept in meta).
  * - "nowcast"/"futurecast" (not yet written): the Railway inference service
  *   only exposes per-path/per-surface predictions, so a global per-band
  *   p_open needs an aggregation design first. See the M4 plan F1 notes.
@@ -24,6 +25,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
 import { reportHealth } from "../health.js";
 import { reportToDb } from "../lib/db-helpers.js";
+import { globalLitFraction } from "../lib/sun.js";
 
 // ─── Physics port (src/lib/utils/bands.ts — keep in sync) ──────────────────
 
@@ -85,11 +87,9 @@ export interface PhysicsBandScore {
   band: string;
   dayCondition: BandCondition;
   nightCondition: BandCondition;
-  /** Mean of the day and night condition scores, [0, 1] */
-  pOpen: number;
 }
 
-/** Per-band openness from solar indices — the "physics" snapshot source. */
+/** Per-band day/night condition words from solar indices. */
 export function computePhysicsBandScores(
   kp: number,
   sfi: number,
@@ -110,17 +110,25 @@ export function computePhysicsBandScores(
       nightCondition = getCondition(kp, effectiveSfi, band.nightMultiplier);
     }
 
-    const pOpen =
-      (CONDITION_SCORE[dayCondition] + CONDITION_SCORE[nightCondition]) / 2;
-
-    return { band: band.name, dayCondition, nightCondition, pOpen };
+    return { band: band.name, dayCondition, nightCondition };
   });
+}
+
+/**
+ * p_open from the condition words and a lit fraction. `fLit = 0.5`
+ * reproduces the v1 day/night mean exactly.
+ */
+export function blendPOpen(score: PhysicsBandScore, fLit: number): number {
+  return (
+    fLit * CONDITION_SCORE[score.dayCondition] +
+    (1 - fLit) * CONDITION_SCORE[score.nightCondition]
+  );
 }
 
 // ─── Snapshot rows ──────────────────────────────────────────────────────────
 
 /** Bump when the physics calculation or p_open blend changes */
-export const PHYSICS_ALGO_VERSION = "bands-v1-daynight-mean";
+export const PHYSICS_ALGO_VERSION = "bands-v2-global-litfrac";
 
 /** Solar data older than this is not an honest "current conditions" input */
 const MAX_SOLAR_AGE_MS = 3 * 3600_000;
@@ -138,6 +146,8 @@ export interface ForecastSnapshotRow {
     solar_captured_at: string;
     day_condition: BandCondition;
     night_condition: BandCondition;
+    /** Ham-weighted planetary lit fraction used for the p_open blend */
+    f_lit: number;
   };
 }
 
@@ -163,6 +173,7 @@ export function buildPhysicsSnapshotRows(
   solarCapturedAt: string,
 ): ForecastSnapshotRow[] {
   const hourUtc = hourBucketUtc(nowMs);
+  const fLit = Math.round(globalLitFraction(nowMs) * 1000) / 1000;
   return computePhysicsBandScores(kp, sfi)
     .filter((score) => SNAPSHOT_BANDS.has(score.band))
     .map((score) => ({
@@ -170,7 +181,7 @@ export function buildPhysicsSnapshotRows(
       band: score.band,
       source: "physics" as const,
       horizon_hours: 0,
-      p_open: score.pOpen,
+      p_open: blendPOpen(score, fLit),
       meta: {
         algo: PHYSICS_ALGO_VERSION,
         kp,
@@ -178,6 +189,7 @@ export function buildPhysicsSnapshotRows(
         solar_captured_at: solarCapturedAt,
         day_condition: score.dayCondition,
         night_condition: score.nightCondition,
+        f_lit: fLit,
       },
     }));
 }

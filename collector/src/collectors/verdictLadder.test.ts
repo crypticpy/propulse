@@ -6,9 +6,19 @@ import {
   type ScopeCounts,
   type VerdictStateRow,
 } from "./verdictLadder.js";
+import type { PhysicsArm } from "../verdict/physicsArm.js";
 
 const T0 = Date.UTC(2026, 7, 30, 12, 0);
 const MIN = 60_000;
+
+/** Deterministic stub arm: fixed per-band scores, fixed lit fraction. */
+function arm(scores: Map<string, number>, fLit = 0.5): PhysicsArm {
+  return {
+    basis: "test-basis",
+    fLitFor: () => fLit,
+    scoreFor: (_type, _key, band) => scores.get(band) ?? 0,
+  };
+}
 
 function counts(overrides: Partial<ScopeCounts> = {}): ScopeCounts {
   return {
@@ -28,7 +38,7 @@ function counts(overrides: Partial<ScopeCounts> = {}): ScopeCounts {
 /** Replay a fixture of ticks through the planner, chaining state rows. */
 function replay(
   ticks: Array<{ atMin: number; counts: ScopeCounts[] }>,
-  physics: Map<string, number>,
+  physics: PhysicsArm,
 ): {
   finalStates: VerdictStateRow[];
   allEvents: Array<{ atMin: number; event: string }>;
@@ -87,8 +97,8 @@ describe("parseScopeCounts", () => {
 });
 
 describe("planVerdictTick", () => {
-  const physics = new Map([["20m", 0.7]]);
-  const closedPhysics = new Map([["20m", 0.1]]);
+  const physics = arm(new Map([["20m", 0.7]]));
+  const closedPhysics = arm(new Map([["20m", 0.1]]));
 
   it("cold start begins closed and earns forecast through the upgrade hold", () => {
     const t0 = planVerdictTick([], physics, [counts()], T0);
@@ -134,7 +144,8 @@ describe("planVerdictTick", () => {
         reporters_20m: 5,
         trend: "rising",
         physics_open: true,
-        physics_basis: "global-daynight-mean",
+        physics_basis: "test-basis",
+        physics_f_lit: 0.5,
         raw_state: "hot",
         mode_obs_20m: { digital: 8, cw: 1 },
       },

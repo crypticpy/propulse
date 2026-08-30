@@ -8,10 +8,10 @@
  * outcome is known (log-don't-reconstruct), and upsert the stable states
  * into verdict_states, the public serving surface.
  *
- * The physics arm is the global day/night-mean p_open per band (same solar
- * inputs and staleness guard as the forecast snapshot). v1 deliberately
- * applies the global score to regional scopes too — per-continent physics
- * needs a representative-point design first.
+ * The physics arm (P1, verdict/physicsArm.ts) blends each band's day and
+ * night condition scores by the scope's real lit fraction — continent
+ * anchors for regional scopes, the ham-weighted planet for global — using
+ * the same solar inputs and staleness guard as the forecast snapshot.
  *
  * Events are written before states so a crash between the two can only
  * produce a duplicate event on the next tick, never a missing one.
@@ -22,7 +22,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
 import { reportHealth } from "../health.js";
 import { reportToDb } from "../lib/db-helpers.js";
-import { computePhysicsBandScores } from "./forecastSnapshot.js";
 import {
   advanceRanked,
   evaluateLadder,
@@ -31,6 +30,10 @@ import {
   type LadderEdgeState,
   type LadderState,
 } from "../verdict/ladder.js";
+import {
+  buildLitFracPhysics,
+  type PhysicsArm,
+} from "../verdict/physicsArm.js";
 
 /** Solar data older than this is not an honest forecast-arm input */
 const MAX_SOLAR_AGE_MS = 3 * 3600_000;
@@ -137,7 +140,7 @@ export function parseScopeCounts(
  */
 export function planVerdictTick(
   prevRows: VerdictStateRow[],
-  physicsScores: Map<string, number>,
+  physics: PhysicsArm,
   counts: ScopeCounts[],
   nowMs: number,
 ): VerdictTickPlan {
@@ -183,7 +186,11 @@ export function planVerdictTick(
         }
       : undefined;
 
-    const physicsScore = physicsScores.get(scope.band) ?? 0;
+    const physicsScore = physics.scoreFor(
+      scope.scopeType,
+      scope.scopeKey,
+      scope.band,
+    );
     const raw = evaluateLadder(
       {
         physicsScore,
@@ -217,10 +224,12 @@ export function planVerdictTick(
 
     const inputs: Record<string, unknown> = {
       physics_score: Math.round(physicsScore * 1000) / 1000,
-      // v1 applies the same global day/night-mean score to every scope;
-      // recording the basis keeps the scored record self-describing so
-      // BH4 scoring can segment when per-continent physics lands.
-      physics_basis: "global-daynight-mean",
+      // The basis keeps the scored record self-describing so BH4 scoring
+      // can segment accuracy across physics-arm generations.
+      physics_basis: physics.basis,
+      physics_f_lit:
+        Math.round(physics.fLitFor(scope.scopeType, scope.scopeKey) * 1000) /
+        1000,
       physics_open: raw.physicsOpen,
       verified: raw.verified,
       obs_20m: scope.obs20m,
@@ -318,12 +327,7 @@ export async function runVerdictLadder(db: SupabaseClient): Promise<void> {
       );
     }
 
-    const physicsScores = new Map(
-      computePhysicsBandScores(solar.kp_index, solar.sfi).map((s) => [
-        s.band,
-        s.pOpen,
-      ]),
-    );
+    const physics = buildLitFracPhysics(solar.kp_index, solar.sfi, start);
 
     const [globalRes, regionalRes, statesRes] = await Promise.all([
       db.rpc("band_activity_counts"),
@@ -352,12 +356,7 @@ export async function runVerdictLadder(db: SupabaseClient): Promise<void> {
     ];
 
     const prevRows = (statesRes.data ?? []) as VerdictStateRow[];
-    const { states, events } = planVerdictTick(
-      prevRows,
-      physicsScores,
-      counts,
-      start,
-    );
+    const { states, events } = planVerdictTick(prevRows, physics, counts, start);
 
     // Events first: a crash between the writes may duplicate an event next
     // tick but can never advance a state without its event.

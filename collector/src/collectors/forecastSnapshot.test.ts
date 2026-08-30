@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   PHYSICS_ALGO_VERSION,
+  blendPOpen,
   buildPhysicsSnapshotRows,
   collectForecastSnapshot,
   computePhysicsBandScores,
@@ -10,22 +11,27 @@ import {
 } from "./forecastSnapshot.js";
 
 describe("computePhysicsBandScores", () => {
-  it("scores all 11 bands with p_open in [0, 1]", () => {
+  it("scores all 11 bands with blended p_open in [0, 1]", () => {
     const scores = computePhysicsBandScores(3, 150);
     expect(scores).toHaveLength(11);
     for (const score of scores) {
-      expect(score.pOpen).toBeGreaterThanOrEqual(0);
-      expect(score.pOpen).toBeLessThanOrEqual(1);
+      for (const fLit of [0, 0.25, 0.5, 1]) {
+        const pOpen = blendPOpen(score, fLit);
+        expect(pOpen).toBeGreaterThanOrEqual(0);
+        expect(pOpen).toBeLessThanOrEqual(1);
+      }
     }
   });
 
   it("matches the frontend calculation for 20m at kp=2 sfi=150", () => {
     // base = (150/200) * (1 - 2/9) = 0.5833; day ×0.8 = 0.467 → Good,
-    // night ×0.7 = 0.408 → Fair; p_open = (0.7 + 0.45) / 2
+    // night ×0.7 = 0.408 → Fair; fLit 0.5 reproduces the v1 mean.
     const band20 = computePhysicsBandScores(2, 150).find((s) => s.band === "20m");
     expect(band20?.dayCondition).toBe("Good");
     expect(band20?.nightCondition).toBe("Fair");
-    expect(band20?.pOpen).toBeCloseTo(0.575, 5);
+    expect(blendPOpen(band20!, 0.5)).toBeCloseTo(0.575, 5);
+    expect(blendPOpen(band20!, 1)).toBeCloseTo(0.7, 5);
+    expect(blendPOpen(band20!, 0)).toBeCloseTo(0.45, 5);
   });
 
   it("keeps 160m day-dead and scores only its night side", () => {
@@ -34,21 +40,23 @@ describe("computePhysicsBandScores", () => {
     );
     expect(band160?.dayCondition).toBe("Poor");
     expect(band160?.nightCondition).toBe("Good");
-    expect(band160?.pOpen).toBeCloseTo(0.45, 5);
+    expect(blendPOpen(band160!, 0.5)).toBeCloseTo(0.45, 5);
+    // Full daylight: only the dead day side remains.
+    expect(blendPOpen(band160!, 1)).toBeCloseTo(0.2, 5);
   });
 
   it("halves effective SFI below a band's minSfi gate (10m at sfi=90)", () => {
     const band10 = computePhysicsBandScores(2, 90).find((s) => s.band === "10m");
     expect(band10?.dayCondition).toBe("Poor");
     expect(band10?.nightCondition).toBe("Poor");
-    expect(band10?.pOpen).toBeCloseTo(0.2, 5);
+    expect(blendPOpen(band10!, 0.5)).toBeCloseTo(0.2, 5);
   });
 
   it("flags 6m Aurora at kp>=5 regardless of SFI", () => {
     const band6 = computePhysicsBandScores(5, 300).find((s) => s.band === "6m");
     expect(band6?.dayCondition).toBe("Aurora");
     expect(band6?.nightCondition).toBe("Poor");
-    expect(band6?.pOpen).toBeCloseTo(0.2, 5);
+    expect(blendPOpen(band6!, 0.5)).toBeCloseTo(0.2, 5);
   });
 });
 
@@ -171,7 +179,12 @@ describe("buildPhysicsSnapshotRows", () => {
       expect(row.meta.kp).toBe(2);
       expect(row.meta.sfi).toBe(150);
       expect(row.meta.solar_captured_at).toBe("2026-08-29T12:30:00Z");
+      expect(row.meta.f_lit).toBeGreaterThanOrEqual(0);
+      expect(row.meta.f_lit).toBeLessThanOrEqual(1);
     }
+    // 12:34Z: EU + eastern NA in daylight — the ham-weighted planet is
+    // majority-lit, so the blend must lean day-side, not sit at 0.5.
+    expect(rows[0].meta.f_lit).toBeGreaterThan(0.5);
     expect(new Set(rows.map((r) => r.band)).size).toBe(10);
     // The collector never ingests VHF, so band_hourly_stats has no 6m truth
     // — logging a 6m snapshot would poison the eval with fabricated zeros.

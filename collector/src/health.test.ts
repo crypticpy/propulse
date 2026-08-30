@@ -1,6 +1,8 @@
+import { once } from "node:events";
+import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 import type { PollIntervals } from "./types.js";
-import { getSourceStaleMs, isSourceStale } from "./health.js";
+import { getSourceStaleMs, isSourceStale, startHealthServer } from "./health.js";
 
 const pollIntervals: PollIntervals = {
   pskreporter: 5 * 60_000,
@@ -19,6 +21,29 @@ const pollIntervals: PollIntervals = {
 };
 
 describe("collector health freshness", () => {
+  it("serves /live as a process liveness endpoint", async () => {
+    const server = startHealthServer(0);
+    await once(server, "listening");
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/live`);
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ status: "live" });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
+  });
+
   it("derives freshness windows from each scheduled source interval", () => {
     expect(getSourceStaleMs("forecasts", pollIntervals)).toBe(12 * 60 * 60_000);
     expect(getSourceStaleMs("satellites", pollIntervals)).toBe(4 * 60 * 60_000);

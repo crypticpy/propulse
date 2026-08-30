@@ -331,3 +331,69 @@ start before the eval gate passes, per the F4 scope limit.
 - Any new paid infrastructure or reporter-network scraping outside published
   APIs/feeds and their terms.
 - Rebuilding any part of the M5/WSPR research pipeline.
+
+## 13. Physics-arm upgrade (P-track)
+
+Added 2026-08-30, after BH2 went live. The live UI check proved the flaw we
+suspected: the collector's physics arm (`computePhysicsBandScores`,
+`PHYSICS_ALGO_VERSION "bands-v1-daynight-mean"`) scores every band as the
+plain mean of its day-word and night-word scores — no sun position, no
+scope. At 03Z, 20m carried 466 obs / 308 reporters while physics said
+p_open 0.20, so the ladder logged a "surprise" that is really just the
+model not knowing it's daytime over half the planet. Surprise is the
+ladder's headline signal (§3); a noisy physics arm devalues it and poisons
+the BH4/BH5 evidence stream. The `physics_basis` field in `verdict_events`
+inputs exists so each upgrade below is segmentable in accuracy reports.
+
+These are **deterministic physics fixes, not model changes** — the M4.b
+evidence gate (F4/BH5) does not apply to P1/P2. P3 is the gated one.
+
+### P1 — Continent lit-fraction blend (`continent-litfrac-v1`)
+
+Replace the day/night mean with a sun-position blend, per scope:
+
+- Fixed anchor points per continent (4–6 grid locators each, weighted
+  toward ham-dense areas). At each verdict tick, compute solar elevation
+  at every anchor → lit fraction `f_lit` per continent.
+- `p_open = f_lit × dayScore + (1 − f_lit) × nightScore` per band.
+  Regional scopes use their continent's `f_lit`; global uses the
+  anchor-weighted mean. The old formula is the degenerate `f_lit = 0.5`.
+- The collector Docker context excludes `../src`, so port the ~40-line
+  solar-elevation formula (declination + hour angle) into
+  `collector/src/lib/` with tests — it is standard astronomy, not the
+  propagation engine.
+- Verify: equinox/solstice fixtures; a daylit continent and a dark one
+  disagree on 20m vs 80m; `f_lit = 0.5` reproduces v1 scores; basis
+  string recorded on every event row.
+
+Small, one PR, immediately kills the nightly false surprises.
+
+### P2 — Real path engine over anchor pairs (`continent-paths-v1`)
+
+The full ITU-R P.533 engine lives in `src/lib/utils/` and cannot be
+imported by the collector (Docker context) — but `api/` already imports
+`src/lib` relatively (see `api/solar/flux.ts`), so the engine is free on
+Vercel:
+
+- New edge/node endpoint (e.g. `api/propagation/band-openings.ts`):
+  runs `getEnhancedBandConditions` over continent anchor **pairs**
+  (intra-continent short paths for Regional, representative DX pairs for
+  global), returns per-scope per-band `p_open` with an algo version.
+  Cache aggressively (`s-maxage` ≥ 240) — inputs only change with solar
+  indices, so one compute per ~5 min serves everyone.
+- Collector fetches it each verdict tick with a short timeout and falls
+  back to P1 on any failure; `physics_basis` records which arm actually
+  scored the row.
+- Verify: parity spot-checks against the client panel's own physics for
+  the same paths; endpoint latency under the edge budget; fallback path
+  exercised in tests.
+
+### P3 — Inference blend (BH5; gated)
+
+Blend physics with the Railway NowCast model server-side — the collector
+already has `RAILWAY_SERVICE_PROPULSE_INFERENCE_URL` (private networking)
+as the seam. Weights chosen by Brier minimization on logged
+`verdict_events` outcomes, per §BH5. **Gated on the M4.b evidence window
+(≥ 14 consecutive snapshot days).** Note: the collector had not been
+redeployed since 2026-07-20, so forecast snapshots only started
+accumulating on 2026-08-30 — the gate cannot pass before ~2026-09-13.

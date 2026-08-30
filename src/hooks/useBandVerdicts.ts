@@ -1,58 +1,88 @@
 /**
- * useBandVerdicts — glue hook for the Band Verdict feature (E4).
+ * useBandVerdicts — glue hook for the Band Health ladder (BH2).
  *
- * Fuses the physics band-condition model with live spot activity into
- * per-band VerdictInputs, feeds them through the verdict store on a fixed
- * cadence, and returns the resulting stable verdicts for display.
+ * Picks the operator's headline scope (Regional from the station continent,
+ * DX field pair when the DX toggle is on and a target exists, Global as the
+ * fallback), fuses the physics band-condition model with the scoped
+ * band-activity endpoint into per-band LadderInputs, feeds them through the
+ * verdict store on a fixed cadence, and returns the stable ladder states.
  *
- * Physics arm (v1.1, M4 F3): per-path QTH→first-saved-target scores for the
- * HF bands when a target exists; the kp/sfi day/night table otherwise and
- * for 6m. See src/lib/verdict/physicsScore.ts.
+ * Counts come from /api/spots/band-activity (server-side deduplicated —
+ * the §3 observation identity), NOT from the client's grid-scoped spot
+ * feeds; the same-population rule applies to the ladder's verified bar.
+ *
+ * Physics arm: Regional is scored home-only (is MY region's ionosphere
+ * open), DX home→target (see src/lib/verdict/physicsScore.ts).
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import SunCalc from "suncalc";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { useLiveSpots } from "@/hooks/useLiveSpots";
-import { useDXStore } from "@/stores/dxStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { bandPhysicsScores } from "@/lib/verdict/physicsScore";
-import { getBandFromFrequency } from "@/lib/api/dxcluster";
+import {
+  useBandActivity,
+  type BandActivityScope,
+} from "@/hooks/useBandActivity";
 import {
   useVerdictStore,
-  type VerdictIngestInput,
+  FADING_STREAK_THRESHOLD,
+  scopeBandKey,
+  type LadderIngestInput,
+  type LadderResultEntry,
 } from "@/stores/verdictStore";
-import type { BandVerdict, BandVerdictResult } from "@/lib/verdict/verdictEngine";
-import type { DXSpot } from "@/types/dxcluster";
+import { LADDER_RANK, type LadderState } from "@/lib/verdict/ladder";
+import {
+  continentForLatLon,
+  CONTINENT_LABEL,
+  type ContinentCode,
+} from "@/lib/utils/continent";
+import { getContinent } from "@/lib/utils/multipliers";
+import { latLonToGrid } from "@/lib/utils/grid";
 
 const INGEST_INTERVAL_MS = 60_000;
-const SPOT_WINDOW_MINUTES = 30;
 /** How often the path-physics date input is refreshed when nothing else
  * changes. Solar zenith moves ~1°/4min, so 5 minutes keeps MUF/absorption
  * current without recomputing the path model on every ingest tick. */
 const PHYSICS_REFRESH_INTERVAL_MS = 5 * 60_000;
 
-export interface BandVerdictEntry {
+export interface ActiveScope {
+  /** Store/canonical key: 'global' | 'regional:EU' | 'dx:EM-JO' */
+  id: string;
+  type: "global" | "regional" | "dx";
+  /** Short header label, e.g. "Regional · Europe" or "DX · EM→JO" */
+  label: string;
+  continent: ContinentCode | null;
+}
+
+export interface BandLadderEntry {
   band: string;
-  stable: BandVerdict;
-  result: BandVerdictResult;
+  stable: LadderState;
+  result: LadderResultEntry;
   since: number;
+  /** Opening is dying: consecutive falling trend while stirring or better */
+  fading: boolean;
 }
 
 export interface UseBandVerdictsResult {
-  bands: BandVerdictEntry[];
+  bands: BandLadderEntry[];
   ready: boolean;
+  scope: ActiveScope;
+  /** The band-activity scope backing this ladder — reuse it for display
+   * queries so the panel shares the same React Query cache entry. */
+  activityScope: BandActivityScope;
+  /** Whether the DX toggle can do anything (home + target fields known) */
+  dxAvailable: boolean;
 }
 
-function spotTimeMs(spot: DXSpot): number {
-  return spot.time instanceof Date
-    ? spot.time.getTime()
-    : new Date(spot.time).getTime();
-}
+const FIELD_RE = /^[A-R]{2}$/;
 
-function resolveBand(spot: DXSpot): string {
-  if (spot.band) return spot.band;
-  return getBandFromFrequency(spot.frequency);
+function fieldForLatLon(lat?: number, lon?: number): string | null {
+  if (lat == null || lon == null) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  const field = latLonToGrid(lat, lon, 4).slice(0, 2).toUpperCase();
+  return FIELD_RE.test(field) ? field : null;
 }
 
 export function useBandVerdicts(): UseBandVerdictsResult {
@@ -62,10 +92,7 @@ export function useBandVerdicts(): UseBandVerdictsResult {
   // First saved target is "the target" by convention (see useBandConditionsTint)
   const savedTargets = useProfileStore((s) => s.savedTargets);
   const firstTarget = savedTargets[0];
-  // Same grid-keyed query as every other call site — shares the cache and
-  // scopes spot confirmation to the operator's region, not the whole world.
-  const { spots: liveSpots } = useLiveSpots({ grid: station?.grid });
-  const clusterSpots = useDXStore((s) => s.spots);
+  const dxMode = useVerdictStore((s) => s.dxMode);
 
   const kIndexData = kIndexQuery.data;
   const solarFluxData = solarFluxQuery.data;
@@ -79,6 +106,56 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     if (!solarFluxData || solarFluxData.length === 0) return null;
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
+
+  // Scope derivation. Continent comes from station coordinates via the same
+  // box classifier the server uses on spots (scope membership matches), with
+  // the callsign-prefix table as fallback for a station without coordinates.
+  const stationGridField =
+    station?.grid && FIELD_RE.test(station.grid.slice(0, 2).toUpperCase())
+      ? station.grid.slice(0, 2).toUpperCase()
+      : null;
+  const homeField =
+    stationGridField ?? fieldForLatLon(station?.lat, station?.lon);
+  const targetField = fieldForLatLon(firstTarget?.lat, firstTarget?.lon);
+  const dxAvailable = homeField !== null && targetField !== null;
+
+  let continent: ContinentCode | null =
+    station != null ? continentForLatLon(station.lat, station.lon) : null;
+  if (continent === null && station?.callsign) {
+    continent = getContinent(station.callsign);
+  }
+
+  const scope = useMemo((): ActiveScope => {
+    if (dxMode && homeField && targetField) {
+      return {
+        id: `dx:${homeField}-${targetField}`,
+        type: "dx",
+        label: `DX · ${homeField}→${targetField}`,
+        continent,
+      };
+    }
+    if (continent) {
+      return {
+        id: `regional:${continent}`,
+        type: "regional",
+        label: `Regional · ${CONTINENT_LABEL[continent]}`,
+        continent,
+      };
+    }
+    return { id: "global", type: "global", label: "Global", continent: null };
+  }, [dxMode, homeField, targetField, continent]);
+
+  const activityScope = useMemo((): BandActivityScope => {
+    if (scope.type === "dx" && homeField && targetField) {
+      return { type: "pair", txField: homeField, rxField: targetField };
+    }
+    if (scope.type === "regional" && scope.continent) {
+      return { type: "regional", continent: scope.continent };
+    }
+    return { type: "global" };
+  }, [scope, homeField, targetField]);
+
+  const { data: activityByBand } = useBandActivity(activityScope);
 
   // Day/night at the user's QTH (fallback to 0,0 when no station is set).
   // Deliberately NOT memoized: every ingest tick re-renders this hook (the
@@ -101,13 +178,14 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     return () => clearInterval(interval);
   }, []);
 
-  // Per-band physics score, 0..1. The Date fed to the path model refreshes
-  // on every dep change (solar refetch, day/night flank, target edit) AND
-  // at least every PHYSICS_REFRESH_INTERVAL_MS via the tick above.
+  // Per-band physics score, 0..1. Regional/Global score the home ionosphere
+  // only; DX scores the home→target path. The Date refreshes on every dep
+  // change AND at least every PHYSICS_REFRESH_INTERVAL_MS via the tick above.
   const stationLatDep = station?.lat;
   const stationLonDep = station?.lon;
   const targetLatDep = firstTarget?.lat;
   const targetLonDep = firstTarget?.lon;
+  const isDxScope = scope.type === "dx";
   const physicsScores = useMemo(() => {
     if (currentKp === null || currentSfi === null) {
       return new Map<string, number>();
@@ -121,7 +199,7 @@ export function useBandVerdicts(): UseBandVerdictsResult {
           ? { lat: stationLatDep, lon: stationLonDep }
           : undefined,
       target:
-        targetLatDep != null && targetLonDep != null
+        isDxScope && targetLatDep != null && targetLonDep != null
           ? { lat: targetLatDep, lon: targetLonDep }
           : undefined,
       date: new Date(physicsRefreshedAt),
@@ -132,90 +210,99 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     isDaylight,
     stationLatDep,
     stationLonDep,
+    isDxScope,
     targetLatDep,
     targetLonDep,
     physicsRefreshedAt,
   ]);
 
-  // Bin live + cluster spots per band within the confirmation window.
-  const spotBins = useMemo(() => {
-    const bins = new Map<string, { spotters: Set<string>; count: number }>();
-    const cutoff = Date.now() - SPOT_WINDOW_MINUTES * 60 * 1000;
-    const allSpots: DXSpot[] = [...liveSpots, ...clusterSpots];
-
-    for (const spot of allSpots) {
-      if (spotTimeMs(spot) < cutoff) continue;
-      const band = resolveBand(spot);
-      if (!band || band === "Unknown") continue;
-      const spotter =
-        (spot as { receiverCallsign?: string }).receiverCallsign ||
-        spot.spotter;
-      let bin = bins.get(band);
-      if (!bin) {
-        bin = { spotters: new Set(), count: 0 };
-        bins.set(band, bin);
-      }
-      bin.count += 1;
-      if (spotter) bin.spotters.add(spotter);
-    }
-    return bins;
-  }, [liveSpots, clusterSpots]);
-
   const ready = currentKp !== null && currentSfi !== null;
+  const activityReady = activityByBand !== undefined;
 
-  // Build the per-band evaluation batch fed to the store.
-  const evals = useMemo((): VerdictIngestInput[] => {
-    if (!ready || currentKp === null || currentSfi === null) return [];
-    const batch: VerdictIngestInput[] = [];
+  // Build the active scope's evaluation batch. Only the active scope is
+  // ingested — idle scopes keep their persisted machines until revisited.
+  const evals = useMemo((): LadderIngestInput[] => {
+    if (!ready || !activityReady || currentKp === null || currentSfi === null) {
+      return [];
+    }
+    const batch: LadderIngestInput[] = [];
     for (const [band, physicsScore] of physicsScores) {
-      const bin = spotBins.get(band);
+      const status = activityByBand.get(band);
       batch.push({
+        scopeId: scope.id,
+        band,
         inputs: {
-          band,
           physicsScore,
-          spotCount: bin?.count ?? 0,
-          uniqueSpotters: bin?.spotters.size ?? 0,
-          windowMinutes: SPOT_WINDOW_MINUTES,
+          obs20m: status?.obs20m ?? 0,
+          reporters20m: status?.reporters20m ?? 0,
+          count10mRecent: status?.count10mRecent ?? 0,
+          count10mPrior: status?.count10mPrior ?? 0,
         },
+        counts: status
+          ? {
+              count60m: status.count60m,
+              sourceCounts60m: status.sourceCounts60m,
+              modeObs20m: status.modeObs20m,
+            }
+          : undefined,
         kp: currentKp,
         sfi: currentSfi,
       });
     }
     return batch;
-  }, [ready, currentKp, currentSfi, physicsScores, spotBins]);
+  }, [
+    ready,
+    activityReady,
+    currentKp,
+    currentSfi,
+    physicsScores,
+    activityByBand,
+    scope.id,
+  ]);
 
   const evalsRef = useRef(evals);
   evalsRef.current = evals;
 
   useEffect(() => {
-    if (!ready || evalsRef.current.length === 0) return;
-    useVerdictStore.getState().ingest(evalsRef.current);
+    if (!ready || !activityReady) return;
+    if (evalsRef.current.length > 0) {
+      useVerdictStore.getState().ingest(evalsRef.current);
+    }
     const interval = setInterval(() => {
       if (evalsRef.current.length > 0) {
         useVerdictStore.getState().ingest(evalsRef.current);
       }
     }, INGEST_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [ready]);
+    // scope.id: switching scope ingests the new scope immediately so its
+    // chips appear (first evaluation shows raw, no hold) instead of waiting
+    // out the interval.
+  }, [ready, activityReady, scope.id]);
 
   const machines = useVerdictStore((s) => s.machines);
   const results = useVerdictStore((s) => s.results);
+  const fallingStreaks = useVerdictStore((s) => s.fallingStreaks);
 
   const bandOrder = useMemo(
     () => [...physicsScores.keys()],
     [physicsScores],
   );
 
-  const bands = useMemo((): BandVerdictEntry[] => {
-    const entries: BandVerdictEntry[] = [];
-    for (const [band, machine] of Object.entries(machines)) {
-      const result = results[band];
-      if (!result) continue;
+  const bands = useMemo((): BandLadderEntry[] => {
+    const entries: BandLadderEntry[] = [];
+    for (const result of Object.values(results)) {
+      if (result.scopeId !== scope.id) continue;
+      const key = scopeBandKey(scope.id, result.band);
+      const machine = machines[key];
+      if (!machine) continue;
       entries.push({
-        band,
+        band: result.band,
         stable: machine.stable,
         result,
         since: machine.stableSince,
+        fading:
+          (fallingStreaks[key] ?? 0) >= FADING_STREAK_THRESHOLD &&
+          LADDER_RANK[machine.stable] >= LADDER_RANK.stirring,
       });
     }
     return entries.sort((a, b) => {
@@ -226,9 +313,9 @@ export function useBandVerdicts(): UseBandVerdictsResult {
       if (bi === -1) return -1;
       return ai - bi;
     });
-  }, [machines, results, bandOrder]);
+  }, [machines, results, fallingStreaks, bandOrder, scope.id]);
 
-  return { bands, ready };
+  return { bands, ready, scope, activityScope, dxAvailable };
 }
 
 export default useBandVerdicts;

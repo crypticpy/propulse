@@ -27,6 +27,7 @@ function config(
       dbSizeGuard: 21_600_000,
       pathArchive: 3_600_000,
       bandClimatology: 86_400_000,
+      verdictLadder: 300_000,
     },
     retention: { spots: 7, health: 7, solar: 120, tle: 7 },
     archive: {

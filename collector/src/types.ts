@@ -51,6 +51,7 @@ export interface PollIntervals {
   dbSizeGuard: number;
   pathArchive: number;
   bandClimatology: number;
+  verdictLadder: number;
 }
 
 export interface RetentionDays {

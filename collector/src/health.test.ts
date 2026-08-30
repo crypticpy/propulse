@@ -15,6 +15,7 @@ const pollIntervals: PollIntervals = {
   dbSizeGuard: 6 * 60 * 60_000,
   pathArchive: 60 * 60_000,
   bandClimatology: 24 * 60 * 60_000,
+  verdictLadder: 5 * 60_000,
 };
 
 describe("collector health freshness", () => {
@@ -23,6 +24,12 @@ describe("collector health freshness", () => {
     expect(getSourceStaleMs("satellites", pollIntervals)).toBe(4 * 60 * 60_000);
     expect(getSourceStaleMs("solar", pollIntervals)).toBe(30 * 60_000);
     expect(getSourceStaleMs("path-aggregator", pollIntervals)).toBe(10 * 60_000);
+    expect(getSourceStaleMs("region-aggregator", pollIntervals)).toBe(
+      10 * 60_000,
+    );
+    expect(getSourceStaleMs("verdict-ladder", pollIntervals)).toBe(
+      10 * 60_000,
+    );
   });
 
   it("gives the daily band-climatology task a two-day freshness window", () => {

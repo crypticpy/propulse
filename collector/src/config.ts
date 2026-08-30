@@ -101,6 +101,10 @@ export function loadConfig(): CollectorConfig {
         process.env.POLL_BAND_CLIMATOLOGY,
         24 * 60 * 60_000,
       ),
+      verdictLadder: parseIntervalMs(
+        process.env.POLL_VERDICT_LADDER,
+        5 * 60_000,
+      ),
     },
 
     // Data retention (env vars in DAYS)

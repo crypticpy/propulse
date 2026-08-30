@@ -19,6 +19,8 @@ import { collectForecastSnapshot } from "./collectors/forecastSnapshot.js";
 import { computeBandActivityClimatology } from "./collectors/bandActivityClimatology.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
+import { computeRegionHourlyStats } from "./aggregator/regionHourly.js";
+import { runVerdictLadder } from "./collectors/verdictLadder.js";
 import { pruneOldData } from "./aggregator/prune.js";
 import { checkDbSize } from "./aggregator/dbSizeGuard.js";
 import { archivePathStats } from "./aggregator/archivePathStats.js";
@@ -29,7 +31,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function runTrackedAggregation(
   db: SupabaseClient,
-  source: "aggregator" | "path-aggregator",
+  source: "aggregator" | "path-aggregator" | "region-aggregator",
   fn: () => Promise<number>,
 ): Promise<void> {
   const started = Date.now();
@@ -125,6 +127,13 @@ async function main(): Promise<void> {
     ),
   );
 
+  // Regional hourly aggregator (BH2 — per-continent climatology numerator)
+  register("region-aggregator", pollIntervals.aggregator, () =>
+    runTrackedAggregation(db, "region-aggregator", () =>
+      computeRegionHourlyStats(db, config),
+    ),
+  );
+
   // Forecast snapshot logger (M4 F1) — records the physics per-band p_open
   // for the current hour; the first write per hour wins, later ticks no-op.
   // Gated on the solar source: the writer refuses solar input >3h stale, so
@@ -155,6 +164,17 @@ async function main(): Promise<void> {
   register("band-climatology", pollIntervals.bandClimatology, () =>
     computeBandActivityClimatology(db),
   );
+
+  // Canonical Band Health ladder (BH2) — evaluates the five-state ladder
+  // per scope every tick, appends verdict_events pre-outcome, serves
+  // verdict_states. Gated on solar like the forecast snapshot: the tick
+  // refuses solar input >3h stale, so without collectSolar it would just
+  // error every tick and degrade /health.
+  if (config.enabledSources.has("solar")) {
+    register("verdict-ladder", pollIntervals.verdictLadder, () =>
+      runVerdictLadder(db),
+    );
+  }
 
   // Start all scheduled tasks
   startAll();

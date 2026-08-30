@@ -33,6 +33,8 @@ export interface BandActivityEntry {
   count10mRecent: number;
   count10mPrior: number;
   sourceCounts60m: Record<string, number>;
+  /** 20-min deduplicated obs per mode class (cw/digital/phone/unknown) */
+  modeObs20m: Record<string, number>;
   thresholds: ActivityThresholds | null;
   sampleCount: number | null;
 }
@@ -130,19 +132,16 @@ export function parseBandActivityEntry(value: unknown): BandActivityEntry | null
   const thresholds =
     p25 !== null && p75 !== null && p95 !== null ? { p25, p75, p95 } : null;
 
-  const sourceCounts: Record<string, number> = {};
-  if (
-    row.source_counts_60m &&
-    typeof row.source_counts_60m === "object" &&
-    !Array.isArray(row.source_counts_60m)
-  ) {
-    for (const [source, n] of Object.entries(
-      row.source_counts_60m as Record<string, unknown>,
-    )) {
-      const parsed = num(n);
-      if (parsed !== null && parsed >= 0) sourceCounts[source] = parsed;
+  const parseCountMap = (value: unknown): Record<string, number> => {
+    const out: Record<string, number> = {};
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      for (const [key, n] of Object.entries(value as Record<string, unknown>)) {
+        const parsed = num(n);
+        if (parsed !== null && parsed >= 0) out[key] = parsed;
+      }
     }
-  }
+    return out;
+  };
 
   return {
     band: row.band,
@@ -151,7 +150,8 @@ export function parseBandActivityEntry(value: unknown): BandActivityEntry | null
     reporters20m,
     count10mRecent,
     count10mPrior,
-    sourceCounts60m: sourceCounts,
+    sourceCounts60m: parseCountMap(row.source_counts_60m),
+    modeObs20m: parseCountMap(row.mode_obs_20m),
     thresholds,
     sampleCount: num(row.sample_count),
   };

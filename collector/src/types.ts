@@ -52,6 +52,7 @@ export interface PollIntervals {
   pathArchive: number;
   bandClimatology: number;
   verdictLadder: number;
+  inferenceMonitor: number;
 }
 
 export interface RetentionDays {

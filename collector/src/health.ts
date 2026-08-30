@@ -33,6 +33,7 @@ const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
   "band-climatology": "bandClimatology",
   "region-aggregator": "aggregator",
   "verdict-ladder": "verdictLadder",
+  "inference-monitor": "inferenceMonitor",
 };
 
 export function getSourceStaleMs(

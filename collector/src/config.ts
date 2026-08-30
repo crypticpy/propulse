@@ -105,6 +105,10 @@ export function loadConfig(): CollectorConfig {
         process.env.POLL_VERDICT_LADDER,
         5 * 60_000,
       ),
+      inferenceMonitor: parseIntervalMs(
+        process.env.POLL_INFERENCE_MONITOR,
+        10 * 60_000,
+      ),
     },
 
     // Data retention (env vars in DAYS)

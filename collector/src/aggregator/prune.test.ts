@@ -28,6 +28,7 @@ function config(
       pathArchive: 3_600_000,
       bandClimatology: 86_400_000,
       verdictLadder: 300_000,
+      inferenceMonitor: 10 * 60_000,
     },
     retention: { spots: 7, health: 7, solar: 120, tle: 7 },
     archive: {

@@ -177,8 +177,11 @@ assume a union):
 | TX power | ✗ | ✗ | ✗ |
 
 - **`api/spots/band-activity` edge function**: counts per band over
-  `spot_history` — trailing 60-min for the Activity Index, trailing 20-min
-  for the ladder, cross-source deduplicated per the §3 observation identity
+  `spot_history` — a trailing 60-min **raw row count** for the Activity
+  Index (the climatology's `spot_count` is `count(*)`, so the numerator
+  must be the same un-deduplicated population), and trailing 20-min
+  **deduplicated observation counts** per the §3 identity for the ladder,
+  whose thresholds are absolute and need dedup for truthfulness
   (+ optional scope filters: derived region, tx_field/rx_field pair,
   mode_class). The response also carries **per-source observation counts and
   first-crossing timestamps** — the badge's provenance ("opened 1417Z · 9

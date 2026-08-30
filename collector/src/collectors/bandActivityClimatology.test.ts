@@ -13,6 +13,10 @@ interface FakeDbState {
 
 function fakeDb(
   rpcResult: { data: unknown; error: { message: string } | null },
+  regionRpcResult: { data: unknown; error: { message: string } | null } = {
+    data: 0,
+    error: null,
+  },
 ): { db: SupabaseClient; state: FakeDbState } {
   const state: FakeDbState = { rpcCalls: [], healthInserts: [] };
   const db = {
@@ -20,6 +24,9 @@ function fakeDb(
       state.rpcCalls.push({ fn, args });
       if (fn === "compute_band_activity_climatology") {
         return Promise.resolve(rpcResult);
+      }
+      if (fn === "compute_region_activity_climatology") {
+        return Promise.resolve(regionRpcResult);
       }
       return Promise.resolve({ data: null, error: null });
     },
@@ -81,5 +88,41 @@ describe("computeBandActivityClimatology", () => {
       source: "band-climatology",
       status: "error",
     });
+  });
+
+  it("recomputes the regional climatology in the same pass", async () => {
+    const { db, state } = fakeDb(
+      { data: 264, error: null },
+      { data: 500, error: null },
+    );
+    await computeBandActivityClimatology(db);
+
+    expect(
+      state.rpcCalls.filter(
+        (c) => c.fn === "compute_region_activity_climatology",
+      ),
+    ).toEqual([
+      {
+        fn: "compute_region_activity_climatology",
+        args: { baseline_days: CLIMATOLOGY_BASELINE_DAYS },
+      },
+    ]);
+    expect(state.healthInserts[0]).toMatchObject({
+      status: "ok",
+      spots_ingested: 764,
+    });
+  });
+
+  it("tolerates zero regional rows (aggregate still accruing) but not RPC failure", async () => {
+    const okEmpty = fakeDb({ data: 264, error: null }, { data: 0, error: null });
+    await computeBandActivityClimatology(okEmpty.db);
+    expect(okEmpty.state.healthInserts[0]).toMatchObject({ status: "ok" });
+
+    const failed = fakeDb(
+      { data: 264, error: null },
+      { data: null, error: { message: "boom" } },
+    );
+    await computeBandActivityClimatology(failed.db);
+    expect(failed.state.healthInserts[0]).toMatchObject({ status: "error" });
   });
 });

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type AggregationName = "band_hourly" | "path_hourly";
+export type AggregationName = "band_hourly" | "path_hourly" | "region_hourly";
 
 export async function resolveAggregationWatermark(
   db: SupabaseClient,

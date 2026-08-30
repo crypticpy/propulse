@@ -83,6 +83,7 @@ describe("parseBandActivityEntry", () => {
     count_10m_recent: 9,
     count_10m_prior: 6,
     source_counts_60m: { pskreporter: 30, rbn: 12 },
+    mode_obs_20m: { digital: 5, cw: 2 },
     p25: 10,
     p50: 22,
     p75: 35,
@@ -99,9 +100,15 @@ describe("parseBandActivityEntry", () => {
       count10mRecent: 9,
       count10mPrior: 6,
       sourceCounts60m: { pskreporter: 30, rbn: 12 },
+      modeObs20m: { digital: 5, cw: 2 },
       thresholds: { p25: 10, p75: 35, p95: 60 },
       sampleCount: 88,
     });
+  });
+
+  it("tolerates a missing mode map (BH1 rows) as empty", () => {
+    const entry = parseBandActivityEntry({ ...row, mode_obs_20m: undefined });
+    expect(entry?.modeObs20m).toEqual({});
   });
 
   it("returns null thresholds when any percentile is missing", () => {

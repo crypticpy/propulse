@@ -1,11 +1,14 @@
 /**
- * useBandActivity — per-band Activity Index feed (BH1).
+ * useBandActivity — per-band Activity Index feed (BH1) + scoped counts (BH2).
  *
  * Backed by `/api/spots/band-activity`: trailing 60-min raw counts (the
- * climatology's population), 20-min deduplicated observations, trend
- * windows, and this hour's percentile thresholds. Same-population rule:
- * this endpoint is the only honest numerator for percentile claims — never
- * substitute the client's grid-scoped spot feeds.
+ * climatology's population), 20-min deduplicated observations + mode-class
+ * breakdown, trend windows, and this hour's percentile thresholds.
+ * Same-population rule: this endpoint is the only honest numerator for
+ * percentile claims — never substitute the client's grid-scoped spot feeds.
+ *
+ * Scope selects the population (§4): global (default), one continent
+ * (Regional), or a Maidenhead field pair in both directions (DX).
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -19,18 +22,38 @@ import {
   type ActivityTrend,
   type BandActivityEntry,
 } from "@/lib/utils/bandActivity";
+import type { ContinentCode } from "@/lib/utils/continent";
 
 const MINUTE = 60 * 1000;
 
+export type BandActivityScope =
+  | { type: "global" }
+  | { type: "regional"; continent: ContinentCode }
+  | { type: "pair"; txField: string; rxField: string };
+
 export interface BandActivityStatus extends BandActivityEntry {
-  /** Percentile level vs this band × hour climatology; null = no baseline */
+  /** Percentile level vs this scope × hour climatology; null = no baseline */
   level: ActivityLevel | null;
   trend: ActivityTrend;
   crowded: boolean;
 }
 
-async function fetchBandActivity(): Promise<Map<string, BandActivityStatus>> {
-  const response = await fetch("/api/spots/band-activity");
+export function scopeQueryString(scope: BandActivityScope): string {
+  if (scope.type === "regional") {
+    return `?continent=${encodeURIComponent(scope.continent)}`;
+  }
+  if (scope.type === "pair") {
+    return `?tx_field=${encodeURIComponent(scope.txField)}&rx_field=${encodeURIComponent(scope.rxField)}`;
+  }
+  return "";
+}
+
+async function fetchBandActivity(
+  scope: BandActivityScope,
+): Promise<Map<string, BandActivityStatus>> {
+  const response = await fetch(
+    `/api/spots/band-activity${scopeQueryString(scope)}`,
+  );
   if (!response.ok) {
     throw new Error(`band-activity request failed (${response.status})`);
   }
@@ -55,12 +78,18 @@ async function fetchBandActivity(): Promise<Map<string, BandActivityStatus>> {
   return byBand;
 }
 
-export function useBandActivity() {
+const GLOBAL_SCOPE: BandActivityScope = { type: "global" };
+
+export function useBandActivity(
+  scope: BandActivityScope = GLOBAL_SCOPE,
+  enabled = true,
+) {
   return useQuery({
-    queryKey: ["band-activity"],
-    queryFn: fetchBandActivity,
+    queryKey: ["band-activity", scopeQueryString(scope)],
+    queryFn: () => fetchBandActivity(scope),
     refetchInterval: MINUTE,
     staleTime: 55 * 1000,
     retry: 1,
+    enabled,
   });
 }

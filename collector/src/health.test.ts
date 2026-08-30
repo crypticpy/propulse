@@ -12,6 +12,8 @@ const pollIntervals: PollIntervals = {
   aggregator: 5 * 60_000,
   forecastSnapshot: 5 * 60_000,
   prune: 60 * 60_000,
+  dbSizeGuard: 6 * 60 * 60_000,
+  pathArchive: 60 * 60_000,
 };
 
 describe("collector health freshness", () => {

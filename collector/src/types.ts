@@ -48,6 +48,8 @@ export interface PollIntervals {
   aggregator: number;
   forecastSnapshot: number;
   prune: number;
+  dbSizeGuard: number;
+  pathArchive: number;
 }
 
 export interface RetentionDays {
@@ -61,6 +63,16 @@ export interface ArchiveControls {
   pruningEnabled: boolean;
   forecastCompactionEnabled: boolean;
   pruneBatchSize: number;
+  pathStats: PathArchiveControls;
+}
+
+export interface PathArchiveControls {
+  /** Days of path_hourly_stats kept hot in Postgres; older days archive */
+  hotDays: number;
+  /** Delete archived days from the hot table. Fail closed — default false */
+  pruneEnabled: boolean;
+  /** Bound on days exported/pruned per scheduler tick */
+  maxDaysPerRun: number;
 }
 
 export interface CollectorConfig {
@@ -73,6 +85,8 @@ export interface CollectorConfig {
   pollIntervals: PollIntervals;
   retention: RetentionDays;
   archive: ArchiveControls;
+  /** /health degrades when the database exceeds this size */
+  dbSizeBudgetMb: number;
 }
 
 export type LogLevel = "debug" | "info" | "warn" | "error";

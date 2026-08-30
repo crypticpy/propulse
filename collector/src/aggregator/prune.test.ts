@@ -24,13 +24,17 @@ function config(
       aggregator: 300_000,
       forecastSnapshot: 300_000,
       prune: 3_600_000,
+      dbSizeGuard: 21_600_000,
+      pathArchive: 3_600_000,
     },
     retention: { spots: 7, health: 7, solar: 120, tle: 7 },
     archive: {
       pruningEnabled,
       forecastCompactionEnabled,
       pruneBatchSize: 12_345,
+      pathStats: { hotDays: 90, pruneEnabled: false, maxDaysPerRun: 2 },
     },
+    dbSizeBudgetMb: 3072,
   };
 }
 

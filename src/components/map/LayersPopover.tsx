@@ -388,6 +388,8 @@ export function LayersPopover() {
   const setAutoRotate = useMapStore((s) => s.setAutoRotate);
   const autoRotateSpeed = useMapStore((s) => s.autoRotateSpeed);
   const setAutoRotateSpeed = useMapStore((s) => s.setAutoRotateSpeed);
+  const globeOrientation = useMapStore((s) => s.globeOrientation);
+  const setGlobeOrientation = useMapStore((s) => s.setGlobeOrientation);
   const displayDensity = useMapStore((s) => s.displayDensity);
   const setDisplayDensity = useMapStore((s) => s.setDisplayDensity);
   const labelOptions = useMapStore((s) => s.labelOptions);
@@ -839,6 +841,17 @@ export function LayersPopover() {
                   getValue: () => autoRotate,
                   onToggle: () => setAutoRotate(!autoRotate),
                 },
+                {
+                  key: "qthOrientation",
+                  label: "Start at My QTH",
+                  title:
+                    "Center your station location when the globe first loads",
+                  getValue: () => globeOrientation === "qth",
+                  onToggle: () =>
+                    setGlobeOrientation(
+                      globeOrientation === "qth" ? "natural" : "qth",
+                    ),
+                },
               ]
             : []),
         ],
@@ -849,6 +862,8 @@ export function LayersPopover() {
       toggleLayer,
       autoRotate,
       setAutoRotate,
+      globeOrientation,
+      setGlobeOrientation,
       isGlobeView,
       labelOptions,
       setLabelOption,

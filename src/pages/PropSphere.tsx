@@ -70,6 +70,7 @@ import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { useMapStore } from "@/stores/mapStore";
+import { useDisplayFit } from "@/hooks/useDisplayFit";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useUserStore } from "@/stores/userStore";
@@ -149,6 +150,10 @@ export function PropSphere() {
   const layoutMode = useMapStore((s) => s.layoutMode);
   const isLiteMode = useMapStore((s) => s.isLiteMode);
   const isDXConsoleExpanded = useMapStore((s) => s.isDXConsoleExpanded);
+  // P1: compact fit collapses the side panels into the bottom tab strip on
+  // cramped viewports (or by explicit override) — desktop (≥lg) only; below
+  // lg the responsive classes already produce the tabbed layout.
+  const compactFit = useDisplayFit();
   const setDXConsoleExpanded = useMapStore((s) => s.setDXConsoleExpanded);
   const pathMode = useMapStore((s) => s.pathMode);
   const replayEnabled = useMapStore((s) => s.replayEnabled);
@@ -631,7 +636,11 @@ export function PropSphere() {
   );
 
   return (
-    <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-y-auto lg:overflow-hidden">
+    <div
+      className={`h-[calc(100dvh-4rem)] flex flex-col overflow-y-auto ${
+        compactFit ? "" : "lg:overflow-hidden"
+      }`}
+    >
       {isLiteMode && <ContestLiteHUD />}
 
       {/* Main Content - Framed Layout (hidden in pro/hamclock — those render their own fullscreen overlay) */}
@@ -651,7 +660,11 @@ export function PropSphere() {
           ) : (
             // Default Mode Top Row - full cards (animates out when DX Console expanded)
             <div
-              className={`grid grid-cols-2 lg:grid-cols-[220px_1fr_200px] xl:grid-cols-[220px_280px_minmax(300px,1fr)_200px] gap-2 md:gap-3 transition-all duration-300 ease-in-out ${
+              className={`grid gap-2 md:gap-3 transition-all duration-300 ease-in-out ${
+                compactFit
+                  ? "grid-cols-2"
+                  : "grid-cols-2 lg:grid-cols-[220px_1fr_200px] xl:grid-cols-[220px_280px_minmax(300px,1fr)_200px]"
+              } ${
                 isDXConsoleExpanded
                   ? "max-h-0 opacity-0 overflow-hidden mb-0"
                   : "max-h-[500px] opacity-100"
@@ -677,7 +690,8 @@ export function PropSphere() {
                 )}
               </Card>
 
-              {/* Solar Snapshot (xl+ only) */}
+              {/* Solar Snapshot (xl+ only, collapsed in compact fit) */}
+              {!compactFit && (
               <Card className="hidden xl:flex xl:flex-col col-span-1 p-2 !rounded-lg">
                 {station && target ? (
                   <SolarSnapshot
@@ -696,8 +710,10 @@ export function PropSphere() {
                   </div>
                 )}
               </Card>
+              )}
 
-              {/* 24h Propagation Forecast (hidden on mobile, shown on lg+) */}
+              {/* 24h Propagation Forecast (hidden on mobile and in compact fit) */}
+              {!compactFit && (
               <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
                 <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
                   24h Propagation Forecast
@@ -712,6 +728,7 @@ export function PropSphere() {
                   />
                 </div>
               </Card>
+              )}
 
               {/* Time Machine + Layout + Share — top-right */}
               <div className="col-span-1 flex flex-col gap-2">
@@ -757,10 +774,16 @@ export function PropSphere() {
             <DXNewsTicker className="flex-shrink-0" />
           )}
 
-          {/* Middle Row: Bands | Map | Path - fills available space */}
-          <div className="flex-1 min-h-0 flex gap-0 lg:gap-0">
-            {/* Band Conditions Panel (left) - hidden on mobile, HIDDEN in lite mode */}
-            {!isLiteMode && leftPanelMode === "full" && (
+          {/* Middle Row: Bands | Map | Path - fills available space.
+              In compact fit the page scrolls, so the map keeps a real
+              height instead of collapsing against the fixed-height main. */}
+          <div
+            className={`flex-1 flex gap-0 lg:gap-0 ${
+              compactFit ? "min-h-0 lg:min-h-[420px]" : "min-h-0"
+            }`}
+          >
+            {/* Band Conditions Panel (left) - hidden on mobile, HIDDEN in lite mode and compact fit */}
+            {!isLiteMode && !compactFit && leftPanelMode === "full" && (
               <>
                 <div
                   className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
@@ -792,7 +815,7 @@ export function PropSphere() {
               </>
             )}
             {/* Band Conditions Mini Strip (left) */}
-            {!isLiteMode && leftPanelMode === "mini" && (
+            {!isLiteMode && !compactFit && leftPanelMode === "mini" && (
               <div className="hidden lg:flex">
                 <PanelMiniStrip
                   side="left"
@@ -926,7 +949,9 @@ export function PropSphere() {
                   Observatory
                 </button>
 
-                {/* Panel layout cycle: Full → Compact → Focus → Full */}
+                {/* Panel layout cycle: Full → Compact → Focus → Full
+                    (pointless in compact fit — the side panels are gone) */}
+                {!compactFit && (
                 <button
                   type="button"
                   className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
@@ -983,6 +1008,7 @@ export function PropSphere() {
                   </svg>
                   Panels
                 </button>
+                )}
 
                 {/* Watch popover + inline status pill */}
                 <WatchPopover />
@@ -1240,8 +1266,8 @@ export function PropSphere() {
               </div>
             </Card>
 
-            {/* Right Resize Handle and Path Analysis - HIDDEN in lite mode */}
-            {!isLiteMode && rightPanelMode === "full" && (
+            {/* Right Resize Handle and Path Analysis - HIDDEN in lite mode and compact fit */}
+            {!isLiteMode && !compactFit && rightPanelMode === "full" && (
               <>
                 {/* Right Resize Handle */}
                 <div
@@ -1275,7 +1301,7 @@ export function PropSphere() {
               </>
             )}
             {/* Path Analysis Mini Strip (right) */}
-            {!isLiteMode && rightPanelMode === "mini" && (
+            {!isLiteMode && !compactFit && rightPanelMode === "mini" && (
               <div className="hidden lg:flex">
                 <PanelMiniStrip
                   side="right"
@@ -1368,6 +1394,8 @@ export function PropSphere() {
 
               {/* Normal Bottom Row: DX Spots (hidden when Console is expanded) */}
               {/* On lg (not xl): Shows Recommendations + DX Spots side by side */}
+              {/* Compact fit drops it — the bottom tab strip has Recs/Spots tabs */}
+              {!compactFit && (
               <div
                 className={`hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px] ${isDXConsoleExpanded ? "!hidden" : ""}`}
               >
@@ -1398,9 +1426,10 @@ export function PropSphere() {
                   />
                 </div>
               </div>
+              )}
 
               {/* WSJT-X Status Panel + BandScope - shown when connected and DX Console not expanded */}
-              {wsjtxConnected && !isDXConsoleExpanded && (
+              {wsjtxConnected && !isDXConsoleExpanded && !compactFit && (
                 <div className="hidden xl:block flex-shrink-0 space-y-2">
                   <WSJTXStatusPanel defaultCollapsed className="" />
                   <BandScope className="h-40" />
@@ -1408,7 +1437,8 @@ export function PropSphere() {
               )}
 
               {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
-              {/* Hidden when DX Console is expanded */}
+              {/* Hidden when DX Console is expanded or in compact fit */}
+              {!compactFit && (
               <div
                 className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
                 data-tour="dx-spot-list"
@@ -1494,11 +1524,12 @@ export function PropSphere() {
                   </div>
                 </Card>
               </div>
+              )}
             </>
           )}
 
-          {/* Mobile/Tablet Bottom Panel (shown on < lg) */}
-          <div className="lg:hidden">
+          {/* Mobile/Tablet Bottom Panel (shown on < lg, and on desktop in compact fit) */}
+          <div className={compactFit && !isLiteMode ? "" : "lg:hidden"}>
             {/* Tab Navigation */}
             <div className="flex border-b border-white/10 mb-2">
               {(

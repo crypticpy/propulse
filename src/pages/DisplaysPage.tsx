@@ -4,6 +4,8 @@ import { formatDistanceToNow } from "date-fns";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useKioskStore } from "@/stores/kioskStore";
 import type { DisplaySceneConfig } from "@/stores/displayStore";
+import type { DisplayFit } from "@/stores/mapStore";
+import type { TextScale } from "@/types/user";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const LIVE_THRESHOLD_MS = 60_000;
@@ -192,6 +194,13 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
   const [intervalSec, setIntervalSec] = useState(
     display.scene_config?.rotation?.intervalSec ?? 120,
   );
+  const [layoutFit, setLayoutFit] = useState<DisplayFit>(
+    display.scene_config?.layout?.fit ?? "auto",
+  );
+  // "" = don't override the device's own text-scale setting
+  const [wallTextScale, setWallTextScale] = useState<TextScale | "">(
+    display.scene_config?.layout?.textScale ?? "",
+  );
   const [savingConfig, setSavingConfig] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -244,6 +253,10 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
       const sceneConfig: DisplaySceneConfig = {
         ...(display.scene_config ?? {}),
         rotation: { enabled: rotationEnabled, intervalSec },
+        layout: {
+          fit: layoutFit,
+          ...(wallTextScale !== "" && { textScale: wallTextScale }),
+        },
         ...(selectedScenes.length > 0 && { scenes: selectedScenes }),
       };
       const { error } = await displaysTable()
@@ -364,6 +377,37 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
               aria-label="Rotation interval in seconds"
             />
             seconds
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            Layout
+            <select
+              value={layoutFit}
+              onChange={(e) => setLayoutFit(e.target.value as DisplayFit)}
+              className="bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm"
+            >
+              <option value="auto">Auto (fit to screen)</option>
+              <option value="compact">Compact</option>
+              <option value="full">Full</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            Text size
+            <select
+              value={wallTextScale}
+              onChange={(e) =>
+                setWallTextScale(e.target.value as TextScale | "")
+              }
+              className="bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm"
+            >
+              <option value="">Leave unchanged</option>
+              <option value="sm">Small</option>
+              <option value="md">Normal</option>
+              <option value="lg">Large</option>
+              <option value="xl">Wall</option>
+            </select>
           </label>
         </div>
 

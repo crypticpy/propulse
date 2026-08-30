@@ -151,13 +151,14 @@ export function PreferencesSection() {
               { value: "sm", label: <span className="text-xs">Small</span> },
               { value: "md", label: "Normal" },
               { value: "lg", label: <span className="text-base">Large</span> },
+              { value: "xl", label: <span className="text-lg">Wall</span> },
             ]}
             value={textScale}
             onChange={(v) => updatePreferences({ textScale: v })}
           />
           <p className="text-xs text-gray-500 mt-1">
             Increase text size for better readability. Affects panels and data
-            displays.
+            displays. Wall is sized for TV screens read from across the room.
           </p>
         </div>
 

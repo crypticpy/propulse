@@ -16,6 +16,8 @@ import {
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
 export type LayoutMode = "normal" | "pro" | "lite" | "hamclock";
+export type GlobeOrientation = "qth" | "natural";
+export type DisplayFit = "auto" | "compact" | "full";
 
 // Layer preset configurations for common use cases
 export const LAYER_PRESETS = {
@@ -355,6 +357,16 @@ export interface MapState {
   // Auto-rotate speed (seconds per full revolution, 60–86400)
   autoRotateSpeed: number;
   setAutoRotateSpeed: (speed: number) => void;
+
+  // Initial globe orientation: center the operator's QTH on mount, or the
+  // fixed "natural" default (lat 0, lon -90)
+  globeOrientation: GlobeOrientation;
+  setGlobeOrientation: (orientation: GlobeOrientation) => void;
+
+  // PropSphere layout fit: "auto" collapses side panels into bottom tabs on
+  // cramped viewports (small windows, 720p walls); "compact"/"full" force it
+  displayFit: DisplayFit;
+  setDisplayFit: (fit: DisplayFit) => void;
 
   // Observatory mode (lean-back fullscreen auto-rotate, zoom only)
   observatoryMode: boolean;
@@ -962,6 +974,54 @@ function saveAutoRotateSpeed(speed: number): void {
   }
 }
 
+// ── Globe orientation persistence ─────────────────────────────────────────────
+
+const GLOBE_ORIENTATION_KEY = "propulse-globe-orientation";
+
+function loadGlobeOrientation(): GlobeOrientation {
+  try {
+    const saved = localStorage.getItem(GLOBE_ORIENTATION_KEY);
+    if (saved === "qth" || saved === "natural") {
+      return saved;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return "qth";
+}
+
+function saveGlobeOrientation(orientation: GlobeOrientation): void {
+  try {
+    localStorage.setItem(GLOBE_ORIENTATION_KEY, orientation);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// ── Display fit persistence ───────────────────────────────────────────────────
+
+const DISPLAY_FIT_KEY = "propulse-display-fit";
+
+function loadDisplayFit(): DisplayFit {
+  try {
+    const saved = localStorage.getItem(DISPLAY_FIT_KEY);
+    if (saved === "auto" || saved === "compact" || saved === "full") {
+      return saved;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return "auto";
+}
+
+function saveDisplayFit(fit: DisplayFit): void {
+  try {
+    localStorage.setItem(DISPLAY_FIT_KEY, fit);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 // ── Beacon inactive opacity persistence ────────────────────────────────────────
 
 const BEACON_INACTIVE_OPACITY_KEY = "propulse-beacon-inactive-opacity";
@@ -1049,6 +1109,8 @@ const initialState = {
   zoom: 1,
   autoRotate: false,
   autoRotateSpeed: loadAutoRotateSpeed(),
+  globeOrientation: loadGlobeOrientation(),
+  displayFit: loadDisplayFit(),
   observatoryMode: false,
   observatoryPreviousState: null as {
     layoutMode: LayoutMode;
@@ -1275,6 +1337,16 @@ export const useMapStore = create<MapState>((set, get) => ({
     const clamped = Math.max(60, Math.min(86_400, Math.round(speed)));
     saveAutoRotateSpeed(clamped);
     set({ autoRotateSpeed: clamped });
+  },
+
+  setGlobeOrientation: (orientation) => {
+    saveGlobeOrientation(orientation);
+    set({ globeOrientation: orientation });
+  },
+
+  setDisplayFit: (fit) => {
+    saveDisplayFit(fit);
+    set({ displayFit: fit });
   },
 
   enterObservatory: () =>

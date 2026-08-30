@@ -51,6 +51,24 @@ export function latLonTo3D(
 }
 
 /**
+ * Camera position that puts (lat, lon) at the exact screen center when the
+ * camera looks at the origin, compensating for the Earth axial-tilt group
+ * (a Z-axis euler of `tiltDeg`, mapStore's `rotation.x`) that wraps all
+ * globe content. Without the compensation the tilt shifts the target off
+ * center — the same trap as raycasting without inverting matrixWorld.
+ */
+export function qthCameraPosition(
+  lat: number,
+  lon: number,
+  distance: number,
+  tiltDeg: number,
+): THREE.Vector3 {
+  const pos = latLonToVector3(lat, lon, distance);
+  pos.applyAxisAngle(new THREE.Vector3(0, 0, 1), (tiltDeg * Math.PI) / 180);
+  return pos;
+}
+
+/**
  * Get the surface normal (up direction) at a given lat/lon.
  * Returns a normalized Vector3 pointing away from the globe center.
  */

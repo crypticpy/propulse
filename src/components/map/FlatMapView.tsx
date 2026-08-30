@@ -4139,9 +4139,13 @@ export function FlatMapView({
       const containerWidth = Math.max(300, Math.floor(rect.width));
       const containerHeight = Math.max(150, Math.floor(rect.height));
       if (fillContainer) {
-        // Fill the entire container — map draws at container size,
-        // internally auto-adjusting zoom to fill vertically
-        return { width: containerWidth, height: containerHeight };
+        // Cover the container with a map box that keeps the basemap's native
+        // 2:1 aspect ratio (never letterbox/stretch) — size to whichever
+        // dimension needs more room, then derive the other from the 2:1
+        // ratio, and center+crop via the container's overflow-hidden.
+        const width = Math.max(containerWidth, containerHeight * 2);
+        const height = Math.ceil(width / 2);
+        return { width: height * 2, height };
       }
       // Configurable aspect ratio letterbox — fit within both width AND height constraints
       const ratio = Math.max(1.0, Math.min(3.0, mapAspectRatio));
@@ -5138,10 +5142,8 @@ export function FlatMapView({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
-        fillContainer
-          ? ""
-          : "min-h-[400px] rounded-xl flex items-center justify-center"
+      className={`w-full h-full bg-deep-space overflow-hidden relative select-none flex items-center justify-center ${
+        fillContainer ? "" : "min-h-[400px] rounded-xl"
       }`}
     >
       {!mapImage && mapStyle === "satellite" && (

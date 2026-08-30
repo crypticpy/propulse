@@ -73,10 +73,21 @@ interface UseSatellitesResult {
 // Hook Implementation
 // ---------------------------------------------------------------------------
 
-export function useSatellites(enabled = true): UseSatellitesResult {
+export function useSatellites(
+  enabled = true,
+  /**
+   * Override the satellite this hook resolves as `selectedSatellite`/
+   * `nextPasses` — used by SatelliteDetailModal to look up the satellite
+   * behind `satelliteModalId`, which is independent of the popup selection
+   * (`selectedSatelliteId`) that this hook otherwise tracks.
+   */
+  targetNoradId?: number | null,
+): UseSatellitesResult {
   const { station } = useUserStore();
-  const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
+  const storeSelectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
+  const selectedSatelliteId =
+    targetNoradId !== undefined ? targetNoradId : storeSelectedSatelliteId;
   const customTLEs = useCustomTLEStore((s) => s.customTLEs);
   const enabledGroups = useSatelliteGroupStore((s) => s.enabledGroups);
   const [currentTime, setCurrentTime] = useState(() => new Date());

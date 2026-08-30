@@ -7,8 +7,9 @@
  *
  * Click a satellite to show an inline info popup with key details (name,
  * NORAD ID, category, position, transponders, next pass). Click again or
- * click another satellite to dismiss. The full SatelliteDetailModal also
- * opens via mapStore.selectedSatelliteId for comprehensive details.
+ * click another satellite to dismiss. Clicking the popup itself opens the
+ * full SatelliteDetailModal via mapStore.satelliteModalId for comprehensive
+ * details, independent of the popup's own open/closed state.
  *
  * Selected satellites show their orbital ground track.
  */
@@ -118,12 +119,16 @@ interface SatelliteInfoPopupProps {
   satellite: SatelliteInfoExtended;
   occlusionOpacity: number;
   nextPasses: PassPrediction[];
+  onOpenModal: (noradId: number) => void;
+  onDismiss: () => void;
 }
 
 function SatelliteInfoPopup({
   satellite,
   occlusionOpacity,
   nextPasses,
+  onOpenModal,
+  onDismiss,
 }: SatelliteInfoPopupProps) {
   const color = CATEGORY_COLORS[satellite.category];
   const { lat, lon, alt, velocity } = satellite.position;
@@ -150,7 +155,7 @@ function SatelliteInfoPopup({
       }}
     >
       <div
-        className="flex flex-col gap-1 rounded-md px-3 py-2 text-[10px] font-mono"
+        className="flex flex-col gap-1 rounded-md px-3 py-2 text-[10px] font-mono cursor-pointer"
         style={{
           backgroundColor: "rgba(8, 8, 24, 0.94)",
           border: `1px solid ${color}60`,
@@ -159,9 +164,13 @@ function SatelliteInfoPopup({
           maxWidth: "260px",
           color: "#e0e0e8",
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenModal(satellite.noradId);
+        }}
+        title="Click for full details"
       >
-        {/* Header: name + category badge + visibility */}
+        {/* Header: name + category badge + visibility + close */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <span
@@ -176,12 +185,35 @@ function SatelliteInfoPopup({
               {catMeta.label}
             </span>
           </div>
-          <span
-            className={`flex-shrink-0 w-2 h-2 rounded-full ${
-              satellite.isVisible ? "bg-green-400 animate-pulse" : "bg-gray-600"
-            }`}
-            title={satellite.isVisible ? "Above horizon" : "Below horizon"}
-          />
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                satellite.isVisible
+                  ? "bg-green-400 animate-pulse"
+                  : "bg-gray-600"
+              }`}
+              title={satellite.isVisible ? "Above horizon" : "Below horizon"}
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss();
+              }}
+              className="w-3.5 h-3.5 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Close"
+              title="Close"
+            >
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                <path
+                  d="M1 1L7 7M7 1L1 7"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* NORAD ID */}
@@ -335,6 +367,34 @@ function SatelliteInfoPopup({
             {satellite.tleAge}
           </span>
         </div>
+
+        {/* Details affordance — a real button so keyboard users can open
+            the modal; the surrounding popup is also clickable for pointers */}
+        <div
+          className="my-0.5"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+        />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenModal(satellite.noradId);
+          }}
+          aria-label={`Open full details for ${satellite.name}`}
+          className="flex w-full items-center justify-center gap-1 rounded text-[8px] font-semibold uppercase tracking-wider hover:bg-white/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+          style={{ color: `${color}aa` }}
+        >
+          <span>Tap for full details</span>
+          <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
+            <path
+              d="M2 1L6 4L2 7"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
     </Html>
   );
@@ -348,6 +408,7 @@ interface SatelliteMarkerProps {
   satellite: SatelliteInfoExtended;
   isSelected: boolean;
   onSelect: (noradId: number) => void;
+  onOpenModal: (noradId: number) => void;
   nextPasses: PassPrediction[];
 }
 
@@ -355,6 +416,7 @@ function SatelliteMarker({
   satellite,
   isSelected,
   onSelect,
+  onOpenModal,
   nextPasses,
 }: SatelliteMarkerProps) {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -406,6 +468,18 @@ function SatelliteMarker({
 
   return (
     <group position={position}>
+      {/* Invisible enlarged hit target — a sphere so the projected click
+          area stays the same from every camera angle */}
+      <mesh onClick={handleClick} renderOrder={GLOBE_LAYER_ORDER.markers}>
+        <sphereGeometry args={[MARKER_SIZE * 2.5, 12, 8]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
+
       {/* Glow circle behind marker */}
       <mesh rotation={diamondRotation} renderOrder={GLOBE_LAYER_ORDER.markers}>
         <planeGeometry args={[MARKER_SIZE * 3, MARKER_SIZE * 3]} />
@@ -486,6 +560,8 @@ function SatelliteMarker({
           satellite={satellite}
           occlusionOpacity={occlusionOpacity}
           nextPasses={nextPasses}
+          onOpenModal={onOpenModal}
+          onDismiss={() => onSelect(satellite.noradId)}
         />
       )}
     </group>
@@ -572,6 +648,7 @@ export function SatelliteOverlay() {
   const { satellites, selectedSatellite, selectSatellite, nextPasses } =
     useSatellites();
   const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
 
   const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
 
@@ -623,6 +700,7 @@ export function SatelliteOverlay() {
           satellite={sat}
           isSelected={sat.noradId === selectedSatellite?.noradId}
           onSelect={handleSelect}
+          onOpenModal={setSatelliteModalId}
           nextPasses={
             sat.noradId === selectedSatellite?.noradId ? nextPasses : []
           }

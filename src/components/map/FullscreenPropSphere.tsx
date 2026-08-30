@@ -28,7 +28,6 @@ import { ContestRatePanel } from "@/components/map/ContestRatePanel";
 import { ObservatoryOverlay } from "@/components/map/ObservatoryOverlay";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
-import { SatelliteDetailModal } from "@/components/map/layers";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
 
@@ -255,6 +254,8 @@ export function FullscreenPropSphere({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // An open satellite modal owns Escape (it closes itself).
+        if (useMapStore.getState().satelliteModalId !== null) return;
         if (observatoryMode) {
           exitObservatory();
           setAmbientMode(false);
@@ -674,8 +675,9 @@ export function FullscreenPropSphere({
         onClose={() => setShowPresetManager(false)}
       />
 
-      {/* Satellite Detail Modal (portal-based, triggered by store selection) */}
-      <SatelliteDetailModal />
+      {/* SatelliteDetailModal is owned by the PropSphere page, which stays
+          mounted beneath this view — a second instance here would portal
+          a duplicate modal. */}
     </div>
   );
 }

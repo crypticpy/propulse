@@ -6,7 +6,7 @@
  * Satellites" list grouped by category.
  */
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
@@ -71,6 +71,18 @@ export default function SatelliteFilters() {
   const setSatelliteShowAll = useMapStore((s) => s.setSatelliteShowAll);
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
+  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+
+  // Picking from the list is an explicit request for details: select the
+  // satellite (follower popup on the globe) and open the modal directly,
+  // since flat/azimuthal views have no popup to open it from.
+  const handleSelect = useCallback(
+    (noradId: number | null) => {
+      setSelectedSatelliteId(noradId);
+      setSatelliteModalId(noradId);
+    },
+    [setSelectedSatelliteId, setSatelliteModalId],
+  );
 
   const { satellites } = useSatellites();
 
@@ -176,7 +188,7 @@ export default function SatelliteFilters() {
                 key={sat.noradId}
                 sat={sat}
                 isSelected={selectedSatelliteId === sat.noradId}
-                onSelect={setSelectedSatelliteId}
+                onSelect={handleSelect}
               />
             ))}
           </div>
@@ -232,7 +244,7 @@ export default function SatelliteFilters() {
                       key={sat.noradId}
                       sat={sat}
                       isSelected={selectedSatelliteId === sat.noradId}
-                      onSelect={setSelectedSatelliteId}
+                      onSelect={handleSelect}
                     />
                   ))}
                 </div>

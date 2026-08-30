@@ -1917,7 +1917,8 @@ export function GlobeView({
     noiseEnvironment,
   ]);
 
-  // Handle globe click - show flyout
+  // Handle globe click - show flyout only (no target commit — that only
+  // happens when the user picks "Set Target" from the flyout, below)
   const handleGlobeClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       const grid = latLonToGrid(lat, lon);
@@ -1928,9 +1929,8 @@ export function GlobeView({
       setSelectedCluster(null); // Close cluster popover
       setClusterScreenPos(null);
       setClickedAlertData(null); // Clear weather alert flyout
-      onLocationClick?.(lat, lon);
     },
-    [setFlyoutPosition, setTooltipPosition, onLocationClick],
+    [setFlyoutPosition, setTooltipPosition],
   );
 
   // Q2: Handle double-click - center view without setting target
@@ -2199,6 +2199,10 @@ export function GlobeView({
             lon: flyoutPosition.lon,
             grid: flyoutPosition.grid,
           });
+          // Explicit target commit — this is the only place a long-press
+          // location should notify the host page (e.g. for contest-entry
+          // focus), not the initial flyout open.
+          onLocationClick?.(flyoutPosition.lat, flyoutPosition.lon);
           break;
         case "addPin":
           // Fallback to simple add (dialog callback should handle this)
@@ -2214,7 +2218,14 @@ export function GlobeView({
           break;
       }
     },
-    [flyoutPosition, setTarget, addPin, updateFilter, handleWatchGrid],
+    [
+      flyoutPosition,
+      setTarget,
+      addPin,
+      updateFilter,
+      handleWatchGrid,
+      onLocationClick,
+    ],
   );
 
   return (

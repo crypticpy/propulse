@@ -1,9 +1,10 @@
 /**
  * SatelliteDetailModal — Centered modal for satellite detail view
  *
- * Opens when `selectedSatelliteId` is set in mapStore. Shows satellite
- * position data, transponder info with Doppler correction, and pass
- * predictions. Rendered via createPortal to document.body.
+ * Opens when `satelliteModalId` is set in mapStore (independent of the
+ * follower popup's `selectedSatelliteId`). Shows satellite position data,
+ * transponder info with Doppler correction, and pass predictions. Rendered
+ * via createPortal to document.body.
  */
 
 import { useMemo, useEffect, useCallback } from "react";
@@ -617,27 +618,27 @@ function SatelliteDetailContent({
 // ---------------------------------------------------------------------------
 
 export default function SatelliteDetailModal() {
-  const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
-  const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
+  const satelliteModalId = useMapStore((s) => s.satelliteModalId);
+  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
 
-  const { selectedSatellite, nextPasses } = useSatellites();
+  const { selectedSatellite, nextPasses } = useSatellites(true, satelliteModalId);
 
   const handleClose = useCallback(() => {
-    setSelectedSatelliteId(null);
-  }, [setSelectedSatelliteId]);
+    setSatelliteModalId(null);
+  }, [setSatelliteModalId]);
 
   // Escape key handler
   useEffect(() => {
-    if (selectedSatelliteId === null) return;
+    if (satelliteModalId === null) return;
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") handleClose();
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [selectedSatelliteId, handleClose]);
+  }, [satelliteModalId, handleClose]);
 
   // Render nothing when no satellite is selected
-  if (selectedSatelliteId === null || !selectedSatellite) return null;
+  if (satelliteModalId === null || !selectedSatellite) return null;
 
   return createPortal(
     <div

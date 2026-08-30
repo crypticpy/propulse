@@ -576,6 +576,12 @@ export interface MapState {
   selectedSatelliteId: number | null;
   setSelectedSatelliteId: (noradId: number | null) => void;
 
+  // Satellite detail modal — separate from the popup selection above so the
+  // follower popup and the full modal can be dismissed independently
+  // (ephemeral — not persisted to localStorage)
+  satelliteModalId: number | null;
+  setSatelliteModalId: (noradId: number | null) => void;
+
   satelliteCategoryFilter: SatelliteCategory | "all";
   setSatelliteCategoryFilter: (cat: SatelliteCategory | "all") => void;
 
@@ -1214,6 +1220,7 @@ const initialState = {
 
   // Satellite UI state (ephemeral — resets on page refresh)
   selectedSatelliteId: null as number | null,
+  satelliteModalId: null as number | null,
   satelliteCategoryFilter: "all" as SatelliteCategory | "all",
   satelliteShowAll: false,
 
@@ -1966,6 +1973,7 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   // Satellite UI state setters (ephemeral — no persistence)
   setSelectedSatelliteId: (noradId) => set({ selectedSatelliteId: noradId }),
+  setSatelliteModalId: (noradId) => set({ satelliteModalId: noradId }),
   setSatelliteCategoryFilter: (cat) => set({ satelliteCategoryFilter: cat }),
   setSatelliteShowAll: (show) => set({ satelliteShowAll: show }),
 

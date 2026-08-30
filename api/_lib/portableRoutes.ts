@@ -30,6 +30,7 @@ import {
 } from "./handlers/atmosSpace";
 import { handleAuroraIndex } from "./handlers/aurora";
 import { handleSpotsBandActivity } from "./handlers/bandActivity";
+import { handleSpotsBandLadder } from "./handlers/bandLadder";
 import {
   handleCallsignClublogStatus,
   handleCallsignLookup,
@@ -98,6 +99,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/satellites/tle": handleSatellitesTle,
   "/api/satellites/transponders": handleSatellitesTransponders,
   "/api/spots/band-activity": handleSpotsBandActivity,
+  "/api/spots/band-ladder": handleSpotsBandLadder,
   "/api/spots/dxcluster": handleSpotsDxcluster,
   "/api/spots/pskreporter": handleSpotsPskreporter,
   "/api/spots/rbn": handleSpotsRbn,

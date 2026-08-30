@@ -22,6 +22,16 @@ const TLE_GROUPS = [
 const BATCH_SIZE = 500;
 const USER_AGENT = "Propulse-Collector/1.0 (satellite-tle)";
 
+// Fallback sources per group, tried in order after CelesTrak. CelesTrak
+// became unreachable from both Railway and residential networks around
+// 2026-07-20 (connections hang; no HTTP status), which left the TLE cache
+// 41 days stale. AMSAT's nasabare.txt covers the amateur group — the core
+// need for this app — and includes the ISS.
+const AMSAT_NASABARE_URL = "https://www.amsat.org/tle/current/nasabare.txt";
+const FALLBACK_URLS: Partial<Record<(typeof TLE_GROUPS)[number], string[]>> = {
+  amateur: [AMSAT_NASABARE_URL],
+};
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -107,17 +117,41 @@ function parseTleText(text: string, group: string, nowIso: string): TleRow[] {
 }
 
 // ---------------------------------------------------------------------------
-// Fetch a single TLE group
+// Fetch a single TLE group (primary source + per-group fallbacks)
 // ---------------------------------------------------------------------------
 
-async function fetchTleGroup(group: string): Promise<string> {
-  const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`;
+async function fetchTleText(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT },
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
   return res.text();
+}
+
+function groupUrls(group: (typeof TLE_GROUPS)[number]): string[] {
+  return [
+    `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`,
+    ...(FALLBACK_URLS[group] ?? []),
+  ];
+}
+
+async function fetchGroupWithFallback(
+  group: (typeof TLE_GROUPS)[number],
+  nowIso: string,
+): Promise<{ rows: TleRow[]; sourceUrl: string }> {
+  let lastError: unknown = new Error(`no sources configured for ${group}`);
+  for (const url of groupUrls(group)) {
+    try {
+      const text = await fetchTleText(url);
+      const rows = parseTleText(text, group, nowIso);
+      if (rows.length > 0) return { rows, sourceUrl: url };
+      lastError = new Error(`no parseable TLEs from ${url}`);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,14 +163,9 @@ export async function collectSatellites(db: SupabaseClient): Promise<void> {
   const nowIso = new Date().toISOString();
 
   try {
-    // Fetch all groups in parallel
+    // Fetch all groups in parallel; each group walks its source list
     const results = await Promise.allSettled(
-      TLE_GROUPS.map((group) =>
-        fetchTleGroup(group).then((text) => ({
-          group,
-          rows: parseTleText(text, group, nowIso),
-        })),
-      ),
+      TLE_GROUPS.map((group) => fetchGroupWithFallback(group, nowIso)),
     );
 
     const allRows: TleRow[] = [];
@@ -147,6 +176,12 @@ export async function collectSatellites(db: SupabaseClient): Promise<void> {
       const group = TLE_GROUPS[i];
       if (result.status === "fulfilled") {
         allRows.push(...result.value.rows);
+        if (!result.value.sourceUrl.includes("celestrak")) {
+          log("warn", `TLE group '${group}' served by fallback source`, {
+            sourceUrl: result.value.sourceUrl,
+            rows: result.value.rows.length,
+          });
+        }
       } else {
         failedGroups.push(group);
         log("warn", `TLE group '${group}' failed`, {

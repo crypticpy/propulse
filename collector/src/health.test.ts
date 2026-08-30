@@ -2,7 +2,12 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 import type { PollIntervals } from "./types.js";
-import { getSourceStaleMs, isSourceStale, startHealthServer } from "./health.js";
+import {
+  getSourceStaleMs,
+  isSourceStale,
+  reportHealth,
+  startHealthServer,
+} from "./health.js";
 
 const pollIntervals: PollIntervals = {
   pskreporter: 5 * 60_000,
@@ -91,6 +96,32 @@ describe("collector health freshness", () => {
     expect(
       isSourceStale("lightning", thirtyMinutesAgo, now, pollIntervals),
     ).toBe(true);
+  });
+
+  it("treats warning as delivering — visible in lastRuns, no staleness 503", async () => {
+    reportHealth("warning-source", "warning", 5);
+    reportHealth("error-source", "error", 0);
+
+    const server = startHealthServer(0);
+    await once(server, "listening");
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/`);
+      const body = (await response.json()) as {
+        lastRuns: Record<string, { status: string }>;
+        degraded_sources?: string[];
+      };
+
+      expect(body.lastRuns["warning-source"]?.status).toBe("warning");
+      expect(body.degraded_sources ?? []).not.toContain("warning-source");
+      // error never refreshed last-success, so that source degrades
+      expect(body.degraded_sources ?? []).toContain("error-source");
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
   });
 
   it("degrades after two missed scheduled intervals", () => {

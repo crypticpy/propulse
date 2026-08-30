@@ -30,6 +30,7 @@ const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
   "forecast-snapshot": "forecastSnapshot",
   "db-size": "dbSizeGuard",
   "path-archive": "pathArchive",
+  "band-climatology": "bandClimatology",
 };
 
 export function getSourceStaleMs(

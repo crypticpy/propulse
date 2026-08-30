@@ -97,6 +97,10 @@ export function loadConfig(): CollectorConfig {
         6 * 60 * 60_000,
       ),
       pathArchive: parseIntervalMs(process.env.POLL_PATH_ARCHIVE, 60 * 60_000),
+      bandClimatology: parseIntervalMs(
+        process.env.POLL_BAND_CLIMATOLOGY,
+        24 * 60 * 60_000,
+      ),
     },
 
     // Data retention (env vars in DAYS)

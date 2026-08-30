@@ -11,8 +11,13 @@ import { useEffect, useRef, useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Card } from "@/components/ui/Card";
 import { useBandVerdicts, type BandVerdictEntry } from "@/hooks/useBandVerdicts";
+import {
+  useBandActivity,
+  type BandActivityStatus,
+} from "@/hooks/useBandActivity";
 import { useVerdictStore } from "@/stores/verdictStore";
 import type { BandVerdict } from "@/lib/verdict/verdictEngine";
+import type { ActivityLevel, ActivityTrend } from "@/lib/utils/bandActivity";
 
 const VERDICT_LABEL: Record<BandVerdict, string> = {
   confirmed: "Confirmed",
@@ -36,13 +41,39 @@ const VERDICT_TEXT_CLASSES: Record<BandVerdict, string> = {
   closed: "text-gray-500",
 };
 
+const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
+  quiet: "Quiet",
+  normal: "Normal",
+  busy: "Busy",
+  exceptional: "Exceptional",
+};
+
+const ACTIVITY_TEXT_CLASSES: Record<ActivityLevel, string> = {
+  quiet: "text-gray-500",
+  normal: "text-white/60",
+  busy: "text-caution-amber",
+  exceptional: "text-plasma-orange",
+};
+
+const TREND_ARROW: Record<ActivityTrend, string> = {
+  rising: "↗",
+  steady: "→",
+  falling: "↘",
+};
+
 interface BandVerdictChipProps {
   entry: BandVerdictEntry;
+  activity: BandActivityStatus | undefined;
   open: boolean;
   onToggle: () => void;
 }
 
-function BandVerdictChip({ entry, open, onToggle }: BandVerdictChipProps) {
+function BandVerdictChip({
+  entry,
+  activity,
+  open,
+  onToggle,
+}: BandVerdictChipProps) {
   const log = useVerdictStore((s) => s.log);
   const recent = log.filter((l) => l.band === entry.band).slice(0, 3);
 
@@ -57,6 +88,23 @@ function BandVerdictChip({ entry, open, onToggle }: BandVerdictChipProps) {
       >
         <span className="font-semibold">{entry.band}</span>
         <span>{VERDICT_LABEL[entry.stable]}</span>
+        {activity && activity.count60m > 0 && (
+          <span
+            className={
+              activity.level
+                ? ACTIVITY_TEXT_CLASSES[activity.level]
+                : "text-white/40"
+            }
+            aria-label={`activity ${activity.trend}`}
+          >
+            {TREND_ARROW[activity.trend]}
+          </span>
+        )}
+        {activity?.crowded && (
+          <span className="px-1 rounded bg-plasma-orange/20 text-plasma-orange text-[10px] uppercase tracking-wide">
+            Crowded
+          </span>
+        )}
       </button>
 
       {open && (
@@ -89,6 +137,38 @@ function BandVerdictChip({ entry, open, onToggle }: BandVerdictChipProps) {
             {formatDistanceToNow(new Date(entry.since), { addSuffix: true })}
           </div>
 
+          {activity && (
+            <div className="border-t border-white/5 pt-1.5 mb-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1">
+                Activity
+              </div>
+              <div className="text-[11px] text-white/60">
+                {activity.level ? (
+                  <span className={ACTIVITY_TEXT_CLASSES[activity.level]}>
+                    {ACTIVITY_LABEL[activity.level]}
+                  </span>
+                ) : (
+                  <span className="text-white/40">No baseline yet</span>
+                )}{" "}
+                <span aria-hidden="true">
+                  {TREND_ARROW[activity.trend]}
+                </span>{" "}
+                {activity.trend}
+              </div>
+              <div className="text-[11px] text-white/60 font-mono">
+                {activity.count60m} spots/hr · {activity.obs20m} obs ·{" "}
+                {activity.reporters20m} reporters (20 min)
+              </div>
+              {activity.level && activity.thresholds && (
+                <div className="text-[10px] text-white/40 font-mono">
+                  vs this hour: p25 {Math.round(activity.thresholds.p25)} ·
+                  p75 {Math.round(activity.thresholds.p75)} · p95{" "}
+                  {Math.round(activity.thresholds.p95)}
+                </div>
+              )}
+            </div>
+          )}
+
           {recent.length > 0 && (
             <div className="border-t border-white/5 pt-1.5">
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1">
@@ -116,6 +196,7 @@ function BandVerdictChip({ entry, open, onToggle }: BandVerdictChipProps) {
 
 export function BandVerdictPanel() {
   const { bands, ready } = useBandVerdicts();
+  const { data: activityByBand } = useBandActivity();
   const [openBand, setOpenBand] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +242,7 @@ export function BandVerdictPanel() {
             <BandVerdictChip
               key={entry.band}
               entry={entry}
+              activity={activityByBand?.get(entry.band)}
               open={openBand === entry.band}
               onToggle={() =>
                 setOpenBand((current) =>

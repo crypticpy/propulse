@@ -96,11 +96,14 @@ const DEFAULT_DEPENDENCIES: SpotStoreDependencies = {
   storageConfig: configuredStorage,
 };
 
-async function readBoundedJson(response: Response): Promise<unknown> {
+export async function readBoundedJson(
+  response: Response,
+  byteLimit: number = RESPONSE_BYTE_LIMIT,
+): Promise<unknown> {
   const declaredLength = response.headers.get("content-length");
   if (
     declaredLength &&
-    (!/^\d+$/.test(declaredLength) || Number(declaredLength) > RESPONSE_BYTE_LIMIT)
+    (!/^\d+$/.test(declaredLength) || Number(declaredLength) > byteLimit)
   ) {
     throw new RangeError("spot store response exceeds byte limit");
   }
@@ -114,7 +117,7 @@ async function readBoundedJson(response: Response): Promise<unknown> {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > RESPONSE_BYTE_LIMIT) {
+    if (total > byteLimit) {
       await reader.cancel();
       throw new RangeError("spot store response exceeds byte limit");
     }

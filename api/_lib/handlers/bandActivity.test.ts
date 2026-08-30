@@ -111,6 +111,17 @@ describe("handleSpotsBandActivity", () => {
     expect(post.status).toBe(405);
   });
 
+  it("rejects an oversized RPC response without keeping it", async () => {
+    // > 64 KiB body — the bounded reader must bail, not buffer-then-parse.
+    stubRpc([{ ...RPC_ROW, band: "x".repeat(70 * 1024) }]);
+    const res = await handleSpotsBandActivity(
+      new Request("https://propulse.cloud/api/spots/band-activity"),
+    );
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { bands: unknown[] };
+    expect(body.bands).toEqual([]);
+  });
+
   it("returns 502 with empty bands when the store errors", async () => {
     stubRpc({ message: "boom" }, 500);
     const res = await handleSpotsBandActivity(

@@ -47,13 +47,34 @@ RETURNS integer
 LANGUAGE sql
 SET statement_timeout = '120s'
 AS $$
-  WITH samples AS (
-    SELECT
-      band,
-      EXTRACT(hour FROM hour_utc)::smallint AS hour_of_day,
-      spot_count
+  -- Densify before ranking: band_hourly_stats has no row for a band that
+  -- was silent during an aggregated hour, so sampling only existing rows
+  -- would condition the percentiles on the band already being active and
+  -- inflate every threshold. Rebuild the full band × hour timeline over the
+  -- hours the aggregator actually ran (an hour absent for ALL bands means
+  -- the collector was down, not that every band was silent) and fill the
+  -- gaps with zero — the same rule as the F2 eval harness's densifyTruth.
+  WITH window_rows AS (
+    SELECT band, hour_utc, spot_count
     FROM public.band_hourly_stats
     WHERE hour_utc >= now() - make_interval(days => GREATEST(baseline_days, 1))
+  ),
+  hours AS (
+    SELECT DISTINCT hour_utc FROM window_rows
+  ),
+  bands AS (
+    SELECT DISTINCT band FROM window_rows
+  ),
+  samples AS (
+    SELECT
+      b.band,
+      EXTRACT(hour FROM h.hour_utc)::smallint AS hour_of_day,
+      COALESCE(w.spot_count, 0) AS spot_count
+    FROM hours h
+    CROSS JOIN bands b
+    LEFT JOIN window_rows w
+      ON w.hour_utc = h.hour_utc
+     AND w.band = b.band
   ),
   pct AS (
     SELECT

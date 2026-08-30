@@ -11,7 +11,7 @@
 
 import { applyRateLimit } from "../rateLimit.js";
 import { spotJsonResponse, spotOptionsResponse } from "../spotResponse.js";
-import { configuredStorage } from "../spotStore.js";
+import { configuredStorage, readBoundedJson } from "../spotStore.js";
 
 const RPC_TIMEOUT_MS = 5_000;
 const RESPONSE_BYTE_LIMIT = 64 * 1024;
@@ -79,14 +79,6 @@ export function parseBandActivityRow(value: unknown): BandActivityRow | null {
   };
 }
 
-async function readBoundedJson(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (text.length > RESPONSE_BYTE_LIMIT) {
-    throw new RangeError("band-activity response exceeds byte limit");
-  }
-  return JSON.parse(text);
-}
-
 export async function handleSpotsBandActivity(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return spotOptionsResponse();
@@ -140,7 +132,7 @@ export async function handleSpotsBandActivity(req: Request): Promise<Response> {
       );
     }
 
-    const payload = await readBoundedJson(response);
+    const payload = await readBoundedJson(response, RESPONSE_BYTE_LIMIT);
     const bands = Array.isArray(payload)
       ? payload
           .map(parseBandActivityRow)

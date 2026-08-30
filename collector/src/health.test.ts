@@ -25,6 +25,20 @@ describe("collector health freshness", () => {
     expect(getSourceStaleMs("path-aggregator", pollIntervals)).toBe(10 * 60_000);
   });
 
+  it("gives the daily band-climatology task a two-day freshness window", () => {
+    // Unmapped sources fall back to the 10-min streaming threshold, which
+    // would flip /health to 503 for ~23h50m of every day for a daily task.
+    expect(getSourceStaleMs("band-climatology", pollIntervals)).toBe(
+      48 * 60 * 60_000,
+    );
+
+    const now = Date.UTC(2026, 7, 30, 12, 0);
+    const twentyHoursAgo = now - 20 * 60 * 60_000;
+    expect(
+      isSourceStale("band-climatology", twentyHoursAgo, now, pollIntervals),
+    ).toBe(false);
+  });
+
   it("keeps streaming sources on a bounded ten-minute window", () => {
     expect(getSourceStaleMs("pskreporter", pollIntervals)).toBe(10 * 60_000);
     expect(getSourceStaleMs("rbn", pollIntervals)).toBe(10 * 60_000);

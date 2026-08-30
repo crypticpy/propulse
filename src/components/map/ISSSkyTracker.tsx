@@ -432,11 +432,14 @@ export function ISSSkyTracker() {
       let newX = positionStartRef.current.x + deltaX;
       let newY = positionStartRef.current.y + deltaY;
 
-      // Clamp to container
+      // Clamp to container using the rendered size (the collapsed chip is
+      // much smaller than the expanded panel)
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        newX = Math.max(4, Math.min(rect.width - PANEL_WIDTH - 4, newX));
-        newY = Math.max(4, Math.min(rect.height - PANEL_HEIGHT - 4, newY));
+        const w = panelRef.current?.offsetWidth || PANEL_WIDTH;
+        const h = panelRef.current?.offsetHeight || PANEL_HEIGHT;
+        newX = Math.max(4, Math.min(rect.width - w - 4, newX));
+        newY = Math.max(4, Math.min(rect.height - h - 4, newY));
       }
 
       setPosition({ x: newX, y: newY });
@@ -562,6 +565,7 @@ export function ISSSkyTracker() {
   if (!isVisible) {
     return (
       <div
+        ref={panelRef}
         className="absolute z-20 pointer-events-auto"
         style={{
           ...posStyle,

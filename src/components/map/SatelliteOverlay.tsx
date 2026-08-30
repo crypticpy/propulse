@@ -368,13 +368,20 @@ function SatelliteInfoPopup({
           </span>
         </div>
 
-        {/* Details affordance — signals the popup itself is clickable */}
+        {/* Details affordance — a real button so keyboard users can open
+            the modal; the surrounding popup is also clickable for pointers */}
         <div
           className="my-0.5"
           style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
         />
-        <div
-          className="flex items-center justify-center gap-1 text-[8px] font-semibold uppercase tracking-wider"
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenModal(satellite.noradId);
+          }}
+          aria-label={`Open full details for ${satellite.name}`}
+          className="flex w-full items-center justify-center gap-1 rounded text-[8px] font-semibold uppercase tracking-wider hover:bg-white/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
           style={{ color: `${color}aa` }}
         >
           <span>Tap for full details</span>
@@ -387,7 +394,7 @@ function SatelliteInfoPopup({
               strokeLinejoin="round"
             />
           </svg>
-        </div>
+        </button>
       </div>
     </Html>
   );
@@ -461,17 +468,13 @@ function SatelliteMarker({
 
   return (
     <group position={position}>
-      {/* Invisible enlarged hit target — easier to click than the marker itself */}
-      <mesh
-        rotation={diamondRotation}
-        onClick={handleClick}
-        renderOrder={GLOBE_LAYER_ORDER.markers}
-      >
-        <planeGeometry args={[MARKER_SIZE * 5, MARKER_SIZE * 5]} />
+      {/* Invisible enlarged hit target — a sphere so the projected click
+          area stays the same from every camera angle */}
+      <mesh onClick={handleClick} renderOrder={GLOBE_LAYER_ORDER.markers}>
+        <sphereGeometry args={[MARKER_SIZE * 2.5, 12, 8]} />
         <meshBasicMaterial
           transparent
           opacity={0}
-          side={THREE.DoubleSide}
           depthTest={false}
           depthWrite={false}
         />

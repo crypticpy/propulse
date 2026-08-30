@@ -304,13 +304,13 @@ and the service loads the exact A6 internal manifest on the M5.
 - [x] Configure independent continuous research-heartbeat monitoring. The
   default-branch GitHub workflow is active and its latest five scheduled runs
   passed.
-- [ ] Inference uptime monitoring now lives inside the Railway collector
+- [x] Inference uptime monitoring now lives inside the Railway collector
   (`collector/src/collectors/inferenceMonitor.ts`, 10-minute cadence) rather
   than as a GitHub workflow — the Actions cron was retired 2026-08-30 to stop
   minute burn. Outside-in Railway coverage is the collector `/live` deadman
-  step in `solar-provider-synthetic.yml`. Check this gate only after the
-  collector redeploys and a healthy `inference-monitor` tick is observed on
-  its `/health` endpoint.
+  step in `solar-provider-synthetic.yml`. Gate verified 2026-08-30 07:18Z:
+  post-merge collector deploy reported a healthy `inference-monitor` tick on
+  `/health` (status ok, 10-min interval active).
 
 **Exit gate:** a clean Railway deployment downloads and verifies the bundle,
 reports the expected hashes/profile, serves test path and surface calls, and

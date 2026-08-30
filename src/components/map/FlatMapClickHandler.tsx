@@ -109,11 +109,9 @@ function canvasEventToLatLon(
 ): { lat: number; lon: number } | null {
   const rect = canvas.getBoundingClientRect();
 
-  // Use the ACTUAL rendered canvas dimensions (from getBoundingClientRect)
-  // instead of the logical displaySize, to account for any CSS layout scaling
-  // (flex shrink, browser zoom edge cases, sub-pixel rounding, etc.).
-  // The zoom offsets and mouse coordinates are all in CSS pixel space,
-  // and rect.width is the true CSS pixel width the canvas occupies.
+  // rect only supplies the canvas origin. The projection spans the logical
+  // map box (displayWidth × displayHeight), which in fillContainer mode is
+  // larger than the canvas itself — the crop is carried by zoom.offsetX/Y.
   const cssWidth = rect.width;
   const cssHeight = rect.height;
 
@@ -126,15 +124,15 @@ function canvasEventToLatLon(
   const mapY = (displayY - zoom.offsetY) / zoom.scale;
 
   // Check bounds - pointer is outside the logical map area
-  if (mapX < 0 || mapX > cssWidth || mapY < 0 || mapY > cssHeight) {
+  if (mapX < 0 || mapX > displayWidth || mapY < 0 || mapY > displayHeight) {
     return null;
   }
 
   // Convert to lat/lon using equirectangular projection
-  // X axis: 0 -> cssWidth maps to -180 -> +180 longitude
-  // Y axis: 0 -> cssHeight maps to +90 -> -90 latitude (top = north)
-  const lon = (mapX / cssWidth) * 360 - 180;
-  const lat = 90 - (mapY / cssHeight) * 180;
+  // X axis: 0 -> displayWidth maps to -180 -> +180 longitude
+  // Y axis: 0 -> displayHeight maps to +90 -> -90 latitude (top = north)
+  const lon = (mapX / displayWidth) * 360 - 180;
+  const lat = 90 - (mapY / displayHeight) * 180;
 
   if (import.meta.env.DEV) {
     console.debug(

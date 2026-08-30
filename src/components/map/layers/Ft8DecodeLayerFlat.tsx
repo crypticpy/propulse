@@ -35,6 +35,12 @@ export interface Ft8DecodeLayerFlatProps {
   offsetY?: number;
   /** Map zoom scale factor, from FlatMapView's zoom state (default 1) */
   scale?: number;
+  /**
+   * Canvas element size when it differs from the map box (FlatMapView's
+   * fillContainer crop). Defaults to width/height.
+   */
+  viewportWidth?: number;
+  viewportHeight?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,8 +67,8 @@ export function Ft8DecodeLayerFlat(props: Ft8DecodeLayerFlatProps) {
 
     // Match canvas resolution to logical size (retina-aware)
     const dpr = window.devicePixelRatio || 1;
-    const logicalWidth = props.width;
-    const logicalHeight = props.height;
+    const logicalWidth = props.viewportWidth ?? props.width;
+    const logicalHeight = props.viewportHeight ?? props.height;
 
     if (
       canvas.width !== logicalWidth * dpr ||
@@ -105,8 +111,8 @@ export function Ft8DecodeLayerFlat(props: Ft8DecodeLayerFlatProps) {
         position: "absolute",
         top: 0,
         left: 0,
-        width: props.width,
-        height: props.height,
+        width: props.viewportWidth ?? props.width,
+        height: props.viewportHeight ?? props.height,
         pointerEvents: "none",
       }}
     />

@@ -64,7 +64,12 @@ export function reportHealth(
   spotsIngested: number,
 ): void {
   lastRuns[source] = { at: new Date().toISOString(), status, spotsIngested };
-  if (status === "ok") {
+  // "warning" means the source is delivering but impaired (e.g. satellites
+  // running on a fallback TLE source while CelesTrak is down). It stays
+  // visible in lastRuns but must not 503 the whole collector via staleness.
+  // Sources that WANT to degrade /health use a distinct status instead
+  // (dbSizeGuard's "over-budget").
+  if (status === "ok" || status === "warning") {
     lastSuccessTimes[source] = Date.now();
   }
 }

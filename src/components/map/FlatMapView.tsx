@@ -3151,6 +3151,13 @@ function drawSatellites(
 
 // Re-use shared zoom state type
 import type { FlatMapZoomState } from "@/types/map";
+import {
+  centeredOffsets,
+  clampMapOffsets,
+  computeFlatMapLayout,
+  preservedCenterOffsets,
+  type FlatMapLayout,
+} from "./lib/flatMapLayout";
 
 export function FlatMapView({
   displayTime,
@@ -3165,10 +3172,15 @@ export function FlatMapView({
   // Bumped when an async tile finishes loading, forcing a recomposite
   const [tileEpoch, setTileEpoch] = useState(0);
 
-  const [displaySize, setDisplaySize] = useState({
-    width: MAP_WIDTH,
-    height: MAP_HEIGHT,
+  // `displaySize` is the 2:1 map box every draw call and hit-test projects
+  // into; `viewportSize` is the canvas element. They differ only in
+  // fillContainer mode, where the map box covers (and overflows) the viewport.
+  const [layout, setLayout] = useState<FlatMapLayout>({
+    map: { width: MAP_WIDTH, height: MAP_HEIGHT },
+    viewport: { width: MAP_WIDTH, height: MAP_HEIGHT },
   });
+  const displaySize = layout.map;
+  const viewportSize = layout.viewport;
   const [zoom, setZoom] = useState<FlatMapZoomState>({
     scale: 1,
     offsetX: 0,
@@ -3663,8 +3675,8 @@ export function FlatMapView({
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
       // Use actual CSS dimensions for screen-space mapping
-      const cssScaleX = rect.width / displaySize.width;
-      const cssScaleY = rect.height / displaySize.height;
+      const cssScaleX = rect.width / viewportSize.width;
+      const cssScaleY = rect.height / viewportSize.height;
 
       for (const pin of pins) {
         const cp = latLonToCanvas(
@@ -3683,7 +3695,7 @@ export function FlatMapView({
       }
       return null;
     },
-    [pins, displaySize],
+    [pins, displaySize, viewportSize],
   );
 
   // Target hit-testing: check if screen position is near the selected target
@@ -3696,8 +3708,8 @@ export function FlatMapView({
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
       // Use actual CSS dimensions for screen-space mapping
-      const cssScaleX = rect.width / displaySize.width;
-      const cssScaleY = rect.height / displaySize.height;
+      const cssScaleX = rect.width / viewportSize.width;
+      const cssScaleY = rect.height / viewportSize.height;
 
       const cp = latLonToCanvas(
         target.lat,
@@ -3711,7 +3723,7 @@ export function FlatMapView({
       const dy = screenPos.y - sy;
       return dx * dx + dy * dy < TARGET_HIT_RADIUS_SQ;
     },
-    [target, displaySize],
+    [target, displaySize, viewportSize],
   );
 
   // Spot label hit-testing: check if screen position is inside any placed label
@@ -3724,8 +3736,8 @@ export function FlatMapView({
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
       // Use actual CSS dimensions for screen-space mapping
-      const cssScaleX = rect.width / displaySize.width;
-      const cssScaleY = rect.height / displaySize.height;
+      const cssScaleX = rect.width / viewportSize.width;
+      const cssScaleY = rect.height / viewportSize.height;
 
       for (const label of lastPlacedLabels) {
         const { bbox } = label;
@@ -3746,7 +3758,7 @@ export function FlatMapView({
       }
       return null;
     },
-    [displaySize],
+    [viewportSize],
   );
 
   // Handle map hover - show tooltip or pin flyout
@@ -3962,15 +3974,9 @@ export function FlatMapView({
 
   // Clamp zoom offsets to prevent panning beyond map bounds
   const clampOffsets = useCallback(
-    (scale: number, offX: number, offY: number) => {
-      const maxOffsetX = displaySize.width * (scale - 1);
-      const maxOffsetY = displaySize.height * (scale - 1);
-      return {
-        offsetX: Math.max(-maxOffsetX, Math.min(0, offX)),
-        offsetY: Math.max(-maxOffsetY, Math.min(0, offY)),
-      };
-    },
-    [displaySize],
+    (scale: number, offX: number, offY: number) =>
+      clampMapOffsets(layout, scale, offX, offY),
+    [layout],
   );
 
   // Smooth zoom animation loop driven by requestAnimationFrame
@@ -4134,68 +4140,51 @@ export function FlatMapView({
     }
 
     let rafId = 0;
+    // null until the first layout: a fresh view centers the map box, later
+    // layouts keep whatever map point sits under the viewport center.
+    let lastLayout: FlatMapLayout | null = null;
 
-    const computeSize = (rect: DOMRect) => {
-      const containerWidth = Math.max(300, Math.floor(rect.width));
-      const containerHeight = Math.max(150, Math.floor(rect.height));
-      if (fillContainer) {
-        // Cover the container with a map box that keeps the basemap's native
-        // 2:1 aspect ratio (never letterbox/stretch) — size to whichever
-        // dimension needs more room, then derive the other from the 2:1
-        // ratio, and center+crop via the container's overflow-hidden.
-        const width = Math.max(containerWidth, containerHeight * 2);
-        const height = Math.ceil(width / 2);
-        return { width: height * 2, height };
-      }
-      // Configurable aspect ratio letterbox — fit within both width AND height constraints
-      const ratio = Math.max(1.0, Math.min(3.0, mapAspectRatio));
-      const width = Math.min(
-        containerWidth,
-        Math.floor(containerHeight * ratio),
+    const applyLayout = () => {
+      const rect = container.getBoundingClientRect();
+      const next = computeFlatMapLayout(
+        rect.width,
+        rect.height,
+        fillContainer,
+        mapAspectRatio,
       );
-      const height = Math.floor(width / ratio);
-      return { width, height };
-    };
+      const z = zoomRef.current;
+      const wanted = lastLayout
+        ? preservedCenterOffsets(lastLayout, next, z)
+        : centeredOffsets(next, z.scale);
+      const clamped = clampMapOffsets(
+        next,
+        z.scale,
+        wanted.offsetX,
+        wanted.offsetY,
+      );
 
-    // Track last known display size for viewport center preservation on resize
-    const initialRect = container.getBoundingClientRect();
-    let lastSize = computeSize(initialRect);
+      const layoutChanged =
+        !lastLayout ||
+        lastLayout.map.width !== next.map.width ||
+        lastLayout.map.height !== next.map.height ||
+        lastLayout.viewport.width !== next.viewport.width ||
+        lastLayout.viewport.height !== next.viewport.height;
+      lastLayout = next;
+      if (layoutChanged) {
+        setLayout(next);
+      }
+      if (clamped.offsetX !== z.offsetX || clamped.offsetY !== z.offsetY) {
+        setZoom({ scale: z.scale, ...clamped });
+      }
+    };
 
     const updateSize = () => {
       cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const rect = container.getBoundingClientRect();
-        const newSize = computeSize(rect);
-
-        // Preserve viewport center when zoomed in during resize
-        const z = zoomRef.current;
-        if (z.scale > 1) {
-          const oldW = lastSize.width;
-          const oldH = lastSize.height;
-          // Current viewport center in map-space coordinates
-          const centerMapX = (-z.offsetX + oldW / 2) / z.scale;
-          const centerMapY = (-z.offsetY + oldH / 2) / z.scale;
-          // Recompute offsets to center the same map point in new viewport
-          const newOffsetX = newSize.width / 2 - centerMapX * z.scale;
-          const newOffsetY = newSize.height / 2 - centerMapY * z.scale;
-          // Clamp offsets to valid range
-          const maxOffsetX = newSize.width * (z.scale - 1);
-          const maxOffsetY = newSize.height * (z.scale - 1);
-          setZoom({
-            scale: z.scale,
-            offsetX: Math.max(-maxOffsetX, Math.min(0, newOffsetX)),
-            offsetY: Math.max(-maxOffsetY, Math.min(0, newOffsetY)),
-          });
-        }
-
-        lastSize = newSize;
-        setDisplaySize(newSize);
-      });
+      rafId = requestAnimationFrame(applyLayout);
     };
 
-    // Initial synchronous size read
-    const rect = container.getBoundingClientRect();
-    setDisplaySize(computeSize(rect));
+    // Initial synchronous layout
+    applyLayout();
 
     const observer = new ResizeObserver(updateSize);
     observer.observe(container);
@@ -4229,8 +4218,8 @@ export function FlatMapView({
 
     // Calculate offset to center the preset point in the viewport at the target scale
     const targetScale = Math.max(1, Math.min(MAX_ZOOM_SCALE, preset.zoom));
-    const targetOffsetX = displaySize.width / 2 - mapX * targetScale;
-    const targetOffsetY = displaySize.height / 2 - mapY * targetScale;
+    const targetOffsetX = viewportSize.width / 2 - mapX * targetScale;
+    const targetOffsetY = viewportSize.height / 2 - mapY * targetScale;
 
     const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
 
@@ -4256,6 +4245,7 @@ export function FlatMapView({
     activePresetId,
     regionPresets,
     displaySize,
+    viewportSize,
     clampOffsets,
     runZoomAnimation,
   ]);
@@ -4276,8 +4266,8 @@ export function FlatMapView({
     const targetScale = Math.max(2, z.scale);
 
     // Calculate offset to center the target point in the viewport
-    const targetOffsetX = displaySize.width / 2 - mapX * targetScale;
-    const targetOffsetY = displaySize.height / 2 - mapY * targetScale;
+    const targetOffsetX = viewportSize.width / 2 - mapX * targetScale;
+    const targetOffsetY = viewportSize.height / 2 - mapY * targetScale;
 
     const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
 
@@ -4304,6 +4294,7 @@ export function FlatMapView({
   }, [
     centerLocation,
     displaySize,
+    viewportSize,
     clampOffsets,
     runZoomAnimation,
     clearCenterLocation,
@@ -4352,9 +4343,11 @@ export function FlatMapView({
       const { width: rw, height: rh } = displaySize;
 
       // Match main canvas buffer size
-      if (hCanvas.width !== rw * dpr || hCanvas.height !== rh * dpr) {
-        hCanvas.width = rw * dpr;
-        hCanvas.height = rh * dpr;
+      const bufferWidth = viewportSize.width * dpr;
+      const bufferHeight = viewportSize.height * dpr;
+      if (hCanvas.width !== bufferWidth || hCanvas.height !== bufferHeight) {
+        hCanvas.width = bufferWidth;
+        hCanvas.height = bufferHeight;
       }
 
       hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
@@ -4381,7 +4374,13 @@ export function FlatMapView({
         spotHighlightRafRef.current = 0;
       }
     };
-  }, [isFocusing, focusedSpot?.dxLat, focusedSpot?.dxLon, displaySize]);
+  }, [
+    isFocusing,
+    focusedSpot?.dxLat,
+    focusedSpot?.dxLon,
+    displaySize,
+    viewportSize,
+  ]);
 
   // Draw renderer-agnostic overlay layers (e.g., contest markers) on demand
   useEffect(() => {
@@ -4398,9 +4397,11 @@ export function FlatMapView({
     const dpr = window.devicePixelRatio || 1;
     const { width: rw, height: rh } = displaySize;
 
-    if (oCanvas.width !== rw * dpr || oCanvas.height !== rh * dpr) {
-      oCanvas.width = rw * dpr;
-      oCanvas.height = rh * dpr;
+    const bufferWidth = viewportSize.width * dpr;
+    const bufferHeight = viewportSize.height * dpr;
+    if (oCanvas.width !== bufferWidth || oCanvas.height !== bufferHeight) {
+      oCanvas.width = bufferWidth;
+      oCanvas.height = bufferHeight;
     }
 
     oCtx.clearRect(0, 0, oCanvas.width, oCanvas.height);
@@ -4510,7 +4511,7 @@ export function FlatMapView({
     }
 
     oCtx.restore();
-  }, [displaySize, overlayLayers, zoom]);
+  }, [displaySize, viewportSize, overlayLayers, zoom]);
 
   // Cleanup animation refs on unmount
   useEffect(() => {
@@ -4603,8 +4604,8 @@ export function FlatMapView({
     const renderHeight = displaySize.height;
 
     // Set canvas buffer size (accounting for DPR) - only resize when dimensions change
-    const bufferWidth = renderWidth * dpr;
-    const bufferHeight = renderHeight * dpr;
+    const bufferWidth = viewportSize.width * dpr;
+    const bufferHeight = viewportSize.height * dpr;
     if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
       canvas.width = bufferWidth;
       canvas.height = bufferHeight;
@@ -5055,14 +5056,14 @@ export function FlatMapView({
         ctx.fillText(dp.label, pos.x + 8 / zoom.scale, pos.y - 5 / zoom.scale);
       }
 
-      // Log canvas vs displaySize mismatch (once)
+      // Log canvas vs viewportSize mismatch (once)
       const rect = canvas.getBoundingClientRect();
       if (
-        Math.abs(rect.width - renderWidth) > 1 ||
-        Math.abs(rect.height - renderHeight) > 1
+        Math.abs(rect.width - viewportSize.width) > 1 ||
+        Math.abs(rect.height - viewportSize.height) > 1
       ) {
         console.warn(
-          `[MapDebug] SIZE MISMATCH! canvas rect=${rect.width.toFixed(0)}x${rect.height.toFixed(0)} displaySize=${renderWidth}x${renderHeight} buffer=${canvas.width}x${canvas.height}`,
+          `[MapDebug] SIZE MISMATCH! canvas rect=${rect.width.toFixed(0)}x${rect.height.toFixed(0)} viewportSize=${viewportSize.width}x${viewportSize.height} mapSize=${renderWidth}x${renderHeight} buffer=${canvas.width}x${canvas.height}`,
         );
       }
     }
@@ -5091,6 +5092,7 @@ export function FlatMapView({
     hoveredSpotData,
     zoom,
     displaySize,
+    viewportSize,
     compassRoseEnabled,
     showCallsignLabels,
     showSpotterLabels,
@@ -5142,8 +5144,10 @@ export function FlatMapView({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full bg-deep-space overflow-hidden relative select-none flex items-center justify-center ${
-        fillContainer ? "" : "min-h-[400px] rounded-xl"
+      className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
+        fillContainer
+          ? ""
+          : "min-h-[400px] rounded-xl flex items-center justify-center"
       }`}
     >
       {!mapImage && mapStyle === "satellite" && (
@@ -5156,7 +5160,7 @@ export function FlatMapView({
       )}
       <div
         className="relative flex-shrink-0"
-        style={{ width: displaySize.width, height: displaySize.height }}
+        style={{ width: viewportSize.width, height: viewportSize.height }}
       >
         <canvas
           ref={canvasRef}
@@ -5164,8 +5168,8 @@ export function FlatMapView({
           aria-label="Interactive propagation map - click to select target location"
           role="img"
           style={{
-            width: displaySize.width,
-            height: displaySize.height,
+            width: viewportSize.width,
+            height: viewportSize.height,
             imageRendering: "auto",
             touchAction: "none",
           }}
@@ -5175,8 +5179,8 @@ export function FlatMapView({
           ref={contestOverlayCanvasRef}
           className="absolute inset-0 pointer-events-none"
           style={{
-            width: displaySize.width,
-            height: displaySize.height,
+            width: viewportSize.width,
+            height: viewportSize.height,
           }}
         />
         {/* Spot highlight overlay canvas (animates at 60fps independently) */}
@@ -5184,8 +5188,8 @@ export function FlatMapView({
           ref={highlightCanvasRef}
           className="absolute inset-0 pointer-events-none"
           style={{
-            width: displaySize.width,
-            height: displaySize.height,
+            width: viewportSize.width,
+            height: viewportSize.height,
           }}
         />
         {/* FT8 Decode overlay — enriched decode markers + great-circle arcs */}
@@ -5196,6 +5200,8 @@ export function FlatMapView({
             myLon={station?.lon}
             width={displaySize.width}
             height={displaySize.height}
+            viewportWidth={viewportSize.width}
+            viewportHeight={viewportSize.height}
             offsetX={zoom.offsetX}
             offsetY={zoom.offsetY}
             scale={zoom.scale}

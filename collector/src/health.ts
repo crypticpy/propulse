@@ -78,6 +78,16 @@ export function startHealthServer(port: number): http.Server {
   const server = http.createServer((req, res) => {
     const url = req.url?.split("?")[0] || "/";
 
+    // ── Liveness endpoint (Railway healthcheck) ───────────────────────
+    // Process-up only, always 200. Railway must gate deploys on THIS, not
+    // /health: /health 503s while any one source is degraded, and a single
+    // broken upstream (e.g. CelesTrak) would otherwise block every deploy.
+    if (url === "/live") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "live" }));
+      return;
+    }
+
     // ── Lightning strike data endpoint ────────────────────────────────
     if (url === "/lightning") {
       const strikes = getBufferedStrikes();

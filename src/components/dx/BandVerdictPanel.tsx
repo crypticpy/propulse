@@ -76,6 +76,24 @@ const MODE_BADGE_LABEL: Record<string, string> = {
   phone: "PH",
 };
 
+/** BH3 lead-time minutes from the server tick's inputs, when present. */
+function leadMinutes(
+  inputs: Record<string, unknown>,
+  key: "opens_in_min" | "fades_in_min",
+): number | null {
+  const value = inputs[key];
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
+function formatLead(min: number): string {
+  if (min < 60) return `${min}m`;
+  const hours = Math.floor(min / 60);
+  const rest = min % 60;
+  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
+}
+
 /** Dominant mode class of the 20-min deduplicated observations, if any. */
 function dominantModeClass(
   modeObs20m: Record<string, number> | undefined,
@@ -117,6 +135,19 @@ function BandVerdictChip({
 
   const surprise = entry.result.evaluation.surprise;
   const modeClass = dominantModeClass(entry.result.counts?.modeObs20m);
+  const canonicalOpens = canonical
+    ? leadMinutes(canonical.inputs, "opens_in_min")
+    : null;
+  const canonicalFades = canonical
+    ? leadMinutes(canonical.inputs, "fades_in_min")
+    : null;
+  // Chip-level hint only while the server scope is still shut — an "opens"
+  // countdown on an already-open band would just be noise.
+  const opensChip =
+    canonical &&
+    (canonical.state === "closed" || canonical.state === "forecast")
+      ? canonicalOpens
+      : null;
 
   return (
     <div className="relative">
@@ -142,6 +173,14 @@ function BandVerdictChip({
         {entry.fading && (
           <span className="text-[10px] uppercase tracking-wide text-white/40">
             Fading
+          </span>
+        )}
+        {opensChip !== null && (
+          <span
+            className="text-[10px] tracking-wide text-signal-green/60"
+            title="Physics expects this band to cross its open threshold"
+          >
+            opens ~{formatLead(opensChip)}
           </span>
         )}
         {modeClass && (
@@ -221,6 +260,18 @@ function BandVerdictChip({
                   </span>
                 )}
               </div>
+              {canonicalOpens !== null && (
+                <div className="text-[11px] text-white/60">
+                  Likely opens in ~{formatLead(canonicalOpens)}
+                  <span className="text-white/30"> · physics sweep</span>
+                </div>
+              )}
+              {canonicalFades !== null && (
+                <div className="text-[11px] text-white/60">
+                  May fade in ~{formatLead(canonicalFades)}
+                  <span className="text-white/30"> · physics sweep</span>
+                </div>
+              )}
             </div>
           )}
 

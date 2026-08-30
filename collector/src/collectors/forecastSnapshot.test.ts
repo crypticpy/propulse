@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { globalLitFraction } from "../lib/sun.js";
+
 import {
   PHYSICS_ALGO_VERSION,
+  SNAPSHOT_HORIZONS_H,
   blendPOpen,
+  buildPhysicsHorizonRows,
   buildPhysicsSnapshotRows,
   collectForecastSnapshot,
   computePhysicsBandScores,
@@ -127,7 +131,8 @@ describe("collectForecastSnapshot", () => {
     await collectForecastSnapshot(db);
 
     expect(upserts).toHaveLength(1);
-    expect(upserts[0]).toHaveLength(10);
+    // 10 HF bands × (horizon 0 + the BH3 lead-time horizons)
+    expect(upserts[0]).toHaveLength(10 * (1 + SNAPSHOT_HORIZONS_H.length));
     expect(healthInserts[0]?.status).toBe("ok");
   });
 
@@ -188,6 +193,44 @@ describe("buildPhysicsSnapshotRows", () => {
     expect(new Set(rows.map((r) => r.band)).size).toBe(10);
     // The collector never ingests VHF, so band_hourly_stats has no 6m truth
     // — logging a 6m snapshot would poison the eval with fabricated zeros.
+    expect(rows.some((r) => r.band === "6m")).toBe(false);
+  });
+});
+
+describe("buildPhysicsHorizonRows", () => {
+  it("targets future hour buckets with the lit fraction of the target hour", () => {
+    const nowMs = Date.parse("2026-08-29T12:34:00Z");
+    const rows = buildPhysicsHorizonRows(nowMs, 2, 150, "2026-08-29T12:30:00Z");
+
+    expect(rows).toHaveLength(10 * SNAPSHOT_HORIZONS_H.length);
+    for (const horizon of SNAPSHOT_HORIZONS_H) {
+      const horizonRows = rows.filter((r) => r.horizon_hours === horizon);
+      expect(horizonRows).toHaveLength(10);
+      for (const row of horizonRows) {
+        // hour_utc is the TARGET hour (eval joins truth on the row's own
+        // hour); horizon_hours records how early the call was issued.
+        expect(row.hour_utc).toBe(
+          hourBucketUtc(nowMs + horizon * 3600_000),
+        );
+        expect(row.source).toBe("physics");
+        expect(row.p_open).toBeGreaterThanOrEqual(0);
+        expect(row.p_open).toBeLessThanOrEqual(1);
+        expect(row.meta.algo).toBe(PHYSICS_ALGO_VERSION);
+      }
+    }
+
+    // Solar persistence: kp/sfi (and so the condition words) are pinned,
+    // but f_lit is evaluated at each row's own target hour, not at now.
+    const h6 = rows.find((r) => r.horizon_hours === 6 && r.band === "20m")!;
+    expect(h6.meta.f_lit).toBe(
+      Math.round(globalLitFraction(Date.parse(h6.hour_utc)) * 1000) / 1000,
+    );
+    const h0fLit = buildPhysicsSnapshotRows(nowMs, 2, 150, "x")[0].meta.f_lit;
+    expect(h6.meta.f_lit).not.toBe(h0fLit);
+  });
+
+  it("never logs VHF horizons", () => {
+    const rows = buildPhysicsHorizonRows(Date.now(), 2, 150, "x");
     expect(rows.some((r) => r.band === "6m")).toBe(false);
   });
 });

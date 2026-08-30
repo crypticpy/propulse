@@ -34,6 +34,7 @@ import {
   buildLitFracPhysics,
   type PhysicsArm,
 } from "../verdict/physicsArm.js";
+import { computeOpeningTimeline } from "../verdict/openingTimeline.js";
 
 /** Solar data older than this is not an honest forecast-arm input */
 const MAX_SOLAR_AGE_MS = 3 * 3600_000;
@@ -222,6 +223,17 @@ export function planVerdictTick(
       nowMs,
     );
 
+    // BH3: physics time-sweep — when does this scope next cross the
+    // ladder's open threshold under solar persistence?
+    const timeline = computeOpeningTimeline(
+      physics,
+      scope.scopeType,
+      scope.scopeKey,
+      scope.band,
+      raw.physicsOpen,
+      nowMs,
+    );
+
     const inputs: Record<string, unknown> = {
       physics_score: Math.round(physicsScore * 1000) / 1000,
       // The basis keeps the scored record self-describing so BH4 scoring
@@ -238,6 +250,8 @@ export function planVerdictTick(
       count_10m_prior: scope.count10mPrior,
       trend: raw.trend,
       raw_state: raw.state,
+      opens_in_min: timeline.opensInMin,
+      fades_in_min: timeline.fadesInMin,
       source_counts_60m: scope.sourceCounts60m,
       mode_obs_20m: scope.modeObs20m,
     };

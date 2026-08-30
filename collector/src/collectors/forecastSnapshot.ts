@@ -18,6 +18,10 @@
  * - "nowcast"/"futurecast" (not yet written): the Railway inference service
  *   only exposes per-path/per-surface predictions, so a global per-band
  *   p_open needs an aggregation design first. See the M4 plan F1 notes.
+ *
+ * BH3: alongside the horizon-0 row, the physics source also logs rows for
+ * future target hours (SNAPSHOT_HORIZONS_H) under solar persistence, so the
+ * eval harness can score real lead-time calls per horizon.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -194,6 +198,55 @@ export function buildPhysicsSnapshotRows(
     }));
 }
 
+/**
+ * Lead times the physics arm logs ahead (BH3). The eval harness joins truth
+ * on the row's own hour, so `hour_utc` is the TARGET hour the prediction is
+ * about and `horizon_hours` is how early it was issued.
+ */
+export const SNAPSHOT_HORIZONS_H = [1, 2, 3, 6];
+
+/**
+ * Physics rows for future target hours under solar persistence: kp/sfi
+ * pinned to the current reading, lit fraction evaluated at the target hour.
+ * First-write-wins makes each row an honest h-hours-early call — the
+ * (target, h) slot is claimed on the first tick after target − h.
+ */
+export function buildPhysicsHorizonRows(
+  nowMs: number,
+  kp: number,
+  sfi: number,
+  solarCapturedAt: string,
+): ForecastSnapshotRow[] {
+  const scores = computePhysicsBandScores(kp, sfi).filter((score) =>
+    SNAPSHOT_BANDS.has(score.band),
+  );
+  const rows: ForecastSnapshotRow[] = [];
+  for (const horizon of SNAPSHOT_HORIZONS_H) {
+    const targetHourUtc = hourBucketUtc(nowMs + horizon * 3600_000);
+    const fLit =
+      Math.round(globalLitFraction(Date.parse(targetHourUtc)) * 1000) / 1000;
+    for (const score of scores) {
+      rows.push({
+        hour_utc: targetHourUtc,
+        band: score.band,
+        source: "physics" as const,
+        horizon_hours: horizon,
+        p_open: blendPOpen(score, fLit),
+        meta: {
+          algo: PHYSICS_ALGO_VERSION,
+          kp,
+          sfi,
+          solar_captured_at: solarCapturedAt,
+          day_condition: score.dayCondition,
+          night_condition: score.nightCondition,
+          f_lit: fLit,
+        },
+      });
+    }
+  }
+  return rows;
+}
+
 // ─── Collector job ──────────────────────────────────────────────────────────
 
 export async function collectForecastSnapshot(
@@ -226,12 +279,10 @@ export async function collectForecastSnapshot(
       );
     }
 
-    const rows = buildPhysicsSnapshotRows(
-      start,
-      data.kp_index,
-      data.sfi,
-      data.captured_at,
-    );
+    const rows = [
+      ...buildPhysicsSnapshotRows(start, data.kp_index, data.sfi, data.captured_at),
+      ...buildPhysicsHorizonRows(start, data.kp_index, data.sfi, data.captured_at),
+    ];
 
     // First write for the hour wins: the earliest prediction is the honest one.
     const { error: upsertError } = await db
@@ -251,7 +302,7 @@ export async function collectForecastSnapshot(
 
     log("info", "Forecast snapshot written", {
       hourUtc: rows[0]?.hour_utc,
-      bands: rows.length,
+      rows: rows.length,
       kp: data.kp_index,
       sfi: data.sfi,
       durationMs,

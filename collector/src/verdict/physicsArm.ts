@@ -30,6 +30,17 @@ export interface PhysicsArm {
   fLitFor(scopeType: string, scopeKey: string): number;
   /** Blended p_open for this scope + band; 0 for unknown bands. */
   scoreFor(scopeType: string, scopeKey: string, band: string): number;
+  /**
+   * scoreFor evaluated at an arbitrary time under solar persistence: the
+   * band's day/night condition scores stay pinned to the tick's kp/sfi and
+   * only the lit fraction follows the clock (BH3 opening timeline).
+   */
+  scoreAt(
+    scopeType: string,
+    scopeKey: string,
+    band: string,
+    atMs: number,
+  ): number;
 }
 
 /** Build the arm for one tick from the solar indices and the tick time. */
@@ -55,6 +66,18 @@ export function buildLitFracPhysics(
       ? (fByContinent.get(scopeKey) ?? fGlobal)
       : fGlobal;
 
+  const fLitAt = (
+    scopeType: string,
+    scopeKey: string,
+    atMs: number,
+  ): number => {
+    if (scopeType === "regional") {
+      const anchors = CONTINENT_ANCHORS[scopeKey];
+      if (anchors) return litFraction(anchors, atMs);
+    }
+    return globalLitFraction(atMs);
+  };
+
   return {
     basis: PHYSICS_BASIS,
     fLitFor,
@@ -62,6 +85,11 @@ export function buildLitFracPhysics(
       const score = byBand.get(band);
       if (!score) return 0;
       return blendPOpen(score, fLitFor(scopeType, scopeKey));
+    },
+    scoreAt(scopeType, scopeKey, band, atMs) {
+      const score = byBand.get(band);
+      if (!score) return 0;
+      return blendPOpen(score, fLitAt(scopeType, scopeKey, atMs));
     },
   };
 }

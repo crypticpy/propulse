@@ -50,5 +50,28 @@ describe("buildLitFracPhysics", () => {
 
   it("returns 0 for unknown bands", () => {
     expect(arm.scoreFor("global", "", "2m")).toBe(0);
+    expect(arm.scoreAt("global", "", "2m", T_03Z)).toBe(0);
+  });
+
+  it("scoreAt matches scoreFor at the tick time", () => {
+    for (const [type, key] of [
+      ["global", ""],
+      ["regional", "AS"],
+      ["regional", "AN"],
+    ] as const) {
+      expect(arm.scoreAt(type, key, "10m", T_03Z)).toBeCloseTo(
+        arm.scoreFor(type, key, "10m"),
+        10,
+      );
+    }
+  });
+
+  it("scoreAt follows the terminator under solar persistence", () => {
+    // Twelve hours later the lit hemisphere has swapped: AS goes dark and
+    // its 10m blend collapses, NA lights up and its blend rises — with the
+    // condition words still pinned to the 03Z kp/sfi.
+    const t15z = T_03Z + 12 * 3600_000;
+    expect(arm.scoreAt("regional", "AS", "10m", t15z)).toBeLessThan(0.35);
+    expect(arm.scoreAt("regional", "NA", "10m", t15z)).toBeGreaterThan(0.7);
   });
 });

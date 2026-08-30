@@ -17,6 +17,8 @@ function arm(scores: Map<string, number>, fLit = 0.5): PhysicsArm {
     basis: "test-basis",
     fLitFor: () => fLit,
     scoreFor: (_type, _key, band) => scores.get(band) ?? 0,
+    // Time-invariant: the BH3 sweep never finds a crossing on this stub.
+    scoreAt: (_type, _key, band) => scores.get(band) ?? 0,
   };
 }
 
@@ -147,6 +149,10 @@ describe("planVerdictTick", () => {
         physics_basis: "test-basis",
         physics_f_lit: 0.5,
         raw_state: "hot",
+        // BH3 timeline keys are always present; a flat stub arm never
+        // crosses either threshold.
+        opens_in_min: null,
+        fades_in_min: null,
         mode_obs_20m: { digital: 8, cw: 1 },
       },
     });

@@ -134,6 +134,7 @@ describe("planVerdictTick", () => {
         reporters_20m: 5,
         trend: "rising",
         physics_open: true,
+        physics_basis: "global-daynight-mean",
         raw_state: "hot",
         mode_obs_20m: { digital: 8, cw: 1 },
       },

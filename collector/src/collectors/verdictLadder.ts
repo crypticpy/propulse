@@ -217,6 +217,10 @@ export function planVerdictTick(
 
     const inputs: Record<string, unknown> = {
       physics_score: Math.round(physicsScore * 1000) / 1000,
+      // v1 applies the same global day/night-mean score to every scope;
+      // recording the basis keeps the scored record self-describing so
+      // BH4 scoring can segment when per-continent physics lands.
+      physics_basis: "global-daynight-mean",
       physics_open: raw.physicsOpen,
       verified: raw.verified,
       obs_20m: scope.obs20m,

@@ -29,12 +29,14 @@ RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
+  -- upper(): dxcluster feeds pass Mode through trim() only, so mixed-case
+  -- values arrive here; without folding they'd all read "unknown".
   SELECT CASE
-    WHEN mode = 'CW' THEN 'cw'
-    WHEN mode IN ('FT8','FT4','FT2','JS8','VARAC','WSPR','RTTY','FREEDV',
-                  'PKT','DATA','OLIVIA','JT65','JT9','MSK144','Q65',
-                  'FST4','FST4W') THEN 'digital'
-    WHEN mode IN ('SSB','USB','LSB','FM','AM','PHONE') THEN 'phone'
+    WHEN upper(mode) = 'CW' THEN 'cw'
+    WHEN upper(mode) IN ('FT8','FT4','FT2','JS8','VARAC','WSPR','RTTY',
+                         'FREEDV','PKT','DATA','OLIVIA','JT65','JT9',
+                         'MSK144','Q65','FST4','FST4W') THEN 'digital'
+    WHEN upper(mode) IN ('SSB','USB','LSB','FM','AM','PHONE') THEN 'phone'
     ELSE 'unknown'
   END;
 $$;
@@ -127,12 +129,47 @@ GRANT SELECT ON public.region_hourly_stats TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.region_hourly_stats
   TO service_role;
 
--- Let the region aggregator use the shared watermark table.
+-- Let the region aggregator use the shared watermark table. Both the CHECK
+-- constraint AND the recording RPC's own whitelist must admit the new name —
+-- the RPC raises 'invalid aggregation' before the constraint is ever tested.
 ALTER TABLE public.collector_aggregation_watermarks
   DROP CONSTRAINT collector_aggregation_watermarks_aggregation_check;
 ALTER TABLE public.collector_aggregation_watermarks
   ADD CONSTRAINT collector_aggregation_watermarks_aggregation_check
   CHECK (aggregation IN ('band_hourly', 'path_hourly', 'region_hourly'));
+
+CREATE OR REPLACE FUNCTION public.record_collector_aggregation_watermark(
+  p_aggregation text,
+  p_hour_utc timestamptz,
+  p_rows integer
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF p_aggregation NOT IN ('band_hourly', 'path_hourly', 'region_hourly') THEN
+    RAISE EXCEPTION 'invalid aggregation';
+  END IF;
+
+  INSERT INTO public.collector_aggregation_watermarks AS current_watermark (
+    aggregation, hour_utc, rows_written, available_at, updated_at
+  ) VALUES (
+    p_aggregation,
+    date_trunc('hour', p_hour_utc),
+    greatest(coalesce(p_rows, 0), 0),
+    now(),
+    now()
+  )
+  ON CONFLICT (aggregation) DO UPDATE SET
+    hour_utc = excluded.hour_utc,
+    rows_written = excluded.rows_written,
+    available_at = excluded.available_at,
+    updated_at = excluded.updated_at
+  WHERE excluded.hour_utc >= current_watermark.hour_utc;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.compute_region_hourly_stats(
   hour_start timestamptz

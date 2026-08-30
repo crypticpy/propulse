@@ -54,11 +54,15 @@ interface MeteorShowerOverlay3DProps {
 /** Surface placement radius */
 const SURFACE_RADIUS = 1.01;
 
-/** Color for 6m-favorable showers */
-const COLOR_6M = "#00ff66";
+/**
+ * Color for 6m-favorable showers.
+ * Exported so LayerLegend (src/lib/map/layerLegends.ts) can render a legend
+ * that can never drift out of sync with the actual marker colors.
+ */
+export const COLOR_6M = "#00ff66";
 
 /** Color for non-6m showers */
-const COLOR_DEFAULT = "#cc44ff";
+export const COLOR_DEFAULT = "#cc44ff";
 
 /** Number of starburst spokes */
 const SPOKE_COUNT = 6;

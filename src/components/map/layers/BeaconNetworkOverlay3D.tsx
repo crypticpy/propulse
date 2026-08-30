@@ -72,11 +72,15 @@ const MARKER_SIZE = 0.008;
 /** Surface placement radius to avoid z-fighting */
 const SURFACE_RADIUS = 1.012;
 
-/** Steady-state golden yellow for inactive beacons */
-const BEACON_COLOR_INACTIVE = "#f0c040";
+/**
+ * Steady-state golden yellow for inactive beacons.
+ * Exported so LayerLegend (src/lib/map/layerLegends.ts) can render a legend
+ * that can never drift out of sync with the actual marker colors.
+ */
+export const BEACON_COLOR_INACTIVE = "#f0c040";
 
 /** Active beacon base color: bright green */
-const BEACON_COLOR_ACTIVE = "#00ff88";
+export const BEACON_COLOR_ACTIVE = "#00ff88";
 
 /** Active glow color: white-green */
 const BEACON_GLOW_COLOR = "#aaffcc";

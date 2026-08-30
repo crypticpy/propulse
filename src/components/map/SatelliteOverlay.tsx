@@ -60,8 +60,12 @@ const SURFACE_OFFSET = 0.015;
 /** Size of the diamond marker */
 const MARKER_SIZE = 0.012;
 
-/** Category colors for satellite markers */
-const CATEGORY_COLORS: Record<SatelliteCategory, string> = {
+/**
+ * Category colors for satellite markers.
+ * Exported so LayerLegend (src/lib/map/layerLegends.ts) can render a legend
+ * that can never drift out of sync with the actual marker colors.
+ */
+export const CATEGORY_COLORS: Record<SatelliteCategory, string> = {
   iss: "#ffffff",
   fm: "#00ff88",
   linear: "#00ccff",

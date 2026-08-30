@@ -44,15 +44,27 @@ const LABEL_RADIUS = GLOBE_RADIUS + 0.02;
 // Color + scale maps by Saffir-Simpson category
 // ---------------------------------------------------------------------------
 
-const CATEGORY_COLORS: Record<StormCategory, THREE.Color> = {
-  TD: new THREE.Color("#3b82f6"),
-  TS: new THREE.Color("#eab308"),
-  "1": new THREE.Color("#f97316"),
-  "2": new THREE.Color("#f97316"),
-  "3": new THREE.Color("#ef4444"),
-  "4": new THREE.Color("#dc2626"),
-  "5": new THREE.Color("#991b1b"),
+/**
+ * Hex color source table by Saffir-Simpson category. Exported so
+ * LayerLegend (src/lib/map/layerLegends.ts) can render a legend that can
+ * never drift out of sync with the actual marker colors.
+ */
+export const STORM_CATEGORY_HEX: Record<StormCategory, string> = {
+  TD: "#3b82f6",
+  TS: "#eab308",
+  "1": "#f97316",
+  "2": "#f97316",
+  "3": "#ef4444",
+  "4": "#dc2626",
+  "5": "#991b1b",
 };
+
+const CATEGORY_COLORS: Record<StormCategory, THREE.Color> = Object.fromEntries(
+  Object.entries(STORM_CATEGORY_HEX).map(([category, hex]) => [
+    category,
+    new THREE.Color(hex),
+  ]),
+) as Record<StormCategory, THREE.Color>;
 
 const CATEGORY_SCALE: Record<StormCategory, number> = {
   TD: 0.008,

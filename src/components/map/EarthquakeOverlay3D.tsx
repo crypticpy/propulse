@@ -34,14 +34,31 @@ interface EarthquakeOverlay3DProps {
 // =============================================================================
 
 /**
+ * Magnitude color ladder by minimum magnitude, highest band first.
+ * Matches the 2D FlatMapView color scheme exactly. Exported so LayerLegend
+ * (src/lib/map/layerLegends.ts) can render a legend that can never drift
+ * out of sync with the actual marker colors.
+ */
+export const EQ_MAGNITUDE_COLORS: ReadonlyArray<{
+  minMagnitude: number;
+  label: string;
+  color: string;
+}> = [
+  { minMagnitude: 7, label: "M7+", color: "#ff2020" }, // Major: red
+  { minMagnitude: 5, label: "M5–7", color: "#ff8800" }, // Strong: orange
+  { minMagnitude: 4, label: "M4–5", color: "#ffcc00" }, // Moderate: yellow
+  { minMagnitude: -Infinity, label: "<M4", color: "#88cc44" }, // Light: green-yellow
+];
+
+/**
  * Get marker color based on earthquake magnitude.
  * Matches the 2D FlatMapView color scheme exactly.
  */
 function getEqColor(magnitude: number): string {
-  if (magnitude >= 7) return "#ff2020"; // Major: red
-  if (magnitude >= 5) return "#ff8800"; // Strong: orange
-  if (magnitude >= 4) return "#ffcc00"; // Moderate: yellow
-  return "#88cc44"; // Light: green-yellow
+  const entry = EQ_MAGNITUDE_COLORS.find(
+    (band) => magnitude >= band.minMagnitude,
+  );
+  return (entry ?? EQ_MAGNITUDE_COLORS[EQ_MAGNITUDE_COLORS.length - 1]).color;
 }
 
 /**

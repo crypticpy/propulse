@@ -67,18 +67,34 @@ const SNR_MAX = 20;
 // ---------------------------------------------------------------------------
 
 /**
+ * Band color ladder by upper frequency bound (MHz), lowest band first.
+ * Exported so LayerLegend (src/lib/map/layerLegends.ts) can render a legend
+ * that can never drift out of sync with the actual arc colors.
+ */
+export const WSPR_BAND_COLORS: ReadonlyArray<{
+  maxMHz: number;
+  label: string;
+  color: string;
+}> = [
+  { maxMHz: 2.5, label: "160m", color: "#8b0000" }, // dark red
+  { maxMHz: 5.0, label: "80m", color: "#cc2222" }, // red
+  { maxMHz: 8.5, label: "40m", color: "#ff6600" }, // orange
+  { maxMHz: 12.0, label: "30m", color: "#ddcc00" }, // yellow
+  { maxMHz: 16.0, label: "20m", color: "#22cc44" }, // green
+  { maxMHz: 20.0, label: "17m", color: "#00cccc" }, // cyan
+  { maxMHz: 23.0, label: "15m", color: "#2266ff" }, // blue
+  { maxMHz: 26.0, label: "12m", color: "#4400cc" }, // indigo
+  { maxMHz: Infinity, label: "10m", color: "#9922cc" }, // purple
+];
+
+/**
  * Color map by band based on frequency in MHz.
  */
 function getBandColor(freqMHz: number): THREE.Color {
-  if (freqMHz < 2.5) return new THREE.Color("#8b0000"); // 160m dark red
-  if (freqMHz < 5.0) return new THREE.Color("#cc2222"); // 80m red
-  if (freqMHz < 8.5) return new THREE.Color("#ff6600"); // 40m orange
-  if (freqMHz < 12.0) return new THREE.Color("#ddcc00"); // 30m yellow
-  if (freqMHz < 16.0) return new THREE.Color("#22cc44"); // 20m green
-  if (freqMHz < 20.0) return new THREE.Color("#00cccc"); // 17m cyan
-  if (freqMHz < 23.0) return new THREE.Color("#2266ff"); // 15m blue
-  if (freqMHz < 26.0) return new THREE.Color("#4400cc"); // 12m indigo
-  return new THREE.Color("#9922cc"); // 10m purple
+  const entry =
+    WSPR_BAND_COLORS.find((band) => freqMHz < band.maxMHz) ??
+    WSPR_BAND_COLORS[WSPR_BAND_COLORS.length - 1];
+  return new THREE.Color(entry.color);
 }
 
 // ---------------------------------------------------------------------------

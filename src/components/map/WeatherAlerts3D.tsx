@@ -116,19 +116,28 @@ function getUpDirection(lat: number, lon: number): THREE.Vector3 {
 }
 
 /**
+ * Severity color map matching the 2D FlatMapView palette. Exported so
+ * LayerLegend (src/lib/map/layerLegends.ts) can render a legend that can
+ * never drift out of sync with the actual marker colors.
+ */
+export const ALERT_SEVERITY_COLORS: Record<
+  "Extreme" | "Severe" | "Moderate" | "Minor",
+  string
+> = {
+  Extreme: "#ff0040",
+  Severe: "#ff6600",
+  Moderate: "#ffaa00",
+  Minor: "#ffdd44",
+};
+
+/**
  * Return the severity color matching the 2D FlatMapView palette.
  */
 function severityColor(severity: WeatherAlert["severity"]): string {
-  switch (severity) {
-    case "Extreme":
-      return "#ff0040";
-    case "Severe":
-      return "#ff6600";
-    case "Moderate":
-      return "#ffaa00";
-    default:
-      return "#ffdd44";
-  }
+  return (
+    ALERT_SEVERITY_COLORS[severity as keyof typeof ALERT_SEVERITY_COLORS] ??
+    ALERT_SEVERITY_COLORS.Minor
+  );
 }
 
 /**

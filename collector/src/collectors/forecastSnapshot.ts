@@ -18,6 +18,10 @@
  * - "nowcast"/"futurecast" (not yet written): the Railway inference service
  *   only exposes per-path/per-surface predictions, so a global per-band
  *   p_open needs an aggregation design first. See the M4 plan F1 notes.
+ *
+ * BH3: alongside the horizon-0 row, the physics source also logs rows for
+ * future target hours (SNAPSHOT_HORIZONS_H) under solar persistence, so the
+ * eval harness can score real lead-time calls per horizon.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -148,6 +152,8 @@ export interface ForecastSnapshotRow {
     night_condition: BandCondition;
     /** Ham-weighted planetary lit fraction used for the p_open blend */
     f_lit: number;
+    /** Wall-clock write time — lets the eval audit the true lead time */
+    issued_at: string;
   };
 }
 
@@ -190,8 +196,72 @@ export function buildPhysicsSnapshotRows(
         day_condition: score.dayCondition,
         night_condition: score.nightCondition,
         f_lit: fLit,
+        issued_at: new Date(nowMs).toISOString(),
       },
     }));
+}
+
+/**
+ * Lead times the physics arm logs ahead (BH3). The eval harness joins truth
+ * on the row's own hour, so `hour_utc` is the TARGET hour the prediction is
+ * about and `horizon_hours` is how early it was issued.
+ */
+export const SNAPSHOT_HORIZONS_H = [1, 2, 3, 6];
+
+/**
+ * Horizon rows may only be issued near the top of the hour: a mid-hour
+ * (re)start would otherwise claim a (target, h) slot with far less real
+ * lead than the label says, and first-write-wins would preserve the
+ * mislabeled row. Ticks run every 5 min, so a healthy collector always
+ * writes inside this window; after downtime the slot stays honestly empty.
+ */
+export const HORIZON_ISSUE_WINDOW_MS = 10 * 60_000;
+
+export function withinHorizonIssueWindow(nowMs: number): boolean {
+  return nowMs - Date.parse(hourBucketUtc(nowMs)) <= HORIZON_ISSUE_WINDOW_MS;
+}
+
+/**
+ * Physics rows for future target hours under solar persistence: kp/sfi
+ * pinned to the current reading, lit fraction evaluated at the target hour.
+ * First-write-wins plus the issue window make each row an honest
+ * h-hours-early call, claimed just after target − h.
+ */
+export function buildPhysicsHorizonRows(
+  nowMs: number,
+  kp: number,
+  sfi: number,
+  solarCapturedAt: string,
+): ForecastSnapshotRow[] {
+  const scores = computePhysicsBandScores(kp, sfi).filter((score) =>
+    SNAPSHOT_BANDS.has(score.band),
+  );
+  const rows: ForecastSnapshotRow[] = [];
+  for (const horizon of SNAPSHOT_HORIZONS_H) {
+    const targetHourUtc = hourBucketUtc(nowMs + horizon * 3600_000);
+    const fLit =
+      Math.round(globalLitFraction(Date.parse(targetHourUtc)) * 1000) / 1000;
+    for (const score of scores) {
+      rows.push({
+        hour_utc: targetHourUtc,
+        band: score.band,
+        source: "physics" as const,
+        horizon_hours: horizon,
+        p_open: blendPOpen(score, fLit),
+        meta: {
+          algo: PHYSICS_ALGO_VERSION,
+          kp,
+          sfi,
+          solar_captured_at: solarCapturedAt,
+          day_condition: score.dayCondition,
+          night_condition: score.nightCondition,
+          f_lit: fLit,
+          issued_at: new Date(nowMs).toISOString(),
+        },
+      });
+    }
+  }
+  return rows;
 }
 
 // ─── Collector job ──────────────────────────────────────────────────────────
@@ -226,12 +296,12 @@ export async function collectForecastSnapshot(
       );
     }
 
-    const rows = buildPhysicsSnapshotRows(
-      start,
-      data.kp_index,
-      data.sfi,
-      data.captured_at,
-    );
+    const rows = [
+      ...buildPhysicsSnapshotRows(start, data.kp_index, data.sfi, data.captured_at),
+      ...(withinHorizonIssueWindow(start)
+        ? buildPhysicsHorizonRows(start, data.kp_index, data.sfi, data.captured_at)
+        : []),
+    ];
 
     // First write for the hour wins: the earliest prediction is the honest one.
     const { error: upsertError } = await db
@@ -251,7 +321,7 @@ export async function collectForecastSnapshot(
 
     log("info", "Forecast snapshot written", {
       hourUtc: rows[0]?.hour_utc,
-      bands: rows.length,
+      rows: rows.length,
       kp: data.kp_index,
       sfi: data.sfi,
       durationMs,

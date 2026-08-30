@@ -40,6 +40,7 @@ import {
   RADAR_TEXTURE_BUDGET,
   selectInitialRadarFrameIndex,
 } from "@/lib/map/radarBudget";
+import { drawMercatorAsEquirect } from "@/lib/map/mercatorReproject";
 import {
   GLOBE_LAYER_ORDER,
   GLOBE_OVERLAY_MATERIAL,
@@ -227,10 +228,12 @@ async function compositeRadarTilesForFrame(
   frame: { time: number; path: string },
   includeNexrad: boolean,
 ): Promise<{ canvas: HTMLCanvasElement; hasNexrad: boolean }> {
-  const canvas = document.createElement("canvas");
-  canvas.width = CANVAS_SIZE;
-  canvas.height = CANVAS_SIZE;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  // Tiles are Web Mercator: composite them as-is, then resample onto the
+  // equirect canvas the sphere's default UVs (and the basemap) expect.
+  const mercator = document.createElement("canvas");
+  mercator.width = CANVAS_SIZE;
+  mercator.height = CANVAS_SIZE;
+  const ctx = mercator.getContext("2d");
   if (!ctx) throw new Error("Failed to get 2d context");
 
   const tiles: { x: number; y: number }[] = [];
@@ -296,7 +299,13 @@ async function compositeRadarTilesForFrame(
     ? await compositeNexradOverlay(ctx, frame.time)
     : false;
 
-  boostRadarColors(ctx, CANVAS_SIZE, CANVAS_SIZE);
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_SIZE;
+  canvas.height = CANVAS_SIZE;
+  const eqCtx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!eqCtx) throw new Error("Failed to get 2d context");
+  drawMercatorAsEquirect(eqCtx, mercator, CANVAS_SIZE, CANVAS_SIZE);
+  boostRadarColors(eqCtx, CANVAS_SIZE, CANVAS_SIZE);
   return { canvas, hasNexrad };
 }
 

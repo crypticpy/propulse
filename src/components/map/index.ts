@@ -16,6 +16,7 @@ export { LabelsOverlay } from "./LabelsOverlay";
 export { AuroraOverlay } from "./AuroraOverlay";
 export { MUFOverlay } from "./MUFOverlay";
 export { MUFLegend, MUFLegendCompact } from "./MUFLegend";
+export { IonosphereLegend } from "./IonosphereLegend";
 export { PathArc } from "./PathArc";
 export { LocationMarker } from "./LocationMarker";
 export { CompassRose } from "./CompassRose";

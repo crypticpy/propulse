@@ -29,7 +29,9 @@ const IONOSPHERE_LAYERS = (
 
 export function IonosphereLegend({ className = "" }: IonosphereLegendProps) {
   return (
-    <div className={`flex items-center gap-2 text-xs ${className}`}>
+    <div
+      className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${className}`}
+    >
       <span className="text-gray-500 font-medium">Bounce:</span>
       {IONOSPHERE_LAYERS.map(({ layer, color, name }) => (
         <div key={layer} className="flex items-center gap-1">

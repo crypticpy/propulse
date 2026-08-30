@@ -23,7 +23,6 @@ import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getBearing, getDistance } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
-import { IonosphereLegend } from "./IonosphereLegend";
 import { GlobeDepthDome } from "./GlobeDepthDome";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
@@ -1760,11 +1759,6 @@ export function GlobeView({
   const [radarAnimState, setRadarAnimState] =
     useState<RadarAnimationState | null>(null);
 
-  // Ionosphere bounce-point legend — same flag GlobeScene passes as
-  // RayPathArc's showIonosphereHighlights, which is what actually colors
-  // the D/E/F1/F2 reflection markers.
-  const ionosphereLayerEnabled = useMapStore((s) => s.layers.ionosphere);
-
   // State for AddPinDialog
   const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
   const [addPinData, setAddPinData] = useState<{
@@ -2271,13 +2265,6 @@ export function GlobeView({
       <div className="absolute bottom-1 right-1 text-[10px] text-white/40 pointer-events-none select-none">
         {tileAttribution}
       </div>
-
-      {/* Ionosphere bounce-point legend (top-left, when the layer is active) */}
-      {ionosphereLayerEnabled && (
-        <div className="absolute top-2 left-2 z-10 pointer-events-none">
-          <IonosphereLegend className="bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1" />
-        </div>
-      )}
 
       {/* Weather Radar Timeline Scrubber (hidden when host provides its own) */}
       {!hideRadarScrubber &&

@@ -32,8 +32,10 @@ const HEALTH_ENDPOINT =
 const EXPECTED_MODEL =
   process.env.INFERENCE_EXPECTED_MODEL ||
   "propagation_v4_2_phase2_scale-a6-retrospective-internal-50000000";
-const ALERT_TOKEN = process.env.GITHUB_ALERT_TOKEN || "";
-const ALERT_REPO = process.env.GITHUB_ALERT_REPO || "crypticpy/propulse";
+// Read lazily so tests can stub the env per-case.
+const alertToken = (): string => process.env.GITHUB_ALERT_TOKEN || "";
+const alertRepo = (): string =>
+  process.env.GITHUB_ALERT_REPO || "crypticpy/propulse";
 
 const FETCH_TIMEOUT_MS = 20_000;
 
@@ -92,7 +94,7 @@ export function planIncidentAction(
 // ─── GitHub incident reconciliation ─────────────────────────────────────────
 
 const GH_HEADERS = (): Record<string, string> => ({
-  Authorization: `Bearer ${ALERT_TOKEN}`,
+  Authorization: `Bearer ${alertToken()}`,
   Accept: "application/vnd.github+json",
   "User-Agent": "propulse-collector",
   "Content-Type": "application/json",
@@ -100,7 +102,7 @@ const GH_HEADERS = (): Record<string, string> => ({
 
 async function findOpenIncident(): Promise<number | null> {
   const res = await fetch(
-    `https://api.github.com/repos/${ALERT_REPO}/issues?state=open&per_page=100`,
+    `https://api.github.com/repos/${alertRepo()}/issues?state=open&per_page=100`,
     { headers: GH_HEADERS(), signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
   );
   if (!res.ok) throw new Error(`issue list failed: HTTP ${res.status}`);
@@ -124,22 +126,39 @@ async function openIncident(reason: string): Promise<void> {
     "",
     "This incident contains aggregate service state only. It excludes user data, station data, secrets, and request payloads.",
   ].join("\n");
-  const res = await fetch(`https://api.github.com/repos/${ALERT_REPO}/issues`, {
-    method: "POST",
-    headers: GH_HEADERS(),
-    body: JSON.stringify({ title: INCIDENT_TITLE, body }),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  const res = await fetch(
+    `https://api.github.com/repos/${alertRepo()}/issues`,
+    {
+      method: "POST",
+      headers: GH_HEADERS(),
+      body: JSON.stringify({ title: INCIDENT_TITLE, body }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    },
+  );
   if (!res.ok) throw new Error(`issue create failed: HTTP ${res.status}`);
 }
 
 async function closeIncident(issueNumber: number): Promise<void> {
+  // Close before commenting: if the comment landed first and the close then
+  // failed, every later healthy tick would rediscover the still-open issue
+  // and post a duplicate recovery comment. A close without a comment is
+  // self-healing; a comment without a close is not.
+  const closeRes = await fetch(
+    `https://api.github.com/repos/${alertRepo()}/issues/${issueNumber}`,
+    {
+      method: "PATCH",
+      headers: GH_HEADERS(),
+      body: JSON.stringify({ state: "closed", state_reason: "completed" }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    },
+  );
+  if (!closeRes.ok) throw new Error(`issue close failed: HTTP ${closeRes.status}`);
   const comment = [
     INCIDENT_MARKER,
     "The collector monitor observed the expected A6 inference service again. Closing this incident.",
   ].join("\n");
   const commentRes = await fetch(
-    `https://api.github.com/repos/${ALERT_REPO}/issues/${issueNumber}/comments`,
+    `https://api.github.com/repos/${alertRepo()}/issues/${issueNumber}/comments`,
     {
       method: "POST",
       headers: GH_HEADERS(),
@@ -150,16 +169,6 @@ async function closeIncident(issueNumber: number): Promise<void> {
   if (!commentRes.ok) {
     throw new Error(`issue comment failed: HTTP ${commentRes.status}`);
   }
-  const closeRes = await fetch(
-    `https://api.github.com/repos/${ALERT_REPO}/issues/${issueNumber}`,
-    {
-      method: "PATCH",
-      headers: GH_HEADERS(),
-      body: JSON.stringify({ state: "closed", state_reason: "completed" }),
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    },
-  );
-  if (!closeRes.ok) throw new Error(`issue close failed: HTTP ${closeRes.status}`);
 }
 
 let warnedNoToken = false;
@@ -169,7 +178,7 @@ async function reconcileIncident(
   verdict: HealthVerdict,
   consecutiveFailures: number,
 ): Promise<void> {
-  if (!ALERT_TOKEN) {
+  if (!alertToken()) {
     if (!warnedNoToken) {
       warnedNoToken = true;
       log("warn", "GITHUB_ALERT_TOKEN not set — inference incidents surface in /health only");
@@ -185,7 +194,7 @@ async function reconcileIncident(
     );
     if (action === "open") {
       await openIncident(verdict.reason);
-      log("warn", "Opened inference incident issue", { repo: ALERT_REPO });
+      log("warn", "Opened inference incident issue", { repo: alertRepo() });
     } else if (action === "close" && issueNumber !== null) {
       await closeIncident(issueNumber);
       log("info", "Closed inference incident issue", { issueNumber });
@@ -200,6 +209,12 @@ async function reconcileIncident(
 // ─── Collector job ──────────────────────────────────────────────────────────
 
 let consecutiveFailures = 0;
+
+/** Test-only: reset the failure streak and the no-token warning latch. */
+export function resetMonitorStateForTests(): void {
+  consecutiveFailures = 0;
+  warnedNoToken = false;
+}
 
 async function fetchVerdict(): Promise<HealthVerdict> {
   try {

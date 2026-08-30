@@ -508,7 +508,7 @@ function WeatherRadarOverlayInner({
   ]);
 
   const geometry = useMemo(
-    () => new THREE.SphereGeometry(1.007, 128, 64, Math.PI),
+    () => new THREE.SphereGeometry(1.007, 128, 64),
     [],
   );
 

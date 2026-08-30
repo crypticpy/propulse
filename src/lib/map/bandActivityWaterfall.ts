@@ -58,7 +58,7 @@ function normalizeRows(
     bands: Object.fromEntries(
       WATERFALL_BAND_NAMES.map((band) => {
         const count = row.bands[band] ?? 0;
-        return [band, count === 0 ? 0 : Math.max(18, (count / peak) * 100)];
+        return [band, count === 0 ? 0 : Math.max(25, (count / peak) * 100)];
       }),
     ),
   }));

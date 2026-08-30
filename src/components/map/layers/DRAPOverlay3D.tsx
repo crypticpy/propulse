@@ -168,7 +168,7 @@ export const DRAPOverlay3D = React.memo(
 
     return (
       <mesh renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
-        <sphereGeometry args={[1.015, 128, 64, Math.PI]} />
+        <sphereGeometry args={[1.015, 128, 64]} />
         <meshBasicMaterial
           ref={materialRef}
           map={texture}

@@ -13,8 +13,8 @@
  * overlays in this codebase (DRAPOverlay3D, GOESCloudOverlay3D,
  * WeatherRadarOverlay): equirectangular canvas with
  * x = (lon + 180) / 360 * width, y = (90 - lat) / 180 * height, applied to
- * a SphereGeometry built with phiStart = Math.PI to align the texture UV
- * with that canvas convention.
+ * a default-UV SphereGeometry (no phiStart offset) to match the basemap's
+ * texture convention (EarthSphere/NightLightsOverlay).
  */
 
 import { useEffect, useMemo } from "react";
@@ -140,10 +140,11 @@ export function AuroraOverlay({
     };
   }, [texture]);
 
-  // phiStart = Math.PI aligns the sphere's UV with the canvas convention
-  // above — see WeatherRadarOverlay/DRAPOverlay3D/GOESCloudOverlay3D.
+  // Default phiStart aligns the sphere's UV with the canvas convention
+  // above and with the basemap — see WeatherRadarOverlay/DRAPOverlay3D/
+  // GOESCloudOverlay3D.
   const geometry = useMemo(
-    () => new THREE.SphereGeometry(RADIUS, 128, 64, Math.PI),
+    () => new THREE.SphereGeometry(RADIUS, 128, 64),
     [],
   );
 

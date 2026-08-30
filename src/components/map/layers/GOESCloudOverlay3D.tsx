@@ -62,9 +62,9 @@ export function GOESCloudOverlay3D() {
   const meshRef = useRef<THREE.Mesh>(null);
   const { tileUrl } = useGOESImagery();
 
-  // Sphere geometry slightly larger than globe (phiStart = Math.PI to align UV)
+  // Sphere geometry slightly larger than globe (default UV matches the basemap)
   const geometry = useMemo(
-    () => new THREE.SphereGeometry(GLOBE_RADIUS, 64, 32, Math.PI),
+    () => new THREE.SphereGeometry(GLOBE_RADIUS, 64, 32),
     [],
   );
 

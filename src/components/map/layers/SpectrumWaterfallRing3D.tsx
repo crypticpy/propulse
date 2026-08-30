@@ -59,14 +59,17 @@ const GAP_FRACTION = 0.08;
 // Color helpers
 // ---------------------------------------------------------------------------
 
-/** Low activity color (dark blue) */
-const COLOR_QUIET = new THREE.Color("#0a1a3a");
+/** Low activity color (readable deep blue — bright enough to stay legible
+ *  against space instead of reading as a near-black square) */
+const COLOR_QUIET = new THREE.Color("#15396e");
 /** Medium activity color (cyan) */
 const COLOR_MODERATE = new THREE.Color("#00aacc");
 /** High activity color (bright yellow) */
 const COLOR_ACTIVE = new THREE.Color("#ffee44");
 /** Peak activity color (white) */
 const COLOR_PEAK = new THREE.Color("#ffffff");
+/** Backing track ring color (panel-dark tone, matches nebula-blue theme token) */
+const TRACK_COLOR = new THREE.Color("#1a1a2e");
 
 /**
  * Map a normalized activity value (0-100) to a color.
@@ -135,6 +138,20 @@ export const SpectrumWaterfallRing3D = React.memo(
         cellGeometry.dispose();
       };
     }, [cellGeometry]);
+
+    // Backing "track" ring — a low-opacity annular band the cells sit on top
+    // of, so quiet/low-activity cells read as part of one lit instrument
+    // instead of detached dark squares floating in space.
+    const trackGeometry = useMemo(
+      () => new THREE.RingGeometry(RING_INNER_RADIUS, RING_OUTER_RADIUS, 96),
+      [],
+    );
+
+    useEffect(() => {
+      return () => {
+        trackGeometry.dispose();
+      };
+    }, [trackGeometry]);
 
     // Band label positions around the outer edge of the ring
     const bandLabelPositions = useMemo(() => {
@@ -242,6 +259,24 @@ export const SpectrumWaterfallRing3D = React.memo(
 
     return (
       <group name="spectrum-waterfall-ring" rotation={[RING_TILT, 0, 0]}>
+        {/* Backing track ring — sits just beneath the cell plane so every
+            cell, including quiet/low-activity ones, reads as lit against a
+            dark panel instead of bare black space. */}
+        <mesh
+          geometry={trackGeometry}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, -0.001, 0]}
+          renderOrder={GLOBE_LAYER_ORDER.hud}
+        >
+          <meshBasicMaterial
+            color={TRACK_COLOR}
+            transparent
+            opacity={0.4}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+
         {/* Instanced cells */}
         <instancedMesh
           ref={meshRef}

@@ -152,6 +152,8 @@ export interface ForecastSnapshotRow {
     night_condition: BandCondition;
     /** Ham-weighted planetary lit fraction used for the p_open blend */
     f_lit: number;
+    /** Wall-clock write time — lets the eval audit the true lead time */
+    issued_at: string;
   };
 }
 
@@ -194,6 +196,7 @@ export function buildPhysicsSnapshotRows(
         day_condition: score.dayCondition,
         night_condition: score.nightCondition,
         f_lit: fLit,
+        issued_at: new Date(nowMs).toISOString(),
       },
     }));
 }
@@ -206,10 +209,23 @@ export function buildPhysicsSnapshotRows(
 export const SNAPSHOT_HORIZONS_H = [1, 2, 3, 6];
 
 /**
+ * Horizon rows may only be issued near the top of the hour: a mid-hour
+ * (re)start would otherwise claim a (target, h) slot with far less real
+ * lead than the label says, and first-write-wins would preserve the
+ * mislabeled row. Ticks run every 5 min, so a healthy collector always
+ * writes inside this window; after downtime the slot stays honestly empty.
+ */
+export const HORIZON_ISSUE_WINDOW_MS = 10 * 60_000;
+
+export function withinHorizonIssueWindow(nowMs: number): boolean {
+  return nowMs - Date.parse(hourBucketUtc(nowMs)) <= HORIZON_ISSUE_WINDOW_MS;
+}
+
+/**
  * Physics rows for future target hours under solar persistence: kp/sfi
  * pinned to the current reading, lit fraction evaluated at the target hour.
- * First-write-wins makes each row an honest h-hours-early call — the
- * (target, h) slot is claimed on the first tick after target − h.
+ * First-write-wins plus the issue window make each row an honest
+ * h-hours-early call, claimed just after target − h.
  */
 export function buildPhysicsHorizonRows(
   nowMs: number,
@@ -240,6 +256,7 @@ export function buildPhysicsHorizonRows(
           day_condition: score.dayCondition,
           night_condition: score.nightCondition,
           f_lit: fLit,
+          issued_at: new Date(nowMs).toISOString(),
         },
       });
     }
@@ -281,7 +298,9 @@ export async function collectForecastSnapshot(
 
     const rows = [
       ...buildPhysicsSnapshotRows(start, data.kp_index, data.sfi, data.captured_at),
-      ...buildPhysicsHorizonRows(start, data.kp_index, data.sfi, data.captured_at),
+      ...(withinHorizonIssueWindow(start)
+        ? buildPhysicsHorizonRows(start, data.kp_index, data.sfi, data.captured_at)
+        : []),
     ];
 
     // First write for the hour wins: the earliest prediction is the honest one.

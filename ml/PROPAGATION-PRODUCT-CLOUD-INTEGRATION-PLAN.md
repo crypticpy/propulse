@@ -78,10 +78,12 @@
 > recent path input stale; it was never labeled A6 NowCast.
 >
 > The independent research-heartbeat workflow is active on the default branch.
-> The separate staggered `propagation-uptime-monitor.yml` verifies the public,
-> identity-free Railway health contract, shadow mode, service authentication,
-> exact A6 model identity, and both loaded profiles. It reconciles one durable
-> GitHub incident and closes it only after recovery. Its schedule is active.
+> The uptime monitor (formerly `propagation-uptime-monitor.yml`, retired
+> 2026-08-30 to stop GitHub Actions minute burn) now runs inside the Railway
+> collector (`collector/src/collectors/inferenceMonitor.ts`). It verifies the
+> same public, identity-free Railway health contract, shadow mode, service
+> authentication, exact A6 model identity, and both loaded profiles, and still
+> reconciles one durable GitHub incident when `GITHUB_ALERT_TOKEN` is set.
 >
 > The deployment evidence and visual explanation are in
 > [`cloud_deployment/CLOUD_REPORT.md`](results/propagation_v4_2/propagation_v4_2_phase2_scale/cloud_deployment/CLOUD_REPORT.md).
@@ -302,9 +304,11 @@ and the service loads the exact A6 internal manifest on the M5.
 - [x] Configure independent continuous research-heartbeat monitoring. The
   default-branch GitHub workflow is active and its latest five scheduled runs
   passed.
-- [ ] Activate the new Railway inference uptime workflow by merging it to the
-  default branch, manually dispatch it once, and confirm its healthy contract
-  before counting the inference monitor as operational.
+- [x] Inference uptime monitoring is operational. It now runs inside the
+  Railway collector (`collector/src/collectors/inferenceMonitor.ts`, 10-minute
+  cadence) rather than as a GitHub workflow — the Actions cron was retired
+  2026-08-30 to stop minute burn. Outside-in Railway coverage is the collector
+  `/live` deadman step in `solar-provider-synthetic.yml`.
 
 **Exit gate:** a clean Railway deployment downloads and verifies the bundle,
 reports the expected hashes/profile, serves test path and surface calls, and

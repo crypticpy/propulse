@@ -14,6 +14,7 @@ const pollIntervals: PollIntervals = {
   prune: 60 * 60_000,
   dbSizeGuard: 6 * 60 * 60_000,
   pathArchive: 60 * 60_000,
+  bandClimatology: 24 * 60 * 60_000,
 };
 
 describe("collector health freshness", () => {

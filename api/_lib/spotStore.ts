@@ -71,7 +71,7 @@ export function meterBandNumber(value: string): number | null {
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
-function configuredStorage(): { baseUrl: string; anonKey: string } | null {
+export function configuredStorage(): { baseUrl: string; anonKey: string } | null {
   const rawUrl = (
     process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
   )?.trim();

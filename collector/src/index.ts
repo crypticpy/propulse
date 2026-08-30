@@ -16,6 +16,7 @@ import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
 import { collectForecasts } from "./collectors/forecast.js";
 import { collectForecastSnapshot } from "./collectors/forecastSnapshot.js";
+import { computeBandActivityClimatology } from "./collectors/bandActivityClimatology.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
@@ -147,6 +148,12 @@ async function main(): Promise<void> {
   // to storage; deletes them only when ARCHIVE_PATH_STATS_PRUNE=true
   register("path-archive", pollIntervals.pathArchive, () =>
     archivePathStats(db, config.archive.pathStats),
+  );
+
+  // BH1 Activity Index baseline — daily band × hour-of-day percentile
+  // recompute from band_hourly_stats (runs once at startup, then daily)
+  register("band-climatology", pollIntervals.bandClimatology, () =>
+    computeBandActivityClimatology(db),
   );
 
   // Start all scheduled tasks

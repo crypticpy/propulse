@@ -50,6 +50,7 @@ export interface PollIntervals {
   prune: number;
   dbSizeGuard: number;
   pathArchive: number;
+  bandClimatology: number;
 }
 
 export interface RetentionDays {

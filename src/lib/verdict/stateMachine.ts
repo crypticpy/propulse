@@ -22,33 +22,40 @@ export const DOWNGRADE_HOLD_MS = 20 * 60 * 1000;
 /** Upgrades confirm after this much consistent evidence */
 export const UPGRADE_HOLD_MS = 5 * 60 * 1000;
 
-export interface VerdictMachineState {
+/** Hold machine over any totally ordered verdict vocabulary (BH2). */
+export interface RankedMachineState<T extends string> {
   /** The stable verdict shown to the user */
-  stable: BandVerdict;
+  stable: T;
   /** When `stable` was last promoted */
   stableSince: number;
   /** Differing raw verdict currently on hold, if any */
-  candidate: BandVerdict | null;
+  candidate: T | null;
   /** When the current candidate streak started */
   candidateSince: number;
 }
 
-export interface VerdictFlip {
-  from: BandVerdict;
-  to: BandVerdict;
+export type VerdictMachineState = RankedMachineState<BandVerdict>;
+
+export interface RankedFlip<T extends string> {
+  from: T;
+  to: T;
   at: number;
 }
 
-export interface AdvanceResult {
-  state: VerdictMachineState;
+export type VerdictFlip = RankedFlip<BandVerdict>;
+
+export interface RankedAdvanceResult<T extends string> {
+  state: RankedMachineState<T>;
   /** Set when this advance promoted a new stable verdict */
-  flip: VerdictFlip | null;
+  flip: RankedFlip<T> | null;
 }
 
-export function initialMachineState(
-  verdict: BandVerdict,
+export type AdvanceResult = RankedAdvanceResult<BandVerdict>;
+
+export function initialRankedState<T extends string>(
+  verdict: T,
   now: number,
-): VerdictMachineState {
+): RankedMachineState<T> {
   return {
     stable: verdict,
     stableSince: now,
@@ -57,10 +64,18 @@ export function initialMachineState(
   };
 }
 
+export const initialMachineState = initialRankedState<BandVerdict>;
+
+export function holdForRanked<T extends string>(
+  rank: Record<T, number>,
+  from: T,
+  to: T,
+): number {
+  return rank[to] > rank[from] ? UPGRADE_HOLD_MS : DOWNGRADE_HOLD_MS;
+}
+
 export function holdFor(from: BandVerdict, to: BandVerdict): number {
-  return VERDICT_RANK[to] > VERDICT_RANK[from]
-    ? UPGRADE_HOLD_MS
-    : DOWNGRADE_HOLD_MS;
+  return holdForRanked(VERDICT_RANK, from, to);
 }
 
 /**
@@ -70,11 +85,12 @@ export function holdFor(from: BandVerdict, to: BandVerdict): number {
  * A raw differing from stable starts/continues a candidate streak;
  * when the streak's age reaches the applicable hold, it promotes.
  */
-export function advance(
-  state: VerdictMachineState,
-  raw: BandVerdict,
+export function advanceRanked<T extends string>(
+  rank: Record<T, number>,
+  state: RankedMachineState<T>,
+  raw: T,
   now: number,
-): AdvanceResult {
+): RankedAdvanceResult<T> {
   if (raw === state.stable) {
     if (state.candidate === null) return { state, flip: null };
     return {
@@ -93,8 +109,8 @@ export function advance(
 
   // Continuing streak: promote once it has aged past the hold
   const held = now - state.candidateSince;
-  if (held >= holdFor(state.stable, raw)) {
-    const flip: VerdictFlip = { from: state.stable, to: raw, at: now };
+  if (held >= holdForRanked(rank, state.stable, raw)) {
+    const flip: RankedFlip<T> = { from: state.stable, to: raw, at: now };
     return {
       state: {
         stable: raw,
@@ -107,4 +123,12 @@ export function advance(
   }
 
   return { state, flip: null };
+}
+
+export function advance(
+  state: VerdictMachineState,
+  raw: BandVerdict,
+  now: number,
+): AdvanceResult {
+  return advanceRanked(VERDICT_RANK, state, raw, now);
 }

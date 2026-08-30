@@ -32,7 +32,15 @@ describe("collector health freshness", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({ status: "live" });
     } finally {
-      server.close();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
     }
   });
 

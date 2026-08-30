@@ -608,17 +608,13 @@ export function PropSphere() {
     [viewMode, target, timeOffset, layers, pathMode],
   );
 
-  // Handle location selection
+  // Explicit target commit. Flat/azimuthal views call this on a plain click;
+  // GlobeView only calls it from the flyout's "Set Target" action, never
+  // from the long-press that opens the flyout.
   const handleLocationClick = useCallback(
     (lat: number, lon: number) => {
       const grid = latLonToGrid(lat, lon);
-      setTarget({
-        lat,
-        lon,
-        grid,
-        name: grid,
-      });
-
+      setTarget({ lat, lon, grid, name: grid });
       if (
         contestSessionId &&
         contestDockTab === "contest" &&
@@ -853,6 +849,31 @@ export function PropSphere() {
                   </div>
                 </PanelMiniStrip>
               </div>
+            )}
+            {/* Band Conditions Edge Tab (left) - reopen from hidden */}
+            {!isLiteMode && !compactFit && leftPanelMode === "hidden" && (
+              <button
+                onClick={() => setLeftPanelMode("mini")}
+                aria-label="Show band conditions panel"
+                title="Show panel"
+                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-r border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5 2.5L9.5 7L5 11.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
             )}
 
             {/* Map View (center) - takes remaining space */}
@@ -1379,6 +1400,31 @@ export function PropSphere() {
                   )}
                 </PanelMiniStrip>
               </div>
+            )}
+            {/* Path Analysis Edge Tab (right) - reopen from hidden */}
+            {!isLiteMode && !compactFit && rightPanelMode === "hidden" && (
+              <button
+                onClick={() => setRightPanelMode("mini")}
+                aria-label="Show path analysis panel"
+                title="Show panel"
+                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-l border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M9 2.5L4.5 7L9 11.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
             )}
           </div>
 

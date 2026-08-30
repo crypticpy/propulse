@@ -6,6 +6,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
+import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { THEMES, type ThemeId } from "@/lib/themes";
@@ -42,6 +43,7 @@ export function AppearanceSection() {
   const setTheme = useThemeStore((s) => s.setTheme);
   const sdrSkinName = useSettingsStore((s) => s.sdrSkinName ?? "classic");
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);
+  const globeHiResTextures = useSettingsStore((s) => s.globeHiResTextures);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
   // Local form state for hex inputs
@@ -336,6 +338,24 @@ export function AppearanceSection() {
             <option value="top">Top — below masthead</option>
           </select>
         </div>
+      </div>
+
+      <div className="border-t border-white/10 pt-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Globe Textures
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          The 3D globe ships with web-size NASA Blue Marble imagery. Opt in to
+          the full-resolution version for sharper close-up zoom.
+        </p>
+        <ToggleSwitch
+          checked={globeHiResTextures}
+          onChange={(checked) =>
+            updatePreferences({ globeHiResTextures: checked })
+          }
+          label="High-resolution Blue Marble (5400×2700)"
+          description="Downloads the current month's texture (~2.5 MB) from the PropPulse CDN when the globe loads. Cached by the browser; no effect offline."
+        />
       </div>
 
       {/* Live Preview */}

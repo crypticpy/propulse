@@ -280,6 +280,14 @@ export interface SettingsState {
   tileMaxCacheMB: number;
   /** Whether LOD transitions fade in smoothly (TilesFadePlugin) */
   tileFadeEnabled: boolean;
+
+  // ─── Globe Texture Preferences (persisted) ────────────────────────────────
+
+  /**
+   * Opt-in hi-res (5400x2700) monthly Blue Marble day texture, fetched from
+   * the public storage CDN (~2.5 MB, current month only). Default off.
+   */
+  globeHiResTextures: boolean;
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -443,6 +451,7 @@ const defaultSettings: SettingsState = {
   tileQuality: "medium",
   tileMaxCacheMB: 512,
   tileFadeEnabled: true,
+  globeHiResTextures: false,
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -682,7 +691,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 33,
+      version: 34,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -1026,6 +1035,9 @@ export const useSettingsStore = create<SettingsStore>()(
           state.tileQuality ??= "medium";
           state.tileMaxCacheMB ??= 512;
           state.tileFadeEnabled ??= true;
+        }
+        if (version < 34) {
+          state.globeHiResTextures ??= false;
         }
         return state as unknown as SettingsState & SettingsStore;
       },

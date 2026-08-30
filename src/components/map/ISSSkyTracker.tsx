@@ -24,6 +24,9 @@ const CHART_RADIUS = 82;
 const PANEL_WIDTH = 230;
 const PANEL_HEIGHT = 330;
 
+// Pointer travel below this is a click, not a drag (matches the map handlers)
+const DRAG_THRESHOLD_PX = 5;
+
 // Teal palette for pass track
 const TEAL_BRIGHT = "#00E5CC";
 const TEAL_GLOW = "rgba(0, 229, 204, 0.25)";
@@ -337,6 +340,7 @@ export function ISSSkyTracker() {
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const positionStartRef = useRef({ x: 0, y: 0 });
+  const dragMovedRef = useRef(false);
 
   const station = useUserStore((s) => s.station);
 
@@ -405,6 +409,7 @@ export function ISSSkyTracker() {
       e.stopPropagation();
       if (!position) return;
       setIsDragging(true);
+      dragMovedRef.current = false;
       dragStartRef.current = { x: e.clientX, y: e.clientY };
       positionStartRef.current = { ...position };
     },
@@ -417,6 +422,13 @@ export function ISSSkyTracker() {
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - dragStartRef.current.x;
       const deltaY = e.clientY - dragStartRef.current.y;
+      if (
+        !dragMovedRef.current &&
+        Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX
+      ) {
+        return;
+      }
+      dragMovedRef.current = true;
       let newX = positionStartRef.current.x + deltaX;
       let newY = positionStartRef.current.y + deltaY;
 
@@ -545,17 +557,30 @@ export function ISSSkyTracker() {
     ? { left: position.x, top: position.y }
     : { right: 12, bottom: 12 };
 
-  // --- Collapsed state: small ISS icon button ---
+  // --- Collapsed state: labeled ISS chip, stays where the panel was and
+  // can be dragged like the panel itself ---
   if (!isVisible) {
     return (
-      <div className="absolute z-20 pointer-events-auto" style={posStyle}>
+      <div
+        className="absolute z-20 pointer-events-auto"
+        style={{
+          ...posStyle,
+          userSelect: isDragging ? "none" : undefined,
+        }}
+      >
         <button
-          onClick={() => setIsVisible(true)}
-          className="w-8 h-8 flex items-center justify-center bg-black/70 backdrop-blur-sm border border-white/10 hover:border-teal-400/50 rounded-lg transition-all"
-          title="Show ISS Tracker"
+          type="button"
+          onMouseDown={handleDragStart}
+          onClick={() => {
+            if (dragMovedRef.current) return;
+            setIsVisible(true);
+          }}
+          className="h-8 inline-flex items-center gap-1.5 pl-2 pr-2.5 bg-black/70 backdrop-blur-sm border border-white/10 hover:border-teal-400/50 rounded-lg transition-all cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-200"
+          title="ISS Tracker — click to expand, drag to move"
+          aria-label="Expand ISS Tracker"
         >
           <svg
-            className="w-4 h-4 text-gray-400"
+            className="w-4 h-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -568,6 +593,9 @@ export function ISSSkyTracker() {
               d="M4.5 12H2m20 0h-2.5M12 4.5V2m0 20v-2.5M7.05 7.05 5.636 5.636m12.728 12.728-1.414-1.414M7.05 16.95l-1.414 1.414M18.364 5.636l-1.414 1.414"
             />
           </svg>
+          <span className="text-[10px] font-medium uppercase tracking-wider">
+            ISS
+          </span>
         </button>
       </div>
     );

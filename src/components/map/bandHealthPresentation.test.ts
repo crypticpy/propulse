@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
+import type { CanonicalLadderRow } from "@/hooks/useBandLadder";
 import {
   bandHealthDotClass,
+  canonicalScopeUpdatedAt,
   readyBandHealthByBand,
 } from "./bandHealthPresentation";
 
@@ -22,5 +24,29 @@ describe("readyBandHealthByBand", () => {
     expect(
       bandHealthDotClass({ ...persistedEntry, stable: "closed" }),
     ).toBe("bg-gray-500");
+  });
+
+  it("ages canonical freshness from the oldest active-scope row", () => {
+    const rows = [
+      {
+        scopeType: "regional",
+        scopeKey: "NA",
+        updatedAt: "2026-08-31T06:00:00Z",
+      },
+      {
+        scopeType: "regional",
+        scopeKey: "NA",
+        updatedAt: "2026-08-31T05:45:00Z",
+      },
+      {
+        scopeType: "global",
+        scopeKey: "",
+        updatedAt: "2026-08-31T04:00:00Z",
+      },
+    ] as CanonicalLadderRow[];
+
+    expect(canonicalScopeUpdatedAt(rows, "regional", "NA")).toBe(
+      Date.parse("2026-08-31T05:45:00Z"),
+    );
   });
 });

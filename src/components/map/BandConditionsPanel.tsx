@@ -62,6 +62,7 @@ import {
 import { LADDER_RANK, type LadderState } from "@/lib/verdict/ladder";
 import {
   bandHealthDotClass,
+  canonicalScopeUpdatedAt,
   readyBandHealthByBand,
 } from "./bandHealthPresentation";
 
@@ -450,7 +451,6 @@ export function BandConditionsPanel({
   } = useBandActivity(activityScope);
   const {
     data: canonicalByKey,
-    dataUpdatedAt: bandLadderUpdatedAt,
     refetch: refetchBandLadder,
     isError: isBandLadderError,
     isRefetching: isBandLadderRefetching,
@@ -563,10 +563,24 @@ export function BandConditionsPanel({
     bandActivityUpdatedAt,
     isBandActivityError,
   );
+  const bandLadderObservedAt = useMemo(() => {
+    if (!canonicalByKey || bandHealthScope.type === "dx") return 0;
+    const scopeKey =
+      bandHealthScope.type === "regional"
+        ? (bandHealthScope.continent ?? "")
+        : "";
+    return (
+      canonicalScopeUpdatedAt(
+        canonicalByKey.values(),
+        bandHealthScope.type,
+        scopeKey,
+      ) ?? 0
+    );
+  }, [bandHealthScope, canonicalByKey]);
   const bandLadderFreshnessText =
     bandHealthScope.type === "dx"
       ? "not used for DX"
-      : queryFreshnessText(bandLadderUpdatedAt, isBandLadderError);
+      : queryFreshnessText(bandLadderObservedAt, isBandLadderError);
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {

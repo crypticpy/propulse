@@ -36,6 +36,14 @@
  *   tileLabels      OSM label tiles draped on the globe
  *   surfaceTexture  full-sphere data textures (MUF/TEC/SST/GOES/radar/DRAP/
  *                   noise floor) — mutually exclusive, so they share one slot
+ *   nightShade      terminator darkening. Deliberately LOW in the ladder: it
+ *                   dims the planet — basemap, its labels and the draped
+ *                   geophysical fields — and nothing else. Everything the user
+ *                   is actually reading (grid highlights, borders, arcs and
+ *                   traces, markers) paints on top at full strength, so the
+ *                   night half stays as legible as the day half. This matches
+ *                   how the 2D map already behaves.
+ *   nightLights     additive city lights
  *   surfaceArea     tangent patches and discs (ReachMap cells, grid activity,
  *                   hazard footprints, sporadic-E/ducting patches, satellite
  *                   footprints)
@@ -46,8 +54,6 @@
  *                   meteor showers
  *   markers         spot/beacon/satellite/station markers — always clickable
  *                   and visible above data layers
- *   nightShade      terminator darkening (dims everything beneath it)
- *   nightLights     additive city lights
  *   hud             globe-anchored widgets: NVIS dome, spectrum ring, compass
  *
  * Intra-component layering (e.g. glow behind ring behind core) uses
@@ -59,13 +65,13 @@ export const GLOBE_LAYER_ORDER = {
   base: 0,
   tileLabels: 4,
   surfaceTexture: 5,
-  surfaceArea: 6,
-  referenceLines: 7,
-  arcs: 8,
-  volumes: 9,
-  markers: 10,
-  nightShade: 11,
-  nightLights: 12,
+  nightShade: 6,
+  nightLights: 7,
+  surfaceArea: 8,
+  referenceLines: 9,
+  arcs: 10,
+  volumes: 11,
+  markers: 12,
   hud: 13,
 } as const;
 
@@ -79,13 +85,13 @@ export const GLOBE_LAYER_SLOTS: readonly GlobeLayerSlot[] = [
   "base",
   "tileLabels",
   "surfaceTexture",
+  "nightShade",
+  "nightLights",
   "surfaceArea",
   "referenceLines",
   "arcs",
   "volumes",
   "markers",
-  "nightShade",
-  "nightLights",
   "hud",
 ];
 

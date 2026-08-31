@@ -2,8 +2,10 @@
  * GridPersistOverlay Component
  *
  * Renders persistent Maidenhead grid-square highlights on the 3D globe using
- * a single THREE.InstancedMesh for efficient draw-call batching. Active grids
- * glow with a density-driven color and soft radial falloff.
+ * a single THREE.InstancedMesh for efficient draw-call batching. Each active
+ * grid is drawn as a filled square with a bordered edge, tinted by the density
+ * colour ramp — the square is the point, so the fill and border persist for as
+ * long as the grid stays inside the activity window.
  *
  * Technical approach:
  * - Single InstancedMesh with a pool of 500 instances (only active grids draw)
@@ -11,10 +13,10 @@
  * - Per-instance attributes: bounds (vec4), color (vec3), intensity (float),
  *   last-spot time (float, seconds relative to a component-local epoch)
  * - Vertex shader maps UV → lat/lon via instance bounds → 3D sphere position
- * - Fragment shader applies radial gradient with soft glow and bloom halo,
- *   plus a glowing cell-edge stroke that holds for 60s after the most recent
- *   spot and fades out by 90s (driven by a per-frame uNowSec clock uniform)
- * - Additive blending, no depth write — layers naturally with the globe
+ * - Fragment shader fills the cell, strokes a border, and adds a decaying
+ *   recency accent for the first 90s (per-frame uNowSec clock uniform)
+ * - Normal blending and depth testing against the GlobeDepthDome, so the
+ *   square reads over satellite imagery and does not bleed through the globe
  *
  * Follows the same coordinate system and rendering patterns as GridGlowOverlay.
  */
@@ -186,7 +188,41 @@ const PERSIST_VERTEX_SHADER = /* glsl */ `
   }
 `;
 
+/**
+ * Appearance constants for the highlighted square, injected into the fragment
+ * shader as #defines so the whole look is tunable from one place.
+ */
+const APPEARANCE = {
+  /** Fill alpha for a grid with a single spot */
+  FILL_MIN: 0.16,
+  /** Fill alpha for a grid at or above `SATURATION_COUNT` spots */
+  FILL_MAX: 0.44,
+  /** Border is solid within this many degrees of the cell edge */
+  BORDER_CORE_DEG: 0.07,
+  /** ...and fades to nothing by this many degrees */
+  BORDER_SOFT_DEG: 0.16,
+  /** Base border alpha, held for as long as the grid stays active */
+  BORDER_ALPHA: 0.62,
+  /** Extra border alpha immediately after a spot lands */
+  FRESH_BORDER_LIFT: 0.3,
+  /** Extra fill alpha immediately after a spot lands */
+  FRESH_FILL_LIFT: 0.1,
+  /** Seconds over which the recency accent decays */
+  FRESH_FADE_SEC: 90.0,
+  /** Ceiling so a dense square never fully hides the map beneath it */
+  MAX_ALPHA: 0.82,
+} as const;
+
+/** Spot count at which fill alpha reaches `FILL_MAX`. */
+const SATURATION_COUNT = 20;
+
+const SHADER_DEFINES = Object.entries(APPEARANCE)
+  .map(([name, value]) => `#define ${name} ${value.toFixed(4)}`)
+  .join("\n");
+
 const PERSIST_FRAGMENT_SHADER = /* glsl */ `
+  ${SHADER_DEFINES}
+
   uniform float uNowSec; // current time, epoch-relative seconds
 
   varying vec2 vUv;
@@ -195,44 +231,32 @@ const PERSIST_FRAGMENT_SHADER = /* glsl */ `
   varying float vLastSpotSec;
 
   void main() {
-    // Distance from center of the grid quad (UV 0.5, 0.5)
-    vec2 center = vec2(0.5, 0.5);
-    float dist = distance(vUv, center);
+    // Flat fill across the whole cell. This is a highlighted square, not a
+    // glow: a radial falloff reads as a blurry dot and disappears entirely
+    // over a bright (satellite) basemap. Density is carried by hue via the
+    // colour ramp, so alpha only has to give the square visual weight.
+    float fill = mix(FILL_MIN, FILL_MAX, vIntensity);
 
-    // Normalize: 0 = center, 1 = corner (~0.707 diagonal)
-    float maxDist = 0.707;
-    float normalizedDist = clamp(dist / maxDist, 0.0, 1.0);
-
-    // Radial gradient: strong at center, soft fade at edges
-    float radial = 1.0 - smoothstep(0.0, 0.85, normalizedDist);
-    radial = pow(radial, 1.5);
-
-    // Final alpha combines radial shape with instance intensity
-    float alpha = radial * vIntensity * 0.7;
-
-    // Bloom halo at the center
-    float bloom = exp(-dist * 6.0) * vIntensity * 0.35;
-    alpha += bloom;
-
-    // Glowing cell-edge stroke for recently active grids. The cell spans
-    // 2 deg of longitude by 1 deg of latitude, so scale UV distances into
-    // degrees for a uniform-width stroke on all four sides.
+    // Cell border. The cell spans 2 deg of longitude by 1 deg of latitude,
+    // so scale UV distances into degrees for a uniform-width stroke on all
+    // four sides.
     float edgeDeg = min(
       min(vUv.x, 1.0 - vUv.x) * 2.0,
       min(vUv.y, 1.0 - vUv.y)
     );
-    float edge = 1.0 - smoothstep(0.0, 0.12, edgeDeg);
+    float border = 1.0 - smoothstep(BORDER_CORE_DEG, BORDER_SOFT_DEG, edgeDeg);
 
-    // Hold the edge fully lit for 60s after the last spot, fade out by 90s
+    // Recency accent. The border and fill both persist for as long as the
+    // grid stays in the activity window — only this extra lift decays, so a
+    // square that was hot a minute ago still reads as a square.
     float age = max(uNowSec - vLastSpotSec, 0.0);
-    float edgeLife = 1.0 - smoothstep(60.0, 90.0, age);
+    float fresh = 1.0 - smoothstep(0.0, FRESH_FADE_SEC, age);
 
-    // Brief brightness pop right after a spot lands
-    float pop = 1.0 + 1.5 * (1.0 - smoothstep(0.0, 2.0, age));
+    float alpha = fill
+                + fresh * FRESH_FILL_LIFT
+                + border * (BORDER_ALPHA + FRESH_BORDER_LIFT * fresh);
 
-    alpha += edge * edgeLife * pop * (0.45 + vIntensity * 0.4);
-
-    gl_FragColor = vec4(vColor, alpha);
+    gl_FragColor = vec4(vColor, clamp(alpha, 0.0, MAX_ALPHA));
   }
 `;
 
@@ -267,8 +291,15 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
         uNowSec: { value: 0 },
       },
       transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
+      // Normal, not additive. Additive blending adds toward white, so over a
+      // bright satellite basemap the square washed out to nothing — which is
+      // why the layer looked inert on imagery. Normal blending tints the
+      // surface instead, and reads on both light and dark basemaps.
+      blending: THREE.NormalBlending,
+      // Depth-tested against the GlobeDepthDome per the stacking contract
+      // (PERSIST_RADIUS is above GLOBE_MIN_OVERLAY_RADIUS), so squares on the
+      // far side of the globe are occluded instead of showing through.
+      depthTest: true,
       depthWrite: false,
       side: THREE.FrontSide,
     });
@@ -338,8 +369,9 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
       boundsArray[idx * 4 + 2] = bounds.maxLon;
       boundsArray[idx * 4 + 3] = bounds.maxLat;
 
-      // Set instance intensity based on spot count
-      intensityArray[idx] = Math.min(0.8, 0.35 + activity.spotCount * 0.02);
+      // Normalised density 0..1, driving fill alpha in the shader. A single
+      // spot still reads (FILL_MIN); SATURATION_COUNT and above sit at FILL_MAX.
+      intensityArray[idx] = Math.min(1, activity.spotCount / SATURATION_COUNT);
 
       // Set last-spot time (epoch-relative seconds) for the edge stroke
       lastSpotArray[idx] = (activity.lastSpotTime - epochMs) / 1000;

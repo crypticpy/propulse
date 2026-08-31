@@ -37,6 +37,25 @@ describe("AccessibleDialog", () => {
     opener.remove();
   });
 
+  it("keeps Escape from reaching page-level keyboard handlers", () => {
+    const pageEscape = vi.fn();
+    const close = vi.fn();
+    document.addEventListener("keydown", pageEscape);
+
+    const { unmount } = render(
+      <AccessibleDialog open onClose={close} title="Spot details">
+        <button type="button">Inspect spot</button>
+      </AccessibleDialog>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(pageEscape).not.toHaveBeenCalled();
+    unmount();
+    document.removeEventListener("keydown", pageEscape);
+  });
+
   it("has no automated accessibility violations in its rendered contract", async () => {
     render(
       <AccessibleDialog

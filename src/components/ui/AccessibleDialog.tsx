@@ -46,6 +46,11 @@ export function AccessibleDialog({
     (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        // A modal owns Escape while it is open. Capture the event before
+        // page-level shortcuts (for example FullscreenPropSphere's exit
+        // handler) and stop sibling document listeners from acting on the
+        // same keypress after the dialog closes.
+        event.stopImmediatePropagation();
         onClose();
         return;
       }
@@ -90,14 +95,14 @@ export function AccessibleDialog({
       element.inert = true;
       element.setAttribute("aria-hidden", "true");
     }
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
       (first ?? dialogRef.current)?.focus();
     });
     return () => {
       cancelAnimationFrame(frame);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
       document.body.style.overflow = previousOverflow;
       for (const { element, inert, ariaHidden } of backgroundState) {
         element.inert = inert;

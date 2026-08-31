@@ -60,6 +60,9 @@ const PARTICLE_RADIUS = 0.004;
 /** Particle flow speed (fraction of path per second) */
 const PARTICLE_SPEED = 0.03;
 
+/** Particle opacity at full intensity; scaled by `intensity` every frame. */
+const PARTICLE_BASE_OPACITY = 0.8;
+
 /**
  * Paint slot. This glow rides on top of the static Greyline ribbon
  * (nightShade - 0.08) and stays under the night shade itself, matching the
@@ -205,7 +208,11 @@ export const TerminatorEnhancement3D = React.memo(
         new THREE.MeshBasicMaterial({
           color: INNER_GLOW_COLOR,
           transparent: true,
-          opacity: 0.8,
+          // Seeded transparent, then driven every frame from `intensity` in
+          // useFrame below. Seeding at PARTICLE_BASE_OPACITY instead would
+          // risk one full-brightness frame at a low intensity; the material
+          // is deliberately not rebuilt per intensity change.
+          opacity: 0,
           depthWrite: false,
           // depthTest stays on: protruding geometry keeps depthTest for
           // free far-side culling from the opaque globe's depth buffer.
@@ -240,6 +247,13 @@ export const TerminatorEnhancement3D = React.memo(
       if (innerBandMaterialRef.current) {
         innerBandMaterialRef.current.opacity = baseOpacity * 1.8;
       }
+
+      // The particles share one material, so their opacity is driven here
+      // rather than per-instance (the per-particle variation is scale, below).
+      // This has to track `intensity` alongside the bands: leaving it pinned
+      // at PARTICLE_BASE_OPACITY made normal, enhanced and peak render
+      // identically bright particles over bands that were visibly different.
+      particleMaterial.opacity = PARTICLE_BASE_OPACITY * intensity * pulse;
 
       // Advance particles along the terminator curve
       for (let i = 0; i < NUM_PARTICLES; i++) {

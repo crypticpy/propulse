@@ -1471,13 +1471,22 @@ const GlobeScene = React.memo(function GlobeScene({
             greyline intensity so it appears while greyline propagation is
             actually happening and returns 0 (renders nothing) otherwise --
             it used to be hardcoded to 0.5, painting a permanent second
-            amber band over the static Greyline ribbon. */}
-        {layers.greyline && terminatorPoints && terminatorPoints.length > 0 && (
-          <TerminatorEnhancement3D
-            terminatorPoints={terminatorPoints}
-            intensity={getGreylineGlowIntensity(greylineIntensity)}
-          />
-        )}
+            amber band over the static Greyline ribbon.
+
+            Gated on `station` as well: greylineIntensity falls back to
+            "normal" when no QTH is set (that fallback is for the static band,
+            which has to look like something regardless). "Greyline is peaking
+            at your location" is a claim we cannot make without a location, so
+            an unconfigured user gets the static band only. */}
+        {layers.greyline &&
+          station &&
+          terminatorPoints &&
+          terminatorPoints.length > 0 && (
+            <TerminatorEnhancement3D
+              terminatorPoints={terminatorPoints}
+              intensity={getGreylineGlowIntensity(greylineIntensity)}
+            />
+          )}
 
         {/* === Activity Layers === */}
         {layers.wspr && wsprSpots.length > 0 && (

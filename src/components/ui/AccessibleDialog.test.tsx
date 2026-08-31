@@ -56,6 +56,39 @@ describe("AccessibleDialog", () => {
     document.removeEventListener("keydown", pageEscape);
   });
 
+  it("routes Escape only to the topmost nested dialog", () => {
+    const closeOuter = vi.fn();
+    const closeInner = vi.fn();
+    const { rerender } = render(
+      <>
+        <AccessibleDialog open onClose={closeOuter} title="Choose radio">
+          <button type="button">Manage radios</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={closeInner} title="Add radio">
+          <button type="button">Save radio</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeInner).toHaveBeenCalledOnce();
+    expect(closeOuter).not.toHaveBeenCalled();
+
+    rerender(
+      <>
+        <AccessibleDialog open onClose={closeOuter} title="Choose radio">
+          <button type="button">Manage radios</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={false} onClose={closeInner} title="Add radio">
+          <button type="button">Save radio</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeOuter).toHaveBeenCalledOnce();
+  });
+
   it("has no automated accessibility violations in its rendered contract", async () => {
     render(
       <AccessibleDialog

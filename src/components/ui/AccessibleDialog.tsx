@@ -10,6 +10,16 @@ import { createPortal } from "react-dom";
 const FOCUSABLE =
   'a[href], button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Open dialogs in mounting order, with the active/topmost dialog last.
+ *
+ * Capture-phase listeners are intentionally used to protect modal Escape from
+ * page shortcuts. Because the browser invokes older listeners first, each
+ * dialog also needs this stack guard: an outer dialog must yield to a nested
+ * dialog instead of consuming the keypress and unmounting both.
+ */
+const openDialogStack: symbol[] = [];
+
 export interface AccessibleDialogProps {
   open: boolean;
   onClose: () => void;
@@ -41,10 +51,17 @@ export function AccessibleDialog({
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const dialogTokenRef = useRef(Symbol("AccessibleDialog"));
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (
+          openDialogStack[openDialogStack.length - 1] !==
+          dialogTokenRef.current
+        ) {
+          return;
+        }
         event.preventDefault();
         // A modal owns Escape while it is open. Capture the event before
         // page-level shortcuts (for example FullscreenPropSphere's exit
@@ -78,6 +95,7 @@ export function AccessibleDialog({
 
   useEffect(() => {
     if (!open) return;
+    const dialogToken = dialogTokenRef.current;
     openerRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -95,6 +113,7 @@ export function AccessibleDialog({
       element.inert = true;
       element.setAttribute("aria-hidden", "true");
     }
+    openDialogStack.push(dialogToken);
     document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
@@ -103,6 +122,8 @@ export function AccessibleDialog({
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown, true);
+      const stackIndex = openDialogStack.lastIndexOf(dialogToken);
+      if (stackIndex !== -1) openDialogStack.splice(stackIndex, 1);
       document.body.style.overflow = previousOverflow;
       for (const { element, inert, ariaHidden } of backgroundState) {
         element.inert = inert;

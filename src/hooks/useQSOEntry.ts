@@ -71,8 +71,13 @@ export function useQSOEntry() {
   const rigFrequency = useRigStore((s) => s.frequency);
   const rigMode = useRigStore((s) => s.mode);
 
-  const lastRigFreqRef = useRef(0);
-  const lastRigModeRef = useRef("");
+  // A map/spot action can prepare the draft before the log route mounts. Seed
+  // the CAT comparison refs from the already-connected rig in that case so
+  // mount-time hydration cannot replace the explicit contact frequency/mode;
+  // a subsequent real rig change still differs from these refs and syncs.
+  const hasPreparedDraft = Boolean(form.callsign.trim() && form.frequency > 0);
+  const lastRigFreqRef = useRef(hasPreparedDraft ? rigFrequency : 0);
+  const lastRigModeRef = useRef(hasPreparedDraft ? rigMode : "");
 
   useEffect(() => {
     if (!rigConnected) return;

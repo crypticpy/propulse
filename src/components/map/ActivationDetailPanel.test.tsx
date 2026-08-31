@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { useActivationSpotStore } from "@/stores/activationSpotStore";
 import { useQSOStore } from "@/stores/qsoStore";
+import { useRigStore } from "@/stores/rigStore";
+import { useQSOEntry } from "@/hooks/useQSOEntry";
 import { ActivationDetailPanel } from "./ActivationDetailPanel";
 
 const mocks = vi.hoisted(() => ({
@@ -53,11 +55,21 @@ const SPOT = {
   grid: "EM10df",
 };
 
+function PreparedLogHarness() {
+  const { form } = useQSOEntry();
+  return <span>{`${form.frequency} kHz ${form.mode}`}</span>;
+}
+
 describe("ActivationDetailPanel", () => {
   beforeEach(() => {
     useActivationSpotStore.setState({ selectedSpot: SPOT });
     useQSOStore.setState({ formDefaults: {} });
     useQSOStore.getState().resetForm();
+    useRigStore.setState({
+      connected: false,
+      frequency: 14_074_000,
+      mode: "USB",
+    });
     mocks.lookup.mockReset().mockResolvedValue(undefined);
     useQSOStore.setState({ lookupCallsign: mocks.lookup });
     mocks.clipboard.mockReset().mockResolvedValue(undefined);
@@ -164,6 +176,34 @@ describe("ActivationDetailPanel", () => {
         callsign: "K5ABC",
         frequency: 222100,
         band: "",
+      }),
+    );
+  });
+
+  it("preserves the prepared draft when connected CAT initializes on navigation", async () => {
+    useRigStore.setState({
+      connected: true,
+      frequency: 7_074_000,
+      mode: "USB",
+    });
+    render(
+      <MemoryRouter initialEntries={["/propsphere"]}>
+        <Routes>
+          <Route path="/propsphere" element={<ActivationDetailPanel />} />
+          <Route path="/log" element={<PreparedLogHarness />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Prepare QSO" }));
+
+    expect(await screen.findByText("14074 kHz FT8")).toBeTruthy();
+    expect(useQSOStore.getState().form).toEqual(
+      expect.objectContaining({
+        callsign: "K5ABC",
+        frequency: 14074,
+        band: "20m",
+        mode: "FT8",
       }),
     );
   });

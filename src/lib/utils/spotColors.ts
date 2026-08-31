@@ -268,7 +268,12 @@ export const AGE_COLOR_STOPS: ReadonlyArray<{
   { maxMinutes: 15, color: "#4bd4e8", label: "5-15 min" },
   { maxMinutes: 30, color: "#2f9bb5", label: "15-30 min" },
   { maxMinutes: 60, color: "#256b80", label: "30-60 min" },
-  { maxMinutes: Number.POSITIVE_INFINITY, color: "#1b4553", label: "> 1 hour" },
+  {
+    maxMinutes: Number.POSITIVE_INFINITY,
+    color: "#1b4553",
+    // Bounds are exclusive upper, so exactly 60 minutes lands here.
+    label: "≥ 1 hour",
+  },
 ];
 
 /** Colour for a signal-to-noise ratio in dB. */

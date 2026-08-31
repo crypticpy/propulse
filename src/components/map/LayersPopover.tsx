@@ -25,11 +25,6 @@ import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIInteractionPrefs } from "@/stores/userStore";
-import {
-  DEFAULT_SPOT_DENSITY,
-  SPOT_DENSITY_ORDER,
-  SPOT_DENSITY_SPECS,
-} from "@/lib/map/spotDensity";
 import BasemapCategory from "./layers/BasemapCategory";
 import SatelliteFilters from "./layers/SatelliteFilters";
 import {
@@ -407,7 +402,6 @@ export function LayersPopover() {
   // ── Settings store selectors ──
   const uiPrefs = useUIInteractionPrefs();
   const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
-  const spotDensity = uiPrefs.spotDensity ?? DEFAULT_SPOT_DENSITY;
   const mapPinScale = uiPrefs.mapPinScale ?? 1.0;
   const labelScale = uiPrefs.labelScale ?? 1.0;
   const updateUIInteraction = useSettingsStore((s) => s.updateUIInteraction);
@@ -1049,37 +1043,6 @@ export function LayersPopover() {
       {/* Separator */}
       <div className="border-t border-white/[0.06] my-1.5" />
 
-      {/* Spot Density -- how many spots each source contributes */}
-      <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-white/50 w-[60px] shrink-0">
-          Spots
-        </span>
-        <div className="flex-1 flex items-center gap-1 mx-2">
-          {SPOT_DENSITY_ORDER.map((level) => {
-            const spec = SPOT_DENSITY_SPECS[level];
-            const active = spotDensity === level;
-            return (
-              <button
-                key={level}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateUIInteraction({ spotDensity: level });
-                }}
-                title={spec.description}
-                aria-pressed={active}
-                className={`flex-1 text-[10px] py-0.5 rounded border transition-colors ${
-                  active
-                    ? "border-plasma-orange/40 bg-plasma-orange/15 text-plasma-orange"
-                    : "border-white/10 text-white/50 hover:bg-white/10"
-                }`}
-              >
-                {spec.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Spot Size */}
       <div className="flex items-center h-[28px] px-1">
         <span className="text-[11px] text-white/50 w-[60px] shrink-0">
@@ -1157,7 +1120,7 @@ export function LayersPopover() {
           onChange={handleDensityChange}
           onClick={(e) => e.stopPropagation()}
           className="layers-slider flex-1 mx-2"
-          aria-label="Maximum number of spot arcs to display"
+          aria-label="Maximum number of spots to fetch and display"
         />
         <span className="text-[10px] font-mono text-white/40 w-7 text-right shrink-0 tabular-nums">
           {displayDensity}

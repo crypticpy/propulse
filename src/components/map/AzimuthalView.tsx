@@ -34,7 +34,6 @@ import {
   type ResolvedSpot,
 } from "./LiveSpotArcs";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
-import { getSpotFetchLimit } from "@/lib/map/spotDensity";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -1332,6 +1331,7 @@ export function AzimuthalView({
   }, [layers.gridActivity]);
   const target = useMapStore((s) => s.target);
   const mapStyle = useMapStore((s) => s.mapStyle);
+  const displayDensity = useMapStore((s) => s.displayDensity);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
@@ -1583,20 +1583,19 @@ export function AzimuthalView({
   });
 
   // Resolve spot locations, capped for performance. This view draws every
-  // spot to a 2D canvas each frame, so it takes the same density budget the
-  // fetchers use rather than a second hardcoded number.
-  const spotRenderCap = getSpotFetchLimit(uiPrefs.spotDensity);
+  // spot to a 2D canvas each frame; it now honours the same displayDensity
+  // setting the globe and flat map use instead of a third hardcoded 50.
   const resolvedSpots = useMemo(() => {
     if (!layers.spots && !layers.spotTraces && !layers.gridActivity) {
       return [];
     }
-    return resolveSpotLocations(spots).slice(0, spotRenderCap);
+    return resolveSpotLocations(spots).slice(0, displayDensity);
   }, [
     spots,
     layers.spots,
     layers.spotTraces,
     layers.gridActivity,
-    spotRenderCap,
+    displayDensity,
   ]);
 
   // Resolve selected DX cluster spot location for highlight arc

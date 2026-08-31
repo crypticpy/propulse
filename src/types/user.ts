@@ -7,8 +7,6 @@ import type { UserRadio, RadioEquipment } from "./radio";
 import type { ColorBlindMode } from "@/lib/themes/colorblind";
 import type { AntennaType } from "@/lib/data/antennas";
 import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
-import type { SpotDensity } from "@/lib/map/spotDensity";
-import { DEFAULT_SPOT_DENSITY } from "@/lib/map/spotDensity";
 
 // =============================================================================
 // LOCATION TYPES
@@ -330,8 +328,6 @@ export interface UIInteractionPreferences {
   spotHitRadiusMultiplier: number;
   /** Spot color coding mode: "mode" colors by operating mode (FT8/CW/SSB), "band" colors by frequency band (20m/40m), "snr" gradient by signal strength, "age" gradient by spot age */
   spotColorMode: "mode" | "band" | "snr" | "age";
-  /** How many live spots each source contributes to the map (default: "medium" = 50/source) */
-  spotDensity: SpotDensity;
   /** Visual style: "realistic" is the default clean look, "high-viz" uses bolder colors and larger markers inspired by OpenHamClock */
   visualStyle: "realistic" | "high-viz";
   /** Scale multiplier for spot dots on all map views (0.5-2.0, default: 1.0) */
@@ -635,7 +631,6 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
   showSpotterLabels: false,
   spotHitRadiusMultiplier: 1.0,
   spotColorMode: "mode",
-  spotDensity: DEFAULT_SPOT_DENSITY,
   visualStyle: "realistic",
   spotDotScale: 1.0,
   mapPinScale: 1.0,

@@ -686,7 +686,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 35,
+      version: 34,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -1030,14 +1030,6 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         if (version < 34) {
           state.globeHiResTextures ??= false;
-        }
-        if (version < 35) {
-          // Spot density became a preference; existing users keep the
-          // hardcoded 50-per-source behaviour they already had.
-          const ui = state.uiInteraction as Record<string, unknown> | undefined;
-          if (ui && ui.spotDensity == null) {
-            ui.spotDensity = "medium";
-          }
         }
         return state as unknown as SettingsState & SettingsStore;
       },

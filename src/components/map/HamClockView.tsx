@@ -37,6 +37,7 @@ import { HamClockBestBandHero } from "./hamclock/HamClockBestBandHero";
 import { HamClockProjectionSwitch } from "./hamclock/HamClockProjectionSwitch";
 import { HamClockContestsPanel } from "./hamclock/HamClockContestsPanel";
 import { HamClockDxpeditionsPanel } from "./hamclock/HamClockDxpeditionsPanel";
+import { HamClockReliabilityPanel } from "./hamclock/HamClockReliabilityPanel";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -499,6 +500,17 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
             className="!bg-transparent !border-0 !rounded-none !shadow-none"
           />
         </div>
+      </HamClockInfoPanel>
+
+      <HamClockInfoPanel
+        id="reliability"
+        title="24h Reliability"
+        collapsed={panelCollapsed.reliability ?? true}
+        onToggle={() => togglePanel("reliability", true)}
+      >
+        {!(panelCollapsed.reliability ?? true) && (
+          <HamClockReliabilityPanel />
+        )}
       </HamClockInfoPanel>
 
       <HamClockInfoPanel

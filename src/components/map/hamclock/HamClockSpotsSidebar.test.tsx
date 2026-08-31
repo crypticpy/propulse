@@ -91,8 +91,25 @@ describe("HamClockSpotsSidebar", () => {
     render(<HamClockSpotsSidebar />);
 
     expect(screen.getByText("DX list")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "DX 2" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "POTA 1" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "DX 2" }).tabIndex).toBe(0);
+    expect(screen.getByRole("tab", { name: "POTA 1" }).tabIndex).toBe(-1);
+  });
+
+  it("supports roving focus and automatic activation with tab keys", () => {
+    render(<HamClockSpotsSidebar />);
+    const dxTab = screen.getByRole("tab", { name: "DX 2" });
+    dxTab.focus();
+
+    fireEvent.keyDown(dxTab, { key: "ArrowRight" });
+    const potaTab = screen.getByRole("tab", { name: "POTA 1" });
+    expect(document.activeElement).toBe(potaTab);
+    expect(potaTab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("K5ABC")).toBeTruthy();
+
+    fireEvent.keyDown(potaTab, { key: "End" });
+    const wwffTab = screen.getByRole("tab", { name: "WWFF 0" });
+    expect(document.activeElement).toBe(wwffTab);
+    expect(wwffTab.getAttribute("aria-selected")).toBe("true");
   });
 
   it("renders a POTA activation and targets coordinate-bearing rows", () => {
@@ -122,5 +139,22 @@ describe("HamClockSpotsSidebar", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "WWFF 0" }));
     expect(screen.getByText("No live WWFF activations")).toBeTruthy();
+  });
+
+  it("keeps cached activations visible during a background refetch error", () => {
+    mocks.activationSpots.mockReturnValue({
+      spots: response.spots,
+      spotsByProgram: { POTA: response.spots, SOTA: [], WWFF: [] },
+      sources: response.sources,
+      isLoading: false,
+      error: new Error("background refetch failed"),
+      refetch: vi.fn(),
+    });
+
+    render(<HamClockSpotsSidebar />);
+    fireEvent.click(screen.getByRole("tab", { name: "POTA 1" }));
+
+    expect(screen.getByText("K5ABC")).toBeTruthy();
+    expect(screen.queryByText("POTA feed unavailable")).toBeNull();
   });
 });

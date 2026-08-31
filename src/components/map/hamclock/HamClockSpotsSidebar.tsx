@@ -9,7 +9,7 @@
  * No props needed -- reads everything from stores.
  */
 
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { DXSpotList } from "@/components/dx/DXSpotList/DXSpotList";
 import { useActivationSpots } from "@/hooks/useActivationSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
@@ -150,8 +150,9 @@ function ActivationSpotList({
 }: ActivationSpotListProps) {
   const meta = ACTIVATION_PROGRAM_META[program];
   let message: string | null = null;
-  if (isLoading) message = `Loading ${program} activations…`;
-  else if (error || status === "unavailable") {
+  if (isLoading && spots.length === 0) {
+    message = `Loading ${program} activations…`;
+  } else if ((error && spots.length === 0) || status === "unavailable") {
     message = `${program} feed unavailable`;
   } else if (status === "invalid") {
     message = `${program} feed returned invalid data`;
@@ -190,6 +191,9 @@ function ActivationSpotList({
 
 export function HamClockSpotsSidebar() {
   const [activeTab, setActiveTab] = useState<SpotTab>("DX");
+  const tabRefs = useRef<
+    Partial<Record<SpotTab, HTMLButtonElement | null>>
+  >({});
 
   // Spot counts drive both the live indicator and compact per-tab badges.
   const { allSpots } = useDXCluster();
@@ -222,6 +226,29 @@ export function HamClockSpotsSidebar() {
     });
   };
 
+  const handleTabKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentTab: SpotTab,
+  ) => {
+    const currentIndex = SPOT_TABS.indexOf(currentTab);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      nextIndex = (currentIndex + 1) % SPOT_TABS.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      nextIndex = (currentIndex - 1 + SPOT_TABS.length) % SPOT_TABS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = SPOT_TABS.length - 1;
+    }
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    const nextTab = SPOT_TABS[nextIndex];
+    setActiveTab(nextTab);
+    tabRefs.current[nextTab]?.focus();
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* ── Header ── */}
@@ -251,12 +278,17 @@ export function HamClockSpotsSidebar() {
             id={`spots-tab-${tab.toLowerCase()}`}
             aria-controls="spots-tab-panel"
             aria-selected={activeTab === tab}
+            tabIndex={activeTab === tab ? 0 : -1}
+            ref={(node) => {
+              tabRefs.current[tab] = node;
+            }}
             className={`px-1 py-1.5 font-mono text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-plasma-orange ${
               activeTab === tab
                 ? "bg-plasma-orange/10 text-plasma-orange"
                 : "text-gray-500 hover:bg-white/5 hover:text-gray-300"
             }`}
             onClick={() => setActiveTab(tab)}
+            onKeyDown={(event) => handleTabKeyDown(event, tab)}
           >
             {tab} <span className="text-[8px] opacity-70">{tabCounts[tab]}</span>
           </button>

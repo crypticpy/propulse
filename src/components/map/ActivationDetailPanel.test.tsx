@@ -140,4 +140,31 @@ describe("ActivationDetailPanel", () => {
     expect(useActivationSpotStore.getState().selectedSpot).toBeNull();
     expect(await screen.findByText("Log route")).toBeTruthy();
   });
+
+  it("clears a sticky band when the activation frequency is not mapped", () => {
+    useActivationSpotStore.setState({
+      selectedSpot: {
+        ...SPOT,
+        id: "pota-222mhz",
+        frequencyKHz: 222100,
+      },
+    });
+    useQSOStore.setState({ formDefaults: { band: "20m" } });
+    useQSOStore.getState().resetForm();
+
+    render(
+      <MemoryRouter>
+        <ActivationDetailPanel />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Prepare QSO" }));
+
+    expect(useQSOStore.getState().form).toEqual(
+      expect.objectContaining({
+        callsign: "K5ABC",
+        frequency: 222100,
+        band: "",
+      }),
+    );
+  });
 });

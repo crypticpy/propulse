@@ -128,7 +128,10 @@ export function ActivationDetailPanel() {
     resetForm();
     setField("callsign", spot.callsign.toUpperCase());
     setField("frequency", spot.frequencyKHz);
-    if (band) setField("band", band);
+    // An accepted activation can use a band outside the logger's current
+    // mapping. Clear the sticky default in that case rather than mislabeling
+    // (for example) a 222 MHz contact as the previous 20 m QSO.
+    setField("band", band ?? "");
     setField("mode", spot.mode.toUpperCase());
     setField("grid", grid);
     setField("sig", spot.program);

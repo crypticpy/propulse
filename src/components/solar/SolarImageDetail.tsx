@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   SOLAR_IMAGE_PRODUCTS,
+  solarImageMetadataUrl,
+  solarImageUrl,
   type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
 
@@ -22,7 +24,9 @@ export function SolarImageDetail({
   const [metadataFailed, setMetadataFailed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const attempts = useRef(0);
-  const imageUrl = `/api/solar/image?product=${encodeURIComponent(productId)}`;
+  const imageUrl = solarImageUrl(productId, now, retryKey);
+  const metadataUrl = solarImageMetadataUrl(productId, now, retryKey);
+  const refreshBucket = Math.floor(now / (product.softTtlSeconds * 1_000));
 
   const retry = useCallback(() => {
     setState((current) => (current === "loading" ? "loading" : "retrying"));
@@ -32,7 +36,7 @@ export function SolarImageDetail({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/solar/image-meta?product=${encodeURIComponent(productId)}`, {
+    fetch(metadataUrl, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     })
@@ -54,7 +58,7 @@ export function SolarImageDetail({
         if (!controller.signal.aborted) setMetadataFailed(true);
       });
     return () => controller.abort();
-  }, [productId, retryKey]);
+  }, [metadataUrl, refreshBucket]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -116,7 +120,7 @@ export function SolarImageDetail({
           </div>
         )}
         <img
-          key={retryKey}
+          key={imageUrl}
           src={imageUrl}
           alt={product.alt}
           decoding="async"

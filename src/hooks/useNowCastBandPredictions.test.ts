@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNowCastRequests,
+  nowCastIssueBucket,
   summarizeNowCastResults,
 } from "./useNowCastBandPredictions";
 import {
@@ -12,6 +13,17 @@ import type {
   PropagationCapabilitiesResponse,
   PropagationPrediction,
 } from "@/lib/propagation/modelClient";
+
+describe("nowCastIssueBucket", () => {
+  it("advances on canonical five-minute boundaries", () => {
+    expect(
+      new Date(nowCastIssueBucket(Date.parse("2026-07-12T12:04:59Z"))).toISOString(),
+    ).toBe("2026-07-12T12:00:00.000Z");
+    expect(
+      new Date(nowCastIssueBucket(Date.parse("2026-07-12T12:05:00Z"))).toISOString(),
+    ).toBe("2026-07-12T12:05:00.000Z");
+  });
+});
 
 describe("buildNowCastRequests", () => {
   it("builds privacy-safe station envelopes for every HF model band", () => {

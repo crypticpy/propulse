@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   buildCorePathFeatures,
@@ -20,6 +20,51 @@ import type {
 } from "@/lib/station/stationChainEngine";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+/** Canonical request timestamp used by the server's verified history lookup. */
+export function nowCastIssueBucket(now = Date.now()): number {
+  return Math.floor(now / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
+}
+
+/**
+ * Advance NowCast on five-minute boundaries even when every path, station, and
+ * solar input stays unchanged. Previously Date.now() was read only during a
+ * React render, so a long-running PropSphere could retain its first issue_time
+ * indefinitely and never observe a recovered WSPR history snapshot.
+ */
+function useNowCastIssueBucket(): number {
+  const [bucket, setBucket] = useState(() => nowCastIssueBucket());
+
+  useEffect(() => {
+    let timeout = 0;
+    const updateAndSchedule = () => {
+      // Use one clock sample for both values. Two Date.now() calls can straddle
+      // the boundary and accidentally schedule the freshly entered bucket for
+      // five minutes later without ever publishing it to the query key.
+      const currentBucket = nowCastIssueBucket();
+      setBucket(currentBucket);
+      const nextBoundary = currentBucket + FIVE_MINUTES_MS;
+      timeout = window.setTimeout(
+        updateAndSchedule,
+        Math.max(1_000, nextBoundary - Date.now() + 250),
+      );
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        setBucket(nowCastIssueBucket());
+      }
+    };
+
+    updateAndSchedule();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  return bucket;
+}
 
 export interface NowCastBandInput {
   origin: { grid: string; lat: number; lon: number } | null;
@@ -164,7 +209,7 @@ export function summarizeNowCastResults(
 export function useNowCastBandPredictions(
   input: NowCastBandInput,
 ): NowCastBandPredictions {
-  const issueBucket = Math.floor(Date.now() / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
+  const issueBucket = useNowCastIssueBucket();
   const capabilities = useQuery({
     queryKey: ["propagation-v4", "capabilities"] as const,
     queryFn: ({ signal }: { signal: AbortSignal }) => {
@@ -173,6 +218,9 @@ export function useNowCastBandPredictions(
     },
     enabled: propagationModelEnabled,
     staleTime: FIVE_MINUTES_MS,
+    refetchInterval: FIVE_MINUTES_MS,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
   const access = resolveNowCastCapabilityAccess(

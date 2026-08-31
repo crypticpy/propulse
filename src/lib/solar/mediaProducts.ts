@@ -124,3 +124,33 @@ export function isSolarAnimationProduct(
 ): value is SolarAnimationProductId {
   return value in SOLAR_ANIMATION_PRODUCTS;
 }
+
+/**
+ * Build a cache-stable media URL that advances at the product's own cadence.
+ *
+ * A bare `/api/solar/image?product=…` URL never changes in a mounted `<img>`,
+ * so browser image caches can keep a wall display on its first frame forever.
+ * The shared time bucket keeps every client on the same CDN cache key for the
+ * full soft-TTL window, then asks for the newly validated upstream frame.
+ * `retry` changes only for an explicit/automatic recovery attempt.
+ */
+export function solarImageUrl(
+  productId: SolarImageProductId,
+  now = Date.now(),
+  retry = 0,
+): string {
+  const product = SOLAR_IMAGE_PRODUCTS[productId];
+  const refreshBucket = Math.floor(now / (product.softTtlSeconds * 1_000));
+  return `/api/solar/image?product=${encodeURIComponent(productId)}&refresh=${refreshBucket}-${retry}`;
+}
+
+/** Metadata follows the exact same cache bucket as its image bytes. */
+export function solarImageMetadataUrl(
+  productId: SolarImageProductId,
+  now = Date.now(),
+  retry = 0,
+): string {
+  const product = SOLAR_IMAGE_PRODUCTS[productId];
+  const refreshBucket = Math.floor(now / (product.softTtlSeconds * 1_000));
+  return `/api/solar/image-meta?product=${encodeURIComponent(productId)}&refresh=${refreshBucket}-${retry}`;
+}

@@ -98,7 +98,7 @@ export function ClusterPopover() {
       </button>
 
       {/* ── Panel ── */}
-      <div
+      <div hidden={!open}
         className={`absolute top-full left-0 mt-1.5 w-[320px] z-50 bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
           open
             ? "opacity-100 translate-y-0"

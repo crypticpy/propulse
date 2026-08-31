@@ -60,7 +60,10 @@ import {
   type BandHourlyStat,
 } from "@/hooks/useBandHourlyStats";
 import { LADDER_RANK, type LadderState } from "@/lib/verdict/ladder";
-import { readyBandHealthByBand } from "./bandHealthPresentation";
+import {
+  bandHealthDotClass,
+  readyBandHealthByBand,
+} from "./bandHealthPresentation";
 
 interface BandConditionsPanelProps {
   displayTime: Date;
@@ -817,7 +820,9 @@ export function BandConditionsPanel({
   const renderedBands = new Set(
     bandConditions.map((condition) => condition.band),
   );
-  const bestHealth = [...liveBandHealthByBand.values()].reduce<BandLadderEntry | null>(
+  const bestHealth = [...liveBandHealthByBand.values()].reduce<
+    BandLadderEntry | null
+  >(
     (best, entry) =>
       renderedBands.has(entry.band) &&
       (!best || LADDER_RANK[entry.stable] > LADDER_RANK[best.stable])
@@ -844,6 +849,11 @@ export function BandConditionsPanel({
       bg: "bg-alert-red/10",
     },
   };
+  // Both panel shapes describe the same observation-backed headline. Keep the
+  // path aggregate only as the pre-readiness fallback for their status dot.
+  const headlineDotClass = bestHealth
+    ? bandHealthDotClass(bestHealth)
+    : statusColors[overallStatus].dot;
 
   return (
     <>
@@ -887,15 +897,7 @@ export function BandConditionsPanel({
               {/* Status dot */}
               <div
                 className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                  bestHealth
-                    ? bestHealth.stable === "hot"
-                      ? "bg-plasma-orange"
-                      : bestHealth.stable === "verified"
-                        ? "bg-signal-green"
-                        : bestHealth.stable === "stirring"
-                          ? "bg-caution-amber"
-                          : "bg-gray-500"
-                    : statusColors[overallStatus].dot
+                  headlineDotClass
                 }`}
               />
 
@@ -951,7 +953,7 @@ export function BandConditionsPanel({
           <BandConditionsHeader
             currentKp={currentKp}
             currentSfi={currentSfi}
-            statusDotClass={statusColors[overallStatus].dot}
+            statusDotClass={headlineDotClass}
             onToggleCollapse={onToggleCollapse}
             onClose={onClose}
             onHelp={() => setShowHelp(true)}

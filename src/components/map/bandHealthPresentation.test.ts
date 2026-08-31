@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
-import { readyBandHealthByBand } from "./bandHealthPresentation";
+import {
+  bandHealthDotClass,
+  readyBandHealthByBand,
+} from "./bandHealthPresentation";
 
 const persistedEntry = { band: "80m" } as BandLadderEntry;
 
@@ -10,5 +13,14 @@ describe("readyBandHealthByBand", () => {
     expect(readyBandHealthByBand([persistedEntry], true).get("80m")).toBe(
       persistedEntry,
     );
+  });
+
+  it("derives both headline dots from the live ladder state", () => {
+    expect(
+      bandHealthDotClass({ ...persistedEntry, stable: "verified" }),
+    ).toBe("bg-signal-green");
+    expect(
+      bandHealthDotClass({ ...persistedEntry, stable: "closed" }),
+    ).toBe("bg-gray-500");
   });
 });

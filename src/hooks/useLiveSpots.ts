@@ -33,6 +33,8 @@ interface UseLiveSpotsOptions {
   refetchInterval?: number;
   /** Sources to include */
   sources?: SpotSource[];
+  /** Preserve every receiver/source report for evidence-oriented consumers. */
+  deduplicate?: boolean;
 }
 
 interface UseLiveSpotsResult {
@@ -126,6 +128,7 @@ export function useLiveSpots({
   enabled = true,
   refetchInterval = MINUTE,
   sources = DEFAULT_SOURCES,
+  deduplicate = true,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // How many spots each source contributes. Derived from the map's existing
   // display-density setting -- fetching a flat 50 is why raising that slider
@@ -197,9 +200,10 @@ export function useLiveSpots({
       allSpots.push(...wsjtxSpots);
     }
 
-    // Deduplicate and sort by time (newest first)
-    const deduplicated = deduplicateSpots(allSpots);
-    const sorted = deduplicated.sort(
+    // Map renderers prefer one visual per callsign/frequency/minute. Evidence
+    // views can retain every receiver and source before grouping it themselves.
+    const selected = deduplicate ? deduplicateSpots(allSpots) : allSpots;
+    const sorted = selected.sort(
       (a, b) => b.time.getTime() - a.time.getTime(),
     );
 
@@ -209,7 +213,7 @@ export function useLiveSpots({
     }
 
     return sorted;
-  }, [pskQuery.data, rbnQuery.data, wsjtxSpots, sources]);
+  }, [deduplicate, pskQuery.data, rbnQuery.data, wsjtxSpots, sources]);
 
   // Group spots by source
   const spotsBySource = useMemo(() => {

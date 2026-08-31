@@ -141,6 +141,7 @@ export function NearbyActivityExplorer({
   const live = useLiveSpots({
     grid: activeLocation?.grid,
     enabled: Boolean(activeLocation),
+    deduplicate: false,
   });
   const clusterSpots = useDXStore((state) => state.spots);
   const setTarget = useMapStore((state) => state.setTarget);
@@ -214,6 +215,7 @@ export function NearbyActivityExplorer({
       lon: result.lon,
       name: result.callsign,
     });
+    onClose?.();
     navigate("/map");
   };
 
@@ -387,6 +389,11 @@ export function NearbyActivityExplorer({
       ) : loading && results.length === 0 ? (
         <div className="px-4 py-8 text-center text-sm text-gray-500">
           Loading recent reports…
+        </div>
+      ) : live.isError && results.length === 0 ? (
+        <div className="px-4 py-8 text-center text-sm text-alert-red">
+          Live activity sources are unavailable. Check the data connection and
+          try again.
         </div>
       ) : results.length === 0 ? (
         <div className="px-4 py-8 text-center text-sm text-gray-500">

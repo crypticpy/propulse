@@ -18,7 +18,7 @@ interface ActivityExplorerStore {
   setToleranceKHz: (toleranceKHz: number) => void;
   setMaxAgeMinutes: (maxAgeMinutes: number) => void;
   setMaxDistanceKm: (maxDistanceKm: number | null) => void;
-  /** Boundary for future SDR control: Hz in, operator-friendly MHz shown. */
+  /** Boundary for future SDR control: Hz in, explicit MHz shown. */
   followTunedFrequency: (frequencyHz: number) => void;
 }
 
@@ -40,7 +40,11 @@ export const useActivityExplorerStore = create<ActivityExplorerStore>()(
       followTunedFrequency: (frequencyHz) =>
         set({
           mode: "frequency",
-          frequencyInput: (frequencyHz / 1_000_000).toFixed(3),
+          // The suffix is essential above 999 MHz: a bare "1296" is otherwise
+          // interpreted as 1296 kHz by the operator-friendly parser.
+          frequencyInput: `${(frequencyHz / 1_000_000)
+            .toFixed(6)
+            .replace(/\.?0+$/, "")} MHz`,
         }),
     }),
     {

@@ -1,5 +1,10 @@
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import { getBandForFrequency } from "@/lib/data/bandRanges";
+import {
+  extractPrefixFromCallsign,
+  getLocationFromPrefix,
+} from "@/lib/data/prefixLocations";
+import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { formatBearing, getBearing, getDistance } from "@/lib/utils/path";
 
 export interface ActivityOrigin {
@@ -52,16 +57,48 @@ export function parseActivityFrequency(input: string): number | null {
   return value < 1000 ? value * 1000 : value;
 }
 
-function hasCoordinates(spot: LiveSpot): spot is LiveSpot & {
-  dxLat: number;
-  dxLon: number;
-} {
-  return (
+function resolveTransmitterLocation(spot: LiveSpot): {
+  lat: number;
+  lon: number;
+  approximate: boolean;
+} | null {
+  if (
     Number.isFinite(spot.dxLat) &&
     Number.isFinite(spot.dxLon) &&
     spot.dxLat !== undefined &&
     spot.dxLon !== undefined
+  ) {
+    return {
+      lat: spot.dxLat,
+      lon: spot.dxLon,
+      approximate: Boolean(spot.dxLocApprox),
+    };
+  }
+
+  if (spot.dxGrid && isValidGrid(spot.dxGrid)) {
+    try {
+      const location = gridToLatLon(spot.dxGrid);
+      return { ...location, approximate: false };
+    } catch {
+      // Fall through to the same callsign-prefix approximation used by maps.
+    }
+  }
+
+  const prefixLocation = getLocationFromPrefix(
+    extractPrefixFromCallsign(spot.dx),
   );
+  return prefixLocation
+    ? {
+        lat: prefixLocation.lat,
+        lon: prefixLocation.lon,
+        approximate: true,
+      }
+    : null;
+}
+
+function spotTimeMs(spot: LiveSpot): number {
+  const time = spot.time instanceof Date ? spot.time : new Date(spot.time);
+  return time.getTime();
 }
 
 function matchesQuery(spot: LiveSpot, query: ActivityQuery): boolean {
@@ -98,7 +135,7 @@ export function buildActivityResults(
         matchesQuery(spot, filters.query)
       );
     })
-    .sort((left, right) => right.time.getTime() - left.time.getTime());
+    .sort((left, right) => spotTimeMs(right) - spotTimeMs(left));
 
   const grouped = new Map<
     string,
@@ -106,9 +143,9 @@ export function buildActivityResults(
   >();
 
   for (const spot of newestFirst) {
-    const located = hasCoordinates(spot);
-    const distanceKm = located
-      ? getDistance(origin.lat, origin.lon, spot.dxLat, spot.dxLon)
+    const location = resolveTransmitterLocation(spot);
+    const distanceKm = location
+      ? getDistance(origin.lat, origin.lon, location.lat, location.lon)
       : null;
     if (
       filters.maxDistanceKm !== null &&
@@ -131,8 +168,8 @@ export function buildActivityResults(
       continue;
     }
 
-    const bearing = located
-      ? getBearing(origin.lat, origin.lon, spot.dxLat, spot.dxLon)
+    const bearing = location
+      ? getBearing(origin.lat, origin.lon, location.lat, location.lon)
       : null;
     grouped.set(key, {
       id: key,
@@ -140,9 +177,9 @@ export function buildActivityResults(
       frequencyKHz: spot.frequency,
       mode: spot.mode,
       time: spot.time instanceof Date ? spot.time : new Date(spot.time),
-      lat: located ? spot.dxLat : undefined,
-      lon: located ? spot.dxLon : undefined,
-      locationApproximate: Boolean(spot.dxLocApprox),
+      lat: location?.lat,
+      lon: location?.lon,
+      locationApproximate: location?.approximate ?? false,
       distanceKm,
       bearing,
       bearingLabel: bearing === null ? null : formatBearing(bearing),

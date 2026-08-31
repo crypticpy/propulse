@@ -99,7 +99,7 @@ describe("buildActivityResults", () => {
   it("includes unlocated activity only when the range is global", () => {
     const unknown = {
       ...BASE,
-      dx: "N0GRID",
+      dx: "?",
       dxLat: undefined,
       dxLon: undefined,
     };
@@ -121,5 +121,65 @@ describe("buildActivityResults", () => {
         maxDistanceKm: null,
       }),
     ).toHaveLength(1);
+  });
+
+  it("resolves grid and callsign-prefix locations before range filtering", () => {
+    const gridLocated = {
+      ...BASE,
+      id: "grid-located",
+      dxLat: undefined,
+      dxLon: undefined,
+      dxGrid: "EM10",
+    };
+    const prefixLocated = {
+      ...BASE,
+      id: "prefix-located",
+      dx: "JA1ZZZ",
+      dxLat: undefined,
+      dxLon: undefined,
+      dxGrid: undefined,
+    };
+    const filters = {
+      query: { kind: "band", band: "40m" } as const,
+      maxAgeMinutes: 30,
+      maxDistanceKm: 1000,
+      now: NOW,
+    };
+
+    expect(
+      buildActivityResults([gridLocated], { lat: 30.5, lon: -97 }, filters),
+    ).toHaveLength(1);
+    const [prefixResult] = buildActivityResults(
+      [prefixLocated],
+      { lat: 35.7, lon: 139.7 },
+      filters,
+    );
+    expect(prefixResult.callsign).toBe("JA1ZZZ");
+    expect(prefixResult.locationApproximate).toBe(true);
+  });
+
+  it("sorts valid string-backed timestamps without throwing", () => {
+    const olderStringTime = {
+      ...BASE,
+      id: "string-time",
+      dx: "K5OLD",
+      time: "2026-08-31T13:50:00.000Z" as unknown as Date,
+    };
+
+    const results = buildActivityResults(
+      [olderStringTime, BASE],
+      { lat: 30.5, lon: -97 },
+      {
+        query: { kind: "band", band: "40m" },
+        maxAgeMinutes: 30,
+        maxDistanceKm: null,
+        now: NOW,
+      },
+    );
+
+    expect(results.map((result) => result.callsign)).toEqual([
+      "K5ABC",
+      "K5OLD",
+    ]);
   });
 });

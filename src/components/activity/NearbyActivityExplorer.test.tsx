@@ -5,6 +5,11 @@ import { useActivityExplorerStore } from "@/stores/activityExplorerStore";
 import type { LiveSpot } from "@/types/livespot";
 import { NearbyActivityExplorer } from "./NearbyActivityExplorer";
 
+const liveMocks = vi.hoisted(() => ({
+  isError: false,
+  options: vi.fn(),
+}));
+
 const SPOT: LiveSpot = {
   id: "spot-1",
   spotter: "W1AW",
@@ -33,17 +38,22 @@ vi.mock("@/hooks/useActiveLocation", () => ({
 }));
 
 vi.mock("@/hooks/useLiveSpots", () => ({
-  useLiveSpots: () => ({
-    spots: [SPOT],
-    isLoading: false,
-    isError: false,
-    spotsBySource: {},
-    refetch: vi.fn(),
-  }),
+  useLiveSpots: (options: unknown) => {
+    liveMocks.options(options);
+    return {
+      spots: liveMocks.isError ? [] : [SPOT],
+      isLoading: false,
+      isError: liveMocks.isError,
+      spotsBySource: {},
+      refetch: vi.fn(),
+    };
+  },
 }));
 
 describe("NearbyActivityExplorer", () => {
   beforeEach(() => {
+    liveMocks.isError = false;
+    liveMocks.options.mockClear();
     useActivityExplorerStore.setState({
       mode: "band",
       band: "40m",
@@ -68,8 +78,13 @@ describe("NearbyActivityExplorer", () => {
     fireEvent.click(screen.getByRole("button", { name: /K5ABC/i }));
     expect(screen.getByText(/heard \/ reported by/i)).toBeTruthy();
     expect(screen.getByText("W1AW")).toBeTruthy();
+    expect(liveMocks.options).toHaveBeenCalledWith(
+      expect.objectContaining({ deduplicate: false }),
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: /close nearby activity/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /target in propsphere/i }),
+    );
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -83,12 +98,28 @@ describe("NearbyActivityExplorer", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByDisplayValue("14.074")).toBeTruthy();
+    expect(screen.getByDisplayValue("14.074 MHz")).toBeTruthy();
     expect(useActivityExplorerStore.getState().mode).toBe("frequency");
+    followTunedFrequency(1_296_000_000);
+    expect(useActivityExplorerStore.getState().frequencyInput).toBe("1296 MHz");
 
     fireEvent.change(screen.getByPlaceholderText("7.200 MHz"), {
       target: { value: "not a frequency" },
     });
     expect(screen.getByText(/enter a frequency such as/i)).toBeTruthy();
+  });
+
+  it("distinguishes a live-source outage from a valid empty result", () => {
+    liveMocks.isError = true;
+
+    render(
+      <MemoryRouter>
+        <NearbyActivityExplorer />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText(/live activity sources are unavailable/i),
+    ).toBeTruthy();
   });
 });

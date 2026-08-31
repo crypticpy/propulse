@@ -28,6 +28,7 @@ import {
   MUFLegend,
   IonosphereLegend,
   LayerLegend,
+  MapStatusChip,
   RecommendationsPanel,
   OptimalBandsPanel,
   OperatorProfile,
@@ -105,7 +106,10 @@ import { getPathMetrics, formatBearing } from "@/lib/utils/path";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 import { useSpotReplay } from "@/hooks/useSpotReplay";
 import { useReplayStore } from "@/stores/replayStore";
-import { useSettingsStore, useUIInteractionPrefs } from "@/stores/settingsStore";
+import {
+  useSettingsStore,
+  useUIInteractionPrefs,
+} from "@/stores/settingsStore";
 import { buildLayerLegends } from "@/lib/map/layerLegends";
 import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
@@ -696,42 +700,42 @@ export function PropSphere() {
 
               {/* Solar Snapshot (xl+ only, collapsed in compact fit) */}
               {!compactFit && (
-              <Card className="hidden xl:flex xl:flex-col col-span-1 p-2 !rounded-lg">
-                {station && target ? (
-                  <SolarSnapshot
-                    homeLat={station.lat}
-                    homeLon={station.lon}
-                    targetLat={target.lat}
-                    targetLon={target.lon}
-                    displayTime={displayTime}
-                    className="h-full"
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-gray-500 text-xs">
-                    {station
-                      ? "Select a target on the map"
-                      : "Set QTH in settings"}
-                  </div>
-                )}
-              </Card>
+                <Card className="hidden xl:flex xl:flex-col col-span-1 p-2 !rounded-lg">
+                  {station && target ? (
+                    <SolarSnapshot
+                      homeLat={station.lat}
+                      homeLon={station.lon}
+                      targetLat={target.lat}
+                      targetLon={target.lon}
+                      displayTime={displayTime}
+                      className="h-full"
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+                      {station
+                        ? "Select a target on the map"
+                        : "Set QTH in settings"}
+                    </div>
+                  )}
+                </Card>
               )}
 
               {/* 24h Propagation Forecast (hidden on mobile and in compact fit) */}
               {!compactFit && (
-              <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
-                <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
-                  24h Propagation Forecast
-                  <span className="text-gray-500 normal-case ml-1">
-                    (hover for details)
-                  </span>
-                </div>
-                <div className="flex-1 min-h-0">
-                  <PropagationForecastMini
-                    displayTime={displayTime}
-                    className="h-full"
-                  />
-                </div>
-              </Card>
+                <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
+                  <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
+                    24h Propagation Forecast
+                    <span className="text-gray-500 normal-case ml-1">
+                      (hover for details)
+                    </span>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <PropagationForecastMini
+                      displayTime={displayTime}
+                      className="h-full"
+                    />
+                  </div>
+                </Card>
               )}
 
               {/* Time Machine + Layout + Share — top-right */}
@@ -981,70 +985,76 @@ export function PropSphere() {
                 {/* Panel layout cycle: Full → Compact → Focus → Full
                     (pointless in compact fit — the side panels are gone) */}
                 {!compactFit && (
-                <button
-                  type="button"
-                  className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                    leftPanelMode !== "full" || rightPanelMode !== "full"
-                      ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
-                      : "text-gray-300 hover:text-white hover:bg-white/10"
-                  }`}
-                  title={
-                    leftPanelMode === "full" && rightPanelMode === "full"
-                      ? "Compact panels"
-                      : leftPanelMode === "hidden" &&
-                          rightPanelMode === "hidden"
-                        ? "Reset panels"
-                        : "Cycle panel layout"
-                  }
-                  onClick={() => {
-                    const bothFull =
-                      leftPanelMode === "full" && rightPanelMode === "full";
-                    const bothMini =
-                      leftPanelMode === "mini" && rightPanelMode === "mini";
-
-                    if (bothFull) {
-                      // Full → Compact
-                      setLeftPanelLastWidth(leftPanelWidth);
-                      setRightPanelLastWidth(rightPanelWidth);
-                      setLeftPanelMode("mini");
-                      setRightPanelMode("mini");
-                    } else if (bothMini) {
-                      // Compact → Focus
-                      setLeftPanelMode("hidden");
-                      setRightPanelMode("hidden");
-                    } else {
-                      // Any mixed or hidden state → Reset to full
-                      setLeftPanelMode("full");
-                      setRightPanelMode("full");
-                      setLeftPanelWidth(leftPanelLastWidth);
-                      setRightPanelWidth(rightPanelLastWidth);
+                  <button
+                    type="button"
+                    className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      leftPanelMode !== "full" || rightPanelMode !== "full"
+                        ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
+                        : "text-gray-300 hover:text-white hover:bg-white/10"
+                    }`}
+                    title={
+                      leftPanelMode === "full" && rightPanelMode === "full"
+                        ? "Compact panels"
+                        : leftPanelMode === "hidden" &&
+                            rightPanelMode === "hidden"
+                          ? "Reset panels"
+                          : "Cycle panel layout"
                     }
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    onClick={() => {
+                      const bothFull =
+                        leftPanelMode === "full" && rightPanelMode === "full";
+                      const bothMini =
+                        leftPanelMode === "mini" && rightPanelMode === "mini";
+
+                      if (bothFull) {
+                        // Full → Compact
+                        setLeftPanelLastWidth(leftPanelWidth);
+                        setRightPanelLastWidth(rightPanelWidth);
+                        setLeftPanelMode("mini");
+                        setRightPanelMode("mini");
+                      } else if (bothMini) {
+                        // Compact → Focus
+                        setLeftPanelMode("hidden");
+                        setRightPanelMode("hidden");
+                      } else {
+                        // Any mixed or hidden state → Reset to full
+                        setLeftPanelMode("full");
+                        setRightPanelMode("full");
+                        setLeftPanelWidth(leftPanelLastWidth);
+                        setRightPanelWidth(rightPanelLastWidth);
+                      }
+                    }}
                   >
-                    <rect x="1" y="1" width="12" height="12" rx="1.5" />
-                    <line x1="4" y1="1" x2="4" y2="13" />
-                    <line x1="10" y1="1" x2="10" y2="13" />
-                  </svg>
-                  Panels
-                </button>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="1" y="1" width="12" height="12" rx="1.5" />
+                      <line x1="4" y1="1" x2="4" y2="13" />
+                      <line x1="10" y1="1" x2="10" y2="13" />
+                    </svg>
+                    Panels
+                  </button>
                 )}
 
                 {/* Watch popover + inline status pill */}
                 <WatchPopover />
                 <WatchStatusPill />
 
-                {/* Spacer pushes Views to right */}
+                {/* Spacer pushes status + Views to right */}
                 <div className="flex-1" />
+
+                {/* UTC / grid / system health. Re-homed here from the global
+                    masthead, which now hides them on /map — time and location
+                    describe what you are looking at, and the masthead copy was
+                    a second clock competing with TimeControl's. */}
+                <MapStatusChip className="hidden md:flex flex-shrink-0 mr-1" />
 
                 {/* Views popover — far right */}
                 {viewMode !== "azimuthal" && (
@@ -1461,36 +1471,36 @@ export function PropSphere() {
               {/* On lg (not xl): Shows Recommendations + DX Spots side by side */}
               {/* Compact fit drops it — the bottom tab strip has Recs/Spots tabs */}
               {!compactFit && (
-              <div
-                className={`hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px] ${isDXConsoleExpanded ? "!hidden" : ""}`}
-              >
-                {/* Recommendations (lg only - on xl it's in top row) */}
-                {station && target ? (
-                  <RecommendationsPanel
-                    homeLat={station.lat}
-                    homeLon={station.lon}
-                    targetLat={target.lat}
-                    targetLon={target.lon}
-                    displayTime={displayTime}
-                    className="h-full overflow-y-auto"
-                  />
-                ) : (
-                  <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
-                    Select a target for recommendations
-                  </Card>
-                )}
+                <div
+                  className={`hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px] ${isDXConsoleExpanded ? "!hidden" : ""}`}
+                >
+                  {/* Recommendations (lg only - on xl it's in top row) */}
+                  {station && target ? (
+                    <RecommendationsPanel
+                      homeLat={station.lat}
+                      homeLon={station.lon}
+                      targetLat={target.lat}
+                      targetLon={target.lon}
+                      displayTime={displayTime}
+                      className="h-full overflow-y-auto"
+                    />
+                  ) : (
+                    <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
+                      Select a target for recommendations
+                    </Card>
+                  )}
 
-                {/* DX Spots */}
-                <div className="flex flex-col h-full min-h-0">
-                  <DXSpotList
-                    maxHeight="100px"
-                    showFilters={true}
-                    showHeader={true}
-                    className="flex-1 min-h-0"
-                    onResearchGrid={handleResearchGrid}
-                  />
+                  {/* DX Spots */}
+                  <div className="flex flex-col h-full min-h-0">
+                    <DXSpotList
+                      maxHeight="100px"
+                      showFilters={true}
+                      showHeader={true}
+                      className="flex-1 min-h-0"
+                      onResearchGrid={handleResearchGrid}
+                    />
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* WSJT-X Status Panel + BandScope - shown when connected and DX Console not expanded */}
@@ -1504,91 +1514,91 @@ export function PropSphere() {
               {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
               {/* Hidden when DX Console is expanded or in compact fit */}
               {!compactFit && (
-              <div
-                className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
-                data-tour="dx-spot-list"
-              >
-                <Card className="p-0 overflow-hidden">
-                  {/* Drawer Toggle Handle - using div with role="button" to avoid nested button */}
-                  <div
-                    onClick={() => setDxClusterExpanded(!dxClusterExpanded)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setDxClusterExpanded(!dxClusterExpanded);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">
-                        DX Cluster
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        Live spots from PSKReporter, RBN, and DX clusters
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {/* Expand to Console button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDXConsoleExpanded(true);
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
-                        title="Expand to Ops Console"
-                        aria-label="Expand to Ops Console"
-                      >
+                <div
+                  className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
+                  data-tour="dx-spot-list"
+                >
+                  <Card className="p-0 overflow-hidden">
+                    {/* Drawer Toggle Handle - using div with role="button" to avoid nested button */}
+                    <div
+                      onClick={() => setDxClusterExpanded(!dxClusterExpanded)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDxClusterExpanded(!dxClusterExpanded);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-white">
+                          DX Cluster
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          Live spots from PSKReporter, RBN, and DX clusters
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Expand to Console button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDXConsoleExpanded(true);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
+                          title="Expand to Ops Console"
+                          aria-label="Expand to Ops Console"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                            />
+                          </svg>
+                        </button>
+                        {/* Collapse/Expand chevron */}
                         <svg
-                          className="w-4 h-4"
+                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                            dxClusterExpanded ? "" : "rotate-180"
+                          }`}
                           fill="none"
-                          stroke="currentColor"
                           viewBox="0 0 24 24"
+                          stroke="currentColor"
                         >
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                            d="M19 9l-7 7-7-7"
                           />
                         </svg>
-                      </button>
-                      {/* Collapse/Expand chevron */}
-                      <svg
-                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                          dxClusterExpanded ? "" : "rotate-180"
-                        }`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
+                      </div>
                     </div>
-                  </div>
-                  {/* Collapsible Content */}
-                  <div
-                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                      dxClusterExpanded ? "h-[280px]" : "h-0"
-                    }`}
-                  >
-                    <DXSpotList
-                      maxHeight="268px"
-                      showFilters={true}
-                      showHeader={false}
-                      className="rounded-t-none h-full"
-                      onResearchGrid={handleResearchGrid}
-                    />
-                  </div>
-                </Card>
-              </div>
+                    {/* Collapsible Content */}
+                    <div
+                      className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                        dxClusterExpanded ? "h-[280px]" : "h-0"
+                      }`}
+                    >
+                      <DXSpotList
+                        maxHeight="268px"
+                        showFilters={true}
+                        showHeader={false}
+                        className="rounded-t-none h-full"
+                        onResearchGrid={handleResearchGrid}
+                      />
+                    </div>
+                  </Card>
+                </div>
               )}
             </>
           )}

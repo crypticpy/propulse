@@ -240,8 +240,9 @@ export function migrateKioskState(
     legacy.activeSceneId = legacy.activeSceneId ?? null;
     candidate = legacy;
   }
-  // Also normalize v2 payloads on every hydration. localStorage can be
-  // manually edited or partially written even when no version jump occurs.
+  // Migration output is normalized here; the persist merge below repeats the
+  // same boundary validation for same-version payloads because Zustand only
+  // invokes migrate when the stored version differs.
   return normalizePersistedKioskState(candidate);
 }
 
@@ -351,6 +352,15 @@ export const useKioskStore = create<KioskStore>()(
         activeSceneId: state.activeSceneId,
       }),
       migrate: migrateKioskState,
+      merge: (persisted, current) => ({
+        // Preserve every live action from the freshly-created store. Persisted
+        // payloads contain data only, and must never replace action functions.
+        ...current,
+        // Unlike migrate, merge runs for every stored version. Keeping the
+        // normalizer here repairs manually edited and partially written v2
+        // localStorage before any consumer can observe it.
+        ...normalizePersistedKioskState(persisted),
+      }),
     },
   ),
 );

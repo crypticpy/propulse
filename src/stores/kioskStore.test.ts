@@ -30,6 +30,7 @@ const originalState = useKioskStore.getState();
 
 describe("kioskStore", () => {
   beforeEach(() => {
+    localStorage.clear();
     useKioskStore.setState(originalState, true);
   });
 
@@ -188,5 +189,30 @@ describe("kioskStore", () => {
     expect(migrated.breakInLevel).toBe("CRITICAL");
     expect(migrated.active).toBe(false);
     expect(migrated.activeSceneId).toBeNull();
+  });
+
+  it("normalizes corrupt same-version state through the real hydration path", async () => {
+    localStorage.setItem(
+      "propulse-kiosk",
+      JSON.stringify({
+        version: 2,
+        state: {
+          scenes: [{ id: "bad", name: "Bad", route: "/settings" }],
+          rotation: { enabled: "yes", intervalSec: -50 },
+          breakInLevel: "EMERGENCY",
+          active: true,
+          activeSceneId: "bad",
+        },
+      }),
+    );
+
+    await useKioskStore.persist.rehydrate();
+
+    const hydrated = useKioskStore.getState();
+    expect(hydrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(hydrated.rotation).toEqual({ enabled: true, intervalSec: 15 });
+    expect(hydrated.breakInLevel).toBe("CRITICAL");
+    expect(hydrated.activeSceneId).toBe(DEFAULT_SCENES[0].id);
+    expect(typeof hydrated.start).toBe("function");
   });
 });

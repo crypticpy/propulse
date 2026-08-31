@@ -14,6 +14,8 @@ import { useForecastDisplayPrefs } from "@/stores/userStore";
 import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { ModelSourceBadge } from "@/components/map/ModelSourceBadge";
+import { describeNowCastSource, PHYSICS_SOURCE } from "@/lib/map/modelSource";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -348,6 +350,14 @@ export function PropagationForecastMini({
           : prediction.core_probability;
         return [{ band, prediction, probability }];
       });
+
+  // Which engine actually served the NowCast chips. Recomputed from the band
+  // lists rather than assumed, because the model falls back to physics per
+  // band whenever its live spot history goes stale.
+  const nowCastSource = useMemo(
+    () => describeNowCastSource(modelNowCast),
+    [modelNowCast],
+  );
 
   // Generate 24-hour forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
@@ -813,6 +823,12 @@ export function PropagationForecastMini({
                 Bz {bzDisplay.arrow}
               </span>
             </div>
+            {/* The 24h heatmap and the band ranking below it are always the
+                local physics engine — only the NowCast chip row is ML. */}
+            <ModelSourceBadge
+              source={PHYSICS_SOURCE}
+              className="flex-shrink-0"
+            />
           </div>
 
           {/* Propagation Score Pill */}
@@ -1072,6 +1088,13 @@ export function PropagationForecastMini({
             >
               NowCast
             </span>
+            {/* Which engine actually answered. The model falls back to physics
+                per band when its live inputs go stale, so this can disagree
+                with the "NowCast" label beside it — that is the point. */}
+            <ModelSourceBadge
+              source={nowCastSource}
+              className="flex-shrink-0"
+            />
             {nowCastChips.map(({ band, prediction, probability }) => (
               <div
                 key={band}
@@ -1129,33 +1152,12 @@ export function PropagationForecastMini({
                 </div>
               )}
 
-              {/* Also Open - alternative bands */}
-              {topBandsNow.length > 1 && (
-                <div
-                  className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
-                  title={`ALTERNATIVE BANDS\nThese bands are also open right now:\n${topBandsNow
-                    .slice(1)
-                    .map(
-                      (b) =>
-                        `${b.band} (${BAND_INFO[b.band]?.freq || ""}): ${b.snrEstimate}dB, ${b.status}`,
-                    )
-                    .join("\n")}`}
-                >
-                  <span className="text-gray-400">Also:</span>
-                  {topBandsNow.slice(1).map((band) => (
-                    <span key={band.band} className="font-mono text-white">
-                      {band.band}{" "}
-                      <span
-                        className="font-semibold"
-                        style={{ color: getForecastStatusColor(band.status) }}
-                      >
-                        {band.snrEstimate > 0 ? "+" : ""}
-                        {band.snrEstimate}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              )}
+              {/* The "Also open" alternative-band list that used to sit here
+                  was the third simultaneous listing of currently-open bands on
+                  the same screen (Band Conditions has the per-band rows, Solar
+                  Snapshot had its own pills). Band Conditions is canonical for
+                  "which bands are open right now"; this panel keeps only its
+                  single headline pick above and the 24h forecast below. */}
 
               {/* Peak Windows - best upcoming time */}
               <div

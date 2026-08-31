@@ -29,6 +29,12 @@ export interface WeatherAlertFlyoutProps {
   onClose: () => void;
   /** Callback to view full alert details in a modal */
   onViewDetails: (alert: WeatherAlert) => void;
+  /**
+   * Keep the flyout mounted as a durable focus-restoration target while a
+   * child detail dialog owns input. Outside-click and Escape listeners are
+   * suspended until that dialog closes.
+   */
+  suspended?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +121,7 @@ export function WeatherAlertFlyout({
   alert,
   onClose,
   onViewDetails,
+  suspended = false,
 }: WeatherAlertFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement>(null);
 
@@ -173,7 +180,7 @@ export function WeatherAlertFlyout({
 
   // Click outside to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || suspended) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (flyoutRef.current && !flyoutRef.current.contains(e.target as Node)) {
@@ -189,11 +196,11 @@ export function WeatherAlertFlyout({
       clearTimeout(timeoutId);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [visible, onClose]);
+  }, [visible, suspended, onClose]);
 
   // Escape key to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || suspended) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -203,7 +210,7 @@ export function WeatherAlertFlyout({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [visible, onClose]);
+  }, [visible, suspended, onClose]);
 
   // ------- Action handlers -------
 

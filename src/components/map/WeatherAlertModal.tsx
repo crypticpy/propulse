@@ -9,9 +9,8 @@
  * Dismisses on backdrop click, X button, or Escape key.
  */
 
-import { useEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
 import type { WeatherAlert } from "@/lib/api/weather";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -127,160 +126,107 @@ function getRadioImpact(event: string): string | null {
 // ---------------------------------------------------------------------------
 
 export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
+  const color = alert ? severityColor(alert.severity) : "#ffdd44";
+  const bgColor = alert
+    ? severityBgColor(alert.severity)
+    : "rgba(255, 221, 68, 0.15)";
+  const emoji = alert ? getWeatherEmoji(alert.event) : "\u26A0\uFE0F";
+  const radioImpact = alert ? getRadioImpact(alert.event) : null;
 
-  // Escape key to dismiss
-  useEffect(() => {
-    if (!alert) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
+  // AccessibleDialog centralizes the modal interaction contract: it moves
+  // focus inside on open, traps Tab, makes background content inert, handles
+  // Escape/backdrop dismissal, and restores focus to the originating control.
+  return (
+    <AccessibleDialog
+      open={Boolean(alert)}
+      onClose={onClose}
+      title={alert?.event ?? "Weather alert details"}
+      description={
+        alert
+          ? `${alert.severity} weather alert${
+              radioImpact ? " and expected radio impact" : ""
+            }.`
+          : undefined
       }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [alert, onClose]);
-
-  // Backdrop click to dismiss
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  if (!alert) {
-    return null;
-  }
-
-  const color = severityColor(alert.severity);
-  const bgColor = severityBgColor(alert.severity);
-  const emoji = getWeatherEmoji(alert.event);
-  const radioImpact = getRadioImpact(alert.event);
-
-  const modalContent = (
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Weather alert details: ${alert.event}`}
+      size="md"
     >
-      <div
-        ref={modalRef}
-        className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden"
-        style={{
-          maxWidth: 480,
-          maxHeight: "80vh",
-          width: "90vw",
-          borderTopColor: color,
-          borderTopWidth: "3px",
-        }}
-      >
-        {/* Scrollable content area */}
-        <div className="overflow-y-auto" style={{ maxHeight: "80vh" }}>
-          {/* Header */}
-          <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span className="text-2xl flex-shrink-0">{emoji}</span>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-white font-bold text-lg leading-tight">
-                  {alert.event}
-                </h2>
-                <div className="mt-1">
-                  <span
-                    className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                    style={{
-                      color: color,
-                      backgroundColor: bgColor,
-                      border: `1px solid ${color}44`,
-                    }}
-                  >
-                    {alert.severity}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-150"
-              aria-label="Close"
+      {alert && (
+        <div
+          className="space-y-4 border-t-[3px] pt-4"
+          style={{ borderTopColor: color }}
+        >
+          {/* Severity and event type remain visually prominent beneath the
+              shared dialog header without duplicating its close control. */}
+          <div className="flex items-center gap-3">
+            <span className="text-2xl flex-shrink-0" aria-hidden="true">
+              {emoji}
+            </span>
+            <span
+              className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              style={{
+                color,
+                backgroundColor: bgColor,
+                border: `1px solid ${color}44`,
+              }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="w-5 h-5"
-              >
-                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-              </svg>
-            </button>
+              {alert.severity}
+            </span>
           </div>
-
-          {/* Divider */}
-          <div className="mx-5 border-t border-zinc-700" />
 
           {/* Headline */}
           {alert.headline && (
-            <div className="px-5 pt-3 pb-2">
-              <p className="text-base text-white leading-relaxed">
-                {alert.headline}
-              </p>
-            </div>
+            <p className="text-base leading-relaxed text-white">
+              {alert.headline}
+            </p>
           )}
 
           {/* Area */}
           {alert.areaDesc && (
-            <div className="px-5 pb-3">
-              <div className="flex items-start gap-2">
-                <span className="text-gray-400 flex-shrink-0 mt-0.5">
-                  {"\uD83D\uDCCD"}
-                </span>
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  {alert.areaDesc}
-                </p>
-              </div>
+            <div className="flex items-start gap-2">
+              <span
+                className="mt-0.5 flex-shrink-0 text-gray-400"
+                aria-hidden="true"
+              >
+                {"\uD83D\uDCCD"}
+              </span>
+              <p className="text-sm leading-relaxed text-gray-400">
+                {alert.areaDesc}
+              </p>
             </div>
           )}
 
           {/* Radio impact section */}
           {radioImpact && (
-            <>
-              <div className="mx-5 border-t border-zinc-700" />
-              <div className="px-5 py-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm">{"\uD83D\uDCE1"}</span>
-                  <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">
-                    Impact on Radio
-                  </span>
-                </div>
-                <p className="text-sm text-gray-300 leading-relaxed bg-cyan-500/5 border border-cyan-500/10 rounded-lg px-3 py-2">
-                  {radioImpact}
-                </p>
+            <section className="border-t border-zinc-700 pt-4">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-sm" aria-hidden="true">
+                  {"\uD83D\uDCE1"}
+                </span>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+                  Impact on Radio
+                </h3>
               </div>
-            </>
+              <p className="rounded-lg border border-cyan-500/10 bg-cyan-500/5 px-3 py-2 text-sm leading-relaxed text-gray-300">
+                {radioImpact}
+              </p>
+            </section>
           )}
 
-          {/* Footer with close button */}
-          <div className="px-5 py-3 border-t border-zinc-700 flex justify-end">
+          {/* A visible footer action supplements the shared header close
+              control for mouse and touch users scanning long alert text. */}
+          <div className="flex justify-end border-t border-zinc-700 pt-4">
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10 transition-colors duration-150"
+              className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 transition-colors duration-150 hover:bg-white/10"
             >
               Close
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </AccessibleDialog>
   );
-
-  return createPortal(modalContent, document.body);
 }
 
 WeatherAlertModal.displayName = "WeatherAlertModal";

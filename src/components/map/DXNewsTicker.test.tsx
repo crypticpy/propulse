@@ -183,4 +183,35 @@ describe("DXNewsTicker", () => {
     expect(dialog.textContent).toContain("32 kA");
     expect(dialog.textContent).toContain("lightning within 500 km");
   });
+
+  it("stays paused until both pointer hover and keyboard focus have left", () => {
+    hookData.solarAlerts = [solarAlert];
+    render(<DXNewsTicker />);
+
+    const ticker = screen.getByRole("marquee");
+    const track = screen.getByTestId("dx-ticker-track");
+    const notice = screen.getByRole("button", {
+      name: /Geomagnetic storm in progress\. Open details/i,
+    });
+
+    fireEvent.focus(notice);
+    fireEvent.mouseEnter(ticker);
+    fireEvent.mouseLeave(ticker);
+    expect(track.style.animationPlayState).toBe("paused");
+
+    fireEvent.blur(notice, { relatedTarget: document.body });
+    expect(track.style.animationPlayState).toBe("running");
+  });
+
+  it("renders the seamless duplicate as non-interactive text", () => {
+    hookData.solarAlerts = [solarAlert];
+    render(<DXNewsTicker />);
+
+    const duplicate = document.querySelector<HTMLElement>(
+      '[data-ticker-duplicate="true"]',
+    );
+    expect(duplicate).not.toBeNull();
+    expect(duplicate?.className).toContain("pointer-events-none");
+    expect(duplicate?.querySelector("button")).toBeNull();
+  });
 });

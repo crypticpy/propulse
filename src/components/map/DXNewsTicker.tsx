@@ -233,7 +233,11 @@ export function DXNewsTicker({
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
-  const [isPaused, setIsPaused] = useState(false);
+  // Hover and keyboard focus are independent pause sources. Keeping them
+  // separate prevents either exit handler from restarting the marquee while
+  // the other interaction is still active.
+  const [isHovered, setIsHovered] = useState(false);
+  const [hasTickerFocus, setHasTickerFocus] = useState(false);
   const [animationDuration, setAnimationDuration] = useState(20);
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedDetail, setSelectedDetail] = useState<TickerDetail | null>(
@@ -532,10 +536,16 @@ export function DXNewsTicker({
         {index > 0 && (
           <span className="mx-3 text-gray-600 select-none">{SEPARATOR}</span>
         )}
-        {item.detail ? (
+        {item.detail && duplicate ? (
+          // The second marquee copy exists only to make the animation loop.
+          // Render detail notices as text so an aria-hidden subtree never
+          // contains a button that can be focused or activated.
+          <span className={getTickerItemClass(item)}>
+            {item.text} <span aria-hidden="true">↗</span>
+          </span>
+        ) : item.detail ? (
           <button
             type="button"
-            tabIndex={duplicate ? -1 : 0}
             onClick={() => setSelectedDetail(item.detail ?? null)}
             className={`rounded-sm underline decoration-current/40 underline-offset-2 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 ${getTickerItemClass(item)}`}
             aria-label={`${item.text}. Open details`}
@@ -578,11 +588,14 @@ export function DXNewsTicker({
           WebkitMaskImage:
             "linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)",
         }}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onFocusCapture={() => setIsPaused(true)}
-        onBlurCapture={() => {
-          if (!selectedDetail) setIsPaused(false);
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onFocusCapture={() => setHasTickerFocus(true)}
+        onBlurCapture={(event) => {
+          // Focus moving between notices is still focus within the ticker.
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setHasTickerFocus(false);
+          }
         }}
         role="marquee"
         aria-label="DX News Ticker - live propagation information"
@@ -634,6 +647,7 @@ export function DXNewsTicker({
       <div className="flex-1 overflow-hidden h-full flex items-center">
         <div
           ref={contentRef}
+          data-testid="dx-ticker-track"
           className="inline-flex items-center font-mono text-[11px] text-gray-300"
           style={{
             animationName: KEYFRAMES_NAME,
@@ -641,7 +655,9 @@ export function DXNewsTicker({
             animationTimingFunction: "linear",
             animationIterationCount: "infinite",
             animationPlayState:
-              isPaused || selectedDetail ? "paused" : "running",
+              isHovered || hasTickerFocus || selectedDetail
+                ? "paused"
+                : "running",
             willChange: "transform",
           }}
         >
@@ -653,8 +669,9 @@ export function DXNewsTicker({
           <span className="mx-8 text-gray-600 select-none">{SEPARATOR}</span>
           {/* Second copy (duplicate for seamless loop) */}
           <span
-            className="inline-flex items-center whitespace-nowrap"
+            className="pointer-events-none inline-flex items-center whitespace-nowrap"
             aria-hidden="true"
+            data-ticker-duplicate="true"
           >
             {renderTickerContent(true)}
           </span>

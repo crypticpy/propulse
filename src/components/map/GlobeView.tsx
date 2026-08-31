@@ -39,8 +39,10 @@ import { SatelliteOverlay } from "./SatelliteOverlay";
 import { ISSTrackerOverlay } from "./ISSTrackerOverlay";
 import { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
 import { WeatherAlerts3D } from "./WeatherAlerts3D";
-import { WeatherAlertFlyout } from "./WeatherAlertFlyout";
-import { WeatherAlertModal } from "./WeatherAlertModal";
+import {
+  GlobeWeatherAlertFlow,
+  type GlobeWeatherAlertSelection,
+} from "./GlobeWeatherAlertFlow";
 import { FireFlyout } from "./FireFlyout";
 import { LightningOverlay3D } from "./LightningOverlay3D";
 import { FireOverlay3D } from "./FireOverlay3D";
@@ -1832,13 +1834,8 @@ export function GlobeView({
     useState<LiveSpot | null>(null);
 
   // State for weather alert flyout and modal
-  const [clickedAlertData, setClickedAlertData] = useState<{
-    alert: WeatherAlert;
-    screenPos: { x: number; y: number };
-  } | null>(null);
-  const [alertModalData, setAlertModalData] = useState<WeatherAlert | null>(
-    null,
-  );
+  const [clickedAlertData, setClickedAlertData] =
+    useState<GlobeWeatherAlertSelection | null>(null);
 
   // State for fire hotspot flyout
   const [clickedFireData, setClickedFireData] = useState<{
@@ -2099,15 +2096,6 @@ export function GlobeView({
     },
     [setFlyoutPosition, setTooltipPosition],
   );
-
-  const handleAlertViewDetails = useCallback((alert: WeatherAlert) => {
-    setClickedAlertData(null);
-    setAlertModalData(alert);
-  }, []);
-
-  const handleAlertModalClose = useCallback(() => {
-    setAlertModalData(null);
-  }, []);
 
   const handleAlertFlyoutClose = useCallback(() => {
     setClickedAlertData(null);
@@ -2474,19 +2462,11 @@ export function GlobeView({
         />
       )}
 
-      {/* Weather alert flyout - shown when clicking a weather alert marker */}
-      <WeatherAlertFlyout
-        visible={!!clickedAlertData}
-        position={clickedAlertData?.screenPos ?? { x: 0, y: 0 }}
-        alert={clickedAlertData?.alert ?? null}
-        onClose={handleAlertFlyoutClose}
-        onViewDetails={handleAlertViewDetails}
-      />
-
-      {/* Weather alert modal - shown when clicking "View Full Alert" */}
-      <WeatherAlertModal
-        alert={alertModalData}
-        onClose={handleAlertModalClose}
+      {/* Weather alert detail flow keeps the compact flyout mounted behind
+          the modal so keyboard focus can return to its originating button. */}
+      <GlobeWeatherAlertFlow
+        selection={clickedAlertData}
+        onFlyoutClose={handleAlertFlyoutClose}
       />
 
       {/* Fire hotspot flyout - shown when clicking a fire marker */}

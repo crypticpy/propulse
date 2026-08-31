@@ -4,7 +4,7 @@
  * plus a custom hex color disclosure section for power users.
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useId } from "react";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { useThemeStore } from "@/stores/themeStore";
@@ -39,6 +39,8 @@ function normalizeHex(hex: string): string {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function AppearanceSection() {
+  const tickerPositionId = useId();
+  const tickerCoverageId = useId();
   const customPrimary = useThemeStore((s) => s.customPrimary);
   const customSecondary = useThemeStore((s) => s.customSecondary);
   const setCustomColors = useThemeStore((s) => s.setCustomColors);
@@ -326,10 +328,14 @@ export function AppearanceSection() {
         </p>
         <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
+            <label
+              htmlFor={tickerPositionId}
+              className="block text-xs font-medium text-gray-400 mb-1"
+            >
               Position
             </label>
             <select
+              id={tickerPositionId}
               value={tickerPosition}
               onChange={(e) =>
                 updatePreferences({
@@ -347,10 +353,14 @@ export function AppearanceSection() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
+            <label
+              htmlFor={tickerCoverageId}
+              className="block text-xs font-medium text-gray-400 mb-1"
+            >
               Weather &amp; lightning area
             </label>
             <select
+              id={tickerCoverageId}
               value={tickerCoverageArea}
               onChange={(e) =>
                 updatePreferences({

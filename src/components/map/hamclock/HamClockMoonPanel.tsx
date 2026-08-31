@@ -36,8 +36,14 @@ export function HamClockMoonPanel({
 }: HamClockMoonPanelProps) {
   const hasLocation = latitude !== undefined && longitude !== undefined;
   const snapshot = useMemo(
-    () => getMoonConditions(displayTime, latitude ?? 0, longitude ?? 0),
-    [displayTime, latitude, longitude],
+    () =>
+      getMoonConditions(
+        displayTime,
+        latitude ?? 0,
+        longitude ?? 0,
+        timeZone,
+      ),
+    [displayTime, latitude, longitude, timeZone],
   );
 
   return (

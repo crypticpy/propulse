@@ -40,6 +40,11 @@ export interface SublunarPoint {
   lon: number;
 }
 
+interface MoonTimes {
+  rise: Date | null;
+  set: Date | null;
+}
+
 const PHASE_EMOJI: Record<string, string> = {
   "New Moon": "\u{1F311}",
   "Waxing Crescent": "\u{1F312}",
@@ -74,6 +79,77 @@ function normalizeAngle(deg: number): number {
 
 function normalizeLongitude(degrees: number): number {
   return ((((degrees + 180) % 360) + 360) % 360) - 180;
+}
+
+function zonedDateKey(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+/**
+ * Select rise/set events that belong to the QTH's calendar day. SunCalc can
+ * anchor only to browser-local or UTC midnight, so scan the adjacent UTC days
+ * and retain the roots whose formatted date matches the requested zone.
+ */
+function getMoonTimesForZone(
+  at: Date,
+  lat: number,
+  lon: number,
+  timeZone?: string,
+): MoonTimes {
+  if (!timeZone) {
+    const times = SunCalc.getMoonTimes(at, lat, lon);
+    return {
+      rise: times.rise instanceof Date ? times.rise : null,
+      set: times.set instanceof Date ? times.set : null,
+    };
+  }
+
+  try {
+    const targetDay = zonedDateKey(at, timeZone);
+    const utcDay = Date.UTC(
+      at.getUTCFullYear(),
+      at.getUTCMonth(),
+      at.getUTCDate(),
+    );
+    let rise: Date | null = null;
+    let set: Date | null = null;
+
+    for (const dayOffset of [-1, 0, 1]) {
+      const candidateDay = new Date(utcDay + dayOffset * DAY_MS);
+      const times = SunCalc.getMoonTimes(candidateDay, lat, lon, true);
+      if (
+        !rise &&
+        times.rise instanceof Date &&
+        zonedDateKey(times.rise, timeZone) === targetDay
+      ) {
+        rise = times.rise;
+      }
+      if (
+        !set &&
+        times.set instanceof Date &&
+        zonedDateKey(times.set, timeZone) === targetDay
+      ) {
+        set = times.set;
+      }
+    }
+
+    return { rise, set };
+  } catch {
+    // Invalid/unsupported zones retain the historical browser-local behavior.
+    const times = SunCalc.getMoonTimes(at, lat, lon);
+    return {
+      rise: times.rise instanceof Date ? times.rise : null,
+      set: times.set instanceof Date ? times.set : null,
+    };
+  }
 }
 
 /**
@@ -213,17 +289,18 @@ export function getMoonConditions(
   at: Date,
   lat: number,
   lon: number,
+  timeZone?: string,
 ): MoonConditions {
   const illumination = SunCalc.getMoonIllumination(at);
   const phaseName = getPhaseName(illumination.phase);
 
-  const moonTimes = SunCalc.getMoonTimes(at, lat, lon);
+  const moonTimes = getMoonTimesForZone(at, lat, lon, timeZone);
   const rise =
-    moonTimes.rise instanceof Date && !Number.isNaN(moonTimes.rise.getTime())
+    moonTimes.rise && !Number.isNaN(moonTimes.rise.getTime())
       ? moonTimes.rise
       : null;
   const set =
-    moonTimes.set instanceof Date && !Number.isNaN(moonTimes.set.getTime())
+    moonTimes.set && !Number.isNaN(moonTimes.set.getTime())
       ? moonTimes.set
       : null;
 

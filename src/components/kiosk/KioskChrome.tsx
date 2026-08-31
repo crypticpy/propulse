@@ -3,11 +3,34 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useKioskStore, applySceneToMap } from "@/stores/kioskStore";
 import { useAlertsStore } from "@/stores/alertsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useUserStore } from "@/stores/userStore";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { KioskQr } from "@/components/kiosk/KioskQr";
+import { shouldDimWallDisplay } from "@/lib/kiosk/wallPresentation";
+import type { KioskHeaderScale } from "@/stores/kioskStore";
 import type { SolarAlert } from "@/types/alerts";
 
 const CONTROLS_HIDE_MS = 4000;
+const HEADER_SIZE_CLASSES: Record<KioskHeaderScale, string> = {
+  compact: "h-10 px-3",
+  standard: "h-12 px-4",
+  large: "h-16 px-6",
+};
+const HEADER_CLOCK_CLASSES: Record<KioskHeaderScale, string> = {
+  compact: "text-xl",
+  standard: "text-2xl",
+  large: "text-3xl",
+};
+const HEADER_SCENE_CLASSES: Record<KioskHeaderScale, string> = {
+  compact: "text-xs",
+  standard: "text-sm",
+  large: "text-base",
+};
+const CONTROLS_TOP_CLASSES: Record<KioskHeaderScale, string> = {
+  compact: "top-12",
+  standard: "top-14",
+  large: "top-[4.5rem]",
+};
 
 /**
  * KioskChrome - the wall-display shell rendered by Layout instead of the
@@ -23,13 +46,16 @@ export function KioskChrome() {
   const scenes = useKioskStore((s) => s.scenes);
   const rotation = useKioskStore((s) => s.rotation);
   const breakInLevel = useKioskStore((s) => s.breakInLevel);
+  const presentation = useKioskStore((s) => s.presentation);
   const activeSceneId = useKioskStore((s) => s.activeSceneId);
   const advance = useKioskStore((s) => s.advance);
   const stop = useKioskStore((s) => s.stop);
 
   const [paused, setPaused] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
+  const [ambientNow, setAmbientNow] = useState(() => new Date());
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const station = useUserStore((state) => state.station);
 
   useWakeLock(true);
 
@@ -37,6 +63,22 @@ export function KioskChrome() {
     () => scenes.find((s) => s.id === activeSceneId) ?? null,
     [scenes, activeSceneId],
   );
+  const nightDimmed = useMemo(
+    () =>
+      shouldDimWallDisplay(
+        presentation.autoNightDim,
+        station,
+        ambientNow,
+      ),
+    [presentation.autoNightDim, station, ambientNow],
+  );
+
+  // Sunset changes slowly, so a minute cadence is ample and avoids adding
+  // another one-second subscription to every wall scene.
+  useEffect(() => {
+    const timer = setInterval(() => setAmbientNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Alert break-in: highest-priority active alert at or above the threshold
   const alerts = useAlertsStore((s) => s.alerts);
@@ -129,16 +171,28 @@ export function KioskChrome() {
 
   return (
     <>
+      {/* Dim page content after QTH sunset while keeping controls and alert
+          break-ins crisp above this layer. */}
+      <div
+        className={`pointer-events-none fixed inset-0 z-[500] bg-black transition-opacity duration-1000 ${
+          nightDimmed ? "opacity-45" : "opacity-0"
+        }`}
+        aria-hidden="true"
+        data-night-dimmed={nightDimmed}
+      />
+
       <KioskClockBar
         sceneName={activeScene?.name ?? ""}
         sceneIndex={scenes.findIndex((s) => s.id === activeSceneId)}
         sceneCount={scenes.length}
         rotating={rotation.enabled && !paused && scenes.length > 1}
+        headerScale={presentation.headerScale}
+        slashedZero={presentation.slashedZero}
       />
 
       {/* Pointer-revealed controls */}
       <div
-        className={`fixed top-14 right-4 z-[520] flex items-center gap-2 transition-opacity duration-300 ${
+        className={`fixed right-4 z-[520] flex items-center gap-2 transition-opacity duration-300 ${CONTROLS_TOP_CLASSES[presentation.headerScale]} ${
           controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
@@ -219,6 +273,8 @@ interface KioskClockBarProps {
   sceneIndex: number;
   sceneCount: number;
   rotating: boolean;
+  headerScale: KioskHeaderScale;
+  slashedZero: boolean;
 }
 
 function KioskClockBar({
@@ -226,6 +282,8 @@ function KioskClockBar({
   sceneIndex,
   sceneCount,
   rotating,
+  headerScale,
+  slashedZero,
 }: KioskClockBarProps) {
   const hour12 = useSettingsStore((s) => s.timeFormat !== "24h");
   const [now, setNow] = useState(() => new Date());
@@ -253,19 +311,24 @@ function KioskClockBar({
     month: "short",
     timeZone: "UTC",
   });
+  const numeralClass = slashedZero ? "font-slashed-zero" : "tabular-nums";
 
   return (
-    <div className="relative z-[510] h-12 flex items-center justify-between px-4 bg-void-black/70 backdrop-blur border-b border-white/10 select-none">
+    <div
+      className={`relative z-[510] flex items-center justify-between bg-void-black/70 backdrop-blur border-b border-white/10 select-none ${HEADER_SIZE_CLASSES[headerScale]}`}
+    >
       <div className="flex items-baseline gap-3 font-mono">
-        <span className="text-2xl text-white tabular-nums">{utc}</span>
+        <span className={`${HEADER_CLOCK_CLASSES[headerScale]} ${numeralClass} text-white`}>
+          {utc}
+        </span>
         <span className="text-xs text-plasma-orange tracking-widest">UTC</span>
-        <span className="text-sm text-gray-400 tabular-nums">
+        <span className={`text-sm text-gray-400 ${numeralClass}`}>
           {local} local
         </span>
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="font-orbitron text-sm text-gray-200 tracking-wide">
+        <span className={`font-orbitron text-gray-200 tracking-wide ${HEADER_SCENE_CLASSES[headerScale]}`}>
           {sceneName}
         </span>
         {sceneCount > 1 && (

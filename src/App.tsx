@@ -134,6 +134,9 @@ const AtmosPulse = lazy(() =>
 const KioskPage = lazy(() =>
   import("@/pages/KioskPage").then((m) => ({ default: m.KioskPage })),
 );
+const WallClockPage = lazy(() =>
+  import("@/pages/WallClockPage").then((m) => ({ default: m.WallClockPage })),
+);
 const DisplayPairPage = lazy(() =>
   import("@/pages/DisplayPairPage").then((m) => ({
     default: m.DisplayPairPage,
@@ -293,6 +296,11 @@ function App() {
             <Route path="/satellites" element={<SatellitesPage />} />
             <Route path="/atmos" element={<AtmosPulse />} />
             <Route path="/kiosk" element={<KioskPage />} />
+            <Route path="/clock" element={<WallClockPage mode="clock" />} />
+            <Route
+              path="/stopwatch"
+              element={<WallClockPage mode="stopwatch" />}
+            />
             <Route path="/display/pair" element={<DisplayPairPage />} />
             <Route path="/display/:id" element={<DisplayViewPage />} />
             <Route path="/pair" element={<PairClaimPage />} />

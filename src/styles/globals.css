@@ -788,6 +788,13 @@
   color: #c084fc !important; /* purple-400 brighter */
 }
 
+/* OpenType utility for wall displays. Fonts without a slashed-zero glyph
+   safely retain their normal zero while tabular spacing remains enabled. */
+.font-slashed-zero {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "zero" 1, "tnum" 1;
+}
+
 /* ─── Print Styles ──────────────────────────────────────────────────────── */
 @media print {
   /* White background, black text */

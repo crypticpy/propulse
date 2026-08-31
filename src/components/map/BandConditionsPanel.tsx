@@ -806,11 +806,17 @@ export function BandConditionsPanel({
   // Get best path-model band and overall status for fallback/collapsed views.
   // When BH2 is ready, the collapsed headline uses that same live ladder as
   // Home; the independent path-model aggregate remains the fallback only.
+  // Limit the headline candidates to the bands rendered below, so a live-only
+  // 6m verdict cannot advertise a detail row this HF path panel does not have.
   const bestBand = findBestBand(bandConditions);
   const overallStatus = getOverallStatus(bandConditions);
+  const renderedBands = new Set(
+    bandConditions.map((condition) => condition.band),
+  );
   const bestHealth = liveBandHealth.reduce<BandLadderEntry | null>(
     (best, entry) =>
-      !best || LADDER_RANK[entry.stable] > LADDER_RANK[best.stable]
+      renderedBands.has(entry.band) &&
+      (!best || LADDER_RANK[entry.stable] > LADDER_RANK[best.stable])
         ? entry
         : best,
     null,

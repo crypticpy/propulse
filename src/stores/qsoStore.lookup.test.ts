@@ -111,11 +111,26 @@ describe("qsoStore callsign lookup", () => {
     const store = useQSOStore.getState();
     store.setField("callsign", "K5ABC");
     store.setField("grid", "EM10df");
+    store.setField("sig", "POTA");
+    store.setField("sigInfo", "US-1234");
+    store.setField("notes", "POTA US-1234 activation report");
     await store.lookupCallsign("K5ABC", { preserveGrid: true });
 
     store.setField("callsign", "W1XYZ");
 
     expect(shouldPreserveLookupGrid("K5ABC")).toBe(false);
     expect(shouldPreserveLookupGrid("W1XYZ")).toBe(false);
+    expect(useQSOStore.getState().form).toEqual(
+      expect.objectContaining({
+        callsign: "W1XYZ",
+        name: "",
+        qth: "",
+        grid: "",
+        sig: "",
+        sigInfo: "",
+        notes: "",
+      }),
+    );
+    expect(useQSOStore.getState().lookupResult).toBeNull();
   });
 });

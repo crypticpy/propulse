@@ -322,6 +322,9 @@ export const useQSOStore = create<QSOStoreState>()(
             field === "callsign" &&
             String(value).trim().toUpperCase() !==
               state.form.callsign.trim().toUpperCase();
+          const changedPreparedActivation =
+            callsignChanged &&
+            shouldPreserveLookupGrid(state.form.callsign);
 
           // A portable grid belongs to the activator that supplied it. Any
           // actual callsign edit invalidates that ownership immediately, even
@@ -329,6 +332,14 @@ export const useQSOStore = create<QSOStoreState>()(
           if (callsignChanged) {
             callsignLookupGeneration += 1;
             authoritativeGridCallsign = null;
+            newForm.name = "";
+            newForm.qth = "";
+            newForm.grid = "";
+            newForm.sig = "";
+            newForm.sigInfo = "";
+            // Notes prepared from an activation report also belong to that
+            // activator. Preserve ordinary free-form notes on normal drafts.
+            if (changedPreparedActivation) newForm.notes = "";
           }
 
           // Auto-derive band from frequency when frequency changes
@@ -356,7 +367,15 @@ export const useQSOStore = create<QSOStoreState>()(
             }
           }
 
-          return { form: newForm };
+          return callsignChanged
+            ? {
+                form: newForm,
+                lookupResult: null,
+                lookupLoading: false,
+                lookupError: null,
+                dupeInfo: null,
+              }
+            : { form: newForm };
         });
       },
 

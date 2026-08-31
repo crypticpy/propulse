@@ -52,4 +52,21 @@ describe("WeatherAlertModal", () => {
       expect(document.activeElement).toBe(opener);
     });
   });
+
+  it("only announces radio-impact guidance when that section is present", async () => {
+    const floodAlert: WeatherAlert = {
+      ...weatherAlert,
+      id: "flood-description-test",
+      event: "Flood Warning",
+      severity: "Moderate",
+    };
+
+    render(<WeatherAlertModal alert={floodAlert} onClose={() => {}} />);
+    const dialog = await screen.findByRole("dialog", {
+      name: "Flood Warning",
+    });
+
+    expect(dialog.textContent).toContain("Moderate weather alert.");
+    expect(dialog.textContent).not.toContain("expected radio impact");
+  });
 });

@@ -142,7 +142,11 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
       onClose={onClose}
       title={alert?.event ?? "Weather alert details"}
       description={
-        alert ? `${alert.severity} weather alert and expected radio impact.` : undefined
+        alert
+          ? `${alert.severity} weather alert${
+              radioImpact ? " and expected radio impact" : ""
+            }.`
+          : undefined
       }
       size="md"
     >

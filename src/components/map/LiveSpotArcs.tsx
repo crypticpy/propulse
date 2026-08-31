@@ -49,41 +49,17 @@ import { useReplayStore } from "@/stores/replayStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { getArcOpacity } from "@/lib/map/arcAppearance";
 
 // ==========================================================================
 // Spot Age Types and Utilities
 // ==========================================================================
 
-/**
- * Legibility floors for spot arcs.
- *
- * An arc is a screen-space stroke a pixel or two wide, so it loses contrast far
- * faster than a filled dot of the same alpha. Below roughly a pixel the line is
- * antialiased across the boundary and its already-reduced alpha is divided
- * again, which is how arcs came to be readable only where many of them overlap.
- */
+/** Legibility floor for the screen-space stroke width of spot arcs. */
 const MIN_ARC_LINE_WIDTH = 2.0;
-const MIN_ARC_OPACITY = 0.35;
 
 /** Nominal stroke width at sizeScale 1. */
 const ARC_BASE_LINE_WIDTH = 2.2;
-
-/** Age opacity floor for arcs, vs. {@link getSpotAgeInfo}'s 0.4 for dots. */
-const ARC_OLDEST_OPACITY = 0.55;
-
-/**
- * Remap the shared age ramp into the narrower band an arc can carry.
- *
- * `getSpotAgeInfo` fades to 0.4, which is fine for a dot with area behind it
- * but leaves a thin stroke below the noise floor of a dark basemap. Age still
- * reads as fading, just across a range that stays visible end to end.
- */
-function remapArcAgeOpacity(dotOpacity: number): number {
-  const t = (dotOpacity - 0.4) / 0.6; // getSpotAgeInfo spans 0.4 → 1.0
-  return (
-    ARC_OLDEST_OPACITY + (1 - ARC_OLDEST_OPACITY) * Math.min(1, Math.max(0, t))
-  );
-}
 
 /**
  * Age category for visual styling
@@ -580,12 +556,10 @@ const SpotArc = React.memo(function SpotArc({
   // accumulates and they reappear — which reads as the terminator "revealing"
   // them. Width now carries no age signal (opacity and saturation already do),
   // and neither term may drive the stroke below the legibility floor.
-  const baseOpacity = ageVisualizationEnabled
-    ? remapArcAgeOpacity(ageInfo.opacity)
-    : 1.0;
-  const opacity = Math.max(
-    MIN_ARC_OPACITY,
-    baseOpacity * filterOpacityMultiplier,
+  const opacity = getArcOpacity(
+    ageInfo.opacity,
+    ageVisualizationEnabled,
+    filterOpacityMultiplier,
   );
   const lineWidth = Math.max(
     MIN_ARC_LINE_WIDTH,

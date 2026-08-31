@@ -44,6 +44,20 @@ function formatTemp(temp: number | null): string {
   return `${Math.round(temp)}°C`;
 }
 
+/**
+ * METAR occasionally returns a station without an ICAO identifier. Keep the
+ * React key deterministic in that degraded response instead of remounting the
+ * row on every render (the old Math.random fallback discarded expanded state
+ * and forced needless DOM work whenever any query state changed).
+ */
+function getMetarStationKey(station: MetarStation, index: number): string {
+  if (station.icaoId) return station.icaoId;
+  const identity = [station.name, station.lat, station.lon]
+    .filter((part) => part != null && part !== "")
+    .join("-");
+  return `metar-${identity || "unknown"}-${index}`;
+}
+
 export interface MetarCardProps {
   className?: string;
 }
@@ -79,40 +93,56 @@ export function MetarCard({ className = "" }: MetarCardProps) {
 
       {hasLocation && stations.length > 0 && (
         <div className="space-y-1">
-          {stations.map((station) => {
-            const key = station.icaoId ?? station.name ?? Math.random().toString();
-            const expanded = expandedId === station.icaoId;
+          {stations.map((station, index) => {
+            const key = getMetarStationKey(station, index);
+            const expanded = expandedId === key;
+            const canExpand = Boolean(station.rawOb);
             return (
               <div key={key}>
                 <button
                   type="button"
-                  onClick={() => toggleExpanded(station.icaoId)}
-                  aria-expanded={expanded}
-                  className="w-full flex items-center gap-2 text-xs text-left rounded px-1 py-1 hover:bg-white/5"
+                  onClick={() => toggleExpanded(key)}
+                  aria-expanded={canExpand ? expanded : undefined}
+                  disabled={!canExpand}
+                  className="group w-full min-w-0 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 disabled:cursor-default disabled:hover:bg-transparent"
                 >
-                  <span className="font-mono text-gray-200 w-12 shrink-0">
-                    {station.icaoId ?? "—"}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 font-mono font-semibold text-gray-200">
+                      {station.icaoId ?? "—"}
+                    </span>
+                    {station.name && (
+                      <span className="min-w-0 flex-1 truncate text-[10px] text-gray-500">
+                        {station.name}
+                      </span>
+                    )}
+                    <span
+                      className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] ${flightCategoryStyle(station.fltCat)}`}
+                    >
+                      {station.fltCat ?? "?"}
+                    </span>
+                    {canExpand && (
+                      <span
+                        aria-hidden="true"
+                        className={`shrink-0 text-[10px] text-gray-600 transition-transform ${expanded ? "rotate-180" : ""}`}
+                      >
+                        ▼
+                      </span>
+                    )}
                   </span>
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${flightCategoryStyle(station.fltCat)}`}
-                  >
-                    {station.fltCat ?? "?"}
-                  </span>
-                  <span className="text-gray-500">Temp </span>
-                  <span className="text-gray-200 font-mono tabular-nums shrink-0">
-                    {formatTemp(station.temp)}
-                  </span>
-                  <span className="text-gray-500">Wind </span>
-                  <span className="text-gray-200 font-mono tabular-nums shrink-0">
-                    {formatWind(station)}
-                  </span>
-                  <span className="text-gray-500">Vis </span>
-                  <span className="text-gray-200 font-mono tabular-nums shrink-0">
-                    {formatVisibility(station.visib)}
+
+                  {/* Stack labels over their values so the narrow four-column
+                      dashboard card never depends on one long flex line. */}
+                  <span className="mt-1 grid min-w-0 grid-cols-[minmax(0,0.8fr)_minmax(0,1.45fr)_minmax(0,0.8fr)] gap-1.5">
+                    <MetarMetric label="Temp" value={formatTemp(station.temp)} />
+                    <MetarMetric label="Wind" value={formatWind(station)} />
+                    <MetarMetric
+                      label="Visibility"
+                      value={formatVisibility(station.visib)}
+                    />
                   </span>
                 </button>
                 {expanded && station.rawOb && (
-                  <div className="text-[10px] font-mono break-all text-gray-500 px-1 pb-1">
+                  <div className="break-all px-2 pb-2 pt-0.5 font-mono text-[10px] leading-4 text-gray-500">
                     {station.rawOb}
                   </div>
                 )}
@@ -122,6 +152,23 @@ export function MetarCard({ className = "" }: MetarCardProps) {
         </div>
       )}
     </Card>
+  );
+}
+
+function MetarMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <span
+      className="min-w-0 rounded-md bg-white/[0.035] px-1.5 py-1"
+      title={`${label}: ${value}`}
+      data-metar-metric={label.toLowerCase()}
+    >
+      <span className="block truncate text-[9px] uppercase tracking-wide text-gray-600">
+        {label}
+      </span>
+      <span className="block min-w-0 [overflow-wrap:anywhere] font-mono text-[10px] leading-4 tabular-nums text-gray-200">
+        {value}
+      </span>
+    </span>
   );
 }
 

@@ -353,7 +353,11 @@ function drawNightSide(
   width: number,
   height: number,
   variant: "satellite" | "standard",
+  opacity = 1,
 ) {
+  const intensity = Math.max(0, Math.min(1, opacity));
+  if (intensity === 0) return;
+
   // Check cache: reuse overlay canvases if time hasn't changed by >= 1 minute
   const currentMinute = getTimeMinute(date);
   if (
@@ -367,18 +371,21 @@ function drawNightSide(
     if (variant === "satellite") {
       ctx.save();
       ctx.globalCompositeOperation = "saturation";
+      ctx.globalAlpha = intensity;
       ctx.drawImage(nightOverlayCache.desatCanvas, 0, 0, width, height);
       ctx.restore();
     }
 
     ctx.save();
     ctx.globalCompositeOperation = "multiply";
+    ctx.globalAlpha = intensity;
     ctx.drawImage(nightOverlayCache.darkCanvas, 0, 0, width, height);
     ctx.restore();
 
     if (variant === "satellite") {
       ctx.save();
       ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = intensity;
       ctx.drawImage(nightOverlayCache.blueCanvas, 0, 0, width, height);
       ctx.restore();
     }
@@ -551,6 +558,7 @@ function drawNightSide(
   if (variant === "satellite") {
     ctx.save();
     ctx.globalCompositeOperation = "saturation";
+    ctx.globalAlpha = intensity;
     ctx.drawImage(desatCanvas, 0, 0, width, height);
     ctx.restore();
   }
@@ -558,6 +566,7 @@ function drawNightSide(
   // Composite Pass 2: Darkening with blue tint
   ctx.save();
   ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = intensity;
   ctx.drawImage(darkCanvas, 0, 0, width, height);
   ctx.restore();
 
@@ -565,6 +574,7 @@ function drawNightSide(
   if (variant === "satellite") {
     ctx.save();
     ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = intensity;
     ctx.drawImage(blueCanvas, 0, 0, width, height);
     ctx.restore();
   }
@@ -3219,6 +3229,7 @@ export function FlatMapView({
   const layers = useMapStore((s) => s.layers);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
+  const nightDarkness = useMapStore((s) => s.nightDarkness);
   const target = useMapStore((s) => s.target);
 
   // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
@@ -4583,6 +4594,7 @@ export function FlatMapView({
         renderWidth,
         renderHeight,
         isStandard ? "standard" : "satellite",
+        nightDarkness,
       );
       drawTerminator(
         ctx,
@@ -5076,6 +5088,7 @@ export function FlatMapView({
     mapPinScale,
     labelScale,
     mapStyle,
+    nightDarkness,
     wasStates,
     watchEnabled,
     matchedSpotIds,

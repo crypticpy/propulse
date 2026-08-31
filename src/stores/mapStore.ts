@@ -511,6 +511,10 @@ export interface MapState {
   mapStyle: MapStyle;
   setMapStyle: (style: MapStyle) => void;
 
+  // Relative strength of the renderer-specific night treatment (0..1, persisted)
+  nightDarkness: number;
+  setNightDarkness: (darkness: number) => void;
+
   // Label layer sub-options (persisted)
   labelOptions: LabelOptions;
   setLabelOption: (key: keyof LabelOptions, value: boolean) => void;
@@ -812,6 +816,35 @@ function saveMapStyle(style: MapStyle) {
   localStorage.setItem("propulse-map-style", style);
 }
 
+/** Shared bounded-number persistence for map appearance controls. */
+function loadStoredNumber(
+  key: string,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw !== null && raw.trim() !== "") {
+      const value = Number(raw);
+      if (Number.isFinite(value) && value >= min && value <= max) return value;
+    }
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
+
+function saveStoredNumber(key: string, value: number): void {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+const NIGHT_DARKNESS_KEY = "propulse-night-darkness";
+
 // Layout mode persistence
 function loadLayoutMode(): LayoutMode {
   try {
@@ -994,26 +1027,12 @@ const AUTO_ROTATE_SPEED_KEY = "propulse-auto-rotate-speed";
 const DEFAULT_AUTO_ROTATE_SPEED = 86_400; // real-time (1 rev per 24 hours)
 
 function loadAutoRotateSpeed(): number {
-  try {
-    const saved = localStorage.getItem(AUTO_ROTATE_SPEED_KEY);
-    if (saved) {
-      const parsed = Number(saved);
-      if (Number.isFinite(parsed) && parsed >= 60 && parsed <= 86_400) {
-        return parsed;
-      }
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return DEFAULT_AUTO_ROTATE_SPEED;
-}
-
-function saveAutoRotateSpeed(speed: number): void {
-  try {
-    localStorage.setItem(AUTO_ROTATE_SPEED_KEY, String(speed));
-  } catch {
-    // Ignore storage errors
-  }
+  return loadStoredNumber(
+    AUTO_ROTATE_SPEED_KEY,
+    DEFAULT_AUTO_ROTATE_SPEED,
+    60,
+    86_400,
+  );
 }
 
 // ── Globe orientation persistence ─────────────────────────────────────────────
@@ -1068,52 +1087,9 @@ function saveDisplayFit(fit: DisplayFit): void {
 
 const BEACON_INACTIVE_OPACITY_KEY = "propulse-beacon-inactive-opacity";
 
-function loadBeaconInactiveOpacity(): number {
-  try {
-    const saved = localStorage.getItem(BEACON_INACTIVE_OPACITY_KEY);
-    if (saved !== null) {
-      const parsed = parseFloat(saved);
-      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) return parsed;
-    }
-  } catch {
-    /* ignore */
-  }
-  return 0.6;
-}
-
-function saveBeaconInactiveOpacity(opacity: number): void {
-  try {
-    localStorage.setItem(BEACON_INACTIVE_OPACITY_KEY, String(opacity));
-  } catch {
-    /* ignore */
-  }
-}
-
 // ── NVIS dome opacity persistence ────────────────────────────────────────────
 
 const NVIS_OPACITY_KEY = "propulse-nvis-opacity";
-
-function loadNvisOpacity(): number {
-  try {
-    const saved = localStorage.getItem(NVIS_OPACITY_KEY);
-    if (saved !== null) {
-      const parsed = parseFloat(saved);
-      if (Number.isFinite(parsed) && parsed >= 0.1 && parsed <= 0.8)
-        return parsed;
-    }
-  } catch {
-    /* ignore */
-  }
-  return 0.35;
-}
-
-function saveNvisOpacity(opacity: number): void {
-  try {
-    localStorage.setItem(NVIS_OPACITY_KEY, String(opacity));
-  } catch {
-    /* ignore */
-  }
-}
 
 // ── Dock groups persistence ───────────────────────────────────────────────────
 
@@ -1259,6 +1235,8 @@ const initialState = {
   pathMode: "short" as "short" | "long",
   panelStates: loadPanelStates(),
   mapStyle: loadMapStyle(),
+  // One preserves the carefully tuned existing treatment in every renderer.
+  nightDarkness: loadStoredNumber(NIGHT_DARKNESS_KEY, 1, 0, 1),
   labelOptions: loadLabelOptions(),
   centerLocation: null as CenterLocation | null,
   regionPresets: loadRegionPresets(),
@@ -1303,10 +1281,15 @@ const initialState = {
   satelliteShowAll: false,
 
   // Beacon inactive opacity (persisted)
-  beaconInactiveOpacity: loadBeaconInactiveOpacity(),
+  beaconInactiveOpacity: loadStoredNumber(
+    BEACON_INACTIVE_OPACITY_KEY,
+    0.6,
+    0,
+    1,
+  ),
 
   // NVIS dome opacity (persisted)
-  nvisOpacity: loadNvisOpacity(),
+  nvisOpacity: loadStoredNumber(NVIS_OPACITY_KEY, 0.35, 0.1, 0.8),
 };
 
 export const useMapStore = create<MapState>((set, get) => ({
@@ -1420,7 +1403,7 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   setAutoRotateSpeed: (speed) => {
     const clamped = Math.max(60, Math.min(86_400, Math.round(speed)));
-    saveAutoRotateSpeed(clamped);
+    saveStoredNumber(AUTO_ROTATE_SPEED_KEY, clamped);
     set({ autoRotateSpeed: clamped });
   },
 
@@ -1470,6 +1453,15 @@ export const useMapStore = create<MapState>((set, get) => ({
     set(() => {
       saveMapStyle(mapStyle);
       return { mapStyle };
+    }),
+
+  setNightDarkness: (value) =>
+    set((state) => {
+      const nightDarkness = Number.isFinite(value)
+        ? Math.max(0, Math.min(1, value))
+        : state.nightDarkness;
+      saveStoredNumber(NIGHT_DARKNESS_KEY, nightDarkness);
+      return { nightDarkness };
     }),
 
   toggleLayer: (layer) =>
@@ -2081,14 +2073,14 @@ export const useMapStore = create<MapState>((set, get) => ({
   // Beacon inactive opacity
   setBeaconInactiveOpacity: (opacity) => {
     const clamped = Math.max(0, Math.min(1, opacity));
-    saveBeaconInactiveOpacity(clamped);
+    saveStoredNumber(BEACON_INACTIVE_OPACITY_KEY, clamped);
     set({ beaconInactiveOpacity: clamped });
   },
 
   // NVIS dome opacity
   setNvisOpacity: (opacity) => {
     const clamped = Math.max(0.1, Math.min(0.8, opacity));
-    saveNvisOpacity(clamped);
+    saveStoredNumber(NVIS_OPACITY_KEY, clamped);
     set({ nvisOpacity: clamped });
   },
 

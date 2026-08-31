@@ -28,6 +28,7 @@ interface UniformLocations {
   uZoom: WebGLUniformLocation | null;
   uSubsolar: WebGLUniformLocation | null;
   uShowNight: WebGLUniformLocation | null;
+  uNightOpacity: WebGLUniformLocation | null;
   uAspect: WebGLUniformLocation | null;
   uMapScale: WebGLUniformLocation | null;
   uGrayscale: WebGLUniformLocation | null;
@@ -105,6 +106,7 @@ export class AzimuthalRenderer {
       uZoom: gl.getUniformLocation(program, "uZoom"),
       uSubsolar: gl.getUniformLocation(program, "uSubsolar"),
       uShowNight: gl.getUniformLocation(program, "uShowNight"),
+      uNightOpacity: gl.getUniformLocation(program, "uNightOpacity"),
       uAspect: gl.getUniformLocation(program, "uAspect"),
       uMapScale: gl.getUniformLocation(program, "uMapScale"),
       uGrayscale: gl.getUniformLocation(program, "uGrayscale"),
@@ -430,6 +432,10 @@ export class AzimuthalRenderer {
 
     // Zoom
     gl.uniform1f(u.uZoom, config.zoom);
+    gl.uniform1f(
+      u.uNightOpacity,
+      Math.max(0, Math.min(1, config.nightOpacity ?? 1)),
+    );
 
     // Subsolar point for day/night blending
     const useStandard =

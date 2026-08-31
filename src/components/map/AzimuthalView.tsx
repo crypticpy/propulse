@@ -1521,6 +1521,7 @@ export function AzimuthalView({
   }, [layers.gridActivity]);
   const target = useMapStore((s) => s.target);
   const mapStyle = useMapStore((s) => s.mapStyle);
+  const nightDarkness = useMapStore((s) => s.nightDarkness);
   const displayDensity = useMapStore((s) => s.displayDensity);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
@@ -2031,8 +2032,17 @@ export function AzimuthalView({
       subsolarLat: subsolar.lat,
       subsolarLon: subsolar.lon,
       showNight: layers.terminator,
+      nightOpacity: nightDarkness,
     });
-  }, [center, zoom, subsolar, layers.terminator, webglReady, mapStyle]);
+  }, [
+    center,
+    zoom,
+    subsolar,
+    layers.terminator,
+    webglReady,
+    mapStyle,
+    nightDarkness,
+  ]);
 
   // Render 2D overlay (UI elements, paths, markers)
   useEffect(() => {

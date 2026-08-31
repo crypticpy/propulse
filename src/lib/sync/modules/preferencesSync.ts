@@ -26,7 +26,7 @@ import type { UserPreferences } from "@/types/user";
 import type { Json } from "@/types/supabase";
 
 /** Current preferences schema version — bumped for theme/map/DX consolidation */
-const PREFERENCES_VERSION = 16;
+const PREFERENCES_VERSION = 17;
 
 export const preferencesSync: SyncModule = {
   name: "preferences",
@@ -97,6 +97,7 @@ export const preferencesSync: SyncModule = {
             panelStates: unknown;
             labelOptions: unknown;
             mapStyle: string;
+            nightDarkness?: number;
             activePresetId: string | null;
           };
           _dxFilters?: {
@@ -192,6 +193,12 @@ export const preferencesSync: SyncModule = {
               mapStyle: serverMapPrefs.mapStyle as typeof map.mapStyle,
             });
           }
+          if (
+            typeof serverMapPrefs.nightDarkness === "number" &&
+            Number.isFinite(serverMapPrefs.nightDarkness)
+          ) {
+            map.setNightDarkness(serverMapPrefs.nightDarkness);
+          }
           if (serverMapPrefs.activePresetId !== undefined) {
             useMapStore.setState({
               activePresetId: serverMapPrefs.activePresetId,
@@ -267,6 +274,7 @@ export const preferencesSync: SyncModule = {
         panelStates: map.panelStates,
         labelOptions: map.labelOptions,
         mapStyle: map.mapStyle,
+        nightDarkness: map.nightDarkness,
         activePresetId: map.activePresetId,
       },
       // DX cluster filter preferences (only persisted filter fields)

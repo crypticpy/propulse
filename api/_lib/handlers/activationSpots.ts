@@ -20,6 +20,7 @@ interface SourceDefinition {
   source: string;
   sourceUrl: string;
   feedUrl: string;
+  matchesRow: (row: unknown) => boolean;
   normalize: (rows: unknown[], nowMs?: number) => ActivationSpot[];
 }
 
@@ -37,12 +38,35 @@ const MAX_ROWS_PER_SOURCE = 100;
 const MAX_SPOT_AGE_MS = 2 * 60 * 60 * 1000;
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
 
+const SOTA_CALLSIGN_KEYS = [
+  "actCallsign",
+  "CallSign",
+  "activatorCallsign",
+  "callsign",
+] as const;
+const SOTA_REFERENCE_KEYS = [
+  "actSite",
+  "WWFFID",
+  "summitCode",
+  "reference",
+] as const;
+const SOTA_FREQUENCY_KEYS = ["actFreq", "Freq", "frequency"] as const;
+const SOTA_TIME_KEYS = [
+  "actTime",
+  "actDateTime",
+  "spotTime",
+  "dateTime",
+  "timeStamp",
+  "timestamp",
+] as const;
+
 const SOURCES: readonly SourceDefinition[] = [
   {
     program: "POTA",
     source: "Parks on the Air",
     sourceUrl: "https://pota.app/",
     feedUrl: "https://api.pota.app/spot/activator",
+    matchesRow: matchesPotaRow,
     normalize: normalizePotaSpots,
   },
   {
@@ -50,6 +74,7 @@ const SOURCES: readonly SourceDefinition[] = [
     source: "ParksnPeaks syndication",
     sourceUrl: "https://www.parksnpeaks.org/",
     feedUrl: "https://www.parksnpeaks.org/api/SOTA",
+    matchesRow: matchesSotaRow,
     normalize: normalizeSotaSpots,
   },
   {
@@ -57,6 +82,7 @@ const SOURCES: readonly SourceDefinition[] = [
     source: "WWFF Spotline",
     sourceUrl: "https://spots.wwff.co/",
     feedUrl: "https://spots.wwff.co/static/spots.json",
+    matchesRow: matchesWwffRow,
     normalize: normalizeWwffSpots,
   },
 ] as const;
@@ -90,12 +116,62 @@ function firstValue(
   return undefined;
 }
 
+function hasOwnKey(row: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(row, key);
+}
+
+function hasAnyOwnKey(
+  row: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  return keys.some((key) => hasOwnKey(row, key));
+}
+
+function matchesPotaRow(value: unknown): boolean {
+  const row = objectRow(value);
+  return (
+    row !== null &&
+    ["activator", "reference", "frequency", "spotTime"].every((key) =>
+      hasOwnKey(row, key),
+    )
+  );
+}
+
+function matchesSotaRow(value: unknown): boolean {
+  const row = objectRow(value);
+  return (
+    row !== null &&
+    hasAnyOwnKey(row, SOTA_CALLSIGN_KEYS) &&
+    hasAnyOwnKey(row, SOTA_REFERENCE_KEYS) &&
+    (hasAnyOwnKey(row, SOTA_FREQUENCY_KEYS) ||
+      hasOwnKey(row, "frequency_khz")) &&
+    hasAnyOwnKey(row, SOTA_TIME_KEYS)
+  );
+}
+
+function matchesWwffRow(value: unknown): boolean {
+  const row = objectRow(value);
+  return (
+    row !== null &&
+    ["activator", "reference", "frequency_khz"].every((key) =>
+      hasOwnKey(row, key),
+    ) &&
+    (hasOwnKey(row, "spot_time") || hasOwnKey(row, "spot_time_formatted"))
+  );
+}
+
 function cleanString(value: unknown, maxLength = 160): string {
   if (typeof value !== "string" && typeof value !== "number") return "";
   return String(value).replace(/\s+/g, " ").trim().slice(0, maxLength);
 }
 
 function finiteNumber(value: unknown): number | null {
+  if (
+    (typeof value !== "number" && typeof value !== "string") ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    return null;
+  }
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -111,16 +187,15 @@ function coordinate(
     : undefined;
 }
 
-function frequencyKHz(value: unknown): number | null {
+function frequencyKHz(
+  value: unknown,
+  sourceUnit: "khz" | "mhz",
+): number | null {
   const number = finiteNumber(value);
   if (number === null || number <= 0) return null;
-  // Syndication feeds commonly publish MHz while POTA/WWFF publish kHz.
-  const khz =
-    number < 1_000
-      ? number * 1_000
-      : number > 1_500_000
-        ? number / 1_000
-        : number;
+  // Units are provider contracts, not safely inferable from magnitude: both
+  // 472 kHz and 1296.1 MHz are valid amateur activation frequencies.
+  const khz = sourceUnit === "mhz" ? number * 1_000 : number;
   return khz >= 100 && khz <= 1_500_000 ? Math.round(khz * 10) / 10 : null;
 }
 
@@ -141,30 +216,54 @@ function parseSpotTime(value: unknown): Date | null {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
-function isLiveSpot(
-  spottedAt: Date,
-  comments: string,
-  nowMs: number,
-): boolean {
+function isCurrentSpotTime(spottedAt: Date, nowMs: number): boolean {
   const age = nowMs - spottedAt.getTime();
-  return (
-    age >= -FUTURE_TOLERANCE_MS &&
-    age <= MAX_SPOT_AGE_MS &&
-    !/\b(?:QRT|TEST|IGNORE)\b/i.test(comments)
-  );
+  return age >= -FUTURE_TOLERANCE_MS && age <= MAX_SPOT_AGE_MS;
 }
 
-function finishSpots(spots: ActivationSpot[]): ActivationSpot[] {
-  const newestByKey = new Map<string, ActivationSpot>();
+function isTerminalStatus(comments: string): boolean {
+  return /\b(?:QRT|TEST|IGNORE)\b/i.test(comments);
+}
+
+interface TerminalActivation {
+  key: string;
+  spottedAt: string;
+}
+
+function activationKey(
+  program: ActivationProgram,
+  callsign: string,
+  reference: string,
+): string {
+  return `${program}:${callsign}:${reference}`;
+}
+
+function finishSpots(
+  spots: ActivationSpot[],
+  terminalActivations: TerminalActivation[],
+): ActivationSpot[] {
+  const newestByKey = new Map<
+    string,
+    { spottedAt: string; spot?: ActivationSpot }
+  >();
   for (const spot of spots) {
-    const key = `${spot.program}:${spot.callsign}:${spot.reference}:${spot.frequencyKHz}`;
+    const key = activationKey(spot.program, spot.callsign, spot.reference);
     const previous = newestByKey.get(key);
-    if (!previous || previous.spottedAt < spot.spottedAt) {
-      newestByKey.set(key, spot);
+    if (!previous || previous.spottedAt <= spot.spottedAt) {
+      newestByKey.set(key, { spottedAt: spot.spottedAt, spot });
+    }
+  }
+  // Status rows participate in newest-first selection. Filtering them before
+  // deduplication would resurrect an older spot after an activator went QRT.
+  for (const terminal of terminalActivations) {
+    const previous = newestByKey.get(terminal.key);
+    if (!previous || previous.spottedAt <= terminal.spottedAt) {
+      newestByKey.set(terminal.key, { spottedAt: terminal.spottedAt });
     }
   }
   return [...newestByKey.values()]
     .sort((left, right) => right.spottedAt.localeCompare(left.spottedAt))
+    .flatMap((entry) => (entry.spot ? [entry.spot] : []))
     .slice(0, MAX_ROWS_PER_SOURCE);
 }
 
@@ -173,23 +272,26 @@ export function normalizePotaSpots(
   nowMs = Date.now(),
 ): ActivationSpot[] {
   const spots: ActivationSpot[] = [];
+  const terminalActivations: TerminalActivation[] = [];
   for (const value of rows) {
     const row = objectRow(value);
     if (!row || row.invalid === true || row.invalid === 1) continue;
     const callsign = cleanString(row.activator, 32).toUpperCase();
     const reference = cleanString(row.reference, 32).toUpperCase();
-    const frequency = frequencyKHz(row.frequency);
     const spotted = parseSpotTime(row.spotTime);
     const comments = cleanString(row.comments, 240);
-    if (
-      !callsign ||
-      !reference ||
-      frequency === null ||
-      !spotted ||
-      !isLiveSpot(spotted, comments, nowMs)
-    ) {
+    if (!callsign || !reference || !spotted || !isCurrentSpotTime(spotted, nowMs)) {
       continue;
     }
+    if (isTerminalStatus(comments)) {
+      terminalActivations.push({
+        key: activationKey("POTA", callsign, reference),
+        spottedAt: spotted.toISOString(),
+      });
+      continue;
+    }
+    const frequency = frequencyKHz(row.frequency, "khz");
+    if (frequency === null) continue;
     const latitude = coordinate(row.latitude, -90, 90);
     const longitude = coordinate(row.longitude, -180, 180);
     spots.push({
@@ -211,7 +313,7 @@ export function normalizePotaSpots(
         : {}),
     });
   }
-  return finishSpots(spots);
+  return finishSpots(spots, terminalActivations);
 }
 
 /** Normalize the documented ParksnPeaks JSON field variants defensively. */
@@ -220,48 +322,37 @@ export function normalizeSotaSpots(
   nowMs = Date.now(),
 ): ActivationSpot[] {
   const spots: ActivationSpot[] = [];
+  const terminalActivations: TerminalActivation[] = [];
   for (const value of rows) {
     const row = objectRow(value);
     if (!row) continue;
     const callsign = cleanString(
-      firstValue(row, [
-        "actCallsign",
-        "CallSign",
-        "activatorCallsign",
-        "callsign",
-      ]),
+      firstValue(row, SOTA_CALLSIGN_KEYS),
       32,
     ).toUpperCase();
     const reference = cleanString(
-      firstValue(row, ["actSite", "WWFFID", "summitCode", "reference"]),
+      firstValue(row, SOTA_REFERENCE_KEYS),
       32,
     ).toUpperCase();
-    const frequency = frequencyKHz(
-      firstValue(row, ["actFreq", "Freq", "frequency", "frequency_khz"]),
-    );
-    const spotted = parseSpotTime(
-      firstValue(row, [
-        "actTime",
-        "actDateTime",
-        "spotTime",
-        "dateTime",
-        "timeStamp",
-        "timestamp",
-      ]),
-    );
+    const spotted = parseSpotTime(firstValue(row, SOTA_TIME_KEYS));
     const comments = cleanString(
       firstValue(row, ["actComments", "Comments", "comments"]),
       240,
     );
-    if (
-      !callsign ||
-      !reference ||
-      frequency === null ||
-      !spotted ||
-      !isLiveSpot(spotted, comments, nowMs)
-    ) {
+    if (!callsign || !reference || !spotted || !isCurrentSpotTime(spotted, nowMs)) {
       continue;
     }
+    if (isTerminalStatus(comments)) {
+      terminalActivations.push({
+        key: activationKey("SOTA", callsign, reference),
+        spottedAt: spotted.toISOString(),
+      });
+      continue;
+    }
+    const frequency = hasOwnKey(row, "frequency_khz")
+      ? frequencyKHz(row.frequency_khz, "khz")
+      : frequencyKHz(firstValue(row, SOTA_FREQUENCY_KEYS), "mhz");
+    if (frequency === null) continue;
     const latitude = coordinate(
       firstValue(row, ["Latitude", "latitude", "lat"]),
       -90,
@@ -312,7 +403,7 @@ export function normalizeSotaSpots(
         : {}),
     });
   }
-  return finishSpots(spots);
+  return finishSpots(spots, terminalActivations);
 }
 
 export function normalizeWwffSpots(
@@ -320,23 +411,26 @@ export function normalizeWwffSpots(
   nowMs = Date.now(),
 ): ActivationSpot[] {
   const spots: ActivationSpot[] = [];
+  const terminalActivations: TerminalActivation[] = [];
   for (const value of rows) {
     const row = objectRow(value);
     if (!row) continue;
     const callsign = cleanString(row.activator, 32).toUpperCase();
     const reference = cleanString(row.reference, 32).toUpperCase();
-    const frequency = frequencyKHz(row.frequency_khz);
     const spotted = parseSpotTime(row.spot_time ?? row.spot_time_formatted);
     const comments = cleanString(row.remarks, 240);
-    if (
-      !callsign ||
-      !reference ||
-      frequency === null ||
-      !spotted ||
-      !isLiveSpot(spotted, comments, nowMs)
-    ) {
+    if (!callsign || !reference || !spotted || !isCurrentSpotTime(spotted, nowMs)) {
       continue;
     }
+    if (isTerminalStatus(comments)) {
+      terminalActivations.push({
+        key: activationKey("WWFF", callsign, reference),
+        spottedAt: spotted.toISOString(),
+      });
+      continue;
+    }
+    const frequency = frequencyKHz(row.frequency_khz, "khz");
+    if (frequency === null) continue;
     const latitude = coordinate(row.latitude, -90, 90);
     const longitude = coordinate(row.longitude, -180, 180);
     spots.push({
@@ -355,7 +449,7 @@ export function normalizeWwffSpots(
         : {}),
     });
   }
-  return finishSpots(spots);
+  return finishSpots(spots, terminalActivations);
 }
 
 class ActivationFeedTooLargeError extends Error {}
@@ -398,6 +492,9 @@ async function fetchSource(definition: SourceDefinition): Promise<SourceResult> 
     if (!response.ok) throw new Error(`upstream ${response.status}`);
     const payload = await readCappedJson(response);
     if (!Array.isArray(payload)) {
+      return { ...definition, status: "invalid", count: 0, spots: [] };
+    }
+    if (payload.length > 0 && !payload.some(definition.matchesRow)) {
       return { ...definition, status: "invalid", count: 0, spots: [] };
     }
     const spots = definition.normalize(payload);

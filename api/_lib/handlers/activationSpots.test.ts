@@ -31,7 +31,12 @@ describe("activation feed normalization", () => {
       normalizePotaSpots(
         [
           { ...base, spotId: 1, name: "Test Park" },
-          { ...base, spotId: 2, comments: "QRT now" },
+          {
+            ...base,
+            spotId: 2,
+            reference: "US-9999",
+            comments: "QRT now",
+          },
           { ...base, spotId: 3, invalid: true },
           { ...base, spotId: 4, spotTime: "2026-08-31T09:00:00" },
         ],
@@ -52,6 +57,28 @@ describe("activation feed normalization", () => {
     ]);
   });
 
+  it("keeps valid low-frequency POTA spots locationless when coordinates are blank", () => {
+    const [spot] = normalizePotaSpots(
+      [
+        {
+          spotId: 5,
+          activator: "K1LOW",
+          reference: "US-0472",
+          frequency: "472",
+          mode: "CW",
+          spotTime: "2026-08-31T13:55:00Z",
+          latitude: null,
+          longitude: "",
+        },
+      ],
+      NOW,
+    );
+
+    expect(spot).toMatchObject({ frequencyKHz: 472 });
+    expect(spot).not.toHaveProperty("latitude");
+    expect(spot).not.toHaveProperty("longitude");
+  });
+
   it("accepts ParksnPeaks aliases and converts MHz to kHz", () => {
     expect(
       normalizeSotaSpots(
@@ -61,7 +88,7 @@ describe("activation feed normalization", () => {
             actCallsign: "n0call",
             actSite: "W5T/CT-001",
             actLocation: "Guadalupe Peak",
-            actFreq: "14.062",
+            actFreq: "1296.1",
             actMode: "cw",
             actDateTime: "2026-08-31T13:55:00Z",
             actSpoter: "W1AW",
@@ -75,14 +102,14 @@ describe("activation feed normalization", () => {
         program: "SOTA",
         callsign: "N0CALL",
         reference: "W5T/CT-001",
-        frequencyKHz: 14062,
+        frequencyKHz: 1296100,
         mode: "CW",
         spotter: "W1AW",
       }),
     ]);
   });
 
-  it("normalizes WWFF epoch timestamps and filters QRT spots", () => {
+  it("lets a newer WWFF QRT status suppress the older live spot", () => {
     expect(
       normalizeWwffSpots(
         [
@@ -108,15 +135,7 @@ describe("activation feed normalization", () => {
         ],
         NOW,
       ),
-    ).toEqual([
-      expect.objectContaining({
-        id: "wwff-8",
-        program: "WWFF",
-        callsign: "VE3XYZ",
-        frequencyKHz: 7185,
-        spottedAt: "2026-08-31T13:58:00.000Z",
-      }),
-    ]);
+    ).toEqual([]);
   });
 });
 
@@ -177,5 +196,30 @@ describe("handleActivationSpots", () => {
 
     expect(response.status).toBe(405);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("marks a non-empty provider payload with no recognized rows invalid", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json([{ unexpected: true }]))
+        .mockResolvedValueOnce(Response.json([]))
+        .mockResolvedValueOnce(Response.json([])),
+    );
+
+    const response = await handleActivationSpots(
+      new Request("https://propulse.test/api/activation/spots", {
+        headers: { "x-forwarded-for": "192.0.2.94" },
+      }),
+    );
+    const payload = (await response.json()) as ActivationSpotsResponse;
+
+    expect(response.status).toBe(200);
+    expect(payload.sources[0]).toMatchObject({
+      program: "POTA",
+      status: "invalid",
+      count: 0,
+    });
   });
 });

@@ -233,7 +233,14 @@ export function ActivationDetailPanel() {
   useEffect(() => {
     if (!spot || activationFeed.isLoading || activationFeed.error) return;
     if (!refreshedSpot) {
-      clearSpot();
+      const selectedSource = activationFeed.sources.find(
+        (source) => source.program === spot.program,
+      );
+      // The aggregate endpoint degrades individual providers independently.
+      // An unavailable/invalid source returns no spots without failing the
+      // whole request, so only an explicit successful provider refresh can
+      // confirm that this activation disappeared or went QRT.
+      if (selectedSource?.status === "ok") clearSpot();
       return;
     }
     // Provider IDs describe individual reports and may change when the same
@@ -243,6 +250,7 @@ export function ActivationDetailPanel() {
   }, [
     activationFeed.error,
     activationFeed.isLoading,
+    activationFeed.sources,
     clearSpot,
     refreshedSpot,
     selectSpot,

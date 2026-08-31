@@ -59,11 +59,22 @@ const SPOT = {
   grid: "EM10df",
 };
 
-function activationFeed(spots: MappableActivationSpot[] = [SPOT]) {
+function activationFeed(
+  spots: MappableActivationSpot[] = [SPOT],
+  status: "ok" | "unavailable" | "invalid" = "ok",
+) {
   return {
     spots,
     spotsByProgram: { POTA: spots, SOTA: [], WWFF: [] },
-    sources: [],
+    sources: [
+      {
+        program: "POTA" as const,
+        status,
+        source: "Parks on the Air",
+        sourceUrl: "https://pota.app/",
+        count: spots.length,
+      },
+    ],
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -162,6 +173,17 @@ describe("ActivationDetailPanel", () => {
     await waitFor(() => expect(screen.getByText("14.1 MHz")).toBeTruthy());
     expect(useActivationSpotStore.getState().selectedSpot).toEqual(
       expect.objectContaining({ id: "pota-2", frequencyKHz: 14100, mode: "SSB" }),
+    );
+
+    mocks.activationFeed.mockReturnValue(activationFeed([], "unavailable"));
+    view.rerender(
+      <MemoryRouter>
+        <ActivationDetailPanel />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("dialog", { name: /K5ABC/i })).toBeTruthy();
+    expect(useActivationSpotStore.getState().selectedSpot).toEqual(
+      expect.objectContaining({ id: "pota-2", frequencyKHz: 14100 }),
     );
 
     mocks.activationFeed.mockReturnValue(activationFeed([]));

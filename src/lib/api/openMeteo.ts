@@ -4,6 +4,8 @@
  */
 
 export interface LocalWeatherData {
+  /** IANA timezone resolved by Open-Meteo for these coordinates. */
+  timezone?: string;
   temperature: number; // Celsius
   windSpeed: number; // km/h
   windDirection: number; // degrees
@@ -71,6 +73,7 @@ export async function fetchLocalWeather(
   const c = data.current;
 
   return {
+    timezone: typeof data.timezone === "string" ? data.timezone : undefined,
     temperature: c.temperature_2m,
     windSpeed: c.wind_speed_10m,
     windDirection: c.wind_direction_10m,

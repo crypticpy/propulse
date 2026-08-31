@@ -29,7 +29,11 @@ import {
   resolveSpotLocations,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
-import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import {
+  getBandColor,
+  getSpotColor,
+  type SpotColorMode,
+} from "@/lib/utils/spotColors";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -615,6 +619,153 @@ function drawSpotArcs(
 
     ctx.restore();
   }
+}
+
+interface AzimuthalSpotPillBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function spotPillBoxesOverlap(
+  left: AzimuthalSpotPillBox,
+  right: AzimuthalSpotPillBox,
+): boolean {
+  return !(
+    left.x + left.width < right.x ||
+    right.x + right.width < left.x ||
+    left.y + left.height < right.y ||
+    right.y + right.height < left.y
+  );
+}
+
+function drawSpotPillPath(
+  ctx: CanvasRenderingContext2D,
+  box: AzimuthalSpotPillBox,
+  radius: number,
+) {
+  const { x, y, width, height } = box;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.arcTo(x + width, y, x + width, y + radius, radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.arcTo(
+    x + width,
+    y + height,
+    x + width - radius,
+    y + height,
+    radius,
+  );
+  ctx.lineTo(x + radius, y + height);
+  ctx.arcTo(x, y + height, x, y + height - radius, radius);
+  ctx.lineTo(x, y + radius);
+  ctx.arcTo(x, y, x + radius, y, radius);
+  ctx.closePath();
+}
+
+/**
+ * Render the callsign treatment already used by flat and globe projections:
+ * one compact DX pill per callsign, keyed to its operating band. Candidate
+ * positions and box collision checks keep dense openings readable.
+ */
+function drawSpotCallsignPills(
+  ctx: CanvasRenderingContext2D,
+  spots: ResolvedSpot[],
+  centerLat: number,
+  centerLon: number,
+  labelScale: number,
+  highViz: boolean,
+) {
+  const placed: AzimuthalSpotPillBox[] = [];
+  const endpointZones = spots.map((spot) => {
+    const point = projToCanvas(
+      azimuthalProject(spot.dxLat, spot.dxLon, centerLat, centerLon),
+    );
+    return { x: point.x - 7, y: point.y - 7, width: 14, height: 14 };
+  });
+  const callsigns = new Set<string>();
+  const fontSize = Math.round((highViz ? 12 : 10) * labelScale);
+  const height = fontSize + 8;
+
+  ctx.save();
+  ctx.font = `700 ${fontSize}px monospace`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (const spot of spots) {
+    if (!spot.callsign || callsigns.has(spot.callsign)) continue;
+
+    const projected = azimuthalProject(
+      spot.dxLat,
+      spot.dxLon,
+      centerLat,
+      centerLon,
+    );
+    if (Math.hypot(projected.x, projected.y) > 0.98) continue;
+
+    const point = projToCanvas(projected);
+    const width = ctx.measureText(spot.callsign).width + 12;
+    const candidates: AzimuthalSpotPillBox[] = [
+      { x: point.x - width / 2, y: point.y - height - 8, width, height },
+      { x: point.x - width / 2, y: point.y + 8, width, height },
+      { x: point.x + 8, y: point.y - height / 2, width, height },
+      { x: point.x - width - 8, y: point.y - height / 2, width, height },
+    ];
+    const box = candidates.find(
+      (candidate) =>
+        candidate.x >= 2 &&
+        candidate.y >= 2 &&
+        candidate.x + candidate.width <= CANVAS_SIZE - 2 &&
+        candidate.y + candidate.height <= CANVAS_SIZE - 2 &&
+        !placed.some((existing) =>
+          spotPillBoxesOverlap(candidate, existing),
+        ) &&
+        !endpointZones.some((endpoint) =>
+          spotPillBoxesOverlap(candidate, endpoint),
+        ),
+    );
+    if (!box) continue;
+
+    callsigns.add(spot.callsign);
+    placed.push(box);
+    const bandColor = spot.frequency
+      ? getBandColor(spot.frequency)
+      : getSpotColor(spot, "band");
+    const ageOpacity = Math.max(0.55, getSpotAgeOpacity(spot.time));
+
+    ctx.globalAlpha = highViz ? 0.94 * ageOpacity : 0.84 * ageOpacity;
+    ctx.fillStyle = "#0a0a1a";
+    drawSpotPillPath(ctx, box, height / 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.9 * ageOpacity;
+    ctx.strokeStyle = bandColor;
+    ctx.lineWidth = highViz ? 2 : 1.25;
+    drawSpotPillPath(ctx, box, height / 2);
+    ctx.stroke();
+
+    // Preserve the cross-projection label language: a dark readable pill
+    // with a bright edge-to-edge band cue instead of color-washing the text.
+    ctx.globalAlpha = ageOpacity;
+    ctx.strokeStyle = bandColor;
+    ctx.lineWidth = highViz ? 3 : 2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(box.x + height / 2, box.y + box.height - 2);
+    ctx.lineTo(box.x + box.width - height / 2, box.y + box.height - 2);
+    ctx.stroke();
+
+    ctx.globalAlpha = ageOpacity;
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+    ctx.shadowBlur = 3;
+    ctx.fillText(spot.callsign, box.x + box.width / 2, box.y + height / 2);
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.restore();
 }
 
 /**
@@ -1345,6 +1496,9 @@ export function AzimuthalView({
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
   const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
+  const spotLabelScale = uiPrefs.labelScale ?? 1.0;
+  const showSpotCallsignLabels = uiPrefs.showSpotCallsignLabels ?? true;
+  const highVizSpots = uiPrefs.visualStyle === "high-viz";
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.
@@ -1964,6 +2118,16 @@ export function AzimuthalView({
         spotColorMode,
         spotDotScale,
       );
+      if (layers.spots && showSpotCallsignLabels) {
+        drawSpotCallsignPills(
+          ctx,
+          resolvedSpots,
+          center.lat,
+          center.lon,
+          spotLabelScale,
+          highVizSpots,
+        );
+      }
     }
 
     if (layers.activations && activationSpots.length > 0) {
@@ -2072,6 +2236,9 @@ export function AzimuthalView({
     zoom,
     spotColorMode,
     spotDotScale,
+    spotLabelScale,
+    showSpotCallsignLabels,
+    highVizSpots,
     labelOptions,
     mapStyle,
     earthquakeData,

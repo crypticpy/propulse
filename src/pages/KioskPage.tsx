@@ -158,11 +158,7 @@ export function KioskPage() {
         </ul>
 
         {/* Add scene */}
-        <div
-          className="flex flex-wrap items-center gap-2"
-          role="group"
-          aria-label="Header size"
-        >
+        <div className="flex flex-wrap items-center gap-2">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -244,7 +240,11 @@ export function KioskPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Header size"
+        >
           <span className="mr-1 text-sm text-gray-300">Header size</span>
           {HEADER_SCALES.map((option) => (
             <button

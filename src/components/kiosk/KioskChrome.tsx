@@ -175,7 +175,7 @@ export function KioskChrome() {
           break-ins crisp above this layer. */}
       <div
         className={`pointer-events-none fixed inset-0 z-[500] bg-black transition-opacity duration-1000 ${
-          nightDimmed ? "opacity-45" : "opacity-0"
+          nightDimmed ? "opacity-[0.45]" : "opacity-0"
         }`}
         aria-hidden="true"
         data-night-dimmed={nightDimmed}

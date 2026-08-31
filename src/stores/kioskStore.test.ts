@@ -197,6 +197,11 @@ describe("kioskStore", () => {
     );
 
     expect(migrated.presentation).toEqual(DEFAULT_PRESENTATION);
+    expect(migrated.scenes.map((scene) => scene.id)).toEqual([
+      "default-wall",
+      "default-clock",
+      "default-stopwatch",
+    ]);
     expect(migrated.rotation).toEqual({ enabled: false, intervalSec: 90 });
     expect(migrated.breakInLevel).toBe("WARNING");
   });

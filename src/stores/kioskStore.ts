@@ -92,6 +92,17 @@ export const DEFAULT_SCENES: KioskScene[] = [
   { id: "default-stopwatch", name: "Stopwatch", route: "/stopwatch" },
 ];
 
+const V3_WALL_SCENES = DEFAULT_SCENES.filter(
+  (scene) => scene.id === "default-clock" || scene.id === "default-stopwatch",
+);
+const LEGACY_DEFAULT_SCENE_IDS = new Set([
+  "default-wall",
+  "default-globe",
+  "default-solar",
+  "default-dx",
+  "default-storm",
+]);
+
 interface KioskStore {
   scenes: KioskScene[];
   rotation: { enabled: boolean; intervalSec: number };
@@ -293,6 +304,30 @@ export function migrateKioskState(
     legacy.presentation = isRecord(legacy.presentation)
       ? legacy.presentation
       : { ...DEFAULT_PRESENTATION };
+    if (Array.isArray(legacy.scenes)) {
+      // Preserve fully custom scene lists, but extend configurations derived
+      // from the shipped defaults so existing wall devices discover the new
+      // clock routes without requiring a localStorage reset.
+      const hasLegacyDefault = legacy.scenes.some(
+        (scene) =>
+          isRecord(scene) &&
+          typeof scene.id === "string" &&
+          LEGACY_DEFAULT_SCENE_IDS.has(scene.id),
+      );
+      if (hasLegacyDefault) {
+        const existingIds = new Set(
+          legacy.scenes.flatMap((scene) =>
+            isRecord(scene) && typeof scene.id === "string" ? [scene.id] : [],
+          ),
+        );
+        legacy.scenes = [
+          ...legacy.scenes,
+          ...V3_WALL_SCENES.filter((scene) => !existingIds.has(scene.id)).map(
+            (scene) => ({ ...scene }),
+          ),
+        ];
+      }
+    }
     candidate = legacy;
   }
   // Migration output is normalized here; the persist merge below repeats the

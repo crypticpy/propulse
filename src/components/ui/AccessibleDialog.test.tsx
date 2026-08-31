@@ -58,6 +58,7 @@ describe("AccessibleDialog", () => {
 
   it("routes Escape only to the topmost nested dialog", () => {
     const closeOuter = vi.fn();
+    const closeOuterAfterRerender = vi.fn();
     const closeInner = vi.fn();
     const { rerender } = render(
       <>
@@ -70,13 +71,35 @@ describe("AccessibleDialog", () => {
       </>,
     );
 
+    // Updating only the outer callback must not tear down/re-register its open
+    // lifetime and move it above the nested dialog in the module-level stack.
+    rerender(
+      <>
+        <AccessibleDialog
+          open
+          onClose={closeOuterAfterRerender}
+          title="Choose radio"
+        >
+          <button type="button">Manage radios</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={closeInner} title="Add radio">
+          <button type="button">Save radio</button>
+        </AccessibleDialog>
+      </>,
+    );
+
     fireEvent.keyDown(document, { key: "Escape" });
     expect(closeInner).toHaveBeenCalledOnce();
     expect(closeOuter).not.toHaveBeenCalled();
+    expect(closeOuterAfterRerender).not.toHaveBeenCalled();
 
     rerender(
       <>
-        <AccessibleDialog open onClose={closeOuter} title="Choose radio">
+        <AccessibleDialog
+          open
+          onClose={closeOuterAfterRerender}
+          title="Choose radio"
+        >
           <button type="button">Manage radios</button>
         </AccessibleDialog>
         <AccessibleDialog open={false} onClose={closeInner} title="Add radio">
@@ -86,7 +109,7 @@ describe("AccessibleDialog", () => {
     );
 
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(closeOuter).toHaveBeenCalledOnce();
+    expect(closeOuterAfterRerender).toHaveBeenCalledOnce();
   });
 
   it("has no automated accessibility violations in its rendered contract", async () => {

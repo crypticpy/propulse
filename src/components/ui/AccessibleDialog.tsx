@@ -52,46 +52,48 @@ export function AccessibleDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const dialogTokenRef = useRef(Symbol("AccessibleDialog"));
+  // Keep the listener registered for the entire open lifetime even when a
+  // parent passes a freshly-created callback on rerender. Re-registering an
+  // outer dialog would move it above an already-open nested dialog in both the
+  // Escape stack and the inert-background snapshot.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (
-          openDialogStack[openDialogStack.length - 1] !==
-          dialogTokenRef.current
-        ) {
-          return;
-        }
-        event.preventDefault();
-        // A modal owns Escape while it is open. Capture the event before
-        // page-level shortcuts (for example FullscreenPropSphere's exit
-        // handler) and stop sibling document listeners from acting on the
-        // same keypress after the dialog closes.
-        event.stopImmediatePropagation();
-        onClose();
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      if (
+        openDialogStack[openDialogStack.length - 1] !== dialogTokenRef.current
+      ) {
         return;
       }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-        (element) => !element.hasAttribute("hidden") && !element.closest("[hidden]"),
-      );
-      if (controls.length === 0) {
-        event.preventDefault();
-        dialogRef.current.focus();
-        return;
-      }
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    },
-    [onClose],
-  );
+      event.preventDefault();
+      // A modal owns Escape while it is open. Capture the event before
+      // page-level shortcuts (for example FullscreenPropSphere's exit
+      // handler) and stop sibling document listeners from acting on the
+      // same keypress after the dialog closes.
+      event.stopImmediatePropagation();
+      onCloseRef.current();
+      return;
+    }
+    if (event.key !== "Tab" || !dialogRef.current) return;
+    const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (element) => !element.hasAttribute("hidden") && !element.closest("[hidden]"),
+    );
+    if (controls.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;

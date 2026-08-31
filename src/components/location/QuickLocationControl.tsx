@@ -6,7 +6,6 @@
 import { lazy, Suspense, useState } from "react";
 import {
   useActiveLocation,
-  useHomeLocation,
   useIsTemporaryActive,
 } from "@/hooks/useActiveLocation";
 
@@ -32,11 +31,7 @@ function LocationPinIcon({ className = "w-4 h-4" }: { className?: string }) {
       fill="currentColor"
       aria-hidden="true"
     >
-      <path
-        fillRule="evenodd"
-        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-        clipRule="evenodd"
-      />
+      <path d="M16 8c0 4-6 11-6 11S4 12 4 8a6 6 0 1112 0Zm-6 2a2 2 0 100-4 2 2 0 000 4Z" />
     </svg>
   );
 }
@@ -46,13 +41,11 @@ export function QuickLocationControl({
   variant = "grid",
 }: QuickLocationControlProps) {
   const activeLocation = useActiveLocation();
-  const homeLocation = useHomeLocation();
   const isTemporaryActive = useIsTemporaryActive();
   const [open, setOpen] = useState(false);
 
-  const gridLabel = activeLocation?.grid ?? homeLocation?.grid ?? "Set location";
-  const locationKind = isTemporaryActive ? "Travel location" : "Home location";
-  const label = `Update current operating location — ${locationKind}: ${gridLabel}`;
+  const gridLabel = activeLocation?.grid ?? "Set location";
+  const label = `Update current operating location — ${isTemporaryActive ? "Travel" : "Home"} location: ${gridLabel}`;
 
   return (
     <>

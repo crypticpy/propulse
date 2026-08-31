@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { formatUTC } from "@/lib/utils/time";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
@@ -15,7 +15,14 @@ import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankBadge } from "@/components/rank/RankBadge";
 import { ConflictBadge } from "@/components/qso/ConflictBadge";
 import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
-import { QuickLocationControl } from "@/components/location/QuickLocationControl";
+
+// Location editing is a secondary masthead action. Keep its trigger and the
+// already-lazy editor out of the startup bundle until the header has mounted.
+const QuickLocationControl = lazy(() =>
+  import("@/components/location/QuickLocationControl").then((module) => ({
+    default: module.QuickLocationControl,
+  })),
+);
 
 interface NavItem {
   path: string;
@@ -240,7 +247,11 @@ export function Header({
                       UTC
                     </span>
                   </div>
-                  <QuickLocationControl className="ml-auto" />
+                  <Suspense
+                    fallback={<span className="ml-auto h-5 w-14" aria-hidden="true" />}
+                  >
+                    <QuickLocationControl className="ml-auto" />
+                  </Suspense>
                 </div>
               )}
 

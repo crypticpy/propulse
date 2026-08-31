@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { SpotCluster } from "@/hooks/useSpotClustering";
 import type { LiveSpot } from "@/types/livespot";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
+import { SpotDetailsModal } from "./SpotDetailsModal";
 
 const spot: LiveSpot = {
   id: "spot-1",
@@ -51,5 +53,41 @@ describe("ClusterDetailPopover", () => {
 
     expect(onSpotSelect).toHaveBeenCalledOnce();
     expect(onSpotSelect).toHaveBeenCalledWith(spot);
+  });
+
+  it("retains the invoking row so closing details restores focus", async () => {
+    const user = userEvent.setup();
+
+    function ClusterDetailsFlow() {
+      const [selectedSpot, setSelectedSpot] = useState<LiveSpot | null>(null);
+      return (
+        <>
+          <ClusterDetailPopover
+            visible
+            position={{ x: 400, y: 400 }}
+            cluster={cluster}
+            onClose={() => {}}
+            onSpotSelect={setSelectedSpot}
+          />
+          <SpotDetailsModal
+            spot={selectedSpot}
+            onClose={() => setSelectedSpot(null)}
+          />
+        </>
+      );
+    }
+
+    render(<ClusterDetailsFlow />);
+    const invokingRow = screen.getByRole("button", {
+      name: "View details for K0ABC",
+    });
+    await user.click(invokingRow);
+
+    expect(
+      screen.getByRole("dialog", { name: "Spot details for K0ABC" }),
+    ).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+
+    await vi.waitFor(() => expect(document.activeElement).toBe(invokingRow));
   });
 });

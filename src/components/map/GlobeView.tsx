@@ -2071,11 +2071,11 @@ export function GlobeView({
   }, []);
 
   const handleClusterSpotSelect = useCallback((spot: LiveSpot) => {
-    // Replace the cluster popover with a single modal so Escape/backdrop
-    // dismissal is unambiguous and the map cannot receive the row click.
+    // Keep the invoking popover mounted behind the portal dialog. AccessibleDialog
+    // makes it inert while open, and retaining its row gives focus restoration a
+    // real target when details close. Escape remains unambiguous because the
+    // topmost dialog consumes it before the popover's document listener.
     setSelectedClusterSpot(spot);
-    setSelectedCluster(null);
-    setClusterScreenPos(null);
   }, []);
 
   const handleClusterSpotClose = useCallback(() => {

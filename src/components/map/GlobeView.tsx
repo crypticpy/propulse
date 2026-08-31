@@ -918,6 +918,7 @@ const GlobeScene = React.memo(function GlobeScene({
   const mapStyle = useMapStore((s) => s.mapStyle);
   const rotation = useMapStore((s) => s.rotation);
   const labelOptions = useMapStore((s) => s.labelOptions);
+  const displayDensity = useMapStore((s) => s.displayDensity);
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
@@ -1020,6 +1021,7 @@ const GlobeScene = React.memo(function GlobeScene({
     enabled: resolvedSpotLayersEnabled || layers.spectrumRing,
     resolveEnabled: resolvedSpotLayersEnabled,
     activationsEnabled: layers.activations,
+    maxSpots: displayDensity,
   });
 
   // Track which spot IDs have already triggered glows (avoid re-firing on every render)

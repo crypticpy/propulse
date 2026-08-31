@@ -147,6 +147,8 @@ export function SpotLabel({
 
   // Combined opacity: age-based decay multiplied by globe occlusion
   const combinedOpacity = opacity * occlusionOpacity;
+  const isVisible = combinedOpacity >= 0.05;
+  const isInteractive = Boolean(onClick) && isVisible;
 
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
@@ -185,13 +187,14 @@ export function SpotLabel({
       // in the stack. Default [1,0] keeps non-hovered labels in paint order.
       zIndexRange={isHovered ? [9000, 8999] : [1, 0]}
       style={{
-        // Always accept pointer events so any label in a stack can be hovered
-        pointerEvents: "auto",
+        // Hidden far-side labels must not remain hoverable or clickable through
+        // the globe. Visible labels still accept hover even without onClick.
+        pointerEvents: isVisible ? "auto" : "none",
         userSelect: "none",
         transition: "opacity 0.3s ease",
         transform: stackOffsetY ? `translateY(${stackOffsetY}px)` : undefined,
         // Outer wrapper only hides when fully occluded (behind globe)
-        opacity: combinedOpacity < 0.05 ? 0 : 1,
+        opacity: isVisible ? 1 : 0,
       }}
     >
       <div
@@ -201,17 +204,21 @@ export function SpotLabel({
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onClick={onClick}
+        onClick={isInteractive ? onClick : undefined}
         onKeyDown={(event) => {
-          if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
+          if (
+            !isInteractive ||
+            (event.key !== "Enter" && event.key !== " ")
+          ) {
             return;
           }
           event.preventDefault();
-          onClick();
+          onClick?.();
         }}
-        role={onClick ? "button" : undefined}
-        tabIndex={onClick ? 0 : undefined}
+        role={isInteractive ? "button" : undefined}
+        tabIndex={isInteractive ? 0 : undefined}
         aria-label={ariaLabel}
+        aria-hidden={isVisible ? undefined : true}
         // DO NOT CHANGE — this underline styling is precisely tuned.
         // The 3px solid borderBottom + full-opacity boxShadow glow keeps
         // the band-color bar vivid regardless of age/occlusion fade.

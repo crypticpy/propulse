@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ActivationSpot } from "@/types/activationSpots";
-import { resolveActivationMarkers } from "./activationMarkers";
+import {
+  placeActivationPill,
+  resolveActivationMarkers,
+} from "./activationMarkers";
 
 const BASE: ActivationSpot = {
   id: "pota-1",
@@ -46,5 +49,30 @@ describe("resolveActivationMarkers", () => {
       "pota-1",
       "sota-1",
     ]);
+  });
+
+  it("returns no markers when the display cap is zero", () => {
+    expect(
+      resolveActivationMarkers([{ ...BASE, latitude: 30, longitude: -97 }], 0),
+    ).toEqual([]);
+  });
+});
+
+describe("placeActivationPill", () => {
+  it("keeps edge markers fully within the visible canvas rectangle", () => {
+    const bounds = { x: 0, y: 0, width: 100, height: 60 };
+    const placement = placeActivationPill(
+      { x: 1, y: 1 },
+      40,
+      18,
+      4,
+      [],
+      bounds,
+    );
+
+    expect(placement.x).toBeGreaterThanOrEqual(0);
+    expect(placement.y).toBeGreaterThanOrEqual(0);
+    expect(placement.x + placement.width).toBeLessThanOrEqual(100);
+    expect(placement.y + placement.height).toBeLessThanOrEqual(60);
   });
 });

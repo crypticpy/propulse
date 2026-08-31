@@ -13,6 +13,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import {
+  LAYER_PRESETS,
   useMapStore,
   type LayoutMode,
   type ViewMode,
@@ -50,6 +51,8 @@ export const KIOSK_ROUTES: ReadonlyArray<{ route: string; label: string }> = [
 
 const MIN_INTERVAL_SEC = 15;
 const MAX_INTERVAL_SEC = 3600;
+const DEFAULT_ROTATION = { enabled: true, intervalSec: 120 };
+const DEFAULT_BREAK_IN_LEVEL: BreakInLevel = "CRITICAL";
 
 export const DEFAULT_SCENES: KioskScene[] = [
   {
@@ -92,6 +95,157 @@ interface KioskStore {
   getActiveScene: () => KioskScene | null;
 }
 
+type PersistedKioskState = Pick<
+  KioskStore,
+  "scenes" | "rotation" | "breakInLevel" | "active" | "activeSceneId"
+>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cloneDefaultScenes(): KioskScene[] {
+  return DEFAULT_SCENES.map((scene) => ({
+    ...scene,
+    ...(scene.map ? { map: { ...scene.map } } : {}),
+  }));
+}
+
+const VALID_ROUTES = new Set(KIOSK_ROUTES.map((entry) => entry.route));
+const VALID_LAYOUT_MODES = new Set<LayoutMode>([
+  "normal",
+  "pro",
+  "lite",
+  "hamclock",
+]);
+const VALID_VIEW_MODES = new Set<ViewMode>([
+  "globe",
+  "flat",
+  "azimuthal",
+]);
+const VALID_BREAK_IN_LEVELS = new Set<BreakInLevel>([
+  "CRITICAL",
+  "WARNING",
+  "off",
+]);
+
+function sanitizeMapConfig(value: unknown): KioskSceneMapConfig | undefined {
+  if (!isRecord(value) || !VALID_LAYOUT_MODES.has(value.layoutMode as LayoutMode)) {
+    return undefined;
+  }
+
+  const config: KioskSceneMapConfig = {
+    layoutMode: value.layoutMode as LayoutMode,
+  };
+  if (VALID_VIEW_MODES.has(value.viewMode as ViewMode)) {
+    config.viewMode = value.viewMode as ViewMode;
+  }
+  if (
+    typeof value.preset === "string" &&
+    Object.prototype.hasOwnProperty.call(LAYER_PRESETS, value.preset)
+  ) {
+    config.preset = value.preset as PresetName;
+  }
+  if (typeof value.autoRotate === "boolean") {
+    config.autoRotate = value.autoRotate;
+  }
+  return config;
+}
+
+function sanitizeScene(value: unknown): KioskScene | null {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    value.id.trim() === "" ||
+    typeof value.name !== "string" ||
+    value.name.trim() === "" ||
+    typeof value.route !== "string" ||
+    !VALID_ROUTES.has(value.route)
+  ) {
+    return null;
+  }
+
+  const map = value.route === "/map" ? sanitizeMapConfig(value.map) : undefined;
+  return {
+    id: value.id,
+    name: value.name,
+    route: value.route,
+    ...(map ? { map } : {}),
+  };
+}
+
+function normalizePersistedKioskState(value: unknown): PersistedKioskState {
+  const raw = isRecord(value) ? value : {};
+  const seenSceneIds = new Set<string>();
+  const scenes = (Array.isArray(raw.scenes) ? raw.scenes : [])
+    .map(sanitizeScene)
+    .filter((scene): scene is KioskScene => {
+      if (!scene || seenSceneIds.has(scene.id)) return false;
+      seenSceneIds.add(scene.id);
+      return true;
+    });
+  const usableScenes = scenes.length > 0 ? scenes : cloneDefaultScenes();
+  const rawRotation = isRecord(raw.rotation) ? raw.rotation : {};
+  const active = typeof raw.active === "boolean" ? raw.active : false;
+  const requestedActiveId =
+    typeof raw.activeSceneId === "string" ? raw.activeSceneId : null;
+  const activeSceneId = usableScenes.some(
+    (scene) => scene.id === requestedActiveId,
+  )
+    ? requestedActiveId
+    : active
+      ? usableScenes[0].id
+      : null;
+
+  return {
+    scenes: usableScenes,
+    rotation: {
+      enabled:
+        typeof rawRotation.enabled === "boolean"
+          ? rawRotation.enabled
+          : DEFAULT_ROTATION.enabled,
+      intervalSec: clampInterval(
+        typeof rawRotation.intervalSec === "number"
+          ? rawRotation.intervalSec
+          : DEFAULT_ROTATION.intervalSec,
+      ),
+    },
+    breakInLevel: VALID_BREAK_IN_LEVELS.has(
+      raw.breakInLevel as BreakInLevel,
+    )
+      ? (raw.breakInLevel as BreakInLevel)
+      : DEFAULT_BREAK_IN_LEVEL,
+    active,
+    activeSceneId,
+  };
+}
+
+/**
+ * v1 persisted the store object without an explicit data contract. v2 makes
+ * that boundary explicit and repairs missing fields before strict validation,
+ * so future schema versions have a known, tested predecessor to migrate from.
+ */
+export function migrateKioskState(
+  persisted: unknown,
+  version: number,
+): PersistedKioskState {
+  let candidate = persisted;
+  if (version < 2) {
+    const legacy = isRecord(persisted) ? { ...persisted } : {};
+    legacy.rotation = isRecord(legacy.rotation)
+      ? legacy.rotation
+      : { ...DEFAULT_ROTATION };
+    legacy.breakInLevel = legacy.breakInLevel ?? DEFAULT_BREAK_IN_LEVEL;
+    legacy.active = typeof legacy.active === "boolean" ? legacy.active : false;
+    legacy.activeSceneId = legacy.activeSceneId ?? null;
+    candidate = legacy;
+  }
+  // Migration output is normalized here; the persist merge below repeats the
+  // same boundary validation for same-version payloads because Zustand only
+  // invokes migrate when the stored version differs.
+  return normalizePersistedKioskState(candidate);
+}
+
 /**
  * Apply a scene's map side effects. Callers navigate to `scene.route`
  * themselves (navigation needs the router; stores must stay router-free).
@@ -115,9 +269,9 @@ function clampInterval(sec: number): number {
 export const useKioskStore = create<KioskStore>()(
   persist(
     (set, get) => ({
-      scenes: DEFAULT_SCENES,
-      rotation: { enabled: true, intervalSec: 120 },
-      breakInLevel: "CRITICAL",
+      scenes: cloneDefaultScenes(),
+      rotation: { ...DEFAULT_ROTATION },
+      breakInLevel: DEFAULT_BREAK_IN_LEVEL,
       active: false,
       activeSceneId: null,
 
@@ -188,12 +342,25 @@ export const useKioskStore = create<KioskStore>()(
     }),
     {
       name: "propulse-kiosk",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
-      migrate: (persisted: unknown) => {
-        const state = persisted as Record<string, unknown>;
-        return state as unknown as KioskStore;
-      },
+      partialize: (state) => ({
+        scenes: state.scenes,
+        rotation: state.rotation,
+        breakInLevel: state.breakInLevel,
+        active: state.active,
+        activeSceneId: state.activeSceneId,
+      }),
+      migrate: migrateKioskState,
+      merge: (persisted, current) => ({
+        // Preserve every live action from the freshly-created store. Persisted
+        // payloads contain data only, and must never replace action functions.
+        ...current,
+        // Unlike migrate, merge runs for every stored version. Keeping the
+        // normalizer here repairs manually edited and partially written v2
+        // localStorage before any consumer can observe it.
+        ...normalizePersistedKioskState(persisted),
+      }),
     },
   ),
 );

@@ -21,6 +21,7 @@ import {
   useKioskStore,
   applySceneToMap,
   DEFAULT_SCENES,
+  migrateKioskState,
   type KioskScene,
 } from "./kioskStore";
 import { useMapStore } from "./mapStore";
@@ -29,6 +30,7 @@ const originalState = useKioskStore.getState();
 
 describe("kioskStore", () => {
   beforeEach(() => {
+    localStorage.clear();
     useKioskStore.setState(originalState, true);
   });
 
@@ -126,5 +128,91 @@ describe("kioskStore", () => {
     const solarScene: KioskScene = { id: "s2", name: "Solar", route: "/solar" };
     applySceneToMap(solarScene);
     expect(useMapStore.getState().layoutMode).toBe("pro");
+  });
+
+  it("migrates v1 state into a bounded, internally consistent v2 payload", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [
+          {
+            id: "custom-wall",
+            name: "Custom Wall",
+            route: "/map",
+            map: {
+              layoutMode: "hamclock",
+              viewMode: "globe",
+              preset: "dx-hunter",
+            },
+          },
+        ],
+        rotation: { enabled: false, intervalSec: 2 },
+        active: true,
+        activeSceneId: "removed-scene",
+      },
+      1,
+    );
+
+    expect(migrated.scenes).toEqual([
+      {
+        id: "custom-wall",
+        name: "Custom Wall",
+        route: "/map",
+        map: {
+          layoutMode: "hamclock",
+          viewMode: "globe",
+          preset: "dx-hunter",
+        },
+      },
+    ]);
+    expect(migrated.rotation).toEqual({ enabled: false, intervalSec: 15 });
+    expect(migrated.breakInLevel).toBe("CRITICAL");
+    expect(migrated.activeSceneId).toBe("custom-wall");
+  });
+
+  it("repairs corrupt persisted scenes instead of hydrating unsafe values", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [
+          { id: "bad-route", name: "Bad", route: "/settings" },
+          { id: "missing-name", route: "/map" },
+        ],
+        rotation: { enabled: "yes", intervalSec: Number.NaN },
+        breakInLevel: "EMERGENCY",
+        active: "yes",
+        activeSceneId: "bad-route",
+      },
+      2,
+    );
+
+    expect(migrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(migrated.rotation).toEqual({ enabled: true, intervalSec: 120 });
+    expect(migrated.breakInLevel).toBe("CRITICAL");
+    expect(migrated.active).toBe(false);
+    expect(migrated.activeSceneId).toBeNull();
+  });
+
+  it("normalizes corrupt same-version state through the real hydration path", async () => {
+    localStorage.setItem(
+      "propulse-kiosk",
+      JSON.stringify({
+        version: 2,
+        state: {
+          scenes: [{ id: "bad", name: "Bad", route: "/settings" }],
+          rotation: { enabled: "yes", intervalSec: -50 },
+          breakInLevel: "EMERGENCY",
+          active: true,
+          activeSceneId: "bad",
+        },
+      }),
+    );
+
+    await useKioskStore.persist.rehydrate();
+
+    const hydrated = useKioskStore.getState();
+    expect(hydrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(hydrated.rotation).toEqual({ enabled: true, intervalSec: 15 });
+    expect(hydrated.breakInLevel).toBe("CRITICAL");
+    expect(hydrated.activeSceneId).toBe(DEFAULT_SCENES[0].id);
+    expect(typeof hydrated.start).toBe("function");
   });
 });

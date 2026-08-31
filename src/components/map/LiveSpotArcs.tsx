@@ -55,6 +55,34 @@ import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 // ==========================================================================
 
 /**
+ * Legibility floors for spot arcs.
+ *
+ * An arc is a screen-space stroke a pixel or two wide, so it loses contrast far
+ * faster than a filled dot of the same alpha. Below roughly a pixel the line is
+ * antialiased across the boundary and its already-reduced alpha is divided
+ * again, which is how arcs came to be readable only where many of them overlap.
+ */
+const MIN_ARC_LINE_WIDTH = 1.4;
+const MIN_ARC_OPACITY = 0.35;
+
+/** Age opacity floor for arcs, vs. {@link getSpotAgeInfo}'s 0.4 for dots. */
+const ARC_OLDEST_OPACITY = 0.55;
+
+/**
+ * Remap the shared age ramp into the narrower band an arc can carry.
+ *
+ * `getSpotAgeInfo` fades to 0.4, which is fine for a dot with area behind it
+ * but leaves a thin stroke below the noise floor of a dark basemap. Age still
+ * reads as fading, just across a range that stays visible end to end.
+ */
+function remapArcAgeOpacity(dotOpacity: number): number {
+  const t = (dotOpacity - 0.4) / 0.6; // getSpotAgeInfo spans 0.4 → 1.0
+  return (
+    ARC_OLDEST_OPACITY + (1 - ARC_OLDEST_OPACITY) * Math.min(1, Math.max(0, t))
+  );
+}
+
+/**
  * Age category for visual styling
  */
 export type SpotAgeCategory = "fresh" | "recent" | "aging" | "stale" | "old";
@@ -542,10 +570,21 @@ const SpotArc = React.memo(function SpotArc({
 
   // Calculate age-based opacity using new getSpotAgeInfo
   const ageInfo = useMemo(() => getSpotAgeInfo(spot.time), [spot.time]);
-  const baseOpacity = ageVisualizationEnabled ? ageInfo.opacity : 1.0;
-  const opacity = Math.max(0.08, baseOpacity * filterOpacityMultiplier);
-  const lineWidth =
-    (ageVisualizationEnabled ? 1.5 * ageInfo.scale : 1.5) * sizeScale;
+  // Age decay used to hit opacity and stroke width at the same time: a 15-minute
+  // old spot rendered at 0.4 alpha AND half width, i.e. a sub-pixel line at 40%
+  // alpha. Across the globe's face that is invisible; near the limb, where arcs
+  // are seen edge-on and dozens of strokes land in the same pixels, the alpha
+  // accumulates and they reappear — which reads as the terminator "revealing"
+  // them. Width now carries no age signal (opacity and saturation already do),
+  // and neither term may drive the stroke below the legibility floor.
+  const baseOpacity = ageVisualizationEnabled
+    ? remapArcAgeOpacity(ageInfo.opacity)
+    : 1.0;
+  const opacity = Math.max(
+    MIN_ARC_OPACITY,
+    baseOpacity * filterOpacityMultiplier,
+  );
+  const lineWidth = Math.max(MIN_ARC_LINE_WIDTH, 1.5 * sizeScale);
 
   // Return null for invalid coordinates or insufficient points
   if (!hasValidCoords || points.length < 2) {

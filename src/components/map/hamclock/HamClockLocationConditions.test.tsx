@@ -48,6 +48,7 @@ describe("HamClockLocationConditions", () => {
         latitude={41.88}
         longitude={-87.63}
         displayTime={new Date("2026-08-31T12:00:00.000Z")}
+        timeZone="America/New_York"
         stationLabel="DX"
       />,
     );
@@ -80,5 +81,26 @@ describe("HamClockLocationConditions", () => {
 
     expect(screen.getByText("12:00 GMT")).toBeTruthy();
     expect(screen.getByText("Weather unavailable")).toBeTruthy();
+  });
+
+  it("stops reporting timezone resolution as active after failure", () => {
+    useLocationWeatherMock.mockReturnValue({
+      weather: null,
+      isLoading: false,
+      error: new Error("network down"),
+      hasLocation: true,
+    });
+
+    render(
+      <HamClockLocationConditions
+        latitude={51.5}
+        longitude={-0.1}
+        displayTime={new Date("2026-01-15T12:00:00.000Z")}
+        stationLabel="DX"
+      />,
+    );
+
+    expect(screen.getByText("Zone unavailable")).toBeTruthy();
+    expect(screen.queryByText("Resolving zone…")).toBeNull();
   });
 });

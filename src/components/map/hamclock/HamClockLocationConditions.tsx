@@ -34,8 +34,10 @@ export function HamClockLocationConditions({
   );
   const localTime = formatLocationTime(
     displayTime,
-    timeZone ?? weather?.timezone,
+    weather?.timezone ?? timeZone,
   );
+  const localTimeLabel =
+    localTime ?? (error ? "Zone unavailable" : "Resolving zone…");
 
   return (
     <div
@@ -47,7 +49,7 @@ export function HamClockLocationConditions({
           Local
         </span>
         <span className="font-mono text-[11px] font-semibold text-white">
-          {localTime ?? "Resolving zone…"}
+          {localTimeLabel}
         </span>
       </div>
 

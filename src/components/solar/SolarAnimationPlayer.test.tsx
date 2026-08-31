@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { solarImageUrl } from "@/lib/solar/mediaProducts";
 import { SolarAnimationPlayer } from "./SolarAnimationPlayer";
@@ -41,5 +41,55 @@ describe("SolarAnimationPlayer", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).not.toBe(firstManifestUrl);
+  });
+
+  it("keeps active playback and usable frames through a failed cadence refresh", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T12:10:00.000Z"));
+    const frames = [
+      { url: "/solar-frame-1.png", time_tag: "2026-07-15T12:00:00Z" },
+      { url: "/solar-frame-2.png", time_tag: "2026-07-15T12:05:00Z" },
+    ];
+    const fetchMock = vi
+      .fn<(_input: RequestInfo | URL, _init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ frames }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockRejectedValueOnce(new Error("temporary manifest failure"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <SolarAnimationPlayer
+        animationId="drap-global"
+        thumbnailProductId="drap-global"
+        alt="Solar animation"
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("img").getAttribute("src")).toBe(
+      "/solar-frame-2.png",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+
+    await act(async () => {
+      vi.advanceTimersByTime(6 * 60_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+    expect(screen.getByRole("img").getAttribute("src")).toMatch(
+      /^\/solar-frame-[12]\.png$/,
+    );
+    expect(screen.queryByText("temporary manifest failure")).toBeNull();
   });
 });

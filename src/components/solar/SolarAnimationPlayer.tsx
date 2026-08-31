@@ -33,6 +33,10 @@ export function SolarAnimationPlayer({
   const cache = useRef(new Map<string, HTMLImageElement>());
   const frameFailures = useRef(new Map<string, number>());
   const frameRetryTimer = useRef<number | null>(null);
+  const framesRef = useRef(frames);
+  const indexRef = useRef(index);
+  framesRef.current = frames;
+  indexRef.current = index;
   const thumbnailProduct = SOLAR_IMAGE_PRODUCTS[thumbnailProductId];
   const thumbnail = solarImageUrl(thumbnailProductId, now, frameRetry);
   const refreshBucket = Math.floor(
@@ -50,8 +54,15 @@ export function SolarAnimationPlayer({
   useEffect(() => {
     const controller = new AbortController();
     let retryTimer: number | null = null;
-    setState("loading");
-    setMessage("");
+    // Cadence refreshes are background revalidations once a usable timeline
+    // exists. Do not reuse the initial-load UI transitions here: doing so
+    // pauses active playback every publication window and lets a transient
+    // manifest failure replace healthy frames with the error presentation.
+    const isBackgroundRefresh = framesRef.current.length > 0;
+    if (!isBackgroundRefresh) {
+      setState("loading");
+      setMessage("");
+    }
     fetch(manifestUrl, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
@@ -64,14 +75,26 @@ export function SolarAnimationPlayer({
         if (!Array.isArray(value.frames) || value.frames.length === 0) {
           throw new Error("Timeline contains no usable frames");
         }
+        const currentUrl = framesRef.current[indexRef.current]?.url;
+        const matchingIndex = currentUrl
+          ? value.frames.findIndex((frame) => frame.url === currentUrl)
+          : -1;
+        const nextIndex =
+          matchingIndex >= 0
+            ? matchingIndex
+            : isBackgroundRefresh
+              ? Math.min(indexRef.current, value.frames.length - 1)
+              : value.frames.length - 1;
         setFrames(value.frames);
-        setIndex(value.frames.length - 1);
-        setState("ready");
+        setIndex(nextIndex);
+        if (!isBackgroundRefresh) setState("ready");
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
-        setMessage(error instanceof Error ? error.message : "Timeline unavailable");
-        setState("error");
+        if (!isBackgroundRefresh) {
+          setMessage(error instanceof Error ? error.message : "Timeline unavailable");
+          setState("error");
+        }
         if (manifestRetry < 3) {
           retryTimer = window.setTimeout(
             retryManifest,

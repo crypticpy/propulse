@@ -21,6 +21,7 @@ import {
   useKioskStore,
   applySceneToMap,
   DEFAULT_SCENES,
+  migrateKioskState,
   type KioskScene,
 } from "./kioskStore";
 import { useMapStore } from "./mapStore";
@@ -126,5 +127,66 @@ describe("kioskStore", () => {
     const solarScene: KioskScene = { id: "s2", name: "Solar", route: "/solar" };
     applySceneToMap(solarScene);
     expect(useMapStore.getState().layoutMode).toBe("pro");
+  });
+
+  it("migrates v1 state into a bounded, internally consistent v2 payload", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [
+          {
+            id: "custom-wall",
+            name: "Custom Wall",
+            route: "/map",
+            map: {
+              layoutMode: "hamclock",
+              viewMode: "globe",
+              preset: "dx-hunter",
+            },
+          },
+        ],
+        rotation: { enabled: false, intervalSec: 2 },
+        active: true,
+        activeSceneId: "removed-scene",
+      },
+      1,
+    );
+
+    expect(migrated.scenes).toEqual([
+      {
+        id: "custom-wall",
+        name: "Custom Wall",
+        route: "/map",
+        map: {
+          layoutMode: "hamclock",
+          viewMode: "globe",
+          preset: "dx-hunter",
+        },
+      },
+    ]);
+    expect(migrated.rotation).toEqual({ enabled: false, intervalSec: 15 });
+    expect(migrated.breakInLevel).toBe("CRITICAL");
+    expect(migrated.activeSceneId).toBe("custom-wall");
+  });
+
+  it("repairs corrupt persisted scenes instead of hydrating unsafe values", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [
+          { id: "bad-route", name: "Bad", route: "/settings" },
+          { id: "missing-name", route: "/map" },
+        ],
+        rotation: { enabled: "yes", intervalSec: Number.NaN },
+        breakInLevel: "EMERGENCY",
+        active: "yes",
+        activeSceneId: "bad-route",
+      },
+      2,
+    );
+
+    expect(migrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(migrated.rotation).toEqual({ enabled: true, intervalSec: 120 });
+    expect(migrated.breakInLevel).toBe("CRITICAL");
+    expect(migrated.active).toBe(false);
+    expect(migrated.activeSceneId).toBeNull();
   });
 });

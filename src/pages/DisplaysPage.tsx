@@ -6,34 +6,41 @@ import { useKioskStore } from "@/stores/kioskStore";
 import type { DisplaySceneConfig } from "@/stores/displayStore";
 import type { DisplayFit } from "@/stores/mapStore";
 import type { TextScale } from "@/types/user";
+import type { Json, Tables } from "@/types/supabase";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const LIVE_THRESHOLD_MS = 60_000;
 const REFRESH_INTERVAL_MS = 20_000;
 const MAX_NAME_LENGTH = 60;
 
-interface DisplayRow {
-  id: string;
-  name: string;
+type DisplayRow = Pick<
+  Tables<"displays">,
+  "id" | "name" | "last_seen_at" | "created_at" | "updated_at"
+> & {
   scene_config: DisplaySceneConfig | null;
-  last_seen_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+};
 
-// `displays` is not in the generated Database types (see src/lib/supabase.ts
-// for the same pattern on other untyped collector/edge tables).
 function displaysTable() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (getSupabase() as any).from("displays");
+  return getSupabase().from("displays");
 }
 
 async function fetchDisplays(): Promise<DisplayRow[]> {
   const { data, error } = await displaysTable()
     .select("id, name, scene_config, last_seen_at, created_at, updated_at")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    // Supabase correctly generates jsonb as Json. This page owns the richer
+    // DisplaySceneConfig contract, so narrow only that selected field while
+    // retaining generated types for the table, filters, and writes.
+    .overrideTypes<DisplayRow[], { merge: false }>();
   if (error) throw new Error(error.message);
-  return (data ?? []) as DisplayRow[];
+  return data ?? [];
+}
+
+/** DisplaySceneConfig contains JSON-only data, but imported interfaces do not
+ * carry Json's string index signature. Keep the assertion at this single
+ * serialization boundary instead of weakening the Supabase client to any. */
+function sceneConfigJson(config: DisplaySceneConfig): Json {
+  return config as unknown as Json;
 }
 
 async function pushRefreshNudge(displayId: string): Promise<void> {
@@ -260,7 +267,7 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
         ...(selectedScenes.length > 0 && { scenes: selectedScenes }),
       };
       const { error } = await displaysTable()
-        .update({ scene_config: sceneConfig })
+        .update({ scene_config: sceneConfigJson(sceneConfig) })
         .eq("id", display.id);
       if (error) throw new Error(error.message);
       await pushRefreshNudge(display.id);

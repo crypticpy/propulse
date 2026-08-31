@@ -401,6 +401,71 @@ export type Database = {
           },
         ];
       };
+      display_pairing_codes: {
+        Row: {
+          claimed_at: string | null;
+          code: string;
+          created_at: string;
+          display_id: string;
+          expires_at: string;
+        };
+        Insert: {
+          claimed_at?: string | null;
+          code: string;
+          created_at?: string;
+          display_id: string;
+          expires_at: string;
+        };
+        Update: {
+          claimed_at?: string | null;
+          code?: string;
+          created_at?: string;
+          display_id?: string;
+          expires_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "display_pairing_codes_display_id_fkey";
+            columns: ["display_id"];
+            isOneToOne: false;
+            referencedRelation: "displays";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      displays: {
+        Row: {
+          created_at: string;
+          device_token_hash: string;
+          id: string;
+          last_seen_at: string | null;
+          name: string;
+          owner: string | null;
+          scene_config: Json;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          device_token_hash: string;
+          id?: string;
+          last_seen_at?: string | null;
+          name?: string;
+          owner?: string | null;
+          scene_config?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          device_token_hash?: string;
+          id?: string;
+          last_seen_at?: string | null;
+          name?: string;
+          owner?: string | null;
+          scene_config?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       feedlines: {
         Row: {
           condition: string | null;

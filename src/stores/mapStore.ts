@@ -886,23 +886,41 @@ function pctToPx(xPct: number, yPct: number): { x: number; y: number } {
 }
 
 function buildDefaultProPanelLayout(): Record<string, ProPanelLayoutEntry> {
+  const viewportWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1920;
   const bc = pctToPx(1, 8);
   const pa = pctToPx(80, 8);
   const dx = pctToPx(20, 72);
   const rec = pctToPx(1, 62);
   const sat = pctToPx(80, 50);
+  const forecastWidth = Math.min(
+    1200,
+    Math.max(600, Math.round(viewportWidth * 0.55)),
+  );
   return {
     "band-conditions": { ...bc, width: 256, height: 400, collapsed: false },
     "path-analysis": { ...pa, width: 288, height: 400, collapsed: false },
+    // The forecast starts minimized to avoid obscuring the globe, but expands
+    // as a broad strip that can be stretched across the full top row.
+    "propagation-forecast": {
+      x: Math.round((viewportWidth - forecastWidth) / 2),
+      y: 64,
+      width: forecastWidth,
+      height: 260,
+      collapsed: true,
+      dockedEdge: "right",
+      dockedOrder: 64,
+    },
     "dx-spots": { ...dx, width: 600, height: 200, collapsed: false },
     recommendations: { ...rec, width: 320, height: 180, collapsed: false },
     satellites: { ...sat, width: 260, height: 360, collapsed: true },
   };
 }
 
-const DEFAULT_PRO_PANEL_LAYOUT = buildDefaultProPanelLayout();
-
 function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
+  // Build against the current viewport each time. Module evaluation may have
+  // happened on a different monitor long before a workspace is restored.
+  const defaults = buildDefaultProPanelLayout();
   try {
     const saved = localStorage.getItem(PRO_PANEL_LAYOUT_KEY);
     if (saved) {
@@ -920,12 +938,12 @@ function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
         return fresh;
       }
       // Merge with defaults so new panels get default positions
-      return { ...DEFAULT_PRO_PANEL_LAYOUT, ...parsed };
+      return { ...defaults, ...parsed };
     }
   } catch {
     // Ignore parse errors
   }
-  return { ...DEFAULT_PRO_PANEL_LAYOUT };
+  return defaults;
 }
 
 function saveProPanelLayout(layout: Record<string, ProPanelLayoutEntry>): void {
@@ -1985,7 +2003,9 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   resetProPanelLayout: () =>
     set(() => {
-      const fresh = { ...DEFAULT_PRO_PANEL_LAYOUT };
+      // Reset is intentionally computed at click time because Pro mode is
+      // often moved between laptop and wall-display viewports in one session.
+      const fresh = buildDefaultProPanelLayout();
       saveProPanelLayout(fresh);
       return { proPanelLayout: fresh, dockGroups: [] };
     }),

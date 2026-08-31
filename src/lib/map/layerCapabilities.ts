@@ -24,6 +24,7 @@ const PROP_SPHERE_LAYER_KEYS = requireAllLayerKeys([
   "muf",
   "nvis",
   "spots",
+  "activations",
   "spotTraces",
   "nightLights",
   "labels",
@@ -101,6 +102,7 @@ const FLAT_UNSUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
 
 const AZIMUTHAL_SUPPORTED_LAYER_KEYS = [
   "earthquakes",
+  "activations",
   "fires",
   "labels",
   "lightning",

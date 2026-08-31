@@ -3,6 +3,7 @@ import type { MapState } from "@/stores/mapStore";
 import { buildLayerLegends } from "./layerLegends";
 import {
   AGE_COLOR_STOPS,
+  BAND_COLORS,
   getAgeColor,
   getSnrColor,
   SNR_COLOR_STOPS,
@@ -31,6 +32,7 @@ function noLayers(): MapState["layers"] {
     muf: false,
     nvis: false,
     spots: false,
+    activations: false,
     spotTraces: false,
     nightLights: false,
     labels: false,
@@ -121,6 +123,19 @@ describe("buildLayerLegends", () => {
     })[0];
     expect(bandSpec.entries.some((e) => e.label === "20m")).toBe(true);
     expect(bandSpec.entries.some((e) => e.label === "default")).toBe(false);
+  });
+
+  it("shows activator callsign pills with the shared band palette", () => {
+    const spec = buildLayerLegends(
+      { ...noLayers(), activations: true },
+      { spotColorMode: "mode", viewMode: "azimuthal" },
+    )[0];
+
+    expect(spec.title).toBe("Activations");
+    expect(spec.entries.find((entry) => entry.label === "20m")?.color).toBe(
+      BAND_COLORS["20m"],
+    );
+    expect(spec.note).toContain("POTA/SOTA/WWFF");
   });
 
   it("shows the real SNR and age ramps, matching what getSpotColor draws", () => {

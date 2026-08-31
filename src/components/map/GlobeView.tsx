@@ -181,6 +181,7 @@ import { liveSpotsInGrid, mergeGridSpots } from "@/lib/map/gridTooltip";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
+import { ActivationMarkers3D } from "./layers/ActivationMarkers3D";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -1010,12 +1011,16 @@ const GlobeScene = React.memo(function GlobeScene({
   // resolved coordinates. Keep those two gates explicit in the shared hook.
   const resolvedSpotLayersEnabled =
     layers.spots || layers.spotTraces || layers.gridActivity;
-  const { spots: liveSpots, resolvedSpots: resolvedGlowSpots } =
-    useResolvedMapSpots({
+  const {
+    spots: liveSpots,
+    resolvedSpots: resolvedGlowSpots,
+    activationSpots,
+  } = useResolvedMapSpots({
     grid: station?.grid,
-      enabled: resolvedSpotLayersEnabled || layers.spectrumRing,
-      resolveEnabled: resolvedSpotLayersEnabled,
-    });
+    enabled: resolvedSpotLayersEnabled || layers.spectrumRing,
+    resolveEnabled: resolvedSpotLayersEnabled,
+    activationsEnabled: layers.activations,
+  });
 
   // Track which spot IDs have already triggered glows (avoid re-firing on every render)
   const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
@@ -1550,6 +1555,11 @@ const GlobeScene = React.memo(function GlobeScene({
             onSpotHoverEnd={onSpotHoverEnd}
             onClusterClick={onClusterClick}
           />
+        )}
+
+        {/* Activators are point reports; keep them separate from DX path arcs. */}
+        {layers.activations && (
+          <ActivationMarkers3D spots={activationSpots} />
         )}
 
         {/* Animated spot trace lines — "missile command" style */}

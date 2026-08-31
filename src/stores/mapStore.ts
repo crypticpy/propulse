@@ -28,6 +28,7 @@ export const LAYER_PRESETS = {
     muf: true,
     nvis: false,
     spots: true,
+    activations: false,
     spotTraces: false,
     nightLights: true,
     labels: false,
@@ -69,6 +70,7 @@ export const LAYER_PRESETS = {
     muf: false,
     nvis: false,
     spots: true,
+    activations: false,
     spotTraces: false,
     nightLights: false,
     labels: false,
@@ -110,6 +112,7 @@ export const LAYER_PRESETS = {
     muf: false,
     nvis: false,
     spots: false,
+    activations: false,
     spotTraces: false,
     nightLights: false,
     labels: false,
@@ -151,6 +154,7 @@ export const LAYER_PRESETS = {
     muf: false,
     nvis: true,
     spots: false,
+    activations: false,
     spotTraces: false,
     nightLights: true,
     labels: true,
@@ -192,6 +196,7 @@ export const LAYER_PRESETS = {
     muf: false,
     nvis: false,
     spots: false,
+    activations: false,
     spotTraces: false,
     nightLights: false,
     labels: false,
@@ -386,6 +391,7 @@ export interface MapState {
     muf: boolean;
     nvis: boolean;
     spots: boolean;
+    activations: boolean;
     spotTraces: boolean;
     nightLights: boolean;
     labels: boolean;
@@ -1142,6 +1148,7 @@ const DEFAULT_LAYERS: MapState["layers"] = {
   muf: false,
   nvis: false,
   spots: true,
+  activations: false,
   spotTraces: false,
   nightLights: true,
   labels: false,

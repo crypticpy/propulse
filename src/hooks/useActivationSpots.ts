@@ -33,13 +33,14 @@ export interface UseActivationSpotsResult {
 }
 
 /** Poll the small server-normalized feed shared by sidebar and map layers. */
-export function useActivationSpots(): UseActivationSpotsResult {
+export function useActivationSpots(enabled = true): UseActivationSpotsResult {
   const query = useQuery({
     queryKey: ACTIVATION_SPOTS_QUERY_KEY,
     queryFn: ({ signal }) => fetchActivationSpots(signal),
     staleTime: 30 * SECOND,
     refetchInterval: MINUTE,
     gcTime: 5 * MINUTE,
+    enabled,
     refetchOnWindowFocus: false,
     retry: 2,
   });

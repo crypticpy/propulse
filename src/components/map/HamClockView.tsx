@@ -12,7 +12,7 @@
  * Escape key or X button returns to normal layout mode.
  */
 
-import { useEffect, useMemo, useCallback } from "react";
+import { lazy, Suspense, useEffect, useMemo, useCallback } from "react";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -33,6 +33,19 @@ import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { HamClockSidebar } from "./hamclock/HamClockSidebar";
 import { HamClockInfoPanel } from "./hamclock/HamClockInfoPanel";
 import { HamClockSpotsSidebar } from "./hamclock/HamClockSpotsSidebar";
+import { HamClockBestBandHero } from "./hamclock/HamClockBestBandHero";
+import { HamClockProjectionSwitch } from "./hamclock/HamClockProjectionSwitch";
+
+// Keep the WebGL-heavy alternate projections out of the initial HamClock
+// chunk. They load only after the operator selects them in the header.
+const GlobeView = lazy(() =>
+  import("./GlobeView").then((module) => ({ default: module.GlobeView })),
+);
+const AzimuthalView = lazy(() =>
+  import("./AzimuthalView").then((module) => ({
+    default: module.AzimuthalView,
+  })),
+);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -441,6 +454,8 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
 
   return (
     <div className="flex flex-col h-full">
+      <HamClockBestBandHero />
+
       <HamClockInfoPanel
         id="de"
         title="DE Station"
@@ -496,6 +511,8 @@ export function HamClockView({
   onLocationClick,
 }: HamClockViewProps) {
   const station = useUserStore((s) => s.station);
+  const viewMode = useMapStore((s) => s.viewMode);
+  const setViewMode = useMapStore((s) => s.setViewMode);
 
   // HamClock layout preferences
   const spotsSide = useHamClockStore((s) => s.spotsSide);
@@ -534,7 +551,8 @@ export function HamClockView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // FlatMapView click adapter
+  // Renderer click adapter: every projection reports geographic coordinates,
+  // while the optional HamClock host callback also expects a screen point.
   const handleMapClick = useCallback(
     (lat: number, lon: number) => {
       onLocationClick?.(lat, lon, { x: 0, y: 0 });
@@ -619,6 +637,11 @@ export function HamClockView({
 
         {/* Right: Swap + Solar + Layers + Watch + sidebar toggle + exit */}
         <div className="flex items-center gap-2">
+          <HamClockProjectionSwitch
+            value={viewMode}
+            onChange={setViewMode}
+          />
+
           <button
             onClick={handleSwapSides}
             className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -700,11 +723,33 @@ export function HamClockView({
         className="overflow-hidden relative bg-void-black"
         style={{ gridArea: "map" }}
       >
-        <FlatMapView
-          displayTime={displayTime}
-          onLocationClick={handleMapClick}
-          fillContainer
-        />
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">
+              Loading projection…
+            </div>
+          }
+        >
+          {viewMode === "flat" && (
+            <FlatMapView
+              displayTime={displayTime}
+              onLocationClick={handleMapClick}
+              fillContainer
+            />
+          )}
+          {viewMode === "azimuthal" && (
+            <AzimuthalView
+              displayTime={displayTime}
+              onLocationClick={handleMapClick}
+            />
+          )}
+          {viewMode === "globe" && (
+            <GlobeView
+              displayTime={displayTime}
+              onLocationClick={handleMapClick}
+            />
+          )}
+        </Suspense>
 
         {/* Watch status pill floating at bottom-center of map */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">

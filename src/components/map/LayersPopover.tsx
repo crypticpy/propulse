@@ -397,9 +397,11 @@ export function LayersPopover() {
   const gridLabelDetail = useMapStore((s) => s.gridLabelDetail);
   const setGridLabelDetail = useMapStore((s) => s.setGridLabelDetail);
   const viewMode = useMapStore((s) => s.viewMode);
-  const layoutMode = useMapStore((s) => s.layoutMode);
 
-  const isGlobeView = viewMode === "globe" && layoutMode !== "hamclock";
+  // Globe settings follow the active renderer, including HamClock's optional
+  // 3D projection. The old layout check was only valid while HamClock was
+  // permanently flat and hid controls that GlobeView actively consumes.
+  const isGlobeView = viewMode === "globe";
 
   // ── Settings store selectors ──
   const uiPrefs = useUIInteractionPrefs();

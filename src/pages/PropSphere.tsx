@@ -18,9 +18,7 @@ import {
 } from "react";
 import { addHours } from "date-fns";
 import {
-  GlobeView,
   FlatMapView,
-  AzimuthalView,
   TimeControl,
   PathAnalysis,
   PropagationForecastMini,
@@ -60,6 +58,19 @@ const FullscreenPropSphere = lazy(() =>
 const HamClockView = lazy(() =>
   import("@/components/map/HamClockView").then((m) => ({
     default: m.HamClockView,
+  })),
+);
+// Keep renderer-specific payloads outside the route's static dependency graph.
+// HamClock defaults to Flat, so its 3D and Azimuthal renderers are downloaded
+// only after an operator selects them (normal mode benefits from the same split).
+const GlobeView = lazy(() =>
+  import("@/components/map/GlobeView").then((m) => ({
+    default: m.GlobeView,
+  })),
+);
+const AzimuthalView = lazy(() =>
+  import("@/components/map/AzimuthalView").then((m) => ({
+    default: m.AzimuthalView,
   })),
 );
 import { DXSpotList } from "@/components/dx";
@@ -1110,28 +1121,36 @@ export function PropSphere() {
                 className="flex-1 min-h-0 relative overflow-hidden"
                 data-tour="globe-container"
               >
-                {viewMode === "globe" && (
-                  <GlobeView
-                    displayTime={displayTime}
-                    onLocationClick={handleLocationClick}
-                    hideSizeSliders
-                  />
-                )}
-                {viewMode === "flat" && (
-                  <FlatMapView
-                    displayTime={displayTime}
-                    onLocationClick={handleLocationClick}
-                    fillContainer
-                    hideSizeSliders
-                  />
-                )}
-                {viewMode === "azimuthal" && (
-                  <AzimuthalView
-                    displayTime={displayTime}
-                    onLocationClick={handleLocationClick}
-                    hideSizeSliders
-                  />
-                )}
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">
+                      Loading projection…
+                    </div>
+                  }
+                >
+                  {viewMode === "globe" && (
+                    <GlobeView
+                      displayTime={displayTime}
+                      onLocationClick={handleLocationClick}
+                      hideSizeSliders
+                    />
+                  )}
+                  {viewMode === "flat" && (
+                    <FlatMapView
+                      displayTime={displayTime}
+                      onLocationClick={handleLocationClick}
+                      fillContainer
+                      hideSizeSliders
+                    />
+                  )}
+                  {viewMode === "azimuthal" && (
+                    <AzimuthalView
+                      displayTime={displayTime}
+                      onLocationClick={handleLocationClick}
+                      hideSizeSliders
+                    />
+                  )}
+                </Suspense>
 
                 {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
                 {layers.issTracker && <ISSSkyTracker />}

@@ -13,11 +13,13 @@ import { useMapStore, type DisplayFit } from "@/stores/mapStore";
 
 /**
  * The desktop layout turns its side panels on at lg (1024px), but under
- * ~1400px they leave the globe unusably narrow, and 720p-class wall TVs
- * run out of height once the header and info row are up.
+ * ~1400px they leave the globe unusably narrow. The full-height stack also
+ * needs more than 1050 CSS pixels once the header, forecast, map, ticker, and
+ * expanded DX drawer are present; below that, the map can collapse underneath
+ * its siblings even on a nominally high-resolution laptop display.
  */
 export const CRAMPED_VIEWPORT_QUERY =
-  "(max-width: 1399px), (max-height: 759px)";
+  "(max-width: 1399px), (max-height: 1050px)";
 
 /** Pure resolution rule: explicit override wins, "auto" follows the viewport. */
 export function resolveCompactFit(fit: DisplayFit, cramped: boolean): boolean {

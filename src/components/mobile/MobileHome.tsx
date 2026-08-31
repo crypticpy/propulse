@@ -24,6 +24,7 @@ import {
 } from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
 import type { SolarFluxData, MagnetometerData } from "@/lib/api/types";
+import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
 
 export interface MobileHomeProps {
   currentKp: number | null;
@@ -136,6 +137,8 @@ export function MobileHome({
           <PredictionsCard />
           <HistoryCard onClick={onExpandHistory} />
         </div>
+
+        <NearbyActivityExplorer />
 
         {/* Sky & time (curated subset for mobile) */}
         <div className="space-y-3">

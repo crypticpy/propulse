@@ -7,7 +7,10 @@
  * glow along the terminator with flowing particle animation.
  *
  * The band extends ~5 degrees on each side of the terminator path, with
- * opacity proportional to the observed greyline spot activity intensity.
+ * opacity proportional to the `intensity` prop -- the caller derives it from
+ * the station-local greyline intensity via getGreylineGlowIntensity(), which
+ * returns 0 outside greyline hours so this glow disappears entirely rather
+ * than doubling up on the static Greyline ribbon underneath it.
  *
  * Accepts all data as props -- no direct hook imports.
  */
@@ -25,7 +28,10 @@ import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 interface TerminatorEnhancement3DProps {
   /** Points along the day/night terminator boundary */
   terminatorPoints: Array<{ lat: number; lon: number }>;
-  /** Intensity 0-1, based on actual greyline spot activity */
+  /**
+   * Opacity multiplier 0-1 from getGreylineGlowIntensity(). 0 renders
+   * nothing at all.
+   */
   intensity: number;
 }
 
@@ -53,6 +59,20 @@ const PARTICLE_RADIUS = 0.004;
 
 /** Particle flow speed (fraction of path per second) */
 const PARTICLE_SPEED = 0.03;
+
+/** Particle opacity at full intensity; scaled by `intensity` every frame. */
+const PARTICLE_BASE_OPACITY = 0.8;
+
+/**
+ * Paint slot. This glow rides on top of the static Greyline ribbon
+ * (nightShade - 0.08) and stays under the night shade itself, matching the
+ * terminator family it belongs to. It previously sat in the surfaceTexture
+ * slot (5), which put an animated overlay underneath borders, arcs and
+ * markers it was meant to highlight.
+ */
+const BAND_RENDER_ORDER = GLOBE_LAYER_ORDER.nightShade - 0.06;
+const INNER_BAND_RENDER_ORDER = GLOBE_LAYER_ORDER.nightShade - 0.05;
+const PARTICLE_RENDER_ORDER = GLOBE_LAYER_ORDER.nightShade - 0.04;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -188,7 +208,11 @@ export const TerminatorEnhancement3D = React.memo(
         new THREE.MeshBasicMaterial({
           color: INNER_GLOW_COLOR,
           transparent: true,
-          opacity: 0.8,
+          // Seeded transparent, then driven every frame from `intensity` in
+          // useFrame below. Seeding at PARTICLE_BASE_OPACITY instead would
+          // risk one full-brightness frame at a low intensity; the material
+          // is deliberately not rebuilt per intensity change.
+          opacity: 0,
           depthWrite: false,
           // depthTest stays on: protruding geometry keeps depthTest for
           // free far-side culling from the opaque globe's depth buffer.
@@ -224,6 +248,13 @@ export const TerminatorEnhancement3D = React.memo(
         innerBandMaterialRef.current.opacity = baseOpacity * 1.8;
       }
 
+      // The particles share one material, so their opacity is driven here
+      // rather than per-instance (the per-particle variation is scale, below).
+      // This has to track `intensity` alongside the bands: leaving it pinned
+      // at PARTICLE_BASE_OPACITY made normal, enhanced and peak render
+      // identically bright particles over bands that were visibly different.
+      particleMaterial.opacity = PARTICLE_BASE_OPACITY * intensity * pulse;
+
       // Advance particles along the terminator curve
       for (let i = 0; i < NUM_PARTICLES; i++) {
         const mesh = particleRefs.current[i];
@@ -248,7 +279,7 @@ export const TerminatorEnhancement3D = React.memo(
     return (
       <group name="terminator-enhancement">
         {/* Outer glow band */}
-        <mesh geometry={bandGeometry} renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
+        <mesh geometry={bandGeometry} renderOrder={BAND_RENDER_ORDER}>
           <meshBasicMaterial
             ref={bandMaterialRef}
             color={GLOW_COLOR}
@@ -264,7 +295,10 @@ export const TerminatorEnhancement3D = React.memo(
         </mesh>
 
         {/* Inner brighter band */}
-        <mesh geometry={innerBandGeometry} renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}>
+        <mesh
+          geometry={innerBandGeometry}
+          renderOrder={INNER_BAND_RENDER_ORDER}
+        >
           <meshBasicMaterial
             ref={innerBandMaterialRef}
             color={INNER_GLOW_COLOR}
@@ -288,7 +322,7 @@ export const TerminatorEnhancement3D = React.memo(
             }}
             geometry={particleGeometry}
             material={particleMaterial}
-            renderOrder={GLOBE_LAYER_ORDER.surfaceTexture}
+            renderOrder={PARTICLE_RENDER_ORDER}
           />
         ))}
       </group>

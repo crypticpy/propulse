@@ -262,6 +262,30 @@ export function getGreylineVisualParams(intensity: GreylineIntensity): {
 }
 
 /**
+ * Opacity multiplier for the animated terminator glow (TerminatorEnhancement3D).
+ *
+ * Returns 0 outside greyline hours so the glow disappears entirely rather than
+ * painting a permanent second band over the main greyline ribbon -- the glow is
+ * an "it's happening now" cue, not a static decoration.
+ *
+ * @param intensity - Greyline intensity level for the operator's location
+ * @returns Multiplier in 0-1; 0 means render nothing
+ */
+export function getGreylineGlowIntensity(intensity: GreylineIntensity): number {
+  switch (intensity) {
+    case "peak":
+      return 1;
+    case "enhanced":
+      return 0.7;
+    case "normal":
+      return 0.45;
+    case "none":
+    default:
+      return 0;
+  }
+}
+
+/**
  * Format time to next greyline event for display
  *
  * @param minutes - Minutes to event (can be negative for past events)

@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from "react";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -120,6 +120,51 @@ describe("nowCastIssueBucket", () => {
       await Promise.resolve();
     });
     expect(requestIssueTimes()).toContain("2026-07-12T12:10:00.000Z");
+
+    unmount();
+    queryClient.clear();
+  });
+});
+
+describe("useNowCastBandPredictions capability refreshes", () => {
+  it("keeps cached capability data available after a transient refetch failure", async () => {
+    const capabilities = capabilitiesFixture as PropagationCapabilitiesResponse;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const capabilityKey = ["propagation-v4", "capabilities"] as const;
+    queryClient.setQueryData(capabilityKey, capabilities);
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result, unmount } = renderHook(
+      () =>
+        useNowCastBandPredictions({
+          origin: null,
+          target: null,
+          deriveEnvelope: () => null,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.available).toBe(true);
+    const capabilityQuery = queryClient.getQueryCache().find({
+      queryKey: capabilityKey,
+    });
+    expect(capabilityQuery).toBeDefined();
+
+    act(() => {
+      capabilityQuery?.setState({
+        error: new Error("temporary capability refresh failure"),
+        errorUpdatedAt: Date.now(),
+        status: "error",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.available).toBe(true);
+      expect(result.current.capabilityError).toBeNull();
+    });
 
     unmount();
     queryClient.clear();

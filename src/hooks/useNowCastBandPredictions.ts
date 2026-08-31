@@ -287,7 +287,9 @@ export function useNowCastBandPredictions(
       (propagationModelEnabled && capabilities.isPending) ||
       queries.some((query) => query.isPending || query.isFetching),
     capabilityError:
-      capabilities.error instanceof Error ? capabilities.error : null,
+      capabilities.data === undefined && capabilities.error instanceof Error
+        ? capabilities.error
+        : null,
     predictions,
     stationEnvelopes,
     errors,

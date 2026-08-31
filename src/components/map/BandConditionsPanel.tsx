@@ -135,6 +135,12 @@ function getOverallStatus(
   return "poor";
 }
 
+function queryFreshnessText(updatedAt: number, isError = false): string {
+  if (isError) return "refresh failed";
+  if (!updatedAt) return "not loaded";
+  return `${formatDistanceToNow(new Date(updatedAt), { addSuffix: false })} ago`;
+}
+
 // =============================================================================
 // GRID VIEW COMPONENTS (High-Viz Mode)
 // =============================================================================
@@ -431,12 +437,16 @@ export function BandConditionsPanel({
   } = useBandVerdicts();
   const {
     data: activityByBand,
+    dataUpdatedAt: bandActivityUpdatedAt,
     refetch: refetchBandActivity,
+    isError: isBandActivityError,
     isRefetching: isBandActivityRefetching,
   } = useBandActivity(activityScope);
   const {
     data: canonicalByKey,
+    dataUpdatedAt: bandLadderUpdatedAt,
     refetch: refetchBandLadder,
+    isError: isBandLadderError,
     isRefetching: isBandLadderRefetching,
   } = useBandLadder();
   const uiPrefs = useUIInteractionPrefs();
@@ -512,7 +522,9 @@ export function BandConditionsPanel({
     refetch: refetchSfi,
   } = useSolarFlux();
 
-  // Combined refresh state - use most recent update time
+  // Solar inputs and observation evidence refresh independently. Keep their
+  // ages separate so a new K-index response cannot make an older Band Health
+  // verdict look equally fresh (and vice versa).
   const lastUpdatedAt = useMemo(() => {
     return Math.max(kIndexUpdatedAt || 0, sfiUpdatedAt || 0);
   }, [kIndexUpdatedAt, sfiUpdatedAt]);
@@ -536,13 +548,18 @@ export function BandConditionsPanel({
     refetchSfi,
   ]);
 
-  // Format last updated time
-  const lastUpdatedText = useMemo(() => {
-    if (!lastUpdatedAt) {
-      return "Never";
-    }
-    return formatDistanceToNow(new Date(lastUpdatedAt), { addSuffix: false });
-  }, [lastUpdatedAt]);
+  // These inexpensive labels are intentionally recalculated on each render;
+  // displayTime already keeps an open PropSphere updating, so their ages do
+  // not freeze merely because React Query returned no new data.
+  const lastUpdatedText = queryFreshnessText(lastUpdatedAt);
+  const bandActivityFreshnessText = queryFreshnessText(
+    bandActivityUpdatedAt,
+    isBandActivityError,
+  );
+  const bandLadderFreshnessText =
+    bandHealthScope.type === "dx"
+      ? "not used for DX"
+      : queryFreshnessText(bandLadderUpdatedAt, isBandLadderError);
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
@@ -1064,9 +1081,13 @@ export function BandConditionsPanel({
             <div className="mt-1 text-[10px] text-gray-500">
               Live status: {bandHealthScope.label} · signal/SNR: path model
             </div>
+            <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-gray-500">
+              <span>Band evidence: {bandActivityFreshnessText}</span>
+              <span>Canonical ladder: {bandLadderFreshnessText}</span>
+            </div>
             <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-white/5">
               <span className="text-[10px] text-gray-500">
-                Updated {lastUpdatedText} ago
+                Solar inputs: {lastUpdatedText}
               </span>
               <button
                 onClick={handleRefresh}
@@ -1210,19 +1231,7 @@ const BandConditionRow = memo(function BandConditionRow({
   return (
     <tr
       onClick={() => verdict && onSelect?.(condition.band)}
-      onKeyDown={(event) => {
-        if (!verdict || (event.key !== "Enter" && event.key !== " ")) return;
-        event.preventDefault();
-        onSelect?.(condition.band);
-      }}
-      role={verdict ? "button" : undefined}
-      tabIndex={verdict ? 0 : undefined}
-      aria-label={
-        verdict
-          ? `${condition.band} ${statusLabel}. Open live band health details`
-          : undefined
-      }
-      className={`transition-colors ${verdict ? "cursor-pointer hover:bg-white/5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300" : ""} ${
+      className={`transition-colors ${verdict ? "cursor-pointer hover:bg-white/5" : ""} ${
         isSynced ? "bg-cyan-500/10 border-l-2 border-cyan-400" : ""
       } ${isGreylineActive ? "bg-amber-500/5" : ""}`}
     >
@@ -1243,11 +1252,25 @@ const BandConditionRow = memo(function BandConditionRow({
               />
             </svg>
           )}
-          <div
-            className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-white"}`}
-          >
-            {condition.band}
-          </div>
+          {verdict ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect?.(condition.band);
+              }}
+              className={`rounded font-mono text-sm underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300 ${isSynced ? "text-cyan-400" : "text-white"}`}
+              aria-label={`${condition.band} ${statusLabel}. Open live band health details`}
+            >
+              {condition.band}
+            </button>
+          ) : (
+            <div
+              className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-white"}`}
+            >
+              {condition.band}
+            </div>
+          )}
           {/* Greyline active indicator for low bands */}
           {isGreylineActive && (
             <span

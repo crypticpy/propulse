@@ -48,13 +48,18 @@ describe("activation label selections", () => {
   });
 
   it("selects a 3D activator as DX and opens its shared detail state", () => {
-    render(<ActivationMarkers3D spots={[SPOT]} />);
+    render(
+      <ActivationMarkers3D
+        spots={[{ ...SPOT, frequencyKHz: 14074.5 }]}
+      />,
+    );
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /K5ABC.*14\.074 megahertz.*open station details/i,
+        name: /K5ABC.*14\.0745 megahertz.*open station details/i,
       }),
     );
+    expect(screen.getByText("K5ABC 14.0745")).toBeTruthy();
 
     expect(useMapStore.getState().target).toEqual(
       expect.objectContaining({

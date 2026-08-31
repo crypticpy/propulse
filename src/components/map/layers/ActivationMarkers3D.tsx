@@ -51,9 +51,12 @@ export function ActivationMarkers3D({ spots }: ActivationMarkers3DProps) {
           key={spot.id}
           lat={spot.latitude}
           lon={spot.longitude}
-          callsign={spot.callsign}
+          // SpotLabel's generic frequency formatter uses fixed three-place
+          // MHz labels. Activations retain tenths of a kHz, so compose the
+          // visible text with the same precise formatter as the accessible
+          // name instead of letting 14.0745 MHz round to 14.075.
+          callsign={`${spot.callsign} ${formatActivationFrequency(spot.frequencyKHz)}`}
           mode={spot.mode}
-          frequency={spot.frequencyKHz}
           badge={spot.program}
           stackIndex={stackIndex}
           color={getBandColor(spot.frequencyKHz)}

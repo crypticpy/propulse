@@ -239,7 +239,12 @@ export interface SettingsState {
   radioDaemonAuthToken: string;
   /** CAT backend choice */
   catBackend:
-    "auto" | "hamlib" | "flrig" | "icom-serial" | "icom-network" | "disabled";
+    | "auto"
+    | "hamlib"
+    | "flrig"
+    | "icom-serial"
+    | "icom-network"
+    | "disabled";
   /** Hamlib/rigctld host */
   catHamlibHost: string;
   /** Hamlib/rigctld port */
@@ -736,7 +741,8 @@ export const useSettingsStore = create<SettingsStore>()(
         if (version < 6) {
           // Add alertDisplayStyle to notification preferences
           const notif = state.notifications as
-            Record<string, unknown> | undefined;
+            | Record<string, unknown>
+            | undefined;
           if (notif && notif.alertDisplayStyle === undefined) {
             notif.alertDisplayStyle = "toast";
           }
@@ -940,7 +946,8 @@ export const useSettingsStore = create<SettingsStore>()(
         if (version < 23) {
           // Add enhanced alert sound + visual glow accessibility settings
           const notifs = state.notifications as
-            Record<string, unknown> | undefined;
+            | Record<string, unknown>
+            | undefined;
           if (notifs) {
             if (notifs.useEnhancedAlertSounds === undefined)
               notifs.useEnhancedAlertSounds = true;
@@ -966,7 +973,8 @@ export const useSettingsStore = create<SettingsStore>()(
             state.catIcomBaudRate = 19200;
           if (state.catIcomRadioAddress === undefined)
             state.catIcomRadioAddress = 0x94;
-          if (state.catPttLockout === undefined) state.catPttLockout = false;
+          if (state.catPttLockout === undefined)
+            state.catPttLockout = false;
           if (state.catIcomNetworkHost === undefined)
             state.catIcomNetworkHost = "";
           if (state.catIcomNetworkUsername === undefined)

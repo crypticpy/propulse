@@ -244,7 +244,9 @@ function PillToggle({
       }}
       className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
         disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
-      } ${checked ? "bg-signal-green" : "bg-white/10"}`}
+      } ${
+        checked ? "bg-signal-green" : "bg-white/10"
+      }`}
     >
       <span
         className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform duration-200 mt-0.5 ${

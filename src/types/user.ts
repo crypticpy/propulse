@@ -16,7 +16,13 @@ import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
  * Location type for categorizing operating locations
  */
 export type LocationType =
-  "home" | "portable" | "mobile" | "pota" | "sota" | "fieldday" | "other";
+  | "home"
+  | "portable"
+  | "mobile"
+  | "pota"
+  | "sota"
+  | "fieldday"
+  | "other";
 
 /**
  * Operating location with full metadata
@@ -646,7 +652,11 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
 
 /** Social link platform types */
 export type SocialLinkType =
-  "qrz" | "hamqth" | "website" | "twitter" | "mastodon";
+  | "qrz"
+  | "hamqth"
+  | "website"
+  | "twitter"
+  | "mastodon";
 
 /** Social link with URL and auto-generation flag */
 export interface SocialLink {

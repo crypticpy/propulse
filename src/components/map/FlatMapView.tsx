@@ -102,6 +102,12 @@ import { useLightning } from "@/hooks/useLightning";
 import { useFires } from "@/hooks/useFires";
 import { useWsprSpots } from "@/hooks/useWspr";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
+import { getWsprBandColor } from "@/lib/map/wsprBandColors";
+import {
+  LIGHTNING_COLOR_FLAT,
+  LIGHTNING_COLOR_STRONG,
+  LIGHTNING_STRONG_KA,
+} from "@/lib/map/lightningColors";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
@@ -1143,14 +1149,17 @@ function drawLightning(
     ctx.globalAlpha = alpha * 0.3;
     ctx.beginPath();
     ctx.arc(x, y, (6 * intensity) / zoomDamp, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffe566";
+    ctx.fillStyle = LIGHTNING_COLOR_FLAT;
     ctx.fill();
 
     // Inner core — scaled by intensity, brighter white for strong strikes
     ctx.globalAlpha = alpha * 0.8;
     ctx.beginPath();
     ctx.arc(x, y, (3 * intensity) / zoomDamp, 0, Math.PI * 2);
-    ctx.fillStyle = strike.currentKA > 100 ? "#ffffff" : "#ffe566";
+    ctx.fillStyle =
+      strike.currentKA > LIGHTNING_STRONG_KA
+        ? LIGHTNING_COLOR_STRONG
+        : LIGHTNING_COLOR_FLAT;
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -1217,21 +1226,8 @@ function drawWsprPaths(
     // Skip if the path wraps around the map edge (long horizontal lines)
     if (Math.abs(tx.x - rx.x) > width * 0.8) continue;
 
-    // Color by band
-    let color: string;
-    if (spot.band <= 1.8)
-      color = "#ff6688"; // 160m
-    else if (spot.band <= 3.5)
-      color = "#ff8844"; // 80m
-    else if (spot.band <= 7)
-      color = "#ffaa22"; // 40m
-    else if (spot.band <= 14)
-      color = "#ffdd00"; // 20m
-    else if (spot.band <= 21)
-      color = "#88ee44"; // 15m
-    else if (spot.band <= 28)
-      color = "#44ccff"; // 10m
-    else color = "#aa88ff"; // 6m+
+    // Color by band -- shared ladder with the 3D globe overlay and the legend
+    const color = getWsprBandColor(spot.band);
 
     ctx.strokeStyle = color;
     ctx.beginPath();

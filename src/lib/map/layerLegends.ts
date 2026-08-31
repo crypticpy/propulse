@@ -12,7 +12,7 @@
  * their plain hex-string/table exports are referenced here.
  */
 
-import type { MapState } from "@/stores/mapStore";
+import type { MapState, ViewMode } from "@/stores/mapStore";
 import type { SpotColorMode } from "@/lib/utils/spotColors";
 import { MODE_COLORS, BAND_COLORS } from "@/lib/utils/spotColors";
 import { FT8_DECODE_COLORS } from "@/components/map/layers/Ft8DecodeLayer3D";
@@ -23,7 +23,7 @@ import {
   BEACON_COLOR_ACTIVE,
   BEACON_COLOR_INACTIVE,
 } from "@/components/map/layers/BeaconNetworkOverlay3D";
-import { WSPR_BAND_COLORS } from "@/components/map/layers/WSPROverlay3D";
+import { WSPR_BAND_COLORS } from "@/lib/map/wsprBandColors";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import { EQ_MAGNITUDE_COLORS } from "@/components/map/EarthquakeOverlay3D";
 import { ALERT_SEVERITY_COLORS } from "@/components/map/WeatherAlerts3D";
@@ -33,6 +33,13 @@ import {
   COLOR_6M,
   COLOR_DEFAULT,
 } from "@/components/map/layers/MeteorShowerOverlay3D";
+import { FIRE_CORE_COLOR } from "@/components/map/FireOverlay3D";
+import {
+  LIGHTNING_COLOR_FLAT,
+  LIGHTNING_COLOR_STRONG,
+  LIGHTNING_COLOR_WEAK,
+  LIGHTNING_STRONG_KA,
+} from "@/lib/map/lightningColors";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,6 +91,7 @@ const SATELLITE_CATEGORY_ORDER: SatelliteCategory[] = [
 const QSO_BAND_ORDER = [
   "160",
   "80",
+  "60",
   "40",
   "30",
   "20",
@@ -100,43 +108,37 @@ const QSO_BAND_ORDER = [
 // ---------------------------------------------------------------------------
 
 function buildSpotsSpec(spotColorMode: SpotColorMode): LayerLegendSpec {
-  if (spotColorMode === "snr") {
-    return {
-      key: "spots",
-      title: "DX Spots",
-      entries: [],
-      note: "Colored by signal strength (dim → bright)",
-    };
-  }
-  if (spotColorMode === "age") {
-    return {
-      key: "spots",
-      title: "DX Spots",
-      entries: [],
-      note: "Colored by age (bright → faded)",
-    };
-  }
-  if (spotColorMode === "band") {
-    return {
-      key: "spots",
-      title: "DX Spots",
-      entries: SPOT_BAND_ORDER.map((band) => ({
-        color: BAND_COLORS[band],
-        label: band,
-      })),
-    };
-  }
   // "mode" (default): FT8/FT4/DIGI/DATA share one cyan swatch.
-  return {
-    key: "spots",
-    title: "DX Spots",
-    entries: [
-      { color: MODE_COLORS.FT8, label: "FT8/FT4/Digital" },
-      { color: MODE_COLORS.CW, label: "CW" },
-      { color: MODE_COLORS.SSB, label: "SSB" },
-      { color: MODE_COLORS.RTTY, label: "RTTY" },
-    ],
-  };
+  if (spotColorMode === "mode") {
+    return {
+      key: "spots",
+      title: "DX Spots",
+      entries: [
+        { color: MODE_COLORS.FT8, label: "FT8/FT4/Digital" },
+        { color: MODE_COLORS.CW, label: "CW" },
+        { color: MODE_COLORS.SSB, label: "SSB" },
+        { color: MODE_COLORS.RTTY, label: "RTTY" },
+      ],
+    };
+  }
+
+  // Everything else is band-colored: getSpotColor (src/lib/utils/spotColors.ts)
+  // special-cases only "mode" and routes "band", "snr" and "age" alike through
+  // getBandColor. The "snr"/"age" note keeps the legend honest about that
+  // rather than describing a shading the renderer does not apply.
+  const bandEntries = SPOT_BAND_ORDER.map((band) => ({
+    color: BAND_COLORS[band],
+    label: band,
+  }));
+  if (spotColorMode === "snr" || spotColorMode === "age") {
+    return {
+      key: "spots",
+      title: "DX Spots",
+      entries: bandEntries,
+      note: "Band colors — SNR/age shading is not applied to spot markers",
+    };
+  }
+  return { key: "spots", title: "DX Spots", entries: bandEntries };
 }
 
 function buildFt8SpotterSpec(): LayerLegendSpec {
@@ -194,7 +196,8 @@ function buildQsoSpec(layers: MapState["layers"]): LayerLegendSpec {
         ? "Contest QSOs"
         : "Logged QSOs";
   return {
-    key: layers.contestQsos && !layers.loggedQsos ? "contestQsos" : "loggedQsos",
+    key:
+      layers.contestQsos && !layers.loggedQsos ? "contestQsos" : "loggedQsos",
     title,
     entries: QSO_BAND_ORDER.map((band) => ({
       color: getQsoBandColor(band),
@@ -315,18 +318,79 @@ function buildFiresSpec(): LayerLegendSpec {
   return {
     key: "fires",
     title: "Fires",
-    // keep in sync with src/components/map/FireOverlay3D.tsx
-    entries: [{ color: "#ff6600", label: "Fires" }],
+    // The core is the dot the user sees; #ff6600 is only the translucent glow.
+    entries: [{ color: FIRE_CORE_COLOR, label: "Active fire" }],
   };
 }
 
-function buildLightningSpec(): LayerLegendSpec {
+function buildLightningSpec(viewMode: ViewMode): LayerLegendSpec {
+  // The globe interpolates the core color continuously by peak current; the
+  // 2D renderers draw amber and switch to white only above the threshold.
+  const entries =
+    viewMode === "globe"
+      ? [
+          { color: LIGHTNING_COLOR_WEAK, label: "Weak strike" },
+          { color: LIGHTNING_COLOR_STRONG, label: "Strong strike" },
+        ]
+      : [
+          { color: LIGHTNING_COLOR_FLAT, label: "Strike" },
+          {
+            color: LIGHTNING_COLOR_STRONG,
+            label: `Over ${LIGHTNING_STRONG_KA} kA`,
+          },
+        ];
   return {
     key: "lightning",
     title: "Lightning",
-    entries: [],
-    note: "Blue = weak strike → white = strong",
+    entries,
+    note: "Strikes fade out over 10 minutes",
   };
+}
+
+// ---------------------------------------------------------------------------
+// Per-view support
+// ---------------------------------------------------------------------------
+
+/**
+ * Layers each renderer actually draws. A layer flag staying enabled while the
+ * user switches views must not put an entry in the legend for markers that
+ * view never paints.
+ *
+ * Globe draws everything in this module. FlatMapView and AzimuthalView have no
+ * code path at all for the layers omitted below -- verified by their absence
+ * from those files, not merely by a missing mount.
+ */
+const FLAT_SUPPORTED = new Set<keyof MapState["layers"]>([
+  "spots",
+  "ft8Spotter",
+  "satellites",
+  "wspr",
+  "contestQsos",
+  "loggedQsos",
+  "earthquakes",
+  "weather",
+  "fires",
+  "lightning",
+  "issTracker", // page-level ISSSkyTracker, mounted outside the view component
+]);
+
+const AZIMUTHAL_SUPPORTED = new Set<keyof MapState["layers"]>([
+  "spots",
+  "earthquakes",
+  "weather",
+  "fires",
+  "lightning",
+  "issTracker", // page-level ISSSkyTracker, mounted outside the view component
+]);
+
+/** Does `viewMode`'s renderer draw markers for `layer`? */
+export function isLayerVisibleInView(
+  layer: keyof MapState["layers"],
+  viewMode: ViewMode,
+): boolean {
+  if (viewMode === "flat") return FLAT_SUPPORTED.has(layer);
+  if (viewMode === "azimuthal") return AZIMUTHAL_SUPPORTED.has(layer);
+  return true; // globe renders every legend-able layer
 }
 
 // ---------------------------------------------------------------------------
@@ -334,33 +398,34 @@ function buildLightningSpec(): LayerLegendSpec {
 // ---------------------------------------------------------------------------
 
 /**
- * Build legend specs for every currently-enabled marker layer, in a fixed
- * display order. Layers that are off are omitted entirely.
+ * Build legend specs for every marker layer that is both enabled and drawn by
+ * the active renderer, in a fixed display order.
  */
 export function buildLayerLegends(
   layers: MapState["layers"],
-  opts: { spotColorMode: SpotColorMode },
+  opts: { spotColorMode: SpotColorMode; viewMode: ViewMode },
 ): LayerLegendSpec[] {
   const specs: LayerLegendSpec[] = [];
+  const on = (layer: keyof MapState["layers"]) =>
+    layers[layer] && isLayerVisibleInView(layer, opts.viewMode);
 
-  if (layers.spots) specs.push(buildSpotsSpec(opts.spotColorMode));
-  if (layers.ft8Spotter) specs.push(buildFt8SpotterSpec());
-  if (layers.satellites) specs.push(buildSatellitesSpec());
-  if (layers.beacons) specs.push(buildBeaconsSpec());
-  if (layers.wspr) specs.push(buildWsprSpec());
-  if (layers.contestQsos || layers.loggedQsos)
-    specs.push(buildQsoSpec(layers));
-  if (layers.earthquakes) specs.push(buildEarthquakesSpec());
-  if (layers.weather) specs.push(buildWeatherSpec());
-  if (layers.tropical) specs.push(buildTropicalSpec());
-  if (layers.riverGauges) specs.push(buildRiverGaugesSpec());
-  if (layers.meteorShowers) specs.push(buildMeteorShowersSpec());
-  if (layers.issTracker) specs.push(buildIssTrackerSpec());
-  if (layers.repeaters) specs.push(buildRepeatersSpec());
-  if (layers.aprs) specs.push(buildAprsSpec());
-  if (layers.timeStations) specs.push(buildTimeStationsSpec());
-  if (layers.fires) specs.push(buildFiresSpec());
-  if (layers.lightning) specs.push(buildLightningSpec());
+  if (on("spots")) specs.push(buildSpotsSpec(opts.spotColorMode));
+  if (on("ft8Spotter")) specs.push(buildFt8SpotterSpec());
+  if (on("satellites")) specs.push(buildSatellitesSpec());
+  if (on("beacons")) specs.push(buildBeaconsSpec());
+  if (on("wspr")) specs.push(buildWsprSpec());
+  if (on("contestQsos") || on("loggedQsos")) specs.push(buildQsoSpec(layers));
+  if (on("earthquakes")) specs.push(buildEarthquakesSpec());
+  if (on("weather")) specs.push(buildWeatherSpec());
+  if (on("tropical")) specs.push(buildTropicalSpec());
+  if (on("riverGauges")) specs.push(buildRiverGaugesSpec());
+  if (on("meteorShowers")) specs.push(buildMeteorShowersSpec());
+  if (on("issTracker")) specs.push(buildIssTrackerSpec());
+  if (on("repeaters")) specs.push(buildRepeatersSpec());
+  if (on("aprs")) specs.push(buildAprsSpec());
+  if (on("timeStations")) specs.push(buildTimeStationsSpec());
+  if (on("fires")) specs.push(buildFiresSpec());
+  if (on("lightning")) specs.push(buildLightningSpec(opts.viewMode));
 
   return specs;
 }

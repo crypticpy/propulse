@@ -151,8 +151,8 @@ export function PropSphere() {
   const layers = useMapStore((s) => s.layers);
   const spotColorMode = useUIInteractionPrefs().spotColorMode ?? "mode";
   const hasLayerLegend = useMemo(
-    () => buildLayerLegends(layers, { spotColorMode }).length > 0,
-    [layers, spotColorMode],
+    () => buildLayerLegends(layers, { spotColorMode, viewMode }).length > 0,
+    [layers, spotColorMode, viewMode],
   );
   const activePreset = useMapStore((s) => s.activePreset);
   const layoutMode = useMapStore((s) => s.layoutMode);

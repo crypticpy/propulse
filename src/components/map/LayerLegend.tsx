@@ -26,13 +26,14 @@ interface LayerLegendProps {
 
 export function LayerLegend({ className = "" }: LayerLegendProps) {
   const layers = useMapStore((s) => s.layers);
+  const viewMode = useMapStore((s) => s.viewMode);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode = uiPrefs.spotColorMode ?? "mode";
   const [collapsed, setCollapsed] = useState(false);
 
   const specs = useMemo(
-    () => buildLayerLegends(layers, { spotColorMode }),
-    [layers, spotColorMode],
+    () => buildLayerLegends(layers, { spotColorMode, viewMode }),
+    [layers, spotColorMode, viewMode],
   );
 
   if (specs.length === 0) return null;
@@ -63,20 +64,21 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
               className="flex flex-wrap items-center gap-x-2 gap-y-1"
             >
               <span className="text-gray-500 font-medium">{spec.title}:</span>
-              {spec.note ? (
-                <span className="text-[10px] text-gray-400">{spec.note}</span>
-              ) : (
-                spec.entries.map((entry) => (
-                  <div key={entry.label} className="flex items-center gap-1">
-                    <div
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-[10px] text-gray-400">
-                      {entry.label}
-                    </span>
-                  </div>
-                ))
+              {spec.entries.map((entry) => (
+                <div key={entry.label} className="flex items-center gap-1">
+                  <div
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-[10px] text-gray-400">
+                    {entry.label}
+                  </span>
+                </div>
+              ))}
+              {spec.note && (
+                <span className="text-[10px] italic text-gray-500">
+                  {spec.note}
+                </span>
               )}
             </div>
           ))}

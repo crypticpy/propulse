@@ -65,7 +65,6 @@ export default tseslint.config(
             // Marker color tables exported for LayerLegend (src/lib/map/layerLegends.ts)
             "FT8_DECODE_COLORS",
             "CATEGORY_COLORS",
-            "WSPR_BAND_COLORS",
             "EQ_MAGNITUDE_COLORS",
             "ALERT_SEVERITY_COLORS",
             "STORM_CATEGORY_HEX",

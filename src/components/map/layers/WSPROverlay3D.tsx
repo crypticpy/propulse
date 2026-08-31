@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { bandFromFreqMHz } from "@/lib/utils/bandFromFreq";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { getWsprBandColor } from "@/lib/map/wsprBandColors";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,34 +68,12 @@ const SNR_MAX = 20;
 // ---------------------------------------------------------------------------
 
 /**
- * Band color ladder by upper frequency bound (MHz), lowest band first.
- * Exported so LayerLegend (src/lib/map/layerLegends.ts) can render a legend
- * that can never drift out of sync with the actual arc colors.
- */
-export const WSPR_BAND_COLORS: ReadonlyArray<{
-  maxMHz: number;
-  label: string;
-  color: string;
-}> = [
-  { maxMHz: 2.5, label: "160m", color: "#8b0000" }, // dark red
-  { maxMHz: 5.0, label: "80m", color: "#cc2222" }, // red
-  { maxMHz: 8.5, label: "40m", color: "#ff6600" }, // orange
-  { maxMHz: 12.0, label: "30m", color: "#ddcc00" }, // yellow
-  { maxMHz: 16.0, label: "20m", color: "#22cc44" }, // green
-  { maxMHz: 20.0, label: "17m", color: "#00cccc" }, // cyan
-  { maxMHz: 23.0, label: "15m", color: "#2266ff" }, // blue
-  { maxMHz: 26.0, label: "12m", color: "#4400cc" }, // indigo
-  { maxMHz: Infinity, label: "10m", color: "#9922cc" }, // purple
-];
-
-/**
- * Color map by band based on frequency in MHz.
+ * Color map by band based on frequency in MHz. The ladder itself lives in
+ * src/lib/map/wsprBandColors.ts so the flat map and the legend read the
+ * exact same palette.
  */
 function getBandColor(freqMHz: number): THREE.Color {
-  const entry =
-    WSPR_BAND_COLORS.find((band) => freqMHz < band.maxMHz) ??
-    WSPR_BAND_COLORS[WSPR_BAND_COLORS.length - 1];
-  return new THREE.Color(entry.color);
+  return new THREE.Color(getWsprBandColor(freqMHz));
 }
 
 // ---------------------------------------------------------------------------

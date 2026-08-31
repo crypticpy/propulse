@@ -36,6 +36,17 @@ export interface KioskScene {
   map?: KioskSceneMapConfig;
 }
 
+export type KioskHeaderScale = "compact" | "standard" | "large";
+
+export interface KioskPresentation {
+  /** Scale of the persistent scene/time strip at the top of a wall. */
+  headerScale: KioskHeaderScale;
+  /** Use the OpenType slashed-zero feature for wall-readable numerals. */
+  slashedZero: boolean;
+  /** Dim map/page content automatically while the QTH is on Earth's night side. */
+  autoNightDim: boolean;
+}
+
 /** Minimum alert priority that interrupts the rotation */
 export type BreakInLevel = "CRITICAL" | "WARNING" | "off";
 
@@ -47,12 +58,19 @@ export const KIOSK_ROUTES: ReadonlyArray<{ route: string; label: string }> = [
   { route: "/dx", label: "DX Wizard" },
   { route: "/atmos", label: "AtmosPulse" },
   { route: "/satellites", label: "Satellites" },
+  { route: "/clock", label: "Big Clock" },
+  { route: "/stopwatch", label: "Stopwatch" },
 ];
 
 const MIN_INTERVAL_SEC = 15;
 const MAX_INTERVAL_SEC = 3600;
 const DEFAULT_ROTATION = { enabled: true, intervalSec: 120 };
 const DEFAULT_BREAK_IN_LEVEL: BreakInLevel = "CRITICAL";
+export const DEFAULT_PRESENTATION: KioskPresentation = {
+  headerScale: "standard",
+  slashedZero: false,
+  autoNightDim: false,
+};
 
 export const DEFAULT_SCENES: KioskScene[] = [
   {
@@ -70,12 +88,26 @@ export const DEFAULT_SCENES: KioskScene[] = [
   { id: "default-solar", name: "Solar Weather", route: "/solar" },
   { id: "default-dx", name: "DX Activity", route: "/dx" },
   { id: "default-storm", name: "Storm Watch", route: "/atmos" },
+  { id: "default-clock", name: "Big Clock", route: "/clock" },
+  { id: "default-stopwatch", name: "Stopwatch", route: "/stopwatch" },
 ];
+
+const V3_WALL_SCENES = DEFAULT_SCENES.filter(
+  (scene) => scene.id === "default-clock" || scene.id === "default-stopwatch",
+);
+const LEGACY_DEFAULT_SCENE_IDS = new Set([
+  "default-wall",
+  "default-globe",
+  "default-solar",
+  "default-dx",
+  "default-storm",
+]);
 
 interface KioskStore {
   scenes: KioskScene[];
   rotation: { enabled: boolean; intervalSec: number };
   breakInLevel: BreakInLevel;
+  presentation: KioskPresentation;
   active: boolean;
   activeSceneId: string | null;
 
@@ -85,6 +117,7 @@ interface KioskStore {
   removeScene: (id: string) => void;
   setRotation: (rotation: Partial<KioskStore["rotation"]>) => void;
   setBreakInLevel: (level: BreakInLevel) => void;
+  setPresentation: (patch: Partial<KioskPresentation>) => void;
 
   /** Enter kiosk mode, optionally at a specific scene */
   start: (sceneId?: string) => KioskScene | null;
@@ -97,7 +130,12 @@ interface KioskStore {
 
 type PersistedKioskState = Pick<
   KioskStore,
-  "scenes" | "rotation" | "breakInLevel" | "active" | "activeSceneId"
+  | "scenes"
+  | "rotation"
+  | "breakInLevel"
+  | "presentation"
+  | "active"
+  | "activeSceneId"
 >;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,6 +165,11 @@ const VALID_BREAK_IN_LEVELS = new Set<BreakInLevel>([
   "CRITICAL",
   "WARNING",
   "off",
+]);
+const VALID_HEADER_SCALES = new Set<KioskHeaderScale>([
+  "compact",
+  "standard",
+  "large",
 ]);
 
 function sanitizeMapConfig(value: unknown): KioskSceneMapConfig | undefined {
@@ -186,6 +229,7 @@ function normalizePersistedKioskState(value: unknown): PersistedKioskState {
     });
   const usableScenes = scenes.length > 0 ? scenes : cloneDefaultScenes();
   const rawRotation = isRecord(raw.rotation) ? raw.rotation : {};
+  const rawPresentation = isRecord(raw.presentation) ? raw.presentation : {};
   const active = typeof raw.active === "boolean" ? raw.active : false;
   const requestedActiveId =
     typeof raw.activeSceneId === "string" ? raw.activeSceneId : null;
@@ -215,6 +259,21 @@ function normalizePersistedKioskState(value: unknown): PersistedKioskState {
     )
       ? (raw.breakInLevel as BreakInLevel)
       : DEFAULT_BREAK_IN_LEVEL,
+    presentation: {
+      headerScale: VALID_HEADER_SCALES.has(
+        rawPresentation.headerScale as KioskHeaderScale,
+      )
+        ? (rawPresentation.headerScale as KioskHeaderScale)
+        : DEFAULT_PRESENTATION.headerScale,
+      slashedZero:
+        typeof rawPresentation.slashedZero === "boolean"
+          ? rawPresentation.slashedZero
+          : DEFAULT_PRESENTATION.slashedZero,
+      autoNightDim:
+        typeof rawPresentation.autoNightDim === "boolean"
+          ? rawPresentation.autoNightDim
+          : DEFAULT_PRESENTATION.autoNightDim,
+    },
     active,
     activeSceneId,
   };
@@ -230,14 +289,45 @@ export function migrateKioskState(
   version: number,
 ): PersistedKioskState {
   let candidate = persisted;
-  if (version < 2) {
-    const legacy = isRecord(persisted) ? { ...persisted } : {};
-    legacy.rotation = isRecord(legacy.rotation)
-      ? legacy.rotation
-      : { ...DEFAULT_ROTATION };
-    legacy.breakInLevel = legacy.breakInLevel ?? DEFAULT_BREAK_IN_LEVEL;
-    legacy.active = typeof legacy.active === "boolean" ? legacy.active : false;
-    legacy.activeSceneId = legacy.activeSceneId ?? null;
+  if (version < 3) {
+    const legacy = isRecord(candidate) ? { ...candidate } : {};
+    if (version < 2) {
+      legacy.rotation = isRecord(legacy.rotation)
+        ? legacy.rotation
+        : { ...DEFAULT_ROTATION };
+      legacy.breakInLevel = legacy.breakInLevel ?? DEFAULT_BREAK_IN_LEVEL;
+      legacy.active = typeof legacy.active === "boolean" ? legacy.active : false;
+      legacy.activeSceneId = legacy.activeSceneId ?? null;
+    }
+    // v3 adds wall presentation preferences. Copy defaults rather than the
+    // exported object so a hydrated store can never mutate shared constants.
+    legacy.presentation = isRecord(legacy.presentation)
+      ? legacy.presentation
+      : { ...DEFAULT_PRESENTATION };
+    if (Array.isArray(legacy.scenes)) {
+      // Preserve fully custom scene lists, but extend configurations derived
+      // from the shipped defaults so existing wall devices discover the new
+      // clock routes without requiring a localStorage reset.
+      const hasLegacyDefault = legacy.scenes.some(
+        (scene) =>
+          isRecord(scene) &&
+          typeof scene.id === "string" &&
+          LEGACY_DEFAULT_SCENE_IDS.has(scene.id),
+      );
+      if (hasLegacyDefault) {
+        const existingIds = new Set(
+          legacy.scenes.flatMap((scene) =>
+            isRecord(scene) && typeof scene.id === "string" ? [scene.id] : [],
+          ),
+        );
+        legacy.scenes = [
+          ...legacy.scenes,
+          ...V3_WALL_SCENES.filter((scene) => !existingIds.has(scene.id)).map(
+            (scene) => ({ ...scene }),
+          ),
+        ];
+      }
+    }
     candidate = legacy;
   }
   // Migration output is normalized here; the persist merge below repeats the
@@ -272,6 +362,7 @@ export const useKioskStore = create<KioskStore>()(
       scenes: cloneDefaultScenes(),
       rotation: { ...DEFAULT_ROTATION },
       breakInLevel: DEFAULT_BREAK_IN_LEVEL,
+      presentation: { ...DEFAULT_PRESENTATION },
       active: false,
       activeSceneId: null,
 
@@ -314,6 +405,11 @@ export const useKioskStore = create<KioskStore>()(
 
       setBreakInLevel: (breakInLevel) => set({ breakInLevel }),
 
+      setPresentation: (patch) =>
+        set((state) => ({
+          presentation: { ...state.presentation, ...patch },
+        })),
+
       start: (sceneId) => {
         const { scenes } = get();
         if (scenes.length === 0) return null;
@@ -342,12 +438,13 @@ export const useKioskStore = create<KioskStore>()(
     }),
     {
       name: "propulse-kiosk",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         scenes: state.scenes,
         rotation: state.rotation,
         breakInLevel: state.breakInLevel,
+        presentation: state.presentation,
         active: state.active,
         activeSceneId: state.activeSceneId,
       }),
@@ -357,7 +454,7 @@ export const useKioskStore = create<KioskStore>()(
         // payloads contain data only, and must never replace action functions.
         ...current,
         // Unlike migrate, merge runs for every stored version. Keeping the
-        // normalizer here repairs manually edited and partially written v2
+        // normalizer here repairs manually edited and partially written v3
         // localStorage before any consumer can observe it.
         ...normalizePersistedKioskState(persisted),
       }),

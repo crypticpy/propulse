@@ -5,9 +5,11 @@ import {
   applySceneToMap,
   KIOSK_ROUTES,
   type BreakInLevel,
+  type KioskHeaderScale,
   type KioskScene,
 } from "@/stores/kioskStore";
 import type { LayoutMode, PresetName } from "@/stores/mapStore";
+import { useUserStore } from "@/stores/userStore";
 import { LaunchWallSection } from "@/components/kiosk/LaunchWallSection";
 
 const LAYOUT_MODES: LayoutMode[] = ["normal", "pro", "lite", "hamclock"];
@@ -18,6 +20,14 @@ const PRESETS: Array<PresetName | ""> = [
   "vhf",
   "emergency",
   "science",
+];
+const HEADER_SCALES: ReadonlyArray<{
+  value: KioskHeaderScale;
+  label: string;
+}> = [
+  { value: "compact", label: "Compact" },
+  { value: "standard", label: "Standard" },
+  { value: "large", label: "Large" },
 ];
 
 const inputClass =
@@ -37,11 +47,14 @@ export function KioskPage() {
   const scenes = useKioskStore((s) => s.scenes);
   const rotation = useKioskStore((s) => s.rotation);
   const breakInLevel = useKioskStore((s) => s.breakInLevel);
+  const presentation = useKioskStore((s) => s.presentation);
   const addScene = useKioskStore((s) => s.addScene);
   const removeScene = useKioskStore((s) => s.removeScene);
   const setRotation = useKioskStore((s) => s.setRotation);
   const setBreakInLevel = useKioskStore((s) => s.setBreakInLevel);
+  const setPresentation = useKioskStore((s) => s.setPresentation);
   const start = useKioskStore((s) => s.start);
+  const station = useUserStore((s) => s.station);
 
   const [newName, setNewName] = useState("");
   const [newRoute, setNewRoute] = useState<string>(KIOSK_ROUTES[0].route);
@@ -215,6 +228,84 @@ export function KioskPage() {
 
       {/* Launch Wall (E7): every monitor becomes a kiosk in one click */}
       <LaunchWallSection scenes={scenes} />
+
+      {/* Wall appearance */}
+      <section className="bg-deep-space/60 border border-white/10 rounded-xl p-4 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">
+            Wall appearance
+          </h2>
+          <p className="mt-1 text-xs text-gray-500">
+            Tune high-distance readability without changing the normal app.
+          </p>
+        </div>
+
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Header size"
+        >
+          <span className="mr-1 text-sm text-gray-300">Header size</span>
+          {HEADER_SCALES.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() =>
+                setPresentation({ headerScale: option.value })
+              }
+              aria-pressed={presentation.headerScale === option.value}
+              className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                presentation.headerScale === option.value
+                  ? "border-plasma-orange/50 bg-plasma-orange/15 text-plasma-orange"
+                  : "border-white/10 bg-white/[0.03] text-gray-400 hover:bg-white/[0.07] hover:text-gray-200"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-x-8 gap-y-3">
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={presentation.slashedZero}
+              onChange={(event) =>
+                setPresentation({ slashedZero: event.target.checked })
+              }
+              className="accent-plasma-orange"
+            />
+            Slashed zero numerals
+          </label>
+
+          <label
+            className={`flex items-center gap-2 text-sm ${
+              station ? "text-gray-300" : "text-gray-600"
+            }`}
+            title={
+              station
+                ? "Uses the configured station coordinates"
+                : "Configure your station QTH to enable sunset dimming"
+            }
+          >
+            <input
+              type="checkbox"
+              checked={presentation.autoNightDim}
+              onChange={(event) =>
+                setPresentation({ autoNightDim: event.target.checked })
+              }
+              disabled={!station}
+              className="accent-plasma-orange disabled:cursor-not-allowed"
+            />
+            Auto-dim after QTH sunset
+          </label>
+        </div>
+        {!station && (
+          <p className="text-xs text-caution-amber/75">
+            Configure your station QTH to enable automatic night dimming.
+          </p>
+        )}
+      </section>
 
       {/* Rotation + alerts */}
       <section className="bg-deep-space/60 border border-white/10 rounded-xl p-4 flex flex-wrap items-center gap-x-8 gap-y-4">

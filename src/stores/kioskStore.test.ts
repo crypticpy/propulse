@@ -20,6 +20,7 @@ vi.hoisted(() => {
 import {
   useKioskStore,
   applySceneToMap,
+  DEFAULT_PRESENTATION,
   DEFAULT_SCENES,
   migrateKioskState,
   type KioskScene,
@@ -113,6 +114,19 @@ describe("kioskStore", () => {
     expect(useKioskStore.getState().rotation.intervalSec).toBe(120);
   });
 
+  it("updates wall presentation preferences without replacing other fields", () => {
+    useKioskStore.getState().setPresentation({
+      headerScale: "large",
+      slashedZero: true,
+    });
+
+    expect(useKioskStore.getState().presentation).toEqual({
+      headerScale: "large",
+      slashedZero: true,
+      autoNightDim: false,
+    });
+  });
+
   it("applySceneToMap applies map side effects and ignores non-map scenes", () => {
     const mapScene: KioskScene = {
       id: "s1",
@@ -130,7 +144,7 @@ describe("kioskStore", () => {
     expect(useMapStore.getState().layoutMode).toBe("pro");
   });
 
-  it("migrates v1 state into a bounded, internally consistent v2 payload", () => {
+  it("migrates v1 state into a bounded, internally consistent v3 payload", () => {
     const migrated = migrateKioskState(
       {
         scenes: [
@@ -166,7 +180,30 @@ describe("kioskStore", () => {
     ]);
     expect(migrated.rotation).toEqual({ enabled: false, intervalSec: 15 });
     expect(migrated.breakInLevel).toBe("CRITICAL");
+    expect(migrated.presentation).toEqual(DEFAULT_PRESENTATION);
     expect(migrated.activeSceneId).toBe("custom-wall");
+  });
+
+  it("adds wall presentation defaults while migrating a valid v2 payload", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [DEFAULT_SCENES[0]],
+        rotation: { enabled: false, intervalSec: 90 },
+        breakInLevel: "WARNING",
+        active: false,
+        activeSceneId: null,
+      },
+      2,
+    );
+
+    expect(migrated.presentation).toEqual(DEFAULT_PRESENTATION);
+    expect(migrated.scenes.map((scene) => scene.id)).toEqual([
+      "default-wall",
+      "default-clock",
+      "default-stopwatch",
+    ]);
+    expect(migrated.rotation).toEqual({ enabled: false, intervalSec: 90 });
+    expect(migrated.breakInLevel).toBe("WARNING");
   });
 
   it("repairs corrupt persisted scenes instead of hydrating unsafe values", () => {
@@ -178,15 +215,21 @@ describe("kioskStore", () => {
         ],
         rotation: { enabled: "yes", intervalSec: Number.NaN },
         breakInLevel: "EMERGENCY",
+        presentation: {
+          headerScale: "billboard",
+          slashedZero: "yes",
+          autoNightDim: 1,
+        },
         active: "yes",
         activeSceneId: "bad-route",
       },
-      2,
+      3,
     );
 
     expect(migrated.scenes).toEqual(DEFAULT_SCENES);
     expect(migrated.rotation).toEqual({ enabled: true, intervalSec: 120 });
     expect(migrated.breakInLevel).toBe("CRITICAL");
+    expect(migrated.presentation).toEqual(DEFAULT_PRESENTATION);
     expect(migrated.active).toBe(false);
     expect(migrated.activeSceneId).toBeNull();
   });
@@ -195,11 +238,16 @@ describe("kioskStore", () => {
     localStorage.setItem(
       "propulse-kiosk",
       JSON.stringify({
-        version: 2,
+        version: 3,
         state: {
           scenes: [{ id: "bad", name: "Bad", route: "/settings" }],
           rotation: { enabled: "yes", intervalSec: -50 },
           breakInLevel: "EMERGENCY",
+          presentation: {
+            headerScale: "huge",
+            slashedZero: "yes",
+            autoNightDim: null,
+          },
           active: true,
           activeSceneId: "bad",
         },
@@ -212,6 +260,7 @@ describe("kioskStore", () => {
     expect(hydrated.scenes).toEqual(DEFAULT_SCENES);
     expect(hydrated.rotation).toEqual({ enabled: true, intervalSec: 15 });
     expect(hydrated.breakInLevel).toBe("CRITICAL");
+    expect(hydrated.presentation).toEqual(DEFAULT_PRESENTATION);
     expect(hydrated.activeSceneId).toBe(DEFAULT_SCENES[0].id);
     expect(typeof hydrated.start).toBe("function");
   });

@@ -135,6 +135,18 @@ function isInside(
   );
 }
 
+function containsPoint(
+  point: ActivationMarkerPoint,
+  bounds: ActivationMarkerBounds,
+): boolean {
+  return (
+    point.x >= bounds.x &&
+    point.y >= bounds.y &&
+    point.x <= bounds.x + bounds.width &&
+    point.y <= bounds.y + bounds.height
+  );
+}
+
 /**
  * Choose a collision-free position while keeping the full pill visible. When
  * every candidate collides, visibility wins and the least-surprising first
@@ -219,6 +231,10 @@ export function drawActivationPills(
   for (const spot of spots) {
     const point = project(spot.latitude, spot.longitude);
     if (!point) continue;
+    // Bounds describe the visible map, not a request to pull every projected
+    // point onto its edge. Clamping below is only for a visible anchor whose
+    // pill would otherwise be clipped by the viewport.
+    if (options.bounds && !containsPoint(point, options.bounds)) continue;
 
     ctx.font =
       `700 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;

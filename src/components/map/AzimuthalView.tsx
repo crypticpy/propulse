@@ -1715,10 +1715,11 @@ export function AzimuthalView({
     return { x, y };
   }, [center, target, zoom]);
 
-  // Handle scroll wheel zoom - use native listener for non-passive support
+  // Listen on the shared map container so activation buttons layered over the
+  // canvas do not create dead zones for wheel zoom.
   useEffect(() => {
-    const canvas = overlayCanvasRef.current;
-    if (!canvas) {
+    const container = containerRef.current;
+    if (!container) {
       return;
     }
 
@@ -1728,8 +1729,8 @@ export function AzimuthalView({
       setZoom((prev) => Math.max(0.5, Math.min(3, prev * delta)));
     };
 
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-    return () => canvas.removeEventListener("wheel", handleWheel);
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
   }, []);
 
   // Clear hover tooltip when target changes

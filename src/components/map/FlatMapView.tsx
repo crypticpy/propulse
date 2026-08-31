@@ -3162,6 +3162,7 @@ export function FlatMapView({
   hideSizeSliders = false,
 }: FlatMapViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mapSurfaceRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
   const [activationPillPlacements, setActivationPillPlacements] = useState<
@@ -4032,16 +4033,17 @@ export function FlatMapView({
     [clampOffsets, runZoomAnimation],
   );
 
-  // Attach wheel event listener with passive: false to allow preventDefault
+  // Attach to the shared map surface so zoom keeps working when an accessible
+  // activation button, rather than the canvas beneath it, is the wheel target.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
+    const surface = mapSurfaceRef.current;
+    if (!surface) {
       return;
     }
 
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    surface.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
-      canvas.removeEventListener("wheel", handleWheel);
+      surface.removeEventListener("wheel", handleWheel);
     };
   }, [handleWheel]);
 
@@ -5120,6 +5122,7 @@ export function FlatMapView({
         </div>
       )}
       <div
+        ref={mapSurfaceRef}
         className="relative flex-shrink-0"
         style={{ width: viewportSize.width, height: viewportSize.height }}
       >

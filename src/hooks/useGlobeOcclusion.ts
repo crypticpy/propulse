@@ -23,6 +23,7 @@ import {
  * Prevents excessive re-renders for Html-based components.
  */
 const STATE_UPDATE_THRESHOLD = 0.05;
+const INTERACTION_VISIBILITY_THRESHOLD = 0.05;
 
 export interface GlobeOcclusion {
   /** Ref-based opacity for mesh components (read inside useFrame, no re-renders) */
@@ -71,9 +72,12 @@ export function useGlobeOcclusion(lat: number, lon: number): GlobeOcclusion {
 
     // Only update React state when change is significant (avoids excessive re-renders)
     // Compare against lastStateOpacityRef (not state) to avoid stale closure issue
+    const crossedInteractionThreshold =
+      (newOpacity >= INTERACTION_VISIBILITY_THRESHOLD) !==
+      (lastStateOpacityRef.current >= INTERACTION_VISIBILITY_THRESHOLD);
     if (
-      Math.abs(newOpacity - lastStateOpacityRef.current) >
-      STATE_UPDATE_THRESHOLD
+      crossedInteractionThreshold ||
+      Math.abs(newOpacity - lastStateOpacityRef.current) > STATE_UPDATE_THRESHOLD
     ) {
       lastStateOpacityRef.current = newOpacity;
       setOpacity(newOpacity);

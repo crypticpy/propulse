@@ -81,6 +81,8 @@ describe("HamClockBestBandHero", () => {
 
     const hero = screen.getByRole("button", { name: /Best band now: 80m/i });
     expect(hero.textContent).toContain("Fading");
+    expect(hero.getAttribute("aria-label")).toContain("80m, Fading");
+    expect(hero.getAttribute("aria-label")).not.toContain("Verified");
     fireEvent.click(hero);
     expect(screen.getByRole("dialog").textContent).toContain("80m");
   });

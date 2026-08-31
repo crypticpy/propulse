@@ -61,6 +61,11 @@ export function HamClockBestBandHero() {
     () => (ready ? selectBestBand(bands) : null),
     [bands, ready],
   );
+  const bestStatus = best
+    ? best.fading
+      ? "Fading"
+      : LADDER_LABEL[best.stable]
+    : null;
   const activity = best ? activityByBand?.get(best.band) : undefined;
   const canonical = best
     ? canonicalForBand(canonicalByKey, scope, best.band)
@@ -75,7 +80,7 @@ export function HamClockBestBandHero() {
         aria-haspopup={best ? "dialog" : undefined}
         aria-label={
           best
-            ? `Best band now: ${best.band}, ${LADDER_LABEL[best.stable]}. Open band health details`
+            ? `Best band now: ${best.band}, ${bestStatus}. Open band health details`
             : "Best band now is waiting for live band health"
         }
         className="w-full rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 disabled:cursor-wait"
@@ -100,7 +105,7 @@ export function HamClockBestBandHero() {
               <span
                 className={`truncate font-mono text-[10px] font-semibold uppercase ${LADDER_TEXT_CLASSES[best.stable]}`}
               >
-                {best.fading ? "Fading" : LADDER_LABEL[best.stable]}
+                {bestStatus}
               </span>
             </span>
             <span className="shrink-0 font-mono text-[8px] tabular-nums text-white/35">

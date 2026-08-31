@@ -1632,6 +1632,10 @@ export const useMapStore = create<MapState>((set, get) => ({
       layoutMode,
       isFullscreen: layoutMode === "pro",
       isLiteMode: layoutMode === "lite",
+      // HamClock starts on its lightweight flat renderer. Operators may opt
+      // into Azimuthal/3D from its header, and an explicit kiosk scene
+      // projection is applied after this transition by applySceneToMap.
+      ...(layoutMode === "hamclock" && { viewMode: "flat" as ViewMode }),
       ...(layoutMode === "lite" && { isDXConsoleExpanded: false }),
     });
   },

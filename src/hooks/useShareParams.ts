@@ -51,13 +51,10 @@ export function useShareParams(): { wasSharedLink: boolean } {
     }
 
     if (sharedState.layers) {
-      // Apply each layer setting individually
-      const currentLayers = store.layers;
-      for (const [layer, enabled] of Object.entries(sharedState.layers)) {
-        if (currentLayers[layer as keyof typeof currentLayers] !== enabled) {
-          store.toggleLayer(layer as keyof typeof currentLayers);
-        }
-      }
+      // A share URL represents a complete view, not a patch over this device's
+      // saved preferences. The store resets every non-encoded layer to its
+      // deterministic baseline before applying these eight public flags.
+      store.applySharedLayers(sharedState.layers);
     }
 
     if (sharedState.pathMode) {

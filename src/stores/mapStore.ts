@@ -422,6 +422,12 @@ export interface MapState {
     timeStations: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
+  /**
+   * Apply the layer subset encoded by a shared URL onto a clean baseline.
+   * Unlike manual toggles, a shared view must not inherit recipient-local
+   * persisted layers that the URL format cannot represent.
+   */
+  applySharedLayers: (layers: Partial<MapState["layers"]>) => void;
 
   // NVIS mode controls
   nvisEnabled: boolean;
@@ -1447,6 +1453,23 @@ export const useMapStore = create<MapState>((set, get) => ({
       if (state.activeProfile !== null) updates.activeProfile = null;
       return updates;
     }),
+
+  applySharedLayers: (sharedLayers) => {
+    // ShareState currently encodes the original eight public layer flags. A
+    // recipient may have any of the newer layers persisted locally, so merging
+    // into current state would make identical URLs render different maps.
+    // Rebuild from defaults instead: every non-encoded layer is deterministically
+    // off, while the encoded booleans fully describe the shared view.
+    saveActiveProfile(null);
+    set({
+      layers: normalizeExclusiveLayers(
+        { ...DEFAULT_LAYERS, ...sharedLayers },
+        sharedLayers.muf ? "muf" : undefined,
+      ),
+      activePreset: null,
+      activeProfile: null,
+    });
+  },
 
   applyPreset: (preset) => {
     saveActiveProfile(null);

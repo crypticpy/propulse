@@ -15,6 +15,37 @@ const hookData = vi.hoisted(() => ({
   }>,
   station: { lat: 0, lon: 0 },
   tickerCoverageArea: "regional" as "nearby" | "regional" | "wide",
+  feeds: [
+    {
+      id: "arrl",
+      url: "https://example.com/feed.xml",
+      label: "ARRL",
+      crawlEnabled: true,
+      crawlMaxAgeHours: 24 as const,
+    },
+  ],
+  crawlPreferences: {
+    solarThreshold: "INFO" as const,
+    weatherThreshold: "Moderate" as const,
+    breakInToneEnabled: true,
+    breakInVolume: 45,
+    dedupMinutes: 360 as const,
+  },
+  rssResults: [] as Array<{
+    source: { id: string; url: string };
+    feed: { title: string; link: string | null } | null;
+    items: Array<{
+      id: string | null;
+      title: string;
+      link: string | null;
+      publishedAt: string | null;
+      summary: string;
+    }>;
+    status: string;
+    isLoading: boolean;
+    error: Error | null;
+  }>,
+  playAlertTone: vi.fn(),
 }));
 
 vi.mock("@/hooks/useSolarData", () => ({
@@ -54,6 +85,33 @@ vi.mock("@/stores/settingsStore", () => ({
       tickerCoverageArea: "nearby" | "regional" | "wide";
     }) => unknown,
   ) => selector({ tickerCoverageArea: hookData.tickerCoverageArea }),
+}));
+
+vi.mock("@/stores/feedStore", () => ({
+  useFeedStore: (
+    selector: (state: {
+      feeds: typeof hookData.feeds;
+      crawlPreferences: typeof hookData.crawlPreferences;
+    }) => unknown,
+  ) =>
+    selector({
+      feeds: hookData.feeds,
+      crawlPreferences: hookData.crawlPreferences,
+    }),
+}));
+
+vi.mock("@/hooks/useRssFeed", () => ({
+  useRssFeeds: () => hookData.rssResults,
+  relativeTime: () => "2h ago",
+}));
+
+vi.mock("@/lib/audio/alertSynthesizer", () => ({
+  playAlertTone: hookData.playAlertTone,
+}));
+
+vi.mock("@/components/map/TickerCrawlSettingsDialog", () => ({
+  TickerCrawlSettingsDialog: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">Crawl settings</div> : null,
 }));
 
 // Keep the component test focused on ticker routing. The rich alert dialogs
@@ -118,6 +176,9 @@ describe("DXNewsTicker", () => {
     hookData.weatherAlerts = [];
     hookData.lightningStrikes = [];
     hookData.tickerCoverageArea = "regional";
+    hookData.rssResults = [];
+    hookData.playAlertTone.mockReset();
+    localStorage.clear();
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -186,6 +247,10 @@ describe("DXNewsTicker", () => {
 
   it("stays paused until both pointer hover and keyboard focus have left", () => {
     hookData.solarAlerts = [solarAlert];
+    localStorage.setItem(
+      "propulse-ticker-breakins-v1",
+      JSON.stringify({ "alert-solar-1": Date.now() }),
+    );
     render(<DXNewsTicker />);
 
     const ticker = screen.getByRole("marquee");
@@ -213,5 +278,98 @@ describe("DXNewsTicker", () => {
     expect(duplicate).not.toBeNull();
     expect(duplicate?.className).toContain("pointer-events-none");
     expect(duplicate?.querySelector("button")).toBeNull();
+  });
+
+  it("breaks in with a tone once and suppresses the same alert on remount", async () => {
+    hookData.solarAlerts = [solarAlert];
+    const first = render(<DXNewsTicker />);
+
+    expect(
+      (await screen.findByTestId("ticker-break-in")).textContent,
+    ).toContain("Geomagnetic storm in progress");
+    expect(hookData.playAlertTone).toHaveBeenCalledTimes(1);
+
+    first.unmount();
+    render(<DXNewsTicker />);
+
+    expect(screen.queryByTestId("ticker-break-in")).toBeNull();
+    expect(hookData.playAlertTone).toHaveBeenCalledTimes(1);
+  });
+
+  it("presents only the highest simultaneous alert and deduplicates its cohort", async () => {
+    hookData.solarAlerts = [solarAlert];
+    hookData.weatherAlerts = [
+      {
+        ...weatherAlert,
+        id: "weather-extreme",
+        event: "Tornado Emergency",
+        severity: "Extreme",
+      },
+    ];
+    const first = render(<DXNewsTicker />);
+
+    expect(
+      (await screen.findByTestId("ticker-break-in")).textContent,
+    ).toContain("Tornado Emergency");
+    expect(hookData.playAlertTone).toHaveBeenCalledWith(
+      "CRITICAL",
+      undefined,
+      45,
+    );
+
+    first.unmount();
+    render(<DXNewsTicker />);
+    expect(screen.queryByTestId("ticker-break-in")).toBeNull();
+    expect(hookData.playAlertTone).toHaveBeenCalledTimes(1);
+  });
+
+  it("adds configured RSS headlines and opens their source detail", async () => {
+    hookData.rssResults = [
+      {
+        source: { id: "arrl", url: "https://example.com/feed.xml" },
+        feed: { title: "ARRL", link: "https://example.com" },
+        items: [
+          {
+            id: "news-1",
+            title: "Field Day update",
+            link: "https://example.com/field-day",
+            publishedAt: new Date().toISOString(),
+            summary: "Latest operating guidance.",
+          },
+        ],
+        status: "ok",
+        isLoading: false,
+        error: null,
+      },
+    ];
+    render(<DXNewsTicker />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /ARRL: Field Day update.*Open details/i,
+      }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Field Day update",
+    });
+    expect(dialog.textContent).toContain("Latest operating guidance.");
+    expect(
+      screen.getByRole("link", { name: "Open source" }).getAttribute("href"),
+    ).toBe("https://example.com/field-day");
+  });
+
+  it("opens crawl configuration from the pinned control", async () => {
+    render(<DXNewsTicker />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Configure alert and news crawl",
+      }),
+    );
+
+    expect((await screen.findByRole("dialog")).textContent).toContain(
+      "Crawl settings",
+    );
   });
 });

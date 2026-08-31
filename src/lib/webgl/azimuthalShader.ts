@@ -38,6 +38,7 @@ export const FRAGMENT_SHADER = `
   uniform float uZoom;          // Zoom factor (1.0 = normal)
   uniform vec2 uSubsolar;       // Subsolar point lat, lon in radians (for day/night)
   uniform bool uShowNight;      // Whether to blend night texture
+  uniform float uNightOpacity;  // Operator-selected relative darkness (0..1)
   uniform bool uGrayscale;      // Whether to apply grayscale conversion
   uniform float uAspect;        // Aspect ratio for non-square canvases
   uniform float uMapScale;      // Map scale factor (RADIUS/CENTER) to match 2D overlay
@@ -146,7 +147,7 @@ export const FRAGMENT_SHADER = `
       }
 
       // Blend day and night
-      gl_FragColor = mix(dayColor, nightColor, nightMix);
+      gl_FragColor = mix(dayColor, nightColor, nightMix * uNightOpacity);
     } else {
       gl_FragColor = dayColor;
     }
@@ -163,6 +164,7 @@ export interface ShaderConfig {
   subsolarLat?: number; // Degrees
   subsolarLon?: number; // Degrees
   showNight: boolean;
+  nightOpacity?: number;
   mapScale?: number; // RADIUS/CENTER ratio to match 2D overlay (default: 260/300)
 }
 

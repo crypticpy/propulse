@@ -177,8 +177,9 @@ function ensureNightTextureLoaded(): HTMLImageElement | null {
   return null;
 }
 
-// Night overlay cache: stores the three blend-mode overlay canvases
+// Night overlay cache: stores the independent day-softening and night canvases
 let nightOverlayCache: {
+  daySofteningCanvas: HTMLCanvasElement | null;
   desatCanvas: HTMLCanvasElement;
   darkCanvas: HTMLCanvasElement;
   blueCanvas: HTMLCanvasElement;
@@ -340,9 +341,11 @@ function drawGrid(
  * and smooth twilight gradient. Uses multi-pass compositing with CSS blend modes
  * for realistic day/night visualization.
  *
- * Pass 1: Desaturate night-side pixels via 'saturation' blend mode
- * Pass 2: Darken and blue-tint via 'multiply' blend mode
- * Pass 3: Additional cold blue atmosphere via 'screen' blend mode
+ * Satellite imagery first receives a fixed day-side softening pass. The user
+ * intensity then scales only the three night-side passes:
+ * 1. Desaturate night-side pixels via 'saturation' blend mode
+ * 2. Darken and blue-tint via 'multiply' blend mode
+ * 3. Add a cold blue atmosphere via 'screen' blend mode
  *
  * Uses offscreen canvases since getImageData/putImageData bypass canvas transforms
  * (DPR scaling, zoom) and would produce incorrect results on HiDPI displays.
@@ -353,7 +356,13 @@ function drawNightSide(
   width: number,
   height: number,
   variant: "satellite" | "standard",
+  opacity = 1,
 ) {
+  const intensity = Math.max(0, Math.min(1, opacity));
+  // Standard maps have no independent daytime treatment. Satellite maps must
+  // still retain their fixed glare reduction when nighttime darkness is off.
+  if (intensity === 0 && variant === "standard") return;
+
   // Check cache: reuse overlay canvases if time hasn't changed by >= 1 minute
   const currentMinute = getTimeMinute(date);
   if (
@@ -365,20 +374,37 @@ function drawNightSide(
   ) {
     // Apply cached overlays with their respective blend modes
     if (variant === "satellite") {
+      if (nightOverlayCache.daySofteningCanvas) {
+        ctx.save();
+        ctx.globalCompositeOperation = "multiply";
+        ctx.drawImage(
+          nightOverlayCache.daySofteningCanvas,
+          0,
+          0,
+          width,
+          height,
+        );
+        ctx.restore();
+      }
+      if (intensity === 0) return;
+
       ctx.save();
       ctx.globalCompositeOperation = "saturation";
+      ctx.globalAlpha = intensity;
       ctx.drawImage(nightOverlayCache.desatCanvas, 0, 0, width, height);
       ctx.restore();
     }
 
     ctx.save();
     ctx.globalCompositeOperation = "multiply";
+    ctx.globalAlpha = intensity;
     ctx.drawImage(nightOverlayCache.darkCanvas, 0, 0, width, height);
     ctx.restore();
 
     if (variant === "satellite") {
       ctx.save();
       ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = intensity;
       ctx.drawImage(nightOverlayCache.blueCanvas, 0, 0, width, height);
       ctx.restore();
     }
@@ -421,6 +447,23 @@ function drawNightSide(
 
   const desatData = desatCtx.createImageData(width, height);
   const desatPixels = desatData.data;
+
+  // Satellite day-side glare reduction is intentionally independent from the
+  // operator's night-darkness preference. Keeping it on a separate canvas
+  // prevents the sunlit hemisphere from changing as the night slider moves.
+  let daySofteningCanvas: HTMLCanvasElement | null = null;
+  let daySofteningCtx: CanvasRenderingContext2D | null = null;
+  let daySofteningData: ImageData | null = null;
+  let daySofteningPixels: Uint8ClampedArray | null = null;
+  if (variant === "satellite") {
+    daySofteningCanvas = document.createElement("canvas");
+    daySofteningCanvas.width = width;
+    daySofteningCanvas.height = height;
+    daySofteningCtx = daySofteningCanvas.getContext("2d");
+    if (!daySofteningCtx) return;
+    daySofteningData = daySofteningCtx.createImageData(width, height);
+    daySofteningPixels = daySofteningData.data;
+  }
 
   // --- Pass 2: Darkening + blue tint overlay using 'multiply' blend mode ---
   const darkCanvas = document.createElement("canvas");
@@ -466,11 +509,11 @@ function drawNightSide(
 
       if (angle <= TWILIGHT_START) {
         // Day-side softening to reduce eye strain on bright satellite imagery
-        if (variant === "satellite") {
-          darkPixels[idx] = Math.floor(255 * 0.88); // red reduction
-          darkPixels[idx + 1] = Math.floor(255 * 0.88); // green reduction
-          darkPixels[idx + 2] = Math.floor(255 * 0.93); // preserve blue more (sky feel)
-          darkPixels[idx + 3] = Math.floor(255 * 0.26); // moderate overlay
+        if (daySofteningPixels) {
+          daySofteningPixels[idx] = Math.floor(255 * 0.88); // red reduction
+          daySofteningPixels[idx + 1] = Math.floor(255 * 0.88); // green reduction
+          daySofteningPixels[idx + 2] = Math.floor(255 * 0.93); // preserve blue more (sky feel)
+          daySofteningPixels[idx + 3] = Math.floor(255 * 0.26); // moderate overlay
         }
         continue;
       }
@@ -529,6 +572,9 @@ function drawNightSide(
 
   // Finalize overlay canvases
   if (variant === "satellite") {
+    if (daySofteningCtx && daySofteningData) {
+      daySofteningCtx.putImageData(daySofteningData, 0, 0);
+    }
     desatCtx.putImageData(desatData, 0, 0);
   }
   darkCtx.putImageData(darkData, 0, 0);
@@ -538,6 +584,7 @@ function drawNightSide(
 
   // Cache the three overlay canvases for reuse
   nightOverlayCache = {
+    daySofteningCanvas,
     desatCanvas,
     darkCanvas,
     blueCanvas,
@@ -547,10 +594,20 @@ function drawNightSide(
     height,
   };
 
-  // Composite Pass 1: Desaturation
+  // Fixed satellite day-side softening is deliberately not user-scaled.
   if (variant === "satellite") {
+    if (daySofteningCanvas) {
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      ctx.drawImage(daySofteningCanvas, 0, 0, width, height);
+      ctx.restore();
+    }
+    if (intensity === 0) return;
+
+    // Composite Pass 1: Desaturation
     ctx.save();
     ctx.globalCompositeOperation = "saturation";
+    ctx.globalAlpha = intensity;
     ctx.drawImage(desatCanvas, 0, 0, width, height);
     ctx.restore();
   }
@@ -558,6 +615,7 @@ function drawNightSide(
   // Composite Pass 2: Darkening with blue tint
   ctx.save();
   ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = intensity;
   ctx.drawImage(darkCanvas, 0, 0, width, height);
   ctx.restore();
 
@@ -565,6 +623,7 @@ function drawNightSide(
   if (variant === "satellite") {
     ctx.save();
     ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = intensity;
     ctx.drawImage(blueCanvas, 0, 0, width, height);
     ctx.restore();
   }
@@ -3219,6 +3278,7 @@ export function FlatMapView({
   const layers = useMapStore((s) => s.layers);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
+  const nightDarkness = useMapStore((s) => s.nightDarkness);
   const target = useMapStore((s) => s.target);
 
   // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
@@ -4583,6 +4643,7 @@ export function FlatMapView({
         renderWidth,
         renderHeight,
         isStandard ? "standard" : "satellite",
+        nightDarkness,
       );
       drawTerminator(
         ctx,
@@ -5076,6 +5137,7 @@ export function FlatMapView({
     mapPinScale,
     labelScale,
     mapStyle,
+    nightDarkness,
     wasStates,
     watchEnabled,
     matchedSpotIds,

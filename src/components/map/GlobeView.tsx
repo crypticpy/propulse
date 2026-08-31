@@ -917,6 +917,7 @@ const GlobeScene = React.memo(function GlobeScene({
   const target = useMapStore((s) => s.target);
   const pathMode = useMapStore((s) => s.pathMode);
   const mapStyle = useMapStore((s) => s.mapStyle);
+  const nightDarkness = useMapStore((s) => s.nightDarkness);
   const rotation = useMapStore((s) => s.rotation);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const displayDensity = useMapStore((s) => s.displayDensity);
@@ -1350,7 +1351,10 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* Night side darkening overlay */}
         {layers.terminator && (
-          <NightOverlay date={displayTime} opacity={isStandard ? 0.75 : 0.6} />
+          <NightOverlay
+            date={displayTime}
+            opacity={(isStandard ? 0.75 : 0.6) * nightDarkness}
+          />
         )}
 
         {/* Day/night terminator line */}

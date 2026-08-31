@@ -202,6 +202,8 @@ interface BasemapOption {
 export default function BasemapCategory() {
   const mapStyle = useMapStore((s) => s.mapStyle);
   const setMapStyle = useMapStore((s) => s.setMapStyle);
+  const nightDarkness = useMapStore((s) => s.nightDarkness);
+  const setNightDarkness = useMapStore((s) => s.setNightDarkness);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
 
   const satelliteSubtitle =
@@ -268,6 +270,35 @@ export default function BasemapCategory() {
             : "Powered by Esri"
           : "\u00A9 OpenStreetMap contributors"}
       </p>
+
+      <div className="mt-3 border-t border-white/10 pt-3">
+        <label
+          htmlFor="basemap-night-darkness"
+          className="flex items-center justify-between text-[10px] text-white/60"
+        >
+          <span>Night darkness</span>
+          <output htmlFor="basemap-night-darkness" className="font-mono text-cyan-300">
+            {Math.round(nightDarkness * 100)}%
+          </output>
+        </label>
+        <input
+          id="basemap-night-darkness"
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          value={Math.round(nightDarkness * 100)}
+          onChange={(event) => setNightDarkness(Number(event.target.value) / 100)}
+          className="mt-2 w-full accent-cyan-400"
+          aria-describedby="basemap-night-darkness-help"
+        />
+        <p
+          id="basemap-night-darkness-help"
+          className="mt-1 text-[9px] leading-relaxed text-white/30"
+        >
+          Controls dark-side intensity when the Day/Night layer is on.
+        </p>
+      </div>
     </div>
   );
 }

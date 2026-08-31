@@ -166,10 +166,13 @@ function buildActivationsSpec(): LayerLegendSpec {
   return {
     key: "activations",
     title: "Activations",
-    entries: SPOT_BAND_ORDER.map((band) => ({
-      color: BAND_COLORS[band],
-      label: band,
-    })),
+    entries: [
+      ...SPOT_BAND_ORDER.map((band) => ({
+        color: BAND_COLORS[band],
+        label: band,
+      })),
+      { color: BAND_COLORS.default, label: "Other" },
+    ],
     note: "POTA/SOTA/WWFF callsign pills use band colors",
   };
 }

@@ -182,6 +182,7 @@ import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
 import { ActivationMarkers3D } from "./layers/ActivationMarkers3D";
+import { LunarSubpointMarker3D } from "./layers/LunarSubpointMarker3D";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -1562,6 +1563,10 @@ const GlobeScene = React.memo(function GlobeScene({
         {/* Activators are point reports; keep them separate from DX path arcs. */}
         {layers.activations && (
           <ActivationMarkers3D spots={activationSpots} />
+        )}
+
+        {layers.lunarSubpoint && (
+          <LunarSubpointMarker3D displayTime={displayTime} />
         )}
 
         {/* Animated spot trace lines — "missile command" style */}

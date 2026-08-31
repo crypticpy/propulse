@@ -63,6 +63,8 @@ import {
   type ActivationPillScreenPlacement,
 } from "@/lib/map/activationMarkers";
 import { ActivationPillButtons } from "./layers/ActivationPillButtons";
+import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
+import { getSublunarPoint } from "@/lib/utils/moon";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -2001,6 +2003,21 @@ export function AzimuthalView({
       setActivationPillPlacements((current) =>
         current.length === 0 ? current : [],
       );
+    }
+
+    if (layers.lunarSubpoint) {
+      const point = getSublunarPoint(displayTime);
+      const projected = azimuthalProject(
+        point.lat,
+        point.lon,
+        center.lat,
+        center.lon,
+      );
+      if (Math.hypot(projected.x, projected.y) <= 1) {
+        drawLunarSubpointMarker(ctx, projToCanvas(projected), {
+          zoomScale: zoom,
+        });
+      }
     }
 
     // Hazard layers

@@ -16,7 +16,6 @@ import {
   lazy,
   Suspense,
 } from "react";
-import { addHours } from "date-fns";
 import {
   FlatMapView,
   TimeControl,
@@ -86,6 +85,7 @@ import { ShareModal } from "@/components/ui/ShareModal";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { useMapStore } from "@/stores/mapStore";
 import { useDisplayFit } from "@/hooks/useDisplayFit";
+import { useMapDisplayTime } from "@/hooks/useUTCClock";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useUserStore } from "@/stores/userStore";
@@ -163,6 +163,7 @@ export function PropSphere() {
   const isKiosk = useKioskStore((s) => s.active);
   const viewMode = useMapStore((s) => s.viewMode);
   const timeOffset = useMapStore((s) => s.timeOffset);
+  const absoluteTime = useMapStore((s) => s.absoluteTime);
   const setTimeOffset = useMapStore((s) => s.setTimeOffset);
   const target = useMapStore((s) => s.target);
   const setTarget = useMapStore((s) => s.setTarget);
@@ -574,10 +575,9 @@ export function PropSphere() {
     [rightPanelWidth],
   );
 
-  // Calculate display time with offset
-  const displayTime = useMemo(() => {
-    return addHours(new Date(), timeOffset);
-  }, [timeOffset]);
+  // Map physics advance at a minute cadence in live/offset modes. Scenario and
+  // replay instants remain fixed until their explicit absolute time changes.
+  const displayTime = useMapDisplayTime(timeOffset, absoluteTime);
   const reachMapState = useReachMapSurface({
     enabled: reachMapEnabled,
     renderOverlay: reachMapEnabled,

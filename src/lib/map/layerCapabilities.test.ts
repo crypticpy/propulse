@@ -34,6 +34,15 @@ describe("PropSphere renderer capability matrix", () => {
     expect(getLayerAvailability("activations", "azimuthal")).toEqual({
       available: true,
     });
+    expect(getLayerAvailability("lunarSubpoint", "globe")).toEqual({
+      available: true,
+    });
+    expect(getLayerAvailability("lunarSubpoint", "flat")).toEqual({
+      available: true,
+    });
+    expect(getLayerAvailability("lunarSubpoint", "azimuthal")).toEqual({
+      available: true,
+    });
     expect(getLayerAvailability("stateBorders", "flat")).toEqual({
       available: true,
     });

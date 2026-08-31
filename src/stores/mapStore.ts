@@ -31,6 +31,7 @@ export const LAYER_PRESETS = {
     activations: false,
     spotTraces: false,
     nightLights: true,
+    lunarSubpoint: false,
     labels: false,
     satellites: false,
     earthquakes: false,
@@ -73,6 +74,7 @@ export const LAYER_PRESETS = {
     activations: false,
     spotTraces: false,
     nightLights: false,
+    lunarSubpoint: false,
     labels: false,
     satellites: false,
     earthquakes: false,
@@ -115,6 +117,7 @@ export const LAYER_PRESETS = {
     activations: false,
     spotTraces: false,
     nightLights: false,
+    lunarSubpoint: false,
     labels: false,
     satellites: true,
     earthquakes: false,
@@ -157,6 +160,7 @@ export const LAYER_PRESETS = {
     activations: false,
     spotTraces: false,
     nightLights: true,
+    lunarSubpoint: false,
     labels: true,
     satellites: false,
     earthquakes: true,
@@ -199,6 +203,7 @@ export const LAYER_PRESETS = {
     activations: false,
     spotTraces: false,
     nightLights: false,
+    lunarSubpoint: false,
     labels: false,
     satellites: false,
     earthquakes: false,
@@ -394,6 +399,7 @@ export interface MapState {
     activations: boolean;
     spotTraces: boolean;
     nightLights: boolean;
+    lunarSubpoint: boolean;
     labels: boolean;
     satellites: boolean;
     earthquakes: boolean;
@@ -1151,6 +1157,7 @@ const DEFAULT_LAYERS: MapState["layers"] = {
   activations: false,
   spotTraces: false,
   nightLights: true,
+  lunarSubpoint: false,
   labels: false,
   satellites: false,
   earthquakes: false,

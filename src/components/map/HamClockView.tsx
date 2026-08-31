@@ -38,6 +38,7 @@ import { HamClockProjectionSwitch } from "./hamclock/HamClockProjectionSwitch";
 import { HamClockContestsPanel } from "./hamclock/HamClockContestsPanel";
 import { HamClockDxpeditionsPanel } from "./hamclock/HamClockDxpeditionsPanel";
 import { HamClockReliabilityPanel } from "./hamclock/HamClockReliabilityPanel";
+import { HamClockMoonPanel } from "./hamclock/HamClockMoonPanel";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -454,6 +455,7 @@ function SpaceWeatherContent() {
 function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
   const panelCollapsed = useHamClockStore((s) => s.panelCollapsed);
   const togglePanel = useHamClockStore((s) => s.togglePanel);
+  const location = useActiveLocation();
 
   return (
     <div className="flex flex-col h-full">
@@ -484,6 +486,20 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
         onToggle={() => togglePanel("spacewx")}
       >
         <SpaceWeatherContent />
+      </HamClockInfoPanel>
+
+      <HamClockInfoPanel
+        id="moon"
+        title="Moon"
+        collapsed={panelCollapsed.moon ?? false}
+        onToggle={() => togglePanel("moon")}
+      >
+        <HamClockMoonPanel
+          displayTime={displayTime}
+          latitude={location?.lat}
+          longitude={location?.lon}
+          timeZone={location?.timezone}
+        />
       </HamClockInfoPanel>
 
       <HamClockInfoPanel

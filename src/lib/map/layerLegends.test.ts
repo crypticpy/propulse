@@ -22,6 +22,7 @@ import {
 } from "@/lib/map/lightningColors";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import { WSPR_BAND_COLORS, getWsprBandColor } from "@/lib/map/wsprBandColors";
+import { LUNAR_SUBPOINT_COLOR } from "@/lib/map/lunarSubpointMarker";
 
 /** All layers off -- callers flip on only what a test needs. */
 function noLayers(): MapState["layers"] {
@@ -35,6 +36,7 @@ function noLayers(): MapState["layers"] {
     activations: false,
     spotTraces: false,
     nightLights: false,
+    lunarSubpoint: false,
     labels: false,
     satellites: false,
     earthquakes: false,
@@ -139,6 +141,20 @@ describe("buildLayerLegends", () => {
       BAND_COLORS.default,
     );
     expect(spec.note).toContain("POTA/SOTA/WWFF");
+  });
+
+  it("describes the lunar overhead marker in every projection", () => {
+    for (const viewMode of ["globe", "flat", "azimuthal"] as const) {
+      const spec = buildLayerLegends(
+        { ...noLayers(), lunarSubpoint: true },
+        { spotColorMode: "mode", viewMode },
+      )[0];
+
+      expect(spec.key).toBe("lunarSubpoint");
+      expect(spec.entries).toEqual([
+        { color: LUNAR_SUBPOINT_COLOR, label: "Moon directly overhead" },
+      ]);
+    }
   });
 
   it("shows the real SNR and age ramps, matching what getSpotColor draws", () => {

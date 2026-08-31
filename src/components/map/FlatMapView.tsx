@@ -123,6 +123,8 @@ import {
   type ActivationPillScreenPlacement,
 } from "@/lib/map/activationMarkers";
 import { ActivationPillButtons } from "./layers/ActivationPillButtons";
+import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
+import { getSublunarPoint } from "@/lib/utils/moon";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -4831,6 +4833,15 @@ export function FlatMapView({
     } else {
       setActivationPillPlacements((current) =>
         current.length === 0 ? current : [],
+      );
+    }
+
+    if (layers.lunarSubpoint) {
+      const point = getSublunarPoint(displayTime);
+      drawLunarSubpointMarker(
+        ctx,
+        latLonToCanvas(point.lat, point.lon, renderWidth, renderHeight),
+        { zoomScale: zoom.scale, highViz },
       );
     }
 

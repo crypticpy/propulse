@@ -45,6 +45,7 @@ import {
   LIGHTNING_COLOR_WEAK,
   LIGHTNING_STRONG_KA,
 } from "@/lib/map/lightningColors";
+import { LUNAR_SUBPOINT_COLOR } from "@/lib/map/lunarSubpointMarker";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -174,6 +175,17 @@ function buildActivationsSpec(): LayerLegendSpec {
       { color: BAND_COLORS.default, label: "Other" },
     ],
     note: "POTA/SOTA/WWFF callsign pills use band colors",
+  };
+}
+
+function buildLunarSubpointSpec(): LayerLegendSpec {
+  return {
+    key: "lunarSubpoint",
+    title: "Lunar Subpoint",
+    entries: [
+      { color: LUNAR_SUBPOINT_COLOR, label: "Moon directly overhead" },
+    ],
+    note: "Geocentric sublunar point at the displayed time",
   };
 }
 
@@ -399,6 +411,7 @@ function buildLightningSpec(viewMode: ViewMode): LayerLegendSpec {
 const FLAT_SUPPORTED = new Set<keyof MapState["layers"]>([
   "spots",
   "activations",
+  "lunarSubpoint",
   "ft8Spotter",
   "satellites",
   "wspr",
@@ -414,6 +427,7 @@ const FLAT_SUPPORTED = new Set<keyof MapState["layers"]>([
 const AZIMUTHAL_SUPPORTED = new Set<keyof MapState["layers"]>([
   "spots",
   "activations",
+  "lunarSubpoint",
   "earthquakes",
   "weather",
   "fires",
@@ -449,6 +463,7 @@ export function buildLayerLegends(
 
   if (on("spots")) specs.push(buildSpotsSpec(opts.spotColorMode));
   if (on("activations")) specs.push(buildActivationsSpec());
+  if (on("lunarSubpoint")) specs.push(buildLunarSubpointSpec());
   if (on("ft8Spotter")) specs.push(buildFt8SpotterSpec());
   if (on("satellites")) specs.push(buildSatellitesSpec());
   if (on("beacons")) specs.push(buildBeaconsSpec());

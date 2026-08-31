@@ -3,6 +3,7 @@ import { AtmosHeader } from "@/components/atmos/AtmosHeader";
 import { AtmosSidebar } from "@/components/atmos/AtmosSidebar";
 import { ActivationBanner } from "@/components/atmos/emcomm/ActivationBanner";
 import { WeatherAlertToasts } from "@/components/atmos/WeatherAlertToast";
+import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { useAtmosStore } from "@/stores/atmosStore";
 import { useEmcommStore } from "@/stores/emcommStore";
 
@@ -69,6 +70,9 @@ export function AtmosLayout() {
         </main>
       </div>
       <WeatherAlertToasts />
+      {/* Globe layer preferences persist across tools, so AtmosPulse must own
+          the shared detail portal whenever activations remain enabled. */}
+      <ActivationDetailPanel />
     </div>
   );
 }

@@ -8,7 +8,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useQSOStore } from "@/stores/qsoStore";
+import {
+  shouldPreserveLookupGrid,
+  useQSOStore,
+} from "@/stores/qsoStore";
 
 // ── POTA/SOTA Enrichment Types ──────────────────────────────────────────────
 
@@ -57,6 +60,11 @@ async function fetchPotaSpot(
 
 export function useCallsignLookup() {
   const callsign = useQSOStore((s) => s.form.callsign);
+  const preserveActivationGrid = useQSOStore(
+    (s) =>
+      Boolean(s.form.grid && s.form.sig && s.form.sigInfo) &&
+      shouldPreserveLookupGrid(s.form.callsign),
+  );
   const lookupCallsign = useQSOStore((s) => s.lookupCallsign);
   const clearLookup = useQSOStore((s) => s.clearLookup);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -78,7 +86,7 @@ export function useCallsignLookup() {
 
     // Main callsign lookup (500ms debounce)
     timerRef.current = setTimeout(() => {
-      lookupCallsign(trimmed);
+      lookupCallsign(trimmed, { preserveGrid: preserveActivationGrid });
     }, 500);
 
     // Best-effort POTA/SOTA enrichment (600ms debounce, slightly after main lookup)
@@ -96,7 +104,7 @@ export function useCallsignLookup() {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (enrichRef.current) clearTimeout(enrichRef.current);
     };
-  }, [callsign, lookupCallsign, clearLookup]);
+  }, [callsign, lookupCallsign, clearLookup, preserveActivationGrid]);
 
   return { activationSpot };
 }

@@ -110,7 +110,10 @@ interface QSOStoreState {
   deselectAll: () => void;
 
   // ── Lookup Actions ──
-  lookupCallsign: (callsign: string) => Promise<void>;
+  lookupCallsign: (
+    callsign: string,
+    options?: { preserveGrid?: boolean },
+  ) => Promise<void>;
   clearLookup: () => void;
 
   // ── Dupe Actions ──
@@ -163,6 +166,17 @@ function buildResetForm(formDefaults: Partial<QSOFormState>): QSOFormState {
     }
   }
   return form;
+}
+
+// Every lookup receives a generation, not just a callsign. This matters when
+// two requests target the same station with different policies (for example an
+// ordinary lookup followed by a portable activation that must preserve grid).
+let callsignLookupGeneration = 0;
+let authoritativeGridCallsign: string | null = null;
+
+/** Whether a callsign still owns the portable grid currently in the draft. */
+export function shouldPreserveLookupGrid(callsign: string): boolean {
+  return authoritativeGridCallsign === callsign.trim().toUpperCase();
 }
 
 /** Apply QSO filters to an array of log entries client-side */
@@ -304,6 +318,29 @@ export const useQSOStore = create<QSOStoreState>()(
       setField: (field, value) => {
         set((state) => {
           const newForm = { ...state.form, [field]: value };
+          const callsignChanged =
+            field === "callsign" &&
+            String(value).trim().toUpperCase() !==
+              state.form.callsign.trim().toUpperCase();
+          const changedPreparedActivation =
+            callsignChanged &&
+            shouldPreserveLookupGrid(state.form.callsign);
+
+          // A portable grid belongs to the activator that supplied it. Any
+          // actual callsign edit invalidates that ownership immediately, even
+          // if the operator changes back before the debounce starts a lookup.
+          if (callsignChanged) {
+            callsignLookupGeneration += 1;
+            authoritativeGridCallsign = null;
+            newForm.name = "";
+            newForm.qth = "";
+            newForm.grid = "";
+            newForm.sig = "";
+            newForm.sigInfo = "";
+            // Notes prepared from an activation report also belong to that
+            // activator. Preserve ordinary free-form notes on normal drafts.
+            if (changedPreparedActivation) newForm.notes = "";
+          }
 
           // Auto-derive band from frequency when frequency changes
           if (field === "frequency" && typeof value === "number" && value > 0) {
@@ -330,14 +367,25 @@ export const useQSOStore = create<QSOStoreState>()(
             }
           }
 
-          return { form: newForm };
+          return callsignChanged
+            ? {
+                form: newForm,
+                lookupResult: null,
+                lookupLoading: false,
+                lookupError: null,
+                dupeInfo: null,
+              }
+            : { form: newForm };
         });
       },
 
       resetForm: () => {
+        callsignLookupGeneration += 1;
+        authoritativeGridCallsign = null;
         set((state) => ({
           form: buildResetForm(state.formDefaults),
           lookupResult: null,
+          lookupLoading: false,
           lookupError: null,
           dupeInfo: null,
         }));
@@ -633,8 +681,16 @@ export const useQSOStore = create<QSOStoreState>()(
 
       // ── Lookup Actions ──
 
-      lookupCallsign: async (callsign) => {
-        set({ lookupLoading: true, lookupError: null });
+      lookupCallsign: async (callsign, options) => {
+        const requestedCallsign = callsign.trim().toUpperCase();
+        const requestGeneration = ++callsignLookupGeneration;
+        authoritativeGridCallsign = options?.preserveGrid
+          ? requestedCallsign
+          : null;
+        set({
+          lookupLoading: true,
+          lookupError: null,
+        });
         try {
           const resp = await fetch(
             `/api/callsign/lookup?callsign=${encodeURIComponent(callsign)}`,
@@ -645,14 +701,19 @@ export const useQSOStore = create<QSOStoreState>()(
               string,
               unknown
             >;
-            set({
-              lookupLoading: false,
-              lookupError:
-                typeof body.error === "string"
-                  ? body.error
-                  : `Lookup failed (${resp.status})`,
-              lookupResult: null,
-            });
+            set((state) =>
+              requestGeneration === callsignLookupGeneration &&
+              state.form.callsign.trim().toUpperCase() === requestedCallsign
+                ? {
+                    lookupLoading: false,
+                    lookupError:
+                      typeof body.error === "string"
+                        ? body.error
+                        : `Lookup failed (${resp.status})`,
+                    lookupResult: null,
+                  }
+                : {},
+            );
             return;
           }
 
@@ -676,25 +737,44 @@ export const useQSOStore = create<QSOStoreState>()(
           // Apply lookup data to form and store result
           const formUpdates: Partial<QSOFormState> = {};
           if (result.name) formUpdates.name = result.name;
-          if (result.grid) formUpdates.grid = result.grid;
+          // A portable-activation report identifies the contact site more
+          // precisely than the operator's profile/home grid. Callers carrying
+          // that authoritative report can still enrich identity fields without
+          // silently moving the station before the QSO is reviewed.
+          if (result.grid && !options?.preserveGrid) {
+            formUpdates.grid = result.grid;
+          }
           if (result.qth) formUpdates.qth = result.qth;
 
           set((s) => ({
-            lookupResult: result,
-            lookupLoading: false,
-            lookupError: null,
-            form: { ...s.form, ...formUpdates },
+            ...(requestGeneration === callsignLookupGeneration &&
+            s.form.callsign.trim().toUpperCase() === requestedCallsign
+              ? {
+                  lookupResult: result,
+                  lookupLoading: false,
+                  lookupError: null,
+                  form: { ...s.form, ...formUpdates },
+                }
+              : {}),
           }));
         } catch (err) {
-          set({
-            lookupLoading: false,
-            lookupError: err instanceof Error ? err.message : "Lookup failed",
-            lookupResult: null,
-          });
+          set((state) =>
+            requestGeneration === callsignLookupGeneration &&
+            state.form.callsign.trim().toUpperCase() === requestedCallsign
+              ? {
+                  lookupLoading: false,
+                  lookupError:
+                    err instanceof Error ? err.message : "Lookup failed",
+                  lookupResult: null,
+                }
+              : {},
+          );
         }
       },
 
       clearLookup: () => {
+        callsignLookupGeneration += 1;
+        authoritativeGridCallsign = null;
         set({
           lookupResult: null,
           lookupLoading: false,

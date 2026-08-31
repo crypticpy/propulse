@@ -5,7 +5,11 @@
  * the same target-selection behavior as the globe labels.
  */
 
-import type { ActivationPillScreenPlacement } from "@/lib/map/activationMarkers";
+import {
+  formatActivationFrequency,
+  type ActivationPillScreenPlacement,
+} from "@/lib/map/activationMarkers";
+import { useActivationSpotStore } from "@/stores/activationSpotStore";
 import { useMapStore } from "@/stores/mapStore";
 
 interface ActivationPillButtonsProps {
@@ -16,6 +20,7 @@ export function ActivationPillButtons({
   placements,
 }: ActivationPillButtonsProps) {
   const setTarget = useMapStore((state) => state.setTarget);
+  const selectSpot = useActivationSpotStore((state) => state.selectSpot);
 
   return (
     <>
@@ -25,8 +30,8 @@ export function ActivationPillButtons({
           type="button"
           className="pointer-events-auto absolute cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-cyan focus-visible:ring-offset-1 focus-visible:ring-offset-void-black"
           style={{ left, top, width, height }}
-          aria-label={`${spot.callsign}, ${spot.program} ${spot.reference}, ${spot.referenceName}. Select as target`}
-          title={`${spot.callsign} · ${spot.program} ${spot.reference}`}
+          aria-label={`${spot.callsign}, ${formatActivationFrequency(spot.frequencyKHz)} ${spot.frequencyKHz >= 1_000 ? "megahertz" : "kilohertz"}, ${spot.mode}, ${spot.program} ${spot.reference}, ${spot.referenceName}. Select as target and open station details`}
+          title={`${spot.callsign} · ${formatActivationFrequency(spot.frequencyKHz)} ${spot.frequencyKHz >= 1_000 ? "MHz" : "kHz"} · ${spot.program} ${spot.reference}`}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
@@ -36,6 +41,7 @@ export function ActivationPillButtons({
               grid: spot.grid,
               name: `${spot.callsign} · ${spot.program} ${spot.reference}`,
             });
+            selectSpot(spot);
           }}
         />
       ))}

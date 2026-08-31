@@ -48,6 +48,7 @@ export type NowCastProvenance = Pick<
   | "nowcastBands"
   | "fallbackBands"
   | "staleInputBands"
+  | "failedCount"
 >;
 
 /**
@@ -67,16 +68,27 @@ export function describeNowCastSource(
   const mlCount = nowCast.nowcastBands.length;
   const fallbackCount = nowCast.fallbackBands.length;
   const staleCount = nowCast.staleInputBands.length;
+  // A band that errored lands in neither nowcastBands nor fallbackBands, so it
+  // has to be counted separately or the wording below overclaims.
+  const failedCount = nowCast.failedCount;
 
   // Nothing has come back yet.
   if (mlCount === 0 && fallbackCount === 0) {
-    return nowCast.pending
-      ? {
-          label: "NowCast …",
-          tone: "ml",
-          detail: "Waiting on the NowCast model service.",
-        }
-      : PHYSICS_SOURCE;
+    if (nowCast.pending) {
+      return {
+        label: "NowCast …",
+        tone: "ml",
+        detail: "Waiting on the NowCast model service.",
+      };
+    }
+    if (failedCount > 0) {
+      return {
+        label: "NowCast unavailable",
+        tone: "degraded",
+        detail: `The NowCast model service returned no prediction for any of the ${failedCount} requested band${failedCount === 1 ? "" : "s"}.\nNothing here comes from the model.`,
+      };
+    }
+    return PHYSICS_SOURCE;
   }
 
   if (mlCount === 0) {
@@ -84,13 +96,15 @@ export function describeNowCastSource(
       label: "Physics fallback",
       tone: "degraded",
       detail:
-        "The NowCast model service answered, but every band fell back to the physics engine -- usually because the live spot history behind the model is stale.\nThese are physics numbers, not model predictions.",
+        failedCount > 0
+          ? `Every band the NowCast model service answered fell back to the physics engine, and ${failedCount} band${failedCount === 1 ? "" : "s"} returned no prediction at all -- usually because the live spot history behind the model is stale.\nNothing here is a model prediction.`
+          : "The NowCast model service answered, but every band fell back to the physics engine -- usually because the live spot history behind the model is stale.\nThese are physics numbers, not model predictions.",
     };
   }
 
   const modelName = nowCast.personalized ? "NowCast + StationCast" : "NowCast";
 
-  if (fallbackCount > 0 || staleCount > 0) {
+  if (fallbackCount > 0 || staleCount > 0 || failedCount > 0) {
     const parts: string[] = [];
     if (fallbackCount > 0) {
       parts.push(
@@ -102,10 +116,19 @@ export function describeNowCastSource(
         `${staleCount} band${staleCount === 1 ? "" : "s"} ran on stale inputs`,
       );
     }
+    if (failedCount > 0) {
+      parts.push(
+        `${failedCount} band${failedCount === 1 ? "" : "s"} returned no prediction`,
+      );
+    }
+    const caveats =
+      parts.length > 1
+        ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`
+        : parts[0];
     return {
       label: `${modelName} · partial`,
       tone: "degraded",
-      detail: `${mlCount} band${mlCount === 1 ? "" : "s"} came from the ${modelName} ML model; ${parts.join(" and ")}.\nMixed provenance -- the per-band chips show which is which.`,
+      detail: `${mlCount} band${mlCount === 1 ? "" : "s"} came from the ${modelName} ML model; ${caveats}.\nMixed provenance -- the per-band chips show which is which.`,
     };
   }
 

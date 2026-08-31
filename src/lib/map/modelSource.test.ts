@@ -13,6 +13,7 @@ function provenance(over: Partial<NowCastProvenance> = {}): NowCastProvenance {
     nowcastBands: [],
     fallbackBands: [],
     staleInputBands: [],
+    failedCount: 0,
     ...over,
   };
 }
@@ -42,6 +43,35 @@ describe("describeNowCastSource", () => {
     );
     expect(source.tone).toBe("degraded");
     expect(source.label).toBe("Physics fallback");
+  });
+
+  it("does not claim a full fallback when some bands simply failed", () => {
+    // One band answered with physics, one errored outright. Saying "every band
+    // fell back to physics" would hide the band that produced nothing at all.
+    const source = describeNowCastSource(
+      provenance({ fallbackBands: ["20m"], failedCount: 1 }),
+    );
+    expect(source.tone).toBe("degraded");
+    expect(source.detail).toContain("1 band returned no prediction at all");
+  });
+
+  it("reports an outright failure rather than falling through to physics", () => {
+    const source = describeNowCastSource(provenance({ failedCount: 2 }));
+    expect(source.tone).toBe("degraded");
+    expect(source.label).toBe("NowCast unavailable");
+  });
+
+  it("counts failed bands alongside fallback and stale bands", () => {
+    const source = describeNowCastSource(
+      provenance({
+        nowcastBands: ["20m"],
+        fallbackBands: ["40m"],
+        failedCount: 1,
+      }),
+    );
+    expect(source.label).toBe("NowCast · partial");
+    expect(source.detail).toContain("1 band fell back to physics");
+    expect(source.detail).toContain("1 band returned no prediction");
   });
 
   it("reports clean ML when every band came from the model", () => {

@@ -4,10 +4,16 @@
  * The expanded-state header for BandConditionsPanel, extracted so the panel
  * file stops carrying four near-duplicate ad hoc headers.
  *
- * Implements the panel title rule: the title row holds the title and nothing
- * but window controls (close / help). Everything that is data -- Kp, SFI, the
- * serving-model badge -- moves to a status row underneath, so the title is
- * never squeezed or truncated by values that grow.
+ * Implements the panel title rule: the title row holds the title, window
+ * controls (collapse / close / help), and the fixed-width overall-status dot.
+ * Everything whose width depends on its value -- Kp, SFI, the serving-model
+ * badge -- moves to a status row underneath, so the title is never squeezed or
+ * truncated by values that grow.
+ *
+ * The status dot is intentionally retained beside the title: it is an 8px
+ * indicator that never changes size, so it reads as part of the title's
+ * identity ("Band Conditions, currently green") rather than as a value
+ * competing with it for room.
  *
  * The collapsed state is deliberately NOT rendered here: collapsed Band
  * Conditions is a one-line summary strip (best band + status + indices), not a

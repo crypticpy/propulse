@@ -23,6 +23,7 @@ import { useBandActivity } from "@/hooks/useBandActivity";
 import { canonicalKey, useBandLadder } from "@/hooks/useBandLadder";
 import { useBandVerdicts, type BandLadderEntry } from "@/hooks/useBandVerdicts";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import { oldestKnownTimestamp } from "@/hooks/projectSolarResource";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
 import {
@@ -59,6 +60,7 @@ import {
   type BandHourlyStat,
 } from "@/hooks/useBandHourlyStats";
 import { LADDER_RANK, type LadderState } from "@/lib/verdict/ladder";
+import { readyBandHealthByBand } from "./bandHealthPresentation";
 
 interface BandConditionsPanelProps {
   displayTime: Date;
@@ -432,6 +434,7 @@ export function BandConditionsPanel({
   const activeBand = useActiveBand();
   const {
     bands: liveBandHealth,
+    ready: bandHealthReady,
     scope: bandHealthScope,
     activityScope,
   } = useBandVerdicts();
@@ -459,8 +462,8 @@ export function BandConditionsPanel({
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
 
   const liveBandHealthByBand = useMemo(
-    () => new Map(liveBandHealth.map((entry) => [entry.band, entry])),
-    [liveBandHealth],
+    () => readyBandHealthByBand(liveBandHealth, bandHealthReady),
+    [bandHealthReady, liveBandHealth],
   );
   const selectedHealthEntry = selectedHealthBand
     ? liveBandHealthByBand.get(selectedHealthBand) ?? null
@@ -525,9 +528,10 @@ export function BandConditionsPanel({
   // Solar inputs and observation evidence refresh independently. Keep their
   // ages separate so a new K-index response cannot make an older Band Health
   // verdict look equally fresh (and vice versa).
-  const lastUpdatedAt = useMemo(() => {
-    return Math.max(kIndexUpdatedAt || 0, sfiUpdatedAt || 0);
-  }, [kIndexUpdatedAt, sfiUpdatedAt]);
+  const lastUpdatedAt = useMemo(
+    () => oldestKnownTimestamp([kIndexUpdatedAt, sfiUpdatedAt]) ?? 0,
+    [kIndexUpdatedAt, sfiUpdatedAt],
+  );
 
   const isRefetching =
     isKIndexRefetching ||
@@ -813,7 +817,7 @@ export function BandConditionsPanel({
   const renderedBands = new Set(
     bandConditions.map((condition) => condition.band),
   );
-  const bestHealth = liveBandHealth.reduce<BandLadderEntry | null>(
+  const bestHealth = [...liveBandHealthByBand.values()].reduce<BandLadderEntry | null>(
     (best, entry) =>
       renderedBands.has(entry.band) &&
       (!best || LADDER_RANK[entry.stable] > LADDER_RANK[best.stable])

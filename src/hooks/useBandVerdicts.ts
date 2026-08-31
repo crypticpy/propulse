@@ -131,6 +131,14 @@ export interface UseBandVerdictsResult {
   dxAvailable: boolean;
 }
 
+export function bandVerdictInputsAreReady(
+  currentKp: number | null,
+  currentSfi: number | null,
+  activityReady: boolean,
+): boolean {
+  return currentKp !== null && currentSfi !== null && activityReady;
+}
+
 const FIELD_RE = /^[A-R]{2}$/;
 
 function fieldForLatLon(lat?: number, lon?: number): string | null {
@@ -272,8 +280,16 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     physicsRefreshedAt,
   ]);
 
-  const ready = currentKp !== null && currentSfi !== null;
   const activityReady = activityByBand !== undefined;
+  // Persisted machines are useful for hysteresis, but they are not evidence
+  // that the current page load has usable inputs. Treat the ladder as ready
+  // only after both solar drivers and the active observation scope arrive, so
+  // a reload or failed activity request cannot relabel stored verdicts as live.
+  const ready = bandVerdictInputsAreReady(
+    currentKp,
+    currentSfi,
+    activityReady,
+  );
 
   // Build the active scope's evaluation batch. Only the active scope is
   // ingested — idle scopes keep their persisted machines until revisited.

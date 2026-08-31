@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { createElement, type ReactNode } from "react";
+import { act, renderHook } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildNowCastRequests,
   nowCastIssueBucket,
   summarizeNowCastResults,
+  useNowCastBandPredictions,
 } from "./useNowCastBandPredictions";
 import {
   resolveFutureCastHorizons,
@@ -10,9 +14,37 @@ import {
 } from "@/lib/propagation/capabilityAccess";
 import capabilitiesFixture from "../../ml/fixtures/propagation_capabilities_v1.json";
 import type {
+  PathPredictionRequest,
   PropagationCapabilitiesResponse,
   PropagationPrediction,
 } from "@/lib/propagation/modelClient";
+
+const modelClientMocks = vi.hoisted(() => ({
+  capabilities: vi.fn(),
+  path: vi.fn(),
+}));
+
+vi.mock("@/lib/propagation/modelClient", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/lib/propagation/modelClient")
+  >();
+  return {
+    ...actual,
+    propagationModelEnabled: true,
+    propagationModelMode: "internal",
+    propagationModelClient: modelClientMocks,
+  };
+});
+
+beforeEach(() => {
+  modelClientMocks.capabilities.mockReset();
+  modelClientMocks.path.mockReset();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("nowCastIssueBucket", () => {
   it("advances on canonical five-minute boundaries", () => {
@@ -22,6 +54,75 @@ describe("nowCastIssueBucket", () => {
     expect(
       new Date(nowCastIssueBucket(Date.parse("2026-07-12T12:05:00Z"))).toISOString(),
     ).toBe("2026-07-12T12:05:00.000Z");
+  });
+
+  it("updates prediction requests at a boundary and when the tab becomes visible", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-12T12:04:59.500Z"));
+    const capabilities = capabilitiesFixture as PropagationCapabilitiesResponse;
+    modelClientMocks.capabilities.mockResolvedValue(capabilities);
+    modelClientMocks.path.mockImplementation(
+      async (request: PathPredictionRequest): Promise<PropagationPrediction> => ({
+        model_version: "v4-test",
+        feature_contract: "core-v1",
+        issue_time: request.issue_time,
+        valid_time: request.valid_time,
+        band: request.band,
+        mode: request.mode,
+        target_grid4: request.features.target_grid4,
+        core_probability: 0.4,
+        personalized_probability: 0.4,
+        confidence: 0.7,
+        ood_flags: [],
+        data_freshness: {},
+        top_factors: [],
+        assumptions: [],
+        profile: "nowcast",
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(
+      ["propagation-v4", "capabilities"],
+      capabilities,
+    );
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const input = {
+      origin: { grid: "EM10ab", lat: 30, lon: -97 },
+      target: { grid: "IO91aa", lat: 51.5, lon: -0.1 },
+      deriveEnvelope: () => null,
+    };
+
+    const { unmount } = renderHook(
+      () => useNowCastBandPredictions(input),
+      { wrapper },
+    );
+    const requestIssueTimes = () =>
+      queryClient
+        .getQueryCache()
+        .findAll({ queryKey: ["propagation-v4", "path"] })
+        .map((query) => query.queryKey[5]);
+
+    expect(requestIssueTimes()).toContain("2026-07-12T12:00:00.000Z");
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+      await Promise.resolve();
+    });
+    expect(requestIssueTimes()).toContain("2026-07-12T12:05:00.000Z");
+
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    await act(async () => {
+      vi.setSystemTime(new Date("2026-07-12T12:10:01.000Z"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      await Promise.resolve();
+    });
+    expect(requestIssueTimes()).toContain("2026-07-12T12:10:00.000Z");
+
+    unmount();
+    queryClient.clear();
   });
 });
 

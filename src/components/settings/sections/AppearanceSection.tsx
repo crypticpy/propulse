@@ -11,6 +11,10 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { THEMES, type ThemeId } from "@/lib/themes";
 import type { SdrSkinName } from "@/components/sdr/skins/types";
+import {
+  TICKER_COVERAGE_PRESETS,
+  type TickerCoverageArea,
+} from "@/lib/map/tickerCoverage";
 
 // ─── Hex validation ─────────────────────────────────────────────────────────
 
@@ -43,6 +47,9 @@ export function AppearanceSection() {
   const setTheme = useThemeStore((s) => s.setTheme);
   const sdrSkinName = useSettingsStore((s) => s.sdrSkinName ?? "classic");
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);
+  const tickerCoverageArea = useSettingsStore(
+    (s) => s.tickerCoverageArea ?? "regional",
+  );
   const globeHiResTextures = useSettingsStore((s) => s.globeHiResTextures);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
@@ -317,26 +324,53 @@ export function AppearanceSection() {
           Position of the live DX news ticker showing propagation data, weather
           alerts, and lightning proximity.
         </p>
-        <div className="max-w-sm">
-          <label className="block text-xs font-medium text-gray-400 mb-1">
-            Position
-          </label>
-          <select
-            value={tickerPosition}
-            onChange={(e) =>
-              updatePreferences({
-                tickerPosition: e.target.value as
-                  | "bottom"
-                  | "above-panels"
-                  | "top",
-              })
-            }
-            className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
-          >
-            <option value="bottom">Below map (default)</option>
-            <option value="above-panels">Above map &amp; panels</option>
-            <option value="top">Top — below masthead</option>
-          </select>
+        <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">
+              Position
+            </label>
+            <select
+              value={tickerPosition}
+              onChange={(e) =>
+                updatePreferences({
+                  tickerPosition: e.target.value as
+                    | "bottom"
+                    | "above-panels"
+                    | "top",
+                })
+              }
+              className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
+            >
+              <option value="bottom">Below map (default)</option>
+              <option value="above-panels">Above map &amp; panels</option>
+              <option value="top">Top — below masthead</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">
+              Weather &amp; lightning area
+            </label>
+            <select
+              value={tickerCoverageArea}
+              onChange={(e) =>
+                updatePreferences({
+                  tickerCoverageArea: e.target.value as TickerCoverageArea,
+                })
+              }
+              className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
+            >
+              {Object.entries(TICKER_COVERAGE_PRESETS).map(([value, preset]) => (
+                <option key={value} value={value}>
+                  {preset.label} — {preset.lightningKm} km lightning /{" "}
+                  {preset.weatherKm} km weather
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-[11px] leading-4 text-gray-500">
+              Centered on your station. Solar indices, space weather, and DX
+              activity remain global and live.
+            </p>
+          </div>
         </div>
       </div>
 

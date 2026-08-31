@@ -3,13 +3,20 @@
  *
  * A CSS-animated scrolling information bar showing live propagation data.
  * Displays solar indices, band conditions, and DX spot activity in a
- * continuously scrolling ticker with pause-on-hover behavior.
+ * continuously scrolling ticker with pause-on-hover behavior. Weather,
+ * lightning, and space-weather notices open the app's detailed alert views.
  *
  * Data sources:
  * - Solar flux (SFI) and K-index from useSolarData hooks
  * - Active solar alerts from useSolarAlerts
  * - Band conditions from store-derived calculations
  * - DX spot activity from dxStore
+ * - Station-centered weather alerts and lightning from their live data hooks
+ *
+ * Coverage approach:
+ * - Solar indices, space-weather alerts, and DX activity are always global
+ * - The operator chooses nearby, regional, or wide weather/lightning coverage
+ * - The historical 500 km lightning / 800 km weather scope remains the default
  *
  * Animation approach:
  * - Content is rendered twice (duplicated) in a scrolling container
@@ -18,7 +25,15 @@
  * - Edge fade via CSS mask-image gradient
  */
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useDXStore } from "@/stores/dxStore";
@@ -26,8 +41,28 @@ import { getGeomagneticCondition } from "@/lib/utils/solarConversions";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import { useLightning } from "@/hooks/useLightning";
 import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { getDistance } from "@/lib/utils/path";
 import type { LightningStrike } from "@/lib/api/lightning";
+import type { WeatherAlert } from "@/lib/api/weather";
+import type { SolarAlert } from "@/types/alerts";
+import {
+  getTickerCoveragePreset,
+  type TickerCoveragePreset,
+} from "@/lib/map/tickerCoverage";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
+
+const AlertDetailModal = lazy(() =>
+  import("@/components/alerts/AlertDetailModal").then((module) => ({
+    default: module.AlertDetailModal,
+  })),
+);
+
+const WeatherAlertModal = lazy(() =>
+  import("@/components/map/WeatherAlertModal").then((module) => ({
+    default: module.WeatherAlertModal,
+  })),
+);
 
 // =============================================================================
 // TYPES
@@ -43,7 +78,17 @@ interface TickerItem {
   text: string;
   highlight?: boolean;
   alertLevel?: "info" | "warning" | "critical";
+  detail?: TickerDetail;
 }
+
+type TickerDetail =
+  | { kind: "solar"; alert: SolarAlert }
+  | { kind: "weather"; alert: WeatherAlert }
+  | {
+      kind: "lightning";
+      proximity: LightningProximity;
+      coverage: TickerCoveragePreset;
+    };
 
 // =============================================================================
 // CONSTANTS
@@ -57,10 +102,6 @@ const CONTENT_REFRESH_INTERVAL_MS = 30_000;
 
 /** Diamond separator character */
 const SEPARATOR = "\u25C6";
-
-/** Proximity radius in km */
-const LIGHTNING_PROXIMITY_KM = 500;
-const WEATHER_PROXIMITY_KM = 800;
 
 /** Keyframes name for the scroll animation */
 const KEYFRAMES_NAME = "dx-ticker-scroll";
@@ -136,6 +177,7 @@ function computeLightningProximity(
   strikes: LightningStrike[],
   stationLat: number,
   stationLon: number,
+  proximityKm: number,
 ): LightningProximity | null {
   // Filter strikes from last 10 minutes
   const tenMinAgo = Date.now() - 10 * 60 * 1000;
@@ -148,9 +190,12 @@ function computeLightningProximity(
 
   for (const strike of recent) {
     const dist = getDistance(stationLat, stationLon, strike.lat, strike.lon);
-    if (dist <= LIGHTNING_PROXIMITY_KM) {
+    if (dist <= proximityKm) {
       count++;
-      if (strike.currentKA > maxKA) maxKA = strike.currentKA;
+      // Polarity identifies the discharge direction; operators care about the
+      // largest absolute peak when estimating likely static-crash intensity.
+      const magnitudeKA = Math.abs(strike.currentKA);
+      if (magnitudeKA > maxKA) maxKA = magnitudeKA;
       if (dist < nearest) {
         nearest = dist;
         // Compute rough bearing
@@ -191,6 +236,9 @@ export function DXNewsTicker({
   const [isPaused, setIsPaused] = useState(false);
   const [animationDuration, setAnimationDuration] = useState(20);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [selectedDetail, setSelectedDetail] = useState<TickerDetail | null>(
+    null,
+  );
   const contentRef = useRef<HTMLDivElement>(null);
 
   // ---------------------------------------------------------------------------
@@ -203,6 +251,13 @@ export function DXNewsTicker({
   const { alerts: weatherAlerts } = useWeatherAlerts(true);
   const { strikes: lightningStrikes } = useLightning(true);
   const station = useUserStore((s) => s.station);
+  const tickerCoverageArea = useSettingsStore(
+    (s) => s.tickerCoverageArea ?? "regional",
+  );
+  const tickerCoverage = useMemo(
+    () => getTickerCoveragePreset(tickerCoverageArea),
+    [tickerCoverageArea],
+  );
 
   // Compute spot count by band locally to avoid infinite loop from
   // selector returning a new object reference on every call
@@ -261,6 +316,7 @@ export function DXNewsTicker({
               : alert.priority === "WARNING"
                 ? "warning"
                 : "info",
+          detail: { kind: "solar", alert },
         });
       }
     }
@@ -272,6 +328,7 @@ export function DXNewsTicker({
         lightningStrikes,
         station.lat,
         station.lon,
+        tickerCoverage.lightningKm,
       );
       if (lightning) {
         const severity =
@@ -282,9 +339,14 @@ export function DXNewsTicker({
               : "info";
         items.push({
           id: "lightning",
-          text: `\u26A1 Lightning ${lightning.nearestKm}km ${lightning.bearing} | ${lightning.countWithin} strikes within ${LIGHTNING_PROXIMITY_KM}km | Peak: ${lightning.maxCurrentKA}kA`,
+          text: `\u26A1 Lightning ${lightning.nearestKm}km ${lightning.bearing} | ${lightning.countWithin} strikes within ${tickerCoverage.lightningKm}km | Peak: ${lightning.maxCurrentKA}kA`,
           highlight: true,
           alertLevel: severity,
+          detail: {
+            kind: "lightning",
+            proximity: lightning,
+            coverage: tickerCoverage,
+          },
         });
 
         // Add QRN impact note for close lightning
@@ -294,6 +356,11 @@ export function DXNewsTicker({
             text: "\u26A1 QRN likely on 160m-40m | Static crashes expected",
             highlight: true,
             alertLevel: "warning",
+            detail: {
+              kind: "lightning",
+              proximity: lightning,
+              coverage: tickerCoverage,
+            },
           });
         }
       }
@@ -314,7 +381,7 @@ export function DXNewsTicker({
           alert.lat,
           alert.lon,
         );
-        if (dist > WEATHER_PROXIMITY_KM) return false;
+        if (dist > tickerCoverage.weatherKm) return false;
         const eventLower = alert.event.toLowerCase();
         return STORM_KEYWORDS.some((kw) => eventLower.includes(kw));
       });
@@ -334,6 +401,7 @@ export function DXNewsTicker({
           text: `\u26A0 ${alert.event} \u2014 ${dist}km away`,
           highlight: true,
           alertLevel: severity,
+          detail: { kind: "weather", alert },
         });
       }
     }
@@ -424,6 +492,7 @@ export function DXNewsTicker({
     lightningStrikes,
     weatherAlerts,
     station,
+    tickerCoverage,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -454,7 +523,7 @@ export function DXNewsTicker({
   // ---------------------------------------------------------------------------
   // Render ticker text content (single copy)
   // ---------------------------------------------------------------------------
-  const renderTickerContent = useCallback(() => {
+  const renderTickerContent = useCallback((duplicate = false) => {
     return tickerItems.map((item, index) => (
       <span
         key={item.id}
@@ -463,12 +532,18 @@ export function DXNewsTicker({
         {index > 0 && (
           <span className="mx-3 text-gray-600 select-none">{SEPARATOR}</span>
         )}
-        {item.alertLevel === "critical" ? (
-          <span className="text-red-400 font-semibold">{item.text}</span>
-        ) : item.alertLevel === "warning" ? (
-          <span className="text-amber-400 font-semibold">{item.text}</span>
+        {item.detail ? (
+          <button
+            type="button"
+            tabIndex={duplicate ? -1 : 0}
+            onClick={() => setSelectedDetail(item.detail ?? null)}
+            className={`rounded-sm underline decoration-current/40 underline-offset-2 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 ${getTickerItemClass(item)}`}
+            aria-label={`${item.text}. Open details`}
+          >
+            {item.text} <span aria-hidden="true">↗</span>
+          </button>
         ) : item.highlight ? (
-          <span className="text-[#ff6b35]">{item.text}</span>
+          <span className={getTickerItemClass(item)}>{item.text}</span>
         ) : (
           <TickerText text={item.text} />
         )}
@@ -492,21 +567,26 @@ export function DXNewsTicker({
   `;
 
   return (
-    <div
-      className={`relative flex items-center h-[30px] overflow-hidden select-none ${className}`}
-      style={{
-        background: "rgba(10, 10, 26, 0.85)",
-        borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-        maskImage:
-          "linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)",
-        WebkitMaskImage:
-          "linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)",
-      }}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      role="marquee"
-      aria-label="DX News Ticker - live propagation information"
-    >
+    <>
+      <div
+        className={`relative flex items-center h-[30px] overflow-hidden select-none ${className}`}
+        style={{
+          background: "rgba(10, 10, 26, 0.85)",
+          borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+          maskImage:
+            "linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)",
+        }}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onFocusCapture={() => setIsPaused(true)}
+        onBlurCapture={() => {
+          if (!selectedDetail) setIsPaused(false);
+        }}
+        role="marquee"
+        aria-label="DX News Ticker - live propagation information"
+      >
       {/* Inject keyframes */}
       <style>{keyframesStyle}</style>
 
@@ -560,7 +640,8 @@ export function DXNewsTicker({
             animationDuration: `${animationDuration}s`,
             animationTimingFunction: "linear",
             animationIterationCount: "infinite",
-            animationPlayState: isPaused ? "paused" : "running",
+            animationPlayState:
+              isPaused || selectedDetail ? "paused" : "running",
             willChange: "transform",
           }}
         >
@@ -571,18 +652,111 @@ export function DXNewsTicker({
           {/* Spacer between copies */}
           <span className="mx-8 text-gray-600 select-none">{SEPARATOR}</span>
           {/* Second copy (duplicate for seamless loop) */}
-          <span className="inline-flex items-center whitespace-nowrap">
-            {renderTickerContent()}
+          <span
+            className="inline-flex items-center whitespace-nowrap"
+            aria-hidden="true"
+          >
+            {renderTickerContent(true)}
           </span>
         </div>
       </div>
-    </div>
+      </div>
+
+      <Suspense fallback={null}>
+        {selectedDetail?.kind === "solar" && (
+          <AlertDetailModal
+            isOpen
+            alert={selectedDetail.alert}
+            onClose={() => setSelectedDetail(null)}
+          />
+        )}
+        {selectedDetail?.kind === "weather" && (
+          <WeatherAlertModal
+            alert={selectedDetail.alert}
+            onClose={() => setSelectedDetail(null)}
+          />
+        )}
+      </Suspense>
+
+      <LightningTickerDetail
+        detail={
+          selectedDetail?.kind === "lightning" ? selectedDetail : null
+        }
+        onClose={() => setSelectedDetail(null)}
+      />
+    </>
   );
 }
 
 // =============================================================================
 // SUB-COMPONENTS
 // =============================================================================
+
+function getTickerItemClass(item: TickerItem): string {
+  if (item.alertLevel === "critical") return "font-semibold text-red-400";
+  if (item.alertLevel === "warning") return "font-semibold text-amber-400";
+  return item.highlight ? "text-[#ff6b35]" : "text-gray-300";
+}
+
+function LightningTickerDetail({
+  detail,
+  onClose,
+}: {
+  detail: Extract<TickerDetail, { kind: "lightning" }> | null;
+  onClose: () => void;
+}) {
+  const proximity = detail?.proximity;
+
+  return (
+    <AccessibleDialog
+      open={Boolean(detail)}
+      onClose={onClose}
+      title="Lightning & QRN Detail"
+      description="Live station-centered electrical activity from the ticker."
+      size="md"
+    >
+      {detail && proximity && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <TickerMetric label="Nearest" value={`${proximity.nearestKm} km`} />
+            <TickerMetric label="Bearing" value={proximity.bearing} />
+            <TickerMetric label="Strikes" value={`${proximity.countWithin}`} />
+            <TickerMetric label="Peak" value={`${proximity.maxCurrentKA} kA`} />
+          </div>
+          <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-4">
+            <p className="font-orbitron text-xs font-semibold uppercase tracking-wider text-amber-300">
+              Radio impact
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Nearby lightning can produce QRN and static crashes, with the
+              strongest impact usually heard on 160m–40m. Use the bearing and
+              distance as situational guidance, not as a safety warning system.
+            </p>
+          </div>
+          <p className="text-xs leading-5 text-slate-500">
+            Current ticker area: {detail.coverage.label} · lightning within{" "}
+            {detail.coverage.lightningKm} km · weather within{" "}
+            {detail.coverage.weatherKm} km. Change this under Settings →
+            Appearance → News Ticker.
+          </p>
+        </div>
+      )}
+    </AccessibleDialog>
+  );
+}
+
+function TickerMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+      <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 font-orbitron text-base font-semibold text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 /**
  * Renders ticker text with orange highlights for values (numbers, parenthetical content)

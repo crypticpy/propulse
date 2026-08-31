@@ -37,6 +37,7 @@ import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
 import type { WaterfallPaletteName } from "@/components/sdr/waterfallPalette";
 import type { SdrSkinName } from "@/components/sdr/skins/types";
 import type { EqBand } from "@/lib/audio/eqTypes";
+import type { TickerCoverageArea } from "@/lib/map/tickerCoverage";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -118,6 +119,8 @@ export interface SettingsState {
   sdrWaterfallRowHeight: number;
   /** DX News Ticker position */
   tickerPosition: "bottom" | "above-panels" | "top";
+  /** Station-centered weather/lightning coverage; global ticker data is unaffected */
+  tickerCoverageArea: TickerCoverageArea;
   /** Whether the first-time contest weather tooltip has been dismissed */
   contestWeatherFirstTimeSeen?: boolean;
   /** Whether to show the QuietBandNav widget in the logbook */
@@ -374,6 +377,7 @@ const defaultSettings: SettingsState = {
   sdrWaterfallGamma: 1.0,
   sdrWaterfallRowHeight: 1,
   tickerPosition: "bottom",
+  tickerCoverageArea: "regional",
   contestWeatherFirstTimeSeen: false,
   showQuietBandNav: true,
   contestWeatherDismissedUntil: undefined,
@@ -691,7 +695,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 34,
+      version: 35,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -1038,6 +1042,11 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         if (version < 34) {
           state.globeHiResTextures ??= false;
+        }
+        if (version < 35) {
+          // Preserve the historical 500 km lightning / 800 km weather behavior
+          // for existing operators while making that station-centered scope explicit.
+          state.tickerCoverageArea ??= "regional";
         }
         return state as unknown as SettingsState & SettingsStore;
       },

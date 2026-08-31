@@ -364,7 +364,7 @@ export function DXNewsTicker({
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
-  const eligibleSolarAlerts = useMemo(
+  const breakInSolarAlerts = useMemo(
     () =>
       activeAlerts.filter((alert) =>
         meetsSolarTickerThreshold(
@@ -375,28 +375,25 @@ export function DXNewsTicker({
     [activeAlerts, crawlPreferences.solarThreshold],
   );
 
-  const eligibleWeatherAlerts = useMemo(() => {
+  const nearbyWeatherAlerts = useMemo(() => {
     if (!station) return [];
-    return weatherAlerts.filter((alert) => {
-      if (
-        !meetsWeatherTickerThreshold(
+    return weatherAlerts.filter(
+      (alert) =>
+        getDistance(station.lat, station.lon, alert.lat, alert.lon) <=
+        tickerCoverage.weatherKm,
+    );
+  }, [station, tickerCoverage.weatherKm, weatherAlerts]);
+
+  const breakInWeatherAlerts = useMemo(
+    () =>
+      nearbyWeatherAlerts.filter((alert) =>
+        meetsWeatherTickerThreshold(
           alert.severity,
           crawlPreferences.weatherThreshold,
-        )
-      ) {
-        return false;
-      }
-      return (
-        getDistance(station.lat, station.lon, alert.lat, alert.lon) <=
-        tickerCoverage.weatherKm
-      );
-    });
-  }, [
-    crawlPreferences.weatherThreshold,
-    station,
-    tickerCoverage.weatherKm,
-    weatherAlerts,
-  ]);
+        ),
+      ),
+    [crawlPreferences.weatherThreshold, nearbyWeatherAlerts],
+  );
 
   const rssHeadlines = buildRssCrawlHeadlines(
     feeds,
@@ -415,14 +412,14 @@ export function DXNewsTicker({
   }, []);
 
   const breakInCandidates = useMemo((): TickerItem[] => {
-    const solarItems = eligibleSolarAlerts.map((alert) => ({
+    const solarItems = breakInSolarAlerts.map((alert) => ({
       id: `alert-${alert.id}`,
       text: alert.title,
       highlight: true,
       alertLevel: solarAlertLevel(alert),
       detail: { kind: "solar" as const, alert },
     }));
-    const weatherItems = eligibleWeatherAlerts.map((alert) => {
+    const weatherItems = breakInWeatherAlerts.map((alert) => {
       const distanceKm = station
         ? Math.round(
             getDistance(station.lat, station.lon, alert.lat, alert.lon),
@@ -437,7 +434,7 @@ export function DXNewsTicker({
       };
     });
     return [...solarItems, ...weatherItems];
-  }, [eligibleSolarAlerts, eligibleWeatherAlerts, station]);
+  }, [breakInSolarAlerts, breakInWeatherAlerts, station]);
 
   const breakInSignature = breakInCandidates
     .map((item) => `${item.id}:${item.alertLevel}`)
@@ -472,22 +469,20 @@ export function DXNewsTicker({
     writeBreakInHistory(history);
     setBreakInItem(next);
 
-    if (crawlPreferences.breakInToneEnabled) {
-      if (next.detail?.kind === "solar") {
-        playAlertTone(
-          next.detail.alert.priority,
-          next.detail.alert.type,
-          crawlPreferences.breakInVolume,
-        );
-      } else {
-        const priority =
-          next.alertLevel === "critical"
-            ? "CRITICAL"
-            : next.alertLevel === "warning"
-              ? "WARNING"
-              : "INFO";
-        playAlertTone(priority, undefined, crawlPreferences.breakInVolume);
-      }
+    // The global solar-alert service owns space-weather audio and applies its
+    // mute, quiet-hours, and notification controls. The ticker only sounds NWS
+    // break-ins here so one solar event never produces overlapping tones.
+    if (
+      crawlPreferences.breakInToneEnabled &&
+      next.detail?.kind === "weather"
+    ) {
+      const priority =
+        next.alertLevel === "critical"
+          ? "CRITICAL"
+          : next.alertLevel === "warning"
+            ? "WARNING"
+            : "INFO";
+      playAlertTone(priority, undefined, crawlPreferences.breakInVolume);
     }
   }, [
     breakInCandidates,
@@ -516,8 +511,8 @@ export function DXNewsTicker({
     const items: TickerItem[] = [];
 
     // --- Active alerts (highest priority) ---
-    if (eligibleSolarAlerts.length > 0) {
-      for (const alert of eligibleSolarAlerts.slice(0, 2)) {
+    if (activeAlerts.length > 0) {
+      for (const alert of activeAlerts.slice(0, 2)) {
         items.push({
           id: `alert-${alert.id}`,
           text: alert.title,
@@ -572,8 +567,9 @@ export function DXNewsTicker({
         }
       }
 
-      // Nearby NWS alerts that meet the operator's source threshold.
-      for (const alert of eligibleWeatherAlerts.slice(0, 2)) {
+      // Nearby NWS alerts remain in the ordinary crawl even when interruption
+      // thresholds are disabled or set above this notice's severity.
+      for (const alert of nearbyWeatherAlerts.slice(0, 2)) {
         const dist = Math.round(
           getDistance(station.lat, station.lon, alert.lat, alert.lon),
         );
@@ -675,8 +671,8 @@ export function DXNewsTicker({
   }, [
     currentKp,
     currentSfi,
-    eligibleSolarAlerts,
-    eligibleWeatherAlerts,
+    activeAlerts,
+    nearbyWeatherAlerts,
     rssHeadlines,
     spots,
     spotCountByBand,

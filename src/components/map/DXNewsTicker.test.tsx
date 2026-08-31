@@ -25,8 +25,12 @@ const hookData = vi.hoisted(() => ({
     },
   ],
   crawlPreferences: {
-    solarThreshold: "INFO" as const,
-    weatherThreshold: "Moderate" as const,
+    solarThreshold: "INFO" as "INFO" | "WARNING" | "CRITICAL" | "off",
+    weatherThreshold: "Moderate" as
+      | "Moderate"
+      | "Severe"
+      | "Extreme"
+      | "off",
     breakInToneEnabled: true,
     breakInVolume: 45,
     dedupMinutes: 360 as const,
@@ -177,6 +181,8 @@ describe("DXNewsTicker", () => {
     hookData.lightningStrikes = [];
     hookData.tickerCoverageArea = "regional";
     hookData.rssResults = [];
+    hookData.crawlPreferences.solarThreshold = "INFO";
+    hookData.crawlPreferences.weatherThreshold = "Moderate";
     hookData.playAlertTone.mockReset();
     localStorage.clear();
     vi.stubGlobal(
@@ -280,20 +286,41 @@ describe("DXNewsTicker", () => {
     expect(duplicate?.querySelector("button")).toBeNull();
   });
 
-  it("breaks in with a tone once and suppresses the same alert on remount", async () => {
+  it("breaks in once without duplicating globally owned solar audio", async () => {
     hookData.solarAlerts = [solarAlert];
     const first = render(<DXNewsTicker />);
 
     expect(
       (await screen.findByTestId("ticker-break-in")).textContent,
     ).toContain("Geomagnetic storm in progress");
-    expect(hookData.playAlertTone).toHaveBeenCalledTimes(1);
+    expect(hookData.playAlertTone).not.toHaveBeenCalled();
 
     first.unmount();
     render(<DXNewsTicker />);
 
     expect(screen.queryByTestId("ticker-break-in")).toBeNull();
-    expect(hookData.playAlertTone).toHaveBeenCalledTimes(1);
+    expect(hookData.playAlertTone).not.toHaveBeenCalled();
+  });
+
+  it("keeps alerts in the crawl when break-in thresholds are off", () => {
+    hookData.solarAlerts = [solarAlert];
+    hookData.weatherAlerts = [weatherAlert];
+    hookData.crawlPreferences.solarThreshold = "off";
+    hookData.crawlPreferences.weatherThreshold = "off";
+
+    render(<DXNewsTicker />);
+
+    expect(screen.queryByTestId("ticker-break-in")).toBeNull();
+    expect(
+      screen.getByRole("button", {
+        name: /Geomagnetic storm in progress\. Open details/i,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: /Severe Thunderstorm Warning.*Open details/i,
+      }),
+    ).toBeTruthy();
   });
 
   it("presents only the highest simultaneous alert and deduplicates its cohort", async () => {

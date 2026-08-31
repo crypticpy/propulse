@@ -237,11 +237,11 @@ export function TickerCrawlSettingsDialog({
             onChange={(breakInToneEnabled) =>
               updateCrawlPreferences({ breakInToneEnabled })
             }
-            label="Play alert break-in tone"
-            description="New threshold-matching NWS and space-weather notices interrupt the crawl once per repeat-suppression window. Browser audio rules may require prior interaction."
+            label="Play NWS break-in tone"
+            description="New threshold-matching notices interrupt the crawl once per repeat-suppression window. Space-weather audio follows the global Notifications controls so it never sounds twice."
           />
           <label className="mt-4 block text-xs text-gray-400">
-            Tone volume · {crawlPreferences.breakInVolume}%
+            NWS tone volume · {crawlPreferences.breakInVolume}%
             <input
               type="range"
               min={0}

@@ -55,6 +55,18 @@ describe("ticker crawl helpers", () => {
               link: "https://example.com/old",
               publishedAt: "2026-08-31T04:00:00.000Z",
             },
+            {
+              ...shared,
+              id: "undated",
+              link: "https://example.com/undated",
+              publishedAt: null,
+            },
+            {
+              ...shared,
+              id: "invalid-date",
+              link: "https://example.com/invalid-date",
+              publishedAt: "not-a-date",
+            },
           ],
         },
         { source: { id: "club" }, items: [shared] },

@@ -47,7 +47,7 @@ export interface RssCrawlHeadline {
   key: string;
   feed: FeedSource;
   item: RssFeedItem;
-  publishedAtMs: number | null;
+  publishedAtMs: number;
 }
 
 function rssItemKey(item: RssFeedItem): string {
@@ -78,8 +78,8 @@ export function buildRssCrawlHeadlines(
         ? new Date(item.publishedAt).getTime()
         : null;
       if (
-        publishedAtMs != null &&
-        Number.isFinite(publishedAtMs) &&
+        publishedAtMs === null ||
+        !Number.isFinite(publishedAtMs) ||
         publishedAtMs < cutoffMs
       ) {
         continue;
@@ -92,10 +92,7 @@ export function buildRssCrawlHeadlines(
         key,
         feed,
         item,
-        publishedAtMs:
-          publishedAtMs != null && Number.isFinite(publishedAtMs)
-            ? publishedAtMs
-            : null,
+        publishedAtMs,
       });
     }
   }

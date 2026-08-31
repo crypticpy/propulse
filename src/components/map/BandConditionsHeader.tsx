@@ -24,7 +24,7 @@ import { InfoTip } from "@/components/ui/Tooltip";
 import { PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { HelpButton } from "@/components/ui/HelpModal";
 import { ModelSourceBadge } from "./ModelSourceBadge";
-import { PHYSICS_SOURCE } from "@/lib/map/modelSource";
+import type { ModelSourceDescriptor } from "@/lib/map/modelSource";
 
 interface BandConditionsHeaderProps {
   /** Current Kp index. */
@@ -41,6 +41,14 @@ interface BandConditionsHeaderProps {
   /** Present only when the panel can be hidden. */
   onClose?: () => void;
   onHelp: () => void;
+  /**
+   * Which engine actually produced the conditions on screen. The panel prefers
+   * the P.533 ray trace and silently drops to the band-score estimate when it
+   * throws, so this has to be passed in rather than assumed here.
+   *
+   * Omitted in the empty states, where nothing has been computed to attribute.
+   */
+  modelSource?: ModelSourceDescriptor;
 }
 
 export function BandConditionsHeader({
@@ -50,6 +58,7 @@ export function BandConditionsHeader({
   onToggleCollapse,
   onClose,
   onHelp,
+  modelSource,
 }: BandConditionsHeaderProps) {
   return (
     <div className="flex flex-col gap-1 flex-shrink-0">
@@ -160,7 +169,7 @@ export function BandConditionsHeader({
         </span>
         {/* This panel is served entirely by the local P.533 engine -- no ML
             model is involved, and saying so is the point of the badge. */}
-        <ModelSourceBadge source={PHYSICS_SOURCE} />
+        {modelSource && <ModelSourceBadge source={modelSource} />}
       </div>
     </div>
   );

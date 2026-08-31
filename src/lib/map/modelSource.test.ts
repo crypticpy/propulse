@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  BAND_SCORE_SOURCE,
   describeNowCastSource,
-  PHYSICS_SOURCE,
+  MODEL_UNUSED_SOURCE,
+  P533_SOURCE,
   type NowCastProvenance,
 } from "./modelSource";
 
@@ -13,7 +15,7 @@ function provenance(over: Partial<NowCastProvenance> = {}): NowCastProvenance {
     nowcastBands: [],
     fallbackBands: [],
     staleInputBands: [],
-    failedCount: 0,
+    errors: new Map(),
     ...over,
   };
 }
@@ -21,12 +23,12 @@ function provenance(over: Partial<NowCastProvenance> = {}): NowCastProvenance {
 describe("describeNowCastSource", () => {
   it("reports physics when the model capability is unavailable", () => {
     expect(describeNowCastSource(provenance({ available: false }))).toBe(
-      PHYSICS_SOURCE,
+      MODEL_UNUSED_SOURCE,
     );
   });
 
   it("reports physics when the model is available but answered nothing", () => {
-    expect(describeNowCastSource(provenance())).toBe(PHYSICS_SOURCE);
+    expect(describeNowCastSource(provenance())).toBe(MODEL_UNUSED_SOURCE);
   });
 
   it("shows a pending state rather than claiming physics mid-flight", () => {
@@ -49,14 +51,24 @@ describe("describeNowCastSource", () => {
     // One band answered with physics, one errored outright. Saying "every band
     // fell back to physics" would hide the band that produced nothing at all.
     const source = describeNowCastSource(
-      provenance({ fallbackBands: ["20m"], failedCount: 1 }),
+      provenance({
+        fallbackBands: ["20m"],
+        errors: new Map([["40m", new Error("boom")]]),
+      }),
     );
     expect(source.tone).toBe("degraded");
     expect(source.detail).toContain("1 band returned no prediction at all");
   });
 
   it("reports an outright failure rather than falling through to physics", () => {
-    const source = describeNowCastSource(provenance({ failedCount: 2 }));
+    const source = describeNowCastSource(
+      provenance({
+        errors: new Map([
+          ["20m", new Error("boom")],
+          ["40m", new Error("boom")],
+        ]),
+      }),
+    );
     expect(source.tone).toBe("degraded");
     expect(source.label).toBe("NowCast unavailable");
   });
@@ -66,7 +78,7 @@ describe("describeNowCastSource", () => {
       provenance({
         nowcastBands: ["20m"],
         fallbackBands: ["40m"],
-        failedCount: 1,
+        errors: new Map([["80m", new Error("boom")]]),
       }),
     );
     expect(source.label).toBe("NowCast · partial");
@@ -110,6 +122,31 @@ describe("describeNowCastSource", () => {
     expect(source.tone).toBe("degraded");
   });
 
+  it("counts only the bands the caller actually displays", () => {
+    // The hook requests every model band; a panel may render five. A fallback
+    // on 160m must not show up as a caveat on a row that has no 160m in it.
+    const source = describeNowCastSource(
+      provenance({
+        nowcastBands: ["20m", "40m"],
+        fallbackBands: ["160m"],
+        staleInputBands: ["60m"],
+        errors: new Map([["6m", new Error("boom")]]),
+      }),
+      ["20m", "40m", "80m"],
+    );
+    expect(source.tone).toBe("ml");
+    expect(source.label).toBe("NowCast ML");
+  });
+
+  it("still reports degradation that lands on a displayed band", () => {
+    const source = describeNowCastSource(
+      provenance({ nowcastBands: ["20m"], fallbackBands: ["40m", "160m"] }),
+      ["20m", "40m"],
+    );
+    expect(source.label).toBe("NowCast · partial");
+    expect(source.detail).toContain("1 band fell back to physics");
+  });
+
   it("always produces a non-empty label and detail", () => {
     const cases: NowCastProvenance[] = [
       provenance({ available: false }),
@@ -124,5 +161,21 @@ describe("describeNowCastSource", () => {
       expect(source.label.length).toBeGreaterThan(0);
       expect(source.detail.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("physics descriptors", () => {
+  it("keeps the ray-traced and estimated engines distinguishable", () => {
+    // Both live in lib/utils and both are "physics", but only one traces a
+    // ray. Collapsing them is what made the forecast heatmap claim P.533.
+    expect(P533_SOURCE.label).not.toBe(BAND_SCORE_SOURCE.label);
+    expect(P533_SOURCE.detail).toContain("P.533");
+    expect(BAND_SCORE_SOURCE.detail).toContain("not the full ITU-R P.533");
+  });
+
+  it("does not let the NowCast path claim a specific physics engine", () => {
+    // describeNowCastSource cannot see which engine the surrounding panel
+    // called, so its no-model descriptor must stay engine-agnostic.
+    expect(MODEL_UNUSED_SOURCE.detail).not.toContain("P.533");
   });
 });

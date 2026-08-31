@@ -49,6 +49,9 @@ export function Header({
   const clockVisible = location.pathname !== "/map";
   useEffect(() => {
     if (!clockVisible) return;
+    // Catch up immediately: the clock froze while it was hidden, so without
+    // this the masthead shows the time you left /map for up to a second.
+    setCurrentTime(new Date());
     const id = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(id);
   }, [clockVisible]);

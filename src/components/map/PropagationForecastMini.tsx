@@ -15,7 +15,10 @@ import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { ModelSourceBadge } from "@/components/map/ModelSourceBadge";
-import { describeNowCastSource, PHYSICS_SOURCE } from "@/lib/map/modelSource";
+import {
+  BAND_SCORE_SOURCE,
+  describeNowCastSource,
+} from "@/lib/map/modelSource";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -355,8 +358,8 @@ export function PropagationForecastMini({
   // lists rather than assumed, because the model falls back to physics per
   // band whenever its live spot history goes stale.
   const nowCastSource = useMemo(
-    () => describeNowCastSource(modelNowCast),
-    [modelNowCast],
+    () => describeNowCastSource(modelNowCast, displayBands),
+    [modelNowCast, displayBands],
   );
 
   // Generate 24-hour forecast
@@ -826,7 +829,7 @@ export function PropagationForecastMini({
             {/* The 24h heatmap and the band ranking below it are always the
                 local physics engine — only the NowCast chip row is ML. */}
             <ModelSourceBadge
-              source={PHYSICS_SOURCE}
+              source={BAND_SCORE_SOURCE}
               className="flex-shrink-0"
             />
           </div>
@@ -1523,11 +1526,7 @@ export function PropagationForecastMini({
                       style={{
                         backgroundColor: getForecastStatusColor(
                           hoverInfo.status as
-                            | "excellent"
-                            | "good"
-                            | "fair"
-                            | "poor"
-                            | "closed",
+                            "excellent" | "good" | "fair" | "poor" | "closed",
                         ),
                       }}
                     />
@@ -1536,11 +1535,7 @@ export function PropagationForecastMini({
                       style={{
                         color: getForecastStatusColor(
                           hoverInfo.status as
-                            | "excellent"
-                            | "good"
-                            | "fair"
-                            | "poor"
-                            | "closed",
+                            "excellent" | "good" | "fair" | "poor" | "closed",
                         ),
                       }}
                     >

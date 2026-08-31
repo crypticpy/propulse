@@ -33,6 +33,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { BandConditionsHeader } from "./BandConditionsHeader";
+import { BAND_SCORE_SOURCE, P533_SOURCE } from "@/lib/map/modelSource";
 import type { SUnit } from "@/types/signal";
 import { CorrelationIndicator } from "./CorrelationIndicator";
 import {
@@ -763,6 +764,9 @@ export function BandConditionsPanel({
             onToggleCollapse={onToggleCollapse}
             onClose={onClose}
             onHelp={() => setShowHelp(true)}
+            modelSource={
+              enhancedBandConditions ? P533_SOURCE : BAND_SCORE_SOURCE
+            }
           />
         )}
 

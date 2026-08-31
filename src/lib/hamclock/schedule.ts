@@ -19,8 +19,9 @@ const MONTH_INDEX: Record<string, number> = {
 // WA7BNM descriptions express every operating segment as one of:
 //   0000Z-2359Z, Sep 5
 //   0000Z, Sep 5 to 1200Z, Sep 6
-// Repeated segments are joined with "and". Scanning each time/date token and
-// taking the outer bounds handles all three forms without scraping detail HTML.
+// Repeated segments are joined with "and". We scan the time/date tokens, then
+// pair tokens separated by "to" so off-air gaps remain explicit rather than
+// becoming one false continuous operating window.
 const WA7BNM_TIME_DATE =
   /(\d{4})Z(?:-(\d{4})Z(?:\s*\([^)]*\))?)?,\s*([A-Z][a-z]{2})\s+(\d{1,2})/g;
 
@@ -34,6 +35,7 @@ export interface Wa7bnmContest extends ScheduleWindow {
   title: string;
   link: string | null;
   scheduleText: string;
+  segments: ScheduleWindow[];
 }
 
 export type SchedulePhase = "active" | "upcoming" | "ended";
@@ -89,7 +91,13 @@ export function parseWa7bnmContest(
   item: RssFeedItem,
   reference: Date,
 ): Wa7bnmContest | null {
-  const instants: Array<{ start: Date; end: Date }> = [];
+  const tokens: Array<{
+    start: Date;
+    end: Date;
+    hasInlineRange: boolean;
+    sourceStart: number;
+    sourceEnd: number;
+  }> = [];
   for (const match of item.summary.matchAll(WA7BNM_TIME_DATE)) {
     const startClock = parseClock(match[1]);
     const endClock = parseClock(match[2] ?? match[1]);
@@ -99,17 +107,53 @@ export function parseWa7bnmContest(
       continue;
     }
     const start = dateNearReference(month, day, startClock, reference);
-    let end = dateNearReference(month, day, endClock, reference);
+    const end = dateNearReference(month, day, endClock, reference);
     if (!start || !end) continue;
-    // A same-date range such as 2300Z-0100Z crosses midnight even when the
-    // publisher omits the second date.
-    if (end < start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
-    instants.push({ start, end });
+    const sourceStart = match.index ?? 0;
+    tokens.push({
+      start,
+      end,
+      hasInlineRange: match[2] !== undefined,
+      sourceStart,
+      sourceEnd: sourceStart + match[0].length,
+    });
   }
-  if (instants.length === 0) return null;
+  if (tokens.length === 0) return null;
 
-  const start = new Date(Math.min(...instants.map((instant) => instant.start.getTime())));
-  const end = new Date(Math.max(...instants.map((instant) => instant.end.getTime())));
+  const segmentDates: Array<{ start: Date; end: Date }> = [];
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index];
+    let end = token.end;
+
+    if (!token.hasInlineRange && index + 1 < tokens.length) {
+      const next = tokens[index + 1];
+      const separator = item.summary.slice(token.sourceEnd, next.sourceStart);
+      if (/\bto\b/i.test(separator)) {
+        end = next.start;
+        index++;
+      }
+    }
+
+    // A range such as 2300Z-0100Z crosses midnight when the publisher omits
+    // the second date. Explicit Dec→Jan ranges already resolve to next year.
+    if (end < token.start) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+    segmentDates.push({ start: token.start, end });
+  }
+
+  segmentDates.sort((a, b) => a.start.getTime() - b.start.getTime());
+  const segments = segmentDates.map(({ start, end }) => ({
+    startUtc: start.toISOString(),
+    endUtc: end.toISOString(),
+  }));
+
+  // Keep an outer envelope for stable feed ordering only. Live state and
+  // countdowns select an actual segment through selectScheduleWindow below.
+  const start = segmentDates[0].start;
+  const end = new Date(
+    Math.max(...segmentDates.map((segment) => segment.end.getTime())),
+  );
   return {
     id: item.id ?? `${item.title}:${item.summary}`,
     title: item.title,
@@ -117,6 +161,7 @@ export function parseWa7bnmContest(
     scheduleText: item.summary,
     startUtc: start.toISOString(),
     endUtc: end.toISOString(),
+    segments,
   };
 }
 
@@ -133,9 +178,17 @@ export function dxpeditionWindow(
   }
   const start = new Date(`${entry.startDate}T00:00:00.000Z`);
   const end = new Date(`${entry.endDate}T23:59:59.999Z`);
+  const [startYear, startMonth, startDay] = entry.startDate.split("-").map(Number);
+  const [endYear, endMonth, endDay] = entry.endDate.split("-").map(Number);
   if (
     Number.isNaN(start.getTime()) ||
     Number.isNaN(end.getTime()) ||
+    start.getUTCFullYear() !== startYear ||
+    start.getUTCMonth() !== startMonth - 1 ||
+    start.getUTCDate() !== startDay ||
+    end.getUTCFullYear() !== endYear ||
+    end.getUTCMonth() !== endMonth - 1 ||
+    end.getUTCDate() !== endDay ||
     end < start
   ) {
     return null;
@@ -151,6 +204,21 @@ export function getSchedulePhase(
   if (nowMs < new Date(window.startUtc).getTime()) return "upcoming";
   if (nowMs <= new Date(window.endUtc).getTime()) return "active";
   return "ended";
+}
+
+/** Select the currently active operating segment, or the next real segment.
+ * Returns null only after every published segment has ended. */
+export function selectScheduleWindow(
+  windows: readonly ScheduleWindow[],
+  now: Date,
+): ScheduleWindow | null {
+  let next: ScheduleWindow | null = null;
+  for (const window of windows) {
+    const phase = getSchedulePhase(window, now);
+    if (phase === "active") return window;
+    if (phase === "upcoming" && !next) next = window;
+  }
+  return next;
 }
 
 function compactDuration(ms: number): string {

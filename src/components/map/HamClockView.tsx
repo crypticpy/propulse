@@ -505,7 +505,7 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
         id="dxpeditions"
         title="DXpeditions"
         collapsed={panelCollapsed.dxpeditions ?? true}
-        onToggle={() => togglePanel("dxpeditions")}
+        onToggle={() => togglePanel("dxpeditions", true)}
       >
         {!(panelCollapsed.dxpeditions ?? true) && (
           <HamClockDxpeditionsPanel />
@@ -516,7 +516,7 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
         id="contests"
         title="Contests"
         collapsed={panelCollapsed.contests ?? true}
-        onToggle={() => togglePanel("contests")}
+        onToggle={() => togglePanel("contests", true)}
       >
         {!(panelCollapsed.contests ?? true) && <HamClockContestsPanel />}
       </HamClockInfoPanel>

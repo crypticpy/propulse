@@ -20,7 +20,8 @@ export interface HamClockState {
 
   // Actions
   setSpotsSide: (side: "left" | "right") => void;
-  togglePanel: (panelId: string) => void;
+  /** Toggle a panel using the same default its view renders before persistence. */
+  togglePanel: (panelId: string, defaultCollapsed?: boolean) => void;
   toggleSpotsSidebar: () => void;
   toggleInfoSidebar: () => void;
 }
@@ -37,11 +38,14 @@ export const useHamClockStore = create<HamClockState>()(
 
       setSpotsSide: (side) => set({ spotsSide: side }),
 
-      togglePanel: (panelId) =>
+      togglePanel: (panelId, defaultCollapsed = false) =>
         set((state) => ({
           panelCollapsed: {
             ...state.panelCollapsed,
-            [panelId]: !state.panelCollapsed[panelId],
+            // New panel IDs are absent from existing persisted profiles. Use
+            // the view's rendered default before negating so the first click
+            // always changes what the operator sees.
+            [panelId]: !(state.panelCollapsed[panelId] ?? defaultCollapsed),
           },
         })),
 

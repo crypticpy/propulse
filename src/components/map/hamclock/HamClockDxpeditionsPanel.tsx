@@ -22,7 +22,7 @@ interface ScheduledDxpedition {
 
 /** Active and upcoming NG3K operations with wall-readable status/countdowns. */
 export function HamClockDxpeditionsPanel() {
-  const { entries, status, isLoading } = useDxpeditions();
+  const { entries, status, isLoading, error } = useDxpeditions();
   const now = useUTCClock();
   const scheduled = useMemo(
     () =>
@@ -51,7 +51,7 @@ export function HamClockDxpeditionsPanel() {
   if (isLoading) {
     return <p className="font-mono text-[10px] text-white/35">Loading operations…</p>;
   }
-  if (status !== "ok") {
+  if (error != null || status !== "ok") {
     return <p className="font-mono text-[10px] text-white/35">DXpedition schedule unavailable</p>;
   }
   if (rows.length === 0) {

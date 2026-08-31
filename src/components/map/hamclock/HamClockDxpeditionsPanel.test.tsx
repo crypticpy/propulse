@@ -41,6 +41,7 @@ describe("HamClockDxpeditionsPanel", () => {
       ],
       status: "ok",
       isLoading: false,
+      error: null,
     });
 
     render(<HamClockDxpeditionsPanel />);
@@ -50,5 +51,19 @@ describe("HamClockDxpeditionsPanel", () => {
     expect(screen.getByText(/Ends in 1d 11h/)).toBeTruthy();
     expect(screen.getByText("Starts in 1d 12h")).toBeTruthy();
     expect(screen.getByRole("link", { name: /NG3K ADXO/i })).toBeTruthy();
+  });
+
+  it("reports a rejected schedule request as unavailable rather than empty", () => {
+    mocks.dxpeditions.mockReturnValue({
+      entries: [],
+      status: "ok",
+      isLoading: false,
+      error: new Error("route unavailable"),
+    });
+
+    render(<HamClockDxpeditionsPanel />);
+
+    expect(screen.getByText("DXpedition schedule unavailable")).toBeTruthy();
+    expect(screen.queryByText("No announced operations")).toBeNull();
   });
 });

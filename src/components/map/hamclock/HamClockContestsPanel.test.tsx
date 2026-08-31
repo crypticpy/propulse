@@ -30,6 +30,7 @@ describe("HamClockContestsPanel", () => {
       ],
       status: "ok",
       isLoading: false,
+      error: null,
     });
 
     render(<HamClockContestsPanel />);
@@ -39,5 +40,19 @@ describe("HamClockContestsPanel", () => {
     expect(screen.getByText("Ends in 30m")).toBeTruthy();
     expect(screen.getByText("Starts in 5h 30m")).toBeTruthy();
     expect(screen.getByRole("link", { name: /WA7BNM Contest Calendar/i })).toBeTruthy();
+  });
+
+  it("reports a rejected feed as unavailable rather than empty", () => {
+    mocks.rss.mockReturnValue({
+      items: [],
+      status: "ok",
+      isLoading: false,
+      error: new Error("rate limited"),
+    });
+
+    render(<HamClockContestsPanel />);
+
+    expect(screen.getByText("Contest calendar unavailable")).toBeTruthy();
+    expect(screen.queryByText(/No contests/)).toBeNull();
   });
 });

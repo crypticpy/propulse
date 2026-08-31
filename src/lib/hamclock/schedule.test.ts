@@ -4,6 +4,7 @@ import {
   getSchedulePhase,
   parseWa7bnmContest,
   scheduleCountdown,
+  selectScheduleWindow,
 } from "./schedule";
 
 const REFERENCE = new Date("2026-08-31T12:00:00.000Z");
@@ -35,6 +36,16 @@ describe("HamClock schedule normalization", () => {
       startUtc: "2026-08-31T22:00:00.000Z",
       endUtc: "2026-09-02T23:59:00.000Z",
     });
+    expect(parsed?.segments).toEqual([
+      {
+        startUtc: "2026-08-31T22:00:00.000Z",
+        endUtc: "2026-09-01T12:00:00.000Z",
+      },
+      {
+        startUtc: "2026-09-02T12:00:00.000Z",
+        endUtc: "2026-09-02T23:59:00.000Z",
+      },
+    ]);
   });
 
   it("resolves a December to January feed across the year boundary", () => {
@@ -64,6 +75,22 @@ describe("HamClock schedule normalization", () => {
     expect(scheduleCountdown(window, activeNow)).toBe("Ends in 30m");
   });
 
+  it("selects the next real segment instead of marking an off-air gap active", () => {
+    const parsed = parseWa7bnmContest(
+      item("1300Z-1400Z, Aug 31 and 1900Z-2000Z, Aug 31"),
+      REFERENCE,
+    );
+    const gapNow = new Date("2026-08-31T15:00:00.000Z");
+    const window = selectScheduleWindow(parsed?.segments ?? [], gapNow);
+
+    expect(window).toEqual({
+      startUtc: "2026-08-31T19:00:00.000Z",
+      endUtc: "2026-08-31T20:00:00.000Z",
+    });
+    expect(window && getSchedulePhase(window, gapNow)).toBe("upcoming");
+    expect(window && scheduleCountdown(window, gapNow)).toBe("Starts in 4h 0m");
+  });
+
   it("treats NG3K date-only operations as complete UTC days", () => {
     expect(
       dxpeditionWindow({ startDate: "2026-09-01", endDate: "2026-09-03" }),
@@ -71,5 +98,14 @@ describe("HamClock schedule normalization", () => {
       startUtc: "2026-09-01T00:00:00.000Z",
       endUtc: "2026-09-03T23:59:59.999Z",
     });
+  });
+
+  it("rejects syntactically valid but impossible NG3K calendar dates", () => {
+    expect(
+      dxpeditionWindow({ startDate: "2026-02-31", endDate: "2026-03-04" }),
+    ).toBeNull();
+    expect(
+      dxpeditionWindow({ startDate: "2026-02-01", endDate: "2026-02-30" }),
+    ).toBeNull();
   });
 });

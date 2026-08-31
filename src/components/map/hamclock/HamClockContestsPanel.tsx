@@ -5,6 +5,8 @@ import {
   getSchedulePhase,
   parseWa7bnmContest,
   scheduleCountdown,
+  selectScheduleWindow,
+  type ScheduleWindow,
   type Wa7bnmContest,
 } from "@/lib/hamclock/schedule";
 
@@ -12,10 +14,15 @@ export const WA7BNM_RSS_URL = "https://www.contestcalendar.com/calendar.rss";
 const WA7BNM_SITE_URL = "https://www.contestcalendar.com/";
 const MAX_ROWS = 6;
 
+interface ScheduledContest {
+  contest: Wa7bnmContest;
+  window: ScheduleWindow;
+}
+
 /** Current WA7BNM contests from its published RSS feed. The source label and
  * outbound links are kept visible as required by the feed's usage terms. */
 export function HamClockContestsPanel() {
-  const { items, status, isLoading } = useRssFeed(WA7BNM_RSS_URL);
+  const { items, status, isLoading, error } = useRssFeed(WA7BNM_RSS_URL);
   const now = useUTCClock();
   const calendarDay = now.toISOString().slice(0, 10);
   const parserReference = useMemo(
@@ -33,13 +40,20 @@ export function HamClockContestsPanel() {
   );
   const contests = useMemo(() => {
     const rows = parsed
-      .filter((entry) => getSchedulePhase(entry, now) !== "ended");
+      .map((contest): ScheduledContest | null => {
+        const window = selectScheduleWindow(contest.segments, now);
+        return window ? { contest, window } : null;
+      })
+      .filter((row): row is ScheduledContest => row !== null);
     return rows
       .sort((a, b) => {
-        const aActive = getSchedulePhase(a, now) === "active";
-        const bActive = getSchedulePhase(b, now) === "active";
+        const aActive = getSchedulePhase(a.window, now) === "active";
+        const bActive = getSchedulePhase(b.window, now) === "active";
         if (aActive !== bActive) return aActive ? -1 : 1;
-        return new Date(a.startUtc).getTime() - new Date(b.startUtc).getTime();
+        return (
+          new Date(a.window.startUtc).getTime() -
+          new Date(b.window.startUtc).getTime()
+        );
       })
       .slice(0, MAX_ROWS);
   }, [parsed, now]);
@@ -47,7 +61,7 @@ export function HamClockContestsPanel() {
   if (isLoading) {
     return <p className="font-mono text-[10px] text-white/35">Loading calendar…</p>;
   }
-  if (status !== "ok") {
+  if (error != null || status !== "ok") {
     return <p className="font-mono text-[10px] text-white/35">Contest calendar unavailable</p>;
   }
   if (contests.length === 0) {
@@ -56,8 +70,8 @@ export function HamClockContestsPanel() {
 
   return (
     <div className="space-y-1.5">
-      {contests.map((contest) => {
-        const active = getSchedulePhase(contest, now) === "active";
+      {contests.map(({ contest, window }) => {
+        const active = getSchedulePhase(window, now) === "active";
         const content = (
           <>
             <span className="flex min-w-0 items-center gap-1.5">
@@ -72,7 +86,7 @@ export function HamClockContestsPanel() {
             </span>
             <span className="mt-0.5 flex items-center justify-between gap-2 font-mono text-[9px]">
               <span className={active ? "text-signal-green" : "text-plasma-orange"}>
-                {scheduleCountdown(contest, now)}
+                {scheduleCountdown(window, now)}
               </span>
               <span className="truncate text-white/30">{contest.scheduleText}</span>
             </span>

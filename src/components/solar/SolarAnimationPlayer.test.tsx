@@ -100,4 +100,45 @@ describe("SolarAnimationPlayer", () => {
     );
     expect(screen.queryByText("temporary manifest failure")).toBeNull();
   });
+
+  it("keeps playing when a background frame probe fails", async () => {
+    vi.useFakeTimers();
+    const frames = [
+      { url: "/solar-frame-1.png", time_tag: "2026-07-15T12:00:00Z" },
+      { url: "/solar-frame-2.png", time_tag: "2026-07-15T12:05:00Z" },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ frames }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    const { container } = render(
+      <SolarAnimationPlayer
+        animationId="drap-global"
+        thumbnailProductId="drap-global"
+        alt="Solar animation"
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    fireEvent.load(screen.getByRole("img"));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+
+    act(() => vi.advanceTimersByTime(400));
+    const probe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    expect(probe).not.toBeNull();
+    fireEvent.error(probe!);
+
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+    expect(screen.queryByText(/timeline is paused for retry/i)).toBeNull();
+  });
 });

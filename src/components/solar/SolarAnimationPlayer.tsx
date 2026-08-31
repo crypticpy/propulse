@@ -270,11 +270,10 @@ export function SolarAnimationPlayer({
               if (current) setMessage("");
             }}
             onError={() => {
-              // Keep the decoded fallback/frame visible, but preserve the
-              // player's bounded retry and pause behavior for the failed URL.
+              // Keep the decoded fallback/frame visible and retry the failed
+              // candidate in the background. This is not a visible-frame
+              // failure, so an active animation must continue playing.
               retainedImage.handleProbeError();
-              setState("paused");
-              setMessage("This frame did not load. The timeline is paused for retry.");
               const failures = (frameFailures.current.get(currentUrl) ?? 0) + 1;
               frameFailures.current.set(currentUrl, failures);
               if (failures <= 3) {

@@ -63,6 +63,7 @@ export function ActivationDetailPanel() {
   const clearSpot = useActivationSpotStore((state) => state.clearSpot);
   const location = useActiveLocation();
   const setField = useQSOStore((state) => state.setField);
+  const resetForm = useQSOStore((state) => state.resetForm);
   const lookupCallsign = useQSOStore((state) => state.lookupCallsign);
   const profile = useCallsignIngestion(spot?.callsign ?? "");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
@@ -121,6 +122,10 @@ export function ActivationDetailPanel() {
 
   const handlePrepareQSO = () => {
     const band = bandFromFreq(spot.frequencyKHz);
+    // Begin with the logger's configured sticky defaults so station identity,
+    // contest, and serial data from a previous draft cannot leak into this
+    // activation. This resets only the draft; it never submits a QSO.
+    resetForm();
     setField("callsign", spot.callsign.toUpperCase());
     setField("frequency", spot.frequencyKHz);
     if (band) setField("band", band);
@@ -139,8 +144,10 @@ export function ActivationDetailPanel() {
         .join("; "),
     );
     // The shared lookup enriches name/QTH in the log form after navigation.
-    // It does not log the contact; the operator still reviews and submits it.
-    void lookupCallsign(spot.callsign);
+    // The activation's reported portable grid is authoritative for this QSO,
+    // so profile/home-grid enrichment must not replace it. The call still is
+    // not logged until the operator reviews and submits the prepared draft.
+    void lookupCallsign(spot.callsign, { preserveGrid: true });
     clearSpot();
     navigate("/log");
   };

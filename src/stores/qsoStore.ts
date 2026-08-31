@@ -110,7 +110,10 @@ interface QSOStoreState {
   deselectAll: () => void;
 
   // ── Lookup Actions ──
-  lookupCallsign: (callsign: string) => Promise<void>;
+  lookupCallsign: (
+    callsign: string,
+    options?: { preserveGrid?: boolean },
+  ) => Promise<void>;
   clearLookup: () => void;
 
   // ── Dupe Actions ──
@@ -338,6 +341,7 @@ export const useQSOStore = create<QSOStoreState>()(
         set((state) => ({
           form: buildResetForm(state.formDefaults),
           lookupResult: null,
+          lookupLoading: false,
           lookupError: null,
           dupeInfo: null,
         }));
@@ -633,7 +637,8 @@ export const useQSOStore = create<QSOStoreState>()(
 
       // ── Lookup Actions ──
 
-      lookupCallsign: async (callsign) => {
+      lookupCallsign: async (callsign, options) => {
+        const requestedCallsign = callsign.trim().toUpperCase();
         set({ lookupLoading: true, lookupError: null });
         try {
           const resp = await fetch(
@@ -645,14 +650,18 @@ export const useQSOStore = create<QSOStoreState>()(
               string,
               unknown
             >;
-            set({
-              lookupLoading: false,
-              lookupError:
-                typeof body.error === "string"
-                  ? body.error
-                  : `Lookup failed (${resp.status})`,
-              lookupResult: null,
-            });
+            set((state) =>
+              state.form.callsign.trim().toUpperCase() === requestedCallsign
+                ? {
+                    lookupLoading: false,
+                    lookupError:
+                      typeof body.error === "string"
+                        ? body.error
+                        : `Lookup failed (${resp.status})`,
+                    lookupResult: null,
+                  }
+                : {},
+            );
             return;
           }
 
@@ -676,21 +685,36 @@ export const useQSOStore = create<QSOStoreState>()(
           // Apply lookup data to form and store result
           const formUpdates: Partial<QSOFormState> = {};
           if (result.name) formUpdates.name = result.name;
-          if (result.grid) formUpdates.grid = result.grid;
+          // A portable-activation report identifies the contact site more
+          // precisely than the operator's profile/home grid. Callers carrying
+          // that authoritative report can still enrich identity fields without
+          // silently moving the station before the QSO is reviewed.
+          if (result.grid && !options?.preserveGrid) {
+            formUpdates.grid = result.grid;
+          }
           if (result.qth) formUpdates.qth = result.qth;
 
           set((s) => ({
-            lookupResult: result,
-            lookupLoading: false,
-            lookupError: null,
-            form: { ...s.form, ...formUpdates },
+            ...(s.form.callsign.trim().toUpperCase() === requestedCallsign
+              ? {
+                  lookupResult: result,
+                  lookupLoading: false,
+                  lookupError: null,
+                  form: { ...s.form, ...formUpdates },
+                }
+              : {}),
           }));
         } catch (err) {
-          set({
-            lookupLoading: false,
-            lookupError: err instanceof Error ? err.message : "Lookup failed",
-            lookupResult: null,
-          });
+          set((state) =>
+            state.form.callsign.trim().toUpperCase() === requestedCallsign
+              ? {
+                  lookupLoading: false,
+                  lookupError:
+                    err instanceof Error ? err.message : "Lookup failed",
+                  lookupResult: null,
+                }
+              : {},
+          );
         }
       },
 

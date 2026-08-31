@@ -25,6 +25,7 @@ describe("formatActivationFrequency", () => {
     expect(formatActivationFrequency(7240)).toBe("7.24");
     expect(formatActivationFrequency(7383)).toBe("7.383");
     expect(formatActivationFrequency(14074)).toBe("14.074");
+    expect(formatActivationFrequency(14074.5)).toBe("14.0745");
   });
 });
 

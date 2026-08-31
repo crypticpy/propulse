@@ -56,6 +56,7 @@ const SPOT = {
 describe("ActivationDetailPanel", () => {
   beforeEach(() => {
     useActivationSpotStore.setState({ selectedSpot: SPOT });
+    useQSOStore.setState({ formDefaults: {} });
     useQSOStore.getState().resetForm();
     mocks.lookup.mockReset().mockResolvedValue(undefined);
     useQSOStore.setState({ lookupCallsign: mocks.lookup });
@@ -83,6 +84,17 @@ describe("ActivationDetailPanel", () => {
   });
 
   it("copies the full report and prepares a reviewable QSO draft", async () => {
+    useQSOStore.setState((state) => ({
+      form: {
+        ...state.form,
+        name: "Previous Operator",
+        qth: "Previous QTH",
+        grid: "FN31pr",
+        notes: "Previous notes",
+        contestId: "OLD-CONTEST",
+        srx: "999",
+      },
+    }));
     render(
       <MemoryRouter initialEntries={["/propsphere"]}>
         <Routes>
@@ -114,11 +126,17 @@ describe("ActivationDetailPanel", () => {
         band: "20m",
         mode: "FT8",
         grid: "EM10df",
+        name: "",
+        qth: "",
         sig: "POTA",
         sigInfo: "US-1234",
+        contestId: "",
+        srx: "",
       }),
     );
-    expect(mocks.lookup).toHaveBeenCalledWith("K5ABC");
+    expect(mocks.lookup).toHaveBeenCalledWith("K5ABC", {
+      preserveGrid: true,
+    });
     expect(useActivationSpotStore.getState().selectedSpot).toBeNull();
     expect(await screen.findByText("Log route")).toBeTruthy();
   });

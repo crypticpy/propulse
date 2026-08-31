@@ -42,7 +42,9 @@ export function formatActivationFrequency(frequencyKHz: number): string {
     return frequencyKHz.toFixed(1).replace(/\.0$/, "");
   }
   return (frequencyKHz / 1_000)
-    .toFixed(3)
+    // Feed normalization retains tenths of a kHz, which requires four MHz
+    // decimals (14074.5 kHz -> 14.0745 MHz) to avoid tuning off frequency.
+    .toFixed(4)
     .replace(/0+$/, "")
     .replace(/\.$/, "");
 }

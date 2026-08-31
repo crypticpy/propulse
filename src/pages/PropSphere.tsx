@@ -1855,7 +1855,6 @@ export function PropSphere() {
         />
       )}
 
-      {/* Add Pin Dialog (keyboard shortcut P) */}
       <ActivationDetailPanel />
 
       {target && (

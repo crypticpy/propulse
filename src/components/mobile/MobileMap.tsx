@@ -9,6 +9,7 @@
 
 import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { FlatMapView } from "@/components/map/FlatMapView";
+import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ReachMapControl } from "@/components/map/ReachMapControl";
 import { useMapStore } from "@/stores/mapStore";
@@ -468,6 +469,10 @@ export function MobileMap() {
           </div>
         </div>
       )}
+
+      {/* Mobile reuses the shared map renderers, so it owns the same portal
+          dialog as desktop PropSphere for activation-label selections. */}
+      <ActivationDetailPanel />
     </div>
   );
 }

@@ -35,7 +35,6 @@ import { NightLightsOverlay } from "./NightLightsOverlay";
 import { LabelsOverlay } from "./LabelsOverlay";
 import { AuroraOverlay } from "./AuroraOverlay";
 import { MUFOverlay } from "./MUFOverlay";
-import { GrayLineZone } from "./GrayLineZone";
 import { SatelliteOverlay } from "./SatelliteOverlay";
 import { ISSTrackerOverlay } from "./ISSTrackerOverlay";
 import { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
@@ -118,7 +117,10 @@ import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
-import { getGreylineIntensity } from "@/lib/utils/greyline";
+import {
+  getGreylineGlowIntensity,
+  getGreylineIntensity,
+} from "@/lib/utils/greyline";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import {
   getGlobeNavigationTuning,
@@ -355,13 +357,11 @@ function CameraController() {
     );
     controls.zoomSpeed = tuning.zoomSpeed;
     controls.rotateSpeed = tuning.rotateSpeed;
-    controls.autoRotateSpeed =
-      computedRotateSpeed * tuning.autoRotateScale;
+    controls.autoRotateSpeed = computedRotateSpeed * tuning.autoRotateScale;
 
     if (
       camera instanceof THREE.PerspectiveCamera &&
-      Math.abs(camera.near - tuning.near) /
-        Math.max(camera.near, tuning.near) >
+      Math.abs(camera.near - tuning.near) / Math.max(camera.near, tuning.near) >
         0.01
     ) {
       camera.near = tuning.near;
@@ -1351,13 +1351,13 @@ const GlobeScene = React.memo(function GlobeScene({
           <Terminator date={displayTime} standardMode={isStandard} />
         )}
 
-        {/* Greyline band with intensity-based visualization */}
+        {/* Greyline band with intensity-based visualization.
+            This is the ONLY static greyline band. GrayLineZone used to draw a
+            second fixed ±5° ribbon in the same amber under the same toggle,
+            which just stacked a brighter stripe inside this one. */}
         {layers.greyline && (
           <Greyline date={displayTime} intensity={greylineIntensity} />
         )}
-
-        {/* Gray line propagation zone (±5° from terminator) */}
-        {layers.greyline && <GrayLineZone date={displayTime} />}
 
         {/* Aurora overlay */}
         {layers.aurora && auroraData && (
@@ -1467,10 +1467,15 @@ const GlobeScene = React.memo(function GlobeScene({
           <GeomagneticFieldLines3D kpIndex={currentKp ?? 2} />
         )}
 
+        {/* Animated glow riding the terminator. Driven by the station-local
+            greyline intensity so it appears while greyline propagation is
+            actually happening and returns 0 (renders nothing) otherwise --
+            it used to be hardcoded to 0.5, painting a permanent second
+            amber band over the static Greyline ribbon. */}
         {layers.greyline && terminatorPoints && terminatorPoints.length > 0 && (
           <TerminatorEnhancement3D
             terminatorPoints={terminatorPoints}
-            intensity={0.5}
+            intensity={getGreylineGlowIntensity(greylineIntensity)}
           />
         )}
 

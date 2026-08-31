@@ -97,9 +97,6 @@ export {
   SatelliteDetailModal,
 } from "./layers";
 
-// Gray line propagation zone (±5° from terminator)
-export { GrayLineZone } from "./GrayLineZone";
-
 // DX News ticker
 export { DXNewsTicker } from "./DXNewsTicker";
 

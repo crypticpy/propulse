@@ -168,6 +168,11 @@ function buildResetForm(formDefaults: Partial<QSOFormState>): QSOFormState {
   return form;
 }
 
+// Every lookup receives a generation, not just a callsign. This matters when
+// two requests target the same station with different policies (for example an
+// ordinary lookup followed by a portable activation that must preserve grid).
+let callsignLookupGeneration = 0;
+
 /** Apply QSO filters to an array of log entries client-side */
 function applyFiltersToEntries(
   entries: LogEntry[],
@@ -338,6 +343,7 @@ export const useQSOStore = create<QSOStoreState>()(
       },
 
       resetForm: () => {
+        callsignLookupGeneration += 1;
         set((state) => ({
           form: buildResetForm(state.formDefaults),
           lookupResult: null,
@@ -639,6 +645,7 @@ export const useQSOStore = create<QSOStoreState>()(
 
       lookupCallsign: async (callsign, options) => {
         const requestedCallsign = callsign.trim().toUpperCase();
+        const requestGeneration = ++callsignLookupGeneration;
         set({ lookupLoading: true, lookupError: null });
         try {
           const resp = await fetch(
@@ -651,6 +658,7 @@ export const useQSOStore = create<QSOStoreState>()(
               unknown
             >;
             set((state) =>
+              requestGeneration === callsignLookupGeneration &&
               state.form.callsign.trim().toUpperCase() === requestedCallsign
                 ? {
                     lookupLoading: false,
@@ -695,7 +703,8 @@ export const useQSOStore = create<QSOStoreState>()(
           if (result.qth) formUpdates.qth = result.qth;
 
           set((s) => ({
-            ...(s.form.callsign.trim().toUpperCase() === requestedCallsign
+            ...(requestGeneration === callsignLookupGeneration &&
+            s.form.callsign.trim().toUpperCase() === requestedCallsign
               ? {
                   lookupResult: result,
                   lookupLoading: false,
@@ -706,6 +715,7 @@ export const useQSOStore = create<QSOStoreState>()(
           }));
         } catch (err) {
           set((state) =>
+            requestGeneration === callsignLookupGeneration &&
             state.form.callsign.trim().toUpperCase() === requestedCallsign
               ? {
                   lookupLoading: false,
@@ -719,6 +729,7 @@ export const useQSOStore = create<QSOStoreState>()(
       },
 
       clearLookup: () => {
+        callsignLookupGeneration += 1;
         set({
           lookupResult: null,
           lookupLoading: false,

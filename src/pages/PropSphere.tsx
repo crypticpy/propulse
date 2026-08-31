@@ -42,7 +42,6 @@ import {
   ReachMapControl,
 } from "@/components/map";
 import { SatelliteDetailModal } from "@/components/map/layers";
-import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { ColorsPopover } from "@/components/map/ColorsPopover";
@@ -1855,8 +1854,7 @@ export function PropSphere() {
         />
       )}
 
-      <ActivationDetailPanel />
-
+      {/* Add Pin Dialog (keyboard shortcut P) */}
       {target && (
         <AddPinDialog
           visible={showAddPin}

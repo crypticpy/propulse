@@ -31,6 +31,11 @@ const SpeedInsights = lazy(() =>
     default: m.SpeedInsights,
   })),
 );
+const ActivationDetailPanel = lazy(() =>
+  import("@/components/map/ActivationDetailPanel").then((m) => ({
+    default: m.ActivationDetailPanel,
+  })),
+);
 
 // Prune stale IDB cache entries on app startup (fire-and-forget)
 clearExpiredCache().catch(() => {});
@@ -348,6 +353,12 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
+        {/* GlobeView is shared by PropSphere, mobile, fullscreen/HamClock, and
+            AtmosPulse. Keep one dialog owner above those hosts so a persistent
+            activation layer can never create a selection with nowhere to open. */}
+        <Suspense fallback={null}>
+          <ActivationDetailPanel />
+        </Suspense>
         <NetAlertToasts />
         <Suspense fallback={null}>
           <SpeedInsights />

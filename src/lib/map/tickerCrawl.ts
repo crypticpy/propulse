@@ -51,7 +51,25 @@ export interface RssCrawlHeadline {
 }
 
 function rssItemKey(item: RssFeedItem): string {
-  return (item.link ?? item.id ?? item.title).trim().toLocaleLowerCase();
+  const link = item.link?.trim();
+  if (link) {
+    try {
+      // URL parses scheme and hostname with their case-insensitive semantics
+      // while preserving case-sensitive path, query, and fragment data.
+      return `link:${new URL(link).toString()}`;
+    } catch {
+      // Relative or opaque links have no trustworthy base here. Preserve them
+      // exactly rather than silently merging case-distinct provider values.
+      return `link:${link}`;
+    }
+  }
+
+  const id = item.id?.trim();
+  if (id) return `id:${id}`;
+
+  // Titles are human-readable fallback text, where case-only differences are
+  // much more likely to be syndicated duplicates than distinct identifiers.
+  return `title:${item.title.trim().toLocaleLowerCase()}`;
 }
 
 /**

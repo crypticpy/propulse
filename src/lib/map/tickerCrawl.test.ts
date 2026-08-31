@@ -78,6 +78,38 @@ describe("ticker crawl helpers", () => {
     expect(headlines[0].feed.id).toBe("arrl");
   });
 
+  it("preserves case-sensitive URL paths and opaque feed IDs", () => {
+    const now = new Date("2026-08-31T12:00:00.000Z").getTime();
+    const current = {
+      title: "Case-sensitive story",
+      publishedAt: "2026-08-31T11:00:00.000Z",
+      summary: "",
+    };
+
+    const headlines = buildRssCrawlHeadlines(
+      feeds,
+      [
+        {
+          source: { id: "arrl" },
+          items: [
+            { ...current, id: "url-a", link: "HTTPS://EXAMPLE.COM/News/A" },
+            { ...current, id: "url-b", link: "https://example.com/News/a" },
+            { ...current, id: "Opaque-A", link: null },
+            { ...current, id: "opaque-a", link: null },
+          ],
+        },
+      ],
+      now,
+    );
+
+    expect(headlines.map((headline) => headline.item.id)).toEqual([
+      "url-a",
+      "url-b",
+      "Opaque-A",
+      "opaque-a",
+    ]);
+  });
+
   it("prunes repeated break-ins at the configured window", () => {
     expect(
       pruneBreakInHistory(

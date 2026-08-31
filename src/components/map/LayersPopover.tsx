@@ -482,6 +482,13 @@ export function LayersPopover() {
             getValue: () => layers.nightLights,
             onToggle: () => toggleLayer("nightLights"),
           },
+          {
+            key: "lunarSubpoint",
+            label: "Lunar Subpoint",
+            title: "Mark the point on Earth where the Moon is directly overhead",
+            getValue: () => layers.lunarSubpoint,
+            onToggle: () => toggleLayer("lunarSubpoint"),
+          },
         ],
       },
       {

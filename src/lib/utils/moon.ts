@@ -9,11 +9,16 @@
 import SunCalc from "suncalc";
 
 const RAD_TO_DEG = 180 / Math.PI;
+const DEG_TO_RAD = Math.PI / 180;
+const DAY_MS = 86_400_000;
+const JULIAN_1970 = 2_440_588;
+const JULIAN_2000 = 2_451_545;
+const EARTH_OBLIQUITY = 23.4397 * DEG_TO_RAD;
 const HOUR_MS = 3_600_000;
 const MAX_SEARCH_HOURS = 31 * 24;
 const BISECTION_ITERATIONS = 12; // 1h / 2^12 ~= 0.88s, well under a minute
 
-export interface MoonSnapshot {
+export interface MoonConditions {
   phase: number;
   illumination: number;
   phaseName: string;
@@ -23,8 +28,16 @@ export interface MoonSnapshot {
   altitude: number;
   azimuth: number;
   distanceKm: number;
+}
+
+export interface MoonSnapshot extends MoonConditions {
   nextFullMoon: Date;
   nextNewMoon: Date;
+}
+
+export interface SublunarPoint {
+  lat: number;
+  lon: number;
 }
 
 const PHASE_EMOJI: Record<string, string> = {
@@ -57,6 +70,52 @@ function getPhaseName(phase: number): string {
 
 function normalizeAngle(deg: number): number {
   return ((deg % 360) + 360) % 360;
+}
+
+function normalizeLongitude(degrees: number): number {
+  return ((((degrees + 180) % 360) + 360) % 360) - 180;
+}
+
+/**
+ * Return the geocentric point on Earth directly beneath the Moon.
+ *
+ * The low-order lunar longitude/latitude terms intentionally match SunCalc's
+ * moon-position model, which the rest of this module uses. Keeping the same
+ * model means the marker and the pane cannot disagree about where the Moon is;
+ * at the returned coordinate SunCalc reports an altitude of approximately 90°.
+ */
+export function getSublunarPoint(at: Date): SublunarPoint {
+  const julianDate = at.getTime() / DAY_MS - 0.5 + JULIAN_1970;
+  const daysSinceJ2000 = julianDate - JULIAN_2000;
+
+  const meanLongitude =
+    (218.316 + 13.176396 * daysSinceJ2000) * DEG_TO_RAD;
+  const meanAnomaly = (134.963 + 13.064993 * daysSinceJ2000) * DEG_TO_RAD;
+  const meanDistance = (93.272 + 13.22935 * daysSinceJ2000) * DEG_TO_RAD;
+  const eclipticLongitude =
+    meanLongitude + 6.289 * DEG_TO_RAD * Math.sin(meanAnomaly);
+  const eclipticLatitude = 5.128 * DEG_TO_RAD * Math.sin(meanDistance);
+
+  const rightAscension = Math.atan2(
+    Math.sin(eclipticLongitude) * Math.cos(EARTH_OBLIQUITY) -
+      Math.tan(eclipticLatitude) * Math.sin(EARTH_OBLIQUITY),
+    Math.cos(eclipticLongitude),
+  );
+  const declination = Math.asin(
+    Math.sin(eclipticLatitude) * Math.cos(EARTH_OBLIQUITY) +
+      Math.cos(eclipticLatitude) *
+        Math.sin(EARTH_OBLIQUITY) *
+        Math.sin(eclipticLongitude),
+  );
+  const greenwichSiderealTime =
+    (280.16 + 360.9856235 * daysSinceJ2000) * DEG_TO_RAD;
+
+  return {
+    lat: declination * RAD_TO_DEG,
+    lon: normalizeLongitude(
+      (rightAscension - greenwichSiderealTime) * RAD_TO_DEG,
+    ),
+  };
 }
 
 function phaseAt(date: Date): number {
@@ -145,7 +204,16 @@ function findPhaseTarget(start: Date, kind: "full" | "new"): Date {
   return prevTime;
 }
 
-export function getMoonSnapshot(at: Date, lat: number, lon: number): MoonSnapshot {
+/**
+ * Calculate the live lunar values needed by frequently refreshing surfaces.
+ * This deliberately excludes the forward phase-event search performed by
+ * getMoonSnapshot so map clocks can update without scanning the next month.
+ */
+export function getMoonConditions(
+  at: Date,
+  lat: number,
+  lon: number,
+): MoonConditions {
   const illumination = SunCalc.getMoonIllumination(at);
   const phaseName = getPhaseName(illumination.phase);
 
@@ -174,6 +242,12 @@ export function getMoonSnapshot(at: Date, lat: number, lon: number): MoonSnapsho
     altitude: position.altitude * RAD_TO_DEG,
     azimuth,
     distanceKm: position.distance,
+  };
+}
+
+export function getMoonSnapshot(at: Date, lat: number, lon: number): MoonSnapshot {
+  return {
+    ...getMoonConditions(at, lat, lon),
     nextFullMoon: findPhaseTarget(at, "full"),
     nextNewMoon: findPhaseTarget(at, "new"),
   };

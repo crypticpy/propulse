@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import SunCalc from "suncalc";
-import { getMoonSnapshot } from "./moon";
+import {
+  getMoonConditions,
+  getMoonSnapshot,
+  getSublunarPoint,
+} from "./moon";
 
 const ALL_PHASE_NAMES = [
   "New Moon",
@@ -14,6 +18,26 @@ const ALL_PHASE_NAMES = [
 ];
 
 describe("getMoonSnapshot", () => {
+  it("keeps lightweight live conditions separate from phase-event searches", () => {
+    const at = new Date("2024-06-15T12:00:00Z");
+    const conditions = getMoonConditions(at, 40, -105);
+    const snapshot = getMoonSnapshot(at, 40, -105);
+
+    expect(conditions).toEqual({
+      phase: snapshot.phase,
+      illumination: snapshot.illumination,
+      phaseName: snapshot.phaseName,
+      emoji: snapshot.emoji,
+      rise: snapshot.rise,
+      set: snapshot.set,
+      altitude: snapshot.altitude,
+      azimuth: snapshot.azimuth,
+      distanceKm: snapshot.distanceKm,
+    });
+    expect("nextFullMoon" in conditions).toBe(false);
+    expect("nextNewMoon" in conditions).toBe(false);
+  });
+
   it("returns a phase within [0, 1)", () => {
     const snapshot = getMoonSnapshot(new Date("2024-06-15T12:00:00Z"), 40, -105);
     expect(snapshot.phase).toBeGreaterThanOrEqual(0);
@@ -104,5 +128,33 @@ describe("getMoonSnapshot", () => {
     const snapshot = getMoonSnapshot(new Date("2024-06-15T12:00:00Z"), 40, -105);
     expect(snapshot.distanceKm).toBeGreaterThan(356_000);
     expect(snapshot.distanceKm).toBeLessThan(407_000);
+  });
+});
+
+describe("getSublunarPoint", () => {
+  it.each([
+    "2024-01-01T00:00:00Z",
+    "2024-06-15T12:00:00Z",
+    "2026-08-31T18:30:00Z",
+  ])("returns the point where the Moon is overhead at %s", (iso) => {
+    const at = new Date(iso);
+    const point = getSublunarPoint(at);
+    const overhead = SunCalc.getMoonPosition(at, point.lat, point.lon);
+
+    expect(point.lat).toBeGreaterThanOrEqual(-90);
+    expect(point.lat).toBeLessThanOrEqual(90);
+    expect(point.lon).toBeGreaterThanOrEqual(-180);
+    expect(point.lon).toBeLessThan(180);
+    expect((overhead.altitude * 180) / Math.PI).toBeGreaterThan(89.9);
+  });
+
+  it("moves continuously across the dateline", () => {
+    const before = getSublunarPoint(new Date("2024-06-15T12:00:00Z"));
+    const after = getSublunarPoint(new Date("2024-06-15T12:01:00Z"));
+    const wrappedDelta = Math.abs(
+      ((after.lon - before.lon + 540) % 360) - 180,
+    );
+
+    expect(wrappedDelta).toBeLessThan(1);
   });
 });

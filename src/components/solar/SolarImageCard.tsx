@@ -5,6 +5,7 @@ import {
   solarImageUrl,
   type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
+import { useRetainedSolarImage } from "./useRetainedSolarImage";
 
 interface ImageMetadata {
   observedAt: string | null;
@@ -37,6 +38,12 @@ export function SolarImageCard({
   const [now, setNow] = useState(() => Date.now());
   const attempt = useRef(0);
   const imageUrl = solarImageUrl(productId, now, retryKey);
+  const retainedImage = useRetainedSolarImage(
+    productId,
+    imageUrl,
+    imageUrl,
+    product.hardTtlSeconds * 1_000,
+  );
   const metadataUrl = solarImageMetadataUrl(
     productId,
     now,
@@ -163,21 +170,44 @@ export function SolarImageCard({
           </div>
         )}
         <img
-          key={imageUrl}
-          src={imageUrl}
+          src={retainedImage.visibleUrl ?? undefined}
           alt={product.alt}
           loading="lazy"
           decoding="async"
           className={`pointer-events-none h-full w-full object-contain transition-opacity motion-reduce:transition-none ${usableImage ? "opacity-100" : "opacity-0"}`}
           onLoad={() => {
+            retainedImage.handleVisibleLoad();
             attempt.current = 0;
             setState("fresh");
           }}
           onError={() => {
+            retainedImage.handleVisibleError();
             attempt.current += 1;
             setState("error");
           }}
         />
+        {retainedImage.probeUrl && (
+          <img
+            key={retainedImage.probeUrl}
+            src={retainedImage.probeUrl}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            data-solar-image-probe="true"
+            className="pointer-events-none absolute h-px w-px opacity-0"
+            onLoad={() => {
+              retainedImage.handleProbeLoad();
+              attempt.current = 0;
+              setState("fresh");
+            }}
+            onError={() => {
+              // A cadence miss must not evict a still-usable decoded frame.
+              // The next cadence key (or an explicit retry) can probe again.
+              retainedImage.handleProbeError();
+              attempt.current += 1;
+            }}
+          />
+        )}
         <span
           className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider backdrop-blur ${
             visibleState === "fresh"

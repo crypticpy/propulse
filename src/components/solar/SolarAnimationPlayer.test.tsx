@@ -9,7 +9,7 @@ describe("SolarAnimationPlayer", () => {
     vi.unstubAllGlobals();
   });
 
-  it("refreshes its mounted fallback and manifest at the image cadence", () => {
+  it("keeps its mounted fallback until the next cadence image loads", () => {
     vi.useFakeTimers();
     const initial = new Date("2026-07-15T12:10:00.000Z");
     vi.setSystemTime(initial);
@@ -19,16 +19,16 @@ describe("SolarAnimationPlayer", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    render(
+    const { container } = render(
       <SolarAnimationPlayer
         animationId="drap-global"
         thumbnailProductId="drap-global"
         alt="Solar animation"
       />,
     );
-    expect(screen.getByRole("img").getAttribute("src")).toBe(
-      solarImageUrl("drap-global", initial.getTime()),
-    );
+    const firstUrl = solarImageUrl("drap-global", initial.getTime());
+    expect(screen.getByRole("img").getAttribute("src")).toBe(firstUrl);
+    fireEvent.load(screen.getByRole("img"));
     const firstManifestUrl = fetchMock.mock.calls[0]?.[0];
     expect(String(firstManifestUrl)).toContain("&refresh=");
 
@@ -36,9 +36,17 @@ describe("SolarAnimationPlayer", () => {
       vi.advanceTimersByTime(6 * 60_000);
     });
 
-    expect(screen.getByRole("img").getAttribute("src")).toBe(
-      solarImageUrl("drap-global", initial.getTime() + 6 * 60_000),
+    const probe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
     );
+    const replacementUrl = solarImageUrl(
+      "drap-global",
+      initial.getTime() + 6 * 60_000,
+    );
+    expect(probe?.getAttribute("src")).toBe(replacementUrl);
+    expect(screen.getByRole("img").getAttribute("src")).toBe(firstUrl);
+    fireEvent.error(probe!);
+    expect(screen.getByRole("img").getAttribute("src")).toBe(firstUrl);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).not.toBe(firstManifestUrl);
   });

@@ -51,7 +51,7 @@ describe("SolarImageCard", () => {
     expect(onOpen).toHaveBeenCalledWith("sunspot-hmi", false);
   });
 
-  it("reloads mounted imagery when the provider cache window advances", () => {
+  it("keeps the decoded image while probing later provider cache windows", () => {
     vi.useFakeTimers();
     const initial = new Date("2026-07-15T12:10:00.000Z");
     vi.setSystemTime(initial);
@@ -68,15 +68,47 @@ describe("SolarImageCard", () => {
       ),
     );
 
-    render(<SolarImageCard productId="sunspot-hmi" onOpen={vi.fn()} />);
-    const firstUrl = screen.getByAltText(/full solar disk/i).getAttribute("src");
+    const { container } = render(
+      <SolarImageCard productId="sunspot-hmi" onOpen={vi.fn()} />,
+    );
+    const image = screen.getByAltText(/full solar disk/i);
+    const firstUrl = image.getAttribute("src");
+    fireEvent.load(image);
 
     act(() => {
       vi.advanceTimersByTime(6 * 60_000);
     });
 
-    expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).not.toBe(
+    const failedProbe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    expect(failedProbe?.getAttribute("src")).toBe(
+      solarImageUrl("sunspot-hmi", initial.getTime() + 6 * 60_000),
+    );
+    expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).toBe(
       firstUrl,
+    );
+
+    fireEvent.error(failedProbe!);
+    expect(screen.queryByText("Image temporarily unavailable")).toBeNull();
+    expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).toBe(
+      firstUrl,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(6 * 60_000);
+    });
+    const successfulProbe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    const replacementUrl = solarImageUrl(
+      "sunspot-hmi",
+      initial.getTime() + 12 * 60_000,
+    );
+    expect(successfulProbe?.getAttribute("src")).toBe(replacementUrl);
+    fireEvent.load(successfulProbe!);
+    expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).toBe(
+      replacementUrl,
     );
   });
 

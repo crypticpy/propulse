@@ -69,4 +69,36 @@ describe("SolarImageDetail", () => {
     ).not.toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("retains a usable detail image when the next cadence probe fails", () => {
+    vi.useFakeTimers();
+    const initial = new Date("2026-07-15T12:10:00.000Z");
+    vi.setSystemTime(initial);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    const { container } = render(
+      <SolarImageDetail productId="sunspot-hmi" />,
+    );
+    const image = screen.getByRole("img");
+    const firstUrl = image.getAttribute("src");
+    fireEvent.load(image);
+
+    act(() => {
+      vi.advanceTimersByTime(6 * 60_000);
+    });
+
+    const probe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    expect(probe?.getAttribute("src")).toBe(
+      solarImageUrl("sunspot-hmi", initial.getTime() + 6 * 60_000),
+    );
+    fireEvent.error(probe!);
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("img").getAttribute("src")).toBe(firstUrl);
+    expect(screen.getByRole("img").className).toContain("opacity-100");
+  });
 });

@@ -143,8 +143,10 @@ function LocationMarkerInner({
 
   // These sit at the surface, below the depth dome, so depthTest is off and the
   // far side has to be faded out on the CPU instead (globe stacking contract 1b)
-  // — the same arrangement StationMarker3D uses.
-  const { opacityRef } = useGlobeOcclusion(lat, lon);
+  // — the same arrangement StationMarker3D uses. Drei Html is a DOM portal and
+  // does not inherit the Three group visibility, so its state opacity must be
+  // applied separately from the per-frame mesh ref.
+  const { opacityRef, opacity: occlusionOpacity } = useGlobeOcclusion(lat, lon);
 
   // Pulse animation for target markers
   useFrame(({ camera, clock }) => {
@@ -237,7 +239,11 @@ function LocationMarkerInner({
             position={[0, markerSize * 2.5, 0]}
             center
             zIndexRange={[1, 0]}
-            style={{ pointerEvents: "none" }}
+            style={{
+              pointerEvents: "none",
+              opacity: occlusionOpacity,
+              transition: "opacity 0.2s ease",
+            }}
           >
             <div
               style={{
@@ -260,7 +266,11 @@ function LocationMarkerInner({
               position={[0, markerSize * 5, 0]}
               center
               zIndexRange={[2, 1]}
-              style={{ pointerEvents: "none" }}
+              style={{
+                pointerEvents: "none",
+                opacity: occlusionOpacity,
+                transition: "opacity 0.2s ease",
+              }}
             >
               <div
                 className="px-2.5 py-1.5 rounded-lg text-xs font-mono whitespace-nowrap"
@@ -287,6 +297,8 @@ function LocationMarkerInner({
           zIndexRange={[1, 0]}
           style={{
             pointerEvents: "none",
+            opacity: occlusionOpacity,
+            transition: "opacity 0.2s ease",
           }}
         >
           <div className="flex flex-col items-center gap-0.5">

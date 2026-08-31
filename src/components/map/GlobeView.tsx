@@ -1547,7 +1547,6 @@ const GlobeScene = React.memo(function GlobeScene({
         {layers.spots && (
           <LiveSpotArcs
             grid={station?.grid}
-            maxArcs={50}
             onSpotHover={onSpotHover}
             onSpotHoverEnd={onSpotHoverEnd}
             onClusterClick={onClusterClick}

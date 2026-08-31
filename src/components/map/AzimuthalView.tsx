@@ -1331,6 +1331,7 @@ export function AzimuthalView({
   }, [layers.gridActivity]);
   const target = useMapStore((s) => s.target);
   const mapStyle = useMapStore((s) => s.mapStyle);
+  const displayDensity = useMapStore((s) => s.displayDensity);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
@@ -1581,13 +1582,21 @@ export function AzimuthalView({
     refetchInterval: 60000,
   });
 
-  // Resolve spot locations and limit to 50 for performance
+  // Resolve spot locations, capped for performance. This view draws every
+  // spot to a 2D canvas each frame; it now honours the same displayDensity
+  // setting the globe and flat map use instead of a third hardcoded 50.
   const resolvedSpots = useMemo(() => {
     if (!layers.spots && !layers.spotTraces && !layers.gridActivity) {
       return [];
     }
-    return resolveSpotLocations(spots).slice(0, 50);
-  }, [spots, layers.spots, layers.spotTraces, layers.gridActivity]);
+    return resolveSpotLocations(spots).slice(0, displayDensity);
+  }, [
+    spots,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    displayDensity,
+  ]);
 
   // Resolve selected DX cluster spot location for highlight arc
   const resolvedSelectedSpot = useMemo(() => {

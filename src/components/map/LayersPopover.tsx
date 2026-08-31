@@ -1122,7 +1122,7 @@ export function LayersPopover() {
           onChange={handleDensityChange}
           onClick={(e) => e.stopPropagation()}
           className="layers-slider flex-1 mx-2"
-          aria-label="Maximum number of spot arcs to display"
+          aria-label="Maximum number of spots to fetch and display"
         />
         <span className="text-[10px] font-mono text-white/40 w-7 text-right shrink-0 tabular-nums">
           {displayDensity}

@@ -21,6 +21,8 @@ import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
+import { useMapStore } from "@/stores/mapStore";
+import { getSpotFetchLimit } from "@/lib/map/spotDensity";
 
 interface UseLiveSpotsOptions {
   /** Receiver grid locator for PSKReporter queries */
@@ -125,10 +127,19 @@ export function useLiveSpots({
   refetchInterval = MINUTE,
   sources = DEFAULT_SOURCES,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
+  // How many spots each source contributes. Derived from the map's existing
+  // display-density setting -- fetching a flat 50 is why raising that slider
+  // never showed more spots. Floored so the analysis consumers of this hook
+  // (band-opening detection, alerts) keep their full feed when the map is
+  // turned down. In the query key so changing it refetches rather than waiting
+  // for the next interval.
+  const displayDensity = useMapStore((s) => s.displayDensity);
+  const spotLimit = getSpotFetchLimit(displayDensity);
+
   // Fetch PSKReporter spots
   const pskQuery = useQuery({
-    queryKey: ["liveSpots", "pskreporter", grid],
-    queryFn: () => fetchPSKReporterSpots(grid, undefined, 50),
+    queryKey: ["liveSpots", "pskreporter", grid, spotLimit],
+    queryFn: () => fetchPSKReporterSpots(grid, undefined, spotLimit),
     enabled: enabled && sources.includes("PSKReporter"),
     staleTime: 30 * SECOND,
     refetchInterval,
@@ -137,8 +148,8 @@ export function useLiveSpots({
 
   // Fetch RBN spots
   const rbnQuery = useQuery({
-    queryKey: ["liveSpots", "rbn"],
-    queryFn: () => fetchRBNSpots(50),
+    queryKey: ["liveSpots", "rbn", spotLimit],
+    queryFn: () => fetchRBNSpots(spotLimit),
     enabled: enabled && sources.includes("RBN"),
     staleTime: 30 * SECOND,
     refetchInterval,
@@ -162,12 +173,12 @@ export function useLiveSpots({
     }
 
     // Only convert decodes that have an extracted callsign (skip noise)
-    // and limit to the most recent 50 for performance
+    // and limit to the most recent spots for performance
     return wsjtxDecodes
       .filter((d) => d.callsign)
-      .slice(0, 50)
+      .slice(0, spotLimit)
       .map((d) => wsjtxDecodeToLiveSpot(d, wsjtxStatus.frequency));
-  }, [wsjtxDecodes, wsjtxStatus, wsjtxConnected, sources]);
+  }, [wsjtxDecodes, wsjtxStatus, wsjtxConnected, sources, spotLimit]);
 
   // Combine and deduplicate spots
   const spots = useMemo(() => {

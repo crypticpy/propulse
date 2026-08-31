@@ -14,7 +14,12 @@
 
 import type { MapState, ViewMode } from "@/stores/mapStore";
 import type { SpotColorMode } from "@/lib/utils/spotColors";
-import { MODE_COLORS, BAND_COLORS } from "@/lib/utils/spotColors";
+import {
+  MODE_COLORS,
+  BAND_COLORS,
+  SNR_COLOR_STOPS,
+  AGE_COLOR_STOPS,
+} from "@/lib/utils/spotColors";
 import { FT8_DECODE_COLORS } from "@/components/map/layers/Ft8DecodeLayer3D";
 import { CATEGORY_META } from "@/lib/utils/satellite";
 import type { SatelliteCategory } from "@/types/satellite";
@@ -122,23 +127,39 @@ function buildSpotsSpec(spotColorMode: SpotColorMode): LayerLegendSpec {
     };
   }
 
-  // Everything else is band-colored: getSpotColor (src/lib/utils/spotColors.ts)
-  // special-cases only "mode" and routes "band", "snr" and "age" alike through
-  // getBandColor. The "snr"/"age" note keeps the legend honest about that
-  // rather than describing a shading the renderer does not apply.
-  const bandEntries = SPOT_BAND_ORDER.map((band) => ({
-    color: BAND_COLORS[band],
-    label: band,
-  }));
-  if (spotColorMode === "snr" || spotColorMode === "age") {
+  if (spotColorMode === "snr") {
     return {
       key: "spots",
       title: "DX Spots",
-      entries: bandEntries,
-      note: "Band colors — SNR/age shading is not applied to spot markers",
+      entries: SNR_COLOR_STOPS.map((stop) => ({
+        color: stop.color,
+        label: stop.label,
+      })),
+      // Not every feed reports SNR -- those spots keep their band color.
+      note: "Spots without a reported SNR stay band-colored",
     };
   }
-  return { key: "spots", title: "DX Spots", entries: bandEntries };
+
+  if (spotColorMode === "age") {
+    return {
+      key: "spots",
+      title: "DX Spots",
+      entries: AGE_COLOR_STOPS.map((stop) => ({
+        color: stop.color,
+        label: stop.label,
+      })),
+      note: "Time since the spot was posted",
+    };
+  }
+
+  return {
+    key: "spots",
+    title: "DX Spots",
+    entries: SPOT_BAND_ORDER.map((band) => ({
+      color: BAND_COLORS[band],
+      label: band,
+    })),
+  };
 }
 
 function buildFt8SpotterSpec(): LayerLegendSpec {

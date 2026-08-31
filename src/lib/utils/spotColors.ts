@@ -226,26 +226,138 @@ export function getBandColor(bandOrFreq: string | number): string {
 }
 
 // --------------------------------------------------------------------------
+// Gradient Ramps (SNR, age)
+// --------------------------------------------------------------------------
+
+/**
+ * SNR ramp stops in ascending dB order -- weak (red) first, strong (green)
+ * last, matching how the Colors popover describes the option.
+ *
+ * The thresholds are the decode floors operators already think in: FT8 decodes
+ * to about -24 dB, CW to roughly -10, and anything above +10 is armchair copy.
+ * Exported so the map legend renders the same stops the renderers use, in the
+ * same direction.
+ */
+export const SNR_COLOR_STOPS: ReadonlyArray<{
+  /** Inclusive lower bound in dB. */
+  minDb: number;
+  color: string;
+  label: string;
+}> = [
+  { minDb: Number.NEGATIVE_INFINITY, color: "#ff4444", label: "< -18 dB" },
+  { minDb: -18, color: "#ff8c1a", label: "-18 to -10" },
+  { minDb: -10, color: "#ffd21e", label: "-10 to 0" },
+  { minDb: 0, color: "#7dff5c", label: "0 to +10" },
+  { minDb: 10, color: "#00ff88", label: "≥ +10 dB" },
+];
+
+/**
+ * Age ramp stops, newest to oldest, in minutes since the spot was posted.
+ *
+ * Age is rendered as a brightness ramp on one hue rather than a rainbow: age
+ * is a single ordered quantity, and a hue ramp would compete with band and
+ * mode coloring for the same "what colour is this spot" question.
+ */
+export const AGE_COLOR_STOPS: ReadonlyArray<{
+  /** Exclusive upper bound in minutes. */
+  maxMinutes: number;
+  color: string;
+  label: string;
+}> = [
+  { maxMinutes: 5, color: "#8ef9ff", label: "< 5 min" },
+  { maxMinutes: 15, color: "#4bd4e8", label: "5-15 min" },
+  { maxMinutes: 30, color: "#2f9bb5", label: "15-30 min" },
+  { maxMinutes: 60, color: "#256b80", label: "30-60 min" },
+  {
+    maxMinutes: Number.POSITIVE_INFINITY,
+    color: "#1b4553",
+    // Bounds are exclusive upper, so exactly 60 minutes lands here.
+    label: "≥ 1 hour",
+  },
+];
+
+/** Colour for a signal-to-noise ratio in dB. */
+export function getSnrColor(snrDb: number): string {
+  // Stops ascend, so the last one this SNR clears is the right one.
+  let color = SNR_COLOR_STOPS[0].color;
+  for (const stop of SNR_COLOR_STOPS) {
+    if (snrDb >= stop.minDb) {
+      color = stop.color;
+    }
+  }
+  return color;
+}
+
+/** Colour for a spot age in minutes. Negative ages clamp to the newest stop. */
+export function getAgeColor(ageMinutes: number): string {
+  for (const stop of AGE_COLOR_STOPS) {
+    if (ageMinutes < stop.maxMinutes) {
+      return stop.color;
+    }
+  }
+  return AGE_COLOR_STOPS[AGE_COLOR_STOPS.length - 1].color;
+}
+
+/**
+ * Normalize a spot timestamp to epoch milliseconds.
+ *
+ * `DXSpot.time` is typed as `Date` but arrives as a string whenever a spot
+ * came through JSON, so this has to accept both (see CLAUDE.md).
+ */
+function toTimestamp(time: Date | string | undefined): number | null {
+  if (time == null) {
+    return null;
+  }
+  const ms = time instanceof Date ? time.getTime() : Date.parse(time);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+// --------------------------------------------------------------------------
 // Unified Entry Point
 // --------------------------------------------------------------------------
 
 /**
  * Single entry point for determining a spot's display color.
  *
- * Delegates to either mode-based or band-based coloring depending on the
- * active {@link SpotColorMode}.
+ * Delegates to mode, band, SNR-gradient or age-gradient coloring depending on
+ * the active {@link SpotColorMode}.
+ *
+ * `"snr"` and `"age"` fall back to band coloring when the spot carries no
+ * usable SNR / timestamp, so a mixed feed (RBN reports SNR, DX cluster often
+ * does not) degrades per spot instead of rendering a wall of one color.
  *
  * @param spot - A minimal spot descriptor carrying optional mode,
- *   frequency (kHz), and/or band fields.
- * @param colorMode - The active coloring strategy (`"mode"` or `"band"`).
+ *   frequency (kHz), band, snr (dB) and/or time fields.
+ * @param colorMode - The active coloring strategy.
+ * @param now - Reference time for age coloring; defaults to the current time.
+ *   Pass a shared value when coloring a whole feed so every spot in one frame
+ *   is measured against the same instant.
  * @returns A CSS hex color string.
  */
 export function getSpotColor(
-  spot: { mode?: string; frequency?: number; band?: string },
+  spot: {
+    mode?: string;
+    frequency?: number;
+    band?: string;
+    snr?: number;
+    time?: Date | string;
+  },
   colorMode: SpotColorMode,
+  now: number = Date.now(),
 ): string {
   if (colorMode === "mode") {
     return getModeColor(spot.mode);
+  }
+
+  if (colorMode === "snr" && spot.snr != null && Number.isFinite(spot.snr)) {
+    return getSnrColor(spot.snr);
+  }
+
+  if (colorMode === "age") {
+    const spotted = toTimestamp(spot.time);
+    if (spotted !== null) {
+      return getAgeColor((now - spotted) / 60000);
+    }
   }
 
   // Band-based coloring: prefer explicit band, fall back to frequency

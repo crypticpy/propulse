@@ -62,8 +62,11 @@ import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
  * antialiased across the boundary and its already-reduced alpha is divided
  * again, which is how arcs came to be readable only where many of them overlap.
  */
-const MIN_ARC_LINE_WIDTH = 1.4;
+const MIN_ARC_LINE_WIDTH = 2.0;
 const MIN_ARC_OPACITY = 0.35;
+
+/** Nominal stroke width at sizeScale 1. */
+const ARC_BASE_LINE_WIDTH = 2.2;
 
 /** Age opacity floor for arcs, vs. {@link getSpotAgeInfo}'s 0.4 for dots. */
 const ARC_OLDEST_OPACITY = 0.55;
@@ -584,7 +587,10 @@ const SpotArc = React.memo(function SpotArc({
     MIN_ARC_OPACITY,
     baseOpacity * filterOpacityMultiplier,
   );
-  const lineWidth = Math.max(MIN_ARC_LINE_WIDTH, 1.5 * sizeScale);
+  const lineWidth = Math.max(
+    MIN_ARC_LINE_WIDTH,
+    ARC_BASE_LINE_WIDTH * sizeScale,
+  );
 
   // Return null for invalid coordinates or insufficient points
   if (!hasValidCoords || points.length < 2) {

@@ -194,15 +194,15 @@ const PERSIST_VERTEX_SHADER = /* glsl */ `
  */
 const APPEARANCE = {
   /** Fill alpha for a grid with a single spot */
-  FILL_MIN: 0.16,
+  FILL_MIN: 0.26,
   /** Fill alpha for a grid at or above `SATURATION_COUNT` spots */
-  FILL_MAX: 0.44,
+  FILL_MAX: 0.62,
   /** Border is solid within this many degrees of the cell edge */
   BORDER_CORE_DEG: 0.07,
   /** ...and fades to nothing by this many degrees */
   BORDER_SOFT_DEG: 0.16,
   /** Base border alpha, held for as long as the grid stays active */
-  BORDER_ALPHA: 0.62,
+  BORDER_ALPHA: 0.78,
   /** Extra border alpha immediately after a spot lands */
   FRESH_BORDER_LIFT: 0.3,
   /** Extra fill alpha immediately after a spot lands */
@@ -210,7 +210,7 @@ const APPEARANCE = {
   /** Seconds over which the recency accent decays */
   FRESH_FADE_SEC: 90.0,
   /** Ceiling so a dense square never fully hides the map beneath it */
-  MAX_ALPHA: 0.82,
+  MAX_ALPHA: 0.9,
 } as const;
 
 /** Spot count at which fill alpha reaches `FILL_MAX`. */

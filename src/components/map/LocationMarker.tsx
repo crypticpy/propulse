@@ -14,8 +14,19 @@ import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 const SURFACE_OFFSET = 1.000002;
+
+/**
+ * Target pulse ring alpha.
+ *
+ * Was 0.3, which combined with a default renderOrder of 0 — under the night
+ * shade — left the ring barely visible. It paints in the markers slot now, so
+ * the alpha is the only thing dimming it.
+ */
+const PULSE_RING_OPACITY = 0.55;
 
 // Difficulty level type (1-5 scale)
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
@@ -130,6 +141,11 @@ function LocationMarkerInner({
     return latLonToVector3(lat, lon, SURFACE_OFFSET);
   }, [lat, lon]);
 
+  // These sit at the surface, below the depth dome, so depthTest is off and the
+  // far side has to be faded out on the CPU instead (globe stacking contract 1b)
+  // — the same arrangement StationMarker3D uses.
+  const { opacityRef } = useGlobeOcclusion(lat, lon);
+
   // Pulse animation for target markers
   useFrame(({ camera, clock }) => {
     if (groupRef.current) {
@@ -139,9 +155,19 @@ function LocationMarkerInner({
       );
     }
 
+    const occlusion = opacityRef.current;
+    if (groupRef.current) groupRef.current.visible = occlusion > 0.01;
+
+    if (markerRef.current) {
+      (markerRef.current.material as THREE.MeshBasicMaterial).opacity =
+        occlusion;
+    }
+
     if (pulseRef.current && type === "target") {
       const scale = 1 + Math.sin(clock.elapsedTime * 3) * 0.3;
       pulseRef.current.scale.set(scale, scale, scale);
+      (pulseRef.current.material as THREE.MeshBasicMaterial).opacity =
+        PULSE_RING_OPACITY * occlusion;
     }
   });
 
@@ -158,13 +184,15 @@ function LocationMarkerInner({
     <group ref={groupRef} position={position}>
       {/* Pulse ring for target markers */}
       {type === "target" && (
-        <mesh ref={pulseRef}>
+        <mesh ref={pulseRef} renderOrder={GLOBE_LAYER_ORDER.markers}>
           <ringGeometry args={[pulseSize * 0.8, pulseSize, 32]} />
           <meshBasicMaterial
             color={finalColor}
             transparent
-            opacity={0.3}
+            opacity={PULSE_RING_OPACITY}
             side={THREE.DoubleSide}
+            depthWrite={false}
+            depthTest={false}
           />
         </mesh>
       )}
@@ -172,6 +200,8 @@ function LocationMarkerInner({
       {/* Main marker dot — interactive for home markers */}
       <mesh
         ref={markerRef}
+        /* Above the pulse ring, but within the markers slot. */
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.05}
         onClick={
           isHome
             ? (event) => {
@@ -191,7 +221,13 @@ function LocationMarkerInner({
         onPointerLeave={isHome ? () => setShowTooltip(false) : undefined}
       >
         <sphereGeometry args={[markerSize, 16, 16]} />
-        <meshBasicMaterial color={finalColor} />
+        <meshBasicMaterial
+          color={finalColor}
+          transparent
+          opacity={1}
+          depthWrite={false}
+          depthTest={false}
+        />
       </mesh>
 
       {/* Home: house emoji + hover tooltip */}

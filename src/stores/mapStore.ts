@@ -917,9 +917,10 @@ function buildDefaultProPanelLayout(): Record<string, ProPanelLayoutEntry> {
   };
 }
 
-const DEFAULT_PRO_PANEL_LAYOUT = buildDefaultProPanelLayout();
-
 function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
+  // Build against the current viewport each time. Module evaluation may have
+  // happened on a different monitor long before a workspace is restored.
+  const defaults = buildDefaultProPanelLayout();
   try {
     const saved = localStorage.getItem(PRO_PANEL_LAYOUT_KEY);
     if (saved) {
@@ -937,12 +938,12 @@ function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
         return fresh;
       }
       // Merge with defaults so new panels get default positions
-      return { ...DEFAULT_PRO_PANEL_LAYOUT, ...parsed };
+      return { ...defaults, ...parsed };
     }
   } catch {
     // Ignore parse errors
   }
-  return { ...DEFAULT_PRO_PANEL_LAYOUT };
+  return defaults;
 }
 
 function saveProPanelLayout(layout: Record<string, ProPanelLayoutEntry>): void {
@@ -2002,7 +2003,9 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   resetProPanelLayout: () =>
     set(() => {
-      const fresh = { ...DEFAULT_PRO_PANEL_LAYOUT };
+      // Reset is intentionally computed at click time because Pro mode is
+      // often moved between laptop and wall-display viewports in one session.
+      const fresh = buildDefaultProPanelLayout();
       saveProPanelLayout(fresh);
       return { proPanelLayout: fresh, dockGroups: [] };
     }),

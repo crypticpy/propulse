@@ -116,6 +116,39 @@ function clampPosition(
   };
 }
 
+/** Resolve the largest panel size that still leaves its bottom-right edge in
+ * the viewport. The configured minimum wins on very small screens so content
+ * never becomes unusably narrow just to satisfy an impossible viewport fit. */
+function clampSizeToViewport(
+  width: number,
+  height: number,
+  position: { x: number; y: number },
+  minSize: { width: number; height: number },
+  maxSize: { width: number; height: number },
+): { width: number; height: number; maxWidth: number; maxHeight: number } {
+  const maxWidth = Math.min(
+    maxSize.width,
+    Math.max(
+      minSize.width,
+      window.innerWidth - Math.max(0, position.x) - 4,
+    ),
+  );
+  const maxHeight = Math.min(
+    maxSize.height,
+    Math.max(
+      minSize.height,
+      window.innerHeight - Math.max(0, position.y) - 4,
+    ),
+  );
+
+  return {
+    width: clamp(width, minSize.width, maxWidth),
+    height: clamp(height, minSize.height, maxHeight),
+    maxWidth,
+    maxHeight,
+  };
+}
+
 /** Get CSS styles for a snap indicator line */
 function getSnapIndicatorStyle(target: {
   edge: string;
@@ -382,36 +415,25 @@ export function FloatingPanel({
       // bottom-right handle from growing beyond the current viewport. A very
       // large configured max is useful for wide forecast strips on 4K walls,
       // but must remain safe on a laptop-sized viewport.
-      const viewportMaxWidth = Math.max(
-        minSize.width,
-        window.innerWidth - Math.max(0, layoutRef.current.x) - 4,
-      );
-      const viewportMaxHeight = Math.max(
-        minSize.height,
-        window.innerHeight - Math.max(0, layoutRef.current.y) - 4,
-      );
-      const newWidth = clamp(
+      const resized = clampSizeToViewport(
         resizeStart.current.width + dx,
-        minSize.width,
-        Math.min(maxSize.width, viewportMaxWidth),
-      );
-      const newHeight = clamp(
         resizeStart.current.height + dy,
-        minSize.height,
-        Math.min(maxSize.height, viewportMaxHeight),
+        layoutRef.current,
+        minSize,
+        maxSize,
       );
 
       // Direct DOM update
       const el = panelRef.current;
       if (el) {
-        el.style.width = `${newWidth}px`;
-        el.style.height = `${newHeight}px`;
+        el.style.width = `${resized.width}px`;
+        el.style.height = `${resized.height}px`;
       }
 
       layoutRef.current = {
         ...layoutRef.current,
-        width: newWidth,
-        height: newHeight,
+        width: resized.width,
+        height: resized.height,
       };
     },
     [minSize, maxSize],
@@ -432,6 +454,40 @@ export function FloatingPanel({
       onResizeWidth?.(id, committed.width);
     },
     [id, onLayoutChange, onResizeWidth],
+  );
+
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!e.key.startsWith("Arrow")) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      const step = e.shiftKey ? 50 : 10;
+      const current = layoutRef.current;
+      const widthDelta =
+        e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0;
+      const heightDelta =
+        e.key === "ArrowDown" ? step : e.key === "ArrowUp" ? -step : 0;
+      const resized = clampSizeToViewport(
+        current.width + widthDelta,
+        current.height + heightDelta,
+        current,
+        minSize,
+        maxSize,
+      );
+      const committed = {
+        ...current,
+        width: resized.width,
+        height: resized.height,
+      };
+
+      layoutRef.current = committed;
+      setLayout(committed);
+      onLayoutChange?.(committed);
+      if (widthDelta !== 0) onResizeWidth?.(id, committed.width);
+      onFocus?.();
+    },
+    [id, maxSize, minSize, onFocus, onLayoutChange, onResizeWidth],
   );
 
   // ---- Window resize: re-clamp position ----
@@ -462,6 +518,13 @@ export function FloatingPanel({
 
   // ---- Effective width (dock group may override) ----
   const effectiveWidth = dockGroupWidth ?? layout.width;
+  const resizeLimits = clampSizeToViewport(
+    layout.width,
+    layout.height,
+    layout,
+    minSize,
+    maxSize,
+  );
 
   // ---- Render: Collapsed pill mode ----
   if (collapsed) {
@@ -629,14 +692,20 @@ export function FloatingPanel({
 
         {/* Resize handle (bottom-right corner) — 20px touch target, visual grip stays small */}
         <div
-          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end pr-0.5 pb-0.5"
+          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 transition-opacity flex items-end justify-end pr-0.5 pb-0.5"
           style={{ touchAction: "none" }}
           role="separator"
           aria-label={`Resize ${title} panel`}
-          aria-orientation="horizontal"
+          aria-orientation="vertical"
+          aria-valuemin={Math.round(minSize.width)}
+          aria-valuemax={Math.round(resizeLimits.maxWidth)}
+          aria-valuenow={Math.round(layout.width)}
+          aria-valuetext={`${Math.round(layout.width)} by ${Math.round(layout.height)} pixels`}
+          tabIndex={0}
           onPointerDown={handleResizePointerDown}
           onPointerMove={handleResizePointerMove}
           onPointerUp={handleResizePointerUp}
+          onKeyDown={handleResizeKeyDown}
         >
           {/* Diagonal grip lines */}
           <svg

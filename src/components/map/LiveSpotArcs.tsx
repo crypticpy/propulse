@@ -280,6 +280,8 @@ export interface ResolvedSpot {
   /** Spotter (reporting station) callsign */
   spotter?: string;
   source: SpotSource;
+  /** Signal-to-noise ratio in dB, when the source reports one (RBN, PSKReporter) */
+  snr?: number;
   /** True when the spotter position is a callsign-prefix centroid, not a real locator */
   spotterLocApprox: boolean;
   /** True when the DX position is a callsign-prefix centroid, not a real locator */
@@ -379,6 +381,9 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
       callsign: spot.dx,
       spotter: spot.spotter,
       source: spot.source,
+      // Carried through so "By SNR" coloring has something to read -- the
+      // renderers only ever see the resolved spot.
+      snr: spot.snr,
       spotterLocApprox: spotterApprox,
       dxLocApprox: dxApprox,
     });

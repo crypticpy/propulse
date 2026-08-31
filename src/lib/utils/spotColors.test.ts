@@ -9,11 +9,15 @@ import {
 } from "./spotColors";
 
 describe("getSnrColor", () => {
-  it("orders strong signals to the top stop and weak ones to the bottom", () => {
-    expect(getSnrColor(25)).toBe(SNR_COLOR_STOPS[0].color);
-    expect(getSnrColor(-30)).toBe(
+  it("runs weak-to-strong, the direction the Colors popover describes", () => {
+    // Legend order is the ramp order, so the array itself has to ascend or the
+    // legend reads green-to-red under a "weak red to strong green" label.
+    expect(getSnrColor(-30)).toBe(SNR_COLOR_STOPS[0].color);
+    expect(getSnrColor(25)).toBe(
       SNR_COLOR_STOPS[SNR_COLOR_STOPS.length - 1].color,
     );
+    const bounds = SNR_COLOR_STOPS.map((s) => s.minDb);
+    expect(bounds).toEqual([...bounds].sort((a, b) => a - b));
   });
 
   it("gives every stop a distinct color", () => {

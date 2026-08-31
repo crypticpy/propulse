@@ -230,11 +230,13 @@ export function getBandColor(bandOrFreq: string | number): string {
 // --------------------------------------------------------------------------
 
 /**
- * SNR ramp stops, weak to strong, in dB.
+ * SNR ramp stops in ascending dB order -- weak (red) first, strong (green)
+ * last, matching how the Colors popover describes the option.
  *
  * The thresholds are the decode floors operators already think in: FT8 decodes
  * to about -24 dB, CW to roughly -10, and anything above +10 is armchair copy.
- * Exported so the map legend renders the same stops the renderers use.
+ * Exported so the map legend renders the same stops the renderers use, in the
+ * same direction.
  */
 export const SNR_COLOR_STOPS: ReadonlyArray<{
   /** Inclusive lower bound in dB. */
@@ -242,11 +244,11 @@ export const SNR_COLOR_STOPS: ReadonlyArray<{
   color: string;
   label: string;
 }> = [
-  { minDb: 10, color: "#00ff88", label: "≥ +10 dB" },
-  { minDb: 0, color: "#7dff5c", label: "0 to +10" },
-  { minDb: -10, color: "#ffd21e", label: "-10 to 0" },
-  { minDb: -18, color: "#ff8c1a", label: "-18 to -10" },
   { minDb: Number.NEGATIVE_INFINITY, color: "#ff4444", label: "< -18 dB" },
+  { minDb: -18, color: "#ff8c1a", label: "-18 to -10" },
+  { minDb: -10, color: "#ffd21e", label: "-10 to 0" },
+  { minDb: 0, color: "#7dff5c", label: "0 to +10" },
+  { minDb: 10, color: "#00ff88", label: "≥ +10 dB" },
 ];
 
 /**
@@ -271,12 +273,14 @@ export const AGE_COLOR_STOPS: ReadonlyArray<{
 
 /** Colour for a signal-to-noise ratio in dB. */
 export function getSnrColor(snrDb: number): string {
+  // Stops ascend, so the last one this SNR clears is the right one.
+  let color = SNR_COLOR_STOPS[0].color;
   for (const stop of SNR_COLOR_STOPS) {
     if (snrDb >= stop.minDb) {
-      return stop.color;
+      color = stop.color;
     }
   }
-  return SNR_COLOR_STOPS[SNR_COLOR_STOPS.length - 1].color;
+  return color;
 }
 
 /** Colour for a spot age in minutes. Negative ages clamp to the newest stop. */

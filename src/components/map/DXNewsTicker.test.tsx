@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SolarAlert } from "@/types/alerts";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { DXNewsTicker } from "./DXNewsTicker";
@@ -33,7 +33,7 @@ const hookData = vi.hoisted(() => ({
       | "off",
     breakInToneEnabled: true,
     breakInVolume: 45,
-    dedupMinutes: 360 as const,
+    dedupMinutes: 360 as 15 | 60 | 360 | 1440,
   },
   rssResults: [] as Array<{
     source: { id: string; url: string };
@@ -183,6 +183,7 @@ describe("DXNewsTicker", () => {
     hookData.rssResults = [];
     hookData.crawlPreferences.solarThreshold = "INFO";
     hookData.crawlPreferences.weatherThreshold = "Moderate";
+    hookData.crawlPreferences.dedupMinutes = 360;
     hookData.playAlertTone.mockReset();
     localStorage.clear();
     vi.stubGlobal(
@@ -192,6 +193,10 @@ describe("DXNewsTicker", () => {
         disconnect() {}
       },
     );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("opens the existing solar alert detail from a live notice", async () => {
@@ -300,6 +305,29 @@ describe("DXNewsTicker", () => {
 
     expect(screen.queryByTestId("ticker-break-in")).toBeNull();
     expect(hookData.playAlertTone).not.toHaveBeenCalled();
+  });
+
+  it("rechecks a still-active alert after its suppression window expires", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+    hookData.solarAlerts = [solarAlert];
+    hookData.crawlPreferences.dedupMinutes = 15;
+    render(<DXNewsTicker />);
+
+    expect(screen.getByTestId("ticker-break-in").textContent).toContain(
+      "Geomagnetic storm in progress",
+    );
+
+    // The initial interruption dismisses after 12 seconds. Once the stored
+    // timestamp is older than 15 minutes, a 30-second crawl tick must allow
+    // the same still-active alert to interrupt again.
+    act(() => {
+      vi.advanceTimersByTime(15 * 60 * 1_000 + 30_001);
+    });
+
+    expect(screen.getByTestId("ticker-break-in").textContent).toContain(
+      "Geomagnetic storm in progress",
+    );
   });
 
   it("keeps alerts in the crawl when break-in thresholds are off", () => {

@@ -490,6 +490,11 @@ export function DXNewsTicker({
     crawlPreferences.breakInToneEnabled,
     crawlPreferences.breakInVolume,
     crawlPreferences.dedupMinutes,
+    // Time passing does not change an active alert's identity. The shared
+    // 30-second crawl tick wakes this effect so an expired suppression record
+    // can be pruned and the still-active notice can repeat at the promised
+    // once-per-window cadence.
+    refreshTick,
   ]);
 
   useEffect(() => {

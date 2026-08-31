@@ -28,6 +28,7 @@ import {
   MUFLegend,
   IonosphereLegend,
   LayerLegend,
+  MapSizeSliders,
   MapStatusChip,
   RecommendationsPanel,
   OptimalBandsPanel,
@@ -1087,19 +1088,22 @@ export function PropSphere() {
                   ray-path bounce markers, which only exist on the globe with a
                   target set. LayerLegend covers every enabled colored marker
                   layer (spots, satellites, beacons, etc). */}
-              {(hasLayerLegend ||
-                layers.muf ||
-                (layers.ionosphere && target && viewMode === "globe")) && (
-                <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-col gap-1 pointer-events-none">
-                  <LayerLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                  {layers.ionosphere && target && viewMode === "globe" && (
-                    <IonosphereLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                  )}
-                  {layers.muf && (
-                    <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
-                  )}
-                </div>
-              )}
+              <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-col items-start gap-1">
+                <MapSizeSliders inline />
+                {(hasLayerLegend ||
+                  layers.muf ||
+                  (layers.ionosphere && target && viewMode === "globe")) && (
+                  <>
+                    <LayerLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                    {layers.ionosphere && target && viewMode === "globe" && (
+                      <IonosphereLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                    )}
+                    {layers.muf && (
+                      <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
+                    )}
+                  </>
+                )}
+              </div>
 
               {/* Map View - relative container for floating panels */}
               <div
@@ -1110,6 +1114,7 @@ export function PropSphere() {
                   <GlobeView
                     displayTime={displayTime}
                     onLocationClick={handleLocationClick}
+                    hideSizeSliders
                   />
                 )}
                 {viewMode === "flat" && (
@@ -1117,12 +1122,14 @@ export function PropSphere() {
                     displayTime={displayTime}
                     onLocationClick={handleLocationClick}
                     fillContainer
+                    hideSizeSliders
                   />
                 )}
                 {viewMode === "azimuthal" && (
                   <AzimuthalView
                     displayTime={displayTime}
                     onLocationClick={handleLocationClick}
+                    hideSizeSliders
                   />
                 )}
 

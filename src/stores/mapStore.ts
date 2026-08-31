@@ -422,6 +422,12 @@ export interface MapState {
     timeStations: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
+  /**
+   * Apply the layer subset encoded by a shared URL onto a clean baseline.
+   * Unlike manual toggles, a shared view must not inherit recipient-local
+   * persisted layers that the URL format cannot represent.
+   */
+  applySharedLayers: (layers: Partial<MapState["layers"]>) => void;
 
   // NVIS mode controls
   nvisEnabled: boolean;
@@ -1104,6 +1110,87 @@ function saveDockGroups(groups: DockGroup[]): void {
   }
 }
 
+// ── Layer visibility persistence ──────────────────────────────────────────────
+//
+// Every other user-facing preference in this store survives a reload; layers
+// did not, so each refresh silently reset the whole map to defaults. Written
+// from a single subscription below rather than from each mutator, so a future
+// writer cannot forget to persist.
+
+const DEFAULT_LAYERS: MapState["layers"] = {
+  terminator: true,
+  greyline: true,
+  aurora: false,
+  muf: false,
+  nvis: false,
+  spots: true,
+  spotTraces: false,
+  nightLights: true,
+  labels: false,
+  satellites: false,
+  earthquakes: false,
+  weather: false,
+  lightning: false,
+  wspr: false,
+  contestQsos: false,
+  loggedQsos: false,
+  fires: false,
+  radar: false,
+  issTracker: false,
+  gridActivity: false,
+  ionosphere: false,
+  rayPath: false,
+  drap: false,
+  geomagField: false,
+  noiseFloor: false,
+  meteorShowers: false,
+  beacons: false,
+  spectrumRing: false,
+  ducting: false,
+  sporadicE: false,
+  satelliteFootprints: false,
+  ft8Spotter: false,
+  goesCloud: false,
+  tec: false,
+  repeaters: false,
+  riverGauges: false,
+  aprs: false,
+  tropical: false,
+  sst: false,
+  timeStations: false,
+};
+
+const LAYERS_LS_KEY = "propulse-map-layers";
+
+function loadLayers(): MapState["layers"] {
+  try {
+    const raw = localStorage.getItem(LAYERS_LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const merged = { ...DEFAULT_LAYERS };
+      // Only adopt keys we still ship, and only booleans — a stored blob from
+      // an older build must not resurrect a removed layer or inject a non-bool.
+      for (const key of Object.keys(DEFAULT_LAYERS) as Array<
+        keyof MapState["layers"]
+      >) {
+        if (typeof parsed[key] === "boolean") merged[key] = parsed[key];
+      }
+      return normalizeExclusiveLayers(merged);
+    }
+  } catch {
+    /* ignore */
+  }
+  return { ...DEFAULT_LAYERS };
+}
+
+function saveLayers(layers: MapState["layers"]) {
+  try {
+    localStorage.setItem(LAYERS_LS_KEY, JSON.stringify(layers));
+  } catch {
+    /* ignore */
+  }
+}
+
 const initialState = {
   viewMode: "globe" as ViewMode,
   timeOffset: 0,
@@ -1123,48 +1210,7 @@ const initialState = {
     autoRotate: boolean;
     viewMode: ViewMode;
   } | null,
-  layers: {
-    terminator: true,
-    greyline: true,
-    aurora: false,
-    muf: false,
-    nvis: false,
-    spots: true,
-    spotTraces: false,
-    nightLights: true,
-    labels: false,
-    satellites: false,
-    earthquakes: false,
-    weather: false,
-    lightning: false,
-    wspr: false,
-    contestQsos: false,
-    loggedQsos: false,
-    fires: false,
-    radar: false,
-    issTracker: false,
-    gridActivity: false,
-    ionosphere: false,
-    rayPath: false,
-    drap: false,
-    geomagField: false,
-    noiseFloor: false,
-    meteorShowers: false,
-    beacons: false,
-    spectrumRing: false,
-    ducting: false,
-    sporadicE: false,
-    satelliteFootprints: false,
-    ft8Spotter: false,
-    goesCloud: false,
-    tec: false,
-    repeaters: false,
-    riverGauges: false,
-    aprs: false,
-    tropical: false,
-    sst: false,
-    timeStations: false,
-  },
+  layers: loadLayers(),
   nvisEnabled: false,
   activePreset: null as PresetName | null,
   activeProfile: loadActiveProfile(),
@@ -1407,6 +1453,23 @@ export const useMapStore = create<MapState>((set, get) => ({
       if (state.activeProfile !== null) updates.activeProfile = null;
       return updates;
     }),
+
+  applySharedLayers: (sharedLayers) => {
+    // ShareState currently encodes the original eight public layer flags. A
+    // recipient may have any of the newer layers persisted locally, so merging
+    // into current state would make identical URLs render different maps.
+    // Rebuild from defaults instead: every non-encoded layer is deterministically
+    // off, while the encoded booleans fully describe the shared view.
+    saveActiveProfile(null);
+    set({
+      layers: normalizeExclusiveLayers(
+        { ...DEFAULT_LAYERS, ...sharedLayers },
+        sharedLayers.muf ? "muf" : undefined,
+      ),
+      activePreset: null,
+      activeProfile: null,
+    });
+  },
 
   applyPreset: (preset) => {
     saveActiveProfile(null);
@@ -2006,3 +2069,10 @@ export function getDisplayTime(): Date {
   const now = new Date();
   return new Date(now.getTime() + state.timeOffset * 60 * 60 * 1000);
 }
+
+// Persist layer visibility on every change, from one place. `subscribe` fires
+// after each `set`, so this covers toggleLayer, presets, profiles and the NVIS
+// pair without each having to remember to call `saveLayers`.
+useMapStore.subscribe((state, prev) => {
+  if (state.layers !== prev.layers) saveLayers(state.layers);
+});

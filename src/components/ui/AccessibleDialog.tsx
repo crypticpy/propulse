@@ -10,6 +10,16 @@ import { createPortal } from "react-dom";
 const FOCUSABLE =
   'a[href], button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Open dialogs in mounting order, with the active/topmost dialog last.
+ *
+ * Capture-phase listeners are intentionally used to protect modal Escape from
+ * page shortcuts. Because the browser invokes older listeners first, each
+ * dialog also needs this stack guard: an outer dialog must yield to a nested
+ * dialog instead of consuming the keypress and unmounting both.
+ */
+const openDialogStack: symbol[] = [];
+
 export interface AccessibleDialogProps {
   open: boolean;
   onClose: () => void;
@@ -41,38 +51,53 @@ export function AccessibleDialog({
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const dialogTokenRef = useRef(Symbol("AccessibleDialog"));
+  // Keep the listener registered for the entire open lifetime even when a
+  // parent passes a freshly-created callback on rerender. Re-registering an
+  // outer dialog would move it above an already-open nested dialog in both the
+  // Escape stack and the inert-background snapshot.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      if (
+        openDialogStack[openDialogStack.length - 1] !== dialogTokenRef.current
+      ) {
         return;
       }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-        (element) => !element.hasAttribute("hidden") && !element.closest("[hidden]"),
-      );
-      if (controls.length === 0) {
-        event.preventDefault();
-        dialogRef.current.focus();
-        return;
-      }
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    },
-    [onClose],
-  );
+      event.preventDefault();
+      // A modal owns Escape while it is open. Capture the event before
+      // page-level shortcuts (for example FullscreenPropSphere's exit
+      // handler) and stop sibling document listeners from acting on the
+      // same keypress after the dialog closes.
+      event.stopImmediatePropagation();
+      onCloseRef.current();
+      return;
+    }
+    if (event.key !== "Tab" || !dialogRef.current) return;
+    const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (element) => !element.hasAttribute("hidden") && !element.closest("[hidden]"),
+    );
+    if (controls.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+    const dialogToken = dialogTokenRef.current;
     openerRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -90,14 +115,17 @@ export function AccessibleDialog({
       element.inert = true;
       element.setAttribute("aria-hidden", "true");
     }
-    document.addEventListener("keydown", handleKeyDown);
+    openDialogStack.push(dialogToken);
+    document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
       (first ?? dialogRef.current)?.focus();
     });
     return () => {
       cancelAnimationFrame(frame);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      const stackIndex = openDialogStack.lastIndexOf(dialogToken);
+      if (stackIndex !== -1) openDialogStack.splice(stackIndex, 1);
       document.body.style.overflow = previousOverflow;
       for (const { element, inert, ariaHidden } of backgroundState) {
         element.inert = inert;

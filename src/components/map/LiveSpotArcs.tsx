@@ -49,10 +49,17 @@ import { useReplayStore } from "@/stores/replayStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { getArcOpacity } from "@/lib/map/arcAppearance";
 
 // ==========================================================================
 // Spot Age Types and Utilities
 // ==========================================================================
+
+/** Legibility floor for the screen-space stroke width of spot arcs. */
+const MIN_ARC_LINE_WIDTH = 2.0;
+
+/** Nominal stroke width at sizeScale 1. */
+const ARC_BASE_LINE_WIDTH = 2.2;
 
 /**
  * Age category for visual styling
@@ -542,10 +549,22 @@ const SpotArc = React.memo(function SpotArc({
 
   // Calculate age-based opacity using new getSpotAgeInfo
   const ageInfo = useMemo(() => getSpotAgeInfo(spot.time), [spot.time]);
-  const baseOpacity = ageVisualizationEnabled ? ageInfo.opacity : 1.0;
-  const opacity = Math.max(0.08, baseOpacity * filterOpacityMultiplier);
-  const lineWidth =
-    (ageVisualizationEnabled ? 1.5 * ageInfo.scale : 1.5) * sizeScale;
+  // Age decay used to hit opacity and stroke width at the same time: a 15-minute
+  // old spot rendered at 0.4 alpha AND half width, i.e. a sub-pixel line at 40%
+  // alpha. Across the globe's face that is invisible; near the limb, where arcs
+  // are seen edge-on and dozens of strokes land in the same pixels, the alpha
+  // accumulates and they reappear — which reads as the terminator "revealing"
+  // them. Width now carries no age signal (opacity and saturation already do),
+  // and neither term may drive the stroke below the legibility floor.
+  const opacity = getArcOpacity(
+    ageInfo.opacity,
+    ageVisualizationEnabled,
+    filterOpacityMultiplier,
+  );
+  const lineWidth = Math.max(
+    MIN_ARC_LINE_WIDTH,
+    ARC_BASE_LINE_WIDTH * sizeScale,
+  );
 
   // Return null for invalid coordinates or insufficient points
   if (!hasValidCoords || points.length < 2) {

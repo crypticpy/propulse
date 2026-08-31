@@ -37,6 +37,81 @@ describe("AccessibleDialog", () => {
     opener.remove();
   });
 
+  it("keeps Escape from reaching page-level keyboard handlers", () => {
+    const pageEscape = vi.fn();
+    const close = vi.fn();
+    document.addEventListener("keydown", pageEscape);
+
+    const { unmount } = render(
+      <AccessibleDialog open onClose={close} title="Spot details">
+        <button type="button">Inspect spot</button>
+      </AccessibleDialog>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(pageEscape).not.toHaveBeenCalled();
+    unmount();
+    document.removeEventListener("keydown", pageEscape);
+  });
+
+  it("routes Escape only to the topmost nested dialog", () => {
+    const closeOuter = vi.fn();
+    const closeOuterAfterRerender = vi.fn();
+    const closeInner = vi.fn();
+    const { rerender } = render(
+      <>
+        <AccessibleDialog open onClose={closeOuter} title="Choose radio">
+          <button type="button">Manage radios</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={closeInner} title="Add radio">
+          <button type="button">Save radio</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    // Updating only the outer callback must not tear down/re-register its open
+    // lifetime and move it above the nested dialog in the module-level stack.
+    rerender(
+      <>
+        <AccessibleDialog
+          open
+          onClose={closeOuterAfterRerender}
+          title="Choose radio"
+        >
+          <button type="button">Manage radios</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={closeInner} title="Add radio">
+          <button type="button">Save radio</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeInner).toHaveBeenCalledOnce();
+    expect(closeOuter).not.toHaveBeenCalled();
+    expect(closeOuterAfterRerender).not.toHaveBeenCalled();
+
+    rerender(
+      <>
+        <AccessibleDialog
+          open
+          onClose={closeOuterAfterRerender}
+          title="Choose radio"
+        >
+          <button type="button">Manage radios</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={false} onClose={closeInner} title="Add radio">
+          <button type="button">Save radio</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeOuterAfterRerender).toHaveBeenCalledOnce();
+  });
+
   it("has no automated accessibility violations in its rendered contract", async () => {
     render(
       <AccessibleDialog

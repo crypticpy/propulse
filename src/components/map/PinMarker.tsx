@@ -15,7 +15,10 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_SURFACE_MARKER_MATERIAL,
+} from "@/lib/map/globeRenderOrder";
 
 /** Default pin color - cyan to match app theme */
 const DEFAULT_COLOR = "#22D3EE";
@@ -172,7 +175,10 @@ export function PinMarker({
 
   // Animate pin (gentle bobbing motion) and apply globe occlusion
   useFrame(({ camera, clock }, delta) => {
+    const occlusion = occlusionRef.current;
+
     if (groupRef.current) {
+      groupRef.current.visible = occlusion > 0.01;
       // Camera-distance scaling must update immediately so the pin cannot lag
       // behind zoom. Smooth only the small hover emphasis independently.
       groupRef.current.position.copy(basePosition);
@@ -197,8 +203,6 @@ export function PinMarker({
     }
 
     // Apply globe occlusion to all materials
-    const occlusion = occlusionRef.current;
-
     if (stemMaterialRef.current) {
       stemMaterialRef.current.opacity = 0.8 * occlusion;
     }
@@ -259,9 +263,8 @@ export function PinMarker({
         <meshBasicMaterial
           ref={stemMaterialRef}
           color={color}
-          transparent
           opacity={0.8}
-          depthTest={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -278,9 +281,8 @@ export function PinMarker({
         <meshBasicMaterial
           ref={headMaterialRef}
           color={color}
-          transparent
           opacity={isHovered ? 1 : 0.9}
-          depthTest={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -290,11 +292,9 @@ export function PinMarker({
         <meshBasicMaterial
           ref={glowRingMaterialRef}
           color={color}
-          transparent
           opacity={isHovered ? 0.5 : 0.3}
           side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -308,11 +308,9 @@ export function PinMarker({
         <meshBasicMaterial
           ref={shadowCircleMaterialRef}
           color="#000000"
-          transparent
           opacity={0.3}
           side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 

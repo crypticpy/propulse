@@ -110,6 +110,20 @@ export const GLOBE_OVERLAY_MATERIAL = {
 } as const;
 
 /**
+ * Shared flags for tile-hugging markers that sit below the depth dome.
+ *
+ * These markers use CPU occlusion because depth testing against the dome would
+ * hide their near-side geometry too. Disabling depth writes is just as
+ * important: a transparent marker that writes depth can mask a later marker or
+ * arc, making visibility depend on which layer happened to render first.
+ */
+export const GLOBE_SURFACE_MARKER_MATERIAL = {
+  transparent: true,
+  depthTest: false,
+  depthWrite: false,
+} as const;
+
+/**
  * Radius guidance (unit globe = 1.0). Offsets no longer resolve depth — that
  * is renderOrder's job — but they keep geometry from intersecting the tile
  * surface at deep zoom and preserve parallax between bands.

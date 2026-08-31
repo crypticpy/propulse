@@ -12,31 +12,17 @@
 
 import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-
-/**
- * Fade region width around the geometric limb of the globe.
- * The limb dot product (1/cameraDistance) is computed per frame,
- * and we fade from fully visible to fully hidden across this range.
- * FADE_BEFORE: how far before the limb to start fading (higher = earlier fade)
- * FADE_AFTER: how far past the limb until fully hidden
- */
-const FADE_BEFORE = 0.05;
-const FADE_AFTER = 0.12;
+import { useMapStore } from "@/stores/mapStore";
+import {
+  createGlobeOcclusionFrame,
+  getGlobeOcclusionOpacity,
+} from "@/lib/map/globeOcclusion";
 
 /**
  * Minimum change in opacity before updating React state.
  * Prevents excessive re-renders for Html-based components.
  */
 const STATE_UPDATE_THRESHOLD = 0.05;
-
-/**
- * Attempt to compute a smoothstep interpolation (Hermite).
- * Maps a value from [edge0, edge1] to [0, 1] with smooth easing.
- */
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
 
 export interface GlobeOcclusion {
   /** Ref-based opacity for mesh components (read inside useFrame, no re-renders) */
@@ -71,48 +57,14 @@ export function useGlobeOcclusion(lat: number, lon: number): GlobeOcclusion {
   const [opacity, setOpacity] = useState(1);
 
   useFrame(({ camera }) => {
-    // Convert lat/lon to unit surface normal (direction from globe center)
-    const phi = (90 - lat) * (Math.PI / 180);
-    const theta = (lon + 180) * (Math.PI / 180);
-
-    const nx = -Math.sin(phi) * Math.cos(theta);
-    const ny = Math.cos(phi);
-    const nz = Math.sin(phi) * Math.sin(theta);
-
-    // Camera direction (normalized camera position)
-    const cx = camera.position.x;
-    const cy = camera.position.y;
-    const cz = camera.position.z;
-    const camLen = Math.sqrt(cx * cx + cy * cy + cz * cz);
-
-    // Guard against zero-length (should never happen in practice)
-    if (camLen === 0) {
-      return;
-    }
-
-    const dx = cx / camLen;
-    const dy = cy / camLen;
-    const dz = cz / camLen;
-
-    // Dot product of surface normal and camera direction
-    const dot = nx * dx + ny * dy + nz * dz;
-
-    // Dynamic limb threshold based on camera distance.
-    // For a unit sphere viewed from distance D, the geometric limb
-    // (tangent point) has dot(surfaceNormal, cameraDir) = 1/D.
-    const limbDot = 1.0 / camLen;
-    const visibleThreshold = limbDot + FADE_BEFORE;
-    const hiddenThreshold = limbDot - FADE_AFTER;
-
-    // Map dot product to opacity — fade across the limb region.
-    let newOpacity: number;
-    if (dot > visibleThreshold) {
-      newOpacity = 1.0;
-    } else if (dot < hiddenThreshold) {
-      newOpacity = 0.0;
-    } else {
-      newOpacity = smoothstep(hiddenThreshold, visibleThreshold, dot);
-    }
+    // Read tilt inside the frame callback so the observatory slider updates
+    // immediately without subscribing every individual marker to map state.
+    const frame = createGlobeOcclusionFrame(
+      camera.position,
+      useMapStore.getState().rotation.x,
+    );
+    if (!frame) return;
+    const newOpacity = getGlobeOcclusionOpacity(lat, lon, frame);
 
     // Always update the ref (no cost, read by useFrame consumers)
     opacityRef.current = newOpacity;

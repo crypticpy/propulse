@@ -38,6 +38,10 @@ export function SolarAnimationPlayer({
   const refreshBucket = Math.floor(
     now / (thumbnailProduct.softTtlSeconds * 1_000),
   );
+  // The edge manifest deliberately permits stale-while-revalidate. Give each
+  // publication window its own CDN key so this mounted player receives the
+  // newly revalidated timeline instead of remaining one cadence behind.
+  const manifestUrl = `/api/solar/animation?product=${encodeURIComponent(animationId)}&refresh=${refreshBucket}-${manifestRetry}`;
 
   const retryManifest = useCallback(() => {
     setManifestRetry((value) => value + 1);
@@ -48,7 +52,7 @@ export function SolarAnimationPlayer({
     let retryTimer: number | null = null;
     setState("loading");
     setMessage("");
-    fetch(`/api/solar/animation?product=${encodeURIComponent(animationId)}`, {
+    fetch(manifestUrl, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     })
@@ -79,7 +83,7 @@ export function SolarAnimationPlayer({
       controller.abort();
       if (retryTimer !== null) window.clearTimeout(retryTimer);
     };
-  }, [animationId, manifestRetry, refreshBucket, retryManifest]);
+  }, [manifestRetry, manifestUrl, retryManifest]);
 
   useEffect(() => {
     // Keep both the static fallback and the animation manifest moving while

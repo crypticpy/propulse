@@ -509,7 +509,7 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
         onToggle={() => togglePanel("reliability", true)}
       >
         {!(panelCollapsed.reliability ?? true) && (
-          <HamClockReliabilityPanel displayTime={displayTime} />
+          <HamClockReliabilityPanel />
         )}
       </HamClockInfoPanel>
 

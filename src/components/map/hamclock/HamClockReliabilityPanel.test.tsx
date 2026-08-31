@@ -10,6 +10,13 @@ const mocks = vi.hoisted(() => ({
   } | null,
   setReliability: vi.fn(),
   build: vi.fn(),
+  now: new Date("2026-08-31T12:30:00.000Z"),
+  timeOffset: 0,
+  colorBlindMode: "none" as
+    | "none"
+    | "deuteranopia"
+    | "protanopia"
+    | "tritanopia",
 }));
 
 vi.mock("@/hooks/useActiveLocation", () => ({
@@ -19,9 +26,16 @@ vi.mock("@/hooks/useSolarData", () => ({
   useKIndex: () => ({ data: [{ kp_index: 2 }], isLoading: false }),
   useSolarFlux: () => ({ data: [{ flux: 150 }], isLoading: false }),
 }));
+vi.mock("@/hooks/useUTCClock", () => ({
+  useUTCClock: () => mocks.now,
+}));
 vi.mock("@/stores/mapStore", () => ({
-  useMapStore: (selector: (state: { target: typeof mocks.target }) => unknown) =>
-    selector({ target: mocks.target }),
+  useMapStore: (
+    selector: (state: {
+      target: typeof mocks.target;
+      timeOffset: number;
+    }) => unknown,
+  ) => selector({ target: mocks.target, timeOffset: mocks.timeOffset }),
 }));
 vi.mock("@/stores/hamclockStore", () => ({
   useHamClockStore: (
@@ -45,8 +59,15 @@ vi.mock("@/stores/hamclockStore", () => ({
 }));
 vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: (
-    selector: (state: { noiseEnvironment: "residential" }) => unknown,
-  ) => selector({ noiseEnvironment: "residential" }),
+    selector: (state: {
+      noiseEnvironment: "residential";
+      colorBlindMode: typeof mocks.colorBlindMode;
+    }) => unknown,
+  ) =>
+    selector({
+      noiseEnvironment: "residential",
+      colorBlindMode: mocks.colorBlindMode,
+    }),
 }));
 vi.mock("@/lib/hamclock/reliabilityForecast", async (importOriginal) => {
   const actual = await importOriginal<
@@ -61,6 +82,9 @@ describe("HamClockReliabilityPanel", () => {
     mocks.target = { name: "London", grid: "IO91", lat: 51.5, lon: -0.1 };
     mocks.setReliability.mockReset();
     mocks.build.mockReset();
+    mocks.now = new Date("2026-08-31T12:30:00.000Z");
+    mocks.timeOffset = 0;
+    mocks.colorBlindMode = "none";
     mocks.build.mockReturnValue([
       {
         band: "20m",
@@ -74,11 +98,7 @@ describe("HamClockReliabilityPanel", () => {
   });
 
   it("renders the enhanced matrix and threads operator settings", () => {
-    render(
-      <HamClockReliabilityPanel
-        displayTime={new Date("2026-08-31T12:30:00.000Z")}
-      />,
-    );
+    render(<HamClockReliabilityPanel />);
 
     expect(mocks.build).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -99,11 +119,7 @@ describe("HamClockReliabilityPanel", () => {
   });
 
   it("persists mode, power, and antenna changes", () => {
-    render(
-      <HamClockReliabilityPanel
-        displayTime={new Date("2026-08-31T12:30:00.000Z")}
-      />,
-    );
+    render(<HamClockReliabilityPanel />);
 
     fireEvent.change(screen.getByLabelText("Reliability mode"), {
       target: { value: "CW" },
@@ -124,13 +140,60 @@ describe("HamClockReliabilityPanel", () => {
 
   it("prompts for a map target without running the model", () => {
     mocks.target = null;
-    render(
-      <HamClockReliabilityPanel
-        displayTime={new Date("2026-08-31T12:30:00.000Z")}
-      />,
-    );
+    render(<HamClockReliabilityPanel />);
 
     expect(screen.getByText(/Select a DX target/)).toBeTruthy();
     expect(mocks.build).not.toHaveBeenCalled();
+  });
+
+  it("rolls the highlighted hour and forecast day while preserving map offset", () => {
+    mocks.timeOffset = 2;
+    mocks.now = new Date("2026-08-31T22:30:00.000Z");
+    const { rerender } = render(<HamClockReliabilityPanel />);
+
+    expect(mocks.build).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        baseTime: new Date("2026-09-01T00:00:00.000Z"),
+      }),
+    );
+    expect(screen.getByLabelText("0:00 UTC").className).toContain(
+      "text-plasma-orange",
+    );
+
+    mocks.now = new Date("2026-09-01T23:30:00.000Z");
+    rerender(<HamClockReliabilityPanel />);
+
+    expect(mocks.build).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        baseTime: new Date("2026-09-02T00:00:00.000Z"),
+      }),
+    );
+    expect(screen.getByLabelText("1:00 UTC").className).toContain(
+      "text-plasma-orange",
+    );
+  });
+
+  it("uses the color-vision palette with redundant cell patterns", () => {
+    mocks.colorBlindMode = "deuteranopia";
+    mocks.build.mockReturnValue([
+      {
+        band: "20m",
+        hour: 12,
+        score: 52,
+        snrEstimate: -8,
+        confidence: 70,
+        status: "good",
+      },
+    ]);
+
+    render(<HamClockReliabilityPanel />);
+
+    const cell = screen.getByLabelText(
+      "20m 12:00 UTC: reliability 52 of 100, SNR -8 dB, confidence 70 percent",
+    );
+    expect(cell.getAttribute("data-reliability-tier")).toBe("workable");
+    expect(cell.getAttribute("style")).toContain("rgb(0, 119, 187)");
+    expect(cell.getAttribute("style")).toContain("repeating-linear-gradient");
+    expect(screen.getByText("Workable").textContent).toBe("\u2713Workable");
   });
 });

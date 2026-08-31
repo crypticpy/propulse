@@ -6,7 +6,13 @@ import {
   type ReliabilityCell,
 } from "@/lib/hamclock/reliabilityForecast";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { useUTCClock } from "@/hooks/useUTCClock";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import {
+  getColorBlindColor,
+  getStatusIcon,
+  type ColorBlindMode,
+} from "@/lib/themes/colorblind";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -20,12 +26,59 @@ const POWERS: HamClockReliabilityPower[] = [5, 25, 100, 500, 1500];
 const selectClass =
   "min-w-0 rounded border border-white/10 bg-void-black px-1.5 py-1 font-mono text-[10px] text-gray-200 focus:border-plasma-orange/60 focus:outline-none";
 
-function cellColor(score: number): string {
-  if (score >= 75) return "#22c55e";
-  if (score >= 50) return "#84cc16";
-  if (score >= 25) return "#f59e0b";
-  if (score > 0) return "#ef4444";
-  return "#374151";
+type ReliabilityTier = "strong" | "workable" | "marginal" | "low" | "none";
+
+function reliabilityTier(score: number): ReliabilityTier {
+  if (score >= 75) return "strong";
+  if (score >= 50) return "workable";
+  if (score >= 25) return "marginal";
+  if (score > 0) return "low";
+  return "none";
+}
+
+/**
+ * Every tier carries both a color-blind-safe hue and a texture. The tiny
+ * matrix cells cannot hold readable glyphs, so the repeated patterns provide
+ * the redundant non-color cue while the legend names the same pattern/icon.
+ */
+function cellPresentation(score: number, mode: ColorBlindMode) {
+  const tier = reliabilityTier(score);
+  if (tier === "strong") {
+    return {
+      tier,
+      color: getColorBlindColor(mode, "excellent"),
+      backgroundImage: "none",
+    };
+  }
+  if (tier === "workable") {
+    return {
+      tier,
+      color: getColorBlindColor(mode, "good"),
+      backgroundImage:
+        "repeating-linear-gradient(135deg, transparent 0 2px, rgba(0,0,0,0.7) 2px 3px)",
+    };
+  }
+  if (tier === "marginal") {
+    return {
+      tier,
+      color: getColorBlindColor(mode, "fair"),
+      backgroundImage:
+        "repeating-linear-gradient(90deg, transparent 0 2px, rgba(0,0,0,0.7) 2px 3px)",
+    };
+  }
+  if (tier === "low") {
+    return {
+      tier,
+      color: getColorBlindColor(mode, "poor"),
+      backgroundImage:
+        "radial-gradient(circle at center, rgba(0,0,0,0.8) 0 1px, transparent 1px)",
+    };
+  }
+  return {
+    tier,
+    color: getColorBlindColor(mode, "closed"),
+    backgroundImage: "none",
+  };
 }
 function targetLabel(target: { name?: string; grid?: string }): string {
   return target.name || target.grid || "DX target";
@@ -36,17 +89,27 @@ function targetLabel(target: { name?: string; grid?: string }): string {
  * parent only mounts this component while its panel is expanded, keeping the
  * 24 enhanced-model calculations off the normal map render path.
  */
-export function HamClockReliabilityPanel({
-  displayTime,
-}: {
-  displayTime: Date;
-}) {
+export function HamClockReliabilityPanel() {
   const origin = useActiveLocation();
   const target = useMapStore((state) => state.target);
+  const timeOffset = useMapStore((state) => state.timeOffset);
   const reliability = useHamClockStore((state) => state.reliability);
   const setReliability = useHamClockStore((state) => state.setReliability);
   const noiseEnvironment = useSettingsStore(
     (state) => state.noiseEnvironment,
+  );
+  const colorBlindMode = useSettingsStore(
+    (state) => state.colorBlindMode ?? "none",
+  );
+  const wallTime = useUTCClock();
+  const liveDisplayTime = useMemo(
+    () => new Date(wallTime.getTime() + timeOffset * 60 * 60 * 1000),
+    [wallTime, timeOffset],
+  );
+  const forecastDay = liveDisplayTime.toISOString().slice(0, 10);
+  const forecastBaseTime = useMemo(
+    () => new Date(`${forecastDay}T00:00:00.000Z`),
+    [forecastDay],
   );
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();
@@ -64,7 +127,7 @@ export function HamClockReliabilityPanel({
           target,
           kp,
           sfi,
-          baseTime: displayTime,
+          baseTime: forecastBaseTime,
           mode: reliability.mode,
           powerWatts: reliability.powerWatts,
           antennaType: reliability.antennaType,
@@ -82,7 +145,7 @@ export function HamClockReliabilityPanel({
     target,
     kp,
     sfi,
-    displayTime,
+    forecastBaseTime,
     reliability,
     noiseEnvironment,
   ]);
@@ -94,7 +157,7 @@ export function HamClockReliabilityPanel({
       ),
     [result.cells],
   );
-  const selectedHour = displayTime.getUTCHours();
+  const selectedHour = liveDisplayTime.getUTCHours();
   const bestNow = useMemo(
     () =>
       result.cells
@@ -227,6 +290,10 @@ export function HamClockReliabilityPanel({
                 </th>
                 {Array.from({ length: 24 }, (_, hour) => {
                   const cell = cellsByKey.get(`${band}:${hour}`);
+                  const presentation = cellPresentation(
+                    cell?.score ?? 0,
+                    colorBlindMode,
+                  );
                   const label = cell
                     ? `${band} ${hour.toString().padStart(2, "0")}:00 UTC: reliability ${cell.score} of 100, SNR ${cell.snrEstimate} dB, confidence ${cell.confidence} percent`
                     : `${band} ${hour.toString().padStart(2, "0")}:00 UTC: unavailable`;
@@ -235,12 +302,18 @@ export function HamClockReliabilityPanel({
                       key={hour}
                       aria-label={label}
                       title={label}
+                      data-reliability-tier={presentation.tier}
                       className={`h-3 min-w-3 rounded-sm ${
                         hour === selectedHour
                           ? "ring-1 ring-plasma-orange ring-offset-1 ring-offset-void-black"
                           : ""
                       }`}
-                      style={{ backgroundColor: cellColor(cell?.score ?? 0) }}
+                      style={{
+                        backgroundColor: presentation.color,
+                        backgroundImage: presentation.backgroundImage,
+                        backgroundSize:
+                          presentation.tier === "low" ? "4px 4px" : undefined,
+                      }}
                     />
                   );
                 })}
@@ -251,18 +324,40 @@ export function HamClockReliabilityPanel({
       </div>
 
       <div className="flex items-center justify-between gap-2 text-[9px] text-gray-500">
-        <span className="inline-flex items-center gap-1">
-          <i className="h-2 w-2 rounded-sm bg-alert-red" /> Low
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <i className="h-2 w-2 rounded-sm bg-caution-amber" /> Marginal
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <i className="h-2 w-2 rounded-sm bg-lime-500" /> Workable
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <i className="h-2 w-2 rounded-sm bg-green-500" /> Strong
-        </span>
+        {(
+          [
+            { label: "Low", score: 1, icon: "\u2717" },
+            { label: "Marginal", score: 25, icon: "\u2248" },
+            { label: "Workable", score: 50, icon: "\u2571" },
+            { label: "Strong", score: 75, icon: "\u2713" },
+          ] as const
+        ).map((item) => {
+          const presentation = cellPresentation(item.score, colorBlindMode);
+          const paletteIcon = getStatusIcon(
+            colorBlindMode,
+            item.score >= 50
+              ? "good"
+              : item.score >= 25
+                ? "fair"
+                : "poor",
+          );
+          return (
+            <span key={item.label} className="inline-flex items-center gap-1">
+              <i
+                aria-hidden="true"
+                className="h-2 w-2 rounded-sm"
+                style={{
+                  backgroundColor: presentation.color,
+                  backgroundImage: presentation.backgroundImage,
+                  backgroundSize:
+                    presentation.tier === "low" ? "4px 4px" : undefined,
+                }}
+              />
+              <span aria-hidden="true">{paletteIcon ?? item.icon}</span>
+              {item.label}
+            </span>
+          );
+        })}
       </div>
       <p className="text-[9px] leading-relaxed text-gray-600">
         Enhanced path-model index using current Kp/SFI. Relative comparison,

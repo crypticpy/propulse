@@ -14,6 +14,7 @@ import {
   handleActivationPota,
   handleActivationSota,
 } from "./handlers/activation";
+import { handleActivationSpots } from "./handlers/activationSpots";
 import {
   handleAtmosAprs,
   handleAtmosGauges,
@@ -68,6 +69,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   ...SOLAR_ROUTES,
   "/api/activation/pota": handleActivationPota,
   "/api/activation/sota": handleActivationSota,
+  "/api/activation/spots": handleActivationSpots,
   "/api/atmos/aprs": handleAtmosAprs,
   "/api/atmos/aqi": handleAtmosAqi,
   "/api/atmos/gauges": handleAtmosGauges,

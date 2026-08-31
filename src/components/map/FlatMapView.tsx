@@ -8,8 +8,6 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
-import { useActiveStationGain } from "@/hooks/useActiveStationGain";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
   getPathPoints,
@@ -20,9 +18,7 @@ import {
 } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
-import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { estimateMUF, getMUFColor } from "@/lib/api/muf";
-import { useLiveSpots } from "@/hooks/useLiveSpots";
 import type { LiveSpot } from "@/types/livespot";
 import {
   resolveSpotLocations,
@@ -66,14 +62,11 @@ import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
-import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import {
   useAwardProgress,
   STATE_NAME_TO_ABBR,
   type AwardEntityStatus,
 } from "@/hooks/useAwardProgress";
-import { getAntennaGainForPath } from "@/lib/data/antennas";
-import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { LabelOptions } from "@/stores/mapStore";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 import {
@@ -96,10 +89,6 @@ import {
 } from "@/lib/utils/maidenheadGrid";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
-import { useEarthquakes } from "@/hooks/useEarthquakes";
-import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
-import { useLightning } from "@/hooks/useLightning";
-import { useFires } from "@/hooks/useFires";
 import { useWsprSpots } from "@/hooks/useWspr";
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import { getWsprBandColor } from "@/lib/map/wsprBandColors";
@@ -125,6 +114,9 @@ import { AspectRatioSlider } from "./AspectRatioSlider";
 import { Ft8DecodeLayerFlat } from "./layers/Ft8DecodeLayerFlat";
 import { useFt8DecodeEnricher } from "@/hooks/useFt8DecodeEnricher";
 import { useFt8SessionStore } from "@/stores/ft8SessionStore";
+import { useMapHazardData } from "./hooks/useMapHazardData";
+import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
+import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -3254,12 +3246,8 @@ export function FlatMapView({
   const displayDensity = useMapStore((s) => s.displayDensity);
   const isLiteMode = useMapStore((s) => s.isLiteMode);
   const { station, preferences } = useUserStore();
-  const { antennaType } = useActiveStationGain();
-  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const { data: auroraData } = useAuroraData(layers.aurora);
   const currentSFI = useCurrentSFI();
-  const kIndexQuery = useKIndex();
-  const solarFluxQuery = useSolarFlux();
 
   // Spot focus for pulsing ring effect
   const { isFocusing, focusedSpot } = useSpotFocus();
@@ -3296,11 +3284,14 @@ export function FlatMapView({
   const { satellites: satPositions, selectedSatellite: selectedSat } =
     useSatellites(layers.satellites);
 
-  // Hazard overlay data — hooks only fetch when layer is enabled
-  const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
-  const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
-  const { strikes: lightningStrikes } = useLightning(layers.lightning);
-  const { hotspots: fireHotspots } = useFires(layers.fires);
+  // Shared hazard boundary keeps layer-to-request gating identical in every
+  // projection while each renderer retains its own draw implementation.
+  const {
+    earthquakeData,
+    weatherAlerts,
+    lightningStrikes,
+    fireHotspots,
+  } = useMapHazardData(layers);
   const { spots: wsprSpots } = useWsprSpots(layers.wspr);
 
   // QSO overlay data — hooks only compute when layer is enabled
@@ -3381,26 +3372,13 @@ export function FlatMapView({
     lon: number;
   } | null>(null);
 
-  // Fetch live spots when spots, spot traces, or grid activity is enabled
-  const { spots } = useLiveSpots({
+  // Fetch and resolve the shared live feed, then apply this canvas renderer's
+  // draw cap. Source merging and disabled-state behavior live in one hook.
+  const { resolvedSpots } = useResolvedMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
-    refetchInterval: 60000,
+    maxSpots: displayDensity,
   });
-
-  // Resolve spot locations and limit by display density setting
-  const resolvedSpots = useMemo(() => {
-    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) {
-      return [];
-    }
-    return resolveSpotLocations(spots).slice(0, displayDensity);
-  }, [
-    spots,
-    layers.spots,
-    layers.spotTraces,
-    layers.gridActivity,
-    displayDensity,
-  ]);
 
   // Resolve the selected DX cluster spot into a ResolvedSpot for arc highlighting
   const resolvedSelectedSpot = useMemo((): ResolvedSpot | null => {
@@ -3548,73 +3526,11 @@ export function FlatMapView({
     ? getDifficultyColor(pathDifficulty)
     : COLORS.targetMarker;
 
-  const currentKp = useMemo(() => {
-    const last = kIndexQuery.data?.[kIndexQuery.data.length - 1];
-    return last?.kp_index ?? 3;
-  }, [kIndexQuery.data]);
-
-  const currentSfi = useMemo(() => {
-    const last = solarFluxQuery.data?.[solarFluxQuery.data.length - 1];
-    return last?.flux ?? 100;
-  }, [solarFluxQuery.data]);
-
-  const isEstimatedConditions =
-    kIndexQuery.isPlaceholderData ||
-    solarFluxQuery.isPlaceholderData ||
-    !kIndexQuery.data?.length ||
-    !solarFluxQuery.data?.length;
-
-  const optimalSignal = useMemo(() => {
-    if (!station || !target) {
-      return null;
-    }
-    try {
-      const distance = getDistance(
-        station.lat,
-        station.lon,
-        target.lat,
-        target.lon,
-      );
-      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
-      const conditions = getEnhancedBandConditions(
-        station.lat,
-        station.lon,
-        target.lat,
-        target.lon,
-        currentKp,
-        currentSfi,
-        displayTime,
-        100,
-        "FT8",
-        antennaGainDbi,
-        noiseEnvironment,
-      );
-      const best = pickOptimalBandCondition(conditions);
-      if (!best) {
-        return null;
-      }
-      return {
-        band: best.band,
-        status: best.status,
-        sUnit: best.sUnit,
-        snrEstimate: best.snrEstimate,
-        confidence: best.signalPrediction?.confidence,
-        notes: best.notes,
-        isEstimated: isEstimatedConditions,
-      };
-    } catch {
-      return null;
-    }
-  }, [
+  const optimalSignal = useOptimalMapSignal({
     station,
     target,
-    currentKp,
-    currentSfi,
     displayTime,
-    isEstimatedConditions,
-    antennaType,
-    noiseEnvironment,
-  ]);
+  });
 
   // Check watch activity when spots change
   useEffect(() => {

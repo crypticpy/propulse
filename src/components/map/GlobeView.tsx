@@ -20,7 +20,7 @@ import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics, getBearing, getDistance } from "@/lib/utils/path";
+import { getPathMetrics, getBearing } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { GlobeDepthDome } from "./GlobeDepthDome";
@@ -97,18 +97,13 @@ import {
   useCompassRosePrefs,
   useUIInteractionPrefs,
 } from "@/stores/userStore";
-import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { usePinStore } from "@/stores/pinStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
-import { useEarthquakes } from "@/hooks/useEarthquakes";
-import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { FireHotspot } from "@/lib/api/fires";
-import { useLightning } from "@/hooks/useLightning";
-import { useFires } from "@/hooks/useFires";
 import { useRepeaters } from "@/hooks/useRepeaters";
 import { useRiverGauges } from "@/hooks/useRiverGauges";
 import { useAPRSStations } from "@/hooks/useAPRSStations";
@@ -129,10 +124,7 @@ import {
   getMinimumGlobeDistance,
 } from "@/lib/map/globeNavigation";
 import { qthCameraPosition } from "./lib/globeCoords";
-import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { getEnhancedBandConditions } from "@/lib/utils/bands";
-import { getAntennaGainForPath } from "@/lib/data/antennas";
-import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
+import { useKIndex } from "@/hooks/useSolarData";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapSizeSliders } from "./MapSizeSliders";
@@ -186,6 +178,9 @@ import {
   type BandActivityRow,
 } from "@/lib/map/bandActivityWaterfall";
 import { liveSpotsInGrid, mergeGridSpots } from "@/lib/map/gridTooltip";
+import { useMapHazardData } from "./hooks/useMapHazardData";
+import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
+import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -942,10 +937,12 @@ const GlobeScene = React.memo(function GlobeScene({
   const pins = usePinStore((s) => s.pins);
   const { data: auroraData } = useAuroraData(layers.aurora);
   const currentSFI = useCurrentSFI();
-  const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
-  const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
-  const { strikes: lightningStrikes } = useLightning(layers.lightning);
-  const { hotspots: fireHotspots } = useFires(layers.fires);
+  const {
+    earthquakeData,
+    weatherAlerts,
+    lightningStrikes,
+    fireHotspots,
+  } = useMapHazardData(layers);
   const { repeaters } = useRepeaters(layers.repeaters);
   const { gauges: riverGauges } = useRiverGauges(layers.riverGauges);
   const { stations: aprsStations } = useAPRSStations(layers.aprs);
@@ -1009,21 +1006,16 @@ const GlobeScene = React.memo(function GlobeScene({
   const uiPrefs = useUIInteractionPrefs();
   const mapPinScale = uiPrefs.mapPinScale ?? 1.0;
 
-  // Fetch live spots for the grid glow overlay
-  const { spots: liveSpots } = useLiveSpots({
+  // The spectrum ring consumes raw spots, while arcs/traces/activity also need
+  // resolved coordinates. Keep those two gates explicit in the shared hook.
+  const resolvedSpotLayersEnabled =
+    layers.spots || layers.spotTraces || layers.gridActivity;
+  const { spots: liveSpots, resolvedSpots: resolvedGlowSpots } =
+    useResolvedMapSpots({
     grid: station?.grid,
-    enabled:
-      layers.spots ||
-      layers.spotTraces ||
-      layers.gridActivity ||
-      layers.spectrumRing,
-  });
-
-  // Resolve spot locations so glow positions match where arcs land
-  const resolvedGlowSpots = useMemo(() => {
-    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return [];
-    return resolveSpotLocations(liveSpots);
-  }, [liveSpots, layers.spots, layers.spotTraces, layers.gridActivity]);
+      enabled: resolvedSpotLayersEnabled || layers.spectrumRing,
+      resolveEnabled: resolvedSpotLayersEnabled,
+    });
 
   // Track which spot IDs have already triggered glows (avoid re-firing on every render)
   const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
@@ -1754,8 +1746,6 @@ export function GlobeView({
     () => selectTileProvider(mapStyle, subscriptionTier).attribution,
     [mapStyle, subscriptionTier],
   );
-  const { antennaType } = useActiveStationGain();
-  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const addPin = usePinStore((s) => s.addPin);
   const removePin = usePinStore((s) => s.removePin);
   const getPinById = usePinStore((s) => s.getPinById);
@@ -1875,26 +1865,6 @@ export function GlobeView({
     );
   }, [tooltipPosition?.grid]);
 
-  // Fetch solar conditions for optimal-band signal estimate
-  const kIndexQuery = useKIndex();
-  const solarFluxQuery = useSolarFlux();
-
-  const currentKp = useMemo(() => {
-    const last = kIndexQuery.data?.[kIndexQuery.data.length - 1];
-    return last?.kp_index ?? 3;
-  }, [kIndexQuery.data]);
-
-  const currentSfi = useMemo(() => {
-    const last = solarFluxQuery.data?.[solarFluxQuery.data.length - 1];
-    return last?.flux ?? 100;
-  }, [solarFluxQuery.data]);
-
-  const isEstimatedConditions =
-    kIndexQuery.isPlaceholderData ||
-    solarFluxQuery.isPlaceholderData ||
-    !kIndexQuery.data?.length ||
-    !solarFluxQuery.data?.length;
-
   const targetDifficulty = useMemo(() => {
     if (!station || !target) {
       return undefined;
@@ -1903,58 +1873,15 @@ export function GlobeView({
       .difficulty;
   }, [station, target]);
 
-  const optimalSignal = useMemo(() => {
-    if (!station || !target || !tooltipPosition) {
-      return null;
-    }
-    try {
-      const distance = getDistance(
-        station.lat,
-        station.lon,
-        target.lat,
-        target.lon,
-      );
-      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
-      const conditions = getEnhancedBandConditions(
-        station.lat,
-        station.lon,
-        target.lat,
-        target.lon,
-        currentKp,
-        currentSfi,
-        displayTime,
-        100,
-        "FT8",
-        antennaGainDbi,
-        noiseEnvironment,
-      );
-      const best = pickOptimalBandCondition(conditions);
-      if (!best) {
-        return null;
-      }
-      return {
-        band: best.band,
-        status: best.status,
-        sUnit: best.sUnit,
-        snrEstimate: best.snrEstimate,
-        confidence: best.signalPrediction?.confidence,
-        notes: best.notes,
-        isEstimated: isEstimatedConditions,
-      };
-    } catch {
-      return null;
-    }
-  }, [
+  const optimalSignal = useOptimalMapSignal({
     station,
     target,
-    tooltipPosition,
-    currentKp,
-    currentSfi,
     displayTime,
-    isEstimatedConditions,
-    antennaType,
-    noiseEnvironment,
-  ]);
+    // GlobeView keeps grid and target-hover tooltips in separate state. The
+    // target tooltip explicitly clears tooltipPosition when it opens, so gate
+    // this supplementary calculation on the state that actually consumes it.
+    enabled: Boolean(hoveredTargetPos),
+  });
 
   // Handle globe click - show flyout only (no target commit — that only
   // happens when the user picks "Set Target" from the flyout, below)

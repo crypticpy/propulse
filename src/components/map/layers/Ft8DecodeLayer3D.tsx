@@ -79,11 +79,24 @@ const PULSE_AMPLITUDE = 0.5;
 // Color palette
 // ---------------------------------------------------------------------------
 
-const COLOR_CQ = new THREE.Color("#00ff88"); // Green
-const COLOR_QSO = new THREE.Color("#22d3ee"); // Cyan
-const COLOR_NEEDED = new THREE.Color("#f59e0b"); // Orange
-const COLOR_CALLING_ME = new THREE.Color("#ef4444"); // Red
-const COLOR_DUPE = new THREE.Color("#6b7280"); // Dim gray
+/**
+ * Hex color source table for FT8 decode markers, keyed by decode type.
+ * Exported so LayerLegend (src/lib/map/layerLegends.ts) can render a legend
+ * that can never drift out of sync with the actual marker colors.
+ */
+export const FT8_DECODE_COLORS = {
+  cq: "#00ff88", // Green
+  qso: "#22d3ee", // Cyan
+  needed: "#f59e0b", // Orange
+  callingMe: "#ef4444", // Red
+  dupe: "#6b7280", // Dim gray
+} as const;
+
+const COLOR_CQ = new THREE.Color(FT8_DECODE_COLORS.cq);
+const COLOR_QSO = new THREE.Color(FT8_DECODE_COLORS.qso);
+const COLOR_NEEDED = new THREE.Color(FT8_DECODE_COLORS.needed);
+const COLOR_CALLING_ME = new THREE.Color(FT8_DECODE_COLORS.callingMe);
+const COLOR_DUPE = new THREE.Color(FT8_DECODE_COLORS.dupe);
 
 // Temp objects for instanced mesh updates (avoid allocation per frame)
 const _tempObject = new THREE.Object3D();

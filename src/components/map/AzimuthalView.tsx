@@ -58,6 +58,11 @@ import { useFires } from "@/hooks/useFires";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
+import {
+  LIGHTNING_COLOR_FLAT,
+  LIGHTNING_COLOR_STRONG,
+  LIGHTNING_STRONG_KA,
+} from "@/lib/map/lightningColors";
 import type { FireHotspot } from "@/lib/api/fires";
 import type { LiveSpot } from "@/types/livespot";
 
@@ -1249,14 +1254,17 @@ function drawAzLightning(
     ctx.globalAlpha = alpha * 0.3;
     ctx.beginPath();
     ctx.arc(sx, sy, 6 * intensity, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffe566";
+    ctx.fillStyle = LIGHTNING_COLOR_FLAT;
     ctx.fill();
 
     // Inner core — scaled by intensity, brighter white for strong strikes
     ctx.globalAlpha = alpha * 0.8;
     ctx.beginPath();
     ctx.arc(sx, sy, 3 * intensity, 0, Math.PI * 2);
-    ctx.fillStyle = strike.currentKA > 100 ? "#ffffff" : "#ffe566";
+    ctx.fillStyle =
+      strike.currentKA > LIGHTNING_STRONG_KA
+        ? LIGHTNING_COLOR_STRONG
+        : LIGHTNING_COLOR_FLAT;
     ctx.fill();
   }
   ctx.globalAlpha = 1;

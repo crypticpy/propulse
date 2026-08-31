@@ -36,6 +36,15 @@ const GLOBE_RADIUS = 1.006;
 /** Minimum pick radius (world units) so small fires stay clickable */
 const MIN_PICK_RADIUS = 0.015;
 
+/**
+ * Translucent outer glow around each hotspot.
+ * Exported so LayerLegend (src/lib/map/layerLegends.ts) can never drift.
+ */
+export const FIRE_GLOW_COLOR = "#ff6600";
+
+/** Opaque inner core -- this is the dot the user actually sees. */
+export const FIRE_CORE_COLOR = "#ff2200";
+
 // ---------------------------------------------------------------------------
 // Module-level dummies -- reused every frame/raycast, never recreated
 // ---------------------------------------------------------------------------
@@ -267,7 +276,7 @@ export const FireOverlay3D = React.memo(
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
-            color="#ff6600"
+            color={FIRE_GLOW_COLOR}
             transparent
             opacity={0.3}
             depthWrite={false}
@@ -284,7 +293,7 @@ export const FireOverlay3D = React.memo(
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
-            color="#ff2200"
+            color={FIRE_CORE_COLOR}
             transparent
             opacity={0.7}
             depthWrite={false}

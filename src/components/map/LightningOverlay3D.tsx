@@ -24,6 +24,10 @@ import * as THREE from "three";
 import type { LightningStrike } from "@/lib/api/lightning";
 import { getUpDirection, latLonTo3D } from "@/components/map/lib/globeCoords";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  LIGHTNING_COLOR_STRONG,
+  LIGHTNING_COLOR_WEAK,
+} from "@/lib/map/lightningColors";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,8 +57,8 @@ const MAX_CURRENT_KA = 200;
 
 const dummy = new THREE.Object3D();
 const tempColor = new THREE.Color();
-const weakColor = new THREE.Color("#66ccff"); // electric blue for weak
-const strongColor = new THREE.Color("#ffffff"); // white-hot for strong
+const weakColor = new THREE.Color(LIGHTNING_COLOR_WEAK);
+const strongColor = new THREE.Color(LIGHTNING_COLOR_STRONG);
 const matrix = new THREE.Matrix4();
 const tempQuat = new THREE.Quaternion();
 const Z_AXIS = new THREE.Vector3(0, 0, 1);

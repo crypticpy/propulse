@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { bandFromFreqMHz } from "@/lib/utils/bandFromFreq";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { getWsprBandColor } from "@/lib/map/wsprBandColors";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,18 +68,12 @@ const SNR_MAX = 20;
 // ---------------------------------------------------------------------------
 
 /**
- * Color map by band based on frequency in MHz.
+ * Color map by band based on frequency in MHz. The ladder itself lives in
+ * src/lib/map/wsprBandColors.ts so the flat map and the legend read the
+ * exact same palette.
  */
 function getBandColor(freqMHz: number): THREE.Color {
-  if (freqMHz < 2.5) return new THREE.Color("#8b0000"); // 160m dark red
-  if (freqMHz < 5.0) return new THREE.Color("#cc2222"); // 80m red
-  if (freqMHz < 8.5) return new THREE.Color("#ff6600"); // 40m orange
-  if (freqMHz < 12.0) return new THREE.Color("#ddcc00"); // 30m yellow
-  if (freqMHz < 16.0) return new THREE.Color("#22cc44"); // 20m green
-  if (freqMHz < 20.0) return new THREE.Color("#00cccc"); // 17m cyan
-  if (freqMHz < 23.0) return new THREE.Color("#2266ff"); // 15m blue
-  if (freqMHz < 26.0) return new THREE.Color("#4400cc"); // 12m indigo
-  return new THREE.Color("#9922cc"); // 10m purple
+  return new THREE.Color(getWsprBandColor(freqMHz));
 }
 
 // ---------------------------------------------------------------------------

@@ -44,13 +44,28 @@ const MARKER_SCALE = 0.004;
 // Flood status colour map
 // ---------------------------------------------------------------------------
 
-const STATUS_COLORS: Record<RiverGauge["floodStatus"], THREE.Color> = {
-  normal: new THREE.Color("#22c55e"),
-  action: new THREE.Color("#eab308"),
-  minor: new THREE.Color("#f97316"),
-  moderate: new THREE.Color("#ef4444"),
-  major: new THREE.Color("#991b1b"),
+/**
+ * Hex color source table by flood status. Exported so LayerLegend
+ * (src/lib/map/layerLegends.ts) can render a legend that can never drift
+ * out of sync with the actual marker colors.
+ */
+export const RIVER_STATUS_HEX: Record<RiverGauge["floodStatus"], string> = {
+  normal: "#22c55e",
+  action: "#eab308",
+  minor: "#f97316",
+  moderate: "#ef4444",
+  major: "#991b1b",
 };
+
+const STATUS_COLORS: Record<
+  RiverGauge["floodStatus"],
+  THREE.Color
+> = Object.fromEntries(
+  Object.entries(RIVER_STATUS_HEX).map(([status, hex]) => [
+    status,
+    new THREE.Color(hex),
+  ]),
+) as Record<RiverGauge["floodStatus"], THREE.Color>;
 
 // ---------------------------------------------------------------------------
 // Module-level dummy -- reused every frame, never recreated

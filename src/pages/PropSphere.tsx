@@ -27,6 +27,7 @@ import {
   BandConditionsPanel,
   MUFLegend,
   IonosphereLegend,
+  LayerLegend,
   RecommendationsPanel,
   OptimalBandsPanel,
   OperatorProfile,
@@ -104,7 +105,8 @@ import { getPathMetrics, formatBearing } from "@/lib/utils/path";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 import { useSpotReplay } from "@/hooks/useSpotReplay";
 import { useReplayStore } from "@/stores/replayStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, useUIInteractionPrefs } from "@/stores/settingsStore";
+import { buildLayerLegends } from "@/lib/map/layerLegends";
 import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 import { propagationModelVisible } from "@/lib/propagation/modelClient";
@@ -147,6 +149,11 @@ export function PropSphere() {
   const target = useMapStore((s) => s.target);
   const setTarget = useMapStore((s) => s.setTarget);
   const layers = useMapStore((s) => s.layers);
+  const spotColorMode = useUIInteractionPrefs().spotColorMode ?? "mode";
+  const hasLayerLegend = useMemo(
+    () => buildLayerLegends(layers, { spotColorMode, viewMode }).length > 0,
+    [layers, spotColorMode, viewMode],
+  );
   const activePreset = useMapStore((s) => s.activePreset);
   const layoutMode = useMapStore((s) => s.layoutMode);
   const isLiteMode = useMapStore((s) => s.isLiteMode);
@@ -1064,15 +1071,18 @@ export function PropSphere() {
 
               {/* Legends (bottom of map). The ionosphere legend describes the
                   ray-path bounce markers, which only exist on the globe with a
-                  target set. */}
-              {(layers.muf ||
+                  target set. LayerLegend covers every enabled colored marker
+                  layer (spots, satellites, beacons, etc). */}
+              {(hasLayerLegend ||
+                layers.muf ||
                 (layers.ionosphere && target && viewMode === "globe")) && (
-                <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-col gap-1">
+                <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-col gap-1 pointer-events-none">
+                  <LayerLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
                   {layers.ionosphere && target && viewMode === "globe" && (
-                    <IonosphereLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1" />
+                    <IonosphereLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
                   )}
                   {layers.muf && (
-                    <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2" />
+                    <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
                   )}
                 </div>
               )}

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { azimuthalProject, azimuthalUnproject } from "./azimuthal";
+import {
+  azimuthalProject,
+  azimuthalUnproject,
+  getCenteredZoomViewport,
+} from "./azimuthal";
 
 describe("azimuthal projection roundtrip", () => {
   const centers: Array<[number, number]> = [
@@ -36,5 +40,28 @@ describe("azimuthal projection roundtrip", () => {
     const back = azimuthalUnproject(0, 0, 25, -80);
     expect(back.lat).toBe(25);
     expect(back.lon).toBe(-80);
+  });
+});
+
+describe("centered zoom viewport", () => {
+  it("maps zoomed canvas bounds back into logical drawing coordinates", () => {
+    expect(getCenteredZoomViewport(600, 3)).toEqual({
+      x: 200,
+      y: 200,
+      width: 200,
+      height: 200,
+    });
+    expect(getCenteredZoomViewport(600, 0.5)).toEqual({
+      x: -300,
+      y: -300,
+      width: 1200,
+      height: 1200,
+    });
+  });
+
+  it("converts a screen-space inset through the inverse zoom", () => {
+    const viewport = getCenteredZoomViewport(600, 3, 3);
+    expect(viewport.x).toBe(201);
+    expect(viewport.width).toBe(198);
   });
 });

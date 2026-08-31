@@ -39,6 +39,7 @@ import { HamClockContestsPanel } from "./hamclock/HamClockContestsPanel";
 import { HamClockDxpeditionsPanel } from "./hamclock/HamClockDxpeditionsPanel";
 import { HamClockReliabilityPanel } from "./hamclock/HamClockReliabilityPanel";
 import { HamClockMoonPanel } from "./hamclock/HamClockMoonPanel";
+import { HamClockLocationConditions } from "./hamclock/HamClockLocationConditions";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -219,12 +220,12 @@ function DEContent({ displayTime }: { displayTime: Date }) {
   const location = useActiveLocation();
 
   const greyline = useMemo(() => {
-    if (!location?.lat || !location?.lon) return null;
+    if (!location) return null;
     return getGreylineStatus(location.lat, location.lon, displayTime);
-  }, [location?.lat, location?.lon, displayTime]);
+  }, [location, displayTime]);
 
   const callsign = station?.callsign || "NO CALL";
-  const grid = station?.grid || "";
+  const grid = location?.grid || station?.grid || "";
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -233,9 +234,18 @@ function DEContent({ displayTime }: { displayTime: Date }) {
       </div>
       {grid && <div className="font-mono text-sm text-gray-300">{grid}</div>}
       {location && (
-        <div className="font-mono text-xs text-gray-400">
-          {fmtCoord(location.lat, location.lon)}
-        </div>
+        <>
+          <div className="font-mono text-xs text-gray-400">
+            {fmtCoord(location.lat, location.lon)}
+          </div>
+          <HamClockLocationConditions
+            latitude={location.lat}
+            longitude={location.lon}
+            displayTime={displayTime}
+            timeZone={location.timezone}
+            stationLabel="DE"
+          />
+        </>
       )}
       {greyline && greyline.nextEventType && greyline.nextEventTime && (
         <div className="flex flex-col mt-1">
@@ -294,6 +304,12 @@ function DXContent({ displayTime }: { displayTime: Date }) {
       <div className="font-mono text-xs text-gray-400">
         {fmtCoord(target.lat, target.lon)}
       </div>
+      <HamClockLocationConditions
+        latitude={target.lat}
+        longitude={target.lon}
+        displayTime={displayTime}
+        stationLabel="DX"
+      />
       {metrics && (
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1">
           <div className="flex flex-col">

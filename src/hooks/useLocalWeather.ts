@@ -5,15 +5,19 @@ import type { LocalWeatherData } from "@/lib/api/openMeteo";
 
 const MINUTE = 60 * 1000;
 
-export function useLocalWeather(enabled = true) {
-  const station = useUserStore((s) => s.station);
-  const lat = station?.lat ?? null;
-  const lon = station?.lon ?? null;
-  const hasLocation = lat != null && lon != null;
+/** Current weather for an arbitrary operating or target coordinate. */
+export function useLocationWeather(
+  latitude: number | null | undefined,
+  longitude: number | null | undefined,
+  enabled = true,
+) {
+  const hasLocation =
+    Number.isFinite(latitude) && Number.isFinite(longitude);
 
   const { data, isLoading, error } = useQuery<LocalWeatherData>({
-    queryKey: ["local-weather", lat, lon],
-    queryFn: ({ signal }) => fetchLocalWeather(lat!, lon!, signal),
+    queryKey: ["local-weather", latitude, longitude],
+    queryFn: ({ signal }) =>
+      fetchLocalWeather(latitude!, longitude!, signal),
     enabled: enabled && hasLocation,
     staleTime: 15 * MINUTE,
     gcTime: 30 * MINUTE,
@@ -23,4 +27,9 @@ export function useLocalWeather(enabled = true) {
   });
 
   return { weather: data ?? null, isLoading, error, hasLocation };
+}
+
+export function useLocalWeather(enabled = true) {
+  const station = useUserStore((s) => s.station);
+  return useLocationWeather(station?.lat, station?.lon, enabled);
 }

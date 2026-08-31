@@ -20,6 +20,7 @@ import {
   RecommendationsPanel,
   RegionPresetManager,
   SatellitePanel,
+  PropagationForecastMini,
 } from "@/components/map";
 import { FloatingPanel } from "@/components/layout/FloatingPanel";
 import { ProToolbarRibbon } from "@/components/map/ProToolbarRibbon";
@@ -35,6 +36,7 @@ import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
 const PANEL_LABELS: Record<string, string> = {
   "band-conditions": "Bands",
   "path-analysis": "Paths",
+  "propagation-forecast": "Forecast",
   "dx-spots": "DX Spots",
   recommendations: "Recs",
   satellites: "Sats",
@@ -68,6 +70,21 @@ const PANEL_ICONS: Record<string, React.ReactNode> = {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+      />
+    </svg>
+  ),
+  "propagation-forecast": (
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 17.5 8.5 12l4 3.5L21 7m0 0h-5m5 0v5"
       />
     </svg>
   ),
@@ -449,6 +466,53 @@ export function FullscreenPropSphere({
               displayTime={displayTime}
               className="!bg-transparent !border-0 h-full"
             />
+          </FloatingPanel>
+        )}
+
+        {/* 24-hour forecast — minimized by default, but deliberately allowed
+            to stretch across the full top row on wide wall displays. */}
+        {!proPanelLayout["propagation-forecast"]?.collapsed && (
+          <FloatingPanel
+            id="propagation-forecast"
+            title="24-Hour Propagation Forecast"
+            defaultPosition={{ x: 24, y: 6 }}
+            defaultSize={{ width: 900, height: 260 }}
+            minSize={{ width: 520, height: 190 }}
+            maxSize={{ width: 10000, height: 700 }}
+            collapsed={false}
+            onCollapse={() =>
+              toggleProPanelCollapse("propagation-forecast")
+            }
+            persistedLayout={
+              proPanelLayout["propagation-forecast"]
+                ? {
+                    x: proPanelLayout["propagation-forecast"].x,
+                    y: proPanelLayout["propagation-forecast"].y,
+                    width: proPanelLayout["propagation-forecast"].width,
+                    height: proPanelLayout["propagation-forecast"].height,
+                  }
+                : null
+            }
+            onLayoutChange={(layout) =>
+              updateProPanelLayout("propagation-forecast", layout)
+            }
+            zIndex={panelZOrder["propagation-forecast"] ?? 100}
+            onFocus={() => bringToFront("propagation-forecast")}
+            onDragMove={handleDockDragMove}
+            onDragEnd={handleDockDragEnd}
+            snapTarget={activeSnapTarget}
+            dockGroupWidth={
+              getDockGroupWidth("propagation-forecast") ?? undefined
+            }
+            onResizeWidth={onGroupWidthResize}
+            icon={PANEL_ICONS["propagation-forecast"]}
+          >
+            <div className="h-full min-h-0 p-2">
+              <PropagationForecastMini
+                displayTime={displayTime}
+                className="h-full"
+              />
+            </div>
           </FloatingPanel>
         )}
 

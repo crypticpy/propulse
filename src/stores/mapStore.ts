@@ -886,14 +886,31 @@ function pctToPx(xPct: number, yPct: number): { x: number; y: number } {
 }
 
 function buildDefaultProPanelLayout(): Record<string, ProPanelLayoutEntry> {
+  const viewportWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1920;
   const bc = pctToPx(1, 8);
   const pa = pctToPx(80, 8);
   const dx = pctToPx(20, 72);
   const rec = pctToPx(1, 62);
   const sat = pctToPx(80, 50);
+  const forecastWidth = Math.min(
+    1200,
+    Math.max(600, Math.round(viewportWidth * 0.55)),
+  );
   return {
     "band-conditions": { ...bc, width: 256, height: 400, collapsed: false },
     "path-analysis": { ...pa, width: 288, height: 400, collapsed: false },
+    // The forecast starts minimized to avoid obscuring the globe, but expands
+    // as a broad strip that can be stretched across the full top row.
+    "propagation-forecast": {
+      x: Math.round((viewportWidth - forecastWidth) / 2),
+      y: 64,
+      width: forecastWidth,
+      height: 260,
+      collapsed: true,
+      dockedEdge: "right",
+      dockedOrder: 64,
+    },
     "dx-spots": { ...dx, width: 600, height: 200, collapsed: false },
     recommendations: { ...rec, width: 320, height: 180, collapsed: false },
     satellites: { ...sat, width: 260, height: 360, collapsed: true },

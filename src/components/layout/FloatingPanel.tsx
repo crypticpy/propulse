@@ -194,6 +194,59 @@ export function FloatingPanel({
   // Keep a mutable ref of the latest layout for clamping during window resize
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
+  const persistedX = persistedLayout?.x;
+  const persistedY = persistedLayout?.y;
+  const persistedWidth = persistedLayout?.width;
+  const persistedHeight = persistedLayout?.height;
+
+  // Keep the mounted panel in sync when its persisted geometry is replaced
+  // externally (for example by the toolbar's Reset Layout action or an
+  // imported workspace). useState only consumes its initializer once, so
+  // without this bridge the store resets while the visible panel stays put
+  // until Pro mode is closed and reopened.
+  useEffect(() => {
+    if (
+      persistedX === undefined ||
+      persistedY === undefined ||
+      persistedWidth === undefined ||
+      persistedHeight === undefined ||
+      isDragging.current ||
+      isResizing.current
+    ) {
+      return;
+    }
+
+    const width = clamp(persistedWidth, minSize.width, maxSize.width);
+    const height = clamp(
+      persistedHeight,
+      minSize.height,
+      maxSize.height,
+    );
+    const position = clampPosition(persistedX, persistedY, width);
+    const nextLayout = { ...position, width, height };
+    const current = layoutRef.current;
+
+    if (
+      current.x === nextLayout.x &&
+      current.y === nextLayout.y &&
+      current.width === nextLayout.width &&
+      current.height === nextLayout.height
+    ) {
+      return;
+    }
+
+    layoutRef.current = nextLayout;
+    setLayout(nextLayout);
+  }, [
+    persistedX,
+    persistedY,
+    persistedWidth,
+    persistedHeight,
+    minSize.width,
+    minSize.height,
+    maxSize.width,
+    maxSize.height,
+  ]);
 
   // ---- Drag handlers ----
   const handleDragPointerDown = useCallback(
@@ -325,15 +378,27 @@ export function FloatingPanel({
 
       const dx = e.clientX - resizeStart.current.pointerX;
       const dy = e.clientY - resizeStart.current.pointerY;
+      // Respect the panel's configured maximum while also preventing the
+      // bottom-right handle from growing beyond the current viewport. A very
+      // large configured max is useful for wide forecast strips on 4K walls,
+      // but must remain safe on a laptop-sized viewport.
+      const viewportMaxWidth = Math.max(
+        minSize.width,
+        window.innerWidth - Math.max(0, layoutRef.current.x) - 4,
+      );
+      const viewportMaxHeight = Math.max(
+        minSize.height,
+        window.innerHeight - Math.max(0, layoutRef.current.y) - 4,
+      );
       const newWidth = clamp(
         resizeStart.current.width + dx,
         minSize.width,
-        maxSize.width,
+        Math.min(maxSize.width, viewportMaxWidth),
       );
       const newHeight = clamp(
         resizeStart.current.height + dy,
         minSize.height,
-        maxSize.height,
+        Math.min(maxSize.height, viewportMaxHeight),
       );
 
       // Direct DOM update
@@ -566,6 +631,9 @@ export function FloatingPanel({
         <div
           className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end pr-0.5 pb-0.5"
           style={{ touchAction: "none" }}
+          role="separator"
+          aria-label={`Resize ${title} panel`}
+          aria-orientation="horizontal"
           onPointerDown={handleResizePointerDown}
           onPointerMove={handleResizePointerMove}
           onPointerUp={handleResizePointerUp}

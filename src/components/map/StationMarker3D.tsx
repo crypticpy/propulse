@@ -102,7 +102,10 @@ export const StationMarker3D = React.memo(function StationMarker3D({
         anchorY="bottom"
         outlineWidth={0.001}
         outlineColor="#000000"
-        renderOrder={GLOBE_LAYER_ORDER.nightShade}
+        /* Above every other marker, but within the markers slot. This used to
+           borrow nightShade's number, which only worked while the night shade
+           sat above markers in the ladder. */
+        renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
         font={undefined}
         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         {...({ "material-depthTest": false } as any)}

@@ -34,6 +34,41 @@ describe("GLOBE_LAYER_ORDER", () => {
     });
   });
 
+  it("paints every data layer above the night shade", () => {
+    // The terminator dims the planet, not the information drawn on it.
+    // Anything below this line goes dark on the night side and becomes hard
+    // to read at exactly the times it matters most.
+    const aboveNight = [
+      "surfaceArea",
+      "referenceLines",
+      "arcs",
+      "volumes",
+      "markers",
+      "hud",
+    ] as const;
+
+    for (const slot of aboveNight) {
+      expect(GLOBE_LAYER_ORDER[slot]).toBeGreaterThan(
+        GLOBE_LAYER_ORDER.nightShade,
+      );
+      expect(GLOBE_LAYER_ORDER[slot]).toBeGreaterThan(
+        GLOBE_LAYER_ORDER.nightLights,
+      );
+    }
+  });
+
+  it("keeps the night shade above the planet surface it dims", () => {
+    expect(GLOBE_LAYER_ORDER.nightShade).toBeGreaterThan(
+      GLOBE_LAYER_ORDER.base,
+    );
+    expect(GLOBE_LAYER_ORDER.nightShade).toBeGreaterThan(
+      GLOBE_LAYER_ORDER.tileLabels,
+    );
+    expect(GLOBE_LAYER_ORDER.nightShade).toBeGreaterThan(
+      GLOBE_LAYER_ORDER.surfaceTexture,
+    );
+  });
+
   it("keeps the depth dome above the tile surface and below overlays", () => {
     expect(GLOBE_DEPTH_DOME_RADIUS).toBeGreaterThan(1.0);
     expect(GLOBE_DEPTH_DOME_RADIUS).toBeLessThan(GLOBE_MIN_OVERLAY_RADIUS);

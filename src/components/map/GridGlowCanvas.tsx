@@ -65,6 +65,12 @@ const PERSIST_FADE_MS = 30_000;
 const PERSIST_TOTAL_MS = PERSIST_HOLD_MS + PERSIST_FADE_MS;
 
 /** Default peak alpha when a single spot triggers a glow */
+/** Fill alpha for a persisted cell with a single spot */
+const PERSIST_FILL_MIN_ALPHA = 0.16;
+
+/** Fill alpha for a persisted cell at full activity weight */
+const PERSIST_FILL_MAX_ALPHA = 0.44;
+
 const DEFAULT_PEAK_ALPHA = 0.55;
 
 /** Absolute ceiling for boosted peak intensity */
@@ -79,6 +85,22 @@ const MIN_RADIAL_RADIUS_PX = 4;
 // ---------------------------------------------------------------------------
 // Easing helpers (inline, no dependencies)
 // ---------------------------------------------------------------------------
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+/**
+ * Normalise a glow's accumulated peak intensity into a 0..1 activity weight.
+ * `addGlow` boosts `peakIntensity` each time another spot lands in the same
+ * square, so it stands in for spot density on the 2D canvas.
+ */
+function densityWeight(peakIntensity: number): number {
+  return clamp01(
+    (peakIntensity - DEFAULT_PEAK_ALPHA) /
+      (MAX_PEAK_INTENSITY - DEFAULT_PEAK_ALPHA),
+  );
+}
 
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
@@ -146,9 +168,9 @@ export class GridGlowRenderer {
   private glows: ActiveGlow[] = [];
 
   /**
-   * When true (Grid Activity layer on), each glow also draws a stroked
-   * cell outline that persists for PERSIST_TOTAL_MS after the spot, and
-   * glows live that long instead of just the pulse duration.
+   * When true (Grid Activity layer on), each glow also draws a filled and
+   * bordered cell highlight that persists for PERSIST_TOTAL_MS after the
+   * spot, and glows live that long instead of just the pulse duration.
    */
   persistEdges = false;
 
@@ -297,7 +319,12 @@ export class GridGlowRenderer {
             ctx.lineTo(corners[c].x, corners[c].y);
           }
           ctx.closePath();
-          this.strokeEdgePath(ctx, glow.color, edgeIntensity);
+          this.paintPersistCell(
+            ctx,
+            glow.color,
+            edgeIntensity,
+            densityWeight(glow.peakIntensity),
+          );
         }
         continue;
       }
@@ -332,11 +359,16 @@ export class GridGlowRenderer {
         ctx.fillRect(x, y, w, h);
       }
 
-      // Persist-edge outline — stroke the cell rectangle
+      // Persisted highlight — fill and border the cell rectangle
       if (edgeIntensity > 0) {
         ctx.beginPath();
         ctx.rect(x, y, w, h);
-        this.strokeEdgePath(ctx, glow.color, edgeIntensity);
+        this.paintPersistCell(
+          ctx,
+          glow.color,
+          edgeIntensity,
+          densityWeight(glow.peakIntensity),
+        );
       }
     }
 
@@ -394,21 +426,42 @@ export class GridGlowRenderer {
   }
 
   /**
-   * Stroke the current path as a glowing cell edge: a wide soft halo pass
-   * under a thin bright core pass (additive blending is already active).
+   * Paint the current path as a highlighted grid square: a tinted fill under
+   * a bordered edge.
+   *
+   * An outline alone does not read as "this square is busy" — the cell has to
+   * be filled. The fill and border are drawn with normal compositing rather
+   * than the additive mode used for the transient pulse, because additive
+   * blending adds toward white and disappears over a bright basemap.
+   *
+   * @param density - 0..1 activity weight, driving the fill alpha
    */
-  private strokeEdgePath(
+  private paintPersistCell(
     ctx: CanvasRenderingContext2D,
     color: string,
     edgeIntensity: number,
+    density: number,
   ): void {
-    ctx.strokeStyle = colorWithAlpha(color, edgeIntensity * 0.3);
+    const previousComposite = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = "source-over";
+
+    const fillAlpha =
+      (PERSIST_FILL_MIN_ALPHA +
+        (PERSIST_FILL_MAX_ALPHA - PERSIST_FILL_MIN_ALPHA) *
+          clamp01(density)) *
+      edgeIntensity;
+    ctx.fillStyle = colorWithAlpha(color, fillAlpha);
+    ctx.fill();
+
+    ctx.strokeStyle = colorWithAlpha(color, edgeIntensity * 0.35);
     ctx.lineWidth = 3.5;
     ctx.stroke();
 
-    ctx.strokeStyle = colorWithAlpha(color, edgeIntensity * 0.85);
+    ctx.strokeStyle = colorWithAlpha(color, edgeIntensity * 0.95);
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    ctx.globalCompositeOperation = previousComposite;
   }
 
   /** Remove glows whose total duration has elapsed. */

@@ -181,6 +181,7 @@ import {
   WATERFALL_SAMPLE_INTERVAL_MS,
   type BandActivityRow,
 } from "@/lib/map/bandActivityWaterfall";
+import { liveSpotsInGrid, mergeGridSpots } from "@/lib/map/gridTooltip";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -1756,6 +1757,14 @@ export function GlobeView({
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster();
 
+  // The live feed that lights the grid-activity squares. React Query dedupes
+  // on the query key, so this shares the scene component's cache entry rather
+  // than issuing a second fetch.
+  const { spots: tooltipLiveSpots } = useLiveSpots({
+    grid: station?.grid,
+    enabled: true,
+  });
+
   // Watch store v2 — grid watch action for flyout
   const setWatch = useWatchStore((s) => s.setWatch);
 
@@ -1835,18 +1844,31 @@ export function GlobeView({
   // Use ref for allSpots to avoid re-filtering on every DX cluster update
   const allSpotsRef = useRef(allSpots);
   allSpotsRef.current = allSpots;
+  // Live spots are what light the grid-activity squares, so the tooltip has to
+  // consult them too — cluster spots rarely carry a grid, which is why
+  // hovering a lit square used to report "No active spots".
+  const glowSpotsForTooltipRef = useRef(tooltipLiveSpots);
+  glowSpotsForTooltipRef.current = tooltipLiveSpots;
   const tooltipSpots = useMemo(() => {
     if (!tooltipPosition?.grid) {
       return [];
     }
     const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
-    return allSpotsRef.current.filter((spot) => {
+    const clusterMatches = allSpotsRef.current.filter((spot) => {
       const dxGrid = (spot.dxGrid || "").toUpperCase();
       const spotterGrid = (spot.spotterGrid || "").toUpperCase();
       return (
         dxGrid.startsWith(gridPrefix) || spotterGrid.startsWith(gridPrefix)
       );
     });
+    // Resolved lazily: only a tooltip opening on a new grid pays for it.
+    return mergeGridSpots(
+      clusterMatches,
+      liveSpotsInGrid(
+        resolveSpotLocations(glowSpotsForTooltipRef.current),
+        gridPrefix,
+      ),
+    );
   }, [tooltipPosition?.grid]);
 
   // Fetch solar conditions for optimal-band signal estimate

@@ -43,10 +43,18 @@ export function Header({
   const location = useLocation();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  // Skip the tick on /map, where the clock is not rendered -- otherwise the
+  // masthead re-renders once a second on top of the heaviest page in the app
+  // to update something nobody can see.
+  const clockVisible = location.pathname !== "/map";
   useEffect(() => {
+    if (!clockVisible) return;
+    // Catch up immediately: the clock froze while it was hidden, so without
+    // this the masthead shows the time you left /map for up to a second.
+    setCurrentTime(new Date());
     const id = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [clockVisible]);
   const { station } = useUserStore();
   const activeLocation = useActiveLocation();
   const isTemporaryActive = useIsTemporaryActive();
@@ -85,6 +93,13 @@ export function Header({
       location.pathname === item.path ||
       location.pathname.startsWith(item.path + "/"),
   )?.label;
+
+  // On /map the masthead's job is navigation only. Time, grid and system
+  // health are properties of what you are looking at, so PropSphere's
+  // MapStatusChip owns them there -- and the masthead clock was a literal
+  // duplicate of TimeControl's, two clocks competing for the same fact.
+  // Every other route keeps them here; nothing else renders them.
+  const showStatusCluster = clockVisible;
 
   return (
     <>
@@ -215,20 +230,22 @@ export function Header({
             {/* Right side: Time & Settings */}
             <div className="flex items-center gap-4">
               {/* Real-time UTC Clock */}
-              <div className="hidden sm:block text-right">
-                <div className="flex items-center justify-end gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-                  <span className="font-mono text-sm md:text-base text-signal-green font-semibold">
-                    {formatUTC(currentTime)}
-                  </span>
-                  <span className="text-[10px] text-gray-500 font-medium">
-                    UTC
-                  </span>
+              {showStatusCluster && (
+                <div className="hidden sm:block text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
+                    <span className="font-mono text-sm md:text-base text-signal-green font-semibold">
+                      {formatUTC(currentTime)}
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-medium">
+                      UTC
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-gray-500">
+                    {station?.grid || "Set location"}
+                  </div>
                 </div>
-                <div className="text-[10px] text-gray-500">
-                  {station?.grid || "Set location"}
-                </div>
-              </div>
+              )}
 
               {/* Alert Indicator + Temporary Location + Settings Button */}
               <div className="flex items-center gap-2">
@@ -301,10 +318,14 @@ export function Header({
                     </span>
                   </div>
                 )}
-                <ConflictBadge />
-                <ConnectivityBadge />
-                <SyncStatusIndicator />
-                <HealthStatusIndicator />
+                {showStatusCluster && (
+                  <>
+                    <ConflictBadge />
+                    <ConnectivityBadge />
+                    <SyncStatusIndicator />
+                    <HealthStatusIndicator />
+                  </>
+                )}
                 {/* Profile / Auth */}
                 <AuthHeaderButton />
                 {/* Shack */}

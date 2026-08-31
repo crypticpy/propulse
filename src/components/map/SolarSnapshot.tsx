@@ -480,29 +480,11 @@ export function SolarSnapshot({
                 )}
               </div>
 
-              {/* Alternatives as colored pill tags */}
-              {recommendations?.alternatives &&
-                recommendations.alternatives.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-gray-500 uppercase">
-                      Also open
-                    </span>
-                    {recommendations.alternatives.slice(0, 3).map((alt) => (
-                      <span
-                        key={alt.band}
-                        className="px-2 py-0.5 rounded-full text-sm font-mono font-medium border"
-                        style={{
-                          color: getScoreColor(alt.score),
-                          borderColor: `${getScoreColor(alt.score)}40`,
-                          backgroundColor: `${getScoreColor(alt.score)}15`,
-                        }}
-                        title={`${alt.band}: Score ${alt.score}/100`}
-                      >
-                        {alt.band}
-                      </span>
-                    ))}
-                  </div>
-                )}
+              {/* The "Also open" alternative-band pills that used to sit here
+                  were removed: Band Conditions already lists every band's
+                  status for the same path on the same screen, and it is the
+                  canonical source for that. This tile keeps its single
+                  headline pick. */}
 
               {/* Band score indicator */}
               <div className="flex items-center gap-2">

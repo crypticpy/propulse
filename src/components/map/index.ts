@@ -18,6 +18,8 @@ export { MUFOverlay } from "./MUFOverlay";
 export { MUFLegend, MUFLegendCompact } from "./MUFLegend";
 export { IonosphereLegend } from "./IonosphereLegend";
 export { LayerLegend } from "./LayerLegend";
+export { MapStatusChip } from "./MapStatusChip";
+export { ModelSourceBadge } from "./ModelSourceBadge";
 export { PathArc } from "./PathArc";
 export { LocationMarker } from "./LocationMarker";
 export { CompassRose } from "./CompassRose";

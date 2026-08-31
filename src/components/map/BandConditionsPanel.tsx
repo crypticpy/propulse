@@ -31,9 +31,9 @@ import {
   type GreylineIntensity,
 } from "@/lib/utils/greyline";
 import { Card } from "@/components/ui/Card";
-import { InfoTip } from "@/components/ui/Tooltip";
-import { PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
-import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { BandConditionsHeader } from "./BandConditionsHeader";
+import { BAND_SCORE_SOURCE, P533_SOURCE } from "@/lib/map/modelSource";
 import type { SUnit } from "@/types/signal";
 import { CorrelationIndicator } from "./CorrelationIndicator";
 import {
@@ -599,15 +599,11 @@ export function BandConditionsPanel({
       <>
         <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between mb-0.5">
-              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide flex items-center gap-1">
-                Band Conditions
-                <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
-              </h3>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <HelpButton onClick={() => setShowHelp(true)} />
-              </div>
-            </div>
+            <BandConditionsHeader
+              currentKp={currentKp}
+              currentSfi={currentSfi}
+              onHelp={() => setShowHelp(true)}
+            />
             <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
               Set your QTH in settings
             </div>
@@ -630,33 +626,11 @@ export function BandConditionsPanel({
       <>
         <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between mb-0.5">
-              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide flex items-center gap-1">
-                Band Conditions
-                <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
-              </h3>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <span
-                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
-                    currentKp >= 4
-                      ? "bg-caution-amber/20 text-caution-amber"
-                      : "bg-white/5 text-gray-400"
-                  }`}
-                >
-                  Kp {currentKp}
-                </span>
-                <span
-                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
-                    currentSfi >= 120
-                      ? "bg-signal-green/20 text-signal-green"
-                      : "bg-white/5 text-gray-400"
-                  }`}
-                >
-                  SFI {currentSfi}
-                </span>
-                <HelpButton onClick={() => setShowHelp(true)} />
-              </div>
-            </div>
+            <BandConditionsHeader
+              currentKp={currentKp}
+              currentSfi={currentSfi}
+              onHelp={() => setShowHelp(true)}
+            />
             <div className="flex-1 flex items-center justify-center text-gray-400 text-sm text-center px-4">
               Click on the map to select a target
             </div>
@@ -703,27 +677,22 @@ export function BandConditionsPanel({
           collapsed ? "h-auto !p-2.5" : "h-full p-2"
         }`}
       >
-        {/* Header - always visible, clickable in collapsed mode */}
-        <div
-          className={`flex items-center justify-between flex-shrink-0 ${
-            collapsed ? "cursor-pointer rounded-lg transition-colors" : "mb-0.5"
-          }`}
-          onClick={collapsed ? onToggleCollapse : undefined}
-          role={collapsed ? "button" : undefined}
-          tabIndex={collapsed ? 0 : undefined}
-          onKeyDown={
-            collapsed
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onToggleCollapse?.();
-                  }
-                }
-              : undefined
-          }
-        >
-          {/* COLLAPSED: Clean horizontal layout */}
-          {collapsed ? (
+        {/* Header. Collapsed is a clickable one-line summary strip; expanded is
+            the titled panel header (title row + status row). */}
+        {collapsed ? (
+          <div
+            className="flex items-center justify-between flex-shrink-0 cursor-pointer rounded-lg transition-colors"
+            onClick={onToggleCollapse}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggleCollapse?.();
+              }
+            }}
+          >
+            {/* COLLAPSED: Clean horizontal layout */}
             <div className="flex items-center gap-3 w-full">
               {/* Expand indicator */}
               <svg
@@ -786,106 +755,20 @@ export function BandConditionsPanel({
                 </span>
               </div>
             </div>
-          ) : (
-            /* EXPANDED: Header with title left, badges + icons right */
-            <>
-              <div className="flex items-center gap-2 min-w-0">
-                {/* Collapse toggle icon */}
-                {onToggleCollapse && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleCollapse();
-                    }}
-                    className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
-                    title="Collapse panel"
-                  >
-                    <svg
-                      className="w-4 h-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-                )}
-
-                {/* Status dot */}
-                <div
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColors[overallStatus].dot}`}
-                />
-
-                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide truncate">
-                  Band Conditions
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <span
-                  className={`text-[10px] font-mono px-1 py-0.5 rounded ${
-                    currentKp >= 4
-                      ? "bg-caution-amber/20 text-caution-amber"
-                      : "bg-white/5 text-gray-400"
-                  }`}
-                >
-                  K{currentKp}
-                </span>
-                <span
-                  className={`text-[10px] font-mono px-1 py-0.5 rounded ${
-                    currentSfi >= 120
-                      ? "bg-signal-green/20 text-signal-green"
-                      : "bg-white/5 text-gray-400"
-                  }`}
-                >
-                  S{currentSfi}
-                </span>
-                {onClose && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClose();
-                    }}
-                    className="p-1 rounded hover:bg-white/10 transition-colors"
-                    title="Hide panel"
-                  >
-                    <svg
-                      className="text-white/40 hover:text-red-400"
-                      width={18}
-                      height={18}
-                      viewBox="0 0 18 18"
-                      fill="none"
-                      stroke="currentColor"
-                    >
-                      <line
-                        x1="5"
-                        y1="5"
-                        x2="13"
-                        y2="13"
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="13"
-                        y1="5"
-                        x2="5"
-                        y2="13"
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                )}
-                <HelpButton onClick={() => setShowHelp(true)} />
-              </div>
-            </>
-          )}
-        </div>
+          </div>
+        ) : (
+          <BandConditionsHeader
+            currentKp={currentKp}
+            currentSfi={currentSfi}
+            statusDotClass={statusColors[overallStatus].dot}
+            onToggleCollapse={onToggleCollapse}
+            onClose={onClose}
+            onHelp={() => setShowHelp(true)}
+            modelSource={
+              enhancedBandConditions ? P533_SOURCE : BAND_SCORE_SOURCE
+            }
+          />
+        )}
 
         {/* Collapsible content with smooth animation */}
         <div

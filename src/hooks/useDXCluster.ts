@@ -5,6 +5,11 @@
  * 1. Primary: Bridge WebSocket (`cluster.spot` messages via ProPulse Bridge)
  * 2. Fallback: REST proxy (`/api/spots/dxcluster` Vercel Edge Function)
  *
+ * Also owns the cluster link itself: it mirrors the bridge's `cluster.status`
+ * broadcast into `dxStore` and exposes connect/disconnect over the socket it
+ * already holds, so cluster controls can live on any surface without opening a
+ * second bridge connection.
+ *
  * Uses TanStack Query for REST data refresh with automatic caching.
  */
 
@@ -13,7 +18,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchClusterSpots, clusterPayloadToSpot } from "@/lib/api/dxcluster";
 import { useBridge } from "@/hooks/useBridge";
 import { useUserStore } from "@/stores/userStore";
-import { useDXStore, type DXSpotSource } from "@/stores/dxStore";
+import {
+  useDXStore,
+  type DXSpotSource,
+  type ClusterLinkStatus,
+} from "@/stores/dxStore";
+import {
+  buildConnectPayload,
+  type ClusterPrefs,
+} from "@/lib/cluster/clusterPrefs";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
 import type { ClusterSpotPayload } from "@/types/bridge";
 
@@ -101,13 +114,18 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
     maxSpots,
     spotSource,
     setSpotSource,
+    setClusterStatus,
   } = useDXStore();
 
   // Bridge connection for real-time cluster spots (only when enabled)
   const bridgeEnabled = useUserStore(
     (s) => s.preferences.bridgeEnabled ?? false,
   );
-  const { connected: bridgeConnected, lastMessage } = useBridge({
+  const {
+    connected: bridgeConnected,
+    lastMessage,
+    send: bridgeSend,
+  } = useBridge({
     enabled: bridgeEnabled,
   });
   const [bridgeSpots, setBridgeSpots] = useState<DXSpot[]>([]);
@@ -129,6 +147,21 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
       return next;
     });
   }, [lastMessage, maxSpots]);
+
+  // Mirror the bridge's cluster link status into the store. Without this the
+  // bridge's `cluster.status` broadcast was dropped on the floor and cluster
+  // UI could never move past "Connecting...".
+  useEffect(() => {
+    if (!lastMessage || lastMessage.type !== "cluster.status") return;
+    setClusterStatus(lastMessage.payload as ClusterLinkStatus);
+  }, [lastMessage, setClusterStatus]);
+
+  // A dead bridge means a dead cluster link, whatever it last reported.
+  useEffect(() => {
+    if (!bridgeConnected) {
+      setClusterStatus(null);
+    }
+  }, [bridgeConnected, setClusterStatus]);
 
   // Promote to bridge source when receiving bridge spots
   useEffect(() => {
@@ -184,6 +217,20 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
   // Apply filters to spots
   const filteredSpots = filterSpots(spots, filters);
 
+  // ─── Cluster link control ─────────────────────────────────────────────────
+
+  const clusterConnect = useCallback(
+    (prefs: ClusterPrefs): boolean =>
+      bridgeSend("cluster.connect", buildConnectPayload(prefs)),
+    [bridgeSend],
+  );
+
+  const clusterDisconnect = useCallback((): boolean => {
+    const sent = bridgeSend("cluster.disconnect", {});
+    if (sent) setClusterStatus(null);
+    return sent;
+  }, [bridgeSend, setClusterStatus]);
+
   // Manual refetch
   const refetch = useCallback(() => {
     if (spotSource === "bridge") {
@@ -217,6 +264,12 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
     lastUpdated,
     /** Current data source tier: "bridge" | "rest" */
     source: spotSource satisfies DXSpotSource,
+    /** Whether the local bridge WebSocket is up (cluster control needs it) */
+    bridgeConnected,
+    /** Ask the bridge to attach to a cluster node. Returns false if not sent. */
+    clusterConnect,
+    /** Ask the bridge to drop the cluster link. Returns false if not sent. */
+    clusterDisconnect,
   };
 }
 

@@ -34,10 +34,7 @@ export function ConnectionsSection() {
           Connect to a DX cluster node for real-time spot streaming via the
           ProPulse Bridge.
         </p>
-        <ClusterSettings
-          bridgeSend={bridgeSend}
-          bridgeConnected={bridgeConnected}
-        />
+        <ClusterSettings />
       </div>
 
       {/* Separator */}

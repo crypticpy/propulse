@@ -94,6 +94,7 @@ import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 import { WatchPopover } from "@/components/map/WatchPopover";
+import { ClusterPopover } from "@/components/map/ClusterPopover";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { ReplayIndicator } from "@/components/map/ReplayIndicator";
@@ -1046,6 +1047,9 @@ export function PropSphere() {
                 {/* Watch popover + inline status pill */}
                 <WatchPopover />
                 <WatchStatusPill />
+
+                {/* Cluster connection, alongside the spots it feeds */}
+                <ClusterPopover />
 
                 {/* Spacer pushes status + Views to right */}
                 <div className="flex-1" />

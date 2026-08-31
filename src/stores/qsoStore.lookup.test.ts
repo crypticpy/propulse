@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useQSOStore } from "./qsoStore";
+import { shouldPreserveLookupGrid, useQSOStore } from "./qsoStore";
 
 function lookupResponse(overrides: Record<string, unknown> = {}) {
   return {
@@ -52,6 +52,7 @@ describe("qsoStore callsign lookup", () => {
       }),
     );
     expect(useQSOStore.getState().lookupResult?.grid).toBe("EM10aa");
+    expect(shouldPreserveLookupGrid("K5ABC")).toBe(true);
   });
 
   it("uses the profile grid for an ordinary empty draft", async () => {
@@ -104,5 +105,17 @@ describe("qsoStore callsign lookup", () => {
     expect(useQSOStore.getState().lookupResult?.name).toBe(
       "Current Activation",
     );
+  });
+
+  it("invalidates portable-grid ownership when the operator changes callsign", async () => {
+    const store = useQSOStore.getState();
+    store.setField("callsign", "K5ABC");
+    store.setField("grid", "EM10df");
+    await store.lookupCallsign("K5ABC", { preserveGrid: true });
+
+    store.setField("callsign", "W1XYZ");
+
+    expect(shouldPreserveLookupGrid("K5ABC")).toBe(false);
+    expect(shouldPreserveLookupGrid("W1XYZ")).toBe(false);
   });
 });

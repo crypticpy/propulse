@@ -172,6 +172,12 @@ function buildResetForm(formDefaults: Partial<QSOFormState>): QSOFormState {
 // two requests target the same station with different policies (for example an
 // ordinary lookup followed by a portable activation that must preserve grid).
 let callsignLookupGeneration = 0;
+let authoritativeGridCallsign: string | null = null;
+
+/** Whether a callsign still owns the portable grid currently in the draft. */
+export function shouldPreserveLookupGrid(callsign: string): boolean {
+  return authoritativeGridCallsign === callsign.trim().toUpperCase();
+}
 
 /** Apply QSO filters to an array of log entries client-side */
 function applyFiltersToEntries(
@@ -312,6 +318,18 @@ export const useQSOStore = create<QSOStoreState>()(
       setField: (field, value) => {
         set((state) => {
           const newForm = { ...state.form, [field]: value };
+          const callsignChanged =
+            field === "callsign" &&
+            String(value).trim().toUpperCase() !==
+              state.form.callsign.trim().toUpperCase();
+
+          // A portable grid belongs to the activator that supplied it. Any
+          // actual callsign edit invalidates that ownership immediately, even
+          // if the operator changes back before the debounce starts a lookup.
+          if (callsignChanged) {
+            callsignLookupGeneration += 1;
+            authoritativeGridCallsign = null;
+          }
 
           // Auto-derive band from frequency when frequency changes
           if (field === "frequency" && typeof value === "number" && value > 0) {
@@ -344,6 +362,7 @@ export const useQSOStore = create<QSOStoreState>()(
 
       resetForm: () => {
         callsignLookupGeneration += 1;
+        authoritativeGridCallsign = null;
         set((state) => ({
           form: buildResetForm(state.formDefaults),
           lookupResult: null,
@@ -646,7 +665,13 @@ export const useQSOStore = create<QSOStoreState>()(
       lookupCallsign: async (callsign, options) => {
         const requestedCallsign = callsign.trim().toUpperCase();
         const requestGeneration = ++callsignLookupGeneration;
-        set({ lookupLoading: true, lookupError: null });
+        authoritativeGridCallsign = options?.preserveGrid
+          ? requestedCallsign
+          : null;
+        set({
+          lookupLoading: true,
+          lookupError: null,
+        });
         try {
           const resp = await fetch(
             `/api/callsign/lookup?callsign=${encodeURIComponent(callsign)}`,
@@ -730,6 +755,7 @@ export const useQSOStore = create<QSOStoreState>()(
 
       clearLookup: () => {
         callsignLookupGeneration += 1;
+        authoritativeGridCallsign = null;
         set({
           lookupResult: null,
           lookupLoading: false,

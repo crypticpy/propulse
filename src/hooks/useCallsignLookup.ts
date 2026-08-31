@@ -8,7 +8,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useQSOStore } from "@/stores/qsoStore";
+import {
+  shouldPreserveLookupGrid,
+  useQSOStore,
+} from "@/stores/qsoStore";
 
 // ── POTA/SOTA Enrichment Types ──────────────────────────────────────────────
 
@@ -58,7 +61,9 @@ async function fetchPotaSpot(
 export function useCallsignLookup() {
   const callsign = useQSOStore((s) => s.form.callsign);
   const preserveActivationGrid = useQSOStore(
-    (s) => Boolean(s.form.grid && s.form.sig && s.form.sigInfo),
+    (s) =>
+      Boolean(s.form.grid && s.form.sig && s.form.sigInfo) &&
+      shouldPreserveLookupGrid(s.form.callsign),
   );
   const lookupCallsign = useQSOStore((s) => s.lookupCallsign);
   const clearLookup = useQSOStore((s) => s.clearLookup);

@@ -55,7 +55,11 @@ function getMetarStationKey(station: MetarStation, index: number): string {
   const identity = [station.name, station.lat, station.lon]
     .filter((part) => part != null && part !== "")
     .join("-");
-  return `metar-${identity || "unknown"}-${index}`;
+  // NOAA can reorder nearby results as distances or observations change. An
+  // index is therefore safe only for the pathological row that has no stable
+  // identity fields at all; otherwise it would collapse an expanded station
+  // merely because another airport entered or left the response.
+  return identity ? `metar-${identity}` : `metar-unknown-${index}`;
 }
 
 export interface MetarCardProps {

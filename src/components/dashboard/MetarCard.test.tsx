@@ -54,6 +54,31 @@ describe("MetarCard", () => {
     ).toBe(row);
   });
 
+  it("keeps an anonymous expanded station open when nearby results reorder", () => {
+    const anonymous = { ...longStation, icaoId: null };
+    hookState.stations = [anonymous];
+    const { rerender } = render(<MetarCard />);
+    const row = screen.getByRole("button", {
+      name: /Regional International Airport/i,
+    });
+
+    fireEvent.click(row);
+    expect(screen.getByText(longStation.rawOb!)).toBeTruthy();
+
+    hookState.stations = [
+      { ...longStation, icaoId: "KNEW", name: "New nearer station" },
+      anonymous,
+    ];
+    rerender(<MetarCard />);
+
+    const reorderedRow = screen.getByRole("button", {
+      name: /Regional International Airport/i,
+    });
+    expect(reorderedRow).toBe(row);
+    expect(reorderedRow.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText(longStation.rawOb!)).toBeTruthy();
+  });
+
   it("contains long observations in a min-width-safe metric grid", () => {
     hookState.stations = [longStation];
     render(<MetarCard />);

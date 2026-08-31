@@ -57,6 +57,7 @@ import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
+import { drawActivationPills } from "@/lib/map/activationMarkers";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -1571,9 +1572,10 @@ export function AzimuthalView({
 
   // Resolve the common live feed once, capped for this canvas renderer. This
   // preserves the shared display-density contract without a local pipeline.
-  const { resolvedSpots } = useResolvedMapSpots({
+  const { resolvedSpots, activationSpots } = useResolvedMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
+    activationsEnabled: layers.activations,
     maxSpots: displayDensity,
   });
 
@@ -1953,6 +1955,20 @@ export function AzimuthalView({
       );
     }
 
+    if (layers.activations && activationSpots.length > 0) {
+      drawActivationPills(
+        ctx,
+        activationSpots,
+        (lat, lon) => {
+          const projected = azimuthalProject(lat, lon, center.lat, center.lon);
+          return Math.hypot(projected.x, projected.y) <= 1
+            ? projToCanvas(projected)
+            : null;
+        },
+        { zoomScale: zoom },
+      );
+    }
+
     // Hazard layers
     if (layers.earthquakes && earthquakeData.length > 0) {
       drawAzEarthquakes(ctx, earthquakeData, center.lat, center.lon);
@@ -1998,6 +2014,7 @@ export function AzimuthalView({
     target,
     center,
     resolvedSpots,
+    activationSpots,
     resolvedSelectedSpot,
     targetMarkerColor,
     pathDifficulty,

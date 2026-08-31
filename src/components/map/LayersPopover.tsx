@@ -497,6 +497,13 @@ export function LayersPopover() {
             onToggle: () => toggleLayer("spots"),
           },
           {
+            key: "activations",
+            label: "Activations",
+            title: "Live POTA, SOTA, and WWFF activators",
+            getValue: () => layers.activations,
+            onToggle: () => toggleLayer("activations"),
+          },
+          {
             key: "spotTraces",
             label: "Spot Traces",
             title: "Animated trace lines from transmitter to receiver",

@@ -162,6 +162,18 @@ function buildSpotsSpec(spotColorMode: SpotColorMode): LayerLegendSpec {
   };
 }
 
+function buildActivationsSpec(): LayerLegendSpec {
+  return {
+    key: "activations",
+    title: "Activations",
+    entries: SPOT_BAND_ORDER.map((band) => ({
+      color: BAND_COLORS[band],
+      label: band,
+    })),
+    note: "POTA/SOTA/WWFF callsign pills use band colors",
+  };
+}
+
 function buildFt8SpotterSpec(): LayerLegendSpec {
   return {
     key: "ft8Spotter",
@@ -383,6 +395,7 @@ function buildLightningSpec(viewMode: ViewMode): LayerLegendSpec {
  */
 const FLAT_SUPPORTED = new Set<keyof MapState["layers"]>([
   "spots",
+  "activations",
   "ft8Spotter",
   "satellites",
   "wspr",
@@ -397,6 +410,7 @@ const FLAT_SUPPORTED = new Set<keyof MapState["layers"]>([
 
 const AZIMUTHAL_SUPPORTED = new Set<keyof MapState["layers"]>([
   "spots",
+  "activations",
   "earthquakes",
   "weather",
   "fires",
@@ -431,6 +445,7 @@ export function buildLayerLegends(
     layers[layer] && isLayerVisibleInView(layer, opts.viewMode);
 
   if (on("spots")) specs.push(buildSpotsSpec(opts.spotColorMode));
+  if (on("activations")) specs.push(buildActivationsSpec());
   if (on("ft8Spotter")) specs.push(buildFt8SpotterSpec());
   if (on("satellites")) specs.push(buildSatellitesSpec());
   if (on("beacons")) specs.push(buildBeaconsSpec());

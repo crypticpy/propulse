@@ -28,6 +28,12 @@ describe("PropSphere renderer capability matrix", () => {
     expect(getLayerAvailability("earthquakes", "flat")).toEqual({
       available: true,
     });
+    expect(getLayerAvailability("activations", "flat")).toEqual({
+      available: true,
+    });
+    expect(getLayerAvailability("activations", "azimuthal")).toEqual({
+      available: true,
+    });
     expect(getLayerAvailability("stateBorders", "flat")).toEqual({
       available: true,
     });

@@ -117,6 +117,7 @@ import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
+import { drawActivationPills } from "@/lib/map/activationMarkers";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -3374,9 +3375,10 @@ export function FlatMapView({
 
   // Fetch and resolve the shared live feed, then apply this canvas renderer's
   // draw cap. Source merging and disabled-state behavior live in one hook.
-  const { resolvedSpots } = useResolvedMapSpots({
+  const { resolvedSpots, activationSpots } = useResolvedMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
+    activationsEnabled: layers.activations,
     maxSpots: displayDensity,
   });
 
@@ -4787,6 +4789,15 @@ export function FlatMapView({
       );
     }
 
+    if (layers.activations && activationSpots.length > 0) {
+      drawActivationPills(
+        ctx,
+        activationSpots,
+        (lat, lon) => latLonToCanvas(lat, lon, renderWidth, renderHeight),
+        { zoomScale: zoom.scale, labelScale, highViz },
+      );
+    }
+
     // Draw spotter labels at spotter positions (only when both toggles are on)
     if (
       showCallsignLabels &&
@@ -4998,6 +5009,7 @@ export function FlatMapView({
     auroraData,
     currentSFI,
     resolvedSpots,
+    activationSpots,
     resolvedSelectedSpot,
     targetMarkerColor,
     pathDifficulty,

@@ -11,6 +11,23 @@ afterEach(() => {
 });
 
 describe("useActivationSpots", () => {
+  it("does not request the feed while its consumer is disabled", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const queryClient = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result, unmount } = renderHook(() => useActivationSpots(false), {
+      wrapper,
+    });
+
+    expect(result.current.spots).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    unmount();
+    queryClient.clear();
+  });
+
   it("fetches once and groups normalized spots by program", async () => {
     const payload: ActivationSpotsResponse = {
       fetchedAt: "2026-08-31T14:00:00.000Z",

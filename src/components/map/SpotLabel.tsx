@@ -39,6 +39,10 @@ export interface SpotLabelProps {
   size?: "sm" | "md";
   /** Optional frequency to display */
   frequency?: number;
+  /** Compact source badge shown after the callsign/frequency. */
+  badge?: string;
+  /** Accessible name when the pill opens or selects something. */
+  ariaLabel?: string;
   /** Stack offset index for nearby labels (0 = no offset) */
   stackIndex?: number;
   /** Pre-computed color (hex). When provided, used instead of getModeColor(mode). */
@@ -54,6 +58,8 @@ export interface SpotLabelProps {
   onHover?: (screenPos: { x: number; y: number }) => void;
   /** Called when mouse leaves this label */
   onHoverEnd?: () => void;
+  /** Called when this label is clicked or keyboard-activated. */
+  onClick?: () => void;
 }
 
 /**
@@ -108,11 +114,14 @@ export function SpotLabel({
   opacity = 1.0,
   size = "sm",
   frequency,
+  badge,
+  ariaLabel,
   stackIndex = 0,
   color: colorProp,
   occlusionOpacity = 1.0,
   onHover,
   onHoverEnd,
+  onClick,
 }: SpotLabelProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -192,6 +201,17 @@ export function SpotLabel({
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onClick={onClick}
+        onKeyDown={(event) => {
+          if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
+            return;
+          }
+          event.preventDefault();
+          onClick();
+        }}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-label={ariaLabel}
         // DO NOT CHANGE — this underline styling is precisely tuned.
         // The 3px solid borderBottom + full-opacity boxShadow glow keeps
         // the band-color bar vivid regardless of age/occlusion fade.
@@ -229,6 +249,18 @@ export function SpotLabel({
             }}
           >
             {formatFrequency(frequency)}
+          </span>
+        )}
+        {badge && (
+          <span
+            className="ml-1 rounded-sm px-1 py-px"
+            style={{
+              fontSize: "0.72em",
+              color: underlineColor,
+              backgroundColor: `${underlineColor}1f`,
+            }}
+          >
+            {badge}
           </span>
         )}
       </div>

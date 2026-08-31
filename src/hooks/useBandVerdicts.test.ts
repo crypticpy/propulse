@@ -73,8 +73,12 @@ describe("useBandVerdicts scope coordinator", () => {
     expect(ingest).toHaveBeenCalledTimes(3);
 
     second.unmount();
+    const remounted = renderHook(() => useBandVerdicts());
+    expect(ingest).toHaveBeenCalledTimes(4);
+
+    remounted.unmount();
     act(() => vi.advanceTimersByTime(60_000));
-    expect(ingest).toHaveBeenCalledTimes(3);
+    expect(ingest).toHaveBeenCalledTimes(4);
   });
 
   it("stops presenting and ingesting retained activity after a refetch error", () => {

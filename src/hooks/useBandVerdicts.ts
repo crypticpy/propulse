@@ -96,6 +96,10 @@ function registerScopeReader(
     current?.delete(id);
     if (current && current.size > 0) return;
     scopeReaders.delete(scopeId);
+    // A later consumer can remount during this same minute. Clear the prior
+    // bucket with the last reader so registerScopeReader performs the promised
+    // immediate ingest for that fresh consumer instead of waiting a minute.
+    scopeIngestBuckets.delete(scopeId);
     const timer = scopeTimers.get(scopeId);
     if (timer !== undefined) window.clearInterval(timer);
     scopeTimers.delete(scopeId);

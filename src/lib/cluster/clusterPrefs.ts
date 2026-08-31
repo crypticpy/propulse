@@ -100,7 +100,11 @@ export function loadPrefs(): ClusterPrefs {
   } catch {
     // Malformed or unavailable storage — fall through to defaults.
   }
-  return DEFAULT_PREFS;
+  return {
+    ...DEFAULT_PREFS,
+    filterBands: [...DEFAULT_PREFS.filterBands],
+    filterModes: [...DEFAULT_PREFS.filterModes],
+  };
 }
 
 /**

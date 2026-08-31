@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { solarImageUrl } from "@/lib/solar/mediaProducts";
 import { SolarImageDetail } from "./SolarImageDetail";
@@ -30,5 +30,43 @@ describe("SolarImageDetail", () => {
     );
     fireEvent.load(retriedImage);
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("clears a transient metadata error after a cadence refresh", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T12:10:00.000Z"));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("unavailable", { status: 502 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            observedAt: null,
+            checkedAt: "2026-07-15T12:16:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SolarImageDetail productId="sunspot-hmi" />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByText(/observation timestamp is temporarily unavailable/i),
+    ).not.toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(6 * 60_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByText(/provider did not publish an observation timestamp/i),
+    ).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

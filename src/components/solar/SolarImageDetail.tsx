@@ -53,7 +53,13 @@ export function SolarImageDetail({
         }
         return value;
       })
-      .then(setMetadata)
+      .then((value) => {
+        setMetadata(value);
+        // A later cadence poll can recover after a transient metadata outage.
+        // Clear the old error independently of observedAt: null, which is a
+        // valid provider response with a different operator-facing message.
+        setMetadataFailed(false);
+      })
       .catch(() => {
         if (!controller.signal.aborted) setMetadataFailed(true);
       });

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type {
-  SolarAnimationProductId,
-  SolarImageProductId,
+import {
+  SOLAR_IMAGE_PRODUCTS,
+  solarImageUrl,
+  type SolarAnimationProductId,
+  type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
 
 interface AnimationFrame {
@@ -27,10 +29,15 @@ export function SolarAnimationPlayer({
   const [message, setMessage] = useState("");
   const [manifestRetry, setManifestRetry] = useState(0);
   const [frameRetry, setFrameRetry] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const cache = useRef(new Map<string, HTMLImageElement>());
   const frameFailures = useRef(new Map<string, number>());
   const frameRetryTimer = useRef<number | null>(null);
-  const thumbnail = `/api/solar/image?product=${encodeURIComponent(thumbnailProductId)}`;
+  const thumbnailProduct = SOLAR_IMAGE_PRODUCTS[thumbnailProductId];
+  const thumbnail = solarImageUrl(thumbnailProductId, now, frameRetry);
+  const refreshBucket = Math.floor(
+    now / (thumbnailProduct.softTtlSeconds * 1_000),
+  );
 
   const retryManifest = useCallback(() => {
     setManifestRetry((value) => value + 1);
@@ -72,7 +79,15 @@ export function SolarAnimationPlayer({
       controller.abort();
       if (retryTimer !== null) window.clearTimeout(retryTimer);
     };
-  }, [animationId, manifestRetry, retryManifest]);
+  }, [animationId, manifestRetry, refreshBucket, retryManifest]);
+
+  useEffect(() => {
+    // Keep both the static fallback and the animation manifest moving while
+    // this player stays mounted. The cadence bucket prevents needless URL
+    // churn between provider publication windows.
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const imageCache = cache.current;

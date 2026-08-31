@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { solarImageUrl } from "@/lib/solar/mediaProducts";
 
 export interface SunspotModalProps {
   isOpen: boolean;
@@ -94,11 +95,12 @@ const SSN_PROPAGATION_INFO = [
 ];
 
 /**
- * Get the primary sun image URL via our edge function proxy.
- * The stable media route provides bounded validation and cache semantics.
+ * Get the primary sun image URL via our edge function proxy. The shared helper
+ * advances only at the product cadence, preserving bounded edge caching while
+ * allowing a modal left open on a wall display to receive new SDO frames.
  */
-function getSunImageUrl(): string {
-  return "/api/solar/image?product=sunspot-hmi";
+function getSunImageUrl(now: number): string {
+  return solarImageUrl("sunspot-hmi", now);
 }
 
 /**
@@ -117,19 +119,32 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const imageUrl = isOpen ? getSunImageUrl(now) : null;
 
   const cyclePhase = getSolarCyclePhase(currentValue);
 
-  // Generate image URL when modal opens
+  // Generate a fresh cadence key when the modal opens, then keep it current
+  // for operators who leave the detailed view mounted.
   useEffect(() => {
     if (isOpen) {
       setImageLoading(true);
       setImageError(false);
-      // Cache-buster ensures we get the latest SDO image on each open
-      setImageUrl(getSunImageUrl());
+      setNow(Date.now());
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!imageUrl) return;
+    setImageLoading(true);
+    setImageError(false);
+  }, [imageUrl]);
 
   const handleImageLoad = useCallback(() => {
     setImageLoading(false);

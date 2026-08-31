@@ -11,6 +11,7 @@ import { ClusterSettings } from "@/components/settings/ClusterSettings";
 import { CATSettings } from "@/components/settings/CATSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useBridge } from "@/hooks/useBridge";
+import { useClusterLink } from "@/hooks/useClusterLink";
 
 export function ConnectionsSection() {
   const bridgeEnabled = useSettingsStore((s) => s.bridgeEnabled);
@@ -25,6 +26,10 @@ export function ConnectionsSection() {
     enabled: bridgeEnabled,
   });
 
+  // Drive the cluster over the socket opened just above, so this section holds
+  // one bridge connection rather than one per sub-component.
+  const clusterLink = useClusterLink(bridgeSend, bridgeConnected);
+
   return (
     <div className="space-y-6">
       {/* DX Cluster */}
@@ -34,7 +39,7 @@ export function ConnectionsSection() {
           Connect to a DX cluster node for real-time spot streaming via the
           ProPulse Bridge.
         </p>
-        <ClusterSettings />
+        <ClusterSettings link={clusterLink} />
       </div>
 
       {/* Separator */}

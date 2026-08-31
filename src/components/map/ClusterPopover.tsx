@@ -12,7 +12,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useDXStore } from "@/stores/dxStore";
-import { ClusterConnectionForm } from "@/components/cluster/ClusterConnectionForm";
+import { ClusterConnectionFormConnected } from "@/components/cluster/ClusterConnectionForm";
 
 export function ClusterPopover() {
   const [open, setOpen] = useState(false);
@@ -98,7 +98,8 @@ export function ClusterPopover() {
       </button>
 
       {/* ── Panel ── */}
-      <div hidden={!open}
+      <div
+        hidden={!open}
         className={`absolute top-full left-0 mt-1.5 w-[320px] z-50 bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
           open
             ? "opacity-100 translate-y-0"
@@ -111,7 +112,7 @@ export function ClusterPopover() {
           DX Cluster
         </div>
 
-        <ClusterConnectionForm compact />
+        <ClusterConnectionFormConnected compact />
 
         <Link
           to="/settings"

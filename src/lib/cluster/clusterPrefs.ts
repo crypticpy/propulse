@@ -20,7 +20,12 @@ export interface ClusterNode {
 
 /** Well-known public cluster nodes offered in the picker. */
 export const WELL_KNOWN_NODES: readonly ClusterNode[] = [
-  { host: "dxc.ve7cc.net", port: 7300, label: "VE7CC", region: "North America" },
+  {
+    host: "dxc.ve7cc.net",
+    port: 7300,
+    label: "VE7CC",
+    region: "North America",
+  },
   { host: "dxc.nc7j.com", port: 7373, label: "NC7J", region: "North America" },
   {
     host: "spider.ham-radio.ch",
@@ -52,7 +57,14 @@ export const FILTER_BANDS = [
 ] as const;
 
 /** Modes offered as cluster-side spot filters. */
-export const FILTER_MODES = ["CW", "SSB", "FT8", "FT4", "RTTY", "DATA"] as const;
+export const FILTER_MODES = [
+  "CW",
+  "SSB",
+  "FT8",
+  "FT4",
+  "RTTY",
+  "DATA",
+] as const;
 
 // =============================================================================
 // PREFERENCES
@@ -85,6 +97,22 @@ export const DEFAULT_PREFS: ClusterPrefs = {
 const LS_KEY = "propulse-cluster-settings";
 
 /**
+ * A fresh copy of the defaults, arrays included.
+ *
+ * Callers treat the result as their own mutable state (the connection form
+ * assigns the station callsign straight onto it), so handing back the shared
+ * `DEFAULT_PREFS` object — or spreading it and leaving the two arrays aliased —
+ * would let one caller's edit rewrite the defaults for every later caller.
+ */
+function defaultPrefs(): ClusterPrefs {
+  return {
+    ...DEFAULT_PREFS,
+    filterBands: [...DEFAULT_PREFS.filterBands],
+    filterModes: [...DEFAULT_PREFS.filterModes],
+  };
+}
+
+/**
  * Read stored preferences, merged over the defaults.
  *
  * Any `password` left in storage by an older build is dropped rather than
@@ -95,16 +123,12 @@ export function loadPrefs(): ClusterPrefs {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<ClusterPrefs>;
-      return { ...DEFAULT_PREFS, ...parsed, password: "" };
+      return { ...defaultPrefs(), ...parsed, password: "" };
     }
   } catch {
     // Malformed or unavailable storage — fall through to defaults.
   }
-  return {
-    ...DEFAULT_PREFS,
-    filterBands: [...DEFAULT_PREFS.filterBands],
-    filterModes: [...DEFAULT_PREFS.filterModes],
-  };
+  return defaultPrefs();
 }
 
 /**
@@ -150,9 +174,26 @@ export function resolveNode(prefs: ClusterPrefs): {
   };
 }
 
-/** Whether these preferences describe a connection we can actually attempt. */
+/** Whether a value is a usable TCP port. */
+export function isValidPort(port: number): boolean {
+  return Number.isInteger(port) && port > 0 && port <= 65535;
+}
+
+/**
+ * Whether these preferences describe a connection we can actually attempt.
+ *
+ * The port is checked because the custom-host field is a free number input: an
+ * out-of-range port produces a `cluster.connect` the bridge rejects without
+ * ever emitting a `cluster.status`, so the UI would sit on "Connecting..."
+ * until the timeout rather than telling the user what is wrong.
+ */
 export function canConnect(prefs: ClusterPrefs): boolean {
-  return prefs.callsign.trim().length > 0 && resolveNode(prefs).host.length > 0;
+  const node = resolveNode(prefs);
+  return (
+    prefs.callsign.trim().length > 0 &&
+    node.host.length > 0 &&
+    isValidPort(node.port)
+  );
 }
 
 /**

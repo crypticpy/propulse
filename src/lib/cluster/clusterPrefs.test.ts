@@ -49,6 +49,28 @@ describe("loadPrefs / savePrefs", () => {
     );
     expect(loadPrefs().password).toBe("");
   });
+
+  // Callers treat the result as their own state and write to it directly, so a
+  // shared object or aliased array would corrupt the defaults process-wide.
+  it("hands every caller its own object, not the shared defaults", () => {
+    const first = loadPrefs();
+    first.callsign = "N5XXX";
+    first.filterBands.push("20m");
+
+    expect(DEFAULT_PREFS.callsign).toBe("");
+    expect(DEFAULT_PREFS.filterBands).toEqual([]);
+    expect(loadPrefs().callsign).toBe("");
+    expect(loadPrefs().filterBands).toEqual([]);
+  });
+
+  it("keeps the arrays unaliased when stored prefs omit them", () => {
+    // The stored object has no `filterBands`, so the merge falls through to the
+    // default array — which must still be a copy.
+    localStorage.setItem(LS_KEY, JSON.stringify({ callsign: "N5XXX" }));
+    loadPrefs().filterBands.push("40m");
+    expect(DEFAULT_PREFS.filterBands).toEqual([]);
+    expect(loadPrefs().filterBands).toEqual([]);
+  });
 });
 
 describe("resolveNode", () => {

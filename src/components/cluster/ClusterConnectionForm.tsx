@@ -8,14 +8,16 @@
  * Rendered by both the Settings page (`compact={false}`) and the map toolbar
  * popover (`compact`), so there is one place to change cluster behaviour.
  *
- * Connection control runs through `useDXCluster`, which already holds a bridge
- * socket — this component never opens one of its own.
+ * The bridge socket is supplied by the caller (`link`) rather than opened here,
+ * so a surface that already holds one drives the cluster over it. Callers with
+ * no socket of their own render `ClusterConnectionFormConnected` instead.
  */
 
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, useId, useRef, memo } from "react";
 import { useUserStore } from "@/stores/userStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
+import type { ClusterLinkControls } from "@/hooks/useClusterLink";
 import {
   loadPrefs,
   savePrefs,
@@ -38,6 +40,13 @@ type LinkPhase = "disconnected" | "connecting" | "connected";
 const CONNECT_TIMEOUT_MS = 20_000;
 
 interface ClusterConnectionFormProps {
+  /**
+   * Bridge-backed connect/disconnect controls. Required rather than sourced
+   * internally so a surface that already holds a bridge socket (the Settings
+   * page holds one for CAT control) can pass it in instead of opening a second.
+   * Use `ClusterConnectionFormConnected` where no socket is on hand.
+   */
+  link: ClusterLinkControls;
   /** Tighter spacing and collapsed filters, for the map toolbar popover */
   compact?: boolean;
   className?: string;
@@ -46,14 +55,20 @@ interface ClusterConnectionFormProps {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export const ClusterConnectionForm = memo(function ClusterConnectionForm({
+  link,
   compact = false,
   className = "",
 }: ClusterConnectionFormProps) {
+  // The settings page and the map popover can both have a copy of this form in
+  // the DOM, so control ids have to be per-instance or the labels of whichever
+  // mounted second resolve to the first form's inputs.
+  const uid = useId();
   const station = useUserStore((s) => s.station);
   const spotSource = useDXStore((s) => s.spotSource);
   const clusterStatus = useDXStore((s) => s.clusterStatus);
+  const clusterStatusSeq = useDXStore((s) => s.clusterStatusSeq);
   const spotCount = useDXStore((s) => s.spots.length);
-  const { bridgeConnected, clusterConnect, clusterDisconnect } = useDXCluster();
+  const { bridgeConnected, clusterConnect, clusterDisconnect } = link;
 
   const [prefs, setPrefs] = useState<ClusterPrefs>(() => {
     const loaded = loadPrefs();
@@ -78,10 +93,16 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
     }
   }, [station?.callsign, prefs.callsign]);
 
-  // The bridge has spoken — stop showing "Connecting...".
+  // The bridge has spoken — stop showing "Connecting...". Keyed on the sequence
+  // advancing past the value captured when we sent the request, not on the
+  // status object: retrying the same unreachable node reports a status identical
+  // to the last one, which the store deliberately keeps referentially stable.
+  const seqAtConnectRef = useRef(clusterStatusSeq);
   useEffect(() => {
-    if (clusterStatus || !bridgeConnected) setAwaitingLink(false);
-  }, [clusterStatus, bridgeConnected]);
+    if (clusterStatusSeq !== seqAtConnectRef.current || !bridgeConnected) {
+      setAwaitingLink(false);
+    }
+  }, [clusterStatusSeq, bridgeConnected]);
 
   // The bridge only reports on connect/close, so a node that never answers
   // would otherwise leave the button reading "Connecting..." indefinitely.
@@ -109,9 +130,10 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
 
   const handleConnect = useCallback(() => {
     if (!connectable) return;
+    seqAtConnectRef.current = clusterStatusSeq;
     setAwaitingLink(true);
     if (!clusterConnect(prefs)) setAwaitingLink(false);
-  }, [connectable, clusterConnect, prefs]);
+  }, [connectable, clusterConnect, prefs, clusterStatusSeq]);
 
   const handleDisconnect = useCallback(() => {
     clusterDisconnect();
@@ -166,13 +188,13 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
       {/* ── Node ── */}
       <div className="space-y-1.5">
         <label
-          htmlFor="cluster-node"
+          htmlFor={`${uid}-node`}
           className="block text-xs font-medium text-gray-400"
         >
           Cluster node
         </label>
         <select
-          id="cluster-node"
+          id={`${uid}-node`}
           value={prefs.selectedNodeIndex}
           onChange={(e) =>
             updatePref("selectedNodeIndex", Number(e.target.value))
@@ -201,14 +223,14 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-2">
             <label
-              htmlFor="cluster-host"
+              htmlFor={`${uid}-host`}
               className="block text-xs text-gray-400 mb-1"
             >
               Host
             </label>
             <input
               type="text"
-              id="cluster-host"
+              id={`${uid}-host`}
               value={prefs.customHost}
               onChange={(e) => updatePref("customHost", e.target.value)}
               placeholder="cluster.example.com"
@@ -218,14 +240,16 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
           </div>
           <div>
             <label
-              htmlFor="cluster-port"
+              htmlFor={`${uid}-port`}
               className="block text-xs text-gray-400 mb-1"
             >
               Port
             </label>
             <input
               type="number"
-              id="cluster-port"
+              min={1}
+              max={65535}
+              id={`${uid}-port`}
               value={prefs.customPort}
               onChange={(e) =>
                 updatePref(
@@ -244,14 +268,14 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label
-            htmlFor="cluster-callsign"
+            htmlFor={`${uid}-callsign`}
             className="block text-xs text-gray-400 mb-1"
           >
             Login callsign
           </label>
           <input
             type="text"
-            id="cluster-callsign"
+            id={`${uid}-callsign`}
             value={prefs.callsign}
             onChange={(e) =>
               updatePref("callsign", e.target.value.toUpperCase())
@@ -263,14 +287,14 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
         </div>
         <div>
           <label
-            htmlFor="cluster-password"
+            htmlFor={`${uid}-password`}
             className="block text-xs text-gray-400 mb-1"
           >
             Password <span className="text-gray-600">(optional)</span>
           </label>
           <input
             type="password"
-            id="cluster-password"
+            id={`${uid}-password`}
             value={prefs.password}
             onChange={(e) => updatePref("password", e.target.value)}
             placeholder="not saved"
@@ -401,3 +425,25 @@ function FilterChips({ label, options, selected, onToggle }: FilterChipsProps) {
 }
 
 export default ClusterConnectionForm;
+
+/**
+ * `ClusterConnectionForm` wired to its own bridge socket via `useDXCluster`.
+ *
+ * For surfaces that do not already hold a bridge connection — the map toolbar
+ * popover, for one. Anywhere a socket is already open, render the plain form
+ * with that socket's controls instead.
+ */
+export const ClusterConnectionFormConnected = memo(
+  function ClusterConnectionFormConnected(
+    props: Omit<ClusterConnectionFormProps, "link">,
+  ) {
+    const { bridgeConnected, clusterConnect, clusterDisconnect } =
+      useDXCluster();
+    return (
+      <ClusterConnectionForm
+        {...props}
+        link={{ bridgeConnected, clusterConnect, clusterDisconnect }}
+      />
+    );
+  },
+);

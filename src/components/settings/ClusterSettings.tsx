@@ -8,12 +8,20 @@
 
 import { memo } from "react";
 import { ClusterConnectionForm } from "@/components/cluster/ClusterConnectionForm";
+import type { ClusterLinkControls } from "@/hooks/useClusterLink";
 
 interface ClusterSettingsProps {
+  /**
+   * Cluster controls over the Settings page's existing bridge socket. Passed in
+   * rather than opened here so this section does not add a second connection
+   * alongside the one CAT control already holds.
+   */
+  link: ClusterLinkControls;
   className?: string;
 }
 
 export const ClusterSettings = memo(function ClusterSettings({
+  link,
   className = "",
 }: ClusterSettingsProps) {
   return (
@@ -22,7 +30,7 @@ export const ClusterSettings = memo(function ClusterSettings({
         DX Cluster Connection
       </h3>
 
-      <ClusterConnectionForm />
+      <ClusterConnectionForm link={link} />
 
       {/* Info note */}
       <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/5">

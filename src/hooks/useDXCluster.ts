@@ -14,19 +14,16 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchClusterSpots, clusterPayloadToSpot } from "@/lib/api/dxcluster";
 import { useBridge } from "@/hooks/useBridge";
+import { useClusterLink } from "@/hooks/useClusterLink";
 import { useUserStore } from "@/stores/userStore";
 import {
   useDXStore,
   type DXSpotSource,
   type ClusterLinkStatus,
 } from "@/stores/dxStore";
-import {
-  buildConnectPayload,
-  type ClusterPrefs,
-} from "@/lib/cluster/clusterPrefs";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
 import type { ClusterSpotPayload } from "@/types/bridge";
 
@@ -156,9 +153,21 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
     setClusterStatus(lastMessage.payload as ClusterLinkStatus);
   }, [lastMessage, setClusterStatus]);
 
-  // A dead bridge means a dead cluster link, whatever it last reported.
+  // A bridge that *drops* takes the cluster link with it, whatever it last
+  // reported. Only an observed connected → disconnected transition counts:
+  // `bridgeConnected` starts false on every mount and `useBridge` opens a
+  // socket per hook instance, so clearing on a bare `!bridgeConnected` let any
+  // newly-mounted consumer (navigating to /map, for one) wipe a perfectly
+  // valid status. The bridge does not replay `cluster.status` to new clients,
+  // so nothing would have put it back.
+  const sawBridgeConnectedRef = useRef(false);
   useEffect(() => {
-    if (!bridgeConnected) {
+    if (bridgeConnected) {
+      sawBridgeConnectedRef.current = true;
+      return;
+    }
+    if (sawBridgeConnectedRef.current) {
+      sawBridgeConnectedRef.current = false;
       setClusterStatus(null);
     }
   }, [bridgeConnected, setClusterStatus]);
@@ -219,17 +228,10 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
 
   // ─── Cluster link control ─────────────────────────────────────────────────
 
-  const clusterConnect = useCallback(
-    (prefs: ClusterPrefs): boolean =>
-      bridgeSend("cluster.connect", buildConnectPayload(prefs)),
-    [bridgeSend],
+  const { clusterConnect, clusterDisconnect } = useClusterLink(
+    bridgeSend,
+    bridgeConnected,
   );
-
-  const clusterDisconnect = useCallback((): boolean => {
-    const sent = bridgeSend("cluster.disconnect", {});
-    if (sent) setClusterStatus(null);
-    return sent;
-  }, [bridgeSend, setClusterStatus]);
 
   // Manual refetch
   const refetch = useCallback(() => {

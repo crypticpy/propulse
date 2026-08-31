@@ -36,6 +36,8 @@ interface DXState {
 
   // Cluster link status (from the bridge)
   clusterStatus: ClusterLinkStatus | null;
+  /** Advances on every status report, so a repeat of an identical one is visible. */
+  clusterStatusSeq: number;
   setClusterStatus: (status: ClusterLinkStatus | null) => void;
 
   // Hidden spots (filtered from display)
@@ -100,11 +102,7 @@ function sameClusterStatus(
 
 // Keys from filters that should be persisted (excluding transient searchText)
 type PersistedFilterKeys =
-  | "bands"
-  | "modes"
-  | "maxAge"
-  | "neededOnly"
-  | "sortByNeeded";
+  "bands" | "modes" | "maxAge" | "neededOnly" | "sortByNeeded";
 type PersistedFilters = Pick<DXClusterFilters, PersistedFilterKeys>;
 
 interface PersistedState {
@@ -123,12 +121,20 @@ export const useDXStore = create<DXState>()(
       // once and every instance sees the same broadcast, so identical updates
       // are dropped rather than re-rendering each subscriber.
       clusterStatus: null,
+      clusterStatusSeq: 0,
       setClusterStatus: (status) =>
-        set((state) =>
-          sameClusterStatus(state.clusterStatus, status)
-            ? state
-            : { clusterStatus: status },
-        ),
+        set((state) => ({
+          // The sequence advances on every report the bridge makes, including
+          // one identical to the last. Retrying a bad node yields a byte-for-byte
+          // repeat of the previous failure, and a UI waiting on the link has to
+          // see that as an answer — otherwise it sits on "Connecting..." until
+          // the timeout. The status object itself stays referentially stable so
+          // selector-based subscribers still skip the redundant render.
+          clusterStatusSeq: state.clusterStatusSeq + 1,
+          clusterStatus: sameClusterStatus(state.clusterStatus, status)
+            ? state.clusterStatus
+            : status,
+        })),
       setSpots: (spots) => set({ spots }),
       addSpot: (spot) =>
         set((state) => {

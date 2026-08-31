@@ -11,6 +11,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 const MINUTE = 60 * 1000;
+const RSS_REFRESH_INTERVAL_MS = 10 * MINUTE;
 
 export interface RssFeedItem {
   id: string | null;
@@ -64,8 +65,9 @@ export function useRssFeed(url: string | null) {
     queryKey: ["rss-feed", url],
     queryFn: ({ signal }) => fetchRssFeed(url as string, signal),
     enabled: !!url,
-    staleTime: 10 * MINUTE,
+    staleTime: RSS_REFRESH_INTERVAL_MS,
     gcTime: 30 * MINUTE,
+    refetchInterval: RSS_REFRESH_INTERVAL_MS,
     refetchOnWindowFocus: false,
     retry: 2,
   });
@@ -91,8 +93,11 @@ export function useRssFeeds(sources: readonly RssFeedQuerySource[]) {
       queryKey: ["rss-feed", source.url],
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         fetchRssFeed(source.url, signal),
-      staleTime: 10 * MINUTE,
+      staleTime: RSS_REFRESH_INTERVAL_MS,
       gcTime: 30 * MINUTE,
+      // staleTime only changes cache eligibility; it does not schedule a
+      // request. Polling keeps a wall display current without a remount.
+      refetchInterval: RSS_REFRESH_INTERVAL_MS,
       refetchOnWindowFocus: false,
       retry: 2,
     })),

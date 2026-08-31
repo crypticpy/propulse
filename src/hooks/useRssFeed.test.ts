@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { relativeTime } from "@/hooks/useRssFeed";
+import { renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { relativeTime, useRssFeeds } from "@/hooks/useRssFeed";
+
+const queryMocks = vi.hoisted(() => ({
+  useQueries: vi.fn(),
+  useQuery: vi.fn(),
+}));
+
+vi.mock("@tanstack/react-query", () => queryMocks);
 
 const NOW = new Date("2026-09-05T12:00:00.000Z");
 
@@ -35,5 +43,22 @@ describe("relativeTime", () => {
 
   it("clamps future-dated (clock-skew) timestamps to just now", () => {
     expect(relativeTime("2026-09-05T12:05:00.000Z", NOW)).toBe("just now");
+  });
+});
+
+describe("useRssFeeds", () => {
+  beforeEach(() => {
+    queryMocks.useQueries.mockReset();
+    queryMocks.useQueries.mockReturnValue([{}]);
+  });
+
+  it("polls crawl feeds when their cache becomes stale", () => {
+    renderHook(() =>
+      useRssFeeds([{ id: "arrl", url: "https://example.com/rss" }]),
+    );
+
+    const options = queryMocks.useQueries.mock.calls[0][0].queries[0];
+    expect(options.staleTime).toBe(10 * 60 * 1000);
+    expect(options.refetchInterval).toBe(options.staleTime);
   });
 });

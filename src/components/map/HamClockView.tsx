@@ -4,6 +4,7 @@
  * Layout:
  *   header          (36px slim bar spanning full width)
  *   left | map | right   (sidebars + fill-container map)
+ *   live alert/news crawl (30px spanning full width)
  *
  * Sidebars (user-configurable which side):
  *   - DX Spots sidebar (slim, scrollable spot list)
@@ -40,6 +41,7 @@ import { HamClockDxpeditionsPanel } from "./hamclock/HamClockDxpeditionsPanel";
 import { HamClockReliabilityPanel } from "./hamclock/HamClockReliabilityPanel";
 import { HamClockMoonPanel } from "./hamclock/HamClockMoonPanel";
 import { HamClockLocationConditions } from "./hamclock/HamClockLocationConditions";
+import { DXNewsTicker } from "./DXNewsTicker";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -641,8 +643,8 @@ export function HamClockView({
       className="fixed inset-0 z-[200] bg-void-black text-white select-none"
       style={{
         display: "grid",
-        gridTemplateAreas: `"header header header" "left map right"`,
-        gridTemplateRows: "36px 1fr",
+        gridTemplateAreas: `"header header header" "left map right" "ticker ticker ticker"`,
+        gridTemplateRows: "36px 1fr 30px",
         gridTemplateColumns: `${leftCollapsed ? "0px" : `${leftWidth}px`} 1fr ${rightCollapsed ? "0px" : `${rightWidth}px`}`,
         transition: "grid-template-columns 200ms ease-out",
       }}
@@ -834,6 +836,12 @@ export function HamClockView({
       >
         {leftIsSpots ? infoSidebar : spotsSidebar}
       </HamClockSidebar>
+
+      {/* The crawl owns RSS polling and alert break-ins, so it must remain
+          mounted in HamClock just as it is in the normal PropSphere layout. */}
+      <div className="min-w-0" style={{ gridArea: "ticker" }}>
+        <DXNewsTicker className="rounded-none" />
+      </div>
     </div>
   );
 }

@@ -8,9 +8,10 @@
  * @module hooks/useRssFeed
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 
 const MINUTE = 60 * 1000;
+const RSS_REFRESH_INTERVAL_MS = 10 * MINUTE;
 
 export interface RssFeedItem {
   id: string | null;
@@ -22,10 +23,21 @@ export interface RssFeedItem {
 
 export type RssFeedStatus = "ok" | "unreachable" | "too_large" | "empty";
 
-interface RssFeedResponse {
+export interface RssFeedResponse {
   status: RssFeedStatus;
   feed: { title: string; link: string | null } | null;
   items: RssFeedItem[];
+}
+
+async function fetchRssFeed(
+  url: string,
+  signal?: AbortSignal,
+): Promise<RssFeedResponse> {
+  const res = await fetch(`/api/feeds/rss?url=${encodeURIComponent(url)}`, {
+    signal,
+  });
+  if (!res.ok) throw new Error(`RSS feed fetch failed: ${res.status}`);
+  return res.json();
 }
 
 /** Relative "Nm/Nh/Nd ago" label; falls back to a short date past 30 days. */
@@ -51,17 +63,11 @@ export function relativeTime(iso: string | null, now: Date): string {
 export function useRssFeed(url: string | null) {
   const { data, isLoading, error } = useQuery<RssFeedResponse>({
     queryKey: ["rss-feed", url],
-    queryFn: async ({ signal }) => {
-      const res = await fetch(
-        `/api/feeds/rss?url=${encodeURIComponent(url as string)}`,
-        { signal },
-      );
-      if (!res.ok) throw new Error(`RSS feed fetch failed: ${res.status}`);
-      return res.json();
-    },
+    queryFn: ({ signal }) => fetchRssFeed(url as string, signal),
     enabled: !!url,
-    staleTime: 10 * MINUTE,
+    staleTime: RSS_REFRESH_INTERVAL_MS,
     gcTime: 30 * MINUTE,
+    refetchInterval: RSS_REFRESH_INTERVAL_MS,
     refetchOnWindowFocus: false,
     retry: 2,
   });
@@ -73,6 +79,41 @@ export function useRssFeed(url: string | null) {
     isLoading,
     error: error as Error | null,
   };
+}
+
+export interface RssFeedQuerySource {
+  id: string;
+  url: string;
+}
+
+/** Fetch several configured crawl feeds through the same normalized proxy. */
+export function useRssFeeds(sources: readonly RssFeedQuerySource[]) {
+  const queries = useQueries({
+    queries: sources.map((source) => ({
+      queryKey: ["rss-feed", source.url],
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        fetchRssFeed(source.url, signal),
+      staleTime: RSS_REFRESH_INTERVAL_MS,
+      gcTime: 30 * MINUTE,
+      // staleTime only changes cache eligibility; it does not schedule a
+      // request. Polling keeps a wall display current without a remount.
+      refetchInterval: RSS_REFRESH_INTERVAL_MS,
+      refetchOnWindowFocus: false,
+      retry: 2,
+    })),
+  });
+
+  return sources.map((source, index) => {
+    const query = queries[index];
+    return {
+      source,
+      feed: query?.data?.feed ?? null,
+      items: query?.data?.items ?? [],
+      status: query?.data?.status ?? "ok",
+      isLoading: query?.isLoading ?? false,
+      error: (query?.error as Error | null) ?? null,
+    };
+  });
 }
 
 export default useRssFeed;

@@ -12,11 +12,13 @@
  * - Band conditions from store-derived calculations
  * - DX spot activity from dxStore
  * - Station-centered weather alerts and lightning from their live data hooks
+ * - Operator-selected RSS/Atom feeds through the normalized edge proxy
  *
  * Coverage approach:
  * - Solar indices, space-weather alerts, and DX activity are always global
  * - The operator chooses nearby, regional, or wide weather/lightning coverage
  * - The historical 500 km lightning / 800 km weather scope remains the default
+ * - Per-source thresholds and persisted alert IDs prevent repeated break-ins
  *
  * Animation approach:
  * - Content is rendered twice (duplicated) in a scrolling container
@@ -42,6 +44,7 @@ import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import { useLightning } from "@/hooks/useLightning";
 import { useUserStore } from "@/stores/userStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useFeedStore } from "@/stores/feedStore";
 import { getDistance } from "@/lib/utils/path";
 import type { LightningStrike } from "@/lib/api/lightning";
 import type { WeatherAlert } from "@/lib/api/weather";
@@ -51,6 +54,16 @@ import {
   type TickerCoveragePreset,
 } from "@/lib/map/tickerCoverage";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
+import { useRssFeeds, relativeTime } from "@/hooks/useRssFeed";
+import {
+  buildRssCrawlHeadlines,
+  meetsSolarTickerThreshold,
+  meetsWeatherTickerThreshold,
+  pruneBreakInHistory,
+  tickerAlertRank,
+  type RssCrawlHeadline,
+} from "@/lib/map/tickerCrawl";
+import { playAlertTone } from "@/lib/audio/alertSynthesizer";
 
 const AlertDetailModal = lazy(() =>
   import("@/components/alerts/AlertDetailModal").then((module) => ({
@@ -61,6 +74,12 @@ const AlertDetailModal = lazy(() =>
 const WeatherAlertModal = lazy(() =>
   import("@/components/map/WeatherAlertModal").then((module) => ({
     default: module.WeatherAlertModal,
+  })),
+);
+
+const TickerCrawlSettingsDialog = lazy(() =>
+  import("@/components/map/TickerCrawlSettingsDialog").then((module) => ({
+    default: module.TickerCrawlSettingsDialog,
   })),
 );
 
@@ -84,6 +103,7 @@ interface TickerItem {
 type TickerDetail =
   | { kind: "solar"; alert: SolarAlert }
   | { kind: "weather"; alert: WeatherAlert }
+  | { kind: "rss"; headline: RssCrawlHeadline }
   | {
       kind: "lightning";
       proximity: LightningProximity;
@@ -105,6 +125,12 @@ const SEPARATOR = "\u25C6";
 
 /** Keyframes name for the scroll animation */
 const KEYFRAMES_NAME = "dx-ticker-scroll";
+
+/** Persisted alert IDs prevent reloads and polling refreshes from replaying tones. */
+const BREAK_IN_HISTORY_KEY = "propulse-ticker-breakins-v1";
+
+/** New NWS/SWPC notices temporarily interrupt the ordinary crawl. */
+const BREAK_IN_DURATION_MS = 12_000;
 
 // =============================================================================
 // HELPERS
@@ -160,6 +186,43 @@ function getMostActiveBandAndMode(
 function countRecentSpots(spots: { time: Date }[], minutesAgo: number): number {
   const cutoff = new Date(Date.now() - minutesAgo * 60 * 1000);
   return spots.filter((s) => new Date(s.time) >= cutoff).length;
+}
+
+function readBreakInHistory(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(BREAK_IN_HISTORY_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, number>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeBreakInHistory(history: Record<string, number>) {
+  try {
+    localStorage.setItem(BREAK_IN_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    // Private browsing and exhausted storage should not disable live alerts.
+  }
+}
+
+function solarAlertLevel(alert: SolarAlert): TickerItem["alertLevel"] {
+  return alert.priority === "CRITICAL"
+    ? "critical"
+    : alert.priority === "WARNING"
+      ? "warning"
+      : "info";
+}
+
+function weatherAlertLevel(alert: WeatherAlert): TickerItem["alertLevel"] {
+  return alert.severity === "Extreme"
+    ? "critical"
+    : alert.severity === "Severe"
+      ? "warning"
+      : "info";
 }
 
 // =============================================================================
@@ -243,14 +306,21 @@ export function DXNewsTicker({
   const [selectedDetail, setSelectedDetail] = useState<TickerDetail | null>(
     null,
   );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [breakInItem, setBreakInItem] = useState<TickerItem | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  // Keep the live suppression history in memory as well as localStorage.
+  // Browsers can expose storage successfully and still reject writes later
+  // (private mode, quota exhaustion, or policy changes); the ticker must not
+  // replay the same tone every refresh merely because persistence failed.
+  const breakInHistoryRef = useRef<Record<string, number> | null>(null);
 
   // ---------------------------------------------------------------------------
   // Data hooks
   // ---------------------------------------------------------------------------
   const { data: kIndexData } = useKIndex();
   const { data: solarFluxData } = useSolarFlux();
-  const { activeAlerts, hasAlerts } = useSolarAlerts({ enabled: true });
+  const { activeAlerts } = useSolarAlerts({ enabled: true });
   const spots = useDXStore((s) => s.spots);
   const { alerts: weatherAlerts } = useWeatherAlerts(true);
   const { strikes: lightningStrikes } = useLightning(true);
@@ -262,6 +332,17 @@ export function DXNewsTicker({
     () => getTickerCoveragePreset(tickerCoverageArea),
     [tickerCoverageArea],
   );
+  const feeds = useFeedStore((state) => state.feeds);
+  const crawlPreferences = useFeedStore((state) => state.crawlPreferences);
+  const enabledCrawlFeeds = useMemo(
+    () => feeds.filter((feed) => feed.crawlEnabled),
+    [feeds],
+  );
+  const rssSources = useMemo(
+    () => enabledCrawlFeeds.map(({ id, url }) => ({ id, url })),
+    [enabledCrawlFeeds],
+  );
+  const rssResults = useRssFeeds(rssSources);
 
   // Compute spot count by band locally to avoid infinite loop from
   // selector returning a new object reference on every call
@@ -288,6 +369,43 @@ export function DXNewsTicker({
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
+  const breakInSolarAlerts = useMemo(
+    () =>
+      activeAlerts.filter((alert) =>
+        meetsSolarTickerThreshold(
+          alert.priority,
+          crawlPreferences.solarThreshold,
+        ),
+      ),
+    [activeAlerts, crawlPreferences.solarThreshold],
+  );
+
+  const nearbyWeatherAlerts = useMemo(() => {
+    if (!station) return [];
+    return weatherAlerts.filter(
+      (alert) =>
+        getDistance(station.lat, station.lon, alert.lat, alert.lon) <=
+        tickerCoverage.weatherKm,
+    );
+  }, [station, tickerCoverage.weatherKm, weatherAlerts]);
+
+  const breakInWeatherAlerts = useMemo(
+    () =>
+      nearbyWeatherAlerts.filter((alert) =>
+        meetsWeatherTickerThreshold(
+          alert.severity,
+          crawlPreferences.weatherThreshold,
+        ),
+      ),
+    [crawlPreferences.weatherThreshold, nearbyWeatherAlerts],
+  );
+
+  const rssHeadlines = buildRssCrawlHeadlines(
+    feeds,
+    rssResults,
+    Date.now(),
+  );
+
   // ---------------------------------------------------------------------------
   // Periodic content refresh
   // ---------------------------------------------------------------------------
@@ -297,6 +415,102 @@ export function DXNewsTicker({
     }, CONTENT_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, []);
+
+  const breakInCandidates = useMemo((): TickerItem[] => {
+    const solarItems = breakInSolarAlerts.map((alert) => ({
+      id: `alert-${alert.id}`,
+      text: alert.title,
+      highlight: true,
+      alertLevel: solarAlertLevel(alert),
+      detail: { kind: "solar" as const, alert },
+    }));
+    const weatherItems = breakInWeatherAlerts.map((alert) => {
+      const distanceKm = station
+        ? Math.round(
+            getDistance(station.lat, station.lon, alert.lat, alert.lon),
+          )
+        : 0;
+      return {
+        id: `wx-${alert.id}`,
+        text: `\u26A0 ${alert.event} \u2014 ${distanceKm}km away`,
+        highlight: true,
+        alertLevel: weatherAlertLevel(alert),
+        detail: { kind: "weather" as const, alert },
+      };
+    });
+    return [...solarItems, ...weatherItems];
+  }, [breakInSolarAlerts, breakInWeatherAlerts, station]);
+
+  const breakInSignature = breakInCandidates
+    .map((item) => `${item.id}:${item.alertLevel}`)
+    .sort()
+    .join("|");
+
+  useEffect(() => {
+    if (!breakInSignature) return;
+    const nowMs = Date.now();
+    const history = pruneBreakInHistory(
+      breakInHistoryRef.current ?? readBreakInHistory(),
+      nowMs,
+      crawlPreferences.dedupMinutes,
+    );
+    breakInHistoryRef.current = history;
+    const unseen = breakInCandidates.filter((item) => history[item.id] == null);
+    const next = [...unseen]
+      .sort(
+        (left, right) =>
+          tickerAlertRank(right.alertLevel ?? "info") -
+          tickerAlertRank(left.alertLevel ?? "info"),
+      )[0];
+
+    if (!next) {
+      writeBreakInHistory(history);
+      return;
+    }
+
+    // Treat one simultaneous poll as one interruption: present the most
+    // important notice while marking its cohort seen so stale alerts do not
+    // cascade into delayed tones on later query refreshes.
+    for (const item of unseen) history[item.id] = nowMs;
+    writeBreakInHistory(history);
+    setBreakInItem(next);
+
+    // The global solar-alert service owns space-weather audio and applies its
+    // mute, quiet-hours, and notification controls. The ticker only sounds NWS
+    // break-ins here so one solar event never produces overlapping tones.
+    if (
+      crawlPreferences.breakInToneEnabled &&
+      next.detail?.kind === "weather"
+    ) {
+      const priority =
+        next.alertLevel === "critical"
+          ? "CRITICAL"
+          : next.alertLevel === "warning"
+            ? "WARNING"
+            : "INFO";
+      playAlertTone(priority, undefined, crawlPreferences.breakInVolume);
+    }
+  }, [
+    breakInCandidates,
+    breakInSignature,
+    crawlPreferences.breakInToneEnabled,
+    crawlPreferences.breakInVolume,
+    crawlPreferences.dedupMinutes,
+    // Time passing does not change an active alert's identity. The shared
+    // 30-second crawl tick wakes this effect so an expired suppression record
+    // can be pruned and the still-active notice can repeat at the promised
+    // once-per-window cadence.
+    refreshTick,
+  ]);
+
+  useEffect(() => {
+    if (!breakInItem) return;
+    const timeout = window.setTimeout(
+      () => setBreakInItem(null),
+      BREAK_IN_DURATION_MS,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [breakInItem]);
 
   // ---------------------------------------------------------------------------
   // Build ticker items
@@ -308,18 +522,13 @@ export function DXNewsTicker({
     const items: TickerItem[] = [];
 
     // --- Active alerts (highest priority) ---
-    if (hasAlerts && activeAlerts.length > 0) {
+    if (activeAlerts.length > 0) {
       for (const alert of activeAlerts.slice(0, 2)) {
         items.push({
           id: `alert-${alert.id}`,
           text: alert.title,
           highlight: true,
-          alertLevel:
-            alert.priority === "CRITICAL"
-              ? "critical"
-              : alert.priority === "WARNING"
-                ? "warning"
-                : "info",
+          alertLevel: solarAlertLevel(alert),
           detail: { kind: "solar", alert },
         });
       }
@@ -369,45 +578,30 @@ export function DXNewsTicker({
         }
       }
 
-      // Nearby weather alerts (thunderstorm-related)
-      const STORM_KEYWORDS = [
-        "thunderstorm",
-        "tornado",
-        "lightning",
-        "severe",
-        "hurricane",
-        "tropical",
-      ];
-      const nearbyAlerts = weatherAlerts.filter((alert) => {
-        const dist = getDistance(
-          station.lat,
-          station.lon,
-          alert.lat,
-          alert.lon,
-        );
-        if (dist > tickerCoverage.weatherKm) return false;
-        const eventLower = alert.event.toLowerCase();
-        return STORM_KEYWORDS.some((kw) => eventLower.includes(kw));
-      });
-
-      for (const alert of nearbyAlerts.slice(0, 2)) {
+      // Nearby NWS alerts remain in the ordinary crawl even when interruption
+      // thresholds are disabled or set above this notice's severity.
+      for (const alert of nearbyWeatherAlerts.slice(0, 2)) {
         const dist = Math.round(
           getDistance(station.lat, station.lon, alert.lat, alert.lon),
         );
-        const severity =
-          alert.severity === "Extreme"
-            ? "critical"
-            : alert.severity === "Severe"
-              ? "warning"
-              : "info";
         items.push({
           id: `wx-${alert.id}`,
           text: `\u26A0 ${alert.event} \u2014 ${dist}km away`,
           highlight: true,
-          alertLevel: severity,
+          alertLevel: weatherAlertLevel(alert),
           detail: { kind: "weather", alert },
         });
       }
+    }
+
+    // --- Configured RSS/Atom crawl ---
+    for (const headline of rssHeadlines) {
+      const age = relativeTime(headline.item.publishedAt, new Date());
+      items.push({
+        id: `rss-${headline.feed.id}-${headline.key}`,
+        text: `${headline.feed.label}: ${headline.item.title}${age ? ` · ${age}` : ""}`,
+        detail: { kind: "rss", headline },
+      });
     }
 
     // --- Solar Flux Index ---
@@ -489,12 +683,12 @@ export function DXNewsTicker({
     currentKp,
     currentSfi,
     activeAlerts,
-    hasAlerts,
+    nearbyWeatherAlerts,
+    rssHeadlines,
     spots,
     spotCountByBand,
     refreshTick,
     lightningStrikes,
-    weatherAlerts,
     station,
     tickerCoverage,
   ]);
@@ -598,7 +792,7 @@ export function DXNewsTicker({
           }
         }}
         role="marquee"
-        aria-label="DX News Ticker - live propagation information"
+        aria-label="DX news and alert crawl - live propagation information"
       >
       {/* Inject keyframes */}
       <style>{keyframesStyle}</style>
@@ -635,6 +829,15 @@ export function DXNewsTicker({
             animation: "dx-ticker-pulse 2s ease-in-out infinite",
           }}
         />
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="ml-0.5 rounded p-0.5 text-gray-500 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+          aria-label="Configure alert and news crawl"
+          title="Configure alert & news crawl"
+        >
+          <span aria-hidden="true">⚙</span>
+        </button>
         <style>{`
           @keyframes dx-ticker-pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
@@ -644,7 +847,7 @@ export function DXNewsTicker({
       </div>
 
       {/* Scrolling content area */}
-      <div className="flex-1 overflow-hidden h-full flex items-center">
+      <div className="relative flex-1 overflow-hidden h-full flex items-center">
         <div
           ref={contentRef}
           data-testid="dx-ticker-track"
@@ -655,7 +858,11 @@ export function DXNewsTicker({
             animationTimingFunction: "linear",
             animationIterationCount: "infinite",
             animationPlayState:
-              isHovered || hasTickerFocus || selectedDetail
+              isHovered ||
+              hasTickerFocus ||
+              selectedDetail ||
+              settingsOpen ||
+              breakInItem
                 ? "paused"
                 : "running",
             willChange: "transform",
@@ -676,6 +883,44 @@ export function DXNewsTicker({
             {renderTickerContent(true)}
           </span>
         </div>
+
+        {breakInItem && (
+          <div
+            className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-[11px]"
+            role="status"
+            aria-live="assertive"
+            data-testid="ticker-break-in"
+          >
+            <span className="shrink-0 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+              Break-in
+            </span>
+            {breakInItem.detail ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDetail(breakInItem.detail ?? null);
+                  setBreakInItem(null);
+                }}
+                className={`min-w-0 truncate text-left underline decoration-current/40 underline-offset-2 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 ${getTickerItemClass(breakInItem)}`}
+                aria-label={`${breakInItem.text}. Open break-in details`}
+              >
+                {breakInItem.text} <span aria-hidden="true">↗</span>
+              </button>
+            ) : (
+              <span className={`min-w-0 truncate ${getTickerItemClass(breakInItem)}`}>
+                {breakInItem.text}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setBreakInItem(null)}
+              className="ml-auto shrink-0 rounded p-1 text-gray-500 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+              aria-label="Dismiss break-in"
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
       </div>
 
@@ -693,12 +938,22 @@ export function DXNewsTicker({
             onClose={() => setSelectedDetail(null)}
           />
         )}
+        {settingsOpen && (
+          <TickerCrawlSettingsDialog
+            open
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </Suspense>
 
       <LightningTickerDetail
         detail={
           selectedDetail?.kind === "lightning" ? selectedDetail : null
         }
+        onClose={() => setSelectedDetail(null)}
+      />
+      <RssTickerDetail
+        detail={selectedDetail?.kind === "rss" ? selectedDetail : null}
         onClose={() => setSelectedDetail(null)}
       />
     </>
@@ -756,6 +1011,61 @@ function LightningTickerDetail({
             {detail.coverage.weatherKm} km. Change this under Settings →
             Appearance → News Ticker.
           </p>
+        </div>
+      )}
+    </AccessibleDialog>
+  );
+}
+
+function RssTickerDetail({
+  detail,
+  onClose,
+}: {
+  detail: Extract<TickerDetail, { kind: "rss" }> | null;
+  onClose: () => void;
+}) {
+  const headline = detail?.headline;
+
+  return (
+    <AccessibleDialog
+      open={Boolean(headline)}
+      onClose={onClose}
+      title={headline?.item.title ?? "News detail"}
+      description={
+        headline
+          ? `Headline from the configured ${headline.feed.label} feed.`
+          : undefined
+      }
+      size="md"
+    >
+      {headline && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-gray-500">
+            <span>{headline.feed.label}</span>
+            {headline.item.publishedAt && (
+              <>
+                <span aria-hidden="true">·</span>
+                <time dateTime={headline.item.publishedAt}>
+                  {relativeTime(headline.item.publishedAt, new Date())}
+                </time>
+              </>
+            )}
+          </div>
+          {headline.item.summary && (
+            <p className="whitespace-pre-line text-sm leading-6 text-gray-300">
+              {headline.item.summary}
+            </p>
+          )}
+          {headline.item.link && (
+            <a
+              href={headline.item.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex rounded-lg bg-plasma-orange px-3 py-2 text-xs font-semibold text-black transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+            >
+              Open source
+            </a>
+          )}
         </div>
       )}
     </AccessibleDialog>

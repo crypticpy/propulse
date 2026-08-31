@@ -243,6 +243,10 @@ export function useSolarAlerts(
   const criticalCount = useAlertsStore(selectCriticalAlertCount);
   const hasAlerts = useAlertsStore(selectHasActiveAlerts);
   const highestPriorityAlert = useAlertsStore(selectHighestPriorityAlert);
+  // Subscribe to the backing collection, not only the stable action returned
+  // above. This keeps every consumer live when an effect adds or resolves an
+  // alert after the hook has mounted.
+  const storedAlerts = useAlertsStore((state) => state.alerts);
 
   // =========================================================================
   // EXTRACTED DATA VALUES
@@ -1231,7 +1235,10 @@ export function useSolarAlerts(
    * Get current active alerts
    * Re-computed when store alerts change
    */
-  const activeAlerts = useMemo(() => getActiveAlerts(), [getActiveAlerts]);
+  const activeAlerts = useMemo(
+    () => storedAlerts.filter((alert) => alert.status === "ACTIVE"),
+    [storedAlerts],
+  );
 
   // =========================================================================
   // RETURN VALUE

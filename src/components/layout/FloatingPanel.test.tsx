@@ -152,4 +152,67 @@ describe("FloatingPanel", () => {
       });
     }
   });
+
+  it("clamps restored geometry again when the viewport shrinks", () => {
+    const previousWidth = window.innerWidth;
+    const previousHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1_000,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 800,
+    });
+    const onLayoutChange = vi.fn();
+
+    try {
+      render(
+        <FloatingPanel
+          id="forecast"
+          title="Forecast"
+          defaultPosition={{ x: 10, y: 10 }}
+          defaultSize={{ width: 300, height: 200 }}
+          minSize={{ width: 200, height: 100 }}
+          maxSize={{ width: 2_000, height: 1_000 }}
+          persistedLayout={{ x: 100, y: 100, width: 1_200, height: 900 }}
+          onLayoutChange={onLayoutChange}
+        >
+          <div>Forecast content</div>
+        </FloatingPanel>,
+      );
+
+      const panel = document.getElementById("floating-panel-forecast");
+      expect(panel?.style.width).toBe("896px");
+      expect(panel?.style.height).toBe("696px");
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: 650,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        configurable: true,
+        value: 450,
+      });
+      fireEvent(window, new Event("resize"));
+
+      expect(panel?.style.width).toBe("546px");
+      expect(panel?.style.height).toBe("346px");
+      expect(onLayoutChange).toHaveBeenLastCalledWith({
+        x: 100,
+        y: 100,
+        width: 546,
+        height: 346,
+      });
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: previousWidth,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        configurable: true,
+        value: previousHeight,
+      });
+    }
+  });
 });

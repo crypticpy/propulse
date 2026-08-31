@@ -49,6 +49,37 @@ export const syncMeta = {
     this.set(meta);
   },
 
+  /** Persist a location mutation across offline restarts until it is pushed. */
+  markLocationDirty(locationId: string): string {
+    const token = `${Date.now()}:${Math.random()}`;
+    const meta = this.get();
+    this.set({
+      ...meta,
+      dirtyLocations: {
+        ...meta.dirtyLocations,
+        [locationId]: token,
+      },
+    });
+    return token;
+  },
+
+  getLocationDirtyToken(locationId: string): string | null {
+    return this.get().dirtyLocations?.[locationId] ?? null;
+  },
+
+  /**
+   * Clear only the mutation that was actually pushed. A newer edit made while
+   * the request was in flight retains its different token for the next push.
+   */
+  clearLocationDirty(locationId: string, expectedToken: string): void {
+    const meta = this.get();
+    if (meta.dirtyLocations?.[locationId] !== expectedToken) return;
+
+    const dirtyLocations = { ...meta.dirtyLocations };
+    delete dirtyLocations[locationId];
+    this.set({ ...meta, dirtyLocations });
+  },
+
   clear(): void {
     cache = null;
     try {

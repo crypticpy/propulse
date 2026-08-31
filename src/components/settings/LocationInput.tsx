@@ -24,6 +24,8 @@ interface LocationInputProps {
   value: string;
   /** Callback when grid changes */
   onChange: (grid: string) => void;
+  /** Exact coordinates produced by GPS, device location, or address lookup. */
+  onCoordinates?: (coordinates: { lat: number; lon: number }) => void;
   /** Error message to display */
   error?: string | null;
   /** Callback to set error */
@@ -82,6 +84,7 @@ function ModeButton({
 export function LocationInput({
   value,
   onChange,
+  onCoordinates,
   error,
   onError,
   compact = false,
@@ -143,6 +146,7 @@ export function LocationInput({
         const { latitude, longitude } = position.coords;
         const gridSquare = latLonToGrid(latitude, longitude);
         onChange(gridSquare);
+        onCoordinates?.({ lat: latitude, lon: longitude });
         onError(null);
         setLookupState({
           status: "success",
@@ -173,7 +177,7 @@ export function LocationInput({
         maximumAge: 60000,
       },
     );
-  }, [onChange, onError]);
+  }, [onChange, onCoordinates, onError]);
 
   // Handle coordinate input
   const handleCoordSubmit = useCallback(() => {
@@ -187,12 +191,13 @@ export function LocationInput({
 
     const gridSquare = latLonToGrid(result.lat, result.lon);
     onChange(gridSquare);
+    onCoordinates?.({ lat: result.lat, lon: result.lon });
     onError(null);
     setLookupState({
       status: "success",
       message: formatCoordinates(result.lat, result.lon),
     });
-  }, [coordInput, onChange, onError]);
+  }, [coordInput, onChange, onCoordinates, onError]);
 
   // Handle address search with debounce
   const handleAddressChange = useCallback(
@@ -243,6 +248,7 @@ export function LocationInput({
     (result: GeocodingResult) => {
       const gridSquare = latLonToGrid(result.lat, result.lon);
       onChange(gridSquare);
+      onCoordinates?.({ lat: result.lat, lon: result.lon });
       setAddressInput(result.displayName.split(",")[0]); // Show first part of address
       setShowResults(false);
       setLookupState({
@@ -251,7 +257,7 @@ export function LocationInput({
       });
       onError(null);
     },
-    [onChange, onError],
+    [onChange, onCoordinates, onError],
   );
 
   // Get current coordinates for display

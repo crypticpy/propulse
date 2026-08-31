@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { ConditionsPill } from "@/components/map/ConditionsPill";
 import { BandModePill } from "@/components/operating/BandModePill";
@@ -8,6 +9,12 @@ import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
+
+const QuickLocationControl = lazy(() =>
+  import("@/components/location/QuickLocationControl").then((module) => ({
+    default: module.QuickLocationControl,
+  })),
+);
 
 interface MobileHeaderProps {
   /** Number of active alerts */
@@ -55,6 +62,9 @@ export function MobileHeader({
 
       {/* Right: alerts + settings */}
       <div className="flex shrink-0 items-center gap-1">
+        <Suspense fallback={<span className="h-10 w-10" aria-hidden="true" />}>
+          <QuickLocationControl variant="icon" />
+        </Suspense>
         {alertCount > 0 && (
           <button
             onClick={onAlertClick}

@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { formatUTC } from "@/lib/utils/time";
-import { useUserStore } from "@/stores/userStore";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
 import {
@@ -16,6 +15,14 @@ import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankBadge } from "@/components/rank/RankBadge";
 import { ConflictBadge } from "@/components/qso/ConflictBadge";
 import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
+
+// Location editing is a secondary masthead action. Keep its trigger and the
+// already-lazy editor out of the startup bundle until the header has mounted.
+const QuickLocationControl = lazy(() =>
+  import("@/components/location/QuickLocationControl").then((module) => ({
+    default: module.QuickLocationControl,
+  })),
+);
 
 interface NavItem {
   path: string;
@@ -55,7 +62,6 @@ export function Header({
     const id = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(id);
   }, [clockVisible]);
-  const { station } = useUserStore();
   const activeLocation = useActiveLocation();
   const isTemporaryActive = useIsTemporaryActive();
 
@@ -241,9 +247,11 @@ export function Header({
                       UTC
                     </span>
                   </div>
-                  <div className="text-[10px] text-gray-500">
-                    {station?.grid || "Set location"}
-                  </div>
+                  <Suspense
+                    fallback={<span className="ml-auto h-5 w-14" aria-hidden="true" />}
+                  >
+                    <QuickLocationControl className="ml-auto" />
+                  </Suspense>
                 </div>
               )}
 

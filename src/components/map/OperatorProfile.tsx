@@ -14,11 +14,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useActiveRadio, useUserStore } from "@/stores/userStore";
 import { getSunTimes } from "@/lib/utils/time";
-import {
-  useActiveLocation,
-  useIsTemporaryActive,
-  useLicenseStatus,
-} from "@/hooks/useActiveLocation";
+import { useLicenseStatus } from "@/hooks/useActiveLocation";
+import { QuickLocationControl } from "@/components/location/QuickLocationControl";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 import { useActiveBandMode } from "@/hooks/useActiveBandMode";
@@ -202,8 +199,6 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const activeRadio = useActiveRadio();
 
   // Location and license hooks
-  const activeLocation = useActiveLocation();
-  const isTemporaryActive = useIsTemporaryActive();
   const licenseStatus = useLicenseStatus();
 
   // Band/mode state
@@ -340,36 +335,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
       {/* Grid + License row */}
       <div className="flex items-center gap-2 mb-2">
         {/* Location type indicator + Grid */}
-        <div className="flex items-center gap-1.5">
-          {isTemporaryActive ? (
-            <svg
-              className="w-3.5 h-3.5 text-amber-400 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              aria-label="Portable location"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                clipRule="evenodd"
-              />
-            </svg>
-          ) : (
-            <svg
-              className="w-3.5 h-3.5 text-gray-400 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              aria-label="Home location"
-            >
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-            </svg>
-          )}
-          <span
-            className={`text-sm font-mono font-medium ${isTemporaryActive ? "text-amber-400" : "text-gray-300"}`}
-          >
-            {activeLocation?.grid ?? operatorGrid ?? "----"}
-          </span>
-        </div>
+        <QuickLocationControl variant="profile" />
 
         {/* License badge */}
         <div className="flex items-center gap-1.5">

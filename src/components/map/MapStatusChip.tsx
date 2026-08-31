@@ -17,18 +17,17 @@
 
 import { useEffect, useState } from "react";
 import { formatUTC } from "@/lib/utils/time";
-import { useUserStore } from "@/stores/userStore";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
 import { ConflictBadge } from "@/components/qso/ConflictBadge";
 import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
+import { QuickLocationControl } from "@/components/location/QuickLocationControl";
 
 interface MapStatusChipProps {
   className?: string;
 }
 
 export function MapStatusChip({ className = "" }: MapStatusChipProps) {
-  const { station } = useUserStore();
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -46,12 +45,7 @@ export function MapStatusChip({ className = "" }: MapStatusChipProps) {
         <span className="text-[10px] text-gray-500 font-medium">UTC</span>
       </div>
 
-      <span
-        className="font-mono text-[10px] text-gray-400"
-        title={station?.grid ? "Your grid square" : "No QTH set"}
-      >
-        {station?.grid || "Set location"}
-      </span>
+      <QuickLocationControl />
 
       <div className="w-px h-3 bg-white/10" />
 

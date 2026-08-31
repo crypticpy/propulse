@@ -18,6 +18,7 @@ import { isValidGrid, gridToLatLon } from "@/lib/utils/grid";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { LocationInput } from "./LocationInput";
 import type { LocationType } from "@/types/user";
+import { CURRENT_LOCATION_ID } from "@/stores/profileStore";
 
 interface LocationManagerProps {
   className?: string;
@@ -50,10 +51,18 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
   const isTemporaryActive = useIsTemporaryActive();
   const savedLocations = useSavedLocations();
 
-  // Get the current temporary location (if any)
-  const temporaryLocation = savedLocations.find(
+  const temporaryLocations = savedLocations.filter(
     (loc) => loc.id !== homeLocation?.id && loc.type !== "home",
   );
+  // Keep the card aligned with the location that propagation is actually
+  // using. When Home is active, prefer the stable quick-travel slot while
+  // retaining older portable locations in the saved collection.
+  const temporaryLocation =
+    (isTemporaryActive
+      ? temporaryLocations.find((loc) => loc.id === activeLocation?.id)
+      : null) ??
+    temporaryLocations.find((loc) => loc.id === CURRENT_LOCATION_ID) ??
+    temporaryLocations[0];
 
   // Edit home modal state
   const [editHomeOpen, setEditHomeOpen] = useState(false);

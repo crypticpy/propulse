@@ -1877,7 +1877,10 @@ export function GlobeView({
     station,
     target,
     displayTime,
-    enabled: Boolean(tooltipPosition),
+    // GlobeView keeps grid and target-hover tooltips in separate state. The
+    // target tooltip explicitly clears tooltipPosition when it opens, so gate
+    // this supplementary calculation on the state that actually consumes it.
+    enabled: Boolean(hoveredTargetPos),
   });
 
   // Handle globe click - show flyout only (no target commit — that only

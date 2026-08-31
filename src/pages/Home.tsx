@@ -37,6 +37,7 @@ import { HistoryDetailModal } from "@/components/dx/modals/HistoryDetailModal";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileHome } from "@/components/mobile/MobileHome";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
+import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
 
 type ActiveModal =
   | "propagation"
@@ -235,6 +236,8 @@ export function Home() {
           <PredictionsCard />
           <HistoryCard onClick={() => setActiveModal("history")} />
         </div>
+
+        <NearbyActivityExplorer />
 
         {/* Section 6: Band Verdict */}
         <BandVerdictPanel />

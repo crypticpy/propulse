@@ -127,6 +127,7 @@ import { buildLayerLegends } from "@/lib/map/layerLegends";
 import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 import { propagationModelVisible } from "@/lib/propagation/modelClient";
+import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -221,6 +222,11 @@ export function PropSphere() {
   // When user clicks a collapsed pill, it can expand to show full content
   const [leftPanelExpanded, setLeftPanelExpanded] = useState(false);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
+
+  // Nearby activity lives in a map drawer instead of the page's fixed-height
+  // column. Keeping it out of that column prevents the map and DX drawer from
+  // collapsing into the same pixels on shorter desktop displays.
+  const [activityPanelOpen, setActivityPanelOpen] = useState(false);
 
   // Panel display modes for normal desktop layout (full | mini | hidden)
   const [leftPanelMode, setLeftPanelMode] = useState<PanelMode>("full");
@@ -1063,6 +1069,35 @@ export function PropSphere() {
                 {/* Cluster connection, alongside the spots it feeds */}
                 <ClusterPopover />
 
+                <button
+                  type="button"
+                  onClick={() => setActivityPanelOpen((open) => !open)}
+                  aria-expanded={activityPanelOpen}
+                  aria-controls="nearby-activity-map-drawer"
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    activityPanelOpen
+                      ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
+                      : "text-gray-300 hover:bg-white/10 hover:text-white"
+                  }`}
+                  title="Find stations heard recently by band or exact frequency"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    aria-hidden="true"
+                  >
+                    <path d="M2 10.5h10M3.5 8V5.5M7 8V2.5M10.5 8V4" />
+                    <circle cx="3.5" cy="4.5" r="1" />
+                    <circle cx="7" cy="9" r="1" />
+                    <circle cx="10.5" cy="3" r="1" />
+                  </svg>
+                  Activity
+                </button>
+
                 {/* Spacer pushes status + Views to right */}
                 <div className="flex-1" />
 
@@ -1151,6 +1186,18 @@ export function PropSphere() {
                     />
                   )}
                 </Suspense>
+
+                {activityPanelOpen && (
+                  <div
+                    id="nearby-activity-map-drawer"
+                    className="absolute inset-x-2 top-2 z-30 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl shadow-2xl sm:inset-x-3 sm:top-3"
+                  >
+                    <NearbyActivityExplorer
+                      className="bg-nebula-blue/95 backdrop-blur-xl"
+                      onClose={() => setActivityPanelOpen(false)}
+                    />
+                  </div>
+                )}
 
                 {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
                 {layers.issTracker && <ISSSkyTracker />}

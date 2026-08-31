@@ -62,23 +62,28 @@ describe("nowCastIssueBucket", () => {
     const capabilities = capabilitiesFixture as PropagationCapabilitiesResponse;
     modelClientMocks.capabilities.mockResolvedValue(capabilities);
     modelClientMocks.path.mockImplementation(
-      async (request: PathPredictionRequest): Promise<PropagationPrediction> => ({
-        model_version: "v4-test",
-        feature_contract: "core-v1",
-        issue_time: request.issue_time,
-        valid_time: request.valid_time,
-        band: request.band,
-        mode: request.mode,
-        target_grid4: request.features.target_grid4,
-        core_probability: 0.4,
-        personalized_probability: 0.4,
-        confidence: 0.7,
-        ood_flags: [],
-        data_freshness: {},
-        top_factors: [],
-        assumptions: [],
-        profile: "nowcast",
-      }),
+      (request: PathPredictionRequest): Promise<PropagationPrediction> => {
+        const prediction: PropagationPrediction = {
+          model_version: "v4-test",
+          feature_contract: "core-v1",
+          issue_time: request.issue_time,
+          valid_time: request.valid_time,
+          band: request.band,
+          mode: request.mode,
+          target_grid4: request.features.target_grid4,
+          core_probability: 0.4,
+          personalized_probability: 0.4,
+          confidence: 0.7,
+          ood_flags: [],
+          data_freshness: {},
+          top_factors: [],
+          assumptions: [],
+          profile: "nowcast",
+        };
+        return request.issue_time === "2026-07-12T12:00:00.000Z"
+          ? Promise.resolve(prediction)
+          : new Promise<PropagationPrediction>(() => {});
+      },
     );
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -95,7 +100,7 @@ describe("nowCastIssueBucket", () => {
       deriveEnvelope: () => null,
     };
 
-    const { unmount } = renderHook(
+    const { result, unmount } = renderHook(
       () => useNowCastBandPredictions(input),
       { wrapper },
     );
@@ -106,12 +111,18 @@ describe("nowCastIssueBucket", () => {
         .map((query) => query.queryKey[5]);
 
     expect(requestIssueTimes()).toContain("2026-07-12T12:00:00.000Z");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.predictions.size).toBe(10);
 
     await act(async () => {
       vi.advanceTimersByTime(1_000);
       await Promise.resolve();
     });
     expect(requestIssueTimes()).toContain("2026-07-12T12:05:00.000Z");
+    expect(result.current.predictions.size).toBe(10);
+    expect(result.current.pending).toBe(true);
 
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     await act(async () => {

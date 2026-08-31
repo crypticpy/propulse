@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   buildCorePathFeatures,
@@ -168,6 +168,30 @@ export interface NowCastBandPredictions {
   nowcastBands: string[];
 }
 
+interface RetainedPrediction {
+  requestIdentity: string;
+  prediction: PropagationPrediction;
+}
+
+/**
+ * Identity of the operator/path configuration whose last prediction may be
+ * shown while only the issue-time bucket changes. Solar/weather time is
+ * intentionally excluded: that is the refresh being replaced, whereas a
+ * path, mode, power, or station-chain change must not inherit another setup's
+ * result.
+ */
+function predictionRetentionIdentity(request: PathPredictionRequest): string {
+  return [
+    request.origin_grid4,
+    request.features.target_grid4,
+    request.band,
+    request.mode,
+    request.declared_power_watts,
+    request.station?.chainFingerprint ?? "core",
+    request.research_subject_binding?.hmac_sha256 ?? "unbound",
+  ].join("|");
+}
+
 export function summarizeNowCastResults(
   requestedBands: string[],
   predictions: Map<string, PropagationPrediction>,
@@ -210,6 +234,7 @@ export function useNowCastBandPredictions(
   input: NowCastBandInput,
 ): NowCastBandPredictions {
   const issueBucket = useNowCastIssueBucket();
+  const retainedPredictions = useRef(new Map<string, RetainedPrediction>());
   const capabilities = useQuery({
     queryKey: ["propagation-v4", "capabilities"] as const,
     queryFn: ({ signal }: { signal: AbortSignal }) => {
@@ -264,9 +289,26 @@ export function useNowCastBandPredictions(
   const stationEnvelopes = new Map<string, StationFeatureEnvelope>();
   const errors = new Map<string, Error>();
   queries.forEach((query, index) => {
-    const band = requests[index]?.band;
-    if (!band) return;
-    if (query.data) predictions.set(band, query.data);
+    const request = requests[index];
+    if (!request) return;
+    const band = request.band;
+    const requestIdentity = predictionRetentionIdentity(request);
+    if (query.data) {
+      predictions.set(band, query.data);
+      retainedPredictions.current.set(band, {
+        requestIdentity,
+        prediction: query.data,
+      });
+    } else {
+      // A new issue_time creates a new React Query key. Retain the prior
+      // same-path prediction until the replacement arrives (or fails) so the
+      // five-minute refresh does not blank every NowCast panel. `pending`
+      // still reports the in-flight refresh to consumers.
+      const retained = retainedPredictions.current.get(band);
+      if (retained?.requestIdentity === requestIdentity) {
+        predictions.set(band, retained.prediction);
+      }
+    }
     if (query.error instanceof Error) errors.set(band, query.error);
   });
   requests.forEach((request) => {

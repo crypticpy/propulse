@@ -7,7 +7,7 @@
  *
  * Sidebars (user-configurable which side):
  *   - DX Spots sidebar (slim, scrollable spot list)
- *   - Info sidebar (stacked collapsible panels: DE, DX Target, Space Wx, Bands)
+ *   - Info sidebar (stacked propagation, station, and schedule panels)
  *
  * Escape key or X button returns to normal layout mode.
  */
@@ -35,6 +35,8 @@ import { HamClockInfoPanel } from "./hamclock/HamClockInfoPanel";
 import { HamClockSpotsSidebar } from "./hamclock/HamClockSpotsSidebar";
 import { HamClockBestBandHero } from "./hamclock/HamClockBestBandHero";
 import { HamClockProjectionSwitch } from "./hamclock/HamClockProjectionSwitch";
+import { HamClockContestsPanel } from "./hamclock/HamClockContestsPanel";
+import { HamClockDxpeditionsPanel } from "./hamclock/HamClockDxpeditionsPanel";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -445,7 +447,7 @@ function SpaceWeatherContent() {
 }
 
 // ---------------------------------------------------------------------------
-// Info Sidebar (stacked panels: DE, DX, Space Wx, Bands)
+// Info Sidebar (stacked station, propagation, and live schedule panels)
 // ---------------------------------------------------------------------------
 
 function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
@@ -497,6 +499,26 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
             className="!bg-transparent !border-0 !rounded-none !shadow-none"
           />
         </div>
+      </HamClockInfoPanel>
+
+      <HamClockInfoPanel
+        id="dxpeditions"
+        title="DXpeditions"
+        collapsed={panelCollapsed.dxpeditions ?? true}
+        onToggle={() => togglePanel("dxpeditions", true)}
+      >
+        {!(panelCollapsed.dxpeditions ?? true) && (
+          <HamClockDxpeditionsPanel />
+        )}
+      </HamClockInfoPanel>
+
+      <HamClockInfoPanel
+        id="contests"
+        title="Contests"
+        collapsed={panelCollapsed.contests ?? true}
+        onToggle={() => togglePanel("contests", true)}
+      >
+        {!(panelCollapsed.contests ?? true) && <HamClockContestsPanel />}
       </HamClockInfoPanel>
     </div>
   );

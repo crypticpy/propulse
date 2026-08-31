@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type {
-  SolarAnimationProductId,
-  SolarImageProductId,
+import {
+  SOLAR_IMAGE_PRODUCTS,
+  solarImageUrl,
+  type SolarAnimationProductId,
+  type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
+import { useRetainedSolarImage } from "./useRetainedSolarImage";
 
 interface AnimationFrame {
   url: string;
@@ -27,10 +30,23 @@ export function SolarAnimationPlayer({
   const [message, setMessage] = useState("");
   const [manifestRetry, setManifestRetry] = useState(0);
   const [frameRetry, setFrameRetry] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const cache = useRef(new Map<string, HTMLImageElement>());
   const frameFailures = useRef(new Map<string, number>());
   const frameRetryTimer = useRef<number | null>(null);
-  const thumbnail = `/api/solar/image?product=${encodeURIComponent(thumbnailProductId)}`;
+  const framesRef = useRef(frames);
+  const indexRef = useRef(index);
+  framesRef.current = frames;
+  indexRef.current = index;
+  const thumbnailProduct = SOLAR_IMAGE_PRODUCTS[thumbnailProductId];
+  const thumbnail = solarImageUrl(thumbnailProductId, now, frameRetry);
+  const refreshBucket = Math.floor(
+    now / (thumbnailProduct.softTtlSeconds * 1_000),
+  );
+  // The edge manifest deliberately permits stale-while-revalidate. Give each
+  // publication window its own CDN key so this mounted player receives the
+  // newly revalidated timeline instead of remaining one cadence behind.
+  const manifestUrl = `/api/solar/animation?product=${encodeURIComponent(animationId)}&refresh=${refreshBucket}-${manifestRetry}`;
 
   const retryManifest = useCallback(() => {
     setManifestRetry((value) => value + 1);
@@ -39,9 +55,16 @@ export function SolarAnimationPlayer({
   useEffect(() => {
     const controller = new AbortController();
     let retryTimer: number | null = null;
-    setState("loading");
-    setMessage("");
-    fetch(`/api/solar/animation?product=${encodeURIComponent(animationId)}`, {
+    // Cadence refreshes are background revalidations once a usable timeline
+    // exists. Do not reuse the initial-load UI transitions here: doing so
+    // pauses active playback every publication window and lets a transient
+    // manifest failure replace healthy frames with the error presentation.
+    const isBackgroundRefresh = framesRef.current.length > 0;
+    if (!isBackgroundRefresh) {
+      setState("loading");
+      setMessage("");
+    }
+    fetch(manifestUrl, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     })
@@ -53,14 +76,26 @@ export function SolarAnimationPlayer({
         if (!Array.isArray(value.frames) || value.frames.length === 0) {
           throw new Error("Timeline contains no usable frames");
         }
+        const currentUrl = framesRef.current[indexRef.current]?.url;
+        const matchingIndex = currentUrl
+          ? value.frames.findIndex((frame) => frame.url === currentUrl)
+          : -1;
+        const nextIndex =
+          matchingIndex >= 0
+            ? matchingIndex
+            : isBackgroundRefresh
+              ? Math.min(indexRef.current, value.frames.length - 1)
+              : value.frames.length - 1;
         setFrames(value.frames);
-        setIndex(value.frames.length - 1);
-        setState("ready");
+        setIndex(nextIndex);
+        if (!isBackgroundRefresh) setState("ready");
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
-        setMessage(error instanceof Error ? error.message : "Timeline unavailable");
-        setState("error");
+        if (!isBackgroundRefresh) {
+          setMessage(error instanceof Error ? error.message : "Timeline unavailable");
+          setState("error");
+        }
         if (manifestRetry < 3) {
           retryTimer = window.setTimeout(
             retryManifest,
@@ -72,7 +107,15 @@ export function SolarAnimationPlayer({
       controller.abort();
       if (retryTimer !== null) window.clearTimeout(retryTimer);
     };
-  }, [animationId, manifestRetry, retryManifest]);
+  }, [manifestRetry, manifestUrl, retryManifest]);
+
+  useEffect(() => {
+    // Keep both the static fallback and the animation manifest moving while
+    // this player stays mounted. The cadence bucket prevents needless URL
+    // churn between provider publication windows.
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const imageCache = cache.current;
@@ -146,6 +189,17 @@ export function SolarAnimationPlayer({
 
   const current = frames[index];
   const currentUrl = current?.url ?? thumbnail;
+  // Timeline frames already preload around the playhead, but the static
+  // fallback has a cadence-keyed URL and can encounter the same cross-bucket
+  // stale-if-error gap as the image cards. Use the retention gate for both so
+  // neither a failed fallback refresh nor a failed next frame blanks the last
+  // successfully decoded image.
+  const retainedImage = useRetainedSolarImage(
+    `${animationId}:${thumbnailProductId}`,
+    currentUrl,
+    frameRetry,
+    thumbnailProduct.hardTtlSeconds * 1_000,
+  );
   const timestamp = useMemo(
     () => (current ? new Date(current.time_tag).toLocaleString(undefined, {
       timeZone: "UTC",
@@ -163,15 +217,21 @@ export function SolarAnimationPlayer({
     <div>
       <div className="relative flex min-h-72 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/30">
         <img
-          key={`${currentUrl}-${frameRetry}`}
-          src={currentUrl}
+          key={
+            retainedImage.hasLoadedImage
+              ? retainedImage.visibleUrl ?? "loaded-solar-image"
+              : `${retainedImage.visibleUrl ?? "missing-solar-image"}-${frameRetry}`
+          }
+          src={retainedImage.visibleUrl ?? undefined}
           alt={alt}
           className="max-h-[65dvh] w-full object-contain"
           onError={() => {
+            retainedImage.handleVisibleError();
             setState("paused");
             setMessage("This frame did not load. The timeline is paused for retry.");
-            const failures = (frameFailures.current.get(currentUrl) ?? 0) + 1;
-            frameFailures.current.set(currentUrl, failures);
+            const failedUrl = retainedImage.visibleUrl ?? currentUrl;
+            const failures = (frameFailures.current.get(failedUrl) ?? 0) + 1;
+            frameFailures.current.set(failedUrl, failures);
             if (failures <= 3) {
               if (frameRetryTimer.current !== null) {
                 window.clearTimeout(frameRetryTimer.current);
@@ -182,7 +242,8 @@ export function SolarAnimationPlayer({
             }
           }}
           onLoad={() => {
-            frameFailures.current.delete(currentUrl);
+            retainedImage.handleVisibleLoad();
+            frameFailures.current.delete(retainedImage.visibleUrl ?? currentUrl);
             if (frameRetryTimer.current !== null) {
               window.clearTimeout(frameRetryTimer.current);
               frameRetryTimer.current = null;
@@ -190,6 +251,42 @@ export function SolarAnimationPlayer({
             if (current) setMessage("");
           }}
         />
+        {retainedImage.probeUrl && (
+          <img
+            key={retainedImage.probeUrl}
+            src={retainedImage.probeUrl}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            data-solar-image-probe="true"
+            className="pointer-events-none absolute h-px w-px opacity-0"
+            onLoad={() => {
+              retainedImage.handleProbeLoad();
+              frameFailures.current.delete(currentUrl);
+              if (frameRetryTimer.current !== null) {
+                window.clearTimeout(frameRetryTimer.current);
+                frameRetryTimer.current = null;
+              }
+              if (current) setMessage("");
+            }}
+            onError={() => {
+              // Keep the decoded fallback/frame visible and retry the failed
+              // candidate in the background. This is not a visible-frame
+              // failure, so an active animation must continue playing.
+              retainedImage.handleProbeError();
+              const failures = (frameFailures.current.get(currentUrl) ?? 0) + 1;
+              frameFailures.current.set(currentUrl, failures);
+              if (failures <= 3) {
+                if (frameRetryTimer.current !== null) {
+                  window.clearTimeout(frameRetryTimer.current);
+                }
+                frameRetryTimer.current = window.setTimeout(() => {
+                  setFrameRetry((value) => value + 1);
+                }, Math.min(12_000, 1_500 * 2 ** (failures - 1)));
+              }
+            }}
+          />
+        )}
         {state === "loading" && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-sm text-slate-200" role="status">
             Loading timeline manifest…

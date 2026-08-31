@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   SOLAR_IMAGE_PRODUCTS,
+  solarImageMetadataUrl,
+  solarImageUrl,
   type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
+import { useRetainedSolarImage } from "./useRetainedSolarImage";
 
 type DetailImageState = "loading" | "ready" | "error" | "retrying";
 interface ImageMetadata {
@@ -22,7 +25,15 @@ export function SolarImageDetail({
   const [metadataFailed, setMetadataFailed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const attempts = useRef(0);
-  const imageUrl = `/api/solar/image?product=${encodeURIComponent(productId)}`;
+  const imageUrl = solarImageUrl(productId, now, retryKey);
+  const retainedImage = useRetainedSolarImage(
+    productId,
+    imageUrl,
+    imageUrl,
+    product.hardTtlSeconds * 1_000,
+  );
+  const metadataUrl = solarImageMetadataUrl(productId, now, retryKey);
+  const refreshBucket = Math.floor(now / (product.softTtlSeconds * 1_000));
 
   const retry = useCallback(() => {
     setState((current) => (current === "loading" ? "loading" : "retrying"));
@@ -32,7 +43,7 @@ export function SolarImageDetail({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/solar/image-meta?product=${encodeURIComponent(productId)}`, {
+    fetch(metadataUrl, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     })
@@ -49,12 +60,18 @@ export function SolarImageDetail({
         }
         return value;
       })
-      .then(setMetadata)
+      .then((value) => {
+        setMetadata(value);
+        // A later cadence poll can recover after a transient metadata outage.
+        // Clear the old error independently of observedAt: null, which is a
+        // valid provider response with a different operator-facing message.
+        setMetadataFailed(false);
+      })
       .catch(() => {
         if (!controller.signal.aborted) setMetadataFailed(true);
       });
     return () => controller.abort();
-  }, [productId, retryKey]);
+  }, [metadataUrl, refreshBucket]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -116,20 +133,43 @@ export function SolarImageDetail({
           </div>
         )}
         <img
-          key={retryKey}
-          src={imageUrl}
+          src={retainedImage.visibleUrl ?? undefined}
           alt={product.alt}
           decoding="async"
           className={`pointer-events-none mx-auto max-h-[68dvh] w-full object-contain transition-opacity motion-reduce:transition-none ${state === "ready" && !hardExpired ? "opacity-100" : "opacity-0"}`}
           onLoad={() => {
+            retainedImage.handleVisibleLoad();
             attempts.current = 0;
             setState("ready");
           }}
           onError={() => {
+            retainedImage.handleVisibleError();
             attempts.current += 1;
             setState("error");
           }}
         />
+        {retainedImage.probeUrl && (
+          <img
+            key={retainedImage.probeUrl}
+            src={retainedImage.probeUrl}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            data-solar-image-probe="true"
+            className="pointer-events-none absolute h-px w-px opacity-0"
+            onLoad={() => {
+              retainedImage.handleProbeLoad();
+              attempts.current = 0;
+              setState("ready");
+            }}
+            onError={() => {
+              // Retain the decoded detail image on a background refresh miss;
+              // hardExpired still owns its scientific usability boundary.
+              retainedImage.handleProbeError();
+              attempts.current += 1;
+            }}
+          />
+        )}
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
         <span>

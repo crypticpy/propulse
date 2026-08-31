@@ -46,6 +46,66 @@ const INGEST_INTERVAL_MS = 60_000;
  * current without recomputing the path model on every ingest tick. */
 const PHYSICS_REFRESH_INTERVAL_MS = 5 * 60_000;
 
+type VerdictBatchReader = () => LadderIngestInput[];
+
+/**
+ * One ingest cadence per active scope, even when responsive layouts mount more
+ * than one consumer (for example PropSphere's desktop and mobile panels).
+ * Without this small coordinator, duplicate hook instances would advance the
+ * falling-streak machine several times during one real minute and could label
+ * a band Fading too early. The first live reader is not special: the interval
+ * selects the first currently registered non-empty batch on every tick.
+ */
+const scopeReaders = new Map<string, Map<symbol, VerdictBatchReader>>();
+const scopeTimers = new Map<string, number>();
+const scopeIngestBuckets = new Map<string, number>();
+
+function ingestScope(scopeId: string): void {
+  const bucket = Math.floor(Date.now() / INGEST_INTERVAL_MS);
+  if (scopeIngestBuckets.get(scopeId) === bucket) return;
+  const readers = scopeReaders.get(scopeId);
+  if (!readers) return;
+  for (const read of readers.values()) {
+    const batch = read();
+    if (batch.length === 0) continue;
+    useVerdictStore.getState().ingest(batch);
+    scopeIngestBuckets.set(scopeId, bucket);
+    return;
+  }
+}
+
+function registerScopeReader(
+  scopeId: string,
+  read: VerdictBatchReader,
+): () => void {
+  const id = Symbol(scopeId);
+  const readers = scopeReaders.get(scopeId) ?? new Map();
+  readers.set(id, read);
+  scopeReaders.set(scopeId, readers);
+
+  if (!scopeTimers.has(scopeId)) {
+    ingestScope(scopeId);
+    scopeTimers.set(
+      scopeId,
+      window.setInterval(() => ingestScope(scopeId), INGEST_INTERVAL_MS),
+    );
+  }
+
+  return () => {
+    const current = scopeReaders.get(scopeId);
+    current?.delete(id);
+    if (current && current.size > 0) return;
+    scopeReaders.delete(scopeId);
+    // A later consumer can remount during this same minute. Clear the prior
+    // bucket with the last reader so registerScopeReader performs the promised
+    // immediate ingest for that fresh consumer instead of waiting a minute.
+    scopeIngestBuckets.delete(scopeId);
+    const timer = scopeTimers.get(scopeId);
+    if (timer !== undefined) window.clearInterval(timer);
+    scopeTimers.delete(scopeId);
+  };
+}
+
 export interface ActiveScope {
   /** Store/canonical key: 'global' | 'regional:EU' | 'dx:EM-JO' */
   id: string;
@@ -73,6 +133,14 @@ export interface UseBandVerdictsResult {
   activityScope: BandActivityScope;
   /** Whether the DX toggle can do anything (home + target fields known) */
   dxAvailable: boolean;
+}
+
+export function bandVerdictInputsAreReady(
+  currentKp: number | null,
+  currentSfi: number | null,
+  activityReady: boolean,
+): boolean {
+  return currentKp !== null && currentSfi !== null && activityReady;
 }
 
 const FIELD_RE = /^[A-R]{2}$/;
@@ -155,7 +223,10 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     return { type: "global" };
   }, [scope, homeField, targetField]);
 
-  const { data: activityByBand } = useBandActivity(activityScope);
+  const {
+    data: activityByBand,
+    isError: isActivityError,
+  } = useBandActivity(activityScope);
 
   // Day/night at the user's QTH (fallback to 0,0 when no station is set).
   // Deliberately NOT memoized: every ingest tick re-renders this hook (the
@@ -216,8 +287,21 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     physicsRefreshedAt,
   ]);
 
-  const ready = currentKp !== null && currentSfi !== null;
-  const activityReady = activityByBand !== undefined;
+  // React Query deliberately retains successful data when a later refetch
+  // fails. That is useful for explicit stale displays, but these values drive
+  // a state machine advertised as live. Remove the reader on refresh failure
+  // so the retained batch neither advances fading nor labels persisted ladder
+  // results as current evidence.
+  const activityReady = activityByBand !== undefined && !isActivityError;
+  // Persisted machines are useful for hysteresis, but they are not evidence
+  // that the current page load has usable inputs. Treat the ladder as ready
+  // only after both solar drivers and the active observation scope arrive, so
+  // a reload or failed activity request cannot relabel stored verdicts as live.
+  const ready = bandVerdictInputsAreReady(
+    currentKp,
+    currentSfi,
+    activityReady,
+  );
 
   // Build the active scope's evaluation batch. Only the active scope is
   // ingested — idle scopes keep their persisted machines until revisited.
@@ -265,15 +349,7 @@ export function useBandVerdicts(): UseBandVerdictsResult {
 
   useEffect(() => {
     if (!ready || !activityReady) return;
-    if (evalsRef.current.length > 0) {
-      useVerdictStore.getState().ingest(evalsRef.current);
-    }
-    const interval = setInterval(() => {
-      if (evalsRef.current.length > 0) {
-        useVerdictStore.getState().ingest(evalsRef.current);
-      }
-    }, INGEST_INTERVAL_MS);
-    return () => clearInterval(interval);
+    return registerScopeReader(scope.id, () => evalsRef.current);
     // scope.id: switching scope ingests the new scope immediately so its
     // chips appear (first evaluation shows raw, no hold) instead of waiting
     // out the interval.

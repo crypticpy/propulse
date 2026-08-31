@@ -1,17 +1,18 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { solarImageUrl } from "@/lib/solar/mediaProducts";
 import { SolarImageCard } from "./SolarImageCard";
 
 describe("SolarImageCard", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("uses a stable URL and recovers declaratively after a transient failure", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(
-      new Date("2026-07-15T12:10:00.000Z").getTime(),
-    );
+  it("uses a cadence-stable URL and advances it for explicit recovery", async () => {
+    const now = new Date("2026-07-15T12:10:00.000Z").getTime();
+    vi.spyOn(Date, "now").mockReturnValue(now);
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -30,14 +31,16 @@ describe("SolarImageCard", () => {
     );
 
     const first = screen.getByAltText(/full solar disk/i);
-    expect(first.getAttribute("src")).toBe("/api/solar/image?product=sunspot-hmi");
+    expect(first.getAttribute("src")).toBe(solarImageUrl("sunspot-hmi", now));
     fireEvent.error(first);
     expect(screen.getAllByText("Image temporarily unavailable")).toHaveLength(1);
     expect(container.querySelectorAll("img")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Retry now" }));
     const retried = screen.getByAltText(/full solar disk/i);
-    expect(retried.getAttribute("src")).toBe("/api/solar/image?product=sunspot-hmi");
+    expect(retried.getAttribute("src")).toBe(
+      solarImageUrl("sunspot-hmi", now, 1),
+    );
     fireEvent.load(retried);
 
     await waitFor(() => {
@@ -46,6 +49,67 @@ describe("SolarImageCard", () => {
     expect(screen.getByText("Stale")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Enlarge" }));
     expect(onOpen).toHaveBeenCalledWith("sunspot-hmi", false);
+  });
+
+  it("keeps the decoded image while probing later provider cache windows", () => {
+    vi.useFakeTimers();
+    const initial = new Date("2026-07-15T12:10:00.000Z");
+    vi.setSystemTime(initial);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            observedAt: initial.toISOString(),
+            checkedAt: initial.toISOString(),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const { container } = render(
+      <SolarImageCard productId="sunspot-hmi" onOpen={vi.fn()} />,
+    );
+    const image = screen.getByAltText(/full solar disk/i);
+    const firstUrl = image.getAttribute("src");
+    fireEvent.load(image);
+
+    act(() => {
+      vi.advanceTimersByTime(6 * 60_000);
+    });
+
+    const failedProbe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    expect(failedProbe?.getAttribute("src")).toBe(
+      solarImageUrl("sunspot-hmi", initial.getTime() + 6 * 60_000),
+    );
+    expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).toBe(
+      firstUrl,
+    );
+
+    fireEvent.error(failedProbe!);
+    expect(screen.queryByText("Image temporarily unavailable")).toBeNull();
+    expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).toBe(
+      firstUrl,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(6 * 60_000);
+    });
+    const successfulProbe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    const replacementUrl = solarImageUrl(
+      "sunspot-hmi",
+      initial.getTime() + 12 * 60_000,
+    );
+    expect(successfulProbe?.getAttribute("src")).toBe(replacementUrl);
+    fireEvent.load(successfulProbe!);
+    expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).toBe(
+      replacementUrl,
+    );
   });
 
   it("hides a hard-expired scientific image from decision use", async () => {

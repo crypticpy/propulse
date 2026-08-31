@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   buildCorePathFeatures,
@@ -20,6 +20,51 @@ import type {
 } from "@/lib/station/stationChainEngine";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+/** Canonical request timestamp used by the server's verified history lookup. */
+export function nowCastIssueBucket(now = Date.now()): number {
+  return Math.floor(now / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
+}
+
+/**
+ * Advance NowCast on five-minute boundaries even when every path, station, and
+ * solar input stays unchanged. Previously Date.now() was read only during a
+ * React render, so a long-running PropSphere could retain its first issue_time
+ * indefinitely and never observe a recovered WSPR history snapshot.
+ */
+function useNowCastIssueBucket(): number {
+  const [bucket, setBucket] = useState(() => nowCastIssueBucket());
+
+  useEffect(() => {
+    let timeout = 0;
+    const updateAndSchedule = () => {
+      // Use one clock sample for both values. Two Date.now() calls can straddle
+      // the boundary and accidentally schedule the freshly entered bucket for
+      // five minutes later without ever publishing it to the query key.
+      const currentBucket = nowCastIssueBucket();
+      setBucket(currentBucket);
+      const nextBoundary = currentBucket + FIVE_MINUTES_MS;
+      timeout = window.setTimeout(
+        updateAndSchedule,
+        Math.max(1_000, nextBoundary - Date.now() + 250),
+      );
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        setBucket(nowCastIssueBucket());
+      }
+    };
+
+    updateAndSchedule();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  return bucket;
+}
 
 export interface NowCastBandInput {
   origin: { grid: string; lat: number; lon: number } | null;
@@ -123,6 +168,30 @@ export interface NowCastBandPredictions {
   nowcastBands: string[];
 }
 
+interface RetainedPrediction {
+  requestIdentity: string;
+  prediction: PropagationPrediction;
+}
+
+/**
+ * Identity of the operator/path configuration whose last prediction may be
+ * shown while only the issue-time bucket changes. Solar/weather time is
+ * intentionally excluded: that is the refresh being replaced, whereas a
+ * path, mode, power, or station-chain change must not inherit another setup's
+ * result.
+ */
+function predictionRetentionIdentity(request: PathPredictionRequest): string {
+  return [
+    request.origin_grid4,
+    request.features.target_grid4,
+    request.band,
+    request.mode,
+    request.declared_power_watts,
+    request.station?.chainFingerprint ?? "core",
+    request.research_subject_binding?.hmac_sha256 ?? "unbound",
+  ].join("|");
+}
+
 export function summarizeNowCastResults(
   requestedBands: string[],
   predictions: Map<string, PropagationPrediction>,
@@ -164,7 +233,8 @@ export function summarizeNowCastResults(
 export function useNowCastBandPredictions(
   input: NowCastBandInput,
 ): NowCastBandPredictions {
-  const issueBucket = Math.floor(Date.now() / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
+  const issueBucket = useNowCastIssueBucket();
+  const retainedPredictions = useRef(new Map<string, RetainedPrediction>());
   const capabilities = useQuery({
     queryKey: ["propagation-v4", "capabilities"] as const,
     queryFn: ({ signal }: { signal: AbortSignal }) => {
@@ -173,6 +243,9 @@ export function useNowCastBandPredictions(
     },
     enabled: propagationModelEnabled,
     staleTime: FIVE_MINUTES_MS,
+    refetchInterval: FIVE_MINUTES_MS,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
   const access = resolveNowCastCapabilityAccess(
@@ -216,9 +289,26 @@ export function useNowCastBandPredictions(
   const stationEnvelopes = new Map<string, StationFeatureEnvelope>();
   const errors = new Map<string, Error>();
   queries.forEach((query, index) => {
-    const band = requests[index]?.band;
-    if (!band) return;
-    if (query.data) predictions.set(band, query.data);
+    const request = requests[index];
+    if (!request) return;
+    const band = request.band;
+    const requestIdentity = predictionRetentionIdentity(request);
+    if (query.data) {
+      predictions.set(band, query.data);
+      retainedPredictions.current.set(band, {
+        requestIdentity,
+        prediction: query.data,
+      });
+    } else {
+      // A new issue_time creates a new React Query key. Retain the prior
+      // same-path prediction until the replacement arrives (or fails) so the
+      // five-minute refresh does not blank every NowCast panel. `pending`
+      // still reports the in-flight refresh to consumers.
+      const retained = retainedPredictions.current.get(band);
+      if (retained?.requestIdentity === requestIdentity) {
+        predictions.set(band, retained.prediction);
+      }
+    }
     if (query.error instanceof Error) errors.set(band, query.error);
   });
   requests.forEach((request) => {
@@ -239,7 +329,9 @@ export function useNowCastBandPredictions(
       (propagationModelEnabled && capabilities.isPending) ||
       queries.some((query) => query.isPending || query.isFetching),
     capabilityError:
-      capabilities.error instanceof Error ? capabilities.error : null,
+      capabilities.data === undefined && capabilities.error instanceof Error
+        ? capabilities.error
+        : null,
     predictions,
     stationEnvelopes,
     errors,

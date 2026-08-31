@@ -24,7 +24,12 @@ export function useSolarResource<T>(sourceId: SolarSourceId, enabled = true) {
     enabled,
     queryFn: async () => {
       try {
-        const resource = await fetchSolarResource<T>(sourceId);
+        // React Query owns the source cadence. Force its scheduled/manual
+        // executions through the same-origin edge instead of letting a fresh
+        // IndexedDB entry turn a two-minute feed into a five-minute (or longer)
+        // feed. The cache is still hydrated below for instant startup and is
+        // still the validated stale-on-error fallback inside solarClient.
+        const resource = await fetchSolarResource<T>(sourceId, { force: true });
         const status = useDataSourceStatus.getState();
         const previous = status.sources[sourceId];
         if (resource.lastError) {
@@ -80,6 +85,9 @@ export function useSolarResource<T>(sourceId: SolarSourceId, enabled = true) {
     },
     staleTime: policy.softTtlMs,
     refetchInterval: enabled ? policy.refetchMs : false,
+    // SolarPulse is commonly left open as a status display. Keep its explicit
+    // source cadences alive when the browser classifies the tab as background.
+    refetchIntervalInBackground: true,
     retry: (failureCount, error) => {
       const retryable =
         typeof error === "object" &&

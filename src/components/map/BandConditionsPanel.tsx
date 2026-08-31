@@ -10,12 +10,20 @@
 
 import { useMemo, useState, useRef, useEffect, useCallback, memo } from "react";
 import { formatDistanceToNow } from "date-fns";
+import {
+  LADDER_LABEL,
+} from "@/lib/verdict/presentation";
+import { BandVerdictDetailsDialog } from "@/components/dx/BandVerdictDetailsDialog";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
+import { useBandActivity } from "@/hooks/useBandActivity";
+import { canonicalKey, useBandLadder } from "@/hooks/useBandLadder";
+import { useBandVerdicts, type BandLadderEntry } from "@/hooks/useBandVerdicts";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import { oldestKnownTimestamp } from "@/hooks/projectSolarResource";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
 import {
@@ -51,6 +59,12 @@ import {
   useBandHourlyStats,
   type BandHourlyStat,
 } from "@/hooks/useBandHourlyStats";
+import { LADDER_RANK, type LadderState } from "@/lib/verdict/ladder";
+import {
+  bandHealthDotClass,
+  canonicalScopeUpdatedAt,
+  readyBandHealthByBand,
+} from "./bandHealthPresentation";
 
 interface BandConditionsPanelProps {
   displayTime: Date;
@@ -127,6 +141,12 @@ function getOverallStatus(
   return "poor";
 }
 
+function queryFreshnessText(updatedAt: number, isError = false): string {
+  if (isError) return "refresh failed";
+  if (!updatedAt) return "not loaded";
+  return `${formatDistanceToNow(new Date(updatedAt), { addSuffix: false })} ago`;
+}
+
 // =============================================================================
 // GRID VIEW COMPONENTS (High-Viz Mode)
 // =============================================================================
@@ -163,8 +183,53 @@ const GRID_STATUS_COLORS: Record<
   },
 };
 
+const LADDER_GRID_COLORS: Record<
+  LadderState,
+  { bg: string; border: string; text: string }
+> = {
+  hot: {
+    bg: "rgba(255, 130, 50, 0.20)",
+    border: "rgba(255, 130, 50, 0.45)",
+    text: "#ff8232",
+  },
+  verified: {
+    bg: "rgba(0, 255, 136, 0.18)",
+    border: "rgba(0, 255, 136, 0.35)",
+    text: "#00ff88",
+  },
+  stirring: {
+    bg: "rgba(255, 180, 50, 0.14)",
+    border: "rgba(255, 180, 50, 0.35)",
+    text: "#ffb432",
+  },
+  forecast: {
+    bg: "rgba(0, 255, 136, 0.08)",
+    border: "rgba(0, 255, 136, 0.20)",
+    text: "rgba(0, 255, 136, 0.72)",
+  },
+  closed: {
+    bg: "rgba(128, 128, 128, 0.08)",
+    border: "rgba(128, 128, 128, 0.18)",
+    text: "#777777",
+  },
+};
+
+const LADDER_BADGE_CLASSES: Record<LadderState, string> = {
+  hot: "text-plasma-orange bg-plasma-orange/15",
+  verified: "text-signal-green bg-signal-green/15",
+  stirring: "text-caution-amber bg-caution-amber/15",
+  forecast: "text-signal-green/70 bg-signal-green/10",
+  closed: "text-gray-500 bg-white/5",
+};
+
+function bandHealthLabel(entry: BandLadderEntry): string {
+  return entry.fading ? "Fading" : LADDER_LABEL[entry.stable];
+}
+
 interface BandConditionGridCellProps {
   condition: PathBandCondition;
+  verdict?: BandLadderEntry;
+  onSelect?: (band: string) => void;
   isSynced: boolean;
   isEsActive?: boolean;
   hasBandOpening?: boolean;
@@ -178,6 +243,8 @@ function gridCellPropsAreEqual(
   return (
     prevProps.condition.band === nextProps.condition.band &&
     prevProps.condition.status === nextProps.condition.status &&
+    prevProps.verdict?.stable === nextProps.verdict?.stable &&
+    prevProps.verdict?.fading === nextProps.verdict?.fading &&
     prevProps.isSynced === nextProps.isSynced &&
     prevProps.isEsActive === nextProps.isEsActive &&
     prevProps.hasBandOpening === nextProps.hasBandOpening &&
@@ -187,17 +254,29 @@ function gridCellPropsAreEqual(
 
 const BandConditionGridCell = memo(function BandConditionGridCell({
   condition,
+  verdict,
+  onSelect,
   isSynced,
   isEsActive,
   hasBandOpening,
   sparklineData,
 }: BandConditionGridCellProps) {
-  const colors = GRID_STATUS_COLORS[condition.status];
-  const statusLabel =
-    condition.status === "closed" ? "CLOSED" : condition.status.toUpperCase();
+  const colors = verdict
+    ? LADDER_GRID_COLORS[verdict.stable]
+    : GRID_STATUS_COLORS[condition.status];
+  const statusLabel = verdict
+    ? bandHealthLabel(verdict).toUpperCase()
+    : condition.status === "closed"
+      ? "CLOSED"
+      : condition.status.toUpperCase();
 
   return (
-    <div
+    <button
+      type="button"
+      disabled={!verdict}
+      onClick={() => verdict && onSelect?.(condition.band)}
+      aria-label={`${condition.band} ${statusLabel}. ${verdict ? "Open live band health details" : "Live band health unavailable"}`}
+      className="w-full disabled:cursor-default"
       style={{
         padding: "6px 4px",
         borderRadius: "4px",
@@ -231,14 +310,35 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           letterSpacing: "0.03em",
         }}
       >
-        {isEsActive ? (
-          <span style={{ color: "#a855f7" }}>Es</span>
-        ) : hasBandOpening ? (
-          <span style={{ color: "#00ff88" }}>OPEN</span>
-        ) : (
-          statusLabel
-        )}
+        {statusLabel}
       </div>
+      {(isEsActive || hasBandOpening) && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "4px",
+            fontSize: "8px",
+            lineHeight: 1.2,
+          }}
+        >
+          {isEsActive && <span style={{ color: "#a855f7" }}>Es</span>}
+          {hasBandOpening && <span style={{ color: "#00ff88" }}>OPEN</span>}
+        </div>
+      )}
+      {verdict && (
+        <div
+          style={{
+            marginTop: "1px",
+            fontSize: "8px",
+            color: "#6b7280",
+            lineHeight: 1.2,
+          }}
+          title="Independent path-physics estimate"
+        >
+          PATH {condition.status.toUpperCase()}
+        </div>
+      )}
       {sparklineData && sparklineData.length >= 2 && (
         <div
           style={{
@@ -250,7 +350,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           <BandSparkline data={sparklineData} />
         </div>
       )}
-    </div>
+    </button>
   );
 }, gridCellPropsAreEqual);
 
@@ -336,11 +436,55 @@ export function BandConditionsPanel({
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const activeBand = useActiveBand();
+  const {
+    bands: liveBandHealth,
+    ready: bandHealthReady,
+    scope: bandHealthScope,
+    activityScope,
+  } = useBandVerdicts();
+  const {
+    data: activityByBand,
+    dataUpdatedAt: bandActivityUpdatedAt,
+    refetch: refetchBandActivity,
+    isError: isBandActivityError,
+    isRefetching: isBandActivityRefetching,
+  } = useBandActivity(activityScope);
+  const {
+    data: canonicalByKey,
+    refetch: refetchBandLadder,
+    isError: isBandLadderError,
+    isRefetching: isBandLadderRefetching,
+  } = useBandLadder();
   const uiPrefs = useUIInteractionPrefs();
   const isGridView = uiPrefs.visualStyle === "high-viz";
   const [showHelp, setShowHelp] = useState(false);
+  const [selectedHealthBand, setSelectedHealthBand] = useState<string | null>(
+    null,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+
+  const liveBandHealthByBand = useMemo(
+    () => readyBandHealthByBand(liveBandHealth, bandHealthReady),
+    [bandHealthReady, liveBandHealth],
+  );
+  const selectedHealthEntry = selectedHealthBand
+    ? liveBandHealthByBand.get(selectedHealthBand) ?? null
+    : null;
+  const canonicalFor = useCallback(
+    (band: string) => {
+      if (!canonicalByKey) return undefined;
+      if (bandHealthScope.type === "regional" && bandHealthScope.continent) {
+        return canonicalByKey.get(
+          canonicalKey("regional", bandHealthScope.continent, band),
+        );
+      }
+      if (bandHealthScope.type === "global") {
+        return canonicalByKey.get(canonicalKey("global", "", band));
+      }
+      return undefined;
+    }, [bandHealthScope, canonicalByKey],
+  );
 
   // Check if content overflows and handle scroll position
   const checkScroll = useCallback(() => {
@@ -384,26 +528,59 @@ export function BandConditionsPanel({
     refetch: refetchSfi,
   } = useSolarFlux();
 
-  // Combined refresh state - use most recent update time
-  const lastUpdatedAt = useMemo(() => {
-    return Math.max(kIndexUpdatedAt || 0, sfiUpdatedAt || 0);
-  }, [kIndexUpdatedAt, sfiUpdatedAt]);
+  // Solar inputs and observation evidence refresh independently. Keep their
+  // ages separate so a new K-index response cannot make an older Band Health
+  // verdict look equally fresh (and vice versa).
+  const lastUpdatedAt = useMemo(
+    () => oldestKnownTimestamp([kIndexUpdatedAt, sfiUpdatedAt]) ?? 0,
+    [kIndexUpdatedAt, sfiUpdatedAt],
+  );
 
-  const isRefetching = isKIndexRefetching || isSfiRefetching;
+  const isRefetching =
+    isKIndexRefetching ||
+    isSfiRefetching ||
+    isBandActivityRefetching ||
+    isBandLadderRefetching;
 
   // Manual refresh handler
   const handleRefresh = useCallback(() => {
-    refetchKIndex();
-    refetchSfi();
-  }, [refetchKIndex, refetchSfi]);
+    void refetchKIndex();
+    void refetchSfi();
+    void refetchBandActivity();
+    void refetchBandLadder();
+  }, [
+    refetchBandActivity,
+    refetchBandLadder,
+    refetchKIndex,
+    refetchSfi,
+  ]);
 
-  // Format last updated time
-  const lastUpdatedText = useMemo(() => {
-    if (!lastUpdatedAt) {
-      return "Never";
-    }
-    return formatDistanceToNow(new Date(lastUpdatedAt), { addSuffix: false });
-  }, [lastUpdatedAt]);
+  // These inexpensive labels are intentionally recalculated on each render;
+  // displayTime already keeps an open PropSphere updating, so their ages do
+  // not freeze merely because React Query returned no new data.
+  const lastUpdatedText = queryFreshnessText(lastUpdatedAt);
+  const bandActivityFreshnessText = queryFreshnessText(
+    bandActivityUpdatedAt,
+    isBandActivityError,
+  );
+  const bandLadderObservedAt = useMemo(() => {
+    if (!canonicalByKey || bandHealthScope.type === "dx") return 0;
+    const scopeKey =
+      bandHealthScope.type === "regional"
+        ? (bandHealthScope.continent ?? "")
+        : "";
+    return (
+      canonicalScopeUpdatedAt(
+        canonicalByKey.values(),
+        bandHealthScope.type,
+        scopeKey,
+      ) ?? 0
+    );
+  }, [bandHealthScope, canonicalByKey]);
+  const bandLadderFreshnessText =
+    bandHealthScope.type === "dx"
+      ? "not used for DX"
+      : queryFreshnessText(bandLadderObservedAt, isBandLadderError);
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
@@ -647,9 +824,26 @@ export function BandConditionsPanel({
     );
   }
 
-  // Get best band and overall status for collapsed view
+  // Get best path-model band and overall status for fallback/collapsed views.
+  // When BH2 is ready, the collapsed headline uses that same live ladder as
+  // Home; the independent path-model aggregate remains the fallback only.
+  // Limit the headline candidates to the bands rendered below, so a live-only
+  // 6m verdict cannot advertise a detail row this HF path panel does not have.
   const bestBand = findBestBand(bandConditions);
   const overallStatus = getOverallStatus(bandConditions);
+  const renderedBands = new Set(
+    bandConditions.map((condition) => condition.band),
+  );
+  const bestHealth = [...liveBandHealthByBand.values()].reduce<
+    BandLadderEntry | null
+  >(
+    (best, entry) =>
+      renderedBands.has(entry.band) &&
+      (!best || LADDER_RANK[entry.stable] > LADDER_RANK[best.stable])
+        ? entry
+        : best,
+    null,
+  );
 
   // Status colors for collapsed view
   const statusColors = {
@@ -669,6 +863,11 @@ export function BandConditionsPanel({
       bg: "bg-alert-red/10",
     },
   };
+  // Both panel shapes describe the same observation-backed headline. Keep the
+  // path aggregate only as the pre-readiness fallback for their status dot.
+  const headlineDotClass = bestHealth
+    ? bandHealthDotClass(bestHealth)
+    : statusColors[overallStatus].dot;
 
   return (
     <>
@@ -711,23 +910,31 @@ export function BandConditionsPanel({
 
               {/* Status dot */}
               <div
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColors[overallStatus].dot}`}
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  headlineDotClass
+                }`}
               />
 
               {/* Best band with status */}
-              {bestBand ? (
+              {bestHealth || bestBand ? (
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-sm font-mono font-semibold ${getPathStatusColor(
-                      bestBand.status,
-                    )}`}
+                    className={`text-sm font-mono font-semibold ${
+                      bestHealth
+                        ? LADDER_BADGE_CLASSES[bestHealth.stable].split(" ")[0]
+                        : getPathStatusColor(bestBand!.status)
+                    }`}
                   >
-                    {bestBand.band}
+                    {bestHealth?.band ?? bestBand?.band}
                   </span>
                   <span
-                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${statusColors[overallStatus].text} ${statusColors[overallStatus].bg}`}
+                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                      bestHealth
+                        ? LADDER_BADGE_CLASSES[bestHealth.stable]
+                        : `${statusColors[overallStatus].text} ${statusColors[overallStatus].bg}`
+                    }`}
                   >
-                    {overallStatus}
+                    {bestHealth ? bandHealthLabel(bestHealth) : overallStatus}
                   </span>
                 </div>
               ) : (
@@ -760,7 +967,7 @@ export function BandConditionsPanel({
           <BandConditionsHeader
             currentKp={currentKp}
             currentSfi={currentSfi}
-            statusDotClass={statusColors[overallStatus].dot}
+            statusDotClass={headlineDotClass}
             onToggleCollapse={onToggleCollapse}
             onClose={onClose}
             onHelp={() => setShowHelp(true)}
@@ -796,6 +1003,8 @@ export function BandConditionsPanel({
                     <BandConditionGridCell
                       key={condition.band}
                       condition={condition}
+                      verdict={liveBandHealthByBand.get(condition.band)}
+                      onSelect={setSelectedHealthBand}
                       isSynced={activeBand === condition.band}
                       isEsActive={
                         (condition.band === "6m" || condition.band === "10m") &&
@@ -836,6 +1045,8 @@ export function BandConditionsPanel({
                       <BandConditionRow
                         key={condition.band}
                         condition={condition}
+                        verdict={liveBandHealthByBand.get(condition.band)}
+                        onSelect={setSelectedHealthBand}
                         hasEnhancedData={!!enhancedBandConditions}
                         compact={compact}
                         isSynced={activeBand === condition.band}
@@ -893,9 +1104,16 @@ export function BandConditionsPanel({
             <div className="flex items-center justify-between text-xs text-gray-400">
               <span>Path illumination: {Math.round(illumination)}%</span>
             </div>
+            <div className="mt-1 text-[10px] text-gray-500">
+              Live status: {bandHealthScope.label} · signal/SNR: path model
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-gray-500">
+              <span>Band evidence: {bandActivityFreshnessText}</span>
+              <span>Canonical ladder: {bandLadderFreshnessText}</span>
+            </div>
             <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-white/5">
               <span className="text-[10px] text-gray-500">
-                Updated {lastUpdatedText} ago
+                Solar inputs: {lastUpdatedText}
               </span>
               <button
                 onClick={handleRefresh}
@@ -930,6 +1148,19 @@ export function BandConditionsPanel({
         title={HELP_CONTENT.bandConditions.title}
         sections={HELP_CONTENT.bandConditions.sections}
       />
+      <BandVerdictDetailsDialog
+        entry={selectedHealthEntry}
+        activity={
+          selectedHealthBand
+            ? activityByBand?.get(selectedHealthBand)
+            : undefined
+        }
+        canonical={
+          selectedHealthBand ? canonicalFor(selectedHealthBand) : undefined
+        }
+        scopeLabel={bandHealthScope.label}
+        onClose={() => setSelectedHealthBand(null)}
+      />
     </>
   );
 }
@@ -939,6 +1170,10 @@ export function BandConditionsPanel({
  */
 interface BandConditionRowProps {
   condition: PathBandCondition;
+  /** Shared observation-backed Band Health verdict shown as the headline. */
+  verdict?: BandLadderEntry;
+  /** Opens the shared evidence dialog for the selected band. */
+  onSelect?: (band: string) => void;
   hasEnhancedData: boolean;
   compact: boolean;
   isSynced: boolean;
@@ -965,6 +1200,8 @@ function bandConditionRowPropsAreEqual(
     prevProps.condition.status === nextProps.condition.status &&
     prevProps.condition.snrEstimate === nextProps.condition.snrEstimate &&
     prevProps.condition.sUnit?.value === nextProps.condition.sUnit?.value &&
+    prevProps.verdict?.stable === nextProps.verdict?.stable &&
+    prevProps.verdict?.fading === nextProps.verdict?.fading &&
     prevProps.condition.signalPrediction?.confidenceLow ===
       nextProps.condition.signalPrediction?.confidenceLow &&
     prevProps.condition.signalPrediction?.snrLow ===
@@ -987,6 +1224,8 @@ function bandConditionRowPropsAreEqual(
  */
 const BandConditionRow = memo(function BandConditionRow({
   condition,
+  verdict,
+  onSelect,
   hasEnhancedData,
   compact,
   isSynced,
@@ -996,10 +1235,15 @@ const BandConditionRow = memo(function BandConditionRow({
   hasBandOpening,
   sparklineData,
 }: BandConditionRowProps) {
-  const statusColor = getPathStatusColor(condition.status);
-  const statusBgColor = getPathStatusBgColor(condition.status);
-  const statusLabel =
+  // The path model still owns signal/SNR. Its qualitative label is retained
+  // as supporting context, while the live BH2 ladder owns the headline status
+  // so Home and PropSphere cannot disagree about a verified fading opening.
+  const pathStatusLabel =
     condition.status.charAt(0).toUpperCase() + condition.status.slice(1);
+  const statusLabel = verdict ? bandHealthLabel(verdict) : pathStatusLabel;
+  const statusClasses = verdict
+    ? LADDER_BADGE_CLASSES[verdict.stable]
+    : `${getPathStatusColor(condition.status)} ${getPathStatusBgColor(condition.status)}`;
 
   const sUnitText = condition.sUnit?.text || "N/A";
   const sUnitColor = getSUnitColor(condition.sUnit);
@@ -1012,7 +1256,8 @@ const BandConditionRow = memo(function BandConditionRow({
 
   return (
     <tr
-      className={`hover:bg-white/5 transition-colors ${
+      onClick={() => verdict && onSelect?.(condition.band)}
+      className={`transition-colors ${verdict ? "cursor-pointer hover:bg-white/5" : ""} ${
         isSynced ? "bg-cyan-500/10 border-l-2 border-cyan-400" : ""
       } ${isGreylineActive ? "bg-amber-500/5" : ""}`}
     >
@@ -1033,11 +1278,25 @@ const BandConditionRow = memo(function BandConditionRow({
               />
             </svg>
           )}
-          <div
-            className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-white"}`}
-          >
-            {condition.band}
-          </div>
+          {verdict ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect?.(condition.band);
+              }}
+              className={`rounded font-mono text-sm underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300 ${isSynced ? "text-cyan-400" : "text-white"}`}
+              aria-label={`${condition.band} ${statusLabel}. Open live band health details`}
+            >
+              {condition.band}
+            </button>
+          ) : (
+            <div
+              className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-white"}`}
+            >
+              {condition.band}
+            </div>
+          )}
           {/* Greyline active indicator for low bands */}
           {isGreylineActive && (
             <span
@@ -1076,10 +1335,18 @@ const BandConditionRow = memo(function BandConditionRow({
       <td className="px-1 py-1 text-center">
         <div className="flex flex-col items-center gap-0.5">
           <span
-            className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-medium ${statusColor} ${statusBgColor}`}
+            className={`inline-block rounded-full px-1.5 py-0.5 text-xs font-medium ${statusClasses}`}
           >
             {statusLabel}
           </span>
+          {verdict && (
+            <span
+              className="text-[9px] text-gray-500"
+              title="Independent path-physics estimate"
+            >
+              Path {pathStatusLabel}
+            </span>
+          )}
           {/* Correlation indicator beneath status */}
           {correlation && (
             <CorrelationIndicator

@@ -8,6 +8,7 @@ import {
 import { Card } from "@/components/ui";
 import { ResearchAttemptControl } from "@/components/propagation/ResearchAttemptControl";
 import type { NowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { predictionIssueLabels } from "@/lib/propagation/predictionPresentation";
 
 interface NowCastBandPanelProps {
   state: NowCastBandPredictions;
@@ -132,7 +133,7 @@ export function NowCastBandPanel({
             const envelope = state.stationEnvelopes.get(band);
             const delta =
               prediction.personalized_probability - prediction.core_probability;
-            const oodTitle = prediction.ood_flags.join(", ");
+            const oodTitle = predictionIssueLabels(prediction).join(" · ");
             return (
               <div
                 key={band}

@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import {
+  SOLAR_IMAGE_PRODUCTS,
+  solarImageUrl,
+} from "@/lib/solar/mediaProducts";
+import { useRetainedSolarImage } from "../useRetainedSolarImage";
 
 export interface SunspotModalProps {
   isOpen: boolean;
@@ -94,11 +99,12 @@ const SSN_PROPAGATION_INFO = [
 ];
 
 /**
- * Get the primary sun image URL via our edge function proxy.
- * The stable media route provides bounded validation and cache semantics.
+ * Get the primary sun image URL via our edge function proxy. The shared helper
+ * advances only at the product cadence, preserving bounded edge caching while
+ * allowing a modal left open on a wall display to receive new SDO frames.
  */
-function getSunImageUrl(): string {
-  return "/api/solar/image?product=sunspot-hmi";
+function getSunImageUrl(now: number): string {
+  return solarImageUrl("sunspot-hmi", now);
 }
 
 /**
@@ -115,31 +121,38 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
   onClose,
   currentValue,
 }) => {
-  const [imageLoading, setImageLoading] = useState(true);
-  const [imageError, setImageError] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [imageAttempt, setImageAttempt] = useState(0);
+  const imageUrl = isOpen ? getSunImageUrl(now) : null;
+  const retainedImage = useRetainedSolarImage(
+    "sunspot-hmi",
+    imageUrl,
+    imageAttempt,
+    SOLAR_IMAGE_PRODUCTS["sunspot-hmi"].hardTtlSeconds * 1_000,
+  );
+  const imageLoading =
+    isOpen && !retainedImage.hasLoadedImage && !retainedImage.candidateFailed;
+  const imageError =
+    isOpen && !retainedImage.hasLoadedImage && retainedImage.candidateFailed;
 
   const cyclePhase = getSolarCyclePhase(currentValue);
 
-  // Generate image URL when modal opens
+  // Generate a fresh cadence key when the modal opens, then keep it current
+  // for operators who leave the detailed view mounted.
   useEffect(() => {
     if (isOpen) {
-      setImageLoading(true);
-      setImageError(false);
-      // Cache-buster ensures we get the latest SDO image on each open
-      setImageUrl(getSunImageUrl());
+      setNow(Date.now());
+      // Reopening is an explicit opportunity to retry even when the cadence
+      // key has not changed since a prior initial-load failure.
+      setImageAttempt((value) => value + 1);
     }
   }, [isOpen]);
 
-  const handleImageLoad = useCallback(() => {
-    setImageLoading(false);
-    setImageError(false);
-  }, []);
-
-  const handleImageError = useCallback(() => {
-    setImageLoading(false);
-    setImageError(true);
-  }, []);
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [isOpen]);
 
   // Memoize the fallback sun SVG
   const fallbackSun = useMemo(
@@ -250,17 +263,30 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
                 {fallbackSun}
               </div>
             ) : (
-              imageUrl && (
+              retainedImage.visibleUrl && (
                 <img
-                  src={imageUrl}
+                  src={retainedImage.visibleUrl}
                   alt="Current view of the Sun from NASA Solar Dynamics Observatory"
                   className={`w-full h-full object-contain transition-opacity duration-300 ${
                     imageLoading ? "opacity-0" : "opacity-100"
                   }`}
-                  onLoad={handleImageLoad}
-                  onError={handleImageError}
+                  onLoad={retainedImage.handleVisibleLoad}
+                  onError={retainedImage.handleVisibleError}
                 />
               )
+            )}
+            {retainedImage.probeUrl && (
+              <img
+                key={retainedImage.probeUrl}
+                src={retainedImage.probeUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                data-solar-image-probe="true"
+                className="pointer-events-none absolute h-px w-px opacity-0"
+                onLoad={retainedImage.handleProbeLoad}
+                onError={retainedImage.handleProbeError}
+              />
             )}
           </div>
           <p className="text-xs text-gray-500 text-center mt-2">

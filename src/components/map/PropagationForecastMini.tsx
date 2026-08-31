@@ -14,6 +14,7 @@ import { useForecastDisplayPrefs } from "@/stores/userStore";
 import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { predictionIssueLabels } from "@/lib/propagation/predictionPresentation";
 import { ModelSourceBadge } from "@/components/map/ModelSourceBadge";
 import {
   BAND_SCORE_SOURCE,
@@ -1108,7 +1109,7 @@ export function PropagationForecastMini({
                     : ""
                 }\nConfidence: ${Math.round(prediction.confidence * 100)}%${
                   prediction.ood_flags.length > 0
-                    ? `\nOut of distribution: ${prediction.ood_flags.join(", ")}`
+                    ? `\nModel notes: ${predictionIssueLabels(prediction).join(" · ")}`
                     : ""
                 }`}
               >

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   SOLAR_IMAGE_PRODUCTS,
+  solarImageMetadataUrl,
+  solarImageUrl,
   type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
+import { useRetainedSolarImage } from "./useRetainedSolarImage";
 
 interface ImageMetadata {
   observedAt: string | null;
@@ -34,7 +37,19 @@ export function SolarImageCard({
   const [metadataState, setMetadataState] = useState<MetadataState>("loading");
   const [now, setNow] = useState(() => Date.now());
   const attempt = useRef(0);
-  const imageUrl = `/api/solar/image?product=${encodeURIComponent(productId)}`;
+  const imageUrl = solarImageUrl(productId, now, retryKey);
+  const retainedImage = useRetainedSolarImage(
+    productId,
+    imageUrl,
+    imageUrl,
+    product.hardTtlSeconds * 1_000,
+  );
+  const metadataUrl = solarImageMetadataUrl(
+    productId,
+    now,
+    metadataRetryKey,
+  );
+  const refreshBucket = Math.floor(now / (product.softTtlSeconds * 1_000));
 
   const retry = useCallback(() => {
     setState((current) => (current === "loading" ? "loading" : "retrying"));
@@ -52,7 +67,7 @@ export function SolarImageCard({
   useEffect(() => {
     const controller = new AbortController();
     setMetadataState("loading");
-    fetch(`/api/solar/image-meta?product=${encodeURIComponent(productId)}`, {
+    fetch(metadataUrl, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     })
@@ -77,7 +92,7 @@ export function SolarImageCard({
         if (!controller.signal.aborted) setMetadataState("error");
       });
     return () => controller.abort();
-  }, [metadataRetryKey, productId]);
+  }, [metadataUrl, refreshBucket]);
 
   useEffect(() => {
     if (metadataState !== "error") return;
@@ -155,21 +170,44 @@ export function SolarImageCard({
           </div>
         )}
         <img
-          key={retryKey}
-          src={imageUrl}
+          src={retainedImage.visibleUrl ?? undefined}
           alt={product.alt}
           loading="lazy"
           decoding="async"
           className={`pointer-events-none h-full w-full object-contain transition-opacity motion-reduce:transition-none ${usableImage ? "opacity-100" : "opacity-0"}`}
           onLoad={() => {
+            retainedImage.handleVisibleLoad();
             attempt.current = 0;
             setState("fresh");
           }}
           onError={() => {
+            retainedImage.handleVisibleError();
             attempt.current += 1;
             setState("error");
           }}
         />
+        {retainedImage.probeUrl && (
+          <img
+            key={retainedImage.probeUrl}
+            src={retainedImage.probeUrl}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            data-solar-image-probe="true"
+            className="pointer-events-none absolute h-px w-px opacity-0"
+            onLoad={() => {
+              retainedImage.handleProbeLoad();
+              attempt.current = 0;
+              setState("fresh");
+            }}
+            onError={() => {
+              // A cadence miss must not evict a still-usable decoded frame.
+              // The next cadence key (or an explicit retry) can probe again.
+              retainedImage.handleProbeError();
+              attempt.current += 1;
+            }}
+          />
+        )}
         <span
           className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider backdrop-blur ${
             visibleState === "fresh"

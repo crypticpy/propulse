@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { useActivationSpotStore } from "@/stores/activationSpotStore";
 import { useMapStore } from "@/stores/mapStore";
 import { ActivationPillButtons } from "./ActivationPillButtons";
 
 describe("ActivationPillButtons", () => {
   beforeEach(() => {
     useMapStore.setState({ target: null });
+    useActivationSpotStore.setState({ selectedSpot: null });
   });
 
   it("exposes a keyboard-focusable target for each painted activation", () => {
@@ -46,6 +48,9 @@ describe("ActivationPillButtons", () => {
         lon: -97.75,
         name: "K5ABC · POTA US-1234",
       }),
+    );
+    expect(useActivationSpotStore.getState().selectedSpot).toEqual(
+      expect.objectContaining({ id: "pota-1", callsign: "K5ABC" }),
     );
   });
 });

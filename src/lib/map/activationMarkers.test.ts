@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ActivationSpot } from "@/types/activationSpots";
 import {
   drawActivationPills,
+  formatActivationFrequency,
   placeActivationPill,
   resolveActivationMarkers,
 } from "./activationMarkers";
@@ -18,6 +19,14 @@ const BASE: ActivationSpot = {
   spotter: "W1AW",
   spottedAt: "2026-08-31T13:59:00.000Z",
 };
+
+describe("formatActivationFrequency", () => {
+  it("keeps useful MHz precision without padding map labels", () => {
+    expect(formatActivationFrequency(7240)).toBe("7.24");
+    expect(formatActivationFrequency(7383)).toBe("7.383");
+    expect(formatActivationFrequency(14074)).toBe("14.074");
+  });
+});
 
 describe("resolveActivationMarkers", () => {
   it("keeps valid zero coordinates and removes missing or out-of-range points", () => {
@@ -79,6 +88,30 @@ describe("placeActivationPill", () => {
 });
 
 describe("drawActivationPills", () => {
+  it("paints the reported frequency beside the callsign and program", () => {
+    const labels: string[] = [];
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      beginPath: () => undefined,
+      moveTo: () => undefined,
+      arcTo: () => undefined,
+      closePath: () => undefined,
+      fill: () => undefined,
+      fillRect: () => undefined,
+      fillText: (text: string) => labels.push(text),
+      measureText: (text: string) => ({ width: text.length * 6 }),
+    } as unknown as CanvasRenderingContext2D;
+
+    drawActivationPills(
+      ctx,
+      [{ ...BASE, latitude: 30, longitude: -97 }],
+      () => ({ x: 100, y: 100 }),
+    );
+
+    expect(labels).toEqual(["K5ABC", "POTA", "14.074"]);
+  });
+
   it("does not clamp an off-screen activation onto the viewport edge", () => {
     const ctx = {
       save: () => undefined,

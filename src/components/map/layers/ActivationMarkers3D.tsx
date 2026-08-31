@@ -9,7 +9,11 @@
 import { useMemo } from "react";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import { getBandColor } from "@/lib/utils/spotColors";
-import type { MappableActivationSpot } from "@/lib/map/activationMarkers";
+import {
+  formatActivationFrequency,
+  type MappableActivationSpot,
+} from "@/lib/map/activationMarkers";
+import { useActivationSpotStore } from "@/stores/activationSpotStore";
 import { useMapStore } from "@/stores/mapStore";
 import { SpotLabel } from "../SpotLabel";
 
@@ -19,6 +23,7 @@ interface ActivationMarkers3DProps {
 
 export function ActivationMarkers3D({ spots }: ActivationMarkers3DProps) {
   const setTarget = useMapStore((state) => state.setTarget);
+  const selectSpot = useActivationSpotStore((state) => state.selectSpot);
   const positions = useMemo(
     () => spots.map((spot) => ({ lat: spot.latitude, lon: spot.longitude })),
     [spots],
@@ -53,15 +58,16 @@ export function ActivationMarkers3D({ spots }: ActivationMarkers3DProps) {
           stackIndex={stackIndex}
           color={getBandColor(spot.frequencyKHz)}
           occlusionOpacity={getOpacity(spot.latitude, spot.longitude)}
-          ariaLabel={`${spot.callsign}, ${spot.program} ${spot.reference}, ${spot.referenceName}`}
-          onClick={() =>
+          ariaLabel={`${spot.callsign}, ${formatActivationFrequency(spot.frequencyKHz)} ${spot.frequencyKHz >= 1_000 ? "megahertz" : "kilohertz"}, ${spot.mode}, ${spot.program} ${spot.reference}, ${spot.referenceName}. Select as target and open station details`}
+          onClick={() => {
             setTarget({
               lat: spot.latitude,
               lon: spot.longitude,
               grid: spot.grid,
               name: `${spot.callsign} · ${spot.program} ${spot.reference}`,
-            })
-          }
+            });
+            selectSpot(spot);
+          }}
         />
       ))}
     </group>

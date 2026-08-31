@@ -31,6 +31,22 @@ export interface ActivationPillScreenPlacement {
   height: number;
 }
 
+/**
+ * Format a reported kHz value for a compact map label. Three decimal places
+ * preserve common channel precision while trailing zeroes stay out of dense
+ * activation pills (7240 kHz -> "7.24", 7383 kHz -> "7.383").
+ */
+export function formatActivationFrequency(frequencyKHz: number): string {
+  if (!Number.isFinite(frequencyKHz)) return "";
+  if (frequencyKHz < 1_000) {
+    return frequencyKHz.toFixed(1).replace(/\.0$/, "");
+  }
+  return (frequencyKHz / 1_000)
+    .toFixed(3)
+    .replace(/0+$/, "")
+    .replace(/\.$/, "");
+}
+
 export function sameActivationPillScreenPlacements(
   left: ActivationPillScreenPlacement[],
   right: ActivationPillScreenPlacement[],
@@ -241,7 +257,9 @@ export function drawActivationPills(
     const callWidth = ctx.measureText(spot.callsign).width;
     ctx.font = `700 ${tagFontSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     const tagWidth = ctx.measureText(spot.program).width;
-    const width = callWidth + tagWidth + padX * 3;
+    const frequencyLabel = formatActivationFrequency(spot.frequencyKHz);
+    const frequencyWidth = ctx.measureText(frequencyLabel).width;
+    const width = callWidth + tagWidth + frequencyWidth + padX * 4;
     const box = placeActivationPill(
       point,
       width,
@@ -277,6 +295,13 @@ export function drawActivationPills(
       `700 ${tagFontSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     ctx.fillStyle = color;
     ctx.fillText(spot.program, box.x + padX * 2 + callWidth, textY);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+    ctx.fillText(
+      frequencyLabel,
+      box.x + padX * 3 + callWidth + tagWidth,
+      textY,
+    );
   }
 
   ctx.restore();

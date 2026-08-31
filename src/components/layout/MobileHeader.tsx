@@ -8,6 +8,7 @@ import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { QuickLocationControl } from "@/components/location/QuickLocationControl";
 
 interface MobileHeaderProps {
   /** Number of active alerts */
@@ -55,6 +56,7 @@ export function MobileHeader({
 
       {/* Right: alerts + settings */}
       <div className="flex shrink-0 items-center gap-1">
+        <QuickLocationControl variant="icon" />
         {alertCount > 0 && (
           <button
             onClick={onAlertClick}

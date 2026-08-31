@@ -66,6 +66,8 @@ export interface ServiceCredentials {
 
 /** Maximum number of saved targets allowed */
 const MAX_SAVED_TARGETS = 10;
+/** Stable slot used by the quick travel-location control. */
+export const CURRENT_LOCATION_ID = "current-location";
 
 // ─── Store interface ─────────────────────────────────────────────────────────
 
@@ -121,6 +123,12 @@ interface ProfileStore {
     name?: string,
     type?: LocationType,
   ) => string;
+  setCurrentLocation: (location: {
+    grid: string;
+    lat: number;
+    lon: number;
+    timezone?: string;
+  }) => void;
   clearTemporaryLocation: () => void;
 
   // Targets
@@ -417,6 +425,49 @@ export const useProfileStore = create<ProfileStore>()(
 
         return id;
       },
+
+      // A quick travel update owns one stable saved-location slot. Replacing
+      // that slot avoids accumulating a new hidden location on every GPS fix,
+      // while the independently configured home QTH remains untouched.
+      setCurrentLocation: ({ grid, lat, lon, timezone }) =>
+        set((state) => {
+          if (!state.station) return state;
+
+          const previous = state.station.savedLocations.find(
+            (location) => location.id === CURRENT_LOCATION_ID,
+          );
+          const currentLocation: OperatingLocation = {
+            id: CURRENT_LOCATION_ID,
+            name: "Current location",
+            grid,
+            lat,
+            lon,
+            timezone,
+            type: "mobile",
+            createdAt: previous?.createdAt ?? new Date().toISOString(),
+          };
+          const savedLocations = previous
+            ? state.station.savedLocations.map((location) =>
+                location.id === CURRENT_LOCATION_ID
+                  ? currentLocation
+                  : location,
+              )
+            : [...state.station.savedLocations, currentLocation];
+
+          return {
+            station: {
+              ...state.station,
+              savedLocations,
+              activeLocationId: CURRENT_LOCATION_ID,
+              // Keep the legacy mirrors current because many map and weather
+              // consumers still read these fields through userStore.
+              grid,
+              lat,
+              lon,
+              timezone,
+            },
+          };
+        }),
 
       clearTemporaryLocation: () =>
         set((state) => {

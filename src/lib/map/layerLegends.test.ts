@@ -135,6 +135,9 @@ describe("buildLayerLegends", () => {
     expect(spec.entries.find((entry) => entry.label === "20m")?.color).toBe(
       BAND_COLORS["20m"],
     );
+    expect(spec.entries.find((entry) => entry.label === "Other")?.color).toBe(
+      BAND_COLORS.default,
+    );
     expect(spec.note).toContain("POTA/SOTA/WWFF");
   });
 

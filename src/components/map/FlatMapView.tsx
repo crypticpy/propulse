@@ -117,7 +117,12 @@ import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
-import { drawActivationPills } from "@/lib/map/activationMarkers";
+import {
+  drawActivationPills,
+  sameActivationPillScreenPlacements,
+  type ActivationPillScreenPlacement,
+} from "@/lib/map/activationMarkers";
+import { ActivationPillButtons } from "./layers/ActivationPillButtons";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -3157,8 +3162,12 @@ export function FlatMapView({
   hideSizeSliders = false,
 }: FlatMapViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mapSurfaceRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+  const [activationPillPlacements, setActivationPillPlacements] = useState<
+    ActivationPillScreenPlacement[]
+  >([]);
   // XYZ tile compositor for the satellite style (sharp imagery when zoomed in)
   const tileLayerRef = useRef<FlatTileLayer | null>(null);
   // Bumped when an async tile finishes loading, forcing a recomposite
@@ -4024,16 +4033,17 @@ export function FlatMapView({
     [clampOffsets, runZoomAnimation],
   );
 
-  // Attach wheel event listener with passive: false to allow preventDefault
+  // Attach to the shared map surface so zoom keeps working when an accessible
+  // activation button, rather than the canvas beneath it, is the wheel target.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
+    const surface = mapSurfaceRef.current;
+    if (!surface) {
       return;
     }
 
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    surface.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
-      canvas.removeEventListener("wheel", handleWheel);
+      surface.removeEventListener("wheel", handleWheel);
     };
   }, [handleWheel]);
 
@@ -4790,11 +4800,37 @@ export function FlatMapView({
     }
 
     if (layers.activations && activationSpots.length > 0) {
-      drawActivationPills(
+      const placements = drawActivationPills(
         ctx,
         activationSpots,
         (lat, lon) => latLonToCanvas(lat, lon, renderWidth, renderHeight),
-        { zoomScale: zoom.scale, labelScale, highViz },
+        {
+          zoomScale: zoom.scale,
+          labelScale,
+          highViz,
+          bounds: {
+            x: -zoom.offsetX / zoom.scale,
+            y: -zoom.offsetY / zoom.scale,
+            width: viewportSize.width / zoom.scale,
+            height: viewportSize.height / zoom.scale,
+          },
+        },
+      );
+      const screenPlacements = placements.map(({ spot, bounds }) => ({
+        spot,
+        left: bounds.x * zoom.scale + zoom.offsetX,
+        top: bounds.y * zoom.scale + zoom.offsetY,
+        width: bounds.width * zoom.scale,
+        height: bounds.height * zoom.scale,
+      }));
+      setActivationPillPlacements((current) =>
+        sameActivationPillScreenPlacements(current, screenPlacements)
+          ? current
+          : screenPlacements,
+      );
+    } else {
+      setActivationPillPlacements((current) =>
+        current.length === 0 ? current : [],
       );
     }
 
@@ -5086,6 +5122,7 @@ export function FlatMapView({
         </div>
       )}
       <div
+        ref={mapSurfaceRef}
         className="relative flex-shrink-0"
         style={{ width: viewportSize.width, height: viewportSize.height }}
       >
@@ -5133,6 +5170,9 @@ export function FlatMapView({
             offsetY={zoom.offsetY}
             scale={zoom.scale}
           />
+        )}
+        {layers.activations && (
+          <ActivationPillButtons placements={activationPillPlacements} />
         )}
       </div>
 

@@ -25,6 +25,22 @@ import {
  * Prevents excessive re-renders for Html-based components.
  */
 const STATE_UPDATE_THRESHOLD = 0.05;
+const INTERACTION_VISIBILITY_THRESHOLD = 0.05;
+
+/** Compare with the opacity React last published, not the preceding frame. */
+export function shouldPublishGlobeOcclusionOpacity(
+  nextOpacity: number,
+  publishedOpacity: number | undefined,
+): boolean {
+  if (publishedOpacity === undefined) return true;
+  const crossedInteractionThreshold =
+    (nextOpacity >= INTERACTION_VISIBILITY_THRESHOLD) !==
+    (publishedOpacity >= INTERACTION_VISIBILITY_THRESHOLD);
+  return (
+    crossedInteractionThreshold ||
+    Math.abs(nextOpacity - publishedOpacity) > STATE_UPDATE_THRESHOLD
+  );
+}
 
 export interface GlobeOcclusionBatchResult {
   /** Look up the current occlusion opacity for a lat/lon pair */
@@ -64,6 +80,10 @@ export function useGlobeOcclusionBatch(
 ): GlobeOcclusionBatchResult {
   // Internal cache: "lat,lon" -> opacity
   const cacheRef = useRef(new Map<string, number>());
+  // Separate from the per-frame cache so several small camera movements can
+  // accumulate into a state update. Comparing only adjacent frames can leave
+  // a slowly rotating label interactive after it crosses the globe limb.
+  const publishedCacheRef = useRef(new Map<string, number>());
   const [version, setVersion] = useState(0);
   const versionRef = useRef(0);
 
@@ -78,6 +98,7 @@ export function useGlobeOcclusionBatch(
 
     let anySignificantChange = false;
     const cache = cacheRef.current;
+    const publishedCache = publishedCacheRef.current;
 
     for (let i = 0; i < positions.length; i++) {
       const pos = positions[i];
@@ -85,22 +106,25 @@ export function useGlobeOcclusionBatch(
       const newOpacity = getGlobeOcclusionOpacity(pos.lat, pos.lon, frame);
 
       const key = `${pos.lat.toFixed(2)},${pos.lon.toFixed(2)}`;
-      const prev = cache.get(key);
-
       // Always update the cache (cheap map write)
       cache.set(key, newOpacity);
 
-      // Only flag for re-render when change exceeds threshold
-      if (
-        prev === undefined ||
-        Math.abs(newOpacity - prev) > STATE_UPDATE_THRESHOLD
-      ) {
+      // Compare with the last value exposed through a React render. This makes
+      // gradual sub-threshold changes publish once their total becomes visible.
+      if (shouldPublishGlobeOcclusionOpacity(newOpacity, publishedCache.get(key))) {
         anySignificantChange = true;
       }
     }
 
     // Batch state update: one setState for all positions
     if (anySignificantChange) {
+      publishedCache.clear();
+      for (let i = 0; i < positions.length; i++) {
+        const pos = positions[i];
+        const key = `${pos.lat.toFixed(2)},${pos.lon.toFixed(2)}`;
+        const opacity = cache.get(key);
+        if (opacity !== undefined) publishedCache.set(key, opacity);
+      }
       versionRef.current++;
       setVersion(versionRef.current);
     }

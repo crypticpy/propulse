@@ -11,10 +11,49 @@ export interface ActivationMarkerPoint {
   y: number;
 }
 
+export interface ActivationMarkerBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ActivationPillPlacement {
+  spot: MappableActivationSpot;
+  bounds: ActivationMarkerBounds;
+}
+
+export interface ActivationPillScreenPlacement {
+  spot: MappableActivationSpot;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export function sameActivationPillScreenPlacements(
+  left: ActivationPillScreenPlacement[],
+  right: ActivationPillScreenPlacement[],
+): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((placement, index) => {
+    const other = right[index];
+    return (
+      placement.spot.id === other.spot.id &&
+      Math.abs(placement.left - other.left) < 0.1 &&
+      Math.abs(placement.top - other.top) < 0.1 &&
+      Math.abs(placement.width - other.width) < 0.1 &&
+      Math.abs(placement.height - other.height) < 0.1
+    );
+  });
+}
+
 interface DrawActivationPillsOptions {
   zoomScale?: number;
   labelScale?: number;
   highViz?: boolean;
+  /** Visible map rectangle in the same logical coordinates as `project`. */
+  bounds?: ActivationMarkerBounds;
 }
 
 /**
@@ -25,6 +64,7 @@ export function resolveActivationMarkers(
   spots: ActivationSpot[],
   maxSpots?: number,
 ): MappableActivationSpot[] {
+  if (maxSpots !== undefined && maxSpots <= 0) return [];
   const seen = new Set<string>();
   const resolved: MappableActivationSpot[] = [];
 
@@ -83,6 +123,76 @@ function overlaps(
   );
 }
 
+function isInside(
+  candidate: ActivationMarkerBounds,
+  bounds: ActivationMarkerBounds,
+): boolean {
+  return (
+    candidate.x >= bounds.x &&
+    candidate.y >= bounds.y &&
+    candidate.x + candidate.width <= bounds.x + bounds.width &&
+    candidate.y + candidate.height <= bounds.y + bounds.height
+  );
+}
+
+function containsPoint(
+  point: ActivationMarkerPoint,
+  bounds: ActivationMarkerBounds,
+): boolean {
+  return (
+    point.x >= bounds.x &&
+    point.y >= bounds.y &&
+    point.x <= bounds.x + bounds.width &&
+    point.y <= bounds.y + bounds.height
+  );
+}
+
+/**
+ * Choose a collision-free position while keeping the full pill visible. When
+ * every candidate collides, visibility wins and the least-surprising first
+ * position is clamped to the viewport.
+ */
+export function placeActivationPill(
+  point: ActivationMarkerPoint,
+  width: number,
+  height: number,
+  gap: number,
+  occupied: ActivationMarkerBounds[],
+  bounds?: ActivationMarkerBounds,
+): ActivationMarkerBounds {
+  const candidates: ActivationMarkerBounds[] = [
+    { x: point.x - width / 2, y: point.y - height - gap, width, height },
+    { x: point.x + gap, y: point.y - height / 2, width, height },
+    { x: point.x - width - gap, y: point.y - height / 2, width, height },
+    { x: point.x - width / 2, y: point.y + gap, width, height },
+  ];
+  const available = candidates.find(
+    (candidate) =>
+      (!bounds || isInside(candidate, bounds)) &&
+      occupied.every((placed) => !overlaps(candidate, placed)),
+  );
+  if (available) return available;
+
+  const visible = bounds
+    ? candidates.find((candidate) => isInside(candidate, bounds))
+    : undefined;
+  if (visible) return visible;
+
+  const fallback = candidates[0];
+  if (!bounds) return fallback;
+  return {
+    ...fallback,
+    x: Math.min(
+      Math.max(fallback.x, bounds.x),
+      bounds.x + Math.max(0, bounds.width - width),
+    ),
+    y: Math.min(
+      Math.max(fallback.y, bounds.y),
+      bounds.y + Math.max(0, bounds.height - height),
+    ),
+  };
+}
+
 /**
  * Draw screen-consistent activator pills in either 2D renderer. Projection is
  * supplied by the view so the layer has identical styling on both maps while
@@ -96,8 +206,8 @@ export function drawActivationPills(
     longitude: number,
   ) => ActivationMarkerPoint | null,
   options: DrawActivationPillsOptions = {},
-) {
-  if (spots.length === 0) return;
+): ActivationPillPlacement[] {
+  if (spots.length === 0) return [];
 
   const zoomDamp = Math.max(options.zoomScale ?? 1, 0.01);
   const labelScale = Math.max(options.labelScale ?? 1, 0.7);
@@ -112,6 +222,7 @@ export function drawActivationPills(
     width: number;
     height: number;
   }> = [];
+  const placements: ActivationPillPlacement[] = [];
 
   ctx.save();
   ctx.textBaseline = "middle";
@@ -120,6 +231,10 @@ export function drawActivationPills(
   for (const spot of spots) {
     const point = project(spot.latitude, spot.longitude);
     if (!point) continue;
+    // Bounds describe the visible map, not a request to pull every projected
+    // point onto its edge. Clamping below is only for a visible anchor whose
+    // pill would otherwise be clipped by the viewport.
+    if (options.bounds && !containsPoint(point, options.bounds)) continue;
 
     ctx.font =
       `700 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -127,20 +242,16 @@ export function drawActivationPills(
     ctx.font = `700 ${tagFontSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     const tagWidth = ctx.measureText(spot.program).width;
     const width = callWidth + tagWidth + padX * 3;
-    const candidates = [
-      { x: point.x - width / 2, y: point.y - height - gap },
-      { x: point.x + gap, y: point.y - height / 2 },
-      { x: point.x - width - gap, y: point.y - height / 2 },
-      { x: point.x - width / 2, y: point.y + gap },
-    ];
-    const box =
-      candidates.find((candidate) =>
-        occupied.every((placed) =>
-          !overlaps({ ...candidate, width, height }, placed),
-        ),
-      ) ?? candidates[0];
-    const bounds = { ...box, width, height };
-    occupied.push(bounds);
+    const box = placeActivationPill(
+      point,
+      width,
+      height,
+      gap,
+      occupied,
+      options.bounds,
+    );
+    occupied.push(box);
+    placements.push({ spot, bounds: box });
 
     const color = getBandColor(spot.frequencyKHz);
     ctx.shadowColor = "rgba(0, 0, 0, 0.72)";
@@ -169,4 +280,5 @@ export function drawActivationPills(
   }
 
   ctx.restore();
+  return placements;
 }

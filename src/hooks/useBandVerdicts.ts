@@ -219,7 +219,10 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     return { type: "global" };
   }, [scope, homeField, targetField]);
 
-  const { data: activityByBand } = useBandActivity(activityScope);
+  const {
+    data: activityByBand,
+    isError: isActivityError,
+  } = useBandActivity(activityScope);
 
   // Day/night at the user's QTH (fallback to 0,0 when no station is set).
   // Deliberately NOT memoized: every ingest tick re-renders this hook (the
@@ -280,7 +283,12 @@ export function useBandVerdicts(): UseBandVerdictsResult {
     physicsRefreshedAt,
   ]);
 
-  const activityReady = activityByBand !== undefined;
+  // React Query deliberately retains successful data when a later refetch
+  // fails. That is useful for explicit stale displays, but these values drive
+  // a state machine advertised as live. Remove the reader on refresh failure
+  // so the retained batch neither advances fading nor labels persisted ladder
+  // results as current evidence.
+  const activityReady = activityByBand !== undefined && !isActivityError;
   // Persisted machines are useful for hysteresis, but they are not evidence
   // that the current page load has usable inputs. Treat the ladder as ready
   // only after both solar drivers and the active observation scope arrive, so

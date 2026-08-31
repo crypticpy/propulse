@@ -29,7 +29,10 @@ vi.mock("@/stores/profileStore", () => ({
 beforeEach(() => {
   hookMocks.useKIndex.mockReturnValue({ data: [{ kp_index: 2 }] });
   hookMocks.useSolarFlux.mockReturnValue({ data: [{ flux: 145 }] });
-  hookMocks.useBandActivity.mockReturnValue({ data: new Map() });
+  hookMocks.useBandActivity.mockReturnValue({
+    data: new Map(),
+    isError: false,
+  });
   hookMocks.useProfileStore.mockImplementation(
     (selector: (state: { station: null; savedTargets: never[] }) => unknown) =>
       selector({ station: null, savedTargets: [] }),
@@ -72,5 +75,33 @@ describe("useBandVerdicts scope coordinator", () => {
     second.unmount();
     act(() => vi.advanceTimersByTime(60_000));
     expect(ingest).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops presenting and ingesting retained activity after a refetch error", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-31T13:00:00.000Z"));
+    let activityQuery = {
+      data: new Map(),
+      isError: false,
+    };
+    hookMocks.useBandActivity.mockImplementation(() => activityQuery);
+    const ingest = vi
+      .spyOn(useVerdictStore.getState(), "ingest")
+      .mockImplementation(() => undefined);
+
+    const hook = renderHook(() => useBandVerdicts());
+    expect(hook.result.current.ready).toBe(true);
+    expect(ingest).toHaveBeenCalledTimes(1);
+
+    // A failed background fetch leaves the successful Map in React Query.
+    // It must not keep the live headline or coordinator reader active.
+    activityQuery = { ...activityQuery, isError: true };
+    hook.rerender();
+    expect(hook.result.current.ready).toBe(false);
+
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(ingest).toHaveBeenCalledTimes(1);
+
+    hook.unmount();
   });
 });

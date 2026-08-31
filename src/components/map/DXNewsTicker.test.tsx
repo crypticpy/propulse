@@ -330,6 +330,30 @@ describe("DXNewsTicker", () => {
     );
   });
 
+  it("retains in-memory suppression when browser storage rejects writes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+    hookData.weatherAlerts = [weatherAlert];
+    hookData.crawlPreferences.dedupMinutes = 15;
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+      });
+
+    render(<DXNewsTicker />);
+    expect(hookData.playAlertTone).toHaveBeenCalledTimes(1);
+
+    // The 30-second refresh must consult the component's in-memory history
+    // when persistence failed instead of replaying the same NWS tone.
+    act(() => {
+      vi.advanceTimersByTime(30_001);
+    });
+
+    expect(hookData.playAlertTone).toHaveBeenCalledTimes(1);
+    setItem.mockRestore();
+  });
+
   it("keeps alerts in the crawl when break-in thresholds are off", () => {
     hookData.solarAlerts = [solarAlert];
     hookData.weatherAlerts = [weatherAlert];

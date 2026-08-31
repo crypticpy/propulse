@@ -309,6 +309,11 @@ export function DXNewsTicker({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [breakInItem, setBreakInItem] = useState<TickerItem | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  // Keep the live suppression history in memory as well as localStorage.
+  // Browsers can expose storage successfully and still reject writes later
+  // (private mode, quota exhaustion, or policy changes); the ticker must not
+  // replay the same tone every refresh merely because persistence failed.
+  const breakInHistoryRef = useRef<Record<string, number> | null>(null);
 
   // ---------------------------------------------------------------------------
   // Data hooks
@@ -445,10 +450,11 @@ export function DXNewsTicker({
     if (!breakInSignature) return;
     const nowMs = Date.now();
     const history = pruneBreakInHistory(
-      readBreakInHistory(),
+      breakInHistoryRef.current ?? readBreakInHistory(),
       nowMs,
       crawlPreferences.dedupMinutes,
     );
+    breakInHistoryRef.current = history;
     const unseen = breakInCandidates.filter((item) => history[item.id] == null);
     const next = [...unseen]
       .sort(

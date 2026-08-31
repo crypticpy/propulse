@@ -83,7 +83,6 @@ export function buildRssCrawlHeadlines(
   limit = 8,
 ): RssCrawlHeadline[] {
   const feedById = new Map(feeds.map((feed) => [feed.id, feed]));
-  const seen = new Set<string>();
   const headlines: RssCrawlHeadline[] = [];
 
   for (const result of results) {
@@ -104,8 +103,7 @@ export function buildRssCrawlHeadlines(
       }
 
       const key = rssItemKey(item);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
+      if (!key) continue;
       headlines.push({
         key,
         feed,
@@ -115,14 +113,19 @@ export function buildRssCrawlHeadlines(
     }
   }
 
+  // Sort before deduplicating so a newer syndicated copy wins regardless of
+  // feed configuration order. Deduplicating while traversing sources would
+  // let an older first-feed copy displace a newer copy at the global limit.
+  headlines.sort(
+    (left, right) => right.publishedAtMs - left.publishedAtMs,
+  );
+  const seen = new Set<string>();
   return headlines
-    .sort((left, right) =>
-      left.publishedAtMs == null
-        ? 1
-        : right.publishedAtMs == null
-          ? -1
-          : right.publishedAtMs - left.publishedAtMs,
-    )
+    .filter((headline) => {
+      if (seen.has(headline.key)) return false;
+      seen.add(headline.key);
+      return true;
+    })
     .slice(0, Math.max(0, limit));
 }
 

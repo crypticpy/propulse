@@ -110,6 +110,55 @@ describe("ticker crawl helpers", () => {
     ]);
   });
 
+  it("keeps the newest syndicated copy before applying the global limit", () => {
+    const now = new Date("2026-08-31T12:00:00.000Z").getTime();
+    const story = {
+      title: "Syndicated story",
+      link: "https://example.com/syndicated",
+      summary: "",
+    };
+    const headlines = buildRssCrawlHeadlines(
+      feeds,
+      [
+        {
+          source: { id: "arrl" },
+          items: [
+            {
+              ...story,
+              id: "older-copy",
+              publishedAt: "2026-08-31T09:00:00.000Z",
+            },
+            {
+              ...story,
+              id: "second-place",
+              title: "Second place",
+              link: "https://example.com/second",
+              publishedAt: "2026-08-31T11:30:00.000Z",
+            },
+          ],
+        },
+        {
+          source: { id: "club" },
+          items: [
+            {
+              ...story,
+              id: "newer-copy",
+              publishedAt: "2026-08-31T11:45:00.000Z",
+            },
+          ],
+        },
+      ],
+      now,
+      2,
+    );
+
+    expect(headlines.map((headline) => headline.item.id)).toEqual([
+      "newer-copy",
+      "second-place",
+    ]);
+    expect(headlines[0].feed.id).toBe("club");
+  });
+
   it("prunes repeated break-ins at the configured window", () => {
     expect(
       pruneBreakInHistory(

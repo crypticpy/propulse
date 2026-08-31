@@ -133,6 +133,8 @@ interface FlatMapViewProps {
   onLocationClick?: (lat: number, lon: number) => void;
   /** When true, canvas fills the entire container instead of maintaining 2:1 letterbox */
   fillContainer?: boolean;
+  /** Hide the local size panel when the host docks it with other controls */
+  hideSizeSliders?: boolean;
 }
 
 // Map dimensions
@@ -3159,6 +3161,7 @@ export function FlatMapView({
   displayTime,
   onLocationClick,
   fillContainer = false,
+  hideSizeSliders = false,
 }: FlatMapViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -5249,7 +5252,7 @@ export function FlatMapView({
       />
 
       {/* Spot & pin size sliders - bottom left corner */}
-      <MapSizeSliders />
+      {!hideSizeSliders && <MapSizeSliders />}
 
       {/* Bearing/Distance overlay - shown when hovering over the map */}
       {hoverBearingDistance && (

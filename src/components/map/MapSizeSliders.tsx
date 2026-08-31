@@ -1,7 +1,7 @@
 /**
  * MapSizeSliders Component
  *
- * Compact floating panel for adjusting spot dot and map pin sizes
+ * Compact overlay panel for adjusting spot dot and map pin sizes
  * on all map views (Globe, FlatMap, Azimuthal).
  *
  * Reads/writes spotDotScale and mapPinScale via the settings store.
@@ -13,7 +13,12 @@ import { useUIInteractionPrefs } from "@/stores/userStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMapStore } from "@/stores/mapStore";
 
-export function MapSizeSliders() {
+interface MapSizeSlidersProps {
+  /** Render in a host control stack instead of self-positioning on the map */
+  inline?: boolean;
+}
+
+export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
   const isFullscreen = useMapStore((s) => s.isFullscreen);
   const [expanded, setExpanded] = useState(false);
 
@@ -44,7 +49,7 @@ export function MapSizeSliders() {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="absolute bottom-3 left-3 z-10 w-7 h-7 flex items-center justify-center rounded-md bg-void-black/70 backdrop-blur-sm border border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 transition-colors"
+        className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-void-black/70 text-gray-400 backdrop-blur-sm transition-colors hover:border-white/20 hover:text-gray-200`}
         title="Adjust spot & pin sizes"
         aria-label="Adjust spot and pin sizes"
       >
@@ -70,7 +75,9 @@ export function MapSizeSliders() {
   }
 
   return (
-    <div className="absolute bottom-3 left-3 z-10 bg-void-black/70 backdrop-blur-sm border border-white/10 rounded-lg px-2.5 py-2 select-none">
+    <div
+      className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto select-none rounded-lg border border-white/10 bg-void-black/70 px-2.5 py-2 backdrop-blur-sm`}
+    >
       {/* Header with close button */}
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">

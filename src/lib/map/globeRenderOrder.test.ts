@@ -5,6 +5,7 @@ import {
   GLOBE_LAYER_SLOTS,
   GLOBE_MIN_OVERLAY_RADIUS,
   GLOBE_OVERLAY_MATERIAL,
+  GLOBE_SURFACE_MARKER_MATERIAL,
 } from "./globeRenderOrder";
 
 describe("GLOBE_LAYER_ORDER", () => {
@@ -28,6 +29,14 @@ describe("GLOBE_LAYER_ORDER", () => {
 
   it("disables depth test and write for sphere texture drapes", () => {
     expect(GLOBE_OVERLAY_MATERIAL).toEqual({
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+  });
+
+  it("keeps CPU-occluded surface markers out of the depth buffer", () => {
+    expect(GLOBE_SURFACE_MARKER_MATERIAL).toEqual({
       transparent: true,
       depthTest: false,
       depthWrite: false,

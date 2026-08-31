@@ -71,6 +71,8 @@ interface AzimuthalViewProps {
   displayTime: Date;
   /** Callback when a location is clicked */
   onLocationClick?: (lat: number, lon: number) => void;
+  /** Hide the local size panel when the host docks it with other controls */
+  hideSizeSliders?: boolean;
 }
 
 // Canvas dimensions (square for circular projection)
@@ -1313,6 +1315,7 @@ function drawAzFires(
 export function AzimuthalView({
   displayTime,
   onLocationClick,
+  hideSizeSliders = false,
 }: AzimuthalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -2165,7 +2168,7 @@ export function AzimuthalView({
         </div>
       )}
       {/* Spot & pin size sliders - bottom left corner */}
-      <MapSizeSliders />
+      {!hideSizeSliders && <MapSizeSliders />}
 
       {/* Legend overlay */}
       <div className="absolute bottom-14 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">

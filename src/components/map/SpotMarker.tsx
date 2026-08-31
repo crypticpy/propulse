@@ -11,7 +11,10 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_SURFACE_MARKER_MATERIAL,
+} from "@/lib/map/globeRenderOrder";
 
 /** Default marker color - plasma orange */
 const DEFAULT_COLOR = "#FF6B35";
@@ -150,6 +153,7 @@ export function SpotMarker({
     const occlusion = occlusionRef.current;
 
     if (groupRef.current) {
+      groupRef.current.visible = occlusion > 0.01;
       groupRef.current.getWorldPosition(worldPosition);
       groupRef.current.scale.setScalar(
         getScreenSpaceScale(camera.position.distanceTo(worldPosition)),
@@ -191,11 +195,9 @@ export function SpotMarker({
         <meshBasicMaterial
           ref={materialRef}
           color={color}
-          transparent
           opacity={glowIntensity * 0.5}
           side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -211,9 +213,8 @@ export function SpotMarker({
         <meshBasicMaterial
           ref={markerMaterialRef}
           color={color}
-          transparent
           opacity={isHovered ? 1 : 0.9}
-          depthTest={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -223,11 +224,9 @@ export function SpotMarker({
         <meshBasicMaterial
           ref={ringMaterialRef}
           color={color}
-          transparent
           opacity={isHovered ? 0.6 : 0.3}
           side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 

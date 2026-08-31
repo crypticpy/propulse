@@ -218,23 +218,13 @@ export function SelectedSpotArc() {
     [resolved],
   );
 
-  // Set additive blending on the glow line material after mount
+  // Drei's Line does not expose the material instance for every runtime
+  // property, so apply additive blending after mount. Depth behavior stays
+  // declarative below and must continue to test against the depth dome.
   useEffect(() => {
     if (glowLineRef.current?.material) {
       const mat = glowLineRef.current.material;
       mat.blending = THREE.AdditiveBlending;
-      mat.depthWrite = false;
-      mat.depthTest = false;
-      mat.needsUpdate = true;
-    }
-  });
-
-  // Set depthWrite on the main line material after mount
-  useEffect(() => {
-    if (mainLineRef.current?.material) {
-      const mat = mainLineRef.current.material;
-      mat.depthWrite = false;
-      mat.depthTest = false;
       mat.needsUpdate = true;
     }
   });
@@ -262,6 +252,8 @@ export function SelectedSpotArc() {
         lineWidth={6}
         transparent
         opacity={0.15}
+        depthTest={true}
+        depthWrite={false}
         renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
       />
 
@@ -273,6 +265,8 @@ export function SelectedSpotArc() {
         lineWidth={3}
         transparent
         opacity={0.9}
+        depthTest={true}
+        depthWrite={false}
         renderOrder={GLOBE_LAYER_ORDER.arcs}
       />
 

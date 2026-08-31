@@ -47,6 +47,7 @@ export { AzimuthalView } from "./AzimuthalView";
 export { TimeControl } from "./TimeControl";
 export { ReachMapControl } from "./ReachMapControl";
 export { DateTimePicker } from "./DateTimePicker";
+export { MapSizeSliders } from "./MapSizeSliders";
 export { PathAnalysis } from "./PathAnalysis";
 export { PropagationForecast } from "./PropagationForecast";
 export { PropagationForecastMini } from "./PropagationForecastMini";

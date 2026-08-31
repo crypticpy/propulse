@@ -24,7 +24,7 @@ import {
   formatSpotAge,
   getAgeBadgeColors,
 } from "./LiveSpotArcs";
-import { SPOT_SOURCE_COLORS } from "@/types/livespot";
+import { SPOT_SOURCE_COLORS, type LiveSpot } from "@/types/livespot";
 import { latLonToGrid } from "@/lib/utils/grid";
 
 export interface ClusterDetailPopoverProps {
@@ -36,6 +36,8 @@ export interface ClusterDetailPopoverProps {
   cluster: SpotCluster | null;
   /** Callback to close the popover */
   onClose: () => void;
+  /** Opens full details for a spot in the cluster */
+  onSpotSelect: (spot: LiveSpot) => void;
 }
 
 /** Popover dimensions for positioning */
@@ -94,6 +96,7 @@ export function ClusterDetailPopover({
   position,
   cluster,
   onClose,
+  onSpotSelect,
 }: ClusterDetailPopoverProps) {
   // Dismiss on Escape key
   const handleKeyDown = useCallback(
@@ -302,13 +305,16 @@ export function ClusterDetailPopover({
             const sourceColors = SPOT_SOURCE_COLORS[spot.source];
 
             return (
-              <div
+              <button
+                type="button"
                 key={spot.id || index}
-                className={`px-3 py-2 hover:bg-white/5 transition-colors ${
+                onClick={() => onSpotSelect(spot)}
+                className={`group w-full px-3 py-2 text-left transition-colors hover:bg-white/5 focus-visible:bg-white/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-cyan-400/60 ${
                   index < sortedSpots.length - 1
                     ? "border-b border-white/5"
                     : ""
                 }`}
+                aria-label={`View details for ${spot.dx}`}
               >
                 {/* Line 1: Callsign + Frequency + Band pill */}
                 <div className="flex items-center gap-1.5">
@@ -360,8 +366,11 @@ export function ClusterDetailPopover({
                       {spot.snr} dB
                     </span>
                   )}
+                  <span className="ml-auto text-[9px] font-medium text-gray-600 transition-colors group-hover:text-cyan-400">
+                    Details →
+                  </span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

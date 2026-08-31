@@ -135,8 +135,10 @@ import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
+import { SpotDetailsModal } from "./SpotDetailsModal";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
 import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
+import type { LiveSpot } from "@/types/livespot";
 
 // New overlay components (Wave 8A)
 import NVISOverlay3D from "./layers/NVISOverlay3D";
@@ -190,6 +192,8 @@ interface GlobeViewProps {
   onLocationClick?: (lat: number, lon: number) => void;
   /** Hide the built-in radar scrubber (when host provides its own) */
   hideRadarScrubber?: boolean;
+  /** Hide the local size panel when the host docks it with other controls */
+  hideSizeSliders?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -1731,6 +1735,7 @@ export function GlobeView({
   displayTime,
   onLocationClick,
   hideRadarScrubber,
+  hideSizeSliders = false,
 }: GlobeViewProps) {
   const zoom = useMapStore((s) => s.zoom);
   const target = useMapStore((s) => s.target);
@@ -1823,6 +1828,8 @@ export function GlobeView({
     x: number;
     y: number;
   } | null>(null);
+  const [selectedClusterSpot, setSelectedClusterSpot] =
+    useState<LiveSpot | null>(null);
 
   // State for weather alert flyout and modal
   const [clickedAlertData, setClickedAlertData] = useState<{
@@ -2061,6 +2068,18 @@ export function GlobeView({
   const handleClusterClose = useCallback(() => {
     setSelectedCluster(null);
     setClusterScreenPos(null);
+  }, []);
+
+  const handleClusterSpotSelect = useCallback((spot: LiveSpot) => {
+    // Replace the cluster popover with a single modal so Escape/backdrop
+    // dismissal is unambiguous and the map cannot receive the row click.
+    setSelectedClusterSpot(spot);
+    setSelectedCluster(null);
+    setClusterScreenPos(null);
+  }, []);
+
+  const handleClusterSpotClose = useCallback(() => {
+    setSelectedClusterSpot(null);
   }, []);
 
   // Handle weather alert click - show alert flyout
@@ -2418,6 +2437,12 @@ export function GlobeView({
         position={clusterScreenPos || { x: 0, y: 0 }}
         cluster={selectedCluster}
         onClose={handleClusterClose}
+        onSpotSelect={handleClusterSpotSelect}
+      />
+
+      <SpotDetailsModal
+        spot={selectedClusterSpot}
+        onClose={handleClusterSpotClose}
       />
 
       {/* Flyout menu overlay - rendered outside Canvas */}
@@ -2485,8 +2510,7 @@ export function GlobeView({
         />
       )}
 
-      {/* Spot & pin size sliders - bottom left corner */}
-      <MapSizeSliders />
+      {!hideSizeSliders && <MapSizeSliders />}
 
       {/* AddPinDialog modal */}
       <AddPinDialog

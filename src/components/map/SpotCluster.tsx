@@ -19,7 +19,10 @@ import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import { getModeColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_SURFACE_MARKER_MATERIAL,
+} from "@/lib/map/globeRenderOrder";
 
 /** Radius offset to prevent z-fighting with globe surface */
 const SURFACE_OFFSET = 1.000002;
@@ -237,6 +240,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
 
     // Gentle bob animation along the up direction
     if (groupRef.current) {
+      groupRef.current.visible = occlusion > 0.01;
       groupRef.current.position.copy(basePosition);
       groupRef.current.getWorldPosition(worldPosition);
       const screenScale = getScreenSpaceScale(
@@ -300,11 +304,9 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         <meshBasicMaterial
           ref={baseGlowMaterialRef}
           color={color}
-          transparent
           opacity={0.3}
           side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -317,10 +319,8 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         <meshBasicMaterial
           ref={stemMaterialRef}
           color={color}
-          transparent
           opacity={0.6}
-          depthTest={false}
-          depthWrite={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -338,9 +338,8 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         <meshBasicMaterial
           ref={hexMaterialRef}
           color={color}
-          transparent
           opacity={0.9}
-          depthTest={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 
@@ -354,11 +353,9 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         <meshBasicMaterial
           ref={headGlowMaterialRef}
           color={color}
-          transparent
           opacity={0.3}
           side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
+          {...GLOBE_SURFACE_MARKER_MATERIAL}
         />
       </mesh>
 

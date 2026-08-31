@@ -27,6 +27,7 @@ import { DEFAULT_OPERATOR_RANK } from "@/types/rank";
 
 import { useSettingsStore } from "./settingsStore";
 import { deleteImage } from "@/lib/db/imageStore";
+import { syncMeta } from "@/lib/sync/syncMeta";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -433,7 +434,42 @@ export const useProfileStore = create<ProfileStore>()(
         set((state) => {
           if (!state.station) return state;
 
-          const previous = state.station.savedLocations.find(
+          const now = new Date().toISOString();
+          const existingLocations = state.station.savedLocations ?? [];
+          const savedHome = existingLocations.find(
+            (location) => location.id === state.station!.homeLocationId,
+          );
+          const typedHome = existingLocations.find(
+            (location) => location.type === "home",
+          );
+
+          // Older profiles can contain only the legacy station mirrors. Turn
+          // that synthetic Home into a real saved location before switching
+          // away so "Use Home QTH" always has an immutable target to restore.
+          const materializedHomeId =
+            savedHome?.id ??
+            typedHome?.id ??
+            (state.station.homeLocationId &&
+            state.station.homeLocationId !== CURRENT_LOCATION_ID
+              ? state.station.homeLocationId
+              : "legacy-home");
+          const materializedHome: OperatingLocation | null =
+            savedHome || typedHome || !state.station.grid
+              ? null
+              : {
+                  id: materializedHomeId,
+                  name: "Home",
+                  grid: state.station.grid,
+                  lat: state.station.lat ?? 0,
+                  lon: state.station.lon ?? 0,
+                  timezone: state.station.timezone,
+                  type: "home",
+                  createdAt: now,
+                };
+          const baseLocations = materializedHome
+            ? [materializedHome, ...existingLocations]
+            : existingLocations;
+          const previous = baseLocations.find(
             (location) => location.id === CURRENT_LOCATION_ID,
           );
           const currentLocation: OperatingLocation = {
@@ -444,19 +480,25 @@ export const useProfileStore = create<ProfileStore>()(
             lon,
             timezone,
             type: "mobile",
-            createdAt: previous?.createdAt ?? new Date().toISOString(),
+            createdAt: previous?.createdAt ?? now,
           };
           const savedLocations = previous
-            ? state.station.savedLocations.map((location) =>
+            ? baseLocations.map((location) =>
                 location.id === CURRENT_LOCATION_ID
                   ? currentLocation
                   : location,
               )
-            : [...state.station.savedLocations, currentLocation];
+            : [...baseLocations, currentLocation];
+
+          // The server table has no updated_at column, so retain an explicit
+          // persisted dirty token. profileSync uses it to keep an offline GPS
+          // or grid edit from being replaced by the older server row on boot.
+          syncMeta.markLocationDirty(CURRENT_LOCATION_ID);
 
           return {
             station: {
               ...state.station,
+              homeLocationId: materializedHomeId,
               savedLocations,
               activeLocationId: CURRENT_LOCATION_ID,
               // Keep the legacy mirrors current because many map and weather

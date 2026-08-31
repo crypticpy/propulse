@@ -38,6 +38,12 @@ export type SyncTier = "eager" | "incremental" | "lazy";
 /** Per-module last-synced timestamps, stored in localStorage */
 export interface SyncMeta {
   lastSyncedAt: Record<string, string | null>;
+  /**
+   * Local location mutations that have not completed a server push yet.
+   * Tokens make clearing compare-and-swap safe when another edit occurs while
+   * an earlier request is in flight.
+   */
+  dirtyLocations?: Record<string, string>;
 }
 
 /** UI-facing sync status */
@@ -106,6 +112,7 @@ export interface SyncModule {
 /** Default empty sync meta */
 export const DEFAULT_SYNC_META: SyncMeta = {
   lastSyncedAt: {},
+  dirtyLocations: {},
 };
 
 /** Default sync status */

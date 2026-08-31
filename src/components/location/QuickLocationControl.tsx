@@ -51,7 +51,8 @@ export function QuickLocationControl({
   const [open, setOpen] = useState(false);
 
   const gridLabel = activeLocation?.grid ?? homeLocation?.grid ?? "Set location";
-  const label = `Update current operating location (${gridLabel})`;
+  const locationKind = isTemporaryActive ? "Travel location" : "Home location";
+  const label = `Update current operating location — ${locationKind}: ${gridLabel}`;
 
   return (
     <>

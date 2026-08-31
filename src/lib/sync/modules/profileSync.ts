@@ -8,7 +8,11 @@
  */
 
 import { getSupabase } from "@/lib/supabase";
-import { useProfileStore } from "@/stores/profileStore";
+import {
+  CURRENT_LOCATION_ID,
+  useProfileStore,
+} from "@/stores/profileStore";
+import { syncMeta } from "../syncMeta";
 import type { SyncModule, SyncableTable } from "../types";
 import type { Json, Tables, TablesInsert } from "@/types/supabase";
 import type { OperatingLocation } from "@/types/user";
@@ -105,6 +109,15 @@ export const profileSync: SyncModule = {
     // Build merged station in a single pass, then apply one setState
     const state = useProfileStore.getState();
     let updatedStation = state.station;
+    const dirtyCurrentToken = syncMeta.getLocationDirtyToken(
+      CURRENT_LOCATION_ID,
+    );
+    const preserveLocalCurrent = Boolean(
+      dirtyCurrentToken &&
+        state.station?.savedLocations.some(
+          (location) => location.id === CURRENT_LOCATION_ID,
+        ),
+    );
 
     if (profileRows) {
       timestamps.push(profileRows.updated_at);
@@ -118,14 +131,24 @@ export const profileSync: SyncModule = {
           callsign: profileRows.callsign ?? updatedStation.callsign,
           operatorName:
             profileRows.operator_name ?? updatedStation.operatorName,
-          grid: profileRows.grid ?? updatedStation.grid,
-          lat: profileRows.lat ?? updatedStation.lat,
-          lon: profileRows.lon ?? updatedStation.lon,
-          timezone: profileRows.timezone ?? updatedStation.timezone,
+          grid: preserveLocalCurrent
+            ? updatedStation.grid
+            : (profileRows.grid ?? updatedStation.grid),
+          lat: preserveLocalCurrent
+            ? updatedStation.lat
+            : (profileRows.lat ?? updatedStation.lat),
+          lon: preserveLocalCurrent
+            ? updatedStation.lon
+            : (profileRows.lon ?? updatedStation.lon),
+          timezone: preserveLocalCurrent
+            ? updatedStation.timezone
+            : (profileRows.timezone ?? updatedStation.timezone),
           homeLocationId:
             profileRows.home_location_id ?? updatedStation.homeLocationId,
-          activeLocationId:
-            profileRows.active_location_id ?? updatedStation.activeLocationId,
+          activeLocationId: preserveLocalCurrent
+            ? updatedStation.activeLocationId
+            : (profileRows.active_location_id ??
+              updatedStation.activeLocationId),
         };
       } else if (profileRows.callsign) {
         // No local station — bootstrap from server profile
@@ -144,7 +167,17 @@ export const profileSync: SyncModule = {
     }
 
     if (locationRows && locationRows.length > 0 && updatedStation) {
-      const serverLocations = locationRows.map(rowToLocation);
+      const localCurrent = preserveLocalCurrent
+        ? updatedStation.savedLocations.find(
+            (location) => location.id === CURRENT_LOCATION_ID,
+          )
+        : null;
+      const serverLocations = locationRows.map((row) => {
+        if (row.id === CURRENT_LOCATION_ID && localCurrent) {
+          return localCurrent;
+        }
+        return rowToLocation(row);
+      });
 
       for (const row of locationRows) {
         timestamps.push(row.created_at);
@@ -231,6 +264,9 @@ export const profileSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
+    const dirtyCurrentToken = syncMeta.getLocationDirtyToken(
+      CURRENT_LOCATION_ID,
+    );
     const {
       station,
       bio,
@@ -294,6 +330,10 @@ export const profileSync: SyncModule = {
           `Saved locations push failed: ${locationError.message}`,
         );
       }
+    }
+
+    if (dirtyCurrentToken) {
+      syncMeta.clearLocationDirty(CURRENT_LOCATION_ID, dirtyCurrentToken);
     }
 
     // Note: We intentionally do NOT delete server-side locations missing from

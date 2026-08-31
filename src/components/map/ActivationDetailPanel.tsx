@@ -13,8 +13,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { useActivationSpots } from "@/hooks/useActivationSpots";
 import { useCallsignIngestion } from "@/hooks/useCallsignIngestion";
-import { formatActivationFrequency } from "@/lib/map/activationMarkers";
+import {
+  formatActivationFrequency,
+  resolveActivationMarkers,
+  type MappableActivationSpot,
+} from "@/lib/map/activationMarkers";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import {
   formatBearing,
@@ -24,7 +29,10 @@ import {
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useActivationSpotStore } from "@/stores/activationSpotStore";
 import { useQSOStore } from "@/stores/qsoStore";
-import { ACTIVATION_PROGRAM_META } from "@/types/activationSpots";
+import {
+  ACTIVATION_PROGRAM_META,
+  type ActivationProgram,
+} from "@/types/activationSpots";
 
 function DataRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -57,18 +65,151 @@ function formatProfileSource(source: string): string {
   return source;
 }
 
+function ActivationOperatorContext({
+  callsign,
+  program,
+}: {
+  callsign: string;
+  program: ActivationProgram;
+}) {
+  const profile = useCallsignIngestion(callsign);
+  const programMeta = ACTIVATION_PROGRAM_META[program];
+
+  return (
+    <section aria-labelledby="activation-operator-heading">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3
+          id="activation-operator-heading"
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400"
+        >
+          Operator context
+        </h3>
+        <span className="text-right text-[10px] text-gray-500">
+          {profile.result?.sources.length
+            ? profile.result.sources.map(formatProfileSource).join(" + ")
+            : "QRZ · HamQTH · Callook"}
+        </span>
+      </div>
+      {profile.loading ? (
+        <div className="h-20 animate-pulse rounded-lg bg-white/5" />
+      ) : profile.result ? (
+        <dl className="space-y-2 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+          {profile.result.name && (
+            <DataRow label="Operator" value={profile.result.name} />
+          )}
+          {(profile.result.qth || profile.result.country) && (
+            <DataRow
+              label="QTH"
+              value={[profile.result.qth, profile.result.country]
+                .filter(Boolean)
+                .join(", ")}
+            />
+          )}
+          {profile.result.grid && (
+            <DataRow label="Profile grid" value={profile.result.grid} />
+          )}
+          {profile.result.licenseClass && (
+            <DataRow label="License" value={profile.result.licenseClass} />
+          )}
+          {(profile.result.cqzone || profile.result.ituzone) && (
+            <DataRow
+              label="Zones"
+              value={[
+                profile.result.cqzone ? `CQ ${profile.result.cqzone}` : "",
+                profile.result.ituzone ? `ITU ${profile.result.ituzone}` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
+          )}
+          {profile.result.bio && (
+            <DataRow label="Bio" value={profile.result.bio} />
+          )}
+        </dl>
+      ) : (
+        <p className="rounded-lg border border-white/10 bg-white/[0.035] p-3 text-sm text-gray-400">
+          No enriched profile was returned by the available callsign sources.
+          The live activation report above is still available.
+        </p>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <a
+          href={`https://www.qrz.com/db/${encodeURIComponent(callsign)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-cosmic-cyan hover:text-white"
+        >
+          Open QRZ.com ↗
+        </a>
+        <a
+          href={programMeta.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-cosmic-cyan hover:text-white"
+        >
+          {programMeta.source} ↗
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function sameActivationIdentity(
+  left: { program: ActivationProgram; callsign: string; reference: string },
+  right: { program: ActivationProgram; callsign: string; reference: string },
+): boolean {
+  return (
+    left.program === right.program &&
+    left.callsign.trim().toUpperCase() ===
+      right.callsign.trim().toUpperCase() &&
+    left.reference.trim().toUpperCase() ===
+      right.reference.trim().toUpperCase()
+  );
+}
+
+function sameActivationReport(
+  left: MappableActivationSpot,
+  right: MappableActivationSpot,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.program === right.program &&
+    left.callsign === right.callsign &&
+    left.reference === right.reference &&
+    left.referenceName === right.referenceName &&
+    left.frequencyKHz === right.frequencyKHz &&
+    left.mode === right.mode &&
+    left.comments === right.comments &&
+    left.spotter === right.spotter &&
+    left.spottedAt === right.spottedAt &&
+    left.latitude === right.latitude &&
+    left.longitude === right.longitude &&
+    left.grid === right.grid
+  );
+}
+
 export function ActivationDetailPanel() {
   const navigate = useNavigate();
   const spot = useActivationSpotStore((state) => state.selectedSpot);
+  const selectSpot = useActivationSpotStore((state) => state.selectSpot);
   const clearSpot = useActivationSpotStore((state) => state.clearSpot);
+  const activationFeed = useActivationSpots(spot !== null);
   const location = useActiveLocation();
   const setField = useQSOStore((state) => state.setField);
   const resetForm = useQSOStore((state) => state.resetForm);
   const lookupCallsign = useQSOStore((state) => state.lookupCallsign);
-  const profile = useCallsignIngestion(spot?.callsign ?? "");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
     "idle",
   );
+
+  const refreshedSpot = useMemo(() => {
+    if (!spot) return null;
+    return (
+      resolveActivationMarkers(activationFeed.spots).find((candidate) =>
+        sameActivationIdentity(candidate, spot),
+      ) ?? null
+    );
+  }, [activationFeed.spots, spot]);
 
   const grid = useMemo(() => {
     if (!spot) return "";
@@ -89,10 +230,28 @@ export function ActivationDetailPanel() {
     setCopyState("idle");
   }, [spot?.id]);
 
+  useEffect(() => {
+    if (!spot || activationFeed.isLoading || activationFeed.error) return;
+    if (!refreshedSpot) {
+      clearSpot();
+      return;
+    }
+    // Provider IDs describe individual reports and may change when the same
+    // activation moves frequency. Keep the open card bound to the stable
+    // program/callsign/reference identity so it cannot prepare a stale QSO.
+    if (!sameActivationReport(refreshedSpot, spot)) selectSpot(refreshedSpot);
+  }, [
+    activationFeed.error,
+    activationFeed.isLoading,
+    clearSpot,
+    refreshedSpot,
+    selectSpot,
+    spot,
+  ]);
+
   if (!spot) return null;
 
   const frequency = `${formatActivationFrequency(spot.frequencyKHz)} ${spot.frequencyKHz >= 1_000 ? "MHz" : "kHz"}`;
-  const program = ACTIVATION_PROGRAM_META[spot.program];
   const reportedAt = new Date(spot.spottedAt);
   const reportedAtLabel = Number.isNaN(reportedAt.getTime())
     ? spot.spottedAt
@@ -238,88 +397,11 @@ export function ActivationDetailPanel() {
             )}
           </section>
 
-          <section aria-labelledby="activation-operator-heading">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h3
-                id="activation-operator-heading"
-                className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400"
-              >
-                Operator context
-              </h3>
-              <span className="text-right text-[10px] text-gray-500">
-                {profile.result?.sources.length
-                  ? profile.result.sources.map(formatProfileSource).join(" + ")
-                  : "QRZ · HamQTH · Callook"}
-              </span>
-            </div>
-            {profile.loading ? (
-              <div className="h-20 animate-pulse rounded-lg bg-white/5" />
-            ) : profile.result ? (
-              <dl className="space-y-2 rounded-lg border border-white/10 bg-white/[0.035] p-3">
-                {profile.result.name && (
-                  <DataRow label="Operator" value={profile.result.name} />
-                )}
-                {(profile.result.qth || profile.result.country) && (
-                  <DataRow
-                    label="QTH"
-                    value={[profile.result.qth, profile.result.country]
-                      .filter(Boolean)
-                      .join(", ")}
-                  />
-                )}
-                {profile.result.grid && (
-                  <DataRow label="Profile grid" value={profile.result.grid} />
-                )}
-                {profile.result.licenseClass && (
-                  <DataRow
-                    label="License"
-                    value={profile.result.licenseClass}
-                  />
-                )}
-                {(profile.result.cqzone || profile.result.ituzone) && (
-                  <DataRow
-                    label="Zones"
-                    value={[
-                      profile.result.cqzone
-                        ? `CQ ${profile.result.cqzone}`
-                        : "",
-                      profile.result.ituzone
-                        ? `ITU ${profile.result.ituzone}`
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  />
-                )}
-                {profile.result.bio && (
-                  <DataRow label="Bio" value={profile.result.bio} />
-                )}
-              </dl>
-            ) : (
-              <p className="rounded-lg border border-white/10 bg-white/[0.035] p-3 text-sm text-gray-400">
-                No enriched profile was returned by the available callsign
-                sources. The live activation report above is still available.
-              </p>
-            )}
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <a
-                href={`https://www.qrz.com/db/${encodeURIComponent(spot.callsign)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cosmic-cyan hover:text-white"
-              >
-                Open QRZ.com ↗
-              </a>
-              <a
-                href={program.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cosmic-cyan hover:text-white"
-              >
-                {program.source} ↗
-              </a>
-            </div>
-          </section>
+          <ActivationOperatorContext
+            key={spot.callsign.trim().toUpperCase()}
+            callsign={spot.callsign}
+            program={spot.program}
+          />
 
         <footer className="grid grid-cols-1 gap-2 border-t border-white/10 bg-black/20 p-3 sm:grid-cols-3">
           <button

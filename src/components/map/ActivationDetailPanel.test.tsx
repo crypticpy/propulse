@@ -1,15 +1,18 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { useActivationSpotStore } from "@/stores/activationSpotStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useQSOEntry } from "@/hooks/useQSOEntry";
+import type { MappableActivationSpot } from "@/lib/map/activationMarkers";
 import { ActivationDetailPanel } from "./ActivationDetailPanel";
 
 const mocks = vi.hoisted(() => ({
   lookup: vi.fn(),
   clipboard: vi.fn(),
+  activationFeed: vi.fn(),
+  callsignIngestion: vi.fn(),
 }));
 
 vi.mock("@/hooks/useActiveLocation", () => ({
@@ -24,20 +27,21 @@ vi.mock("@/hooks/useActiveLocation", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useCallsignIngestion", () => ({
-  useCallsignIngestion: () => ({
-    result: {
-      name: "Jane Operator",
-      qth: "Austin",
-      country: "United States",
-      grid: "EM10aa",
-      licenseClass: "Extra",
-      sources: ["qrz", "hamqth", "callook"],
-    },
-    loading: false,
-    error: null,
-  }),
+vi.mock("@/hooks/useActivationSpots", () => ({
+  useActivationSpots: () => mocks.activationFeed(),
 }));
+
+vi.mock("@/hooks/useCallsignIngestion", async () => {
+  const { useState } = await vi.importActual<typeof import("react")>("react");
+  return {
+    useCallsignIngestion: (callsign: string) => {
+      // Model the real hook's debounced state: without a keyed operator-context
+      // remount, a rapid station switch would keep returning the prior profile.
+      const [queriedCallsign] = useState(callsign);
+      return mocks.callsignIngestion(queriedCallsign);
+    },
+  };
+});
 
 const SPOT = {
   id: "pota-1",
@@ -54,6 +58,17 @@ const SPOT = {
   longitude: -97.75,
   grid: "EM10df",
 };
+
+function activationFeed(spots: MappableActivationSpot[] = [SPOT]) {
+  return {
+    spots,
+    spotsByProgram: { POTA: spots, SOTA: [], WWFF: [] },
+    sources: [],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  };
+}
 
 function PreparedLogHarness() {
   const { form } = useQSOEntry();
@@ -72,6 +87,31 @@ describe("ActivationDetailPanel", () => {
     });
     mocks.lookup.mockReset().mockResolvedValue(undefined);
     useQSOStore.setState({ lookupCallsign: mocks.lookup });
+    mocks.activationFeed
+      .mockReset()
+      .mockImplementation(() =>
+        activationFeed(
+          useActivationSpotStore.getState().selectedSpot
+            ? [useActivationSpotStore.getState().selectedSpot!]
+            : [],
+        ),
+      );
+    mocks.callsignIngestion.mockReset().mockImplementation((callsign) =>
+      callsign === "K5ABC"
+        ? {
+            result: {
+              name: "Jane Operator",
+              qth: "Austin",
+              country: "United States",
+              grid: "EM10aa",
+              licenseClass: "Extra",
+              sources: ["qrz", "hamqth", "callook"],
+            },
+            loading: false,
+            error: null,
+          }
+        : { result: null, loading: true, error: null },
+    );
     mocks.clipboard.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -93,6 +133,72 @@ describe("ActivationDetailPanel", () => {
     expect(screen.getByText("Extra")).toBeTruthy();
     expect(screen.getByText("QRZ + HamQTH + Callook")).toBeTruthy();
     expect(screen.getByText(/propagation panels updated/i)).toBeTruthy();
+  });
+
+  it("synchronizes an open card with the current activation feed", async () => {
+    const view = render(
+      <MemoryRouter>
+        <ActivationDetailPanel />
+      </MemoryRouter>,
+    );
+
+    mocks.activationFeed.mockReturnValue(
+      activationFeed([
+        {
+          ...SPOT,
+          id: "pota-2",
+          frequencyKHz: 14100,
+          mode: "SSB",
+          spottedAt: "2026-08-31T14:00:00.000Z",
+        },
+      ]),
+    );
+    view.rerender(
+      <MemoryRouter>
+        <ActivationDetailPanel />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText("14.1 MHz")).toBeTruthy());
+    expect(useActivationSpotStore.getState().selectedSpot).toEqual(
+      expect.objectContaining({ id: "pota-2", frequencyKHz: 14100, mode: "SSB" }),
+    );
+
+    mocks.activationFeed.mockReturnValue(activationFeed([]));
+    view.rerender(
+      <MemoryRouter>
+        <ActivationDetailPanel />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).toBeNull(),
+    );
+    expect(useActivationSpotStore.getState().selectedSpot).toBeNull();
+  });
+
+  it("drops the prior operator profile immediately when stations switch", async () => {
+    render(
+      <MemoryRouter>
+        <ActivationDetailPanel />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Jane Operator")).toBeTruthy();
+
+    act(() => {
+      useActivationSpotStore.getState().selectSpot({
+        ...SPOT,
+        id: "pota-3",
+        callsign: "K7XYZ",
+        reference: "US-5678",
+        referenceName: "Another Park",
+      });
+    });
+
+    expect(screen.getByRole("dialog", { name: /K7XYZ/i })).toBeTruthy();
+    expect(screen.queryByText("Jane Operator")).toBeNull();
+    await waitFor(() =>
+      expect(mocks.callsignIngestion).toHaveBeenCalledWith("K7XYZ"),
+    );
   });
 
   it("copies the full report and prepares a reviewable QSO draft", async () => {

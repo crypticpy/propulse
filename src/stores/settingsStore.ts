@@ -239,12 +239,7 @@ export interface SettingsState {
   radioDaemonAuthToken: string;
   /** CAT backend choice */
   catBackend:
-    | "auto"
-    | "hamlib"
-    | "flrig"
-    | "icom-serial"
-    | "icom-network"
-    | "disabled";
+    "auto" | "hamlib" | "flrig" | "icom-serial" | "icom-network" | "disabled";
   /** Hamlib/rigctld host */
   catHamlibHost: string;
   /** Hamlib/rigctld port */
@@ -691,7 +686,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 34,
+      version: 35,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -741,8 +736,7 @@ export const useSettingsStore = create<SettingsStore>()(
         if (version < 6) {
           // Add alertDisplayStyle to notification preferences
           const notif = state.notifications as
-            | Record<string, unknown>
-            | undefined;
+            Record<string, unknown> | undefined;
           if (notif && notif.alertDisplayStyle === undefined) {
             notif.alertDisplayStyle = "toast";
           }
@@ -946,8 +940,7 @@ export const useSettingsStore = create<SettingsStore>()(
         if (version < 23) {
           // Add enhanced alert sound + visual glow accessibility settings
           const notifs = state.notifications as
-            | Record<string, unknown>
-            | undefined;
+            Record<string, unknown> | undefined;
           if (notifs) {
             if (notifs.useEnhancedAlertSounds === undefined)
               notifs.useEnhancedAlertSounds = true;
@@ -973,8 +966,7 @@ export const useSettingsStore = create<SettingsStore>()(
             state.catIcomBaudRate = 19200;
           if (state.catIcomRadioAddress === undefined)
             state.catIcomRadioAddress = 0x94;
-          if (state.catPttLockout === undefined)
-            state.catPttLockout = false;
+          if (state.catPttLockout === undefined) state.catPttLockout = false;
           if (state.catIcomNetworkHost === undefined)
             state.catIcomNetworkHost = "";
           if (state.catIcomNetworkUsername === undefined)
@@ -1038,6 +1030,14 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         if (version < 34) {
           state.globeHiResTextures ??= false;
+        }
+        if (version < 35) {
+          // Spot density became a preference; existing users keep the
+          // hardcoded 50-per-source behaviour they already had.
+          const ui = state.uiInteraction as Record<string, unknown> | undefined;
+          if (ui && ui.spotDensity == null) {
+            ui.spotDensity = "medium";
+          }
         }
         return state as unknown as SettingsState & SettingsStore;
       },

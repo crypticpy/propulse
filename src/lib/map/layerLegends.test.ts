@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { MapState } from "@/stores/mapStore";
 import { buildLayerLegends } from "./layerLegends";
+import {
+  AGE_COLOR_STOPS,
+  getAgeColor,
+  getSnrColor,
+  SNR_COLOR_STOPS,
+} from "@/lib/utils/spotColors";
 import { EQ_MAGNITUDE_COLORS } from "@/components/map/EarthquakeOverlay3D";
 import { STORM_CATEGORY_HEX } from "@/components/map/TropicalCycloneOverlay3D";
 import { RIVER_STATUS_HEX } from "@/components/map/RiverGaugeOverlay3D";
@@ -117,23 +123,40 @@ describe("buildLayerLegends", () => {
     expect(bandSpec.entries.some((e) => e.label === "default")).toBe(false);
   });
 
-  it("shows band swatches for snr and age, matching what getSpotColor actually draws", () => {
+  it("shows the real SNR and age ramps, matching what getSpotColor draws", () => {
     const layers = { ...noLayers(), spots: true };
     const bandSpec = buildLayerLegends(layers, {
       spotColorMode: "band",
       viewMode: "globe",
     })[0];
-
-    for (const mode of ["snr", "age"] as const) {
-      const spec = buildLayerLegends(layers, {
-        spotColorMode: mode,
-        viewMode: "globe",
-      })[0];
-      // getSpotColor special-cases only "mode"; snr/age fall through to bands.
-      expect(spec.entries).toEqual(bandSpec.entries);
-      expect(spec.note).toMatch(/band colors/i);
-    }
     expect(bandSpec.note).toBeUndefined();
+
+    const snrSpec = buildLayerLegends(layers, {
+      spotColorMode: "snr",
+      viewMode: "globe",
+    })[0];
+    expect(snrSpec.entries.map((e) => e.color)).toEqual(
+      SNR_COLOR_STOPS.map((s) => s.color),
+    );
+    // Every swatch has to be a color getSnrColor can actually produce.
+    for (const stop of SNR_COLOR_STOPS) {
+      if (Number.isFinite(stop.minDb)) {
+        expect(getSnrColor(stop.minDb)).toBe(stop.color);
+      }
+    }
+
+    const ageSpec = buildLayerLegends(layers, {
+      spotColorMode: "age",
+      viewMode: "globe",
+    })[0];
+    expect(ageSpec.entries.map((e) => e.color)).toEqual(
+      AGE_COLOR_STOPS.map((s) => s.color),
+    );
+    expect(getAgeColor(0)).toBe(ageSpec.entries[0].color);
+
+    // Neither ramp may silently be the band palette again.
+    expect(snrSpec.entries).not.toEqual(bandSpec.entries);
+    expect(ageSpec.entries).not.toEqual(bandSpec.entries);
   });
 
   it("includes every band getQsoBandColor has a dedicated color for", () => {

@@ -34,6 +34,7 @@ import {
   type ResolvedSpot,
 } from "./LiveSpotArcs";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import { getSpotFetchLimit } from "@/lib/map/spotDensity";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -1581,13 +1582,22 @@ export function AzimuthalView({
     refetchInterval: 60000,
   });
 
-  // Resolve spot locations and limit to 50 for performance
+  // Resolve spot locations, capped for performance. This view draws every
+  // spot to a 2D canvas each frame, so it takes the same density budget the
+  // fetchers use rather than a second hardcoded number.
+  const spotRenderCap = getSpotFetchLimit(uiPrefs.spotDensity);
   const resolvedSpots = useMemo(() => {
     if (!layers.spots && !layers.spotTraces && !layers.gridActivity) {
       return [];
     }
-    return resolveSpotLocations(spots).slice(0, 50);
-  }, [spots, layers.spots, layers.spotTraces, layers.gridActivity]);
+    return resolveSpotLocations(spots).slice(0, spotRenderCap);
+  }, [
+    spots,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    spotRenderCap,
+  ]);
 
   // Resolve selected DX cluster spot location for highlight arc
   const resolvedSelectedSpot = useMemo(() => {

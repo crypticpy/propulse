@@ -12,6 +12,34 @@ const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 const EARTH_RADIUS_KM = 6371;
 
+export interface CenteredZoomViewport {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Return the logical canvas rectangle visible after a centered zoom transform.
+ * A screen-space margin is inverse-scaled so bounds checks remain correct in
+ * the pre-transform coordinates used by canvas render helpers.
+ */
+export function getCenteredZoomViewport(
+  canvasSize: number,
+  zoom: number,
+  screenMargin = 0,
+): CenteredZoomViewport {
+  const safeZoom = Math.max(Number.EPSILON, zoom);
+  const center = canvasSize / 2;
+  const logicalMargin = Math.max(0, screenMargin) / safeZoom;
+  return {
+    x: center - center / safeZoom + logicalMargin,
+    y: center - center / safeZoom + logicalMargin,
+    width: canvasSize / safeZoom - logicalMargin * 2,
+    height: canvasSize / safeZoom - logicalMargin * 2,
+  };
+}
+
 /**
  * Result of projecting a point to azimuthal equidistant coordinates
  */

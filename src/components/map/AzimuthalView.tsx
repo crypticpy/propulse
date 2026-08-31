@@ -18,6 +18,7 @@ import { getPathMetrics, getPathPoints } from "@/lib/utils/path";
 import {
   azimuthalProject,
   azimuthalUnproject,
+  getCenteredZoomViewport,
   type AzimuthalPoint,
 } from "@/lib/utils/azimuthal";
 import {
@@ -677,17 +678,43 @@ function drawSpotCallsignPills(
   centerLon: number,
   labelScale: number,
   highViz: boolean,
+  zoom: number,
+  spotDotScale: number,
 ) {
+  const zoomDamp = Math.max(0.5, zoom);
+  const viewport = getCenteredZoomViewport(CANVAS_SIZE, zoomDamp, 2);
   const placed: AzimuthalSpotPillBox[] = [];
-  const endpointZones = spots.map((spot) => {
-    const point = projToCanvas(
+  const endpointRadius = Math.round(4 * spotDotScale) + 2 / zoomDamp;
+  const endpointZones = spots.flatMap((spot) =>
+    [
+      azimuthalProject(
+        spot.spotterLat,
+        spot.spotterLon,
+        centerLat,
+        centerLon,
+      ),
       azimuthalProject(spot.dxLat, spot.dxLon, centerLat, centerLon),
-    );
-    return { x: point.x - 7, y: point.y - 7, width: 14, height: 14 };
-  });
+    ]
+      .filter((projected) => Math.hypot(projected.x, projected.y) <= 1)
+      .map((projected) => {
+        const point = projToCanvas(projected);
+        return {
+          x: point.x - endpointRadius,
+          y: point.y - endpointRadius,
+          width: endpointRadius * 2,
+          height: endpointRadius * 2,
+        };
+      }),
+  );
   const callsigns = new Set<string>();
-  const fontSize = Math.round((highViz ? 12 : 10) * labelScale);
-  const height = fontSize + 8;
+  const fontSize = Math.max(
+    1,
+    Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
+  );
+  const verticalPadding = 8 / zoomDamp;
+  const horizontalPadding = 12 / zoomDamp;
+  const gap = endpointRadius + 4 / zoomDamp;
+  const height = fontSize + verticalPadding;
 
   ctx.save();
   ctx.font = `700 ${fontSize}px monospace`;
@@ -706,19 +733,19 @@ function drawSpotCallsignPills(
     if (Math.hypot(projected.x, projected.y) > 0.98) continue;
 
     const point = projToCanvas(projected);
-    const width = ctx.measureText(spot.callsign).width + 12;
+    const width = ctx.measureText(spot.callsign).width + horizontalPadding;
     const candidates: AzimuthalSpotPillBox[] = [
-      { x: point.x - width / 2, y: point.y - height - 8, width, height },
-      { x: point.x - width / 2, y: point.y + 8, width, height },
-      { x: point.x + 8, y: point.y - height / 2, width, height },
-      { x: point.x - width - 8, y: point.y - height / 2, width, height },
+      { x: point.x - width / 2, y: point.y - height - gap, width, height },
+      { x: point.x - width / 2, y: point.y + gap, width, height },
+      { x: point.x + gap, y: point.y - height / 2, width, height },
+      { x: point.x - width - gap, y: point.y - height / 2, width, height },
     ];
     const box = candidates.find(
       (candidate) =>
-        candidate.x >= 2 &&
-        candidate.y >= 2 &&
-        candidate.x + candidate.width <= CANVAS_SIZE - 2 &&
-        candidate.y + candidate.height <= CANVAS_SIZE - 2 &&
+        candidate.x >= viewport.x &&
+        candidate.y >= viewport.y &&
+        candidate.x + candidate.width <= viewport.x + viewport.width &&
+        candidate.y + candidate.height <= viewport.y + viewport.height &&
         !placed.some((existing) =>
           spotPillBoxesOverlap(candidate, existing),
         ) &&
@@ -742,7 +769,7 @@ function drawSpotCallsignPills(
 
     ctx.globalAlpha = 0.9 * ageOpacity;
     ctx.strokeStyle = bandColor;
-    ctx.lineWidth = highViz ? 2 : 1.25;
+    ctx.lineWidth = (highViz ? 2 : 1.25) / zoomDamp;
     drawSpotPillPath(ctx, box, height / 2);
     ctx.stroke();
 
@@ -750,17 +777,23 @@ function drawSpotCallsignPills(
     // with a bright edge-to-edge band cue instead of color-washing the text.
     ctx.globalAlpha = ageOpacity;
     ctx.strokeStyle = bandColor;
-    ctx.lineWidth = highViz ? 3 : 2;
+    ctx.lineWidth = (highViz ? 3 : 2) / zoomDamp;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(box.x + height / 2, box.y + box.height - 2);
-    ctx.lineTo(box.x + box.width - height / 2, box.y + box.height - 2);
+    ctx.moveTo(
+      box.x + height / 2,
+      box.y + box.height - 2 / zoomDamp,
+    );
+    ctx.lineTo(
+      box.x + box.width - height / 2,
+      box.y + box.height - 2 / zoomDamp,
+    );
     ctx.stroke();
 
     ctx.globalAlpha = ageOpacity;
     ctx.fillStyle = "#ffffff";
     ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-    ctx.shadowBlur = 3;
+    ctx.shadowBlur = 3 / zoomDamp;
     ctx.fillText(spot.callsign, box.x + box.width / 2, box.y + height / 2);
     ctx.shadowBlur = 0;
   }
@@ -2126,6 +2159,8 @@ export function AzimuthalView({
           center.lon,
           spotLabelScale,
           highVizSpots,
+          zoom,
+          spotDotScale,
         );
       }
     }

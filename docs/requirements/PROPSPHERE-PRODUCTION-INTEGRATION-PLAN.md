@@ -1,8 +1,8 @@
 # PropSphere Production Integration Plan
 
 Status: implementation and automated release gates complete in the integration
-worktree; PR review, merge, deployment, and live verification remain  
-Owner: PropSphere  
+worktree; PR review, merge, deployment, and live verification remain
+Owner: PropSphere
 Last updated: 2026-08-31
 
 ## Goal

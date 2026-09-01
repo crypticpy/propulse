@@ -73,7 +73,7 @@ export interface SpotDetailsFlyoutProps {
 
 /** Flyout dimensions for positioning */
 const FLYOUT_WIDTH = 220;
-const FLYOUT_HEIGHT = 180;
+const FLYOUT_HEIGHT = 220;
 const EDGE_PADDING = 10;
 const CURSOR_OFFSET = 12;
 
@@ -222,13 +222,21 @@ export function SpotDetailsFlyout({
             />
           )}
         </div>
-        {spot.dxGrid && (
+        {(spot.dxGrid || spot.dxLocApprox) && (
           <div className="flex items-center gap-2 text-xs text-gray-400 font-mono">
-            <span>{spot.dxGrid}</span>
-            <span className="text-gray-600">•</span>
+            {spot.dxGrid && <span>{spot.dxGrid}</span>}
+            {spot.dxGrid && <span className="text-gray-600">•</span>}
             <span>
               {formatCoord(spot.dxLat, true)}, {formatCoord(spot.dxLon, false)}
             </span>
+            {spot.dxLocApprox && (
+              <span
+                className="rounded bg-amber-500/15 px-1 py-0.5 text-[9px] font-sans text-amber-300"
+                title="Location is estimated from the callsign prefix"
+              >
+                approximate
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -309,6 +317,11 @@ export function SpotDetailsFlyout({
                 </span>
               )}
             </div>
+          </div>
+        )}
+        {spot.comment && (
+          <div className="border-t border-white/5 pt-1 text-[10px] leading-snug text-gray-400">
+            {spot.comment}
           </div>
         )}
       </div>

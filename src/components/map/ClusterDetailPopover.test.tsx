@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { SpotCluster } from "@/hooks/useSpotClustering";
@@ -68,5 +68,28 @@ describe("ClusterDetailPopover", () => {
     expect(collection.getAttribute("aria-modal")).toBe("false");
     await user.click(screen.getByRole("button", { name: "Close spot collection" }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("moves focus into the collection and restores its invoker", async () => {
+    const invoker = document.createElement("button");
+    document.body.appendChild(invoker);
+    invoker.focus();
+    const { unmount } = render(
+      <ClusterDetailPopover
+        visible
+        position={{ x: 400, y: 400 }}
+        cluster={cluster}
+        onClose={() => {}}
+        onSpotSelect={() => {}}
+      />,
+    );
+
+    const row = screen.getByRole("button", {
+      name: "Select K0ABC and view details",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(row));
+    unmount();
+    expect(document.activeElement).toBe(invoker);
+    invoker.remove();
   });
 });

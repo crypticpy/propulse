@@ -1649,6 +1649,8 @@ const GlobeScene = React.memo(function GlobeScene({
               spotSourceFilters && spotSourceFilters.length > 0
                 ? spotSourceFilters.join(",")
                 : "all"
+            }|${spotFilters.bands.join(",") || "all-bands"}|${
+              spotFilters.modes.join(",") || "all-modes"
             }`}
             onSpotHover={onSpotHover}
             onSpotHoverEnd={onSpotHoverEnd}

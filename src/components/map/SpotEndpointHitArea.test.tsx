@@ -114,4 +114,38 @@ describe("SpotEndpointHitArea selection", () => {
     );
     expect(onHoverEnd).toHaveBeenCalledOnce();
   });
+
+  it("ends hover on unmount only when this endpoint owns it", () => {
+    const inactiveHoverEnd = vi.fn();
+    const inactive = render(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        onHover={vi.fn()}
+        onHoverEnd={inactiveHoverEnd}
+      />,
+    );
+    inactive.unmount();
+    expect(inactiveHoverEnd).not.toHaveBeenCalled();
+
+    const activeHoverEnd = vi.fn();
+    const active = render(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        onHover={vi.fn()}
+        onHoverEnd={activeHoverEnd}
+      />,
+    );
+    fireEvent.pointerEnter(active.container.querySelector("mesh")!, {
+      clientX: 120,
+      clientY: 80,
+    });
+    active.unmount();
+    expect(activeHoverEnd).toHaveBeenCalledOnce();
+  });
 });

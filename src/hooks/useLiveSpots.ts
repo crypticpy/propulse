@@ -21,8 +21,10 @@ import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
+import type { SpotFilters } from "@/types/operatingProfile";
 import { useMapStore } from "@/stores/mapStore";
 import { getSpotFetchLimit } from "@/lib/map/spotDensity";
+import { selectMapSpotCandidates } from "@/lib/map/spotCandidates";
 
 interface UseLiveSpotsOptions {
   /** Receiver grid locator for PSKReporter queries */
@@ -33,6 +35,8 @@ interface UseLiveSpotsOptions {
   refetchInterval?: number;
   /** Sources to include */
   sources?: SpotSource[];
+  /** Optional map profile filters, applied before cross-source deduplication. */
+  spotFilters?: SpotFilters;
   /** Preserve every receiver/source report for evidence-oriented consumers. */
   deduplicate?: boolean;
 }
@@ -130,6 +134,7 @@ export function useLiveSpots({
   enabled = true,
   refetchInterval = MINUTE,
   sources = DEFAULT_SOURCES,
+  spotFilters,
   deduplicate = true,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // How many spots each source contributes. Derived from the map's existing
@@ -204,20 +209,30 @@ export function useLiveSpots({
       allSpots.push(...wsjtxSpots);
     }
 
+    // Eligibility must be established before cross-source deduplication. If a
+    // preferred PSKReporter member is outside the active band/mode profile, an
+    // otherwise-equivalent eligible RBN member must survive the group.
+    const eligibleSpots = selectMapSpotCandidates(allSpots, {
+      sources,
+      spotFilters,
+    });
     // Map renderers prefer one visual per callsign/frequency/minute. Evidence
     // views can retain every receiver and source before grouping it themselves.
-    const selected = deduplicate ? deduplicateSpots(allSpots) : allSpots;
+    const selected = deduplicate
+      ? deduplicateSpots(eligibleSpots)
+      : eligibleSpots;
     const sorted = selected.sort(
       (a, b) => b.time.getTime() - a.time.getTime(),
     );
-
-    // Filter by sources if specified (non-empty array means filter is active)
-    if (sources && sources.length > 0) {
-      return sorted.filter((spot) => sources.includes(spot.source));
-    }
-
     return sorted;
-  }, [deduplicate, pskQuery.data, rbnQuery.data, wsjtxSpots, sources]);
+  }, [
+    deduplicate,
+    pskQuery.data,
+    rbnQuery.data,
+    sources,
+    spotFilters,
+    wsjtxSpots,
+  ]);
 
   // Group spots by source
   const spotsBySource = useMemo(() => {

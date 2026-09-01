@@ -57,6 +57,10 @@ const Contest = lazy(() =>
 const PropSphere = lazy(() =>
   import("@/pages/PropSphere").then((m) => ({ default: m.PropSphere })),
 );
+const MapExplorerPage = lazy(() => import("@/pages/MapExplorerPage"));
+const Photorealistic3DPage = lazy(
+  () => import("@/pages/Photorealistic3DPage"),
+);
 const MobileMap = lazy(() =>
   import("@/components/mobile/MobileMap").then((m) => ({
     default: m.MobileMap,
@@ -306,6 +310,11 @@ function App() {
             <Route path="/pair" element={<PairClaimPage />} />
             <Route path="/displays" element={<DisplaysPage />} />
             <Route path="/map" element={<MapRoute />} />
+            <Route path="/map/explorer" element={<MapExplorerPage />} />
+            <Route
+              path="/map/photorealistic"
+              element={<Photorealistic3DPage />}
+            />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/:callsign" element={<ProfilePage />} />

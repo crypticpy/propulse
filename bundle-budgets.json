@@ -53,7 +53,7 @@
     {
       "name": "Main CSS",
       "pattern": "index-*.css",
-      "maxRawKb": 200,
+      "maxRawKb": 202,
       "maxGzipKb": 32,
       "required": true
     },
@@ -76,12 +76,40 @@
       "pattern": "vendor-maplibre-*.js",
       "maxRawKb": 1010,
       "maxGzipKb": 280,
-      "required": false
+      "required": true
+    },
+    {
+      "name": "MapLibre Styles",
+      "pattern": "vendor-maplibre-*.css",
+      "maxRawKb": 72,
+      "maxGzipKb": 12,
+      "required": true
+    },
+    {
+      "name": "3D Tiles Vendor",
+      "pattern": "vendor-tiles-*.js",
+      "maxRawKb": 155,
+      "maxGzipKb": 48,
+      "required": true
+    },
+    {
+      "name": "Deep-Zoom Map Route",
+      "pattern": "MapExplorerPage-*.js",
+      "maxRawKb": 10,
+      "maxGzipKb": 5,
+      "required": true
+    },
+    {
+      "name": "Photorealistic 3D Route",
+      "pattern": "Photorealistic3DPage-*.js",
+      "maxRawKb": 8,
+      "maxGzipKb": 4,
+      "required": true
     }
   ],
   "precache": {
     "serviceWorker": "dist/sw.js",
-    "maxEntries": 15,
+    "maxEntries": 17,
     "maxTotalKiB": 2700
   }
 }

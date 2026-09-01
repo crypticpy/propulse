@@ -66,4 +66,14 @@ describe("useFlatMapBaseImage", () => {
     expect(probeSignal?.aborted).toBe(true);
     expect(images[0].onload).toBeNull();
   });
+
+  it("probes UHD imagery even when the legacy manual toggle is off", () => {
+    vi.stubGlobal("Image", vi.fn(() => new MockImage()));
+    const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderHook(() => useFlatMapBaseImage("satellite", false, "uhd"));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

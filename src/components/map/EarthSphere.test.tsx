@@ -46,7 +46,10 @@ describe("EarthSphere imagery routing", () => {
     render(<EarthSphere />);
 
     expect(mocks.useTexture).toHaveBeenCalledWith("/textures/earth-day.jpg");
-    expect(mocks.useSeasonalDayTexture).toHaveBeenCalled();
+    expect(mocks.useSeasonalDayTexture).toHaveBeenCalledWith(
+      expect.any(THREE.Texture),
+      true,
+    );
     expect(mocks.getStandardMapCanvas).not.toHaveBeenCalled();
   });
 });

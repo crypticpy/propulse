@@ -58,10 +58,46 @@ describe("LayoutModeDropdown", () => {
     expect(screen.getByRole("menuitemradio", { name: /Lite/ })).toBeTruthy();
     expect(screen.getByRole("menuitemradio", { name: /Pro/ })).toBeTruthy();
     expect(screen.getByRole("menuitemradio", { name: /HamClock/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Deep-Zoom Map/ })).toBeTruthy();
+    expect(
+      screen.getByRole("menuitem", { name: /Photorealistic 3D/ }),
+    ).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: /Wall Display/ })).toBeTruthy();
     expect(
       screen.getByRole("menuitem", { name: /Configure Displays/ }),
     ).toBeTruthy();
+  });
+
+  it("opens both high-detail map destinations and marks them active", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderMenu();
+
+    await user.click(screen.getByRole("button", { name: /Normal/ }));
+    await user.click(screen.getByRole("menuitem", { name: /Deep-Zoom Map/ }));
+
+    expect(screen.getByLabelText("Current route").textContent).toBe(
+      "/map/explorer",
+    );
+    unmount();
+
+    render(
+      <MemoryRouter initialEntries={["/map/photorealistic"]}>
+        <LayoutModeDropdown activeDestination="photorealistic" />
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("button", { name: /Photorealistic 3D/ }),
+    ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: /Photorealistic 3D/ }),
+    );
+    expect(
+      screen.getByRole("menuitem", { name: /Photorealistic 3D/ }).getAttribute(
+        "aria-current",
+      ),
+    ).toBe("page");
   });
 
   it("switches layouts in place and opens the Wall Display configurator", async () => {

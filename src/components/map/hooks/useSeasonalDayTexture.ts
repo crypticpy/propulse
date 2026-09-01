@@ -8,8 +8,8 @@
  * monthly textures for the current UTC month and upgrades to the first one
  * that exists (HEAD request reporting an image content-type):
  *
- *   1. hi-res 5400x2700 from the public `textures` storage bucket — only
- *      when the user opted in via Settings → Appearance,
+ *   1. hi-res 5400x2700 from the public `textures` storage bucket when the
+ *      user opted in via Settings → Appearance or UHD/Extreme is active,
  *   2. bundled web-size /textures/months/earth-day-MM.jpg,
  *
  * falling back to the base texture when no candidate is available. The
@@ -50,8 +50,10 @@ export function getSeasonalTextureCandidates(
 
 export function useSeasonalDayTexture(
   baseTexture: THREE.Texture,
+  highDetailQuality = false,
 ): THREE.Texture {
-  const hiRes = useSettingsStore((s) => s.globeHiResTextures);
+  const hiResOptIn = useSettingsStore((s) => s.globeHiResTextures);
+  const hiRes = hiResOptIn || highDetailQuality;
   const [texture, setTexture] = useState<THREE.Texture>(baseTexture);
 
   useEffect(() => {
@@ -107,8 +109,8 @@ export function useSeasonalDayTexture(
       }
     };
     // The base texture is stable for the life of the globe; only the hi-res
-    // opt-in re-runs the probe. Month is deliberately mount-only -- see doc
-    // comment above.
+    // opt-in/quality selection re-runs the probe. Month is deliberately
+    // mount-only -- see doc comment above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hiRes]);
 

@@ -39,10 +39,9 @@ export function useFlatMapBaseImage(
       }
     };
 
-    if (
-      !hiResTexturesEnabled ||
-      (effectiveQuality !== "uhd" && effectiveQuality !== "extreme")
-    ) {
+    const highDetailQuality =
+      effectiveQuality === "uhd" || effectiveQuality === "extreme";
+    if (!hiResTexturesEnabled && !highDetailQuality) {
       return cleanup;
     }
 

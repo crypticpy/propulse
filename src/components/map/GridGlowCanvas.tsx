@@ -389,6 +389,12 @@ export class GridGlowRenderer {
     return this.glows.length > 0;
   }
 
+  /** Active cells currently painted by this renderer, after expiry pruning. */
+  getActiveGridSquares(now: number = Date.now()): readonly string[] {
+    this.pruneExpired(now);
+    return this.glows.map((glow) => glow.gridSquare);
+  }
+
   // -----------------------------------------------------------------------
   // Internal helpers
   // -----------------------------------------------------------------------

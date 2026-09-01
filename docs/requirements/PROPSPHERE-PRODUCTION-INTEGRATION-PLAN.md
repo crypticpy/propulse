@@ -1,10 +1,11 @@
 # PropSphere Production Integration Plan
 
-Status: active production stabilization and ordered release in progress. PRs
-#113, #114, #117, #119, #118, #120, and the clean #121 reconstruction are
-live. Stale PRs #115 and #116 are closed. Clean Wall Display replacement #122
-has been reconstructed from current production and passes its complete local
-release gates; hosted review, merge, deployment, and live verification remain.
+Status: implementation and ordered production release complete. PRs #113,
+#114, #117, #119, #118, #120, #121, and #122 are live. Stale PRs #115 and #116
+are closed. The current production alias contains the clean map-explorer,
+interaction, and Wall Display reconstructions plus every earlier stabilization
+layer. The remaining authenticated 3840x2160 walkthrough is an operator-run
+acceptance check because public automation is redirected to invite/login.
 
 Owner: PropSphere
 Last updated: 2026-09-01
@@ -171,13 +172,15 @@ or preview deployment by itself is not a production result.
 4. Keep #121's clean reconstruction of #115 live. It was built from the
    current production baseline without the inherited pre-squash #113/#114
    history and preserves the stabilized hover bridge and canonical details.
-5. Ship the clean Wall Display reconstruction built from #121's production
-   `main`; do not retain stale #116's stacked ancestry. Its rotation re-arming,
-   clear-all scene persistence, literal exit navigation, explorer viewport
-   sizing, route-capability controls, and remote-sync race handling have passed
-   the full local gates and joined review.
-6. Run the final 3840x2160 cross-view checklist against the public production
-   alias and reconcile every acceptance criterion in this file.
+5. Keep #122's clean Wall Display reconstruction live. It was built from
+   #121's production `main` without stale #116's stacked ancestry. Its rotation
+   re-arming, clear-all scene persistence, literal exit navigation, explorer
+   viewport sizing, route-capability controls, and remote-sync race handling
+   passed the full gates and exact-head review before merge.
+6. Public production smoke and commit/deployment provenance are complete. Run
+   the final authenticated 3840x2160 cross-view pointer walkthrough from an
+   authorized operator session; the public automation session is redirected
+   to invite/login before it can reach the map.
 
 ## Production evidence ledger
 
@@ -199,14 +202,20 @@ or preview deployment by itself is not a production result.
   `5eae5eec`; Vercel production deployment
   `dpl_5ySMFfJWrSVnv3VTGVUyc8mJDwfb` cloned that exact `main` commit, reached
   Ready, and owns `propulse.cloud`. Stale #115 was closed as superseded.
-- #122 Wall Display replacement: 211 Vitest files / 1,185 tests,
-  ESLint, TypeScript, production Vite build, bundle budgets, and two joined
-  release-blocker reviews passed from a dedicated clean worktree based on
-  `5eae5eec`. Exact-head Codex findings were addressed by preserving and
-  exposing remote-only scene snapshots and making inherited presentation
-  settings explicit. Stale #116 was closed as superseded and remains unmerged.
-- Authenticated 3840x2160 pointer verification remains a separate final gate;
-  public automation currently reaches the invite login rather than the map.
+- #122 Wall Display replacement: reviewed head `f24fb686`; squash merge
+  `8fc91fa68e89eb5f16a2dbb1cd0974fb80175a82`; Vercel production deployment
+  `dpl_DzVMya2eyr1AAr28vPG9NN7fycEH` cloned that exact merge commit, reached
+  Ready, and owned `propulse.cloud`. Public smoke requests for `/`, `/map`,
+  `/kiosk`, `/displays`, and `/map/explorer` all returned HTTP 200. ESLint,
+  TypeScript, production Vite build, bundle budgets, 211 Vitest files, and
+  1,185 tests passed from a dedicated clean worktree based on `5eae5eec`.
+  Exact-head Codex rereview found no major issues after two P2 findings were
+  fixed: remote-only scene snapshots now survive unrelated saves, and inherited
+  optional presentation settings are explicit instead of showing false
+  defaults. Stale #116 was closed as superseded and remains unmerged.
+- Authenticated 3840x2160 pointer verification remains an operator-run
+  acceptance check. Public automation reaches invite/login rather than the map,
+  and no signed-in browser session is available in the current environment.
 - The free Esri de-clouded Deep-Zoom path needs no new production secret.
   Mapbox HD and Google Photorealistic 3D remain honestly gated until
   `MAPBOX_ACCESS_TOKEN`, `GOOGLE_MAP_TILES_API_KEY`, and

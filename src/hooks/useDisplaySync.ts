@@ -6,7 +6,6 @@ import {
 } from "@/stores/displayStore";
 import {
   useKioskStore,
-  applySceneToMap,
   DEFAULT_SCENES,
 } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -51,7 +50,7 @@ export function useDisplaySync(): void {
 
     let cancelled = false;
 
-    const applyConfig = (sceneConfig: DisplaySceneConfig) => {
+    const applyConfig = async (sceneConfig: DisplaySceneConfig) => {
       // Every owner save (updatedAt changed) applies wholesale and restarts
       // the rotation — including rotation-only changes. No scenes in the
       // config means the owner cleared the assignment, which falls back to
@@ -87,6 +86,10 @@ export function useDisplaySync(): void {
       const wasActive = kiosk.active;
       const scene = kiosk.start(kiosk.scenes[0]?.id);
       if (!scene) return;
+      const { applySceneToMap } = await import(
+        "@/lib/kiosk/applySceneToMap"
+      );
+      if (cancelled) return;
       applySceneToMap(scene);
       if (!wasActive) {
         // First entry from the pairing/holding screen (mirrors KioskPage).
@@ -127,7 +130,7 @@ export function useDisplaySync(): void {
           data.updatedAt !== lastAppliedUpdatedAtRef.current
         ) {
           lastAppliedUpdatedAtRef.current = data.updatedAt;
-          applyConfig(data.sceneConfig);
+          await applyConfig(data.sceneConfig);
         }
       } catch {
         // Offline or transient failure — silent retry on the next tick.

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useKioskStore, applySceneToMap } from "@/stores/kioskStore";
+import {
+  useKioskStore,
+  type KioskHeaderScale,
+  type KioskScene,
+} from "@/stores/kioskStore";
 import { useAlertsStore } from "@/stores/alertsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUserStore } from "@/stores/userStore";
@@ -8,8 +12,12 @@ import { useWakeLock } from "@/hooks/useWakeLock";
 import { KioskQr } from "@/components/kiosk/KioskQr";
 import { LayoutModeDropdown } from "@/components/map/LayoutModeDropdown";
 import { shouldDimWallDisplay } from "@/lib/kiosk/wallPresentation";
-import type { KioskHeaderScale } from "@/stores/kioskStore";
 import type { SolarAlert } from "@/types/alerts";
+
+async function applySceneToMap(scene: KioskScene): Promise<void> {
+  const module = await import("@/lib/kiosk/applySceneToMap");
+  module.applySceneToMap(scene);
+}
 
 const CONTROLS_HIDE_MS = 4000;
 const HEADER_SIZE_CLASSES: Record<KioskHeaderScale, string> = {
@@ -54,8 +62,10 @@ export function KioskChrome() {
 
   const [paused, setPaused] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
+  const [transitionVisible, setTransitionVisible] = useState(false);
   const [ambientNow, setAmbientNow] = useState(() => new Date());
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionTimers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const station = useUserStore((state) => state.station);
 
   useWakeLock(true);
@@ -63,6 +73,10 @@ export function KioskChrome() {
   const activeScene = useMemo(
     () => scenes.find((s) => s.id === activeSceneId) ?? null,
     [scenes, activeSceneId],
+  );
+  const enabledScenes = useMemo(
+    () => scenes.filter((scene) => scene.enabled !== false),
+    [scenes],
   );
   const nightDimmed = useMemo(
     () =>
@@ -101,8 +115,23 @@ export function KioskChrome() {
     (direction: 1 | -1) => {
       const scene = advance(direction);
       if (!scene) return;
-      applySceneToMap(scene);
-      navigate(scene.route);
+      const reduceMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (scene.transition === "cut" || reduceMotion) {
+        void applySceneToMap(scene).then(() => navigate(scene.route));
+        return;
+      }
+
+      transitionTimers.current.forEach(clearTimeout);
+      transitionTimers.current = [];
+      setTransitionVisible(true);
+      transitionTimers.current.push(
+        setTimeout(() => {
+          void applySceneToMap(scene).then(() => navigate(scene.route));
+        }, 210),
+        setTimeout(() => setTransitionVisible(false), 420),
+      );
     },
     [advance, navigate],
   );
@@ -110,8 +139,9 @@ export function KioskChrome() {
   // On mount/resume (e.g. daily kiosk-browser reload), restore the active scene
   useEffect(() => {
     if (activeScene && location.pathname !== activeScene.route) {
-      applySceneToMap(activeScene);
-      navigate(activeScene.route);
+      void applySceneToMap(activeScene).then(() =>
+        navigate(activeScene.route),
+      );
     }
     // Intentionally mount-only: mid-session route changes are made by the
     // rotation engine itself and must not re-trigger a restore.
@@ -120,22 +150,35 @@ export function KioskChrome() {
 
   // Rotation engine — paused manually or while an alert takeover is showing
   useEffect(() => {
-    if (!rotation.enabled || paused || breakInAlert || scenes.length < 2) {
+    if (
+      !rotation.enabled ||
+      paused ||
+      breakInAlert ||
+      enabledScenes.length < 2
+    ) {
       return;
     }
-    const timer = setInterval(
+    const timer = setTimeout(
       () => goToScene(1),
-      rotation.intervalSec * 1000,
+      (activeScene?.durationSec ?? rotation.intervalSec) * 1000,
     );
-    return () => clearInterval(timer);
+    return () => clearTimeout(timer);
   }, [
     rotation.enabled,
     rotation.intervalSec,
     paused,
     breakInAlert,
-    scenes.length,
+    enabledScenes.length,
+    activeScene?.durationSec,
     goToScene,
   ]);
+
+  useEffect(
+    () => () => {
+      transitionTimers.current.forEach(clearTimeout);
+    },
+    [],
+  );
 
   const exitKiosk = useCallback(() => {
     stop();
@@ -184,11 +227,18 @@ export function KioskChrome() {
 
       <KioskClockBar
         sceneName={activeScene?.name ?? ""}
-        sceneIndex={scenes.findIndex((s) => s.id === activeSceneId)}
-        sceneCount={scenes.length}
-        rotating={rotation.enabled && !paused && scenes.length > 1}
+        sceneIndex={enabledScenes.findIndex((s) => s.id === activeSceneId)}
+        sceneCount={enabledScenes.length}
+        rotating={rotation.enabled && !paused && enabledScenes.length > 1}
         headerScale={presentation.headerScale}
         slashedZero={presentation.slashedZero}
+      />
+
+      <div
+        className={`pointer-events-none fixed inset-0 z-[510] bg-black transition-opacity duration-200 ${
+          transitionVisible ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden="true"
       />
 
       {/* Pointer-revealed controls */}

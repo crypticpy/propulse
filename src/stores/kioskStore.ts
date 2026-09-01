@@ -12,20 +12,28 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import {
-  LAYER_PRESETS,
-  useMapStore,
-  type LayoutMode,
-  type ViewMode,
-  type PresetName,
+import type {
+  LayoutMode,
+  MapStyle,
+  ViewMode,
+  PresetName,
 } from "@/stores/mapStore";
+import type { DisplayQuality } from "@/stores/displayQualityStore";
+import type { ThemeId } from "@/lib/themes";
 
 export interface KioskSceneMapConfig {
   layoutMode: LayoutMode;
   viewMode?: ViewMode;
   preset?: PresetName;
   autoRotate?: boolean;
+  autoRotateSpeed?: number;
+  quality?: DisplayQuality;
+  mapStyle?: MapStyle;
+  theme?: ThemeId;
+  showLiveClouds?: boolean;
 }
+
+export type KioskTransition = "fade" | "cut";
 
 export interface KioskScene {
   id: string;
@@ -34,6 +42,12 @@ export interface KioskScene {
   route: string;
   /** Map side effects, only meaningful when route is /map */
   map?: KioskSceneMapConfig;
+  /** Disabled scenes stay in the playlist but are skipped at runtime. */
+  enabled?: boolean;
+  /** Scene-specific dwell time; falls back to the playlist interval. */
+  durationSec?: number;
+  /** Transition used when entering the scene. */
+  transition?: KioskTransition;
 }
 
 export type KioskHeaderScale = "compact" | "standard" | "large";
@@ -53,6 +67,7 @@ export type BreakInLevel = "CRITICAL" | "WARNING" | "off";
 /** Routes a scene may point at (kiosk-safe: no auth flows, no editors) */
 export const KIOSK_ROUTES: ReadonlyArray<{ route: string; label: string }> = [
   { route: "/map", label: "PropSphere Map" },
+  { route: "/map/photorealistic", label: "Photorealistic 3D (Experimental)" },
   { route: "/", label: "Dashboard" },
   { route: "/solar", label: "Solar Weather" },
   { route: "/dx", label: "DX Wizard" },
@@ -61,6 +76,17 @@ export const KIOSK_ROUTES: ReadonlyArray<{ route: string; label: string }> = [
   { route: "/clock", label: "Big Clock" },
   { route: "/stopwatch", label: "Stopwatch" },
 ];
+
+export function isKioskMapRoute(route: string): boolean {
+  return route === "/map" || route === "/map/photorealistic";
+}
+
+export function kioskSceneSupportsLiveClouds(
+  route: string,
+  map?: Pick<KioskSceneMapConfig, "viewMode">,
+): boolean {
+  return route === "/map" && map?.viewMode === "globe";
+}
 
 const MIN_INTERVAL_SEC = 15;
 const MAX_INTERVAL_SEC = 3600;
@@ -113,6 +139,8 @@ interface KioskStore {
 
   addScene: (scene: Omit<KioskScene, "id">) => KioskScene;
   updateScene: (id: string, patch: Partial<Omit<KioskScene, "id">>) => void;
+  duplicateScene: (id: string) => KioskScene | null;
+  moveScene: (id: string, direction: -1 | 1) => void;
   /** Removes a scene; the last remaining scene cannot be removed */
   removeScene: (id: string) => void;
   setRotation: (rotation: Partial<KioskStore["rotation"]>) => void;
@@ -161,6 +189,26 @@ const VALID_VIEW_MODES = new Set<ViewMode>([
   "flat",
   "azimuthal",
 ]);
+const VALID_PRESETS = new Set<PresetName>([
+  "dx-hunter",
+  "contest",
+  "vhf",
+  "emergency",
+  "science",
+]);
+const VALID_MAP_STYLES = new Set<MapStyle>(["satellite", "standard"]);
+const VALID_DISPLAY_QUALITIES = new Set<DisplayQuality>([
+  "data-saver",
+  "auto",
+  "uhd",
+  "extreme",
+]);
+const VALID_THEMES = new Set<ThemeId>([
+  "dark",
+  "light",
+  "high-contrast",
+  "midnight",
+]);
 const VALID_BREAK_IN_LEVELS = new Set<BreakInLevel>([
   "CRITICAL",
   "WARNING",
@@ -185,12 +233,27 @@ function sanitizeMapConfig(value: unknown): KioskSceneMapConfig | undefined {
   }
   if (
     typeof value.preset === "string" &&
-    Object.prototype.hasOwnProperty.call(LAYER_PRESETS, value.preset)
+    VALID_PRESETS.has(value.preset as PresetName)
   ) {
     config.preset = value.preset as PresetName;
   }
   if (typeof value.autoRotate === "boolean") {
     config.autoRotate = value.autoRotate;
+  }
+  if (typeof value.autoRotateSpeed === "number" && Number.isFinite(value.autoRotateSpeed)) {
+    config.autoRotateSpeed = Math.max(30, Math.min(3600, value.autoRotateSpeed));
+  }
+  if (VALID_DISPLAY_QUALITIES.has(value.quality as DisplayQuality)) {
+    config.quality = value.quality as DisplayQuality;
+  }
+  if (VALID_MAP_STYLES.has(value.mapStyle as MapStyle)) {
+    config.mapStyle = value.mapStyle as MapStyle;
+  }
+  if (VALID_THEMES.has(value.theme as ThemeId)) {
+    config.theme = value.theme as ThemeId;
+  }
+  if (typeof value.showLiveClouds === "boolean") {
+    config.showLiveClouds = value.showLiveClouds;
   }
   return config;
 }
@@ -208,13 +271,43 @@ function sanitizeScene(value: unknown): KioskScene | null {
     return null;
   }
 
-  const map = value.route === "/map" ? sanitizeMapConfig(value.map) : undefined;
+  const map = isKioskMapRoute(value.route)
+    ? sanitizeMapConfig(value.map)
+    : undefined;
+  if (map && !kioskSceneSupportsLiveClouds(value.route, map)) {
+    delete map.showLiveClouds;
+  }
   return {
     id: value.id,
     name: value.name,
     route: value.route,
     ...(map ? { map } : {}),
+    enabled: value.enabled !== false,
+    ...(typeof value.durationSec === "number" && {
+      durationSec: clampInterval(value.durationSec),
+    }),
+    transition: value.transition === "cut" ? "cut" : "fade",
   };
+}
+
+function normalizeScene(scene: KioskScene): KioskScene {
+  const map = scene.map ? { ...scene.map } : undefined;
+  if (map && !kioskSceneSupportsLiveClouds(scene.route, map)) {
+    delete map.showLiveClouds;
+  }
+  return {
+    ...scene,
+    ...(map ? { map } : {}),
+    enabled: scene.enabled !== false,
+    ...(scene.durationSec !== undefined && {
+      durationSec: clampInterval(scene.durationSec),
+    }),
+    transition: scene.transition === "cut" ? "cut" : "fade",
+  };
+}
+
+function enabledScenes(scenes: KioskScene[]): KioskScene[] {
+  return scenes.filter((scene) => scene.enabled !== false);
 }
 
 function normalizePersistedKioskState(value: unknown): PersistedKioskState {
@@ -227,18 +320,19 @@ function normalizePersistedKioskState(value: unknown): PersistedKioskState {
       seenSceneIds.add(scene.id);
       return true;
     });
-  const usableScenes = scenes.length > 0 ? scenes : cloneDefaultScenes();
+  const usableScenes =
+    scenes.length > 0 ? scenes : cloneDefaultScenes().map(normalizeScene);
   const rawRotation = isRecord(raw.rotation) ? raw.rotation : {};
   const rawPresentation = isRecord(raw.presentation) ? raw.presentation : {};
   const active = typeof raw.active === "boolean" ? raw.active : false;
   const requestedActiveId =
     typeof raw.activeSceneId === "string" ? raw.activeSceneId : null;
   const activeSceneId = usableScenes.some(
-    (scene) => scene.id === requestedActiveId,
+    (scene) => scene.id === requestedActiveId && scene.enabled !== false,
   )
     ? requestedActiveId
     : active
-      ? usableScenes[0].id
+      ? enabledScenes(usableScenes)[0]?.id ?? null
       : null;
 
   return {
@@ -336,21 +430,6 @@ export function migrateKioskState(
   return normalizePersistedKioskState(candidate);
 }
 
-/**
- * Apply a scene's map side effects. Callers navigate to `scene.route`
- * themselves (navigation needs the router; stores must stay router-free).
- */
-export function applySceneToMap(scene: KioskScene): void {
-  if (scene.route !== "/map" || !scene.map) return;
-  const map = useMapStore.getState();
-  map.setLayoutMode(scene.map.layoutMode);
-  if (scene.map.viewMode) map.setViewMode(scene.map.viewMode);
-  if (scene.map.preset) map.applyPreset(scene.map.preset);
-  if (scene.map.autoRotate !== undefined) {
-    map.setAutoRotate(scene.map.autoRotate);
-  }
-}
-
 function clampInterval(sec: number): number {
   if (!Number.isFinite(sec)) return 120;
   return Math.min(MAX_INTERVAL_SEC, Math.max(MIN_INTERVAL_SEC, Math.round(sec)));
@@ -359,7 +438,7 @@ function clampInterval(sec: number): number {
 export const useKioskStore = create<KioskStore>()(
   persist(
     (set, get) => ({
-      scenes: cloneDefaultScenes(),
+      scenes: cloneDefaultScenes().map(normalizeScene),
       rotation: { ...DEFAULT_ROTATION },
       breakInLevel: DEFAULT_BREAK_IN_LEVEL,
       presentation: { ...DEFAULT_PRESENTATION },
@@ -367,17 +446,58 @@ export const useKioskStore = create<KioskStore>()(
       activeSceneId: null,
 
       addScene: (scene) => {
-        const created: KioskScene = { ...scene, id: crypto.randomUUID() };
+        const created = normalizeScene({ ...scene, id: crypto.randomUUID() });
         set((state) => ({ scenes: [...state.scenes, created] }));
         return created;
       },
 
       updateScene: (id, patch) =>
-        set((state) => ({
-          scenes: state.scenes.map((s) =>
-            s.id === id ? { ...s, ...patch, id } : s,
-          ),
-        })),
+        set((state) => {
+          const scenes = state.scenes.map((scene) =>
+            scene.id === id
+              ? normalizeScene({ ...scene, ...patch, id })
+              : scene,
+          );
+          const activeStillEnabled = scenes.some(
+            (scene) =>
+              scene.id === state.activeSceneId && scene.enabled !== false,
+          );
+          return {
+            scenes,
+            ...(!activeStillEnabled && state.activeSceneId !== null && {
+              activeSceneId: enabledScenes(scenes)[0]?.id ?? null,
+            }),
+          };
+        }),
+
+      duplicateScene: (id) => {
+        const sourceIndex = get().scenes.findIndex((scene) => scene.id === id);
+        if (sourceIndex < 0) return null;
+        const source = get().scenes[sourceIndex];
+        const duplicate = normalizeScene({
+          ...source,
+          id: crypto.randomUUID(),
+          name: `${source.name} Copy`,
+          map: source.map ? { ...source.map } : undefined,
+        });
+        set((state) => {
+          const scenes = [...state.scenes];
+          scenes.splice(sourceIndex + 1, 0, duplicate);
+          return { scenes };
+        });
+        return duplicate;
+      },
+
+      moveScene: (id, direction) =>
+        set((state) => {
+          const from = state.scenes.findIndex((scene) => scene.id === id);
+          const to = from + direction;
+          if (from < 0 || to < 0 || to >= state.scenes.length) return state;
+          const scenes = [...state.scenes];
+          const [scene] = scenes.splice(from, 1);
+          scenes.splice(to, 0, scene);
+          return { scenes };
+        }),
 
       removeScene: (id) =>
         set((state) => {
@@ -387,7 +507,7 @@ export const useKioskStore = create<KioskStore>()(
             scenes,
             activeSceneId:
               state.activeSceneId === id
-                ? (scenes[0]?.id ?? null)
+                ? (enabledScenes(scenes)[0]?.id ?? null)
                 : state.activeSceneId,
           };
         }),
@@ -411,7 +531,7 @@ export const useKioskStore = create<KioskStore>()(
         })),
 
       start: (sceneId) => {
-        const { scenes } = get();
+        const scenes = enabledScenes(get().scenes);
         if (scenes.length === 0) return null;
         const scene = scenes.find((s) => s.id === sceneId) ?? scenes[0];
         set({ active: true, activeSceneId: scene.id });
@@ -421,11 +541,16 @@ export const useKioskStore = create<KioskStore>()(
       stop: () => set({ active: false }),
 
       advance: (direction) => {
-        const { scenes, activeSceneId } = get();
+        const { activeSceneId } = get();
+        const scenes = enabledScenes(get().scenes);
         if (scenes.length === 0) return null;
         const currentIndex = scenes.findIndex((s) => s.id === activeSceneId);
         const nextIndex =
-          (currentIndex + direction + scenes.length) % scenes.length;
+          currentIndex < 0
+            ? direction === 1
+              ? 0
+              : scenes.length - 1
+            : (currentIndex + direction + scenes.length) % scenes.length;
         const scene = scenes[nextIndex];
         set({ activeSceneId: scene.id });
         return scene;
@@ -433,12 +558,17 @@ export const useKioskStore = create<KioskStore>()(
 
       getActiveScene: () => {
         const { scenes, activeSceneId } = get();
-        return scenes.find((s) => s.id === activeSceneId) ?? null;
+        return (
+          scenes.find(
+            (scene) =>
+              scene.id === activeSceneId && scene.enabled !== false,
+          ) ?? null
+        );
       },
     }),
     {
       name: "propulse-kiosk",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         scenes: state.scenes,

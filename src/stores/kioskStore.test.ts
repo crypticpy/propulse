@@ -19,15 +19,22 @@ vi.hoisted(() => {
 
 import {
   useKioskStore,
-  applySceneToMap,
   DEFAULT_PRESENTATION,
   DEFAULT_SCENES,
   migrateKioskState,
   type KioskScene,
 } from "./kioskStore";
+import { applySceneToMap } from "@/lib/kiosk/applySceneToMap";
 import { useMapStore } from "./mapStore";
+import { useDisplayQualityStore } from "./displayQualityStore";
+import { useThemeStore } from "./themeStore";
 
 const originalState = useKioskStore.getState();
+const normalizedDefaultScenes = DEFAULT_SCENES.map((scene) => ({
+  ...scene,
+  enabled: true,
+  transition: "fade" as const,
+}));
 
 describe("kioskStore", () => {
   beforeEach(() => {
@@ -72,6 +79,17 @@ describe("kioskStore", () => {
     expect(back?.id).toBe(scenes[scenes.length - 1].id);
   });
 
+  it("skips disabled scenes when starting and advancing", () => {
+    const { scenes } = useKioskStore.getState();
+    useKioskStore.getState().updateScene(scenes[0].id, { enabled: false });
+
+    const started = useKioskStore.getState().start(scenes[0].id);
+    expect(started?.id).toBe(scenes[1].id);
+
+    useKioskStore.getState().updateScene(scenes[2].id, { enabled: false });
+    expect(useKioskStore.getState().advance(1)?.id).toBe(scenes[3].id);
+  });
+
   it("addScene assigns an id and removeScene refuses to empty the list", () => {
     const created = useKioskStore.getState().addScene({
       name: "Test",
@@ -97,6 +115,29 @@ describe("kioskStore", () => {
     start(scenes[1].id);
     useKioskStore.getState().removeScene(scenes[1].id);
     expect(useKioskStore.getState().activeSceneId).toBe(scenes[0].id);
+  });
+
+  it("duplicates, reorders, and normalizes scene presentation settings", () => {
+    const source = useKioskStore.getState().scenes[1];
+    const duplicate = useKioskStore.getState().duplicateScene(source.id);
+
+    expect(duplicate?.name).toBe(`${source.name} Copy`);
+    expect(duplicate?.map).not.toBe(source.map);
+    expect(useKioskStore.getState().scenes[2].id).toBe(duplicate?.id);
+
+    useKioskStore.getState().moveScene(duplicate!.id, -1);
+    expect(useKioskStore.getState().scenes[1].id).toBe(duplicate?.id);
+
+    const created = useKioskStore.getState().addScene({
+      name: "Detail",
+      route: "/map",
+      durationSec: 2,
+    });
+    expect(created).toMatchObject({
+      durationSec: 15,
+      transition: "fade",
+      enabled: true,
+    });
   });
 
   it("setRotation clamps the interval to a sane range", () => {
@@ -128,23 +169,58 @@ describe("kioskStore", () => {
   });
 
   it("applySceneToMap applies map side effects and ignores non-map scenes", () => {
+    useMapStore.setState((state) => ({
+      layers: { ...state.layers, goesCloud: false },
+    }));
     const mapScene: KioskScene = {
       id: "s1",
       name: "Map",
       route: "/map",
-      map: { layoutMode: "pro", viewMode: "flat", autoRotate: true },
+      map: {
+        layoutMode: "pro",
+        viewMode: "globe",
+        autoRotate: true,
+        autoRotateSpeed: 900,
+        quality: "extreme",
+        mapStyle: "standard",
+        theme: "light",
+        showLiveClouds: true,
+      },
     };
     applySceneToMap(mapScene);
     expect(useMapStore.getState().layoutMode).toBe("pro");
-    expect(useMapStore.getState().viewMode).toBe("flat");
+    expect(useMapStore.getState().viewMode).toBe("globe");
     expect(useMapStore.getState().autoRotate).toBe(true);
+    expect(useMapStore.getState().autoRotateSpeed).toBe(900);
+    expect(useDisplayQualityStore.getState().displayQuality).toBe("extreme");
+    expect(useMapStore.getState().mapStyle).toBe("standard");
+    expect(useMapStore.getState().layers.goesCloud).toBe(true);
+    expect(useThemeStore.getState().themeId).toBe("light");
 
     const solarScene: KioskScene = { id: "s2", name: "Solar", route: "/solar" };
     applySceneToMap(solarScene);
     expect(useMapStore.getState().layoutMode).toBe("pro");
   });
 
-  it("migrates v1 state into a bounded, internally consistent v3 payload", () => {
+  it("removes live clouds from projections that cannot render them", () => {
+    const scene = useKioskStore.getState().addScene({
+      name: "Flat wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        viewMode: "flat",
+        showLiveClouds: true,
+      },
+    });
+
+    expect(scene.map?.showLiveClouds).toBeUndefined();
+    expect(
+      useKioskStore.getState().scenes.find((item) => item.id === scene.id)?.map
+        ?.showLiveClouds,
+    ).toBeUndefined();
+  });
+
+  it("migrates v1 state into a bounded, internally consistent v4 payload", () => {
     const migrated = migrateKioskState(
       {
         scenes: [
@@ -171,6 +247,8 @@ describe("kioskStore", () => {
         id: "custom-wall",
         name: "Custom Wall",
         route: "/map",
+        enabled: true,
+        transition: "fade",
         map: {
           layoutMode: "hamclock",
           viewMode: "globe",
@@ -226,7 +304,7 @@ describe("kioskStore", () => {
       3,
     );
 
-    expect(migrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(migrated.scenes).toEqual(normalizedDefaultScenes);
     expect(migrated.rotation).toEqual({ enabled: true, intervalSec: 120 });
     expect(migrated.breakInLevel).toBe("CRITICAL");
     expect(migrated.presentation).toEqual(DEFAULT_PRESENTATION);
@@ -257,7 +335,7 @@ describe("kioskStore", () => {
     await useKioskStore.persist.rehydrate();
 
     const hydrated = useKioskStore.getState();
-    expect(hydrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(hydrated.scenes).toEqual(normalizedDefaultScenes);
     expect(hydrated.rotation).toEqual({ enabled: true, intervalSec: 15 });
     expect(hydrated.breakInLevel).toBe("CRITICAL");
     expect(hydrated.presentation).toEqual(DEFAULT_PRESENTATION);

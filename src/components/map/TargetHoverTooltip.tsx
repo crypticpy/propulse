@@ -16,6 +16,10 @@ import {
   DIFFICULTY_LABELS,
   type DifficultyLevel,
 } from "./LocationMarker";
+import {
+  placeAnchoredOverlay,
+  type ScreenAnchor,
+} from "@/lib/map/anchoredOverlay";
 
 export interface OptimalBandSignalSummary {
   band: string;
@@ -29,18 +33,19 @@ export interface OptimalBandSignalSummary {
 
 export interface TargetHoverTooltipProps {
   visible: boolean;
-  position: { x: number; y: number };
+  position: ScreenAnchor;
   label: string;
   grid?: string;
   difficulty?: DifficultyLevel;
   optimalSignal: OptimalBandSignalSummary | null;
   signalUnavailableReason?: string;
+  distanceKm?: number;
+  bearing?: number;
   className?: string;
 }
 
 const TOOLTIP_WIDTH = 260;
 const EDGE_PADDING = 10;
-const CURSOR_OFFSET = 12;
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -130,6 +135,8 @@ export function TargetHoverTooltip({
   difficulty,
   optimalSignal,
   signalUnavailableReason,
+  distanceKm,
+  bearing,
   className = "",
 }: TargetHoverTooltipProps) {
   const adjustedPosition = useMemo(() => {
@@ -138,22 +145,16 @@ export function TargetHoverTooltip({
     const viewportHeight =
       typeof window !== "undefined" ? window.innerHeight : 1080;
 
-    let x = position.x + CURSOR_OFFSET;
-    if (x + TOOLTIP_WIDTH > viewportWidth - EDGE_PADDING) {
-      x = position.x - TOOLTIP_WIDTH - CURSOR_OFFSET;
-    }
-    x = clamp(x, EDGE_PADDING, viewportWidth - TOOLTIP_WIDTH - EDGE_PADDING);
-
-    // Prefer above cursor if there's space; otherwise below.
-    const estimatedHeight = optimalSignal?.notes ? 120 : 102;
-    let y = position.y - estimatedHeight - CURSOR_OFFSET;
-    if (y < EDGE_PADDING) {
-      y = position.y + CURSOR_OFFSET;
-    }
-    y = clamp(y, EDGE_PADDING, viewportHeight - estimatedHeight - EDGE_PADDING);
-
-    return { x, y };
-  }, [position, optimalSignal?.notes]);
+    const estimatedHeight =
+      (optimalSignal?.notes ? 120 : 102) +
+      (distanceKm !== undefined || bearing !== undefined ? 18 : 0);
+    return placeAnchoredOverlay(
+      position,
+      { width: TOOLTIP_WIDTH, height: estimatedHeight },
+      { width: viewportWidth, height: viewportHeight },
+      { axis: "vertical", gap: 10, padding: EDGE_PADDING },
+    );
+  }, [bearing, distanceKm, position, optimalSignal?.notes]);
 
   if (!visible) {
     return null;
@@ -206,6 +207,20 @@ export function TargetHoverTooltip({
       </div>
 
       <div className="px-3 py-2 space-y-1.5">
+        {(distanceKm !== undefined || bearing !== undefined) && (
+          <div className="flex items-center justify-between font-mono text-[10px] text-gray-400">
+            <span>
+              {distanceKm !== undefined
+                ? `${Math.round(distanceKm).toLocaleString()} km`
+                : "Distance unavailable"}
+            </span>
+            {bearing !== undefined && (
+              <span className="text-cyan-300">
+                {Math.round(bearing).toString().padStart(3, "0")}°
+              </span>
+            )}
+          </div>
+        )}
         <div className="text-[10px] uppercase tracking-wide text-gray-500">
           Optimal Band Signal (100W FT8)
         </div>

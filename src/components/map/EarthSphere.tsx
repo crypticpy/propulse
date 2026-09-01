@@ -76,6 +76,7 @@ export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
 
   // Standard-mode base map texture (vector-like land/ocean fills)
   const standardTexture = useMemo(() => {
+    if (!grayscale) return null;
     const requestedWidth =
       effectiveQuality === "uhd" || effectiveQuality === "extreme"
         ? 4096
@@ -88,11 +89,11 @@ export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
     tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.needsUpdate = true;
     return tex;
-  }, [effectiveQuality, maxTextureSize, themeId]);
+  }, [effectiveQuality, grayscale, maxTextureSize, themeId]);
 
   useEffect(() => {
     return () => {
-      standardTexture.dispose();
+      standardTexture?.dispose();
     };
   }, [standardTexture]);
 

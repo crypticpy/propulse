@@ -340,8 +340,22 @@ export function createFlatTileLayer(
             if (entry.status === "ready") {
               cache.delete(key);
               cache.set(key, entry); // refresh LRU position
-              drawTile(ctx, entry.img, level, tx, ty, view);
-              drewProviderTile = true;
+              const tileLeft = (tx / n) * renderWidth;
+              const tileRight = ((tx + 1) / n) * renderWidth;
+              const tileLatTop = mercatorNormYToLat(ty / n);
+              const tileLatBottom = mercatorNormYToLat((ty + 1) / n);
+              const tileTop = ((90 - tileLatTop) / 180) * renderHeight;
+              const tileBottom =
+                ((90 - tileLatBottom) / 180) * renderHeight;
+              const intersectsVisibleViewport =
+                tileLeft < right &&
+                tileRight > left &&
+                tileTop < bottom &&
+                tileBottom > top;
+              if (intersectsVisibleViewport) {
+                drawTile(ctx, entry.img, level, tx, ty, view);
+                drewProviderTile = true;
+              }
             }
           } else if (level === z) {
             queueTile(key, level, tx, ty);

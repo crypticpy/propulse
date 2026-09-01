@@ -3936,7 +3936,13 @@ export function FlatMapView({
   const findSpotEndpointAtScreenPos = useCallback(
     (screenPos: { x: number; y: number }): SpotScreenHit | null => {
       const canvas = canvasRef.current;
-      if (!canvas || resolvedSpots.length === 0) return null;
+      if (
+        !canvas ||
+        (!layers.spots && !layers.spotTraces) ||
+        resolvedSpots.length === 0
+      ) {
+        return null;
+      }
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
       const cssScaleX = rect.width / viewportSize.width;
@@ -3968,7 +3974,14 @@ export function FlatMapView({
       }
       return null;
     },
-    [displaySize, resolvedSpots, spotDotScale, viewportSize],
+    [
+      displaySize,
+      layers.spots,
+      layers.spotTraces,
+      resolvedSpots,
+      spotDotScale,
+      viewportSize,
+    ],
   );
 
   const handleSpotQuickClick = useCallback(

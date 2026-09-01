@@ -20,6 +20,10 @@ import {
   GLOBE_LAYER_ORDER,
   GLOBE_OVERLAY_MATERIAL,
 } from "@/lib/map/globeRenderOrder";
+import {
+  resolveCloudImageryStatus,
+  type CloudImageryStatus,
+} from "@/lib/map/cloudImageryStatus";
 
 // =============================================================================
 // CONSTANTS
@@ -59,7 +63,13 @@ async function loadTileImageWithRetry(url: string): Promise<HTMLImageElement> {
 // COMPONENT
 // =============================================================================
 
-export function GOESCloudOverlay3D() {
+interface GOESCloudOverlay3DProps {
+  onStatusChange?: (status: CloudImageryStatus) => void;
+}
+
+export function GOESCloudOverlay3D({
+  onStatusChange,
+}: GOESCloudOverlay3DProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { tileUrl } = useGOESImagery();
 
@@ -87,6 +97,7 @@ export function GOESCloudOverlay3D() {
 
   // Load tiles into canvas and create texture
   useEffect(() => {
+    onStatusChange?.("loading");
     if (!tileUrl || !meshRef.current) return;
 
     // Tiles are Web Mercator (GIBS EPSG:3857): composite them as-is, then
@@ -101,7 +112,7 @@ export function GOESCloudOverlay3D() {
     // Load only the tiles inside NASA's advertised GOES-East matrix limits.
     // The uncovered eastern column remains transparent instead of producing
     // four predictable 404 responses on every activation.
-    const promises: Promise<void>[] = [];
+    const promises: Promise<boolean>[] = [];
     for (
       let y = GOES_EAST_Z2_TILE_LIMITS.minY;
       y <= GOES_EAST_Z2_TILE_LIMITS.maxY;
@@ -119,17 +130,20 @@ export function GOESCloudOverlay3D() {
         promises.push(
           loadTileImageWithRetry(url)
             .then((img) => {
-              if (!disposed) ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE);
+              if (disposed) return false;
+              ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE);
+              return true;
             })
-            .catch(() => {
-              // Skip failed tiles silently
-            }),
+            .catch(() => false),
         );
       }
     }
 
-    Promise.all(promises).then(() => {
+    Promise.all(promises).then((tileResults) => {
       if (disposed || !meshRef.current) return;
+      const status = resolveCloudImageryStatus(tileResults);
+      onStatusChange?.(status);
+      if (status === "unavailable") return;
       const canvas = document.createElement("canvas");
       canvas.width = CANVAS_SIZE;
       canvas.height = CANVAS_SIZE;
@@ -153,7 +167,7 @@ export function GOESCloudOverlay3D() {
     return () => {
       disposed = true;
     };
-  }, [tileUrl]);
+  }, [onStatusChange, tileUrl]);
 
   // Cleanup geometry, material, and texture on unmount
   useEffect(

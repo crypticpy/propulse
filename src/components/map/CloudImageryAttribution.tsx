@@ -1,26 +1,33 @@
-import { useGOESImagery } from "@/hooks/useGOESImagery";
 import { useMapStore } from "@/stores/mapStore";
+import type { CloudImageryStatus } from "@/lib/map/cloudImageryStatus";
 
 /** Visible provenance and freshness companion for the optional live-cloud layer. */
-export function CloudImageryAttribution() {
+export function CloudImageryAttribution({
+  status,
+}: {
+  status: CloudImageryStatus;
+}) {
   const enabled = useMapStore((s) => s.layers.goesCloud);
-  const { error, isLoading } = useGOESImagery(enabled);
   if (!enabled) return null;
 
-  const status = error
-    ? "unavailable"
-    : isLoading
-      ? "loading latest"
-      : "latest slot";
+  const statusLabel =
+    status === "available"
+      ? "latest slot"
+      : status === "partial"
+        ? "partial coverage"
+        : status === "unavailable"
+          ? "unavailable"
+          : "loading latest";
+  const degraded = status === "partial" || status === "unavailable";
 
   return (
     <div
       className={`rounded bg-black/55 px-1.5 py-0.5 text-[9px] leading-tight backdrop-blur-sm select-none ${
-        error ? "text-amber-400" : "text-white/55"
+        degraded ? "text-amber-400" : "text-white/55"
       }`}
       title="GOES-East infrared cloud imagery. NASA GIBS resolves the latest observation; PropSphere checks for a newer slot every 10 minutes."
     >
-      <span>Live clouds · {status}</span>
+      <span>Live clouds · {statusLabel}</span>
       <span className="mx-1 text-white/25">·</span>
       <a
         href="https://www.earthdata.nasa.gov/data/tools/gibs"

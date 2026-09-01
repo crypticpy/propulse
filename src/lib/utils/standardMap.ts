@@ -144,12 +144,9 @@ export function getStandardMapCanvas(
   while (standardMapCanvasCache.size > STANDARD_MAP_CACHE_LIMIT) {
     const oldestKey = standardMapCanvasCache.keys().next().value;
     if (oldestKey === undefined) break;
-    const evicted = standardMapCanvasCache.get(oldestKey);
     standardMapCanvasCache.delete(oldestKey);
-    if (evicted) {
-      evicted.width = 1;
-      evicted.height = 1;
-    }
+    // Do not resize the evicted canvas. Active Three.js textures and flat-map
+    // frames may still reference it even though the cache no longer does.
   }
   return canvas;
 }

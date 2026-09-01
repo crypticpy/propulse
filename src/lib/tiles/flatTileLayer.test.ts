@@ -104,6 +104,45 @@ describe("createFlatTileLayer", () => {
     layer.dispose();
   });
 
+  it("does not draw or credit exact-level tiles that are only prefetched", async () => {
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      vi.fn(),
+      { prefetchRadius: 1 },
+    );
+    const drawImage = vi.fn();
+    const context = {
+      drawImage,
+    } as unknown as CanvasRenderingContext2D;
+    const view = {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+    };
+
+    layer.draw(context, view);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    await vi.waitFor(() => {
+      drawImage.mockClear();
+      expect(layer.draw(context, view)).toBe(true);
+    });
+
+    const visibleLeft = -view.offsetX / view.scale;
+    const visibleRight =
+      (view.renderWidth - view.offsetX) / view.scale;
+    for (const call of drawImage.mock.calls) {
+      const destinationX = call[5] as number;
+      const destinationWidth = call[7] as number;
+      expect(destinationX).toBeLessThan(visibleRight);
+      expect(destinationX + destinationWidth).toBeGreaterThan(visibleLeft);
+    }
+
+    layer.dispose();
+  });
+
   it("keeps visible ancestor tiles loading for seamless zoom fallback", async () => {
     vi.mocked(fetch).mockImplementation(
       () => new Promise<Response>(() => undefined),

@@ -32,6 +32,7 @@ import {
   NATURAL_EARTH_SOURCE,
 } from "@/lib/map/imagerySources";
 import { CloudImageryAttribution } from "./CloudImageryAttribution";
+import type { CloudImageryStatus } from "@/lib/map/cloudImageryStatus";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
@@ -914,6 +915,7 @@ interface GlobeSceneProps {
   ) => void;
   onRadarAnimState?: (state: RadarAnimationState) => void;
   onTileFallbackChange?: (active: boolean) => void;
+  onCloudImageryStatusChange?: (status: CloudImageryStatus) => void;
 }
 
 const GlobeScene = React.memo(function GlobeScene({
@@ -935,6 +937,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onFireClick,
   onRadarAnimState,
   onTileFallbackChange,
+  onCloudImageryStatusChange,
 }: GlobeSceneProps) {
   const layers = useMapStore((s) => s.layers);
   const target = useMapStore((s) => s.target);
@@ -1486,7 +1489,11 @@ const GlobeScene = React.memo(function GlobeScene({
             onAnimationState={onRadarAnimState}
           />
         )}
-        {layers.goesCloud && <GOESCloudOverlay3D />}
+        {layers.goesCloud && (
+          <GOESCloudOverlay3D
+            onStatusChange={onCloudImageryStatusChange}
+          />
+        )}
         {layers.tec && <TECOverlay3D />}
         {layers.sst && <SSTOverlay3D />}
 
@@ -1826,6 +1833,8 @@ export function GlobeView({
     (state) => state.layers.labels && state.labelOptions.tileLabels,
   );
   const [tileFallbackActive, setTileFallbackActive] = useState(false);
+  const [cloudImageryStatus, setCloudImageryStatus] =
+    useState<CloudImageryStatus>("loading");
   const addPin = usePinStore((s) => s.addPin);
   const removePin = usePinStore((s) => s.removePin);
   const getPinById = usePinStore((s) => s.getPinById);
@@ -2457,13 +2466,14 @@ export function GlobeView({
               onFireClick={handleFireClick}
               onRadarAnimState={setRadarAnimState}
               onTileFallbackChange={setTileFallbackActive}
+              onCloudImageryStatusChange={setCloudImageryStatus}
             />
           </Suspense>
         </Canvas>
       </GlobeErrorBoundary>
 
       <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">
-        <CloudImageryAttribution />
+        <CloudImageryAttribution status={cloudImageryStatus} />
         <ImageryAttribution
           baseSource={
             tileFallbackActive

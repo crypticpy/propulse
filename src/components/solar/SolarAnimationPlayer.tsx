@@ -12,6 +12,13 @@ interface AnimationFrame {
   time_tag: string;
 }
 
+interface PresentedFrame {
+  url: string;
+  frame: AnimationFrame | null;
+  index: number;
+  total: number;
+}
+
 const CACHE_LIMIT = 12;
 const PRELOAD_RADIUS = 3;
 
@@ -31,6 +38,9 @@ export function SolarAnimationPlayer({
   const [manifestRetry, setManifestRetry] = useState(0);
   const [frameRetry, setFrameRetry] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [presentedFrame, setPresentedFrame] = useState<PresentedFrame | null>(
+    null,
+  );
   const cache = useRef(new Map<string, HTMLImageElement>());
   const frameFailures = useRef(new Map<string, number>());
   const frameRetryTimer = useRef<number | null>(null);
@@ -200,8 +210,24 @@ export function SolarAnimationPlayer({
     frameRetry,
     thumbnailProduct.hardTtlSeconds * 1_000,
   );
+  const describePresentedUrl = (url: string): PresentedFrame => {
+    const presentedIndex = frames.findIndex((frame) => frame.url === url);
+    return {
+      url,
+      frame: presentedIndex >= 0 ? frames[presentedIndex] : null,
+      index: presentedIndex >= 0 ? presentedIndex : index,
+      total: frames.length,
+    };
+  };
+  // The playhead can move ahead while the next image is still probing. Labels
+  // and the range position describe the last successfully decoded frame, not
+  // a candidate that may fail and leave the retained image on screen.
+  const displayedFrame =
+    presentedFrame?.url === retainedImage.visibleUrl
+      ? presentedFrame
+      : describePresentedUrl(retainedImage.visibleUrl ?? currentUrl);
   const timestamp = useMemo(
-    () => (current ? new Date(current.time_tag).toLocaleString(undefined, {
+    () => (displayedFrame.frame ? new Date(displayedFrame.frame.time_tag).toLocaleString(undefined, {
       timeZone: "UTC",
       year: "numeric",
       month: "short",
@@ -210,7 +236,7 @@ export function SolarAnimationPlayer({
       minute: "2-digit",
       timeZoneName: "short",
     }) : "Static fallback"),
-    [current],
+    [displayedFrame.frame],
   );
 
   return (
@@ -242,8 +268,10 @@ export function SolarAnimationPlayer({
             }
           }}
           onLoad={() => {
+            const loadedUrl = retainedImage.visibleUrl ?? currentUrl;
             retainedImage.handleVisibleLoad();
-            frameFailures.current.delete(retainedImage.visibleUrl ?? currentUrl);
+            setPresentedFrame(describePresentedUrl(loadedUrl));
+            frameFailures.current.delete(loadedUrl);
             if (frameRetryTimer.current !== null) {
               window.clearTimeout(frameRetryTimer.current);
               frameRetryTimer.current = null;
@@ -261,8 +289,10 @@ export function SolarAnimationPlayer({
             data-solar-image-probe="true"
             className="pointer-events-none absolute h-px w-px opacity-0"
             onLoad={() => {
+              const loadedUrl = retainedImage.probeUrl ?? currentUrl;
               retainedImage.handleProbeLoad();
-              frameFailures.current.delete(currentUrl);
+              setPresentedFrame(describePresentedUrl(loadedUrl));
+              frameFailures.current.delete(loadedUrl);
               if (frameRetryTimer.current !== null) {
                 window.clearTimeout(frameRetryTimer.current);
                 frameRetryTimer.current = null;
@@ -308,7 +338,11 @@ export function SolarAnimationPlayer({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-mono text-sm text-white">{timestamp}</p>
-              <p className="mt-1 text-xs text-slate-500">Frame {index + 1} of {frames.length}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {displayedFrame.frame
+                  ? `Frame ${displayedFrame.index + 1} of ${displayedFrame.total}`
+                  : "Static fallback"}
+              </p>
             </div>
             <div className="flex gap-2">
               <button
@@ -340,7 +374,7 @@ export function SolarAnimationPlayer({
             type="range"
             min="0"
             max={Math.max(0, frames.length - 1)}
-            value={index}
+            value={displayedFrame.index}
             onChange={(event) => {
               setIndex(Number(event.target.value));
               setState("paused");

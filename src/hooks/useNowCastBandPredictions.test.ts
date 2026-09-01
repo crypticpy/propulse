@@ -60,6 +60,7 @@ describe("nowCastIssueBucket", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-12T12:04:59.500Z"));
     const capabilities = capabilitiesFixture as PropagationCapabilitiesResponse;
+    const refreshRejectors: Array<(reason?: unknown) => void> = [];
     modelClientMocks.capabilities.mockResolvedValue(capabilities);
     modelClientMocks.path.mockImplementation(
       (request: PathPredictionRequest): Promise<PropagationPrediction> => {
@@ -82,7 +83,9 @@ describe("nowCastIssueBucket", () => {
         };
         return request.issue_time === "2026-07-12T12:00:00.000Z"
           ? Promise.resolve(prediction)
-          : new Promise<PropagationPrediction>(() => {});
+          : new Promise<PropagationPrediction>((_resolve, reject) => {
+              refreshRejectors.push(reject);
+            });
       },
     );
     const queryClient = new QueryClient({
@@ -123,6 +126,23 @@ describe("nowCastIssueBucket", () => {
     expect(requestIssueTimes()).toContain("2026-07-12T12:05:00.000Z");
     expect(result.current.predictions.size).toBe(10);
     expect(result.current.pending).toBe(true);
+
+    // Retention is a loading bridge, not an indefinite stale-data fallback.
+    // Exhaust both configured attempts for the replacement bucket and verify
+    // that the old scores give way to the existing model-error presentation.
+    await act(async () => {
+      refreshRejectors.splice(0).forEach((reject) =>
+        reject(new Error("replacement unavailable")),
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+      refreshRejectors.splice(0).forEach((reject) =>
+        reject(new Error("replacement unavailable")),
+      );
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.predictions.size).toBe(0);
+    expect(result.current.errors.size).toBe(10);
+    expect(result.current.pending).toBe(false);
 
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     await act(async () => {

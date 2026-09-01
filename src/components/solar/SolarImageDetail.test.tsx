@@ -101,4 +101,55 @@ describe("SolarImageDetail", () => {
     expect(screen.getByRole("img").getAttribute("src")).toBe(firstUrl);
     expect(screen.getByRole("img").className).toContain("opacity-100");
   });
+
+  it("does not promote candidate metadata when the image probe fails", async () => {
+    vi.useFakeTimers();
+    const initial = new Date("2026-07-15T12:10:00.000Z");
+    vi.setSystemTime(initial);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            observedAt: "2026-07-15T12:00:00.000Z",
+            checkedAt: initial.toISOString(),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            observedAt: "2026-07-15T12:16:00.000Z",
+            checkedAt: "2026-07-15T12:16:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(
+      <SolarImageDetail productId="sunspot-hmi" />,
+    );
+    fireEvent.load(screen.getByRole("img"));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const originalFooter = screen.getByText(/Image time/i).textContent;
+
+    await act(async () => {
+      vi.advanceTimersByTime(6 * 60_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const probe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    expect(probe).toBeTruthy();
+    expect(screen.getByText(/Image time/i).textContent).toBe(originalFooter);
+
+    fireEvent.error(probe!);
+    expect(screen.getByText(/Image time/i).textContent).toBe(originalFooter);
+  });
 });

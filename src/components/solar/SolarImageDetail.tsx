@@ -6,12 +6,9 @@ import {
   type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
 import { useRetainedSolarImage } from "./useRetainedSolarImage";
+import { useSolarImageMetadata } from "./useSolarImageMetadata";
 
 type DetailImageState = "loading" | "ready" | "error" | "retrying";
-interface ImageMetadata {
-  observedAt: string | null;
-  checkedAt: string;
-}
 
 export function SolarImageDetail({
   productId,
@@ -21,8 +18,6 @@ export function SolarImageDetail({
   const product = SOLAR_IMAGE_PRODUCTS[productId];
   const [state, setState] = useState<DetailImageState>("loading");
   const [retryKey, setRetryKey] = useState(0);
-  const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
-  const [metadataFailed, setMetadataFailed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const attempts = useRef(0);
   const imageUrl = solarImageUrl(productId, now, retryKey);
@@ -34,44 +29,17 @@ export function SolarImageDetail({
   );
   const metadataUrl = solarImageMetadataUrl(productId, now, retryKey);
   const refreshBucket = Math.floor(now / (product.softTtlSeconds * 1_000));
+  const { metadata, metadataState } = useSolarImageMetadata(
+    imageUrl,
+    retainedImage.visibleUrl,
+    metadataUrl,
+    refreshBucket,
+  );
 
   const retry = useCallback(() => {
     setState((current) => (current === "loading" ? "loading" : "retrying"));
     setRetryKey((current) => current + 1);
-    setMetadataFailed(false);
   }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(metadataUrl, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("metadata unavailable");
-        const value = (await response.json()) as ImageMetadata;
-        if (
-          !value ||
-          !Number.isFinite(Date.parse(value.checkedAt)) ||
-          (value.observedAt !== null &&
-            !Number.isFinite(Date.parse(value.observedAt)))
-        ) {
-          throw new Error("metadata contract mismatch");
-        }
-        return value;
-      })
-      .then((value) => {
-        setMetadata(value);
-        // A later cadence poll can recover after a transient metadata outage.
-        // Clear the old error independently of observedAt: null, which is a
-        // valid provider response with a different operator-facing message.
-        setMetadataFailed(false);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setMetadataFailed(true);
-      });
-    return () => controller.abort();
-  }, [metadataUrl, refreshBucket]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -175,7 +143,7 @@ export function SolarImageDetail({
         <span>
           {Number.isFinite(observedTime)
             ? `Image time ${new Date(observedTime).toLocaleString(undefined, { timeZone: "UTC", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}`
-            : metadataFailed
+            : metadataState === "error"
               ? "Image loaded; observation timestamp is temporarily unavailable."
               : metadata
                 ? "The provider did not publish an observation timestamp."

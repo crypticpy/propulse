@@ -299,11 +299,12 @@ export function useNowCastBandPredictions(
         requestIdentity,
         prediction: query.data,
       });
-    } else {
+    } else if (query.isPending || query.isFetching) {
       // A new issue_time creates a new React Query key. Retain the prior
-      // same-path prediction until the replacement arrives (or fails) so the
-      // five-minute refresh does not blank every NowCast panel. `pending`
-      // still reports the in-flight refresh to consumers.
+      // same-path prediction until the replacement settles so the five-minute
+      // refresh does not blank every NowCast panel. A failed replacement falls
+      // through to the error state instead of presenting an indefinitely stale
+      // score as current; `pending` still reports the in-flight refresh.
       const retained = retainedPredictions.current.get(band);
       if (retained?.requestIdentity === requestIdentity) {
         predictions.set(band, retained.prediction);

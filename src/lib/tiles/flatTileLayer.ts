@@ -1,4 +1,5 @@
 import type { TileProviderConfig } from "./types";
+import { authHeaders } from "@/lib/api/authFetch";
 
 /**
  * FlatTileLayer — composites XYZ raster tiles onto the 2D equirectangular map.
@@ -25,12 +26,20 @@ export interface FlatTileLayer {
   dispose(): void;
 }
 
+export interface FlatTileLayerOptions {
+  maxCachedTiles?: number;
+  tileZoomBias?: number;
+  onProviderUnavailable?: () => void;
+}
+
 interface TileEntry {
   img: HTMLImageElement;
   status: "loading" | "ready" | "error";
+  controller?: AbortController;
+  objectUrl?: string;
 }
 
-const MAX_CACHED_TILES = 320;
+const DEFAULT_MAX_CACHED_TILES = 320;
 /** The static 4096px base image is ~z4 quality; tiles only add detail beyond it. */
 const MIN_DRAW_ZOOM = 5;
 /** How many coarser zoom levels to paint beneath the exact level while it loads. */
@@ -52,35 +61,112 @@ function mercatorNormYToLat(ny: number): number {
 export function createFlatTileLayer(
   provider: TileProviderConfig,
   onTileLoaded: () => void,
+  options: FlatTileLayerOptions = {},
 ): FlatTileLayer {
   // Insertion-ordered Map doubles as the LRU: hits re-insert, evictions pop
   // from the front, skipping in-flight requests.
   const cache = new Map<string, TileEntry>();
+  const maxCachedTiles =
+    options.maxCachedTiles ?? DEFAULT_MAX_CACHED_TILES;
+  const tileZoomBias = options.tileZoomBias ?? 0;
   let disposed = false;
+  let consecutiveErrors = 0;
+  let providerFailureReported = false;
+
+  function releaseEntry(entry: TileEntry): void {
+    entry.controller?.abort();
+    entry.img.onload = null;
+    entry.img.onerror = null;
+    if (entry.status === "loading") entry.img.src = "";
+    if (entry.objectUrl) {
+      URL.revokeObjectURL(entry.objectUrl);
+      entry.objectUrl = undefined;
+    }
+  }
+
+  function markError(entry: TileEntry): void {
+    if (disposed) return;
+    entry.status = "error";
+    entry.controller = undefined;
+    if (entry.objectUrl) {
+      URL.revokeObjectURL(entry.objectUrl);
+      entry.objectUrl = undefined;
+    }
+    consecutiveErrors += 1;
+    if (consecutiveErrors >= 3 && !providerFailureReported) {
+      providerFailureReported = true;
+      options.onProviderUnavailable?.();
+    }
+  }
+
+  async function loadAuthenticatedTile(
+    entry: TileEntry,
+    tileUrl: string,
+  ): Promise<void> {
+    const headers = await authHeaders({
+      Accept: "image/avif,image/webp,image/*,*/*;q=0.8",
+    });
+    if (disposed || entry.controller?.signal.aborted) return;
+
+    const response = await fetch(tileUrl, {
+      headers,
+      signal: entry.controller?.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Tile request failed with ${response.status}`);
+    }
+    const blob = await response.blob();
+    if (disposed || entry.controller?.signal.aborted) return;
+    entry.objectUrl = URL.createObjectURL(blob);
+    entry.img.src = entry.objectUrl;
+  }
 
   function requestTile(key: string, z: number, x: number, y: number): void {
     const img = new Image();
-    // Esri/OSM send ACAO:*; without this the canvas would be tainted.
-    img.crossOrigin = "anonymous";
-    const entry: TileEntry = { img, status: "loading" };
+    const entry: TileEntry = {
+      img,
+      status: "loading",
+      ...(provider.authentication === "bearer" && {
+        controller: new AbortController(),
+      }),
+    };
     cache.set(key, entry);
-    if (cache.size > MAX_CACHED_TILES) {
+    if (cache.size > maxCachedTiles) {
       for (const [oldKey, old] of cache) {
-        if (cache.size <= MAX_CACHED_TILES) break;
-        if (old.status !== "loading") cache.delete(oldKey);
+        if (cache.size <= maxCachedTiles) break;
+        if (old.status !== "loading") {
+          releaseEntry(old);
+          cache.delete(oldKey);
+        }
       }
     }
     img.onload = () => {
       entry.status = "ready";
+      entry.controller = undefined;
+      consecutiveErrors = 0;
+      if (entry.objectUrl) {
+        URL.revokeObjectURL(entry.objectUrl);
+        entry.objectUrl = undefined;
+      }
       if (!disposed) onTileLoaded();
     };
-    img.onerror = () => {
-      entry.status = "error";
-    };
-    img.src = provider.url
+    img.onerror = () => markError(entry);
+    const tileUrl = provider.url
       .replace("{z}", String(z))
       .replace("{x}", String(x))
       .replace("{y}", String(y));
+
+    if (provider.authentication === "bearer") {
+      void loadAuthenticatedTile(entry, tileUrl).catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (disposed) return;
+        markError(entry);
+      });
+    } else {
+      // Esri/OSM send ACAO:*; without this the canvas would be tainted.
+      img.crossOrigin = "anonymous";
+      img.src = tileUrl;
+    }
   }
 
   function drawTile(
@@ -127,7 +213,8 @@ export function createFlatTileLayer(
     }
     const { scale, offsetX, offsetY, renderWidth, renderHeight } = view;
     const worldDevicePx = renderWidth * scale * view.devicePixelRatio;
-    const idealZoom = Math.round(Math.log2(worldDevicePx / provider.tileSize));
+    const idealZoom =
+      Math.round(Math.log2(worldDevicePx / provider.tileSize)) + tileZoomBias;
     if (idealZoom < MIN_DRAW_ZOOM) {
       return; // base image is sharp enough at this zoom
     }
@@ -152,6 +239,7 @@ export function createFlatTileLayer(
 
     // Coarse-to-fine: paint any cached ancestor tiles first so zooming shows
     // upscaled imagery instead of holes while the exact level loads.
+    const visibleTileKeys = new Set<string>();
     for (let level = Math.max(2, z - FALLBACK_ZOOM_STEPS); level <= z; level++) {
       const n = 1 << level;
       const xStart = Math.max(0, Math.floor(((lonLeft + 180) / 360) * n));
@@ -161,6 +249,7 @@ export function createFlatTileLayer(
       for (let ty = yStart; ty <= yEnd; ty++) {
         for (let tx = xStart; tx <= xEnd; tx++) {
           const key = `${level}/${tx}/${ty}`;
+          visibleTileKeys.add(key);
           const entry = cache.get(key);
           if (entry) {
             if (entry.status === "ready") {
@@ -174,6 +263,15 @@ export function createFlatTileLayer(
         }
       }
     }
+
+    // Fast pans/zooms should not spend bandwidth finishing tiles that are no
+    // longer visible. Ready ancestors remain cached for seamless fallback.
+    for (const [key, entry] of cache) {
+      if (entry.status === "loading" && !visibleTileKeys.has(key)) {
+        releaseEntry(entry);
+        cache.delete(key);
+      }
+    }
   }
 
   return {
@@ -181,8 +279,7 @@ export function createFlatTileLayer(
     dispose() {
       disposed = true;
       for (const entry of cache.values()) {
-        entry.img.onload = null;
-        entry.img.onerror = null;
+        releaseEntry(entry);
       }
       cache.clear();
     },

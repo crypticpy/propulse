@@ -4,6 +4,7 @@
  */
 import { applyRateLimit } from "../_lib/rateLimit";
 import { verifyAuth } from "../_lib/auth";
+import { hasProEntitlement } from "../_lib/entitlements";
 
 export const config = {
   runtime: "edge",
@@ -62,10 +63,6 @@ export default async function handler(request: Request): Promise<Response> {
   const authResult = await verifyAuth(request);
   if (authResult instanceof Response) return authResult;
 
-  // Currently auth alone is sufficient since the client only exposes the proxy
-  // URL to Pro-tier subscribers. Phase 3+: query profiles.subscription_tier
-  // for server-side tier enforcement so free users cannot call this directly.
-
   // Parse and validate query params
   const url = new URL(request.url);
   const provider = url.searchParams.get("provider");
@@ -98,6 +95,16 @@ export default async function handler(request: Request): Promise<Response> {
     return jsonError(`Tile coordinates out of range for zoom ${z}`, 400);
   }
 
+  if (provider === "mapbox") {
+    const entitled = await hasProEntitlement(authResult.user.id);
+    if (entitled === null) {
+      return jsonError("Unable to verify Pro imagery entitlement", 503);
+    }
+    if (!entitled) {
+      return jsonError("Pro subscription required for HD satellite tiles", 403);
+    }
+  }
+
   const upstreamUrl = buildUpstreamUrl(provider, z, x, y);
   if (!upstreamUrl) {
     return jsonError("Tile provider is not configured", 502);
@@ -122,7 +129,8 @@ export default async function handler(request: Request): Promise<Response> {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
+      "Cache-Control": "private, max-age=3600, stale-while-revalidate=300",
+      Vary: "Authorization",
       ...CORS_HEADERS,
     },
   });

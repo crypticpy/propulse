@@ -79,6 +79,7 @@ import {
 } from "@/lib/tiles/flatTileLayer";
 import { ALL_PROVIDERS, selectTileProvider } from "@/lib/tiles/providers";
 import { useProfileStore } from "@/stores/profileStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import {
   readDisplayQualityEnvironment,
@@ -86,7 +87,10 @@ import {
 } from "@/lib/map/displayQuality";
 import { useThemeStore } from "@/stores/themeStore";
 import { getSeasonalTextureCandidates } from "./hooks/useSeasonalDayTexture";
-import { ImageryAttribution } from "./ImageryAttribution";
+import {
+  ImageryAttribution,
+  type ImagerySourceCredit,
+} from "./ImageryAttribution";
 import {
   getMaidenheadFields,
   MAIDENHEAD_LON_LINES,
@@ -168,6 +172,20 @@ function matchesResolvedSpot(
 // Map dimensions
 const MAP_WIDTH = 1024;
 const MAP_HEIGHT = 512;
+
+const NASA_BLUE_MARBLE_SOURCE: ImagerySourceCredit = {
+  name: "NASA Blue Marble",
+  attribution: "NASA Blue Marble",
+  attributionUrl: "https://visibleearth.nasa.gov/collection/1484/blue-marble",
+  surfaceKind: "declouded-mosaic",
+};
+
+const NATURAL_EARTH_SOURCE: ImagerySourceCredit = {
+  name: "Natural Earth",
+  attribution: "Natural Earth",
+  attributionUrl: "https://www.naturalearthdata.com/about/terms-of-use/",
+  surfaceKind: "cartographic",
+};
 
 // Maximum zoom-in scale. 64 gives a ~5.6° longitude window (metro scale);
 // the satellite tile layer keeps imagery sharp all the way in.
@@ -3283,6 +3301,7 @@ export function FlatMapView({
   const tileLayerRef = useRef<FlatTileLayer | null>(null);
   // Bumped when an async tile finishes loading, forcing a recomposite
   const [tileEpoch, setTileEpoch] = useState(0);
+  const [providerTilesVisible, setProviderTilesVisible] = useState(false);
 
   // `displaySize` is the 2:1 map box every draw call and hit-test projects
   // into; `viewportSize` is the canvas element. They differ only in
@@ -3331,6 +3350,9 @@ export function FlatMapView({
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const target = useMapStore((s) => s.target);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const hiResTexturesEnabled = useSettingsStore(
+    (s) => s.globeHiResTextures,
+  );
   const themeId = useThemeStore((s) => s.themeId);
   const qualitySettings = useMemo(() => {
     const environment = readDisplayQualityEnvironment();
@@ -3371,6 +3393,7 @@ export function FlatMapView({
   // Create/replace the satellite tile layer when the style or provider changes
   useEffect(() => {
     if (mapStyle === "standard") {
+      setProviderTilesVisible(false);
       return;
     }
     const layer = createFlatTileLayer(
@@ -4424,7 +4447,7 @@ export function FlatMapView({
   }, [handleWheel]);
 
   // Load the bundled 4K map immediately, then upgrade UHD/Extreme displays to
-  // the current de-clouded monthly mosaic when the public asset is available.
+  // the current de-clouded monthly mosaic when the bandwidth opt-in is enabled.
   useEffect(() => {
     let cancelled = false;
     let upgraded = false;
@@ -4435,8 +4458,9 @@ export function FlatMapView({
     fallback.src = "/textures/earth-flat.jpg";
 
     if (
-      qualitySettings.effective !== "uhd" &&
-      qualitySettings.effective !== "extreme"
+      !hiResTexturesEnabled ||
+      (qualitySettings.effective !== "uhd" &&
+        qualitySettings.effective !== "extreme")
     ) {
       return () => {
         cancelled = true;
@@ -4464,7 +4488,7 @@ export function FlatMapView({
     return () => {
       cancelled = true;
     };
-  }, [qualitySettings.effective]);
+  }, [hiResTexturesEnabled, qualitySettings.effective]);
 
   // Pre-load night lights texture (module-level singleton, loaded once)
   useEffect(() => {
@@ -4992,7 +5016,7 @@ export function FlatMapView({
 
     // Composite sharp satellite tiles over the low-res base once zoomed in
     if (!isStandard && tileLayerRef.current) {
-      tileLayerRef.current.draw(ctx, {
+      const drewProviderTiles = tileLayerRef.current.draw(ctx, {
         scale: zoom.scale,
         offsetX: zoom.offsetX,
         offsetY: zoom.offsetY,
@@ -5000,6 +5024,9 @@ export function FlatMapView({
         renderHeight,
         devicePixelRatio: dpr,
       });
+      setProviderTilesVisible((visible) =>
+        visible === drewProviderTiles ? visible : drewProviderTiles,
+      );
     }
 
     // Draw MUF overlay (before night side so it's properly darkened)
@@ -5645,10 +5672,15 @@ export function FlatMapView({
 
       <div className="absolute bottom-1 right-1 z-20">
         <ImageryAttribution
-          provider={
+          baseSource={
             mapStyle === "standard"
-              ? selectTileProvider("standard", subscriptionTier)
-              : tileProvider
+              ? NATURAL_EARTH_SOURCE
+              : NASA_BLUE_MARBLE_SOURCE
+          }
+          provider={
+            mapStyle !== "standard" && providerTilesVisible
+              ? tileProvider
+              : undefined
           }
         />
       </div>

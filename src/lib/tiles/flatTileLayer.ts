@@ -21,8 +21,11 @@ export interface FlatTileViewState {
 }
 
 export interface FlatTileLayer {
-  /** Draw visible tiles in map space; ctx must already carry the zoom transform. */
-  draw(ctx: CanvasRenderingContext2D, view: FlatTileViewState): void;
+  /**
+   * Draw visible tiles in map space; ctx must already carry the zoom transform.
+   * Returns true only when at least one provider tile contributed pixels.
+   */
+  draw(ctx: CanvasRenderingContext2D, view: FlatTileViewState): boolean;
   dispose(): void;
 }
 
@@ -254,16 +257,16 @@ export function createFlatTileLayer(
     }
   }
 
-  function draw(ctx: CanvasRenderingContext2D, view: FlatTileViewState): void {
+  function draw(ctx: CanvasRenderingContext2D, view: FlatTileViewState): boolean {
     if (disposed) {
-      return;
+      return false;
     }
     const { scale, offsetX, offsetY, renderWidth, renderHeight } = view;
     const worldDevicePx = renderWidth * scale * view.devicePixelRatio;
     const idealZoom =
       Math.round(Math.log2(worldDevicePx / provider.tileSize)) + tileZoomBias;
     if (idealZoom < MIN_DRAW_ZOOM) {
-      return; // base image is sharp enough at this zoom
+      return false; // base image is sharp enough at this zoom
     }
     const z = Math.min(idealZoom, provider.maxZoom);
 
@@ -273,7 +276,7 @@ export function createFlatTileLayer(
     const top = Math.max(0, -offsetY / scale);
     const bottom = Math.min(renderHeight, (renderHeight - offsetY) / scale);
     if (right <= left || bottom <= top) {
-      return;
+      return false;
     }
 
     const lonLeft = (left / renderWidth) * 360 - 180;
@@ -281,7 +284,7 @@ export function createFlatTileLayer(
     const latTop = 90 - (top / renderHeight) * 180;
     const latBottom = 90 - (bottom / renderHeight) * 180;
     if (latTop <= -MERCATOR_MAX_LAT || latBottom >= MERCATOR_MAX_LAT) {
-      return; // window is entirely polar — outside tile coverage
+      return false; // window is entirely polar — outside tile coverage
     }
 
     const exactN = 1 << z;
@@ -309,6 +312,7 @@ export function createFlatTileLayer(
     // Coarse-to-fine: paint any cached ancestor tiles first so zooming shows
     // upscaled imagery instead of holes while the exact level loads.
     const visibleTileKeys = new Set<string>();
+    let drewProviderTile = false;
     for (let level = Math.max(2, z - FALLBACK_ZOOM_STEPS); level <= z; level++) {
       const n = 1 << level;
       const xStart =
@@ -337,6 +341,7 @@ export function createFlatTileLayer(
               cache.delete(key);
               cache.set(key, entry); // refresh LRU position
               drawTile(ctx, entry.img, level, tx, ty, view);
+              drewProviderTile = true;
             }
           } else if (level === z) {
             queueTile(key, level, tx, ty);
@@ -369,6 +374,8 @@ export function createFlatTileLayer(
     } else {
       pumpQueue();
     }
+
+    return drewProviderTile;
   }
 
   return {

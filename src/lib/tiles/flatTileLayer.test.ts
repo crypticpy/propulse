@@ -79,6 +79,31 @@ describe("createFlatTileLayer", () => {
     layer.dispose();
   });
 
+  it("reports whether provider imagery actually contributed to the frame", async () => {
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      vi.fn(),
+    );
+    const context = {
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const view = {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+    };
+
+    expect(layer.draw(context, view)).toBe(false);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    await vi.waitFor(() => expect(layer.draw(context, view)).toBe(true));
+
+    expect(context.drawImage).toHaveBeenCalled();
+    layer.dispose();
+  });
+
   it("keeps visible ancestor tiles loading for seamless zoom fallback", async () => {
     vi.mocked(fetch).mockImplementation(
       () => new Promise<Response>(() => undefined),

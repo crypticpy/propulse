@@ -48,6 +48,8 @@ export function SpotCollectionPopover({
   onSpotSelect,
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const firstSpotRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const sortedSpots = useMemo(
     () =>
       [...spots].sort((a, b) => {
@@ -112,6 +114,21 @@ export function SpotCollectionPopover({
     };
   }, [handleKeyDown, onClose, visible]);
 
+  useEffect(() => {
+    if (!visible || sortedSpots.length === 0) return;
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const timeout = window.setTimeout(() => firstSpotRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(timeout);
+      const previousFocus = previousFocusRef.current;
+      previousFocusRef.current = null;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [sortedSpots.length, visible]);
+
   if (!visible || sortedSpots.length === 0) return null;
 
   return createPortal(
@@ -158,6 +175,7 @@ export function SpotCollectionPopover({
           return (
             <button
               type="button"
+              ref={index === 0 ? firstSpotRef : undefined}
               key={spot.id || `${spot.dx}-${spot.frequency}-${index}`}
               onClick={() => onSpotSelect(spot)}
               className="group w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal-green"

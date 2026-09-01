@@ -43,6 +43,23 @@ export interface SpotFocusState {
   clearFocus: () => void;
 }
 
+export function hasValidSpotCoordinates(
+  spot: Pick<DXSpot, "dxLat" | "dxLon"> | null | undefined,
+): spot is Pick<DXSpot, "dxLat" | "dxLon"> & {
+  dxLat: number;
+  dxLon: number;
+} {
+  return Boolean(
+    spot &&
+      Number.isFinite(spot.dxLat) &&
+      Number.isFinite(spot.dxLon) &&
+      spot.dxLat! >= -90 &&
+      spot.dxLat! <= 90 &&
+      spot.dxLon! >= -180 &&
+      spot.dxLon! <= 180,
+  );
+}
+
 /**
  * Convert latitude/longitude to 3D position on a sphere
  *
@@ -124,11 +141,7 @@ export function useSpotFocus(): SpotFocusState {
 
   // Calculate spot position on the globe surface
   const spotPosition = useMemo((): Position3D | null => {
-    if (
-      !focusedSpot ||
-      !Number.isFinite(focusedSpot.dxLat) ||
-      !Number.isFinite(focusedSpot.dxLon)
-    ) {
+    if (!hasValidSpotCoordinates(focusedSpot)) {
       return null;
     }
 
@@ -154,9 +167,7 @@ export function useSpotFocus(): SpotFocusState {
 
     // Check if spot has valid coordinates
     if (
-      selectedSpot &&
-      Number.isFinite(selectedSpot.dxLat) &&
-      Number.isFinite(selectedSpot.dxLon)
+      hasValidSpotCoordinates(selectedSpot)
     ) {
       // New valid spot selected - start focusing
       setFocusedSpot(selectedSpot);

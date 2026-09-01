@@ -1068,6 +1068,7 @@ const GlobeScene = React.memo(function GlobeScene({
     resolvedSpots: resolvedGlowSpots,
     activationSpots,
     isLoading: liveSpotsLoading,
+    isFeedReady: liveSpotsFeedReady,
   } = useResolvedMapSpots({
     grid: station?.grid,
     enabled: resolvedSpotLayersEnabled || layers.spectrumRing,
@@ -1643,7 +1644,7 @@ const GlobeScene = React.memo(function GlobeScene({
             feedSpots={liveSpots}
             candidateSpots={candidateSpots}
             resolvedSpots={resolvedGlowSpots}
-            isLoading={liveSpotsLoading}
+            isFeedReady={liveSpotsFeedReady}
             hydrationKey={`${station?.grid ?? ""}|${
               spotSourceFilters && spotSourceFilters.length > 0
                 ? spotSourceFilters.join(",")

@@ -66,8 +66,8 @@ interface AnimatedSpotTracesProps {
   candidateSpots?: LiveSpot[];
   /** Shared coordinate resolution of candidateSpots. */
   resolvedSpots?: ResolvedSpot[];
-  /** Initial shared-feed loading state. */
-  isLoading?: boolean;
+  /** Whether every requested source has produced a successful baseline. */
+  isFeedReady?: boolean;
   /** Changes when the backing query scope changes (for example QTH/source). */
   hydrationKey?: string;
   onSpotHover?: (data: SpotDetailsData, screenPos: ScreenAnchor) => void;
@@ -552,7 +552,7 @@ export function AnimatedSpotTraces({
   feedSpots: suppliedFeedSpots,
   candidateSpots: suppliedCandidateSpots,
   resolvedSpots: suppliedResolvedSpots,
-  isLoading: suppliedIsLoading,
+  isFeedReady: suppliedIsFeedReady,
   hydrationKey = "standalone",
   onSpotHover,
   onSpotHoverEnd,
@@ -570,7 +570,7 @@ export function AnimatedSpotTraces({
   });
   const feedSpots = suppliedFeedSpots ?? ownedFeed.spots;
   const candidateSpots = suppliedCandidateSpots ?? feedSpots;
-  const isLoading = suppliedIsLoading ?? ownedFeed.isLoading;
+  const isFeedReady = suppliedIsFeedReady ?? ownedFeed.isFeedReady;
   const resolvedSpots = useMemo(
     () => suppliedResolvedSpots ?? resolveSpotLocations(candidateSpots),
     [candidateSpots, suppliedResolvedSpots],
@@ -648,13 +648,15 @@ export function AnimatedSpotTraces({
       seenSpotIds.current = new Set();
       hydratedRef.current = false;
       pendingQueue.current = [];
+      lastDequeueTime.current = 0;
+      setActiveTraces([]);
     }
 
     const eligibleIds = new Set(candidateSpots.map(({ id }) => id));
     const reconciliation = reconcileTraceFeed(
       seenSpotIds.current,
       hydratedRef.current,
-      !isLoading,
+      isFeedReady,
       feedSpots.map(({ id }) => id),
       eligibleIds,
     );
@@ -688,7 +690,7 @@ export function AnimatedSpotTraces({
     computeAndQueue,
     feedSpots,
     hydrationKey,
-    isLoading,
+    isFeedReady,
     resolvedSpots,
   ]);
 

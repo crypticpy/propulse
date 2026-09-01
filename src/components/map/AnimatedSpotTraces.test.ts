@@ -40,6 +40,31 @@ describe("animated spot trace lifecycle", () => {
     expect(hydrated.seenIds.has("existing")).toBe(true);
   });
 
+  it("baselines a recovered initial snapshot instead of replaying it", () => {
+    const failed = reconcileTraceFeed(
+      new Set(),
+      false,
+      false,
+      [],
+      new Set(),
+    );
+    const recovered = reconcileTraceFeed(
+      failed.seenIds,
+      failed.hydrated,
+      true,
+      ["recovered-existing-1", "recovered-existing-2"],
+      new Set(["recovered-existing-1", "recovered-existing-2"]),
+    );
+
+    expect(failed.hydrated).toBe(false);
+    expect(recovered.hydrated).toBe(true);
+    expect(recovered.newEligibleIds).toEqual([]);
+    expect([...recovered.seenIds]).toEqual([
+      "recovered-existing-1",
+      "recovered-existing-2",
+    ]);
+  });
+
   it("animates only genuinely new eligible feed entries", () => {
     const result = reconcileTraceFeed(
       new Set(["old", "previously-filtered"]),

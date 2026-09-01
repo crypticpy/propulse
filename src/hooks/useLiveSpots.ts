@@ -42,6 +42,8 @@ interface UseLiveSpotsResult {
   spots: LiveSpot[];
   /** Loading state */
   isLoading: boolean;
+  /** Every requested remote source has produced an initial successful snapshot. */
+  isFeedReady: boolean;
   /** Error state */
   isError: boolean;
   /** Spots by source for attribution */
@@ -138,12 +140,14 @@ export function useLiveSpots({
   // for the next interval.
   const displayDensity = useMapStore((s) => s.displayDensity);
   const spotLimit = getSpotFetchLimit(displayDensity);
+  const pskEnabled = enabled && sources.includes("PSKReporter");
+  const rbnEnabled = enabled && sources.includes("RBN");
 
   // Fetch PSKReporter spots
   const pskQuery = useQuery({
     queryKey: ["liveSpots", "pskreporter", grid, spotLimit],
     queryFn: () => fetchPSKReporterSpots(grid, undefined, spotLimit),
-    enabled: enabled && sources.includes("PSKReporter"),
+    enabled: pskEnabled,
     staleTime: 30 * SECOND,
     refetchInterval,
     retry: 2,
@@ -153,7 +157,7 @@ export function useLiveSpots({
   const rbnQuery = useQuery({
     queryKey: ["liveSpots", "rbn", spotLimit],
     queryFn: () => fetchRBNSpots(spotLimit),
-    enabled: enabled && sources.includes("RBN"),
+    enabled: rbnEnabled,
     staleTime: 30 * SECOND,
     refetchInterval,
     retry: 2,
@@ -233,6 +237,15 @@ export function useLiveSpots({
 
   const isLoading = pskQuery.isLoading || rbnQuery.isLoading;
   const isError = pskQuery.isError && rbnQuery.isError;
+  // `isLoading` becomes false after an initial error, so it cannot establish
+  // the trace feed's hydration baseline. dataUpdatedAt is only populated by a
+  // successful query result and remains populated through later refetch
+  // errors. Waiting for every requested remote source prevents a recovered
+  // source's existing snapshot from being replayed as newly-arrived traces.
+  const isFeedReady =
+    enabled &&
+    (!pskEnabled || pskQuery.dataUpdatedAt > 0) &&
+    (!rbnEnabled || rbnQuery.dataUpdatedAt > 0);
 
   const refetch = () => {
     pskQuery.refetch();
@@ -242,6 +255,7 @@ export function useLiveSpots({
   return {
     spots,
     isLoading,
+    isFeedReady,
     isError,
     spotsBySource,
     refetch,

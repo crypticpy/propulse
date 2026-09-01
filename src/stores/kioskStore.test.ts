@@ -18,16 +18,22 @@ vi.hoisted(() => {
 });
 
 import {
-  useKioskStore,
-  applySceneToMap,
   DEFAULT_PRESENTATION,
   DEFAULT_SCENES,
+  KIOSK_ROUTES,
+  getKioskRouteCapabilities,
+  isKioskMapRoute,
   migrateKioskState,
-  type KioskScene,
+  useKioskStore,
 } from "./kioskStore";
-import { useMapStore } from "./mapStore";
 
 const originalState = useKioskStore.getState();
+const normalizedDefaultScenes = DEFAULT_SCENES.map((scene) => ({
+  ...scene,
+  ...(scene.map ? { map: { ...scene.map } } : {}),
+  enabled: true,
+  transition: "fade" as const,
+}));
 
 describe("kioskStore", () => {
   beforeEach(() => {
@@ -38,6 +44,28 @@ describe("kioskStore", () => {
   it("seeds default scenes", () => {
     expect(useKioskStore.getState().scenes.length).toBeGreaterThanOrEqual(3);
     expect(useKioskStore.getState().scenes[0].id).toBe(DEFAULT_SCENES[0].id);
+  });
+
+  it("declares dedicated explorer and photorealistic route capabilities", () => {
+    expect(KIOSK_ROUTES.map(({ route }) => route)).toEqual(
+      expect.arrayContaining(["/map/explorer", "/map/photorealistic"]),
+    );
+    expect(isKioskMapRoute("/map/explorer")).toBe(true);
+    expect(isKioskMapRoute("/map/photorealistic")).toBe(true);
+    expect(getKioskRouteCapabilities("/map")).toMatchObject({
+      viewMode: true,
+      preset: true,
+      liveClouds: true,
+    });
+    expect(getKioskRouteCapabilities("/map/explorer")).toMatchObject({
+      mapConfig: true,
+      quality: true,
+      theme: true,
+      viewMode: false,
+      mapStyle: false,
+      liveClouds: false,
+    });
+    expect(getKioskRouteCapabilities("/solar").mapConfig).toBe(false);
   });
 
   it("start activates kiosk at the requested scene, defaulting to the first", () => {
@@ -72,6 +100,29 @@ describe("kioskStore", () => {
     expect(back?.id).toBe(scenes[scenes.length - 1].id);
   });
 
+  it("skips disabled scenes for start, advance, and active lookup", () => {
+    const { scenes } = useKioskStore.getState();
+    useKioskStore.getState().updateScene(scenes[0].id, { enabled: false });
+
+    const started = useKioskStore.getState().start(scenes[0].id);
+    expect(started?.id).toBe(scenes[1].id);
+    expect(useKioskStore.getState().getActiveScene()?.id).toBe(scenes[1].id);
+
+    useKioskStore.getState().updateScene(scenes[2].id, { enabled: false });
+    expect(useKioskStore.getState().advance(1)?.id).toBe(scenes[3].id);
+
+    for (const scene of useKioskStore.getState().scenes) {
+      useKioskStore.getState().updateScene(scene.id, { enabled: false });
+    }
+    expect(useKioskStore.getState().start()).toBeNull();
+    expect(useKioskStore.getState().advance(1)).toBeNull();
+    expect(useKioskStore.getState().getActiveScene()).toBeNull();
+
+    useKioskStore.getState().updateScene(scenes[4].id, { enabled: true });
+    expect(useKioskStore.getState().activeSceneId).toBe(scenes[4].id);
+    expect(useKioskStore.getState().getActiveScene()?.id).toBe(scenes[4].id);
+  });
+
   it("addScene assigns an id and removeScene refuses to empty the list", () => {
     const created = useKioskStore.getState().addScene({
       name: "Test",
@@ -97,6 +148,144 @@ describe("kioskStore", () => {
     start(scenes[1].id);
     useKioskStore.getState().removeScene(scenes[1].id);
     expect(useKioskStore.getState().activeSceneId).toBe(scenes[0].id);
+  });
+
+  it("duplicates and reorders scenes without sharing nested map config", () => {
+    const source = useKioskStore.getState().scenes[1];
+    const duplicate = useKioskStore.getState().duplicateScene(source.id);
+
+    expect(duplicate?.name).toBe(`${source.name} Copy`);
+    expect(duplicate?.map).toEqual(source.map);
+    expect(duplicate?.map).not.toBe(source.map);
+    expect(useKioskStore.getState().scenes[2].id).toBe(duplicate?.id);
+
+    useKioskStore.getState().moveScene(duplicate!.id, -1);
+    expect(useKioskStore.getState().scenes[1].id).toBe(duplicate?.id);
+    useKioskStore.getState().moveScene(duplicate!.id, -1);
+    expect(useKioskStore.getState().scenes[0].id).toBe(duplicate?.id);
+    useKioskStore.getState().moveScene(duplicate!.id, -1);
+    expect(useKioskStore.getState().scenes[0].id).toBe(duplicate?.id);
+  });
+
+  it("sanitizes and deep-clones replacement assignments", () => {
+    const remote = [
+      {
+        id: "remote-map",
+        name: "Remote map",
+        route: "/map",
+        enabled: true,
+        durationSec: 2,
+        transition: "cut",
+        ignored: "remove me",
+        map: {
+          layoutMode: "pro",
+          viewMode: "globe",
+          preset: "dx-hunter",
+          autoRotate: true,
+          autoRotateSpeed: 999_999,
+          quality: "extreme",
+          mapStyle: "standard",
+          theme: "light",
+          showLiveClouds: true,
+          ignored: "remove me",
+        },
+      },
+      {
+        id: "remote-explorer",
+        name: "Remote explorer",
+        route: "/map/explorer",
+        map: {
+          layoutMode: "pro",
+          viewMode: "flat",
+          preset: "science",
+          autoRotate: true,
+          quality: "uhd",
+          mapStyle: "satellite",
+          theme: "midnight",
+          showLiveClouds: true,
+        },
+      },
+      { id: "remote-map", name: "Duplicate", route: "/solar" },
+      { id: "unsafe", name: "Unsafe", route: "/settings" },
+    ] as const;
+
+    useKioskStore.getState().replaceScenes(remote);
+
+    const scenes = useKioskStore.getState().scenes;
+    expect(scenes).toEqual([
+      {
+        id: "remote-map",
+        name: "Remote map",
+        route: "/map",
+        enabled: true,
+        durationSec: 15,
+        transition: "cut",
+        map: {
+          layoutMode: "pro",
+          viewMode: "globe",
+          preset: "dx-hunter",
+          autoRotate: true,
+          autoRotateSpeed: 86_400,
+          quality: "extreme",
+          mapStyle: "standard",
+          theme: "light",
+          showLiveClouds: true,
+        },
+      },
+      {
+        id: "remote-explorer",
+        name: "Remote explorer",
+        route: "/map/explorer",
+        enabled: true,
+        transition: "fade",
+        map: {
+          layoutMode: "pro",
+          quality: "uhd",
+          theme: "midnight",
+        },
+      },
+    ]);
+    expect(scenes[0]).not.toBe(remote[0]);
+    expect(scenes[0].map).not.toBe(remote[0].map);
+  });
+
+  it("uses cloned defaults when a replacement is empty or wholly invalid", () => {
+    useKioskStore.getState().replaceScenes([
+      { id: "stale", name: "Stale", route: "/solar" },
+    ]);
+    useKioskStore.getState().replaceScenes([]);
+    const emptyReplacement = useKioskStore.getState().scenes;
+    expect(emptyReplacement).toEqual(normalizedDefaultScenes);
+    expect(emptyReplacement[0]).not.toBe(DEFAULT_SCENES[0]);
+    expect(emptyReplacement[0].map).not.toBe(DEFAULT_SCENES[0].map);
+
+    useKioskStore.getState().replaceScenes([
+      { id: "unsafe", name: "Unsafe", route: "/settings" },
+    ]);
+    expect(useKioskStore.getState().scenes).toEqual(normalizedDefaultScenes);
+  });
+
+  it("strips stale map fields when a scene route changes or clears its map", () => {
+    const source = useKioskStore.getState().scenes[1];
+
+    useKioskStore.getState().updateScene(source.id, {
+      route: "/map/explorer",
+      map: {
+        layoutMode: "pro",
+        viewMode: "globe",
+        preset: "dx-hunter",
+        quality: "uhd",
+      },
+    });
+    expect(
+      useKioskStore.getState().scenes.find((scene) => scene.id === source.id)
+        ?.map,
+    ).toEqual({ layoutMode: "pro", quality: "uhd" });
+
+    useKioskStore.getState().updateScene(source.id, { map: undefined });
+    expect(
+      useKioskStore.getState().scenes.find((scene) => scene.id === source.id),
+    ).not.toHaveProperty("map");
   });
 
   it("setRotation clamps the interval to a sane range", () => {
@@ -127,24 +316,7 @@ describe("kioskStore", () => {
     });
   });
 
-  it("applySceneToMap applies map side effects and ignores non-map scenes", () => {
-    const mapScene: KioskScene = {
-      id: "s1",
-      name: "Map",
-      route: "/map",
-      map: { layoutMode: "pro", viewMode: "flat", autoRotate: true },
-    };
-    applySceneToMap(mapScene);
-    expect(useMapStore.getState().layoutMode).toBe("pro");
-    expect(useMapStore.getState().viewMode).toBe("flat");
-    expect(useMapStore.getState().autoRotate).toBe(true);
-
-    const solarScene: KioskScene = { id: "s2", name: "Solar", route: "/solar" };
-    applySceneToMap(solarScene);
-    expect(useMapStore.getState().layoutMode).toBe("pro");
-  });
-
-  it("migrates v1 state into a bounded, internally consistent v3 payload", () => {
+  it("migrates v1 state into a bounded, internally consistent v4 payload", () => {
     const migrated = migrateKioskState(
       {
         scenes: [
@@ -171,6 +343,8 @@ describe("kioskStore", () => {
         id: "custom-wall",
         name: "Custom Wall",
         route: "/map",
+        enabled: true,
+        transition: "fade",
         map: {
           layoutMode: "hamclock",
           viewMode: "globe",
@@ -206,6 +380,74 @@ describe("kioskStore", () => {
     expect(migrated.breakInLevel).toBe("WARNING");
   });
 
+  it("normalizes the enhanced scene schema while migrating v3 to v4", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [
+          {
+            id: "v3-map",
+            name: "V3 map",
+            route: "/map",
+            enabled: false,
+            durationSec: 99_999,
+            transition: "wipe",
+            map: {
+              layoutMode: "pro",
+              autoRotateSpeed: 1,
+              preset: "dx-hunter",
+              unknown: true,
+            },
+            unknown: true,
+          },
+        ],
+        rotation: { enabled: true, intervalSec: 120 },
+        breakInLevel: "CRITICAL",
+        presentation: DEFAULT_PRESENTATION,
+        active: true,
+        activeSceneId: "v3-map",
+      },
+      3,
+    );
+
+    expect(migrated.scenes).toEqual([
+      {
+        id: "v3-map",
+        name: "V3 map",
+        route: "/map",
+        enabled: false,
+        durationSec: 3600,
+        transition: "fade",
+        map: {
+          layoutMode: "pro",
+          autoRotateSpeed: 60,
+          preset: "dx-hunter",
+        },
+      },
+    ]);
+    expect(migrated.activeSceneId).toBeNull();
+  });
+
+  it("does not hydrate active kiosk mode when every persisted scene is disabled", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [
+          {
+            id: "disabled-only",
+            name: "Disabled only",
+            route: "/solar",
+            enabled: false,
+          },
+        ],
+        active: true,
+        activeSceneId: "disabled-only",
+      },
+      4,
+    );
+
+    expect(migrated.active).toBe(false);
+    expect(migrated.activeSceneId).toBeNull();
+  });
+
   it("repairs corrupt persisted scenes instead of hydrating unsafe values", () => {
     const migrated = migrateKioskState(
       {
@@ -223,10 +465,10 @@ describe("kioskStore", () => {
         active: "yes",
         activeSceneId: "bad-route",
       },
-      3,
+      4,
     );
 
-    expect(migrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(migrated.scenes).toEqual(normalizedDefaultScenes);
     expect(migrated.rotation).toEqual({ enabled: true, intervalSec: 120 });
     expect(migrated.breakInLevel).toBe("CRITICAL");
     expect(migrated.presentation).toEqual(DEFAULT_PRESENTATION);
@@ -238,7 +480,7 @@ describe("kioskStore", () => {
     localStorage.setItem(
       "propulse-kiosk",
       JSON.stringify({
-        version: 3,
+        version: 4,
         state: {
           scenes: [{ id: "bad", name: "Bad", route: "/settings" }],
           rotation: { enabled: "yes", intervalSec: -50 },
@@ -257,7 +499,7 @@ describe("kioskStore", () => {
     await useKioskStore.persist.rehydrate();
 
     const hydrated = useKioskStore.getState();
-    expect(hydrated.scenes).toEqual(DEFAULT_SCENES);
+    expect(hydrated.scenes).toEqual(normalizedDefaultScenes);
     expect(hydrated.rotation).toEqual({ enabled: true, intervalSec: 15 });
     expect(hydrated.breakInLevel).toBe("CRITICAL");
     expect(hydrated.presentation).toEqual(DEFAULT_PRESENTATION);

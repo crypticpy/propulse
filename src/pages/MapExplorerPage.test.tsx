@@ -5,6 +5,7 @@ const mapMock = vi.hoisted(() => ({
   callbacks: new Map<string, (event?: unknown) => void>(),
   options: [] as Array<Record<string, unknown>>,
   remove: vi.fn(),
+  resize: vi.fn(),
   throwOnConstruct: false,
 }));
 
@@ -21,7 +22,7 @@ vi.mock("maplibre-gl", () => {
     getCenter = () => ({ lat: 39.5, lng: -98.5 });
     getZoom = () => 3.4;
     remove = mapMock.remove;
-    resize = vi.fn();
+    resize = mapMock.resize;
     on = vi.fn((name: string, callback: (event?: unknown) => void) => {
       mapMock.callbacks.set(name, callback);
       if (name === "load") callback();
@@ -61,6 +62,7 @@ describe("MapExplorerPage", () => {
     mapMock.callbacks.clear();
     mapMock.options.length = 0;
     mapMock.remove.mockClear();
+    mapMock.resize.mockClear();
     mapMock.throwOnConstruct = false;
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
@@ -71,7 +73,15 @@ describe("MapExplorerPage", () => {
     });
     useProfileStore.setState({ subscriptionTier: "free" });
     useDisplayQualityStore.setState({ displayQuality: "auto" });
-    useKioskStore.setState({ active: false, activeSceneId: null });
+    useKioskStore.setState({
+      active: false,
+      activeSceneId: null,
+      presentation: {
+        headerScale: "standard",
+        slashedZero: false,
+        autoNightDim: false,
+      },
+    });
     useMapStore.setState({ layoutMode: "normal", mapStyle: "satellite" });
   });
 
@@ -128,6 +138,44 @@ describe("MapExplorerPage", () => {
 
     unmount();
     expect(mapMock.remove).toHaveBeenCalled();
+  });
+
+  it("fills the viewport exactly for every kiosk header scale", async () => {
+    render(
+      <MemoryRouter initialEntries={["/map/explorer"]}>
+        <MapExplorerPage />
+      </MemoryRouter>,
+    );
+
+    const viewport = screen.getByTestId("map-explorer-viewport");
+    expect(viewport.dataset.kioskHeaderScale).toBe("normal");
+    expect(viewport.className).toContain("h-[calc(100dvh-4rem)]");
+
+    const sizes = [
+      ["compact", "h-[calc(100dvh-2.5rem)]"],
+      ["standard", "h-[calc(100dvh-3rem)]"],
+      ["large", "h-[calc(100dvh-4rem)]"],
+    ] as const;
+
+    for (const [headerScale, heightClass] of sizes) {
+      const previousResizeCount = mapMock.resize.mock.calls.length;
+      act(() => {
+        useKioskStore.setState({
+          active: true,
+          presentation: {
+            ...useKioskStore.getState().presentation,
+            headerScale,
+          },
+        });
+      });
+      await waitFor(() => {
+        expect(viewport.dataset.kioskHeaderScale).toBe(headerScale);
+        expect(viewport.className).toContain(heightClass);
+        expect(mapMock.resize.mock.calls.length).toBeGreaterThan(
+          previousResizeCount,
+        );
+      });
+    }
   });
 
   it("surfaces a constructor failure and retries the renderer", async () => {

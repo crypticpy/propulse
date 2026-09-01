@@ -1,17 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useKioskStore, applySceneToMap } from "@/stores/kioskStore";
+import {
+  useKioskStore,
+  type KioskHeaderScale,
+  type KioskScene,
+} from "@/stores/kioskStore";
+import { applySceneToMap } from "@/lib/kiosk/applySceneToMap";
 import { useAlertsStore } from "@/stores/alertsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUserStore } from "@/stores/userStore";
+import { useMapStore } from "@/stores/mapStore";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { KioskQr } from "@/components/kiosk/KioskQr";
 import { LayoutModeDropdown } from "@/components/map/LayoutModeDropdown";
 import { shouldDimWallDisplay } from "@/lib/kiosk/wallPresentation";
-import type { KioskHeaderScale } from "@/stores/kioskStore";
 import type { SolarAlert } from "@/types/alerts";
 
 const CONTROLS_HIDE_MS = 4000;
+const FADE_NAVIGATION_DELAY_MS = 210;
+const FADE_DURATION_MS = 420;
 const HEADER_SIZE_CLASSES: Record<KioskHeaderScale, string> = {
   compact: "h-10 px-3",
   standard: "h-12 px-4",
@@ -51,18 +58,25 @@ export function KioskChrome() {
   const activeSceneId = useKioskStore((s) => s.activeSceneId);
   const advance = useKioskStore((s) => s.advance);
   const stop = useKioskStore((s) => s.stop);
+  const setLayoutMode = useMapStore((s) => s.setLayoutMode);
 
   const [paused, setPaused] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
+  const [transitionVisible, setTransitionVisible] = useState(false);
   const [ambientNow, setAmbientNow] = useState(() => new Date());
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionTimers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const station = useUserStore((state) => state.station);
 
   useWakeLock(true);
 
+  const enabledScenes = useMemo(
+    () => scenes.filter((scene) => scene.enabled !== false),
+    [scenes],
+  );
   const activeScene = useMemo(
-    () => scenes.find((s) => s.id === activeSceneId) ?? null,
-    [scenes, activeSceneId],
+    () => enabledScenes.find((scene) => scene.id === activeSceneId) ?? null,
+    [activeSceneId, enabledScenes],
   );
   const nightDimmed = useMemo(
     () =>
@@ -97,14 +111,58 @@ export function KioskChrome() {
     );
   }, [alerts, breakInLevel]);
 
+  const clearTransitionTimers = useCallback(() => {
+    transitionTimers.current.forEach(clearTimeout);
+    transitionTimers.current = [];
+  }, []);
+
   const goToScene = useCallback(
     (direction: 1 | -1) => {
-      const scene = advance(direction);
+      let scene: KioskScene | null = null;
+      // The store is enabled-scene aware on the current schema. The bounded
+      // loop also makes the runtime safe while a legacy paired display is
+      // hydrating older scene data.
+      for (let index = 0; index < scenes.length; index += 1) {
+        const candidate = advance(direction);
+        if (!candidate) break;
+        if (candidate.enabled !== false) {
+          scene = candidate;
+          break;
+        }
+      }
       if (!scene) return;
-      applySceneToMap(scene);
-      navigate(scene.route);
+
+      const reduceMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      clearTransitionTimers();
+      if (scene.transition === "cut" || reduceMotion) {
+        setTransitionVisible(false);
+        applySceneToMap(scene);
+        navigate(scene.route);
+        return;
+      }
+
+      const targetScene = scene;
+      setTransitionVisible(true);
+      transitionTimers.current.push(
+        setTimeout(() => {
+          if (
+            useKioskStore.getState().activeSceneId !== targetScene.id ||
+            !useKioskStore.getState().active
+          ) {
+            return;
+          }
+          applySceneToMap(targetScene);
+          navigate(targetScene.route);
+        }, FADE_NAVIGATION_DELAY_MS),
+        setTimeout(() => {
+          setTransitionVisible(false);
+          transitionTimers.current = [];
+        }, FADE_DURATION_MS),
+      );
     },
-    [advance, navigate],
+    [advance, clearTransitionTimers, navigate, scenes.length],
   );
 
   // On mount/resume (e.g. daily kiosk-browser reload), restore the active scene
@@ -120,30 +178,46 @@ export function KioskChrome() {
 
   // Rotation engine — paused manually or while an alert takeover is showing
   useEffect(() => {
-    if (!rotation.enabled || paused || breakInAlert || scenes.length < 2) {
+    if (
+      !rotation.enabled ||
+      paused ||
+      breakInAlert ||
+      enabledScenes.length < 2
+    ) {
       return;
     }
-    const timer = setInterval(
+    const timer = setTimeout(
       () => goToScene(1),
-      rotation.intervalSec * 1000,
+      (activeScene?.durationSec ?? rotation.intervalSec) * 1000,
     );
-    return () => clearInterval(timer);
+    return () => clearTimeout(timer);
   }, [
+    activeScene?.durationSec,
+    activeSceneId,
+    breakInAlert,
+    enabledScenes.length,
+    goToScene,
+    paused,
     rotation.enabled,
     rotation.intervalSec,
-    paused,
-    breakInAlert,
-    scenes.length,
-    goToScene,
   ]);
 
+  useEffect(
+    () => () => {
+      clearTransitionTimers();
+    },
+    [clearTransitionTimers],
+  );
+
   const exitKiosk = useCallback(() => {
+    clearTransitionTimers();
     stop();
+    setLayoutMode("normal");
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => {});
     }
-    navigate("/kiosk");
-  }, [stop, navigate]);
+    navigate("/map");
+  }, [clearTransitionTimers, navigate, setLayoutMode, stop]);
 
   // Reveal controls on pointer activity; Escape exits
   useEffect(() => {
@@ -184,11 +258,20 @@ export function KioskChrome() {
 
       <KioskClockBar
         sceneName={activeScene?.name ?? ""}
-        sceneIndex={scenes.findIndex((s) => s.id === activeSceneId)}
-        sceneCount={scenes.length}
-        rotating={rotation.enabled && !paused && scenes.length > 1}
+        sceneIndex={enabledScenes.findIndex((s) => s.id === activeSceneId)}
+        sceneCount={enabledScenes.length}
+        rotating={rotation.enabled && !paused && enabledScenes.length > 1}
         headerScale={presentation.headerScale}
         slashedZero={presentation.slashedZero}
+      />
+
+      <div
+        data-testid="kiosk-scene-transition"
+        data-visible={transitionVisible}
+        className={`pointer-events-none fixed inset-0 z-[510] bg-black transition-opacity duration-200 ${
+          transitionVisible ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden="true"
       />
 
       {/* Pointer-revealed controls */}
@@ -203,6 +286,7 @@ export function KioskChrome() {
         />
         <button
           onClick={() => goToScene(-1)}
+          disabled={enabledScenes.length < 2}
           className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-white/15 text-gray-200 hover:bg-white/10 text-sm font-mono"
           aria-label="Previous scene"
         >
@@ -217,6 +301,7 @@ export function KioskChrome() {
         </button>
         <button
           onClick={() => goToScene(1)}
+          disabled={enabledScenes.length < 2}
           className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-white/15 text-gray-200 hover:bg-white/10 text-sm font-mono"
           aria-label="Next scene"
         >
@@ -226,7 +311,7 @@ export function KioskChrome() {
           onClick={exitKiosk}
           className="px-3 py-1.5 rounded-lg bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 text-sm font-medium"
         >
-          Exit wall
+          Exit to Normal
         </button>
       </div>
 
@@ -320,6 +405,8 @@ function KioskClockBar({
 
   return (
     <div
+      data-testid="kiosk-clock-bar"
+      data-scene-count={sceneCount}
       className={`relative z-[510] flex items-center justify-between bg-void-black/70 backdrop-blur border-b border-white/10 select-none ${HEADER_SIZE_CLASSES[headerScale]}`}
     >
       <div className="flex items-baseline gap-3 font-mono">

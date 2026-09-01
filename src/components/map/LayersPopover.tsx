@@ -372,7 +372,11 @@ function ToggleRow({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function LayersPopover() {
+interface LayersPopoverProps {
+  compact?: boolean;
+}
+
+export function LayersPopover({ compact = false }: LayersPopoverProps) {
   const [open, setOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -1204,6 +1208,8 @@ export function LayersPopover() {
         }`}
         aria-haspopup="true"
         aria-expanded={open}
+        aria-label={`Map layers (${activeCount} active)`}
+        title="Map layers"
       >
         <svg
           width="14"
@@ -1219,7 +1225,7 @@ export function LayersPopover() {
           <path d="M1.5 7L7 10L12.5 7" />
           <path d="M1.5 9.5L7 12.5L12.5 9.5" />
         </svg>
-        Layers
+        {!compact && "Layers"}
         <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] leading-none font-medium text-white/70">
           {activeCount}
         </span>

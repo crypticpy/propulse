@@ -15,6 +15,8 @@ import type { RegionPreset } from "@/types/map";
 interface ViewsPopoverProps {
   /** Opens the full RegionPresetManager modal */
   onOpenManager: () => void;
+  /** Use an icon-only trigger when the map column is narrow. */
+  compact?: boolean;
 }
 
 // ─── Inline save form ─────────────────────────────────────────────────────────
@@ -90,7 +92,10 @@ function SavePresetForm({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ViewsPopover({ onOpenManager }: ViewsPopoverProps) {
+export function ViewsPopover({
+  onOpenManager,
+  compact = false,
+}: ViewsPopoverProps) {
   const [open, setOpen] = useState(false);
   const [showSaveForm, setShowSaveForm] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -201,6 +206,8 @@ export function ViewsPopover({ onOpenManager }: ViewsPopoverProps) {
         }`}
         aria-haspopup="true"
         aria-expanded={open}
+        aria-label={activePreset ? `Saved views: ${activePreset.name}` : "Saved views"}
+        title={activePreset ? `Saved views: ${activePreset.name}` : "Saved views"}
       >
         {/* Location/globe icon */}
         <svg
@@ -218,27 +225,30 @@ export function ViewsPopover({ onOpenManager }: ViewsPopoverProps) {
           <path d="M7 1.5c1.5 1.5 2.5 3.5 2.5 5.5s-1 4-2.5 5.5" />
           <path d="M7 1.5c-1.5 1.5-2.5 3.5-2.5 5.5s1 4 2.5 5.5" />
         </svg>
-        {activePreset ? (
-          <span className="max-w-[100px] truncate">{activePreset.name}</span>
-        ) : (
-          "Views"
-        )}
+        {!compact &&
+          (activePreset ? (
+            <span className="max-w-[100px] truncate">{activePreset.name}</span>
+          ) : (
+            "Views"
+          ))}
         {/* Chevron */}
-        <svg
-          className={`w-2.5 h-2.5 text-white/40 transition-transform duration-150 ${
-            open ? "rotate-180" : ""
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2.5}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+        {!compact && (
+          <svg
+            className={`w-2.5 h-2.5 text-white/40 transition-transform duration-150 ${
+              open ? "rotate-180" : ""
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        )}
       </button>
 
       {/* ── Popover panel ── */}

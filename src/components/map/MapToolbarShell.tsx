@@ -31,27 +31,70 @@ function MoreMapControls({
     left: 16,
     top: 0,
     width: 360,
+    maxHeight: 0,
   });
 
-  const closeMenu = useCallback(() => setOpen(false), []);
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
   const updatePanelPosition = useCallback(() => {
     const trigger = triggerRef.current;
     if (!trigger) return;
 
     const rect = trigger.getBoundingClientRect();
     const viewportPadding = 16;
-    const width = Math.min(360, window.innerWidth - viewportPadding * 2);
+    const panelGap = 6;
+    const width = Math.max(
+      0,
+      Math.min(360, window.innerWidth - viewportPadding * 2),
+    );
     const left = Math.min(
       Math.max(rect.left, viewportPadding),
       window.innerWidth - width - viewportPadding,
     );
+    const naturalHeight = Math.max(
+      panelRef.current?.scrollHeight ?? 0,
+      panelRef.current?.getBoundingClientRect().height ?? 0,
+    );
+    const viewportHeight = Math.max(
+      0,
+      window.innerHeight - viewportPadding * 2,
+    );
+    const spaceBelow = Math.max(
+      0,
+      window.innerHeight - viewportPadding - rect.bottom - panelGap,
+    );
+    const spaceAbove = Math.max(
+      0,
+      rect.top - viewportPadding - panelGap,
+    );
+    const placeAbove = naturalHeight > spaceBelow && spaceAbove > spaceBelow;
+    const availableHeight = placeAbove ? spaceAbove : spaceBelow;
+    const maxHeight = Math.min(
+      naturalHeight || viewportHeight,
+      availableHeight,
+      viewportHeight,
+    );
+    const top = placeAbove
+      ? Math.max(viewportPadding, rect.top - panelGap - maxHeight)
+      : Math.min(
+          rect.bottom + panelGap,
+          window.innerHeight - viewportPadding - maxHeight,
+        );
 
-    setPanelPosition({ left, top: rect.bottom + 6, width });
+    setPanelPosition({ left, top, width, maxHeight });
   }, []);
 
   useEffect(() => {
     if (!open) return;
     updatePanelPosition();
+    const focusFrame = window.requestAnimationFrame(() => {
+      const firstControl = panelRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      (firstControl ?? panelRef.current)?.focus();
+    });
 
     function handlePointerDown(event: MouseEvent) {
       const target = event.target as Node;
@@ -67,7 +110,6 @@ function MoreMapControls({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       closeMenu();
-      triggerRef.current?.focus();
     }
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -75,6 +117,7 @@ function MoreMapControls({
     window.addEventListener("resize", updatePanelPosition);
     window.addEventListener("scroll", updatePanelPosition, true);
     return () => {
+      window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", updatePanelPosition);
@@ -116,10 +159,11 @@ function MoreMapControls({
         createPortal(
           <div
             ref={panelRef}
-            className="fixed z-[240] rounded-xl border border-white/10 bg-void-black/95 p-3 shadow-2xl backdrop-blur-md"
+            className="fixed z-[240] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-void-black/95 p-3 shadow-2xl backdrop-blur-md"
             style={panelPosition}
             role="dialog"
             aria-label="More map controls"
+            tabIndex={-1}
           >
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40">
               More map controls

@@ -49,6 +49,12 @@ describe("MapToolbarShell", () => {
   });
 
   it("moves secondary controls into an accessible menu at constrained widths", () => {
+    const animationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
     renderToolbar(getMapToolbarLayout(1200));
 
     expect(
@@ -59,13 +65,21 @@ describe("MapToolbarShell", () => {
       screen.getByRole("button", { name: "More map controls" }),
     );
 
-    expect(
-      screen.getByRole("dialog", { name: "More map controls" }),
-    ).toBeTruthy();
+    const dialog = screen.getByRole("dialog", {
+      name: "More map controls",
+    });
+    expect(dialog).toBeTruthy();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Colors in menu" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Colors in menu" }));
     expect(
       screen.queryByRole("dialog", { name: "More map controls" }),
     ).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "More map controls" }),
+    );
+    animationFrame.mockRestore();
   });
 
   it("uses icon-only and stacked tiers at the measured boundaries", () => {
@@ -119,5 +133,55 @@ describe("MapToolbarShell", () => {
       configurable: true,
       value: originalWidth,
     });
+  });
+
+  it("flips and bounds the More panel inside a short viewport", () => {
+    const originalHeight = window.innerHeight;
+    const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollHeight",
+    );
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 240,
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get: () => 180,
+    });
+    renderToolbar(getMapToolbarLayout(700));
+
+    const trigger = screen.getByRole("button", { name: "More map controls" });
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      bottom: 218,
+      height: 28,
+      left: 120,
+      right: 160,
+      top: 190,
+      width: 40,
+      x: 120,
+      y: 190,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(trigger);
+
+    const panel = screen.getByRole("dialog", { name: "More map controls" });
+    expect(panel.style.top).toBe("16px");
+    expect(panel.style.maxHeight).toBe("168px");
+    expect(panel.className).toContain("overflow-y-auto");
+
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: originalHeight,
+    });
+    if (scrollHeightDescriptor) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollHeight",
+        scrollHeightDescriptor,
+      );
+    } else {
+      delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
+    }
   });
 });

@@ -88,4 +88,28 @@ describe("useFlatMapClickHandler overlay click ownership", () => {
     expect(onQuickClick).not.toHaveBeenCalled();
     expect(onLocationClick).toHaveBeenCalledWith(18, -36, { x: 80, y: 40 });
   });
+
+  it("offers a deliberate incomplete hold to painted overlays", () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    const onQuickClick = vi.fn(() => true);
+    const onDoubleClick = vi.fn();
+    const { getByTestId } = render(
+      <Harness onQuickClick={onQuickClick} onDoubleClick={onDoubleClick} />,
+    );
+    const canvas = getByTestId("map") as HTMLCanvasElement;
+    mockBounds(canvas);
+
+    fireEvent.pointerDown(canvas, { clientX: 80, clientY: 40 });
+    vi.advanceTimersByTime(450);
+    fireEvent.pointerUp(document, { clientX: 80, clientY: 40 });
+
+    expect(onQuickClick).toHaveBeenCalledOnce();
+    expect(onQuickClick).toHaveBeenCalledWith(
+      { x: 80, y: 40 },
+      18,
+      -36,
+    );
+    expect(onDoubleClick).not.toHaveBeenCalled();
+  });
 });

@@ -68,6 +68,7 @@ function resolvedSpot(spot: LiveSpot): ResolvedSpot {
     source: spot.source,
     spotterLocApprox: false,
     dxLocApprox: false,
+    originalSpot: spot,
   };
 }
 

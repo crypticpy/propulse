@@ -46,6 +46,14 @@ import {
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
+import { SpotHoverPreview } from "./SpotHoverPreview";
+import { SelectedSpotCard } from "./SelectedSpotCard";
+import {
+  GridResearchPanel,
+  type GridResearchAction,
+  type GridResearchActionSubject,
+} from "./GridResearchPanel";
+import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
@@ -68,6 +76,22 @@ import {
   type ActivationPillScreenPlacement,
 } from "@/lib/map/activationMarkers";
 import { ActivationPillButtons } from "./layers/ActivationPillButtons";
+import {
+  AzimuthalSpotEndpointButtons,
+  AzimuthalSpotPillButtons,
+} from "./layers/AzimuthalSpotPillButtons";
+import {
+  buildAzimuthalSpotEndpointScreenPlacements,
+  resolveAzimuthalTargetAnnotation,
+  sameAzimuthalSpotPillScreenPlacements,
+  spotDestinationMatchesTarget,
+  type AzimuthalSpotPillScreenPlacement,
+} from "@/lib/map/azimuthalSpotPillPlacement";
+import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useWatchStore } from "@/stores/watchStore";
+import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
 import { getSublunarPoint } from "@/lib/utils/moon";
 
@@ -629,6 +653,11 @@ interface AzimuthalSpotPillBox {
   height: number;
 }
 
+interface AzimuthalSpotPillCanvasPlacement {
+  spot: LiveSpot;
+  bounds: AzimuthalSpotPillBox;
+}
+
 function spotPillBoxesOverlap(
   left: AzimuthalSpotPillBox,
   right: AzimuthalSpotPillBox,
@@ -680,10 +709,11 @@ function drawSpotCallsignPills(
   highViz: boolean,
   zoom: number,
   spotDotScale: number,
-) {
+): AzimuthalSpotPillCanvasPlacement[] {
   const zoomDamp = Math.max(0.5, zoom);
   const viewport = getCenteredZoomViewport(CANVAS_SIZE, zoomDamp, 2);
   const placed: AzimuthalSpotPillBox[] = [];
+  const placements: AzimuthalSpotPillCanvasPlacement[] = [];
   const endpointRadius = Math.round(4 * spotDotScale) + 2 / zoomDamp;
   const endpointZones = spots.flatMap((spot) =>
     [
@@ -757,6 +787,7 @@ function drawSpotCallsignPills(
 
     callsigns.add(spot.callsign);
     placed.push(box);
+    placements.push({ spot: spot.originalSpot, bounds: box });
     const bandColor = spot.frequency
       ? getBandColor(spot.frequency)
       : getSpotColor(spot, "band");
@@ -799,6 +830,7 @@ function drawSpotCallsignPills(
   }
 
   ctx.restore();
+  return placements;
 }
 
 /**
@@ -1512,8 +1544,87 @@ export function AzimuthalView({
   const [activationPillPlacements, setActivationPillPlacements] = useState<
     ActivationPillScreenPlacement[]
   >([]);
+  const [spotPillPlacements, setSpotPillPlacements] = useState<
+    AzimuthalSpotPillScreenPlacement[]
+  >([]);
+  const [hoveredSpotData, setHoveredSpotData] = useState<{
+    spot: PresentableSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [selectedMapSpotData, setSelectedMapSpotData] = useState<{
+    spot: PresentableSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [researchPanelOpen, setResearchPanelOpen] = useState(false);
+  const [researchGrid, setResearchGrid] = useState("");
+  const [researchCallsign, setResearchCallsign] = useState<string | null>(null);
+  const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
+  const [addPinData, setAddPinData] = useState<{
+    lat: number;
+    lon: number;
+    grid: string;
+  } | null>(null);
+  const spotHoverDismissRef = useRef<number | null>(null);
+  const hoveredSpotOwnerRef = useRef<string | null>(null);
+  const selectMapSpot = useMapSpotSelection();
   const glowRafRef = useRef<number>(0);
   const layers = useMapStore((s) => s.layers);
+  const setTarget = useMapStore((s) => s.setTarget);
+  const setWatch = useWatchStore((s) => s.setWatch);
+
+  const cancelSpotHoverDismiss = useCallback(() => {
+    if (spotHoverDismissRef.current === null) return;
+    window.clearTimeout(spotHoverDismissRef.current);
+    spotHoverDismissRef.current = null;
+  }, []);
+
+  const scheduleSpotHoverDismiss = useCallback((spot?: PresentableSpot) => {
+    const owner = spot
+      ? `${spot.source ?? "Cluster"}:${spot.id}`
+      : hoveredSpotOwnerRef.current;
+    if (owner && hoveredSpotOwnerRef.current !== owner) return;
+    if (spotHoverDismissRef.current !== null) return;
+    spotHoverDismissRef.current = window.setTimeout(() => {
+      if (!owner || hoveredSpotOwnerRef.current === owner) {
+        hoveredSpotOwnerRef.current = null;
+        setHoveredSpotData(null);
+      }
+      spotHoverDismissRef.current = null;
+    }, 180);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (spotHoverDismissRef.current !== null) {
+        window.clearTimeout(spotHoverDismissRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleSpotHover = useCallback(
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
+      cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = `${spot.source ?? "Cluster"}:${spot.id}`;
+      setHoveredSpotData({ spot, screenPos });
+    },
+    [cancelSpotHoverDismiss],
+  );
+
+  const handleMapSpotSelect = useCallback(
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
+      const selection = selectMapSpot(spot);
+      cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = null;
+      setHoveredSpotData(null);
+      setHoveredTargetPos(null);
+      setSelectedMapSpotData({
+        spot: { ...spot, ...(selection?.spot ?? {}) },
+        screenPos,
+      });
+    },
+    [cancelSpotHoverDismiss, selectMapSpot],
+  );
 
   // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
   useEffect(() => {
@@ -1616,6 +1727,13 @@ export function AzimuthalView({
     }
     return { lat: station.lat, lon: station.lon };
   }, [station]);
+
+  useEffect(() => {
+    if (center) return;
+    cancelSpotHoverDismiss();
+    hoveredSpotOwnerRef.current = null;
+    setHoveredSpotData(null);
+  }, [cancelSpotHoverDismiss, center]);
 
   // Rasterize probability-surface cells per pixel via inverse projection.
   // Cells far from the center distort so much that polygon corners are
@@ -1789,6 +1907,85 @@ export function AzimuthalView({
     return resolved.length > 0 ? resolved[0] : null;
   }, [selectedSpot]);
 
+  const selectedSpotMatchesTarget = useMemo(
+    () => spotDestinationMatchesTarget(selectedSpot, target),
+    [selectedSpot, target],
+  );
+
+  const selectedSpotHasVisibleTag = useMemo(() => {
+    if (!selectedSpot || !selectedSpotMatchesTarget) return false;
+    const matchesSelectedReport = (candidate: {
+      id: string;
+      callsign: string;
+      frequency: number;
+    }) =>
+      candidate.id === selectedSpot.id &&
+      candidate.callsign === selectedSpot.dx &&
+      candidate.frequency === selectedSpot.frequency;
+
+    const hasLiveSpotPill =
+      layers.spots &&
+      showSpotCallsignLabels &&
+      spotPillPlacements.some(({ spot }) =>
+        matchesSelectedReport({
+          id: spot.id,
+          callsign: spot.dx,
+          frequency: spot.frequency,
+        }),
+      );
+    const hasActivationPill =
+      layers.activations &&
+      activationPillPlacements.some(({ spot }) =>
+        matchesSelectedReport({
+          id: spot.id,
+          callsign: spot.callsign,
+          frequency: spot.frequencyKHz,
+        }),
+      );
+    return hasLiveSpotPill || hasActivationPill;
+  }, [
+    activationPillPlacements,
+    layers.activations,
+    layers.spots,
+    selectedSpot,
+    selectedSpotMatchesTarget,
+    showSpotCallsignLabels,
+    spotPillPlacements,
+  ]);
+
+  const spotEndpointPlacements = useMemo(() => {
+    if (!center || (!layers.spots && !layers.spotTraces)) return [];
+    return buildAzimuthalSpotEndpointScreenPlacements(
+      resolvedSpots,
+      (lat, lon) => {
+        const projected = azimuthalProject(
+          lat,
+          lon,
+          center.lat,
+          center.lon,
+        );
+        return Math.hypot(projected.x, projected.y) <= 1
+          ? projToCanvas(projected)
+          : null;
+      },
+      {
+        canvasSize: CANVAS_SIZE,
+        center: CENTER,
+        displaySize,
+        zoom,
+        spotDotScale,
+      },
+    );
+  }, [
+    center,
+    displaySize,
+    layers.spotTraces,
+    layers.spots,
+    resolvedSpots,
+    spotDotScale,
+    zoom,
+  ]);
+
   // Feed new spots into the grid glow renderer when spots arrive.
   useEffect(() => {
     if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
@@ -1888,6 +2085,53 @@ export function AzimuthalView({
     target,
     displayTime,
   });
+
+  const handleOpenOperatorPanel = useCallback(() => {
+    if (!selectedMapSpotData) return;
+    const selected = selectedMapSpotData.spot;
+    let grid = selected.dxGrid || "";
+    if (
+      !grid &&
+      Number.isFinite(selected.dxLat) &&
+      Number.isFinite(selected.dxLon)
+    ) {
+      try {
+        grid = latLonToGrid(selected.dxLat!, selected.dxLon!);
+      } catch {
+        // Callsign lookup remains useful without a derivable grid.
+      }
+    }
+    setResearchCallsign(selected.dx);
+    setResearchGrid(grid);
+    setResearchPanelOpen(true);
+    setSelectedMapSpotData(null);
+  }, [selectedMapSpotData]);
+
+  const handleResearchAction = useCallback(
+    (action: GridResearchAction, subject: GridResearchActionSubject) => {
+      const intent = resolveGridResearchActionIntent(action, subject);
+      switch (intent.kind) {
+        case "watch":
+          setWatch(intent.criteria);
+          break;
+        case "pin":
+          setAddPinData(intent.location);
+          setAddPinDialogOpen(true);
+          break;
+        case "setTarget":
+          setTarget(intent.target);
+          setResearchPanelOpen(false);
+          break;
+        case "close":
+          setResearchPanelOpen(false);
+          break;
+        case "invalid":
+          // Keep the panel open so the operator can choose a valid action.
+          break;
+      }
+    },
+    [setTarget, setWatch],
+  );
 
   const targetHitPoint = useMemo(() => {
     if (!center || !target) {
@@ -2063,6 +2307,12 @@ export function AzimuthalView({
 
     // If no station is set, show message
     if (!center) {
+      setSpotPillPlacements((current) =>
+        current.length === 0 ? current : [],
+      );
+      setActivationPillPlacements((current) =>
+        current.length === 0 ? current : [],
+      );
       drawNoQTHMessage(ctx);
       return;
     }
@@ -2162,7 +2412,7 @@ export function AzimuthalView({
         spotDotScale,
       );
       if (layers.spots && showSpotCallsignLabels) {
-        drawSpotCallsignPills(
+        const placements = drawSpotCallsignPills(
           ctx,
           resolvedSpots,
           center.lat,
@@ -2172,7 +2422,28 @@ export function AzimuthalView({
           zoom,
           spotDotScale,
         );
+        const cssScale = displaySize / CANVAS_SIZE;
+        const screenPlacements = placements.map(({ spot, bounds }) => ({
+          spot,
+          left: (CENTER + (bounds.x - CENTER) * zoom) * cssScale,
+          top: (CENTER + (bounds.y - CENTER) * zoom) * cssScale,
+          width: bounds.width * zoom * cssScale,
+          height: bounds.height * zoom * cssScale,
+        }));
+        setSpotPillPlacements((current) =>
+          sameAzimuthalSpotPillScreenPlacements(current, screenPlacements)
+            ? current
+            : screenPlacements,
+        );
+      } else {
+        setSpotPillPlacements((current) =>
+          current.length === 0 ? current : [],
+        );
       }
+    } else {
+      setSpotPillPlacements((current) =>
+        current.length === 0 ? current : [],
+      );
     }
 
     if (layers.activations && activationSpots.length > 0) {
@@ -2244,21 +2515,26 @@ export function AzimuthalView({
     }
 
     // Highlighted arc for selected DX cluster spot
-    if (resolvedSelectedSpot) {
+    if (resolvedSelectedSpot && !selectedSpotMatchesTarget) {
       drawSelectedSpotArc(ctx, resolvedSelectedSpot, center.lat, center.lon);
     }
 
     // Draw target and path if set
     if (target) {
+      const targetAnnotation = resolveAzimuthalTargetAnnotation(
+        selectedSpotHasVisibleTag,
+        target.name || target.grid,
+        pathDifficulty,
+      );
       drawTargetAndPath(
         ctx,
         center.lat,
         center.lon,
         target.lat,
         target.lon,
-        target.name || target.grid,
+        targetAnnotation.label,
         targetMarkerColor,
-        pathDifficulty,
+        targetAnnotation.difficulty,
       );
     }
 
@@ -2276,6 +2552,8 @@ export function AzimuthalView({
     resolvedSpots,
     activationSpots,
     resolvedSelectedSpot,
+    selectedSpotMatchesTarget,
+    selectedSpotHasVisibleTag,
     targetMarkerColor,
     pathDifficulty,
     zoom,
@@ -2342,13 +2620,76 @@ export function AzimuthalView({
           height: displaySize,
         }}
       />
-      {layers.activations && (
+      {center && layers.activations && (
         <div
           className="pointer-events-none absolute"
-          style={{ width: displaySize, height: displaySize }}
+          style={{ width: displaySize, height: displaySize, zIndex: 2 }}
         >
-          <ActivationPillButtons placements={activationPillPlacements} />
+          <ActivationPillButtons
+            placements={activationPillPlacements}
+            onSpotHover={handleSpotHover}
+            onSpotHoverEnd={scheduleSpotHoverDismiss}
+            onSpotSelect={handleMapSpotSelect}
+          />
         </div>
+      )}
+      {center && (layers.spots || layers.spotTraces) && (
+        <div
+          className="pointer-events-none absolute"
+          style={{ width: displaySize, height: displaySize, zIndex: 0 }}
+        >
+          <AzimuthalSpotEndpointButtons
+            placements={spotEndpointPlacements}
+            onSpotHover={handleSpotHover}
+            onSpotHoverEnd={scheduleSpotHoverDismiss}
+            onSpotSelect={handleMapSpotSelect}
+          />
+        </div>
+      )}
+      {center && layers.spots && showSpotCallsignLabels && (
+        <div
+          className="pointer-events-none absolute"
+          style={{ width: displaySize, height: displaySize, zIndex: 1 }}
+        >
+          <AzimuthalSpotPillButtons
+            placements={spotPillPlacements}
+            onSpotHover={handleSpotHover}
+            onSpotHoverEnd={scheduleSpotHoverDismiss}
+            onSpotSelect={handleMapSpotSelect}
+          />
+        </div>
+      )}
+
+      <SpotHoverPreview
+        visible={!!hoveredSpotData && !selectedMapSpotData}
+        position={hoveredSpotData?.screenPos || { x: 0, y: 0 }}
+        displayTime={displayTime}
+        spot={hoveredSpotData?.spot ?? null}
+        onInteractStart={cancelSpotHoverDismiss}
+        onInteractEnd={() => scheduleSpotHoverDismiss()}
+        onActivate={() => {
+          if (hoveredSpotData) {
+            handleMapSpotSelect(
+              hoveredSpotData.spot,
+              hoveredSpotData.screenPos,
+            );
+          }
+        }}
+      />
+
+      {selectedMapSpotData && (
+        <SelectedSpotCard
+          spot={selectedMapSpotData.spot}
+          position={selectedMapSpotData.screenPos}
+          difficulty={pathDifficulty}
+          optimalSignal={optimalSignal}
+          signalUnavailableReason={
+            station ? undefined : "Set your QTH to model this path"
+          }
+          onOperator={handleOpenOperatorPanel}
+          onViewPath={() => setSelectedMapSpotData(null)}
+          onClose={() => setSelectedMapSpotData(null)}
+        />
       )}
 
       <TargetHoverTooltip
@@ -2371,6 +2712,31 @@ export function AzimuthalView({
       )}
       {/* Spot & pin size sliders - bottom left corner */}
       {!hideSizeSliders && <MapSizeSliders />}
+
+      <GridResearchPanel
+        visible={researchPanelOpen}
+        grid={researchGrid}
+        initialCallsign={researchCallsign}
+        onAction={handleResearchAction}
+        onClose={() => {
+          setResearchPanelOpen(false);
+          setResearchCallsign(null);
+        }}
+      />
+
+      <AddPinDialog
+        visible={addPinDialogOpen}
+        mode="add"
+        location={addPinData || undefined}
+        onClose={() => {
+          setAddPinDialogOpen(false);
+          setAddPinData(null);
+        }}
+        onSave={() => {
+          setAddPinDialogOpen(false);
+          setAddPinData(null);
+        }}
+      />
 
       {/* Legend overlay */}
       <div className="absolute bottom-14 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">

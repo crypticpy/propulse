@@ -61,8 +61,8 @@ export interface FlatMapClickHandlerOptions {
     screenPos: { x: number; y: number },
   ) => void;
   /**
-   * Gives canvas-rendered overlays first refusal on a quick click. Return true
-   * when an overlay consumed the click so it cannot become a map double-click.
+   * Gives canvas-rendered overlays first refusal on any stationary release
+   * whose press-and-hold did not complete. Return true when consumed.
    */
   onQuickClick?: (
     screenPos: { x: number; y: number },
@@ -416,7 +416,8 @@ export function useFlatMapClickHandler(
       }
 
       const state = gestureState;
-      const wasInPotentialState = state === "potential";
+      const wasIncompleteStationaryHold =
+        state === "potential" || state === "holding";
       const wasQuickRelease = startPos && Date.now() - startTime < 300;
 
       // If we were holding but not complete, cancel
@@ -427,16 +428,15 @@ export function useFlatMapClickHandler(
       // Reset state
       gestureState = "idle";
 
-      // Double-click detection: Only process if it was a quick tap (not a hold or drag)
-      if (wasInPotentialState && wasQuickRelease) {
+      // Canvas overlays own every stationary release until the surface hold
+      // actually completes. This avoids a dead zone between quick-click and
+      // long-press thresholds for deliberate label selections.
+      if (wasIncompleteStationaryHold) {
         const coords = eventToLatLon(event);
         if (coords) {
           const screenPos = { x: event.clientX, y: event.clientY };
           const { lat, lon } = coords;
-          const now = Date.now();
 
-          // Canvas labels cannot own DOM events, so let the map view hit-test
-          // them before this gesture is considered a surface double-click.
           if (onQuickClickRef.current?.(screenPos, lat, lon)) {
             if (doubleClickTimer !== null) {
               clearTimeout(doubleClickTimer);
@@ -446,6 +446,15 @@ export function useFlatMapClickHandler(
             startPos = null;
             return;
           }
+
+          // Only fast, unconsumed releases participate in surface
+          // double-click detection. A slow incomplete hold has no map action.
+          if (!wasQuickRelease) {
+            startPos = null;
+            return;
+          }
+
+          const now = Date.now();
 
           // Check if this is a double-click
           if (lastClick) {

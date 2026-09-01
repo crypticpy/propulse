@@ -43,7 +43,6 @@ import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import type { LiveSpot } from "@/types/livespot";
-import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import {
   getTraceEndpointOpacity,
@@ -70,7 +69,7 @@ interface AnimatedSpotTracesProps {
   isFeedReady?: boolean;
   /** Changes when the backing query scope changes (for example QTH/source). */
   hydrationKey?: string;
-  onSpotHover?: (data: SpotDetailsData, screenPos: ScreenAnchor) => void;
+  onSpotHover?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   onSpotHoverEnd?: () => void;
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
 }
@@ -160,7 +159,7 @@ interface TraceAnimationProps {
   spot: ResolvedSpot;
   sourceSpot: LiveSpot;
   occlusionOpacity: number;
-  onSpotHover?: (data: SpotDetailsData, screenPos: ScreenAnchor) => void;
+  onSpotHover?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   onSpotHoverEnd?: () => void;
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   /** Callback when this trace finishes its full lifecycle — receives spotId */
@@ -498,16 +497,6 @@ const TraceAnimation = React.memo(
             lat={spot.dxLat}
             lon={spot.dxLon}
             spot={spot}
-            spotData={{
-              spotter: sourceSpot.spotter,
-              spotterGrid: sourceSpot.spotterGrid,
-              dxGrid: sourceSpot.dxGrid,
-              band: sourceSpot.band,
-              snr: sourceSpot.snr,
-              wpm: sourceSpot.wpm,
-              comment: sourceSpot.comment,
-              dxLocApprox: spot.dxLocApprox,
-            }}
             occlusionOpacity={occlusionOpacity}
             onHover={onSpotHover}
             onHoverEnd={onSpotHoverEnd}

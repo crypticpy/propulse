@@ -13,17 +13,26 @@ import {
   formatActivationFrequency,
   type MappableActivationSpot,
 } from "@/lib/map/activationMarkers";
-import { useActivationSpotStore } from "@/stores/activationSpotStore";
-import { useMapStore } from "@/stores/mapStore";
+import {
+  presentActivationSpot,
+  type PresentableSpot,
+} from "@/lib/map/spotPresentation";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { SpotLabel } from "../SpotLabel";
 
 interface ActivationMarkers3DProps {
   spots: MappableActivationSpot[];
+  onSpotHover?: (spot: PresentableSpot, screenPos: ScreenAnchor) => void;
+  onSpotHoverEnd?: () => void;
+  onSpotSelect?: (spot: PresentableSpot, screenPos: ScreenAnchor) => void;
 }
 
-export function ActivationMarkers3D({ spots }: ActivationMarkers3DProps) {
-  const setTarget = useMapStore((state) => state.setTarget);
-  const selectSpot = useActivationSpotStore((state) => state.selectSpot);
+export function ActivationMarkers3D({
+  spots,
+  onSpotHover,
+  onSpotHoverEnd,
+  onSpotSelect,
+}: ActivationMarkers3DProps) {
   const positions = useMemo(
     () => spots.map((spot) => ({ lat: spot.latitude, lon: spot.longitude })),
     [spots],
@@ -46,33 +55,38 @@ export function ActivationMarkers3D({ spots }: ActivationMarkers3DProps) {
 
   return (
     <group name="activation-markers">
-      {stackedSpots.map(({ spot, stackIndex }) => (
-        <SpotLabel
-          key={spot.id}
-          lat={spot.latitude}
-          lon={spot.longitude}
-          // SpotLabel's generic frequency formatter uses fixed three-place
-          // MHz labels. Activations retain tenths of a kHz, so compose the
-          // visible text with the same precise formatter as the accessible
-          // name instead of letting 14.0745 MHz round to 14.075.
-          callsign={`${spot.callsign} ${formatActivationFrequency(spot.frequencyKHz)}`}
-          mode={spot.mode}
-          badge={spot.program}
-          stackIndex={stackIndex}
-          color={getBandColor(spot.frequencyKHz)}
-          occlusionOpacity={getOpacity(spot.latitude, spot.longitude)}
-          ariaLabel={`${spot.callsign}, ${formatActivationFrequency(spot.frequencyKHz)} ${spot.frequencyKHz >= 1_000 ? "megahertz" : "kilohertz"}, ${spot.mode}, ${spot.program} ${spot.reference}, ${spot.referenceName}. Select as target and open station details`}
-          onClick={() => {
-            setTarget({
-              lat: spot.latitude,
-              lon: spot.longitude,
-              grid: spot.grid,
-              name: `${spot.callsign} · ${spot.program} ${spot.reference}`,
-            });
-            selectSpot(spot);
-          }}
-        />
-      ))}
+      {stackedSpots.map(({ spot, stackIndex }) => {
+        const presentableSpot = presentActivationSpot(spot);
+        return (
+          <SpotLabel
+            key={spot.id}
+            lat={spot.latitude}
+            lon={spot.longitude}
+            // SpotLabel's generic frequency formatter uses fixed three-place
+            // MHz labels. Activations retain tenths of a kHz, so compose the
+            // visible text with the same precise formatter as the accessible
+            // name instead of letting 14.0745 MHz round to 14.075.
+            callsign={`${spot.callsign} ${formatActivationFrequency(spot.frequencyKHz)}`}
+            mode={spot.mode}
+            badge={spot.program}
+            stackIndex={stackIndex}
+            color={getBandColor(spot.frequencyKHz)}
+            occlusionOpacity={getOpacity(spot.latitude, spot.longitude)}
+            ariaLabel={`${spot.callsign}, ${formatActivationFrequency(spot.frequencyKHz)} ${spot.frequencyKHz >= 1_000 ? "megahertz" : "kilohertz"}, ${spot.mode}, ${spot.program} ${spot.reference}, ${spot.referenceName}. Select as target and open station details`}
+            onHover={
+              onSpotHover
+                ? (screenPos) => onSpotHover(presentableSpot, screenPos)
+                : undefined
+            }
+            onHoverEnd={onSpotHoverEnd}
+            onSelect={
+              onSpotSelect
+                ? (screenPos) => onSpotSelect(presentableSpot, screenPos)
+                : undefined
+            }
+          />
+        );
+      })}
     </group>
   );
 }

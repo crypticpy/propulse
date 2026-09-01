@@ -13,6 +13,12 @@ interface SpotHoverPreviewProps {
   position: ScreenAnchor;
   spot: PresentableSpot | null;
   displayTime: Date;
+  /** Keeps the preview alive while pointer or keyboard focus moves into it. */
+  onInteractStart?: () => void;
+  /** Requests delayed dismissal after pointer or focus leaves the preview. */
+  onInteractEnd?: () => void;
+  /** Opens the canonical persistent details card for this exact report. */
+  onActivate?: () => void;
 }
 
 /**
@@ -25,6 +31,9 @@ export function SpotHoverPreview({
   position,
   spot,
   displayTime,
+  onInteractStart,
+  onInteractEnd,
+  onActivate,
 }: SpotHoverPreviewProps) {
   const selection = useMemo(
     () => (spot ? resolveMapSpotSelection(spot) : null),
@@ -48,6 +57,23 @@ export function SpotHoverPreview({
       signalUnavailableReason={path.unavailableReason}
       distanceKm={path.distanceKm}
       bearing={path.bearing}
+      interactive={Boolean(onActivate)}
+      onPointerEnter={() => onInteractStart?.()}
+      onPointerLeave={() => onInteractEnd?.()}
+      onFocus={() => onInteractStart?.()}
+      onBlur={() => onInteractEnd?.()}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onActivate?.();
+      }}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onActivate?.();
+        }
+      }}
     />
   );
 }

@@ -7,6 +7,12 @@
  */
 
 import { useMemo } from "react";
+import type {
+  FocusEventHandler,
+  KeyboardEventHandler,
+  MouseEventHandler,
+  PointerEventHandler,
+} from "react";
 import { createPortal } from "react-dom";
 import type { SUnit } from "@/types/signal";
 import type { PathBandCondition } from "@/lib/utils/bands";
@@ -42,6 +48,13 @@ export interface TargetHoverTooltipProps {
   distanceKm?: number;
   bearing?: number;
   className?: string;
+  interactive?: boolean;
+  onPointerEnter?: PointerEventHandler<HTMLDivElement>;
+  onPointerLeave?: PointerEventHandler<HTMLDivElement>;
+  onFocus?: FocusEventHandler<HTMLDivElement>;
+  onBlur?: FocusEventHandler<HTMLDivElement>;
+  onClick?: MouseEventHandler<HTMLDivElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLDivElement>;
 }
 
 const TOOLTIP_WIDTH = 260;
@@ -138,6 +151,13 @@ export function TargetHoverTooltip({
   distanceKm,
   bearing,
   className = "",
+  interactive = false,
+  onPointerEnter,
+  onPointerLeave,
+  onFocus,
+  onBlur,
+  onClick,
+  onKeyDown,
 }: TargetHoverTooltipProps) {
   const adjustedPosition = useMemo(() => {
     const viewportWidth =
@@ -165,8 +185,23 @@ export function TargetHoverTooltip({
 
   const tooltipContent = (
     <div
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `Open spot details for ${label}` : undefined}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      onPointerDown={
+        interactive ? (event) => event.stopPropagation() : undefined
+      }
+      onDoubleClick={
+        interactive ? (event) => event.stopPropagation() : undefined
+      }
       className={`
-        fixed z-50 pointer-events-none
+        fixed z-50 ${interactive ? "pointer-events-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" : "pointer-events-none"}
         bg-gray-900/95 backdrop-blur-md
         border border-white/10 rounded-lg
         shadow-xl

@@ -38,7 +38,6 @@ import { SpotLabel } from "./SpotLabel";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
-import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import {
   getSpotColor,
   getBandFromFrequency,
@@ -298,6 +297,8 @@ export interface ResolvedSpot {
   spotterLocApprox: boolean;
   /** True when the DX position is a callsign-prefix centroid, not a real locator */
   dxLocApprox: boolean;
+  /** Exact feed report used to paint this spot; retained for reliable hit ownership. */
+  originalSpot: LiveSpot;
 }
 
 /**
@@ -398,6 +399,7 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
       snr: spot.snr,
       spotterLocApprox: spotterApprox,
       dxLocApprox: dxApprox,
+      originalSpot: spot,
     });
   }
 
@@ -421,7 +423,7 @@ interface LiveSpotArcsProps {
   minOpacity?: number;
   /** Callback when a spot is hovered */
   onSpotHover?: (
-    data: SpotDetailsData,
+    spot: LiveSpot,
     screenPos: ScreenAnchor,
   ) => void;
   /** Callback when spot hover ends */
@@ -964,23 +966,7 @@ export function LiveSpotArcs({
                         onSpotHover
                           ? (screenPos) =>
                               onSpotHover(
-                                {
-                                  callsign: spot.callsign,
-                                  dxGrid: orig?.dxGrid,
-                                  dxLat: spot.dxLat,
-                                  dxLon: spot.dxLon,
-                                  spotter: orig?.spotter,
-                                  spotterGrid: orig?.spotterGrid,
-                                  frequency: spot.frequency,
-                                  band: orig?.band,
-                                  mode: spot.mode,
-                                  time: spot.time,
-                                  source: spot.source,
-                                  snr: orig?.snr,
-                                  wpm: orig?.wpm,
-                                  comment: orig?.comment,
-                                  dxLocApprox: spot.dxLocApprox,
-                                },
+                                orig ?? spot.originalSpot,
                                 screenPos,
                               )
                           : undefined
@@ -1024,16 +1010,6 @@ export function LiveSpotArcs({
                   lat={spot.dxLat}
                   lon={spot.dxLon}
                   spot={spot}
-                  spotData={{
-                    spotter: orig?.spotter,
-                    spotterGrid: orig?.spotterGrid,
-                    dxGrid: orig?.dxGrid,
-                    band: orig?.band,
-                    snr: orig?.snr,
-                    wpm: orig?.wpm,
-                    comment: orig?.comment,
-                    dxLocApprox: spot.dxLocApprox,
-                  }}
                   hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
                   occlusionOpacity={getOcclusionOpacity(
                     spot.dxLat,

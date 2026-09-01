@@ -94,13 +94,14 @@ import { AddPinDialog } from "./AddPinDialog";
 import {
   GridResearchPanel,
   type GridResearchAction,
+  type GridResearchActionSubject,
 } from "./GridResearchPanel";
 import { useMapStore } from "@/stores/mapStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useProfileStore } from "@/stores/profileStore";
 import { useWatchStore } from "@/stores/watchStore";
-import { gridToLatLon } from "@/lib/utils/grid";
+import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
 import {
   useUserStore,
   useCompassRosePrefs,
@@ -138,7 +139,6 @@ import { useKIndex } from "@/hooks/useSolarData";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapSizeSliders } from "./MapSizeSliders";
-import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
@@ -147,7 +147,10 @@ import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { collectGridSpots } from "@/lib/map/gridSpotCollection";
-import { normalizePresentableSpot } from "@/lib/map/spotPresentation";
+import {
+  normalizePresentableSpot,
+  type PresentableSpot,
+} from "@/lib/map/spotPresentation";
 
 // New overlay components (Wave 8A)
 import NVISOverlay3D from "./layers/NVISOverlay3D";
@@ -896,11 +899,11 @@ interface GlobeSceneProps {
   onTargetHover?: (screenPos: { x: number; y: number }) => void;
   onTargetHoverEnd?: () => void;
   onSpotHover?: (
-    data: SpotDetailsData,
+    spot: PresentableSpot,
     screenPos: ScreenAnchor,
   ) => void;
   onSpotHoverEnd?: () => void;
-  onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
+  onSpotSelect?: (spot: PresentableSpot, screenPos: ScreenAnchor) => void;
   onClusterClick?: (
     cluster: SpotClusterData,
     screenPos: { x: number; y: number },
@@ -1630,7 +1633,12 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* Activators are point reports; keep them separate from DX path arcs. */}
         {layers.activations && (
-          <ActivationMarkers3D spots={activationSpots} />
+          <ActivationMarkers3D
+            spots={activationSpots}
+            onSpotHover={onSpotHover}
+            onSpotHoverEnd={onSpotHoverEnd}
+            onSpotSelect={onSpotSelect}
+          />
         )}
 
         {layers.lunarSubpoint && (
@@ -1917,10 +1925,10 @@ export function GlobeView({
   } | null>(null);
 
   // State for the canonical spot hover preview.
-  const [hoveredSpotData, setHoveredSpotData] =
-    useState<SpotDetailsData | null>(null);
-  const [hoveredSpotPos, setHoveredSpotPos] =
-    useState<ScreenAnchor | null>(null);
+  const [hoveredSpotData, setHoveredSpotData] = useState<{
+    spot: PresentableSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
   const spotHoverDismissRef = useRef<number | null>(null);
 
   // State for cluster click popover
@@ -1931,7 +1939,7 @@ export function GlobeView({
     y: number;
   } | null>(null);
   const [selectedMapSpotData, setSelectedMapSpotData] = useState<{
-    spot: LiveSpot;
+    spot: PresentableSpot;
     screenPos: ScreenAnchor;
   } | null>(null);
   const [selectedGridCollection, setSelectedGridCollection] = useState<{
@@ -1991,6 +1999,12 @@ export function GlobeView({
     },
     [],
   );
+
+  const cancelSpotHoverDismiss = useCallback(() => {
+    if (spotHoverDismissRef.current === null) return;
+    window.clearTimeout(spotHoverDismissRef.current);
+    spotHoverDismissRef.current = null;
+  }, []);
 
   const targetDifficulty = useMemo(() => {
     if (!station || !target) {
@@ -2128,26 +2142,19 @@ export function GlobeView({
 
   // Handle spot hover from LiveSpotArcs (via SpotLabel or SpotEndpointHitArea)
   const handleSpotHover = useCallback(
-    (data: SpotDetailsData, screenPos: ScreenAnchor) => {
-      if (spotHoverDismissRef.current !== null) {
-        window.clearTimeout(spotHoverDismissRef.current);
-        spotHoverDismissRef.current = null;
-      }
-      setHoveredSpotData(data);
-      setHoveredSpotPos(screenPos);
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
+      cancelSpotHoverDismiss();
+      setHoveredSpotData({ spot, screenPos });
     },
-    [],
+    [cancelSpotHoverDismiss],
   );
 
   const handleSpotHoverEnd = useCallback(() => {
-    if (spotHoverDismissRef.current !== null) {
-      window.clearTimeout(spotHoverDismissRef.current);
-    }
+    if (spotHoverDismissRef.current !== null) return;
     spotHoverDismissRef.current = window.setTimeout(() => {
       setHoveredSpotData(null);
-      setHoveredSpotPos(null);
       spotHoverDismissRef.current = null;
-    }, 90);
+    }, 180);
   }, []);
 
   // Handle cluster click from LiveSpotArcs → SpotCluster
@@ -2167,27 +2174,28 @@ export function GlobeView({
   }, []);
 
   const handleMapSpotSelect = useCallback(
-    (spot: LiveSpot, screenPos: ScreenAnchor) => {
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
       const selection = selectMapSpot(spot);
-      const selectedLiveSpot = {
+      const selectedPresentableSpot = {
         ...spot,
         ...(selection?.spot ?? {}),
-      } as LiveSpot;
-      if (spotHoverDismissRef.current !== null) {
-        window.clearTimeout(spotHoverDismissRef.current);
-        spotHoverDismissRef.current = null;
-      }
+      };
+      cancelSpotHoverDismiss();
       setHoveredSpotData(null);
-      setHoveredSpotPos(null);
       setHoveredTargetPos(null);
       setFlyoutPosition(null);
       setTooltipPosition(null);
       setSelectedCluster(null);
       setClusterScreenPos(null);
       setSelectedGridCollection(null);
-      setSelectedMapSpotData({ spot: selectedLiveSpot, screenPos });
+      setSelectedMapSpotData({ spot: selectedPresentableSpot, screenPos });
     },
-    [selectMapSpot, setFlyoutPosition, setTooltipPosition],
+    [
+      cancelSpotHoverDismiss,
+      selectMapSpot,
+      setFlyoutPosition,
+      setTooltipPosition,
+    ],
   );
 
   const handleClusterSpotSelect = useCallback(
@@ -2203,7 +2211,6 @@ export function GlobeView({
       // Clear all other flyouts (mutual exclusion)
       setHoveredPinData(null);
       setHoveredSpotData(null);
-      setHoveredSpotPos(null);
       setSelectedCluster(null);
       setClusterScreenPos(null);
       setSelectedMapSpotData(null);
@@ -2227,7 +2234,6 @@ export function GlobeView({
       // Clear all other flyouts (mutual exclusion)
       setHoveredPinData(null);
       setHoveredSpotData(null);
-      setHoveredSpotPos(null);
       setSelectedCluster(null);
       setClusterScreenPos(null);
       setSelectedMapSpotData(null);
@@ -2338,47 +2344,32 @@ export function GlobeView({
 
   // Handle GridResearchPanel actions
   const handleResearchAction = useCallback(
-    (action: GridResearchAction, grid: string) => {
-      switch (action) {
+    (action: GridResearchAction, subject: GridResearchActionSubject) => {
+      const intent = resolveGridResearchActionIntent(action, subject);
+      switch (intent.kind) {
         case "watch":
-          if (researchCallsign) {
-            setWatch({ callsign: researchCallsign, txOrRx: "either" });
-          } else {
-            handleWatchGrid(grid);
-          }
+          setWatch(intent.criteria);
           break;
-        case "pin": {
-          // Need to compute lat/lon from grid
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            handleOpenAddPinDialog(lat, lon, grid);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "pin":
+          handleOpenAddPinDialog(
+            intent.location.lat,
+            intent.location.lon,
+            intent.location.grid,
+          );
           break;
-        }
-        case "setTarget": {
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            setTarget({ lat, lon, grid });
-            setResearchPanelOpen(false);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "setTarget":
+          setTarget(intent.target);
+          setResearchPanelOpen(false);
           break;
-        }
         case "close":
           setResearchPanelOpen(false);
           break;
+        case "invalid":
+          // Keep the panel open so the operator can choose a valid action.
+          break;
       }
     },
-    [
-      handleWatchGrid,
-      handleOpenAddPinDialog,
-      researchCallsign,
-      setTarget,
-      setWatch,
-    ],
+    [handleOpenAddPinDialog, setTarget, setWatch],
   );
 
   // Handle flyout actions (fallback for unhandled actions)
@@ -2587,30 +2578,19 @@ export function GlobeView({
           !clickedAlertData &&
           !clickedFireData
         }
-        position={hoveredSpotPos || { x: 0, y: 0 }}
+        position={hoveredSpotData?.screenPos || { x: 0, y: 0 }}
         displayTime={displayTime}
-        spot={
-          hoveredSpotData
-            ? {
-                id: `hover-${hoveredSpotData.callsign}-${hoveredSpotData.frequency}`,
-                dx: hoveredSpotData.callsign,
-                dxGrid: hoveredSpotData.dxGrid,
-                dxLat: hoveredSpotData.dxLat,
-                dxLon: hoveredSpotData.dxLon,
-                dxLocApprox: hoveredSpotData.dxLocApprox,
-                spotter: hoveredSpotData.spotter || "",
-                spotterGrid: hoveredSpotData.spotterGrid,
-                frequency: hoveredSpotData.frequency,
-                band: hoveredSpotData.band,
-                mode: hoveredSpotData.mode,
-                comment: hoveredSpotData.comment || "",
-                time: hoveredSpotData.time,
-                source: hoveredSpotData.source,
-                snr: hoveredSpotData.snr,
-                wpm: hoveredSpotData.wpm,
-              }
-            : null
-        }
+        spot={hoveredSpotData?.spot ?? null}
+        onInteractStart={cancelSpotHoverDismiss}
+        onInteractEnd={handleSpotHoverEnd}
+        onActivate={() => {
+          if (hoveredSpotData) {
+            handleMapSpotSelect(
+              hoveredSpotData.spot,
+              hoveredSpotData.screenPos,
+            );
+          }
+        }}
       />
 
       {/* Cluster detail popover - shown when clicking a spot cluster */}

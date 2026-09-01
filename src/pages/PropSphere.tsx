@@ -102,6 +102,7 @@ import { useShareParams } from "@/hooks/useShareParams";
 import { useSpotCountTitle } from "@/hooks/useDocumentTitle";
 import { useContestOverlayEngine } from "@/hooks/useContestOverlayEngine";
 import { gridToLatLon } from "@/lib/utils/grid";
+import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
 import type { ShareState } from "@/lib/utils/shareState";
 import { PROPSPHERE_TOUR_STEPS } from "@/config/tourSteps";
 import { useUndoStore } from "@/stores/undoStore";
@@ -328,6 +329,11 @@ export function PropSphere() {
 
   // Add Pin Dialog state (for keyboard shortcut)
   const [showAddPin, setShowAddPin] = useState(false);
+  const [addPinLocation, setAddPinLocation] = useState<{
+    lat: number;
+    lon: number;
+    grid: string;
+  } | null>(null);
 
   // Region Preset Manager modal state
   const [showPresetManager, setShowPresetManager] = useState(false);
@@ -338,6 +344,7 @@ export function PropSphere() {
   // Watch store actions (read on-demand to avoid full-store subscription)
   const watchClearWatch = useWatchStore((s) => s.clearWatch);
   const watchSetMyGrid = useWatchStore((s) => s.setMyGridWatch);
+  const watchSet = useWatchStore((s) => s.setWatch);
   const watchCriteria = useWatchStore((s) => s.criteria);
 
   // Get undo store for tracking undoable actions
@@ -464,6 +471,11 @@ export function PropSphere() {
         case "addPin": {
           // Open add pin dialog for current target
           if (target) {
+            setAddPinLocation({
+              lat: target.lat,
+              lon: target.lon,
+              grid: target.grid || latLonToGrid(target.lat, target.lon),
+            });
             setShowAddPin(true);
           }
           break;
@@ -1763,21 +1775,26 @@ export function PropSphere() {
             setShowGridResearch(false);
             setGridResearchGrid(null);
           }}
-          onAction={(action, grid) => {
-            if (action === "setTarget") {
-              const coords = gridToLatLon(grid);
-              if (coords) {
-                setTarget({
-                  lat: coords.lat,
-                  lon: coords.lon,
-                  grid,
-                  name: grid,
-                });
-              }
-            }
-            if (action === "close") {
-              setShowGridResearch(false);
-              setGridResearchGrid(null);
+          onAction={(action, subject) => {
+            const intent = resolveGridResearchActionIntent(action, subject);
+            switch (intent.kind) {
+              case "watch":
+                watchSet(intent.criteria);
+                break;
+              case "pin":
+                setAddPinLocation(intent.location);
+                setShowAddPin(true);
+                break;
+              case "setTarget":
+                setTarget({ ...intent.target, name: intent.target.grid });
+                setShowGridResearch(false);
+                break;
+              case "close":
+                setShowGridResearch(false);
+                setGridResearchGrid(null);
+                break;
+              case "invalid":
+                break;
             }
           }}
         />
@@ -1787,16 +1804,15 @@ export function PropSphere() {
       <ActivationDetailPanel />
 
       {/* Add Pin Dialog (keyboard shortcut P) */}
-      {target && (
+      {addPinLocation && (
         <AddPinDialog
           visible={showAddPin}
           mode="add"
-          location={{
-            lat: target.lat,
-            lon: target.lon,
-            grid: target.grid || latLonToGrid(target.lat, target.lon),
+          location={addPinLocation}
+          onClose={() => {
+            setShowAddPin(false);
+            setAddPinLocation(null);
           }}
-          onClose={() => setShowAddPin(false)}
         />
       )}
 

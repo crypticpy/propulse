@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
-import type { LiveSpot } from "@/types/livespot";
-import { SPOT_SOURCE_COLORS } from "@/types/livespot";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -22,7 +20,9 @@ import {
 } from "@/lib/utils/bands";
 import {
   formatSpotCopyText,
+  getSpotPresentationSource,
   mapSpotModeToRigMode,
+  type PresentableSpot,
 } from "@/lib/map/spotPresentation";
 import {
   placeAnchoredOverlay,
@@ -41,7 +41,7 @@ import {
 } from "./LiveSpotArcs";
 
 export interface SelectedSpotCardProps {
-  spot: LiveSpot | null;
+  spot: PresentableSpot | null;
   position: ScreenAnchor;
   difficulty?: DifficultyLevel;
   optimalSignal?: OptimalBandSignalSummary | null;
@@ -241,7 +241,7 @@ export function SelectedSpotCard({
   if (!spot) return null;
 
   const modeColor = getModeColor(spot.mode);
-  const sourceColors = SPOT_SOURCE_COLORS[spot.source];
+  const sourcePresentation = getSpotPresentationSource(spot);
   const difficultyColor = difficulty ? DIFFICULTY_COLORS[difficulty] : null;
   const spotTime = spot.time instanceof Date ? spot.time : new Date(spot.time);
   const ageColors = getAgeBadgeColors(getSpotAgeInfo(spotTime).ageCategory);
@@ -328,11 +328,11 @@ export function SelectedSpotCard({
             <span
               className="rounded px-1.5 py-0.5 text-[10px] font-medium"
               style={{
-                backgroundColor: sourceColors.bgColor,
-                color: sourceColors.color,
+                backgroundColor: sourcePresentation.bgColor,
+                color: sourcePresentation.color,
               }}
             >
-              {spot.source}
+              {sourcePresentation.label}
             </span>
             <span
               className={`rounded border px-1.5 py-0.5 text-[9px] ${ageColors.bg} ${ageColors.text} ${ageColors.border}`}
@@ -413,6 +413,22 @@ export function SelectedSpotCard({
             )}
             {spot.wpm !== undefined && (
               <DetailValue label="CW speed" value={`${spot.wpm} WPM`} />
+            )}
+            {spot.activation && (
+              <>
+                <DetailValue
+                  label="Activation"
+                  value={`${spot.activation.program} ${spot.activation.reference}`}
+                />
+                <DetailValue
+                  label="Reference name"
+                  value={spot.activation.referenceName}
+                />
+                <DetailValue
+                  label="Activation source"
+                  value={spot.activation.source}
+                />
+              </>
             )}
           </div>
 

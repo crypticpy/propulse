@@ -64,6 +64,18 @@ describe("resolveMapSpotSelection", () => {
     expect(Number.isFinite(result?.target.lon)).toBe(true);
   });
 
+  it("retains an activation reference in the selected target label", () => {
+    const result = resolveMapSpotSelection(
+      dxSpot({
+        dx: "K5ABC",
+        dxGrid: "EM10",
+        comment: "POTA US-1234 · Test Park",
+      }),
+    );
+
+    expect(result?.target.name).toBe("K5ABC · POTA US-1234");
+  });
+
   it("rejects invalid explicit coordinates before using a valid grid", () => {
     const result = resolveMapSpotSelection(
       dxSpot({ dxLat: 91, dxLon: 181, dxGrid: "PM95" }),

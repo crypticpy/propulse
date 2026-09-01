@@ -48,9 +48,63 @@ describe("GridResearchPanel initialCallsign", () => {
     expect(screen.getByText("Brazil")).toBeTruthy();
     expect(mocks.useHamQTHLookup).toHaveBeenCalledWith("PY2ABC");
     await user.click(screen.getByRole("button", { name: "Target" }));
-    expect(onAction).toHaveBeenCalledWith("setTarget", "GG66");
+    expect(onAction).toHaveBeenCalledWith("setTarget", {
+      kind: "callsign",
+      callsign: "PY2ABC",
+      grid: "GG66",
+    });
     await user.click(screen.getByRole("button", { name: "Back to grid view" }));
     expect(screen.getByText("Grid Research")).toBeTruthy();
     expect(screen.getByText("EM10")).toBeTruthy();
+  });
+
+  it("routes grid and newly selected operator watches to their visible subject", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    mocks.useGridResearch.mockReturnValue({
+      grid: "EM10",
+      entity: null,
+      distance: null,
+      bearing: null,
+      activity: {
+        total: 1,
+        byBand: { "20m": 1 },
+        byMode: { FT8: 1 },
+        recentCallsigns: ["K1ABC"],
+      },
+      bestTime: null,
+      isLoading: false,
+      isValidGrid: true,
+      homeGrid: null,
+    });
+
+    render(
+      <GridResearchPanel
+        visible
+        grid="EM10"
+        initialCallsign="PY2ABC"
+        onAction={onAction}
+        onClose={() => {}}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Back to grid view" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Watch" }));
+    expect(onAction).toHaveBeenLastCalledWith("watch", {
+      kind: "grid",
+      grid: "EM10",
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "View details for K1ABC" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Watch" }));
+    expect(onAction).toHaveBeenLastCalledWith("watch", {
+      kind: "callsign",
+      callsign: "K1ABC",
+      grid: "GG66",
+    });
   });
 });

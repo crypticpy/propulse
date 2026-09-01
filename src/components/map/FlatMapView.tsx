@@ -47,18 +47,19 @@ import { AddPinDialog } from "./AddPinDialog";
 import {
   GridResearchPanel,
   type GridResearchAction,
+  type GridResearchActionSubject,
 } from "./GridResearchPanel";
-import { latLonToGrid, gridToLatLon } from "@/lib/utils/grid";
+import { latLonToGrid } from "@/lib/utils/grid";
 import { usePinStore } from "@/stores/pinStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { useWatchStore } from "@/stores/watchStore";
+import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
 import { useDXStore } from "@/stores/dxStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
 import { MapSizeSliders } from "./MapSizeSliders";
-import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
@@ -149,6 +150,7 @@ import {
 } from "@/lib/map/spotPresentation";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { getSpotLayerPolicy } from "@/lib/map/spotLayerPolicy";
+import { findTopmostLabelIndex } from "@/lib/map/labelHitTesting";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -159,16 +161,6 @@ interface FlatMapViewProps {
   fillContainer?: boolean;
   /** Hide the local size panel when the host docks it with other controls */
   hideSizeSliders?: boolean;
-}
-
-function matchesResolvedSpot(
-  candidate: PresentableSpot,
-  resolved: ResolvedSpot,
-): boolean {
-  if (candidate.id === resolved.id) return true;
-  if (candidate.dx !== resolved.callsign) return false;
-  if (Math.abs(candidate.frequency - resolved.frequency) > 0.01) return false;
-  return !candidate.source || candidate.source === resolved.source;
 }
 
 // Map dimensions
@@ -2082,7 +2074,7 @@ interface PlacedLabel {
 }
 
 interface SpotScreenHit {
-  spot: ResolvedSpot;
+  spot: PresentableSpot;
   anchor: ScreenAnchor;
 }
 
@@ -3540,11 +3532,11 @@ export function FlatMapView({
 
   // State for spot label hover flyout
   const [hoveredSpotData, setHoveredSpotData] = useState<{
-    spot: ResolvedSpot;
+    spot: PresentableSpot;
     screenPos: ScreenAnchor;
   } | null>(null);
   const [selectedMapSpotData, setSelectedMapSpotData] = useState<{
-    spot: LiveSpot;
+    spot: PresentableSpot;
     screenPos: ScreenAnchor;
   } | null>(null);
   const [selectedGridCollection, setSelectedGridCollection] = useState<{
@@ -3553,33 +3545,47 @@ export function FlatMapView({
     screenPos: ScreenAnchor;
   } | null>(null);
 
-  // Build SpotDetailsData from hovered spot label
-  const hoveredSpotDetails = useMemo((): SpotDetailsData | null => {
-    if (!hoveredSpotData) return null;
-    const spot = hoveredSpotData.spot;
-    const liveSpot =
-      spots.find((candidate) => candidate.id === spot.id) ??
-      (allSpots.find((candidate) => matchesResolvedSpot(candidate, spot)) as
-        | LiveSpot
-        | undefined);
-    return {
-      callsign: spot.callsign,
-      dxGrid: liveSpot?.dxGrid,
-      dxLat: spot.dxLat,
-      dxLon: spot.dxLon,
-      spotter: liveSpot?.spotter,
-      spotterGrid: liveSpot?.spotterGrid,
-      frequency: spot.frequency,
-      band: liveSpot?.band,
-      mode: spot.mode,
-      time: spot.time,
-      source: spot.source,
-      snr: liveSpot?.snr,
-      wpm: liveSpot?.wpm,
-      comment: liveSpot?.comment,
-      dxLocApprox: spot.dxLocApprox,
-    };
-  }, [hoveredSpotData, allSpots, spots]);
+  const spotHoverDismissRef = useRef<number | null>(null);
+  const hoveredSpotOwnerRef = useRef<string | null>(null);
+
+  const cancelSpotHoverDismiss = useCallback(() => {
+    if (spotHoverDismissRef.current === null) return;
+    window.clearTimeout(spotHoverDismissRef.current);
+    spotHoverDismissRef.current = null;
+  }, []);
+
+  const scheduleSpotHoverDismiss = useCallback((spot?: PresentableSpot) => {
+    const owner = spot
+      ? `${spot.source ?? "Cluster"}:${spot.id}`
+      : hoveredSpotOwnerRef.current;
+    if (owner && hoveredSpotOwnerRef.current !== owner) return;
+    if (spotHoverDismissRef.current !== null) return;
+    spotHoverDismissRef.current = window.setTimeout(() => {
+      if (!owner || hoveredSpotOwnerRef.current === owner) {
+        hoveredSpotOwnerRef.current = null;
+        setHoveredSpotData(null);
+      }
+      spotHoverDismissRef.current = null;
+    }, 180);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (spotHoverDismissRef.current !== null) {
+        window.clearTimeout(spotHoverDismissRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleSpotHover = useCallback(
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
+      cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = `${spot.source ?? "Cluster"}:${spot.id}`;
+      setHoveredSpotData({ spot, screenPos });
+    },
+    [cancelSpotHoverDismiss],
+  );
 
   // State for GridResearchPanel
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
@@ -3632,6 +3638,7 @@ export function FlatMapView({
       source: selectedSpotSource,
       spotterLocApprox: false,
       dxLocApprox: false,
+      originalSpot: { ...selectedSpot, source: selectedSpotSource },
     };
   }, [selectedSpot]);
 
@@ -3899,27 +3906,25 @@ export function FlatMapView({
       const cssScaleX = rect.width / viewportSize.width;
       const cssScaleY = rect.height / viewportSize.height;
 
-      for (const label of placedLabelsRef.current) {
-        const { bbox } = label;
-        // Convert canvas-space bbox to screen-space
-        const sx = rect.left + (bbox.x * z.scale + z.offsetX) * cssScaleX;
-        const sy = rect.top + (bbox.y * z.scale + z.offsetY) * cssScaleY;
-        const sw = bbox.w * z.scale * cssScaleX;
-        const sh = bbox.h * z.scale * cssScaleY;
-
-        if (
-          screenPos.x >= sx &&
-          screenPos.x <= sx + sw &&
-          screenPos.y >= sy &&
-          screenPos.y <= sy + sh
-        ) {
-          return {
-            spot: label.spot,
-            anchor: { x: sx, y: sy, width: sw, height: sh },
-          };
-        }
-      }
-      return null;
+      const logicalPoint = {
+        x: ((screenPos.x - rect.left) / cssScaleX - z.offsetX) / z.scale,
+        y: ((screenPos.y - rect.top) / cssScaleY - z.offsetY) / z.scale,
+      };
+      const labelIndex = findTopmostLabelIndex(
+        placedLabelsRef.current,
+        logicalPoint,
+      );
+      if (labelIndex < 0) return null;
+      const label = placedLabelsRef.current[labelIndex];
+      const { bbox } = label;
+      const sx = rect.left + (bbox.x * z.scale + z.offsetX) * cssScaleX;
+      const sy = rect.top + (bbox.y * z.scale + z.offsetY) * cssScaleY;
+      const sw = bbox.w * z.scale * cssScaleX;
+      const sh = bbox.h * z.scale * cssScaleY;
+      return {
+        spot: label.spot.originalSpot,
+        anchor: { x: sx, y: sy, width: sw, height: sh },
+      };
     },
     [spotLayerPolicy.labelsInteractive, viewportSize],
   );
@@ -3953,7 +3958,7 @@ export function FlatMapView({
         const dy = screenPos.y - y;
         if (dx * dx + dy * dy <= hitRadius * hitRadius) {
           return {
-            spot,
+            spot: spot.originalSpot,
             anchor: {
               x: x - hitRadius,
               y: y - hitRadius,
@@ -3974,6 +3979,30 @@ export function FlatMapView({
     ],
   );
 
+  const handleMapSpotSelect = useCallback(
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
+      const selection = selectMapSpot(spot);
+      cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = null;
+      setSelectedMapSpotData({
+        spot: { ...spot, ...(selection?.spot ?? {}) },
+        screenPos,
+      });
+      setSelectedGridCollection(null);
+      setHoveredSpotData(null);
+      setHoveredTargetPos(null);
+      setHoveredPinData(null);
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+    },
+    [
+      cancelSpotHoverDismiss,
+      selectMapSpot,
+      setFlyoutPosition,
+      setTooltipPosition,
+    ],
+  );
+
   const handleSpotQuickClick = useCallback(
     (screenPos: { x: number; y: number }, lat: number, lon: number) => {
       const hit =
@@ -3991,6 +4020,7 @@ export function FlatMapView({
         ).toUpperCase();
         const gridMembers = getGridCollectionSpots(grid);
         if (gridMembers.length === 0) return false;
+        hoveredSpotOwnerRef.current = null;
         setSelectedGridCollection({ grid, spots: gridMembers, screenPos });
         setSelectedMapSpotData(null);
         setHoveredSpotData(null);
@@ -4001,38 +4031,20 @@ export function FlatMapView({
         return true;
       }
 
-      const candidate =
-        spots.find((spot) => spot.id === hit.spot.id) ??
-        allSpots.find((spot) => matchesResolvedSpot(spot, hit.spot));
-      if (!candidate) return false;
-
-      const liveSpot = normalizePresentableSpot(candidate);
-      const selection = selectMapSpot(liveSpot);
-      setSelectedMapSpotData({
-        spot: { ...liveSpot, ...(selection?.spot ?? {}) } as LiveSpot,
-        screenPos: hit.anchor,
-      });
-      setSelectedGridCollection(null);
-      setHoveredSpotData(null);
-      setHoveredTargetPos(null);
-      setHoveredPinData(null);
-      setFlyoutPosition(null);
-      setTooltipPosition(null);
+      handleMapSpotSelect(hit.spot, hit.anchor);
       return true;
     },
     [
-      allSpots,
       findSpotEndpointAtScreenPos,
       findSpotLabelAtScreenPos,
       getGridCollectionSpots,
+      handleMapSpotSelect,
       labelOptions.maidenheadGrid,
       layers.gridActivity,
       layers.labels,
       layers.spots,
-      selectMapSpot,
       setFlyoutPosition,
       setTooltipPosition,
-      spots,
     ],
   );
 
@@ -4060,16 +4072,13 @@ export function FlatMapView({
         findSpotLabelAtScreenPos(screenPos) ??
         findSpotEndpointAtScreenPos(screenPos);
       if (hitSpot) {
-        setHoveredSpotData({
-          spot: hitSpot.spot,
-          screenPos: hitSpot.anchor,
-        });
+        handleSpotHover(hitSpot.spot, hitSpot.anchor);
         setTooltipPosition(null);
         setHoveredTargetPos(null);
         return;
       }
       if (hoveredSpotData) {
-        setHoveredSpotData(null);
+        scheduleSpotHoverDismiss();
       }
 
       // Don't show tooltip if flyout is open
@@ -4097,8 +4106,10 @@ export function FlatMapView({
       hoveredPinData,
       findSpotLabelAtScreenPos,
       findSpotEndpointAtScreenPos,
+      handleSpotHover,
       hoveredSpotData,
       isTargetAtScreenPos,
+      scheduleSpotHoverDismiss,
       hoveredTargetPos,
     ],
   );
@@ -4108,9 +4119,9 @@ export function FlatMapView({
     setTooltipPosition(null);
     setHoveredPinData(null);
     setHoveredTargetPos(null);
-    setHoveredSpotData(null);
+    scheduleSpotHoverDismiss();
     setHoverCoords(null);
-  }, [setTooltipPosition]);
+  }, [scheduleSpotHoverDismiss, setTooltipPosition]);
 
   // Handle flyout close
   const handleFlyoutClose = useCallback(() => {
@@ -4210,49 +4221,32 @@ export function FlatMapView({
 
   // Handle GridResearchPanel actions
   const handleResearchAction = useCallback(
-    (action: GridResearchAction, grid: string) => {
-      switch (action) {
+    (action: GridResearchAction, subject: GridResearchActionSubject) => {
+      const intent = resolveGridResearchActionIntent(action, subject);
+      switch (intent.kind) {
         case "watch":
-          if (researchCallsign) {
-            useWatchStore.getState().setWatch({
-              callsign: researchCallsign,
-              txOrRx: "either",
-            });
-          } else {
-            handleWatchGrid(grid);
-          }
+          useWatchStore.getState().setWatch(intent.criteria);
           break;
-        case "pin": {
-          // Need to compute lat/lon from grid
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            handleOpenAddPinDialog(lat, lon, grid);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "pin":
+          handleOpenAddPinDialog(
+            intent.location.lat,
+            intent.location.lon,
+            intent.location.grid,
+          );
           break;
-        }
-        case "setTarget": {
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            setTarget({ lat, lon, grid });
-            setResearchPanelOpen(false);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "setTarget":
+          setTarget(intent.target);
+          setResearchPanelOpen(false);
           break;
-        }
         case "close":
           setResearchPanelOpen(false);
           break;
+        case "invalid":
+          // Keep the panel open so the operator can choose a valid action.
+          break;
       }
     },
-    [
-      handleWatchGrid,
-      handleOpenAddPinDialog,
-      researchCallsign,
-      setTarget,
-    ],
+    [handleOpenAddPinDialog, setTarget],
   );
 
   // Handle flyout actions (fallback for unhandled actions)
@@ -5613,7 +5607,12 @@ export function FlatMapView({
           />
         )}
         {layers.activations && (
-          <ActivationPillButtons placements={activationPillPlacements} />
+          <ActivationPillButtons
+            placements={activationPillPlacements}
+            onSpotHover={handleSpotHover}
+            onSpotHoverEnd={scheduleSpotHoverDismiss}
+            onSpotSelect={handleMapSpotSelect}
+          />
         )}
       </div>
 
@@ -5717,11 +5716,7 @@ export function FlatMapView({
           onSetTarget={handleSetTargetFromFlyout}
           onSpotSelect={(spot, screenPos) => {
             const liveSpot = normalizePresentableSpot(spot);
-            const selection = selectMapSpot(liveSpot);
-            setSelectedMapSpotData({
-              spot: { ...liveSpot, ...(selection?.spot ?? {}) } as LiveSpot,
-              screenPos,
-            });
+            handleMapSpotSelect(liveSpot, screenPos);
           }}
           onEditPin={handleEditPinFromFlyout}
           onDeletePin={handleDeletePinFromFlyout}
@@ -5730,32 +5725,22 @@ export function FlatMapView({
       )}
 
       {/* Canonical propagation preview for every visible tag and endpoint. */}
-      {hoveredSpotDetails &&
-        hoveredSpotData &&
+      {hoveredSpotData &&
         !selectedMapSpotData &&
         !selectedGridCollection && (
         <SpotHoverPreview
           visible
           position={hoveredSpotData.screenPos}
           displayTime={displayTime}
-          spot={{
-            id: `hover-${hoveredSpotDetails.callsign}-${hoveredSpotDetails.frequency}`,
-            dx: hoveredSpotDetails.callsign,
-            dxGrid: hoveredSpotDetails.dxGrid,
-            dxLat: hoveredSpotDetails.dxLat,
-            dxLon: hoveredSpotDetails.dxLon,
-            dxLocApprox: hoveredSpotDetails.dxLocApprox,
-            spotter: hoveredSpotDetails.spotter || "",
-            spotterGrid: hoveredSpotDetails.spotterGrid,
-            frequency: hoveredSpotDetails.frequency,
-            band: hoveredSpotDetails.band,
-            mode: hoveredSpotDetails.mode,
-            comment: hoveredSpotDetails.comment || "",
-            time: hoveredSpotDetails.time,
-            source: hoveredSpotDetails.source,
-            snr: hoveredSpotDetails.snr,
-            wpm: hoveredSpotDetails.wpm,
-          }}
+          spot={hoveredSpotData.spot}
+          onInteractStart={cancelSpotHoverDismiss}
+          onInteractEnd={() => scheduleSpotHoverDismiss()}
+          onActivate={() =>
+            handleMapSpotSelect(
+              hoveredSpotData.spot,
+              hoveredSpotData.screenPos,
+            )
+          }
         />
       )}
 
@@ -5782,14 +5767,9 @@ export function FlatMapView({
           subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
           spots={selectedGridCollection.spots}
           onClose={() => setSelectedGridCollection(null)}
-          onSpotSelect={(spot) => {
-            const selection = selectMapSpot(spot);
-            setSelectedMapSpotData({
-              spot: { ...spot, ...(selection?.spot ?? {}) } as LiveSpot,
-              screenPos: selectedGridCollection.screenPos,
-            });
-            setSelectedGridCollection(null);
-          }}
+          onSpotSelect={(spot) =>
+            handleMapSpotSelect(spot, selectedGridCollection.screenPos)
+          }
         />
       )}
 

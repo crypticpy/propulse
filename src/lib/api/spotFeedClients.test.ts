@@ -76,3 +76,33 @@ describe.each(clients)("$name spot client failures", ({ fetchSpots }) => {
     await expect(fetchSpots()).resolves.toEqual([]);
   });
 });
+
+describe("PSKReporter XML snapshots", () => {
+  it("rejects well-formed XML with the wrong root", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("<error>feed unavailable</error>", { status: 200 }),
+      ),
+    );
+
+    await expect(fetchPSKReporterSpots()).rejects.toThrow(
+      /unexpected XML root/i,
+    );
+  });
+
+  it("accepts an empty snapshot with the expected root", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response('<?xml version="1.0"?><receptionReports />', {
+            status: 200,
+          }),
+      ),
+    );
+
+    await expect(fetchPSKReporterSpots()).resolves.toEqual([]);
+  });
+});

@@ -18,6 +18,9 @@ function parsePSKReporterXML(xml: string): PSKReporterSpot[] {
   if (doc.querySelector("parsererror")) {
     throw new Error("PSKReporter returned malformed XML");
   }
+  if (doc.documentElement?.localName !== "receptionReports") {
+    throw new Error("PSKReporter returned an unexpected XML root");
+  }
   const elements = doc.querySelectorAll("receptionReport");
   if (elements.length === 0) return [];
 

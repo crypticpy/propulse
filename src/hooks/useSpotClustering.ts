@@ -13,6 +13,11 @@
  */
 
 import { useMemo } from "react";
+import {
+  extractPrefixFromCallsign,
+  getLocationFromPrefix,
+} from "@/lib/data/prefixLocations";
+import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import type { LiveSpot } from "@/types/livespot";
 
 /**
@@ -64,6 +69,218 @@ const DEFAULT_OPTIONS: Required<ClusteringOptions> = {
   minClusterSize: 3,
 };
 
+interface LocatedSpot {
+  spot: LiveSpot;
+  lat: number;
+  lon: number;
+}
+
+function getValidCoordinatePair(
+  lat: unknown,
+  lon: unknown,
+): { lat: number; lon: number } | null {
+  if (
+    typeof lat === "number" &&
+    typeof lon === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  ) {
+    return { lat, lon };
+  }
+  return null;
+}
+
+function resolveDxLocation(
+  spot: LiveSpot,
+): { lat: number; lon: number } | null {
+  const explicitLocation = getValidCoordinatePair(spot.dxLat, spot.dxLon);
+  if (explicitLocation) return explicitLocation;
+
+  const grid = spot.dxGrid?.trim();
+  if (grid && isValidGrid(grid)) {
+    try {
+      // gridToLatLon currently supports four- and six-character locators.
+      // A valid extended locator still has an accurate six-character parent.
+      const location = gridToLatLon(grid.slice(0, 6));
+      const validLocation = getValidCoordinatePair(location.lat, location.lon);
+      if (validLocation) return validLocation;
+    } catch {
+      // Continue to the callsign-prefix fallback.
+    }
+  }
+
+  const prefix = extractPrefixFromCallsign(spot.dx);
+  const prefixLocation = getLocationFromPrefix(prefix);
+  if (prefixLocation) {
+    const validLocation = getValidCoordinatePair(
+      prefixLocation.lat,
+      prefixLocation.lon,
+    );
+    if (validLocation) return validLocation;
+  }
+
+  return null;
+}
+
+function normalizeLongitude(lon: number): number {
+  let normalized = lon;
+  while (normalized > 180) normalized -= 360;
+  while (normalized < -180) normalized += 360;
+  return normalized;
+}
+
+function getLongitudeCell(lon: number, gridSize: number): number {
+  // Center a cell on the antimeridian so nearby +179/-179 degree locations
+  // are treated as neighbors rather than opposite edges of the grid.
+  const cellCount = Math.max(1, Math.ceil(360 / gridSize));
+  const cellWidth = 360 / cellCount;
+  const circularLon = ((normalizeLongitude(lon) + 180) % 360 + 360) % 360;
+  return Math.floor(((circularLon + cellWidth / 2) % 360) / cellWidth);
+}
+
+function getLatitudeCell(lat: number, gridSize: number): number {
+  const cellCount = Math.max(1, Math.ceil(180 / gridSize));
+  return Math.min(cellCount - 1, Math.floor((lat + 90) / gridSize));
+}
+
+function getSpotTime(spot: LiveSpot): number {
+  const value: unknown = spot.time;
+  const time =
+    value instanceof Date
+      ? value.getTime()
+      : typeof value === "string" || typeof value === "number"
+        ? new Date(value).getTime()
+        : Number.NaN;
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+}
+
+function compareSpots(a: LiveSpot, b: LiveSpot): number {
+  const aTime = getSpotTime(a);
+  const bTime = getSpotTime(b);
+  if (aTime !== bTime) return bTime - aTime;
+  return a.id.localeCompare(b.id);
+}
+
+function getCentroid(spots: LocatedSpot[]): { lat: number; lon: number } {
+  let latTotal = 0;
+  let longitudeX = 0;
+  let longitudeY = 0;
+
+  for (const { lat, lon } of spots) {
+    latTotal += lat;
+    const longitudeRadians = (lon * Math.PI) / 180;
+    longitudeX += Math.cos(longitudeRadians);
+    longitudeY += Math.sin(longitudeRadians);
+  }
+
+  let lon: number;
+  if (Math.hypot(longitudeX, longitudeY) < 1e-12) {
+    lon = normalizeLongitude(
+      spots.reduce((sum, locatedSpot) => sum + locatedSpot.lon, 0) /
+        spots.length,
+    );
+  } else {
+    lon = (Math.atan2(longitudeY, longitudeX) * 180) / Math.PI;
+  }
+
+  return {
+    lat: latTotal / spots.length,
+    lon: normalizeLongitude(lon),
+  };
+}
+
+/**
+ * Cluster spots using their resolved DX locations.
+ *
+ * Explicit coordinates take precedence, followed by the DX grid and then the
+ * callsign-prefix centroid. Spots that cannot be located are retained as
+ * singles so clustering never removes feed data from downstream consumers.
+ */
+export function clusterSpots(
+  spots: LiveSpot[],
+  options: ClusteringOptions,
+): ClusteringResult {
+  const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
+  const candidateGridSize = mergedOptions.gridSize;
+  const gridSize =
+    typeof candidateGridSize === "number" &&
+    Number.isFinite(candidateGridSize) &&
+    candidateGridSize > 0
+      ? candidateGridSize
+      : DEFAULT_OPTIONS.gridSize;
+  const candidateMinClusterSize = mergedOptions.minClusterSize;
+  const minClusterSize =
+    typeof candidateMinClusterSize === "number" &&
+    Number.isFinite(candidateMinClusterSize) &&
+    candidateMinClusterSize >= 1
+      ? Math.floor(candidateMinClusterSize)
+      : DEFAULT_OPTIONS.minClusterSize;
+
+  if (!mergedOptions.enabled || spots.length === 0) {
+    return {
+      clusters: [],
+      singles: spots,
+      totalSpots: spots.length,
+    };
+  }
+
+  const gridMap = new Map<string, LocatedSpot[]>();
+  const unresolved: LiveSpot[] = [];
+
+  for (const spot of spots) {
+    const location = resolveDxLocation(spot);
+    if (!location) {
+      unresolved.push(spot);
+      continue;
+    }
+
+    const gridX = getLongitudeCell(location.lon, gridSize);
+    const gridY = getLatitudeCell(location.lat, gridSize);
+    const key = `${gridX},${gridY}`;
+    const locatedSpot = { spot, ...location };
+    const existing = gridMap.get(key);
+    if (existing) {
+      existing.push(locatedSpot);
+    } else {
+      gridMap.set(key, [locatedSpot]);
+    }
+  }
+
+  const clusters: SpotCluster[] = [];
+  const singles: LiveSpot[] = [...unresolved];
+
+  for (const [key, spotsInCell] of gridMap) {
+    const sortedSpots = spotsInCell
+      .map(({ spot }) => spot)
+      .sort(compareSpots);
+
+    if (spotsInCell.length >= minClusterSize) {
+      clusters.push({
+        id: `cluster-${key}`,
+        center: getCentroid(spotsInCell),
+        spots: sortedSpots,
+        count: sortedSpots.length,
+        primarySpot: sortedSpots[0],
+      });
+    } else {
+      singles.push(...sortedSpots);
+    }
+  }
+
+  clusters.sort((a, b) => a.id.localeCompare(b.id));
+  singles.sort(compareSpots);
+
+  return {
+    clusters,
+    singles,
+    totalSpots: spots.length,
+  };
+}
+
 /**
  * Hook to cluster nearby DX spots for cleaner visualization
  *
@@ -99,88 +316,10 @@ export function useSpotClustering(
     ...options,
   };
 
-  return useMemo(() => {
-    // Return all spots as singles when clustering is disabled
-    if (!enabled || spots.length === 0) {
-      return {
-        clusters: [],
-        singles: spots,
-        totalSpots: spots.length,
-      };
-    }
-
-    // Grid-based spatial clustering algorithm
-    // Group spots by their grid cell based on lat/lon coordinates
-    const gridMap = new Map<string, LiveSpot[]>();
-
-    for (const spot of spots) {
-      // Use DX station coordinates for clustering
-      // Skip spots without valid coordinates
-      if (spot.dxLat == null || spot.dxLon == null) {
-        continue;
-      }
-
-      // Validate coordinates are finite numbers
-      if (!Number.isFinite(spot.dxLat) || !Number.isFinite(spot.dxLon)) {
-        continue;
-      }
-
-      // Calculate grid cell coordinates
-      const gridX = Math.floor(spot.dxLon / gridSize);
-      const gridY = Math.floor(spot.dxLat / gridSize);
-      const key = `${gridX},${gridY}`;
-
-      const existing = gridMap.get(key) || [];
-      existing.push(spot);
-      gridMap.set(key, existing);
-    }
-
-    const clusters: SpotCluster[] = [];
-    const singles: LiveSpot[] = [];
-
-    for (const [key, spotsInCell] of gridMap) {
-      if (spotsInCell.length >= minClusterSize) {
-        // Create a cluster for this grid cell
-        const [gridX, gridY] = key.split(",").map(Number);
-
-        // Calculate center of the grid cell
-        const centerLat = (gridY + 0.5) * gridSize;
-        const centerLon = (gridX + 0.5) * gridSize;
-
-        // Sort by recency to find the "primary" (most recent) spot
-        const sorted = [...spotsInCell].sort(
-          (a, b) => b.time.getTime() - a.time.getTime(),
-        );
-
-        clusters.push({
-          id: `cluster-${key}`,
-          center: { lat: centerLat, lon: centerLon },
-          spots: spotsInCell,
-          count: spotsInCell.length,
-          primarySpot: sorted[0],
-        });
-      } else {
-        // Not enough spots to cluster - add as singles
-        singles.push(...spotsInCell);
-      }
-    }
-
-    // Also add spots without coordinates as singles
-    const spotsWithoutCoords = spots.filter(
-      (spot) =>
-        spot.dxLat == null ||
-        spot.dxLon == null ||
-        !Number.isFinite(spot.dxLat) ||
-        !Number.isFinite(spot.dxLon),
-    );
-    singles.push(...spotsWithoutCoords);
-
-    return {
-      clusters,
-      singles,
-      totalSpots: spots.length,
-    };
-  }, [spots, enabled, gridSize, minClusterSize]);
+  return useMemo(
+    () => clusterSpots(spots, { enabled, gridSize, minClusterSize }),
+    [spots, enabled, gridSize, minClusterSize],
+  );
 }
 
 /**

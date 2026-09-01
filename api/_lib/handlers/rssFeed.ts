@@ -199,7 +199,7 @@ export function parseFeed(xml: string): ParsedFeed {
 
   const head = xml.slice(
     0,
-    blocks.length > 0 ? xml.indexOf(blocks[0]) : xml.length,
+    blocks.length > 0 ? xml.indexOf(blocks[0]!) : xml.length,
   );
   const feedTitle = stripTags(tagText(head, "title") ?? "").slice(0, 200);
   const feedLink = isAtom

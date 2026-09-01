@@ -117,6 +117,7 @@ import { PanelMiniStrip } from "@/components/map/PanelMiniStrip";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getPathMetrics, formatBearing } from "@/lib/utils/path";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
+import { QuickLocationControl } from "@/components/location/QuickLocationControl";
 import { useSpotReplay } from "@/hooks/useSpotReplay";
 import { useReplayStore } from "@/stores/replayStore";
 import {
@@ -1247,6 +1248,7 @@ export function PropSphere() {
 
                       {/* Right: Callsign badge + S-meter */}
                       <div className="flex items-center gap-2">
+                        <QuickLocationControl variant="icon" />
                         {catActive && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
                             <span className="text-[10px] text-gray-500">S</span>

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
+import { presentActivationSpot } from "@/lib/map/spotPresentation";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 
 const { selectMapSpot } = vi.hoisted(() => ({ selectMapSpot: vi.fn() }));
@@ -131,5 +132,41 @@ describe("SelectedSpotCard", () => {
     expect(
       screen.queryByRole("dialog", { name: /Spot details/ }),
     ).toBeNull();
+  });
+
+  it("shows activation identity and provider metadata without a modal backdrop", () => {
+    const activation = presentActivationSpot({
+      id: "pota-1",
+      program: "POTA",
+      callsign: "K5ABC",
+      reference: "US-1234",
+      referenceName: "Test Park",
+      frequencyKHz: 14074,
+      mode: "FT8",
+      comments: "QRP",
+      spotter: "W1AW",
+      spottedAt: "2026-08-31T12:00:00Z",
+      latitude: 30.25,
+      longitude: -97.75,
+      grid: "EM10df",
+    });
+
+    render(
+      <SelectedSpotCard
+        spot={activation}
+        position={{ x: 10, y: 10 }}
+        onOperator={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByRole("dialog", {
+      name: "Spot details for K5ABC",
+    });
+    expect(card.getAttribute("aria-modal")).toBe("false");
+    expect(screen.getAllByText("POTA").length).toBeGreaterThan(0);
+    expect(screen.getByText("POTA US-1234")).toBeTruthy();
+    expect(screen.getByText("Test Park")).toBeTruthy();
+    expect(screen.getByText("Parks on the Air")).toBeTruthy();
   });
 });

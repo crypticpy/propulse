@@ -10,6 +10,33 @@ vi.mock("@react-three/drei", () => ({
 }));
 
 describe("SpotLabel selection", () => {
+  it.each([3573, 5357, 14074])(
+    "keeps hover and selection active at %s kHz regardless of band color",
+    (frequency) => {
+      const onHover = vi.fn();
+      const onSelect = vi.fn();
+      render(
+        <SpotLabel
+          lat={35.5}
+          lon={-97.5}
+          callsign="K5ABC"
+          frequency={frequency}
+          onHover={onHover}
+          onSelect={onSelect}
+        />,
+      );
+      const label = screen.getByRole("button", {
+        name: "Select K5ABC as target",
+      });
+
+      fireEvent.mouseEnter(label);
+      fireEvent.click(label);
+
+      expect(onHover).toHaveBeenCalledOnce();
+      expect(onSelect).toHaveBeenCalledOnce();
+    },
+  );
+
   it("selects the tag with accessible button semantics", () => {
     const onSelect = vi.fn();
     render(

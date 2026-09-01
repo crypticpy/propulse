@@ -11,6 +11,21 @@ vi.mock("@react-three/fiber", async () => {
 });
 
 function resolvedSpot(): ResolvedSpot {
+  const originalSpot = {
+    id: "spot-1",
+    spotter: "K1ABC",
+    spotterGrid: "FN42",
+    dx: "PY2ABC",
+    dxGrid: "GG87",
+    frequency: 14074,
+    mode: "FT8",
+    comment: "",
+    time: new Date("2026-08-31T12:00:00Z"),
+    band: "20m",
+    dxLat: -22.5,
+    dxLon: -43,
+    source: "PSKReporter" as const,
+  };
   return {
     id: "spot-1",
     spotterLat: 42,
@@ -25,10 +40,33 @@ function resolvedSpot(): ResolvedSpot {
     source: "PSKReporter",
     spotterLocApprox: false,
     dxLocApprox: false,
+    originalSpot,
   };
 }
 
 describe("SpotEndpointHitArea selection", () => {
+  it("returns the exact rendered report snapshot on hover", () => {
+    const spot = resolvedSpot();
+    const onHover = vi.fn();
+    const { container } = render(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={spot}
+        onHover={onHover}
+      />,
+    );
+
+    fireEvent.pointerEnter(container.querySelector("mesh")!, {
+      clientX: 120,
+      clientY: 80,
+    });
+    expect(onHover).toHaveBeenCalledWith(
+      spot.originalSpot,
+      { x: 120, y: 80 },
+    );
+  });
+
   it("selects the endpoint without allowing the globe surface to handle it", () => {
     const onSelect = vi.fn();
     const onParentClick = vi.fn();
@@ -39,7 +77,6 @@ describe("SpotEndpointHitArea selection", () => {
           lat={-22.5}
           lon={-43}
           spot={resolvedSpot()}
-          spotData={{ dxGrid: "GG87" }}
           onSelect={onSelect}
         />
       </div>,
@@ -60,7 +97,6 @@ describe("SpotEndpointHitArea selection", () => {
         lat={-22.5}
         lon={-43}
         spot={resolvedSpot()}
-        spotData={{ dxGrid: "GG87" }}
         occlusionOpacity={1}
         onHover={onHover}
         onHoverEnd={onHoverEnd}
@@ -74,7 +110,6 @@ describe("SpotEndpointHitArea selection", () => {
         lat={-22.5}
         lon={-43}
         spot={resolvedSpot()}
-        spotData={{ dxGrid: "GG87" }}
         occlusionOpacity={0}
         onHover={onHover}
         onHoverEnd={onHoverEnd}
@@ -89,7 +124,6 @@ describe("SpotEndpointHitArea selection", () => {
         lat={-22.5}
         lon={-43}
         spot={resolvedSpot()}
-        spotData={{ dxGrid: "GG87" }}
         occlusionOpacity={1}
         onHover={onHover}
         onHoverEnd={onHoverEnd}
@@ -105,7 +139,6 @@ describe("SpotEndpointHitArea selection", () => {
         lat={-22.5}
         lon={-43}
         spot={resolvedSpot()}
-        spotData={{ dxGrid: "GG87" }}
         occlusionOpacity={0}
         onHover={onHover}
         onHoverEnd={onHoverEnd}

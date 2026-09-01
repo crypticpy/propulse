@@ -7,6 +7,7 @@ import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
+import { formatSpotPresentationLabel } from "@/lib/map/spotPresentation";
 
 export type MapSpotLocationSource = "coordinates" | "grid" | "callsign-prefix";
 
@@ -113,7 +114,7 @@ export function resolveMapSpotSelection(
       lat,
       lon,
       grid,
-      name: spot.dx,
+      name: formatSpotPresentationLabel(spot.dx, spot.comment),
     },
     locationSource,
   };

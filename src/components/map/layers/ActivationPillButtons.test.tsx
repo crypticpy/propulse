@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useActivationSpotStore } from "@/stores/activationSpotStore";
-import { useMapStore } from "@/stores/mapStore";
+import { describe, expect, it, vi } from "vitest";
+import type { ActivationProgram } from "@/types/activationSpots";
 import { ActivationMarkers3D } from "./ActivationMarkers3D";
 import { ActivationPillButtons } from "./ActivationPillButtons";
 
@@ -13,13 +12,23 @@ vi.mock("../SpotLabel", () => ({
   SpotLabel: ({
     callsign,
     ariaLabel,
-    onClick,
+    onHover,
+    onHoverEnd,
+    onSelect,
   }: {
     callsign: string;
     ariaLabel?: string;
-    onClick?: () => void;
+    onHover?: (position: { x: number; y: number }) => void;
+    onHoverEnd?: () => void;
+    onSelect?: (position: { x: number; y: number }) => void;
   }) => (
-    <button type="button" aria-label={ariaLabel} onClick={onClick}>
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onPointerEnter={() => onHover?.({ x: 10, y: 20 })}
+      onPointerLeave={onHoverEnd}
+      onClick={() => onSelect?.({ x: 10, y: 20 })}
+    >
       {callsign}
     </button>
   ),
@@ -42,68 +51,93 @@ const SPOT = {
 };
 
 describe("activation label selections", () => {
-  beforeEach(() => {
-    useMapStore.setState({ target: null });
-    useActivationSpotStore.setState({ selectedSpot: null });
-  });
-
-  it("selects a 3D activator as DX and opens its shared detail state", () => {
+  it("routes 3D hover and selection through the canonical parent callbacks", () => {
+    const onSpotHover = vi.fn();
+    const onSpotHoverEnd = vi.fn();
+    const onSpotSelect = vi.fn();
     render(
       <ActivationMarkers3D
         spots={[{ ...SPOT, frequencyKHz: 14074.5 }]}
-      />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /K5ABC.*14\.0745 megahertz.*open station details/i,
-      }),
-    );
-    expect(screen.getByText("K5ABC 14.0745")).toBeTruthy();
-
-    expect(useMapStore.getState().target).toEqual(
-      expect.objectContaining({
-        lat: 30.25,
-        lon: -97.75,
-        grid: "EM10df",
-        name: "K5ABC · POTA US-1234",
-      }),
-    );
-    expect(useActivationSpotStore.getState().selectedSpot).toEqual(
-      expect.objectContaining({ id: "pota-1" }),
-    );
-  });
-
-  it("exposes a keyboard-focusable 2D target for each painted activation", () => {
-    render(
-      <ActivationPillButtons
-        placements={[
-          {
-            spot: SPOT,
-            left: 10,
-            top: 20,
-            width: 80,
-            height: 22,
-          },
-        ]}
+        onSpotHover={onSpotHover}
+        onSpotHoverEnd={onSpotHoverEnd}
+        onSpotSelect={onSpotSelect}
       />,
     );
 
     const button = screen.getByRole("button", {
-      name: /K5ABC.*select as target/i,
+      name: /K5ABC.*14\.0745 megahertz.*open station details/i,
     });
-    expect(button.getAttribute("tabindex")).not.toBe("-1");
-
+    fireEvent.pointerEnter(button);
+    fireEvent.pointerLeave(button);
     fireEvent.click(button);
-    expect(useMapStore.getState().target).toEqual(
+    expect(screen.getByText("K5ABC 14.0745")).toBeTruthy();
+
+    expect(onSpotHover).toHaveBeenCalledWith(
       expect.objectContaining({
-        lat: 30.25,
-        lon: -97.75,
-        name: "K5ABC · POTA US-1234",
+        id: "pota-1",
+        dx: "K5ABC",
+        source: "Cluster",
+        activation: expect.objectContaining({
+          program: "POTA",
+          reference: "US-1234",
+          referenceName: "Test Park",
+        }),
       }),
+      { x: 10, y: 20 },
     );
-    expect(useActivationSpotStore.getState().selectedSpot).toEqual(
-      expect.objectContaining({ id: "pota-1", callsign: "K5ABC" }),
+    expect(onSpotHoverEnd).toHaveBeenCalledOnce();
+    expect(onSpotSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ dxLat: 30.25, dxLon: -97.75 }),
+      { x: 10, y: 20 },
     );
   });
+
+  it.each(["POTA", "SOTA", "WWFF"] satisfies ActivationProgram[])(
+    "gives a %s 2D pill identical hover and select ownership",
+    (program) => {
+      const onSpotHover = vi.fn();
+      const onSpotHoverEnd = vi.fn();
+      const onSpotSelect = vi.fn();
+      render(
+        <ActivationPillButtons
+          placements={[
+            {
+              spot: { ...SPOT, program },
+              left: 10,
+              top: 20,
+              width: 80,
+              height: 22,
+            },
+          ]}
+          onSpotHover={onSpotHover}
+          onSpotHoverEnd={onSpotHoverEnd}
+          onSpotSelect={onSpotSelect}
+        />,
+      );
+
+      const button = screen.getByRole("button", {
+        name: /K5ABC.*select as target/i,
+      });
+      expect(button.getAttribute("tabindex")).not.toBe("-1");
+
+      fireEvent.pointerEnter(button);
+      fireEvent.pointerLeave(button);
+      fireEvent.click(button);
+      expect(onSpotHover).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dx: "K5ABC",
+          activation: expect.objectContaining({ program }),
+        }),
+        expect.objectContaining({ width: expect.any(Number) }),
+      );
+      expect(onSpotHoverEnd).toHaveBeenCalledOnce();
+      expect(onSpotSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dx: "K5ABC",
+          activation: expect.objectContaining({ program }),
+        }),
+        expect.any(Object),
+      );
+    },
+  );
 });

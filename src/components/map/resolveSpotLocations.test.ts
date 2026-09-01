@@ -40,6 +40,19 @@ describe("resolveSpotLocations", () => {
     expect(resolved.time.getTime()).toBe(time.getTime());
   });
 
+  it("retains the exact painted report for hover and click ownership", () => {
+    const report = liveSpot({
+      id: "snapshot-1",
+      comment: "CQ POTA US-1234",
+      receiverCallsign: "K2RX",
+    });
+    const [resolved] = resolveSpotLocations([report]);
+
+    expect(resolved.originalSpot).toBe(report);
+    expect(resolved.originalSpot.comment).toBe("CQ POTA US-1234");
+    expect(resolved.originalSpot.receiverCallsign).toBe("K2RX");
+  });
+
   it("leaves snr undefined when the source reports none", () => {
     const [resolved] = resolveSpotLocations([liveSpot()]);
     expect(resolved.snr).toBeUndefined();

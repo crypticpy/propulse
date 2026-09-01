@@ -46,6 +46,9 @@ import {
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
+import { SpotHoverPreview } from "./SpotHoverPreview";
+import { SelectedSpotCard } from "./SelectedSpotCard";
+import { GridResearchPanel } from "./GridResearchPanel";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
@@ -68,6 +71,9 @@ import {
   type ActivationPillScreenPlacement,
 } from "@/lib/map/activationMarkers";
 import { ActivationPillButtons } from "./layers/ActivationPillButtons";
+import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
 import { getSublunarPoint } from "@/lib/utils/moon";
 
@@ -1512,8 +1518,66 @@ export function AzimuthalView({
   const [activationPillPlacements, setActivationPillPlacements] = useState<
     ActivationPillScreenPlacement[]
   >([]);
+  const [hoveredSpotData, setHoveredSpotData] = useState<{
+    spot: PresentableSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [selectedMapSpotData, setSelectedMapSpotData] = useState<{
+    spot: PresentableSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [researchPanelOpen, setResearchPanelOpen] = useState(false);
+  const [researchGrid, setResearchGrid] = useState("");
+  const [researchCallsign, setResearchCallsign] = useState<string | null>(null);
+  const spotHoverDismissRef = useRef<number | null>(null);
+  const selectMapSpot = useMapSpotSelection();
   const glowRafRef = useRef<number>(0);
   const layers = useMapStore((s) => s.layers);
+
+  const cancelSpotHoverDismiss = useCallback(() => {
+    if (spotHoverDismissRef.current === null) return;
+    window.clearTimeout(spotHoverDismissRef.current);
+    spotHoverDismissRef.current = null;
+  }, []);
+
+  const scheduleSpotHoverDismiss = useCallback(() => {
+    if (spotHoverDismissRef.current !== null) return;
+    spotHoverDismissRef.current = window.setTimeout(() => {
+      setHoveredSpotData(null);
+      spotHoverDismissRef.current = null;
+    }, 180);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (spotHoverDismissRef.current !== null) {
+        window.clearTimeout(spotHoverDismissRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleSpotHover = useCallback(
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
+      cancelSpotHoverDismiss();
+      setHoveredSpotData({ spot, screenPos });
+    },
+    [cancelSpotHoverDismiss],
+  );
+
+  const handleMapSpotSelect = useCallback(
+    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
+      const selection = selectMapSpot(spot);
+      cancelSpotHoverDismiss();
+      setHoveredSpotData(null);
+      setHoveredTargetPos(null);
+      setSelectedMapSpotData({
+        spot: { ...spot, ...(selection?.spot ?? {}) },
+        screenPos,
+      });
+    },
+    [cancelSpotHoverDismiss, selectMapSpot],
+  );
 
   // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
   useEffect(() => {
@@ -1888,6 +1952,27 @@ export function AzimuthalView({
     target,
     displayTime,
   });
+
+  const handleOpenOperatorPanel = useCallback(() => {
+    if (!selectedMapSpotData) return;
+    const selected = selectedMapSpotData.spot;
+    let grid = selected.dxGrid || "";
+    if (
+      !grid &&
+      Number.isFinite(selected.dxLat) &&
+      Number.isFinite(selected.dxLon)
+    ) {
+      try {
+        grid = latLonToGrid(selected.dxLat!, selected.dxLon!);
+      } catch {
+        // Callsign lookup remains useful without a derivable grid.
+      }
+    }
+    setResearchCallsign(selected.dx);
+    setResearchGrid(grid);
+    setResearchPanelOpen(true);
+    setSelectedMapSpotData(null);
+  }, [selectedMapSpotData]);
 
   const targetHitPoint = useMemo(() => {
     if (!center || !target) {
@@ -2347,8 +2432,45 @@ export function AzimuthalView({
           className="pointer-events-none absolute"
           style={{ width: displaySize, height: displaySize }}
         >
-          <ActivationPillButtons placements={activationPillPlacements} />
+          <ActivationPillButtons
+            placements={activationPillPlacements}
+            onSpotHover={handleSpotHover}
+            onSpotHoverEnd={scheduleSpotHoverDismiss}
+            onSpotSelect={handleMapSpotSelect}
+          />
         </div>
+      )}
+
+      <SpotHoverPreview
+        visible={!!hoveredSpotData && !selectedMapSpotData}
+        position={hoveredSpotData?.screenPos || { x: 0, y: 0 }}
+        displayTime={displayTime}
+        spot={hoveredSpotData?.spot ?? null}
+        onInteractStart={cancelSpotHoverDismiss}
+        onInteractEnd={scheduleSpotHoverDismiss}
+        onActivate={() => {
+          if (hoveredSpotData) {
+            handleMapSpotSelect(
+              hoveredSpotData.spot,
+              hoveredSpotData.screenPos,
+            );
+          }
+        }}
+      />
+
+      {selectedMapSpotData && (
+        <SelectedSpotCard
+          spot={selectedMapSpotData.spot}
+          position={selectedMapSpotData.screenPos}
+          difficulty={pathDifficulty}
+          optimalSignal={optimalSignal}
+          signalUnavailableReason={
+            station ? undefined : "Set your QTH to model this path"
+          }
+          onOperator={handleOpenOperatorPanel}
+          onViewPath={() => setSelectedMapSpotData(null)}
+          onClose={() => setSelectedMapSpotData(null)}
+        />
       )}
 
       <TargetHoverTooltip
@@ -2371,6 +2493,16 @@ export function AzimuthalView({
       )}
       {/* Spot & pin size sliders - bottom left corner */}
       {!hideSizeSliders && <MapSizeSliders />}
+
+      <GridResearchPanel
+        visible={researchPanelOpen}
+        grid={researchGrid}
+        initialCallsign={researchCallsign}
+        onClose={() => {
+          setResearchPanelOpen(false);
+          setResearchCallsign(null);
+        }}
+      />
 
       {/* Legend overlay */}
       <div className="absolute bottom-14 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">

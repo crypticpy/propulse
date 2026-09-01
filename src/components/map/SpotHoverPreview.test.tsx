@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { useRef, useState } from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 
@@ -34,6 +35,8 @@ const spot: LiveSpot = {
 };
 
 describe("SpotHoverPreview", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("renders the reference propagation treatment for an individual spot", () => {
     render(
       <SpotHoverPreview
@@ -51,5 +54,86 @@ describe("SpotHoverPreview", () => {
     expect(screen.getByText("S9+5")).toBeTruthy();
     expect(screen.getByText("85%")).toBeTruthy();
     expect(screen.getByText("1,520 km")).toBeTruthy();
+  });
+
+  it("owns pointer and keyboard activation without leaking to the map", () => {
+    const onInteractStart = vi.fn();
+    const onInteractEnd = vi.fn();
+    const onActivate = vi.fn();
+    const onMapClick = vi.fn();
+    document.addEventListener("click", onMapClick);
+    render(
+      <SpotHoverPreview
+        visible
+        position={{ x: 300, y: 300, width: 90, height: 22 }}
+        spot={spot}
+        displayTime={new Date("2026-08-31T12:00:00Z")}
+        onInteractStart={onInteractStart}
+        onInteractEnd={onInteractEnd}
+        onActivate={onActivate}
+      />,
+    );
+    const preview = screen.getByRole("button", {
+      name: /Open spot details for KA1VRY/i,
+    });
+
+    fireEvent.pointerEnter(preview);
+    fireEvent.pointerLeave(preview);
+    fireEvent.click(preview);
+    fireEvent.keyDown(preview, { key: "Enter" });
+
+    expect(onInteractStart).toHaveBeenCalledOnce();
+    expect(onInteractEnd).toHaveBeenCalledOnce();
+    expect(onActivate).toHaveBeenCalledTimes(2);
+    expect(onMapClick).not.toHaveBeenCalled();
+    document.removeEventListener("click", onMapClick);
+  });
+
+  it("can bridge a delayed label leave into the interactive preview", () => {
+    vi.useFakeTimers();
+
+    function Harness() {
+      const [visible, setVisible] = useState(true);
+      const dismissRef = useRef<number | null>(null);
+      const cancel = () => {
+        if (dismissRef.current !== null) {
+          window.clearTimeout(dismissRef.current);
+          dismissRef.current = null;
+        }
+      };
+      const dismiss = () => {
+        if (dismissRef.current !== null) return;
+        dismissRef.current = window.setTimeout(() => {
+          setVisible(false);
+          dismissRef.current = null;
+        }, 180);
+      };
+      return (
+        <>
+          <button type="button" onPointerLeave={dismiss}>
+            KA1VRY tag
+          </button>
+          <SpotHoverPreview
+            visible={visible}
+            position={{ x: 300, y: 300, width: 90, height: 22 }}
+            spot={visible ? spot : null}
+            displayTime={new Date("2026-08-31T12:00:00Z")}
+            onInteractStart={cancel}
+            onInteractEnd={dismiss}
+            onActivate={vi.fn()}
+          />
+        </>
+      );
+    }
+
+    render(<Harness />);
+    fireEvent.pointerLeave(screen.getByRole("button", { name: "KA1VRY tag" }));
+    vi.advanceTimersByTime(100);
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: /Open spot details for KA1VRY/i }),
+    );
+    vi.advanceTimersByTime(200);
+
+    expect(screen.getByText("KA1VRY · POTA US-7948")).toBeTruthy();
   });
 });

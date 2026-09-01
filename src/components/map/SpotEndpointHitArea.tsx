@@ -231,23 +231,6 @@ export function SpotEndpointHitArea({
     onHoverEndRef.current?.();
   }, [occlusionOpacity]);
 
-  // Keep a stable ref to the latest onHoverEnd so the unmount cleanup can
-  // release hover ownership without adding onHoverEnd to the dep array (which
-  // would re-register the cleanup on every render).
-  const onHoverEndRef = useRef(onHoverEnd);
-  useEffect(() => {
-    onHoverEndRef.current = onHoverEnd;
-  });
-
-  useEffect(() => {
-    return () => {
-      if (ownsHoverRef.current) {
-        ownsHoverRef.current = false;
-        onHoverEndRef.current?.();
-      }
-    };
-  }, []);
-
   if (occlusionOpacity < 0.05) return null;
 
   return (

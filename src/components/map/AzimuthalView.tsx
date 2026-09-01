@@ -58,7 +58,7 @@ import {
   LIGHTNING_STRONG_KA,
 } from "@/lib/map/lightningColors";
 import type { FireHotspot } from "@/lib/api/fires";
-import type { LiveSpot, SpotSource } from "@/types/livespot";
+import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useAzimuthalMapSpots } from "./hooks/useAzimuthalMapSpots";
@@ -1523,10 +1523,6 @@ export function AzimuthalView({
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const displayDensity = useMapStore((s) => s.displayDensity);
-  const spotFilters = useMapStore((s) => s.spotFilters);
-  const spotSourceFilters = useDXStore(
-    (s) => s.filters.sources as SpotSource[] | undefined,
-  );
   const labelOptions = useMapStore((s) => s.labelOptions);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
@@ -1779,8 +1775,6 @@ export function AzimuthalView({
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,
     maxSpots: displayDensity,
-    sources: spotSourceFilters,
-    spotFilters,
   });
 
   // Resolve selected DX cluster spot location for highlight arc

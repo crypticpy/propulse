@@ -2,9 +2,9 @@
 
 Status: active production stabilization and ordered release in progress. PRs
 #113, #114, #117, #119, #118, #120, and the clean #121 reconstruction are
-live. The stale #115 is closed. The Wall Display replacement for stale #116
+live. Stale PRs #115 and #116 are closed. Clean Wall Display replacement #122
 has been reconstructed from current production and passes its complete local
-release gates; PR review, merge, deployment, and live verification remain.
+release gates; hosted review, merge, deployment, and live verification remain.
 
 Owner: PropSphere
 Last updated: 2026-09-01
@@ -199,10 +199,10 @@ or preview deployment by itself is not a production result.
   `5eae5eec`; Vercel production deployment
   `dpl_5ySMFfJWrSVnv3VTGVUyc8mJDwfb` cloned that exact `main` commit, reached
   Ready, and owns `propulse.cloud`. Stale #115 was closed as superseded.
-- Wall Display replacement pre-PR gate: 211 Vitest files / 1,183 tests,
+- #122 Wall Display replacement head `a78acb15`: 211 Vitest files / 1,183 tests,
   ESLint, TypeScript, production Vite build, bundle budgets, and two joined
   release-blocker reviews passed from a dedicated clean worktree based on
-  `5eae5eec`. Stale #116 remains unmerged pending replacement PR creation.
+  `5eae5eec`. Stale #116 was closed as superseded and remains unmerged.
 - Authenticated 3840x2160 pointer verification remains a separate final gate;
   public automation currently reaches the invite login rather than the map.
 - The free Esri de-clouded Deep-Zoom path needs no new production secret.

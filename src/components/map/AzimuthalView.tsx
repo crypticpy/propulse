@@ -48,6 +48,7 @@ import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
+import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import {
   GridResearchPanel,
   type GridResearchAction,
@@ -81,13 +82,25 @@ import {
   AzimuthalSpotPillButtons,
 } from "./layers/AzimuthalSpotPillButtons";
 import {
-  buildAzimuthalSpotEndpointScreenPlacements,
   resolveAzimuthalTargetAnnotation,
   sameAzimuthalSpotPillScreenPlacements,
   spotDestinationMatchesTarget,
   type AzimuthalSpotPillScreenPlacement,
 } from "@/lib/map/azimuthalSpotPillPlacement";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useDXCluster } from "@/hooks/useDXCluster";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { getSeasonalTextureCandidates } from "./hooks/useSeasonalDayTexture";
+import { AzimuthalSpotClusterButtons } from "./layers/AzimuthalSpotClusterButtons";
+import {
+  buildAzimuthalSpotClusters,
+  limitAzimuthalBackgroundTraces,
+  type AzimuthalSpotCluster,
+} from "@/lib/map/azimuthalSpotAggregation";
+import { collectGridSpots } from "@/lib/map/gridSpotCollection";
 import { useWatchStore } from "@/stores/watchStore";
 import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
@@ -128,6 +141,8 @@ const COLORS = {
 
 // Max distance in km (half Earth circumference)
 const MAX_DISTANCE_KM = 20015;
+const MAX_AZIMUTHAL_BACKGROUND_TRACES = 64;
+const MAX_AZIMUTHAL_CALLSIGN_LABELS = 16;
 
 /**
  * Convert normalized projection coordinates to canvas coordinates
@@ -162,9 +177,9 @@ function applyCanvasDprTransform(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
   displaySize: number,
+  renderDevicePixelRatio: number,
 ): void {
-  const dpr = window.devicePixelRatio || 1;
-  const backingSize = Math.round(displaySize * dpr);
+  const backingSize = Math.round(displaySize * renderDevicePixelRatio);
   if (canvas.width !== backingSize || canvas.height !== backingSize) {
     canvas.width = backingSize;
     canvas.height = backingSize;
@@ -562,6 +577,7 @@ function drawSpotArcs(
   centerLon: number,
   colorMode: SpotColorMode = "mode",
   spotDotScale = 1.0,
+  drawEndpoints = true,
 ) {
   for (const spot of spots) {
     const color = getSpotColor(spot, colorMode);
@@ -613,33 +629,34 @@ function drawSpotArcs(
     );
     ctx.stroke(path);
 
-    // Draw endpoint dots
-    ctx.fillStyle = color;
+    if (drawEndpoints) {
+      ctx.fillStyle = color;
 
-    // Spotter location (smaller, only if inside circle)
-    if (spotterDist <= 1) {
-      ctx.beginPath();
-      ctx.arc(
-        spotterCanvas.x,
-        spotterCanvas.y,
-        Math.round(3 * spotDotScale),
-        0,
-        Math.PI * 2,
-      );
-      ctx.fill();
-    }
+      // Spotter location (smaller, only if inside circle)
+      if (spotterDist <= 1) {
+        ctx.beginPath();
+        ctx.arc(
+          spotterCanvas.x,
+          spotterCanvas.y,
+          Math.round(3 * spotDotScale),
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
 
-    // DX location (larger, only if inside circle)
-    if (dxDist <= 1) {
-      ctx.beginPath();
-      ctx.arc(
-        dxCanvas.x,
-        dxCanvas.y,
-        Math.round(4 * spotDotScale),
-        0,
-        Math.PI * 2,
-      );
-      ctx.fill();
+      // DX location (larger, only if inside circle)
+      if (dxDist <= 1) {
+        ctx.beginPath();
+        ctx.arc(
+          dxCanvas.x,
+          dxCanvas.y,
+          Math.round(4 * spotDotScale),
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
     }
 
     ctx.restore();
@@ -1555,6 +1572,12 @@ export function AzimuthalView({
     spot: PresentableSpot;
     screenPos: ScreenAnchor;
   } | null>(null);
+  const [openSpotCollection, setOpenSpotCollection] = useState<{
+    position: ScreenAnchor;
+    title: string;
+    subtitle: string;
+    spots: LiveSpot[];
+  } | null>(null);
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchGrid, setResearchGrid] = useState("");
   const [researchCallsign, setResearchCallsign] = useState<string | null>(null);
@@ -1617,6 +1640,7 @@ export function AzimuthalView({
       cancelSpotHoverDismiss();
       hoveredSpotOwnerRef.current = null;
       setHoveredSpotData(null);
+      setOpenSpotCollection(null);
       setHoveredTargetPos(null);
       setSelectedMapSpotData({
         spot: { ...spot, ...(selection?.spot ?? {}) },
@@ -1644,6 +1668,12 @@ export function AzimuthalView({
   const spotLabelScale = uiPrefs.labelScale ?? 1.0;
   const showSpotCallsignLabels = uiPrefs.showSpotCallsignLabels ?? true;
   const highVizSpots = uiPrefs.visualStyle === "high-viz";
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
+  const hiResTexturePreference = useSettingsStore(
+    (s) => s.globeHiResTextures,
+  );
+  const themeId = useThemeStore((s) => s.themeId);
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.
@@ -1676,24 +1706,51 @@ export function AzimuthalView({
       return;
     }
 
+    let cancelled = false;
+    setWebglReady(false);
+    const useHiResTexture =
+      hiResTexturePreference ||
+      qualitySettings.effective === "uhd" ||
+      qualitySettings.effective === "extreme";
     const renderer = new AzimuthalRenderer({
       highRes: true,
+      dayTextureUrls: [
+        ...getSeasonalTextureCandidates(useHiResTexture),
+        "/textures/earth-day.jpg",
+      ],
+      standardTextureWidth:
+        qualitySettings.effective === "extreme" ||
+        qualitySettings.effective === "uhd"
+          ? 4096
+          : qualitySettings.effective === "data-saver"
+            ? 1024
+            : 2048,
+      themeId,
       enableNight: true,
-      onTextureLoad: () => setWebglReady(true),
-      onError: (error) => console.warn("WebGL error:", error.message),
+      onTextureLoad: () => {
+        if (!cancelled) setWebglReady(true);
+      },
+      onError: (error) => {
+        if (!cancelled) console.warn("WebGL error:", error.message);
+      },
     });
 
     renderer.initialize(canvas).then((success) => {
-      if (success) {
+      if (success && !cancelled) {
         rendererRef.current = renderer;
       }
     });
 
     return () => {
+      cancelled = true;
       renderer.dispose();
-      rendererRef.current = null;
+      if (rendererRef.current === renderer) rendererRef.current = null;
     };
-  }, []);
+  }, [
+    hiResTexturePreference,
+    qualitySettings.effective,
+    themeId,
+  ]);
 
   // Observe container resize for responsive display
   useEffect(() => {
@@ -1733,7 +1790,17 @@ export function AzimuthalView({
     cancelSpotHoverDismiss();
     hoveredSpotOwnerRef.current = null;
     setHoveredSpotData(null);
+    setOpenSpotCollection(null);
+    setSelectedMapSpotData(null);
   }, [cancelSpotHoverDismiss, center]);
+
+  useEffect(() => {
+    setOpenSpotCollection(null);
+  }, [layers.gridActivity, layers.spotTraces, layers.spots]);
+
+  useEffect(() => {
+    setOpenSpotCollection(null);
+  }, [center?.lat, center?.lon, displaySize, zoom]);
 
   // Rasterize probability-surface cells per pixel via inverse projection.
   // Cells far from the center distort so much that polygon corners are
@@ -1780,7 +1847,12 @@ export function AzimuthalView({
       return;
     }
 
-    applyCanvasDprTransform(canvas, ctx, displaySize);
+    applyCanvasDprTransform(
+      canvas,
+      ctx,
+      displaySize,
+      qualitySettings.renderDevicePixelRatio,
+    );
 
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     if (!center) {
@@ -1881,14 +1953,26 @@ export function AzimuthalView({
     }
 
     ctx.restore();
-  }, [center, overlayLayers, zoom, cellRasterCanvas, displaySize]);
+  }, [
+    center,
+    overlayLayers,
+    zoom,
+    cellRasterCanvas,
+    displaySize,
+    qualitySettings.renderDevicePixelRatio,
+  ]);
 
   // Get subsolar point for day/night blending
   const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
 
   // Resolve the common live feed once, capped for this canvas renderer. This
   // preserves the shared display-density contract without a local pipeline.
-  const { resolvedSpots, activationSpots } = useAzimuthalMapSpots({
+  const { allSpots } = useDXCluster();
+  const {
+    spots: liveSpots,
+    resolvedSpots,
+    activationSpots,
+  } = useAzimuthalMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,
@@ -1953,9 +2037,9 @@ export function AzimuthalView({
     spotPillPlacements,
   ]);
 
-  const spotEndpointPlacements = useMemo(() => {
+  const azimuthalSpotClusters = useMemo(() => {
     if (!center || (!layers.spots && !layers.spotTraces)) return [];
-    return buildAzimuthalSpotEndpointScreenPlacements(
+    return buildAzimuthalSpotClusters(
       resolvedSpots,
       (lat, lon) => {
         const projected = azimuthalProject(
@@ -1973,7 +2057,6 @@ export function AzimuthalView({
         center: CENTER,
         displaySize,
         zoom,
-        spotDotScale,
       },
     );
   }, [
@@ -1982,9 +2065,64 @@ export function AzimuthalView({
     layers.spotTraces,
     layers.spots,
     resolvedSpots,
-    spotDotScale,
     zoom,
   ]);
+
+  const unclusteredResolvedSpots = useMemo(() => {
+    const singles = new Set(
+      azimuthalSpotClusters
+        .filter((cluster) => cluster.members.length === 1)
+        .map((cluster) => cluster.members[0].originalSpot),
+    );
+    return resolvedSpots.filter((spot) => singles.has(spot.originalSpot));
+  }, [azimuthalSpotClusters, resolvedSpots]);
+
+  const labeledAzimuthalSpots = useMemo(
+    () => unclusteredResolvedSpots.slice(0, MAX_AZIMUTHAL_CALLSIGN_LABELS),
+    [unclusteredResolvedSpots],
+  );
+
+  const spotEndpointPlacements = useMemo(
+    () =>
+      azimuthalSpotClusters.flatMap((cluster) =>
+        cluster.members.length === 1
+          ? [
+              {
+                spot: cluster.members[0].originalSpot,
+                left: cluster.left,
+                top: cluster.top,
+                width: cluster.width,
+                height: cluster.height,
+              },
+            ]
+          : [],
+      ),
+    [azimuthalSpotClusters],
+  );
+
+  const backgroundTraceSpots = useMemo(
+    () =>
+      limitAzimuthalBackgroundTraces(
+        resolvedSpots,
+        MAX_AZIMUTHAL_BACKGROUND_TRACES,
+      ),
+    [resolvedSpots],
+  );
+
+  const handleOpenSpotCluster = useCallback(
+    (cluster: AzimuthalSpotCluster, position: ScreenAnchor) => {
+      cancelSpotHoverDismiss();
+      setHoveredSpotData(null);
+      setSelectedMapSpotData(null);
+      setOpenSpotCollection({
+        position,
+        title: `${cluster.members.length} nearby live spots`,
+        subtitle: "Azimuthal destinations combined to reduce map clutter",
+        spots: cluster.members.map((member) => member.originalSpot),
+      });
+    },
+    [cancelSpotHoverDismiss],
+  );
 
   // Feed new spots into the grid glow renderer when spots arrive.
   useEffect(() => {
@@ -2219,7 +2357,7 @@ export function AzimuthalView({
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = overlayCanvasRef.current;
-      if (!canvas || !onLocationClick || !center) {
+      if (!canvas || !center) {
         return;
       }
 
@@ -2256,9 +2394,55 @@ export function AzimuthalView({
         center.lon,
       );
 
-      onLocationClick(lat, lon);
+      if (layers.gridActivity) {
+        try {
+          const grid = latLonToGrid(lat, lon, 4).toUpperCase();
+          const isHighlighted = glowRendererRef.current
+            .getActiveGridSquares()
+            .includes(grid);
+          if (isHighlighted) {
+            const spots = collectGridSpots(
+              grid,
+              allSpots,
+              liveSpots,
+              resolvedSpots,
+            ).spots;
+            setSelectedMapSpotData(null);
+            if (spots.length === 0) {
+              setResearchGrid(grid);
+              setResearchCallsign(null);
+              setResearchPanelOpen(true);
+              return;
+            }
+            setOpenSpotCollection({
+              position: {
+                x: event.clientX,
+                y: event.clientY,
+                width: 1,
+                height: 1,
+              },
+              title: `${grid} live spots`,
+              subtitle: "Select a station in this highlighted grid",
+              spots,
+            });
+            return;
+          }
+        } catch {
+          // Invalid edge coordinates fall through to ordinary targeting.
+        }
+      }
+
+      onLocationClick?.(lat, lon);
     },
-    [onLocationClick, center, zoom],
+    [
+      allSpots,
+      center,
+      layers.gridActivity,
+      liveSpots,
+      onLocationClick,
+      resolvedSpots,
+      zoom,
+    ],
   );
 
   // Render WebGL background
@@ -2268,6 +2452,10 @@ export function AzimuthalView({
       return;
     }
 
+    const backingSize = Math.round(
+      displaySize * qualitySettings.renderDevicePixelRatio,
+    );
+    renderer.resize(backingSize, backingSize);
     renderer.setMapStyle(mapStyle);
     renderer.render({
       centerLat: center.lat,
@@ -2286,6 +2474,8 @@ export function AzimuthalView({
     webglReady,
     mapStyle,
     nightDarkness,
+    displaySize,
+    qualitySettings.renderDevicePixelRatio,
   ]);
 
   // Render 2D overlay (UI elements, paths, markers)
@@ -2300,7 +2490,12 @@ export function AzimuthalView({
       return;
     }
 
-    applyCanvasDprTransform(canvas, ctx, displaySize);
+    applyCanvasDprTransform(
+      canvas,
+      ctx,
+      displaySize,
+      qualitySettings.renderDevicePixelRatio,
+    );
 
     // Clear overlay canvas (transparent background)
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -2400,46 +2595,46 @@ export function AzimuthalView({
       glowRendererRef.current.draw(ctx, glowProject, Date.now(), "radial");
     }
 
-    // Draw live spot arcs (sampled great circles). Traces-alone (spotTraces
-    // without spots) still shows the arcs — traces isn't a separate layer.
-    if ((layers.spots || layers.spotTraces) && resolvedSpots.length > 0) {
+    // Background routes belong only to Spot Traces and are capped for this
+    // compressed projection. Destination controls remain visible separately.
+    if (layers.spotTraces && backgroundTraceSpots.length > 0) {
       drawSpotArcs(
         ctx,
-        resolvedSpots,
+        [...backgroundTraceSpots],
         center.lat,
         center.lon,
         spotColorMode,
         spotDotScale,
+        false,
       );
-      if (layers.spots && showSpotCallsignLabels) {
-        const placements = drawSpotCallsignPills(
-          ctx,
-          resolvedSpots,
-          center.lat,
-          center.lon,
-          spotLabelScale,
-          highVizSpots,
-          zoom,
-          spotDotScale,
-        );
-        const cssScale = displaySize / CANVAS_SIZE;
-        const screenPlacements = placements.map(({ spot, bounds }) => ({
-          spot,
-          left: (CENTER + (bounds.x - CENTER) * zoom) * cssScale,
-          top: (CENTER + (bounds.y - CENTER) * zoom) * cssScale,
-          width: bounds.width * zoom * cssScale,
-          height: bounds.height * zoom * cssScale,
-        }));
-        setSpotPillPlacements((current) =>
-          sameAzimuthalSpotPillScreenPlacements(current, screenPlacements)
-            ? current
-            : screenPlacements,
-        );
-      } else {
-        setSpotPillPlacements((current) =>
-          current.length === 0 ? current : [],
-        );
-      }
+    }
+
+    // Keep a small number of canonical callsign tags in Live Spots mode so
+    // hover/details parity survives without recreating the old label flood.
+    if (layers.spots && showSpotCallsignLabels) {
+      const placements = drawSpotCallsignPills(
+        ctx,
+        labeledAzimuthalSpots,
+        center.lat,
+        center.lon,
+        spotLabelScale,
+        highVizSpots,
+        zoom,
+        spotDotScale,
+      );
+      const cssScale = displaySize / CANVAS_SIZE;
+      const screenPlacements = placements.map(({ spot, bounds }) => ({
+        spot,
+        left: (CENTER + (bounds.x - CENTER) * zoom) * cssScale,
+        top: (CENTER + (bounds.y - CENTER) * zoom) * cssScale,
+        width: bounds.width * zoom * cssScale,
+        height: bounds.height * zoom * cssScale,
+      }));
+      setSpotPillPlacements((current) =>
+        sameAzimuthalSpotPillScreenPlacements(current, screenPlacements)
+          ? current
+          : screenPlacements,
+      );
     } else {
       setSpotPillPlacements((current) =>
         current.length === 0 ? current : [],
@@ -2549,7 +2744,8 @@ export function AzimuthalView({
     station,
     target,
     center,
-    resolvedSpots,
+    backgroundTraceSpots,
+    labeledAzimuthalSpots,
     activationSpots,
     resolvedSelectedSpot,
     selectedSpotMatchesTarget,
@@ -2570,6 +2766,7 @@ export function AzimuthalView({
     fireHotspots,
     glowTick,
     displaySize,
+    qualitySettings.renderDevicePixelRatio,
   ]);
 
   return (
@@ -2623,7 +2820,7 @@ export function AzimuthalView({
       {center && layers.activations && (
         <div
           className="pointer-events-none absolute"
-          style={{ width: displaySize, height: displaySize, zIndex: 2 }}
+          style={{ width: displaySize, height: displaySize, zIndex: 4 }}
         >
           <ActivationPillButtons
             placements={activationPillPlacements}
@@ -2636,7 +2833,7 @@ export function AzimuthalView({
       {center && (layers.spots || layers.spotTraces) && (
         <div
           className="pointer-events-none absolute"
-          style={{ width: displaySize, height: displaySize, zIndex: 0 }}
+          style={{ width: displaySize, height: displaySize, zIndex: 1 }}
         >
           <AzimuthalSpotEndpointButtons
             placements={spotEndpointPlacements}
@@ -2646,10 +2843,21 @@ export function AzimuthalView({
           />
         </div>
       )}
+      {center && (layers.spots || layers.spotTraces) && (
+        <div
+          className="pointer-events-none absolute"
+          style={{ width: displaySize, height: displaySize, zIndex: 2 }}
+        >
+          <AzimuthalSpotClusterButtons
+            clusters={azimuthalSpotClusters}
+            onOpen={handleOpenSpotCluster}
+          />
+        </div>
+      )}
       {center && layers.spots && showSpotCallsignLabels && (
         <div
           className="pointer-events-none absolute"
-          style={{ width: displaySize, height: displaySize, zIndex: 1 }}
+          style={{ width: displaySize, height: displaySize, zIndex: 3 }}
         >
           <AzimuthalSpotPillButtons
             placements={spotPillPlacements}
@@ -2691,6 +2899,20 @@ export function AzimuthalView({
           onClose={() => setSelectedMapSpotData(null)}
         />
       )}
+
+      <SpotCollectionPopover
+        visible={openSpotCollection !== null}
+        position={openSpotCollection?.position ?? { x: 0, y: 0 }}
+        title={openSpotCollection?.title ?? "Live spots"}
+        subtitle={openSpotCollection?.subtitle}
+        spots={openSpotCollection?.spots ?? []}
+        onClose={() => setOpenSpotCollection(null)}
+        onSpotSelect={(spot) => {
+          const position = openSpotCollection?.position ?? { x: 0, y: 0 };
+          setOpenSpotCollection(null);
+          handleMapSpotSelect(spot, position);
+        }}
+      />
 
       <TargetHoverTooltip
         visible={!!hoveredTargetPos}

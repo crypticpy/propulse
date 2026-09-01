@@ -90,7 +90,11 @@ function StandardEarthMaterial() {
 
 function SatelliteEarthMaterial() {
   const baseDayTexture = useTexture("/textures/earth-day.jpg");
-  const dayTexture = useSeasonalDayTexture(baseDayTexture);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const effectiveQuality = useResolvedDisplayQuality(displayQuality).effective;
+  const highDetailQuality =
+    effectiveQuality === "uhd" || effectiveQuality === "extreme";
+  const dayTexture = useSeasonalDayTexture(baseDayTexture, highDetailQuality);
 
   return (
     <meshStandardMaterial map={dayTexture} roughness={0.7} metalness={0.1} />

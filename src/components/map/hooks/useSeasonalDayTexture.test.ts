@@ -88,6 +88,17 @@ describe("useSeasonalDayTexture", () => {
     expect(loadAsync).toHaveBeenCalledWith(CDN_AUGUST);
   });
 
+  it("loads the CDN texture when UHD or Extreme quality requests detail", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => headResponse(true)));
+
+    const base = new THREE.Texture();
+    const { result } = renderHook(() => useSeasonalDayTexture(base, true));
+
+    await waitFor(() => expect(result.current).not.toBe(base));
+    expect(loadAsync).toHaveBeenCalledTimes(1);
+    expect(loadAsync).toHaveBeenCalledWith(CDN_AUGUST);
+  });
+
   it("keeps the base texture when no candidate is available", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => headResponse(false)));
 

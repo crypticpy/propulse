@@ -63,7 +63,65 @@ describe("ImageryAttribution", () => {
     );
 
     expect(screen.getByText("NASA Blue Marble")).toBeTruthy();
-    expect(screen.getByText("Detail: Powered by Esri")).toBeTruthy();
+    expect(screen.getByText(/Detail: Powered by Esri · Esri, Vantor/)).toBeTruthy();
+  });
+
+  it("shows the required Mapbox Satellite logo and separate credit links", () => {
+    render(
+      <ImageryAttribution
+        provider={ALL_PROVIDERS["mapbox-satellite"]}
+        mapboxFeedbackUrl="https://apps.mapbox.com/feedback/#/-98.5/39.5/4"
+      />,
+    );
+
+    expect(screen.getByAltText("Mapbox")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "© Mapbox" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "© OpenStreetMap" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "© Maxar" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Improve this map" }).getAttribute(
+        "href",
+      ),
+    ).toBe("https://apps.mapbox.com/feedback/#/-98.5/39.5/4");
+  });
+
+  it("retains CARTO label credits over Mapbox imagery", () => {
+    render(
+      <ImageryAttribution
+        provider={ALL_PROVIDERS["mapbox-satellite"]}
+        includeCartoLabels
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "© CARTO" })).toBeTruthy();
+    expect(
+      screen.getAllByRole("link", { name: /OpenStreetMap/ }),
+    ).toHaveLength(2);
+  });
+
+  it("keeps CARTO and OpenStreetMap credits separately linked", () => {
+    render(<ImageryAttribution provider={ALL_PROVIDERS["carto-dark"]} />);
+
+    expect(screen.getByRole("link", { name: "© CARTO" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "© OpenStreetMap contributors" }),
+    ).toBeTruthy();
+  });
+
+  it("keeps CARTO label credits separate over an Esri basemap", () => {
+    render(
+      <ImageryAttribution
+        provider={ALL_PROVIDERS["esri-world"]}
+        includeCartoLabels
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "© CARTO" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "© OpenStreetMap contributors" }),
+    ).toBeTruthy();
   });
 
   it("updates the displayed Auto quality when the active display changes", () => {

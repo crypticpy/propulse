@@ -12,8 +12,10 @@ import type {
 const esriWorldImagery: TileProviderConfig = {
   id: "esri-world",
   name: "Esri World Imagery",
-  attribution: "Powered by Esri",
-  attributionUrl: "https://www.esri.com/en-us/legal/terms/full-master-agreement",
+  attribution:
+    "Powered by Esri · Esri, Vantor, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, © OpenStreetMap contributors, TomTom, Garmin, FAO, NOAA, and the GIS User Community",
+  attributionUrl:
+    "https://developers.arcgis.com/documentation/mapping-and-location-services/deployment/attribution/",
   surfaceKind: "declouded-mosaic",
   coverage: "global",
   coverageNote: "Global mosaic; useful native detail varies by location",
@@ -78,7 +80,7 @@ const cartoDark: TileProviderConfig = {
 const mapboxSatellite: TileProviderConfig = {
   id: "mapbox-satellite",
   name: "HD Satellite",
-  attribution: "\u00A9 Mapbox \u00A9 OpenStreetMap",
+  attribution: "\u00A9 Mapbox \u00A9 OpenStreetMap \u00A9 Maxar",
   attributionUrl: "https://www.mapbox.com/about/maps/",
   surfaceKind: "declouded-mosaic",
   coverage: "global",

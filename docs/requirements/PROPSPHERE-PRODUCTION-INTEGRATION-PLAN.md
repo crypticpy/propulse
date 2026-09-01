@@ -1,9 +1,10 @@
 # PropSphere Production Integration Plan
 
 Status: active production stabilization and ordered release in progress. PRs
-#113, #114, #117, #119, and #118 are live. Hover/details, #115, and #116 remain
-outside production until their ordered reviews, merges, deployments, and live
-verification finish.
+#113, #114, #117, #119, #118, and #120 are live. The reconstructed Deep-Zoom,
+Photorealistic 3D, Azimuthal-density work from #115 and the Wall Display work
+from #116 remain outside production until their ordered reviews, merges,
+deployments, and live verification finish.
 
 Owner: PropSphere
 Last updated: 2026-09-01
@@ -126,6 +127,10 @@ or preview deployment by itself is not a production result.
   cancel stale requests, and refine after motion settles.
 - Route MapLibre Deep-Zoom and gated Google Photorealistic 3D as optional,
   code-split explorers with clear exits and secure provider configuration.
+- Keep Mapbox, Esri, OpenStreetMap, and Google Maps attribution visible,
+  separately linked where required, accessible, and clear of application UI.
+- Refresh authenticated Mapbox tile credentials during long-running display
+  sessions and keep the final native zoom visible instead of hiding its layer.
 
 ### 5. Projection-specific presentation
 
@@ -160,9 +165,9 @@ or preview deployment by itself is not a production result.
 1. Keep the already-live #113 and #114 capabilities as the production baseline.
 2. Keep #117's no-scroll toolbar and #119's serverless typecheck cleanup live
    while finishing #118's filtered trace and endpoint lifecycle rereview.
-3. Merge and deploy #118, then reconstruct the hover/details change from fresh
-   `main` using only its audited commit plus the exact-`LiveSpot` trace callback
-   correction. Add ordinary Azimuthal DX-pill interaction before review.
+3. Keep #118 and #120's filtered trace lifecycle, endpoint parity, owner-safe
+   hover bridge, canonical details card, and Azimuthal DX-pill interaction as
+   immutable production foundations.
 4. Reconstruct PR #115 from fresh `main`; do not rebase its inherited
    pre-squash #113/#114 history. Port only its unique explorer/Azimuthal work
    and preserve the stabilized hover bridge and canonical details flow.
@@ -185,14 +190,23 @@ or preview deployment by itself is not a production result.
   `dpl_CYeZDV7PCiGaWYxqW8iqub4WBQbi` cloned that exact `main` commit, reached
   Ready, and owns `propulse.cloud`. The PR head was `276f6318`; the different
   production SHA is the expected result of the squash merge.
+- #120 hover/details: reviewed head `89ee36c`; squash merge `f53380e`; Vercel
+  production deployment `dpl_4CuxPhkVL9UiTr7ADgQifrQC4y8A` cloned that exact
+  `main` commit, reached Ready, and owns `propulse.cloud`.
 - Authenticated 3840x2160 pointer verification remains a separate final gate;
   public automation currently reaches the invite login rather than the map.
+- The free Esri de-clouded Deep-Zoom path needs no new production secret.
+  Mapbox HD and Google Photorealistic 3D remain honestly gated until
+  `MAPBOX_ACCESS_TOKEN`, `GOOGLE_MAP_TILES_API_KEY`, and
+  `VITE_GOOGLE_PHOTOREALISTIC_3D_ENABLED` are configured in production.
 
 ## Verification gates
 
 - Focused unit/component tests for every changed ownership and layer contract.
 - Complete Vitest suite, ESLint, TypeScript, production Vite build, and bundle
   budgets from a clean worktree.
+- Require the Deep-Zoom route, Photorealistic route, MapLibre JS/CSS, and 3D
+  Tiles vendor chunks in bundle checks so missing production code cannot pass.
 - Built-manifest inspection proving explorer routes and shared interaction
   components are reachable from production routes.
 - Manual 3840x2160 checks for Standard, dual-panel, Pro/UHD, Flat, Azimuthal,

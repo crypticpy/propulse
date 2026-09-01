@@ -13,6 +13,7 @@ import {
   type ShaderConfig,
 } from "./azimuthalShader";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
+import type { ThemeId } from "@/lib/themes";
 
 // Local texture paths (avoids CORS issues with NASA servers)
 const DAY_TEXTURE_URL = "/textures/earth-day.jpg";
@@ -37,12 +38,53 @@ interface UniformLocations {
 export interface AzimuthalRendererOptions {
   /** Use high-resolution textures (default: true) */
   highRes?: boolean;
+  /** Ordered day-texture candidates; later entries are fallbacks. */
+  dayTextureUrls?: string[];
+  /** Resolution used for the generated standard-map texture. */
+  standardTextureWidth?: number;
+  /** Theme palette used by the generated standard-map texture. */
+  themeId?: ThemeId;
   /** Enable night texture (default: true) */
   enableNight?: boolean;
   /** Callback when textures are loaded */
   onTextureLoad?: () => void;
   /** Callback on error */
   onError?: (error: Error) => void;
+}
+
+export function resolveAzimuthalDayTextureUrls(
+  options: Pick<AzimuthalRendererOptions, "dayTextureUrls" | "highRes">,
+): string[] {
+  return options.dayTextureUrls?.length
+    ? options.dayTextureUrls
+    : [options.highRes ? DAY_TEXTURE_URL : DAY_TEXTURE_URL_SMALL];
+}
+
+export function fitAzimuthalTextureDimensions(
+  width: number,
+  height: number,
+  maxTextureSize: number,
+): { width: number; height: number } {
+  if (
+    width <= 0 ||
+    height <= 0 ||
+    (width <= maxTextureSize && height <= maxTextureSize)
+  ) {
+    return { width, height };
+  }
+  const scale = Math.min(maxTextureSize / width, maxTextureSize / height);
+  return {
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
+  };
+}
+
+export function resolveAzimuthalNightTexture<T>(
+  dayTexture: T | null,
+  nightTexture: T | null,
+  nightTextureFailed: boolean,
+): T | null {
+  return nightTextureFailed ? dayTexture : nightTexture;
 }
 
 export class AzimuthalRenderer {
@@ -59,6 +101,7 @@ export class AzimuthalRenderer {
   private dayTextureLoaded = false;
   private nightTextureLoaded = false;
   private nightTextureFailed = false;
+  private pendingImages = new Set<HTMLImageElement>();
 
   private options: AzimuthalRendererOptions;
   private disposed = false;
@@ -233,9 +276,7 @@ export class AzimuthalRenderer {
       return;
     }
 
-    const dayUrl = this.options.highRes
-      ? DAY_TEXTURE_URL
-      : DAY_TEXTURE_URL_SMALL;
+    const dayUrls = resolveAzimuthalDayTextureUrls(this.options);
 
     // Create placeholder textures
     this.dayTexture = this.createPlaceholderTexture(gl);
@@ -245,7 +286,18 @@ export class AzimuthalRenderer {
 
     // Build lightweight standard texture immediately (no async network request)
     try {
-      const standardCanvas = getStandardMapCanvas();
+      const gpuMaxTextureSize =
+        (gl.getParameter(gl.MAX_TEXTURE_SIZE) as number) || 2048;
+      const requestedStandardWidth = this.options.standardTextureWidth ?? 2048;
+      const standardTextureWidth = Math.max(
+        1,
+        Math.min(requestedStandardWidth, gpuMaxTextureSize),
+      );
+      const standardCanvas = getStandardMapCanvas(
+        standardTextureWidth,
+        Math.max(1, Math.floor(standardTextureWidth / 2)),
+        this.options.themeId ?? "light",
+      );
       this.updateTexture(gl, this.standardTexture, standardCanvas);
 
       const darkCanvas = document.createElement("canvas");
@@ -266,9 +318,11 @@ export class AzimuthalRenderer {
 
     // Load day texture
     const dayImage = new Image();
+    this.pendingImages.add(dayImage);
     dayImage.crossOrigin = "anonymous";
 
     dayImage.onload = () => {
+      this.pendingImages.delete(dayImage);
       if (this.disposed || !this.gl) {
         return;
       }
@@ -277,19 +331,31 @@ export class AzimuthalRenderer {
       this.checkTexturesLoaded();
     };
 
+    let dayUrlIndex = 0;
     dayImage.onerror = () => {
+      if (this.disposed) return;
+      dayUrlIndex += 1;
+      if (dayUrlIndex < dayUrls.length) {
+        dayImage.src = dayUrls[dayUrlIndex];
+        return;
+      }
+      this.pendingImages.delete(dayImage);
       console.error("Failed to load day texture");
+      this.dayTextureLoaded = true;
+      this.checkTexturesLoaded();
       this.options.onError?.(new Error("Failed to load day texture"));
     };
 
-    dayImage.src = dayUrl;
+    dayImage.src = dayUrls[dayUrlIndex];
 
     // Load night texture if enabled
     if (this.options.enableNight) {
       const nightImage = new Image();
+      this.pendingImages.add(nightImage);
       nightImage.crossOrigin = "anonymous";
 
       nightImage.onload = () => {
+        this.pendingImages.delete(nightImage);
         if (this.disposed || !this.gl) {
           return;
         }
@@ -299,6 +365,8 @@ export class AzimuthalRenderer {
       };
 
       nightImage.onerror = () => {
+        this.pendingImages.delete(nightImage);
+        if (this.disposed) return;
         console.warn("Failed to load night texture, will use day texture");
         this.nightTextureLoaded = true;
         this.nightTextureFailed = true;
@@ -343,9 +411,6 @@ export class AzimuthalRenderer {
     texture: WebGLTexture,
     source: TexImageSource,
   ): void {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-
     const sourceWidth =
       source instanceof HTMLImageElement
         ? source.naturalWidth || source.width
@@ -359,12 +424,57 @@ export class AzimuthalRenderer {
           ? (source as { height: number }).height
           : 0;
 
-    // Use mipmaps for better quality at different zoom levels
+    const maxTextureSize =
+      (gl.getParameter(gl.MAX_TEXTURE_SIZE) as number) ||
+      Math.max(sourceWidth, sourceHeight, 1);
+    let uploadSource = source;
+    let uploadWidth = sourceWidth;
+    let uploadHeight = sourceHeight;
+    let downscaledCanvas: HTMLCanvasElement | null = null;
     if (
-      this.isPowerOfTwo(sourceWidth) &&
-      this.isPowerOfTwo(sourceHeight) &&
       sourceWidth > 0 &&
-      sourceHeight > 0
+      sourceHeight > 0 &&
+      (sourceWidth > maxTextureSize || sourceHeight > maxTextureSize)
+    ) {
+      const fitted = fitAzimuthalTextureDimensions(
+        sourceWidth,
+        sourceHeight,
+        maxTextureSize,
+      );
+      downscaledCanvas = document.createElement("canvas");
+      downscaledCanvas.width = fitted.width;
+      downscaledCanvas.height = fitted.height;
+      const context = downscaledCanvas.getContext("2d");
+      if (context) {
+        context.drawImage(
+          source as CanvasImageSource,
+          0,
+          0,
+          downscaledCanvas.width,
+          downscaledCanvas.height,
+        );
+        uploadSource = downscaledCanvas;
+        uploadWidth = downscaledCanvas.width;
+        uploadHeight = downscaledCanvas.height;
+      }
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      uploadSource,
+    );
+
+    // Use mipmaps for better quality at different zoom levels.
+    if (
+      this.isPowerOfTwo(uploadWidth) &&
+      this.isPowerOfTwo(uploadHeight) &&
+      uploadWidth > 0 &&
+      uploadHeight > 0
     ) {
       gl.generateMipmap(gl.TEXTURE_2D);
       gl.texParameteri(
@@ -380,6 +490,10 @@ export class AzimuthalRenderer {
     }
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    if (downscaledCanvas) {
+      downscaledCanvas.width = 1;
+      downscaledCanvas.height = 1;
+    }
   }
 
   /**
@@ -393,11 +507,8 @@ export class AzimuthalRenderer {
    * Check if all textures are loaded
    */
   private checkTexturesLoaded(): void {
+    if (this.disposed) return;
     if (this.dayTextureLoaded && this.nightTextureLoaded) {
-      // If night texture failed, use day texture as fallback
-      if (this.nightTextureFailed && this.dayTexture) {
-        this.nightTexture = this.dayTexture;
-      }
       this.texturesLoaded = true;
       this.options.onTextureLoad?.();
     }
@@ -478,7 +589,11 @@ export class AzimuthalRenderer {
       gl.TEXTURE_2D,
       useStandard
         ? this.standardNightTexture ?? this.standardTexture
-        : this.nightTexture,
+        : resolveAzimuthalNightTexture(
+            this.dayTexture,
+            this.nightTexture,
+            this.nightTextureFailed,
+          ),
     );
     gl.uniform1i(u.uNightTexture, 1);
 
@@ -526,21 +641,27 @@ export class AzimuthalRenderer {
   dispose(): void {
     this.disposed = true;
 
+    for (const image of this.pendingImages) {
+      image.onload = null;
+      image.onerror = null;
+      image.src = "";
+    }
+    this.pendingImages.clear();
+
     if (!this.gl) {
       return;
     }
 
-    if (this.dayTexture) {
-      this.gl.deleteTexture(this.dayTexture);
-    }
-    if (this.nightTexture) {
-      this.gl.deleteTexture(this.nightTexture);
-    }
-    if (this.standardTexture) {
-      this.gl.deleteTexture(this.standardTexture);
-    }
-    if (this.standardNightTexture) {
-      this.gl.deleteTexture(this.standardNightTexture);
+    const textures = new Set(
+      [
+        this.dayTexture,
+        this.nightTexture,
+        this.standardTexture,
+        this.standardNightTexture,
+      ].filter((texture): texture is WebGLTexture => texture !== null),
+    );
+    for (const texture of textures) {
+      this.gl.deleteTexture(texture);
     }
     if (this.vertexBuffer) {
       this.gl.deleteBuffer(this.vertexBuffer);

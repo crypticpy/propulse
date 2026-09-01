@@ -16,14 +16,15 @@ import * as THREE from "three";
 import { useGOESImagery } from "@/hooks/useGOESImagery";
 import { GOES_EAST_Z2_TILE_LIMITS } from "@/lib/api/goes";
 import { drawMercatorAsEquirect } from "@/lib/map/mercatorReproject";
-import {
-  GLOBE_LAYER_ORDER,
-  GLOBE_OVERLAY_MATERIAL,
-} from "@/lib/map/globeRenderOrder";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import {
   resolveCloudImageryStatus,
   type CloudImageryStatus,
 } from "@/lib/map/cloudImageryStatus";
+import {
+  createCloudOverlayMaterial,
+  replaceCloudOverlayTexture,
+} from "@/lib/map/cloudOverlayMaterial";
 
 // =============================================================================
 // CONSTANTS
@@ -84,20 +85,12 @@ export function GOESCloudOverlay3D({
   // stacking contract — with depthTest left at its default (true), this
   // sphere loses the depth contest against the opaque tile globe and is
   // discarded everywhere except the limb.
-  const material = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        opacity: 0.55,
-        blending: THREE.NormalBlending,
-        side: THREE.FrontSide,
-        ...GLOBE_OVERLAY_MATERIAL,
-      }),
-    [],
-  );
+  const material = useMemo(() => createCloudOverlayMaterial(), []);
 
   // Load tiles into canvas and create texture
   useEffect(() => {
     onStatusChange?.("loading");
+    material.visible = false;
     if (!tileUrl || !meshRef.current) return;
 
     // Tiles are Web Mercator (GIBS EPSG:3857): composite them as-is, then
@@ -143,7 +136,10 @@ export function GOESCloudOverlay3D({
       if (disposed || !meshRef.current) return;
       const status = resolveCloudImageryStatus(tileResults);
       onStatusChange?.(status);
-      if (status === "unavailable") return;
+      if (status === "unavailable") {
+        replaceCloudOverlayTexture(material, null);
+        return;
+      }
       const canvas = document.createElement("canvas");
       canvas.width = CANVAS_SIZE;
       canvas.height = CANVAS_SIZE;
@@ -158,16 +154,13 @@ export function GOESCloudOverlay3D({
       texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
       texture.needsUpdate = true;
-      const mat = meshRef.current!.material as THREE.MeshBasicMaterial;
-      if (mat.map) mat.map.dispose();
-      mat.map = texture;
-      mat.needsUpdate = true;
+      replaceCloudOverlayTexture(material, texture);
     });
 
     return () => {
       disposed = true;
     };
-  }, [onStatusChange, tileUrl]);
+  }, [material, onStatusChange, tileUrl]);
 
   // Cleanup geometry, material, and texture on unmount
   useEffect(

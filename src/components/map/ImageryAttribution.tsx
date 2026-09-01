@@ -1,6 +1,6 @@
 import type { TileProviderConfig } from "@/lib/tiles/types";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
-import { resolveDisplayQuality } from "@/lib/map/displayQuality";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import type { ImagerySourceCredit } from "@/lib/map/imagerySources";
 
 interface ImageryAttributionProps {
@@ -18,7 +18,7 @@ export function ImageryAttribution({
   includeCartoLabels = false,
 }: ImageryAttributionProps) {
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
-  const quality = resolveDisplayQuality(displayQuality);
+  const quality = useResolvedDisplayQuality(displayQuality);
   const primarySource = baseSource ?? provider;
   if (!primarySource) return null;
   const surfaceLabel =

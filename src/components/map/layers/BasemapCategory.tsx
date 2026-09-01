@@ -11,8 +11,8 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import {
   DISPLAY_QUALITY_OPTIONS,
-  resolveDisplayQuality,
 } from "@/lib/map/displayQuality";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
@@ -214,7 +214,7 @@ export default function BasemapCategory() {
     (s) => s.setDisplayQuality,
   );
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
-  const effectiveQuality = resolveDisplayQuality(displayQuality);
+  const effectiveQuality = useResolvedDisplayQuality(displayQuality);
 
   const satelliteSubtitle =
     subscriptionTier === "pro" ? "HD Satellite" : "ESRI World Imagery";

@@ -84,9 +84,9 @@ import {
 import { useProfileStore } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
-import { resolveDisplayQuality } from "@/lib/map/displayQuality";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useThemeStore } from "@/stores/themeStore";
-import { getSeasonalTextureCandidates } from "./hooks/useSeasonalDayTexture";
+import { useFlatMapBaseImage } from "./hooks/useFlatMapBaseImage";
 import { ImageryAttribution } from "./ImageryAttribution";
 import {
   NASA_BLUE_MARBLE_SOURCE,
@@ -3276,7 +3276,6 @@ export function FlatMapView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapSurfaceRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
   const [activationPillPlacements, setActivationPillPlacements] = useState<
     ActivationPillScreenPlacement[]
   >([]);
@@ -3342,9 +3341,11 @@ export function FlatMapView({
     (s) => s.globeHiResTextures,
   );
   const themeId = useThemeStore((s) => s.themeId);
-  const qualitySettings = useMemo(
-    () => resolveDisplayQuality(displayQuality),
-    [displayQuality],
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
+  const mapImage = useFlatMapBaseImage(
+    mapStyle,
+    hiResTexturesEnabled,
+    qualitySettings.effective,
   );
 
   // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
@@ -3772,43 +3773,13 @@ export function FlatMapView({
   const handleMapClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       const grid = latLonToGrid(lat, lon);
-      const gridHighlightEnabled =
-        layers.gridActivity ||
-        (layers.labels && labelOptions.maidenheadGrid && layers.spots);
-      const highlightedGrid = gridHighlightEnabled
-        ? latLonToGrid(lat, lon, zoomRef.current.scale >= 3 ? 6 : 4)
-        : grid;
-      const gridMembers = gridHighlightEnabled
-        ? getGridCollectionSpots(highlightedGrid)
-        : [];
-      if (gridMembers.length > 0) {
-        setSelectedGridCollection({
-          grid: highlightedGrid.toUpperCase(),
-          spots: gridMembers,
-          screenPos,
-        });
-        setFlyoutPosition(null);
-        setTooltipPosition(null);
-        setHoveredTargetPos(null);
-        setSelectedMapSpotData(null);
-        return;
-      }
       setSelectedGridCollection(null);
       setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
       setTooltipPosition(null); // Hide tooltip when flyout opens
       setHoveredTargetPos(null);
       onLocationClick?.(lat, lon);
     },
-    [
-      getGridCollectionSpots,
-      labelOptions.maidenheadGrid,
-      layers.gridActivity,
-      layers.labels,
-      layers.spots,
-      onLocationClick,
-      setFlyoutPosition,
-      setTooltipPosition,
-    ],
+    [onLocationClick, setFlyoutPosition, setTooltipPosition],
   );
 
   // Handle double-click - center view without setting target
@@ -3938,7 +3909,7 @@ export function FlatMapView({
       const canvas = canvasRef.current;
       if (
         !canvas ||
-        (!layers.spots && !layers.spotTraces) ||
+        !layers.spots ||
         resolvedSpots.length === 0
       ) {
         return null;
@@ -3977,7 +3948,6 @@ export function FlatMapView({
     [
       displaySize,
       layers.spots,
-      layers.spotTraces,
       resolvedSpots,
       spotDotScale,
       viewportSize,
@@ -4445,50 +4415,6 @@ export function FlatMapView({
       surface.removeEventListener("wheel", handleWheel);
     };
   }, [handleWheel]);
-
-  // Load the bundled 4K map immediately, then upgrade UHD/Extreme displays to
-  // the current de-clouded monthly mosaic when the bandwidth opt-in is enabled.
-  useEffect(() => {
-    let cancelled = false;
-    let upgraded = false;
-    const fallback = new Image();
-    fallback.onload = () => {
-      if (!cancelled && !upgraded) setMapImage(fallback);
-    };
-    fallback.src = "/textures/earth-flat.jpg";
-
-    if (
-      !hiResTexturesEnabled ||
-      (qualitySettings.effective !== "uhd" &&
-        qualitySettings.effective !== "extreme")
-    ) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const hiResUrl = getSeasonalTextureCandidates(true)[0];
-    void fetch(hiResUrl, { method: "HEAD" })
-      .then((response) => {
-        if (!response.ok) throw new Error(String(response.status));
-        const hiRes = new Image();
-        hiRes.crossOrigin = "anonymous";
-        hiRes.onload = () => {
-          if (!cancelled) {
-            upgraded = true;
-            setMapImage(hiRes);
-          }
-        };
-        hiRes.src = hiResUrl;
-      })
-      .catch(() => {
-        // The bundled 4K fallback remains visible offline or when probing fails.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hiResTexturesEnabled, qualitySettings.effective]);
 
   // Pre-load night lights texture (module-level singleton, loaded once)
   useEffect(() => {

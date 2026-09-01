@@ -97,7 +97,7 @@ import {
 } from "./GridResearchPanel";
 import { useMapStore } from "@/stores/mapStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
-import { resolveDisplayQuality } from "@/lib/map/displayQuality";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useProfileStore } from "@/stores/profileStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { gridToLatLon } from "@/lib/utils/grid";
@@ -1810,10 +1810,7 @@ export function GlobeView({
 }: GlobeViewProps) {
   const zoom = useMapStore((s) => s.zoom);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
-  const qualitySettings = useMemo(
-    () => resolveDisplayQuality(displayQuality),
-    [displayQuality],
-  );
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
   const target = useMapStore((s) => s.target);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
@@ -1995,21 +1992,6 @@ export function GlobeView({
   const handleGlobeClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       const grid = latLonToGrid(lat, lon);
-      const gridMembers = gridActivityEnabled
-        ? getGridCollectionSpots(grid.slice(0, 4))
-        : [];
-      if (gridMembers.length > 0) {
-        setSelectedGridCollection({
-          grid: grid.slice(0, 4).toUpperCase(),
-          spots: gridMembers,
-          screenPos,
-        });
-        setFlyoutPosition(null);
-        setTooltipPosition(null);
-        setSelectedCluster(null);
-        setSelectedMapSpotData(null);
-        return;
-      }
       setSelectedGridCollection(null);
       setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
       setTooltipPosition(null); // Hide tooltip when flyout opens
@@ -2020,12 +2002,7 @@ export function GlobeView({
       setSelectedMapSpotData(null);
       setClickedAlertData(null); // Clear weather alert flyout
     },
-    [
-      getGridCollectionSpots,
-      gridActivityEnabled,
-      setFlyoutPosition,
-      setTooltipPosition,
-    ],
+    [setFlyoutPosition, setTooltipPosition],
   );
 
   const handleGlobeQuickClick = useCallback(

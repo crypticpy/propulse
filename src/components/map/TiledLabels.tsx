@@ -24,7 +24,7 @@ import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import * as THREE from "three";
 import { useThemeStore } from "@/stores/themeStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
-import { resolveDisplayQuality } from "@/lib/map/displayQuality";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 
 const ALIGN_ROTATION_X = -Math.PI / 2;
 
@@ -37,10 +37,7 @@ export function TiledLabels() {
   const tilesRef = useRef<TilesRendererImpl>(null);
   const themeId = useThemeStore((s) => s.themeId);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
-  const qualitySettings = useMemo(
-    () => resolveDisplayQuality(displayQuality),
-    [displayQuality],
-  );
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
   const labelTileUrl =
     themeId === "light" ? LIGHT_LABEL_TILE_URL : DARK_LABEL_TILE_URL;
 

@@ -27,7 +27,7 @@ import {
 } from "@/lib/map/globeGeometry";
 import { getAccessToken } from "@/lib/api/authFetch";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
-import { resolveDisplayQuality } from "@/lib/map/displayQuality";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 
 // ---------------------------------------------------------------------------
 // Coordinate alignment
@@ -82,10 +82,7 @@ export function TiledGlobe({
 }: TiledGlobeProps) {
   const tilesRef = useRef<TilesRendererImpl>(null);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
-  const qualitySettings = useMemo(
-    () => resolveDisplayQuality(displayQuality),
-    [displayQuality],
-  );
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
 
   // ---------------------------------------------------------------------------
   // Authenticated fetch options

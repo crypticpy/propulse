@@ -116,6 +116,7 @@ export function SpotEndpointHitArea({
   onSelect,
 }: SpotEndpointHitAreaProps) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const ownsHoverRef = useRef(false);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   // Calculate 3D position
@@ -150,6 +151,7 @@ export function SpotEndpointHitArea({
     (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
       if (onHover) {
+        ownsHoverRef.current = true;
         const screenPos = getScreenPositionFromEvent(event);
         const details = buildSpotDetails();
         onHover(details, screenPos);
@@ -163,6 +165,7 @@ export function SpotEndpointHitArea({
     (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
       if (onHover) {
+        ownsHoverRef.current = true;
         const screenPos = getScreenPositionFromEvent(event);
         const details = buildSpotDetails();
         onHover(details, screenPos);
@@ -173,6 +176,8 @@ export function SpotEndpointHitArea({
 
   // Handle pointer leave
   const handlePointerLeave = useCallback(() => {
+    if (!ownsHoverRef.current) return;
+    ownsHoverRef.current = false;
     onHoverEnd?.();
   }, [onHoverEnd]);
 
@@ -203,7 +208,9 @@ export function SpotEndpointHitArea({
   });
 
   useEffect(() => {
-    if (occlusionOpacity < 0.05) onHoverEnd?.();
+    if (occlusionOpacity >= 0.05 || !ownsHoverRef.current) return;
+    ownsHoverRef.current = false;
+    onHoverEnd?.();
   }, [occlusionOpacity, onHoverEnd]);
 
   if (occlusionOpacity < 0.05) return null;

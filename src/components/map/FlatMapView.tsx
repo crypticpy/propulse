@@ -3284,7 +3284,9 @@ export function FlatMapView({
   const tileLayerRef = useRef<FlatTileLayer | null>(null);
   // Bumped when an async tile finishes loading, forcing a recomposite
   const [tileEpoch, setTileEpoch] = useState(0);
-  const [providerTilesVisible, setProviderTilesVisible] = useState(false);
+  const [visibleTileProviderId, setVisibleTileProviderId] = useState<
+    string | null
+  >(null);
 
   // `displaySize` is the 2:1 map box every draw call and hit-test projects
   // into; `viewportSize` is the canvas element. They differ only in
@@ -3360,7 +3362,7 @@ export function FlatMapView({
   >(() => new Set());
   useEffect(
     () => setFailedTileProviderIds(new Set()),
-    [requestedTileProvider.id],
+    [mapStyle, requestedTileProvider.id],
   );
   const tileProvider = useMemo(
     () =>
@@ -3373,8 +3375,8 @@ export function FlatMapView({
 
   // Create/replace the satellite tile layer when the style or provider changes
   useEffect(() => {
+    setVisibleTileProviderId(null);
     if (mapStyle === "standard" || !tileProvider) {
-      setProviderTilesVisible(false);
       return;
     }
     const layer = createFlatTileLayer(
@@ -5012,8 +5014,13 @@ export function FlatMapView({
         renderHeight,
         devicePixelRatio: dpr,
       });
-      setProviderTilesVisible((visible) =>
-        visible === drewProviderTiles ? visible : drewProviderTiles,
+      const nextVisibleProviderId = drewProviderTiles
+        ? (tileProvider?.id ?? null)
+        : null;
+      setVisibleTileProviderId((visibleProviderId) =>
+        visibleProviderId === nextVisibleProviderId
+          ? visibleProviderId
+          : nextVisibleProviderId,
       );
     }
 
@@ -5558,6 +5565,7 @@ export function FlatMapView({
     qualitySettings.effective,
     qualitySettings.maxDevicePixelRatio,
     themeId,
+    tileProvider?.id,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point
@@ -5666,7 +5674,8 @@ export function FlatMapView({
               : NASA_BLUE_MARBLE_SOURCE
           }
           provider={
-            mapStyle !== "standard" && providerTilesVisible && tileProvider
+            mapStyle !== "standard" &&
+            visibleTileProviderId === tileProvider?.id
               ? tileProvider
               : undefined
           }

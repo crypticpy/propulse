@@ -1,7 +1,7 @@
 /**
  * TiledLabels Component
  *
- * Renders a transparent vector label tile layer (CartoDB dark_only_labels)
+ * Renders a transparent, theme-matched vector label tile layer
  * on top of the satellite tiles. Provides zoom-dependent city names,
  * roads, and country/state boundaries from OpenStreetMap data.
  *
@@ -22,15 +22,24 @@ import {
 } from "@/lib/map/globeGeometry";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import * as THREE from "three";
+import { useThemeStore } from "@/stores/themeStore";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 
 const ALIGN_ROTATION_X = -Math.PI / 2;
 
-/** CartoDB dark_only_labels tile URL */
-const LABEL_TILE_URL =
+const DARK_LABEL_TILE_URL =
   "https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png";
+const LIGHT_LABEL_TILE_URL =
+  "https://basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png";
 
 export function TiledLabels() {
   const tilesRef = useRef<TilesRendererImpl>(null);
+  const themeId = useThemeStore((s) => s.themeId);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
+  const labelTileUrl =
+    themeId === "light" ? LIGHT_LABEL_TILE_URL : DARK_LABEL_TILE_URL;
 
   const groupProps = useMemo(
     () => ({
@@ -69,12 +78,13 @@ export function TiledLabels() {
     return () => {
       renderer.removeEventListener("load-model", patchScene);
     };
-  }, []);
+  }, [labelTileUrl]);
 
   return (
     <TilesRendererR3F
+      key={labelTileUrl}
       ref={tilesRef}
-      errorTarget={6}
+      errorTarget={qualitySettings.globeErrorTarget * 3}
       ellipsoid={UNIT_GLOBE_ELLIPSOID}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       group={groupProps as any}
@@ -83,7 +93,7 @@ export function TiledLabels() {
         plugin={CompatibleXYZTilesPlugin}
         args={
           {
-            url: LABEL_TILE_URL,
+            url: labelTileUrl,
             shape: "ellipsoid",
             useRecommendedSettings: true,
             levels: 20,
@@ -93,7 +103,11 @@ export function TiledLabels() {
       />
       <TilesPlugin
         plugin={TilesFadePlugin}
-        args={{ fadeDuration: 200 } as any} // eslint-disable-line @typescript-eslint/no-explicit-any
+        args={
+          {
+            fadeDuration: Math.max(100, qualitySettings.settleDelayMs),
+          } as any // eslint-disable-line @typescript-eslint/no-explicit-any
+        }
       />
     </TilesRendererR3F>
   );

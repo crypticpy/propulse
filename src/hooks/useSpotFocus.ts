@@ -166,9 +166,7 @@ export function useSpotFocus(): SpotFocusState {
     }
 
     // Check if spot has valid coordinates
-    if (
-      hasValidSpotCoordinates(selectedSpot)
-    ) {
+    if (hasValidSpotCoordinates(selectedSpot)) {
       // New valid spot selected - start focusing
       setFocusedSpot(selectedSpot);
       setIsFocusing(true);

@@ -128,6 +128,22 @@ export function selectTileProvider(
   return mapStyle === "satellite" ? registry.satellite : registry.standard;
 }
 
+/**
+ * Resolve a requested provider through its configured fallback exactly once.
+ * Once both providers have failed, return null so callers settle on their
+ * bundled static surface instead of oscillating between broken layers.
+ */
+export function selectAvailableTileProvider(
+  requested: TileProviderConfig,
+  failedProviderIds: ReadonlySet<string>,
+): TileProviderConfig | null {
+  if (!failedProviderIds.has(requested.id)) return requested;
+  if (!requested.fallbackProviderId) return null;
+
+  const fallback = ALL_PROVIDERS[requested.fallbackProviderId];
+  return fallback && !failedProviderIds.has(fallback.id) ? fallback : null;
+}
+
 /** True when a provider is a cloud-minimized surface, not live weather. */
 export function isDecloudedSurface(provider: TileProviderConfig): boolean {
   return provider.surfaceKind === "declouded-mosaic";

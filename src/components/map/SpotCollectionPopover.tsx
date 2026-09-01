@@ -128,7 +128,6 @@ export function SpotCollectionPopover({
       if (previousFocus?.isConnected) previousFocus.focus();
     };
   }, [sortedSpots.length, visible]);
-
   if (!visible || sortedSpots.length === 0) return null;
 
   return createPortal(

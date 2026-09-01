@@ -41,6 +41,8 @@ export interface Ft8DecodeLayerFlatProps {
    */
   viewportWidth?: number;
   viewportHeight?: number;
+  /** Quality-capped DPR supplied by the parent map renderer. */
+  devicePixelRatio?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,7 +68,7 @@ export function Ft8DecodeLayerFlat(props: Ft8DecodeLayerFlatProps) {
     if (!ctx) return;
 
     // Match canvas resolution to logical size (retina-aware)
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = props.devicePixelRatio ?? (window.devicePixelRatio || 1);
     const logicalWidth = props.viewportWidth ?? props.width;
     const logicalHeight = props.viewportHeight ?? props.height;
 

@@ -7,9 +7,13 @@
 
 import { useRef, useMemo, useEffect } from "react";
 import { useTexture } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 import { useSeasonalDayTexture } from "./hooks/useSeasonalDayTexture";
+import { useThemeStore } from "@/stores/themeStore";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 
 interface EarthSphereProps {
   /** Callback when Earth is clicked with lat/lon */
@@ -57,31 +61,44 @@ function vector3ToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
   return { lat, lon };
 }
 
-export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  // Load Earth textures
-  const baseDayTexture = useTexture("/textures/earth-day.jpg");
-  // Graceful upgrade to a monthly Blue Marble texture when one is published
-  // at /textures/months/earth-day-MM.jpg; falls back to the base texture.
-  const dayTexture = useSeasonalDayTexture(baseDayTexture);
-
-  // Standard-mode base map texture (vector-like land/ocean fills)
+function StandardEarthMaterial() {
+  const themeId = useThemeStore((s) => s.themeId);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const effectiveQuality = useResolvedDisplayQuality(displayQuality).effective;
+  const maxTextureSize = useThree((state) => state.gl.capabilities.maxTextureSize);
   const standardTexture = useMemo(() => {
-    const canvas = getStandardMapCanvas();
+    const requestedWidth =
+      effectiveQuality === "uhd" || effectiveQuality === "extreme"
+        ? 4096
+        : 2048;
+    const width = Math.max(1024, Math.min(requestedWidth, maxTextureSize));
+    const canvas = getStandardMapCanvas(width, width / 2, themeId);
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.needsUpdate = true;
     return tex;
-  }, []);
+  }, [effectiveQuality, maxTextureSize, themeId]);
 
   useEffect(() => {
-    return () => {
-      standardTexture.dispose();
-    };
+    return () => standardTexture.dispose();
   }, [standardTexture]);
+
+  return <meshBasicMaterial map={standardTexture} color={0xffffff} />;
+}
+
+function SatelliteEarthMaterial() {
+  const baseDayTexture = useTexture("/textures/earth-day.jpg");
+  const dayTexture = useSeasonalDayTexture(baseDayTexture);
+
+  return (
+    <meshStandardMaterial map={dayTexture} roughness={0.7} metalness={0.1} />
+  );
+}
+
+export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
 
   // Handle click
   const handleClick = (event: THREE.Event & { point?: THREE.Vector3 }) => {
@@ -103,16 +120,7 @@ export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
       }}
     >
       <sphereGeometry args={[1, 64, 64]} />
-      {grayscale ? (
-        // Standard style: unlit material for a clean, lightweight "map" look
-        <meshBasicMaterial map={standardTexture} color={0xffffff} />
-      ) : (
-        <meshStandardMaterial
-          map={dayTexture}
-          roughness={0.7}
-          metalness={0.1}
-        />
-      )}
+      {grayscale ? <StandardEarthMaterial /> : <SatelliteEarthMaterial />}
     </mesh>
   );
 }

@@ -26,6 +26,8 @@ import {
   UNIT_GLOBE_SCALE,
 } from "@/lib/map/globeGeometry";
 import { getAccessToken } from "@/lib/api/authFetch";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 
 // ---------------------------------------------------------------------------
 // Coordinate alignment
@@ -79,6 +81,8 @@ export function TiledGlobe({
   onError,
 }: TiledGlobeProps) {
   const tilesRef = useRef<TilesRendererImpl>(null);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
 
   // ---------------------------------------------------------------------------
   // Authenticated fetch options
@@ -183,7 +187,7 @@ export function TiledGlobe({
     <TilesRendererR3F
       key={provider.id}
       ref={tilesRef}
-      errorTarget={2}
+      errorTarget={qualitySettings.globeErrorTarget}
       ellipsoid={UNIT_GLOBE_ELLIPSOID}
       fetchOptions={fetchOptionsRef.current}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- R3F spreads partial props onto <primitive>
@@ -197,7 +201,11 @@ export function TiledGlobe({
       />
       <TilesPlugin
         plugin={TilesFadePlugin}
-        args={{ fadeDuration: 250 } as any} // eslint-disable-line @typescript-eslint/no-explicit-any
+        args={
+          {
+            fadeDuration: Math.max(120, qualitySettings.settleDelayMs),
+          } as any // eslint-disable-line @typescript-eslint/no-explicit-any
+        }
       />
       <TilesPlugin plugin={UpdateOnChangePlugin} />
     </TilesRendererR3F>

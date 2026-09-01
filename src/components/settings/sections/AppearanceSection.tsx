@@ -386,11 +386,11 @@ export function AppearanceSection() {
 
       <div className="border-t border-white/10 pt-6">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
-          Globe Textures
+          Map Imagery
         </h3>
         <p className="text-xs text-gray-500 mb-4">
-          The 3D globe ships with web-size NASA Blue Marble imagery. Opt in to
-          the full-resolution version for sharper close-up zoom.
+          The globe and flat map ship with web-size NASA Blue Marble imagery.
+          Opt in to the full-resolution version for sharper close-up zoom.
         </p>
         <ToggleSwitch
           checked={globeHiResTextures}
@@ -398,7 +398,7 @@ export function AppearanceSection() {
             updatePreferences({ globeHiResTextures: checked })
           }
           label="High-resolution Blue Marble (5400×2700)"
-          description="Downloads the current month's texture (~2.5 MB) from the PropPulse CDN when the globe loads. Cached by the browser; no effect offline."
+          description="Downloads the current month's texture (~2.5 MB) from the PropPulse CDN for supported satellite views. Display quality controls how aggressively it is rendered. Cached by the browser; no effect offline."
         />
       </div>
 

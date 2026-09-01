@@ -1,12 +1,24 @@
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
+import type { ThemeId } from "@/lib/themes";
 
 export const STANDARD_MAP_CANVAS_WIDTH = 2048;
 export const STANDARD_MAP_CANVAS_HEIGHT = 1024;
 
-const DEFAULT_OCEAN_COLOR = "#e6e6e6";
-const DEFAULT_LAND_COLOR = "#9b9b9b";
+interface StandardMapPalette {
+  ocean: string;
+  land: string;
+  border: string;
+}
+
+const STANDARD_MAP_PALETTES: Record<ThemeId, StandardMapPalette> = {
+  light: { ocean: "#dce9ee", land: "#aeb9b2", border: "#7d8c86" },
+  dark: { ocean: "#101827", land: "#35423d", border: "#65736d" },
+  midnight: { ocean: "#050b18", land: "#202d32", border: "#50616a" },
+  "high-contrast": { ocean: "#000000", land: "#f4f4f4", border: "#000000" },
+};
 
 const standardMapCanvasCache = new Map<string, HTMLCanvasElement>();
+const STANDARD_MAP_CACHE_LIMIT = 2;
 
 function addWrappedRingPath(
   ctx: CanvasRenderingContext2D,
@@ -86,10 +98,17 @@ function addWrappedRingPath(
 export function getStandardMapCanvas(
   width: number = STANDARD_MAP_CANVAS_WIDTH,
   height: number = STANDARD_MAP_CANVAS_HEIGHT,
+  theme: ThemeId = "light",
 ): HTMLCanvasElement {
-  const key = `${width}x${height}:${DEFAULT_OCEAN_COLOR}:${DEFAULT_LAND_COLOR}`;
+  const palette = STANDARD_MAP_PALETTES[theme];
+  const key = `${width}x${height}:${theme}`;
   const cached = standardMapCanvasCache.get(key);
   if (cached) {
+    // Refresh insertion order so the cache behaves as a tiny LRU. UHD canvases
+    // are expensive (a 4096x2048 RGBA surface is roughly 32 MiB), so retaining
+    // every theme/quality combination for the life of the app is not safe.
+    standardMapCanvasCache.delete(key);
+    standardMapCanvasCache.set(key, cached);
     return cached;
   }
 
@@ -104,11 +123,11 @@ export function getStandardMapCanvas(
   }
 
   // Ocean/background
-  ctx.fillStyle = DEFAULT_OCEAN_COLOR;
+  ctx.fillStyle = palette.ocean;
   ctx.fillRect(0, 0, width, height);
 
   // Land fills (per-country, even-odd to support holes when present)
-  ctx.fillStyle = DEFAULT_LAND_COLOR;
+  ctx.fillStyle = palette.land;
   for (const country of WORLD_COUNTRIES) {
     if (!country.borders?.length) continue;
     ctx.beginPath();
@@ -116,8 +135,18 @@ export function getStandardMapCanvas(
       addWrappedRingPath(ctx, ring, width, height);
     }
     ctx.fill("evenodd");
+    ctx.strokeStyle = palette.border;
+    ctx.lineWidth = Math.max(0.5, width / 4096);
+    ctx.stroke();
   }
 
   standardMapCanvasCache.set(key, canvas);
+  while (standardMapCanvasCache.size > STANDARD_MAP_CACHE_LIMIT) {
+    const oldestKey = standardMapCanvasCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    standardMapCanvasCache.delete(oldestKey);
+    // Do not resize the evicted canvas. Active Three.js textures and flat-map
+    // frames may still reference it even though the cache no longer does.
+  }
   return canvas;
 }

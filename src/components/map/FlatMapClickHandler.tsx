@@ -303,13 +303,10 @@ export function useFlatMapClickHandler(
             holdProgressTimer = null;
           }
 
-          // Fire the location click callback
+          // Completed holds always belong to the map surface. Overlay and grid
+          // hit-testing is intentionally reserved for actual quick releases.
           if (targetLocation) {
-            const consumed =
-              onQuickClickRef.current?.(screenPos, lat, lon) ?? false;
-            if (!consumed) {
-              onLocationClickRef.current?.(lat, lon, screenPos);
-            }
+            onLocationClickRef.current?.(lat, lon, screenPos);
           }
 
           gestureState = "idle";

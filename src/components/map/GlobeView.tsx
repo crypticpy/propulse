@@ -26,6 +26,13 @@ import { EarthSphere } from "./EarthSphere";
 import { GlobeDepthDome } from "./GlobeDepthDome";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
+import { ImageryAttribution } from "./ImageryAttribution";
+import {
+  NASA_BLUE_MARBLE_SOURCE,
+  NATURAL_EARTH_SOURCE,
+} from "@/lib/map/imagerySources";
+import { CloudImageryAttribution } from "./CloudImageryAttribution";
+import type { CloudImageryStatus } from "@/lib/map/cloudImageryStatus";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
@@ -89,6 +96,8 @@ import {
   type GridResearchAction,
 } from "./GridResearchPanel";
 import { useMapStore } from "@/stores/mapStore";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useProfileStore } from "@/stores/profileStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { gridToLatLon } from "@/lib/utils/grid";
@@ -112,6 +121,7 @@ import { useContestQsoLocations } from "@/hooks/useContestQsoLocations";
 import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
+import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import {
@@ -128,11 +138,16 @@ import { useKIndex } from "@/hooks/useSolarData";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapSizeSliders } from "./MapSizeSliders";
-import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
-import { SpotDetailsModal } from "./SpotDetailsModal";
+import type { SpotDetailsData } from "./SpotDetailsFlyout";
+import { SpotHoverPreview } from "./SpotHoverPreview";
+import { SelectedSpotCard } from "./SelectedSpotCard";
+import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
 import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
 import type { LiveSpot } from "@/types/livespot";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import { collectGridSpots } from "@/lib/map/gridSpotCollection";
+import { normalizePresentableSpot } from "@/lib/map/spotPresentation";
 
 // New overlay components (Wave 8A)
 import NVISOverlay3D from "./layers/NVISOverlay3D";
@@ -177,7 +192,6 @@ import {
   WATERFALL_SAMPLE_INTERVAL_MS,
   type BandActivityRow,
 } from "@/lib/map/bandActivityWaterfall";
-import { liveSpotsInGrid, mergeGridSpots } from "@/lib/map/gridTooltip";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
@@ -866,6 +880,11 @@ interface GlobeSceneProps {
     lon: number,
     screenPos: { x: number; y: number },
   ) => void;
+  onQuickClick?: (
+    lat: number,
+    lon: number,
+    screenPos: { x: number; y: number },
+  ) => boolean;
   onLocationHover?: (
     lat: number,
     lon: number,
@@ -878,9 +897,10 @@ interface GlobeSceneProps {
   onTargetHoverEnd?: () => void;
   onSpotHover?: (
     data: SpotDetailsData,
-    screenPos: { x: number; y: number },
+    screenPos: ScreenAnchor,
   ) => void;
   onSpotHoverEnd?: () => void;
+  onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   onClusterClick?: (
     cluster: SpotClusterData,
     screenPos: { x: number; y: number },
@@ -894,12 +914,15 @@ interface GlobeSceneProps {
     screenPos: { x: number; y: number },
   ) => void;
   onRadarAnimState?: (state: RadarAnimationState) => void;
+  onTileFallbackChange?: (active: boolean) => void;
+  onCloudImageryStatusChange?: (status: CloudImageryStatus) => void;
 }
 
 const GlobeScene = React.memo(function GlobeScene({
   displayTime,
   onLocationClick,
   onDoubleClick,
+  onQuickClick,
   onLocationHover,
   onHoverEnd,
   onPinHover,
@@ -908,13 +931,17 @@ const GlobeScene = React.memo(function GlobeScene({
   onTargetHoverEnd,
   onSpotHover,
   onSpotHoverEnd,
+  onSpotSelect,
   onClusterClick,
   onAlertClick,
   onFireClick,
   onRadarAnimState,
+  onTileFallbackChange,
+  onCloudImageryStatusChange,
 }: GlobeSceneProps) {
   const layers = useMapStore((s) => s.layers);
   const target = useMapStore((s) => s.target);
+  const selectedSpot = useDXStore((s) => s.selectedSpot);
   const pathMode = useMapStore((s) => s.pathMode);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
@@ -937,7 +964,24 @@ const GlobeScene = React.memo(function GlobeScene({
     setTileFailCount(0);
   }, [tileProvider.id]);
 
+  useEffect(() => {
+    onTileFallbackChange?.(useTileFallback);
+  }, [onTileFallbackChange, useTileFallback]);
+
   const station = useUserStore((s) => s.station);
+  const selectedSpotMatchesTarget = useMemo(() => {
+    if (!selectedSpot || !target) return false;
+    if (
+      !Number.isFinite(selectedSpot.dxLat) ||
+      !Number.isFinite(selectedSpot.dxLon)
+    ) {
+      return false;
+    }
+    return (
+      Math.abs(selectedSpot.dxLat! - target.lat) < 1e-6 &&
+      Math.abs(selectedSpot.dxLon! - target.lon) < 1e-6
+    );
+  }, [selectedSpot, target]);
   const pins = usePinStore((s) => s.pins);
   const { data: auroraData } = useAuroraData(layers.aurora);
   const currentSFI = useCurrentSFI();
@@ -1332,6 +1376,7 @@ const GlobeScene = React.memo(function GlobeScene({
         <GlobeClickHandler
           onLocationClick={handleGlobeClick}
           onDoubleClick={onDoubleClick}
+          onQuickClick={onQuickClick}
           onLocationHover={handleGlobeHover}
           onHoverEnd={onHoverEnd}
           holdDurationMs={holdDurationMs}
@@ -1381,7 +1426,9 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
 
         {/* Tile-based OSM labels overlay — zoom-dependent boundaries and names */}
-        {labelOptions.tileLabels && !useTileFallback && <TiledLabels />}
+        {layers.labels && labelOptions.tileLabels && !useTileFallback && (
+          <TiledLabels />
+        )}
 
         {/* Country borders + labels overlay */}
         <LabelsOverlay
@@ -1442,7 +1489,11 @@ const GlobeScene = React.memo(function GlobeScene({
             onAnimationState={onRadarAnimState}
           />
         )}
-        {layers.goesCloud && <GOESCloudOverlay3D />}
+        {layers.goesCloud && (
+          <GOESCloudOverlay3D
+            onStatusChange={onCloudImageryStatusChange}
+          />
+        )}
         {layers.tec && <TECOverlay3D />}
         {layers.sst && <SSTOverlay3D />}
 
@@ -1560,6 +1611,7 @@ const GlobeScene = React.memo(function GlobeScene({
             grid={station?.grid}
             onSpotHover={onSpotHover}
             onSpotHoverEnd={onSpotHoverEnd}
+            onSpotSelect={onSpotSelect}
             onClusterClick={onClusterClick}
           />
         )}
@@ -1641,7 +1693,7 @@ const GlobeScene = React.memo(function GlobeScene({
         {target && (
           <>
             {/* Hover hit area for the selected target marker */}
-            {targetHoverPosition && (
+            {targetHoverPosition && !selectedSpotMatchesTarget && (
               <mesh
                 position={targetHoverPosition}
                 onPointerEnter={(event) => {
@@ -1675,10 +1727,14 @@ const GlobeScene = React.memo(function GlobeScene({
             <LocationMarker
               lat={target.lat}
               lon={target.lon}
-              label={target.name || target.grid}
+              label={
+                selectedSpotMatchesTarget
+                  ? undefined
+                  : target.name || target.grid
+              }
               type="target"
               difficulty={pathDifficulty}
-              showDifficultyTag={true}
+              showDifficultyTag={!selectedSpotMatchesTarget}
               sizeScale={mapPinScale}
             />
 
@@ -1714,7 +1770,7 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
 
         {/* Highlighted arc for DX cluster selected spot */}
-        <SelectedSpotArc />
+        {!selectedSpotMatchesTarget && <SelectedSpotArc />}
 
         {/* Spot highlight effect */}
         <SpotHighlight />
@@ -1753,6 +1809,8 @@ export function GlobeView({
   hideSizeSliders = false,
 }: GlobeViewProps) {
   const zoom = useMapStore((s) => s.zoom);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const qualitySettings = useResolvedDisplayQuality(displayQuality);
   const target = useMapStore((s) => s.target);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
@@ -1761,17 +1819,25 @@ export function GlobeView({
   const setTarget = useMapStore((s) => s.setTarget);
   const setCenterLocation = useMapStore((s) => s.setCenterLocation);
   const mapStyle = useMapStore((s) => s.mapStyle);
+  const gridActivityEnabled = useMapStore((s) => s.layers.gridActivity);
   const station = useUserStore((s) => s.station);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
-  const tileAttribution = useMemo(
-    () => selectTileProvider(mapStyle, subscriptionTier).attribution,
+  const tileProvider = useMemo(
+    () => selectTileProvider(mapStyle, subscriptionTier),
     [mapStyle, subscriptionTier],
   );
+  const tileLabelsEnabled = useMapStore(
+    (state) => state.layers.labels && state.labelOptions.tileLabels,
+  );
+  const [tileFallbackActive, setTileFallbackActive] = useState(false);
+  const [cloudImageryStatus, setCloudImageryStatus] =
+    useState<CloudImageryStatus>("loading");
   const addPin = usePinStore((s) => s.addPin);
   const removePin = usePinStore((s) => s.removePin);
   const getPinById = usePinStore((s) => s.getPinById);
   const { pushAction } = useUndoStore();
   const updateFilter = useDXStore((s) => s.updateFilter);
+  const selectMapSpot = useMapSpotSelection();
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster();
 
@@ -1810,6 +1876,7 @@ export function GlobeView({
   // State for GridResearchPanel
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchGrid, setResearchGrid] = useState<string | null>(null);
+  const [researchCallsign, setResearchCallsign] = useState<string | null>(null);
 
   // State for pin-specific hover flyout
   const [hoveredPinData, setHoveredPinData] = useState<{
@@ -1826,13 +1893,12 @@ export function GlobeView({
     y: number;
   } | null>(null);
 
-  // State for spot hover tooltip (SpotDetailsFlyout)
+  // State for the canonical spot hover preview.
   const [hoveredSpotData, setHoveredSpotData] =
     useState<SpotDetailsData | null>(null);
-  const [hoveredSpotPos, setHoveredSpotPos] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [hoveredSpotPos, setHoveredSpotPos] =
+    useState<ScreenAnchor | null>(null);
+  const spotHoverDismissRef = useRef<number | null>(null);
 
   // State for cluster click popover
   const [selectedCluster, setSelectedCluster] =
@@ -1841,8 +1907,15 @@ export function GlobeView({
     x: number;
     y: number;
   } | null>(null);
-  const [selectedClusterSpot, setSelectedClusterSpot] =
-    useState<LiveSpot | null>(null);
+  const [selectedMapSpotData, setSelectedMapSpotData] = useState<{
+    spot: LiveSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [selectedGridCollection, setSelectedGridCollection] = useState<{
+    grid: string;
+    spots: LiveSpot[];
+    screenPos: ScreenAnchor;
+  } | null>(null);
 
   // State for weather alert flyout and modal
   const [clickedAlertData, setClickedAlertData] =
@@ -1868,23 +1941,33 @@ export function GlobeView({
     if (!tooltipPosition?.grid) {
       return [];
     }
-    const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
-    const clusterMatches = allSpotsRef.current.filter((spot) => {
-      const dxGrid = (spot.dxGrid || "").toUpperCase();
-      const spotterGrid = (spot.spotterGrid || "").toUpperCase();
-      return (
-        dxGrid.startsWith(gridPrefix) || spotterGrid.startsWith(gridPrefix)
-      );
-    });
-    // Resolved lazily: only a tooltip opening on a new grid pays for it.
-    return mergeGridSpots(
-      clusterMatches,
-      liveSpotsInGrid(
-        resolveSpotLocations(glowSpotsForTooltipRef.current),
-        gridPrefix,
-      ),
-    );
+    const resolvedLive = resolveSpotLocations(glowSpotsForTooltipRef.current);
+    return collectGridSpots(
+      tooltipPosition.grid.slice(0, 4),
+      allSpotsRef.current,
+      glowSpotsForTooltipRef.current,
+      resolvedLive,
+    ).tooltipSpots;
   }, [tooltipPosition?.grid]);
+
+  const getGridCollectionSpots = useCallback((grid: string): LiveSpot[] => {
+    const resolvedLive = resolveSpotLocations(glowSpotsForTooltipRef.current);
+    return collectGridSpots(
+      grid,
+      allSpotsRef.current,
+      glowSpotsForTooltipRef.current,
+      resolvedLive,
+    ).spots;
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (spotHoverDismissRef.current !== null) {
+        window.clearTimeout(spotHoverDismissRef.current);
+      }
+    },
+    [],
+  );
 
   const targetDifficulty = useMemo(() => {
     if (!station || !target) {
@@ -1901,7 +1984,7 @@ export function GlobeView({
     // GlobeView keeps grid and target-hover tooltips in separate state. The
     // target tooltip explicitly clears tooltipPosition when it opens, so gate
     // this supplementary calculation on the state that actually consumes it.
-    enabled: Boolean(hoveredTargetPos),
+    enabled: Boolean(hoveredTargetPos || selectedMapSpotData),
   });
 
   // Handle globe click - show flyout only (no target commit — that only
@@ -1909,20 +1992,53 @@ export function GlobeView({
   const handleGlobeClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       const grid = latLonToGrid(lat, lon);
+      setSelectedGridCollection(null);
       setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
       setTooltipPosition(null); // Hide tooltip when flyout opens
       setHoveredPinData(null); // Clear pin flyout
       setHoveredTargetPos(null); // Clear target hover
       setSelectedCluster(null); // Close cluster popover
       setClusterScreenPos(null);
+      setSelectedMapSpotData(null);
       setClickedAlertData(null); // Clear weather alert flyout
     },
     [setFlyoutPosition, setTooltipPosition],
   );
 
+  const handleGlobeQuickClick = useCallback(
+    (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      if (!gridActivityEnabled) return false;
+      const grid = latLonToGrid(lat, lon).slice(0, 4).toUpperCase();
+      const gridMembers = getGridCollectionSpots(grid);
+      if (gridMembers.length === 0) return false;
+      setSelectedGridCollection({ grid, spots: gridMembers, screenPos });
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      setSelectedCluster(null);
+      setSelectedMapSpotData(null);
+      return true;
+    },
+    [
+      getGridCollectionSpots,
+      gridActivityEnabled,
+      setFlyoutPosition,
+      setTooltipPosition,
+    ],
+  );
+
   // Q2: Handle double-click - center view without setting target
   const handleDoubleClick = useCallback(
     (lat: number, lon: number) => {
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lon) ||
+        lat < -90 ||
+        lat > 90 ||
+        lon < -180 ||
+        lon > 180
+      ) {
+        return;
+      }
       // Close any open flyout/tooltip
       setFlyoutPosition(null);
       setTooltipPosition(null);
@@ -1989,7 +2105,11 @@ export function GlobeView({
 
   // Handle spot hover from LiveSpotArcs (via SpotLabel or SpotEndpointHitArea)
   const handleSpotHover = useCallback(
-    (data: SpotDetailsData, screenPos: { x: number; y: number }) => {
+    (data: SpotDetailsData, screenPos: ScreenAnchor) => {
+      if (spotHoverDismissRef.current !== null) {
+        window.clearTimeout(spotHoverDismissRef.current);
+        spotHoverDismissRef.current = null;
+      }
       setHoveredSpotData(data);
       setHoveredSpotPos(screenPos);
     },
@@ -1997,8 +2117,14 @@ export function GlobeView({
   );
 
   const handleSpotHoverEnd = useCallback(() => {
-    setHoveredSpotData(null);
-    setHoveredSpotPos(null);
+    if (spotHoverDismissRef.current !== null) {
+      window.clearTimeout(spotHoverDismissRef.current);
+    }
+    spotHoverDismissRef.current = window.setTimeout(() => {
+      setHoveredSpotData(null);
+      setHoveredSpotPos(null);
+      spotHoverDismissRef.current = null;
+    }, 90);
   }, []);
 
   // Handle cluster click from LiveSpotArcs → SpotCluster
@@ -2006,6 +2132,8 @@ export function GlobeView({
     (cluster: SpotClusterData, screenPos: { x: number; y: number }) => {
       setSelectedCluster(cluster);
       setClusterScreenPos(screenPos);
+      setSelectedMapSpotData(null);
+      setSelectedGridCollection(null);
     },
     [],
   );
@@ -2015,17 +2143,36 @@ export function GlobeView({
     setClusterScreenPos(null);
   }, []);
 
-  const handleClusterSpotSelect = useCallback((spot: LiveSpot) => {
-    // Keep the invoking popover mounted behind the portal dialog. AccessibleDialog
-    // makes it inert while open, and retaining its row gives focus restoration a
-    // real target when details close. Escape remains unambiguous because the
-    // topmost dialog consumes it before the popover's document listener.
-    setSelectedClusterSpot(spot);
-  }, []);
+  const handleMapSpotSelect = useCallback(
+    (spot: LiveSpot, screenPos: ScreenAnchor) => {
+      const selection = selectMapSpot(spot);
+      const selectedLiveSpot = {
+        ...spot,
+        ...(selection?.spot ?? {}),
+      } as LiveSpot;
+      if (spotHoverDismissRef.current !== null) {
+        window.clearTimeout(spotHoverDismissRef.current);
+        spotHoverDismissRef.current = null;
+      }
+      setHoveredSpotData(null);
+      setHoveredSpotPos(null);
+      setHoveredTargetPos(null);
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      setSelectedCluster(null);
+      setClusterScreenPos(null);
+      setSelectedGridCollection(null);
+      setSelectedMapSpotData({ spot: selectedLiveSpot, screenPos });
+    },
+    [selectMapSpot, setFlyoutPosition, setTooltipPosition],
+  );
 
-  const handleClusterSpotClose = useCallback(() => {
-    setSelectedClusterSpot(null);
-  }, []);
+  const handleClusterSpotSelect = useCallback(
+    (spot: LiveSpot) => {
+      handleMapSpotSelect(spot, clusterScreenPos || { x: 0, y: 0 });
+    },
+    [clusterScreenPos, handleMapSpotSelect],
+  );
 
   // Handle weather alert click - show alert flyout
   const handleAlertClick = useCallback(
@@ -2036,6 +2183,8 @@ export function GlobeView({
       setHoveredSpotPos(null);
       setSelectedCluster(null);
       setClusterScreenPos(null);
+      setSelectedMapSpotData(null);
+      setSelectedGridCollection(null);
       setFlyoutPosition(null);
       setTooltipPosition(null);
       setHoveredTargetPos(null);
@@ -2058,6 +2207,8 @@ export function GlobeView({
       setHoveredSpotPos(null);
       setSelectedCluster(null);
       setClusterScreenPos(null);
+      setSelectedMapSpotData(null);
+      setSelectedGridCollection(null);
       setFlyoutPosition(null);
       setTooltipPosition(null);
       setHoveredTargetPos(null);
@@ -2122,12 +2273,34 @@ export function GlobeView({
   // Handle opening GridResearchPanel from flyout
   const handleOpenResearchPanel = useCallback(
     (grid: string) => {
+      setResearchCallsign(null);
       setResearchGrid(grid);
       setResearchPanelOpen(true);
       setFlyoutPosition(null);
     },
     [setFlyoutPosition],
   );
+
+  const handleOpenOperatorPanel = useCallback(() => {
+    if (!selectedMapSpotData) return;
+    const selected = selectedMapSpotData.spot;
+    let grid = selected.dxGrid || "";
+    if (
+      !grid &&
+      Number.isFinite(selected.dxLat) &&
+      Number.isFinite(selected.dxLon)
+    ) {
+      try {
+        grid = latLonToGrid(selected.dxLat!, selected.dxLon!);
+      } catch {
+        // Operator lookup remains useful even without a derivable grid.
+      }
+    }
+    setResearchCallsign(selected.dx);
+    setResearchGrid(grid);
+    setResearchPanelOpen(true);
+    setSelectedMapSpotData(null);
+  }, [selectedMapSpotData]);
 
   // Handle adding a grid to watch list (v2: setWatch with WatchCriteria)
   const handleWatchGrid = useCallback(
@@ -2145,7 +2318,11 @@ export function GlobeView({
     (action: GridResearchAction, grid: string) => {
       switch (action) {
         case "watch":
-          handleWatchGrid(grid);
+          if (researchCallsign) {
+            setWatch({ callsign: researchCallsign, txOrRx: "either" });
+          } else {
+            handleWatchGrid(grid);
+          }
           break;
         case "pin": {
           // Need to compute lat/lon from grid
@@ -2172,7 +2349,13 @@ export function GlobeView({
           break;
       }
     },
-    [handleWatchGrid, handleOpenAddPinDialog, setTarget],
+    [
+      handleWatchGrid,
+      handleOpenAddPinDialog,
+      researchCallsign,
+      setTarget,
+      setWatch,
+    ],
   );
 
   // Handle flyout actions (fallback for unhandled actions)
@@ -2232,7 +2415,7 @@ export function GlobeView({
           </div>
         }
       >
-        <Canvas>
+        <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
           <PerspectiveCamera
             makeDefault
             position={[0, 0, 2.5 / zoom]}
@@ -2245,6 +2428,7 @@ export function GlobeView({
               displayTime={displayTime}
               onLocationClick={handleGlobeClick}
               onDoubleClick={handleDoubleClick}
+              onQuickClick={handleGlobeQuickClick}
               onLocationHover={handleGlobeHover}
               onHoverEnd={handleHoverEnd}
               onPinHover={handlePinHover}
@@ -2253,18 +2437,31 @@ export function GlobeView({
               onTargetHoverEnd={handleTargetHoverEnd}
               onSpotHover={handleSpotHover}
               onSpotHoverEnd={handleSpotHoverEnd}
+              onSpotSelect={handleMapSpotSelect}
               onClusterClick={handleClusterClick}
               onAlertClick={handleAlertClick}
               onFireClick={handleFireClick}
               onRadarAnimState={setRadarAnimState}
+              onTileFallbackChange={setTileFallbackActive}
+              onCloudImageryStatusChange={setCloudImageryStatus}
             />
           </Suspense>
         </Canvas>
       </GlobeErrorBoundary>
 
-      {/* Tile attribution overlay */}
-      <div className="absolute bottom-1 right-1 text-[10px] text-white/40 pointer-events-none select-none">
-        {tileAttribution}
+      <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">
+        <CloudImageryAttribution status={cloudImageryStatus} />
+        <ImageryAttribution
+          baseSource={
+            tileFallbackActive
+              ? mapStyle === "standard"
+                ? NATURAL_EARTH_SOURCE
+                : NASA_BLUE_MARBLE_SOURCE
+              : undefined
+          }
+          provider={tileFallbackActive ? undefined : tileProvider}
+          includeCartoLabels={tileLabelsEnabled && !tileFallbackActive}
+        />
       </div>
 
       {/* Weather Radar Timeline Scrubber (hidden when host provides its own) */}
@@ -2333,6 +2530,8 @@ export function GlobeView({
           !hoveredTargetPos &&
           !hoveredSpotData &&
           !selectedCluster &&
+          !selectedGridCollection &&
+          !selectedMapSpotData &&
           !clickedAlertData &&
           !clickedFireData
         }
@@ -2342,7 +2541,7 @@ export function GlobeView({
       />
 
       <TargetHoverTooltip
-        visible={!!hoveredTargetPos}
+        visible={!!hoveredTargetPos && !selectedMapSpotData}
         position={hoveredTargetPos || { x: 0, y: 0 }}
         label={target?.name || target?.grid || "Target"}
         grid={target?.grid}
@@ -2353,18 +2552,42 @@ export function GlobeView({
         }
       />
 
-      {/* Spot detail flyout - shown when hovering over a spot label or endpoint */}
-      <SpotDetailsFlyout
+      {/* Canonical propagation preview for every spot label and endpoint. */}
+      <SpotHoverPreview
         visible={
           !!hoveredSpotData &&
           !flyoutPosition &&
           !hoveredPinData &&
           !selectedCluster &&
+          !selectedGridCollection &&
+          !selectedMapSpotData &&
           !clickedAlertData &&
           !clickedFireData
         }
         position={hoveredSpotPos || { x: 0, y: 0 }}
-        spot={hoveredSpotData}
+        displayTime={displayTime}
+        spot={
+          hoveredSpotData
+            ? {
+                id: `hover-${hoveredSpotData.callsign}-${hoveredSpotData.frequency}`,
+                dx: hoveredSpotData.callsign,
+                dxGrid: hoveredSpotData.dxGrid,
+                dxLat: hoveredSpotData.dxLat,
+                dxLon: hoveredSpotData.dxLon,
+                dxLocApprox: hoveredSpotData.dxLocApprox,
+                spotter: hoveredSpotData.spotter || "",
+                spotterGrid: hoveredSpotData.spotterGrid,
+                frequency: hoveredSpotData.frequency,
+                band: hoveredSpotData.band,
+                mode: hoveredSpotData.mode,
+                comment: hoveredSpotData.comment || "",
+                time: hoveredSpotData.time,
+                source: hoveredSpotData.source,
+                snr: hoveredSpotData.snr,
+                wpm: hoveredSpotData.wpm,
+              }
+            : null
+        }
       />
 
       {/* Cluster detail popover - shown when clicking a spot cluster */}
@@ -2376,10 +2599,34 @@ export function GlobeView({
         onSpotSelect={handleClusterSpotSelect}
       />
 
-      <SpotDetailsModal
-        spot={selectedClusterSpot}
-        onClose={handleClusterSpotClose}
-      />
+      {selectedGridCollection && (
+        <SpotCollectionPopover
+          visible
+          position={selectedGridCollection.screenPos}
+          title={`${selectedGridCollection.grid} active spots`}
+          subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
+          spots={selectedGridCollection.spots}
+          onClose={() => setSelectedGridCollection(null)}
+          onSpotSelect={(spot) =>
+            handleMapSpotSelect(spot, selectedGridCollection.screenPos)
+          }
+        />
+      )}
+
+      {selectedMapSpotData && (
+        <SelectedSpotCard
+          spot={selectedMapSpotData.spot}
+          position={selectedMapSpotData.screenPos}
+          difficulty={targetDifficulty}
+          optimalSignal={optimalSignal}
+          signalUnavailableReason={
+            station ? undefined : "Set your QTH to model this path"
+          }
+          onOperator={handleOpenOperatorPanel}
+          onViewPath={() => setSelectedMapSpotData(null)}
+          onClose={() => setSelectedMapSpotData(null)}
+        />
+      )}
 
       {/* Flyout menu overlay - rendered outside Canvas */}
       <MapFlyout
@@ -2404,6 +2651,9 @@ export function GlobeView({
           spots={allSpots}
           currentTargetGrid={target?.grid}
           onSetTarget={handleSetTargetFromFlyout}
+          onSpotSelect={(spot, screenPos) =>
+            handleMapSpotSelect(normalizePresentableSpot(spot), screenPos)
+          }
           onEditPin={handleEditPinFromFlyout}
           onDeletePin={handleDeletePinFromFlyout}
           onClose={handlePinFlyoutClose}
@@ -2462,8 +2712,12 @@ export function GlobeView({
       <GridResearchPanel
         visible={researchPanelOpen}
         grid={researchGrid || ""}
+        initialCallsign={researchCallsign}
         onAction={handleResearchAction}
-        onClose={() => setResearchPanelOpen(false)}
+        onClose={() => {
+          setResearchPanelOpen(false);
+          setResearchCallsign(null);
+        }}
       />
     </div>
   );

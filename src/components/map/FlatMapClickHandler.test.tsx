@@ -60,7 +60,7 @@ describe("useFlatMapClickHandler overlay click ownership", () => {
     expect(onDoubleClick).not.toHaveBeenCalled();
   });
 
-  it("gives a label ownership of a completed press-and-hold", () => {
+  it("reserves completed press-and-hold gestures for the map surface", () => {
     vi.useFakeTimers();
     vi.spyOn(console, "debug").mockImplementation(() => undefined);
     const onQuickClick = vi.fn(() => true);
@@ -85,7 +85,7 @@ describe("useFlatMapClickHandler overlay click ownership", () => {
     fireEvent.pointerDown(canvas, { clientX: 80, clientY: 40 });
     vi.advanceTimersByTime(250);
     fireEvent.pointerUp(document, { clientX: 80, clientY: 40 });
-    expect(onQuickClick).toHaveBeenCalledTimes(1);
-    expect(onLocationClick).not.toHaveBeenCalled();
+    expect(onQuickClick).not.toHaveBeenCalled();
+    expect(onLocationClick).toHaveBeenCalledWith(18, -36, { x: 80, y: 40 });
   });
 });

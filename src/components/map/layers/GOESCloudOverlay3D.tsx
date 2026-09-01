@@ -16,10 +16,15 @@ import * as THREE from "three";
 import { useGOESImagery } from "@/hooks/useGOESImagery";
 import { GOES_EAST_Z2_TILE_LIMITS } from "@/lib/api/goes";
 import { drawMercatorAsEquirect } from "@/lib/map/mercatorReproject";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import {
-  GLOBE_LAYER_ORDER,
-  GLOBE_OVERLAY_MATERIAL,
-} from "@/lib/map/globeRenderOrder";
+  resolveCloudImageryStatus,
+  type CloudImageryStatus,
+} from "@/lib/map/cloudImageryStatus";
+import {
+  createCloudOverlayMaterial,
+  replaceCloudOverlayTexture,
+} from "@/lib/map/cloudOverlayMaterial";
 
 // =============================================================================
 // CONSTANTS
@@ -59,7 +64,13 @@ async function loadTileImageWithRetry(url: string): Promise<HTMLImageElement> {
 // COMPONENT
 // =============================================================================
 
-export function GOESCloudOverlay3D() {
+interface GOESCloudOverlay3DProps {
+  onStatusChange?: (status: CloudImageryStatus) => void;
+}
+
+export function GOESCloudOverlay3D({
+  onStatusChange,
+}: GOESCloudOverlay3DProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { tileUrl } = useGOESImagery();
 
@@ -74,19 +85,12 @@ export function GOESCloudOverlay3D() {
   // stacking contract — with depthTest left at its default (true), this
   // sphere loses the depth contest against the opaque tile globe and is
   // discarded everywhere except the limb.
-  const material = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        opacity: 0.55,
-        blending: THREE.NormalBlending,
-        side: THREE.FrontSide,
-        ...GLOBE_OVERLAY_MATERIAL,
-      }),
-    [],
-  );
+  const material = useMemo(() => createCloudOverlayMaterial(), []);
 
   // Load tiles into canvas and create texture
   useEffect(() => {
+    onStatusChange?.("loading");
+    material.visible = false;
     if (!tileUrl || !meshRef.current) return;
 
     // Tiles are Web Mercator (GIBS EPSG:3857): composite them as-is, then
@@ -101,7 +105,7 @@ export function GOESCloudOverlay3D() {
     // Load only the tiles inside NASA's advertised GOES-East matrix limits.
     // The uncovered eastern column remains transparent instead of producing
     // four predictable 404 responses on every activation.
-    const promises: Promise<void>[] = [];
+    const promises: Promise<boolean>[] = [];
     for (
       let y = GOES_EAST_Z2_TILE_LIMITS.minY;
       y <= GOES_EAST_Z2_TILE_LIMITS.maxY;
@@ -119,17 +123,23 @@ export function GOESCloudOverlay3D() {
         promises.push(
           loadTileImageWithRetry(url)
             .then((img) => {
-              if (!disposed) ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE);
+              if (disposed) return false;
+              ctx.drawImage(img, x * TILE_SIZE, y * TILE_SIZE);
+              return true;
             })
-            .catch(() => {
-              // Skip failed tiles silently
-            }),
+            .catch(() => false),
         );
       }
     }
 
-    Promise.all(promises).then(() => {
+    Promise.all(promises).then((tileResults) => {
       if (disposed || !meshRef.current) return;
+      const status = resolveCloudImageryStatus(tileResults);
+      onStatusChange?.(status);
+      if (status === "unavailable") {
+        replaceCloudOverlayTexture(material, null);
+        return;
+      }
       const canvas = document.createElement("canvas");
       canvas.width = CANVAS_SIZE;
       canvas.height = CANVAS_SIZE;
@@ -144,16 +154,13 @@ export function GOESCloudOverlay3D() {
       texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
       texture.needsUpdate = true;
-      const mat = meshRef.current!.material as THREE.MeshBasicMaterial;
-      if (mat.map) mat.map.dispose();
-      mat.map = texture;
-      mat.needsUpdate = true;
+      replaceCloudOverlayTexture(material, texture);
     });
 
     return () => {
       disposed = true;
     };
-  }, [tileUrl]);
+  }, [material, onStatusChange, tileUrl]);
 
   // Cleanup geometry, material, and texture on unmount
   useEffect(

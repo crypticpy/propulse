@@ -51,4 +51,67 @@ describe("SpotEndpointHitArea selection", () => {
     expect(onParentClick).not.toHaveBeenCalled();
     expect(onParentDoubleClick).not.toHaveBeenCalled();
   });
+
+  it("does not expose a raycast mesh for a far-side endpoint", () => {
+    const onHover = vi.fn();
+    const onHoverEnd = vi.fn();
+    const { container, rerender } = render(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        occlusionOpacity={1}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector("mesh")).not.toBeNull();
+    rerender(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        occlusionOpacity={0}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(container.querySelector("mesh")).toBeNull();
+    expect(onHoverEnd).not.toHaveBeenCalled();
+
+    rerender(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        occlusionOpacity={1}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.pointerEnter(container.querySelector("mesh")!, {
+      clientX: 120,
+      clientY: 80,
+    });
+    rerender(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        occlusionOpacity={0}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(onHoverEnd).toHaveBeenCalledOnce();
+  });
 });

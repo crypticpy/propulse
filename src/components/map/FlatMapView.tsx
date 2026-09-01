@@ -4628,10 +4628,7 @@ export function FlatMapView({
         return;
       }
 
-      const dpr = Math.min(
-        window.devicePixelRatio || 1,
-        qualitySettings.maxDevicePixelRatio,
-      );
+      const dpr = qualitySettings.renderDevicePixelRatio;
       const { width: rw, height: rh } = displaySize;
 
       // Match main canvas buffer size
@@ -4672,7 +4669,7 @@ export function FlatMapView({
     focusedSpot?.dxLon,
     displaySize,
     viewportSize,
-    qualitySettings.maxDevicePixelRatio,
+    qualitySettings.renderDevicePixelRatio,
   ]);
 
   // Draw renderer-agnostic overlay layers (e.g., contest markers) on demand
@@ -4687,10 +4684,7 @@ export function FlatMapView({
       return;
     }
 
-    const dpr = Math.min(
-      window.devicePixelRatio || 1,
-      qualitySettings.maxDevicePixelRatio,
-    );
+    const dpr = qualitySettings.renderDevicePixelRatio;
     const { width: rw, height: rh } = displaySize;
 
     const bufferWidth = Math.round(viewportSize.width * dpr);
@@ -4812,7 +4806,7 @@ export function FlatMapView({
     viewportSize,
     overlayLayers,
     zoom,
-    qualitySettings.maxDevicePixelRatio,
+    qualitySettings.renderDevicePixelRatio,
   ]);
 
   // Cleanup animation refs on unmount
@@ -4905,10 +4899,7 @@ export function FlatMapView({
       return;
     }
 
-    const dpr = Math.min(
-      window.devicePixelRatio || 1,
-      qualitySettings.maxDevicePixelRatio,
-    );
+    const dpr = qualitySettings.renderDevicePixelRatio;
     const renderWidth = displaySize.width;
     const renderHeight = displaySize.height;
 
@@ -5502,7 +5493,7 @@ export function FlatMapView({
     loggedQsoData,
     gridLabelDetail,
     qualitySettings.effective,
-    qualitySettings.maxDevicePixelRatio,
+    qualitySettings.renderDevicePixelRatio,
     themeId,
     tileProvider?.id,
   ]);
@@ -5591,6 +5582,7 @@ export function FlatMapView({
             height={displaySize.height}
             viewportWidth={viewportSize.width}
             viewportHeight={viewportSize.height}
+            devicePixelRatio={qualitySettings.renderDevicePixelRatio}
             offsetX={zoom.offsetX}
             offsetY={zoom.offsetY}
             scale={zoom.scale}

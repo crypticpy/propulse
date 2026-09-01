@@ -11,6 +11,12 @@ interface NetworkInformationLike extends EventTarget {
   saveData?: boolean;
 }
 
+export interface ResolvedDisplayQualitySettings
+  extends DisplayQualitySettings {
+  /** Live browser DPR after applying the selected quality preset's cap. */
+  renderDevicePixelRatio: number;
+}
+
 function environmentsMatch(
   left: DisplayQualityEnvironment,
   right: DisplayQualityEnvironment,
@@ -29,13 +35,13 @@ function environmentsMatch(
  */
 export function useResolvedDisplayQuality(
   requested: DisplayQuality,
-): DisplayQualitySettings {
+): ResolvedDisplayQualitySettings {
   const [environment, setEnvironment] = useState<DisplayQualityEnvironment>(
     readDisplayQualityEnvironment,
   );
 
   useEffect(() => {
-    if (requested !== "auto" || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
 
     const connection = (
       navigator as Navigator & { connection?: NetworkInformationLike }
@@ -77,7 +83,16 @@ export function useResolvedDisplayQuality(
   }, [requested]);
 
   return useMemo(
-    () => resolveDisplayQuality(requested, environment),
+    () => {
+      const settings = resolveDisplayQuality(requested, environment);
+      return {
+        ...settings,
+        renderDevicePixelRatio: Math.min(
+          environment.devicePixelRatio,
+          settings.maxDevicePixelRatio,
+        ),
+      };
+    },
     [environment, requested],
   );
 }

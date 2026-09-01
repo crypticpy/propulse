@@ -2415,7 +2415,7 @@ export function GlobeView({
           </div>
         }
       >
-        <Canvas dpr={[1, qualitySettings.maxDevicePixelRatio]}>
+        <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
           <PerspectiveCamera
             makeDefault
             position={[0, 0, 2.5 / zoom]}

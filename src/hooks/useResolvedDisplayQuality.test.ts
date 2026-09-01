@@ -103,15 +103,84 @@ describe("useResolvedDisplayQuality", () => {
     expect(removeEventListener).toHaveBeenCalled();
   });
 
-  it("keeps explicit quality fixed when the environment changes", () => {
-    setDisplay(640, 480, 1);
-    const { result } = renderHook(() => useResolvedDisplayQuality("extreme"));
+  it("propagates DPR-only changes that remain in the Balanced tier", () => {
+    let resolutionListener: EventListener | null = null;
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        media: "",
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        addEventListener: vi.fn(
+          (_type: string, listener: EventListener) => {
+            resolutionListener = listener;
+          },
+        ),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    setDisplay(1280, 720, 1);
+    const { result } = renderHook(() => useResolvedDisplayQuality("auto"));
+    expect(result.current.effective).toBe("balanced");
+    expect(result.current.renderDevicePixelRatio).toBe(1);
 
     act(() => {
-      setDisplay(3840, 2160, 1);
-      window.dispatchEvent(new Event("resize"));
+      setDisplay(1280, 720, 1.5);
+      resolutionListener?.(new Event("change"));
+    });
+
+    expect(result.current.effective).toBe("balanced");
+    expect(result.current.renderDevicePixelRatio).toBe(1.5);
+  });
+
+  it("keeps explicit quality fixed while updating its live render DPR", () => {
+    let resolutionListener: EventListener | null = null;
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        media: "",
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        addEventListener: vi.fn(
+          (_type: string, listener: EventListener) => {
+            resolutionListener = listener;
+          },
+        ),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    setDisplay(640, 480, 1);
+    const { result } = renderHook(() => useResolvedDisplayQuality("extreme"));
+    expect(result.current.renderDevicePixelRatio).toBe(1);
+
+    act(() => {
+      setDisplay(640, 480, 2);
+      resolutionListener?.(new Event("change"));
     });
 
     expect(result.current.effective).toBe("extreme");
+    expect(result.current.renderDevicePixelRatio).toBe(2);
   });
+
+  it.each([
+    ["data-saver", 2, 1],
+    ["uhd", 3, 2],
+    ["extreme", 4, 3],
+  ] as const)(
+    "caps %s rendering at its preset DPR limit",
+    (quality, browserDpr, expectedDpr) => {
+      setDisplay(1920, 1080, browserDpr);
+      const { result } = renderHook(() =>
+        useResolvedDisplayQuality(quality),
+      );
+
+      expect(result.current.renderDevicePixelRatio).toBe(expectedDpr);
+    },
+  );
 });

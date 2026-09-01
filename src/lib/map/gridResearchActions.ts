@@ -1,6 +1,12 @@
 import { gridToLatLon } from "@/lib/utils/grid";
 import type { WatchCriteria } from "@/stores/watchStore";
 
+export type GridResearchAction = "watch" | "pin" | "setTarget" | "close";
+
+export type GridResearchActionSubject =
+  | { kind: "callsign"; callsign: string; grid?: string }
+  | { kind: "grid"; grid: string };
+
 export type GridResearchActionIntent =
   | { kind: "close" }
   | { kind: "invalid" }
@@ -14,19 +20,25 @@ export type GridResearchActionIntent =
  * visible Set Target, Watch, and Pin controls cannot silently diverge.
  */
 export function resolveGridResearchActionIntent(
-  action: "watch" | "pin" | "setTarget" | "close",
-  grid: string,
-  researchCallsign?: string | null,
+  action: GridResearchAction,
+  subject: GridResearchActionSubject,
 ): GridResearchActionIntent {
   if (action === "close") return { kind: "close" };
   if (action === "watch") {
     return {
       kind: "watch",
-      criteria: researchCallsign
-        ? { callsign: researchCallsign, txOrRx: "either" }
-        : { gridPrefix: grid.slice(0, 4).toUpperCase(), txOrRx: "either" },
+      criteria:
+        subject.kind === "callsign"
+          ? { callsign: subject.callsign, txOrRx: "either" }
+          : {
+              gridPrefix: subject.grid.slice(0, 4).toUpperCase(),
+              txOrRx: "either",
+            },
     };
   }
+
+  const grid = subject.grid;
+  if (!grid) return { kind: "invalid" };
 
   try {
     const location = { ...gridToLatLon(grid), grid };

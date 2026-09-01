@@ -49,6 +49,7 @@ export function buildAzimuthalSpotEndpointScreenPlacements(
     if (!point) return [];
     const x = (center + (point.x - center) * zoom) * cssScale;
     const y = (center + (point.y - center) * zoom) * cssScale;
+    if (x < 0 || x > displaySize || y < 0 || y > displaySize) return [];
     return [
       {
         spot: spot.originalSpot,
@@ -77,6 +78,16 @@ export function spotDestinationMatchesTarget(
     Math.abs(spot.dxLat! - target.lat) < 1e-6 &&
     Math.abs(spot.dxLon! - target.lon) < 1e-6
   );
+}
+
+export function resolveAzimuthalTargetAnnotation<TDifficulty>(
+  selectedSpotHasVisibleTag: boolean,
+  label: string | undefined,
+  difficulty: TDifficulty | undefined,
+): { label: string | undefined; difficulty: TDifficulty | undefined } {
+  return selectedSpotHasVisibleTag
+    ? { label: undefined, difficulty: undefined }
+    : { label, difficulty };
 }
 
 export function sameAzimuthalSpotPillScreenPlacements(

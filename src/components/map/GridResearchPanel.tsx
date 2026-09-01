@@ -16,14 +16,18 @@ import {
 } from "@/hooks/useGridResearch";
 import { useHamQTHLookup } from "@/hooks/useHamQTHLookup";
 import { formatBearingWithDirection } from "@/lib/utils/gridUtils";
+import type {
+  GridResearchAction,
+  GridResearchActionSubject,
+} from "@/lib/map/gridResearchActions";
+
+export type {
+  GridResearchAction,
+  GridResearchActionSubject,
+} from "@/lib/map/gridResearchActions";
 
 /** Panel view state */
 type PanelView = "grid" | "callsign";
-
-/**
- * Panel action types
- */
-export type GridResearchAction = "watch" | "pin" | "setTarget" | "close";
 
 /**
  * Props for GridResearchPanel
@@ -36,7 +40,10 @@ export interface GridResearchPanelProps {
   /** Open directly to an operator profile instead of the grid overview. */
   initialCallsign?: string | null;
   /** Callback when an action is triggered */
-  onAction?: (action: GridResearchAction, grid: string) => void;
+  onAction?: (
+    action: GridResearchAction,
+    subject: GridResearchActionSubject,
+  ) => void;
   /** Callback to close the panel */
   onClose: () => void;
   /** Additional CSS classes */
@@ -873,7 +880,7 @@ export function GridResearchPanel({
   // Handle action from grid view
   const handleAction = useCallback(
     (action: GridResearchAction, actionGrid: string) => {
-      onAction?.(action, actionGrid);
+      onAction?.(action, { kind: "grid", grid: actionGrid });
     },
     [onAction],
   );
@@ -884,20 +891,32 @@ export function GridResearchPanel({
       switch (action) {
         case "setTarget":
           // Set target requires a grid - use the callsign's grid if available
-          if (data?.grid) {
-            onAction?.(action, data.grid);
+          if (data?.grid && selectedCallsign) {
+            onAction?.(action, {
+              kind: "callsign",
+              callsign: selectedCallsign,
+              grid: data.grid,
+            });
           }
           break;
         case "watch":
           // Watch the callsign pattern for activity
           if (selectedCallsign) {
-            onAction?.(action, selectedCallsign);
+            onAction?.(action, {
+              kind: "callsign",
+              callsign: selectedCallsign,
+              grid: data?.grid,
+            });
           }
           break;
         case "pin":
           // Pin requires grid - use the callsign's grid if available
-          if (data?.grid) {
-            onAction?.(action, data.grid);
+          if (data?.grid && selectedCallsign) {
+            onAction?.(action, {
+              kind: "callsign",
+              callsign: selectedCallsign,
+              grid: data.grid,
+            });
           }
           break;
         case "close":

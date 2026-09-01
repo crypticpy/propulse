@@ -94,13 +94,14 @@ import { AddPinDialog } from "./AddPinDialog";
 import {
   GridResearchPanel,
   type GridResearchAction,
+  type GridResearchActionSubject,
 } from "./GridResearchPanel";
 import { useMapStore } from "@/stores/mapStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useProfileStore } from "@/stores/profileStore";
 import { useWatchStore } from "@/stores/watchStore";
-import { gridToLatLon } from "@/lib/utils/grid";
+import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
 import {
   useUserStore,
   useCompassRosePrefs,
@@ -2343,47 +2344,32 @@ export function GlobeView({
 
   // Handle GridResearchPanel actions
   const handleResearchAction = useCallback(
-    (action: GridResearchAction, grid: string) => {
-      switch (action) {
+    (action: GridResearchAction, subject: GridResearchActionSubject) => {
+      const intent = resolveGridResearchActionIntent(action, subject);
+      switch (intent.kind) {
         case "watch":
-          if (researchCallsign) {
-            setWatch({ callsign: researchCallsign, txOrRx: "either" });
-          } else {
-            handleWatchGrid(grid);
-          }
+          setWatch(intent.criteria);
           break;
-        case "pin": {
-          // Need to compute lat/lon from grid
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            handleOpenAddPinDialog(lat, lon, grid);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "pin":
+          handleOpenAddPinDialog(
+            intent.location.lat,
+            intent.location.lon,
+            intent.location.grid,
+          );
           break;
-        }
-        case "setTarget": {
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            setTarget({ lat, lon, grid });
-            setResearchPanelOpen(false);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "setTarget":
+          setTarget(intent.target);
+          setResearchPanelOpen(false);
           break;
-        }
         case "close":
           setResearchPanelOpen(false);
           break;
+        case "invalid":
+          // Keep the panel open so the operator can choose a valid action.
+          break;
       }
     },
-    [
-      handleWatchGrid,
-      handleOpenAddPinDialog,
-      researchCallsign,
-      setTarget,
-      setWatch,
-    ],
+    [handleOpenAddPinDialog, setTarget, setWatch],
   );
 
   // Handle flyout actions (fallback for unhandled actions)

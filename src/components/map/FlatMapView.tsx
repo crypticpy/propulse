@@ -47,11 +47,13 @@ import { AddPinDialog } from "./AddPinDialog";
 import {
   GridResearchPanel,
   type GridResearchAction,
+  type GridResearchActionSubject,
 } from "./GridResearchPanel";
-import { latLonToGrid, gridToLatLon } from "@/lib/utils/grid";
+import { latLonToGrid } from "@/lib/utils/grid";
 import { usePinStore } from "@/stores/pinStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { useWatchStore } from "@/stores/watchStore";
+import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
 import { useDXStore } from "@/stores/dxStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { getCategoryMeta } from "@/types/pin";
@@ -3544,6 +3546,7 @@ export function FlatMapView({
   } | null>(null);
 
   const spotHoverDismissRef = useRef<number | null>(null);
+  const hoveredSpotOwnerRef = useRef<string | null>(null);
 
   const cancelSpotHoverDismiss = useCallback(() => {
     if (spotHoverDismissRef.current === null) return;
@@ -3551,10 +3554,17 @@ export function FlatMapView({
     spotHoverDismissRef.current = null;
   }, []);
 
-  const scheduleSpotHoverDismiss = useCallback(() => {
+  const scheduleSpotHoverDismiss = useCallback((spot?: PresentableSpot) => {
+    const owner = spot
+      ? `${spot.source ?? "Cluster"}:${spot.id}`
+      : hoveredSpotOwnerRef.current;
+    if (owner && hoveredSpotOwnerRef.current !== owner) return;
     if (spotHoverDismissRef.current !== null) return;
     spotHoverDismissRef.current = window.setTimeout(() => {
-      setHoveredSpotData(null);
+      if (!owner || hoveredSpotOwnerRef.current === owner) {
+        hoveredSpotOwnerRef.current = null;
+        setHoveredSpotData(null);
+      }
       spotHoverDismissRef.current = null;
     }, 180);
   }, []);
@@ -3571,6 +3581,7 @@ export function FlatMapView({
   const handleSpotHover = useCallback(
     (spot: PresentableSpot, screenPos: ScreenAnchor) => {
       cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = `${spot.source ?? "Cluster"}:${spot.id}`;
       setHoveredSpotData({ spot, screenPos });
     },
     [cancelSpotHoverDismiss],
@@ -3972,6 +3983,7 @@ export function FlatMapView({
     (spot: PresentableSpot, screenPos: ScreenAnchor) => {
       const selection = selectMapSpot(spot);
       cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = null;
       setSelectedMapSpotData({
         spot: { ...spot, ...(selection?.spot ?? {}) },
         screenPos,
@@ -4008,6 +4020,7 @@ export function FlatMapView({
         ).toUpperCase();
         const gridMembers = getGridCollectionSpots(grid);
         if (gridMembers.length === 0) return false;
+        hoveredSpotOwnerRef.current = null;
         setSelectedGridCollection({ grid, spots: gridMembers, screenPos });
         setSelectedMapSpotData(null);
         setHoveredSpotData(null);
@@ -4208,49 +4221,32 @@ export function FlatMapView({
 
   // Handle GridResearchPanel actions
   const handleResearchAction = useCallback(
-    (action: GridResearchAction, grid: string) => {
-      switch (action) {
+    (action: GridResearchAction, subject: GridResearchActionSubject) => {
+      const intent = resolveGridResearchActionIntent(action, subject);
+      switch (intent.kind) {
         case "watch":
-          if (researchCallsign) {
-            useWatchStore.getState().setWatch({
-              callsign: researchCallsign,
-              txOrRx: "either",
-            });
-          } else {
-            handleWatchGrid(grid);
-          }
+          useWatchStore.getState().setWatch(intent.criteria);
           break;
-        case "pin": {
-          // Need to compute lat/lon from grid
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            handleOpenAddPinDialog(lat, lon, grid);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "pin":
+          handleOpenAddPinDialog(
+            intent.location.lat,
+            intent.location.lon,
+            intent.location.grid,
+          );
           break;
-        }
-        case "setTarget": {
-          try {
-            const { lat, lon } = gridToLatLon(grid);
-            setTarget({ lat, lon, grid });
-            setResearchPanelOpen(false);
-          } catch {
-            // Grid conversion failed, ignore
-          }
+        case "setTarget":
+          setTarget(intent.target);
+          setResearchPanelOpen(false);
           break;
-        }
         case "close":
           setResearchPanelOpen(false);
           break;
+        case "invalid":
+          // Keep the panel open so the operator can choose a valid action.
+          break;
       }
     },
-    [
-      handleWatchGrid,
-      handleOpenAddPinDialog,
-      researchCallsign,
-      setTarget,
-    ],
+    [handleOpenAddPinDialog, setTarget],
   );
 
   // Handle flyout actions (fallback for unhandled actions)
@@ -5738,7 +5734,7 @@ export function FlatMapView({
           displayTime={displayTime}
           spot={hoveredSpotData.spot}
           onInteractStart={cancelSpotHoverDismiss}
-          onInteractEnd={scheduleSpotHoverDismiss}
+          onInteractEnd={() => scheduleSpotHoverDismiss()}
           onActivate={() =>
             handleMapSpotSelect(
               hoveredSpotData.spot,

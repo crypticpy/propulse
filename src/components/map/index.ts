@@ -114,6 +114,7 @@ export { PinList } from "./PinList";
 export {
   GridResearchPanel,
   type GridResearchAction,
+  type GridResearchActionSubject,
 } from "./GridResearchPanel";
 
 // Watch system components

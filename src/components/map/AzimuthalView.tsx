@@ -51,6 +51,7 @@ import { SelectedSpotCard } from "./SelectedSpotCard";
 import {
   GridResearchPanel,
   type GridResearchAction,
+  type GridResearchActionSubject,
 } from "./GridResearchPanel";
 import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
@@ -81,6 +82,7 @@ import {
 } from "./layers/AzimuthalSpotPillButtons";
 import {
   buildAzimuthalSpotEndpointScreenPlacements,
+  resolveAzimuthalTargetAnnotation,
   sameAzimuthalSpotPillScreenPlacements,
   spotDestinationMatchesTarget,
   type AzimuthalSpotPillScreenPlacement,
@@ -1563,6 +1565,7 @@ export function AzimuthalView({
     grid: string;
   } | null>(null);
   const spotHoverDismissRef = useRef<number | null>(null);
+  const hoveredSpotOwnerRef = useRef<string | null>(null);
   const selectMapSpot = useMapSpotSelection();
   const glowRafRef = useRef<number>(0);
   const layers = useMapStore((s) => s.layers);
@@ -1575,10 +1578,17 @@ export function AzimuthalView({
     spotHoverDismissRef.current = null;
   }, []);
 
-  const scheduleSpotHoverDismiss = useCallback(() => {
+  const scheduleSpotHoverDismiss = useCallback((spot?: PresentableSpot) => {
+    const owner = spot
+      ? `${spot.source ?? "Cluster"}:${spot.id}`
+      : hoveredSpotOwnerRef.current;
+    if (owner && hoveredSpotOwnerRef.current !== owner) return;
     if (spotHoverDismissRef.current !== null) return;
     spotHoverDismissRef.current = window.setTimeout(() => {
-      setHoveredSpotData(null);
+      if (!owner || hoveredSpotOwnerRef.current === owner) {
+        hoveredSpotOwnerRef.current = null;
+        setHoveredSpotData(null);
+      }
       spotHoverDismissRef.current = null;
     }, 180);
   }, []);
@@ -1595,6 +1605,7 @@ export function AzimuthalView({
   const handleSpotHover = useCallback(
     (spot: PresentableSpot, screenPos: ScreenAnchor) => {
       cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = `${spot.source ?? "Cluster"}:${spot.id}`;
       setHoveredSpotData({ spot, screenPos });
     },
     [cancelSpotHoverDismiss],
@@ -1604,6 +1615,7 @@ export function AzimuthalView({
     (spot: PresentableSpot, screenPos: ScreenAnchor) => {
       const selection = selectMapSpot(spot);
       cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = null;
       setHoveredSpotData(null);
       setHoveredTargetPos(null);
       setSelectedMapSpotData({
@@ -1715,6 +1727,13 @@ export function AzimuthalView({
     }
     return { lat: station.lat, lon: station.lon };
   }, [station]);
+
+  useEffect(() => {
+    if (center) return;
+    cancelSpotHoverDismiss();
+    hoveredSpotOwnerRef.current = null;
+    setHoveredSpotData(null);
+  }, [cancelSpotHoverDismiss, center]);
 
   // Rasterize probability-surface cells per pixel via inverse projection.
   // Cells far from the center distort so much that polygon corners are
@@ -1893,6 +1912,47 @@ export function AzimuthalView({
     [selectedSpot, target],
   );
 
+  const selectedSpotHasVisibleTag = useMemo(() => {
+    if (!selectedSpot || !selectedSpotMatchesTarget) return false;
+    const matchesSelectedReport = (candidate: {
+      id: string;
+      callsign: string;
+      frequency: number;
+    }) =>
+      candidate.id === selectedSpot.id &&
+      candidate.callsign === selectedSpot.dx &&
+      candidate.frequency === selectedSpot.frequency;
+
+    const hasLiveSpotPill =
+      layers.spots &&
+      showSpotCallsignLabels &&
+      spotPillPlacements.some(({ spot }) =>
+        matchesSelectedReport({
+          id: spot.id,
+          callsign: spot.dx,
+          frequency: spot.frequency,
+        }),
+      );
+    const hasActivationPill =
+      layers.activations &&
+      activationPillPlacements.some(({ spot }) =>
+        matchesSelectedReport({
+          id: spot.id,
+          callsign: spot.callsign,
+          frequency: spot.frequencyKHz,
+        }),
+      );
+    return hasLiveSpotPill || hasActivationPill;
+  }, [
+    activationPillPlacements,
+    layers.activations,
+    layers.spots,
+    selectedSpot,
+    selectedSpotMatchesTarget,
+    showSpotCallsignLabels,
+    spotPillPlacements,
+  ]);
+
   const spotEndpointPlacements = useMemo(() => {
     if (!center || (!layers.spots && !layers.spotTraces)) return [];
     return buildAzimuthalSpotEndpointScreenPlacements(
@@ -2048,12 +2108,8 @@ export function AzimuthalView({
   }, [selectedMapSpotData]);
 
   const handleResearchAction = useCallback(
-    (action: GridResearchAction, grid: string) => {
-      const intent = resolveGridResearchActionIntent(
-        action,
-        grid,
-        researchCallsign,
-      );
+    (action: GridResearchAction, subject: GridResearchActionSubject) => {
+      const intent = resolveGridResearchActionIntent(action, subject);
       switch (intent.kind) {
         case "watch":
           setWatch(intent.criteria);
@@ -2074,7 +2130,7 @@ export function AzimuthalView({
           break;
       }
     },
-    [researchCallsign, setTarget, setWatch],
+    [setTarget, setWatch],
   );
 
   const targetHitPoint = useMemo(() => {
@@ -2465,15 +2521,20 @@ export function AzimuthalView({
 
     // Draw target and path if set
     if (target) {
+      const targetAnnotation = resolveAzimuthalTargetAnnotation(
+        selectedSpotHasVisibleTag,
+        target.name || target.grid,
+        pathDifficulty,
+      );
       drawTargetAndPath(
         ctx,
         center.lat,
         center.lon,
         target.lat,
         target.lon,
-        target.name || target.grid,
+        targetAnnotation.label,
         targetMarkerColor,
-        pathDifficulty,
+        targetAnnotation.difficulty,
       );
     }
 
@@ -2492,6 +2553,7 @@ export function AzimuthalView({
     activationSpots,
     resolvedSelectedSpot,
     selectedSpotMatchesTarget,
+    selectedSpotHasVisibleTag,
     targetMarkerColor,
     pathDifficulty,
     zoom,
@@ -2604,7 +2666,7 @@ export function AzimuthalView({
         displayTime={displayTime}
         spot={hoveredSpotData?.spot ?? null}
         onInteractStart={cancelSpotHoverDismiss}
-        onInteractEnd={scheduleSpotHoverDismiss}
+        onInteractEnd={() => scheduleSpotHoverDismiss()}
         onActivate={() => {
           if (hoveredSpotData) {
             handleMapSpotSelect(

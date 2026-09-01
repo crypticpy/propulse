@@ -58,10 +58,10 @@ export function SpotHoverPreview({
       distanceKm={path.distanceKm}
       bearing={path.bearing}
       interactive={Boolean(onActivate)}
-      onPointerEnter={onInteractStart}
-      onPointerLeave={onInteractEnd}
-      onFocus={onInteractStart}
-      onBlur={onInteractEnd}
+      onPointerEnter={() => onInteractStart?.()}
+      onPointerLeave={() => onInteractEnd?.()}
+      onFocus={() => onInteractStart?.()}
+      onBlur={() => onInteractEnd?.()}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

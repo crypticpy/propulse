@@ -140,4 +140,51 @@ describe("activation label selections", () => {
       );
     },
   );
+
+  it("releases activation hover ownership when a pill disappears", () => {
+    const onSpotHoverEnd = vi.fn();
+    const { rerender } = render(
+      <ActivationPillButtons
+        placements={[
+          { spot: SPOT, left: 10, top: 20, width: 80, height: 22 },
+        ]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: /K5ABC.*select as target/i }),
+    );
+
+    rerender(
+      <ActivationPillButtons
+        placements={[]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+
+    expect(onSpotHoverEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "pota-1", dx: "K5ABC" }),
+    );
+  });
+
+  it("does not release hover for a pill that was never active", () => {
+    const onSpotHoverEnd = vi.fn();
+    const { rerender } = render(
+      <ActivationPillButtons
+        placements={[
+          { spot: SPOT, left: 10, top: 20, width: 80, height: 22 },
+        ]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+
+    rerender(
+      <ActivationPillButtons
+        placements={[]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+
+    expect(onSpotHoverEnd).not.toHaveBeenCalled();
+  });
 });

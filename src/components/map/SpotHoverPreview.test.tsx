@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 import { SpotHoverPreview } from "./SpotHoverPreview";
@@ -84,6 +84,8 @@ describe("SpotHoverPreview", () => {
 
     expect(onInteractStart).toHaveBeenCalledOnce();
     expect(onInteractEnd).toHaveBeenCalledOnce();
+    expect(onInteractStart).toHaveBeenCalledWith();
+    expect(onInteractEnd).toHaveBeenCalledWith();
     expect(onActivate).toHaveBeenCalledTimes(2);
     expect(onMapClick).not.toHaveBeenCalled();
     document.removeEventListener("click", onMapClick);
@@ -132,8 +134,14 @@ describe("SpotHoverPreview", () => {
     fireEvent.pointerEnter(
       screen.getByRole("button", { name: /Open spot details for KA1VRY/i }),
     );
-    vi.advanceTimersByTime(200);
+    act(() => vi.advanceTimersByTime(200));
 
     expect(screen.getByText("KA1VRY · POTA US-7948")).toBeTruthy();
+
+    fireEvent.pointerLeave(
+      screen.getByRole("button", { name: /Open spot details for KA1VRY/i }),
+    );
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.queryByText("KA1VRY · POTA US-7948")).toBeNull();
   });
 });

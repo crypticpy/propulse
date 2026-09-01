@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 import {
   buildAzimuthalSpotEndpointScreenPlacements,
+  resolveAzimuthalTargetAnnotation,
   sameAzimuthalSpotPillScreenPlacements,
   spotDestinationMatchesTarget,
 } from "@/lib/map/azimuthalSpotPillPlacement";
@@ -113,6 +114,23 @@ describe("AzimuthalSpotPillButtons", () => {
     });
   });
 
+  it("does not leave zoomed-offscreen endpoints keyboard actionable", () => {
+    const spot = makeSpot(7_289);
+    const placements = buildAzimuthalSpotEndpointScreenPlacements(
+      [{ dxLat: 10, dxLon: 20, originalSpot: spot }],
+      () => ({ x: 500, y: 300 }),
+      {
+        canvasSize: 600,
+        center: 300,
+        displaySize: 600,
+        zoom: 3,
+        spotDotScale: 1,
+      },
+    );
+
+    expect(placements).toEqual([]);
+  });
+
   it("routes a labels-off endpoint through the same exact selection callback", () => {
     const spot = makeSpot(5_357);
     const onSpotHover = vi.fn();
@@ -136,6 +154,73 @@ describe("AzimuthalSpotPillButtons", () => {
     expect(onSpotSelect).toHaveBeenCalledWith(spot, expect.any(Object));
   });
 
+  it("releases hover ownership only when the active report disappears", () => {
+    const spot = makeSpot(5_357);
+    const inactiveHoverEnd = vi.fn();
+    const inactive = render(
+      <AzimuthalSpotEndpointButtons
+        placements={[
+          { spot, left: 10, top: 20, width: 24, height: 24 },
+        ]}
+        onSpotHoverEnd={inactiveHoverEnd}
+      />,
+    );
+    inactive.rerender(
+      <AzimuthalSpotEndpointButtons
+        placements={[]}
+        onSpotHoverEnd={inactiveHoverEnd}
+      />,
+    );
+    expect(inactiveHoverEnd).not.toHaveBeenCalled();
+
+    const onSpotHoverEnd = vi.fn();
+    const { rerender } = render(
+      <AzimuthalSpotEndpointButtons
+        placements={[
+          { spot, left: 10, top: 20, width: 24, height: 24 },
+        ]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: /AC6J destination/i }),
+    );
+
+    rerender(
+      <AzimuthalSpotEndpointButtons
+        placements={[]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+
+    expect(onSpotHoverEnd).toHaveBeenCalledWith(spot);
+  });
+
+  it("does not release an active duplicate when only its inactive control disappears", () => {
+    const spot = makeSpot(7_289);
+    const first = { spot, left: 10, top: 20, width: 24, height: 24 };
+    const second = { spot, left: 40, top: 20, width: 24, height: 24 };
+    const onSpotHoverEnd = vi.fn();
+    const { rerender } = render(
+      <AzimuthalSpotEndpointButtons
+        placements={[first, second]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+    fireEvent.pointerEnter(
+      screen.getAllByRole("button", { name: /AC6J destination/i })[0],
+    );
+
+    rerender(
+      <AzimuthalSpotEndpointButtons
+        placements={[first]}
+        onSpotHoverEnd={onSpotHoverEnd}
+      />,
+    );
+
+    expect(onSpotHoverEnd).not.toHaveBeenCalled();
+  });
+
   it("suppresses the report arc when ordinary or activation DX matches target", () => {
     const spot = makeSpot(14_074);
     const activation = { ...spot, comment: "POTA US-7948" };
@@ -152,5 +237,14 @@ describe("AzimuthalSpotPillButtons", () => {
     expect(
       spotDestinationMatchesTarget(spot, { lat: 37.8, lon: -122.4 }),
     ).toBe(false);
+  });
+
+  it("suppresses target annotation only when the selected tag is visible", () => {
+    expect(
+      resolveAzimuthalTargetAnnotation(true, "AC6J", 2),
+    ).toEqual({ label: undefined, difficulty: undefined });
+    expect(
+      resolveAzimuthalTargetAnnotation(false, "AC6J", 2),
+    ).toEqual({ label: "AC6J", difficulty: 2 });
   });
 });

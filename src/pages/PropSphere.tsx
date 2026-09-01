@@ -46,9 +46,10 @@ import { SatelliteDetailModal } from "@/components/map/layers";
 import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
-import { ColorsPopover } from "@/components/map/ColorsPopover";
-import { ProfilePopover } from "@/components/map/ProfilePopover";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
+import { MapToolbarShell } from "@/components/map/MapToolbarShell";
+import { MapToolbarSecondaryControls } from "@/components/map/MapToolbarSecondaryControls";
+import { getMapToolbarLayout } from "@/components/map/mapToolbarLayout";
 
 // Lazy load heavy components that aren't always visible
 const FullscreenPropSphere = lazy(() =>
@@ -107,10 +108,7 @@ import { useUndoStore } from "@/stores/undoStore";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
-import { WatchPopover } from "@/components/map/WatchPopover";
-import { ClusterPopover } from "@/components/map/ClusterPopover";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
-import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { ReplayIndicator } from "@/components/map/ReplayIndicator";
 import { ContestRatePanel } from "@/components/map/ContestRatePanel";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
@@ -157,9 +155,6 @@ type PanelTab = "path" | "bands" | "recs" | "spots";
 
 // Panel display modes for side panels (normal desktop layout)
 type PanelMode = "full" | "mini" | "hidden";
-
-// ─── Toolbar visual separator ────────────────────────────────────────────────
-const ToolbarDivider = () => <div className="w-px h-5 bg-white/10" />;
 
 export function PropSphere() {
   const isKiosk = useKioskStore((s) => s.active);
@@ -259,8 +254,7 @@ export function PropSphere() {
     return () => observer.disconnect();
   }, [compactFit, layoutMode, viewMode]);
 
-  const compactMapToolbar = mapToolbarWidth < 1040;
-  const stackedMapToolbar = mapToolbarWidth < 760;
+  const mapToolbarLayout = getMapToolbarLayout(mapToolbarWidth);
 
   // Solar data for mini strip display (cached via react-query, no duplicate fetches)
   const { data: miniKData } = useKIndex();
@@ -595,6 +589,33 @@ export function PropSphere() {
     },
     [rightPanelWidth],
   );
+
+  const handleCyclePanelLayout = useCallback(() => {
+    const bothFull = leftPanelMode === "full" && rightPanelMode === "full";
+    const bothMini = leftPanelMode === "mini" && rightPanelMode === "mini";
+
+    if (bothFull) {
+      setLeftPanelLastWidth(leftPanelWidth);
+      setRightPanelLastWidth(rightPanelWidth);
+      setLeftPanelMode("mini");
+      setRightPanelMode("mini");
+    } else if (bothMini) {
+      setLeftPanelMode("hidden");
+      setRightPanelMode("hidden");
+    } else {
+      setLeftPanelMode("full");
+      setRightPanelMode("full");
+      setLeftPanelWidth(leftPanelLastWidth);
+      setRightPanelWidth(rightPanelLastWidth);
+    }
+  }, [
+    leftPanelLastWidth,
+    leftPanelMode,
+    leftPanelWidth,
+    rightPanelLastWidth,
+    rightPanelMode,
+    rightPanelWidth,
+  ]);
 
   // Map physics advance at a minute cadence in live/offset modes. Scenario and
   // replay instants remain fixed until their explicit absolute time changes.
@@ -958,91 +979,48 @@ export function PropSphere() {
               </div>
 
               {/* Quick-access toolbar */}
-              <div
-                ref={mapToolbarRef}
-                role="toolbar"
-                aria-label="Map controls"
-                className={`flex-shrink-0 flex gap-2 px-3 py-1.5 bg-void-black/50 border-b border-white/5 ${
-                  stackedMapToolbar ? "flex-wrap items-center" : "items-center"
-                }`}
-                data-tour="layer-controls"
-              >
-                <div
-                  className={`flex min-w-0 flex-1 items-center gap-2 ${
-                    stackedMapToolbar
-                      ? "w-full flex-wrap"
-                      : "overflow-x-auto"
-                  }`}
-                >
-                {/* Help tooltip */}
-                <HelpTooltip
-                  section="propsphere"
-                  tooltip="Learn more about PropSphere"
-                />
-
-                {/* Layers popover */}
-                <LayersPopover />
-
-                {propagationModelVisible && (
-                  <ReachMapControl
-                    enabled={reachMapEnabled}
-                    band={reachMapBand}
-                    personalized={reachMapState.personalized}
-                    onEnabledChange={setReachMapEnabled}
-                    onBandChange={setReachMapBand}
-                    onPersonalizedChange={setReachMapPersonalized}
-                    state={reachMapState}
-                  />
-                )}
-
-                {/* Colors popover */}
-                <ColorsPopover />
-
-                {/* Profile popover */}
-                <ProfilePopover
-                  activeProfile={localActiveProfile}
-                  onSelectProfile={setLocalActiveProfile}
-                />
-
-                {/* Observatory mode */}
-                <ToolbarDivider />
-                <button
-                  type="button"
-                  onClick={() => useMapStore.getState().enterObservatory()}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-                  title="Observatory Mode — fullscreen auto-rotating globe, zoom only"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <circle cx="12" cy="12" r="3" />
-                    <line x1="12" y1="2" x2="12" y2="6" />
-                    <line x1="12" y1="18" x2="12" y2="22" />
-                    <line x1="2" y1="12" x2="6" y2="12" />
-                    <line x1="18" y1="12" x2="22" y2="12" />
-                  </svg>
-                  {!compactMapToolbar && "Observatory"}
-                </button>
-
-                {/* Panel layout cycle: Full → Compact → Focus → Full
-                    (pointless in compact fit — the side panels are gone) */}
-                {!compactFit && (
-                  <button
-                    type="button"
-                    className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              <MapToolbarShell
+                toolbarRef={mapToolbarRef}
+                layout={mapToolbarLayout}
+                primaryControls={
+                  <>
+                    <HelpTooltip
+                      section="propsphere"
+                      tooltip="Learn more about PropSphere"
+                    />
+                    <LayersPopover compact={mapToolbarLayout.iconOnly} />
+                    {propagationModelVisible && (
+                      <ReachMapControl
+                        enabled={reachMapEnabled}
+                        band={reachMapBand}
+                        personalized={reachMapState.personalized}
+                        onEnabledChange={setReachMapEnabled}
+                        onBandChange={setReachMapBand}
+                        onPersonalizedChange={setReachMapPersonalized}
+                        state={reachMapState}
+                        compact={mapToolbarLayout.iconOnly}
+                      />
+                    )}
+                  </>
+                }
+                renderSecondaryControls={({ closeMenu, inMenu }) => (
+                  <MapToolbarSecondaryControls
+                    activeProfile={localActiveProfile}
+                    activityPanelOpen={activityPanelOpen}
+                    closeMenu={closeMenu}
+                    inMenu={inMenu}
+                    onCyclePanelLayout={handleCyclePanelLayout}
+                    onEnterObservatory={() =>
+                      useMapStore.getState().enterObservatory()
+                    }
+                    onSelectProfile={setLocalActiveProfile}
+                    onToggleActivity={() =>
+                      setActivityPanelOpen((open) => !open)
+                    }
+                    panelLayoutActive={
                       leftPanelMode !== "full" || rightPanelMode !== "full"
-                        ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
-                        : "text-gray-300 hover:text-white hover:bg-white/10"
-                    }`}
-                    title={
+                    }
+                    panelLayoutTitle={
                       leftPanelMode === "full" && rightPanelMode === "full"
                         ? "Compact panels"
                         : leftPanelMode === "hidden" &&
@@ -1050,115 +1028,21 @@ export function PropSphere() {
                           ? "Reset panels"
                           : "Cycle panel layout"
                     }
-                    onClick={() => {
-                      const bothFull =
-                        leftPanelMode === "full" && rightPanelMode === "full";
-                      const bothMini =
-                        leftPanelMode === "mini" && rightPanelMode === "mini";
-
-                      if (bothFull) {
-                        // Full → Compact
-                        setLeftPanelLastWidth(leftPanelWidth);
-                        setRightPanelLastWidth(rightPanelWidth);
-                        setLeftPanelMode("mini");
-                        setRightPanelMode("mini");
-                      } else if (bothMini) {
-                        // Compact → Focus
-                        setLeftPanelMode("hidden");
-                        setRightPanelMode("hidden");
-                      } else {
-                        // Any mixed or hidden state → Reset to full
-                        setLeftPanelMode("full");
-                        setRightPanelMode("full");
-                        setLeftPanelWidth(leftPanelLastWidth);
-                        setRightPanelWidth(rightPanelLastWidth);
-                      }
-                    }}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="1" y="1" width="12" height="12" rx="1.5" />
-                      <line x1="4" y1="1" x2="4" y2="13" />
-                      <line x1="10" y1="1" x2="10" y2="13" />
-                    </svg>
-                    {!compactMapToolbar && "Panels"}
-                  </button>
-                )}
-
-                {/* Watch popover + inline status pill */}
-                <WatchPopover />
-                {!compactMapToolbar && <WatchStatusPill />}
-
-                {/* Cluster connection, alongside the spots it feeds */}
-                <ClusterPopover />
-
-                <button
-                  type="button"
-                  onClick={() => setActivityPanelOpen((open) => !open)}
-                  aria-expanded={activityPanelOpen}
-                  aria-controls="nearby-activity-map-drawer"
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    activityPanelOpen
-                      ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                  title="Find stations heard recently by band or exact frequency"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    aria-hidden="true"
-                  >
-                    <path d="M2 10.5h10M3.5 8V5.5M7 8V2.5M10.5 8V4" />
-                    <circle cx="3.5" cy="4.5" r="1" />
-                    <circle cx="7" cy="9" r="1" />
-                    <circle cx="10.5" cy="3" r="1" />
-                  </svg>
-                  {!compactMapToolbar && "Activity"}
-                </button>
-
-                </div>
-
-                <div
-                  className={`ml-auto flex shrink-0 items-center justify-end gap-2 ${
-                    stackedMapToolbar
-                      ? "w-full border-t border-white/5 pt-1"
-                      : ""
-                  }`}
-                >
-
-                {/* UTC / grid / system health. Re-homed here from the global
-                    masthead, which now hides them on /map — time and location
-                    describe what you are looking at, and the masthead copy was
-                    a second clock competing with TimeControl's. */}
-                  <MapStatusChip
-                    compact={compactMapToolbar}
-                    className="hidden md:flex flex-shrink-0 mr-1"
+                    showPanelControl={!compactFit}
                   />
-
-                  {/* Views stays outside the compressible control group so it
-                      remains reachable even with both side panels open. */}
+                )}
+                statusControls={<MapStatusChip className="flex shrink-0" />}
+                viewsControl={
                   <ViewsPopover
+                    compact={mapToolbarLayout.iconOnly}
                     onOpenManager={() => setShowPresetManager(true)}
                   />
-                </div>
-              </div>
+                }
+              />
 
               {/* Replay indicator (floating below toolbar) */}
               <div
-                className={`absolute ${stackedMapToolbar ? "top-20" : "top-12"} left-1/2 -translate-x-1/2 z-20`}
+                className={`absolute ${mapToolbarLayout.stacked ? "top-20" : "top-12"} left-1/2 -translate-x-1/2 z-20`}
               >
                 <ReplayIndicator
                   displayTime={displayTime}

@@ -1,15 +1,11 @@
-import { act, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MapStatusChip } from "./MapStatusChip";
 
-vi.mock("@/components/location/QuickLocationControl", () => ({
-  QuickLocationControl: ({ variant }: { variant?: string }) => (
-    <span data-testid="location-control">{variant ?? "grid"}</span>
-  ),
-}));
-
 vi.mock("@/components/ui/HealthStatusIndicator", () => ({
-  HealthStatusIndicator: () => <span data-testid="health-status" />,
+  HealthStatusIndicator: ({ compact }: { compact?: boolean }) => (
+    <span data-compact={String(compact)} data-testid="health-status" />
+  ),
 }));
 
 vi.mock("@/components/ui/SyncStatusIndicator", () => ({
@@ -24,29 +20,21 @@ vi.mock("@/components/ui/ConnectivityBadge", () => ({
   ConnectivityBadge: () => <span data-testid="connectivity-status" />,
 }));
 
-describe("MapStatusChip compact rendering", () => {
-  beforeEach(() => {
+describe("MapStatusChip", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("keeps system health compact without duplicating time or location", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-08-31T12:34:56Z"));
-  });
+    render(<MapStatusChip />);
 
-  it("keeps UTC, location, and health controls while removing secondary text", () => {
-    render(<MapStatusChip compact />);
-
-    expect(screen.getByText("12:34")).toBeTruthy();
+    expect(screen.getByLabelText("Map system status")).toBeTruthy();
     expect(screen.queryByText("UTC")).toBeNull();
-    expect(screen.getByTestId("location-control").textContent).toBe("icon");
-    expect(screen.getByTestId("health-status")).toBeTruthy();
+    expect(screen.queryByTitle("Current UTC time")).toBeNull();
+    expect(screen.queryByTestId("location-control")).toBeNull();
+    expect(screen.getByTestId("health-status").dataset.compact).toBe("true");
     expect(screen.getByTestId("sync-status")).toBeTruthy();
     expect(screen.getByTestId("conflict-status")).toBeTruthy();
     expect(screen.getByTestId("connectivity-status")).toBeTruthy();
-  });
-
-  it("continues updating the compact minute clock", () => {
-    render(<MapStatusChip compact />);
-    expect(screen.getByText("12:34")).toBeTruthy();
-
-    act(() => vi.advanceTimersByTime(4000));
-    expect(screen.getByText("12:35")).toBeTruthy();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

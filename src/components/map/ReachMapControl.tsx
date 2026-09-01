@@ -19,6 +19,7 @@ export function ReachMapControl({
   onBandChange,
   onPersonalizedChange,
   state,
+  compact = false,
 }: {
   enabled: boolean;
   band: string;
@@ -28,6 +29,7 @@ export function ReachMapControl({
   onBandChange: (band: string) => void;
   onPersonalizedChange: (personalized: boolean) => void;
   state: ReachMapSurfaceState;
+  compact?: boolean;
 }) {
   if (!enabled) {
     return (
@@ -36,9 +38,10 @@ export function ReachMapControl({
         onClick={() => onEnabledChange(true)}
         className={`${floating ? "absolute right-3 top-3 z-30 border border-white/15 bg-void-black/90 shadow-lg backdrop-blur-md" : ""} flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors`}
         title="Show model reach probability"
+        aria-label="Show ReachMap model probability"
       >
         <RadioTower size={14} aria-hidden="true" />
-        ReachMap
+        {!compact && "ReachMap"}
       </button>
     );
   }

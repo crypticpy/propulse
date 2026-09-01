@@ -6,6 +6,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUserStore } from "@/stores/userStore";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { KioskQr } from "@/components/kiosk/KioskQr";
+import { LayoutModeDropdown } from "@/components/map/LayoutModeDropdown";
 import { shouldDimWallDisplay } from "@/lib/kiosk/wallPresentation";
 import type { KioskHeaderScale } from "@/stores/kioskStore";
 import type { SolarAlert } from "@/types/alerts";
@@ -196,6 +197,10 @@ export function KioskChrome() {
           controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
+        <LayoutModeDropdown
+          align="right"
+          className="bg-void-black/80 backdrop-blur-md rounded-lg"
+        />
         <button
           onClick={() => goToScene(-1)}
           className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-white/15 text-gray-200 hover:bg-white/10 text-sm font-mono"
@@ -221,7 +226,7 @@ export function KioskChrome() {
           onClick={exitKiosk}
           className="px-3 py-1.5 rounded-lg bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 text-sm font-medium"
         >
-          Exit kiosk
+          Exit wall
         </button>
       </div>
 

@@ -20,6 +20,7 @@ import { TimeControl } from "@/components/map/TimeControl";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { WatchPopover } from "@/components/map/WatchPopover";
 import { RegionPresetSelector } from "@/components/map/RegionPresetSelector";
+import { LayoutModeDropdown } from "@/components/map/LayoutModeDropdown";
 
 /* ─── Props ──────────────────────────────────────────────────── */
 
@@ -292,7 +293,7 @@ export function ProToolbarRibbon({
   if (!proRibbonExpanded) {
     return (
       <div
-        className={`fixed top-3 left-3 z-[211] transition-opacity duration-300 ${ambientOpacity}`}
+        className={`fixed top-3 left-3 z-[211] flex items-start gap-2 transition-opacity duration-300 ${ambientOpacity}`}
       >
         <button
           type="button"
@@ -318,6 +319,10 @@ export function ProToolbarRibbon({
           <span className="text-white/30">&middot;</span>
           <span className="text-cyan-400 text-xs">{spots.length} spots</span>
         </button>
+        <LayoutModeDropdown
+          compact
+          className="pointer-events-auto bg-black/60 backdrop-blur-md rounded-lg"
+        />
       </div>
     );
   }
@@ -356,7 +361,12 @@ export function ProToolbarRibbon({
 
         <Divider />
 
-        {/* ── 2. Station info ─────────────────────────────────── */}
+        {/* ── 2. Display mode switcher ────────────────────────── */}
+        <LayoutModeDropdown compact={isCompact} className="flex-shrink-0" />
+
+        <Divider />
+
+        {/* ── 3. Station info ─────────────────────────────────── */}
         {station && (
           <>
             <div className="flex items-center gap-2 flex-shrink-0">

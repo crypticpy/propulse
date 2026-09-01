@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { HamClockView } from "./HamClockView";
 
@@ -6,6 +7,8 @@ vi.mock("@/stores/mapStore", () => ({
   useMapStore: Object.assign(
     (selector: (state: Record<string, unknown>) => unknown) =>
       selector({
+        layoutMode: "hamclock",
+        setLayoutMode: vi.fn(),
         viewMode: "flat",
         setViewMode: vi.fn(),
         target: null,
@@ -96,7 +99,11 @@ vi.mock("./DXNewsTicker", () => ({
 
 describe("HamClockView", () => {
   it("keeps the alert and news crawl mounted below the wall display", () => {
-    render(<HamClockView displayTime={new Date(0)} />);
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
 
     const crawl = screen.getByRole("marquee", { name: /alert crawl/i });
     expect(crawl.parentElement?.style.gridArea).toBe("ticker");

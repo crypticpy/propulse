@@ -1,9 +1,9 @@
 # PropSphere Production Integration Plan
 
 Status: active production stabilization and ordered release in progress. PRs
-#113, #114, #117, and #119 are live. PR #118 is in exact-head rereview after
-trace lifecycle fixes. Hover/details, #115, and #116 remain outside production
-until their ordered reviews, merges, deployments, and live verification finish.
+#113, #114, #117, #119, and #118 are live. Hover/details, #115, and #116 remain
+outside production until their ordered reviews, merges, deployments, and live
+verification finish.
 
 Owner: PropSphere
 Last updated: 2026-09-01
@@ -181,9 +181,10 @@ or preview deployment by itself is not a production result.
   deployment `dpl_FDyQEVRpNPKTHpnU749TW1gQieqG` cloned that exact commit,
   completed without the prior RSS TS2345 diagnostic, reached Ready, and owns
   `propulse.cloud`.
-- #118 trace/endpoints: open at `8da60b74`; complete tests, lint, production
-  build, and bundle budgets pass locally. Merge and production evidence remain
-  pending exact-head bot rereview.
+- #118 trace/endpoints: squash merge `2256e92`; Vercel production deployment
+  `dpl_CYeZDV7PCiGaWYxqW8iqub4WBQbi` cloned that exact `main` commit, reached
+  Ready, and owns `propulse.cloud`. The PR head was `276f6318`; the different
+  production SHA is the expected result of the squash merge.
 - Authenticated 3840x2160 pointer verification remains a separate final gate;
   public automation currently reaches the invite login rather than the map.
 

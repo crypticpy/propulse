@@ -71,6 +71,11 @@ import {
   type ActivationPillScreenPlacement,
 } from "@/lib/map/activationMarkers";
 import { ActivationPillButtons } from "./layers/ActivationPillButtons";
+import { AzimuthalSpotPillButtons } from "./layers/AzimuthalSpotPillButtons";
+import {
+  sameAzimuthalSpotPillScreenPlacements,
+  type AzimuthalSpotPillScreenPlacement,
+} from "@/lib/map/azimuthalSpotPillPlacement";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
@@ -635,6 +640,11 @@ interface AzimuthalSpotPillBox {
   height: number;
 }
 
+interface AzimuthalSpotPillCanvasPlacement {
+  spot: LiveSpot;
+  bounds: AzimuthalSpotPillBox;
+}
+
 function spotPillBoxesOverlap(
   left: AzimuthalSpotPillBox,
   right: AzimuthalSpotPillBox,
@@ -686,10 +696,11 @@ function drawSpotCallsignPills(
   highViz: boolean,
   zoom: number,
   spotDotScale: number,
-) {
+): AzimuthalSpotPillCanvasPlacement[] {
   const zoomDamp = Math.max(0.5, zoom);
   const viewport = getCenteredZoomViewport(CANVAS_SIZE, zoomDamp, 2);
   const placed: AzimuthalSpotPillBox[] = [];
+  const placements: AzimuthalSpotPillCanvasPlacement[] = [];
   const endpointRadius = Math.round(4 * spotDotScale) + 2 / zoomDamp;
   const endpointZones = spots.flatMap((spot) =>
     [
@@ -763,6 +774,7 @@ function drawSpotCallsignPills(
 
     callsigns.add(spot.callsign);
     placed.push(box);
+    placements.push({ spot: spot.originalSpot, bounds: box });
     const bandColor = spot.frequency
       ? getBandColor(spot.frequency)
       : getSpotColor(spot, "band");
@@ -805,6 +817,7 @@ function drawSpotCallsignPills(
   }
 
   ctx.restore();
+  return placements;
 }
 
 /**
@@ -1517,6 +1530,9 @@ export function AzimuthalView({
   const [glowTick, setGlowTick] = useState(0);
   const [activationPillPlacements, setActivationPillPlacements] = useState<
     ActivationPillScreenPlacement[]
+  >([]);
+  const [spotPillPlacements, setSpotPillPlacements] = useState<
+    AzimuthalSpotPillScreenPlacement[]
   >([]);
   const [hoveredSpotData, setHoveredSpotData] = useState<{
     spot: PresentableSpot;
@@ -2247,7 +2263,7 @@ export function AzimuthalView({
         spotDotScale,
       );
       if (layers.spots && showSpotCallsignLabels) {
-        drawSpotCallsignPills(
+        const placements = drawSpotCallsignPills(
           ctx,
           resolvedSpots,
           center.lat,
@@ -2257,7 +2273,28 @@ export function AzimuthalView({
           zoom,
           spotDotScale,
         );
+        const cssScale = displaySize / CANVAS_SIZE;
+        const screenPlacements = placements.map(({ spot, bounds }) => ({
+          spot,
+          left: (CENTER + (bounds.x - CENTER) * zoom) * cssScale,
+          top: (CENTER + (bounds.y - CENTER) * zoom) * cssScale,
+          width: bounds.width * zoom * cssScale,
+          height: bounds.height * zoom * cssScale,
+        }));
+        setSpotPillPlacements((current) =>
+          sameAzimuthalSpotPillScreenPlacements(current, screenPlacements)
+            ? current
+            : screenPlacements,
+        );
+      } else {
+        setSpotPillPlacements((current) =>
+          current.length === 0 ? current : [],
+        );
       }
+    } else {
+      setSpotPillPlacements((current) =>
+        current.length === 0 ? current : [],
+      );
     }
 
     if (layers.activations && activationSpots.length > 0) {
@@ -2430,10 +2467,23 @@ export function AzimuthalView({
       {layers.activations && (
         <div
           className="pointer-events-none absolute"
-          style={{ width: displaySize, height: displaySize }}
+          style={{ width: displaySize, height: displaySize, zIndex: 2 }}
         >
           <ActivationPillButtons
             placements={activationPillPlacements}
+            onSpotHover={handleSpotHover}
+            onSpotHoverEnd={scheduleSpotHoverDismiss}
+            onSpotSelect={handleMapSpotSelect}
+          />
+        </div>
+      )}
+      {layers.spots && showSpotCallsignLabels && (
+        <div
+          className="pointer-events-none absolute"
+          style={{ width: displaySize, height: displaySize, zIndex: 1 }}
+        >
+          <AzimuthalSpotPillButtons
+            placements={spotPillPlacements}
             onSpotHover={handleSpotHover}
             onSpotHoverEnd={scheduleSpotHoverDismiss}
             onSpotSelect={handleMapSpotSelect}

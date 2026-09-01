@@ -155,7 +155,6 @@ describe("SpotEndpointHitArea selection", () => {
         lat={-22.5}
         lon={-43}
         spot={resolvedSpot()}
-        spotData={{ dxGrid: "GG87" }}
         onHover={vi.fn()}
         onHoverEnd={inactiveHoverEnd}
       />,
@@ -169,7 +168,6 @@ describe("SpotEndpointHitArea selection", () => {
         lat={-22.5}
         lon={-43}
         spot={resolvedSpot()}
-        spotData={{ dxGrid: "GG87" }}
         onHover={vi.fn()}
         onHoverEnd={activeHoverEnd}
       />,

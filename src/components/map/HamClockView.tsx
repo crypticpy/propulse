@@ -34,6 +34,7 @@ import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { HamClockSidebar } from "./hamclock/HamClockSidebar";
 import { HamClockInfoPanel } from "./hamclock/HamClockInfoPanel";
 import { HamClockSpotsSidebar } from "./hamclock/HamClockSpotsSidebar";
+import { LayoutModeDropdown } from "./LayoutModeDropdown";
 import { HamClockBestBandHero } from "./hamclock/HamClockBestBandHero";
 import { HamClockProjectionSwitch } from "./hamclock/HamClockProjectionSwitch";
 import { HamClockContestsPanel } from "./hamclock/HamClockContestsPanel";
@@ -656,8 +657,9 @@ export function HamClockView({
         className="flex items-center justify-between px-3 border-b border-white/10"
         style={{ gridArea: "header" }}
       >
-        {/* Left: sidebar toggle + station callsign */}
+        {/* Left: display mode + sidebar toggle + station callsign */}
         <div className="flex items-center gap-2 min-w-0">
+          <LayoutModeDropdown className="shrink-0" />
           <button
             onClick={toggleLeft}
             className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"

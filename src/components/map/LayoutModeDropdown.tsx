@@ -1,21 +1,42 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMapStore, type LayoutMode } from "@/stores/mapStore";
+import { useKioskStore } from "@/stores/kioskStore";
 
 interface LayoutModeDropdownProps {
   className?: string;
+  align?: "left" | "right";
+  compact?: boolean;
 }
 
-interface ModeOption {
+interface LayoutOption {
+  id: LayoutMode;
+  kind: "layout";
   mode: LayoutMode;
   label: string;
   description: string;
   icon: React.ReactNode;
+  dividerBefore?: boolean;
 }
+
+interface DestinationOption {
+  id: "wall" | "displays";
+  kind: "destination";
+  path: "/kiosk" | "/displays";
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  dividerBefore?: boolean;
+}
+
+type DisplayOption = LayoutOption | DestinationOption;
 
 const ICON_SIZE = 16;
 
-const modeOptions: ModeOption[] = [
+const displayOptions: DisplayOption[] = [
   {
+    id: "normal",
+    kind: "layout",
     mode: "normal",
     label: "Normal",
     description: "Full dashboard",
@@ -36,6 +57,8 @@ const modeOptions: ModeOption[] = [
     ),
   },
   {
+    id: "lite",
+    kind: "layout",
     mode: "lite",
     label: "Lite",
     description: "Maximum map",
@@ -54,6 +77,8 @@ const modeOptions: ModeOption[] = [
     ),
   },
   {
+    id: "pro",
+    kind: "layout",
     mode: "pro",
     label: "Pro",
     description: "Immersive fullscreen",
@@ -71,6 +96,8 @@ const modeOptions: ModeOption[] = [
     ),
   },
   {
+    id: "hamclock",
+    kind: "layout",
     mode: "hamclock",
     label: "HamClock",
     description: "Dense info display",
@@ -89,16 +116,70 @@ const modeOptions: ModeOption[] = [
       </svg>
     ),
   },
+  {
+    id: "wall",
+    kind: "destination",
+    path: "/kiosk",
+    label: "Wall Display",
+    description: "Launch or configure scenes",
+    dividerBefore: true,
+    icon: (
+      <svg
+        width={ICON_SIZE}
+        height={ICON_SIZE}
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <rect x="1" y="2" width="14" height="10" rx="1.5" />
+        <path d="M5 15h6M8 12v3" />
+        <path d="M3.5 4.5h9v5h-9z" />
+      </svg>
+    ),
+  },
+  {
+    id: "displays",
+    kind: "destination",
+    path: "/displays",
+    label: "Configure Displays",
+    description: "Manage paired screens",
+    icon: (
+      <svg
+        width={ICON_SIZE}
+        height={ICON_SIZE}
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <rect x="1" y="2" width="9" height="7" rx="1" />
+        <rect x="6" y="7" width="9" height="7" rx="1" />
+        <path d="M4 12.5l1.25-1.25M12 4.5l-1.25 1.25" />
+      </svg>
+    ),
+  },
 ];
 
-export function LayoutModeDropdown({ className }: LayoutModeDropdownProps) {
+export function LayoutModeDropdown({
+  className,
+  align = "left",
+  compact = false,
+}: LayoutModeDropdownProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const layoutMode = useMapStore((s) => s.layoutMode);
   const setLayoutMode = useMapStore((s) => s.setLayoutMode);
+  const isKiosk = useKioskStore((s) => s.active);
+  const stopKiosk = useKioskStore((s) => s.stop);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const activeOption =
-    modeOptions.find((o) => o.mode === layoutMode) ?? modeOptions[0];
+  const activeOption = isKiosk
+    ? displayOptions.find((option) => option.id === "wall")!
+    : displayOptions.find(
+        (option) => option.kind === "layout" && option.mode === layoutMode,
+      )!;
 
   // Close on click outside
   useEffect(() => {
@@ -118,18 +199,34 @@ export function LayoutModeDropdown({ className }: LayoutModeDropdownProps) {
   // Close on Escape
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) setOpen(false);
+      if (e.key === "Escape" && open) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
     },
     [open],
   );
 
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [handleKeyDown]);
 
   function selectMode(mode: LayoutMode) {
+    if (isKiosk) stopKiosk();
     setLayoutMode(mode);
+    if (location.pathname !== "/map") navigate("/map");
+    setOpen(false);
+  }
+
+  function selectDestination(option: DestinationOption) {
+    if (option.id === "wall" && isKiosk) {
+      setOpen(false);
+      return;
+    }
+    if (isKiosk) stopKiosk();
+    navigate(option.path);
     setOpen(false);
   }
 
@@ -139,12 +236,17 @@ export function LayoutModeDropdown({ className }: LayoutModeDropdownProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 hover:border-white/20 text-gray-300 hover:text-white transition-colors"
-        aria-haspopup="listbox"
+        className={`flex items-center gap-2 rounded-lg bg-white/[0.03] border border-white/10 hover:border-white/20 text-gray-300 hover:text-white transition-colors ${
+          compact ? "p-2" : "px-3 py-1.5"
+        }`}
+        aria-label={compact ? `Display mode: ${activeOption.label}` : undefined}
+        aria-haspopup="menu"
         aria-expanded={open}
       >
         {activeOption.icon}
-        <span className="text-xs font-medium">{activeOption.label}</span>
+        {!compact && (
+          <span className="text-xs font-medium">{activeOption.label}</span>
+        )}
         <svg
           width="10"
           height="10"
@@ -152,7 +254,7 @@ export function LayoutModeDropdown({ className }: LayoutModeDropdownProps) {
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
-          className={`transition-transform ${open ? "rotate-180" : ""}`}
+          className={`transition-transform ${compact ? "hidden" : ""} ${open ? "rotate-180" : ""}`}
         >
           <path d="M2 4l3 3 3-3" />
         </svg>
@@ -161,37 +263,52 @@ export function LayoutModeDropdown({ className }: LayoutModeDropdownProps) {
       {/* Popover */}
       {open && (
         <div
-          role="listbox"
-          aria-label="Layout mode"
-          className="absolute top-full left-0 mt-1.5 min-w-[200px] z-50 rounded-lg bg-void-black/90 backdrop-blur-md border border-white/10 shadow-xl py-1"
+          role="menu"
+          aria-label="Display mode"
+          className={`absolute top-full mt-1.5 min-w-[230px] z-[260] rounded-lg bg-void-black/95 backdrop-blur-md border border-white/10 shadow-xl py-1 ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
         >
-          {modeOptions.map((opt) => {
-            const isActive = opt.mode === layoutMode;
+          {displayOptions.map((opt) => {
+            const isActive =
+              opt.kind === "layout"
+                ? !isKiosk && opt.mode === layoutMode
+                : (opt.id === "wall" && isKiosk) ||
+                  (opt.id === "displays" && location.pathname === "/displays");
             return (
-              <button
-                key={opt.mode}
-                type="button"
-                role="option"
-                aria-selected={isActive}
-                onClick={() => selectMode(opt.mode)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
-                  isActive
-                    ? "bg-plasma-orange/10 text-plasma-orange border-l-2 border-plasma-orange"
-                    : "text-gray-300 hover:text-white hover:bg-white/5 border-l-2 border-transparent"
-                }`}
-              >
-                <span className="shrink-0">{opt.icon}</span>
-                <span className="flex flex-col min-w-0">
-                  <span className="text-xs font-medium leading-tight">
-                    {opt.label}
+              <div key={opt.id}>
+                {opt.dividerBefore && (
+                  <div className="h-px bg-white/10 my-1" aria-hidden="true" />
+                )}
+                <button
+                  type="button"
+                  role={opt.kind === "layout" ? "menuitemradio" : "menuitem"}
+                  aria-checked={opt.kind === "layout" ? isActive : undefined}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() =>
+                    opt.kind === "layout"
+                      ? selectMode(opt.mode)
+                      : selectDestination(opt)
+                  }
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                    isActive
+                      ? "bg-plasma-orange/10 text-plasma-orange border-l-2 border-plasma-orange"
+                      : "text-gray-300 hover:text-white hover:bg-white/5 border-l-2 border-transparent"
+                  }`}
+                >
+                  <span className="shrink-0">{opt.icon}</span>
+                  <span className="flex flex-col min-w-0">
+                    <span className="text-xs font-medium leading-tight">
+                      {opt.label}
+                    </span>
+                    <span
+                      className={`text-[10px] leading-tight ${isActive ? "text-plasma-orange/70" : "text-gray-500"}`}
+                    >
+                      {opt.description}
+                    </span>
                   </span>
-                  <span
-                    className={`text-[10px] leading-tight ${isActive ? "text-plasma-orange/70" : "text-gray-500"}`}
-                  >
-                    {opt.description}
-                  </span>
-                </span>
-              </button>
+                </button>
+              </div>
             );
           })}
         </div>

@@ -1029,7 +1029,7 @@ export function PropSphere() {
                           ? "Reset panels"
                           : "Cycle panel layout"
                     }
-                    showPanelControl={!compactFit}
+                    showPanelControl
                   />
                 )}
                 statusControls={<MapStatusChip className="flex shrink-0" />}

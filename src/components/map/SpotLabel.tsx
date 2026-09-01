@@ -18,6 +18,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.000002;
@@ -55,9 +56,13 @@ export interface SpotLabelProps {
    */
   occlusionOpacity?: number;
   /** Called when mouse enters this label */
-  onHover?: (screenPos: { x: number; y: number }) => void;
+  onHover?: (screenPos: ScreenAnchor) => void;
   /** Called when mouse leaves this label */
   onHoverEnd?: () => void;
+  /** Selects this spot and opens its canonical detail surface. */
+  onSelect?: (screenPos: ScreenAnchor) => void;
+  /** Keeps the selected target visually elevated after hover ends. */
+  selected?: boolean;
   /** Called when this label is clicked or keyboard-activated. */
   onClick?: () => void;
 }
@@ -121,6 +126,8 @@ export function SpotLabel({
   occlusionOpacity = 1.0,
   onHover,
   onHoverEnd,
+  onSelect,
+  selected = false,
   onClick,
 }: SpotLabelProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -148,7 +155,9 @@ export function SpotLabel({
   // Combined opacity: age-based decay multiplied by globe occlusion
   const combinedOpacity = opacity * occlusionOpacity;
   const isVisible = combinedOpacity >= 0.05;
-  const isInteractive = Boolean(onClick) && isVisible;
+  const isInteractive = Boolean(onSelect || onClick) && isVisible;
+  const receivesPointer =
+    Boolean(onHover || onHoverEnd || onSelect || onClick) && isVisible;
 
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
@@ -159,7 +168,13 @@ export function SpotLabel({
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent) => {
       setIsHovered(true);
-      onHover?.({ x: e.clientX, y: e.clientY });
+      const rect = e.currentTarget.getBoundingClientRect();
+      onHover?.({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      });
     },
     [onHover],
   );
@@ -168,6 +183,71 @@ export function SpotLabel({
     setIsHovered(false);
     onHoverEnd?.();
   }, [onHoverEnd]);
+
+  const handleFocus = useCallback(
+    (event: React.FocusEvent<HTMLButtonElement>) => {
+      setIsHovered(true);
+      const rect = event.currentTarget.getBoundingClientRect();
+      onHover?.({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      });
+    },
+    [onHover],
+  );
+
+  const handleBlur = useCallback(() => {
+    setIsHovered(false);
+    onHoverEnd?.();
+  }, [onHoverEnd]);
+
+  const stopInteraction = useCallback((event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  }, []);
+
+  const selectAtElement = useCallback(
+    (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      onSelect?.({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      });
+      onClick?.();
+    },
+    [onClick, onSelect],
+  );
+
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isInteractive) selectAtElement(event.currentTarget);
+    },
+    [isInteractive, selectAtElement],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (
+        isInteractive &&
+        (event.key === "Enter" || event.key === " ")
+      ) {
+        event.preventDefault();
+        selectAtElement(event.currentTarget);
+      }
+    },
+    [isInteractive, selectAtElement],
+  );
+
+  const handleDoubleClick = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
 
   if (!hasValidCoords) {
     return null;
@@ -178,6 +258,62 @@ export function SpotLabel({
 
   // Text opacity fades with age/occlusion but underline stays fully bright
   const textOpacity = Math.max(combinedOpacity, 0.35);
+  const labelStyle: React.CSSProperties = {
+    cursor: isInteractive ? "pointer" : receivesPointer ? "default" : "inherit",
+    color:
+      isHovered || selected
+        ? "rgba(255, 255, 255, 1)"
+        : `rgba(255, 255, 255, ${textOpacity})`,
+    backgroundColor:
+      isHovered || selected
+        ? "rgba(10, 10, 26, 0.95)"
+        : `rgba(10, 10, 26, ${0.88 * textOpacity})`,
+    borderBottom: `3px solid ${underlineColor}`,
+    borderRadius: "4px 4px 0 0",
+    boxShadow:
+      isHovered || selected
+        ? `0 3px 0 ${underlineColor}, 0 0 12px ${underlineColor}80, 0 6px 16px rgba(0,0,0,0.7)`
+        : `0 3px 0 ${underlineColor}, 0 5px 10px rgba(0,0,0,0.5)`,
+    textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+    letterSpacing: "0.03em",
+    lineHeight: 1.2,
+    transform: isHovered
+      ? "scale(1.2)"
+      : selected
+        ? "scale(1.15)"
+        : "scale(1)",
+    transformOrigin: "center bottom",
+    transition:
+      "transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, color 0.15s ease-out",
+  };
+  const labelContent = (
+    <>
+      {callsign}
+      {frequency && (
+        <span
+          className="ml-1"
+          style={{
+            fontSize: "0.9em",
+            opacity: isHovered || selected ? 0.9 : 0.75,
+          }}
+        >
+          {formatFrequency(frequency)}
+        </span>
+      )}
+      {badge && (
+        <span
+          className="ml-1 rounded-sm px-1 py-px"
+          style={{
+            fontSize: "0.72em",
+            color: underlineColor,
+            backgroundColor: `${underlineColor}1f`,
+          }}
+        >
+          {badge}
+        </span>
+      )}
+    </>
+  );
 
   return (
     <Html
@@ -185,11 +321,11 @@ export function SpotLabel({
       center
       // When hovered, boost z-index so this label renders above all others
       // in the stack. Default [1,0] keeps non-hovered labels in paint order.
-      zIndexRange={isHovered ? [9000, 8999] : [1, 0]}
+      zIndexRange={isHovered || selected ? [9000, 8999] : [1, 0]}
       style={{
         // Hidden far-side labels must not remain hoverable or clickable through
         // the globe. Visible labels still accept hover even without onClick.
-        pointerEvents: isVisible ? "auto" : "none",
+        pointerEvents: receivesPointer ? "auto" : "none",
         userSelect: "none",
         transition: "opacity 0.3s ease",
         transform: stackOffsetY ? `translateY(${stackOffsetY}px)` : undefined,
@@ -197,80 +333,42 @@ export function SpotLabel({
         opacity: isVisible ? 1 : 0,
       }}
     >
-      <div
-        className={`
-          font-mono font-bold whitespace-nowrap
-          ${sizeClasses}
-        `}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onClick={isInteractive ? onClick : undefined}
-        onKeyDown={(event) => {
-          if (
-            !isInteractive ||
-            (event.key !== "Enter" && event.key !== " ")
-          ) {
-            return;
+      {isInteractive ? (
+        <button
+          type="button"
+          className={`appearance-none border-0 font-mono font-bold whitespace-nowrap ${sizeClasses}`}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onPointerDown={stopInteraction}
+          onPointerUp={stopInteraction}
+          onTouchStart={stopInteraction}
+          onTouchEnd={stopInteraction}
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
+          onKeyDown={handleKeyDown}
+          onKeyUp={stopInteraction}
+          aria-label={
+            ariaLabel ??
+            (onSelect ? `Select ${callsign} as target` : `${callsign} spot`)
           }
-          event.preventDefault();
-          onClick?.();
-        }}
-        role={isInteractive ? "button" : undefined}
-        tabIndex={isInteractive ? 0 : undefined}
-        aria-label={ariaLabel}
-        aria-hidden={isVisible ? undefined : true}
-        // DO NOT CHANGE — this underline styling is precisely tuned.
-        // The 3px solid borderBottom + full-opacity boxShadow glow keeps
-        // the band-color bar vivid regardless of age/occlusion fade.
-        // Flat bottom radius (4px 4px 0 0) ensures edge-to-edge coverage.
-        style={{
-          cursor: "pointer",
-          color: isHovered
-            ? "rgba(255, 255, 255, 1)"
-            : `rgba(255, 255, 255, ${textOpacity})`,
-          backgroundColor: isHovered
-            ? "rgba(10, 10, 26, 0.95)"
-            : `rgba(10, 10, 26, ${0.88 * textOpacity})`,
-          borderBottom: `3px solid ${underlineColor}`,
-          borderRadius: "4px 4px 0 0",
-          boxShadow: isHovered
-            ? `0 3px 0 ${underlineColor}, 0 0 12px ${underlineColor}80, 0 6px 16px rgba(0,0,0,0.7)`
-            : `0 3px 0 ${underlineColor}, 0 5px 10px rgba(0,0,0,0.5)`,
-          textShadow: "0 1px 2px rgba(0,0,0,0.8)",
-          letterSpacing: "0.03em",
-          lineHeight: 1.2,
-          // Smooth scale + shadow transitions; z-index change is instant
-          transform: isHovered ? "scale(1.15)" : "scale(1)",
-          transformOrigin: "center bottom",
-          transition:
-            "transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, color 0.15s ease-out",
-        }}
-      >
-        {callsign}
-        {frequency && (
-          <span
-            className="ml-1"
-            style={{
-              fontSize: "0.9em",
-              opacity: isHovered ? 0.9 : 0.75,
-            }}
-          >
-            {formatFrequency(frequency)}
-          </span>
-        )}
-        {badge && (
-          <span
-            className="ml-1 rounded-sm px-1 py-px"
-            style={{
-              fontSize: "0.72em",
-              color: underlineColor,
-              backgroundColor: `${underlineColor}1f`,
-            }}
-          >
-            {badge}
-          </span>
-        )}
-      </div>
+          aria-pressed={onSelect ? selected : undefined}
+          style={labelStyle}
+        >
+          {labelContent}
+        </button>
+      ) : (
+        <span
+          className={`block font-mono font-bold whitespace-nowrap ${sizeClasses}`}
+          onMouseEnter={receivesPointer ? handleMouseEnter : undefined}
+          onMouseLeave={receivesPointer ? handleMouseLeave : undefined}
+          aria-hidden="true"
+          style={labelStyle}
+        >
+          {labelContent}
+        </span>
+      )}
     </Html>
   );
 }

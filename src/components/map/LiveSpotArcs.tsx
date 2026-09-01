@@ -50,6 +50,7 @@ import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { getArcOpacity } from "@/lib/map/arcAppearance";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -413,10 +414,12 @@ interface LiveSpotArcsProps {
   /** Callback when a spot is hovered */
   onSpotHover?: (
     data: SpotDetailsData,
-    screenPos: { x: number; y: number },
+    screenPos: ScreenAnchor,
   ) => void;
   /** Callback when spot hover ends */
   onSpotHoverEnd?: () => void;
+  /** Callback when a spot label or endpoint is selected. */
+  onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   /** Callback when a cluster is clicked */
   onClusterClick?: (
     cluster: SpotClusterData,
@@ -712,6 +715,7 @@ export function LiveSpotArcs({
   maxArcs: maxArcsProp,
   onSpotHover,
   onSpotHoverEnd,
+  onSpotSelect,
   onClusterClick,
 }: LiveSpotArcsProps) {
   // Use displayDensity from mapStore, falling back to prop, then default 50
@@ -719,6 +723,7 @@ export function LiveSpotArcs({
   const maxArcs = maxArcsProp ?? displayDensity ?? 50;
   // Get source filter from dxStore - shared with DXSpotList
   const filters = useDXStore((state) => state.filters);
+  const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
   const sourcesFilter = filters.sources as SpotSource[] | undefined;
 
   // Get profile-based spot filters from mapStore
@@ -963,12 +968,20 @@ export function LiveSpotArcs({
                                   source: spot.source,
                                   snr: orig?.snr,
                                   wpm: orig?.wpm,
+                                  comment: orig?.comment,
+                                  dxLocApprox: spot.dxLocApprox,
                                 },
                                 screenPos,
                               )
                           : undefined
                       }
                       onHoverEnd={onSpotHoverEnd}
+                      selected={orig?.id === selectedSpotId}
+                      onSelect={
+                        onSpotSelect && orig
+                          ? (screenPos) => onSpotSelect(orig, screenPos)
+                          : undefined
+                      }
                     />
                   );
                 })()}
@@ -996,7 +1009,7 @@ export function LiveSpotArcs({
                   );
                 })()}
               {/* Hit area for hover detection at DX location */}
-              {onSpotHover && (
+              {(onSpotHover || (onSpotSelect && orig)) && (
                 <SpotEndpointHitArea
                   lat={spot.dxLat}
                   lon={spot.dxLon}
@@ -1008,10 +1021,17 @@ export function LiveSpotArcs({
                     band: orig?.band,
                     snr: orig?.snr,
                     wpm: orig?.wpm,
+                    comment: orig?.comment,
+                    dxLocApprox: spot.dxLocApprox,
                   }}
                   hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
                   onHover={onSpotHover}
                   onHoverEnd={onSpotHoverEnd}
+                  onSelect={
+                    onSpotSelect && orig
+                      ? (screenPos) => onSpotSelect(orig, screenPos)
+                      : undefined
+                  }
                 />
               )}
             </group>

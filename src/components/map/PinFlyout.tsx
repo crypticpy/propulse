@@ -36,6 +36,8 @@ export interface PinFlyoutProps {
   currentTargetGrid?: string;
   /** Callback to set this pin as path analysis target */
   onSetTarget: (lat: number, lon: number, grid: string) => void;
+  /** Select a recent spot through the canonical map details flow. */
+  onSpotSelect?: (spot: DXSpot, position: { x: number; y: number }) => void;
   /** Callback to open pin editor */
   onEditPin: (pin: MapPin) => void;
   /** Callback to delete this pin */
@@ -149,6 +151,7 @@ export function PinFlyout({
   spots,
   currentTargetGrid,
   onSetTarget,
+  onSpotSelect,
   onEditPin,
   onDeletePin,
   onClose,
@@ -534,9 +537,16 @@ export function PinFlyout({
         {nearbySpots.length > 0 ? (
           <div className="space-y-0.5">
             {nearbySpots.map((spot) => (
-              <div
+              <button
+                type="button"
                 key={spot.id}
-                className="flex items-center justify-between text-[11px] leading-tight"
+                disabled={!onSpotSelect}
+                onClick={() => {
+                  onSpotSelect?.(spot, position);
+                  onClose();
+                }}
+                className="flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px] leading-tight hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 disabled:pointer-events-none"
+                aria-label={`Select ${spot.dx} and view details`}
               >
                 <span className="text-white font-mono truncate max-w-[80px]">
                   {spot.dx}
@@ -553,7 +563,7 @@ export function PinFlyout({
                 <span className="text-gray-500 text-[10px]">
                   {formatSpotAge(spot.time)}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         ) : (

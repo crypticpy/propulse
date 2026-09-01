@@ -13,4 +13,6 @@ interface ImportMetaEnv {
   readonly VITE_SPOT_HISTORY_REALTIME_TABLE?:
     | "spot_history"
     | "spot_history_partitioned_v1";
+  readonly VITE_GOOGLE_PHOTOREALISTIC_3D_ENABLED?: string;
+  readonly VITE_GOOGLE_PHOTOREALISTIC_MAX_DPR?: string;
 }

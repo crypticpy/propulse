@@ -18,4 +18,16 @@ describe("getXYZTilePluginOptions", () => {
     expect(options.levels).toBe(23);
     expect(options.tileDimension).toBe(512);
   });
+
+  it("marks satellite providers as de-clouded mosaics with explicit provenance", () => {
+    const free = ALL_PROVIDERS["esri-world"];
+    const pro = ALL_PROVIDERS["mapbox-satellite"];
+
+    expect(free.surfaceKind).toBe("declouded-mosaic");
+    expect(free.attributionUrl).toMatch(/^https:/);
+    expect(pro.surfaceKind).toBe("declouded-mosaic");
+    expect(pro.requiresPro).toBe(true);
+    expect(pro.authentication).toBe("bearer");
+    expect(pro.fallbackProviderId).toBe("esri-world");
+  });
 });

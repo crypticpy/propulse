@@ -1025,6 +1025,10 @@ export function LiveSpotArcs({
                     dxLocApprox: spot.dxLocApprox,
                   }}
                   hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                  occlusionOpacity={getOcclusionOpacity(
+                    spot.dxLat,
+                    spot.dxLon,
+                  )}
                   onHover={onSpotHover}
                   onHoverEnd={onSpotHoverEnd}
                   onSelect={

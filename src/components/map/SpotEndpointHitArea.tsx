@@ -8,7 +8,7 @@
  * Uses a transparent sphere geometry for raycasting without visual impact.
  */
 
-import { useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useEffect, useMemo } from "react";
 import { ThreeEvent, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ResolvedSpot } from "./LiveSpotArcs";
@@ -42,6 +42,8 @@ export interface SpotEndpointHitAreaProps {
   };
   /** Hit detection radius (default: 0.025) */
   hitRadius?: number;
+  /** Current globe-occlusion opacity; hidden endpoints must not raycast. */
+  occlusionOpacity?: number;
   /** Callback when spot is hovered */
   onHover?: (
     data: SpotDetailsData,
@@ -108,6 +110,7 @@ export function SpotEndpointHitArea({
   spot,
   spotData,
   hitRadius = DEFAULT_HIT_RADIUS,
+  occlusionOpacity = 1,
   onHover,
   onHoverEnd,
   onSelect,
@@ -198,6 +201,12 @@ export function SpotEndpointHitArea({
       getScreenSpaceScale(camera.position.distanceTo(worldPosition)),
     );
   });
+
+  useEffect(() => {
+    if (occlusionOpacity < 0.05) onHoverEnd?.();
+  }, [occlusionOpacity, onHoverEnd]);
+
+  if (occlusionOpacity < 0.05) return null;
 
   return (
     <mesh

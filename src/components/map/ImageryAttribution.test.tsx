@@ -3,10 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { ALL_PROVIDERS } from "@/lib/tiles/providers";
-import {
-  ImageryAttribution,
-  type ImagerySourceCredit,
-} from "./ImageryAttribution";
+import type { ImagerySourceCredit } from "@/lib/map/imagerySources";
+import { ImageryAttribution } from "./ImageryAttribution";
 
 const blueMarble: ImagerySourceCredit = {
   name: "NASA Blue Marble",

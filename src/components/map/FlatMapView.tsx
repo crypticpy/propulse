@@ -77,7 +77,10 @@ import {
   createFlatTileLayer,
   type FlatTileLayer,
 } from "@/lib/tiles/flatTileLayer";
-import { ALL_PROVIDERS, selectTileProvider } from "@/lib/tiles/providers";
+import {
+  selectAvailableTileProvider,
+  selectTileProvider,
+} from "@/lib/tiles/providers";
 import { useProfileStore } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
@@ -87,10 +90,11 @@ import {
 } from "@/lib/map/displayQuality";
 import { useThemeStore } from "@/stores/themeStore";
 import { getSeasonalTextureCandidates } from "./hooks/useSeasonalDayTexture";
+import { ImageryAttribution } from "./ImageryAttribution";
 import {
-  ImageryAttribution,
-  type ImagerySourceCredit,
-} from "./ImageryAttribution";
+  NASA_BLUE_MARBLE_SOURCE,
+  NATURAL_EARTH_SOURCE,
+} from "@/lib/map/imagerySources";
 import {
   getMaidenheadFields,
   MAIDENHEAD_LON_LINES,
@@ -172,20 +176,6 @@ function matchesResolvedSpot(
 // Map dimensions
 const MAP_WIDTH = 1024;
 const MAP_HEIGHT = 512;
-
-const NASA_BLUE_MARBLE_SOURCE: ImagerySourceCredit = {
-  name: "NASA Blue Marble",
-  attribution: "NASA Blue Marble",
-  attributionUrl: "https://visibleearth.nasa.gov/collection/1484/blue-marble",
-  surfaceKind: "declouded-mosaic",
-};
-
-const NATURAL_EARTH_SOURCE: ImagerySourceCredit = {
-  name: "Natural Earth",
-  attribution: "Natural Earth",
-  attributionUrl: "https://www.naturalearthdata.com/about/terms-of-use/",
-  surfaceKind: "cartographic",
-};
 
 // Maximum zoom-in scale. 64 gives a ~5.6° longitude window (metro scale);
 // the satellite tile layer keeps imagery sharp all the way in.
@@ -2098,9 +2088,6 @@ interface SpotScreenHit {
   anchor: ScreenAnchor;
 }
 
-/** Module-level storage so the hover handler can hit-test placed labels */
-let lastPlacedLabels: PlacedLabel[] = [];
-
 function bboxOverlaps(a: LabelBBox, b: LabelBBox): boolean {
   return (
     a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
@@ -2222,7 +2209,7 @@ function drawPillPath(
  * Position candidates (tried in priority order):
  * 1. Above  2. Below  3. Right  4. Left  5. Above-right  6. Above-left
  *
- * Stores placed label metadata in lastPlacedLabels for hover hit-testing.
+ * Returns placed label metadata for component-scoped hover hit-testing.
  */
 function drawCallsignLabels(
   ctx: CanvasRenderingContext2D,
@@ -2233,7 +2220,7 @@ function drawCallsignLabels(
   highViz = false,
   labelScale = 1.0,
   zoomScale = 1.0,
-) {
+): PlacedLabel[] {
   const placed: PlacedLabel[] = [];
   const placedBoxes: LabelBBox[] = [];
   const zoomDamp = Math.max(1, zoomScale);
@@ -2381,8 +2368,7 @@ function drawCallsignLabels(
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // Store for hover hit-testing
-  lastPlacedLabels = placed;
+  return placed;
 }
 
 /**
@@ -3327,6 +3313,9 @@ export function FlatMapView({
 
   // Spot highlight overlay canvas (avoids full canvas re-render at 60fps)
   const highlightCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Component-scoped label hitboxes. A module global leaked stale labels
+  // across toggles, redraw gaps, and simultaneous map instances.
+  const placedLabelsRef = useRef<PlacedLabel[]>([]);
   // Contest/renderer-agnostic overlay canvas (drawn on demand)
   const contestOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -3373,26 +3362,25 @@ export function FlatMapView({
     () => selectTileProvider("satellite", subscriptionTier),
     [subscriptionTier],
   );
-  const [failedTileProviderId, setFailedTileProviderId] = useState<
-    string | null
-  >(null);
+  const [failedTileProviderIds, setFailedTileProviderIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   useEffect(
-    () => setFailedTileProviderId(null),
+    () => setFailedTileProviderIds(new Set()),
     [requestedTileProvider.id],
   );
-  const tileProvider = useMemo(() => {
-    if (
-      failedTileProviderId === requestedTileProvider.id &&
-      requestedTileProvider.fallbackProviderId
-    ) {
-      return ALL_PROVIDERS[requestedTileProvider.fallbackProviderId];
-    }
-    return requestedTileProvider;
-  }, [failedTileProviderId, requestedTileProvider]);
+  const tileProvider = useMemo(
+    () =>
+      selectAvailableTileProvider(
+        requestedTileProvider,
+        failedTileProviderIds,
+      ),
+    [failedTileProviderIds, requestedTileProvider],
+  );
 
   // Create/replace the satellite tile layer when the style or provider changes
   useEffect(() => {
-    if (mapStyle === "standard") {
+    if (mapStyle === "standard" || !tileProvider) {
       setProviderTilesVisible(false);
       return;
     }
@@ -3406,7 +3394,11 @@ export function FlatMapView({
         prefetchRadius: qualitySettings.prefetchRadius,
         settleDelayMs: qualitySettings.settleDelayMs,
         onProviderUnavailable: () =>
-          setFailedTileProviderId(tileProvider.id),
+          setFailedTileProviderIds((failedIds) => {
+            const next = new Set(failedIds);
+            next.add(tileProvider.id);
+            return next;
+          }),
       },
     );
     tileLayerRef.current = layer;
@@ -3912,7 +3904,7 @@ export function FlatMapView({
   const findSpotLabelAtScreenPos = useCallback(
     (screenPos: { x: number; y: number }): SpotScreenHit | null => {
       const canvas = canvasRef.current;
-      if (!canvas || lastPlacedLabels.length === 0) {
+      if (!canvas || placedLabelsRef.current.length === 0) {
         return null;
       }
       const rect = canvas.getBoundingClientRect();
@@ -3921,7 +3913,7 @@ export function FlatMapView({
       const cssScaleX = rect.width / viewportSize.width;
       const cssScaleY = rect.height / viewportSize.height;
 
-      for (const label of lastPlacedLabels) {
+      for (const label of placedLabelsRef.current) {
         const { bbox } = label;
         // Convert canvas-space bbox to screen-space
         const sx = rect.left + (bbox.x * z.scale + z.offsetX) * cssScaleX;
@@ -4962,6 +4954,9 @@ export function FlatMapView({
 
   // Render map
   useEffect(() => {
+    // A redraw starts with no interactive labels. Repopulate only after their
+    // visible pills are painted so hidden/disabled labels cannot be selected.
+    placedLabelsRef.current = [];
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -5263,7 +5258,7 @@ export function FlatMapView({
 
     // Draw callsign labels at DX spot positions (after arcs, before markers)
     if (showCallsignLabels && layers.spots && resolvedSpots.length > 0) {
-      drawCallsignLabels(
+      placedLabelsRef.current = drawCallsignLabels(
         ctx,
         resolvedSpots,
         renderWidth,
@@ -5678,7 +5673,7 @@ export function FlatMapView({
               : NASA_BLUE_MARBLE_SOURCE
           }
           provider={
-            mapStyle !== "standard" && providerTilesVisible
+            mapStyle !== "standard" && providerTilesVisible && tileProvider
               ? tileProvider
               : undefined
           }

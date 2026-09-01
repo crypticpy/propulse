@@ -51,4 +51,34 @@ describe("SpotEndpointHitArea selection", () => {
     expect(onParentClick).not.toHaveBeenCalled();
     expect(onParentDoubleClick).not.toHaveBeenCalled();
   });
+
+  it("does not expose a raycast mesh for a far-side endpoint", () => {
+    const onHoverEnd = vi.fn();
+    const { container, rerender } = render(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        occlusionOpacity={1}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector("mesh")).not.toBeNull();
+    rerender(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        spotData={{ dxGrid: "GG87" }}
+        occlusionOpacity={0}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(container.querySelector("mesh")).toBeNull();
+    expect(onHoverEnd).toHaveBeenCalledOnce();
+  });
 });

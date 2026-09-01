@@ -1,19 +1,13 @@
 import type { TileProviderConfig } from "@/lib/tiles/types";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { resolveDisplayQuality } from "@/lib/map/displayQuality";
+import type { ImagerySourceCredit } from "@/lib/map/imagerySources";
 
 interface ImageryAttributionProps {
   provider?: TileProviderConfig;
   baseSource?: ImagerySourceCredit;
   className?: string;
   includeCartoLabels?: boolean;
-}
-
-export interface ImagerySourceCredit {
-  name: string;
-  attribution: string;
-  attributionUrl: string;
-  surfaceKind: TileProviderConfig["surfaceKind"];
 }
 
 /** Visible imagery provenance and effective rendering quality. */

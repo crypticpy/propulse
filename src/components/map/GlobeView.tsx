@@ -27,6 +27,7 @@ import { GlobeDepthDome } from "./GlobeDepthDome";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
 import { ImageryAttribution } from "./ImageryAttribution";
+import { NASA_BLUE_MARBLE_SOURCE } from "@/lib/map/imagerySources";
 import { CloudImageryAttribution } from "./CloudImageryAttribution";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
@@ -909,6 +910,7 @@ interface GlobeSceneProps {
     screenPos: { x: number; y: number },
   ) => void;
   onRadarAnimState?: (state: RadarAnimationState) => void;
+  onTileFallbackChange?: (active: boolean) => void;
 }
 
 const GlobeScene = React.memo(function GlobeScene({
@@ -929,6 +931,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onAlertClick,
   onFireClick,
   onRadarAnimState,
+  onTileFallbackChange,
 }: GlobeSceneProps) {
   const layers = useMapStore((s) => s.layers);
   const target = useMapStore((s) => s.target);
@@ -954,6 +957,10 @@ const GlobeScene = React.memo(function GlobeScene({
   useEffect(() => {
     setTileFailCount(0);
   }, [tileProvider.id]);
+
+  useEffect(() => {
+    onTileFallbackChange?.(useTileFallback);
+  }, [onTileFallbackChange, useTileFallback]);
 
   const station = useUserStore((s) => s.station);
   const selectedSpotMatchesTarget = useMemo(() => {
@@ -1815,6 +1822,7 @@ export function GlobeView({
   const tileLabelsEnabled = useMapStore(
     (state) => state.layers.labels && state.labelOptions.tileLabels,
   );
+  const [tileFallbackActive, setTileFallbackActive] = useState(false);
   const addPin = usePinStore((s) => s.addPin);
   const removePin = usePinStore((s) => s.removePin);
   const getPinById = usePinStore((s) => s.getPinById);
@@ -2445,6 +2453,7 @@ export function GlobeView({
               onAlertClick={handleAlertClick}
               onFireClick={handleFireClick}
               onRadarAnimState={setRadarAnimState}
+              onTileFallbackChange={setTileFallbackActive}
             />
           </Suspense>
         </Canvas>
@@ -2453,8 +2462,11 @@ export function GlobeView({
       <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">
         <CloudImageryAttribution />
         <ImageryAttribution
-          provider={tileProvider}
-          includeCartoLabels={tileLabelsEnabled}
+          baseSource={
+            tileFallbackActive ? NASA_BLUE_MARBLE_SOURCE : undefined
+          }
+          provider={tileFallbackActive ? undefined : tileProvider}
+          includeCartoLabels={tileLabelsEnabled && !tileFallbackActive}
         />
       </div>
 

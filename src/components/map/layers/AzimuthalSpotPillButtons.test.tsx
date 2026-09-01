@@ -1,8 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
-import { sameAzimuthalSpotPillScreenPlacements } from "@/lib/map/azimuthalSpotPillPlacement";
-import { AzimuthalSpotPillButtons } from "./AzimuthalSpotPillButtons";
+import {
+  buildAzimuthalSpotEndpointScreenPlacements,
+  sameAzimuthalSpotPillScreenPlacements,
+  spotDestinationMatchesTarget,
+} from "@/lib/map/azimuthalSpotPillPlacement";
+import {
+  AzimuthalSpotEndpointButtons,
+  AzimuthalSpotPillButtons,
+} from "./AzimuthalSpotPillButtons";
 
 const makeSpot = (frequency: number): LiveSpot => ({
   id: `spot-${frequency}`,
@@ -70,6 +77,80 @@ describe("AzimuthalSpotPillButtons", () => {
       sameAzimuthalSpotPillScreenPlacements([placement], [
         { ...placement, spot: { ...spot } },
       ]),
+    ).toBe(false);
+  });
+
+  it("retains every visible exact endpoint report, including duplicate callsigns", () => {
+    const first = makeSpot(3_573);
+    const second = { ...makeSpot(7_289), dx: first.dx };
+    const hidden = makeSpot(14_074);
+    const placements = buildAzimuthalSpotEndpointScreenPlacements(
+      [
+        { dxLat: 10, dxLon: 20, originalSpot: first },
+        { dxLat: 10, dxLon: 20, originalSpot: second },
+        { dxLat: 90, dxLon: 0, originalSpot: hidden },
+      ],
+      (lat) => (lat === 90 ? null : { x: 300, y: 300 }),
+      {
+        canvasSize: 600,
+        center: 300,
+        displaySize: 1_200,
+        zoom: 2,
+        spotDotScale: 1,
+      },
+    );
+
+    expect(placements).toHaveLength(2);
+    expect(placements.map((placement) => placement.spot)).toEqual([
+      first,
+      second,
+    ]);
+    expect(placements[0]).toMatchObject({
+      left: 580,
+      top: 580,
+      width: 40,
+      height: 40,
+    });
+  });
+
+  it("routes a labels-off endpoint through the same exact selection callback", () => {
+    const spot = makeSpot(5_357);
+    const onSpotHover = vi.fn();
+    const onSpotSelect = vi.fn();
+    render(
+      <AzimuthalSpotEndpointButtons
+        placements={[
+          { spot, left: 10, top: 20, width: 24, height: 24 },
+        ]}
+        onSpotHover={onSpotHover}
+        onSpotSelect={onSpotSelect}
+      />,
+    );
+
+    const endpoint = screen.getByRole("button", {
+      name: /AC6J destination.*select as target/i,
+    });
+    fireEvent.pointerEnter(endpoint);
+    fireEvent.click(endpoint);
+    expect(onSpotHover).toHaveBeenCalledWith(spot, expect.any(Object));
+    expect(onSpotSelect).toHaveBeenCalledWith(spot, expect.any(Object));
+  });
+
+  it("suppresses the report arc when ordinary or activation DX matches target", () => {
+    const spot = makeSpot(14_074);
+    const activation = { ...spot, comment: "POTA US-7948" };
+
+    expect(
+      spotDestinationMatchesTarget(spot, { lat: 37.7, lon: -122.4 }),
+    ).toBe(true);
+    expect(
+      spotDestinationMatchesTarget(activation, {
+        lat: 37.7,
+        lon: -122.4,
+      }),
+    ).toBe(true);
+    expect(
+      spotDestinationMatchesTarget(spot, { lat: 37.8, lon: -122.4 }),
     ).toBe(false);
   });
 });

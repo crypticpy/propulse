@@ -7,6 +7,7 @@ interface LayoutModeDropdownProps {
   className?: string;
   align?: "left" | "right";
   compact?: boolean;
+  activeDestination?: "explorer" | "photorealistic";
 }
 
 interface LayoutOption {
@@ -20,9 +21,13 @@ interface LayoutOption {
 }
 
 interface DestinationOption {
-  id: "wall" | "displays";
+  id: "explorer" | "photorealistic" | "wall" | "displays";
   kind: "destination";
-  path: "/kiosk" | "/displays";
+  path:
+    | "/map/explorer"
+    | "/map/photorealistic"
+    | "/kiosk"
+    | "/displays";
   label: string;
   description: string;
   icon: React.ReactNode;
@@ -117,12 +122,52 @@ const displayOptions: DisplayOption[] = [
     ),
   },
   {
+    id: "explorer",
+    kind: "destination",
+    path: "/map/explorer",
+    label: "Deep-Zoom Map",
+    description: "Regional satellite explorer",
+    dividerBefore: true,
+    icon: (
+      <svg
+        width={ICON_SIZE}
+        height={ICON_SIZE}
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <circle cx="7" cy="7" r="4.5" />
+        <path d="M10.5 10.5L15 15M7 4.5v5M4.5 7h5" />
+      </svg>
+    ),
+  },
+  {
+    id: "photorealistic",
+    kind: "destination",
+    path: "/map/photorealistic",
+    label: "Photorealistic 3D",
+    description: "Experimental terrain and cities",
+    icon: (
+      <svg
+        width={ICON_SIZE}
+        height={ICON_SIZE}
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path d="M1.5 11.5L5.5 5l2.2 3.2L10 4.5l4.5 7" />
+        <path d="M1 13.5h14M8 1.5v2" />
+      </svg>
+    ),
+  },
+  {
     id: "wall",
     kind: "destination",
     path: "/kiosk",
     label: "Wall Display",
     description: "Launch or configure scenes",
-    dividerBefore: true,
     icon: (
       <svg
         width={ICON_SIZE}
@@ -165,6 +210,7 @@ export function LayoutModeDropdown({
   className,
   align = "left",
   compact = false,
+  activeDestination,
 }: LayoutModeDropdownProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -175,9 +221,11 @@ export function LayoutModeDropdown({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const activeOption = isKiosk
-    ? displayOptions.find((option) => option.id === "wall")!
-    : displayOptions.find(
+  const activeOption = activeDestination
+    ? displayOptions.find((option) => option.id === activeDestination)!
+    : isKiosk
+      ? displayOptions.find((option) => option.id === "wall")!
+      : displayOptions.find(
         (option) => option.kind === "layout" && option.mode === layoutMode,
       )!;
 
@@ -272,8 +320,9 @@ export function LayoutModeDropdown({
           {displayOptions.map((opt) => {
             const isActive =
               opt.kind === "layout"
-                ? !isKiosk && opt.mode === layoutMode
-                : (opt.id === "wall" && isKiosk) ||
+                ? !isKiosk && !activeDestination && opt.mode === layoutMode
+                : opt.id === activeDestination ||
+                  (opt.id === "wall" && isKiosk) ||
                   (opt.id === "displays" && location.pathname === "/displays");
             return (
               <div key={opt.id}>

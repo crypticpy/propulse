@@ -13,6 +13,7 @@ import {
   type ShaderConfig,
 } from "./azimuthalShader";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
+import type { ThemeId } from "@/lib/themes";
 
 // Local texture paths (avoids CORS issues with NASA servers)
 const DAY_TEXTURE_URL = "/textures/earth-day.jpg";
@@ -37,6 +38,12 @@ interface UniformLocations {
 export interface AzimuthalRendererOptions {
   /** Use high-resolution textures (default: true) */
   highRes?: boolean;
+  /** Ordered day-texture candidates; later entries are fallbacks. */
+  dayTextureUrls?: string[];
+  /** Resolution used for the generated standard-map texture. */
+  standardTextureWidth?: number;
+  /** Theme palette used by the generated standard-map texture. */
+  themeId?: ThemeId;
   /** Enable night texture (default: true) */
   enableNight?: boolean;
   /** Callback when textures are loaded */
@@ -233,9 +240,9 @@ export class AzimuthalRenderer {
       return;
     }
 
-    const dayUrl = this.options.highRes
-      ? DAY_TEXTURE_URL
-      : DAY_TEXTURE_URL_SMALL;
+    const dayUrls = this.options.dayTextureUrls?.length
+      ? this.options.dayTextureUrls
+      : [this.options.highRes ? DAY_TEXTURE_URL : DAY_TEXTURE_URL_SMALL];
 
     // Create placeholder textures
     this.dayTexture = this.createPlaceholderTexture(gl);
@@ -245,7 +252,18 @@ export class AzimuthalRenderer {
 
     // Build lightweight standard texture immediately (no async network request)
     try {
-      const standardCanvas = getStandardMapCanvas();
+      const gpuMaxTextureSize =
+        (gl.getParameter(gl.MAX_TEXTURE_SIZE) as number) || 2048;
+      const requestedStandardWidth = this.options.standardTextureWidth ?? 2048;
+      const standardTextureWidth = Math.max(
+        1,
+        Math.min(requestedStandardWidth, gpuMaxTextureSize),
+      );
+      const standardCanvas = getStandardMapCanvas(
+        standardTextureWidth,
+        standardTextureWidth / 2,
+        this.options.themeId ?? "light",
+      );
       this.updateTexture(gl, this.standardTexture, standardCanvas);
 
       const darkCanvas = document.createElement("canvas");
@@ -277,12 +295,18 @@ export class AzimuthalRenderer {
       this.checkTexturesLoaded();
     };
 
+    let dayUrlIndex = 0;
     dayImage.onerror = () => {
+      dayUrlIndex += 1;
+      if (dayUrlIndex < dayUrls.length) {
+        dayImage.src = dayUrls[dayUrlIndex];
+        return;
+      }
       console.error("Failed to load day texture");
       this.options.onError?.(new Error("Failed to load day texture"));
     };
 
-    dayImage.src = dayUrl;
+    dayImage.src = dayUrls[dayUrlIndex];
 
     // Load night texture if enabled
     if (this.options.enableNight) {
@@ -343,9 +367,6 @@ export class AzimuthalRenderer {
     texture: WebGLTexture,
     source: TexImageSource,
   ): void {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-
     const sourceWidth =
       source instanceof HTMLImageElement
         ? source.naturalWidth || source.width
@@ -359,12 +380,56 @@ export class AzimuthalRenderer {
           ? (source as { height: number }).height
           : 0;
 
+    const maxTextureSize =
+      (gl.getParameter(gl.MAX_TEXTURE_SIZE) as number) ||
+      Math.max(sourceWidth, sourceHeight, 1);
+    let uploadSource = source;
+    let uploadWidth = sourceWidth;
+    let uploadHeight = sourceHeight;
+    let downscaledCanvas: HTMLCanvasElement | null = null;
+    if (
+      sourceWidth > 0 &&
+      sourceHeight > 0 &&
+      (sourceWidth > maxTextureSize || sourceHeight > maxTextureSize)
+    ) {
+      const scale = Math.min(
+        maxTextureSize / sourceWidth,
+        maxTextureSize / sourceHeight,
+      );
+      downscaledCanvas = document.createElement("canvas");
+      downscaledCanvas.width = Math.max(1, Math.floor(sourceWidth * scale));
+      downscaledCanvas.height = Math.max(1, Math.floor(sourceHeight * scale));
+      const context = downscaledCanvas.getContext("2d");
+      if (context) {
+        context.drawImage(
+          source as CanvasImageSource,
+          0,
+          0,
+          downscaledCanvas.width,
+          downscaledCanvas.height,
+        );
+        uploadSource = downscaledCanvas;
+        uploadWidth = downscaledCanvas.width;
+        uploadHeight = downscaledCanvas.height;
+      }
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      uploadSource,
+    );
+
     // Use mipmaps for better quality at different zoom levels
     if (
-      this.isPowerOfTwo(sourceWidth) &&
-      this.isPowerOfTwo(sourceHeight) &&
-      sourceWidth > 0 &&
-      sourceHeight > 0
+      this.isPowerOfTwo(uploadWidth) &&
+      this.isPowerOfTwo(uploadHeight) &&
+      uploadWidth > 0 &&
+      uploadHeight > 0
     ) {
       gl.generateMipmap(gl.TEXTURE_2D);
       gl.texParameteri(
@@ -380,6 +445,10 @@ export class AzimuthalRenderer {
     }
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    if (downscaledCanvas) {
+      downscaledCanvas.width = 1;
+      downscaledCanvas.height = 1;
+    }
   }
 
   /**

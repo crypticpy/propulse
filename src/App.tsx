@@ -134,6 +134,10 @@ const AtmosPulse = lazy(() =>
 const KioskPage = lazy(() =>
   import("@/pages/KioskPage").then((m) => ({ default: m.KioskPage })),
 );
+const MapExplorerPage = lazy(() => import("@/pages/MapExplorerPage"));
+const Photorealistic3DPage = lazy(
+  () => import("@/pages/Photorealistic3DPage"),
+);
 const WallClockPage = lazy(() =>
   import("@/pages/WallClockPage").then((m) => ({ default: m.WallClockPage })),
 );
@@ -306,6 +310,11 @@ function App() {
             <Route path="/pair" element={<PairClaimPage />} />
             <Route path="/displays" element={<DisplaysPage />} />
             <Route path="/map" element={<MapRoute />} />
+            <Route path="/map/explorer" element={<MapExplorerPage />} />
+            <Route
+              path="/map/photorealistic"
+              element={<Photorealistic3DPage />}
+            />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/:callsign" element={<ProfilePage />} />

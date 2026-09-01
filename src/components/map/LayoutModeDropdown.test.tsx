@@ -62,6 +62,10 @@ describe("LayoutModeDropdown", () => {
     expect(
       screen.getByRole("menuitem", { name: /Configure Displays/ }),
     ).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Deep-Zoom Map/ })).toBeTruthy();
+    expect(
+      screen.getByRole("menuitem", { name: /Photorealistic 3D/ }),
+    ).toBeTruthy();
   });
 
   it("switches layouts in place and opens the Wall Display configurator", async () => {

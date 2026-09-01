@@ -13,12 +13,13 @@ import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useDXStore } from "@/stores/dxStore";
+import { useWatchStore } from "@/stores/watchStore";
+import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getPathPoints } from "@/lib/utils/path";
 import {
   azimuthalProject,
   azimuthalUnproject,
-  getCenteredZoomViewport,
   type AzimuthalPoint,
 } from "@/lib/utils/azimuthal";
 import {
@@ -30,14 +31,10 @@ import {
   resolveSpotLocations,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
-import {
-  getBandColor,
-  getSpotColor,
-  type SpotColorMode,
-} from "@/lib/utils/spotColors";
+import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
-import { latLonToGrid } from "@/lib/utils/grid";
+import { gridToLatLon, latLonToGrid } from "@/lib/utils/grid";
 import {
   getDifficultyColor,
   DIFFICULTY_LABELS,
@@ -46,6 +43,13 @@ import {
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
+import { SpotHoverPreview } from "./SpotHoverPreview";
+import { SelectedSpotCard } from "./SelectedSpotCard";
+import { SpotCollectionPopover } from "./SpotCollectionPopover";
+import {
+  GridResearchPanel,
+  type GridResearchAction,
+} from "./GridResearchPanel";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
@@ -70,6 +74,17 @@ import {
 import { ActivationPillButtons } from "./layers/ActivationPillButtons";
 import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
 import { getSublunarPoint } from "@/lib/utils/moon";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import { useDXCluster } from "@/hooks/useDXCluster";
+import { collectGridSpots } from "@/lib/map/gridSpotCollection";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import {
+  readDisplayQualityEnvironment,
+  resolveDisplayQuality,
+} from "@/lib/map/displayQuality";
+import { useThemeStore } from "@/stores/themeStore";
+import { getSeasonalTextureCandidates } from "./hooks/useSeasonalDayTexture";
+import { AddPinDialog } from "./AddPinDialog";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -105,6 +120,28 @@ const COLORS = {
 // Max distance in km (half Earth circumference)
 const MAX_DISTANCE_KM = 20015;
 
+// The projection compresses activity heavily near its rim. Generic routes are
+// deliberately sparse; selected routes remain uncapped and fully emphasized.
+const MAX_AZIMUTHAL_SPOT_TRACES = 64;
+const SPOT_PIN_CELL_PX = 32;
+
+interface AzimuthalSpotPinMember {
+  spot: LiveSpot;
+  resolved: ResolvedSpot;
+}
+
+interface AzimuthalSpotPin {
+  key: string;
+  x: number;
+  y: number;
+  members: AzimuthalSpotPinMember[];
+}
+
+interface OpenSpotPin {
+  pin: AzimuthalSpotPin;
+  position: ScreenAnchor;
+}
+
 /**
  * Convert normalized projection coordinates to canvas coordinates
  */
@@ -138,8 +175,12 @@ function applyCanvasDprTransform(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
   displaySize: number,
+  maxDevicePixelRatio: number,
 ): void {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(
+    window.devicePixelRatio || 1,
+    maxDevicePixelRatio,
+  );
   const backingSize = Math.round(displaySize * dpr);
   if (canvas.width !== backingSize || canvas.height !== backingSize) {
     canvas.width = backingSize;
@@ -531,7 +572,7 @@ function buildGreatCirclePath(
  * Paths are sampled great circles (see buildGreatCirclePath) — they are only
  * straight lines when the path happens to pass through the projection center.
  */
-function drawSpotArcs(
+function drawSpotTraceArcs(
   ctx: CanvasRenderingContext2D,
   spots: ResolvedSpot[],
   centerLat: number,
@@ -622,183 +663,195 @@ function drawSpotArcs(
   }
 }
 
-interface AzimuthalSpotPillBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-function spotPillBoxesOverlap(
-  left: AzimuthalSpotPillBox,
-  right: AzimuthalSpotPillBox,
-): boolean {
-  return !(
-    left.x + left.width < right.x ||
-    right.x + right.width < left.x ||
-    left.y + left.height < right.y ||
-    right.y + right.height < left.y
-  );
-}
-
-function drawSpotPillPath(
-  ctx: CanvasRenderingContext2D,
-  box: AzimuthalSpotPillBox,
-  radius: number,
-) {
-  const { x, y, width, height } = box;
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.arcTo(x + width, y, x + width, y + radius, radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.arcTo(
-    x + width,
-    y + height,
-    x + width - radius,
-    y + height,
-    radius,
-  );
-  ctx.lineTo(x + radius, y + height);
-  ctx.arcTo(x, y + height, x, y + height - radius, radius);
-  ctx.lineTo(x, y + radius);
-  ctx.arcTo(x, y, x + radius, y, radius);
-  ctx.closePath();
-}
-
-/**
- * Render the callsign treatment already used by flat and globe projections:
- * one compact DX pill per callsign, keyed to its operating band. Candidate
- * positions and box collision checks keep dense openings readable.
- */
-function drawSpotCallsignPills(
-  ctx: CanvasRenderingContext2D,
+/** Aggregate endpoints in screen space so the compressed rim stays readable. */
+function buildAzimuthalSpotPins(
   spots: ResolvedSpot[],
+  liveSpotById: Map<string, LiveSpot>,
   centerLat: number,
   centerLon: number,
-  labelScale: number,
-  highViz: boolean,
   zoom: number,
-  spotDotScale: number,
-) {
-  const zoomDamp = Math.max(0.5, zoom);
-  const viewport = getCenteredZoomViewport(CANVAS_SIZE, zoomDamp, 2);
-  const placed: AzimuthalSpotPillBox[] = [];
-  const endpointRadius = Math.round(4 * spotDotScale) + 2 / zoomDamp;
-  const endpointZones = spots.flatMap((spot) =>
-    [
-      azimuthalProject(
-        spot.spotterLat,
-        spot.spotterLon,
-        centerLat,
-        centerLon,
-      ),
-      azimuthalProject(spot.dxLat, spot.dxLon, centerLat, centerLon),
-    ]
-      .filter((projected) => Math.hypot(projected.x, projected.y) <= 1)
-      .map((projected) => {
-        const point = projToCanvas(projected);
-        return {
-          x: point.x - endpointRadius,
-          y: point.y - endpointRadius,
-          width: endpointRadius * 2,
-          height: endpointRadius * 2,
-        };
-      }),
+  displaySize: number,
+): AzimuthalSpotPin[] {
+  const buckets = new Map<
+    string,
+    { sumX: number; sumY: number; members: AzimuthalSpotPinMember[] }
+  >();
+  const cellSize = Math.max(
+    12,
+    (SPOT_PIN_CELL_PX * CANVAS_SIZE) / Math.max(displaySize, 1),
   );
-  const callsigns = new Set<string>();
-  const fontSize = Math.max(
-    1,
-    Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
-  );
-  const verticalPadding = 8 / zoomDamp;
-  const horizontalPadding = 12 / zoomDamp;
-  const gap = endpointRadius + 4 / zoomDamp;
-  const height = fontSize + verticalPadding;
 
-  ctx.save();
-  ctx.font = `700 ${fontSize}px monospace`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  for (const spot of spots) {
-    if (!spot.callsign || callsigns.has(spot.callsign)) continue;
-
+  for (const resolved of spots) {
+    const spot = liveSpotById.get(resolved.id);
+    if (!spot) continue;
     const projected = azimuthalProject(
-      spot.dxLat,
-      spot.dxLon,
+      resolved.dxLat,
+      resolved.dxLon,
       centerLat,
       centerLon,
     );
-    if (Math.hypot(projected.x, projected.y) > 0.98) continue;
+    if (Math.hypot(projected.x, projected.y) > 1) continue;
 
     const point = projToCanvas(projected);
-    const width = ctx.measureText(spot.callsign).width + horizontalPadding;
-    const candidates: AzimuthalSpotPillBox[] = [
-      { x: point.x - width / 2, y: point.y - height - gap, width, height },
-      { x: point.x - width / 2, y: point.y + gap, width, height },
-      { x: point.x + gap, y: point.y - height / 2, width, height },
-      { x: point.x - width - gap, y: point.y - height / 2, width, height },
-    ];
-    const box = candidates.find(
-      (candidate) =>
-        candidate.x >= viewport.x &&
-        candidate.y >= viewport.y &&
-        candidate.x + candidate.width <= viewport.x + viewport.width &&
-        candidate.y + candidate.height <= viewport.y + viewport.height &&
-        !placed.some((existing) =>
-          spotPillBoxesOverlap(candidate, existing),
-        ) &&
-        !endpointZones.some((endpoint) =>
-          spotPillBoxesOverlap(candidate, endpoint),
-        ),
-    );
-    if (!box) continue;
-
-    callsigns.add(spot.callsign);
-    placed.push(box);
-    const bandColor = spot.frequency
-      ? getBandColor(spot.frequency)
-      : getSpotColor(spot, "band");
-    const ageOpacity = Math.max(0.55, getSpotAgeOpacity(spot.time));
-
-    ctx.globalAlpha = highViz ? 0.94 * ageOpacity : 0.84 * ageOpacity;
-    ctx.fillStyle = "#0a0a1a";
-    drawSpotPillPath(ctx, box, height / 2);
-    ctx.fill();
-
-    ctx.globalAlpha = 0.9 * ageOpacity;
-    ctx.strokeStyle = bandColor;
-    ctx.lineWidth = (highViz ? 2 : 1.25) / zoomDamp;
-    drawSpotPillPath(ctx, box, height / 2);
-    ctx.stroke();
-
-    // Preserve the cross-projection label language: a dark readable pill
-    // with a bright edge-to-edge band cue instead of color-washing the text.
-    ctx.globalAlpha = ageOpacity;
-    ctx.strokeStyle = bandColor;
-    ctx.lineWidth = (highViz ? 3 : 2) / zoomDamp;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(
-      box.x + height / 2,
-      box.y + box.height - 2 / zoomDamp,
-    );
-    ctx.lineTo(
-      box.x + box.width - height / 2,
-      box.y + box.height - 2 / zoomDamp,
-    );
-    ctx.stroke();
-
-    ctx.globalAlpha = ageOpacity;
-    ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-    ctx.shadowBlur = 3 / zoomDamp;
-    ctx.fillText(spot.callsign, box.x + box.width / 2, box.y + height / 2);
-    ctx.shadowBlur = 0;
+    const visualX = CENTER + (point.x - CENTER) * zoom;
+    const visualY = CENTER + (point.y - CENTER) * zoom;
+    if (
+      visualX < -cellSize ||
+      visualX > CANVAS_SIZE + cellSize ||
+      visualY < -cellSize ||
+      visualY > CANVAS_SIZE + cellSize
+    ) {
+      continue;
+    }
+    const key = `${Math.floor(visualX / cellSize)}:${Math.floor(
+      visualY / cellSize,
+    )}`;
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.sumX += point.x;
+      bucket.sumY += point.y;
+      bucket.members.push({ spot, resolved });
+    } else {
+      buckets.set(key, {
+        sumX: point.x,
+        sumY: point.y,
+        members: [{ spot, resolved }],
+      });
+    }
   }
 
-  ctx.restore();
+  return Array.from(buckets.entries()).map(([key, bucket]) => ({
+    key,
+    x: bucket.sumX / bucket.members.length,
+    y: bucket.sumY / bucket.members.length,
+    members: bucket.members.sort(
+      (a, b) => b.resolved.time.getTime() - a.resolved.time.getTime(),
+    ),
+  }));
+}
+
+function getSpotPinRadius(pin: AzimuthalSpotPin, spotDotScale: number): number {
+  if (pin.members.length === 1) return Math.max(3.5, 4 * spotDotScale);
+  return Math.max(
+    7,
+    Math.min(12, 6.5 + Math.log2(pin.members.length) * 1.25) * spotDotScale,
+  );
+}
+
+/** Draw stable-size endpoint pins; only the hovered pin receives a label. */
+function drawSpotEndpointPins(
+  ctx: CanvasRenderingContext2D,
+  pins: AzimuthalSpotPin[],
+  colorMode: SpotColorMode,
+  spotDotScale: number,
+  hoveredPinKey: string | null,
+  zoom: number,
+  displaySize: number,
+) {
+  for (const pin of pins) {
+    const representative = pin.members[0].resolved;
+    const color = getSpotColor(representative, colorMode);
+    const radius = getSpotPinRadius(pin, spotDotScale);
+    const isAggregate = pin.members.length > 1;
+    const isHovered = pin.key === hoveredPinKey;
+    const opacity = Math.max(
+      0.45,
+      ...pin.members.map((member) => getSpotAgeOpacity(member.resolved.time)),
+    );
+
+    ctx.save();
+    ctx.translate(pin.x, pin.y);
+    const screenScale = CANVAS_SIZE / Math.max(displaySize, 1) / zoom;
+    ctx.scale(screenScale, screenScale);
+    ctx.globalAlpha = opacity;
+
+    ctx.beginPath();
+    ctx.arc(0, 0, radius + (isHovered ? 5 : 3), 0, Math.PI * 2);
+    ctx.fillStyle = `${color}${isHovered ? "38" : "20"}`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(0, radius + 4);
+    ctx.lineTo(-2.5, radius - 0.5);
+    ctx.lineTo(2.5, radius - 0.5);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fillStyle = isAggregate ? "rgba(8, 12, 26, 0.9)" : color;
+    ctx.fill();
+    ctx.strokeStyle = isHovered ? "rgba(255, 255, 255, 0.95)" : color;
+    ctx.lineWidth = isHovered ? 2 : 1.25;
+    ctx.stroke();
+
+    if (isAggregate) {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.font = `bold ${pin.members.length > 99 ? 7 : 8}px monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        pin.members.length > 999 ? "999+" : String(pin.members.length),
+        0,
+        0.5,
+      );
+    }
+
+    if (isHovered) {
+      const label = isAggregate
+        ? `${pin.members.length} spots`
+        : representative.callsign;
+      ctx.globalAlpha = 1;
+      ctx.font = "bold 10px monospace";
+      const labelWidth = ctx.measureText(label).width + 10;
+      const labelY = -radius - 20;
+      ctx.fillStyle = "rgba(8, 12, 26, 0.92)";
+      ctx.fillRect(-labelWidth / 2, labelY, labelWidth, 15);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-labelWidth / 2, labelY, labelWidth, 15);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, 0, labelY + 7.5);
+    }
+    ctx.restore();
+  }
+}
+
+function findSpotPinAtPoint(
+  pins: AzimuthalSpotPin[],
+  canvasX: number,
+  canvasY: number,
+  zoom: number,
+  displaySize: number,
+  spotDotScale: number,
+): AzimuthalSpotPin | null {
+  const minimumHitRadius = (12 * CANVAS_SIZE) / Math.max(displaySize, 1);
+  let closest: { pin: AzimuthalSpotPin; distanceSquared: number } | null =
+    null;
+
+  for (const pin of pins) {
+    const visualX = CENTER + (pin.x - CENTER) * zoom;
+    const visualY = CENTER + (pin.y - CENTER) * zoom;
+    const radius = Math.max(
+      minimumHitRadius,
+      ((getSpotPinRadius(pin, spotDotScale) + 5) * CANVAS_SIZE) /
+        Math.max(displaySize, 1),
+    );
+    const dx = canvasX - visualX;
+    const dy = canvasY - visualY;
+    const distanceSquared = dx * dx + dy * dy;
+    if (
+      distanceSquared <= radius * radius &&
+      (!closest || distanceSquared < closest.distanceSquared)
+    ) {
+      closest = { pin, distanceSquared };
+    }
+  }
+  return closest?.pin ?? null;
 }
 
 /**
@@ -1527,12 +1580,11 @@ export function AzimuthalView({
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
   const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const selectMapSpot = useMapSpotSelection();
+  const { allSpots } = useDXCluster();
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
   const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
-  const spotLabelScale = uiPrefs.labelScale ?? 1.0;
-  const showSpotCallsignLabels = uiPrefs.showSpotCallsignLabels ?? true;
-  const highVizSpots = uiPrefs.visualStyle === "high-viz";
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.
@@ -1545,6 +1597,16 @@ export function AzimuthalView({
 
   // Track container size for responsive scaling
   const [displaySize, setDisplaySize] = useState(CANVAS_SIZE);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const themeId = useThemeStore((s) => s.themeId);
+  const qualitySettings = useMemo(() => {
+    const environment = readDisplayQualityEnvironment();
+    return resolveDisplayQuality(displayQuality, {
+      ...environment,
+      cssWidth: displaySize,
+      cssHeight: displaySize,
+    });
+  }, [displayQuality, displaySize]);
 
   // Zoom state for scroll wheel zoom (1 = default, 0.5 = zoomed out, 3 = zoomed in)
   const [zoom, setZoom] = useState(1);
@@ -1557,6 +1619,29 @@ export function AzimuthalView({
     x: number;
     y: number;
   } | null>(null);
+  const [hoveredSpotPinKey, setHoveredSpotPinKey] = useState<string | null>(
+    null,
+  );
+  const [hoveredSpotPinPos, setHoveredSpotPinPos] =
+    useState<ScreenAnchor | null>(null);
+  const [openSpotPin, setOpenSpotPin] = useState<OpenSpotPin | null>(null);
+  const [selectedMapSpotData, setSelectedMapSpotData] = useState<{
+    spot: LiveSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [selectedGridCollection, setSelectedGridCollection] = useState<{
+    grid: string;
+    spots: LiveSpot[];
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [researchPanelOpen, setResearchPanelOpen] = useState(false);
+  const [researchGrid, setResearchGrid] = useState("");
+  const [researchCallsign, setResearchCallsign] = useState<string | null>(null);
+  const [addPinData, setAddPinData] = useState<{
+    lat: number;
+    lon: number;
+    grid: string;
+  } | null>(null);
 
   // Initialize WebGL renderer
   useEffect(() => {
@@ -1565,24 +1650,41 @@ export function AzimuthalView({
       return;
     }
 
+    let cancelled = false;
+    setWebglReady(false);
     const renderer = new AzimuthalRenderer({
-      highRes: true,
+      highRes: qualitySettings.effective !== "data-saver",
+      dayTextureUrls:
+        qualitySettings.effective === "uhd" ||
+        qualitySettings.effective === "extreme"
+          ? [
+              ...getSeasonalTextureCandidates(true),
+              "/textures/earth-day.jpg",
+            ]
+          : ["/textures/earth-day.jpg"],
+      standardTextureWidth:
+        qualitySettings.effective === "uhd" ||
+        qualitySettings.effective === "extreme"
+          ? 4096
+          : 2048,
+      themeId,
       enableNight: true,
       onTextureLoad: () => setWebglReady(true),
       onError: (error) => console.warn("WebGL error:", error.message),
     });
 
     renderer.initialize(canvas).then((success) => {
-      if (success) {
+      if (success && !cancelled) {
         rendererRef.current = renderer;
       }
     });
 
     return () => {
+      cancelled = true;
       renderer.dispose();
-      rendererRef.current = null;
+      if (rendererRef.current === renderer) rendererRef.current = null;
     };
-  }, []);
+  }, [qualitySettings.effective, themeId]);
 
   // Observe container resize for responsive display
   useEffect(() => {
@@ -1662,7 +1764,12 @@ export function AzimuthalView({
       return;
     }
 
-    applyCanvasDprTransform(canvas, ctx, displaySize);
+    applyCanvasDprTransform(
+      canvas,
+      ctx,
+      displaySize,
+      qualitySettings.maxDevicePixelRatio,
+    );
 
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     if (!center) {
@@ -1763,19 +1870,69 @@ export function AzimuthalView({
     }
 
     ctx.restore();
-  }, [center, overlayLayers, zoom, cellRasterCanvas, displaySize]);
+  }, [
+    center,
+    overlayLayers,
+    zoom,
+    cellRasterCanvas,
+    displaySize,
+    qualitySettings.maxDevicePixelRatio,
+  ]);
 
   // Get subsolar point for day/night blending
   const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
 
   // Resolve the common live feed once, capped for this canvas renderer. This
   // preserves the shared display-density contract without a local pipeline.
-  const { resolvedSpots, activationSpots } = useResolvedMapSpots({
+  const { spots, resolvedSpots, activationSpots } = useResolvedMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,
     maxSpots: displayDensity,
   });
+
+  const liveSpotById = useMemo(
+    () => new Map(spots.map((spot) => [spot.id, spot])),
+    [spots],
+  );
+
+  const spotPins = useMemo(() => {
+    if (!center || (!layers.spots && !layers.spotTraces)) return [];
+    return buildAzimuthalSpotPins(
+      resolvedSpots,
+      liveSpotById,
+      center.lat,
+      center.lon,
+      zoom,
+      displaySize,
+    );
+  }, [
+    center,
+    displaySize,
+    layers.spots,
+    layers.spotTraces,
+    liveSpotById,
+    resolvedSpots,
+    zoom,
+  ]);
+
+  const hoveredSingleSpot = useMemo(() => {
+    if (!hoveredSpotPinKey) return null;
+    const pin = spotPins.find(
+      (candidate) => candidate.key === hoveredSpotPinKey,
+    );
+    if (!pin || pin.members.length !== 1) return null;
+    const member = pin.members[0];
+    return {
+      ...member.spot,
+      dxLat: member.resolved.dxLat,
+      dxLon: member.resolved.dxLon,
+      spotterLat: member.resolved.spotterLat,
+      spotterLon: member.resolved.spotterLon,
+      dxLocApprox: member.resolved.dxLocApprox,
+      spotterLocApprox: member.resolved.spotterLocApprox,
+    } satisfies LiveSpot;
+  }, [hoveredSpotPinKey, spotPins]);
 
   // Resolve selected DX cluster spot location for highlight arc
   const resolvedSelectedSpot = useMemo(() => {
@@ -1905,6 +2062,101 @@ export function AzimuthalView({
     return { x, y };
   }, [center, target, zoom]);
 
+  const selectedSpotMatchesTarget = useMemo(() => {
+    if (!resolvedSelectedSpot || !target) return false;
+    return (
+      Math.abs(resolvedSelectedSpot.dxLat - target.lat) < 0.0001 &&
+      Math.abs(resolvedSelectedSpot.dxLon - target.lon) < 0.0001
+    );
+  }, [resolvedSelectedSpot, target]);
+
+  const selectSpotPinMember = useCallback(
+    (member: AzimuthalSpotPinMember, screenPos: ScreenAnchor) => {
+      const selected: LiveSpot = {
+        ...member.spot,
+        dxLat: member.resolved.dxLat,
+        dxLon: member.resolved.dxLon,
+        spotterLat: member.resolved.spotterLat,
+        spotterLon: member.resolved.spotterLon,
+        dxLocApprox: member.resolved.dxLocApprox,
+        spotterLocApprox: member.resolved.spotterLocApprox,
+      };
+      const selection = selectMapSpot(selected);
+      setSelectedMapSpotData({
+        spot: { ...selected, ...(selection?.spot ?? {}) } as LiveSpot,
+        screenPos,
+      });
+      setHoveredTargetPos(null);
+      setHoveredSpotPinKey(null);
+      setHoveredSpotPinPos(null);
+      setOpenSpotPin(null);
+      setSelectedGridCollection(null);
+    },
+    [selectMapSpot],
+  );
+
+  const getGridCollectionSpots = useCallback(
+    (grid: string) =>
+      collectGridSpots(grid, allSpots, spots, resolvedSpots).spots,
+    [allSpots, resolvedSpots, spots],
+  );
+
+  const handleOpenOperatorPanel = useCallback(() => {
+    if (!selectedMapSpotData) return;
+    const selected = selectedMapSpotData.spot;
+    let grid = selected.dxGrid || "";
+    if (
+      !grid &&
+      Number.isFinite(selected.dxLat) &&
+      Number.isFinite(selected.dxLon)
+    ) {
+      try {
+        grid = latLonToGrid(selected.dxLat!, selected.dxLon!);
+      } catch {
+        // Callsign lookup remains useful without a derived grid.
+      }
+    }
+    setResearchCallsign(selected.dx);
+    setResearchGrid(grid);
+    setResearchPanelOpen(true);
+    setSelectedMapSpotData(null);
+  }, [selectedMapSpotData]);
+
+  const handleResearchAction = useCallback(
+    (action: GridResearchAction, value: string) => {
+      if (action === "watch") {
+        useWatchStore.getState().setWatch(
+          researchCallsign
+            ? { callsign: researchCallsign, txOrRx: "either" }
+            : { gridPrefix: value.slice(0, 4), txOrRx: "either" },
+        );
+        return;
+      }
+      if (action === "setTarget") {
+        try {
+          const location = gridToLatLon(value.slice(0, 6));
+          useMapStore.getState().setTarget({ ...location, grid: value });
+          setResearchPanelOpen(false);
+        } catch {
+          // Keep the panel open when its provider has no usable grid.
+        }
+        return;
+      }
+      if (action === "pin") {
+        try {
+          const location = gridToLatLon(value.slice(0, 6));
+          setAddPinData({ ...location, grid: value });
+          setResearchPanelOpen(false);
+        } catch {
+          // Keep research open if the locator cannot produce a pin position.
+        }
+        return;
+      }
+      if (action === "close") setResearchPanelOpen(false);
+    },
+    [researchCallsign],
+  );
+
   // Listen on the shared map container so activation buttons layered over the
   // canvas do not create dead zones for wheel zoom.
   useEffect(() => {
@@ -1928,15 +2180,13 @@ export function AzimuthalView({
     setHoveredTargetPos(null);
   }, [target]);
 
+  useEffect(() => {
+    setOpenSpotPin(null);
+    setSelectedGridCollection(null);
+  }, [center?.lat, center?.lon, layers.spots, layers.spotTraces, zoom]);
+
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!targetHitPoint) {
-        if (hoveredTargetPos) {
-          setHoveredTargetPos(null);
-        }
-        return;
-      }
-
       const canvas = overlayCanvasRef.current;
       if (!canvas) {
         return;
@@ -1952,6 +2202,41 @@ export function AzimuthalView({
       const canvasX = (event.clientX - rect.left) * scaleX;
       const canvasY = (event.clientY - rect.top) * scaleY;
 
+      const spotPin = findSpotPinAtPoint(
+        spotPins,
+        canvasX,
+        canvasY,
+        zoom,
+        displaySize,
+        spotDotScale,
+      );
+      if (spotPin) {
+        const visualX = CENTER + (spotPin.x - CENTER) * zoom;
+        const visualY = CENTER + (spotPin.y - CENTER) * zoom;
+        const screenX = rect.left + (visualX / CANVAS_SIZE) * rect.width;
+        const screenY = rect.top + (visualY / CANVAS_SIZE) * rect.height;
+        const radius = Math.max(
+          12,
+          getSpotPinRadius(spotPin, spotDotScale) + 5,
+        );
+        setHoveredSpotPinKey(spotPin.key);
+        setHoveredSpotPinPos({
+          x: screenX - radius,
+          y: screenY - radius,
+          width: radius * 2,
+          height: radius * 2,
+        });
+        if (hoveredTargetPos) setHoveredTargetPos(null);
+        return;
+      }
+      setHoveredSpotPinKey(null);
+      setHoveredSpotPinPos(null);
+
+      if (!targetHitPoint) {
+        if (hoveredTargetPos) setHoveredTargetPos(null);
+        return;
+      }
+
       // Hit radius tracks zoom (marker grows/shrinks with zoom transform)
       const hitRadius = 18 * zoom;
       const dx = canvasX - targetHitPoint.x;
@@ -1964,18 +2249,27 @@ export function AzimuthalView({
         setHoveredTargetPos(null);
       }
     },
-    [targetHitPoint, zoom, hoveredTargetPos],
+    [
+      displaySize,
+      hoveredTargetPos,
+      spotDotScale,
+      spotPins,
+      targetHitPoint,
+      zoom,
+    ],
   );
 
   const handlePointerLeave = useCallback(() => {
     setHoveredTargetPos(null);
+    setHoveredSpotPinKey(null);
+    setHoveredSpotPinPos(null);
   }, []);
 
   // Handle canvas click (on overlay canvas)
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = overlayCanvasRef.current;
-      if (!canvas || !onLocationClick || !center) {
+      if (!canvas || !center) {
         return;
       }
 
@@ -1988,6 +2282,31 @@ export function AzimuthalView({
 
       const canvasX = (event.clientX - rect.left) * scaleX;
       const canvasY = (event.clientY - rect.top) * scaleY;
+
+      const spotPin = findSpotPinAtPoint(
+        spotPins,
+        canvasX,
+        canvasY,
+        zoom,
+        displaySize,
+        spotDotScale,
+      );
+      if (spotPin) {
+        event.preventDefault();
+        event.stopPropagation();
+        const anchor = hoveredSpotPinPos || {
+          x: event.clientX,
+          y: event.clientY,
+        };
+        if (spotPin.members.length === 1) {
+          selectSpotPinMember(spotPin.members[0], anchor);
+        } else {
+          setOpenSpotPin({ pin: spotPin, position: anchor });
+          setSelectedMapSpotData(null);
+          setSelectedGridCollection(null);
+        }
+        return;
+      }
 
       // Account for zoom transform (zoom is centered on CENTER)
       // The canvas drawing uses: translate(CENTER), scale(zoom), translate(-CENTER)
@@ -2012,9 +2331,38 @@ export function AzimuthalView({
         center.lon,
       );
 
-      onLocationClick(lat, lon);
+      if (layers.gridActivity) {
+        const grid = latLonToGrid(lat, lon, 4);
+        const gridMembers = getGridCollectionSpots(grid);
+        if (gridMembers.length > 0) {
+          setSelectedGridCollection({
+            grid,
+            spots: gridMembers,
+            screenPos: { x: event.clientX, y: event.clientY },
+          });
+          setOpenSpotPin(null);
+          setSelectedMapSpotData(null);
+          return;
+        }
+      }
+
+      setOpenSpotPin(null);
+      setSelectedGridCollection(null);
+      setSelectedMapSpotData(null);
+      onLocationClick?.(lat, lon);
     },
-    [onLocationClick, center, zoom],
+    [
+      center,
+      displaySize,
+      getGridCollectionSpots,
+      hoveredSpotPinPos,
+      layers.gridActivity,
+      onLocationClick,
+      selectSpotPinMember,
+      spotDotScale,
+      spotPins,
+      zoom,
+    ],
   );
 
   // Render WebGL background
@@ -2024,6 +2372,12 @@ export function AzimuthalView({
       return;
     }
 
+    const dpr = Math.min(
+      window.devicePixelRatio || 1,
+      qualitySettings.maxDevicePixelRatio,
+    );
+    const backingSize = Math.round(displaySize * dpr);
+    renderer.resize(backingSize, backingSize);
     renderer.setMapStyle(mapStyle);
     renderer.render({
       centerLat: center.lat,
@@ -2042,6 +2396,8 @@ export function AzimuthalView({
     webglReady,
     mapStyle,
     nightDarkness,
+    displaySize,
+    qualitySettings.maxDevicePixelRatio,
   ]);
 
   // Render 2D overlay (UI elements, paths, markers)
@@ -2056,7 +2412,12 @@ export function AzimuthalView({
       return;
     }
 
-    applyCanvasDprTransform(canvas, ctx, displaySize);
+    applyCanvasDprTransform(
+      canvas,
+      ctx,
+      displaySize,
+      qualitySettings.maxDevicePixelRatio,
+    );
 
     // Clear overlay canvas (transparent background)
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -2150,29 +2511,31 @@ export function AzimuthalView({
       glowRendererRef.current.draw(ctx, glowProject, Date.now(), "radial");
     }
 
-    // Draw live spot arcs (sampled great circles). Traces-alone (spotTraces
-    // without spots) still shows the arcs — traces isn't a separate layer.
-    if ((layers.spots || layers.spotTraces) && resolvedSpots.length > 0) {
-      drawSpotArcs(
+    // Generic routes are opt-in and intentionally capped in this compressed
+    // projection. The selected route below remains fully emphasized.
+    if (layers.spotTraces && resolvedSpots.length > 0) {
+      drawSpotTraceArcs(
         ctx,
-        resolvedSpots,
+        resolvedSpots.slice(0, MAX_AZIMUTHAL_SPOT_TRACES),
         center.lat,
         center.lon,
         spotColorMode,
-        spotDotScale,
+        Math.min(spotDotScale, 1),
       );
-      if (layers.spots && showSpotCallsignLabels) {
-        drawSpotCallsignPills(
-          ctx,
-          resolvedSpots,
-          center.lat,
-          center.lon,
-          spotLabelScale,
-          highVizSpots,
-          zoom,
-          spotDotScale,
-        );
-      }
+    }
+
+    // Live Spots is an endpoint overview: nearby endpoints collapse into
+    // count pins instead of flooding the disk with labels and arcs.
+    if ((layers.spots || layers.spotTraces) && spotPins.length > 0) {
+      drawSpotEndpointPins(
+        ctx,
+        spotPins,
+        spotColorMode,
+        spotDotScale,
+        hoveredSpotPinKey,
+        zoom,
+        displaySize,
+      );
     }
 
     if (layers.activations && activationSpots.length > 0) {
@@ -2244,7 +2607,7 @@ export function AzimuthalView({
     }
 
     // Highlighted arc for selected DX cluster spot
-    if (resolvedSelectedSpot) {
+    if (resolvedSelectedSpot && !selectedSpotMatchesTarget) {
       drawSelectedSpotArc(ctx, resolvedSelectedSpot, center.lat, center.lon);
     }
 
@@ -2256,9 +2619,9 @@ export function AzimuthalView({
         center.lon,
         target.lat,
         target.lon,
-        target.name || target.grid,
+        selectedSpotMatchesTarget ? undefined : target.name || target.grid,
         targetMarkerColor,
-        pathDifficulty,
+        selectedSpotMatchesTarget ? undefined : pathDifficulty,
       );
     }
 
@@ -2275,15 +2638,15 @@ export function AzimuthalView({
     center,
     resolvedSpots,
     activationSpots,
+    spotPins,
+    hoveredSpotPinKey,
     resolvedSelectedSpot,
+    selectedSpotMatchesTarget,
     targetMarkerColor,
     pathDifficulty,
     zoom,
     spotColorMode,
     spotDotScale,
-    spotLabelScale,
-    showSpotCallsignLabels,
-    highVizSpots,
     labelOptions,
     mapStyle,
     earthquakeData,
@@ -2292,6 +2655,7 @@ export function AzimuthalView({
     fireHotspots,
     glowTick,
     displaySize,
+    qualitySettings.maxDevicePixelRatio,
   ]);
 
   return (
@@ -2352,7 +2716,7 @@ export function AzimuthalView({
       )}
 
       <TargetHoverTooltip
-        visible={!!hoveredTargetPos}
+        visible={!!hoveredTargetPos && !selectedMapSpotData}
         position={hoveredTargetPos || { x: 0, y: 0 }}
         label={target?.name || target?.grid || "Target"}
         grid={target?.grid}
@@ -2361,6 +2725,98 @@ export function AzimuthalView({
         signalUnavailableReason={
           station ? undefined : "Set your QTH to see optimal-band signal"
         }
+      />
+
+      <SpotHoverPreview
+        visible={
+          !!hoveredSingleSpot &&
+          !!hoveredSpotPinPos &&
+          !openSpotPin &&
+          !selectedMapSpotData &&
+          !selectedGridCollection
+        }
+        position={hoveredSpotPinPos || { x: 0, y: 0 }}
+        spot={hoveredSingleSpot}
+        displayTime={displayTime}
+      />
+
+      {openSpotPin && (
+        <SpotCollectionPopover
+          visible
+          position={openSpotPin.position}
+          title={`${openSpotPin.pin.members.length} live spots`}
+          subtitle="Select a station to target and inspect"
+          spots={openSpotPin.pin.members.map((member) => ({
+            ...member.spot,
+            dxLat: member.resolved.dxLat,
+            dxLon: member.resolved.dxLon,
+            spotterLat: member.resolved.spotterLat,
+            spotterLon: member.resolved.spotterLon,
+            dxLocApprox: member.resolved.dxLocApprox,
+            spotterLocApprox: member.resolved.spotterLocApprox,
+          }))}
+          onClose={() => setOpenSpotPin(null)}
+          onSpotSelect={(spot) => {
+            const member = openSpotPin.pin.members.find(
+              (candidate) => candidate.spot.id === spot.id,
+            );
+            if (member) selectSpotPinMember(member, openSpotPin.position);
+          }}
+        />
+      )}
+
+      {selectedGridCollection && (
+        <SpotCollectionPopover
+          visible
+          position={selectedGridCollection.screenPos}
+          title={`${selectedGridCollection.grid} active spots`}
+          subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
+          spots={selectedGridCollection.spots}
+          onClose={() => setSelectedGridCollection(null)}
+          onSpotSelect={(spot) => {
+            const resolved = resolveSpotLocations([spot])[0];
+            if (resolved) {
+              selectSpotPinMember(
+                { spot, resolved },
+                selectedGridCollection.screenPos,
+              );
+            }
+          }}
+        />
+      )}
+
+      {selectedMapSpotData && (
+        <SelectedSpotCard
+          spot={selectedMapSpotData.spot}
+          position={selectedMapSpotData.screenPos}
+          difficulty={pathDifficulty}
+          optimalSignal={optimalSignal}
+          signalUnavailableReason={
+            station ? undefined : "Set your QTH to model this path"
+          }
+          onOperator={handleOpenOperatorPanel}
+          onViewPath={() => setSelectedMapSpotData(null)}
+          onClose={() => setSelectedMapSpotData(null)}
+        />
+      )}
+
+      <GridResearchPanel
+        visible={researchPanelOpen}
+        grid={researchGrid}
+        initialCallsign={researchCallsign}
+        onAction={handleResearchAction}
+        onClose={() => {
+          setResearchPanelOpen(false);
+          setResearchCallsign(null);
+        }}
+      />
+
+      <AddPinDialog
+        visible={!!addPinData}
+        mode="add"
+        location={addPinData || undefined}
+        onClose={() => setAddPinData(null)}
+        onSave={() => setAddPinData(null)}
       />
 
       {/* Loading indicator */}
@@ -2381,6 +2837,14 @@ export function AzimuthalView({
           />
           <span>Great circle path (straight line = beam heading)</span>
         </div>
+        {(layers.spots || layers.spotTraces) && (
+          <div className="mt-1 flex items-center gap-2 text-gray-400">
+            <span className="inline-flex h-3 min-w-3 items-center justify-center rounded-full border border-signal-green px-0.5 font-mono text-[7px] text-white">
+              2
+            </span>
+            <span>Live endpoint clusters · click to target</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 mt-1 text-gray-400">
           <span>Scroll to zoom</span>
           {zoom !== 1 && (

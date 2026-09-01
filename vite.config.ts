@@ -1340,7 +1340,8 @@ export default defineConfig(({ mode }) => {
                 id.includes("/node_modules/date-fns/") ||
                 id.includes("/node_modules/zustand/") ||
                 id.includes("/node_modules/zod/") ||
-                id.includes("/node_modules/suncalc/")
+                id.includes("/node_modules/suncalc/") ||
+                id.includes("/node_modules/satellite.js/")
               ) {
                 return "vendor-utils";
               }

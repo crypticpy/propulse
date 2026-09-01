@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authHeaders } from "@/lib/api/authFetch";
 import { ALL_PROVIDERS } from "./providers";
 import { createFlatTileLayer } from "./flatTileLayer";
@@ -26,6 +26,10 @@ class FakeImage {
 }
 
 describe("createFlatTileLayer", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.stubGlobal("Image", FakeImage);
     vi.stubGlobal(
@@ -156,5 +160,60 @@ describe("createFlatTileLayer", () => {
 
     await vi.waitFor(() => expect(onProviderUnavailable).toHaveBeenCalledOnce());
     layer.dispose();
+  });
+
+  it("bounds concurrent tile requests and aborts them on disposal", async () => {
+    vi.mocked(fetch).mockImplementation(
+      () => new Promise<Response>(() => undefined),
+    );
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      vi.fn(),
+      { maxConcurrentRequests: 2, prefetchRadius: 1 },
+    );
+    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+
+    layer.draw(context, {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+    });
+
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const signals = vi.mocked(fetch).mock.calls.map(([, init]) => init?.signal);
+    expect(signals.every((signal) => signal?.aborted === false)).toBe(true);
+
+    layer.dispose();
+    expect(signals.every((signal) => signal?.aborted === true)).toBe(true);
+  });
+
+  it("waits for the view to settle before starting high-detail requests", async () => {
+    vi.useFakeTimers();
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      vi.fn(),
+      { settleDelayMs: 120, maxConcurrentRequests: 1 },
+    );
+    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+
+    layer.draw(context, {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+    });
+    await Promise.resolve();
+    expect(fetch).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(120);
+    await Promise.resolve();
+    expect(fetch).toHaveBeenCalled();
+    layer.dispose();
+    vi.useRealTimers();
   });
 });

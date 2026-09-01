@@ -29,12 +29,18 @@ export interface FlatTileLayer {
 export interface FlatTileLayerOptions {
   maxCachedTiles?: number;
   tileZoomBias?: number;
+  maxConcurrentRequests?: number;
+  prefetchRadius?: number;
+  settleDelayMs?: number;
   onProviderUnavailable?: () => void;
 }
 
 interface TileEntry {
   img: HTMLImageElement;
-  status: "loading" | "ready" | "error";
+  status: "queued" | "loading" | "ready" | "error";
+  z: number;
+  x: number;
+  y: number;
   controller?: AbortController;
   objectUrl?: string;
 }
@@ -69,23 +75,36 @@ export function createFlatTileLayer(
   const maxCachedTiles =
     options.maxCachedTiles ?? DEFAULT_MAX_CACHED_TILES;
   const tileZoomBias = options.tileZoomBias ?? 0;
+  const maxConcurrentRequests = Math.max(
+    1,
+    options.maxConcurrentRequests ?? 12,
+  );
+  const prefetchRadius = Math.max(0, Math.floor(options.prefetchRadius ?? 0));
+  const settleDelayMs = Math.max(0, options.settleDelayMs ?? 0);
   let disposed = false;
   let consecutiveErrors = 0;
   let providerFailureReported = false;
+  let activeRequests = 0;
+  let requestQueue: string[] = [];
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastViewSignature = "";
 
   function releaseEntry(entry: TileEntry): void {
+    const wasLoading = entry.status === "loading";
     entry.controller?.abort();
     entry.img.onload = null;
     entry.img.onerror = null;
-    if (entry.status === "loading") entry.img.src = "";
+    if (wasLoading) entry.img.src = "";
     if (entry.objectUrl) {
       URL.revokeObjectURL(entry.objectUrl);
       entry.objectUrl = undefined;
     }
+    if (wasLoading) activeRequests = Math.max(0, activeRequests - 1);
   }
 
   function markError(entry: TileEntry): void {
     if (disposed) return;
+    const wasLoading = entry.status === "loading";
     entry.status = "error";
     entry.controller = undefined;
     if (entry.objectUrl) {
@@ -97,6 +116,8 @@ export function createFlatTileLayer(
       providerFailureReported = true;
       options.onProviderUnavailable?.();
     }
+    if (wasLoading) activeRequests = Math.max(0, activeRequests - 1);
+    pumpQueue();
   }
 
   async function loadAuthenticatedTile(
@@ -121,34 +142,28 @@ export function createFlatTileLayer(
     entry.img.src = entry.objectUrl;
   }
 
-  function requestTile(key: string, z: number, x: number, y: number): void {
-    const img = new Image();
-    const entry: TileEntry = {
-      img,
-      status: "loading",
-      ...(provider.authentication === "bearer" && {
-        controller: new AbortController(),
-      }),
-    };
-    cache.set(key, entry);
-    if (cache.size > maxCachedTiles) {
-      for (const [oldKey, old] of cache) {
-        if (cache.size <= maxCachedTiles) break;
-        if (old.status !== "loading") {
-          releaseEntry(old);
-          cache.delete(oldKey);
-        }
-      }
+  function startTileRequest(entry: TileEntry): void {
+    if (disposed || entry.status !== "queued") return;
+
+    const { img, z, x, y } = entry;
+    entry.status = "loading";
+    activeRequests += 1;
+    if (provider.authentication === "bearer") {
+      entry.controller = new AbortController();
     }
+
     img.onload = () => {
+      if (disposed || entry.status !== "loading") return;
       entry.status = "ready";
       entry.controller = undefined;
+      activeRequests = Math.max(0, activeRequests - 1);
       consecutiveErrors = 0;
       if (entry.objectUrl) {
         URL.revokeObjectURL(entry.objectUrl);
         entry.objectUrl = undefined;
       }
-      if (!disposed) onTileLoaded();
+      onTileLoaded();
+      pumpQueue();
     };
     img.onerror = () => markError(entry);
     const tileUrl = provider.url
@@ -159,13 +174,45 @@ export function createFlatTileLayer(
     if (provider.authentication === "bearer") {
       void loadAuthenticatedTile(entry, tileUrl).catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        if (disposed) return;
+        if (disposed || entry.status !== "loading") return;
         markError(entry);
       });
     } else {
       // Esri/OSM send ACAO:*; without this the canvas would be tainted.
       img.crossOrigin = "anonymous";
       img.src = tileUrl;
+    }
+  }
+
+  function pumpQueue(): void {
+    if (disposed || settleTimer) return;
+    while (activeRequests < maxConcurrentRequests && requestQueue.length > 0) {
+      const key = requestQueue.shift()!;
+      const entry = cache.get(key);
+      if (!entry || entry.status !== "queued") continue;
+      startTileRequest(entry);
+    }
+  }
+
+  function queueTile(key: string, z: number, x: number, y: number): void {
+    const img = new Image();
+    const entry: TileEntry = {
+      img,
+      status: "queued",
+      z,
+      x,
+      y,
+    };
+    cache.set(key, entry);
+    requestQueue.push(key);
+    if (cache.size > maxCachedTiles) {
+      for (const [oldKey, old] of cache) {
+        if (cache.size <= maxCachedTiles) break;
+        if (old.status !== "loading") {
+          releaseEntry(old);
+          cache.delete(oldKey);
+        }
+      }
     }
   }
 
@@ -237,15 +284,49 @@ export function createFlatTileLayer(
       return; // window is entirely polar — outside tile coverage
     }
 
+    const exactN = 1 << z;
+    const exactXStart = Math.max(
+      0,
+      Math.floor(((lonLeft + 180) / 360) * exactN),
+    );
+    const exactXEnd = Math.min(
+      exactN - 1,
+      Math.floor(((lonRight + 180) / 360) * exactN),
+    );
+    const exactYStart = Math.max(0, Math.floor(mercatorNormY(latTop) * exactN));
+    const exactYEnd = Math.min(
+      exactN - 1,
+      Math.floor(mercatorNormY(latBottom) * exactN),
+    );
+    const requestXStart = Math.max(0, exactXStart - prefetchRadius);
+    const requestXEnd = Math.min(exactN - 1, exactXEnd + prefetchRadius);
+    const requestYStart = Math.max(0, exactYStart - prefetchRadius);
+    const requestYEnd = Math.min(exactN - 1, exactYEnd + prefetchRadius);
+    const viewSignature = `${z}/${requestXStart}-${requestXEnd}/${requestYStart}-${requestYEnd}`;
+    const viewChanged = viewSignature !== lastViewSignature;
+    lastViewSignature = viewSignature;
+
     // Coarse-to-fine: paint any cached ancestor tiles first so zooming shows
     // upscaled imagery instead of holes while the exact level loads.
     const visibleTileKeys = new Set<string>();
     for (let level = Math.max(2, z - FALLBACK_ZOOM_STEPS); level <= z; level++) {
       const n = 1 << level;
-      const xStart = Math.max(0, Math.floor(((lonLeft + 180) / 360) * n));
-      const xEnd = Math.min(n - 1, Math.floor(((lonRight + 180) / 360) * n));
-      const yStart = Math.max(0, Math.floor(mercatorNormY(latTop) * n));
-      const yEnd = Math.min(n - 1, Math.floor(mercatorNormY(latBottom) * n));
+      const xStart =
+        level === z
+          ? requestXStart
+          : Math.max(0, Math.floor(((lonLeft + 180) / 360) * n));
+      const xEnd =
+        level === z
+          ? requestXEnd
+          : Math.min(n - 1, Math.floor(((lonRight + 180) / 360) * n));
+      const yStart =
+        level === z
+          ? requestYStart
+          : Math.max(0, Math.floor(mercatorNormY(latTop) * n));
+      const yEnd =
+        level === z
+          ? requestYEnd
+          : Math.min(n - 1, Math.floor(mercatorNormY(latBottom) * n));
       for (let ty = yStart; ty <= yEnd; ty++) {
         for (let tx = xStart; tx <= xEnd; tx++) {
           const key = `${level}/${tx}/${ty}`;
@@ -258,7 +339,7 @@ export function createFlatTileLayer(
               drawTile(ctx, entry.img, level, tx, ty, view);
             }
           } else if (level === z) {
-            requestTile(key, level, tx, ty);
+            queueTile(key, level, tx, ty);
           }
         }
       }
@@ -267,10 +348,26 @@ export function createFlatTileLayer(
     // Fast pans/zooms should not spend bandwidth finishing tiles that are no
     // longer visible. Ready ancestors remain cached for seamless fallback.
     for (const [key, entry] of cache) {
-      if (entry.status === "loading" && !visibleTileKeys.has(key)) {
+      if (
+        (entry.status === "loading" || entry.status === "queued") &&
+        !visibleTileKeys.has(key)
+      ) {
         releaseEntry(entry);
         cache.delete(key);
       }
+    }
+
+    if (viewChanged && settleTimer) {
+      clearTimeout(settleTimer);
+      settleTimer = undefined;
+    }
+    if (viewChanged && settleDelayMs > 0) {
+      settleTimer = setTimeout(() => {
+        settleTimer = undefined;
+        pumpQueue();
+      }, settleDelayMs);
+    } else {
+      pumpQueue();
     }
   }
 
@@ -278,10 +375,13 @@ export function createFlatTileLayer(
     draw,
     dispose() {
       disposed = true;
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = undefined;
       for (const entry of cache.values()) {
         releaseEntry(entry);
       }
       cache.clear();
+      requestQueue = [];
     },
   };
 }

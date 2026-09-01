@@ -58,8 +58,12 @@ import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
 import { MapSizeSliders } from "./MapSizeSliders";
-import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
+import type { SpotDetailsData } from "./SpotDetailsFlyout";
+import { SpotHoverPreview } from "./SpotHoverPreview";
+import { SelectedSpotCard } from "./SelectedSpotCard";
+import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
+import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import {
@@ -73,8 +77,16 @@ import {
   createFlatTileLayer,
   type FlatTileLayer,
 } from "@/lib/tiles/flatTileLayer";
-import { selectTileProvider } from "@/lib/tiles/providers";
+import { ALL_PROVIDERS, selectTileProvider } from "@/lib/tiles/providers";
 import { useProfileStore } from "@/stores/profileStore";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import {
+  readDisplayQualityEnvironment,
+  resolveDisplayQuality,
+} from "@/lib/map/displayQuality";
+import { useThemeStore } from "@/stores/themeStore";
+import { getSeasonalTextureCandidates } from "./hooks/useSeasonalDayTexture";
+import { ImageryAttribution } from "./ImageryAttribution";
 import {
   getMaidenheadFields,
   MAIDENHEAD_LON_LINES,
@@ -125,6 +137,12 @@ import {
 import { ActivationPillButtons } from "./layers/ActivationPillButtons";
 import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
 import { getSublunarPoint } from "@/lib/utils/moon";
+import { collectGridSpots } from "@/lib/map/gridSpotCollection";
+import {
+  normalizePresentableSpot,
+  type PresentableSpot,
+} from "@/lib/map/spotPresentation";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -135,6 +153,16 @@ interface FlatMapViewProps {
   fillContainer?: boolean;
   /** Hide the local size panel when the host docks it with other controls */
   hideSizeSliders?: boolean;
+}
+
+function matchesResolvedSpot(
+  candidate: PresentableSpot,
+  resolved: ResolvedSpot,
+): boolean {
+  if (candidate.id === resolved.id) return true;
+  if (candidate.dx !== resolved.callsign) return false;
+  if (Math.abs(candidate.frequency - resolved.frequency) > 0.01) return false;
+  return !candidate.source || candidate.source === resolved.source;
 }
 
 // Map dimensions
@@ -2047,6 +2075,11 @@ interface PlacedLabel {
   spotY: number;
 }
 
+interface SpotScreenHit {
+  spot: ResolvedSpot;
+  anchor: ScreenAnchor;
+}
+
 /** Module-level storage so the hover handler can hit-test placed labels */
 let lastPlacedLabels: PlacedLabel[] = [];
 
@@ -2624,11 +2657,15 @@ function drawLabels(
   viewportWidth = 0,
   viewportHeight = 0,
   gridLabelDetail = 2,
+  lightTheme = false,
 ) {
+  const lightStandard = standardMode && lightTheme;
   // Draw country border polygons
   if (opts.borders) {
     ctx.strokeStyle = standardMode
-      ? "rgba(255, 255, 255, 0.65)"
+      ? lightStandard
+        ? "rgba(15, 23, 42, 0.6)"
+        : "rgba(255, 255, 255, 0.65)"
       : "rgba(255, 255, 255, 0.3)";
     ctx.lineWidth = standardMode ? 1.0 : 0.8;
     ctx.beginPath();
@@ -2653,10 +2690,14 @@ function drawLabels(
         width,
         height,
       );
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.strokeStyle = lightStandard
+        ? "rgba(255, 255, 255, 0.85)"
+        : "rgba(0, 0, 0, 0.7)";
       ctx.lineWidth = 2;
       ctx.strokeText(country.name, x, y);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.fillStyle = lightStandard
+        ? "rgba(15, 23, 42, 0.78)"
+        : "rgba(255, 255, 255, 0.7)";
       ctx.fillText(country.name, x, y);
     }
   }
@@ -2668,12 +2709,18 @@ function drawLabels(
     ctx.textBaseline = "alphabetic";
     for (const city of CITY_LABELS_2D) {
       const { x, y } = latLonToCanvas(city.lat, city.lon, width, height);
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.strokeStyle = lightStandard
+        ? "rgba(255, 255, 255, 0.9)"
+        : "rgba(0, 0, 0, 0.8)";
       ctx.lineWidth = 3;
       ctx.strokeText(city.name, x, y - 8);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fillStyle = lightStandard
+        ? "rgba(15, 23, 42, 0.9)"
+        : "rgba(255, 255, 255, 0.9)";
       ctx.fillText(city.name, x, y - 8);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.fillStyle = lightStandard
+        ? "rgba(15, 23, 42, 0.7)"
+        : "rgba(255, 255, 255, 0.6)";
       ctx.beginPath();
       ctx.arc(x, y, 2, 0, Math.PI * 2);
       ctx.fill();
@@ -2862,9 +2909,12 @@ function drawStateBorders(
   width: number,
   height: number,
   standardMode: boolean,
+  lightTheme = false,
 ) {
   ctx.strokeStyle = standardMode
-    ? "rgba(255, 255, 255, 0.45)"
+    ? lightTheme
+      ? "rgba(15, 23, 42, 0.5)"
+      : "rgba(255, 255, 255, 0.45)"
     : "rgba(255, 255, 255, 0.2)";
   ctx.lineWidth = standardMode ? 0.7 : 0.5;
   ctx.beginPath();
@@ -3280,6 +3330,16 @@ export function FlatMapView({
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const target = useMapStore((s) => s.target);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const themeId = useThemeStore((s) => s.themeId);
+  const qualitySettings = useMemo(() => {
+    const environment = readDisplayQualityEnvironment();
+    return resolveDisplayQuality(displayQuality, {
+      ...environment,
+      cssWidth: viewportSize.width,
+      cssHeight: viewportSize.height,
+    });
+  }, [displayQuality, viewportSize.height, viewportSize.width]);
 
   // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
   useEffect(() => {
@@ -3287,22 +3347,59 @@ export function FlatMapView({
   }, [layers.gridActivity]);
 
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const requestedTileProvider = useMemo(
+    () => selectTileProvider("satellite", subscriptionTier),
+    [subscriptionTier],
+  );
+  const [failedTileProviderId, setFailedTileProviderId] = useState<
+    string | null
+  >(null);
+  useEffect(
+    () => setFailedTileProviderId(null),
+    [requestedTileProvider.id],
+  );
+  const tileProvider = useMemo(() => {
+    if (
+      failedTileProviderId === requestedTileProvider.id &&
+      requestedTileProvider.fallbackProviderId
+    ) {
+      return ALL_PROVIDERS[requestedTileProvider.fallbackProviderId];
+    }
+    return requestedTileProvider;
+  }, [failedTileProviderId, requestedTileProvider]);
 
   // Create/replace the satellite tile layer when the style or provider changes
   useEffect(() => {
     if (mapStyle === "standard") {
       return;
     }
-    const provider = selectTileProvider("satellite", subscriptionTier);
-    const layer = createFlatTileLayer(provider, () =>
-      setTileEpoch((epoch) => epoch + 1),
+    const layer = createFlatTileLayer(
+      tileProvider,
+      () => setTileEpoch((epoch) => epoch + 1),
+      {
+        maxCachedTiles: qualitySettings.flatTileCacheSize,
+        tileZoomBias: qualitySettings.tileZoomBias,
+        maxConcurrentRequests: qualitySettings.tileRequestConcurrency,
+        prefetchRadius: qualitySettings.prefetchRadius,
+        settleDelayMs: qualitySettings.settleDelayMs,
+        onProviderUnavailable: () =>
+          setFailedTileProviderId(tileProvider.id),
+      },
     );
     tileLayerRef.current = layer;
     return () => {
       layer.dispose();
       tileLayerRef.current = null;
     };
-  }, [mapStyle, subscriptionTier]);
+  }, [
+    mapStyle,
+    qualitySettings.flatTileCacheSize,
+    qualitySettings.prefetchRadius,
+    qualitySettings.settleDelayMs,
+    qualitySettings.tileRequestConcurrency,
+    qualitySettings.tileZoomBias,
+    tileProvider,
+  ]);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
@@ -3350,6 +3447,7 @@ export function FlatMapView({
   // DX stores
   const { updateFilter } = useDXStore();
   const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const selectMapSpot = useMapSpotSelection();
   const { allSpots } = useDXCluster();
 
   // Satellite positions for 2D overlay
@@ -3404,19 +3502,39 @@ export function FlatMapView({
     y: number;
   } | null>(null);
 
+  // Fetch and resolve the shared live feed, then apply this canvas renderer's
+  // draw cap. Source merging and disabled-state behavior live in one hook.
+  const { spots, resolvedSpots, activationSpots } = useResolvedMapSpots({
+    grid: station?.grid,
+    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
+    activationsEnabled: layers.activations,
+    maxSpots: displayDensity,
+  });
+
   // State for spot label hover flyout
   const [hoveredSpotData, setHoveredSpotData] = useState<{
     spot: ResolvedSpot;
-    screenPos: { x: number; y: number };
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [selectedMapSpotData, setSelectedMapSpotData] = useState<{
+    spot: LiveSpot;
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [selectedGridCollection, setSelectedGridCollection] = useState<{
+    grid: string;
+    spots: LiveSpot[];
+    screenPos: ScreenAnchor;
   } | null>(null);
 
   // Build SpotDetailsData from hovered spot label
   const hoveredSpotDetails = useMemo((): SpotDetailsData | null => {
     if (!hoveredSpotData) return null;
     const spot = hoveredSpotData.spot;
-    const liveSpot = allSpots.find(
-      (s) => s.id === spot.id || s.dx === spot.callsign,
-    ) as LiveSpot | undefined;
+    const liveSpot =
+      spots.find((candidate) => candidate.id === spot.id) ??
+      (allSpots.find((candidate) => matchesResolvedSpot(candidate, spot)) as
+        | LiveSpot
+        | undefined);
     return {
       callsign: spot.callsign,
       dxGrid: liveSpot?.dxGrid,
@@ -3431,27 +3549,21 @@ export function FlatMapView({
       source: spot.source,
       snr: liveSpot?.snr,
       wpm: liveSpot?.wpm,
+      comment: liveSpot?.comment,
+      dxLocApprox: spot.dxLocApprox,
     };
-  }, [hoveredSpotData, allSpots]);
+  }, [hoveredSpotData, allSpots, spots]);
 
   // State for GridResearchPanel
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchGrid, setResearchGrid] = useState<string | null>(null);
+  const [researchCallsign, setResearchCallsign] = useState<string | null>(null);
 
   // State for continuous bearing/distance on hover
   const [hoverCoords, setHoverCoords] = useState<{
     lat: number;
     lon: number;
   } | null>(null);
-
-  // Fetch and resolve the shared live feed, then apply this canvas renderer's
-  // draw cap. Source merging and disabled-state behavior live in one hook.
-  const { resolvedSpots, activationSpots } = useResolvedMapSpots({
-    grid: station?.grid,
-    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
-    activationsEnabled: layers.activations,
-    maxSpots: displayDensity,
-  });
 
   // Resolve the selected DX cluster spot into a ResolvedSpot for arc highlighting
   const resolvedSelectedSpot = useMemo((): ResolvedSpot | null => {
@@ -3495,6 +3607,20 @@ export function FlatMapView({
       dxLocApprox: false,
     };
   }, [selectedSpot]);
+
+  const selectedSpotMatchesTarget = useMemo(() => {
+    if (!selectedSpot || !target) return false;
+    if (
+      !Number.isFinite(selectedSpot.dxLat) ||
+      !Number.isFinite(selectedSpot.dxLon)
+    ) {
+      return false;
+    }
+    return (
+      Math.abs(selectedSpot.dxLat! - target.lat) < 1e-6 &&
+      Math.abs(selectedSpot.dxLon! - target.lon) < 1e-6
+    );
+  }, [selectedSpot, target]);
 
   // Feed new spots into the grid glow renderer when spots arrive.
   // Uses resolvedSpots (not raw spots) so the glow grid matches where the dot lands.
@@ -3618,31 +3744,76 @@ export function FlatMapView({
     if (!tooltipPosition?.grid) {
       return [];
     }
-    const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
-    return allSpots.filter((spot) => {
-      const dxGrid = (spot.dxGrid || "").toUpperCase();
-      const spotterGrid = (spot.spotterGrid || "").toUpperCase();
-      return (
-        dxGrid.startsWith(gridPrefix) || spotterGrid.startsWith(gridPrefix)
-      );
-    });
-  }, [tooltipPosition?.grid, allSpots]);
+    return collectGridSpots(
+      tooltipPosition.grid,
+      allSpots,
+      spots,
+      resolvedSpots,
+    ).tooltipSpots;
+  }, [tooltipPosition?.grid, allSpots, resolvedSpots, spots]);
+
+  const getGridCollectionSpots = useCallback(
+    (grid: string): LiveSpot[] =>
+      collectGridSpots(grid, allSpots, spots, resolvedSpots).spots,
+    [allSpots, resolvedSpots, spots],
+  );
 
   // Handle map click - show flyout
   const handleMapClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       const grid = latLonToGrid(lat, lon);
+      const gridHighlightEnabled =
+        layers.gridActivity ||
+        (layers.labels && labelOptions.maidenheadGrid && layers.spots);
+      const highlightedGrid = gridHighlightEnabled
+        ? latLonToGrid(lat, lon, zoomRef.current.scale >= 3 ? 6 : 4)
+        : grid;
+      const gridMembers = gridHighlightEnabled
+        ? getGridCollectionSpots(highlightedGrid)
+        : [];
+      if (gridMembers.length > 0) {
+        setSelectedGridCollection({
+          grid: highlightedGrid.toUpperCase(),
+          spots: gridMembers,
+          screenPos,
+        });
+        setFlyoutPosition(null);
+        setTooltipPosition(null);
+        setHoveredTargetPos(null);
+        setSelectedMapSpotData(null);
+        return;
+      }
+      setSelectedGridCollection(null);
       setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
       setTooltipPosition(null); // Hide tooltip when flyout opens
       setHoveredTargetPos(null);
       onLocationClick?.(lat, lon);
     },
-    [setFlyoutPosition, setTooltipPosition, onLocationClick],
+    [
+      getGridCollectionSpots,
+      labelOptions.maidenheadGrid,
+      layers.gridActivity,
+      layers.labels,
+      layers.spots,
+      onLocationClick,
+      setFlyoutPosition,
+      setTooltipPosition,
+    ],
   );
 
   // Handle double-click - center view without setting target
   const handleDoubleClick = useCallback(
     (lat: number, lon: number) => {
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lon) ||
+        lat < -90 ||
+        lat > 90 ||
+        lon < -180 ||
+        lon > 180
+      ) {
+        return;
+      }
       // Close any open flyout/tooltip
       setFlyoutPosition(null);
       setTooltipPosition(null);
@@ -3716,7 +3887,7 @@ export function FlatMapView({
 
   // Spot label hit-testing: check if screen position is inside any placed label
   const findSpotLabelAtScreenPos = useCallback(
-    (screenPos: { x: number; y: number }): ResolvedSpot | null => {
+    (screenPos: { x: number; y: number }): SpotScreenHit | null => {
       const canvas = canvasRef.current;
       if (!canvas || lastPlacedLabels.length === 0) {
         return null;
@@ -3741,12 +3912,115 @@ export function FlatMapView({
           screenPos.y >= sy &&
           screenPos.y <= sy + sh
         ) {
-          return label.spot;
+          return {
+            spot: label.spot,
+            anchor: { x: sx, y: sy, width: sw, height: sh },
+          };
         }
       }
       return null;
     },
     [viewportSize],
+  );
+
+  const findSpotEndpointAtScreenPos = useCallback(
+    (screenPos: { x: number; y: number }): SpotScreenHit | null => {
+      const canvas = canvasRef.current;
+      if (!canvas || resolvedSpots.length === 0) return null;
+      const rect = canvas.getBoundingClientRect();
+      const z = zoomRef.current;
+      const cssScaleX = rect.width / viewportSize.width;
+      const cssScaleY = rect.height / viewportSize.height;
+      const hitRadius = Math.max(10, 12 * spotDotScale);
+
+      for (const spot of resolvedSpots) {
+        const point = latLonToCanvas(
+          spot.dxLat,
+          spot.dxLon,
+          displaySize.width,
+          displaySize.height,
+        );
+        const x = rect.left + (point.x * z.scale + z.offsetX) * cssScaleX;
+        const y = rect.top + (point.y * z.scale + z.offsetY) * cssScaleY;
+        const dx = screenPos.x - x;
+        const dy = screenPos.y - y;
+        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+          return {
+            spot,
+            anchor: {
+              x: x - hitRadius,
+              y: y - hitRadius,
+              width: hitRadius * 2,
+              height: hitRadius * 2,
+            },
+          };
+        }
+      }
+      return null;
+    },
+    [displaySize, resolvedSpots, spotDotScale, viewportSize],
+  );
+
+  const handleSpotQuickClick = useCallback(
+    (screenPos: { x: number; y: number }, lat: number, lon: number) => {
+      const hit =
+        findSpotLabelAtScreenPos(screenPos) ??
+        findSpotEndpointAtScreenPos(screenPos);
+      if (!hit) {
+        const gridHighlightEnabled =
+          layers.gridActivity ||
+          (layers.labels && labelOptions.maidenheadGrid && layers.spots);
+        if (!gridHighlightEnabled) return false;
+        const grid = latLonToGrid(
+          lat,
+          lon,
+          zoomRef.current.scale >= 3 ? 6 : 4,
+        ).toUpperCase();
+        const gridMembers = getGridCollectionSpots(grid);
+        if (gridMembers.length === 0) return false;
+        setSelectedGridCollection({ grid, spots: gridMembers, screenPos });
+        setSelectedMapSpotData(null);
+        setHoveredSpotData(null);
+        setHoveredTargetPos(null);
+        setHoveredPinData(null);
+        setFlyoutPosition(null);
+        setTooltipPosition(null);
+        return true;
+      }
+
+      const candidate =
+        spots.find((spot) => spot.id === hit.spot.id) ??
+        allSpots.find((spot) => matchesResolvedSpot(spot, hit.spot));
+      if (!candidate) return false;
+
+      const liveSpot = normalizePresentableSpot(candidate);
+      const selection = selectMapSpot(liveSpot);
+      setSelectedMapSpotData({
+        spot: { ...liveSpot, ...(selection?.spot ?? {}) } as LiveSpot,
+        screenPos: hit.anchor,
+      });
+      setSelectedGridCollection(null);
+      setHoveredSpotData(null);
+      setHoveredTargetPos(null);
+      setHoveredPinData(null);
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      return true;
+    },
+    [
+      allSpots,
+      findSpotEndpointAtScreenPos,
+      findSpotLabelAtScreenPos,
+      getGridCollectionSpots,
+      labelOptions.maidenheadGrid,
+      layers.gridActivity,
+      layers.labels,
+      layers.spots,
+      selectMapSpot,
+      setFlyoutPosition,
+      setTooltipPosition,
+      spots,
+    ],
   );
 
   // Handle map hover - show tooltip or pin flyout
@@ -3769,9 +4043,14 @@ export function FlatMapView({
       }
 
       // Check spot label hover (between pin and target checks)
-      const hitSpotLabel = findSpotLabelAtScreenPos(screenPos);
-      if (hitSpotLabel) {
-        setHoveredSpotData({ spot: hitSpotLabel, screenPos });
+      const hitSpot =
+        findSpotLabelAtScreenPos(screenPos) ??
+        findSpotEndpointAtScreenPos(screenPos);
+      if (hitSpot) {
+        setHoveredSpotData({
+          spot: hitSpot.spot,
+          screenPos: hitSpot.anchor,
+        });
         setTooltipPosition(null);
         setHoveredTargetPos(null);
         return;
@@ -3804,6 +4083,7 @@ export function FlatMapView({
       findPinAtScreenPos,
       hoveredPinData,
       findSpotLabelAtScreenPos,
+      findSpotEndpointAtScreenPos,
       hoveredSpotData,
       isTargetAtScreenPos,
       hoveredTargetPos,
@@ -3875,12 +4155,34 @@ export function FlatMapView({
   // Handle opening GridResearchPanel from flyout
   const handleOpenResearchPanel = useCallback(
     (grid: string) => {
+      setResearchCallsign(null);
       setResearchGrid(grid);
       setResearchPanelOpen(true);
       setFlyoutPosition(null);
     },
     [setFlyoutPosition],
   );
+
+  const handleOpenOperatorPanel = useCallback(() => {
+    if (!selectedMapSpotData) return;
+    const selected = selectedMapSpotData.spot;
+    let grid = selected.dxGrid || "";
+    if (
+      !grid &&
+      Number.isFinite(selected.dxLat) &&
+      Number.isFinite(selected.dxLon)
+    ) {
+      try {
+        grid = latLonToGrid(selected.dxLat!, selected.dxLon!);
+      } catch {
+        // Callsign lookup remains useful even if a grid cannot be derived.
+      }
+    }
+    setResearchCallsign(selected.dx);
+    setResearchGrid(grid);
+    setResearchPanelOpen(true);
+    setSelectedMapSpotData(null);
+  }, [selectedMapSpotData]);
 
   // Handle adding a grid to watch list
   const handleWatchGrid = useCallback(
@@ -3898,7 +4200,14 @@ export function FlatMapView({
     (action: GridResearchAction, grid: string) => {
       switch (action) {
         case "watch":
-          handleWatchGrid(grid);
+          if (researchCallsign) {
+            useWatchStore.getState().setWatch({
+              callsign: researchCallsign,
+              txOrRx: "either",
+            });
+          } else {
+            handleWatchGrid(grid);
+          }
           break;
         case "pin": {
           // Need to compute lat/lon from grid
@@ -3925,7 +4234,12 @@ export function FlatMapView({
           break;
       }
     },
-    [handleWatchGrid, handleOpenAddPinDialog, setTarget],
+    [
+      handleWatchGrid,
+      handleOpenAddPinDialog,
+      researchCallsign,
+      setTarget,
+    ],
   );
 
   // Handle flyout actions (fallback for unhandled actions)
@@ -4109,12 +4423,48 @@ export function FlatMapView({
     };
   }, [handleWheel]);
 
-  // Load map image
+  // Load the bundled 4K map immediately, then upgrade UHD/Extreme displays to
+  // the current de-clouded monthly mosaic when the public asset is available.
   useEffect(() => {
-    const img = new Image();
-    img.onload = () => setMapImage(img);
-    img.src = "/textures/earth-flat.jpg";
-  }, []);
+    let cancelled = false;
+    let upgraded = false;
+    const fallback = new Image();
+    fallback.onload = () => {
+      if (!cancelled && !upgraded) setMapImage(fallback);
+    };
+    fallback.src = "/textures/earth-flat.jpg";
+
+    if (
+      qualitySettings.effective !== "uhd" &&
+      qualitySettings.effective !== "extreme"
+    ) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const hiResUrl = getSeasonalTextureCandidates(true)[0];
+    void fetch(hiResUrl, { method: "HEAD" })
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        const hiRes = new Image();
+        hiRes.crossOrigin = "anonymous";
+        hiRes.onload = () => {
+          if (!cancelled) {
+            upgraded = true;
+            setMapImage(hiRes);
+          }
+        };
+        hiRes.src = hiResUrl;
+      })
+      .catch(() => {
+        // The bundled 4K fallback remains visible offline or when probing fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [qualitySettings.effective]);
 
   // Pre-load night lights texture (module-level singleton, loaded once)
   useEffect(() => {
@@ -4328,12 +4678,15 @@ export function FlatMapView({
         return;
       }
 
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(
+        window.devicePixelRatio || 1,
+        qualitySettings.maxDevicePixelRatio,
+      );
       const { width: rw, height: rh } = displaySize;
 
       // Match main canvas buffer size
-      const bufferWidth = viewportSize.width * dpr;
-      const bufferHeight = viewportSize.height * dpr;
+      const bufferWidth = Math.round(viewportSize.width * dpr);
+      const bufferHeight = Math.round(viewportSize.height * dpr);
       if (hCanvas.width !== bufferWidth || hCanvas.height !== bufferHeight) {
         hCanvas.width = bufferWidth;
         hCanvas.height = bufferHeight;
@@ -4369,6 +4722,7 @@ export function FlatMapView({
     focusedSpot?.dxLon,
     displaySize,
     viewportSize,
+    qualitySettings.maxDevicePixelRatio,
   ]);
 
   // Draw renderer-agnostic overlay layers (e.g., contest markers) on demand
@@ -4383,11 +4737,14 @@ export function FlatMapView({
       return;
     }
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(
+      window.devicePixelRatio || 1,
+      qualitySettings.maxDevicePixelRatio,
+    );
     const { width: rw, height: rh } = displaySize;
 
-    const bufferWidth = viewportSize.width * dpr;
-    const bufferHeight = viewportSize.height * dpr;
+    const bufferWidth = Math.round(viewportSize.width * dpr);
+    const bufferHeight = Math.round(viewportSize.height * dpr);
     if (oCanvas.width !== bufferWidth || oCanvas.height !== bufferHeight) {
       oCanvas.width = bufferWidth;
       oCanvas.height = bufferHeight;
@@ -4500,7 +4857,13 @@ export function FlatMapView({
     }
 
     oCtx.restore();
-  }, [displaySize, viewportSize, overlayLayers, zoom]);
+  }, [
+    displaySize,
+    viewportSize,
+    overlayLayers,
+    zoom,
+    qualitySettings.maxDevicePixelRatio,
+  ]);
 
   // Cleanup animation refs on unmount
   useEffect(() => {
@@ -4566,6 +4929,7 @@ export function FlatMapView({
     displaySize,
     onLocationClick: handleMapClick,
     onDoubleClick: handleDoubleClick,
+    onQuickClick: handleSpotQuickClick,
     onLocationHover: handleMapHover,
     onHoverEnd: handleHoverEnd,
     holdDurationMs,
@@ -4588,13 +4952,16 @@ export function FlatMapView({
       return;
     }
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(
+      window.devicePixelRatio || 1,
+      qualitySettings.maxDevicePixelRatio,
+    );
     const renderWidth = displaySize.width;
     const renderHeight = displaySize.height;
 
     // Set canvas buffer size (accounting for DPR) - only resize when dimensions change
-    const bufferWidth = viewportSize.width * dpr;
-    const bufferHeight = viewportSize.height * dpr;
+    const bufferWidth = Math.round(viewportSize.width * dpr);
+    const bufferHeight = Math.round(viewportSize.height * dpr);
     if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
       canvas.width = bufferWidth;
       canvas.height = bufferHeight;
@@ -4613,8 +4980,13 @@ export function FlatMapView({
     ctx.scale(zoom.scale, zoom.scale);
 
     // Draw base map (vector-like standard map, or satellite imagery)
+    const standardMapWidth =
+      qualitySettings.effective === "uhd" ||
+      qualitySettings.effective === "extreme"
+        ? 4096
+        : 2048;
     const baseImage: CanvasImageSource = isStandard
-      ? getStandardMapCanvas()
+      ? getStandardMapCanvas(standardMapWidth, standardMapWidth / 2, themeId)
       : mapImage!;
     ctx.drawImage(baseImage, 0, 0, renderWidth, renderHeight);
 
@@ -4690,6 +5062,13 @@ export function FlatMapView({
           tileLabels: false,
         },
         isStandard,
+        1,
+        0,
+        0,
+        0,
+        0,
+        2,
+        themeId === "light",
       );
     }
 
@@ -4700,7 +5079,13 @@ export function FlatMapView({
 
     // Draw state borders
     if (labelOptions.stateBorders) {
-      drawStateBorders(ctx, renderWidth, renderHeight, isStandard);
+      drawStateBorders(
+        ctx,
+        renderWidth,
+        renderHeight,
+        isStandard,
+        themeId === "light",
+      );
     }
 
     // Night-boosted border pass (clipped to night side)
@@ -4741,6 +5126,7 @@ export function FlatMapView({
         displaySize.width,
         displaySize.height,
         gridLabelDetail,
+        themeId === "light",
       );
     }
 
@@ -4963,7 +5349,7 @@ export function FlatMapView({
     }
 
     // Draw highlighted arc for selected DX cluster spot (persistent while selected)
-    if (resolvedSelectedSpot && layers.spots) {
+    if (resolvedSelectedSpot && layers.spots && !selectedSpotMatchesTarget) {
       drawSelectedSpotArc(
         ctx,
         resolvedSelectedSpot,
@@ -5018,10 +5404,10 @@ export function FlatMapView({
         target.lat,
         target.lon,
         targetMarkerColor,
-        target.name || target.grid,
+        selectedSpotMatchesTarget ? undefined : target.name || target.grid,
         false,
-        pathDifficulty,
-        pathMetrics
+        selectedSpotMatchesTarget ? undefined : pathDifficulty,
+        !selectedSpotMatchesTarget && pathMetrics
           ? {
               bearing: pathMetrics.shortPath.bearing,
               distance: pathMetrics.shortPath.distance,
@@ -5119,6 +5505,7 @@ export function FlatMapView({
     resolvedSpots,
     activationSpots,
     resolvedSelectedSpot,
+    selectedSpotMatchesTarget,
     targetMarkerColor,
     pathDifficulty,
     pathMetrics,
@@ -5153,6 +5540,9 @@ export function FlatMapView({
     contestQsoData,
     loggedQsoData,
     gridLabelDetail,
+    qualitySettings.effective,
+    qualitySettings.maxDevicePixelRatio,
+    themeId,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point
@@ -5253,13 +5643,26 @@ export function FlatMapView({
            (docked to PathAnalysis panel in PropSphere HUD instead) */}
       {!fillContainer && !isLiteMode && <AspectRatioSlider />}
 
+      <div className="absolute bottom-1 right-1 z-20">
+        <ImageryAttribution
+          provider={
+            mapStyle === "standard"
+              ? selectTileProvider("standard", subscriptionTier)
+              : tileProvider
+          }
+        />
+      </div>
+
       {/* Tooltip overlay */}
       <MapTooltip
         visible={
           !!tooltipPosition &&
           !flyoutPosition &&
           !hoveredPinData &&
-          !hoveredTargetPos
+          !hoveredTargetPos &&
+          !hoveredSpotData &&
+          !selectedMapSpotData &&
+          !selectedGridCollection
         }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
@@ -5267,7 +5670,12 @@ export function FlatMapView({
       />
 
       <TargetHoverTooltip
-        visible={!!hoveredTargetPos && !flyoutPosition && !hoveredPinData}
+        visible={
+          !!hoveredTargetPos &&
+          !flyoutPosition &&
+          !hoveredPinData &&
+          !selectedMapSpotData
+        }
         position={hoveredTargetPos || { x: 0, y: 0 }}
         label={target?.name || target?.grid || "Target"}
         grid={target?.grid}
@@ -5323,19 +5731,81 @@ export function FlatMapView({
           spots={allSpots}
           currentTargetGrid={target?.grid}
           onSetTarget={handleSetTargetFromFlyout}
+          onSpotSelect={(spot, screenPos) => {
+            const liveSpot = normalizePresentableSpot(spot);
+            const selection = selectMapSpot(liveSpot);
+            setSelectedMapSpotData({
+              spot: { ...liveSpot, ...(selection?.spot ?? {}) } as LiveSpot,
+              screenPos,
+            });
+          }}
           onEditPin={handleEditPinFromFlyout}
           onDeletePin={handleDeletePinFromFlyout}
           onClose={handlePinFlyoutClose}
         />
       )}
 
-      {/* Spot label hover flyout */}
-      {hoveredSpotDetails && hoveredSpotData && (
-        <SpotDetailsFlyout
+      {/* Canonical propagation preview for every visible tag and endpoint. */}
+      {hoveredSpotDetails &&
+        hoveredSpotData &&
+        !selectedMapSpotData &&
+        !selectedGridCollection && (
+        <SpotHoverPreview
           visible
           position={hoveredSpotData.screenPos}
-          spot={hoveredSpotDetails}
-          onClose={() => setHoveredSpotData(null)}
+          displayTime={displayTime}
+          spot={{
+            id: `hover-${hoveredSpotDetails.callsign}-${hoveredSpotDetails.frequency}`,
+            dx: hoveredSpotDetails.callsign,
+            dxGrid: hoveredSpotDetails.dxGrid,
+            dxLat: hoveredSpotDetails.dxLat,
+            dxLon: hoveredSpotDetails.dxLon,
+            dxLocApprox: hoveredSpotDetails.dxLocApprox,
+            spotter: hoveredSpotDetails.spotter || "",
+            spotterGrid: hoveredSpotDetails.spotterGrid,
+            frequency: hoveredSpotDetails.frequency,
+            band: hoveredSpotDetails.band,
+            mode: hoveredSpotDetails.mode,
+            comment: hoveredSpotDetails.comment || "",
+            time: hoveredSpotDetails.time,
+            source: hoveredSpotDetails.source,
+            snr: hoveredSpotDetails.snr,
+            wpm: hoveredSpotDetails.wpm,
+          }}
+        />
+      )}
+
+      {selectedMapSpotData && (
+        <SelectedSpotCard
+          spot={selectedMapSpotData.spot}
+          position={selectedMapSpotData.screenPos}
+          difficulty={pathDifficulty}
+          optimalSignal={optimalSignal}
+          signalUnavailableReason={
+            station ? undefined : "Set your QTH to model this path"
+          }
+          onOperator={handleOpenOperatorPanel}
+          onViewPath={() => setSelectedMapSpotData(null)}
+          onClose={() => setSelectedMapSpotData(null)}
+        />
+      )}
+
+      {selectedGridCollection && (
+        <SpotCollectionPopover
+          visible
+          position={selectedGridCollection.screenPos}
+          title={`${selectedGridCollection.grid} active spots`}
+          subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
+          spots={selectedGridCollection.spots}
+          onClose={() => setSelectedGridCollection(null)}
+          onSpotSelect={(spot) => {
+            const selection = selectMapSpot(spot);
+            setSelectedMapSpotData({
+              spot: { ...spot, ...(selection?.spot ?? {}) } as LiveSpot,
+              screenPos: selectedGridCollection.screenPos,
+            });
+            setSelectedGridCollection(null);
+          }}
         />
       )}
 
@@ -5361,8 +5831,12 @@ export function FlatMapView({
       <GridResearchPanel
         visible={researchPanelOpen}
         grid={researchGrid || ""}
+        initialCallsign={researchCallsign}
         onAction={handleResearchAction}
-        onClose={() => setResearchPanelOpen(false)}
+        onClose={() => {
+          setResearchPanelOpen(false);
+          setResearchCallsign(null);
+        }}
       />
     </div>
   );

@@ -7,9 +7,13 @@
 
 import { useRef, useMemo, useEffect } from "react";
 import { useTexture } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 import { useSeasonalDayTexture } from "./hooks/useSeasonalDayTexture";
+import { useThemeStore } from "@/stores/themeStore";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { resolveDisplayQuality } from "@/lib/map/displayQuality";
 
 interface EarthSphereProps {
   /** Callback when Earth is clicked with lat/lon */
@@ -59,6 +63,10 @@ function vector3ToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
 
 export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const themeId = useThemeStore((s) => s.themeId);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const effectiveQuality = resolveDisplayQuality(displayQuality).effective;
+  const maxTextureSize = useThree((state) => state.gl.capabilities.maxTextureSize);
 
   // Load Earth textures
   const baseDayTexture = useTexture("/textures/earth-day.jpg");
@@ -68,14 +76,19 @@ export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
 
   // Standard-mode base map texture (vector-like land/ocean fills)
   const standardTexture = useMemo(() => {
-    const canvas = getStandardMapCanvas();
+    const requestedWidth =
+      effectiveQuality === "uhd" || effectiveQuality === "extreme"
+        ? 4096
+        : 2048;
+    const width = Math.max(1024, Math.min(requestedWidth, maxTextureSize));
+    const canvas = getStandardMapCanvas(width, width / 2, themeId);
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.needsUpdate = true;
     return tex;
-  }, []);
+  }, [effectiveQuality, maxTextureSize, themeId]);
 
   useEffect(() => {
     return () => {

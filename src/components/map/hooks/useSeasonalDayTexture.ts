@@ -22,6 +22,8 @@
 import { useEffect, useState } from "react";
 import * as THREE from "three";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { resolveDisplayQuality } from "@/lib/map/displayQuality";
 
 /**
  * Public storage CDN hosting the full-resolution NASA Blue Marble monthlies
@@ -51,7 +53,13 @@ export function getSeasonalTextureCandidates(
 export function useSeasonalDayTexture(
   baseTexture: THREE.Texture,
 ): THREE.Texture {
-  const hiRes = useSettingsStore((s) => s.globeHiResTextures);
+  const hiResPreference = useSettingsStore((s) => s.globeHiResTextures);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const effectiveQuality = resolveDisplayQuality(displayQuality).effective;
+  const hiRes =
+    hiResPreference ||
+    effectiveQuality === "uhd" ||
+    effectiveQuality === "extreme";
   const [texture, setTexture] = useState<THREE.Texture>(baseTexture);
 
   useEffect(() => {

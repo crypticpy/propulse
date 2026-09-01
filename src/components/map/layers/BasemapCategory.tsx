@@ -8,6 +8,11 @@
 import { useMapStore } from "@/stores/mapStore";
 import type { MapStyle } from "@/stores/mapStore";
 import { useProfileStore } from "@/stores/profileStore";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import {
+  DISPLAY_QUALITY_OPTIONS,
+  resolveDisplayQuality,
+} from "@/lib/map/displayQuality";
 import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
@@ -204,7 +209,12 @@ export default function BasemapCategory() {
   const setMapStyle = useMapStore((s) => s.setMapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const setNightDarkness = useMapStore((s) => s.setNightDarkness);
+  const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
+  const setDisplayQuality = useDisplayQualityStore(
+    (s) => s.setDisplayQuality,
+  );
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const effectiveQuality = resolveDisplayQuality(displayQuality);
 
   const satelliteSubtitle =
     subscriptionTier === "pro" ? "HD Satellite" : "ESRI World Imagery";
@@ -270,6 +280,44 @@ export default function BasemapCategory() {
             : "Powered by Esri"
           : "\u00A9 OpenStreetMap contributors"}
       </p>
+
+      <div className="mt-3 border-t border-white/10 pt-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-white/50">
+            Image quality
+          </span>
+          <span className="text-[9px] text-cyan-400/80">
+            Effective: {effectiveQuality.label}
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-1">
+          {DISPLAY_QUALITY_OPTIONS.map((quality) => (
+            <button
+              key={quality.id}
+              type="button"
+              onClick={() => setDisplayQuality(quality.id)}
+              title={quality.description}
+              aria-pressed={displayQuality === quality.id}
+              className={`rounded border px-1 py-1.5 text-[9px] transition-colors ${
+                displayQuality === quality.id
+                  ? "border-cyan-500/60 bg-cyan-500/15 text-cyan-300"
+                  : "border-white/10 bg-white/[0.03] text-white/45 hover:bg-white/[0.07] hover:text-white/80"
+              }`}
+            >
+              {quality.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[9px] leading-relaxed text-white/30">
+          Controls globe refinement, map tiles, textures, and HiDPI rendering.
+        </p>
+        {displayQuality === "extreme" && (
+          <p className="mt-2 text-[9px] leading-snug text-amber-400">
+            Extreme can use substantial bandwidth and GPU memory. It refines
+            to the provider&apos;s highest useful zoom after movement settles.
+          </p>
+        )}
+      </div>
 
       <div className="mt-3 border-t border-white/10 pt-3">
         <label

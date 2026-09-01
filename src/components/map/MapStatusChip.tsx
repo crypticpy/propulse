@@ -25,9 +25,14 @@ import { QuickLocationControl } from "@/components/location/QuickLocationControl
 
 interface MapStatusChipProps {
   className?: string;
+  /** Keep the primary controls usable when the map toolbar is narrow. */
+  compact?: boolean;
 }
 
-export function MapStatusChip({ className = "" }: MapStatusChipProps) {
+export function MapStatusChip({
+  className = "",
+  compact = false,
+}: MapStatusChipProps) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -40,12 +45,14 @@ export function MapStatusChip({ className = "" }: MapStatusChipProps) {
       <div className="flex items-center gap-1.5" title="Current UTC time">
         <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
         <span className="font-mono text-xs text-signal-green font-semibold tabular-nums">
-          {formatUTC(now)}
+          {compact ? formatUTC(now).slice(0, 5) : formatUTC(now)}
         </span>
-        <span className="text-[10px] text-gray-500 font-medium">UTC</span>
+        {!compact && (
+          <span className="text-[10px] text-gray-500 font-medium">UTC</span>
+        )}
       </div>
 
-      <QuickLocationControl />
+      <QuickLocationControl variant={compact ? "icon" : "grid"} />
 
       <div className="w-px h-3 bg-white/10" />
 

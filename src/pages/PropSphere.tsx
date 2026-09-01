@@ -13,6 +13,7 @@ import {
   useMemo,
   useState,
   useEffect,
+  useRef,
   lazy,
   Suspense,
 } from "react";
@@ -241,6 +242,25 @@ export function PropSphere() {
   // Remember last full-mode widths for restore after mini/hidden
   const [leftPanelLastWidth, setLeftPanelLastWidth] = useState(280);
   const [rightPanelLastWidth, setRightPanelLastWidth] = useState(320);
+  const mapToolbarRef = useRef<HTMLDivElement>(null);
+  const [mapToolbarWidth, setMapToolbarWidth] = useState(
+    typeof window === "undefined" ? 1280 : window.innerWidth,
+  );
+
+  useEffect(() => {
+    const toolbar = mapToolbarRef.current;
+    if (!toolbar || typeof ResizeObserver === "undefined") return;
+
+    const updateWidth = () => setMapToolbarWidth(toolbar.clientWidth);
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(toolbar);
+    return () => observer.disconnect();
+  }, [compactFit, layoutMode, viewMode]);
+
+  const compactMapToolbar = mapToolbarWidth < 1040;
+  const stackedMapToolbar = mapToolbarWidth < 760;
 
   // Solar data for mini strip display (cached via react-query, no duplicate fetches)
   const { data: miniKData } = useKIndex();
@@ -939,11 +959,21 @@ export function PropSphere() {
 
               {/* Quick-access toolbar */}
               <div
+                ref={mapToolbarRef}
                 role="toolbar"
                 aria-label="Map controls"
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-void-black/50 border-b border-white/5"
+                className={`flex-shrink-0 flex gap-2 px-3 py-1.5 bg-void-black/50 border-b border-white/5 ${
+                  stackedMapToolbar ? "flex-wrap items-center" : "items-center"
+                }`}
                 data-tour="layer-controls"
               >
+                <div
+                  className={`flex min-w-0 flex-1 items-center gap-2 ${
+                    stackedMapToolbar
+                      ? "w-full flex-wrap"
+                      : "overflow-x-auto"
+                  }`}
+                >
                 {/* Help tooltip */}
                 <HelpTooltip
                   section="propsphere"
@@ -999,7 +1029,7 @@ export function PropSphere() {
                     <line x1="2" y1="12" x2="6" y2="12" />
                     <line x1="18" y1="12" x2="22" y2="12" />
                   </svg>
-                  Observatory
+                  {!compactMapToolbar && "Observatory"}
                 </button>
 
                 {/* Panel layout cycle: Full → Compact → Focus → Full
@@ -1059,13 +1089,13 @@ export function PropSphere() {
                       <line x1="4" y1="1" x2="4" y2="13" />
                       <line x1="10" y1="1" x2="10" y2="13" />
                     </svg>
-                    Panels
+                    {!compactMapToolbar && "Panels"}
                   </button>
                 )}
 
                 {/* Watch popover + inline status pill */}
                 <WatchPopover />
-                <WatchStatusPill />
+                {!compactMapToolbar && <WatchStatusPill />}
 
                 {/* Cluster connection, alongside the spots it feeds */}
                 <ClusterPopover />
@@ -1096,28 +1126,40 @@ export function PropSphere() {
                     <circle cx="7" cy="9" r="1" />
                     <circle cx="10.5" cy="3" r="1" />
                   </svg>
-                  Activity
+                  {!compactMapToolbar && "Activity"}
                 </button>
 
-                {/* Spacer pushes status + Views to right */}
-                <div className="flex-1" />
+                </div>
+
+                <div
+                  className={`ml-auto flex shrink-0 items-center justify-end gap-2 ${
+                    stackedMapToolbar
+                      ? "w-full border-t border-white/5 pt-1"
+                      : ""
+                  }`}
+                >
 
                 {/* UTC / grid / system health. Re-homed here from the global
                     masthead, which now hides them on /map — time and location
                     describe what you are looking at, and the masthead copy was
                     a second clock competing with TimeControl's. */}
-                <MapStatusChip className="hidden md:flex flex-shrink-0 mr-1" />
+                  <MapStatusChip
+                    compact={compactMapToolbar}
+                    className="hidden md:flex flex-shrink-0 mr-1"
+                  />
 
-                {/* Views popover — far right */}
-                {viewMode !== "azimuthal" && (
+                  {/* Views stays outside the compressible control group so it
+                      remains reachable even with both side panels open. */}
                   <ViewsPopover
                     onOpenManager={() => setShowPresetManager(true)}
                   />
-                )}
+                </div>
               </div>
 
               {/* Replay indicator (floating below toolbar) */}
-              <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
+              <div
+                className={`absolute ${stackedMapToolbar ? "top-20" : "top-12"} left-1/2 -translate-x-1/2 z-20`}
+              >
                 <ReplayIndicator
                   displayTime={displayTime}
                   playSpeed={1}

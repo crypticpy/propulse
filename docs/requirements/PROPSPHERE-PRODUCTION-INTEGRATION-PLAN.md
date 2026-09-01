@@ -1,12 +1,12 @@
 # PropSphere Production Integration Plan
 
-Status: active production stabilization and ordered release in progress. PR
-#113 is live, but its interaction layer has release-blocking defects. PRs
-#114-#116 remain outside production until their ordered reviews, merges, and
-live verification finish.
+Status: active production stabilization and ordered release in progress. PRs
+#113, #114, #117, and #119 are live. PR #118 is in exact-head rereview after
+trace lifecycle fixes. Hover/details, #115, and #116 remain outside production
+until their ordered reviews, merges, deployments, and live verification finish.
 
 Owner: PropSphere
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 ## Goal
 
@@ -72,6 +72,9 @@ or preview deployment by itself is not a production result.
   full-scene scrim.
 - Apply the same ownership, delay, selection, and gesture-isolation behavior
   in Globe, Flat, and Azimuthal renderers.
+- Treat ordinary Azimuthal DX pills as first-class interactive tags, not just
+  canvas paint. They must expose the same hover, target, and details contract
+  as activation pills.
 - Test tag -> preview -> details, edge placement, all band/condition styles,
   endpoint-only interaction, keyboard activation, click outside, close, and
   double-click isolation.
@@ -143,26 +146,46 @@ or preview deployment by itself is not a production result.
   projection, quality, basemap, theme, clouds, and rotation settings.
 - Rotate only enabled scenes, respect per-scene dwell time, and honor reduced
   motion.
+- Re-arm one-shot scene rotation when `activeSceneId` changes so consecutive
+  scenes with the same dwell duration cannot stop the rotation loop.
+- Persist an explicit empty scene list when the operator clears every scene;
+  do not silently retain the previous assignment.
+- Make wall-exit wording and behavior literal: provide a direct return to
+  Normal PropSphere separately from opening the display configurator.
 - Provide Geochron, Observatory, HamClock, and Photorealistic templates plus
   save-current-view.
 
 ## Ordered PR and deployment sequence
 
-1. Record PR #113's production merge commit and use the live defects above as
-   the interaction-hotfix baseline.
-2. Finish automated review for PR #114 (UHD Globe/Flat), merge it into `main`,
-   wait for the production Vercel deployment, and smoke-test quality switching,
-   de-clouded imagery, cloud toggling, DPR, zoom refinement, and fallbacks.
-3. Branch the focused interaction/trace/toolbar stabilization from the updated
-   `main`; keep it separate from explorer and wall-display feature work. Run
-   bot review, merge, deploy, and repeat the live pointer/selection tests.
-4. Rebase PR #115 (Azimuthal and explorer modes) onto that production commit,
-   resolve behavior through the stabilized shared primitives, review, merge,
-   deploy, and live-test.
-5. Rebase PR #116 (Wall Display Center and shared navigation) onto #115,
-   review, merge, deploy, and live-test every layout transition and exit.
+1. Keep the already-live #113 and #114 capabilities as the production baseline.
+2. Keep #117's no-scroll toolbar and #119's serverless typecheck cleanup live
+   while finishing #118's filtered trace and endpoint lifecycle rereview.
+3. Merge and deploy #118, then reconstruct the hover/details change from fresh
+   `main` using only its audited commit plus the exact-`LiveSpot` trace callback
+   correction. Add ordinary Azimuthal DX-pill interaction before review.
+4. Reconstruct PR #115 from fresh `main`; do not rebase its inherited
+   pre-squash #113/#114 history. Port only its unique explorer/Azimuthal work
+   and preserve the stabilized hover bridge and canonical details flow.
+5. After #115 is squash-merged, reconstruct PR #116 from the new `main`; do not
+   retain the stale stacked ancestry. Fix rotation re-arming, clear-all scene
+   persistence, and literal exit navigation before review.
 6. Run the final 3840x2160 cross-view checklist against the public production
    alias and reconcile every acceptance criterion in this file.
+
+## Production evidence ledger
+
+- #117 toolbar: squash merge `ee3d034`; Vercel production deployment
+  `dpl_3thGtZFkzT16SEvX2fAz4aEQzSug` reached Ready and served the production
+  alias.
+- #119 serverless typecheck: squash merge `eeef047`; Vercel production
+  deployment `dpl_FDyQEVRpNPKTHpnU749TW1gQieqG` cloned that exact commit,
+  completed without the prior RSS TS2345 diagnostic, reached Ready, and owns
+  `propulse.cloud`.
+- #118 trace/endpoints: open at `8da60b74`; complete tests, lint, production
+  build, and bundle budgets pass locally. Merge and production evidence remain
+  pending exact-head bot rereview.
+- Authenticated 3840x2160 pointer verification remains a separate final gate;
+  public automation currently reaches the invite login rather than the map.
 
 ## Verification gates
 
@@ -183,6 +206,7 @@ or preview deployment by itself is not a production result.
 ## Collision policy
 
 Use dedicated worktrees and narrowly scoped branches. Do not modify the shared
-root checkout or another agent's bug-fix worktree. Integrate at hunk level,
-preserve unrelated working-tree changes, and rebase the dependent PR stack in
-order rather than force-copying whole files.
+root checkout or another agent's bug-fix worktree. Integrate at hunk level and
+preserve unrelated working-tree changes. When squash-merged ancestors are
+embedded in a stale feature branch, reconstruct from fresh `main` with only
+the unique audited commits instead of rebasing or force-copying whole files.

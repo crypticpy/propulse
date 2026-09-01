@@ -84,10 +84,7 @@ import {
 import { useProfileStore } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
-import {
-  readDisplayQualityEnvironment,
-  resolveDisplayQuality,
-} from "@/lib/map/displayQuality";
+import { resolveDisplayQuality } from "@/lib/map/displayQuality";
 import { useThemeStore } from "@/stores/themeStore";
 import { getSeasonalTextureCandidates } from "./hooks/useSeasonalDayTexture";
 import { ImageryAttribution } from "./ImageryAttribution";
@@ -3343,14 +3340,10 @@ export function FlatMapView({
     (s) => s.globeHiResTextures,
   );
   const themeId = useThemeStore((s) => s.themeId);
-  const qualitySettings = useMemo(() => {
-    const environment = readDisplayQualityEnvironment();
-    return resolveDisplayQuality(displayQuality, {
-      ...environment,
-      cssWidth: viewportSize.width,
-      cssHeight: viewportSize.height,
-    });
-  }, [displayQuality, viewportSize.height, viewportSize.width]);
+  const qualitySettings = useMemo(
+    () => resolveDisplayQuality(displayQuality),
+    [displayQuality],
+  );
 
   // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
   useEffect(() => {

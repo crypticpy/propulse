@@ -27,7 +27,10 @@ import { GlobeDepthDome } from "./GlobeDepthDome";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
 import { ImageryAttribution } from "./ImageryAttribution";
-import { NASA_BLUE_MARBLE_SOURCE } from "@/lib/map/imagerySources";
+import {
+  NASA_BLUE_MARBLE_SOURCE,
+  NATURAL_EARTH_SOURCE,
+} from "@/lib/map/imagerySources";
 import { CloudImageryAttribution } from "./CloudImageryAttribution";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
@@ -2463,7 +2466,11 @@ export function GlobeView({
         <CloudImageryAttribution />
         <ImageryAttribution
           baseSource={
-            tileFallbackActive ? NASA_BLUE_MARBLE_SOURCE : undefined
+            tileFallbackActive
+              ? mapStyle === "standard"
+                ? NATURAL_EARTH_SOURCE
+                : NASA_BLUE_MARBLE_SOURCE
+              : undefined
           }
           provider={tileFallbackActive ? undefined : tileProvider}
           includeCartoLabels={tileLabelsEnabled && !tileFallbackActive}

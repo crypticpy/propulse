@@ -50,6 +50,10 @@ import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { getArcOpacity } from "@/lib/map/arcAppearance";
+import {
+  getEndpointInstanceCount,
+  MAX_ENDPOINT_INSTANCES,
+} from "@/lib/map/spotEndpointCapacity";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 
 // ==========================================================================
@@ -409,6 +413,10 @@ interface LiveSpotArcsProps {
   grid?: string;
   /** Maximum number of arcs to render */
   maxArcs?: number;
+  /** Shared, already-filtered feed supplied by the map host. */
+  spots?: LiveSpot[];
+  /** Loading state for a supplied shared feed. */
+  isLoading?: boolean;
   /** Minimum opacity for arc lines */
   minOpacity?: number;
   /** Callback when a spot is hovered */
@@ -599,11 +607,9 @@ interface EndpointData {
   size: number;
 }
 
-const MAX_ENDPOINT_INSTANCES = 200;
-
 /**
  * Batched endpoint renderer using THREE.InstancedMesh.
- * Replaces up to 200 individual <mesh> draw calls with a single instanced draw.
+ * Replaces up to 400 individual <mesh> draw calls with a single instanced draw.
  */
 const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
   endpoints,
@@ -641,7 +647,7 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
 
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-    const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
+    const count = getEndpointInstanceCount(endpoints.length);
     for (let i = 0; i < count; i++) {
       const ep = endpoints[i];
 
@@ -662,7 +668,7 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
+    const count = getEndpointInstanceCount(endpoints.length);
     mesh.count = count;
     mesh.updateWorldMatrix(true, false);
     camera.getWorldPosition(cameraWorldPosition);
@@ -713,6 +719,8 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
 export function LiveSpotArcs({
   grid,
   maxArcs: maxArcsProp,
+  spots: suppliedSpots,
+  isLoading: suppliedIsLoading,
   onSpotHover,
   onSpotHoverEnd,
   onSpotSelect,
@@ -754,14 +762,16 @@ export function LiveSpotArcs({
   // Get UI interaction preferences for callsign labels
   const uiPrefs = useUIInteractionPrefs();
 
-  const { spots, isLoading } = useLiveSpots({
+  const ownedFeed = useLiveSpots({
     grid,
-    enabled: true,
+    enabled: suppliedSpots === undefined,
     refetchInterval: 60000,
     // Pass sources filter - when empty array, useLiveSpots shows all sources
     sources:
       sourcesFilter && sourcesFilter.length > 0 ? sourcesFilter : undefined,
   });
+  const spots = suppliedSpots ?? ownedFeed.spots;
+  const isLoading = suppliedIsLoading ?? ownedFeed.isLoading;
 
   // Apply clustering to spots
   const { clusters, singles } = useSpotClustering(spots.slice(0, maxArcs), {

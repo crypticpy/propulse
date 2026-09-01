@@ -2,6 +2,9 @@ import { useMemo } from "react";
 import { useActivationSpots } from "@/hooks/useActivationSpots";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { resolveActivationMarkers } from "@/lib/map/activationMarkers";
+import { selectMapSpotCandidates } from "@/lib/map/spotCandidates";
+import type { SpotSource } from "@/types/livespot";
+import type { SpotFilters } from "@/types/operatingProfile";
 import { resolveSpotLocations } from "../LiveSpotArcs";
 
 interface UseResolvedMapSpotsOptions {
@@ -18,6 +21,10 @@ interface UseResolvedMapSpotsOptions {
   resolveEnabled?: boolean;
   /** Optional renderer draw cap; omitted when the downstream renderer caps. */
   maxSpots?: number;
+  /** DX source choices shared by every map renderer. */
+  sources?: SpotSource[];
+  /** Profile band/mode choices shared by every map renderer. */
+  spotFilters?: SpotFilters;
   refetchInterval?: number;
 }
 
@@ -32,15 +39,30 @@ export function useResolvedMapSpots({
   activationsEnabled = false,
   resolveEnabled = enabled,
   maxSpots,
+  sources,
+  spotFilters,
   refetchInterval = 60_000,
 }: UseResolvedMapSpotsOptions) {
-  const live = useLiveSpots({ grid, enabled, refetchInterval });
+  const live = useLiveSpots({
+    grid,
+    enabled,
+    refetchInterval,
+    sources: sources && sources.length > 0 ? sources : undefined,
+  });
   const activations = useActivationSpots(activationsEnabled);
+  const candidateSpots = useMemo(
+    () =>
+      selectMapSpotCandidates(live.spots, {
+        sources,
+        spotFilters,
+        maxSpots,
+      }),
+    [live.spots, maxSpots, sources, spotFilters],
+  );
   const resolvedSpots = useMemo(() => {
     if (!resolveEnabled) return [];
-    const resolved = resolveSpotLocations(live.spots);
-    return maxSpots === undefined ? resolved : resolved.slice(0, maxSpots);
-  }, [live.spots, resolveEnabled, maxSpots]);
+    return resolveSpotLocations(candidateSpots);
+  }, [candidateSpots, resolveEnabled]);
   const activationSpots = useMemo(
     () =>
       activationsEnabled
@@ -49,5 +71,5 @@ export function useResolvedMapSpots({
     [activations.spots, activationsEnabled, maxSpots],
   );
 
-  return { ...live, resolvedSpots, activationSpots };
+  return { ...live, candidateSpots, resolvedSpots, activationSpots };
 }

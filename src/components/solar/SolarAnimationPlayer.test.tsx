@@ -129,6 +129,8 @@ describe("SolarAnimationPlayer", () => {
       await Promise.resolve();
     });
     fireEvent.load(screen.getByRole("img"));
+    const shownTimestamp = screen.getByText(/Jul 15, 2026/i).textContent;
+    expect(screen.getByText("Frame 2 of 2")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Play" }));
 
     act(() => vi.advanceTimersByTime(400));
@@ -140,5 +142,11 @@ describe("SolarAnimationPlayer", () => {
 
     expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
     expect(screen.queryByText(/timeline is paused for retry/i)).toBeNull();
+    expect(screen.getByText(shownTimestamp!)).toBeTruthy();
+    expect(screen.getByText("Frame 2 of 2")).toBeTruthy();
+    expect(
+      (screen.getByRole("slider", { name: "Timeline position" }) as HTMLInputElement)
+        .value,
+    ).toBe("1");
   });
 });

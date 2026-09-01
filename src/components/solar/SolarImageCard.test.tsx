@@ -15,14 +15,14 @@ describe("SolarImageCard", () => {
     vi.spyOn(Date, "now").mockReturnValue(now);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(new Response(
           JSON.stringify({
             observedAt: "2026-07-15T12:00:00.000Z",
             checkedAt: "2026-07-15T12:01:00.000Z",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
+        )),
       ),
     );
     const onOpen = vi.fn();
@@ -46,7 +46,9 @@ describe("SolarImageCard", () => {
     await waitFor(() => {
       expect(screen.queryByText("Image temporarily unavailable")).toBeNull();
     });
-    expect(screen.getByText("Stale")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("Stale")).not.toBeNull();
+    });
     fireEvent.click(screen.getByRole("button", { name: "Enlarge" }));
     expect(onOpen).toHaveBeenCalledWith("sunspot-hmi", false);
   });
@@ -110,6 +112,61 @@ describe("SolarImageCard", () => {
     expect(screen.getByAltText(/full solar disk/i).getAttribute("src")).toBe(
       replacementUrl,
     );
+  });
+
+  it("keeps visible image age paired with the decoded cache window", async () => {
+    vi.useFakeTimers();
+    const initial = new Date("2026-07-15T12:10:00.000Z");
+    vi.setSystemTime(initial);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            observedAt: "2026-07-15T12:00:00.000Z",
+            checkedAt: initial.toISOString(),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            observedAt: "2026-07-15T12:16:00.000Z",
+            checkedAt: "2026-07-15T12:16:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(
+      <SolarImageCard productId="sunspot-hmi" onOpen={vi.fn()} />,
+    );
+    fireEvent.load(screen.getByAltText(/full solar disk/i));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Stale")).toBeTruthy();
+
+    await act(async () => {
+      vi.advanceTimersByTime(6 * 60_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const probe = container.querySelector<HTMLImageElement>(
+      "img[data-solar-image-probe]",
+    );
+    expect(probe).toBeTruthy();
+
+    // Fresh metadata belongs to the candidate probe, not the stale image that
+    // remains visible. A failed decode must leave both old artifacts paired.
+    expect(screen.getByText("Stale")).toBeTruthy();
+    expect(screen.queryByText("Current")).toBeNull();
+    fireEvent.error(probe!);
+    expect(screen.getByText("Stale")).toBeTruthy();
+    expect(screen.queryByText("Current")).toBeNull();
   });
 
   it("hides a hard-expired scientific image from decision use", async () => {

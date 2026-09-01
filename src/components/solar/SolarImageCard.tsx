@@ -6,14 +6,9 @@ import {
   type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
 import { useRetainedSolarImage } from "./useRetainedSolarImage";
-
-interface ImageMetadata {
-  observedAt: string | null;
-  checkedAt: string;
-}
+import { useSolarImageMetadata } from "./useSolarImageMetadata";
 
 type ImageState = "loading" | "fresh" | "stale" | "error" | "retrying";
-type MetadataState = "loading" | "ready" | "error";
 
 function ageLabel(timestamp: string): string {
   const age = Math.max(0, Date.now() - Date.parse(timestamp));
@@ -33,8 +28,6 @@ export function SolarImageCard({
   const [state, setState] = useState<ImageState>("loading");
   const [retryKey, setRetryKey] = useState(0);
   const [metadataRetryKey, setMetadataRetryKey] = useState(0);
-  const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
-  const [metadataState, setMetadataState] = useState<MetadataState>("loading");
   const [now, setNow] = useState(() => Date.now());
   const attempt = useRef(0);
   const imageUrl = solarImageUrl(productId, now, retryKey);
@@ -50,6 +43,12 @@ export function SolarImageCard({
     metadataRetryKey,
   );
   const refreshBucket = Math.floor(now / (product.softTtlSeconds * 1_000));
+  const { metadata, metadataState } = useSolarImageMetadata(
+    imageUrl,
+    retainedImage.visibleUrl,
+    metadataUrl,
+    refreshBucket,
+  );
 
   const retry = useCallback(() => {
     setState((current) => (current === "loading" ? "loading" : "retrying"));
@@ -63,36 +62,6 @@ export function SolarImageCard({
     const timer = window.setTimeout(retry, delay);
     return () => window.clearTimeout(timer);
   }, [retry, state]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setMetadataState("loading");
-    fetch(metadataUrl, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("metadata unavailable");
-        const value = (await response.json()) as ImageMetadata;
-        if (
-          !value ||
-          !Number.isFinite(Date.parse(value.checkedAt)) ||
-          (value.observedAt !== null &&
-            !Number.isFinite(Date.parse(value.observedAt)))
-        ) {
-          throw new Error("metadata contract mismatch");
-        }
-        return value;
-      })
-      .then((value) => {
-        setMetadata(value);
-        setMetadataState("ready");
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setMetadataState("error");
-      });
-    return () => controller.abort();
-  }, [metadataUrl, refreshBucket]);
 
   useEffect(() => {
     if (metadataState !== "error") return;
@@ -123,8 +92,7 @@ export function SolarImageCard({
   const visibleState = hardExpired
     ? "unavailable"
     : state === "fresh" &&
-        (metadataState === "error" ||
-          (metadataState === "ready" && timestamp === null))
+        (metadataState !== "ready" || timestamp === null)
       ? "partial"
     : state === "fresh" && metadataStale
       ? "stale"

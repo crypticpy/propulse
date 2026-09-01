@@ -117,7 +117,25 @@ export function SpotEndpointHitArea({
 }: SpotEndpointHitAreaProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const ownsHoverRef = useRef(false);
+  const onHoverEndRef = useRef(onHoverEnd);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
+
+  useEffect(() => {
+    onHoverEndRef.current = onHoverEnd;
+  }, [onHoverEnd]);
+
+  // A trace endpoint can unmount on its lifecycle timer without receiving a
+  // pointer-leave event. Only the endpoint that opened the current preview may
+  // close it; otherwise an unrelated expiring trace could dismiss another
+  // endpoint's hover state.
+  useEffect(
+    () => () => {
+      if (!ownsHoverRef.current) return;
+      ownsHoverRef.current = false;
+      onHoverEndRef.current?.();
+    },
+    [],
+  );
 
   // Calculate 3D position
   const position = useMemo(
@@ -178,8 +196,8 @@ export function SpotEndpointHitArea({
   const handlePointerLeave = useCallback(() => {
     if (!ownsHoverRef.current) return;
     ownsHoverRef.current = false;
-    onHoverEnd?.();
-  }, [onHoverEnd]);
+    onHoverEndRef.current?.();
+  }, []);
 
   const handlePointerInteraction = useCallback(
     (event: ThreeEvent<PointerEvent>) => event.stopPropagation(),
@@ -210,8 +228,8 @@ export function SpotEndpointHitArea({
   useEffect(() => {
     if (occlusionOpacity >= 0.05 || !ownsHoverRef.current) return;
     ownsHoverRef.current = false;
-    onHoverEnd?.();
-  }, [occlusionOpacity, onHoverEnd]);
+    onHoverEndRef.current?.();
+  }, [occlusionOpacity]);
 
   if (occlusionOpacity < 0.05) return null;
 

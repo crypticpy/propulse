@@ -21,8 +21,10 @@ import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
+import type { SpotFilters } from "@/types/operatingProfile";
 import { useMapStore } from "@/stores/mapStore";
 import { getSpotFetchLimit } from "@/lib/map/spotDensity";
+import { selectMapSpotCandidates } from "@/lib/map/spotCandidates";
 
 interface UseLiveSpotsOptions {
   /** Receiver grid locator for PSKReporter queries */
@@ -33,6 +35,8 @@ interface UseLiveSpotsOptions {
   refetchInterval?: number;
   /** Sources to include */
   sources?: SpotSource[];
+  /** Optional map profile filters, applied before cross-source deduplication. */
+  spotFilters?: SpotFilters;
   /** Preserve every receiver/source report for evidence-oriented consumers. */
   deduplicate?: boolean;
 }
@@ -40,8 +44,12 @@ interface UseLiveSpotsOptions {
 interface UseLiveSpotsResult {
   /** Combined spots from all sources */
   spots: LiveSpot[];
+  /** Stable identity for every option that changes the returned feed snapshot. */
+  feedScopeKey: string;
   /** Loading state */
   isLoading: boolean;
+  /** Every requested remote source has produced an initial successful snapshot. */
+  isFeedReady: boolean;
   /** Error state */
   isError: boolean;
   /** Spots by source for attribution */
@@ -128,6 +136,7 @@ export function useLiveSpots({
   enabled = true,
   refetchInterval = MINUTE,
   sources = DEFAULT_SOURCES,
+  spotFilters,
   deduplicate = true,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // How many spots each source contributes. Derived from the map's existing
@@ -138,12 +147,26 @@ export function useLiveSpots({
   // for the next interval.
   const displayDensity = useMapStore((s) => s.displayDensity);
   const spotLimit = getSpotFetchLimit(displayDensity);
+  const pskEnabled = enabled && sources.includes("PSKReporter");
+  const rbnEnabled = enabled && sources.includes("RBN");
+  const feedScopeKey = JSON.stringify({
+    grid: grid ?? null,
+    spotLimit,
+    sources: [...sources].sort(),
+    bands: [...(spotFilters?.bands ?? [])]
+      .map((band) => band.toLowerCase())
+      .sort(),
+    modes: [...(spotFilters?.modes ?? [])]
+      .map((mode) => mode.toLowerCase())
+      .sort(),
+    deduplicate,
+  });
 
   // Fetch PSKReporter spots
   const pskQuery = useQuery({
     queryKey: ["liveSpots", "pskreporter", grid, spotLimit],
     queryFn: () => fetchPSKReporterSpots(grid, undefined, spotLimit),
-    enabled: enabled && sources.includes("PSKReporter"),
+    enabled: pskEnabled,
     staleTime: 30 * SECOND,
     refetchInterval,
     retry: 2,
@@ -153,7 +176,7 @@ export function useLiveSpots({
   const rbnQuery = useQuery({
     queryKey: ["liveSpots", "rbn", spotLimit],
     queryFn: () => fetchRBNSpots(spotLimit),
-    enabled: enabled && sources.includes("RBN"),
+    enabled: rbnEnabled,
     staleTime: 30 * SECOND,
     refetchInterval,
     retry: 2,
@@ -200,20 +223,30 @@ export function useLiveSpots({
       allSpots.push(...wsjtxSpots);
     }
 
+    // Eligibility must be established before cross-source deduplication. If a
+    // preferred PSKReporter member is outside the active band/mode profile, an
+    // otherwise-equivalent eligible RBN member must survive the group.
+    const eligibleSpots = selectMapSpotCandidates(allSpots, {
+      sources,
+      spotFilters,
+    });
     // Map renderers prefer one visual per callsign/frequency/minute. Evidence
     // views can retain every receiver and source before grouping it themselves.
-    const selected = deduplicate ? deduplicateSpots(allSpots) : allSpots;
+    const selected = deduplicate
+      ? deduplicateSpots(eligibleSpots)
+      : eligibleSpots;
     const sorted = selected.sort(
       (a, b) => b.time.getTime() - a.time.getTime(),
     );
-
-    // Filter by sources if specified (non-empty array means filter is active)
-    if (sources && sources.length > 0) {
-      return sorted.filter((spot) => sources.includes(spot.source));
-    }
-
     return sorted;
-  }, [deduplicate, pskQuery.data, rbnQuery.data, wsjtxSpots, sources]);
+  }, [
+    deduplicate,
+    pskQuery.data,
+    rbnQuery.data,
+    sources,
+    spotFilters,
+    wsjtxSpots,
+  ]);
 
   // Group spots by source
   const spotsBySource = useMemo(() => {
@@ -233,6 +266,15 @@ export function useLiveSpots({
 
   const isLoading = pskQuery.isLoading || rbnQuery.isLoading;
   const isError = pskQuery.isError && rbnQuery.isError;
+  // `isLoading` becomes false after an initial error, so it cannot establish
+  // the trace feed's hydration baseline. dataUpdatedAt is only populated by a
+  // successful query result and remains populated through later refetch
+  // errors. Waiting for every requested remote source prevents a recovered
+  // source's existing snapshot from being replayed as newly-arrived traces.
+  const isFeedReady =
+    enabled &&
+    (!pskEnabled || pskQuery.dataUpdatedAt > 0) &&
+    (!rbnEnabled || rbnQuery.dataUpdatedAt > 0);
 
   const refetch = () => {
     pskQuery.refetch();
@@ -241,7 +283,9 @@ export function useLiveSpots({
 
   return {
     spots,
+    feedScopeKey,
     isLoading,
+    isFeedReady,
     isError,
     spotsBySource,
     refetch,

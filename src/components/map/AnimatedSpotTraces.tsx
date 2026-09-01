@@ -27,7 +27,11 @@ import { useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
-import { resolveSpotLocations } from "./LiveSpotArcs";
+import {
+  resolveSpotLocations,
+  type ResolvedSpot,
+} from "./LiveSpotArcs";
+import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import {
   getSpotColor,
   getBandFromFrequency,
@@ -37,6 +41,15 @@ import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
+import type { LiveSpot } from "@/types/livespot";
+import type { SpotDetailsData } from "./SpotDetailsFlyout";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import {
+  getTraceEndpointOpacity,
+  reconcileTraceFeed,
+  type TracePhase,
+} from "@/lib/map/spotTraceLifecycle";
 
 // =============================================================================
 // TYPES
@@ -47,12 +60,27 @@ interface AnimatedSpotTracesProps {
   grid?: string;
   /** Max concurrent animations (default 20) */
   maxTraces?: number;
+  /** Full feed used to distinguish hydration from genuinely new arrivals. */
+  feedSpots?: LiveSpot[];
+  /** Shared, filtered/capped candidate list. */
+  candidateSpots?: LiveSpot[];
+  /** Shared coordinate resolution of candidateSpots. */
+  resolvedSpots?: ResolvedSpot[];
+  /** Whether every requested source has produced a successful baseline. */
+  isFeedReady?: boolean;
+  /** Changes when the backing query scope changes (for example QTH/source). */
+  hydrationKey?: string;
+  onSpotHover?: (data: SpotDetailsData, screenPos: ScreenAnchor) => void;
+  onSpotHoverEnd?: () => void;
+  onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
 }
 
 interface QueuedTrace {
   spotId: string;
   points: [number, number, number][];
   color: string;
+  spot: ResolvedSpot;
+  sourceSpot: LiveSpot;
 }
 
 // =============================================================================
@@ -89,6 +117,10 @@ const LANDING_RING_MIN = 0.005;
 /** Landing ring end radius */
 const LANDING_RING_MAX = 0.03;
 
+/** Persistent destination marker radii. */
+const DESTINATION_RADIUS = 0.008;
+const DESTINATION_GLOW_RADIUS = 0.018;
+
 // =============================================================================
 // EASING
 // =============================================================================
@@ -124,6 +156,13 @@ interface TraceAnimationProps {
   points: [number, number, number][];
   /** CSS hex color for this trace */
   color: string;
+  /** Resolved endpoint and original metadata for a lifetime-matched hit target. */
+  spot: ResolvedSpot;
+  sourceSpot: LiveSpot;
+  occlusionOpacity: number;
+  onSpotHover?: (data: SpotDetailsData, screenPos: ScreenAnchor) => void;
+  onSpotHoverEnd?: () => void;
+  onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   /** Callback when this trace finishes its full lifecycle — receives spotId */
   onComplete: (spotId: string) => void;
 }
@@ -133,12 +172,16 @@ const TraceAnimation = React.memo(
     spotId,
     points,
     color,
+    spot,
+    sourceSpot,
+    occlusionOpacity,
+    onSpotHover,
+    onSpotHoverEnd,
+    onSpotSelect,
     onComplete,
   }: TraceAnimationProps) {
     const startTimeRef = useRef<number | null>(null);
-    const phaseRef = useRef<"traveling" | "persist" | "fadeout" | "done">(
-      "traveling",
-    );
+    const phaseRef = useRef<TracePhase>("traveling");
     const completedRef = useRef(false);
     // When true, useFrame skips all work (persist phase uses a timer instead)
     const sleepingRef = useRef(false);
@@ -148,6 +191,10 @@ const TraceAnimation = React.memo(
     const headGlowRef = useRef<THREE.Mesh>(null);
     const ringRef = useRef<THREE.Mesh>(null);
     const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+    const destinationRef = useRef<THREE.Mesh>(null);
+    const destinationGlowRef = useRef<THREE.Mesh>(null);
+    const destinationMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+    const destinationGlowMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lineRef = useRef<any>(null);
     const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -184,6 +231,14 @@ const TraceAnimation = React.memo(
     }, []);
 
     useFrame((state) => {
+      // The destination stays visible and correctly sized for the entire trace
+      // lifetime, including the otherwise-sleeping persist phase.
+      const endpointScale = getScreenSpaceScale(
+        state.camera.position.distanceTo(endpointVector),
+      );
+      destinationRef.current?.scale.setScalar(endpointScale);
+      destinationGlowRef.current?.scale.setScalar(endpointScale);
+
       // PERF: During persist phase, the trace is static — skip all useFrame work.
       // A setTimeout wakes us up when it's time to start the fadeout phase.
       if (sleepingRef.current) return;
@@ -326,6 +381,15 @@ const TraceAnimation = React.memo(
         }
         const fadeElapsed = clock - startTimeRef.current;
         const rawT = Math.min(fadeElapsed / FADEOUT_DURATION, 1);
+        const endpointOpacity = getTraceEndpointOpacity("fadeout", rawT);
+
+        if (destinationMaterialRef.current) {
+          destinationMaterialRef.current.opacity = endpointOpacity;
+        }
+        if (destinationGlowMaterialRef.current) {
+          destinationGlowMaterialRef.current.opacity =
+            0.28 * endpointOpacity;
+        }
 
         if (
           lineRef.current?.material &&
@@ -395,6 +459,66 @@ const TraceAnimation = React.memo(
           />
         </mesh>
 
+        {/* Persistent destination endpoint — remains visible while the trace
+            persists, unlike the short-lived animated head and landing ring. */}
+        <mesh
+          ref={destinationGlowRef}
+          position={endpoint}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
+        >
+          <sphereGeometry args={[DESTINATION_GLOW_RADIUS, 10, 10]} />
+          <meshBasicMaterial
+            ref={destinationGlowMaterialRef}
+            color={color}
+            transparent
+            opacity={0.28}
+            depthWrite={false}
+            depthTest={true}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        <mesh
+          ref={destinationRef}
+          position={endpoint}
+          renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
+        >
+          <sphereGeometry args={[DESTINATION_RADIUS, 10, 10]} />
+          <meshBasicMaterial
+            ref={destinationMaterialRef}
+            color={color}
+            transparent
+            opacity={1}
+            depthWrite={false}
+            depthTest={true}
+          />
+        </mesh>
+
+        {(onSpotHover || onSpotSelect) && (
+          <SpotEndpointHitArea
+            lat={spot.dxLat}
+            lon={spot.dxLon}
+            spot={spot}
+            spotData={{
+              spotter: sourceSpot.spotter,
+              spotterGrid: sourceSpot.spotterGrid,
+              dxGrid: sourceSpot.dxGrid,
+              band: sourceSpot.band,
+              snr: sourceSpot.snr,
+              wpm: sourceSpot.wpm,
+              comment: sourceSpot.comment,
+              dxLocApprox: spot.dxLocApprox,
+            }}
+            occlusionOpacity={occlusionOpacity}
+            onHover={onSpotHover}
+            onHoverEnd={onSpotHoverEnd}
+            onSelect={
+              onSpotSelect
+                ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
+                : undefined
+            }
+          />
+        )}
+
         {/* Landing pulse ring */}
         <mesh
           ref={ringRef}
@@ -416,7 +540,6 @@ const TraceAnimation = React.memo(
       </group>
     );
   },
-  (prev, next) => prev.spotId === next.spotId && prev.color === next.color,
 );
 
 // =============================================================================
@@ -426,22 +549,37 @@ const TraceAnimation = React.memo(
 export function AnimatedSpotTraces({
   grid,
   maxTraces = 40,
+  feedSpots: suppliedFeedSpots,
+  candidateSpots: suppliedCandidateSpots,
+  resolvedSpots: suppliedResolvedSpots,
+  isFeedReady: suppliedIsFeedReady,
+  hydrationKey = "standalone",
+  onSpotHover,
+  onSpotHoverEnd,
+  onSpotSelect,
 }: AnimatedSpotTracesProps) {
   const uiPrefs = useUIInteractionPrefs();
   const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
 
-  // Fetch live spots
-  const { spots } = useLiveSpots({
+  // Retain a compatible standalone fallback, but map hosts inject the one
+  // shared feed/candidate/resolution pipeline.
+  const ownedFeed = useLiveSpots({
     grid,
-    enabled: true,
+    enabled: suppliedFeedSpots === undefined,
     refetchInterval: 60000,
   });
-
-  // Resolve spots to lat/lon positions
-  const resolvedSpots = useMemo(() => resolveSpotLocations(spots), [spots]);
+  const feedSpots = suppliedFeedSpots ?? ownedFeed.spots;
+  const candidateSpots = suppliedCandidateSpots ?? feedSpots;
+  const isFeedReady = suppliedIsFeedReady ?? ownedFeed.isFeedReady;
+  const resolvedSpots = useMemo(
+    () => suppliedResolvedSpots ?? resolveSpotLocations(candidateSpots),
+    [candidateSpots, suppliedResolvedSpots],
+  );
 
   // Track which spot IDs have already been queued
   const seenSpotIds = useRef<Set<string>>(new Set());
+  const hydratedRef = useRef(false);
+  const hydrationKeyRef = useRef(hydrationKey);
 
   // Pending queue of traces waiting to be animated
   const pendingQueue = useRef<QueuedTrace[]>([]);
@@ -454,15 +592,7 @@ export function AnimatedSpotTraces({
 
   // Compute path points for a resolved spot and queue it
   const computeAndQueue = useCallback(
-    (spot: {
-      spotterLat: number;
-      spotterLon: number;
-      dxLat: number;
-      dxLon: number;
-      id: string;
-      mode: string;
-      frequency: number;
-    }) => {
+    (spot: ResolvedSpot, sourceSpot: LiveSpot) => {
       // Validate coordinates
       if (
         !Number.isFinite(spot.spotterLat) ||
@@ -501,6 +631,8 @@ export function AnimatedSpotTraces({
           spotId: spot.id,
           points: points3D,
           color,
+          spot,
+          sourceSpot,
         });
       } catch {
         // Silently skip spots with invalid paths
@@ -511,19 +643,56 @@ export function AnimatedSpotTraces({
 
   // Detect new spots and enqueue them
   useEffect(() => {
-    for (const spot of resolvedSpots) {
-      if (!seenSpotIds.current.has(spot.id)) {
-        seenSpotIds.current.add(spot.id);
-        computeAndQueue(spot);
+    if (hydrationKeyRef.current !== hydrationKey) {
+      hydrationKeyRef.current = hydrationKey;
+      seenSpotIds.current = new Set();
+      hydratedRef.current = false;
+      pendingQueue.current = [];
+      lastDequeueTime.current = 0;
+      setActiveTraces([]);
+    }
+
+    const eligibleIds = new Set(candidateSpots.map(({ id }) => id));
+    const reconciliation = reconcileTraceFeed(
+      seenSpotIds.current,
+      hydratedRef.current,
+      isFeedReady,
+      feedSpots.map(({ id }) => id),
+      eligibleIds,
+    );
+    seenSpotIds.current = reconciliation.seenIds;
+    hydratedRef.current = reconciliation.hydrated;
+
+    if (reconciliation.newEligibleIds.length > 0) {
+      const sourceById = new Map(
+        candidateSpots.map((spot) => [spot.id, spot] as const),
+      );
+      const resolvedById = new Map(
+        resolvedSpots.map((spot) => [spot.id, spot] as const),
+      );
+      for (const id of reconciliation.newEligibleIds) {
+        const sourceSpot = sourceById.get(id);
+        const resolvedSpot = resolvedById.get(id);
+        if (sourceSpot && resolvedSpot) {
+          computeAndQueue(resolvedSpot, sourceSpot);
+        }
       }
     }
 
-    // Prevent unbounded growth of seenSpotIds — trim to last 500
-    if (seenSpotIds.current.size > 500) {
+    // Prevent unbounded growth while retaining a generous window beyond the
+    // production feed cap, so filter/query churn cannot replay recent IDs.
+    if (seenSpotIds.current.size > 2_000) {
       const entries = Array.from(seenSpotIds.current);
-      seenSpotIds.current = new Set(entries.slice(entries.length - 300));
+      seenSpotIds.current = new Set(entries.slice(entries.length - 1_000));
     }
-  }, [resolvedSpots, computeAndQueue]);
+  }, [
+    candidateSpots,
+    computeAndQueue,
+    feedSpots,
+    hydrationKey,
+    isFeedReady,
+    resolvedSpots,
+  ]);
 
   // Dequeue traces on a timer driven by useFrame
   useFrame((state) => {
@@ -550,6 +719,17 @@ export function AnimatedSpotTraces({
     setActiveTraces((prev) => prev.filter((t) => t.spotId !== spotId));
   }, []);
 
+  const endpointPositions = useMemo(
+    () =>
+      activeTraces.map(({ spot }) => ({
+        lat: spot.dxLat,
+        lon: spot.dxLon,
+      })),
+    [activeTraces],
+  );
+  const { getOpacity: getEndpointOcclusionOpacity } =
+    useGlobeOcclusionBatch(endpointPositions);
+
   return (
     <group name="animated-spot-traces">
       {activeTraces.map((trace) => (
@@ -558,6 +738,15 @@ export function AnimatedSpotTraces({
           spotId={trace.spotId}
           points={trace.points}
           color={trace.color}
+          spot={trace.spot}
+          sourceSpot={trace.sourceSpot}
+          occlusionOpacity={getEndpointOcclusionOpacity(
+            trace.spot.dxLat,
+            trace.spot.dxLon,
+          )}
+          onSpotHover={onSpotHover}
+          onSpotHoverEnd={onSpotHoverEnd}
+          onSpotSelect={onSpotSelect}
           onComplete={handleComplete}
         />
       ))}

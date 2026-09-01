@@ -23,14 +23,14 @@ describe("useResolvedMapSpots", () => {
     mocks.live.mockReturnValue({
       spots: [{ id: "raw-1" }],
       isLoading: false,
+      isFeedReady: true,
       isError: false,
       spotsBySource: {},
       refetch: vi.fn(),
     });
-    mocks.resolve.mockReturnValue([
-      { id: "resolved-1" },
-      { id: "resolved-2" },
-    ]);
+    mocks.resolve.mockImplementation((spots: Array<{ id: string }>) =>
+      spots.map((spot) => ({ id: spot.id })),
+    );
     mocks.activations.mockReturnValue({ spots: [{ id: "activation-raw" }] });
     mocks.resolveActivations.mockReturnValue([{ id: "activation-resolved" }]);
   });
@@ -48,9 +48,12 @@ describe("useResolvedMapSpots", () => {
       grid: "EM10aa",
       enabled: true,
       refetchInterval: 60_000,
+      sources: undefined,
+      spotFilters: undefined,
     });
     expect(mocks.resolve).toHaveBeenCalledWith([{ id: "raw-1" }]);
-    expect(result.current.resolvedSpots).toEqual([{ id: "resolved-1" }]);
+    expect(result.current.resolvedSpots).toEqual([{ id: "raw-1" }]);
+    expect(result.current.candidateSpots).toEqual([{ id: "raw-1" }]);
     expect(mocks.activations).toHaveBeenCalledWith(false);
     expect(result.current.activationSpots).toEqual([]);
   });
@@ -81,6 +84,8 @@ describe("useResolvedMapSpots", () => {
       grid: undefined,
       enabled: false,
       refetchInterval: 60_000,
+      sources: undefined,
+      spotFilters: undefined,
     });
     expect(mocks.activations).toHaveBeenCalledWith(true);
     expect(mocks.resolveActivations).toHaveBeenCalledWith(
@@ -89,6 +94,73 @@ describe("useResolvedMapSpots", () => {
     );
     expect(result.current.activationSpots).toEqual([
       { id: "activation-resolved" },
+    ]);
+  });
+
+  it("shares source and profile filtering before coordinate resolution", () => {
+    const rawSpots = [
+      { id: "wanted", source: "RBN", band: "20m", mode: "CW" },
+      { id: "wrong-mode", source: "RBN", band: "20m", mode: "FT8" },
+      { id: "wrong-source", source: "PSKReporter", band: "20m", mode: "CW" },
+    ];
+    mocks.live.mockReturnValue({
+      spots: rawSpots,
+      isLoading: false,
+      isFeedReady: true,
+      isError: false,
+      spotsBySource: {},
+      refetch: vi.fn(),
+    });
+
+    const { result } = renderHook(() =>
+      useResolvedMapSpots({
+        enabled: true,
+        sources: ["RBN"],
+        spotFilters: { bands: ["20m"], modes: ["CW"] },
+      }),
+    );
+
+    expect(mocks.live).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: ["RBN"],
+        spotFilters: { bands: ["20m"], modes: ["CW"] },
+      }),
+    );
+    expect(mocks.resolve).toHaveBeenCalledWith([rawSpots[0]]);
+    expect(result.current.candidateSpots).toEqual([rawSpots[0]]);
+  });
+
+  it("applies the draw cap after resolution and keeps both lists aligned", () => {
+    const rawSpots = [
+      { id: "unresolved-newest" },
+      { id: "resolved-first" },
+      { id: "resolved-second" },
+    ];
+    mocks.live.mockReturnValue({
+      spots: rawSpots,
+      isLoading: false,
+      isFeedReady: true,
+      isError: false,
+      spotsBySource: {},
+      refetch: vi.fn(),
+    });
+    mocks.resolve.mockReturnValue([
+      { id: "resolved-first" },
+      { id: "resolved-second" },
+    ]);
+
+    const { result } = renderHook(() =>
+      useResolvedMapSpots({ enabled: true, maxSpots: 2 }),
+    );
+
+    expect(mocks.resolve).toHaveBeenCalledWith(rawSpots);
+    expect(result.current.candidateSpots.map(({ id }) => id)).toEqual([
+      "resolved-first",
+      "resolved-second",
+    ]);
+    expect(result.current.resolvedSpots.map(({ id }) => id)).toEqual([
+      "resolved-first",
+      "resolved-second",
     ]);
   });
 });

@@ -19,7 +19,7 @@ import {
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { estimateMUF, getMUFColor } from "@/lib/api/muf";
-import type { LiveSpot } from "@/types/livespot";
+import type { LiveSpot, SpotSource } from "@/types/livespot";
 import {
   resolveSpotLocations,
   getGreatCirclePoints,
@@ -148,6 +148,7 @@ import {
   type PresentableSpot,
 } from "@/lib/map/spotPresentation";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import { getSpotLayerPolicy } from "@/lib/map/spotLayerPolicy";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -3332,6 +3333,7 @@ export function FlatMapView({
   const glowRafRef = useRef<number>(0);
 
   const layers = useMapStore((s) => s.layers);
+  const spotFilters = useMapStore((s) => s.spotFilters);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
@@ -3458,6 +3460,18 @@ export function FlatMapView({
   // DX stores
   const { updateFilter } = useDXStore();
   const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const spotSourceFilters = useDXStore(
+    (s) => s.filters.sources as SpotSource[] | undefined,
+  );
+  const spotLayerPolicy = useMemo(
+    () =>
+      getSpotLayerPolicy({
+        spots: layers.spots,
+        spotTraces: layers.spotTraces,
+        gridActivity: layers.gridActivity,
+      }),
+    [layers.gridActivity, layers.spotTraces, layers.spots],
+  );
   const selectMapSpot = useMapSpotSelection();
   const { allSpots } = useDXCluster();
 
@@ -3520,6 +3534,8 @@ export function FlatMapView({
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,
     maxSpots: displayDensity,
+    sources: spotSourceFilters,
+    spotFilters,
   });
 
   // State for spot label hover flyout
@@ -3870,7 +3886,11 @@ export function FlatMapView({
   const findSpotLabelAtScreenPos = useCallback(
     (screenPos: { x: number; y: number }): SpotScreenHit | null => {
       const canvas = canvasRef.current;
-      if (!canvas || placedLabelsRef.current.length === 0) {
+      if (
+        !canvas ||
+        !spotLayerPolicy.labelsInteractive ||
+        placedLabelsRef.current.length === 0
+      ) {
         return null;
       }
       const rect = canvas.getBoundingClientRect();
@@ -3901,7 +3921,7 @@ export function FlatMapView({
       }
       return null;
     },
-    [viewportSize],
+    [spotLayerPolicy.labelsInteractive, viewportSize],
   );
 
   const findSpotEndpointAtScreenPos = useCallback(
@@ -3909,7 +3929,7 @@ export function FlatMapView({
       const canvas = canvasRef.current;
       if (
         !canvas ||
-        !layers.spots ||
+        !spotLayerPolicy.endpointsInteractive ||
         resolvedSpots.length === 0
       ) {
         return null;
@@ -3947,8 +3967,8 @@ export function FlatMapView({
     },
     [
       displaySize,
-      layers.spots,
       resolvedSpots,
+      spotLayerPolicy.endpointsInteractive,
       spotDotScale,
       viewportSize,
     ],
@@ -5168,10 +5188,9 @@ export function FlatMapView({
     }
 
     // Draw live spot arcs (dimmed for non-matched when watch is active)
-    // Arcs draw for either "Spots" or "Spot Traces" — Spot Traces shows clean
-    // arcs without labels/hover/selected-arc treatment, which stay gated on
-    // layers.spots only below.
-    if ((layers.spots || layers.spotTraces) && resolvedSpots.length > 0) {
+    // Arcs draw for either "Spots" or "Spot Traces". Callsign pills remain a
+    // Spots-only layer, while endpoint hover follows the visible path layer.
+    if (spotLayerPolicy.pathsVisible && resolvedSpots.length > 0) {
       drawSpotArcs(
         ctx,
         resolvedSpots,
@@ -5276,7 +5295,7 @@ export function FlatMapView({
     }
 
     // Draw highlight for hovered spot arc
-    if (hoveredSpotData && layers.spots) {
+    if (hoveredSpotData && spotLayerPolicy.endpointsInteractive) {
       const hoveredSpot = resolvedSpots.find(
         (s) => s.id === hoveredSpotData.spot.id,
       );
@@ -5301,7 +5320,11 @@ export function FlatMapView({
     }
 
     // Draw highlighted arc for selected DX cluster spot (persistent while selected)
-    if (resolvedSelectedSpot && layers.spots && !selectedSpotMatchesTarget) {
+    if (
+      spotLayerPolicy.selectedTargetVisible &&
+      resolvedSelectedSpot &&
+      !selectedSpotMatchesTarget
+    ) {
       drawSelectedSpotArc(
         ctx,
         resolvedSelectedSpot,
@@ -5448,6 +5471,7 @@ export function FlatMapView({
   }, [
     displayTime,
     layers,
+    spotLayerPolicy,
     labelOptions,
     station,
     target,

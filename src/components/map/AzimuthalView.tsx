@@ -61,7 +61,7 @@ import type { FireHotspot } from "@/lib/api/fires";
 import type { LiveSpot } from "@/types/livespot";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
-import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
+import { useAzimuthalMapSpots } from "./hooks/useAzimuthalMapSpots";
 import {
   drawActivationPills,
   sameActivationPillScreenPlacements,
@@ -1770,7 +1770,7 @@ export function AzimuthalView({
 
   // Resolve the common live feed once, capped for this canvas renderer. This
   // preserves the shared display-density contract without a local pipeline.
-  const { resolvedSpots, activationSpots } = useResolvedMapSpots({
+  const { resolvedSpots, activationSpots } = useAzimuthalMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,

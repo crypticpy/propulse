@@ -144,7 +144,7 @@ import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
 import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
-import type { LiveSpot } from "@/types/livespot";
+import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { collectGridSpots } from "@/lib/map/gridSpotCollection";
 import { normalizePresentableSpot } from "@/lib/map/spotPresentation";
@@ -948,6 +948,10 @@ const GlobeScene = React.memo(function GlobeScene({
   const rotation = useMapStore((s) => s.rotation);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const displayDensity = useMapStore((s) => s.displayDensity);
+  const spotFilters = useMapStore((s) => s.spotFilters);
+  const spotSourceFilters = useDXStore(
+    (s) => s.filters.sources as SpotSource[] | undefined,
+  );
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
@@ -1060,14 +1064,20 @@ const GlobeScene = React.memo(function GlobeScene({
     layers.spots || layers.spotTraces || layers.gridActivity;
   const {
     spots: liveSpots,
+    candidateSpots,
     resolvedSpots: resolvedGlowSpots,
     activationSpots,
+    isLoading: liveSpotsLoading,
+    isFeedReady: liveSpotsFeedReady,
+    feedScopeKey: liveSpotsFeedScopeKey,
   } = useResolvedMapSpots({
     grid: station?.grid,
     enabled: resolvedSpotLayersEnabled || layers.spectrumRing,
     resolveEnabled: resolvedSpotLayersEnabled,
     activationsEnabled: layers.activations,
     maxSpots: displayDensity,
+    sources: spotSourceFilters,
+    spotFilters,
   });
 
   // Track which spot IDs have already triggered glows (avoid re-firing on every render)
@@ -1609,6 +1619,8 @@ const GlobeScene = React.memo(function GlobeScene({
         {layers.spots && (
           <LiveSpotArcs
             grid={station?.grid}
+            spots={candidateSpots}
+            isLoading={liveSpotsLoading}
             onSpotHover={onSpotHover}
             onSpotHoverEnd={onSpotHoverEnd}
             onSpotSelect={onSpotSelect}
@@ -1627,7 +1639,18 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* Animated spot trace lines — "missile command" style */}
         {layers.spotTraces && (
-          <AnimatedSpotTraces grid={station?.grid} maxTraces={40} />
+          <AnimatedSpotTraces
+            grid={station?.grid}
+            maxTraces={40}
+            feedSpots={liveSpots}
+            candidateSpots={candidateSpots}
+            resolvedSpots={resolvedGlowSpots}
+            isFeedReady={liveSpotsFeedReady}
+            hydrationKey={liveSpotsFeedScopeKey}
+            onSpotHover={onSpotHover}
+            onSpotHoverEnd={onSpotHoverEnd}
+            onSpotSelect={onSpotSelect}
+          />
         )}
 
         {/* FT8 Spotter — burst traces, grid heatmap, cycle radar */}

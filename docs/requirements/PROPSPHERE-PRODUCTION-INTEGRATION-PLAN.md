@@ -1,10 +1,10 @@
 # PropSphere Production Integration Plan
 
 Status: active production stabilization and ordered release in progress. PRs
-#113, #114, #117, #119, #118, and #120 are live. The reconstructed Deep-Zoom,
-Photorealistic 3D, Azimuthal-density work from #115 and the Wall Display work
-from #116 remain outside production until their ordered reviews, merges,
-deployments, and live verification finish.
+#113, #114, #117, #119, #118, #120, and the clean #121 reconstruction are
+live. The stale #115 is closed. The Wall Display replacement for stale #116
+has been reconstructed from current production and passes its complete local
+release gates; PR review, merge, deployment, and live verification remain.
 
 Owner: PropSphere
 Last updated: 2026-09-01
@@ -168,12 +168,14 @@ or preview deployment by itself is not a production result.
 3. Keep #118 and #120's filtered trace lifecycle, endpoint parity, owner-safe
    hover bridge, canonical details card, and Azimuthal DX-pill interaction as
    immutable production foundations.
-4. Reconstruct PR #115 from fresh `main`; do not rebase its inherited
-   pre-squash #113/#114 history. Port only its unique explorer/Azimuthal work
-   and preserve the stabilized hover bridge and canonical details flow.
-5. After #115 is squash-merged, reconstruct PR #116 from the new `main`; do not
-   retain the stale stacked ancestry. Fix rotation re-arming, clear-all scene
-   persistence, and literal exit navigation before review.
+4. Keep #121's clean reconstruction of #115 live. It was built from the
+   current production baseline without the inherited pre-squash #113/#114
+   history and preserves the stabilized hover bridge and canonical details.
+5. Ship the clean Wall Display reconstruction built from #121's production
+   `main`; do not retain stale #116's stacked ancestry. Its rotation re-arming,
+   clear-all scene persistence, literal exit navigation, explorer viewport
+   sizing, route-capability controls, and remote-sync race handling have passed
+   the full local gates and joined review.
 6. Run the final 3840x2160 cross-view checklist against the public production
    alias and reconcile every acceptance criterion in this file.
 
@@ -193,6 +195,14 @@ or preview deployment by itself is not a production result.
 - #120 hover/details: reviewed head `89ee36c`; squash merge `f53380e`; Vercel
   production deployment `dpl_4CuxPhkVL9UiTr7ADgQifrQC4y8A` cloned that exact
   `main` commit, reached Ready, and owns `propulse.cloud`.
+- #121 explorers/Azimuthal density: reviewed head `a71fdb24`; squash merge
+  `5eae5eec`; Vercel production deployment
+  `dpl_5ySMFfJWrSVnv3VTGVUyc8mJDwfb` cloned that exact `main` commit, reached
+  Ready, and owns `propulse.cloud`. Stale #115 was closed as superseded.
+- Wall Display replacement pre-PR gate: 211 Vitest files / 1,183 tests,
+  ESLint, TypeScript, production Vite build, bundle budgets, and two joined
+  release-blocker reviews passed from a dedicated clean worktree based on
+  `5eae5eec`. Stale #116 remains unmerged pending replacement PR creation.
 - Authenticated 3840x2160 pointer verification remains a separate final gate;
   public automation currently reaches the invite login rather than the map.
 - The free Esri de-clouded Deep-Zoom path needs no new production secret.

@@ -4,11 +4,7 @@ import {
   useDisplayStore,
   type DisplaySceneConfig,
 } from "@/stores/displayStore";
-import {
-  useKioskStore,
-  applySceneToMap,
-  DEFAULT_SCENES,
-} from "@/stores/kioskStore";
+import { useKioskStore, DEFAULT_SCENES } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -50,8 +46,20 @@ export function useDisplaySync(): void {
     if (!syncActive || !displayId || !deviceToken) return;
 
     let cancelled = false;
+    let syncInFlight: Promise<void> | null = null;
+    let rerunRequested = false;
+    // A different paired display may legitimately reuse the same updated_at
+    // value. Treat each identity/effect lifetime as a fresh synchronization.
+    lastAppliedUpdatedAtRef.current = null;
 
-    const applyConfig = (sceneConfig: DisplaySceneConfig) => {
+    const applyConfig = async (
+      sceneConfig: DisplaySceneConfig,
+    ): Promise<boolean> => {
+      const { applySceneToMap } = await import(
+        "@/lib/kiosk/applySceneToMap"
+      );
+      if (cancelled) return false;
+
       // Every owner save (updatedAt changed) applies wholesale and restarts
       // the rotation — including rotation-only changes. No scenes in the
       // config means the owner cleared the assignment, which falls back to
@@ -59,12 +67,28 @@ export function useDisplaySync(): void {
       // "local defaults" must be restored explicitly).
       const scenes = sceneConfig.scenes;
       const hasScenes = Array.isArray(scenes) && scenes.length > 0;
-      const current = useKioskStore.getState();
-      useKioskStore.setState({
-        scenes: hasScenes ? scenes : DEFAULT_SCENES,
-        rotation: sceneConfig.rotation ?? current.rotation,
-        breakInLevel: sceneConfig.breakInLevel ?? current.breakInLevel,
-      });
+      const kioskActions = useKioskStore.getState();
+      kioskActions.replaceScenes(hasScenes ? scenes : DEFAULT_SCENES);
+      if (sceneConfig.rotation) {
+        const rotation: Partial<typeof kioskActions.rotation> = {};
+        if (typeof sceneConfig.rotation.enabled === "boolean") {
+          rotation.enabled = sceneConfig.rotation.enabled;
+        }
+        if (
+          typeof sceneConfig.rotation.intervalSec === "number" &&
+          Number.isFinite(sceneConfig.rotation.intervalSec)
+        ) {
+          rotation.intervalSec = sceneConfig.rotation.intervalSec;
+        }
+        kioskActions.setRotation(rotation);
+      }
+      if (
+        sceneConfig.breakInLevel === "CRITICAL" ||
+        sceneConfig.breakInLevel === "WARNING" ||
+        sceneConfig.breakInLevel === "off"
+      ) {
+        kioskActions.setBreakInLevel(sceneConfig.breakInLevel);
+      }
 
       // P1: per-display layout override. scene_config is server-fed jsonb,
       // so only apply values that are actually in the unions.
@@ -83,19 +107,30 @@ export function useDisplaySync(): void {
         useSettingsStore.getState().updatePreferences({ textScale: scale });
       }
 
-      const kiosk = useKioskStore.getState();
+      let kiosk = useKioskStore.getState();
       const wasActive = kiosk.active;
-      const scene = kiosk.start(kiosk.scenes[0]?.id);
-      if (!scene) return;
+      // start() intentionally chooses the first enabled scene; a disabled
+      // first row in a remotely assigned playlist must never stall the wall.
+      let scene = kiosk.start();
+      // The remote assignment remains stored for the owner to fix, but a
+      // physical display must never be left active with no renderable scene.
+      // Replace the device-side copy with the known-good stock rotation.
+      if (!scene) {
+        kiosk.replaceScenes(DEFAULT_SCENES);
+        kiosk = useKioskStore.getState();
+        scene = kiosk.start();
+      }
+      if (!scene) return false;
       applySceneToMap(scene);
       if (!wasActive) {
         // First entry from the pairing/holding screen (mirrors KioskPage).
         void document.documentElement.requestFullscreen().catch(() => {});
       }
       navigate(scene.route);
+      return true;
     };
 
-    const fetchState = async () => {
+    const fetchStateOnce = async () => {
       try {
         const res = await fetch(
           `/api/displays/state?id=${encodeURIComponent(displayId)}`,
@@ -123,15 +158,38 @@ export function useDisplaySync(): void {
 
         if (
           data.paired &&
-          data.sceneConfig &&
           data.updatedAt !== lastAppliedUpdatedAtRef.current
         ) {
-          lastAppliedUpdatedAtRef.current = data.updatedAt;
-          applyConfig(data.sceneConfig);
+          const applied = await applyConfig(data.sceneConfig ?? {});
+          if (applied && !cancelled) {
+            // Commit the server version only after its full configuration and
+            // navigation succeed. A transient lazy-chunk/application failure
+            // therefore remains eligible for the next poll.
+            lastAppliedUpdatedAtRef.current = data.updatedAt;
+          }
         }
       } catch {
         // Offline or transient failure — silent retry on the next tick.
       }
+    };
+
+    // Poll and realtime nudges can arrive together. Coalesce them into one
+    // serialized loop so an older response can never finish after and replace
+    // a newer assignment.
+    const fetchState = (): Promise<void> => {
+      if (syncInFlight) {
+        rerunRequested = true;
+        return syncInFlight;
+      }
+      syncInFlight = (async () => {
+        do {
+          rerunRequested = false;
+          await fetchStateOnce();
+        } while (rerunRequested && !cancelled);
+      })().finally(() => {
+        syncInFlight = null;
+      });
+      return syncInFlight;
     };
 
     void fetchState();

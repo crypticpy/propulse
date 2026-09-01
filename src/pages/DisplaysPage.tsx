@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -8,6 +8,7 @@ import type { DisplayFit } from "@/stores/mapStore";
 import type { TextScale } from "@/types/user";
 import type { Json, Tables } from "@/types/supabase";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { buildDisplaySceneConfig } from "./displayAssignment";
 
 const LIVE_THRESHOLD_MS = 60_000;
 const REFRESH_INTERVAL_MS = 20_000;
@@ -184,6 +185,13 @@ interface DisplayCardProps {
   onRequestDelete: () => void;
 }
 
+type ConfigDraftField =
+  | "scenes"
+  | "rotationEnabled"
+  | "intervalSec"
+  | "layoutFit"
+  | "wallTextScale";
+
 function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) {
   const kioskScenes = useKioskStore((s) => s.scenes);
 
@@ -191,8 +199,23 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
   const [nameDraft, setNameDraft] = useState(display.name);
   const [savingName, setSavingName] = useState(false);
 
-  const assignedIds = new Set(
-    (display.scene_config?.scenes ?? []).map((s) => s.id),
+  const enabledSceneIds = useMemo(
+    () =>
+      new Set(
+        kioskScenes
+          .filter((scene) => scene.enabled !== false)
+          .map((scene) => scene.id),
+      ),
+    [kioskScenes],
+  );
+  const assignedIds = useMemo(
+    () =>
+      new Set(
+        (display.scene_config?.scenes ?? [])
+          .map((scene) => scene.id)
+          .filter((id) => enabledSceneIds.has(id)),
+      ),
+    [display.scene_config?.scenes, enabledSceneIds],
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(assignedIds);
   const [rotationEnabled, setRotationEnabled] = useState(
@@ -210,6 +233,39 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
   );
   const [savingConfig, setSavingConfig] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const dirtyConfigFields = useRef<Set<ConfigDraftField>>(new Set());
+
+  const markConfigDirty = (field: ConfigDraftField) => {
+    dirtyConfigFields.current.add(field);
+  };
+
+  // Server refreshes update every clean draft field. Fields the operator is
+  // actively changing are intentionally preserved, so a background poll does
+  // not erase their work; the next save combines those edits with the latest
+  // server values for all untouched fields.
+  useEffect(() => {
+    if (!editingName) setNameDraft(display.name);
+    const dirty = dirtyConfigFields.current;
+    if (!dirty.has("scenes")) setSelectedIds(new Set(assignedIds));
+    if (!dirty.has("rotationEnabled")) {
+      setRotationEnabled(display.scene_config?.rotation?.enabled ?? true);
+    }
+    if (!dirty.has("intervalSec")) {
+      setIntervalSec(display.scene_config?.rotation?.intervalSec ?? 120);
+    }
+    if (!dirty.has("layoutFit")) {
+      setLayoutFit(display.scene_config?.layout?.fit ?? "auto");
+    }
+    if (!dirty.has("wallTextScale")) {
+      setWallTextScale(display.scene_config?.layout?.textScale ?? "");
+    }
+  }, [
+    assignedIds,
+    display.name,
+    display.scene_config,
+    display.updated_at,
+    editingName,
+  ]);
 
   const isLive =
     display.last_seen_at !== null &&
@@ -242,6 +298,8 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
   };
 
   const toggleScene = (id: string) => {
+    if (!enabledSceneIds.has(id)) return;
+    markConfigDirty("scenes");
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -254,23 +312,23 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
     setSavingConfig(true);
     setSaveError(null);
     try {
-      const selectedScenes = kioskScenes.filter((s) => selectedIds.has(s.id));
-      // Spread the existing config first so fields this UI doesn't manage
-      // (e.g. breakInLevel) survive a save.
-      const sceneConfig: DisplaySceneConfig = {
-        ...(display.scene_config ?? {}),
-        rotation: { enabled: rotationEnabled, intervalSec },
-        layout: {
-          fit: layoutFit,
-          ...(wallTextScale !== "" && { textScale: wallTextScale }),
+      const sceneConfig = buildDisplaySceneConfig(
+        display.scene_config,
+        kioskScenes,
+        {
+          selectedIds,
+          rotationEnabled,
+          intervalSec,
+          layoutFit,
+          wallTextScale,
         },
-        ...(selectedScenes.length > 0 && { scenes: selectedScenes }),
-      };
+      );
       const { error } = await displaysTable()
         .update({ scene_config: sceneConfigJson(sceneConfig) })
         .eq("id", display.id);
       if (error) throw new Error(error.message);
       await pushRefreshNudge(display.id);
+      dirtyConfigFields.current.clear();
       onChanged();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed");
@@ -344,24 +402,38 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
           </p>
         ) : (
           <ul className="space-y-1.5">
-            {kioskScenes.map((scene) => (
-              <li key={scene.id}>
-                <label className="flex items-center gap-2 text-sm text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(scene.id)}
-                    onChange={() => toggleScene(scene.id)}
-                    className="accent-plasma-orange"
-                  />
-                  {scene.name}
-                </label>
-              </li>
-            ))}
+            {kioskScenes.map((scene) => {
+              const isEnabled = scene.enabled !== false;
+              return (
+                <li key={scene.id}>
+                  <label
+                    className={`flex items-center gap-2 text-sm ${
+                      isEnabled ? "text-gray-300" : "text-gray-600"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isEnabled && selectedIds.has(scene.id)}
+                      onChange={() => toggleScene(scene.id)}
+                      disabled={!isEnabled}
+                      className="accent-plasma-orange disabled:cursor-not-allowed"
+                    />
+                    {scene.name}
+                    {!isEnabled && (
+                      <span className="text-[10px] uppercase tracking-wider text-gray-600">
+                        Disabled · not assignable
+                      </span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         )}
         {selectedIds.size === 0 && (
           <p className="text-xs text-gray-500">
-            No scenes selected — the device will use its own local defaults.
+            No scenes selected — saving clears the remote assignment and the
+            device returns to its local defaults.
           </p>
         )}
 
@@ -370,7 +442,10 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
             <input
               type="checkbox"
               checked={rotationEnabled}
-              onChange={(e) => setRotationEnabled(e.target.checked)}
+              onChange={(e) => {
+                markConfigDirty("rotationEnabled");
+                setRotationEnabled(e.target.checked);
+              }}
               className="accent-plasma-orange"
             />
             Rotate every
@@ -379,7 +454,10 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
               min={15}
               max={3600}
               value={intervalSec}
-              onChange={(e) => setIntervalSec(Number(e.target.value))}
+              onChange={(e) => {
+                markConfigDirty("intervalSec");
+                setIntervalSec(Number(e.target.value));
+              }}
               className="w-20 bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm text-center"
               aria-label="Rotation interval in seconds"
             />
@@ -392,7 +470,10 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
             Layout
             <select
               value={layoutFit}
-              onChange={(e) => setLayoutFit(e.target.value as DisplayFit)}
+              onChange={(e) => {
+                markConfigDirty("layoutFit");
+                setLayoutFit(e.target.value as DisplayFit);
+              }}
               className="bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm"
             >
               <option value="auto">Auto (fit to screen)</option>
@@ -404,9 +485,10 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
             Text size
             <select
               value={wallTextScale}
-              onChange={(e) =>
-                setWallTextScale(e.target.value as TextScale | "")
-              }
+              onChange={(e) => {
+                markConfigDirty("wallTextScale");
+                setWallTextScale(e.target.value as TextScale | "");
+              }}
               className="bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm"
             >
               <option value="">Leave unchanged</option>

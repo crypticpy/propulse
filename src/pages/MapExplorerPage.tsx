@@ -18,6 +18,7 @@ import {
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useKioskStore } from "@/stores/kioskStore";
+import type { KioskHeaderScale } from "@/stores/kioskStore";
 import { useProfileStore } from "@/stores/profileStore";
 
 const REGIONS = [
@@ -32,6 +33,12 @@ const REGIONS = [
 ] as const;
 
 export const MAP_EXPLORER_AUTH_REFRESH_MS = 15 * 60 * 1000;
+
+const KIOSK_VIEWPORT_HEIGHT_CLASSES: Record<KioskHeaderScale, string> = {
+  compact: "h-[calc(100dvh-2.5rem)]",
+  standard: "h-[calc(100dvh-3rem)]",
+  large: "h-[calc(100dvh-4rem)]",
+};
 
 function numberParam(value: string | null, fallback: number): number {
   if (value === null) return fallback;
@@ -80,6 +87,10 @@ export default function MapExplorerPage() {
   const setDisplayQuality = useDisplayQualityStore((s) => s.setDisplayQuality);
   const setMapStyle = useMapStore((s) => s.setMapStyle);
   const setLayoutMode = useMapStore((s) => s.setLayoutMode);
+  const kioskActive = useKioskStore((s) => s.active);
+  const kioskHeaderScale = useKioskStore(
+    (s) => s.presentation.headerScale,
+  );
   const stopKiosk = useKioskStore((s) => s.stop);
   const quality = useResolvedDisplayQuality(displayQuality);
   const requestedProvider = useMemo(
@@ -259,6 +270,10 @@ export default function MapExplorerPage() {
   ]);
 
   useEffect(() => {
+    mapRef.current?.resize();
+  }, [kioskActive, kioskHeaderScale]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") exit();
     };
@@ -284,7 +299,15 @@ export default function MapExplorerPage() {
   };
 
   return (
-    <div className="relative h-[calc(100dvh-4rem)] min-h-[520px] overflow-hidden bg-deep-space">
+    <div
+      data-testid="map-explorer-viewport"
+      data-kiosk-header-scale={kioskActive ? kioskHeaderScale : "normal"}
+      className={`relative min-h-0 overflow-hidden bg-deep-space ${
+        kioskActive
+          ? KIOSK_VIEWPORT_HEIGHT_CLASSES[kioskHeaderScale]
+          : "h-[calc(100dvh-4rem)]"
+      }`}
+    >
       <div ref={containerRef} className="absolute inset-0" />
 
       <div className="pointer-events-none absolute top-3 right-3 left-3 z-20 flex flex-wrap items-start justify-between gap-3">

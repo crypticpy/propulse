@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 
 const mocks = vi.hoisted(() => ({
+  displayDensity: 100,
   psk: {
     data: undefined as LiveSpot[] | undefined,
     dataUpdatedAt: 0,
@@ -25,7 +26,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: { displayDensity: number }) => unknown) =>
-    selector({ displayDensity: 100 }),
+    selector({ displayDensity: mocks.displayDensity }),
 }));
 vi.mock("@/stores/wsjtxStore", () => ({
   useWSJTXStore: (
@@ -56,6 +57,7 @@ function spot(id: string, overrides: Partial<LiveSpot> = {}): LiveSpot {
 
 describe("useLiveSpots feed readiness", () => {
   beforeEach(() => {
+    mocks.displayDensity = 100;
     mocks.psk.data = undefined;
     mocks.psk.dataUpdatedAt = 0;
     mocks.psk.isError = true;
@@ -117,5 +119,18 @@ describe("useLiveSpots feed readiness", () => {
     expect(result.current.spots.map(({ id }) => id)).toEqual([
       "eligible-alternative",
     ]);
+  });
+
+  it("changes feed scope when density changes the effective fetch limit", () => {
+    const { result, rerender } = renderHook(() =>
+      useLiveSpots({ grid: "EM10aa", sources: ["RBN"] }),
+    );
+    const initialScope = result.current.feedScopeKey;
+
+    mocks.displayDensity = 200;
+    rerender();
+
+    expect(result.current.feedScopeKey).not.toBe(initialScope);
+    expect(result.current.feedScopeKey).toContain('"spotLimit":200');
   });
 });

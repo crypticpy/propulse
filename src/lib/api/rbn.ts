@@ -24,6 +24,48 @@ interface HamQTHRBNEntry {
   lsn: Record<string, number>;
 }
 
+function isRBNSpot(value: unknown): value is RBNSpot {
+  if (!value || typeof value !== "object") return false;
+  const spot = value as Record<string, unknown>;
+  return (
+    typeof spot.callsign === "string" &&
+    typeof spot.de_cont === "string" &&
+    typeof spot.de_pfx === "string" &&
+    typeof spot.dx_cont === "string" &&
+    typeof spot.dx_pfx === "string" &&
+    typeof spot.freq === "number" &&
+    Number.isFinite(spot.freq) &&
+    typeof spot.band === "number" &&
+    Number.isFinite(spot.band) &&
+    typeof spot.mode === "string" &&
+    typeof spot.db === "number" &&
+    Number.isFinite(spot.db) &&
+    typeof spot.wpm === "number" &&
+    Number.isFinite(spot.wpm) &&
+    typeof spot.time === "number" &&
+    Number.isFinite(spot.time) &&
+    typeof spot.spotted_time === "string"
+  );
+}
+
+function isHamQTHRBNEntry(value: unknown): value is HamQTHRBNEntry {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Record<string, unknown>;
+  return (
+    typeof entry.freq === "string" &&
+    typeof entry.age === "number" &&
+    Number.isFinite(entry.age) &&
+    typeof entry.lsn === "object" &&
+    entry.lsn !== null
+  );
+}
+
+function assertValidRBNSpots(spots: unknown[]): asserts spots is RBNSpot[] {
+  if (!spots.every(isRBNSpot)) {
+    throw new Error("RBN spots payload is malformed");
+  }
+}
+
 /**
  * Transform a HamQTH RBN entry to LiveSpot format
  */
@@ -118,74 +160,70 @@ function getBandFromFrequency(frequencyKHz: number): string {
  * @returns Array of LiveSpot objects
  */
 export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
-  try {
-    const params = new URLSearchParams();
-    params.set("limit", limit.toString());
+  const params = new URLSearchParams();
+  params.set("limit", limit.toString());
 
-    const response = await fetch(`/api/spots/rbn?${params}`);
+  const response = await fetch(`/api/spots/rbn?${params}`);
 
-    if (!response.ok) {
-      return [];
-    }
-
-    // HamQTH may return JSON with non-standard content-type headers
-    // (e.g., text/html). Parse as text first, then try JSON.
-    const text = await response.text();
-    if (!text.trim()) return [];
-
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return [];
-    }
-
-    // Detect format:
-    // 1. Edge Function format: { spots: [...] }
-    // 2. Edge Function format: flat array of RBNSpot
-    // 3. HamQTH format: object keyed by callsign { "WA8VTD": { dxcall, freq, ... } }
-    if (Array.isArray(data)) {
-      // Flat array of RBNSpot (Edge Function)
-      return data.map((spot: RBNSpot) => transformRBNSpot(spot));
-    }
-
-    if (
-      data &&
-      typeof data === "object" &&
-      "spots" in data &&
-      Array.isArray((data as Record<string, unknown>).spots)
-    ) {
-      // Wrapped array (Edge Function)
-      return ((data as Record<string, unknown>).spots as RBNSpot[]).map(
-        (spot: RBNSpot) => transformRBNSpot(spot),
-      );
-    }
-
-    // HamQTH object format: keys are callsigns, values have dxcall/freq/mode/age/lsn
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      const entries = Object.entries(data) as [string, HamQTHRBNEntry][];
-      if (entries.length === 0) return [];
-
-      // Verify it looks like HamQTH data by checking first entry
-      const [, firstEntry] = entries[0];
-      if (
-        firstEntry &&
-        typeof firstEntry === "object" &&
-        "freq" in firstEntry
-      ) {
-        const spots = entries.map(([callsign, entry]) =>
-          transformHamQTHRBNEntry(callsign, entry),
-        );
-        // Return only up to limit spots
-        return spots.slice(0, limit);
-      }
-    }
-
-    return [];
-  } catch (error) {
-    console.warn("Failed to fetch RBN spots:", error);
-    return [];
+  if (!response.ok) {
+    throw new Error(`RBN request failed with HTTP ${response.status}`);
   }
+
+  // HamQTH may return JSON with non-standard content-type headers
+  // (e.g., text/html). Parse as text first, then try JSON.
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error("RBN returned an empty response body");
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("RBN returned malformed JSON");
+  }
+
+  // Detect format:
+  // 1. Edge Function format: { spots: [...] }
+  // 2. Edge Function format: flat array of RBNSpot
+  // 3. HamQTH format: object keyed by callsign { "WA8VTD": { dxcall, freq, ... } }
+  if (Array.isArray(data)) {
+    assertValidRBNSpots(data);
+    return data.map((spot) => transformRBNSpot(spot));
+  }
+
+  if (data && typeof data === "object" && "spots" in data) {
+    const envelope = data as Record<string, unknown>;
+    const meta = envelope.meta;
+    if (
+      meta &&
+      typeof meta === "object" &&
+      (meta as Record<string, unknown>).status === "unavailable"
+    ) {
+      throw new Error("RBN feed is unavailable");
+    }
+    if (!Array.isArray(envelope.spots)) {
+      throw new Error("RBN spots payload is not an array");
+    }
+    assertValidRBNSpots(envelope.spots);
+    return envelope.spots.map((spot) => transformRBNSpot(spot));
+  }
+
+  // HamQTH object format: keys are callsigns, values have dxcall/freq/mode/age/lsn
+  if (data && typeof data === "object") {
+    const entries = Object.entries(data);
+    if (entries.length === 0) return [];
+
+    if (!entries.every(([, entry]) => isHamQTHRBNEntry(entry))) {
+      throw new Error("RBN returned an unexpected JSON payload");
+    }
+    const spots = entries.map(([callsign, entry]) =>
+      transformHamQTHRBNEntry(callsign, entry as HamQTHRBNEntry),
+    );
+    return spots.slice(0, limit);
+  }
+
+  throw new Error("RBN returned an unexpected JSON payload");
 }
 
 /**

@@ -44,6 +44,8 @@ interface UseLiveSpotsOptions {
 interface UseLiveSpotsResult {
   /** Combined spots from all sources */
   spots: LiveSpot[];
+  /** Stable identity for every option that changes the returned feed snapshot. */
+  feedScopeKey: string;
   /** Loading state */
   isLoading: boolean;
   /** Every requested remote source has produced an initial successful snapshot. */
@@ -147,6 +149,18 @@ export function useLiveSpots({
   const spotLimit = getSpotFetchLimit(displayDensity);
   const pskEnabled = enabled && sources.includes("PSKReporter");
   const rbnEnabled = enabled && sources.includes("RBN");
+  const feedScopeKey = JSON.stringify({
+    grid: grid ?? null,
+    spotLimit,
+    sources: [...sources].sort(),
+    bands: [...(spotFilters?.bands ?? [])]
+      .map((band) => band.toLowerCase())
+      .sort(),
+    modes: [...(spotFilters?.modes ?? [])]
+      .map((mode) => mode.toLowerCase())
+      .sort(),
+    deduplicate,
+  });
 
   // Fetch PSKReporter spots
   const pskQuery = useQuery({
@@ -269,6 +283,7 @@ export function useLiveSpots({
 
   return {
     spots,
+    feedScopeKey,
     isLoading,
     isFeedReady,
     isError,

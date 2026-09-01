@@ -18,6 +18,7 @@ vi.mock("@/hooks/useLiveSpots", () => ({
     spots: [],
     isLoading: false,
     isFeedReady: false,
+    feedScopeKey: "test-scope",
     isError: false,
     spotsBySource: {},
     refetch: vi.fn(),
@@ -145,6 +146,42 @@ describe("AnimatedSpotTraces feed scope", () => {
         clock: { getElapsedTime: () => 6 },
       });
     });
+    expect(
+      container.querySelectorAll('group[name="animated-spot-traces"] > group'),
+    ).toHaveLength(0);
+  });
+
+  it("re-baselines an expanded snapshot when the fetch-limit scope changes", () => {
+    const existing = liveSpot("existing");
+    const expandedHistory = liveSpot("expanded-history");
+    const { container, rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[resolvedSpot(existing)]}
+        isFeedReady
+        hydrationKey='{"spotLimit":50}'
+      />,
+    );
+
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing, expandedHistory]}
+        candidateSpots={[existing, expandedHistory]}
+        resolvedSpots={[
+          resolvedSpot(existing),
+          resolvedSpot(expandedHistory),
+        ]}
+        isFeedReady
+        hydrationKey='{"spotLimit":200}'
+      />,
+    );
+    act(() => {
+      mocks.frameCallbacks[0]({
+        clock: { getElapsedTime: () => 3 },
+      });
+    });
+
     expect(
       container.querySelectorAll('group[name="animated-spot-traces"] > group'),
     ).toHaveLength(0);

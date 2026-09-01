@@ -8,7 +8,10 @@ import type { DisplayFit } from "@/stores/mapStore";
 import type { TextScale } from "@/types/user";
 import type { Json, Tables } from "@/types/supabase";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { buildDisplaySceneConfig } from "./displayAssignment";
+import {
+  buildDisplaySceneConfig,
+  mergeDisplaySceneOptions,
+} from "./displayAssignment";
 
 const LIVE_THRESHOLD_MS = 60_000;
 const REFRESH_INTERVAL_MS = 20_000;
@@ -199,14 +202,22 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
   const [nameDraft, setNameDraft] = useState(display.name);
   const [savingName, setSavingName] = useState(false);
 
+  const localSceneIds = useMemo(
+    () => new Set(kioskScenes.map((scene) => scene.id)),
+    [kioskScenes],
+  );
+  const assignmentScenes = useMemo(
+    () => mergeDisplaySceneOptions(kioskScenes, display.scene_config),
+    [display.scene_config, kioskScenes],
+  );
   const enabledSceneIds = useMemo(
     () =>
       new Set(
-        kioskScenes
+        assignmentScenes
           .filter((scene) => scene.enabled !== false)
           .map((scene) => scene.id),
       ),
-    [kioskScenes],
+    [assignmentScenes],
   );
   const assignedIds = useMemo(
     () =>
@@ -314,9 +325,10 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
     try {
       const sceneConfig = buildDisplaySceneConfig(
         display.scene_config,
-        kioskScenes,
+        assignmentScenes,
         {
           selectedIds,
+          scenesChanged: dirtyConfigFields.current.has("scenes"),
           rotationEnabled,
           intervalSec,
           layoutFit,
@@ -392,7 +404,7 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
         <p className="text-xs uppercase tracking-wider text-gray-500">
           Scenes
         </p>
-        {kioskScenes.length === 0 ? (
+        {assignmentScenes.length === 0 ? (
           <p className="text-sm text-gray-500">
             No local scenes configured — set some up on the{" "}
             <Link to="/kiosk" className="text-plasma-orange underline">
@@ -402,8 +414,9 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
           </p>
         ) : (
           <ul className="space-y-1.5">
-            {kioskScenes.map((scene) => {
+            {assignmentScenes.map((scene) => {
               const isEnabled = scene.enabled !== false;
+              const isRemoteSnapshot = !localSceneIds.has(scene.id);
               return (
                 <li key={scene.id}>
                   <label
@@ -419,6 +432,11 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                       className="accent-plasma-orange disabled:cursor-not-allowed"
                     />
                     {scene.name}
+                    {isRemoteSnapshot && (
+                      <span className="text-[10px] uppercase tracking-wider text-sky-400/70">
+                        Paired-display snapshot
+                      </span>
+                    )}
                     {!isEnabled && (
                       <span className="text-[10px] uppercase tracking-wider text-gray-600">
                         Disabled · not assignable

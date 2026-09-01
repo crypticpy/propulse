@@ -534,15 +534,16 @@ export function KioskPage() {
                           <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
                             Projection
                             <select
-                              value={scene.map.viewMode ?? "globe"}
+                              value={scene.map.viewMode ?? ""}
                               onChange={(event) => {
-                                const viewMode = event.target
-                                  .value as ViewMode;
+                                const viewMode =
+                                  (event.target.value as ViewMode) || undefined;
                                 updateScene(scene.id, {
                                   map: {
                                     ...scene.map!,
                                     viewMode,
-                                    ...(viewMode !== "globe" && {
+                                    ...(viewMode !== undefined &&
+                                      viewMode !== "globe" && {
                                       autoRotate: false,
                                       showLiveClouds: undefined,
                                     }),
@@ -551,6 +552,7 @@ export function KioskPage() {
                               }}
                               className={inputClass}
                             >
+                              <option value="">Keep current / layout default</option>
                               {VIEW_MODES.map((mode) => (
                                 <option key={mode}>{mode}</option>
                               ))}
@@ -586,18 +588,20 @@ export function KioskPage() {
                           <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
                             Image quality
                             <select
-                              value={scene.map.quality ?? "auto"}
+                              value={scene.map.quality ?? ""}
                               onChange={(event) =>
                                 updateScene(scene.id, {
                                   map: {
                                     ...scene.map!,
-                                    quality: event.target
-                                      .value as DisplayQuality,
+                                    quality:
+                                      (event.target.value as DisplayQuality) ||
+                                      undefined,
                                   },
                                 })
                               }
                               className={inputClass}
                             >
+                              <option value="">Keep current</option>
                               {DISPLAY_QUALITY_OPTIONS.map((quality) => (
                                 <option key={quality.id} value={quality.id}>
                                   {quality.label}
@@ -610,17 +614,20 @@ export function KioskPage() {
                           <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
                             Basemap
                             <select
-                              value={scene.map.mapStyle ?? "satellite"}
+                              value={scene.map.mapStyle ?? ""}
                               onChange={(event) =>
                                 updateScene(scene.id, {
                                   map: {
                                     ...scene.map!,
-                                    mapStyle: event.target.value as MapStyle,
+                                    mapStyle:
+                                      (event.target.value as MapStyle) ||
+                                      undefined,
                                   },
                                 })
                               }
                               className={inputClass}
                             >
+                              <option value="">Keep current</option>
                               {MAP_STYLES.map((style) => (
                                 <option key={style}>{style}</option>
                               ))}
@@ -631,17 +638,20 @@ export function KioskPage() {
                           <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
                             Theme
                             <select
-                              value={scene.map.theme ?? "dark"}
+                              value={scene.map.theme ?? ""}
                               onChange={(event) =>
                                 updateScene(scene.id, {
                                   map: {
                                     ...scene.map!,
-                                    theme: event.target.value as ThemeId,
+                                    theme:
+                                      (event.target.value as ThemeId) ||
+                                      undefined,
                                   },
                                 })
                               }
                               className={inputClass}
                             >
+                              <option value="">Keep current</option>
                               {THEMES.map((theme) => (
                                 <option key={theme}>{theme}</option>
                               ))}
@@ -649,26 +659,38 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.autoRotate &&
-                          (scene.map.viewMode ?? "globe") === "globe" && (
-                            <label className="flex items-end gap-2 pb-2 text-xs text-gray-400">
-                              <input
-                                type="checkbox"
-                                checked={scene.map.autoRotate ?? false}
+                          scene.map.viewMode === "globe" && (
+                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                              Auto-rotate
+                              <select
+                                value={
+                                  scene.map.autoRotate === undefined
+                                    ? ""
+                                    : scene.map.autoRotate
+                                      ? "on"
+                                      : "off"
+                                }
                                 onChange={(event) =>
                                   updateScene(scene.id, {
                                     map: {
                                       ...scene.map!,
-                                      autoRotate: event.target.checked,
+                                      autoRotate:
+                                        event.target.value === ""
+                                          ? undefined
+                                          : event.target.value === "on",
                                     },
                                   })
                                 }
-                                className="accent-plasma-orange"
-                              />
-                              Auto-rotate
+                                className={inputClass}
+                              >
+                                <option value="">Keep current</option>
+                                <option value="on">On</option>
+                                <option value="off">Off</option>
+                              </select>
                             </label>
                           )}
                         {capabilities.autoRotateSpeed &&
-                          (scene.map.viewMode ?? "globe") === "globe" &&
+                          scene.map.viewMode === "globe" &&
                           scene.map.autoRotate && (
                             <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
                               Seconds per orbit
@@ -676,14 +698,16 @@ export function KioskPage() {
                                 type="number"
                                 min={60}
                                 max={86400}
-                                value={scene.map.autoRotateSpeed ?? 900}
+                                value={scene.map.autoRotateSpeed ?? ""}
+                                placeholder="Keep current"
                                 onChange={(event) =>
                                   updateScene(scene.id, {
                                     map: {
                                       ...scene.map!,
-                                      autoRotateSpeed: Number(
-                                        event.target.value,
-                                      ),
+                                      autoRotateSpeed:
+                                        event.target.value === ""
+                                          ? undefined
+                                          : Number(event.target.value),
                                     },
                                   })
                                 }

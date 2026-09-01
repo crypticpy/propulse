@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { KioskScene } from "@/stores/kioskStore";
-import { buildDisplaySceneConfig } from "./displayAssignment";
+import {
+  buildDisplaySceneConfig,
+  mergeDisplaySceneOptions,
+} from "./displayAssignment";
 
 const enabledScene: KioskScene = {
   id: "enabled",
@@ -27,6 +30,7 @@ describe("buildDisplaySceneConfig", () => {
       [enabledScene, disabledScene],
       {
         selectedIds: new Set(),
+        scenesChanged: true,
         rotationEnabled: true,
         intervalSec: 90,
         layoutFit: "auto",
@@ -45,6 +49,7 @@ describe("buildDisplaySceneConfig", () => {
       [enabledScene, disabledScene],
       {
         selectedIds: new Set(["enabled", "disabled"]),
+        scenesChanged: true,
         rotationEnabled: false,
         intervalSec: 120,
         layoutFit: "full",
@@ -60,6 +65,7 @@ describe("buildDisplaySceneConfig", () => {
   it("bounds malformed rotation intervals before saving remote JSON", () => {
     const nanConfig = buildDisplaySceneConfig(null, [enabledScene], {
       selectedIds: new Set(["enabled"]),
+      scenesChanged: true,
       rotationEnabled: true,
       intervalSec: Number.NaN,
       layoutFit: "auto",
@@ -67,6 +73,7 @@ describe("buildDisplaySceneConfig", () => {
     });
     const highConfig = buildDisplaySceneConfig(null, [enabledScene], {
       selectedIds: new Set(["enabled"]),
+      scenesChanged: true,
       rotationEnabled: true,
       intervalSec: 999_999,
       layoutFit: "auto",
@@ -75,5 +82,42 @@ describe("buildDisplaySceneConfig", () => {
 
     expect(nanConfig.rotation?.intervalSec).toBe(120);
     expect(highConfig.rotation?.intervalSec).toBe(3600);
+  });
+
+  it("preserves and exposes remote-only scene snapshots on unrelated saves", () => {
+    const remoteOnly: KioskScene = {
+      id: "remote-only",
+      name: "Remote Observatory",
+      route: "/map",
+      enabled: true,
+      map: { layoutMode: "pro", viewMode: "globe", quality: "uhd" },
+    };
+    const existing = { scenes: [remoteOnly] };
+    const options = mergeDisplaySceneOptions([enabledScene], existing);
+
+    expect(options.map((scene) => scene.id)).toEqual([
+      "enabled",
+      "remote-only",
+    ]);
+
+    const unchanged = buildDisplaySceneConfig(existing, options, {
+      selectedIds: new Set(["remote-only"]),
+      scenesChanged: false,
+      rotationEnabled: false,
+      intervalSec: 90,
+      layoutFit: "full",
+      wallTextScale: "xl",
+    });
+    expect(unchanged.scenes).toEqual([remoteOnly]);
+
+    const intentionallyCleared = buildDisplaySceneConfig(existing, options, {
+      selectedIds: new Set(),
+      scenesChanged: true,
+      rotationEnabled: false,
+      intervalSec: 90,
+      layoutFit: "full",
+      wallTextScale: "xl",
+    });
+    expect(intentionallyCleared.scenes).toEqual([]);
   });
 });

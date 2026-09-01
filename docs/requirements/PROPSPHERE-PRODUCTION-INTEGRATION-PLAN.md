@@ -199,10 +199,12 @@ or preview deployment by itself is not a production result.
   `5eae5eec`; Vercel production deployment
   `dpl_5ySMFfJWrSVnv3VTGVUyc8mJDwfb` cloned that exact `main` commit, reached
   Ready, and owns `propulse.cloud`. Stale #115 was closed as superseded.
-- #122 Wall Display replacement head `a78acb15`: 211 Vitest files / 1,183 tests,
+- #122 Wall Display replacement: 211 Vitest files / 1,185 tests,
   ESLint, TypeScript, production Vite build, bundle budgets, and two joined
   release-blocker reviews passed from a dedicated clean worktree based on
-  `5eae5eec`. Stale #116 was closed as superseded and remains unmerged.
+  `5eae5eec`. Exact-head Codex findings were addressed by preserving and
+  exposing remote-only scene snapshots and making inherited presentation
+  settings explicit. Stale #116 was closed as superseded and remains unmerged.
 - Authenticated 3840x2160 pointer verification remains a separate final gate;
   public automation currently reaches the invite login rather than the map.
 - The free Esri de-clouded Deep-Zoom path needs no new production secret.

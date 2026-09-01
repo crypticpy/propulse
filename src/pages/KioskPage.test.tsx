@@ -188,4 +188,19 @@ describe("KioskPage wall display editor", () => {
       },
     });
   });
+
+  it("labels inherited map settings as keep-current instead of fake defaults", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit scene Enabled globe" }),
+    );
+    const editor = document.getElementById("scene-editor-enabled")!;
+
+    expect((within(editor).getByLabelText("Image quality") as HTMLSelectElement).value).toBe("");
+    expect((within(editor).getByLabelText("Basemap") as HTMLSelectElement).value).toBe("");
+    expect((within(editor).getByLabelText("Theme") as HTMLSelectElement).value).toBe("");
+    expect((within(editor).getByLabelText("Auto-rotate") as HTMLSelectElement).value).toBe("");
+  });
 });

@@ -52,6 +52,10 @@ export interface SpotDetailsData {
   snr?: number;
   /** CW speed in WPM */
   wpm?: number;
+  /** Spot comment, including activation references such as POTA/SOTA. */
+  comment?: string;
+  /** Whether the DX coordinates are a callsign-prefix approximation. */
+  dxLocApprox?: boolean;
 }
 
 export interface SpotDetailsFlyoutProps {

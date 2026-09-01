@@ -52,6 +52,12 @@ export interface GlobeClickHandlerProps {
     lon: number,
     screenPosition: { x: number; y: number },
   ) => void;
+  /** Gives clickable surface overlays first refusal on an ordinary click. */
+  onQuickClick?: (
+    lat: number,
+    lon: number,
+    screenPosition: { x: number; y: number },
+  ) => boolean;
   /** Called when hovering over the globe surface */
   onLocationHover?: (
     lat: number,
@@ -136,6 +142,7 @@ function getDistance(
 export function GlobeClickHandler({
   onLocationClick,
   onDoubleClick,
+  onQuickClick,
   onLocationHover,
   onHoverEnd,
   onHoldStart,
@@ -381,6 +388,16 @@ export function GlobeClickHandler({
         const now = Date.now();
         const lastClick = lastClickRef.current;
 
+        if (onQuickClick?.(lat, lon, screenPos)) {
+          if (doubleClickTimerRef.current) {
+            clearTimeout(doubleClickTimerRef.current);
+            doubleClickTimerRef.current = null;
+          }
+          lastClickRef.current = null;
+          startPosRef.current = null;
+          return;
+        }
+
         // Check if this is a double-click
         if (lastClick) {
           const timeDelta = now - lastClick.time;
@@ -424,7 +441,7 @@ export function GlobeClickHandler({
 
       startPosRef.current = null;
     },
-    [cancelHold, onDoubleClick, worldPointToLatLon],
+    [cancelHold, onDoubleClick, onQuickClick, worldPointToLatLon],
   );
 
   /**

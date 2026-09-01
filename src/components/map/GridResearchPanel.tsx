@@ -33,6 +33,8 @@ export interface GridResearchPanelProps {
   visible: boolean;
   /** Grid locator to research */
   grid: string;
+  /** Open directly to an operator profile instead of the grid overview. */
+  initialCallsign?: string | null;
   /** Callback when an action is triggered */
   onAction?: (action: GridResearchAction, grid: string) => void;
   /** Callback to close the panel */
@@ -786,6 +788,7 @@ CallsignDetailView.displayName = "CallsignDetailView";
 export function GridResearchPanel({
   visible,
   grid,
+  initialCallsign,
   onAction,
   onClose,
   className = "",
@@ -799,11 +802,16 @@ export function GridResearchPanel({
   // Fetch research data for the grid
   const researchData = useGridResearch(grid);
 
-  // Reset view when grid changes (user selected a different grid)
+  // Reset to the requested entry point when a new grid/operator is opened.
   useEffect(() => {
+    if (initialCallsign) {
+      setSelectedCallsign(initialCallsign.toUpperCase());
+      setCurrentView("callsign");
+      return;
+    }
     setCurrentView("grid");
     setSelectedCallsign(null);
-  }, [grid]);
+  }, [grid, initialCallsign, visible]);
 
   // Handle click outside to dismiss
   useEffect(() => {
@@ -920,7 +928,9 @@ export function GridResearchPanel({
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h2 className="text-sm font-medium text-gray-300">Grid Research</h2>
+        <h2 className="text-sm font-medium text-gray-300">
+          {currentView === "callsign" ? "Operator" : "Grid Research"}
+        </h2>
         <button
           type="button"
           onClick={onClose}

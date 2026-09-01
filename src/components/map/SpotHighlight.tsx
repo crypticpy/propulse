@@ -53,10 +53,18 @@ export function SpotHighlight({
 
   // Calculate 3D position from lat/lon
   const position = useMemo((): THREE.Vector3 | null => {
-    if (!focusedSpot?.dxLat || !focusedSpot?.dxLon) {
+    if (
+      !focusedSpot ||
+      !Number.isFinite(focusedSpot.dxLat) ||
+      !Number.isFinite(focusedSpot.dxLon)
+    ) {
       return null;
     }
-    const pos = latLonToPosition3D(focusedSpot.dxLat, focusedSpot.dxLon, 1.025);
+    const pos = latLonToPosition3D(
+      focusedSpot.dxLat!,
+      focusedSpot.dxLon!,
+      1.025,
+    );
     return new THREE.Vector3(pos.x, pos.y, pos.z);
   }, [focusedSpot]);
 

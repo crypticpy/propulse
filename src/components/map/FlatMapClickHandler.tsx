@@ -60,6 +60,15 @@ export interface FlatMapClickHandlerOptions {
     lon: number,
     screenPos: { x: number; y: number },
   ) => void;
+  /**
+   * Gives canvas-rendered overlays first refusal on a quick click. Return true
+   * when an overlay consumed the click so it cannot become a map double-click.
+   */
+  onQuickClick?: (
+    screenPos: { x: number; y: number },
+    lat: number,
+    lon: number,
+  ) => boolean;
   /** Called when hovering over the map surface (debounced) */
   onLocationHover?: (
     lat: number,
@@ -184,6 +193,7 @@ export function useFlatMapClickHandler(
   // Store all callback props in refs to avoid re-attaching event listeners
   const onLocationClickRef = useRef(options.onLocationClick);
   const onDoubleClickRef = useRef(options.onDoubleClick);
+  const onQuickClickRef = useRef(options.onQuickClick);
   const onLocationHoverRef = useRef(options.onLocationHover);
   const onHoverEndRef = useRef(options.onHoverEnd);
   const onHoldStartRef = useRef(options.onHoldStart);
@@ -200,6 +210,7 @@ export function useFlatMapClickHandler(
   useEffect(() => {
     onLocationClickRef.current = options.onLocationClick;
     onDoubleClickRef.current = options.onDoubleClick;
+    onQuickClickRef.current = options.onQuickClick;
     onLocationHoverRef.current = options.onLocationHover;
     onHoverEndRef.current = options.onHoverEnd;
     onHoldStartRef.current = options.onHoldStart;
@@ -294,7 +305,11 @@ export function useFlatMapClickHandler(
 
           // Fire the location click callback
           if (targetLocation) {
-            onLocationClickRef.current?.(lat, lon, screenPos);
+            const consumed =
+              onQuickClickRef.current?.(screenPos, lat, lon) ?? false;
+            if (!consumed) {
+              onLocationClickRef.current?.(lat, lon, screenPos);
+            }
           }
 
           gestureState = "idle";
@@ -422,6 +437,18 @@ export function useFlatMapClickHandler(
           const screenPos = { x: event.clientX, y: event.clientY };
           const { lat, lon } = coords;
           const now = Date.now();
+
+          // Canvas labels cannot own DOM events, so let the map view hit-test
+          // them before this gesture is considered a surface double-click.
+          if (onQuickClickRef.current?.(screenPos, lat, lon)) {
+            if (doubleClickTimer !== null) {
+              clearTimeout(doubleClickTimer);
+              doubleClickTimer = null;
+            }
+            lastClick = null;
+            startPos = null;
+            return;
+          }
 
           // Check if this is a double-click
           if (lastClick) {

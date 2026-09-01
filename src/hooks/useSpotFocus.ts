@@ -124,11 +124,15 @@ export function useSpotFocus(): SpotFocusState {
 
   // Calculate spot position on the globe surface
   const spotPosition = useMemo((): Position3D | null => {
-    if (!focusedSpot?.dxLat || !focusedSpot?.dxLon) {
+    if (
+      !focusedSpot ||
+      !Number.isFinite(focusedSpot.dxLat) ||
+      !Number.isFinite(focusedSpot.dxLon)
+    ) {
       return null;
     }
 
-    return latLonToPosition3D(focusedSpot.dxLat, focusedSpot.dxLon);
+    return latLonToPosition3D(focusedSpot.dxLat!, focusedSpot.dxLon!);
   }, [focusedSpot]);
 
   // Calculate target camera position
@@ -149,7 +153,11 @@ export function useSpotFocus(): SpotFocusState {
     }
 
     // Check if spot has valid coordinates
-    if (selectedSpot?.dxLat != null && selectedSpot?.dxLon != null) {
+    if (
+      selectedSpot &&
+      Number.isFinite(selectedSpot.dxLat) &&
+      Number.isFinite(selectedSpot.dxLon)
+    ) {
       // New valid spot selected - start focusing
       setFocusedSpot(selectedSpot);
       setIsFocusing(true);

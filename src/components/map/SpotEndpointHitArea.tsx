@@ -37,6 +37,8 @@ export interface SpotEndpointHitAreaProps {
     band?: string;
     snr?: number;
     wpm?: number;
+    comment?: string;
+    dxLocApprox?: boolean;
   };
   /** Hit detection radius (default: 0.025) */
   hitRadius?: number;
@@ -47,6 +49,8 @@ export interface SpotEndpointHitAreaProps {
   ) => void;
   /** Callback when hover ends */
   onHoverEnd?: () => void;
+  /** Selects this endpoint's spot as the current map target. */
+  onSelect?: (screenPos: { x: number; y: number }) => void;
 }
 
 /**
@@ -70,7 +74,9 @@ function latLonTo3D(
 /**
  * Get screen position from native pointer event
  */
-function getScreenPositionFromEvent(event: ThreeEvent<PointerEvent>): {
+function getScreenPositionFromEvent(event: {
+  nativeEvent: Pick<MouseEvent, "clientX" | "clientY">;
+}): {
   x: number;
   y: number;
 } {
@@ -104,6 +110,7 @@ export function SpotEndpointHitArea({
   hitRadius = DEFAULT_HIT_RADIUS,
   onHover,
   onHoverEnd,
+  onSelect,
 }: SpotEndpointHitAreaProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
@@ -130,6 +137,8 @@ export function SpotEndpointHitArea({
       source: spot.source as SpotSource,
       snr: spotData.snr,
       wpm: spotData.wpm,
+      comment: spotData.comment,
+      dxLocApprox: spotData.dxLocApprox,
     };
   }, [spot, spotData]);
 
@@ -164,6 +173,24 @@ export function SpotEndpointHitArea({
     onHoverEnd?.();
   }, [onHoverEnd]);
 
+  const handlePointerInteraction = useCallback(
+    (event: ThreeEvent<PointerEvent>) => event.stopPropagation(),
+    [],
+  );
+
+  const handleClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      event.stopPropagation();
+      onSelect?.(getScreenPositionFromEvent(event));
+    },
+    [onSelect],
+  );
+
+  const handleDoubleClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => event.stopPropagation(),
+    [],
+  );
+
   useFrame(({ camera }) => {
     if (!meshRef.current) return;
     meshRef.current.getWorldPosition(worldPosition);
@@ -179,6 +206,10 @@ export function SpotEndpointHitArea({
       onPointerEnter={handlePointerEnter}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
+      onPointerDown={handlePointerInteraction}
+      onPointerUp={handlePointerInteraction}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
     >
       {/* Invisible sphere for hit detection */}
       <sphereGeometry args={[hitRadius, 8, 8]} />

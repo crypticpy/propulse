@@ -1,5 +1,7 @@
 import { useCallback } from "react";
 import type { DXSpot } from "@/types/dxcluster";
+import type { TargetLocation } from "@/stores/mapStore";
+import { commitMapSpotSelection } from "@/hooks/useMapSpotSelection";
 
 interface UseSpotEntryBehaviorArgs {
   sessionId: string | null;
@@ -12,7 +14,7 @@ interface UseSpotEntryBehaviorArgs {
   adoptModeFromSpot: boolean;
   focusEntryOnSpotPrefill: boolean;
   setSelectedSpot: (spot: DXSpot) => void;
-  setTarget: (target: { lat: number; lon: number; grid?: string; name: string }) => void;
+  setTarget: (target: TargetLocation | null) => void;
   setBand: (sessionId: string, band: string) => void;
   setMode: (sessionId: string, mode: string) => void;
   setDraft: (sessionId: string, draft: string) => void;
@@ -47,15 +49,7 @@ export function useSpotEntryBehavior(args: UseSpotEntryBehaviorArgs) {
   return useCallback(
     (spot: DXSpot) => {
       // Map targeting + selection are always safe
-      setSelectedSpot(spot);
-      if (typeof spot.dxLat === "number" && typeof spot.dxLon === "number") {
-        setTarget({
-          lat: spot.dxLat,
-          lon: spot.dxLon,
-          grid: spot.dxGrid,
-          name: spot.dx,
-        });
-      }
+      commitMapSpotSelection(spot, { setSelectedSpot, setTarget });
 
       if (!sessionId) {
         return;
@@ -119,4 +113,3 @@ export function useSpotEntryBehavior(args: UseSpotEntryBehaviorArgs) {
 }
 
 export default useSpotEntryBehavior;
-

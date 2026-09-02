@@ -17,8 +17,10 @@ function emptyLayerCounts(): Record<string, number> {
 
 /**
  * Development-only scene probe. It records bounded frame percentiles, camera
- * phase, WebGL counters, and submitted object counts without React state or a
- * DOM overlay, so profiling does not perturb the map it is measuring.
+ * phase, WebGL counters, and scene-graph-visible object counts without React
+ * state or a DOM overlay, so profiling does not perturb the map it measures.
+ * The per-layer count intentionally is not called a submission count: Three
+ * applies camera frustum/layer/material culling later in the render pipeline.
  */
 export function GlobePerformanceDiagnostics({
   settleDelayMs,
@@ -83,7 +85,7 @@ export function GlobePerformanceDiagnostics({
       triangles: gl.info.render.triangles,
       geometries: gl.info.memory.geometries,
       textures: gl.info.memory.textures,
-      submittedLayers: layerCountsRef.current,
+      sceneVisibleLayers: layerCountsRef.current,
     });
   });
 

@@ -99,10 +99,15 @@ export const GLOBE_LAYER_SLOTS: readonly GlobeLayerSlot[] = [
 export function getGlobeLayerSlotForRenderOrder(
   renderOrder: number,
 ): GlobeLayerSlot {
-  let owner: GlobeLayerSlot = "base";
-  for (const slot of GLOBE_LAYER_SLOTS) {
-    if (renderOrder < GLOBE_LAYER_ORDER[slot]) break;
-    owner = slot;
+  let owner = GLOBE_LAYER_SLOTS[0];
+  let ownerDistance = Math.abs(renderOrder - GLOBE_LAYER_ORDER[owner]);
+  for (let index = 1; index < GLOBE_LAYER_SLOTS.length; index += 1) {
+    const slot = GLOBE_LAYER_SLOTS[index];
+    const distance = Math.abs(renderOrder - GLOBE_LAYER_ORDER[slot]);
+    if (distance < ownerDistance) {
+      owner = slot;
+      ownerDistance = distance;
+    }
   }
   return owner;
 }

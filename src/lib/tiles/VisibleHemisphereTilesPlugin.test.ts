@@ -50,7 +50,7 @@ describe("VisibleHemisphereTilesPlugin", () => {
         },
       ],
       group: {
-        matrixWorldInverse: new Matrix4(),
+        matrixWorld: new Matrix4(),
         updateWorldMatrix: () => undefined,
       },
       addEventListener: (_type, listener) => {
@@ -75,5 +75,44 @@ describe("VisibleHemisphereTilesPlugin", () => {
 
     expect(handled).toBe(true);
     expect(target).toEqual({ inView: false, error: 0, distance: Infinity });
+  });
+
+  it("delegates visible nodes without changing renderer error state", () => {
+    const plugin = new VisibleHemisphereTilesPlugin();
+    let updateBefore: () => void = () => undefined;
+    plugin.init({
+      ellipsoid: { radius: new Vector3(100, 100, 100) },
+      cameras: [
+        {
+          matrixWorld: new Matrix4().setPosition(250, 0, 0),
+          updateMatrixWorld: () => undefined,
+        },
+      ],
+      group: {
+        matrixWorld: new Matrix4().makeTranslation(10, 0, 0),
+        updateWorldMatrix: () => undefined,
+      },
+      addEventListener: (_type, listener) => {
+        updateBefore = listener;
+      },
+      removeEventListener: () => undefined,
+    });
+    updateBefore();
+    const target = { inView: true, error: 10, distance: 20 };
+
+    const handled = plugin.calculateTileViewError(
+      {
+        engineData: {
+          boundingVolume: {
+            getSphere: (sphere) =>
+              void sphere.set(new Vector3(100, 0, 0), 5),
+          },
+        },
+      },
+      target,
+    );
+
+    expect(handled).toBe(false);
+    expect(target).toEqual({ inView: true, error: 10, distance: 20 });
   });
 });

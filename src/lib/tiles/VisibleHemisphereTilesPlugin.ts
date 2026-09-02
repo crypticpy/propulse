@@ -21,7 +21,7 @@ interface TilesRuntimeLike {
     updateMatrixWorld: (force?: boolean) => void;
   }>;
   group: {
-    matrixWorldInverse: Matrix4;
+    matrixWorld: Matrix4;
     updateWorldMatrix: (updateParents: boolean, updateChildren: boolean) => void;
   };
   addEventListener: (type: "update-before", listener: () => void) => void;
@@ -64,17 +64,19 @@ export class VisibleHemisphereTilesPlugin {
   private tiles: TilesRuntimeLike | null = null;
   private readonly tileSphere = new Sphere();
   private readonly cameraPositions: Vector3[] = [];
+  private readonly groupMatrixWorldInverse = new Matrix4();
   private readonly updateCameraPositions = () => {
     const tiles = this.tiles;
     if (!tiles) return;
     tiles.group.updateWorldMatrix(true, false);
+    this.groupMatrixWorldInverse.copy(tiles.group.matrixWorld).invert();
     this.cameraPositions.length = tiles.cameras.length;
     tiles.cameras.forEach((camera, index) => {
       camera.updateMatrixWorld(true);
       const position = this.cameraPositions[index] ?? new Vector3();
       position
         .setFromMatrixPosition(camera.matrixWorld)
-        .applyMatrix4(tiles.group.matrixWorldInverse);
+        .applyMatrix4(this.groupMatrixWorldInverse);
       this.cameraPositions[index] = position;
     });
   };
@@ -94,11 +96,18 @@ export class VisibleHemisphereTilesPlugin {
 
     boundingVolume.getSphere(this.tileSphere);
     const planetRadius = Math.min(radii.x, radii.y, radii.z);
-    target.inView = this.cameraPositions.some((position) =>
+    const inView = this.cameraPositions.some((position) =>
       isTileSphereAboveHorizon(position, this.tileSphere, planetRadius),
     );
+    // Returning false delegates the complete distance/error calculation to
+    // the renderer. This plugin only handles a node when it can safely mask
+    // the node as fully occluded.
+    if (inView) return false;
+
+    target.inView = false;
     // This plugin masks only. The renderer retains ownership of screen-space
-    // error and distance for tiles that survive the horizon test.
+    // error and distance for tiles that survive the horizon test; placeholder
+    // values here keep an occluded node out of selection and download queues.
     target.error = 0;
     target.distance = Infinity;
     return true;

@@ -20,7 +20,7 @@ describe("globeDiagnostics", () => {
         triangles: index * 100,
         geometries: 7,
         textures: 9,
-        submittedLayers: { arcs: 3, markers: 5 },
+        sceneVisibleLayers: { arcs: 3, markers: 5 },
       });
     }
 
@@ -33,7 +33,7 @@ describe("globeDiagnostics", () => {
         geometries: 7,
         textures: 9,
       },
-      submittedLayers: { arcs: 3, markers: 5 },
+      sceneVisibleLayers: { arcs: 3, markers: 5 },
     });
   });
 

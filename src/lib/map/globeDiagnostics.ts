@@ -13,7 +13,7 @@ export interface GlobeFrameDiagnostic {
   triangles: number;
   geometries: number;
   textures: number;
-  submittedLayers: Record<string, number>;
+  sceneVisibleLayers: Record<string, number>;
 }
 
 export interface GlobeDiagnosticsSnapshot {
@@ -25,7 +25,7 @@ export interface GlobeDiagnosticsSnapshot {
     geometries: number;
     textures: number;
   };
-  submittedLayers: Record<string, number>;
+  sceneVisibleLayers: Record<string, number>;
   rendererInvalidationsPerSecond: Record<GlobeTileLayer, number>;
   tiles: Partial<Record<GlobeTileLayer, GlobeTileRuntimeSnapshot>>;
 }
@@ -62,7 +62,17 @@ export function recordGlobeTileInvalidation(
   layer: GlobeTileLayer,
   timestampMs = performance.now(),
 ): void {
-  invalidations[layer].push(timestampMs);
+  const cutoff = timestampMs - 1000;
+  const timestamps = invalidations[layer];
+  let firstRecent = 0;
+  while (
+    firstRecent < timestamps.length &&
+    timestamps[firstRecent] <= cutoff
+  ) {
+    firstRecent += 1;
+  }
+  if (firstRecent > 0) timestamps.splice(0, firstRecent);
+  timestamps.push(timestampMs);
 }
 
 export function registerGlobeTileDiagnostics(
@@ -110,7 +120,7 @@ export function getGlobeDiagnosticsSnapshot(
       geometries: latestFrame?.geometries ?? 0,
       textures: latestFrame?.textures ?? 0,
     },
-    submittedLayers: { ...(latestFrame?.submittedLayers ?? {}) },
+    sceneVisibleLayers: { ...(latestFrame?.sceneVisibleLayers ?? {}) },
     rendererInvalidationsPerSecond: invalidationRates,
     tiles,
   };

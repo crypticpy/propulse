@@ -37,6 +37,10 @@ export function GlobeTileRuntimeController({
     if (!renderer) return;
     const runtime = renderer as unknown as GlobeTileRendererRuntime;
     applyGlobeTileRuntimeBudget(runtime, budget);
+    // UpdateOnChangePlugin deliberately idles a stationary renderer. A
+    // quality change must wake it so reduced cache/traversal budgets take
+    // effect without requiring the operator to bump the camera.
+    renderer.dispatchEvent({ type: "needs-update" });
 
     if (!import.meta.env.DEV) return;
     const readRuntime = () => readGlobeTileRuntimeSnapshot(runtime);

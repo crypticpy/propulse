@@ -92,6 +92,9 @@ describe("GLOBE_LAYER_ORDER", () => {
     expect(getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.hud)).toBe(
       "hud",
     );
+    expect(
+      getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.nightShade - 0.1),
+    ).toBe("nightShade");
   });
 
   it("keeps opaque map previews above every Drei spot label", () => {

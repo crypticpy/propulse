@@ -20,9 +20,10 @@ vi.mock("../LiveSpotArcs", () => ({ resolveSpotLocations: mocks.resolve }));
 
 describe("useResolvedMapSpots", () => {
   beforeEach(() => {
+    const rawSpot = { id: "raw-1" };
     mocks.live.mockReturnValue({
-      spots: [{ id: "raw-1" }],
-      evidenceSpots: [{ id: "raw-1" }],
+      spots: [rawSpot],
+      evidenceSpots: [rawSpot],
       isLoading: false,
       isFeedReady: true,
       isError: false,
@@ -30,7 +31,7 @@ describe("useResolvedMapSpots", () => {
       refetch: vi.fn(),
     });
     mocks.resolve.mockImplementation((spots: Array<{ id: string }>) =>
-      spots.map((spot) => ({ id: spot.id })),
+      spots.map((spot) => ({ id: spot.id, originalSpot: spot })),
     );
     mocks.activations.mockReturnValue({ spots: [{ id: "activation-raw" }] });
     mocks.resolveActivations.mockReturnValue([{ id: "activation-resolved" }]);
@@ -54,7 +55,9 @@ describe("useResolvedMapSpots", () => {
       fetchLimit: 200,
     });
     expect(mocks.resolve).toHaveBeenCalledWith([{ id: "raw-1" }]);
-    expect(result.current.resolvedSpots).toEqual([{ id: "raw-1" }]);
+    expect(result.current.resolvedSpots.map(({ id }) => id)).toEqual([
+      "raw-1",
+    ]);
     expect(result.current.candidateSpots).toEqual([{ id: "raw-1" }]);
     expect(mocks.activations).toHaveBeenCalledWith(false);
     expect(result.current.activationSpots).toEqual([]);
@@ -150,8 +153,8 @@ describe("useResolvedMapSpots", () => {
       refetch: vi.fn(),
     });
     mocks.resolve.mockReturnValue([
-      { id: "resolved-first" },
-      { id: "resolved-second" },
+      { id: "resolved-first", originalSpot: rawSpots[1] },
+      { id: "resolved-second", originalSpot: rawSpots[2] },
     ]);
 
     const { result } = renderHook(() =>
@@ -168,10 +171,31 @@ describe("useResolvedMapSpots", () => {
       "resolved-second",
     ]);
     expect(result.current.allCandidateSpots).toEqual(rawSpots);
-    expect(result.current.allResolvedSpots).toEqual([
-      { id: "resolved-first" },
-      { id: "resolved-second" },
+    expect(result.current.allResolvedSpots.map(({ id }) => id)).toEqual([
+      "resolved-first",
+      "resolved-second",
     ]);
+  });
+
+  it("keeps resolved metadata aligned when evidence reports share an ID", () => {
+    const first = { id: "collision", spotter: "RX1", frequency: 14_020 };
+    const second = { id: "collision", spotter: "RX2", frequency: 14_030 };
+    mocks.live.mockReturnValue({
+      spots: [first],
+      evidenceSpots: [first, second],
+      isLoading: false,
+      isFeedReady: true,
+      isError: false,
+      spotsBySource: {},
+      refetch: vi.fn(),
+    });
+
+    const { result } = renderHook(() =>
+      useResolvedMapSpots({ enabled: true, maxSpots: 1 }),
+    );
+
+    expect(result.current.resolvedSpots[0].originalSpot).toBe(first);
+    expect(result.current.resolvedSpots[0].originalSpot).not.toBe(second);
   });
 
   it("builds semantic activity from evidence before visual deduplication", () => {

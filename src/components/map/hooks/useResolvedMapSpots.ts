@@ -94,14 +94,17 @@ export function useResolvedMapSpots({
     // producing a point. Rebuild both arrays from the same resolved order so
     // trace metadata and coordinates always describe the same spot IDs.
     const resolvedEvidence = resolveSpotLocations(evidenceSpots);
-    const resolvedById = new Map(
-      resolvedEvidence.map((spot) => [spot.id, spot] as const),
+    // The resolver retains the exact source object. Use that identity instead
+    // of LiveSpot.id: some upstream RBN rows historically shared an ID across
+    // receivers/frequencies observed in the same second.
+    const resolvedBySource = new Map(
+      resolvedEvidence.map((spot) => [spot.originalSpot, spot] as const),
     );
     const cappedCandidates = [] as typeof filteredSpots;
     const cappedResolved = [] as typeof resolvedEvidence;
     for (const source of filteredSpots) {
       if (cappedResolved.length >= limit) break;
-      const resolved = resolvedById.get(source.id);
+      const resolved = resolvedBySource.get(source);
       if (!resolved) continue;
       cappedCandidates.push(source);
       cappedResolved.push(resolved);

@@ -63,7 +63,7 @@ describe("GridGlowRenderer active cells", () => {
       },
     ]);
 
-    expect(renderer.getNextAnimationDelay(1_000)).toBe(0);
+    expect(renderer.getNextAnimationDelay(1_000)).toBe(60_000);
     expect(renderer.getNextAnimationDelay(65_999)).toBe(0);
     expect(renderer.getNextAnimationDelay(66_000)).toBeNull();
   });

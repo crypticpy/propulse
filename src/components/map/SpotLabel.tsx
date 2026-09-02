@@ -19,6 +19,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.000002;
@@ -357,7 +358,11 @@ export function SpotLabel({
       center
       // When hovered, boost z-index so this label renders above all others
       // in the stack. Default [1,0] keeps non-hovered labels in paint order.
-      zIndexRange={isHovered || selected ? [9000, 8999] : [1, 0]}
+      zIndexRange={
+        isHovered || selected
+          ? GLOBE_DOM_LAYER_ORDER.activeSpotLabel
+          : GLOBE_DOM_LAYER_ORDER.passiveSpotLabel
+      }
       style={{
         // Hidden far-side labels must not remain hoverable or clickable through
         // the globe. Visible labels still accept hover even without onClick.

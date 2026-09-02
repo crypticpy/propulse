@@ -21,6 +21,7 @@ import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
 import type { TileProviderConfig } from "@/lib/tiles/types";
 import { CompatibleXYZTilesPlugin } from "@/lib/tiles/CompatibleXYZTilesPlugin";
 import { getXYZTilePluginOptions } from "@/lib/tiles/xyzOptions";
+import { VisibleHemisphereTilesPlugin } from "@/lib/tiles/VisibleHemisphereTilesPlugin";
 import {
   UNIT_GLOBE_ELLIPSOID,
   UNIT_GLOBE_SCALE,
@@ -28,6 +29,7 @@ import {
 import { getAccessToken } from "@/lib/api/authFetch";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
+import { GlobeTileRuntimeController } from "./GlobeTileRuntimeController";
 
 // ---------------------------------------------------------------------------
 // Coordinate alignment
@@ -194,11 +196,16 @@ export function TiledGlobe({
       group={groupProps as any}
       onLoadError={handleLoadError}
     >
+      <GlobeTileRuntimeController
+        layer="imagery"
+        settings={qualitySettings}
+      />
       <TilesPlugin
         plugin={CompatibleXYZTilesPlugin}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- R3F types args as an array although this plugin accepts an options object
         args={getXYZTilePluginOptions(provider) as any}
       />
+      <TilesPlugin plugin={VisibleHemisphereTilesPlugin} />
       <TilesPlugin
         plugin={TilesFadePlugin}
         args={

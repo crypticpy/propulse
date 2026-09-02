@@ -8,7 +8,7 @@
  * Uses a transparent sphere geometry for raycasting without visual impact.
  */
 
-import { useRef, useCallback, useEffect, useMemo } from "react";
+import { useRef, useCallback, useEffect, useId, useMemo } from "react";
 import { ThreeEvent, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ResolvedSpot } from "./LiveSpotArcs";
@@ -111,10 +111,12 @@ export function SpotEndpointHitArea({
   const onHoverEndRef = useRef(onHoverEnd);
   const originalSpotRef = useRef(spot.originalSpot);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
+  const surfaceInstanceId = useId();
   originalSpotRef.current = spot.originalSpot;
   // Live arcs and animated traces can render separate hit meshes for the same
-  // endpoint. Deriving the ID from report + coordinates makes those duplicate
-  // surfaces one owner while keeping the source and destination distinct.
+  // endpoint. Report + coordinates preserve diagnostic identity, while the
+  // React instance suffix keeps each concrete mesh independently referenceable
+  // when one trace expires underneath another still-hovered live endpoint.
   const hoverInteraction = useMemo<SpotHoverInteraction>(
     () => ({
       surface: "endpoint",
@@ -124,9 +126,10 @@ export function SpotEndpointHitArea({
         "endpoint",
         lat.toFixed(5),
         lon.toFixed(5),
+        surfaceInstanceId,
       ].join(":"),
     }),
-    [lat, lon, spot.originalSpot.id, spot.originalSpot.source],
+    [lat, lon, spot.originalSpot.id, spot.originalSpot.source, surfaceInstanceId],
   );
 
   useEffect(() => {

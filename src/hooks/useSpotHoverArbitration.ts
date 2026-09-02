@@ -20,6 +20,8 @@ export interface HoveredSpotData {
   screenPos: ScreenAnchor;
 }
 
+export type SpotPreviewInteraction = "pointer" | "focus";
+
 interface HoverCandidate extends HoveredSpotData {
   interaction: SpotHoverInteraction;
   spotKey: string;
@@ -94,19 +96,37 @@ function toCandidate(
 }
 
 /**
+ * Orders candidates without relying on R3F/DOM event arrival order. Labels are
+ * the most precise user target, then report identity and concrete surface
+ * identity provide stable tie breaks for dense co-located endpoints.
+ */
+function compareCandidates(a: HoverCandidate, b: HoverCandidate): number {
+  const priorityDelta =
+    surfacePriority(b.interaction.surface) -
+    surfacePriority(a.interaction.surface);
+  if (priorityDelta !== 0) return priorityDelta;
+
+  const spotDelta = a.spotKey.localeCompare(b.spotKey);
+  if (spotDelta !== 0) return spotDelta;
+  return a.interaction.interactionId.localeCompare(
+    b.interaction.interactionId,
+  );
+}
+
+/**
  * Central hover arbiter for every globe spot surface.
  *
  * R3F can emit alternating enter/leave events when transparent raycast spheres
  * overlap. Drei labels add a second DOM interaction surface for the same
  * report. The arbiter keeps the current preview mounted, promotes labels over
- * endpoints, deterministically breaks equal-priority overlap ties, and hands
- * directly to a pending surface without inserting a null/hidden frame.
+ * endpoints, deterministically breaks equal-priority overlap ties, and retains
+ * every active concrete surface so handoffs never insert a null/hidden frame.
  */
 export function useSpotHoverArbitration() {
   const [hoveredSpotData, setHoveredSpotData] =
     useState<HoveredSpotData | null>(null);
   const currentRef = useRef<HoverCandidate | null>(null);
-  const pendingRef = useRef<HoverCandidate | null>(null);
+  const activeCandidatesRef = useRef(new Map<string, HoverCandidate>());
   const dismissTimerRef = useRef<number | null>(null);
   const anchorFrameRef = useRef<number | null>(null);
   const queuedAnchorRef = useRef<HoverCandidate | null>(null);
@@ -129,7 +149,6 @@ export function useSpotHoverArbitration() {
       cancelSpotHoverDismiss();
       cancelQueuedAnchor();
       currentRef.current = candidate;
-      pendingRef.current = null;
       setHoveredSpotData({
         spot: candidate.spot,
         screenPos: candidate.screenPos,
@@ -168,6 +187,7 @@ export function useSpotHoverArbitration() {
       interaction: SpotHoverInteraction,
     ) => {
       const candidate = toCandidate(spot, screenPos, interaction);
+      activeCandidatesRef.current.set(interaction.interactionId, candidate);
       const current = currentRef.current;
 
       if (!current) {
@@ -184,10 +204,13 @@ export function useSpotHoverArbitration() {
       }
 
       // Once the current surface has actually left, its dismissal timer is the
-      // handoff signal. The arriving surface can replace it immediately without
-      // ever unmounting the preview.
+      // handoff signal. Choose from every surface still under the pointer so an
+      // arrival can replace it immediately without ever unmounting the preview.
       if (dismissTimerRef.current !== null) {
-        commitCandidate(candidate);
+        const winner = [...activeCandidatesRef.current.values()].sort(
+          compareCandidates,
+        )[0];
+        if (winner) commitCandidate(winner);
         return;
       }
 
@@ -200,19 +223,12 @@ export function useSpotHoverArbitration() {
       const winsStableTie =
         candidatePriority === currentPriority &&
         overlaps &&
-        (candidate.spotKey < current.spotKey ||
-          (candidate.spotKey === current.spotKey &&
-            candidate.interaction.interactionId <
-              current.interaction.interactionId));
+        compareCandidates(candidate, current) < 0;
 
       if (candidatePriority > currentPriority || winsStableTie) {
         commitCandidate(candidate);
         return;
       }
-
-      // Keep one pending surface so a real pointer handoff can replace the
-      // owner synchronously when the owner's leave event arrives.
-      pendingRef.current = candidate;
     },
     [cancelSpotHoverDismiss, commitCandidate, queueAnchorUpdate],
   );
@@ -221,8 +237,8 @@ export function useSpotHoverArbitration() {
     if (dismissTimerRef.current !== null) return;
     dismissTimerRef.current = window.setTimeout(() => {
       dismissTimerRef.current = null;
+      if (activeCandidatesRef.current.size > 0) return;
       currentRef.current = null;
-      pendingRef.current = null;
       setHoveredSpotData(null);
     }, DISMISS_DELAY_MS);
   }, []);
@@ -236,45 +252,44 @@ export function useSpotHoverArbitration() {
       if (!current) return;
 
       if (interaction) {
-        if (
-          pendingRef.current?.interaction.interactionId ===
-          interaction.interactionId
-        ) {
-          pendingRef.current = null;
-          return;
-        }
+        activeCandidatesRef.current.delete(interaction.interactionId);
         if (
           current.interaction.interactionId !== interaction.interactionId
         ) {
           return;
         }
+      } else {
+        // Callers normally provide a concrete interaction. Retain the optional
+        // form as an explicit "all spot surfaces left" escape hatch.
+        activeCandidatesRef.current.clear();
       }
 
-      const pending = pendingRef.current;
-      if (pending) {
-        commitCandidate(pending);
+      cancelQueuedAnchor();
+      const winner = [...activeCandidatesRef.current.values()].sort(
+        compareCandidates,
+      )[0];
+      if (winner) {
+        commitCandidate(winner);
         return;
       }
       scheduleDismiss();
     },
-    [commitCandidate, scheduleDismiss],
+    [cancelQueuedAnchor, commitCandidate, scheduleDismiss],
   );
 
   const holdSpotHoverForPreview = useCallback(() => {
     cancelSpotHoverDismiss();
-    pendingRef.current = null;
   }, [cancelSpotHoverDismiss]);
 
   const releaseSpotHoverFromPreview = useCallback(() => {
-    pendingRef.current = null;
     scheduleDismiss();
   }, [scheduleDismiss]);
 
   const clearSpotHover = useCallback(() => {
     cancelSpotHoverDismiss();
     cancelQueuedAnchor();
+    activeCandidatesRef.current.clear();
     currentRef.current = null;
-    pendingRef.current = null;
     setHoveredSpotData(null);
   }, [cancelQueuedAnchor, cancelSpotHoverDismiss]);
 

@@ -24,6 +24,12 @@ const spotB: LiveSpot = {
   dx: "K1BBB",
 };
 
+const spotC: LiveSpot = {
+  ...spotA,
+  id: "spot-c",
+  dx: "K1CCC",
+};
+
 const endpointA: SpotHoverInteraction = {
   surface: "endpoint",
   interactionId: "endpoint:spot-a",
@@ -31,6 +37,10 @@ const endpointA: SpotHoverInteraction = {
 const endpointB: SpotHoverInteraction = {
   surface: "endpoint",
   interactionId: "endpoint:spot-b",
+};
+const endpointC: SpotHoverInteraction = {
+  surface: "endpoint",
+  interactionId: "endpoint:spot-c",
 };
 
 describe("useSpotHoverArbitration", () => {
@@ -56,6 +66,53 @@ describe("useSpotHoverArbitration", () => {
       result.current.handleSpotHover(spotB, { x: 100, y: 100 }, endpointB);
       result.current.handleSpotHover(spotA, { x: 101, y: 101 }, endpointA);
       result.current.handleSpotHover(spotB, { x: 102, y: 102 }, endpointB);
+    });
+
+    expect(result.current.hoveredSpotData?.spot.id).toBe("spot-a");
+  });
+
+  it("retains every active overlap when a later candidate leaves first", () => {
+    const { result } = renderHook(() => useSpotHoverArbitration());
+
+    act(() => {
+      result.current.handleSpotHover(spotA, { x: 100, y: 100 }, endpointA);
+      result.current.handleSpotHover(spotB, { x: 101, y: 101 }, endpointB);
+      result.current.handleSpotHover(spotC, { x: 102, y: 102 }, endpointC);
+      result.current.handleSpotHoverEnd(spotC, endpointC);
+      result.current.handleSpotHoverEnd(spotA, endpointA);
+    });
+
+    expect(result.current.hoveredSpotData?.spot.id).toBe("spot-b");
+  });
+
+  it("recomputes a deterministic winner from all remaining candidates", () => {
+    const { result } = renderHook(() => useSpotHoverArbitration());
+
+    act(() => {
+      result.current.handleSpotHover(spotA, { x: 100, y: 100 }, endpointA);
+      result.current.handleSpotHover(spotC, { x: 102, y: 102 }, endpointC);
+      result.current.handleSpotHover(spotB, { x: 101, y: 101 }, endpointB);
+      result.current.handleSpotHoverEnd(spotA, endpointA);
+    });
+
+    expect(result.current.hoveredSpotData?.spot.id).toBe("spot-b");
+  });
+
+  it("keeps a duplicate concrete endpoint active when its sibling leaves", () => {
+    const { result } = renderHook(() => useSpotHoverArbitration());
+    const duplicateEndpoint: SpotHoverInteraction = {
+      surface: "endpoint",
+      interactionId: "endpoint:spot-a:duplicate",
+    };
+
+    act(() => {
+      result.current.handleSpotHover(spotA, { x: 100, y: 100 }, endpointA);
+      result.current.handleSpotHover(
+        spotA,
+        { x: 100, y: 100 },
+        duplicateEndpoint,
+      );
+      result.current.handleSpotHoverEnd(spotA, endpointA);
     });
 
     expect(result.current.hoveredSpotData?.spot.id).toBe("spot-a");

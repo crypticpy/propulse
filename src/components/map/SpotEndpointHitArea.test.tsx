@@ -2,6 +2,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import type { ResolvedSpot } from "./LiveSpotArcs";
+import type { SpotHoverInteraction } from "@/hooks/useSpotHoverArbitration";
 
 vi.mock("@react-three/fiber", async () => {
   const actual = await vi.importActual<typeof import("@react-three/fiber")>(
@@ -66,7 +67,9 @@ describe("SpotEndpointHitArea selection", () => {
       { x: 120, y: 80 },
       {
         surface: "endpoint",
-        interactionId: "PSKReporter:spot-1:endpoint:-22.50000:-43.00000",
+        interactionId: expect.stringMatching(
+          /^PSKReporter:spot-1:endpoint:-22\.50000:-43\.00000:/,
+        ),
       },
     );
   });
@@ -172,7 +175,9 @@ describe("SpotEndpointHitArea selection", () => {
       expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
       expect.objectContaining({
         surface: "endpoint",
-        interactionId: "PSKReporter:spot-1:endpoint:-22.50000:-43.00000",
+        interactionId: expect.stringMatching(
+          /^PSKReporter:spot-1:endpoint:-22\.50000:-43\.00000:/,
+        ),
       }),
     );
   });
@@ -211,8 +216,40 @@ describe("SpotEndpointHitArea selection", () => {
       expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
       expect.objectContaining({
         surface: "endpoint",
-        interactionId: "PSKReporter:spot-1:endpoint:-22.50000:-43.00000",
+        interactionId: expect.stringMatching(
+          /^PSKReporter:spot-1:endpoint:-22\.50000:-43\.00000:/,
+        ),
       }),
+    );
+  });
+
+  it("gives duplicate rendered endpoints distinct concrete owner IDs", () => {
+    const onHover = vi.fn();
+    const { container } = render(
+      <>
+        <SpotEndpointHitArea
+          lat={-22.5}
+          lon={-43}
+          spot={resolvedSpot()}
+          onHover={onHover}
+        />
+        <SpotEndpointHitArea
+          lat={-22.5}
+          lon={-43}
+          spot={resolvedSpot()}
+          onHover={onHover}
+        />
+      </>,
+    );
+
+    const endpoints = container.querySelectorAll("mesh");
+    fireEvent.pointerEnter(endpoints[0], { clientX: 120, clientY: 80 });
+    fireEvent.pointerEnter(endpoints[1], { clientX: 120, clientY: 80 });
+
+    const firstInteraction = onHover.mock.calls[0][2] as SpotHoverInteraction;
+    const secondInteraction = onHover.mock.calls[1][2] as SpotHoverInteraction;
+    expect(firstInteraction.interactionId).not.toBe(
+      secondInteraction.interactionId,
     );
   });
 });

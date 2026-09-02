@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   GLOBE_DEPTH_DOME_RADIUS,
+  GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_LAYER_SLOTS,
   GLOBE_MIN_OVERLAY_RADIUS,
   GLOBE_OVERLAY_MATERIAL,
   GLOBE_SURFACE_MARKER_MATERIAL,
+  getGlobeLayerSlotForRenderOrder,
 } from "./globeRenderOrder";
 
 describe("GLOBE_LAYER_ORDER", () => {
@@ -81,5 +83,26 @@ describe("GLOBE_LAYER_ORDER", () => {
   it("keeps the depth dome above the tile surface and below overlays", () => {
     expect(GLOBE_DEPTH_DOME_RADIUS).toBeGreaterThan(1.0);
     expect(GLOBE_DEPTH_DOME_RADIUS).toBeLessThan(GLOBE_MIN_OVERLAY_RADIUS);
+  });
+
+  it("classifies fractional component orders under their owning slot", () => {
+    expect(
+      getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.markers + 0.25),
+    ).toBe("markers");
+    expect(getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.hud)).toBe(
+      "hud",
+    );
+    expect(
+      getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.nightShade - 0.1),
+    ).toBe("nightShade");
+  });
+
+  it("keeps opaque map previews above every Drei spot label", () => {
+    expect(GLOBE_DOM_LAYER_ORDER.mapOverlayPortal).toBeGreaterThan(
+      GLOBE_DOM_LAYER_ORDER.activeSpotLabel[0],
+    );
+    expect(GLOBE_DOM_LAYER_ORDER.activeSpotLabel[1]).toBeGreaterThan(
+      GLOBE_DOM_LAYER_ORDER.passiveSpotLabel[0],
+    );
   });
 });

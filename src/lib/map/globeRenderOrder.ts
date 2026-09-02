@@ -95,6 +95,34 @@ export const GLOBE_LAYER_SLOTS: readonly GlobeLayerSlot[] = [
   "hud",
 ];
 
+/** Resolve fractional component orders back to their owning diagnostic slot. */
+export function getGlobeLayerSlotForRenderOrder(
+  renderOrder: number,
+): GlobeLayerSlot {
+  let owner = GLOBE_LAYER_SLOTS[0];
+  let ownerDistance = Math.abs(renderOrder - GLOBE_LAYER_ORDER[owner]);
+  for (let index = 1; index < GLOBE_LAYER_SLOTS.length; index += 1) {
+    const slot = GLOBE_LAYER_SLOTS[index];
+    const distance = Math.abs(renderOrder - GLOBE_LAYER_ORDER[slot]);
+    if (distance < ownerDistance) {
+      owner = slot;
+      ownerDistance = distance;
+    }
+  }
+  return owner;
+}
+
+/**
+ * DOM overlays use a separate stacking context from WebGL. Keep the Drei HTML
+ * ranges and the map-owned preview portal in this same contract so a future UI
+ * edit cannot accidentally place an opaque tooltip beneath a canvas label.
+ */
+export const GLOBE_DOM_LAYER_ORDER = {
+  passiveSpotLabel: [1, 0] as [number, number],
+  activeSpotLabel: [9000, 8999] as [number, number],
+  mapOverlayPortal: 10000,
+} as const;
+
 /**
  * Shared material flags for FrontSide full-sphere texture drapes (rule 1c
  * above). Spread into JSX materials

@@ -26,6 +26,7 @@ import { EarthSphere } from "./EarthSphere";
 import { GlobeDepthDome } from "./GlobeDepthDome";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
+import { GlobePerformanceDiagnostics } from "./GlobePerformanceDiagnostics";
 import { ImageryAttribution } from "./ImageryAttribution";
 import {
   NASA_BLUE_MARBLE_SOURCE,
@@ -33,6 +34,7 @@ import {
 } from "@/lib/map/imagerySources";
 import { CloudImageryAttribution } from "./CloudImageryAttribution";
 import type { CloudImageryStatus } from "@/lib/map/cloudImageryStatus";
+import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
@@ -2390,6 +2392,11 @@ export function GlobeView({
         }
       >
         <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
+          {import.meta.env.DEV && (
+            <GlobePerformanceDiagnostics
+              settleDelayMs={qualitySettings.settleDelayMs}
+            />
+          )}
           <PerspectiveCamera
             makeDefault
             position={[0, 0, 2.5 / zoom]}
@@ -2428,7 +2435,8 @@ export function GlobeView({
           above that entire range for previews to remain completely opaque. */}
       <div
         ref={setMapOverlayPortal}
-        className="pointer-events-none absolute inset-0 z-[10000]"
+        className="pointer-events-none absolute inset-0"
+        style={{ zIndex: GLOBE_DOM_LAYER_ORDER.mapOverlayPortal }}
       />
 
       <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">

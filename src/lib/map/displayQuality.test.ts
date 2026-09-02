@@ -36,6 +36,15 @@ describe("resolveDisplayQuality", () => {
       uhd.maxDevicePixelRatio,
     );
     expect(extreme.globeErrorTarget).toBeLessThan(uhd.globeErrorTarget);
+    expect(extreme.globeTileCacheSize).toBeGreaterThan(
+      uhd.globeTileCacheSize,
+    );
+    expect(extreme.globeTileCacheBytes).toBeGreaterThan(
+      uhd.globeTileCacheBytes,
+    );
+    expect(extreme.globeTileTraversalBudget).toBeGreaterThan(
+      uhd.globeTileTraversalBudget,
+    );
     expect(extreme.flatTileCacheSize).toBeGreaterThan(uhd.flatTileCacheSize);
   });
 });

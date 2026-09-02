@@ -8,6 +8,7 @@ describe("getXYZTilePluginOptions", () => {
 
     expect(options.levels).toBe(20);
     expect(options.tileDimension).toBe(256);
+    expect(options.useRecommendedSettings).toBe(false);
   });
 
   it("preserves Mapbox's high-resolution tile depth and dimensions", () => {

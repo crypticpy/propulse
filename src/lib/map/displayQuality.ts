@@ -11,6 +11,12 @@ export interface DisplayQualitySettings {
   label: string;
   maxDevicePixelRatio: number;
   globeErrorTarget: number;
+  /** Maximum decoded XYZ tiles retained by the primary globe renderer. */
+  globeTileCacheSize: number;
+  /** Maximum decoded imagery memory retained by the primary globe renderer. */
+  globeTileCacheBytes: number;
+  /** Maximum tile nodes traversed during one renderer update. */
+  globeTileTraversalBudget: number;
   flatTileCacheSize: number;
   tileZoomBias: number;
   tileRequestConcurrency: number;
@@ -31,6 +37,9 @@ const SETTINGS: Record<EffectiveDisplayQuality, DisplayQualitySettings> = {
     label: "Data Saver",
     maxDevicePixelRatio: 1,
     globeErrorTarget: 4,
+    globeTileCacheSize: 320,
+    globeTileCacheBytes: 96 * 1024 * 1024,
+    globeTileTraversalBudget: 120,
     flatTileCacheSize: 160,
     tileZoomBias: -1,
     tileRequestConcurrency: 6,
@@ -42,6 +51,9 @@ const SETTINGS: Record<EffectiveDisplayQuality, DisplayQualitySettings> = {
     label: "Auto · Balanced",
     maxDevicePixelRatio: 1.75,
     globeErrorTarget: 2,
+    globeTileCacheSize: 700,
+    globeTileCacheBytes: 192 * 1024 * 1024,
+    globeTileTraversalBudget: 200,
     flatTileCacheSize: 420,
     tileZoomBias: 0,
     tileRequestConcurrency: 10,
@@ -53,6 +65,9 @@ const SETTINGS: Record<EffectiveDisplayQuality, DisplayQualitySettings> = {
     label: "UHD",
     maxDevicePixelRatio: 2,
     globeErrorTarget: 1,
+    globeTileCacheSize: 1200,
+    globeTileCacheBytes: 320 * 1024 * 1024,
+    globeTileTraversalBudget: 280,
     flatTileCacheSize: 640,
     tileZoomBias: 0,
     tileRequestConcurrency: 14,
@@ -64,6 +79,9 @@ const SETTINGS: Record<EffectiveDisplayQuality, DisplayQualitySettings> = {
     label: "Extreme",
     maxDevicePixelRatio: 3,
     globeErrorTarget: 0.65,
+    globeTileCacheSize: 1800,
+    globeTileCacheBytes: 512 * 1024 * 1024,
+    globeTileTraversalBudget: 400,
     flatTileCacheSize: 1024,
     tileZoomBias: 1,
     tileRequestConcurrency: 20,

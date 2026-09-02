@@ -69,8 +69,8 @@ import {
   getDifficultyColor,
   type DifficultyLevel,
 } from "./LocationMarker";
-import { LiveSpotArcs, resolveSpotLocations } from "./LiveSpotArcs";
-import { AnimatedSpotTraces } from "./AnimatedSpotTraces";
+import { resolveSpotLocations } from "./LiveSpotArcs";
+import { SpotActivityLayout3D } from "./SpotActivityLayout3D";
 import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
 import { GridPersistOverlay } from "./GridPersistOverlay";
 import { IonosphericShells } from "./IonosphericShells";
@@ -202,7 +202,6 @@ import {
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
-import { ActivationMarkers3D } from "./layers/ActivationMarkers3D";
 import { LunarSubpointMarker3D } from "./layers/LunarSubpointMarker3D";
 
 interface GlobeViewProps {
@@ -1626,23 +1625,21 @@ const GlobeScene = React.memo(function GlobeScene({
         {/* Ionospheric shell layers — translucent D/E/F1/F2 spheres */}
         {layers.ionosphere && <IonosphericShells displayTime={displayTime} />}
 
-        {/* Live spot arcs */}
-        {layers.spots && (
-          <LiveSpotArcs
-            grid={station?.grid}
-            spots={candidateSpots}
-            isLoading={liveSpotsLoading}
-            onSpotHover={onSpotHover}
-            onSpotHoverEnd={onSpotHoverEnd}
-            onSpotSelect={onSpotSelect}
-            onClusterClick={onClusterClick}
-          />
-        )}
-
-        {/* Activators are point reports; keep them separate from DX path arcs. */}
-        {layers.activations && (
-          <ActivationMarkers3D
-            spots={activationSpots}
+        {/* One projected layout coordinates live endpoints, DX/spotter labels,
+            activation labels, and their shared aggregate beacons. */}
+        {(layers.spots || layers.activations || layers.spotTraces) && (
+          <SpotActivityLayout3D
+            showLiveSpots={layers.spots}
+            showSpotTraces={layers.spotTraces}
+            showActivations={layers.activations}
+            traceFeedSpots={liveSpots}
+            liveSpots={candidateSpots}
+            resolvedLiveSpots={resolvedGlowSpots}
+            liveSpotsLoading={liveSpotsLoading}
+            liveSpotsFeedReady={liveSpotsFeedReady}
+            liveSpotsFeedScopeKey={liveSpotsFeedScopeKey}
+            activationSpots={activationSpots}
+            stationGrid={station?.grid}
             onSpotHover={onSpotHover}
             onSpotHoverEnd={onSpotHoverEnd}
             onSpotSelect={onSpotSelect}
@@ -1652,22 +1649,6 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {layers.lunarSubpoint && (
           <LunarSubpointMarker3D displayTime={displayTime} />
-        )}
-
-        {/* Animated spot trace lines — "missile command" style */}
-        {layers.spotTraces && (
-          <AnimatedSpotTraces
-            grid={station?.grid}
-            maxTraces={40}
-            feedSpots={liveSpots}
-            candidateSpots={candidateSpots}
-            resolvedSpots={resolvedGlowSpots}
-            isFeedReady={liveSpotsFeedReady}
-            hydrationKey={liveSpotsFeedScopeKey}
-            onSpotHover={onSpotHover}
-            onSpotHoverEnd={onSpotHoverEnd}
-            onSpotSelect={onSpotSelect}
-          />
         )}
 
         {/* FT8 Spotter — burst traces, grid heatmap, cycle radar */}

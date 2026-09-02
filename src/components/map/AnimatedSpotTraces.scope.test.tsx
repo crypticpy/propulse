@@ -187,4 +187,41 @@ describe("AnimatedSpotTraces feed scope", () => {
       container.querySelectorAll('group[name="animated-spot-traces"] > group'),
     ).toHaveLength(0);
   });
+
+  it("reports only trace lifecycles that became active after hydration", () => {
+    const existing = liveSpot("existing");
+    const arriving = liveSpot("arriving");
+    const onActiveTracesChange = vi.fn();
+    const { rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[resolvedSpot(existing)]}
+        isFeedReady
+        hydrationKey="scope-a"
+        onActiveTracesChange={onActiveTracesChange}
+      />,
+    );
+
+    expect(onActiveTracesChange).toHaveBeenLastCalledWith([]);
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing, arriving]}
+        candidateSpots={[existing, arriving]}
+        resolvedSpots={[resolvedSpot(existing), resolvedSpot(arriving)]}
+        isFeedReady
+        hydrationKey="scope-a"
+        onActiveTracesChange={onActiveTracesChange}
+      />,
+    );
+    act(() => {
+      mocks.frameCallbacks[0]({
+        clock: { getElapsedTime: () => 3 },
+      });
+    });
+
+    expect(onActiveTracesChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: "arriving" }),
+    ]);
+  });
 });

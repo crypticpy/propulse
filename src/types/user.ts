@@ -261,7 +261,7 @@ export interface WatchAlertPreferences {
 export interface SpotClusteringPreferences {
   /** Whether spot clustering is enabled */
   enabled: boolean;
-  /** Grid cell size in degrees for clustering (5-15) */
+  /** Screen-space collision padding in pixels (persisted range 5-15) */
   gridSize: number;
   /** Minimum number of spots to form a cluster (2-10) */
   minClusterSize: number;

@@ -21,7 +21,6 @@ import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import {
-  useSpotClusteringPrefs,
   useSpotAgePrefs,
   useUIInteractionPrefs,
 } from "@/stores/userStore";
@@ -29,11 +28,6 @@ import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
 } from "@/lib/data/prefixLocations";
-import {
-  useSpotClustering,
-  type SpotCluster as SpotClusterData,
-} from "@/hooks/useSpotClustering";
-import { SpotCluster } from "./SpotCluster";
 import { SpotLabel } from "./SpotLabel";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
@@ -56,6 +50,11 @@ import {
 } from "@/lib/map/spotEndpointCapacity";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import type { SpotHoverInteraction } from "@/hooks/useSpotHoverArbitration";
+import type { GlobeSpotLayoutResult } from "@/lib/map/globeSpotLayout";
+import {
+  spotLayoutCandidateId,
+  spotLayoutReportId,
+} from "@/lib/map/screenSpaceSpotLayout";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -419,6 +418,12 @@ interface LiveSpotArcsProps {
   maxArcs?: number;
   /** Shared, already-filtered feed supplied by the map host. */
   spots?: LiveSpot[];
+  /** Shared coordinate-resolved feed paired with `spots`. */
+  resolvedSpots?: ResolvedSpot[];
+  /** Shared coordinate-resolved replay feed included in the same layout. */
+  resolvedReplaySpots?: ResolvedSpot[];
+  /** Combined live/activation screen-space layout owned by the map host. */
+  layout?: GlobeSpotLayoutResult;
   /** Loading state for a supplied shared feed. */
   isLoading?: boolean;
   /** Minimum opacity for arc lines */
@@ -436,11 +441,6 @@ interface LiveSpotArcsProps {
   ) => void;
   /** Callback when a spot label or endpoint is selected. */
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
-  /** Callback when a cluster is clicked */
-  onClusterClick?: (
-    cluster: SpotClusterData,
-    screenPos: { x: number; y: number },
-  ) => void;
 }
 
 /**
@@ -731,11 +731,13 @@ export function LiveSpotArcs({
   grid,
   maxArcs: maxArcsProp,
   spots: suppliedSpots,
+  resolvedSpots: suppliedResolvedSpots,
+  resolvedReplaySpots: suppliedResolvedReplaySpots,
+  layout,
   isLoading: suppliedIsLoading,
   onSpotHover,
   onSpotHoverEnd,
   onSpotSelect,
-  onClusterClick,
 }: LiveSpotArcsProps) {
   // Use displayDensity from mapStore, falling back to prop, then default 50
   const displayDensity = useMapStore((s) => s.displayDensity);
@@ -764,9 +766,6 @@ export function LiveSpotArcs({
     [spotFilters.modes],
   );
 
-  // Get clustering preferences from user store
-  const clusteringPrefs = useSpotClusteringPrefs();
-
   // Get spot age visualization preferences
   const spotAgePrefs = useSpotAgePrefs();
 
@@ -784,26 +783,34 @@ export function LiveSpotArcs({
   const spots = suppliedSpots ?? ownedFeed.spots;
   const isLoading = suppliedIsLoading ?? ownedFeed.isLoading;
 
-  // Apply clustering to spots
-  const { clusters, singles } = useSpotClustering(spots.slice(0, maxArcs), {
-    enabled: clusteringPrefs.enabled,
-    gridSize: clusteringPrefs.gridSize,
-    minClusterSize: clusteringPrefs.minClusterSize,
-  });
-
-  // Resolve locations for single (non-clustered) spots
+  // Coordinate resolution is shared by the map host when available. The old
+  // geographic pre-cluster is deliberately gone: layout must be decided after
+  // projection and together with activations, not independently in degrees.
   const resolvedSingles = useMemo(() => {
-    return resolveSpotLocations(singles);
-  }, [singles]);
+    return suppliedResolvedSpots ?? resolveSpotLocations(spots.slice(0, maxArcs));
+  }, [maxArcs, spots, suppliedResolvedSpots]);
 
   // Create a map from spot ID to original LiveSpot for additional data
   const singlesMap = useMemo(() => {
     const map = new Map<string, LiveSpot>();
-    for (const spot of singles) {
+    for (const spot of spots) {
       map.set(spot.id, spot);
     }
     return map;
-  }, [singles]);
+  }, [spots]);
+
+  const placementById = useMemo(
+    () =>
+      layout
+        ? new Map(
+            layout.placements.map((placement) => [
+              placement.candidate.id,
+              placement,
+            ]),
+          )
+        : null,
+    [layout],
+  );
 
   // Active band from operating store — used to visually distinguish on-band arcs
   const activeBand = useActiveBand();
@@ -815,8 +822,10 @@ export function LiveSpotArcs({
     // PropSphere clears the ephemeral store when replay turns off, but gate
     // here too so the canvas never renders a retained query snapshot during
     // the effect boundary between the toggle and that store update.
-    () => (replayEnabled ? resolveSpotLocations(replaySpots) : []),
-    [replayEnabled, replaySpots],
+    () =>
+      suppliedResolvedReplaySpots ??
+      (replayEnabled ? resolveSpotLocations(replaySpots) : []),
+    [replayEnabled, replaySpots, suppliedResolvedReplaySpots],
   );
 
   // ── Globe-side culling: skip arcs whose endpoints both face away ────────
@@ -847,32 +856,16 @@ export function LiveSpotArcs({
 
   if (
     isLoading ||
-    (resolvedSingles.length === 0 &&
-      clusters.length === 0 &&
-      resolvedReplay.length === 0)
+    (resolvedSingles.length === 0 && resolvedReplay.length === 0)
   ) {
     return null;
   }
 
   return (
     <group name="live-spot-arcs">
-      {/* Render clustered spots as cluster markers */}
-      {clusters.map((cluster) => (
-        <SpotCluster
-          key={cluster.id}
-          cluster={cluster}
-          onClick={onClusterClick}
-        />
-      ))}
-
-      {/* Render non-clustered spots as individual arcs with age-based styling */}
+      {/* Render screen-space placements that were not collapsed into the
+          coordinator's cross-feed aggregate beacons. */}
       {(() => {
-        // Track callsigns already labeled and positions for stacking
-        const labeledCallsigns = new Set<string>();
-        const labeledSpotters = new Set<string>();
-        // Track occupied label positions to assign stack indices
-        const labelPositions: Array<{ lat: number; lon: number }> = [];
-
         const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
         const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
 
@@ -883,6 +876,29 @@ export function LiveSpotArcs({
         const endpointData: EndpointData[] = [];
 
         const arcElements = resolvedSingles.map((spot) => {
+          const reportId = spotLayoutReportId(spot.source, spot.id);
+          const dxPlacement = placementById?.get(
+            spotLayoutCandidateId(reportId, "dx"),
+          );
+          const spotterPlacement = placementById?.get(
+            spotLayoutCandidateId(reportId, "spotter"),
+          );
+          const dxVisible = placementById === null || Boolean(dxPlacement);
+          const spotterVisible =
+            placementById === null || Boolean(spotterPlacement);
+          const dxLabelVisible =
+            placementById === null
+              ? uiPrefs.showSpotCallsignLabels
+              : dxPlacement?.candidate.kind === "dx-label";
+          const spotterLabelVisible =
+            placementById === null
+              ? uiPrefs.showSpotCallsignLabels && uiPrefs.showSpotterLabels
+              : spotterPlacement?.candidate.kind === "spotter-label";
+          // Suppress orphan paths whose every endpoint was rejected or folded
+          // into an aggregate. Any path left on screen therefore has a visible,
+          // selectable source or destination surface.
+          if (!dxVisible && !spotterVisible) return null;
+
           // Globe-side culling: skip if both endpoints face away from camera
           tempVec1
             .set(...latLonTo3D(spot.spotterLat, spot.spotterLon))
@@ -918,35 +934,26 @@ export function LiveSpotArcs({
 
           const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
 
-          // Collect endpoint data for instanced batch rendering
-          endpointData.push({
-            lat: spot.spotterLat,
-            lon: spot.spotterLon,
-            color,
-            size: 0.006 * spotDotScale * endpointScale,
-          });
-          endpointData.push({
-            lat: spot.dxLat,
-            lon: spot.dxLon,
-            color,
-            size: 0.008 * spotDotScale * endpointScale,
-          });
-
-          // Compute stack index for this label position (proximity-based)
-          let stackIndex = 0;
-          if (
-            uiPrefs.showSpotCallsignLabels &&
-            !labeledCallsigns.has(spot.callsign)
-          ) {
-            for (const pos of labelPositions) {
-              const dlat = Math.abs(pos.lat - spot.dxLat);
-              const dlon = Math.abs(pos.lon - spot.dxLon);
-              if (dlat < 3 && dlon < 3) {
-                stackIndex++;
-              }
-            }
-            labelPositions.push({ lat: spot.dxLat, lon: spot.dxLon });
+          // The batched visual endpoints follow the exact same visibility
+          // decision as their hit targets; aggregates never leave ghost dots.
+          if (spotterVisible) {
+            endpointData.push({
+              lat: spot.spotterLat,
+              lon: spot.spotterLon,
+              color,
+              size: 0.006 * spotDotScale * endpointScale,
+            });
           }
+          if (dxVisible) {
+            endpointData.push({
+              lat: spot.dxLat,
+              lon: spot.dxLon,
+              color,
+              size: 0.008 * spotDotScale * endpointScale,
+            });
+          }
+
+          const presentableSpot = orig ?? spot.originalSpot;
 
           return (
             <group key={spot.id}>
@@ -959,144 +966,138 @@ export function LiveSpotArcs({
                 bandHeightArcs={uiPrefs.bandHeightArcs ?? true}
                 band={orig?.band || getBandFromFrequency(spot.frequency)}
               />
-              {/* Callsign label — deduplicated + stacked when nearby */}
-              {uiPrefs.showSpotCallsignLabels &&
-                !labeledCallsigns.has(spot.callsign) &&
-                (() => {
-                  labeledCallsigns.add(spot.callsign);
-                  return (
-                    <SpotLabel
-                      lat={spot.dxLat}
-                      lon={spot.dxLon}
-                      callsign={spot.callsign}
-                      mode={spot.mode}
-                      frequency={spot.frequency}
-                      stackIndex={stackIndex}
-                      color={color}
-                      occlusionOpacity={getOcclusionOpacity(
-                        spot.dxLat,
-                        spot.dxLon,
-                      )}
-                      onHover={
-                        onSpotHover
-                          ? (screenPos) =>
-                              onSpotHover(
-                                orig ?? spot.originalSpot,
-                                screenPos,
-                                {
-                                  surface: "label",
-                                  interactionId: `${spot.source}:${spot.id}:dx-label`,
-                                },
-                              )
-                          : undefined
-                      }
-                      onHoverEnd={
-                        onSpotHoverEnd
-                          ? () =>
-                              onSpotHoverEnd(orig ?? spot.originalSpot, {
-                                surface: "label",
-                                interactionId: `${spot.source}:${spot.id}:dx-label`,
-                              })
-                          : undefined
-                      }
-                      selected={orig?.id === selectedSpotId}
-                      onSelect={
-                        onSpotSelect && orig
-                          ? (screenPos) => onSpotSelect(orig, screenPos)
-                          : undefined
-                      }
-                    />
-                  );
-                })()}
-              {/* Spotter label — shown when both master labels and spotter labels are enabled */}
-              {uiPrefs.showSpotCallsignLabels &&
-                uiPrefs.showSpotterLabels &&
-                spot.spotter &&
-                !labeledSpotters.has(spot.spotter) &&
-                (() => {
-                  labeledSpotters.add(spot.spotter!);
-                  return (
-                    <SpotLabel
+              {dxLabelVisible && (
+                <SpotLabel
+                  lat={spot.dxLat}
+                  lon={spot.dxLon}
+                  callsign={spot.callsign}
+                  mode={spot.mode}
+                  frequency={spot.frequency}
+                  screenOffset={{
+                    x: dxPlacement?.offsetX ?? 0,
+                    y: dxPlacement?.offsetY ?? 0,
+                  }}
+                  labelScale={uiPrefs.labelScale ?? 1}
+                  color={color}
+                  occlusionOpacity={getOcclusionOpacity(
+                    spot.dxLat,
+                    spot.dxLon,
+                  )}
+                  onHover={
+                    onSpotHover
+                      ? (screenPos) =>
+                          onSpotHover(presentableSpot, screenPos, {
+                            surface: "label",
+                            interactionId: `${spot.source}:${spot.id}:dx-label`,
+                          })
+                      : undefined
+                  }
+                  onHoverEnd={
+                    onSpotHoverEnd
+                      ? () =>
+                          onSpotHoverEnd(presentableSpot, {
+                            surface: "label",
+                            interactionId: `${spot.source}:${spot.id}:dx-label`,
+                          })
+                      : undefined
+                  }
+                  selected={presentableSpot.id === selectedSpotId}
+                  onSelect={
+                    onSpotSelect
+                      ? (screenPos) => onSpotSelect(presentableSpot, screenPos)
+                      : undefined
+                  }
+                />
+              )}
+              {spotterLabelVisible && spot.spotter && (
+                <SpotLabel
+                  lat={spot.spotterLat}
+                  lon={spot.spotterLon}
+                  callsign={spot.spotter}
+                  mode={spot.mode}
+                  isSpotter
+                  opacity={0.6}
+                  screenOffset={{
+                    x: spotterPlacement?.offsetX ?? 0,
+                    y: spotterPlacement?.offsetY ?? 0,
+                  }}
+                  labelScale={uiPrefs.labelScale ?? 1}
+                  color={color}
+                  occlusionOpacity={getOcclusionOpacity(
+                    spot.spotterLat,
+                    spot.spotterLon,
+                  )}
+                  onHover={
+                    onSpotHover
+                      ? (screenPos) =>
+                          onSpotHover(presentableSpot, screenPos, {
+                            surface: "label",
+                            interactionId: `${spot.source}:${spot.id}:spotter-label`,
+                          })
+                      : undefined
+                  }
+                  onHoverEnd={
+                    onSpotHoverEnd
+                      ? () =>
+                          onSpotHoverEnd(presentableSpot, {
+                            surface: "label",
+                            interactionId: `${spot.source}:${spot.id}:spotter-label`,
+                          })
+                      : undefined
+                  }
+                  onSelect={
+                    onSpotSelect
+                      ? (screenPos) =>
+                          onSpotSelect(presentableSpot, screenPos)
+                      : undefined
+                  }
+                />
+              )}
+              {/* Both route endpoints are interactive. The receiver/DX end is
+                  the contact target; the source end identifies who reported
+                  the path and which live network supplied it. */}
+              {(onSpotHover || onSpotSelect) && (
+                <>
+                  {spotterVisible && (
+                    <SpotEndpointHitArea
                       lat={spot.spotterLat}
                       lon={spot.spotterLon}
-                      callsign={spot.spotter!}
-                      mode={spot.mode}
-                      isSpotter
-                      opacity={0.6}
-                      color={color}
+                      spot={spot}
+                      hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
                       occlusionOpacity={getOcclusionOpacity(
                         spot.spotterLat,
                         spot.spotterLon,
                       )}
-                      onHover={
-                        onSpotHover
-                          ? (screenPos) =>
-                              onSpotHover(
-                                orig ?? spot.originalSpot,
-                                screenPos,
-                                {
-                                  surface: "label",
-                                  interactionId: `${spot.source}:${spot.id}:spotter-label`,
-                                },
-                              )
-                          : undefined
-                      }
-                      onHoverEnd={
-                        onSpotHoverEnd
-                          ? () =>
-                              onSpotHoverEnd(orig ?? spot.originalSpot, {
-                                surface: "label",
-                                interactionId: `${spot.source}:${spot.id}:spotter-label`,
-                              })
-                          : undefined
-                      }
+                      onHover={onSpotHover}
+                      onHoverEnd={onSpotHoverEnd}
                       onSelect={
-                        onSpotSelect && orig
-                          ? (screenPos) => onSpotSelect(orig, screenPos)
+                        onSpotSelect
+                          ? (screenPos) =>
+                              onSpotSelect(presentableSpot, screenPos)
                           : undefined
                       }
                     />
-                  );
-                })()}
-              {/* Both route endpoints are interactive. The receiver/DX end is
-                  the contact target; the source end identifies who reported
-                  the path and which live network supplied it. */}
-              {(onSpotHover || (onSpotSelect && orig)) && (
-                <>
-                  <SpotEndpointHitArea
-                    lat={spot.spotterLat}
-                    lon={spot.spotterLon}
-                    spot={spot}
-                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
-                    occlusionOpacity={getOcclusionOpacity(
-                      spot.spotterLat,
-                      spot.spotterLon,
-                    )}
-                    onHover={onSpotHover}
-                    onHoverEnd={onSpotHoverEnd}
-                    onSelect={
-                      onSpotSelect && orig
-                        ? (screenPos) => onSpotSelect(orig, screenPos)
-                        : undefined
-                    }
-                  />
-                  <SpotEndpointHitArea
-                    lat={spot.dxLat}
-                    lon={spot.dxLon}
-                    spot={spot}
-                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
-                    occlusionOpacity={getOcclusionOpacity(
-                      spot.dxLat,
-                      spot.dxLon,
-                    )}
-                    onHover={onSpotHover}
-                    onHoverEnd={onSpotHoverEnd}
-                    onSelect={
-                      onSpotSelect && orig
-                        ? (screenPos) => onSpotSelect(orig, screenPos)
-                        : undefined
-                    }
-                  />
+                  )}
+                  {dxVisible && (
+                    <SpotEndpointHitArea
+                      lat={spot.dxLat}
+                      lon={spot.dxLon}
+                      spot={spot}
+                      hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                      occlusionOpacity={getOcclusionOpacity(
+                        spot.dxLat,
+                        spot.dxLon,
+                      )}
+                      onHover={onSpotHover}
+                      onHoverEnd={onSpotHoverEnd}
+                      onSelect={
+                        onSpotSelect
+                          ? (screenPos) =>
+                              onSpotSelect(presentableSpot, screenPos)
+                          : undefined
+                      }
+                    />
+                  )}
                 </>
               )}
             </group>
@@ -1116,19 +1117,36 @@ export function LiveSpotArcs({
         const replaySlice = resolvedReplay.slice(0, maxArcs);
         const replayEndpoints: EndpointData[] = [];
         const replayArcs = replaySlice.map((spot) => {
-          // Collect endpoints for batched instanced rendering
-          replayEndpoints.push({
-            lat: spot.spotterLat,
-            lon: spot.spotterLon,
-            color: SPOT_REPLAY_COLOR,
-            size: 0.005,
-          });
-          replayEndpoints.push({
-            lat: spot.dxLat,
-            lon: spot.dxLon,
-            color: SPOT_REPLAY_COLOR,
-            size: 0.006,
-          });
+          const reportId = spotLayoutReportId(
+            `replay-${spot.source}`,
+            spot.id,
+          );
+          const spotterVisible =
+            placementById === null ||
+            placementById.has(
+              spotLayoutCandidateId(reportId, "spotter"),
+            );
+          const dxVisible =
+            placementById === null ||
+            placementById.has(spotLayoutCandidateId(reportId, "dx"));
+          if (!spotterVisible && !dxVisible) return null;
+
+          if (spotterVisible) {
+            replayEndpoints.push({
+              lat: spot.spotterLat,
+              lon: spot.spotterLon,
+              color: SPOT_REPLAY_COLOR,
+              size: 0.005,
+            });
+          }
+          if (dxVisible) {
+            replayEndpoints.push({
+              lat: spot.dxLat,
+              lon: spot.dxLon,
+              color: SPOT_REPLAY_COLOR,
+              size: 0.006,
+            });
+          }
           const canInteract = Boolean(onSpotHover || onSpotSelect);
           return (
             <group key={`replay-${spot.id}`}>
@@ -1142,42 +1160,46 @@ export function LiveSpotArcs({
               />
               {canInteract && (
                 <>
-                  <SpotEndpointHitArea
-                    lat={spot.spotterLat}
-                    lon={spot.spotterLon}
-                    spot={spot}
-                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
-                    occlusionOpacity={getOcclusionOpacity(
-                      spot.spotterLat,
-                      spot.spotterLon,
-                    )}
-                    onHover={onSpotHover}
-                    onHoverEnd={onSpotHoverEnd}
-                    onSelect={
-                      onSpotSelect
-                        ? (screenPos) =>
-                            onSpotSelect(spot.originalSpot, screenPos)
-                        : undefined
-                    }
-                  />
-                  <SpotEndpointHitArea
-                    lat={spot.dxLat}
-                    lon={spot.dxLon}
-                    spot={spot}
-                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
-                    occlusionOpacity={getOcclusionOpacity(
-                      spot.dxLat,
-                      spot.dxLon,
-                    )}
-                    onHover={onSpotHover}
-                    onHoverEnd={onSpotHoverEnd}
-                    onSelect={
-                      onSpotSelect
-                        ? (screenPos) =>
-                            onSpotSelect(spot.originalSpot, screenPos)
-                        : undefined
-                    }
-                  />
+                  {spotterVisible && (
+                    <SpotEndpointHitArea
+                      lat={spot.spotterLat}
+                      lon={spot.spotterLon}
+                      spot={spot}
+                      hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                      occlusionOpacity={getOcclusionOpacity(
+                        spot.spotterLat,
+                        spot.spotterLon,
+                      )}
+                      onHover={onSpotHover}
+                      onHoverEnd={onSpotHoverEnd}
+                      onSelect={
+                        onSpotSelect
+                          ? (screenPos) =>
+                              onSpotSelect(spot.originalSpot, screenPos)
+                          : undefined
+                      }
+                    />
+                  )}
+                  {dxVisible && (
+                    <SpotEndpointHitArea
+                      lat={spot.dxLat}
+                      lon={spot.dxLon}
+                      spot={spot}
+                      hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                      occlusionOpacity={getOcclusionOpacity(
+                        spot.dxLat,
+                        spot.dxLon,
+                      )}
+                      onHover={onSpotHover}
+                      onHoverEnd={onSpotHoverEnd}
+                      onSelect={
+                        onSpotSelect
+                          ? (screenPos) =>
+                              onSpotSelect(spot.originalSpot, screenPos)
+                          : undefined
+                      }
+                    />
+                  )}
                 </>
               )}
             </group>

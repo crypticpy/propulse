@@ -46,6 +46,10 @@ export interface SpotLabelProps {
   ariaLabel?: string;
   /** Stack offset index for nearby labels (0 = no offset) */
   stackIndex?: number;
+  /** Deterministic viewport-space displacement from the shared layout pass. */
+  screenOffset?: { x: number; y: number };
+  /** Visual label scale mirrored by the shared collision bounds. */
+  labelScale?: number;
   /** Pre-computed color (hex). When provided, used instead of getModeColor(mode). */
   color?: string;
   /**
@@ -122,6 +126,8 @@ export function SpotLabel({
   badge,
   ariaLabel,
   stackIndex = 0,
+  screenOffset,
+  labelScale = 1,
   color: colorProp,
   occlusionOpacity = 1.0,
   onHover,
@@ -275,8 +281,16 @@ export function SpotLabel({
     return null;
   }
 
-  // Vertical pixel offset for stacked labels (each label ~22px tall)
-  const stackOffsetY = stackIndex * -24;
+  // Keep the legacy stack index for non-coordinated callers. Globe activity
+  // labels receive a full x/y displacement from the shared screen-space pass.
+  const offsetX = screenOffset?.x ?? 0;
+  const offsetY = screenOffset?.y ?? stackIndex * -24;
+  const wrapperTransform = [
+    offsetX || offsetY ? `translate(${offsetX}px, ${offsetY}px)` : "",
+    labelScale !== 1 ? `scale(${labelScale})` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   // Text opacity fades with age/occlusion but underline stays fully bright
   const textOpacity = Math.max(combinedOpacity, 0.35);
@@ -350,7 +364,8 @@ export function SpotLabel({
         pointerEvents: receivesPointer ? "auto" : "none",
         userSelect: "none",
         transition: "opacity 0.3s ease",
-        transform: stackOffsetY ? `translateY(${stackOffsetY}px)` : undefined,
+        transform: wrapperTransform || undefined,
+        transformOrigin: "center bottom",
         // Outer wrapper only hides when fully occluded (behind globe)
         opacity: isVisible ? 1 : 0,
       }}

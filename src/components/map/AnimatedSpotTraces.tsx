@@ -50,6 +50,11 @@ import {
   reconcileTraceFeed,
   type TracePhase,
 } from "@/lib/map/spotTraceLifecycle";
+import type { GlobeSpotLayoutResult } from "@/lib/map/globeSpotLayout";
+import {
+  spotLayoutCandidateId,
+  spotLayoutReportId,
+} from "@/lib/map/screenSpaceSpotLayout";
 
 // =============================================================================
 // TYPES
@@ -66,10 +71,14 @@ interface AnimatedSpotTracesProps {
   candidateSpots?: LiveSpot[];
   /** Shared coordinate resolution of candidateSpots. */
   resolvedSpots?: ResolvedSpot[];
+  /** Shared placement ownership for endpoint visibility and hit targets. */
+  layout?: GlobeSpotLayoutResult;
   /** Whether every requested source has produced a successful baseline. */
   isFeedReady?: boolean;
   /** Changes when the backing query scope changes (for example QTH/source). */
   hydrationKey?: string;
+  /** Reports whose trace lifecycle is currently mounted in the scene. */
+  onActiveTracesChange?: (spots: ResolvedSpot[]) => void;
   onSpotHover?: (
     spot: LiveSpot,
     screenPos: ScreenAnchor,
@@ -166,6 +175,8 @@ interface TraceAnimationProps {
   /** Resolved endpoint and original metadata for a lifetime-matched hit target. */
   spot: ResolvedSpot;
   sourceSpot: LiveSpot;
+  showSourceEndpoint: boolean;
+  showDestinationEndpoint: boolean;
   sourceOcclusionOpacity: number;
   destinationOcclusionOpacity: number;
   onSpotHover?: (
@@ -189,6 +200,8 @@ const TraceAnimation = React.memo(
     color,
     spot,
     sourceSpot,
+    showSourceEndpoint,
+    showDestinationEndpoint,
     sourceOcclusionOpacity,
     destinationOcclusionOpacity,
     onSpotHover,
@@ -429,8 +442,13 @@ const TraceAnimation = React.memo(
 
     if (points.length < 2) return null;
 
+    const showPath = showSourceEndpoint || showDestinationEndpoint;
+
     return (
-      <group>
+      // Keep the animation lifecycle mounted while an aggregate owns both
+      // endpoint surfaces. The trace can complete without leaving an orphan
+      // path or a hidden member's pointer target in the scene.
+      <group visible={showPath}>
         {/* Trail line — rendered with ALL points; instanceCount controls draw progress */}
         <Line
           ref={lineRef}
@@ -480,6 +498,7 @@ const TraceAnimation = React.memo(
         <mesh
           ref={destinationGlowRef}
           position={endpoint}
+          visible={showDestinationEndpoint}
           renderOrder={GLOBE_LAYER_ORDER.markers}
         >
           <sphereGeometry args={[DESTINATION_GLOW_RADIUS, 10, 10]} />
@@ -496,6 +515,7 @@ const TraceAnimation = React.memo(
         <mesh
           ref={destinationRef}
           position={endpoint}
+          visible={showDestinationEndpoint}
           renderOrder={GLOBE_LAYER_ORDER.markers + 0.1}
         >
           <sphereGeometry args={[DESTINATION_RADIUS, 10, 10]} />
@@ -514,32 +534,36 @@ const TraceAnimation = React.memo(
             {/* A trace describes a report path, so both the reporting station
                 and the heard/contact station must expose the same exact report
                 snapshot. Previously only the destination was clickable. */}
-            <SpotEndpointHitArea
-              lat={spot.spotterLat}
-              lon={spot.spotterLon}
-              spot={spot}
-              occlusionOpacity={sourceOcclusionOpacity}
-              onHover={onSpotHover}
-              onHoverEnd={onSpotHoverEnd}
-              onSelect={
-                onSpotSelect
-                  ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
-                  : undefined
-              }
-            />
-            <SpotEndpointHitArea
-              lat={spot.dxLat}
-              lon={spot.dxLon}
-              spot={spot}
-              occlusionOpacity={destinationOcclusionOpacity}
-              onHover={onSpotHover}
-              onHoverEnd={onSpotHoverEnd}
-              onSelect={
-                onSpotSelect
-                  ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
-                  : undefined
-              }
-            />
+            {showSourceEndpoint && (
+              <SpotEndpointHitArea
+                lat={spot.spotterLat}
+                lon={spot.spotterLon}
+                spot={spot}
+                occlusionOpacity={sourceOcclusionOpacity}
+                onHover={onSpotHover}
+                onHoverEnd={onSpotHoverEnd}
+                onSelect={
+                  onSpotSelect
+                    ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
+                    : undefined
+                }
+              />
+            )}
+            {showDestinationEndpoint && (
+              <SpotEndpointHitArea
+                lat={spot.dxLat}
+                lon={spot.dxLon}
+                spot={spot}
+                occlusionOpacity={destinationOcclusionOpacity}
+                onHover={onSpotHover}
+                onHoverEnd={onSpotHoverEnd}
+                onSelect={
+                  onSpotSelect
+                    ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
+                    : undefined
+                }
+              />
+            )}
           </>
         )}
 
@@ -576,8 +600,10 @@ export function AnimatedSpotTraces({
   feedSpots: suppliedFeedSpots,
   candidateSpots: suppliedCandidateSpots,
   resolvedSpots: suppliedResolvedSpots,
+  layout,
   isFeedReady: suppliedIsFeedReady,
   hydrationKey = "standalone",
+  onActiveTracesChange,
   onSpotHover,
   onSpotHoverEnd,
   onSpotSelect,
@@ -610,6 +636,10 @@ export function AnimatedSpotTraces({
 
   // Active traces currently animating
   const [activeTraces, setActiveTraces] = useState<QueuedTrace[]>([]);
+
+  useEffect(() => {
+    onActiveTracesChange?.(activeTraces.map(({ spot }) => spot));
+  }, [activeTraces, onActiveTracesChange]);
 
   // Last time we dequeued a trace
   const lastDequeueTime = useRef(0);
@@ -753,31 +783,55 @@ export function AnimatedSpotTraces({
   );
   const { getOpacity: getEndpointOcclusionOpacity } =
     useGlobeOcclusionBatch(endpointPositions);
+  const placedCandidateIds = useMemo(
+    () =>
+      layout
+        ? new Set(
+            layout.placements.map(({ candidate }) => candidate.id),
+          )
+        : null,
+    [layout],
+  );
 
   return (
     <group name="animated-spot-traces">
-      {activeTraces.map((trace) => (
-        <TraceAnimation
-          key={trace.spotId}
-          spotId={trace.spotId}
-          points={trace.points}
-          color={trace.color}
-          spot={trace.spot}
-          sourceSpot={trace.sourceSpot}
-          sourceOcclusionOpacity={getEndpointOcclusionOpacity(
-            trace.spot.spotterLat,
-            trace.spot.spotterLon,
-          )}
-          destinationOcclusionOpacity={getEndpointOcclusionOpacity(
-            trace.spot.dxLat,
-            trace.spot.dxLon,
-          )}
-          onSpotHover={onSpotHover}
-          onSpotHoverEnd={onSpotHoverEnd}
-          onSpotSelect={onSpotSelect}
-          onComplete={handleComplete}
-        />
-      ))}
+      {activeTraces.map((trace) => {
+        const reportId = spotLayoutReportId(
+          trace.sourceSpot.source,
+          trace.sourceSpot.id,
+        );
+        const showSourceEndpoint =
+          placedCandidateIds?.has(
+            spotLayoutCandidateId(reportId, "spotter"),
+          ) ?? true;
+        const showDestinationEndpoint =
+          placedCandidateIds?.has(spotLayoutCandidateId(reportId, "dx")) ??
+          true;
+        return (
+          <TraceAnimation
+            key={trace.spotId}
+            spotId={trace.spotId}
+            points={trace.points}
+            color={trace.color}
+            spot={trace.spot}
+            sourceSpot={trace.sourceSpot}
+            showSourceEndpoint={showSourceEndpoint}
+            showDestinationEndpoint={showDestinationEndpoint}
+            sourceOcclusionOpacity={getEndpointOcclusionOpacity(
+              trace.spot.spotterLat,
+              trace.spot.spotterLon,
+            )}
+            destinationOcclusionOpacity={getEndpointOcclusionOpacity(
+              trace.spot.dxLat,
+              trace.spot.dxLon,
+            )}
+            onSpotHover={onSpotHover}
+            onSpotHoverEnd={onSpotHoverEnd}
+            onSpotSelect={onSpotSelect}
+            onComplete={handleComplete}
+          />
+        );
+      })}
     </group>
   );
 }

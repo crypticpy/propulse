@@ -478,6 +478,13 @@ Layer configuration must describe both whether a layer is visible and which
 provenance it may consume. Do not encode provenance as another set of unrelated
 layer booleans.
 
+The focused scopes are also workspace modes, not map filters alone. PropSphere
+must bridge observation into the application's existing operating tools so an
+operator can select activity, work the contact, and log it without mentally or
+visually switching between unrelated products. The implementation should reuse
+the established QSO draft/editor, contact logging, CAT/radio, WSJT-X/FT8, and
+contest services rather than introducing a second logging stack.
+
 ### Implementation
 
 1. Add one derived operational-context selector with precedence:
@@ -502,6 +509,22 @@ layer booleans.
    session's public-assistance policy.
 10. Normalize own-station identity across QSO, contest, FT8, WSJT-X, and CAT
     events sufficiently to filter RX, TX, draft, and completed contacts.
+11. Add a responsive PropSphere operating workspace that can be shown as a
+    docked overlay panel in the normal view and opened as a synchronized
+    secondary window when screen space or operator workflow calls for it.
+12. Compose that workspace from existing contact-entry, QSO draft, lookup,
+    radio/CAT, WSJT-X, and contest components or their underlying shared hooks.
+    Do not fork validation, persistence, scoring, rig-control, or lookup logic.
+13. Keep map selection, current target/path conditions, tuned frequency/mode,
+    active QSO draft, session contacts, and focus state synchronized between the
+    3D view, 2D view, docked workspace, and secondary window.
+14. Make the observation-to-operation transition explicit: selecting a public
+    report may seed a target and draft, but entering log/contest scope switches
+    the map to owned/session provenance. The source report remains attributable
+    without leaving unrelated public traffic visible.
+15. Preserve the standalone logging and contest routes as full-page workflows;
+    the PropSphere workspace is an integrated presentation of the same state and
+    commands, not a replacement data model.
 
 ### Tests
 
@@ -513,6 +536,13 @@ layer booleans.
 - Ending a contest session restores the previous observation state.
 - Renderer adapters receive identical scoped data in globe, flat, and
   azimuthal views.
+- A selected public spot can seed the existing QSO draft, enter logging scope,
+  follow CAT/WSJT-X frequency and mode updates, and save through the canonical
+  logging path without duplicated records.
+- Docked and secondary-window workspaces remain synchronized when either side
+  edits the target, QSO draft, radio state, or contest session.
+- Closing or reopening the integrated workspace does not lose an in-progress
+  draft and does not alter the saved observation-layer configuration.
 
 ### Exit criteria
 
@@ -521,6 +551,9 @@ layer booleans.
 - Ending the session restores the operator's prior observation configuration.
 - Every visible map item can be traced to an allowed provenance in diagnostics.
 - Contest assistance state is obvious in both normal and fullscreen layouts.
+- An operator can discover a station in observation mode, transition into a
+  focused operating workspace, work and log the contact, and return to the
+  restored observation view without leaving PropSphere or re-entering data.
 
 ## Cross-PR verification matrix
 

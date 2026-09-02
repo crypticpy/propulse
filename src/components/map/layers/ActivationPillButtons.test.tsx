@@ -58,6 +58,18 @@ const SPOT = {
 };
 
 describe("activation label selections", () => {
+  it("does not mount an aggregate-owned 3D member or its hit surface", () => {
+    render(
+      <ActivationMarkers3D
+        spots={[SPOT]}
+        layout={{ placements: [], aggregates: [], rejectedIds: [] }}
+        onSpotSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /K5ABC/i })).toBeNull();
+  });
+
   it("routes 3D hover and selection through the canonical parent callbacks", () => {
     const onSpotHover = vi.fn();
     const onSpotHoverEnd = vi.fn();

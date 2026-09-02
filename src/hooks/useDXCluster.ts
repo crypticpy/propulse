@@ -41,6 +41,15 @@ export interface UseDXClusterOptions {
   enabled?: boolean;
 }
 
+/** Shared-source ownership guard kept pure for the multi-observer regression. */
+export function shouldDemoteClusterSource(
+  dataEnabled: boolean,
+  bridgeConnected: boolean,
+  spotSource: DXSpotSource,
+): boolean {
+  return dataEnabled && !bridgeConnected && spotSource === "bridge";
+}
+
 /**
  * Filter spots based on criteria
  */
@@ -202,10 +211,13 @@ export function useDXCluster(
 
   // Demote from bridge when bridge disconnects
   useEffect(() => {
-    if (!bridgeConnected && spotSource === "bridge") {
+    // A policy-disabled observer owns no transport. Without this guard, the
+    // unassisted contest overlay could demote the shared source while an
+    // enabled globe/spot-list observer still had a healthy bridge connection.
+    if (shouldDemoteClusterSource(dataEnabled, bridgeConnected, spotSource)) {
       setSpotSource("rest");
     }
-  }, [bridgeConnected, spotSource, setSpotSource]);
+  }, [bridgeConnected, dataEnabled, spotSource, setSpotSource]);
 
   // ─── Tier 2: REST proxy ───────────────────────────────────────────────────
 

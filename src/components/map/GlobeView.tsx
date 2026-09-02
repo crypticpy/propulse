@@ -1122,6 +1122,9 @@ const GlobeScene = React.memo(function GlobeScene({
       (!layers.spots && !layers.spotTraces) ||
       resolvedSpots.length === 0
     ) {
+      // The pulse renderer unmounts while hidden. Drop the last batch so
+      // remounting cannot replay stale arrivals as if they were new.
+      setArrivalGlows([]);
       return;
     }
 

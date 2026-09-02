@@ -454,7 +454,16 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
           spot.gridField.charCodeAt(1) >= 65 &&
           spot.gridField.charCodeAt(1) <= 82
         ) {
-          activateGlow(spot.gridField, spot.color, clockTime);
+          // Translate the parent's wall-clock arrival into the R3F clock.
+          // Initial batches deliberately carry small age offsets, preventing
+          // every field from peaking on the same frame; future skew clamps to
+          // a just-arrived pulse instead of scheduling a negative animation.
+          const ageSeconds = Math.max(0, (Date.now() - spot.timestamp) / 1000);
+          activateGlow(
+            spot.gridField,
+            spot.color,
+            clockTime - ageSeconds,
+          );
         }
       }
       processedCountRef.current = spots.length;

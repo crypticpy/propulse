@@ -226,8 +226,8 @@ export function PreferencesSection() {
         <ConditionalSubSettings show={spotClustering.enabled}>
           <SettingSlider
             id="pref-cluster-grid-size"
-            label="Grid Size"
-            description="Cell size in degrees for grouping spots"
+            label="Screen Spacing"
+            description="Pixel spacing used to group overlapping map activity"
             value={spotClustering.gridSize}
             min={5}
             max={15}

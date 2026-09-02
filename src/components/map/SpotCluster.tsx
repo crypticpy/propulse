@@ -44,6 +44,8 @@ export interface SpotClusterProps {
   color?: string;
   /** Accessible name for the focusable HTML count badge. */
   ariaLabel?: string;
+  /** Optional bounded multiplier supplied by the shared density layout. */
+  sizeScale?: number;
   /** Click handler for cluster expansion */
   onClick?: (
     cluster: SpotClusterType,
@@ -147,6 +149,7 @@ export function SpotCluster({
   cluster,
   color: colorOverride,
   ariaLabel,
+  sizeScale,
   onClick,
   onHover,
 }: SpotClusterProps) {
@@ -185,8 +188,10 @@ export function SpotCluster({
     return colorOverride ?? getModeColor(cluster.primarySpot.mode);
   }, [cluster.primarySpot.mode, colorOverride]);
 
-  // Calculate dynamic size based on cluster count
-  const sizeMultiplier = Math.min(1 + (cluster.count - 3) * 0.05, 1.5);
+  // Shared screen-space aggregates use logarithmic scaling so a 50-report
+  // beacon stays usable. Legacy callers retain the previous compact curve.
+  const sizeMultiplier =
+    sizeScale ?? Math.min(1 + (cluster.count - 3) * 0.05, 1.5);
 
   // Create hexagon geometry for the head (memoized with cleanup)
   const hexGeometry = useMemo(() => {

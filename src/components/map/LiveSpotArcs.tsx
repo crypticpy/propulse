@@ -41,6 +41,7 @@ import type { LiveSpot, SpotSource } from "@/types/livespot";
 import {
   getSpotColor,
   getBandFromFrequency,
+  SPOT_REPLAY_COLOR,
   type SpotColorMode,
 } from "@/lib/utils/spotColors";
 import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
@@ -427,7 +428,7 @@ interface LiveSpotArcsProps {
     screenPos: ScreenAnchor,
   ) => void;
   /** Callback when spot hover ends */
-  onSpotHoverEnd?: () => void;
+  onSpotHoverEnd?: (spot?: LiveSpot) => void;
   /** Callback when a spot label or endpoint is selected. */
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   /** Callback when a cluster is clicked */
@@ -479,6 +480,7 @@ const SpotArc = React.memo(function SpotArc({
   filterOpacityMultiplier = 1.0,
   bandHeightArcs = false,
   band,
+  colorOverride,
 }: {
   spot: ResolvedSpot;
   segments?: number;
@@ -494,6 +496,8 @@ const SpotArc = React.memo(function SpotArc({
   bandHeightArcs?: boolean;
   /** Band name for arc height lookup (e.g. "20m", "40m") */
   band?: string;
+  /** Fixed semantic color for non-live routes such as historical replay. */
+  colorOverride?: string;
 }) {
   // Validate coordinates to prevent NaN errors in THREE.js
   const hasValidCoords =
@@ -558,7 +562,7 @@ const SpotArc = React.memo(function SpotArc({
     band,
   ]);
 
-  const color = getSpotColor(spot, colorMode);
+  const color = colorOverride ?? getSpotColor(spot, colorMode);
 
   // Calculate age-based opacity using new getSpotAgeInfo
   const ageInfo = useMemo(() => getSpotAgeInfo(spot.time), [spot.time]);
@@ -813,18 +817,20 @@ export function LiveSpotArcs({
   const tempCamDir = useMemo(() => new THREE.Vector3(), []);
 
   // ── Batch globe occlusion for all label positions ────────────────────────
-  // Collects DX + spotter positions from resolvedSingles so a single useFrame
-  // callback replaces N individual per-label useFrame callbacks.
+  // Collects DX + spotter positions from live and replay reports so a single
+  // useFrame callback replaces N individual per-label/use-target callbacks.
+  // Replay routes used to remain visually present with no interactive source
+  // at either end, which made the sepia route field impossible to identify.
   const labelPositionsForOcclusion = useMemo(() => {
     const out: Array<{ lat: number; lon: number }> = [];
-    for (const spot of resolvedSingles) {
+    for (const spot of [...resolvedSingles, ...resolvedReplay]) {
       out.push({ lat: spot.dxLat, lon: spot.dxLon });
       if (spot.spotter) {
         out.push({ lat: spot.spotterLat, lon: spot.spotterLon });
       }
     }
     return out;
-  }, [resolvedSingles]);
+  }, [resolvedReplay, resolvedSingles]);
 
   const { getOpacity: getOcclusionOpacity } = useGlobeOcclusionBatch(
     labelPositionsForOcclusion,
@@ -971,7 +977,11 @@ export function LiveSpotArcs({
                               )
                           : undefined
                       }
-                      onHoverEnd={onSpotHoverEnd}
+                      onHoverEnd={
+                        onSpotHoverEnd && orig
+                          ? () => onSpotHoverEnd(orig)
+                          : undefined
+                      }
                       selected={orig?.id === selectedSpotId}
                       onSelect={
                         onSpotSelect && orig
@@ -1001,28 +1011,64 @@ export function LiveSpotArcs({
                         spot.spotterLat,
                         spot.spotterLon,
                       )}
+                      onHover={
+                        onSpotHover && orig
+                          ? (screenPos) => onSpotHover(orig, screenPos)
+                          : undefined
+                      }
+                      onHoverEnd={
+                        onSpotHoverEnd && orig
+                          ? () => onSpotHoverEnd(orig)
+                          : undefined
+                      }
+                      onSelect={
+                        onSpotSelect && orig
+                          ? (screenPos) => onSpotSelect(orig, screenPos)
+                          : undefined
+                      }
                     />
                   );
                 })()}
-              {/* Hit area for hover detection at DX location */}
+              {/* Both route endpoints are interactive. The receiver/DX end is
+                  the contact target; the source end identifies who reported
+                  the path and which live network supplied it. */}
               {(onSpotHover || (onSpotSelect && orig)) && (
-                <SpotEndpointHitArea
-                  lat={spot.dxLat}
-                  lon={spot.dxLon}
-                  spot={spot}
-                  hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
-                  occlusionOpacity={getOcclusionOpacity(
-                    spot.dxLat,
-                    spot.dxLon,
-                  )}
-                  onHover={onSpotHover}
-                  onHoverEnd={onSpotHoverEnd}
-                  onSelect={
-                    onSpotSelect && orig
-                      ? (screenPos) => onSpotSelect(orig, screenPos)
-                      : undefined
-                  }
-                />
+                <>
+                  <SpotEndpointHitArea
+                    lat={spot.spotterLat}
+                    lon={spot.spotterLon}
+                    spot={spot}
+                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                    occlusionOpacity={getOcclusionOpacity(
+                      spot.spotterLat,
+                      spot.spotterLon,
+                    )}
+                    onHover={onSpotHover}
+                    onHoverEnd={onSpotHoverEnd}
+                    onSelect={
+                      onSpotSelect && orig
+                        ? (screenPos) => onSpotSelect(orig, screenPos)
+                        : undefined
+                    }
+                  />
+                  <SpotEndpointHitArea
+                    lat={spot.dxLat}
+                    lon={spot.dxLon}
+                    spot={spot}
+                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                    occlusionOpacity={getOcclusionOpacity(
+                      spot.dxLat,
+                      spot.dxLon,
+                    )}
+                    onHover={onSpotHover}
+                    onHoverEnd={onSpotHoverEnd}
+                    onSelect={
+                      onSpotSelect && orig
+                        ? (screenPos) => onSpotSelect(orig, screenPos)
+                        : undefined
+                    }
+                  />
+                </>
               )}
             </group>
           );
@@ -1045,24 +1091,67 @@ export function LiveSpotArcs({
           replayEndpoints.push({
             lat: spot.spotterLat,
             lon: spot.spotterLon,
-            color: "#8B7355",
+            color: SPOT_REPLAY_COLOR,
             size: 0.005,
           });
           replayEndpoints.push({
             lat: spot.dxLat,
             lon: spot.dxLon,
-            color: "#8B7355",
+            color: SPOT_REPLAY_COLOR,
             size: 0.006,
           });
+          const canInteract = Boolean(onSpotHover || onSpotSelect);
           return (
-            <SpotArc
-              key={`replay-${spot.id}`}
-              spot={spot}
-              ageVisualizationEnabled={false}
-              colorMode="mode"
-              sizeScale={uiPrefs.spotDotScale ?? 1.0}
-              filterOpacityMultiplier={0.6}
-            />
+            <group key={`replay-${spot.id}`}>
+              <SpotArc
+                spot={spot}
+                ageVisualizationEnabled={false}
+                colorMode="mode"
+                colorOverride={SPOT_REPLAY_COLOR}
+                sizeScale={uiPrefs.spotDotScale ?? 1.0}
+                filterOpacityMultiplier={0.6}
+              />
+              {canInteract && (
+                <>
+                  <SpotEndpointHitArea
+                    lat={spot.spotterLat}
+                    lon={spot.spotterLon}
+                    spot={spot}
+                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                    occlusionOpacity={getOcclusionOpacity(
+                      spot.spotterLat,
+                      spot.spotterLon,
+                    )}
+                    onHover={onSpotHover}
+                    onHoverEnd={onSpotHoverEnd}
+                    onSelect={
+                      onSpotSelect
+                        ? (screenPos) =>
+                            onSpotSelect(spot.originalSpot, screenPos)
+                        : undefined
+                    }
+                  />
+                  <SpotEndpointHitArea
+                    lat={spot.dxLat}
+                    lon={spot.dxLon}
+                    spot={spot}
+                    hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                    occlusionOpacity={getOcclusionOpacity(
+                      spot.dxLat,
+                      spot.dxLon,
+                    )}
+                    onHover={onSpotHover}
+                    onHoverEnd={onSpotHoverEnd}
+                    onSelect={
+                      onSpotSelect
+                        ? (screenPos) =>
+                            onSpotSelect(spot.originalSpot, screenPos)
+                        : undefined
+                    }
+                  />
+                </>
+              )}
+            </group>
           );
         });
         return (

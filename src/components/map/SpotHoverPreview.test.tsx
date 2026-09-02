@@ -49,6 +49,7 @@ describe("SpotHoverPreview", () => {
 
     expect(screen.getByText("KA1VRY · POTA US-7948")).toBeTruthy();
     expect(screen.getByText("EM08PX")).toBeTruthy();
+    expect(screen.getByText("PSKReporter · W1AW → KA1VRY")).toBeTruthy();
     expect(screen.getByText("Easy")).toBeTruthy();
     expect(screen.getByText("EXCELLENT")).toBeTruthy();
     expect(screen.getByText("S9+5")).toBeTruthy();

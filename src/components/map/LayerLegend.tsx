@@ -27,13 +27,19 @@ interface LayerLegendProps {
 export function LayerLegend({ className = "" }: LayerLegendProps) {
   const layers = useMapStore((s) => s.layers);
   const viewMode = useMapStore((s) => s.viewMode);
+  const replayEnabled = useMapStore((s) => s.replayEnabled);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode = uiPrefs.spotColorMode ?? "mode";
   const [collapsed, setCollapsed] = useState(false);
 
   const specs = useMemo(
-    () => buildLayerLegends(layers, { spotColorMode, viewMode }),
-    [layers, spotColorMode, viewMode],
+    () =>
+      buildLayerLegends(layers, {
+        spotColorMode,
+        viewMode,
+        replayEnabled,
+      }),
+    [layers, replayEnabled, spotColorMode, viewMode],
   );
 
   if (specs.length === 0) return null;

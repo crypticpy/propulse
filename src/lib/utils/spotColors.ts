@@ -31,6 +31,9 @@ export const MODE_COLORS: Record<string, string> = {
   default: "#888888", // Gray fallback
 };
 
+/** Historical replay routes deliberately avoid the live mode/band palettes. */
+export const SPOT_REPLAY_COLOR = "#8B7355";
+
 /**
  * Tailwind utility class map keyed by canonical operating mode.
  *

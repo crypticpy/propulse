@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivationSpot } from "@/types/activationSpots";
 import {
+  aggregateProjectedActivationMarkers,
   drawActivationPills,
   formatActivationFrequency,
   placeActivationPill,
@@ -66,6 +67,67 @@ describe("resolveActivationMarkers", () => {
     expect(
       resolveActivationMarkers([{ ...BASE, latitude: 30, longitude: -97 }], 0),
     ).toEqual([]);
+  });
+});
+
+describe("aggregateProjectedActivationMarkers", () => {
+  const mappable = (
+    id: string,
+    latitude: number,
+    longitude: number,
+  ) => ({
+    ...BASE,
+    id,
+    callsign: `K5${id.toUpperCase()}`,
+    reference: `US-${id}`,
+    latitude,
+    longitude,
+  });
+
+  it("turns a connected pile-up into one geographic activity beacon", () => {
+    const spots = [
+      mappable("a", 38.9, -77),
+      mappable("b", 39.9, -75.1),
+      mappable("c", 40.7, -74),
+      mappable("d", 42.4, -71),
+    ];
+    const result = aggregateProjectedActivationMarkers(
+      spots.map((spot, index) => ({ spot, x: index * 90, y: 100 })),
+      { radiusPx: 112, minClusterSize: 3 },
+    );
+
+    expect(result.singles).toEqual([]);
+    expect(result.clusters).toHaveLength(1);
+    expect(result.clusters[0]).toMatchObject({ count: 4 });
+    expect(result.clusters[0].spots.map((spot) => spot.id).sort()).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
+  });
+
+  it("leaves sparse pairs individually selectable", () => {
+    const spots = [mappable("a", 30, -97), mappable("b", 31, -98)];
+    const result = aggregateProjectedActivationMarkers(
+      spots.map((spot, index) => ({ spot, x: index * 50, y: 50 })),
+    );
+
+    expect(result.clusters).toEqual([]);
+    expect(result.singles.map((spot) => spot.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("uses a circular longitude mean for antimeridian clusters", () => {
+    const spots = [
+      mappable("a", 10, 179),
+      mappable("b", 11, -179),
+      mappable("c", 12, 178),
+    ];
+    const result = aggregateProjectedActivationMarkers(
+      spots.map((spot, index) => ({ spot, x: 100 + index * 10, y: 100 })),
+    );
+
+    expect(Math.abs(result.clusters[0].center.lon)).toBeGreaterThan(177);
   });
 });
 

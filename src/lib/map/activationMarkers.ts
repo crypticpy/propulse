@@ -31,6 +31,25 @@ export interface ActivationPillScreenPlacement {
   height: number;
 }
 
+export interface ProjectedActivationMarker {
+  spot: MappableActivationSpot;
+  x: number;
+  y: number;
+}
+
+export interface ActivationMarkerCluster {
+  id: string;
+  center: { lat: number; lon: number };
+  spots: MappableActivationSpot[];
+  count: number;
+  primarySpot: MappableActivationSpot;
+}
+
+export interface ActivationMarkerAggregation {
+  clusters: ActivationMarkerCluster[];
+  singles: MappableActivationSpot[];
+}
+
 /**
  * Format a reported kHz value for a compact map label. Three decimal places
  * preserve common channel precision while trailing zeroes stay out of dense
@@ -109,6 +128,155 @@ export function resolveActivationMarkers(
   }
 
   return resolved;
+}
+
+function activationTime(spot: MappableActivationSpot): number {
+  const timestamp = new Date(spot.spottedAt).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
+function compareActivationRecency(
+  left: MappableActivationSpot,
+  right: MappableActivationSpot,
+): number {
+  const timeDifference = activationTime(right) - activationTime(left);
+  return timeDifference || left.id.localeCompare(right.id);
+}
+
+function activationClusterCenter(
+  spots: readonly MappableActivationSpot[],
+): { lat: number; lon: number } {
+  let latitudeTotal = 0;
+  let longitudeX = 0;
+  let longitudeY = 0;
+
+  for (const spot of spots) {
+    latitudeTotal += spot.latitude;
+    const longitudeRadians = (spot.longitude * Math.PI) / 180;
+    longitudeX += Math.cos(longitudeRadians);
+    longitudeY += Math.sin(longitudeRadians);
+  }
+
+  return {
+    lat: latitudeTotal / spots.length,
+    // A circular mean keeps a dense group around +/-180 degrees together.
+    lon: (Math.atan2(longitudeY, longitudeX) * 180) / Math.PI,
+  };
+}
+
+function stableActivationClusterId(
+  spots: readonly MappableActivationSpot[],
+): string {
+  // FNV-1a keeps React keys compact while remaining deterministic across feed
+  // refreshes that return the same reports in a different order.
+  const ids = spots.map((spot) => spot.id).sort().join("|");
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < ids.length; index += 1) {
+    hash ^= ids.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `activation-cluster-${(hash >>> 0).toString(36)}`;
+}
+
+/**
+ * Collapse activation reports whose rendered anchors occupy the same screen
+ * neighborhood. Unlike fixed latitude/longitude cells, screen-space grouping
+ * cannot split a Northeast pile-up merely because it crosses a cell boundary,
+ * and naturally expands back into individual tags as the operator zooms in.
+ *
+ * Neighboring points are joined as a connected component. That behavior is
+ * intentional for activity corridors: a chain of overlapping labels should
+ * become one legible activity beacon instead of several beacons that still
+ * collide with one another.
+ */
+export function aggregateProjectedActivationMarkers(
+  projected: readonly ProjectedActivationMarker[],
+  options: { radiusPx?: number; minClusterSize?: number } = {},
+): ActivationMarkerAggregation {
+  const radiusPx =
+    Number.isFinite(options.radiusPx) && (options.radiusPx ?? 0) > 0
+      ? options.radiusPx!
+      : 112;
+  const minClusterSize =
+    Number.isFinite(options.minClusterSize) &&
+    (options.minClusterSize ?? 0) >= 2
+      ? Math.floor(options.minClusterSize!)
+      : 3;
+
+  if (projected.length === 0) return { clusters: [], singles: [] };
+
+  const parents = projected.map((_, index) => index);
+  const find = (index: number): number => {
+    let root = index;
+    while (parents[root] !== root) root = parents[root];
+    while (parents[index] !== index) {
+      const parent = parents[index];
+      parents[index] = root;
+      index = parent;
+    }
+    return root;
+  };
+  const unite = (left: number, right: number) => {
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot !== rightRoot) parents[rightRoot] = leftRoot;
+  };
+
+  // A spatial hash limits neighbor checks to the point's cell and its eight
+  // neighbors instead of comparing every pair in a 500-report feed.
+  const cells = new Map<string, number[]>();
+  const radiusSquared = radiusPx * radiusPx;
+  projected.forEach((point, index) => {
+    const cellX = Math.floor(point.x / radiusPx);
+    const cellY = Math.floor(point.y / radiusPx);
+    for (let xOffset = -1; xOffset <= 1; xOffset += 1) {
+      for (let yOffset = -1; yOffset <= 1; yOffset += 1) {
+        const neighbors = cells.get(`${cellX + xOffset},${cellY + yOffset}`);
+        if (!neighbors) continue;
+        for (const neighborIndex of neighbors) {
+          const neighbor = projected[neighborIndex];
+          const deltaX = point.x - neighbor.x;
+          const deltaY = point.y - neighbor.y;
+          if (deltaX * deltaX + deltaY * deltaY <= radiusSquared) {
+            unite(index, neighborIndex);
+          }
+        }
+      }
+    }
+    const key = `${cellX},${cellY}`;
+    const cell = cells.get(key);
+    if (cell) cell.push(index);
+    else cells.set(key, [index]);
+  });
+
+  const groups = new Map<number, MappableActivationSpot[]>();
+  projected.forEach((point, index) => {
+    const root = find(index);
+    const group = groups.get(root);
+    if (group) group.push(point.spot);
+    else groups.set(root, [point.spot]);
+  });
+
+  const clusters: ActivationMarkerCluster[] = [];
+  const singles: MappableActivationSpot[] = [];
+  for (const spots of groups.values()) {
+    const sorted = [...spots].sort(compareActivationRecency);
+    if (sorted.length < minClusterSize) {
+      singles.push(...sorted);
+      continue;
+    }
+    clusters.push({
+      id: stableActivationClusterId(sorted),
+      center: activationClusterCenter(sorted),
+      spots: sorted,
+      count: sorted.length,
+      primarySpot: sorted[0],
+    });
+  }
+
+  clusters.sort((left, right) => left.id.localeCompare(right.id));
+  singles.sort(compareActivationRecency);
+  return { clusters, singles };
 }
 
 function roundedRect(

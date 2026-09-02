@@ -4,6 +4,13 @@ import type { ActivationProgram } from "@/types/activationSpots";
 import { ActivationMarkers3D } from "./ActivationMarkers3D";
 import { ActivationPillButtons } from "./ActivationPillButtons";
 
+vi.mock("@react-three/fiber", async () => {
+  const actual = await vi.importActual<typeof import("@react-three/fiber")>(
+    "@react-three/fiber",
+  );
+  return { ...actual, useFrame: vi.fn() };
+});
+
 vi.mock("@/hooks/useGlobeOcclusionBatch", () => ({
   useGlobeOcclusionBatch: () => ({ getOpacity: () => 1 }),
 }));
@@ -85,7 +92,9 @@ describe("activation label selections", () => {
       }),
       { x: 10, y: 20 },
     );
-    expect(onSpotHoverEnd).toHaveBeenCalledOnce();
+    expect(onSpotHoverEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "pota-1", dx: "K5ABC" }),
+    );
     expect(onSpotSelect).toHaveBeenCalledWith(
       expect.objectContaining({ dxLat: 30.25, dxLon: -97.75 }),
       { x: 10, y: 20 },

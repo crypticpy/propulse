@@ -146,6 +146,9 @@ describe("SpotEndpointHitArea selection", () => {
       />,
     );
     expect(onHoverEnd).toHaveBeenCalledOnce();
+    expect(onHoverEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
+    );
   });
 
   it("ends hover on unmount only when this endpoint owns it", () => {
@@ -178,5 +181,8 @@ describe("SpotEndpointHitArea selection", () => {
     });
     active.unmount();
     expect(activeHoverEnd).toHaveBeenCalledOnce();
+    expect(activeHoverEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
+    );
   });
 });

@@ -70,7 +70,7 @@ interface AnimatedSpotTracesProps {
   /** Changes when the backing query scope changes (for example QTH/source). */
   hydrationKey?: string;
   onSpotHover?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
-  onSpotHoverEnd?: () => void;
+  onSpotHoverEnd?: (spot?: LiveSpot) => void;
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
 }
 
@@ -158,9 +158,10 @@ interface TraceAnimationProps {
   /** Resolved endpoint and original metadata for a lifetime-matched hit target. */
   spot: ResolvedSpot;
   sourceSpot: LiveSpot;
-  occlusionOpacity: number;
+  sourceOcclusionOpacity: number;
+  destinationOcclusionOpacity: number;
   onSpotHover?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
-  onSpotHoverEnd?: () => void;
+  onSpotHoverEnd?: (spot?: LiveSpot) => void;
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   /** Callback when this trace finishes its full lifecycle — receives spotId */
   onComplete: (spotId: string) => void;
@@ -173,7 +174,8 @@ const TraceAnimation = React.memo(
     color,
     spot,
     sourceSpot,
-    occlusionOpacity,
+    sourceOcclusionOpacity,
+    destinationOcclusionOpacity,
     onSpotHover,
     onSpotHoverEnd,
     onSpotSelect,
@@ -493,19 +495,37 @@ const TraceAnimation = React.memo(
         </mesh>
 
         {(onSpotHover || onSpotSelect) && (
-          <SpotEndpointHitArea
-            lat={spot.dxLat}
-            lon={spot.dxLon}
-            spot={spot}
-            occlusionOpacity={occlusionOpacity}
-            onHover={onSpotHover}
-            onHoverEnd={onSpotHoverEnd}
-            onSelect={
-              onSpotSelect
-                ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
-                : undefined
-            }
-          />
+          <>
+            {/* A trace describes a report path, so both the reporting station
+                and the heard/contact station must expose the same exact report
+                snapshot. Previously only the destination was clickable. */}
+            <SpotEndpointHitArea
+              lat={spot.spotterLat}
+              lon={spot.spotterLon}
+              spot={spot}
+              occlusionOpacity={sourceOcclusionOpacity}
+              onHover={onSpotHover}
+              onHoverEnd={onSpotHoverEnd}
+              onSelect={
+                onSpotSelect
+                  ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
+                  : undefined
+              }
+            />
+            <SpotEndpointHitArea
+              lat={spot.dxLat}
+              lon={spot.dxLon}
+              spot={spot}
+              occlusionOpacity={destinationOcclusionOpacity}
+              onHover={onSpotHover}
+              onHoverEnd={onSpotHoverEnd}
+              onSelect={
+                onSpotSelect
+                  ? (screenPos) => onSpotSelect(sourceSpot, screenPos)
+                  : undefined
+              }
+            />
+          </>
         )}
 
         {/* Landing pulse ring */}
@@ -710,10 +730,10 @@ export function AnimatedSpotTraces({
 
   const endpointPositions = useMemo(
     () =>
-      activeTraces.map(({ spot }) => ({
-        lat: spot.dxLat,
-        lon: spot.dxLon,
-      })),
+      activeTraces.flatMap(({ spot }) => [
+        { lat: spot.spotterLat, lon: spot.spotterLon },
+        { lat: spot.dxLat, lon: spot.dxLon },
+      ]),
     [activeTraces],
   );
   const { getOpacity: getEndpointOcclusionOpacity } =
@@ -729,7 +749,11 @@ export function AnimatedSpotTraces({
           color={trace.color}
           spot={trace.spot}
           sourceSpot={trace.sourceSpot}
-          occlusionOpacity={getEndpointOcclusionOpacity(
+          sourceOcclusionOpacity={getEndpointOcclusionOpacity(
+            trace.spot.spotterLat,
+            trace.spot.spotterLon,
+          )}
+          destinationOcclusionOpacity={getEndpointOcclusionOpacity(
             trace.spot.dxLat,
             trace.spot.dxLon,
           )}

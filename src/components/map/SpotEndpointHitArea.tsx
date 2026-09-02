@@ -38,7 +38,7 @@ export interface SpotEndpointHitAreaProps {
     screenPos: { x: number; y: number },
   ) => void;
   /** Callback when hover ends */
-  onHoverEnd?: () => void;
+  onHoverEnd?: (spot: LiveSpot) => void;
   /** Selects this endpoint's spot as the current map target. */
   onSelect?: (screenPos: { x: number; y: number }) => void;
 }
@@ -104,7 +104,9 @@ export function SpotEndpointHitArea({
   const meshRef = useRef<THREE.Mesh>(null);
   const ownsHoverRef = useRef(false);
   const onHoverEndRef = useRef(onHoverEnd);
+  const originalSpotRef = useRef(spot.originalSpot);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
+  originalSpotRef.current = spot.originalSpot;
 
   useEffect(() => {
     onHoverEndRef.current = onHoverEnd;
@@ -118,7 +120,7 @@ export function SpotEndpointHitArea({
     () => () => {
       if (!ownsHoverRef.current) return;
       ownsHoverRef.current = false;
-      onHoverEndRef.current?.();
+      onHoverEndRef.current?.(originalSpotRef.current);
     },
     [],
   );
@@ -159,8 +161,8 @@ export function SpotEndpointHitArea({
   const handlePointerLeave = useCallback(() => {
     if (!ownsHoverRef.current) return;
     ownsHoverRef.current = false;
-    onHoverEndRef.current?.();
-  }, []);
+    onHoverEndRef.current?.(spot.originalSpot);
+  }, [spot.originalSpot]);
 
   const handlePointerInteraction = useCallback(
     (event: ThreeEvent<PointerEvent>) => event.stopPropagation(),
@@ -191,8 +193,8 @@ export function SpotEndpointHitArea({
   useEffect(() => {
     if (occlusionOpacity >= 0.05 || !ownsHoverRef.current) return;
     ownsHoverRef.current = false;
-    onHoverEndRef.current?.();
-  }, [occlusionOpacity]);
+    onHoverEndRef.current?.(spot.originalSpot);
+  }, [occlusionOpacity, spot.originalSpot]);
 
   if (occlusionOpacity < 0.05) return null;
 

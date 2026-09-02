@@ -167,10 +167,16 @@ export function PropSphere() {
   const target = useMapStore((s) => s.target);
   const setTarget = useMapStore((s) => s.setTarget);
   const layers = useMapStore((s) => s.layers);
+  const replayEnabled = useMapStore((s) => s.replayEnabled);
   const spotColorMode = useUIInteractionPrefs().spotColorMode ?? "mode";
   const hasLayerLegend = useMemo(
-    () => buildLayerLegends(layers, { spotColorMode, viewMode }).length > 0,
-    [layers, spotColorMode, viewMode],
+    () =>
+      buildLayerLegends(layers, {
+        spotColorMode,
+        viewMode,
+        replayEnabled,
+      }).length > 0,
+    [layers, replayEnabled, spotColorMode, viewMode],
   );
   const activePreset = useMapStore((s) => s.activePreset);
   const layoutMode = useMapStore((s) => s.layoutMode);
@@ -182,7 +188,6 @@ export function PropSphere() {
   const compactFit = useDisplayFit();
   const setDXConsoleExpanded = useMapStore((s) => s.setDXConsoleExpanded);
   const pathMode = useMapStore((s) => s.pathMode);
-  const replayEnabled = useMapStore((s) => s.replayEnabled);
   const setReplayEnabled = useMapStore((s) => s.setReplayEnabled);
   const station = useUserStore((state) => state.station);
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);

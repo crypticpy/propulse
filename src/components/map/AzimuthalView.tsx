@@ -106,7 +106,10 @@ import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
 import { getSublunarPoint } from "@/lib/utils/moon";
-import { gridActivityResolutionForView } from "@/lib/map/gridActivityModel";
+import {
+  gridActivityGridForCoordinate,
+  gridActivityResolutionForView,
+} from "@/lib/map/gridActivityModel";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -2412,13 +2415,11 @@ export function AzimuthalView({
 
       if (layers.gridActivity) {
         try {
-          const grid = latLonToGrid(
+          const grid = gridActivityGridForCoordinate(
             lat,
             lon,
             gridActivity.resolution,
-          )
-            .slice(0, gridActivity.resolution)
-            .toUpperCase();
+          );
           const activityCell = gridActivity.cellsByGrid.get(grid);
           if (activityCell) {
             const spots = [...activityCell.reports];

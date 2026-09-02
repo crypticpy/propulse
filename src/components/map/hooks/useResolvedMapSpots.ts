@@ -3,6 +3,7 @@ import { useActivationSpots } from "@/hooks/useActivationSpots";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { resolveActivationMarkers } from "@/lib/map/activationMarkers";
 import { selectMapSpotCandidates } from "@/lib/map/spotCandidates";
+import { MAX_SPOT_FETCH_LIMIT } from "@/lib/map/spotDensity";
 import type { SpotSource } from "@/types/livespot";
 import type { SpotFilters } from "@/types/operatingProfile";
 import { resolveSpotLocations } from "../LiveSpotArcs";
@@ -49,6 +50,10 @@ export function useResolvedMapSpots({
     refetchInterval,
     sources: sources && sources.length > 0 ? sources : undefined,
     spotFilters,
+    // Semantic activity must not change when the visual density slider moves.
+    // Edge routes cap each source at 200, so this is the complete available
+    // snapshot; renderer limits are still applied below.
+    fetchLimit: MAX_SPOT_FETCH_LIMIT,
   });
   const activations = useActivationSpots(activationsEnabled);
   const filteredSpots = useMemo(
@@ -58,6 +63,14 @@ export function useResolvedMapSpots({
         spotFilters,
       }),
     [live.spots, sources, spotFilters],
+  );
+  const evidenceSpots = useMemo(
+    () =>
+      selectMapSpotCandidates(live.evidenceSpots, {
+        sources,
+        spotFilters,
+      }),
+    [live.evidenceSpots, sources, spotFilters],
   );
   const {
     candidateSpots,
@@ -71,7 +84,7 @@ export function useResolvedMapSpots({
       return {
         candidateSpots: filteredSpots.slice(0, limit),
         resolvedSpots: [],
-        allCandidateSpots: filteredSpots,
+        allCandidateSpots: evidenceSpots,
         allResolvedSpots: [],
       };
     }
@@ -80,16 +93,16 @@ export function useResolvedMapSpots({
     // entries at the head of the time-sorted feed consume capacity without
     // producing a point. Rebuild both arrays from the same resolved order so
     // trace metadata and coordinates always describe the same spot IDs.
-    const resolvedCandidates = resolveSpotLocations(filteredSpots);
-    const sourceById = new Map(
-      filteredSpots.map((spot) => [spot.id, spot] as const),
+    const resolvedEvidence = resolveSpotLocations(evidenceSpots);
+    const resolvedById = new Map(
+      resolvedEvidence.map((spot) => [spot.id, spot] as const),
     );
     const cappedCandidates = [] as typeof filteredSpots;
-    const cappedResolved = [] as typeof resolvedCandidates;
-    for (const resolved of resolvedCandidates) {
+    const cappedResolved = [] as typeof resolvedEvidence;
+    for (const source of filteredSpots) {
       if (cappedResolved.length >= limit) break;
-      const source = sourceById.get(resolved.id);
-      if (!source) continue;
+      const resolved = resolvedById.get(source.id);
+      if (!resolved) continue;
       cappedCandidates.push(source);
       cappedResolved.push(resolved);
     }
@@ -99,10 +112,10 @@ export function useResolvedMapSpots({
       // Activity aggregation and other semantic summaries must see the whole
       // eligible feed. Renderer density limits are applied only to the arrays
       // above so a crowded region cannot disappear from aggregate facts.
-      allCandidateSpots: filteredSpots,
-      allResolvedSpots: resolvedCandidates,
+      allCandidateSpots: evidenceSpots,
+      allResolvedSpots: resolvedEvidence,
     };
-  }, [filteredSpots, maxSpots, resolveEnabled]);
+  }, [evidenceSpots, filteredSpots, maxSpots, resolveEnabled]);
   const activationSpots = useMemo(
     () =>
       activationsEnabled

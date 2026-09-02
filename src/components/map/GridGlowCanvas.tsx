@@ -437,8 +437,11 @@ export class GridGlowRenderer {
   getNextAnimationDelay(now: number = Date.now()): number | null {
     this.pruneExpired(now);
     for (const cell of this.activityCells) {
-      const age = now - cell.newestTimestamp;
-      if (age >= 0 && age < GRID_ACTIVITY_RECENCY_PULSE_MS) return 0;
+      // Reports slightly ahead of the local clock are accepted by the shared
+      // activity model. Match the painter's clamped age so their freshness
+      // accent keeps scheduling frames and later decays normally.
+      const age = Math.max(0, now - cell.newestTimestamp);
+      if (age < GRID_ACTIVITY_RECENCY_PULSE_MS) return 0;
     }
     if (this.glows.length === 0) return null;
 

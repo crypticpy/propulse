@@ -136,7 +136,7 @@ function isExactCoordinate(lat: number, lon: number, approximate: boolean) {
   );
 }
 
-function activityGridForCoordinate(
+export function gridActivityGridForCoordinate(
   lat: number,
   lon: number,
   resolution: GridActivityResolution,
@@ -250,7 +250,7 @@ export function buildGridActivitySnapshot(
       isExactCoordinate(resolved.dxLat, resolved.dxLon, resolved.dxLocApprox)
     ) {
       grids.add(
-        activityGridForCoordinate(
+        gridActivityGridForCoordinate(
           resolved.dxLat,
           resolved.dxLon,
           resolution,
@@ -266,7 +266,7 @@ export function buildGridActivitySnapshot(
       )
     ) {
       grids.add(
-        activityGridForCoordinate(
+        gridActivityGridForCoordinate(
           resolved.spotterLat,
           resolved.spotterLon,
           resolution,
@@ -318,9 +318,12 @@ export function buildGridActivitySnapshot(
         reportIds: Object.freeze(ordered.map(([reportId]) => reportId)),
         reports: Object.freeze(ordered.map(([, spot]) => spot)),
         densityScore: score,
-        recencyScore: Math.max(
-          0,
-          1 - (now - Math.max(...timestamps)) / Math.max(1, windowMs),
+        recencyScore: Math.min(
+          1,
+          Math.max(
+            0,
+            1 - (now - Math.max(...timestamps)) / Math.max(1, windowMs),
+          ),
         ),
         color: gridActivityColor(score),
       };

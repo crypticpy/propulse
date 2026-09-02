@@ -4,6 +4,7 @@ import type { LiveSpot } from "@/types/livespot";
 import {
   buildGridActivitySnapshot,
   gridActivityBounds,
+  gridActivityGridForCoordinate,
   gridActivityReportIdentity,
   gridActivityResolutionForView,
   rankGridActivityCells,
@@ -112,6 +113,16 @@ describe("buildGridActivitySnapshot", () => {
       now: NOW,
     });
     expect(snapshot.cells[0].grid).toBe("RR");
+    expect(gridActivityGridForCoordinate(90, 180, 4)).toBe("RR99");
+  });
+
+  it("keeps clock-skewed freshness scores inside the normalized range", () => {
+    const future = resolved("future", { time: new Date(NOW + 60_000) });
+    const snapshot = buildGridActivitySnapshot([future], {
+      resolution: 4,
+      now: NOW,
+    });
+    expect(snapshot.cells[0].recencyScore).toBe(1);
   });
 
   it("keeps DX, reporter, and combined endpoint semantics explicit", () => {

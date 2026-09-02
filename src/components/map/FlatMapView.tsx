@@ -136,7 +136,10 @@ import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
 import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
-import { gridActivityResolutionForView } from "@/lib/map/gridActivityModel";
+import {
+  gridActivityGridForCoordinate,
+  gridActivityResolutionForView,
+} from "@/lib/map/gridActivityModel";
 import {
   drawActivationPills,
   sameActivationPillScreenPlacements,
@@ -4185,9 +4188,11 @@ export function FlatMapView({
           : zoomRef.current.scale >= 3
             ? 6
             : 4;
-        const grid = latLonToGrid(lat, lon, gridPrecision)
-          .slice(0, gridPrecision)
-          .toUpperCase();
+        const grid = layers.gridActivity
+          ? gridActivityGridForCoordinate(lat, lon, gridActivity.resolution)
+          : latLonToGrid(lat, lon, gridPrecision)
+              .slice(0, gridPrecision)
+              .toUpperCase();
         const gridMembers = getGridCollectionSpots(grid);
         if (gridMembers.length === 0) return false;
         hoveredSpotOwnerRef.current = null;

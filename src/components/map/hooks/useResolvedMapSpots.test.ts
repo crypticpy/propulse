@@ -22,6 +22,7 @@ describe("useResolvedMapSpots", () => {
   beforeEach(() => {
     mocks.live.mockReturnValue({
       spots: [{ id: "raw-1" }],
+      evidenceSpots: [{ id: "raw-1" }],
       isLoading: false,
       isFeedReady: true,
       isError: false,
@@ -50,6 +51,7 @@ describe("useResolvedMapSpots", () => {
       refetchInterval: 60_000,
       sources: undefined,
       spotFilters: undefined,
+      fetchLimit: 200,
     });
     expect(mocks.resolve).toHaveBeenCalledWith([{ id: "raw-1" }]);
     expect(result.current.resolvedSpots).toEqual([{ id: "raw-1" }]);
@@ -86,6 +88,7 @@ describe("useResolvedMapSpots", () => {
       refetchInterval: 60_000,
       sources: undefined,
       spotFilters: undefined,
+      fetchLimit: 200,
     });
     expect(mocks.activations).toHaveBeenCalledWith(true);
     expect(mocks.resolveActivations).toHaveBeenCalledWith(
@@ -105,6 +108,7 @@ describe("useResolvedMapSpots", () => {
     ];
     mocks.live.mockReturnValue({
       spots: rawSpots,
+      evidenceSpots: rawSpots,
       isLoading: false,
       isFeedReady: true,
       isError: false,
@@ -138,6 +142,7 @@ describe("useResolvedMapSpots", () => {
     ];
     mocks.live.mockReturnValue({
       spots: rawSpots,
+      evidenceSpots: rawSpots,
       isLoading: false,
       isFeedReady: true,
       isError: false,
@@ -167,5 +172,32 @@ describe("useResolvedMapSpots", () => {
       { id: "resolved-first" },
       { id: "resolved-second" },
     ]);
+  });
+
+  it("builds semantic activity from evidence before visual deduplication", () => {
+    const visual = [{ id: "same-dx-first" }];
+    const evidence = [
+      visual[0],
+      { id: "same-dx-second" },
+      { id: "same-dx-third" },
+    ];
+    mocks.live.mockReturnValue({
+      spots: visual,
+      evidenceSpots: evidence,
+      isLoading: false,
+      isFeedReady: true,
+      isError: false,
+      spotsBySource: {},
+      refetch: vi.fn(),
+    });
+
+    const { result } = renderHook(() =>
+      useResolvedMapSpots({ enabled: true, maxSpots: 1 }),
+    );
+
+    expect(mocks.resolve).toHaveBeenCalledWith(evidence);
+    expect(result.current.candidateSpots).toEqual(visual);
+    expect(result.current.allCandidateSpots).toEqual(evidence);
+    expect(result.current.allResolvedSpots).toHaveLength(3);
   });
 });

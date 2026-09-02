@@ -167,10 +167,10 @@ const APPEARANCE = {
   FILL_MIN: 0.26,
   /** Fill alpha for a grid at the canonical model's saturation density */
   FILL_MAX: 0.62,
-  /** Border is solid within this many degrees of the cell edge */
-  BORDER_CORE_DEG: 0.07,
-  /** ...and fades to nothing by this many degrees */
-  BORDER_SOFT_DEG: 0.16,
+  /** Border is solid within this normalized fraction of every cell edge. */
+  BORDER_CORE_UV: 0.025,
+  /** ...and fades to nothing by this normalized fraction. */
+  BORDER_SOFT_UV: 0.065,
   /** Base border alpha, held for as long as the grid stays active */
   BORDER_ALPHA: 0.78,
   /** Extra border alpha immediately after a spot lands */
@@ -204,14 +204,14 @@ const PERSIST_FRAGMENT_SHADER = /* glsl */ `
     // colour ramp, so alpha only has to give the square visual weight.
     float fill = mix(FILL_MIN, FILL_MAX, vIntensity);
 
-    // Cell border. The cell spans 2 deg of longitude by 1 deg of latitude,
-    // so scale UV distances into degrees for a uniform-width stroke on all
-    // four sides.
-    float edgeDeg = min(
-      min(vUv.x, 1.0 - vUv.x) * 2.0,
+    // Define the border in normalized cell coordinates. Activity LOD ranges
+    // from 2-character fields to 6-character subsquares, so a degree-based
+    // width would become 10x too thick or nearly invisible across resolutions.
+    float edgeUv = min(
+      min(vUv.x, 1.0 - vUv.x),
       min(vUv.y, 1.0 - vUv.y)
     );
-    float border = 1.0 - smoothstep(BORDER_CORE_DEG, BORDER_SOFT_DEG, edgeDeg);
+    float border = 1.0 - smoothstep(BORDER_CORE_UV, BORDER_SOFT_UV, edgeUv);
 
     // Recency accent. The border and fill both persist for as long as the
     // grid stays in the activity window — only this extra lift decays, so a
@@ -313,21 +313,27 @@ export function GridPersistOverlay({ cells }: GridPersistOverlayProps) {
   const cameraLocal = useMemo(() => new THREE.Vector3(), []);
   const cellDirection = useMemo(() => new THREE.Vector3(), []);
   const freshClockActiveRef = useRef(true);
+  const freshUntil = useMemo(
+    () =>
+      cells.reduce(
+        (latest, cell) =>
+          Math.max(
+            latest,
+            cell.newestTimestamp + GRID_ACTIVITY_RECENCY_PULSE_MS,
+          ),
+        0,
+      ),
+    [cells],
+  );
+  const prevCameraDistanceRef = useRef(Number.NaN);
 
-  // Update instance data only when activityMap reference changes
+  // Update instance data only when canonical cells or the meaningful camera
+  // pose changes; the recency clock above remains independent of GPU uploads.
   useFrame(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
     const now = Date.now();
-    const freshUntil = cells.reduce(
-      (latest, cell) =>
-        Math.max(
-          latest,
-          cell.newestTimestamp + GRID_ACTIVITY_RECENCY_PULSE_MS,
-        ),
-      0,
-    );
     // The shader clock advances only while a recency accent is changing. Once
     // every border has settled, persistent density remains entirely static.
     if (now <= freshUntil) {
@@ -343,13 +349,17 @@ export function GridPersistOverlay({ cells }: GridPersistOverlayProps) {
     // in mesh-local coordinates so "visible" describes the same hemisphere
     // the shader renders, regardless of that parent transform.
     mesh.worldToLocal(cameraLocal.copy(cameraWorld));
+    const cameraDistance = cameraLocal.length();
     cameraDirection.copy(cameraLocal).normalize();
     const cameraChanged =
       !Number.isFinite(prevCameraRef.current.x) ||
-      cameraDirection.distanceToSquared(prevCameraRef.current) > 0.000004;
+      cameraDirection.distanceToSquared(prevCameraRef.current) > 0.000004 ||
+      !Number.isFinite(prevCameraDistanceRef.current) ||
+      Math.abs(cameraDistance - prevCameraDistanceRef.current) > 0.002;
     if (cells === prevCellsRef.current && !cameraChanged) return;
     prevCellsRef.current = cells;
     prevCameraRef.current.copy(cameraDirection);
+    prevCameraDistanceRef.current = cameraDistance;
 
     const boundsArray = boundsAttr.array as Float32Array;
     const intensityArray = intensityAttr.array as Float32Array;
@@ -357,7 +367,7 @@ export function GridPersistOverlay({ cells }: GridPersistOverlayProps) {
 
     let idx = 0;
 
-    const horizonThreshold = 1 / Math.max(1.0001, cameraLocal.length());
+    const horizonThreshold = 1 / Math.max(1.0001, cameraDistance);
     const rankedCells = rankGridActivityCells(cells, {
       budget: MAX_INSTANCES,
       isVisible: (cell) => {

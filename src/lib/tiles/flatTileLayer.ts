@@ -1,5 +1,9 @@
 import type { TileProviderConfig } from "./types";
 import { authHeaders } from "@/lib/api/authFetch";
+import {
+  recordFlatMapTileRange,
+  shouldDrawFlatMapTileBounds,
+} from "@/lib/map/flatMapDiagnostics";
 
 /**
  * FlatTileLayer — composites XYZ raster tiles onto the 2D equirectangular map.
@@ -18,6 +22,8 @@ export interface FlatTileViewState {
   renderWidth: number;
   renderHeight: number;
   devicePixelRatio: number;
+  /** Suppresses the idle prefetch ring while the operator pans or zooms. */
+  navigationActive?: boolean;
 }
 
 export interface FlatTileLayer {
@@ -36,6 +42,9 @@ export interface FlatTileLayerOptions {
   prefetchRadius?: number;
   settleDelayMs?: number;
   onProviderUnavailable?: () => void;
+  /** Test seam for coalescing tile completions without depending on a real RAF. */
+  scheduleFrame?: (callback: FrameRequestCallback) => number;
+  cancelFrame?: (handle: number) => void;
 }
 
 interface TileEntry {
@@ -55,6 +64,19 @@ const MIN_DRAW_ZOOM = 5;
 const FALLBACK_ZOOM_STEPS = 2;
 const MERCATOR_MAX_LAT = 85.05112878;
 
+export interface FlatTileWindow {
+  zoom: number;
+  visible: { xStart: number; xEnd: number; yStart: number; yEnd: number };
+  requested: { xStart: number; xEnd: number; yStart: number; yEnd: number };
+  mapBounds: { left: number; right: number; top: number; bottom: number };
+  geoBounds: {
+    lonLeft: number;
+    lonRight: number;
+    latTop: number;
+    latBottom: number;
+  };
+}
+
 /** Latitude (deg) → normalized Mercator y in [0, 1], 0 at the north edge. */
 function mercatorNormY(lat: number): number {
   const clamped = Math.min(Math.max(lat, -MERCATOR_MAX_LAT), MERCATOR_MAX_LAT);
@@ -65,6 +87,60 @@ function mercatorNormY(lat: number): number {
 /** Normalized Mercator y in [0, 1] → latitude (deg). */
 function mercatorNormYToLat(ny: number): number {
   return (Math.atan(Math.sinh(Math.PI * (1 - 2 * ny))) * 180) / Math.PI;
+}
+
+/** Resolve the exact visible XYZ window and its optional, bounded idle ring. */
+export function getFlatTileWindow(
+  provider: TileProviderConfig,
+  view: FlatTileViewState,
+  tileZoomBias = 0,
+  prefetchRadius = 0,
+): FlatTileWindow | null {
+  const { scale, offsetX, offsetY, renderWidth, renderHeight } = view;
+  const worldDevicePx = renderWidth * scale * view.devicePixelRatio;
+  const idealZoom =
+    Math.round(Math.log2(worldDevicePx / provider.tileSize)) + tileZoomBias;
+  if (idealZoom < MIN_DRAW_ZOOM) return null;
+
+  const left = Math.max(0, -offsetX / scale);
+  const right = Math.min(renderWidth, (renderWidth - offsetX) / scale);
+  const top = Math.max(0, -offsetY / scale);
+  const bottom = Math.min(renderHeight, (renderHeight - offsetY) / scale);
+  if (right <= left || bottom <= top) return null;
+
+  const lonLeft = (left / renderWidth) * 360 - 180;
+  const lonRight = (right / renderWidth) * 360 - 180;
+  const latTop = 90 - (top / renderHeight) * 180;
+  const latBottom = 90 - (bottom / renderHeight) * 180;
+  if (latTop <= -MERCATOR_MAX_LAT || latBottom >= MERCATOR_MAX_LAT) {
+    return null;
+  }
+
+  const zoom = Math.min(idealZoom, provider.maxZoom);
+  const n = 1 << zoom;
+  const visible = {
+    xStart: Math.max(0, Math.floor(((lonLeft + 180) / 360) * n)),
+    xEnd: Math.min(n - 1, Math.floor(((lonRight + 180) / 360) * n)),
+    yStart: Math.max(0, Math.floor(mercatorNormY(latTop) * n)),
+    yEnd: Math.min(n - 1, Math.floor(mercatorNormY(latBottom) * n)),
+  };
+  const ring = Math.max(
+    0,
+    Math.floor(view.navigationActive ? 0 : prefetchRadius),
+  );
+
+  return {
+    zoom,
+    visible,
+    requested: {
+      xStart: Math.max(0, visible.xStart - ring),
+      xEnd: Math.min(n - 1, visible.xEnd + ring),
+      yStart: Math.max(0, visible.yStart - ring),
+      yEnd: Math.min(n - 1, visible.yEnd + ring),
+    },
+    mapBounds: { left, right, top, bottom },
+    geoBounds: { lonLeft, lonRight, latTop, latBottom },
+  };
 }
 
 export function createFlatTileLayer(
@@ -91,6 +167,22 @@ export function createFlatTileLayer(
   let requestQueue: string[] = [];
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   let lastViewSignature = "";
+  let completionFrame: number | undefined;
+  const scheduleFrame =
+    options.scheduleFrame ??
+    ((callback: FrameRequestCallback) => requestAnimationFrame(callback));
+  const cancelFrame =
+    options.cancelFrame ?? ((handle: number) => cancelAnimationFrame(handle));
+
+  // A provider can decode many tiles in the same browser frame. React only
+  // needs one retained-basemap invalidation for that batch.
+  function notifyTileCompletion(): void {
+    if (disposed || completionFrame !== undefined) return;
+    completionFrame = scheduleFrame(() => {
+      completionFrame = undefined;
+      if (!disposed) onTileLoaded();
+    });
+  }
 
   function releaseEntry(entry: TileEntry): void {
     const wasLoading = entry.status === "loading";
@@ -165,7 +257,7 @@ export function createFlatTileLayer(
         URL.revokeObjectURL(entry.objectUrl);
         entry.objectUrl = undefined;
       }
-      onTileLoaded();
+      notifyTileCompletion();
       pumpQueue();
     };
     img.onerror = () => markError(entry);
@@ -261,57 +353,48 @@ export function createFlatTileLayer(
     if (disposed) {
       return false;
     }
-    const { scale, offsetX, offsetY, renderWidth, renderHeight } = view;
-    const worldDevicePx = renderWidth * scale * view.devicePixelRatio;
-    const idealZoom =
-      Math.round(Math.log2(worldDevicePx / provider.tileSize)) + tileZoomBias;
-    if (idealZoom < MIN_DRAW_ZOOM) {
-      return false; // base image is sharp enough at this zoom
-    }
-    const z = Math.min(idealZoom, provider.maxZoom);
-
-    // Visible window in map space (CSS px, before the zoom transform).
-    const left = Math.max(0, -offsetX / scale);
-    const right = Math.min(renderWidth, (renderWidth - offsetX) / scale);
-    const top = Math.max(0, -offsetY / scale);
-    const bottom = Math.min(renderHeight, (renderHeight - offsetY) / scale);
-    if (right <= left || bottom <= top) {
+    const { scale, renderWidth, renderHeight } = view;
+    const window = getFlatTileWindow(
+      provider,
+      view,
+      tileZoomBias,
+      prefetchRadius,
+    );
+    if (!window) {
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = undefined;
+      for (const [key, entry] of cache) {
+        if (entry.status === "loading" || entry.status === "queued") {
+          releaseEntry(entry);
+          cache.delete(key);
+        }
+      }
+      requestQueue = [];
+      lastViewSignature = "";
       return false;
     }
 
-    const lonLeft = (left / renderWidth) * 360 - 180;
-    const lonRight = (right / renderWidth) * 360 - 180;
-    const latTop = 90 - (top / renderHeight) * 180;
-    const latBottom = 90 - (bottom / renderHeight) * 180;
-    if (latTop <= -MERCATOR_MAX_LAT || latBottom >= MERCATOR_MAX_LAT) {
-      return false; // window is entirely polar — outside tile coverage
-    }
-
-    const exactN = 1 << z;
-    const exactXStart = Math.max(
-      0,
-      Math.floor(((lonLeft + 180) / 360) * exactN),
-    );
-    const exactXEnd = Math.min(
-      exactN - 1,
-      Math.floor(((lonRight + 180) / 360) * exactN),
-    );
-    const exactYStart = Math.max(0, Math.floor(mercatorNormY(latTop) * exactN));
-    const exactYEnd = Math.min(
-      exactN - 1,
-      Math.floor(mercatorNormY(latBottom) * exactN),
-    );
-    const requestXStart = Math.max(0, exactXStart - prefetchRadius);
-    const requestXEnd = Math.min(exactN - 1, exactXEnd + prefetchRadius);
-    const requestYStart = Math.max(0, exactYStart - prefetchRadius);
-    const requestYEnd = Math.min(exactN - 1, exactYEnd + prefetchRadius);
+    const { zoom: z, visible, requested, mapBounds, geoBounds } = window;
+    const { left, right, top, bottom } = mapBounds;
+    const { lonLeft, lonRight, latTop, latBottom } = geoBounds;
+    const requestXStart = requested.xStart;
+    const requestXEnd = requested.xEnd;
+    const requestYStart = requested.yStart;
+    const requestYEnd = requested.yEnd;
     const viewSignature = `${z}/${requestXStart}-${requestXEnd}/${requestYStart}-${requestYEnd}`;
     const viewChanged = viewSignature !== lastViewSignature;
     lastViewSignature = viewSignature;
 
+    recordFlatMapTileRange({
+      zoom: z,
+      visible,
+      requested,
+      navigationActive: view.navigationActive === true,
+    });
+
     // Coarse-to-fine: paint any cached ancestor tiles first so zooming shows
     // upscaled imagery instead of holes while the exact level loads.
-    const visibleTileKeys = new Set<string>();
+    const retainedRequestKeys = new Set<string>();
     let drewProviderTile = false;
     for (let level = Math.max(2, z - FALLBACK_ZOOM_STEPS); level <= z; level++) {
       const n = 1 << level;
@@ -334,7 +417,7 @@ export function createFlatTileLayer(
       for (let ty = yStart; ty <= yEnd; ty++) {
         for (let tx = xStart; tx <= xEnd; tx++) {
           const key = `${level}/${tx}/${ty}`;
-          visibleTileKeys.add(key);
+          retainedRequestKeys.add(key);
           const entry = cache.get(key);
           if (entry) {
             if (entry.status === "ready") {
@@ -355,6 +438,18 @@ export function createFlatTileLayer(
               if (intersectsVisibleViewport) {
                 drawTile(ctx, entry.img, level, tx, ty, view);
                 drewProviderTile = true;
+                if (shouldDrawFlatMapTileBounds() && level === z) {
+                  ctx.save();
+                  ctx.strokeStyle = "rgba(0, 255, 255, 0.9)";
+                  ctx.lineWidth = 1 / scale;
+                  ctx.strokeRect(
+                    tileLeft,
+                    tileTop,
+                    tileRight - tileLeft,
+                    tileBottom - tileTop,
+                  );
+                  ctx.restore();
+                }
               }
             }
           } else if (level === z) {
@@ -369,18 +464,22 @@ export function createFlatTileLayer(
     for (const [key, entry] of cache) {
       if (
         (entry.status === "loading" || entry.status === "queued") &&
-        !visibleTileKeys.has(key)
+        !retainedRequestKeys.has(key)
       ) {
         releaseEntry(entry);
         cache.delete(key);
       }
     }
 
-    if (viewChanged && settleTimer) {
+    if ((viewChanged || view.navigationActive) && settleTimer) {
       clearTimeout(settleTimer);
       settleTimer = undefined;
     }
-    if (viewChanged && settleDelayMs > 0) {
+    if (view.navigationActive) {
+      // Exact visible children are useful during a gesture; the configured
+      // offscreen ring is only introduced by the settled redraw.
+      pumpQueue();
+    } else if (viewChanged && settleDelayMs > 0) {
       settleTimer = setTimeout(() => {
         settleTimer = undefined;
         pumpQueue();
@@ -398,6 +497,8 @@ export function createFlatTileLayer(
       disposed = true;
       if (settleTimer) clearTimeout(settleTimer);
       settleTimer = undefined;
+      if (completionFrame !== undefined) cancelFrame(completionFrame);
+      completionFrame = undefined;
       for (const entry of cache.values()) {
         releaseEntry(entry);
       }

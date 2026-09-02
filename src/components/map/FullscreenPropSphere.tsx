@@ -31,6 +31,12 @@ import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
+import {
+  useMapOperationalContext,
+  useScopedMapLayers,
+} from "@/hooks/useMapOperationalContext";
+import { policyAllows } from "@/lib/map/operationalScope";
+import { OperationalScopeControl } from "@/components/ops/OpsConsole";
 
 // ── Panel metadata for dock strip pills ────────────────────────
 const PANEL_LABELS: Record<string, string> = {
@@ -154,7 +160,13 @@ export function FullscreenPropSphere({
   const autoRotate = useMapStore((s) => s.autoRotate);
   const observatoryMode = useMapStore((s) => s.observatoryMode);
   const exitObservatory = useMapStore((s) => s.exitObservatory);
-  const layers = useMapStore((s) => s.layers);
+  const layers = useScopedMapLayers();
+  const { policy } = useMapOperationalContext();
+  const showPublicActivity = policyAllows(
+    policy,
+    "liveSpots",
+    "public",
+  );
   const { station } = useUserStore();
   const watchCriteria = useWatchStore((s) => s.criteria);
 
@@ -259,13 +271,15 @@ export function FullscreenPropSphere({
       (proPanelLayout[a]?.dockedOrder ?? 0) -
       (proPanelLayout[b]?.dockedOrder ?? 0);
     const left = collapsedPanelIds
+      .filter((id) => showPublicActivity || id !== "dx-spots")
       .filter((id) => (proPanelLayout[id]?.dockedEdge ?? "left") === "left")
       .sort(byOrder);
     const right = collapsedPanelIds
+      .filter((id) => showPublicActivity || id !== "dx-spots")
       .filter((id) => (proPanelLayout[id]?.dockedEdge ?? "left") === "right")
       .sort(byOrder);
     return { left, right };
-  }, [collapsedPanelIds, proPanelLayout]);
+  }, [collapsedPanelIds, proPanelLayout, showPublicActivity]);
 
   // Handle escape key — observatory mode exits observatory, else exits fullscreen
   useEffect(() => {
@@ -341,6 +355,15 @@ export function FullscreenPropSphere({
           ${ambientMode && !showTopBar ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <ContestRatePanel />
+      </div>
+
+      {/* Scope remains visible in fullscreen; focused work can pop out without
+          shrinking the map or losing the synchronized target/draft. */}
+      <div
+        className={`fixed top-16 left-4 z-[215] pointer-events-auto transition-opacity duration-300
+          ${ambientMode && !showTopBar ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      >
+        <OperationalScopeControl compact />
       </div>
 
       {/* ── Unified Toolbar Ribbon ──────────────────────────────── */}
@@ -517,7 +540,7 @@ export function FullscreenPropSphere({
         )}
 
         {/* DX Spots — bottom-center */}
-        {!proPanelLayout["dx-spots"]?.collapsed && (
+        {showPublicActivity && !proPanelLayout["dx-spots"]?.collapsed && (
           <FloatingPanel
             id="dx-spots"
             title="DX Spots"

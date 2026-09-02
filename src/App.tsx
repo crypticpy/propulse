@@ -57,6 +57,11 @@ const Contest = lazy(() =>
 const PropSphere = lazy(() =>
   import("@/pages/PropSphere").then((m) => ({ default: m.PropSphere })),
 );
+const PropSphereOpsWindow = lazy(() =>
+  import("@/pages/PropSphereOpsWindow").then((m) => ({
+    default: m.PropSphereOpsWindow,
+  })),
+);
 const MapExplorerPage = lazy(() => import("@/pages/MapExplorerPage"));
 const Photorealistic3DPage = lazy(
   () => import("@/pages/Photorealistic3DPage"),
@@ -287,6 +292,21 @@ function App() {
           </div>
         )}
         <Routes>
+          {/* Full-window peer for PropSphere's synchronized operating dock. */}
+          <Route
+            path="/map/ops"
+            element={
+              <Suspense
+                fallback={
+                  <div className="flex min-h-screen items-center justify-center bg-void-black font-mono text-xs uppercase tracking-widest text-white/40">
+                    Loading operating workspace…
+                  </div>
+                }
+              >
+                <PropSphereOpsWindow />
+              </Suspense>
+            }
+          />
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/solar" element={<SolarPulse />} />

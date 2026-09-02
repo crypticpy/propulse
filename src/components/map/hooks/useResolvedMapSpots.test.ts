@@ -1,5 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { buildMapDataPolicy } from "@/lib/map/operationalScope";
+import type { MapDataPolicy } from "@/lib/map/operationalScope";
 import { useResolvedMapSpots } from "./useResolvedMapSpots";
 
 const mocks = vi.hoisted(() => ({
@@ -7,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   resolve: vi.fn(),
   activations: vi.fn(),
   resolveActivations: vi.fn(),
+  policy: null as unknown as MapDataPolicy,
 }));
 
 vi.mock("@/hooks/useLiveSpots", () => ({ useLiveSpots: mocks.live }));
@@ -17,10 +20,14 @@ vi.mock("@/lib/map/activationMarkers", () => ({
   resolveActivationMarkers: mocks.resolveActivations,
 }));
 vi.mock("../LiveSpotArcs", () => ({ resolveSpotLocations: mocks.resolve }));
+vi.mock("@/hooks/useMapOperationalContext", () => ({
+  useMapOperationalContext: () => ({ policy: mocks.policy }),
+}));
 
 describe("useResolvedMapSpots", () => {
   beforeEach(() => {
     const rawSpot = { id: "raw-1" };
+    mocks.policy = buildMapDataPolicy("observe", false);
     mocks.live.mockReturnValue({
       spots: [rawSpot],
       evidenceSpots: [rawSpot],
@@ -223,5 +230,35 @@ describe("useResolvedMapSpots", () => {
     expect(result.current.candidateSpots).toEqual(visual);
     expect(result.current.allCandidateSpots).toEqual(evidence);
     expect(result.current.allResolvedSpots).toHaveLength(3);
+  });
+
+  it("keeps only station reports and disables public activations in log scope", () => {
+    mocks.policy = buildMapDataPolicy("log", false);
+    const wsjtx = { id: "local", source: "WSJT-X" };
+    const remote = { id: "remote", source: "RBN" };
+    mocks.live.mockReturnValue({
+      spots: [remote, wsjtx],
+      evidenceSpots: [remote, wsjtx],
+      isLoading: false,
+      isFeedReady: true,
+      isError: false,
+      spotsBySource: {},
+      refetch: vi.fn(),
+    });
+
+    const { result } = renderHook(() =>
+      useResolvedMapSpots({
+        enabled: true,
+        activationsEnabled: true,
+        sources: ["RBN"],
+      }),
+    );
+
+    expect(mocks.live).toHaveBeenCalledWith(
+      expect.objectContaining({ sources: ["WSJT-X"] }),
+    );
+    expect(mocks.activations).toHaveBeenCalledWith(false);
+    expect(result.current.candidateSpots).toEqual([wsjtx]);
+    expect(result.current.dataPolicy.scope).toBe("log");
   });
 });

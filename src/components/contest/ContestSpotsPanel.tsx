@@ -11,11 +11,13 @@
 import { useMemo, useCallback, useState } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { useDXCluster } from "@/hooks/useDXCluster";
+import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
 import { useContestStore } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
 import { getNeededMultipliers, type NeededMult } from "@/lib/contest/strategy";
 import { getBandColor } from "@/lib/api/dxcluster";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
+import { policyAllows } from "@/lib/map/operationalScope";
 
 // ============================================================================
 // Types
@@ -428,6 +430,8 @@ export function ContestSpotsPanel({
 
   // Contest store
   const { activeSession, isDupe } = useContestStore();
+  const { policy } = useMapOperationalContext();
+  const publicSpotsEnabled = policyAllows(policy, "liveSpots", "public");
 
   // Build filters for DX cluster hook
   const dxFilters = useMemo<DXClusterFilters>(() => {
@@ -451,7 +455,10 @@ export function ContestSpotsPanel({
   }, [bandFilter, currentBand, modeFilter, currentMode, ageFilter]);
 
   // Fetch spots with filters
-  const { spots, isLoading, isFetching, lastUpdated } = useDXCluster(dxFilters);
+  const { spots, isLoading, isFetching, lastUpdated } = useDXCluster(
+    dxFilters,
+    { enabled: publicSpotsEnabled },
+  );
 
   // Get contest definition and needed multipliers
   const contestDef = useMemo(() => {

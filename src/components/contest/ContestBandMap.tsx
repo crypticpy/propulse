@@ -11,6 +11,7 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
+import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
 import { useRadioDaemon } from "@/hooks/useRadioDaemon";
 import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
 import { getContestById } from "@/lib/data/contests";
@@ -28,6 +29,7 @@ import type { NeededMult } from "@/lib/contest";
 import type { RadioBinaryFrame } from "@/lib/radio/protocol";
 import { getWaterfallPaletteLut } from "@/components/sdr/waterfallPalette";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { policyAllows } from "@/lib/map/operationalScope";
 
 // ============================================================================
 // Types
@@ -306,8 +308,12 @@ export function ContestBandMap({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
 
-  // Get spots from DX cluster
-  const { allSpots } = useDXCluster();
+  // Public contest band-map input exists only when the operator has explicitly
+  // enabled assisted operation for this session.
+  const { policy } = useMapOperationalContext();
+  const { allSpots } = useDXCluster(undefined, {
+    enabled: policyAllows(policy, "liveSpots", "public"),
+  });
 
   // Optional SDR FFT background (from Radio Daemon, if configured)
   const [daemonUrl, setDaemonUrl] = useState<string | null>(null);

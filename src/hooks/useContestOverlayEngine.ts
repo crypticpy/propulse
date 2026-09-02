@@ -15,6 +15,8 @@ import { getContestById } from "@/lib/data/contests";
 import { extractMultiplierValue } from "@/lib/contest";
 import { getNeededMultipliers } from "@/lib/contest/strategy";
 import type { OverlayMarker } from "@/types/mapOverlays";
+import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
+import { policyAllows } from "@/lib/map/operationalScope";
 
 const LAYER_ID = "contest-needed-mults";
 const MAX_MARKERS = 180;
@@ -42,6 +44,7 @@ function resolveDxccPrefix(
 }
 
 export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
+  const { policy } = useMapOperationalContext();
   const activeSession = useContestStore((s) => s.activeSession);
   const isDupeCheck = useContestStore((s) => s.isDupe);
 
@@ -53,12 +56,19 @@ export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
     sessionId ? s.modeBySessionId[sessionId] ?? "CW" : "CW",
   );
 
-  const { allSpots } = useDXCluster();
+  const publicMultiplierAssistance = policyAllows(
+    policy,
+    "neededMultipliers",
+    "public",
+  );
+  const { allSpots } = useDXCluster(undefined, {
+    enabled: enabled && publicMultiplierAssistance,
+  });
   const updateOverlayLayer = useMapStore((s) => s.updateOverlayLayer);
   const removeOverlayLayer = useMapStore((s) => s.removeOverlayLayer);
 
   const markers = useMemo((): OverlayMarker[] => {
-    if (!enabled || !activeSession) {
+    if (!enabled || !activeSession || !publicMultiplierAssistance) {
       return [];
     }
 
@@ -129,16 +139,31 @@ export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
     }
 
     return markers;
-  }, [activeSession, allSpots, currentBand, currentMode, enabled, isDupeCheck]);
+  }, [
+    activeSession,
+    allSpots,
+    currentBand,
+    currentMode,
+    enabled,
+    isDupeCheck,
+    publicMultiplierAssistance,
+  ]);
 
   useEffect(() => {
-    if (!enabled || !activeSession) {
+    if (!enabled || !activeSession || !publicMultiplierAssistance) {
       removeOverlayLayer(LAYER_ID);
       return;
     }
 
     updateOverlayLayer(LAYER_ID, { type: "markers", markers });
-  }, [activeSession, enabled, markers, removeOverlayLayer, updateOverlayLayer]);
+  }, [
+    activeSession,
+    enabled,
+    markers,
+    publicMultiplierAssistance,
+    removeOverlayLayer,
+    updateOverlayLayer,
+  ]);
 }
 
 export default useContestOverlayEngine;

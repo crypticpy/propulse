@@ -6,8 +6,13 @@ import {
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
+import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { formatSpotPresentationLabel } from "@/lib/map/spotPresentation";
+import {
+  mapSpotSourceProvenance,
+  type MapDataProvenance,
+} from "@/lib/map/operationalScope";
 
 export type MapSpotLocationSource = "coordinates" | "grid" | "callsign-prefix";
 
@@ -23,6 +28,15 @@ export interface MapSpotSelection {
 export interface MapSpotSelectionActions {
   setSelectedSpot: (spot: DXSpot) => void;
   setTarget: (target: TargetLocation | null) => void;
+  setSelectedReport?: (report: {
+    id: string;
+    callsign: string;
+    frequency: number;
+    mode: string;
+    source: string;
+    provenance: MapDataProvenance;
+    selectedAt: number;
+  }) => void;
 }
 
 function isValidCoordinate(
@@ -130,7 +144,22 @@ export function commitMapSpotSelection(
   actions: MapSpotSelectionActions,
 ): MapSpotSelection | null {
   const resolved = resolveMapSpotSelection(spot);
-  actions.setSelectedSpot(resolved?.spot ?? spot);
+  const selectedSpot = resolved?.spot ?? spot;
+  const source =
+    (selectedSpot as DXSpot & { source?: string }).source ?? "Cluster";
+  actions.setSelectedSpot(selectedSpot);
+  // Inspection updates map target and attribution only. The explicit Work &
+  // Log action owns draft preparation so browsing cannot overwrite a QSO that
+  // the operator is already entering.
+  actions.setSelectedReport?.({
+    id: selectedSpot.id,
+    callsign: selectedSpot.dx,
+    frequency: selectedSpot.frequency,
+    mode: selectedSpot.mode || "SSB",
+    source,
+    provenance: mapSpotSourceProvenance(source),
+    selectedAt: Date.now(),
+  });
   if (resolved) {
     actions.setTarget(resolved.target);
   } else {
@@ -143,11 +172,18 @@ export function commitMapSpotSelection(
 export function useMapSpotSelection() {
   const setSelectedSpot = useDXStore((state) => state.setSelectedSpot);
   const setTarget = useMapStore((state) => state.setTarget);
+  const setSelectedReport = useMapOperationalStore(
+    (state) => state.setSelectedReport,
+  );
 
   return useCallback(
     (spot: DXSpot) =>
-      commitMapSpotSelection(spot, { setSelectedSpot, setTarget }),
-    [setSelectedSpot, setTarget],
+      commitMapSpotSelection(spot, {
+        setSelectedSpot,
+        setTarget,
+        setSelectedReport,
+      }),
+    [setSelectedReport, setSelectedSpot, setTarget],
   );
 }
 

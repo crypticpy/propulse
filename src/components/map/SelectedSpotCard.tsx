@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
@@ -134,6 +136,16 @@ export function SelectedSpotCard({
   const selectMapSpot = useMapSpotSelection();
   const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
   const target = useMapStore((state) => state.target);
+  const setDXConsoleExpanded = useMapStore(
+    (state) => state.setDXConsoleExpanded,
+  );
+  const setManualScope = useMapOperationalStore(
+    (state) => state.setManualScope,
+  );
+  const setWorkspaceOpen = useMapOperationalStore(
+    (state) => state.setWorkspaceOpen,
+  );
+  const prepareQsoDraft = useQSOStore((state) => state.setFromSpot);
   const { station } = useUserStore();
   const setWatch = useWatchStore((state) => state.setWatch);
   const catEnabled = useRigStore((state) => state.catEnabled);
@@ -237,6 +249,30 @@ export function SelectedSpotCard({
     setPendingFrequency(spot.frequency * 1000);
     setPendingMode(mapSpotModeToRigMode(spot.mode, spot.frequency));
   }, [setPendingFrequency, setPendingMode, spot]);
+
+  const handleWorkAndLog = useCallback(() => {
+    if (!spot) return;
+    // This explicit action seeds the existing qsoStore draft and enters the
+    // operating workspace; merely inspecting public activity stays read-only.
+    selectMapSpot(spot);
+    prepareQsoDraft({
+      callsign: spot.dx,
+      frequency: spot.frequency,
+      mode: spot.mode || "SSB",
+    });
+    setManualScope("log");
+    setWorkspaceOpen(true);
+    setDXConsoleExpanded(true);
+    onClose();
+  }, [
+    onClose,
+    prepareQsoDraft,
+    selectMapSpot,
+    setDXConsoleExpanded,
+    setManualScope,
+    setWorkspaceOpen,
+    spot,
+  ]);
 
   if (!spot) return null;
 
@@ -445,6 +481,7 @@ export function SelectedSpotCard({
         </div>
 
         <div className="grid grid-cols-3 gap-1.5 border-t border-white/10 px-3 py-2.5">
+          <ActionButton onClick={handleWorkAndLog}>Work &amp; log</ActionButton>
           <ActionButton
             onClick={handleSetTarget}
             active={targetSelected}

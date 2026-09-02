@@ -127,6 +127,10 @@ export function useSpotHoverArbitration() {
     useState<HoveredSpotData | null>(null);
   const currentRef = useRef<HoverCandidate | null>(null);
   const activeCandidatesRef = useRef(new Map<string, HoverCandidate>());
+  const previewInteractionsRef = useRef<Record<SpotPreviewInteraction, boolean>>({
+    pointer: false,
+    focus: false,
+  });
   const dismissTimerRef = useRef<number | null>(null);
   const anchorFrameRef = useRef<number | null>(null);
   const queuedAnchorRef = useRef<HoverCandidate | null>(null);
@@ -234,6 +238,12 @@ export function useSpotHoverArbitration() {
   );
 
   const scheduleDismiss = useCallback(() => {
+    if (
+      previewInteractionsRef.current.pointer ||
+      previewInteractionsRef.current.focus
+    ) {
+      return;
+    }
     if (dismissTimerRef.current !== null) return;
     dismissTimerRef.current = window.setTimeout(() => {
       dismissTimerRef.current = null;
@@ -277,18 +287,35 @@ export function useSpotHoverArbitration() {
     [cancelQueuedAnchor, commitCandidate, scheduleDismiss],
   );
 
-  const holdSpotHoverForPreview = useCallback(() => {
-    cancelSpotHoverDismiss();
-  }, [cancelSpotHoverDismiss]);
+  const holdSpotHoverForPreview = useCallback(
+    (interaction: SpotPreviewInteraction) => {
+      previewInteractionsRef.current[interaction] = true;
+      cancelSpotHoverDismiss();
+    },
+    [cancelSpotHoverDismiss],
+  );
 
-  const releaseSpotHoverFromPreview = useCallback(() => {
-    scheduleDismiss();
-  }, [scheduleDismiss]);
+  const releaseSpotHoverFromPreview = useCallback(
+    (interaction: SpotPreviewInteraction) => {
+      previewInteractionsRef.current[interaction] = false;
+      if (
+        previewInteractionsRef.current.pointer ||
+        previewInteractionsRef.current.focus ||
+        activeCandidatesRef.current.size > 0
+      ) {
+        return;
+      }
+      scheduleDismiss();
+    },
+    [scheduleDismiss],
+  );
 
   const clearSpotHover = useCallback(() => {
     cancelSpotHoverDismiss();
     cancelQueuedAnchor();
     activeCandidatesRef.current.clear();
+    previewInteractionsRef.current.pointer = false;
+    previewInteractionsRef.current.focus = false;
     currentRef.current = null;
     setHoveredSpotData(null);
   }, [cancelQueuedAnchor, cancelSpotHoverDismiss]);

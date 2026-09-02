@@ -108,13 +108,15 @@ describe("SpotHoverPreview", () => {
 
     fireEvent.pointerEnter(preview);
     fireEvent.pointerLeave(preview);
+    fireEvent.focus(preview);
+    fireEvent.blur(preview);
     fireEvent.click(preview);
     fireEvent.keyDown(preview, { key: "Enter" });
 
-    expect(onInteractStart).toHaveBeenCalledOnce();
-    expect(onInteractEnd).toHaveBeenCalledOnce();
-    expect(onInteractStart).toHaveBeenCalledWith();
-    expect(onInteractEnd).toHaveBeenCalledWith();
+    expect(onInteractStart).toHaveBeenNthCalledWith(1, "pointer");
+    expect(onInteractStart).toHaveBeenNthCalledWith(2, "focus");
+    expect(onInteractEnd).toHaveBeenNthCalledWith(1, "pointer");
+    expect(onInteractEnd).toHaveBeenNthCalledWith(2, "focus");
     expect(onActivate).toHaveBeenCalledTimes(2);
     expect(onMapClick).not.toHaveBeenCalled();
     document.removeEventListener("click", onMapClick);

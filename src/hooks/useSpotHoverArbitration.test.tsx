@@ -195,13 +195,34 @@ describe("useSpotHoverArbitration", () => {
       result.current.handleSpotHover(spotA, { x: 100, y: 100 }, endpointA);
       result.current.handleSpotHoverEnd(spotA, endpointA);
       vi.advanceTimersByTime(100);
-      result.current.holdSpotHoverForPreview();
+      result.current.holdSpotHoverForPreview("pointer");
       vi.advanceTimersByTime(300);
     });
     expect(result.current.hoveredSpotData?.spot.id).toBe("spot-a");
 
     act(() => {
-      result.current.releaseSpotHoverFromPreview();
+      result.current.releaseSpotHoverFromPreview("pointer");
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.hoveredSpotData).toBeNull();
+  });
+
+  it("keeps a focused preview alive after its pointer leaves", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSpotHoverArbitration());
+
+    act(() => {
+      result.current.handleSpotHover(spotA, { x: 100, y: 100 }, endpointA);
+      result.current.handleSpotHoverEnd(spotA, endpointA);
+      result.current.holdSpotHoverForPreview("pointer");
+      result.current.holdSpotHoverForPreview("focus");
+      result.current.releaseSpotHoverFromPreview("pointer");
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.hoveredSpotData?.spot.id).toBe("spot-a");
+
+    act(() => {
+      result.current.releaseSpotHoverFromPreview("focus");
       vi.advanceTimersByTime(300);
     });
     expect(result.current.hoveredSpotData).toBeNull();

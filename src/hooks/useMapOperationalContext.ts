@@ -207,13 +207,58 @@ export function useOperationalWorkspaceSync(): void {
       });
     };
 
+    // Subscribe to the synchronized projection, not whole stores. In
+    // particular, map camera/time updates and live DX-feed refreshes can occur
+    // many times per second and must not generate workspace snapshots when the
+    // target, draft, or selected report did not change.
     const subscriptions = [
-      useMapOperationalStore.subscribe(publish),
-      useQSOStore.subscribe(publish),
-      useMapStore.subscribe(publish),
-      useDXStore.subscribe(publish),
-      useContestStore.subscribe(publish),
-      useContestUIStore.subscribe(publish),
+      useMapOperationalStore.subscribe((state, previous) => {
+        if (
+          state.manualScope !== previous.manualScope ||
+          state.workspaceOpen !== previous.workspaceOpen ||
+          state.selectedReport !== previous.selectedReport
+        ) {
+          publish();
+        }
+      }),
+      useQSOStore.subscribe((state, previous) => {
+        if (
+          state.form !== previous.form ||
+          state.operatingMode !== previous.operatingMode
+        ) {
+          publish();
+        }
+      }),
+      useMapStore.subscribe((state, previous) => {
+        if (state.target !== previous.target) publish();
+      }),
+      useDXStore.subscribe((state, previous) => {
+        if (state.selectedSpot !== previous.selectedSpot) publish();
+      }),
+      useContestStore.subscribe((state, previous) => {
+        if (
+          state.activeSession !== previous.activeSession ||
+          state.sessionHistory !== previous.sessionHistory
+        ) {
+          publish();
+        }
+      }),
+      useContestUIStore.subscribe((state, previous) => {
+        if (
+          state.dockTabBySessionId !== previous.dockTabBySessionId ||
+          state.bandBySessionId !== previous.bandBySessionId ||
+          state.modeBySessionId !== previous.modeBySessionId ||
+          state.draftBySessionId !== previous.draftBySessionId ||
+          state.draftSelectionBySessionId !==
+            previous.draftSelectionBySessionId ||
+          state.draftUpdatedAtBySessionId !==
+            previous.draftUpdatedAtBySessionId ||
+          state.publicAssistanceBySessionId !==
+            previous.publicAssistanceBySessionId
+        ) {
+          publish();
+        }
+      }),
     ];
 
     channel.onmessage = (event: MessageEvent<WorkspaceMessage>) => {

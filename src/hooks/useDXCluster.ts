@@ -41,13 +41,39 @@ export interface UseDXClusterOptions {
   enabled?: boolean;
 }
 
-/** Shared-source ownership guard kept pure for the multi-observer regression. */
-export function shouldDemoteClusterSource(
+const connectedBridgeOwners = new Set<symbol>();
+
+/**
+ * Coordinate source fallback across every mounted DX consumer. Each consumer
+ * owns its own bridge socket, while spotSource is intentionally shared. A
+ * never-connected observer has no ownership to release, and the last real
+ * owner schedules demotion after React finishes same-commit effect handoffs.
+ */
+export function useSharedBridgeSourceOwnership(
   dataEnabled: boolean,
   bridgeConnected: boolean,
-  spotSource: DXSpotSource,
-): boolean {
-  return dataEnabled && !bridgeConnected && spotSource === "bridge";
+): void {
+  const ownerRef = useRef<symbol | null>(null);
+  if (!ownerRef.current) ownerRef.current = Symbol("dx-bridge-owner");
+
+  useEffect(() => {
+    if (!dataEnabled || !bridgeConnected) return;
+    const owner = ownerRef.current!;
+    connectedBridgeOwners.add(owner);
+
+    return () => {
+      if (!connectedBridgeOwners.delete(owner)) return;
+      queueMicrotask(() => {
+        // Another observer may have acquired ownership during the same React
+        // commit. Only the genuinely last disconnected owner triggers REST.
+        if (connectedBridgeOwners.size > 0) return;
+        const dxState = useDXStore.getState();
+        if (dxState.spotSource === "bridge") {
+          dxState.setSpotSource("rest");
+        }
+      });
+    };
+  }, [bridgeConnected, dataEnabled]);
 }
 
 /**
@@ -144,6 +170,7 @@ export function useDXCluster(
     enabled: dataEnabled && bridgeEnabled,
   });
   const [bridgeSpots, setBridgeSpots] = useState<DXSpot[]>([]);
+  useSharedBridgeSourceOwnership(dataEnabled, bridgeConnected);
 
   // Use external filters if provided, otherwise use store filters
   const filters = externalFilters || storeFilters;
@@ -208,16 +235,6 @@ export function useDXCluster(
       setSpotSource("bridge");
     }
   }, [bridgeConnected, bridgeSpots.length, setSpotSource]);
-
-  // Demote from bridge when bridge disconnects
-  useEffect(() => {
-    // A policy-disabled observer owns no transport. Without this guard, the
-    // unassisted contest overlay could demote the shared source while an
-    // enabled globe/spot-list observer still had a healthy bridge connection.
-    if (shouldDemoteClusterSource(dataEnabled, bridgeConnected, spotSource)) {
-      setSpotSource("rest");
-    }
-  }, [bridgeConnected, dataEnabled, spotSource, setSpotSource]);
 
   // ─── Tier 2: REST proxy ───────────────────────────────────────────────────
 

@@ -162,5 +162,10 @@ describe("useResolvedMapSpots", () => {
       "resolved-first",
       "resolved-second",
     ]);
+    expect(result.current.allCandidateSpots).toEqual(rawSpots);
+    expect(result.current.allResolvedSpots).toEqual([
+      { id: "resolved-first" },
+      { id: "resolved-second" },
+    ]);
   });
 });

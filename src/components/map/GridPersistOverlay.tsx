@@ -1,20 +1,20 @@
 /**
  * GridPersistOverlay Component
  *
- * Renders persistent Maidenhead grid-square highlights on the 3D globe using
+ * Renders adaptive Maidenhead grid-cell highlights on the 3D globe using
  * a single THREE.InstancedMesh for efficient draw-call batching. Each active
  * grid is drawn as a filled square with a bordered edge, tinted by the density
  * colour ramp — the square is the point, so the fill and border persist for as
  * long as the grid stays inside the activity window.
  *
  * Technical approach:
- * - Single InstancedMesh with a pool of 500 instances (only active grids draw)
+ * - Single InstancedMesh with a pool of 500 ranked instances
  * - Shared subdivided quad geometry (3x3) — vertex shader projects onto sphere
  * - Per-instance attributes: bounds (vec4), color (vec3), intensity (float),
  *   last-spot time (float, seconds relative to a component-local epoch)
  * - Vertex shader maps UV → lat/lon via instance bounds → 3D sphere position
  * - Fragment shader fills the cell, strokes a border, and adds a decaying
- *   recency accent for the first 90s (per-frame uNowSec clock uniform)
+ *   short recency accent (clock sleeps after the accent settles)
  * - Normal blending and depth testing against the GlobeDepthDome, so the
  *   square reads over satellite imagery and does not bleed through the globe
  *
@@ -22,9 +22,14 @@
  */
 
 import { useRef, useMemo } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import type { GridActivity } from "@/hooks/useGridActivityMap";
+import {
+  GRID_ACTIVITY_RECENCY_PULSE_MS,
+  gridActivityBounds,
+  rankGridActivityCells,
+  type GridActivityCell,
+} from "@/lib/map/gridActivityModel";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 // =============================================================================
@@ -39,41 +44,6 @@ const PERSIST_RADIUS = 1.005;
 
 /** Subdivisions per axis for the shared quad geometry */
 const SUBDIVISIONS = 3;
-
-// =============================================================================
-// COORDINATE HELPERS
-// =============================================================================
-
-/**
- * Decode a 4-char Maidenhead grid square to geographic bounding box.
- *
- * Grid encoding:
- * - Char 1 (A-R): longitude field, each 20deg wide, starting at -180
- * - Char 2 (A-R): latitude field, each 10deg tall, starting at -90
- * - Char 3 (0-9): longitude square, each 2deg wide within field
- * - Char 4 (0-9): latitude square, each 1deg tall within field
- */
-function grid4ToBounds(grid: string): {
-  minLon: number;
-  minLat: number;
-  maxLon: number;
-  maxLat: number;
-} {
-  const lonField = grid.charCodeAt(0) - 65; // A=0, R=17
-  const latField = grid.charCodeAt(1) - 65;
-  const lonSquare = parseInt(grid[2], 10);
-  const latSquare = parseInt(grid[3], 10);
-
-  const minLon = lonField * 20 - 180 + lonSquare * 2;
-  const minLat = latField * 10 - 90 + latSquare * 1;
-
-  return {
-    minLon,
-    minLat,
-    maxLon: minLon + 2,
-    maxLat: minLat + 1,
-  };
-}
 
 // =============================================================================
 // GEOMETRY BUILDER
@@ -195,7 +165,7 @@ const PERSIST_VERTEX_SHADER = /* glsl */ `
 const APPEARANCE = {
   /** Fill alpha for a grid with a single spot */
   FILL_MIN: 0.26,
-  /** Fill alpha for a grid at or above `SATURATION_COUNT` spots */
+  /** Fill alpha for a grid at the canonical model's saturation density */
   FILL_MAX: 0.62,
   /** Border is solid within this many degrees of the cell edge */
   BORDER_CORE_DEG: 0.07,
@@ -208,13 +178,10 @@ const APPEARANCE = {
   /** Extra fill alpha immediately after a spot lands */
   FRESH_FILL_LIFT: 0.1,
   /** Seconds over which the recency accent decays */
-  FRESH_FADE_SEC: 90.0,
+  FRESH_FADE_SEC: GRID_ACTIVITY_RECENCY_PULSE_MS / 1000,
   /** Ceiling so a dense square never fully hides the map beneath it */
   MAX_ALPHA: 0.9,
 } as const;
-
-/** Spot count at which fill alpha reaches `FILL_MAX`. */
-const SATURATION_COUNT = 20;
 
 const SHADER_DEFINES = Object.entries(APPEARANCE)
   .map(([name, value]) => `#define ${name} ${value.toFixed(4)}`)
@@ -265,16 +232,17 @@ const PERSIST_FRAGMENT_SHADER = /* glsl */ `
 // =============================================================================
 
 export interface GridPersistOverlayProps {
-  /** Active grid activity map from useGridActivityMap */
-  activityMap: Map<string, GridActivity>;
+  /** Canonical activity cells shared by every projection. */
+  cells: readonly GridActivityCell[];
 }
 
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
 
-export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
+export function GridPersistOverlay({ cells }: GridPersistOverlayProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
+  const camera = useThree((state) => state.camera);
 
   // Component-local epoch — spot times and the clock uniform are stored as
   // seconds relative to this, keeping values small enough for float32 in
@@ -336,20 +304,52 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
   const identityMatrix = useMemo(() => new THREE.Matrix4().identity(), []);
   // Cache parsed CSS colors to avoid re-parsing strings every rebuild
   const colorCacheRef = useRef(new Map<string, THREE.Color>());
-  // Track previous activityMap reference to skip GPU uploads when unchanged
-  const prevMapRef = useRef<Map<string, GridActivity> | null>(null);
+  // Track both facts and camera pose. Re-rank when the visible hemisphere
+  // changes, but do not rebuild buffers for sub-pixel orbit-control jitter.
+  const prevCellsRef = useRef<readonly GridActivityCell[] | null>(null);
+  const prevCameraRef = useRef(new THREE.Vector3(Number.NaN, 0, 0));
+  const cameraDirection = useMemo(() => new THREE.Vector3(), []);
+  const cameraWorld = useMemo(() => new THREE.Vector3(), []);
+  const cameraLocal = useMemo(() => new THREE.Vector3(), []);
+  const cellDirection = useMemo(() => new THREE.Vector3(), []);
+  const freshClockActiveRef = useRef(true);
 
   // Update instance data only when activityMap reference changes
   useFrame(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
-    // Advance the shared clock every frame so edge strokes fade in real time
-    material.uniforms.uNowSec.value = (Date.now() - epochMs) / 1000;
+    const now = Date.now();
+    const freshUntil = cells.reduce(
+      (latest, cell) =>
+        Math.max(
+          latest,
+          cell.newestTimestamp + GRID_ACTIVITY_RECENCY_PULSE_MS,
+        ),
+      0,
+    );
+    // The shader clock advances only while a recency accent is changing. Once
+    // every border has settled, persistent density remains entirely static.
+    if (now <= freshUntil) {
+      material.uniforms.uNowSec.value = (now - epochMs) / 1000;
+      freshClockActiveRef.current = true;
+    } else if (freshClockActiveRef.current) {
+      material.uniforms.uNowSec.value = (freshUntil - epochMs) / 1000;
+      freshClockActiveRef.current = false;
+    }
 
-    // Skip full rebuild if the activity map reference is the same
-    if (activityMap === prevMapRef.current) return;
-    prevMapRef.current = activityMap;
+    camera.getWorldPosition(cameraWorld);
+    // The Earth group applies its axial rotation outside this component. Rank
+    // in mesh-local coordinates so "visible" describes the same hemisphere
+    // the shader renders, regardless of that parent transform.
+    mesh.worldToLocal(cameraLocal.copy(cameraWorld));
+    cameraDirection.copy(cameraLocal).normalize();
+    const cameraChanged =
+      !Number.isFinite(prevCameraRef.current.x) ||
+      cameraDirection.distanceToSquared(prevCameraRef.current) > 0.000004;
+    if (cells === prevCellsRef.current && !cameraChanged) return;
+    prevCellsRef.current = cells;
+    prevCameraRef.current.copy(cameraDirection);
 
     const boundsArray = boundsAttr.array as Float32Array;
     const intensityArray = intensityAttr.array as Float32Array;
@@ -357,11 +357,29 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
 
     let idx = 0;
 
-    for (const [, activity] of activityMap) {
+    const horizonThreshold = 1 / Math.max(1.0001, cameraLocal.length());
+    const rankedCells = rankGridActivityCells(cells, {
+      budget: MAX_INSTANCES,
+      isVisible: (cell) => {
+        const bounds = gridActivityBounds(cell.grid);
+        const lat = (bounds.minLat + bounds.maxLat) / 2;
+        const lon = (bounds.minLon + bounds.maxLon) / 2;
+        const phi = THREE.MathUtils.degToRad(90 - lat);
+        const theta = THREE.MathUtils.degToRad(lon + 180);
+        cellDirection.set(
+          -Math.sin(phi) * Math.cos(theta),
+          Math.cos(phi),
+          Math.sin(phi) * Math.sin(theta),
+        );
+        return cellDirection.dot(cameraDirection) >= horizonThreshold;
+      },
+    });
+
+    for (const activity of rankedCells) {
       if (idx >= MAX_INSTANCES) break;
 
       // Decode grid bounds
-      const bounds = grid4ToBounds(activity.gridSquare);
+      const bounds = gridActivityBounds(activity.grid);
 
       // Set instance bounds attribute (minLon, minLat, maxLon, maxLat)
       boundsArray[idx * 4] = bounds.minLon;
@@ -369,12 +387,12 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
       boundsArray[idx * 4 + 2] = bounds.maxLon;
       boundsArray[idx * 4 + 3] = bounds.maxLat;
 
-      // Normalised density 0..1, driving fill alpha in the shader. A single
-      // spot still reads (FILL_MIN); SATURATION_COUNT and above sit at FILL_MAX.
-      intensityArray[idx] = Math.min(1, activity.spotCount / SATURATION_COUNT);
+      // Canonical density 0..1 drives fill alpha in every projection. A single
+      // report still reads at FILL_MIN; saturated cells sit at FILL_MAX.
+      intensityArray[idx] = activity.densityScore;
 
       // Set last-spot time (epoch-relative seconds) for the edge stroke
-      lastSpotArray[idx] = (activity.lastSpotTime - epochMs) / 1000;
+      lastSpotArray[idx] = (activity.newestTimestamp - epochMs) / 1000;
 
       // Set instance transform (identity — shader handles positioning)
       mesh.setMatrixAt(idx, identityMatrix);

@@ -12,6 +12,7 @@ import {
   normalizeExclusiveLayers,
   toggleExclusiveLayer,
 } from "@/lib/map/layerCapabilities";
+import type { GridActivityEndpoint } from "@/lib/map/gridActivityModel";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -555,6 +556,10 @@ export interface MapState {
   gridLabelDetail: number;
   setGridLabelDetail: (detail: number) => void;
 
+  // Geographic meaning of active cells — destinations are the useful default.
+  gridActivityEndpoint: GridActivityEndpoint;
+  setGridActivityEndpoint: (endpoint: GridActivityEndpoint) => void;
+
   // Spot replay (time machine past-time replay)
   replayEnabled: boolean;
   setReplayEnabled: (enabled: boolean) => void;
@@ -844,6 +849,19 @@ function saveStoredNumber(key: string, value: number): void {
 }
 
 const NIGHT_DARKNESS_KEY = "propulse-night-darkness";
+const GRID_ACTIVITY_ENDPOINT_KEY = "propulse-grid-activity-endpoint";
+
+function loadGridActivityEndpoint(): GridActivityEndpoint {
+  try {
+    const saved = localStorage.getItem(GRID_ACTIVITY_ENDPOINT_KEY);
+    if (saved === "dx" || saved === "reporter" || saved === "both") {
+      return saved;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "dx";
+}
 
 // Layout mode persistence
 function loadLayoutMode(): LayoutMode {
@@ -1255,6 +1273,8 @@ const initialState = {
     }
     return 2;
   })(),
+
+  gridActivityEndpoint: loadGridActivityEndpoint(),
 
   // Spot replay (time machine)
   replayEnabled: false,
@@ -1921,6 +1941,15 @@ export const useMapStore = create<MapState>((set, get) => ({
       /* ignore */
     }
     set({ gridLabelDetail: clamped });
+  },
+
+  setGridActivityEndpoint: (endpoint) => {
+    try {
+      localStorage.setItem(GRID_ACTIVITY_ENDPOINT_KEY, endpoint);
+    } catch {
+      /* ignore */
+    }
+    set({ gridActivityEndpoint: endpoint });
   },
 
   // Spot replay

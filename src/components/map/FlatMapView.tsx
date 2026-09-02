@@ -135,6 +135,8 @@ import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
+import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
+import { gridActivityResolutionForView } from "@/lib/map/gridActivityModel";
 import {
   drawActivationPills,
   sameActivationPillScreenPlacements,
@@ -3387,6 +3389,7 @@ export function FlatMapView({
   const glowRafRef = useRef<number>(0);
 
   const layers = useMapStore((s) => s.layers);
+  const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
@@ -3404,10 +3407,11 @@ export function FlatMapView({
     qualitySettings.effective,
   );
 
-  // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
+  // Legacy arrival glows remain transient. Persistent density/recency is fed
+  // separately by the canonical grid-activity snapshot below.
   useEffect(() => {
-    glowRendererRef.current.persistEdges = layers.gridActivity;
-  }, [layers.gridActivity]);
+    glowRendererRef.current.persistEdges = false;
+  }, []);
 
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const requestedTileProvider = useMemo(
@@ -3583,7 +3587,12 @@ export function FlatMapView({
 
   // Fetch and resolve the shared live feed, then apply this canvas renderer's
   // draw cap. Source merging and disabled-state behavior live in one hook.
-  const { spots, resolvedSpots, activationSpots } = useResolvedMapSpots({
+  const {
+    spots,
+    resolvedSpots,
+    allResolvedSpots,
+    activationSpots,
+  } = useResolvedMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,
@@ -3591,6 +3600,24 @@ export function FlatMapView({
     sources: spotSourceFilters,
     spotFilters,
   });
+  const gridActivityResolution = gridActivityResolutionForView(
+    "flat",
+    zoom.scale,
+  );
+  const gridActivity = useGridActivitySnapshot(
+    allResolvedSpots,
+    gridActivityResolution,
+    gridActivityEndpoint,
+    layers.gridActivity,
+  );
+
+  useEffect(() => {
+    glowRendererRef.current.setActivityCells(
+      gridActivity.cells,
+      layers.gridActivity,
+    );
+    startGlowLoopRef.current();
+  }, [gridActivity.cells, layers.gridActivity]);
 
   // State for spot label hover flyout
   const [hoveredSpotData, setHoveredSpotData] = useState<{
@@ -3721,15 +3748,21 @@ export function FlatMapView({
   // Feed new spots into the grid glow renderer when spots arrive.
   // Uses resolvedSpots (not raw spots) so the glow grid matches where the dot lands.
   useEffect(() => {
-    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
+    const currentIds = new Set(resolvedSpots.map((spot) => spot.id));
+    if (layers.gridActivity) {
+      // The canonical density/recency cells replace the unrelated arrival
+      // pulse while this layer is active. Advance the seen set so disabling
+      // activity does not replay the entire feed as "new".
+      prevGlowSpotIdsRef.current = currentIds;
+      return;
+    }
+    if (!layers.spots && !layers.spotTraces) return;
     const now = Date.now();
-    const currentIds = new Set<string>();
     const prevIds = prevGlowSpotIdsRef.current;
     const isInitialLoad = prevIds.size === 0 && resolvedSpots.length > 0;
 
     let newCount = 0;
     for (const spot of resolvedSpots) {
-      currentIds.add(spot.id);
       if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, spotColorMode);
@@ -3754,18 +3787,6 @@ export function FlatMapView({
         }
       }
 
-      if (!spot.spotterLocApprox) {
-        try {
-          const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
-          glowRendererRef.current.addGlow({
-            gridSquare: spGrid4,
-            color,
-            timestamp,
-          } satisfies GridGlowSpot);
-        } catch {
-          // Skip glow if coordinates are out of range
-        }
-      }
       newCount++;
     }
 
@@ -3907,18 +3928,35 @@ export function FlatMapView({
     if (!tooltipPosition?.grid) {
       return [];
     }
+    if (layers.gridActivity) {
+      const activityGrid = tooltipPosition.grid
+        .slice(0, gridActivity.resolution)
+        .toUpperCase();
+      const cell = gridActivity.cellsByGrid.get(activityGrid);
+      if (cell) return [...cell.reports];
+    }
     return collectGridSpots(
       tooltipPosition.grid,
       allSpots,
       spots,
       resolvedSpots,
     ).tooltipSpots;
-  }, [tooltipPosition?.grid, allSpots, resolvedSpots, spots]);
+  }, [
+    tooltipPosition?.grid,
+    allSpots,
+    gridActivity,
+    layers.gridActivity,
+    resolvedSpots,
+    spots,
+  ]);
 
   const getGridCollectionSpots = useCallback(
-    (grid: string): LiveSpot[] =>
-      collectGridSpots(grid, allSpots, spots, resolvedSpots).spots,
-    [allSpots, resolvedSpots, spots],
+    (grid: string): LiveSpot[] => {
+      const activityCell = gridActivity.cellsByGrid.get(grid.toUpperCase());
+      if (activityCell) return [...activityCell.reports];
+      return collectGridSpots(grid, allSpots, spots, resolvedSpots).spots;
+    },
+    [allSpots, gridActivity.cellsByGrid, resolvedSpots, spots],
   );
 
   // Handle map click - show flyout
@@ -4142,11 +4180,14 @@ export function FlatMapView({
           layers.gridActivity ||
           (layers.labels && labelOptions.maidenheadGrid && layers.spots);
         if (!gridHighlightEnabled) return false;
-        const grid = latLonToGrid(
-          lat,
-          lon,
-          zoomRef.current.scale >= 3 ? 6 : 4,
-        ).toUpperCase();
+        const gridPrecision = layers.gridActivity
+          ? gridActivity.resolution
+          : zoomRef.current.scale >= 3
+            ? 6
+            : 4;
+        const grid = latLonToGrid(lat, lon, gridPrecision)
+          .slice(0, gridPrecision)
+          .toUpperCase();
         const gridMembers = getGridCollectionSpots(grid);
         if (gridMembers.length === 0) return false;
         hoveredSpotOwnerRef.current = null;
@@ -4167,6 +4208,7 @@ export function FlatMapView({
       findSpotEndpointAtScreenPos,
       findSpotLabelAtScreenPos,
       getGridCollectionSpots,
+      gridActivity.resolution,
       handleMapSpotSelect,
       labelOptions.maidenheadGrid,
       layers.gridActivity,

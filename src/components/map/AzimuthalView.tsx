@@ -88,8 +88,8 @@ import {
   type AzimuthalSpotPillScreenPlacement,
 } from "@/lib/map/azimuthalSpotPillPlacement";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
-import { useDXCluster } from "@/hooks/useDXCluster";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
+import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useThemeStore } from "@/stores/themeStore";
@@ -100,13 +100,13 @@ import {
   limitAzimuthalBackgroundTraces,
   type AzimuthalSpotCluster,
 } from "@/lib/map/azimuthalSpotAggregation";
-import { collectGridSpots } from "@/lib/map/gridSpotCollection";
 import { useWatchStore } from "@/stores/watchStore";
 import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { drawLunarSubpointMarker } from "@/lib/map/lunarSubpointMarker";
 import { getSublunarPoint } from "@/lib/utils/moon";
+import { gridActivityResolutionForView } from "@/lib/map/gridActivityModel";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -1592,6 +1592,7 @@ export function AzimuthalView({
   const selectMapSpot = useMapSpotSelection();
   const glowRafRef = useRef<number>(0);
   const layers = useMapStore((s) => s.layers);
+  const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const setTarget = useMapStore((s) => s.setTarget);
   const setWatch = useWatchStore((s) => s.setWatch);
 
@@ -1650,10 +1651,11 @@ export function AzimuthalView({
     [cancelSpotHoverDismiss, selectMapSpot],
   );
 
-  // Grid Activity layer: glows leave a persistent cell-edge outline (~90s)
+  // Persistent activity is supplied by the canonical model; arrival glows
+  // retain their original short lifetime when activity is disabled.
   useEffect(() => {
-    glowRendererRef.current.persistEdges = layers.gridActivity;
-  }, [layers.gridActivity]);
+    glowRendererRef.current.persistEdges = false;
+  }, []);
   const target = useMapStore((s) => s.target);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
@@ -1967,10 +1969,9 @@ export function AzimuthalView({
 
   // Resolve the common live feed once, capped for this canvas renderer. This
   // preserves the shared display-density contract without a local pipeline.
-  const { allSpots } = useDXCluster();
   const {
-    spots: liveSpots,
     resolvedSpots,
+    allResolvedSpots,
     activationSpots,
   } = useAzimuthalMapSpots({
     grid: station?.grid,
@@ -1978,6 +1979,16 @@ export function AzimuthalView({
     activationsEnabled: layers.activations,
     maxSpots: displayDensity,
   });
+  const gridActivityResolution = gridActivityResolutionForView(
+    "azimuthal",
+    zoom,
+  );
+  const gridActivity = useGridActivitySnapshot(
+    allResolvedSpots,
+    gridActivityResolution,
+    gridActivityEndpoint,
+    layers.gridActivity,
+  );
 
   // Resolve selected DX cluster spot location for highlight arc
   const resolvedSelectedSpot = useMemo(() => {
@@ -2124,16 +2135,42 @@ export function AzimuthalView({
     [cancelSpotHoverDismiss],
   );
 
+  const startGridAnimation = useCallback(() => {
+    if (glowRafRef.current) return;
+    const tick = () => {
+      // This state invalidates the 2D overlay only while recency or a legacy
+      // arrival pulse changes. The terminal frame is painted before stopping.
+      setGlowTick((value) => value + 1);
+      if (glowRendererRef.current.getNextAnimationDelay(Date.now()) === 0) {
+        glowRafRef.current = requestAnimationFrame(tick);
+      } else {
+        glowRafRef.current = 0;
+      }
+    };
+    glowRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  useEffect(() => {
+    glowRendererRef.current.setActivityCells(
+      gridActivity.cells,
+      layers.gridActivity,
+    );
+    startGridAnimation();
+  }, [gridActivity.cells, layers.gridActivity, startGridAnimation]);
+
   // Feed new spots into the grid glow renderer when spots arrive.
   useEffect(() => {
-    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
+    const currentIds = new Set(resolvedSpots.map((spot) => spot.id));
+    if (layers.gridActivity) {
+      prevGlowSpotIdsRef.current = currentIds;
+      return;
+    }
+    if (!layers.spots && !layers.spotTraces) return;
     const now = Date.now();
-    const currentIds = new Set<string>();
     const prevIds = prevGlowSpotIdsRef.current;
     const isInitialLoad = prevIds.size === 0 && resolvedSpots.length > 0;
 
     for (const spot of resolvedSpots) {
-      currentIds.add(spot.id);
       if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, spotColorMode);
@@ -2155,39 +2192,18 @@ export function AzimuthalView({
         }
       }
 
-      if (!spot.spotterLocApprox) {
-        try {
-          const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
-          glowRendererRef.current.addGlow({
-            gridSquare: spGrid4,
-            color,
-            timestamp,
-          } satisfies GridGlowSpot);
-        } catch {
-          // Skip if coordinates out of range
-        }
-      }
     }
 
     prevGlowSpotIdsRef.current = currentIds;
 
-    if (glowRendererRef.current.hasActiveGlows() && !glowRafRef.current) {
-      const tick = () => {
-        if (glowRendererRef.current.hasActiveGlows()) {
-          setGlowTick((t) => t + 1);
-          glowRafRef.current = requestAnimationFrame(tick);
-        } else {
-          glowRafRef.current = 0;
-        }
-      };
-      glowRafRef.current = requestAnimationFrame(tick);
-    }
+    if (glowRendererRef.current.hasActiveGlows()) startGridAnimation();
   }, [
     resolvedSpots,
     layers.spots,
     layers.spotTraces,
     layers.gridActivity,
     spotColorMode,
+    startGridAnimation,
   ]);
 
   // Clean up glow RAF on unmount
@@ -2396,17 +2412,16 @@ export function AzimuthalView({
 
       if (layers.gridActivity) {
         try {
-          const grid = latLonToGrid(lat, lon, 4).toUpperCase();
-          const isHighlighted = glowRendererRef.current
-            .getActiveGridSquares()
-            .includes(grid);
-          if (isHighlighted) {
-            const spots = collectGridSpots(
-              grid,
-              allSpots,
-              liveSpots,
-              resolvedSpots,
-            ).spots;
+          const grid = latLonToGrid(
+            lat,
+            lon,
+            gridActivity.resolution,
+          )
+            .slice(0, gridActivity.resolution)
+            .toUpperCase();
+          const activityCell = gridActivity.cellsByGrid.get(grid);
+          if (activityCell) {
+            const spots = [...activityCell.reports];
             setSelectedMapSpotData(null);
             if (spots.length === 0) {
               setResearchGrid(grid);
@@ -2435,12 +2450,10 @@ export function AzimuthalView({
       onLocationClick?.(lat, lon);
     },
     [
-      allSpots,
       center,
+      gridActivity,
       layers.gridActivity,
-      liveSpots,
       onLocationClick,
-      resolvedSpots,
       zoom,
     ],
   );
@@ -2581,7 +2594,7 @@ export function AzimuthalView({
     // Draw grid glow pulses (before spot arcs, after bearing labels)
     if (
       (layers.spots || layers.spotTraces || layers.gridActivity) &&
-      glowRendererRef.current.hasActiveGlows()
+      (layers.gridActivity || glowRendererRef.current.hasActiveGlows())
     ) {
       const glowProject = (lat: number, lon: number) => {
         const proj = azimuthalProject(lat, lon, center.lat, center.lon);
@@ -2589,9 +2602,8 @@ export function AzimuthalView({
         const canvasPt = projToCanvas(proj);
         return { x: canvasPt.x, y: canvasPt.y, visible: dist <= 1 };
       };
-      // "radial" mode: azimuthal grid cells are warped quads, not axis-
-      // aligned rects, so the renderer draws a projected-center circle
-      // instead of a rect built from two corners.
+      // "radial" mode projects every grid corner so persistent activity cells
+      // follow the warped azimuthal footprint rather than an axis-aligned box.
       glowRendererRef.current.draw(ctx, glowProject, Date.now(), "radial");
     }
 

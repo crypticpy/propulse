@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useDXStore } from "@/stores/dxStore";
@@ -11,8 +11,6 @@ import {
   applyMapDataPolicyToLayers,
   buildMapDataPolicy,
   deriveMapDataScope,
-  policyAllows,
-  shouldRestoreAutomaticScopeAfterContest,
   type MapDataPolicy,
   type MapDataScope,
 } from "@/lib/map/operationalScope";
@@ -61,23 +59,6 @@ export function useMapOperationalContext(): MapOperationalContext {
     stationOperationActive,
   });
   const publicAssistance = storedAssistance ?? declaredAssisted;
-  const previousContestSessionIdRef = useRef(contestSessionId);
-  useEffect(() => {
-    if (
-      shouldRestoreAutomaticScopeAfterContest(
-        previousContestSessionIdRef.current,
-        contestSessionId,
-        useMapOperationalStore.getState().manualScope,
-      )
-    ) {
-      // A contest workspace is session-scoped. Returning to automatic scope
-      // and closing its operating-intent flag restores saved observation
-      // layers without mutating any of their configured values.
-      useMapOperationalStore.getState().setManualScope(null);
-      useMapOperationalStore.getState().setWorkspaceOpen(false);
-    }
-    previousContestSessionIdRef.current = contestSessionId;
-  }, [contestSessionId]);
   const policy = useMemo(
     () => buildMapDataPolicy(scope, publicAssistance),
     [publicAssistance, scope],
@@ -101,16 +82,6 @@ export function useScopedMapLayers() {
     () => applyMapDataPolicyToLayers(configuredLayers, policy),
     [configuredLayers, policy],
   );
-}
-
-const EMPTY_SCOPED_SPOTS: never[] = [];
-
-/** Public DX-cluster records are never handed to an unassisted focused view. */
-export function useScopedPublicSpots<T>(spots: T[]): T[] {
-  const { policy } = useMapOperationalContext();
-  return policyAllows(policy, "liveSpots", "public")
-    ? spots
-    : (EMPTY_SCOPED_SPOTS as T[]);
 }
 
 type WorkspaceSnapshot = {
@@ -140,11 +111,28 @@ type WorkspaceSnapshot = {
   >;
 };
 
+type WorkspaceDomain = keyof WorkspaceSnapshot;
+
+const WORKSPACE_DOMAINS: readonly WorkspaceDomain[] = [
+  "operational",
+  "qso",
+  "map",
+  "dx",
+  "contest",
+  "contestUi",
+];
+
 type WorkspaceMessage =
   | { kind: "request"; sender: string }
-  | { kind: "snapshot"; sender: string; snapshot: WorkspaceSnapshot };
+  | {
+      kind: "snapshot";
+      sender: string;
+      domain: WorkspaceDomain;
+      revision: number;
+      state: WorkspaceSnapshot[WorkspaceDomain];
+    };
 
-const WORKSPACE_CHANNEL = "propulse-operating-workspace-v1";
+const WORKSPACE_CHANNEL = "propulse-operating-workspace-v2";
 
 function createWorkspaceSnapshot(): WorkspaceSnapshot {
   const operational = useMapOperationalStore.getState();
@@ -192,18 +180,37 @@ export function useOperationalWorkspaceSync(): void {
     const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
     let applyingRemote = false;
     let publishQueued = false;
+    let nextRevision = 0;
+    const pendingDomains = new Set<WorkspaceDomain>();
+    const receivedRevisions = new Map<
+      string,
+      Map<WorkspaceDomain, number>
+    >();
 
-    const publish = () => {
-      if (applyingRemote || publishQueued) return;
+    const publish = (...domains: WorkspaceDomain[]) => {
+      if (applyingRemote) return;
+      for (const domain of domains) pendingDomains.add(domain);
+      if (publishQueued) return;
       publishQueued = true;
       queueMicrotask(() => {
         publishQueued = false;
-        if (applyingRemote) return;
-        channel.postMessage({
-          kind: "snapshot",
-          sender,
-          snapshot: createWorkspaceSnapshot(),
-        } satisfies WorkspaceMessage);
+        if (applyingRemote) {
+          pendingDomains.clear();
+          return;
+        }
+        if (pendingDomains.size === 0) return;
+        const snapshot = createWorkspaceSnapshot();
+        const domainsToPublish = [...pendingDomains];
+        pendingDomains.clear();
+        for (const domain of domainsToPublish) {
+          channel.postMessage({
+            kind: "snapshot",
+            sender,
+            domain,
+            revision: ++nextRevision,
+            state: snapshot[domain],
+          } satisfies WorkspaceMessage);
+        }
       });
     };
 
@@ -218,7 +225,7 @@ export function useOperationalWorkspaceSync(): void {
           state.workspaceOpen !== previous.workspaceOpen ||
           state.selectedReport !== previous.selectedReport
         ) {
-          publish();
+          publish("operational");
         }
       }),
       useQSOStore.subscribe((state, previous) => {
@@ -226,21 +233,21 @@ export function useOperationalWorkspaceSync(): void {
           state.form !== previous.form ||
           state.operatingMode !== previous.operatingMode
         ) {
-          publish();
+          publish("qso");
         }
       }),
       useMapStore.subscribe((state, previous) => {
-        if (state.target !== previous.target) publish();
+        if (state.target !== previous.target) publish("map");
       }),
       useDXStore.subscribe((state, previous) => {
-        if (state.selectedSpot !== previous.selectedSpot) publish();
+        if (state.selectedSpot !== previous.selectedSpot) publish("dx");
       }),
       useContestStore.subscribe((state, previous) => {
         if (
           state.activeSession !== previous.activeSession ||
           state.sessionHistory !== previous.sessionHistory
         ) {
-          publish();
+          publish("contest");
         }
       }),
       useContestUIStore.subscribe((state, previous) => {
@@ -256,7 +263,7 @@ export function useOperationalWorkspaceSync(): void {
           state.publicAssistanceBySessionId !==
             previous.publicAssistanceBySessionId
         ) {
-          publish();
+          publish("contestUi");
         }
       }),
     ];
@@ -265,20 +272,59 @@ export function useOperationalWorkspaceSync(): void {
       const message = event.data;
       if (!message || message.sender === sender) return;
       if (message.kind === "request") {
-        publish();
+        publish(...WORKSPACE_DOMAINS);
         return;
       }
-      if (message.kind !== "snapshot" || !message.snapshot) return;
+      if (
+        message.kind !== "snapshot" ||
+        !WORKSPACE_DOMAINS.includes(message.domain) ||
+        !Number.isFinite(message.revision) ||
+        !message.state
+      ) {
+        return;
+      }
+
+      const senderRevisions =
+        receivedRevisions.get(message.sender) ??
+        new Map<WorkspaceDomain, number>();
+      const receivedRevision = senderRevisions.get(message.domain) ?? -1;
+      if (message.revision <= receivedRevision) return;
+      senderRevisions.set(message.domain, message.revision);
+      receivedRevisions.set(message.sender, senderRevisions);
 
       applyingRemote = true;
-      const snapshot = message.snapshot;
-      useMapOperationalStore.setState(snapshot.operational);
-      useQSOStore.setState(snapshot.qso);
-      useMapStore.setState(snapshot.map);
-      useDXStore.setState(snapshot.dx);
-      useContestStore.setState(snapshot.contest);
-      useContestUIStore.setState(snapshot.contestUi);
-      applyingRemote = false;
+      try {
+        // Apply one domain at a time so editing a QSO draft can never replay a
+        // stale contest session, target, or UI snapshot from another window.
+        switch (message.domain) {
+          case "operational":
+            useMapOperationalStore.setState(
+              message.state as WorkspaceSnapshot["operational"],
+            );
+            break;
+          case "qso":
+            useQSOStore.setState(message.state as WorkspaceSnapshot["qso"]);
+            break;
+          case "map":
+            useMapStore.setState(message.state as WorkspaceSnapshot["map"]);
+            break;
+          case "dx":
+            useDXStore.setState(message.state as WorkspaceSnapshot["dx"]);
+            break;
+          case "contest":
+            useContestStore.setState(
+              message.state as WorkspaceSnapshot["contest"],
+            );
+            break;
+          case "contestUi":
+            useContestUIStore.setState(
+              message.state as WorkspaceSnapshot["contestUi"],
+            );
+            break;
+        }
+      } finally {
+        applyingRemote = false;
+      }
     };
 
     channel.postMessage({ kind: "request", sender } satisfies WorkspaceMessage);

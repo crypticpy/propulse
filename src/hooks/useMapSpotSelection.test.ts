@@ -91,23 +91,16 @@ describe("commitMapSpotSelection", () => {
   it("commits a normalized selected spot and matching target", () => {
     const setSelectedSpot = vi.fn();
     const setTarget = vi.fn();
-    const prepareQsoDraft = vi.fn();
     const setSelectedReport = vi.fn();
 
     const result = commitMapSpotSelection(dxSpot({ dxGrid: "GG87" }), {
       setSelectedSpot,
       setTarget,
-      prepareQsoDraft,
       setSelectedReport,
     });
 
     expect(setSelectedSpot).toHaveBeenCalledWith(result?.spot);
     expect(setTarget).toHaveBeenCalledWith(result?.target);
-    expect(prepareQsoDraft).toHaveBeenCalledWith({
-      callsign: "JA1XYZ",
-      frequency: 14074,
-      mode: "SSB",
-    });
     expect(setSelectedReport).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "spot-1",

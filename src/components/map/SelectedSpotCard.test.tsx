@@ -1,8 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 import { presentActivationSpot } from "@/lib/map/spotPresentation";
+import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { useQSOStore } from "@/stores/qsoStore";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 
 const { selectMapSpot } = vi.hoisted(() => ({ selectMapSpot: vi.fn() }));
@@ -56,6 +58,23 @@ const spot: LiveSpot = {
 };
 
 describe("SelectedSpotCard", () => {
+  beforeEach(() => {
+    selectMapSpot.mockReset();
+    useMapOperationalStore.setState({
+      manualScope: null,
+      workspaceOpen: false,
+      selectedReport: null,
+    });
+    useQSOStore.setState((state) => ({
+      form: {
+        ...state.form,
+        callsign: "",
+        frequency: 0,
+        mode: "SSB",
+      },
+    }));
+  });
+
   it("renders a persistent propagation summary and owns its actions", async () => {
     const user = userEvent.setup();
     const onViewPath = vi.fn();
@@ -132,6 +151,35 @@ describe("SelectedSpotCard", () => {
     expect(
       screen.queryByRole("dialog", { name: /Spot details/ }),
     ).toBeNull();
+  });
+
+  it("prepares the QSO draft only after Work & log is chosen", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <SelectedSpotCard
+        spot={spot}
+        position={{ x: 10, y: 10 }}
+        onOperator={vi.fn()}
+        onClose={onClose}
+      />,
+    );
+
+    expect(useQSOStore.getState().form.callsign).toBe("");
+    await user.click(screen.getByRole("button", { name: "Work & log" }));
+
+    expect(selectMapSpot).toHaveBeenCalledWith(spot);
+    expect(useQSOStore.getState().form).toMatchObject({
+      callsign: "PY2ABC",
+      frequency: 14074,
+      mode: "FT8",
+    });
+    expect(useMapOperationalStore.getState()).toMatchObject({
+      manualScope: "log",
+      workspaceOpen: true,
+    });
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("shows activation identity and provider metadata without a modal backdrop", () => {

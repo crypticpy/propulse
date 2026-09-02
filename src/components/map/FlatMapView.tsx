@@ -66,9 +66,10 @@ import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import {
+  useMapOperationalContext,
   useScopedMapLayers,
-  useScopedPublicSpots,
 } from "@/hooks/useMapOperationalContext";
+import { policyAllows } from "@/lib/map/operationalScope";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import {
@@ -3396,6 +3397,12 @@ export function FlatMapView({
   const glowRafRef = useRef<number>(0);
 
   const layers = useScopedMapLayers();
+  const { policy: operationalPolicy } = useMapOperationalContext();
+  const publicDxEnabled = policyAllows(
+    operationalPolicy,
+    "liveSpots",
+    "public",
+  );
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const labelOptions = useMapStore((s) => s.labelOptions);
@@ -3538,8 +3545,7 @@ export function FlatMapView({
     [layers.gridActivity, layers.spotTraces, layers.spots],
   );
   const selectMapSpot = useMapSpotSelection();
-  const { allSpots: unscopedAllSpots } = useDXCluster();
-  const allSpots = useScopedPublicSpots(unscopedAllSpots);
+  const { allSpots } = useDXCluster(undefined, { enabled: publicDxEnabled });
 
   // Satellite positions for 2D overlay
   const { satellites: satPositions, selectedSatellite: selectedSat } =

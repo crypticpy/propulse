@@ -127,9 +127,10 @@ import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import {
+  useMapOperationalContext,
   useScopedMapLayers,
-  useScopedPublicSpots,
 } from "@/hooks/useMapOperationalContext";
+import { policyAllows } from "@/lib/map/operationalScope";
 import {
   useSpotHoverArbitration,
   type SpotHoverInteraction,
@@ -1825,6 +1826,12 @@ export function GlobeView({
   hideSizeSliders = false,
 }: GlobeViewProps) {
   const scopedLayers = useScopedMapLayers();
+  const { policy: operationalPolicy } = useMapOperationalContext();
+  const publicDxEnabled = policyAllows(
+    operationalPolicy,
+    "liveSpots",
+    "public",
+  );
   const zoom = useMapStore((s) => s.zoom);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
   const qualitySettings = useResolvedDisplayQuality(displayQuality);
@@ -1871,8 +1878,7 @@ export function GlobeView({
   const [mapOverlayPortal, setMapOverlayPortal] =
     useState<HTMLDivElement | null>(null);
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
-  const { allSpots: unscopedAllSpots } = useDXCluster();
-  const allSpots = useScopedPublicSpots(unscopedAllSpots);
+  const { allSpots } = useDXCluster(undefined, { enabled: publicDxEnabled });
 
   // React Query dedupes this with the scene request. Keeping the canonical
   // activity snapshot outside the R3F reconciler lets DOM tooltips and clicks

@@ -5,6 +5,7 @@ import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
@@ -144,6 +145,7 @@ export function SelectedSpotCard({
   const setWorkspaceOpen = useMapOperationalStore(
     (state) => state.setWorkspaceOpen,
   );
+  const prepareQsoDraft = useQSOStore((state) => state.setFromSpot);
   const { station } = useUserStore();
   const setWatch = useWatchStore((state) => state.setWatch);
   const catEnabled = useRigStore((state) => state.catEnabled);
@@ -250,15 +252,21 @@ export function SelectedSpotCard({
 
   const handleWorkAndLog = useCallback(() => {
     if (!spot) return;
-    // Selection seeds the existing qsoStore draft. Scope and dock changes are
-    // explicit here so merely inspecting public activity stays observational.
+    // This explicit action seeds the existing qsoStore draft and enters the
+    // operating workspace; merely inspecting public activity stays read-only.
     selectMapSpot(spot);
+    prepareQsoDraft({
+      callsign: spot.dx,
+      frequency: spot.frequency,
+      mode: spot.mode || "SSB",
+    });
     setManualScope("log");
     setWorkspaceOpen(true);
     setDXConsoleExpanded(true);
     onClose();
   }, [
     onClose,
+    prepareQsoDraft,
     selectMapSpot,
     setDXConsoleExpanded,
     setManualScope,

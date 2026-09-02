@@ -7,7 +7,6 @@ import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
-import { useQSOStore } from "@/stores/qsoStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { formatSpotPresentationLabel } from "@/lib/map/spotPresentation";
 import {
@@ -29,11 +28,6 @@ export interface MapSpotSelection {
 export interface MapSpotSelectionActions {
   setSelectedSpot: (spot: DXSpot) => void;
   setTarget: (target: TargetLocation | null) => void;
-  prepareQsoDraft?: (spot: {
-    callsign: string;
-    frequency: number;
-    mode: string;
-  }) => void;
   setSelectedReport?: (report: {
     id: string;
     callsign: string;
@@ -154,14 +148,9 @@ export function commitMapSpotSelection(
   const source =
     (selectedSpot as DXSpot & { source?: string }).source ?? "Cluster";
   actions.setSelectedSpot(selectedSpot);
-  // Preparing the canonical QSO draft is intentionally separate from entering
-  // focused logging scope. The selected card's Work & Log action makes that
-  // transition explicit while preserving the report that seeded the draft.
-  actions.prepareQsoDraft?.({
-    callsign: selectedSpot.dx,
-    frequency: selectedSpot.frequency,
-    mode: selectedSpot.mode || "SSB",
-  });
+  // Inspection updates map target and attribution only. The explicit Work &
+  // Log action owns draft preparation so browsing cannot overwrite a QSO that
+  // the operator is already entering.
   actions.setSelectedReport?.({
     id: selectedSpot.id,
     callsign: selectedSpot.dx,
@@ -183,7 +172,6 @@ export function commitMapSpotSelection(
 export function useMapSpotSelection() {
   const setSelectedSpot = useDXStore((state) => state.setSelectedSpot);
   const setTarget = useMapStore((state) => state.setTarget);
-  const prepareQsoDraft = useQSOStore((state) => state.setFromSpot);
   const setSelectedReport = useMapOperationalStore(
     (state) => state.setSelectedReport,
   );
@@ -193,10 +181,9 @@ export function useMapSpotSelection() {
       commitMapSpotSelection(spot, {
         setSelectedSpot,
         setTarget,
-        prepareQsoDraft,
         setSelectedReport,
       }),
-    [prepareQsoDraft, setSelectedReport, setSelectedSpot, setTarget],
+    [setSelectedReport, setSelectedSpot, setTarget],
   );
 }
 

@@ -34,12 +34,18 @@ const SCOPE_LABELS: Record<MapDataScope, string> = {
 };
 
 function openOperationalWorkspaceWindow(): Window | null {
-  useMapOperationalStore.getState().setWorkspaceOpen(true);
-  return window.open(
+  const workspaceWindow = window.open(
     "/map/ops",
     "propulse-operating-workspace",
     "popup=yes,width=1100,height=760,resizable=yes,scrollbars=yes",
   );
+  // A blocked popup must not change automatic scope or hide public activity.
+  // The child repeats this flag after mounting so a successful window remains
+  // authoritative even if its initial BroadcastChannel handshake is delayed.
+  if (workspaceWindow) {
+    useMapOperationalStore.getState().setWorkspaceOpen(true);
+  }
+  return workspaceWindow;
 }
 
 export interface OperationalScopeControlProps {

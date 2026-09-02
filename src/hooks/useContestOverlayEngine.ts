@@ -56,14 +56,16 @@ export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
     sessionId ? s.modeBySessionId[sessionId] ?? "CW" : "CW",
   );
 
-  const { allSpots } = useDXCluster();
-  const updateOverlayLayer = useMapStore((s) => s.updateOverlayLayer);
-  const removeOverlayLayer = useMapStore((s) => s.removeOverlayLayer);
   const publicMultiplierAssistance = policyAllows(
     policy,
     "neededMultipliers",
     "public",
   );
+  const { allSpots } = useDXCluster(undefined, {
+    enabled: enabled && publicMultiplierAssistance,
+  });
+  const updateOverlayLayer = useMapStore((s) => s.updateOverlayLayer);
+  const removeOverlayLayer = useMapStore((s) => s.removeOverlayLayer);
 
   const markers = useMemo((): OverlayMarker[] => {
     if (!enabled || !activeSession || !publicMultiplierAssistance) {

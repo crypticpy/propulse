@@ -204,6 +204,7 @@ export function PropSphere() {
   const station = useUserStore((state) => state.station);
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);
   const spotCount = useDXStore((state) => state.spots.length);
+  const setPublicDxSpots = useDXStore((state) => state.setSpots);
   const contestSessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const contestDockTab = useContestUIStore((s) =>
     contestSessionId
@@ -226,6 +227,14 @@ export function PropSphere() {
     "liveSpots",
     "public",
   );
+
+  useEffect(() => {
+    if (!showPublicActivity) {
+      // Keep the explicit selected target, but purge transport rows so focused
+      // operation neither renders nor retains the public discovery feed.
+      setPublicDxSpots([]);
+    }
+  }, [setPublicDxSpots, showPublicActivity]);
 
   useOperationalWorkspaceSync();
 

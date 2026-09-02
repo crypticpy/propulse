@@ -1,4 +1,5 @@
 import type { SpotSource } from "@/types/livespot";
+import { stripCallsignModifiers } from "@/lib/api/callsignIngestion";
 
 export type MapDataScope = "observe" | "log" | "contest";
 
@@ -62,17 +63,6 @@ export function deriveMapDataScope({
   if (contestActive) return "contest";
   if (stationOperationActive) return "log";
   return "observe";
-}
-
-/** A manual contest workspace is temporary and ends with its session. */
-export function shouldRestoreAutomaticScopeAfterContest(
-  previousSessionId: string | null,
-  currentSessionId: string | null,
-  manualScope: MapDataScope | null,
-): boolean {
-  return Boolean(
-    previousSessionId && !currentSessionId && manualScope === "contest",
-  );
 }
 
 /**
@@ -164,7 +154,11 @@ export function selectScopedLiveSpotSources(
 
   const scoped = new Set<SpotSource>(["WSJT-X"]);
   if (policyAllows(policy, "liveSpots", "public")) {
-    for (const source of requested ?? [...PUBLIC_SPOT_SOURCES]) {
+    const requestedPublicSources =
+      requested && requested.length > 0
+        ? requested
+        : [...PUBLIC_SPOT_SOURCES];
+    for (const source of requestedPublicSources) {
       if (PUBLIC_SPOT_SOURCES.has(source)) scoped.add(source);
     }
   }
@@ -199,9 +193,7 @@ export function applyMapDataPolicyToLayers<T extends MapLayerFlags>(
 export function stationIdentityKeys(callsign: string | null | undefined): Set<string> {
   const normalized = callsign?.trim().toUpperCase() ?? "";
   if (!normalized) return new Set();
-  const parts = normalized.split("/").filter(Boolean);
-  const base =
-    parts.find((part) => /[A-Z]/.test(part) && /\d/.test(part)) ?? parts[0];
+  const base = stripCallsignModifiers(normalized);
   return new Set([normalized, ...(base ? [base] : [])]);
 }
 

@@ -4,6 +4,8 @@ import type {
   MapDataProvenance,
   MapDataScope,
 } from "@/lib/map/operationalScope";
+import { contestEventBus } from "@/lib/services/contestEventBus";
+import { useContestStore } from "@/stores/contestStore";
 
 export interface SelectedReportAttribution {
   id: string;
@@ -45,9 +47,26 @@ export const useMapOperationalStore = create<MapOperationalState>()(
       version: 1,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        manualScope: state.manualScope,
+        // Contest intent belongs to a live session. Never resurrect it from
+        // storage after a reload where the contest may already have ended.
+        manualScope:
+          state.manualScope === "contest" ? null : state.manualScope,
         selectedReport: state.selectedReport,
       }),
     },
   ),
 );
+
+// This store module outlives the route that first loaded PropSphere. Listening
+// to the existing contest event bus makes session cleanup work even when the
+// operator ends a contest from /contest or from a synchronized second window.
+contestEventBus.subscribe((event) => {
+  if (event.type !== "SESSION_ENDED") return;
+  // switchContest emits ENDED after installing the replacement session; that
+  // transition remains contest-scoped and must not collapse the workspace.
+  if (useContestStore.getState().activeSession) return;
+  const state = useMapOperationalStore.getState();
+  if (state.manualScope !== "contest") return;
+  state.setManualScope(null);
+  state.setWorkspaceOpen(false);
+});

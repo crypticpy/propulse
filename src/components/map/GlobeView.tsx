@@ -2442,11 +2442,12 @@ export function GlobeView({
         </Canvas>
       </GlobeErrorBoundary>
 
-      {/* Map-owned DOM portal. Keeping hover UI in this explicit layer makes
-          its stacking order independent of Drei Html's per-label z-index. */}
+      {/* Map-owned DOM portal. Drei Html labels reserve z-index values through
+          9000 while hovered/selected, so this sibling stacking layer must sit
+          above that entire range for previews to remain completely opaque. */}
       <div
         ref={setMapOverlayPortal}
-        className="pointer-events-none absolute inset-0 z-[80]"
+        className="pointer-events-none absolute inset-0 z-[10000]"
       />
 
       <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">

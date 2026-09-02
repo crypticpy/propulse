@@ -168,6 +168,7 @@ export function PropSphere() {
   const setTarget = useMapStore((s) => s.setTarget);
   const layers = useMapStore((s) => s.layers);
   const replayEnabled = useMapStore((s) => s.replayEnabled);
+  const replaySpotCount = useReplayStore((s) => s.replaySpots.length);
   const spotColorMode = useUIInteractionPrefs().spotColorMode ?? "mode";
   const hasLayerLegend = useMemo(
     () =>
@@ -175,8 +176,9 @@ export function PropSphere() {
         spotColorMode,
         viewMode,
         replayEnabled,
+        replaySpotCount,
       }).length > 0,
-    [layers, replayEnabled, spotColorMode, viewMode],
+    [layers, replayEnabled, replaySpotCount, spotColorMode, viewMode],
   );
   const activePreset = useMapStore((s) => s.activePreset);
   const layoutMode = useMapStore((s) => s.layoutMode);
@@ -660,7 +662,10 @@ export function PropSphere() {
 
   // Convert ReplaySpot[] → LiveSpot[] so the globe renderer can consume them
   const replayAsLiveSpots: LiveSpot[] = useMemo(() => {
-    if (!replaySpots.length) return [];
+    // TanStack Query intentionally retains the previous result when a query is
+    // disabled. Do not copy that cached window into the renderer after the
+    // operator turns replay off.
+    if (!replayEnabled || !replaySpots.length) return [];
     return replaySpots.map((s) => ({
       id: `replay-${s.id}`,
       spotter: s.spotter,
@@ -679,7 +684,7 @@ export function PropSphere() {
       dxLat: s.dxLat,
       dxLon: s.dxLon,
     }));
-  }, [replaySpots]);
+  }, [replayEnabled, replaySpots]);
 
   // Sync converted replay spots into the ephemeral store so globe/flat views can read them
   useEffect(() => {

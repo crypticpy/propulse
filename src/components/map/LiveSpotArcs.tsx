@@ -804,10 +804,14 @@ export function LiveSpotArcs({
   const activeBand = useActiveBand();
 
   // ── Replay spots (sepia-toned historical arcs) ──────────────────────────
+  const replayEnabled = useMapStore((s) => s.replayEnabled);
   const replaySpots = useReplayStore((s) => s.replaySpots);
   const resolvedReplay = useMemo(
-    () => resolveSpotLocations(replaySpots),
-    [replaySpots],
+    // PropSphere clears the ephemeral store when replay turns off, but gate
+    // here too so the canvas never renders a retained query snapshot during
+    // the effect boundary between the toggle and that store update.
+    () => (replayEnabled ? resolveSpotLocations(replaySpots) : []),
+    [replayEnabled, replaySpots],
   );
 
   // ── Globe-side culling: skip arcs whose endpoints both face away ────────

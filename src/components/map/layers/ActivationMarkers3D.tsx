@@ -207,6 +207,8 @@ export function ActivationMarkers3D({
         <SpotCluster
           key={cluster.id}
           cluster={cluster}
+          color={getBandColor(cluster.primarySpot.frequency)}
+          ariaLabel={`Open ${cluster.count} active spots near ${cluster.center.lat.toFixed(1)}, ${cluster.center.lon.toFixed(1)}`}
           onClick={onClusterClick}
         />
       ))}

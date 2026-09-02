@@ -85,18 +85,48 @@ describe("buildLayerLegends", () => {
   });
 
   it("identifies historical replay routes independently of live spot colors", () => {
-    const specs = buildLayerLegends(noLayers(), {
+    const specs = buildLayerLegends({ ...noLayers(), spots: true }, {
       spotColorMode: "mode",
       viewMode: "globe",
       replayEnabled: true,
+      replaySpotCount: 4,
     });
 
     expect(specs).toEqual([
+      expect.objectContaining({ key: "spots" }),
       expect.objectContaining({
         key: "replay",
         entries: [{ color: SPOT_REPLAY_COLOR, label: "Historical route" }],
       }),
     ]);
+  });
+
+  it("only identifies replay routes while replay geometry is rendered", () => {
+    const layers = { ...noLayers(), spots: true };
+    const baseOptions = {
+      spotColorMode: "mode" as const,
+      viewMode: "globe" as const,
+      replayEnabled: true,
+      replaySpotCount: 4,
+    };
+
+    expect(
+      buildLayerLegends({ ...layers, spots: false }, baseOptions).some(
+        (spec) => spec.key === "replay",
+      ),
+    ).toBe(false);
+    expect(
+      buildLayerLegends(layers, {
+        ...baseOptions,
+        replaySpotCount: 0,
+      }).some((spec) => spec.key === "replay"),
+    ).toBe(false);
+    expect(
+      buildLayerLegends(layers, {
+        ...baseOptions,
+        replayEnabled: false,
+      }).some((spec) => spec.key === "replay"),
+    ).toBe(false);
   });
 
   it("labels geomagnetic field curves as modeled physics, not radio paths", () => {

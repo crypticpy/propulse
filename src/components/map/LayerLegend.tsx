@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUIInteractionPrefs } from "@/stores/settingsStore";
+import { useReplayStore } from "@/stores/replayStore";
 import { buildLayerLegends } from "@/lib/map/layerLegends";
 
 interface LayerLegendProps {
@@ -28,6 +29,7 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
   const layers = useMapStore((s) => s.layers);
   const viewMode = useMapStore((s) => s.viewMode);
   const replayEnabled = useMapStore((s) => s.replayEnabled);
+  const replaySpotCount = useReplayStore((s) => s.replaySpots.length);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode = uiPrefs.spotColorMode ?? "mode";
   const [collapsed, setCollapsed] = useState(false);
@@ -38,8 +40,9 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
         spotColorMode,
         viewMode,
         replayEnabled,
+        replaySpotCount,
       }),
-    [layers, replayEnabled, spotColorMode, viewMode],
+    [layers, replayEnabled, replaySpotCount, spotColorMode, viewMode],
   );
 
   if (specs.length === 0) return null;

@@ -73,4 +73,42 @@ describe("SpotLabel selection", () => {
     expect(onParentPointerDown).not.toHaveBeenCalled();
     expect(onParentDoubleClick).not.toHaveBeenCalled();
   });
+
+  it("releases hover ownership when a hovered label is dynamically removed", () => {
+    const onHoverEnd = vi.fn();
+    const { unmount } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        onHover={vi.fn()}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.mouseEnter(
+      screen.getByRole("button", { name: "Select K5ABC as target" }),
+    );
+
+    unmount();
+
+    expect(onHoverEnd).toHaveBeenCalledOnce();
+  });
+
+  it("does not release hover ownership when an untouched label is removed", () => {
+    const onHoverEnd = vi.fn();
+    const { unmount } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    unmount();
+
+    expect(onHoverEnd).not.toHaveBeenCalled();
+  });
 });

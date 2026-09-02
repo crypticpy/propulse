@@ -484,6 +484,7 @@ export function buildLayerLegends(
     spotColorMode: SpotColorMode;
     viewMode: ViewMode;
     replayEnabled?: boolean;
+    replaySpotCount?: number;
   },
 ): LayerLegendSpec[] {
   const specs: LayerLegendSpec[] = [];
@@ -492,7 +493,15 @@ export function buildLayerLegends(
 
   if (on("spots")) specs.push(buildSpotsSpec(opts.spotColorMode));
   if (on("activations")) specs.push(buildActivationsSpec());
-  if (opts.replayEnabled && opts.viewMode === "globe") {
+  // Replay geometry lives inside the globe's spots renderer. Requiring the
+  // same layer gate plus a non-empty effective replay set prevents the legend
+  // from advertising cached or currently unrendered historical routes.
+  if (
+    on("spots") &&
+    opts.replayEnabled &&
+    (opts.replaySpotCount ?? 0) > 0 &&
+    opts.viewMode === "globe"
+  ) {
     specs.push(buildReplaySpec());
   }
   if (on("lunarSubpoint")) specs.push(buildLunarSubpointSpec());

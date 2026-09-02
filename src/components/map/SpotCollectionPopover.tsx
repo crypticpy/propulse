@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { LiveSpot } from "@/types/livespot";
-import { SPOT_SOURCE_COLORS } from "@/types/livespot";
 import {
+  getSpotPresentationSource,
   normalizePresentableSpot,
   type PresentableSpot,
 } from "@/lib/map/spotPresentation";
+import { formatActivationFrequency } from "@/lib/map/activationMarkers";
 import {
   placeAnchoredOverlay,
   type ScreenAnchor,
@@ -31,7 +32,12 @@ const POPOVER_WIDTH = 330;
 const POPOVER_HEIGHT = 430;
 const EDGE_PADDING = 10;
 
-function formatFrequency(frequencyKhz: number) {
+function formatFrequency(spot: PresentableSpot) {
+  if (spot.activation) {
+    const value = formatActivationFrequency(spot.frequency);
+    return `${value} ${spot.frequency >= 1000 ? "MHz" : "kHz"}`;
+  }
+  const frequencyKhz = spot.frequency;
   return frequencyKhz >= 1000
     ? `${(frequencyKhz / 1000).toFixed(3)} MHz`
     : `${frequencyKhz.toFixed(1)} kHz`;
@@ -164,10 +170,13 @@ export function SpotCollectionPopover({
       <div className="overflow-y-auto p-1">
         {sortedSpots.map((rawSpot, index) => {
           const spot = normalizePresentableSpot(rawSpot);
+          // Activation reports retain their provider outside LiveSpot.source
+          // so they remain transport-compatible. Resolve presentation from the
+          // richer raw shape before normalization strips that type information.
+          const sourcePresentation = getSpotPresentationSource(rawSpot);
           const time =
             spot.time instanceof Date ? spot.time : new Date(spot.time);
           const modeColor = getModeColor(spot.mode);
-          const sourceColors = SPOT_SOURCE_COLORS[spot.source];
           const ageColors = getAgeBadgeColors(
             getSpotAgeInfo(time).ageCategory,
           );
@@ -188,7 +197,7 @@ export function SpotCollectionPopover({
                   {spot.dx}
                 </span>
                 <span className="font-mono text-[10px] text-gray-300">
-                  {formatFrequency(spot.frequency)}
+                  {formatFrequency(rawSpot)}
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-1.5">
@@ -208,11 +217,11 @@ export function SpotCollectionPopover({
                 <span
                   className="rounded px-1 py-0.5 text-[9px]"
                   style={{
-                    backgroundColor: sourceColors.bgColor,
-                    color: sourceColors.color,
+                    backgroundColor: sourcePresentation.bgColor,
+                    color: sourcePresentation.color,
                   }}
                 >
-                  {spot.source}
+                  {sourcePresentation.label}
                 </span>
                 <span
                   className={`rounded border px-1 py-0.5 text-[9px] ${ageColors.bg} ${ageColors.text} ${ageColors.border}`}

@@ -15,7 +15,7 @@
  *   crowded pile-up without losing your place.
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
@@ -131,6 +131,24 @@ export function SpotLabel({
   onClick,
 }: SpotLabelProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const pointerHoveredRef = useRef(false);
+  const keyboardFocusedRef = useRef(false);
+  const onHoverEndRef = useRef(onHoverEnd);
+  onHoverEndRef.current = onHoverEnd;
+
+  // Labels are dynamically culled and can become part of a cluster while the
+  // pointer is still over them. Mouse-leave never fires after that unmount, so
+  // explicitly release only hover ownership this label actually acquired.
+  // Keeping the latest callback in a ref avoids treating ordinary callback
+  // identity changes as an unmount/release event.
+  useEffect(
+    () => () => {
+      if (pointerHoveredRef.current || keyboardFocusedRef.current) {
+        onHoverEndRef.current?.();
+      }
+    },
+    [],
+  );
 
   // Validate coordinates
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
@@ -167,6 +185,7 @@ export function SpotLabel({
   // even spotter labels that don't have an onHover detail callback.
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent) => {
+      pointerHoveredRef.current = true;
       setIsHovered(true);
       const rect = e.currentTarget.getBoundingClientRect();
       onHover?.({
@@ -180,12 +199,14 @@ export function SpotLabel({
   );
 
   const handleMouseLeave = useCallback(() => {
-    setIsHovered(false);
-    onHoverEnd?.();
+    pointerHoveredRef.current = false;
+    setIsHovered(keyboardFocusedRef.current);
+    if (!keyboardFocusedRef.current) onHoverEnd?.();
   }, [onHoverEnd]);
 
   const handleFocus = useCallback(
     (event: React.FocusEvent<HTMLButtonElement>) => {
+      keyboardFocusedRef.current = true;
       setIsHovered(true);
       const rect = event.currentTarget.getBoundingClientRect();
       onHover?.({
@@ -199,8 +220,9 @@ export function SpotLabel({
   );
 
   const handleBlur = useCallback(() => {
-    setIsHovered(false);
-    onHoverEnd?.();
+    keyboardFocusedRef.current = false;
+    setIsHovered(pointerHoveredRef.current);
+    if (!pointerHoveredRef.current) onHoverEnd?.();
   }, [onHoverEnd]);
 
   const stopInteraction = useCallback((event: React.SyntheticEvent) => {

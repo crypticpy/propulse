@@ -44,6 +44,7 @@ describe("SpotHoverPreview", () => {
         position={{ x: 300, y: 300, width: 90, height: 22 }}
         spot={spot}
         displayTime={new Date("2026-08-31T12:00:00Z")}
+        onActivate={vi.fn()}
       />,
     );
 
@@ -55,6 +56,33 @@ describe("SpotHoverPreview", () => {
     expect(screen.getByText("S9+5")).toBeTruthy();
     expect(screen.getByText("85%")).toBeTruthy();
     expect(screen.getByText("1,520 km")).toBeTruthy();
+    const preview = screen.getByRole("button", {
+      name: /Open spot details for KA1VRY/i,
+    });
+    expect(preview.className).toContain("bg-gray-950");
+    expect(preview.className).not.toContain("backdrop-blur");
+  });
+
+  it("uses the map-owned portal layer when one is supplied", () => {
+    const portalTarget = document.createElement("div");
+    portalTarget.dataset.testid = "map-overlay-portal";
+    document.body.appendChild(portalTarget);
+
+    render(
+      <SpotHoverPreview
+        visible
+        portalTarget={portalTarget}
+        position={{ x: 300, y: 300, width: 90, height: 22 }}
+        spot={spot}
+        displayTime={new Date("2026-08-31T12:00:00Z")}
+        onActivate={vi.fn()}
+      />,
+    );
+
+    expect(
+      portalTarget.querySelector('[aria-label*="Open spot details"]'),
+    ).not.toBeNull();
+    portalTarget.remove();
   });
 
   it("owns pointer and keyboard activation without leaking to the map", () => {
@@ -80,13 +108,15 @@ describe("SpotHoverPreview", () => {
 
     fireEvent.pointerEnter(preview);
     fireEvent.pointerLeave(preview);
+    fireEvent.focus(preview);
+    fireEvent.blur(preview);
     fireEvent.click(preview);
     fireEvent.keyDown(preview, { key: "Enter" });
 
-    expect(onInteractStart).toHaveBeenCalledOnce();
-    expect(onInteractEnd).toHaveBeenCalledOnce();
-    expect(onInteractStart).toHaveBeenCalledWith();
-    expect(onInteractEnd).toHaveBeenCalledWith();
+    expect(onInteractStart).toHaveBeenNthCalledWith(1, "pointer");
+    expect(onInteractStart).toHaveBeenNthCalledWith(2, "focus");
+    expect(onInteractEnd).toHaveBeenNthCalledWith(1, "pointer");
+    expect(onInteractEnd).toHaveBeenNthCalledWith(2, "focus");
     expect(onActivate).toHaveBeenCalledTimes(2);
     expect(onMapClick).not.toHaveBeenCalled();
     document.removeEventListener("click", onMapClick);

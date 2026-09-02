@@ -8,12 +8,13 @@
  * Uses a transparent sphere geometry for raycasting without visual impact.
  */
 
-import { useRef, useCallback, useEffect, useMemo } from "react";
+import { useRef, useCallback, useEffect, useId, useMemo } from "react";
 import { ThreeEvent, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ResolvedSpot } from "./LiveSpotArcs";
 import type { LiveSpot } from "@/types/livespot";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
+import type { SpotHoverInteraction } from "@/hooks/useSpotHoverArbitration";
 
 /** Default hit radius for spot detection */
 const DEFAULT_HIT_RADIUS = 0.025;
@@ -36,9 +37,13 @@ export interface SpotEndpointHitAreaProps {
   onHover?: (
     spot: LiveSpot,
     screenPos: { x: number; y: number },
+    interaction: SpotHoverInteraction,
   ) => void;
   /** Callback when hover ends */
-  onHoverEnd?: (spot: LiveSpot) => void;
+  onHoverEnd?: (
+    spot: LiveSpot,
+    interaction: SpotHoverInteraction,
+  ) => void;
   /** Selects this endpoint's spot as the current map target. */
   onSelect?: (screenPos: { x: number; y: number }) => void;
 }
@@ -106,7 +111,26 @@ export function SpotEndpointHitArea({
   const onHoverEndRef = useRef(onHoverEnd);
   const originalSpotRef = useRef(spot.originalSpot);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
+  const surfaceInstanceId = useId();
   originalSpotRef.current = spot.originalSpot;
+  // Live arcs and animated traces can render separate hit meshes for the same
+  // endpoint. Report + coordinates preserve diagnostic identity, while the
+  // React instance suffix keeps each concrete mesh independently referenceable
+  // when one trace expires underneath another still-hovered live endpoint.
+  const hoverInteraction = useMemo<SpotHoverInteraction>(
+    () => ({
+      surface: "endpoint",
+      interactionId: [
+        spot.originalSpot.source ?? "Cluster",
+        spot.originalSpot.id,
+        "endpoint",
+        lat.toFixed(5),
+        lon.toFixed(5),
+        surfaceInstanceId,
+      ].join(":"),
+    }),
+    [lat, lon, spot.originalSpot.id, spot.originalSpot.source, surfaceInstanceId],
+  );
 
   useEffect(() => {
     onHoverEndRef.current = onHoverEnd;
@@ -120,9 +144,12 @@ export function SpotEndpointHitArea({
     () => () => {
       if (!ownsHoverRef.current) return;
       ownsHoverRef.current = false;
-      onHoverEndRef.current?.(originalSpotRef.current);
+      onHoverEndRef.current?.(
+        originalSpotRef.current,
+        hoverInteraction,
+      );
     },
-    [],
+    [hoverInteraction],
   );
 
   // Calculate 3D position
@@ -138,31 +165,18 @@ export function SpotEndpointHitArea({
       if (onHover) {
         ownsHoverRef.current = true;
         const screenPos = getScreenPositionFromEvent(event);
-        onHover(spot.originalSpot, screenPos);
+        onHover(spot.originalSpot, screenPos, hoverInteraction);
       }
     },
-    [onHover, spot.originalSpot],
-  );
-
-  // Handle pointer move (update position)
-  const handlePointerMove = useCallback(
-    (event: ThreeEvent<PointerEvent>) => {
-      event.stopPropagation();
-      if (onHover) {
-        ownsHoverRef.current = true;
-        const screenPos = getScreenPositionFromEvent(event);
-        onHover(spot.originalSpot, screenPos);
-      }
-    },
-    [onHover, spot.originalSpot],
+    [hoverInteraction, onHover, spot.originalSpot],
   );
 
   // Handle pointer leave
   const handlePointerLeave = useCallback(() => {
     if (!ownsHoverRef.current) return;
     ownsHoverRef.current = false;
-    onHoverEndRef.current?.(spot.originalSpot);
-  }, [spot.originalSpot]);
+    onHoverEndRef.current?.(spot.originalSpot, hoverInteraction);
+  }, [hoverInteraction, spot.originalSpot]);
 
   const handlePointerInteraction = useCallback(
     (event: ThreeEvent<PointerEvent>) => event.stopPropagation(),
@@ -193,8 +207,8 @@ export function SpotEndpointHitArea({
   useEffect(() => {
     if (occlusionOpacity >= 0.05 || !ownsHoverRef.current) return;
     ownsHoverRef.current = false;
-    onHoverEndRef.current?.(spot.originalSpot);
-  }, [occlusionOpacity, spot.originalSpot]);
+    onHoverEndRef.current?.(spot.originalSpot, hoverInteraction);
+  }, [hoverInteraction, occlusionOpacity, spot.originalSpot]);
 
   if (occlusionOpacity < 0.05) return null;
 
@@ -203,7 +217,6 @@ export function SpotEndpointHitArea({
       ref={meshRef}
       position={position}
       onPointerEnter={handlePointerEnter}
-      onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onPointerDown={handlePointerInteraction}
       onPointerUp={handlePointerInteraction}

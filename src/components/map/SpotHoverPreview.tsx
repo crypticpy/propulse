@@ -7,6 +7,7 @@ import {
 } from "@/lib/map/spotPresentation";
 import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import type { SpotPreviewInteraction } from "@/hooks/useSpotHoverArbitration";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 
 interface SpotHoverPreviewProps {
@@ -14,10 +15,12 @@ interface SpotHoverPreviewProps {
   position: ScreenAnchor;
   spot: PresentableSpot | null;
   displayTime: Date;
+  /** Map-owned portal layer that must remain above Drei Html labels. */
+  portalTarget?: Element | null;
   /** Keeps the preview alive while pointer or keyboard focus moves into it. */
-  onInteractStart?: () => void;
+  onInteractStart?: (interaction: SpotPreviewInteraction) => void;
   /** Requests delayed dismissal after pointer or focus leaves the preview. */
-  onInteractEnd?: () => void;
+  onInteractEnd?: (interaction: SpotPreviewInteraction) => void;
   /** Opens the canonical persistent details card for this exact report. */
   onActivate?: () => void;
 }
@@ -32,6 +35,7 @@ export function SpotHoverPreview({
   position,
   spot,
   displayTime,
+  portalTarget,
   onInteractStart,
   onInteractEnd,
   onActivate,
@@ -60,6 +64,7 @@ export function SpotHoverPreview({
   return (
     <TargetHoverTooltip
       visible={visible}
+      portalTarget={portalTarget}
       position={position}
       label={formatSpotPresentationLabel(spot.dx, spot.comment)}
       grid={selection?.spot.dxGrid || spot.dxGrid}
@@ -70,10 +75,10 @@ export function SpotHoverPreview({
       distanceKm={path.distanceKm}
       bearing={path.bearing}
       interactive={Boolean(onActivate)}
-      onPointerEnter={() => onInteractStart?.()}
-      onPointerLeave={() => onInteractEnd?.()}
-      onFocus={() => onInteractStart?.()}
-      onBlur={() => onInteractEnd?.()}
+      onPointerEnter={() => onInteractStart?.("pointer")}
+      onPointerLeave={() => onInteractEnd?.("pointer")}
+      onFocus={() => onInteractStart?.("focus")}
+      onBlur={() => onInteractEnd?.("focus")}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

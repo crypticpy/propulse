@@ -2,6 +2,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import type { ResolvedSpot } from "./LiveSpotArcs";
+import type { SpotHoverInteraction } from "@/hooks/useSpotHoverArbitration";
 
 vi.mock("@react-three/fiber", async () => {
   const actual = await vi.importActual<typeof import("@react-three/fiber")>(
@@ -64,7 +65,31 @@ describe("SpotEndpointHitArea selection", () => {
     expect(onHover).toHaveBeenCalledWith(
       spot.originalSpot,
       { x: 120, y: 80 },
+      {
+        surface: "endpoint",
+        interactionId: expect.stringMatching(
+          /^PSKReporter:spot-1:endpoint:-22\.50000:-43\.00000:/,
+        ),
+      },
     );
+  });
+
+  it("does not reclaim hover on every pointer movement", () => {
+    const onHover = vi.fn();
+    const { container } = render(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        onHover={onHover}
+      />,
+    );
+    const endpoint = container.querySelector("mesh")!;
+    fireEvent.pointerEnter(endpoint, { clientX: 120, clientY: 80 });
+    fireEvent.pointerMove(endpoint, { clientX: 122, clientY: 82 });
+    fireEvent.pointerMove(endpoint, { clientX: 124, clientY: 84 });
+
+    expect(onHover).toHaveBeenCalledOnce();
   });
 
   it("selects the endpoint without allowing the globe surface to handle it", () => {
@@ -148,6 +173,12 @@ describe("SpotEndpointHitArea selection", () => {
     expect(onHoverEnd).toHaveBeenCalledOnce();
     expect(onHoverEnd).toHaveBeenCalledWith(
       expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
+      expect.objectContaining({
+        surface: "endpoint",
+        interactionId: expect.stringMatching(
+          /^PSKReporter:spot-1:endpoint:-22\.50000:-43\.00000:/,
+        ),
+      }),
     );
   });
 
@@ -183,6 +214,42 @@ describe("SpotEndpointHitArea selection", () => {
     expect(activeHoverEnd).toHaveBeenCalledOnce();
     expect(activeHoverEnd).toHaveBeenCalledWith(
       expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
+      expect.objectContaining({
+        surface: "endpoint",
+        interactionId: expect.stringMatching(
+          /^PSKReporter:spot-1:endpoint:-22\.50000:-43\.00000:/,
+        ),
+      }),
+    );
+  });
+
+  it("gives duplicate rendered endpoints distinct concrete owner IDs", () => {
+    const onHover = vi.fn();
+    const { container } = render(
+      <>
+        <SpotEndpointHitArea
+          lat={-22.5}
+          lon={-43}
+          spot={resolvedSpot()}
+          onHover={onHover}
+        />
+        <SpotEndpointHitArea
+          lat={-22.5}
+          lon={-43}
+          spot={resolvedSpot()}
+          onHover={onHover}
+        />
+      </>,
+    );
+
+    const endpoints = container.querySelectorAll("mesh");
+    fireEvent.pointerEnter(endpoints[0], { clientX: 120, clientY: 80 });
+    fireEvent.pointerEnter(endpoints[1], { clientX: 120, clientY: 80 });
+
+    const firstInteraction = onHover.mock.calls[0][2] as SpotHoverInteraction;
+    const secondInteraction = onHover.mock.calls[1][2] as SpotHoverInteraction;
+    expect(firstInteraction.interactionId).not.toBe(
+      secondInteraction.interactionId,
     );
   });
 });

@@ -91,9 +91,17 @@ describe("activation label selections", () => {
         }),
       }),
       { x: 10, y: 20 },
+      {
+        surface: "label",
+        interactionId: "activation:pota-1:label",
+      },
     );
     expect(onSpotHoverEnd).toHaveBeenCalledWith(
       expect.objectContaining({ id: "pota-1", dx: "K5ABC" }),
+      {
+        surface: "label",
+        interactionId: "activation:pota-1:label",
+      },
     );
     expect(onSpotSelect).toHaveBeenCalledWith(
       expect.objectContaining({ dxLat: 30.25, dxLon: -97.75 }),

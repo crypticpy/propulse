@@ -123,6 +123,10 @@ import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import {
+  useSpotHoverArbitration,
+  type SpotHoverInteraction,
+} from "@/hooks/useSpotHoverArbitration";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import {
@@ -901,8 +905,12 @@ interface GlobeSceneProps {
   onSpotHover?: (
     spot: PresentableSpot,
     screenPos: ScreenAnchor,
+    interaction: SpotHoverInteraction,
   ) => void;
-  onSpotHoverEnd?: (spot?: PresentableSpot) => void;
+  onSpotHoverEnd?: (
+    spot?: PresentableSpot,
+    interaction?: SpotHoverInteraction,
+  ) => void;
   onSpotSelect?: (spot: PresentableSpot, screenPos: ScreenAnchor) => void;
   onClusterClick?: (
     cluster: SpotClusterData,
@@ -1870,6 +1878,16 @@ export function GlobeView({
   const { pushAction } = useUndoStore();
   const updateFilter = useDXStore((s) => s.updateFilter);
   const selectMapSpot = useMapSpotSelection();
+  const {
+    hoveredSpotData,
+    handleSpotHover,
+    handleSpotHoverEnd,
+    holdSpotHoverForPreview,
+    releaseSpotHoverFromPreview,
+    clearSpotHover,
+  } = useSpotHoverArbitration();
+  const [mapOverlayPortal, setMapOverlayPortal] =
+    useState<HTMLDivElement | null>(null);
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster();
 
@@ -1924,14 +1942,6 @@ export function GlobeView({
     x: number;
     y: number;
   } | null>(null);
-
-  // State for the canonical spot hover preview.
-  const [hoveredSpotData, setHoveredSpotData] = useState<{
-    spot: PresentableSpot;
-    screenPos: ScreenAnchor;
-  } | null>(null);
-  const spotHoverDismissRef = useRef<number | null>(null);
-  const hoveredSpotOwnerRef = useRef<string | null>(null);
 
   // State for cluster click popover
   const [selectedCluster, setSelectedCluster] =
@@ -1991,21 +2001,6 @@ export function GlobeView({
       glowSpotsForTooltipRef.current,
       resolvedLive,
     ).spots;
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (spotHoverDismissRef.current !== null) {
-        window.clearTimeout(spotHoverDismissRef.current);
-      }
-    },
-    [],
-  );
-
-  const cancelSpotHoverDismiss = useCallback(() => {
-    if (spotHoverDismissRef.current === null) return;
-    window.clearTimeout(spotHoverDismissRef.current);
-    spotHoverDismissRef.current = null;
   }, []);
 
   const targetDifficulty = useMemo(() => {
@@ -2142,34 +2137,6 @@ export function GlobeView({
     setHoveredTargetPos(null);
   }, []);
 
-  // Handle spot hover from LiveSpotArcs (via SpotLabel or SpotEndpointHitArea)
-  const handleSpotHover = useCallback(
-    (spot: PresentableSpot, screenPos: ScreenAnchor) => {
-      cancelSpotHoverDismiss();
-      hoveredSpotOwnerRef.current = `${spot.source ?? "Cluster"}:${spot.id}`;
-      setHoveredSpotData({ spot, screenPos });
-    },
-    [cancelSpotHoverDismiss],
-  );
-
-  const handleSpotHoverEnd = useCallback((spot?: PresentableSpot) => {
-    const owner = spot
-      ? `${spot.source ?? "Cluster"}:${spot.id}`
-      : hoveredSpotOwnerRef.current;
-    // Feed refreshes and animated trace expiry can unmount an old hit target
-    // after a different label has taken hover ownership. That stale leave must
-    // never dismiss the new label's preview.
-    if (owner && hoveredSpotOwnerRef.current !== owner) return;
-    if (spotHoverDismissRef.current !== null) return;
-    spotHoverDismissRef.current = window.setTimeout(() => {
-      if (!owner || hoveredSpotOwnerRef.current === owner) {
-        hoveredSpotOwnerRef.current = null;
-        setHoveredSpotData(null);
-      }
-      spotHoverDismissRef.current = null;
-    }, 260);
-  }, []);
-
   // Handle cluster click from LiveSpotArcs → SpotCluster
   const handleClusterClick = useCallback(
     (cluster: SpotClusterData, screenPos: { x: number; y: number }) => {
@@ -2193,9 +2160,7 @@ export function GlobeView({
         ...spot,
         ...(selection?.spot ?? {}),
       };
-      cancelSpotHoverDismiss();
-      hoveredSpotOwnerRef.current = null;
-      setHoveredSpotData(null);
+      clearSpotHover();
       setHoveredTargetPos(null);
       setFlyoutPosition(null);
       setTooltipPosition(null);
@@ -2205,7 +2170,7 @@ export function GlobeView({
       setSelectedMapSpotData({ spot: selectedPresentableSpot, screenPos });
     },
     [
-      cancelSpotHoverDismiss,
+      clearSpotHover,
       selectMapSpot,
       setFlyoutPosition,
       setTooltipPosition,
@@ -2224,7 +2189,7 @@ export function GlobeView({
     (alert: WeatherAlert, screenPos: { x: number; y: number }) => {
       // Clear all other flyouts (mutual exclusion)
       setHoveredPinData(null);
-      setHoveredSpotData(null);
+      clearSpotHover();
       setSelectedCluster(null);
       setClusterScreenPos(null);
       setSelectedMapSpotData(null);
@@ -2235,7 +2200,7 @@ export function GlobeView({
       setClickedFireData(null);
       setClickedAlertData({ alert, screenPos });
     },
-    [setFlyoutPosition, setTooltipPosition],
+    [clearSpotHover, setFlyoutPosition, setTooltipPosition],
   );
 
   const handleAlertFlyoutClose = useCallback(() => {
@@ -2247,7 +2212,7 @@ export function GlobeView({
     (hotspot: FireHotspot, screenPos: { x: number; y: number }) => {
       // Clear all other flyouts (mutual exclusion)
       setHoveredPinData(null);
-      setHoveredSpotData(null);
+      clearSpotHover();
       setSelectedCluster(null);
       setClusterScreenPos(null);
       setSelectedMapSpotData(null);
@@ -2258,7 +2223,7 @@ export function GlobeView({
       setClickedAlertData(null);
       setClickedFireData({ hotspot, screenPos });
     },
-    [setFlyoutPosition, setTooltipPosition],
+    [clearSpotHover, setFlyoutPosition, setTooltipPosition],
   );
 
   const handleFireFlyoutClose = useCallback(() => {
@@ -2477,6 +2442,14 @@ export function GlobeView({
         </Canvas>
       </GlobeErrorBoundary>
 
+      {/* Map-owned DOM portal. Drei Html labels reserve z-index values through
+          9000 while hovered/selected, so this sibling stacking layer must sit
+          above that entire range for previews to remain completely opaque. */}
+      <div
+        ref={setMapOverlayPortal}
+        className="pointer-events-none absolute inset-0 z-[10000]"
+      />
+
       <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">
         <CloudImageryAttribution status={cloudImageryStatus} />
         <ImageryAttribution
@@ -2570,6 +2543,7 @@ export function GlobeView({
 
       <TargetHoverTooltip
         visible={!!hoveredTargetPos && !selectedMapSpotData}
+        portalTarget={mapOverlayPortal}
         position={hoveredTargetPos || { x: 0, y: 0 }}
         label={target?.name || target?.grid || "Target"}
         grid={target?.grid}
@@ -2593,10 +2567,11 @@ export function GlobeView({
           !clickedFireData
         }
         position={hoveredSpotData?.screenPos || { x: 0, y: 0 }}
+        portalTarget={mapOverlayPortal}
         displayTime={displayTime}
         spot={hoveredSpotData?.spot ?? null}
-        onInteractStart={cancelSpotHoverDismiss}
-        onInteractEnd={handleSpotHoverEnd}
+        onInteractStart={holdSpotHoverForPreview}
+        onInteractEnd={releaseSpotHoverFromPreview}
         onActivate={() => {
           if (hoveredSpotData) {
             handleMapSpotSelect(

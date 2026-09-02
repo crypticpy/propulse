@@ -59,13 +59,20 @@ export function useResolvedMapSpots({
       }),
     [live.spots, sources, spotFilters],
   );
-  const { candidateSpots, resolvedSpots } = useMemo(() => {
+  const {
+    candidateSpots,
+    resolvedSpots,
+    allCandidateSpots,
+    allResolvedSpots,
+  } = useMemo(() => {
     const limit =
       maxSpots === undefined ? Number.POSITIVE_INFINITY : Math.max(0, maxSpots);
     if (!resolveEnabled) {
       return {
         candidateSpots: filteredSpots.slice(0, limit),
         resolvedSpots: [],
+        allCandidateSpots: filteredSpots,
+        allResolvedSpots: [],
       };
     }
 
@@ -89,6 +96,11 @@ export function useResolvedMapSpots({
     return {
       candidateSpots: cappedCandidates,
       resolvedSpots: cappedResolved,
+      // Activity aggregation and other semantic summaries must see the whole
+      // eligible feed. Renderer density limits are applied only to the arrays
+      // above so a crowded region cannot disappear from aggregate facts.
+      allCandidateSpots: filteredSpots,
+      allResolvedSpots: resolvedCandidates,
     };
   }, [filteredSpots, maxSpots, resolveEnabled]);
   const activationSpots = useMemo(
@@ -99,5 +111,12 @@ export function useResolvedMapSpots({
     [activations.spots, activationsEnabled, maxSpots],
   );
 
-  return { ...live, candidateSpots, resolvedSpots, activationSpots };
+  return {
+    ...live,
+    candidateSpots,
+    resolvedSpots,
+    allCandidateSpots,
+    allResolvedSpots,
+    activationSpots,
+  };
 }

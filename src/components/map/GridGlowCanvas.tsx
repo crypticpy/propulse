@@ -1,14 +1,20 @@
 /**
  * GridGlowCanvas — Canvas 2D grid glow renderer for FlatMapView
  *
- * Renders brief glow pulses on Maidenhead grid squares (4-char)
- * when live spots arrive. Exports a draw function to be called from
- * FlatMapView's canvas render loop — not a React component.
+ * Renders canonical 2/4/6-character activity cells plus brief legacy arrival
+ * pulses. Exports a draw function to be called from FlatMapView and the
+ * azimuthal canvas render loop — not a React component.
  *
  * When `persistEdges` is enabled (Grid Activity layer), each pulse also
  * leaves a glowing stroked outline on the cell edge that holds at full
  * brightness for 60s after the spot and fades out by 90s.
  */
+
+import {
+  GRID_ACTIVITY_RECENCY_PULSE_MS,
+  gridActivityBounds,
+  type GridActivityCell,
+} from "@/lib/map/gridActivityModel";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -167,6 +173,9 @@ export class GridGlowRenderer {
   /** Pool of active glows, kept compact (no holes) */
   private glows: ActiveGlow[] = [];
 
+  /** Renderer-neutral persistent cells supplied by the shared activity model. */
+  private activityCells: readonly GridActivityCell[] = [];
+
   /**
    * When true (Grid Activity layer on), each glow also draws a filled and
    * bordered cell highlight that persists for PERSIST_TOTAL_MS after the
@@ -177,6 +186,15 @@ export class GridGlowRenderer {
   // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
+
+  /** Replace persistent activity facts without replaying transient arrivals. */
+  setActivityCells(
+    cells: readonly GridActivityCell[],
+    suppressTransientGlows = false,
+  ): void {
+    this.activityCells = cells;
+    if (suppressTransientGlows) this.glows = [];
+  }
 
   /**
    * Add a new glow pulse for a grid square.
@@ -246,6 +264,15 @@ export class GridGlowRenderer {
   ): void {
     // Prune expired glows first
     this.pruneExpired(now);
+
+    if (this.glows.length === 0 && this.activityCells.length === 0) return;
+
+    // Persistent density uses ordinary alpha blending so it remains readable
+    // over both bright satellite imagery and the dark ocean/night treatment.
+    // Recency is carried only by the short border accent below.
+    if (this.activityCells.length > 0) {
+      this.drawActivityCells(ctx, project, now, projectionMode);
+    }
 
     if (this.glows.length === 0) return;
 
@@ -392,7 +419,12 @@ export class GridGlowRenderer {
   /** Active cells currently painted by this renderer, after expiry pruning. */
   getActiveGridSquares(now: number = Date.now()): readonly string[] {
     this.pruneExpired(now);
-    return this.glows.map((glow) => glow.gridSquare);
+    return [
+      ...new Set([
+        ...this.activityCells.map((cell) => cell.grid),
+        ...this.glows.map((glow) => glow.gridSquare),
+      ]),
+    ];
   }
 
   /**
@@ -404,6 +436,10 @@ export class GridGlowRenderer {
    */
   getNextAnimationDelay(now: number = Date.now()): number | null {
     this.pruneExpired(now);
+    for (const cell of this.activityCells) {
+      const age = now - cell.newestTimestamp;
+      if (age >= 0 && age < GRID_ACTIVITY_RECENCY_PULSE_MS) return 0;
+    }
     if (this.glows.length === 0) return null;
 
     let nextDelay = Number.POSITIVE_INFINITY;
@@ -421,6 +457,60 @@ export class GridGlowRenderer {
   // -----------------------------------------------------------------------
   // Internal helpers
   // -----------------------------------------------------------------------
+
+  private drawActivityCells(
+    ctx: CanvasRenderingContext2D,
+    project: (
+      lat: number,
+      lon: number,
+    ) => { x: number; y: number; visible?: boolean },
+    now: number,
+    projectionMode: "rect" | "radial",
+  ): void {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    for (const cell of this.activityCells) {
+      const bounds = gridActivityBounds(cell.grid);
+      const age = Math.max(0, now - cell.newestTimestamp);
+      const pulse =
+        age < GRID_ACTIVITY_RECENCY_PULSE_MS
+          ? 1 - easeInQuad(age / GRID_ACTIVITY_RECENCY_PULSE_MS)
+          : 0;
+      const fillAlpha = 0.14 + cell.densityScore * 0.34;
+      const borderAlpha = Math.min(0.95, 0.48 + pulse * 0.42);
+      ctx.fillStyle = colorWithAlpha(cell.color, fillAlpha);
+      ctx.strokeStyle = colorWithAlpha(cell.color, borderAlpha);
+      ctx.lineWidth = 1.25 + pulse * 1.75;
+
+      if (projectionMode === "radial") {
+        const corners = [
+          project(bounds.maxLat, bounds.minLon),
+          project(bounds.maxLat, bounds.maxLon),
+          project(bounds.minLat, bounds.maxLon),
+          project(bounds.minLat, bounds.minLon),
+        ];
+        if (corners.some((corner) => corner.visible === false)) continue;
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let index = 1; index < corners.length; index++) {
+          ctx.lineTo(corners[index].x, corners[index].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        continue;
+      }
+
+      const topLeft = project(bounds.maxLat, bounds.minLon);
+      const bottomRight = project(bounds.minLat, bounds.maxLon);
+      const width = bottomRight.x - topLeft.x;
+      const height = bottomRight.y - topLeft.y;
+      if (width <= 0 || height <= 0) continue;
+      ctx.fillRect(topLeft.x, topLeft.y, width, height);
+      ctx.strokeRect(topLeft.x, topLeft.y, width, height);
+    }
+    ctx.restore();
+  }
 
   /**
    * Compute the current visual intensity (0–1) for a glow based on elapsed

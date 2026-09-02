@@ -400,6 +400,10 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
   const setLabelOption = useMapStore((s) => s.setLabelOption);
   const gridLabelDetail = useMapStore((s) => s.gridLabelDetail);
   const setGridLabelDetail = useMapStore((s) => s.setGridLabelDetail);
+  const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
+  const setGridActivityEndpoint = useMapStore(
+    (s) => s.setGridActivityEndpoint,
+  );
   const viewMode = useMapStore((s) => s.viewMode);
 
   // Globe settings follow the active renderer, including HamClock's optional
@@ -1307,6 +1311,56 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                           <SatelliteFilters />
                         </div>
                       )}
+                      {activeCategory === "activity" &&
+                        layers.gridActivity && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              borderTop: "1px solid rgba(255,255,255,0.06)",
+                              padding: "6px 4px 0",
+                            }}
+                          >
+                            <label
+                              htmlFor="grid-activity-endpoint"
+                              style={{
+                                display: "block",
+                                marginBottom: 4,
+                                color: "rgba(255,255,255,0.35)",
+                                fontSize: 10,
+                                letterSpacing: "0.06em",
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              Grid activity location
+                            </label>
+                            <select
+                              id="grid-activity-endpoint"
+                              value={gridActivityEndpoint}
+                              onChange={(event) =>
+                                setGridActivityEndpoint(
+                                  event.target.value as
+                                    | "dx"
+                                    | "reporter"
+                                    | "both",
+                                )
+                              }
+                              style={{
+                                width: "100%",
+                                borderRadius: 4,
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                background: "#111522",
+                                padding: "6px 8px",
+                                color: "rgba(255,255,255,0.8)",
+                                fontSize: 11,
+                              }}
+                              title="Choose whether highlighted grids represent contact destinations, reporting receivers, or both"
+                            >
+                              <option value="dx">DX destinations</option>
+                              <option value="reporter">Reporter origins</option>
+                              <option value="both">Both endpoints</option>
+                            </select>
+                          </div>
+                        )}
                       {/* Auto-rotate speed slider inside Reference category */}
                       {activeCategory === "reference" &&
                         renderAutoRotateSpeed()}

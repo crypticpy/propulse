@@ -2,6 +2,39 @@ import { describe, expect, it } from "vitest";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 
 describe("GridGlowRenderer active cells", () => {
+  it("uses canonical activity cells for click membership and sleeps after recency", () => {
+    const renderer = new GridGlowRenderer();
+    renderer.setActivityCells([
+      {
+        id: "2:EM",
+        grid: "EM",
+        resolution: 2,
+        reportCount: 2,
+        uniqueDxCallsignCount: 2,
+        uniqueReporterCallsignCount: 1,
+        uniquePathCount: 2,
+        newestTimestamp: 1_000,
+        oldestTimestamp: 500,
+        sourceMix: {
+          PSKReporter: 0,
+          RBN: 0,
+          Cluster: 2,
+          "WSJT-X": 0,
+        },
+        modeMix: { CW: 2 },
+        reportIds: ["one", "two"],
+        reports: [],
+        densityScore: 0.5,
+        recencyScore: 1,
+        color: "#06b6d4",
+      },
+    ]);
+
+    expect(renderer.getActiveGridSquares(1_500)).toEqual(["EM"]);
+    expect(renderer.getNextAnimationDelay(1_500)).toBe(0);
+    expect(renderer.getNextAnimationDelay(6_000)).toBeNull();
+  });
+
   it("exposes exactly the persisted cells that remain clickable", () => {
     const renderer = new GridGlowRenderer();
     renderer.persistEdges = true;

@@ -71,16 +71,12 @@ import {
   getDifficultyColor,
   type DifficultyLevel,
 } from "./LocationMarker";
-import { resolveSpotLocations } from "./LiveSpotArcs";
 import { SpotActivityLayout3D } from "./SpotActivityLayout3D";
-import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
 import { GridPersistOverlay } from "./GridPersistOverlay";
 import { IonosphericShells } from "./IonosphericShells";
 import { RayPathArc } from "./RayPathArc";
-import {
-  useGridActivityMap,
-  type ActivitySpot,
-} from "@/hooks/useGridActivityMap";
+import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
+import { gridActivityResolutionForView } from "@/lib/map/gridActivityModel";
 import { traceRayPath } from "@/lib/utils/rayTrace";
 import { SpotHighlight } from "./SpotHighlight";
 import { SelectedSpotArc } from "./SelectedSpotArc";
@@ -129,13 +125,11 @@ import {
   useSpotHoverArbitration,
   type SpotHoverInteraction,
 } from "@/hooks/useSpotHoverArbitration";
-import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import {
   getGreylineGlowIntensity,
   getGreylineIntensity,
 } from "@/lib/utils/greyline";
-import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import {
   getGlobeNavigationTuning,
   getMinimumGlobeDistance,
@@ -961,6 +955,8 @@ const GlobeScene = React.memo(function GlobeScene({
   const labelOptions = useMapStore((s) => s.labelOptions);
   const displayDensity = useMapStore((s) => s.displayDensity);
   const spotFilters = useMapStore((s) => s.spotFilters);
+  const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
+  const globeZoom = useMapStore((s) => s.zoom);
   const spotSourceFilters = useDXStore(
     (s) => s.filters.sources as SpotSource[] | undefined,
   );
@@ -1077,7 +1073,8 @@ const GlobeScene = React.memo(function GlobeScene({
   const {
     spots: liveSpots,
     candidateSpots,
-    resolvedSpots: resolvedGlowSpots,
+    resolvedSpots,
+    allResolvedSpots,
     activationSpots,
     isLoading: liveSpotsLoading,
     isFeedReady: liveSpotsFeedReady,
@@ -1092,95 +1089,19 @@ const GlobeScene = React.memo(function GlobeScene({
     spotFilters,
   });
 
-  // Track which spot IDs have already triggered glows (avoid re-firing on every render)
-  const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
-
-  // Glow spots state — updated by effect, consumed by GridGlowOverlay
-  const [glowSpots, setGlowSpots] = useState<GridGlowSpot[]>([]);
-
-  // Feed new resolved spots into glowSpots via effect (NOT useMemo — refs must
-  // only be mutated in effects to avoid double-firing in React strict mode).
-  useEffect(() => {
-    if (!layers.spots && !layers.spotTraces && !layers.gridActivity) return;
-    const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
-    const prevIds = prevGlowSpotIdsRef.current;
-    const currentIds = new Set<string>();
-    const newSpots: GridGlowSpot[] = [];
-    const isInitialLoad = prevIds.size === 0 && resolvedGlowSpots.length > 0;
-
-    for (const spot of resolvedGlowSpots) {
-      currentIds.add(spot.id);
-      if (prevIds.has(spot.id)) continue;
-
-      const color = getSpotColor(spot, colorMode);
-      const staggerOffset = isInitialLoad ? Math.random() * 1000 : 0;
-      const ts = Date.now() - staggerOffset;
-
-      // Derive 2-char grid field from resolved lat/lon so glow matches dot
-      // position. Skip prefix-centroid fallbacks — a country centroid can sit
-      // in open ocean or the wrong field, so only real locators light grids.
-      if (!spot.dxLocApprox) {
-        try {
-          const grid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
-          newSpots.push({
-            gridField: grid4.slice(0, 2),
-            color,
-            timestamp: ts,
-          });
-        } catch {
-          // Skip if coordinates out of range
-        }
-      }
-
-      if (!spot.spotterLocApprox) {
-        try {
-          const grid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
-          const field = grid4.slice(0, 2);
-          if (
-            !newSpots.some((r) => r.gridField === field && r.color === color)
-          ) {
-            newSpots.push({ gridField: field, color, timestamp: ts });
-          }
-        } catch {
-          // Skip if coordinates out of range
-        }
-      }
-    }
-
-    prevGlowSpotIdsRef.current = currentIds;
-
-    if (newSpots.length > 0) {
-      setGlowSpots(newSpots);
-    }
-  }, [
-    resolvedGlowSpots,
-    layers.spots,
-    layers.spotTraces,
+  // Grid facts are built from the complete eligible feed before the renderer's
+  // spot-density cap. All projections consume the same model and endpoint
+  // semantics; zoom changes only the selectable Maidenhead resolution.
+  const gridActivityResolution = gridActivityResolutionForView(
+    "globe",
+    globeZoom,
+  );
+  const gridActivity = useGridActivitySnapshot(
+    allResolvedSpots,
+    gridActivityResolution,
+    gridActivityEndpoint,
     layers.gridActivity,
-    uiPrefs.spotColorMode,
-  ]);
-
-  // ── Grid activity persistence overlay ────────────────────────────────────
-  // Convert resolved glow spots to ActivitySpot[] for the grid activity hook.
-  // Each spot produces up to two activity entries (spotter + DX positions).
-  // Prefix-centroid fallbacks are excluded — 4-char squares demand a real
-  // locator, or country centroids light mid-ocean squares.
-  const activitySpots = useMemo((): ActivitySpot[] => {
-    if (!layers.gridActivity) return [];
-    const out: ActivitySpot[] = [];
-    for (const s of resolvedGlowSpots) {
-      const ts = s.time.getTime();
-      if (!s.dxLocApprox) {
-        out.push({ lat: s.dxLat, lon: s.dxLon, timestamp: ts });
-      }
-      if (!s.spotterLocApprox) {
-        out.push({ lat: s.spotterLat, lon: s.spotterLon, timestamp: ts });
-      }
-    }
-    return out;
-  }, [resolvedGlowSpots, layers.gridActivity]);
-
-  const gridActivityMap = useGridActivityMap(activitySpots);
+  );
 
   // ── Ionospheric ray path computation ────────────────────────────────────
   const kIndexData = useKIndex();
@@ -1636,7 +1557,7 @@ const GlobeScene = React.memo(function GlobeScene({
             showActivations={layers.activations}
             traceFeedSpots={liveSpots}
             liveSpots={candidateSpots}
-            resolvedLiveSpots={resolvedGlowSpots}
+            resolvedLiveSpots={resolvedSpots}
             liveSpotsLoading={liveSpotsLoading}
             liveSpotsFeedReady={liveSpotsFeedReady}
             liveSpotsFeedScopeKey={liveSpotsFeedScopeKey}
@@ -1667,12 +1588,7 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* Persistent grid activity overlay — density-colored steady glow */}
         {layers.gridActivity && (
-          <GridPersistOverlay activityMap={gridActivityMap} />
-        )}
-
-        {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
-        {(layers.spots || layers.spotTraces || layers.gridActivity) && (
-          <GridGlowOverlay spots={glowSpots} />
+          <GridPersistOverlay cells={gridActivity.cells} />
         )}
 
         {/* Pin markers from saved locations - distinctive pushpin style */}
@@ -1843,6 +1759,11 @@ export function GlobeView({
   const setCenterLocation = useMapStore((s) => s.setCenterLocation);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const gridActivityEnabled = useMapStore((s) => s.layers.gridActivity);
+  const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
+  const spotFilters = useMapStore((s) => s.spotFilters);
+  const spotSourceFilters = useDXStore(
+    (s) => s.filters.sources as SpotSource[] | undefined,
+  );
   const station = useUserStore((s) => s.station);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const tileProvider = useMemo(
@@ -1874,13 +1795,27 @@ export function GlobeView({
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster();
 
-  // The live feed that lights the grid-activity squares. React Query dedupes
-  // on the query key, so this shares the scene component's cache entry rather
-  // than issuing a second fetch.
-  const { spots: tooltipLiveSpots } = useLiveSpots({
+  // React Query dedupes this with the scene request. Keeping the canonical
+  // activity snapshot outside the R3F reconciler lets DOM tooltips and clicks
+  // expose the exact same contributing reports the GPU layer represents.
+  const {
+    spots: tooltipLiveSpots,
+    allResolvedSpots: tooltipResolvedSpots,
+  } = useResolvedMapSpots({
     grid: station?.grid,
+    // Grid hover existed before the activity layer and must remain available
+    // when that visualization is disabled. React Query dedupes this observer
+    // with the scene request, so keeping it live does not duplicate polling.
     enabled: true,
+    sources: spotSourceFilters,
+    spotFilters,
   });
+  const tooltipActivity = useGridActivitySnapshot(
+    tooltipResolvedSpots,
+    gridActivityResolutionForView("globe", zoom),
+    gridActivityEndpoint,
+    gridActivityEnabled,
+  );
 
   // Watch store v2 — grid watch action for flyout
   const setWatch = useWatchStore((s) => s.setWatch);
@@ -1953,38 +1888,54 @@ export function GlobeView({
     screenPos: { x: number; y: number };
   } | null>(null);
 
-  // Get spots in the hovered grid for tooltip
-  // Matches if either DX or spotter grid starts with the hovered 4-char prefix
-  // Use ref for allSpots to avoid re-filtering on every DX cluster update
-  const allSpotsRef = useRef(allSpots);
-  allSpotsRef.current = allSpots;
-  // Live spots are what light the grid-activity squares, so the tooltip has to
-  // consult them too — cluster spots rarely carry a grid, which is why
-  // hovering a lit square used to report "No active spots".
-  const glowSpotsForTooltipRef = useRef(tooltipLiveSpots);
-  glowSpotsForTooltipRef.current = tooltipLiveSpots;
+  // While canonical activity is visible, hover and click membership comes
+  // directly from the rendered cell. Otherwise preserve the generic grid
+  // inspection behavior that also includes DX-cluster-only reports.
   const tooltipSpots = useMemo(() => {
-    if (!tooltipPosition?.grid) {
-      return [];
-    }
-    const resolvedLive = resolveSpotLocations(glowSpotsForTooltipRef.current);
+    if (!tooltipPosition?.grid) return [];
+    const grid = tooltipPosition.grid
+      .slice(0, tooltipActivity.resolution)
+      .toUpperCase();
+    const activityCell = gridActivityEnabled
+      ? tooltipActivity.cellsByGrid.get(grid)
+      : undefined;
+    if (activityCell) return [...activityCell.reports];
     return collectGridSpots(
       tooltipPosition.grid.slice(0, 4),
-      allSpotsRef.current,
-      glowSpotsForTooltipRef.current,
-      resolvedLive,
+      allSpots,
+      tooltipLiveSpots,
+      tooltipResolvedSpots,
     ).tooltipSpots;
-  }, [tooltipPosition?.grid]);
+  }, [
+    allSpots,
+    gridActivityEnabled,
+    tooltipActivity,
+    tooltipLiveSpots,
+    tooltipPosition?.grid,
+    tooltipResolvedSpots,
+  ]);
 
-  const getGridCollectionSpots = useCallback((grid: string): LiveSpot[] => {
-    const resolvedLive = resolveSpotLocations(glowSpotsForTooltipRef.current);
-    return collectGridSpots(
-      grid,
-      allSpotsRef.current,
-      glowSpotsForTooltipRef.current,
-      resolvedLive,
-    ).spots;
-  }, []);
+  const getGridCollectionSpots = useCallback(
+    (grid: string): LiveSpot[] => {
+      const activityCell = gridActivityEnabled
+        ? tooltipActivity.cellsByGrid.get(grid.toUpperCase())
+        : undefined;
+      if (activityCell) return [...activityCell.reports];
+      return collectGridSpots(
+        grid,
+        allSpots,
+        tooltipLiveSpots,
+        tooltipResolvedSpots,
+      ).spots;
+    },
+    [
+      allSpots,
+      gridActivityEnabled,
+      tooltipActivity.cellsByGrid,
+      tooltipLiveSpots,
+      tooltipResolvedSpots,
+    ],
+  );
 
   const targetDifficulty = useMemo(() => {
     if (!station || !target) {
@@ -2025,7 +1976,9 @@ export function GlobeView({
   const handleGlobeQuickClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       if (!gridActivityEnabled) return false;
-      const grid = latLonToGrid(lat, lon).slice(0, 4).toUpperCase();
+      const grid = latLonToGrid(lat, lon, tooltipActivity.resolution)
+        .slice(0, tooltipActivity.resolution)
+        .toUpperCase();
       const gridMembers = getGridCollectionSpots(grid);
       if (gridMembers.length === 0) return false;
       setSelectedGridCollection({ grid, spots: gridMembers, screenPos });
@@ -2038,6 +1991,7 @@ export function GlobeView({
     [
       getGridCollectionSpots,
       gridActivityEnabled,
+      tooltipActivity.resolution,
       setFlyoutPosition,
       setTooltipPosition,
     ],

@@ -35,6 +35,39 @@ describe("GridGlowRenderer active cells", () => {
     expect(renderer.getNextAnimationDelay(6_000)).toBeNull();
   });
 
+  it("keeps animating a clock-skewed activity cell until its pulse decays", () => {
+    const renderer = new GridGlowRenderer();
+    renderer.setActivityCells([
+      {
+        id: "2:EM",
+        grid: "EM",
+        resolution: 2,
+        reportCount: 1,
+        uniqueDxCallsignCount: 1,
+        uniqueReporterCallsignCount: 1,
+        uniquePathCount: 1,
+        newestTimestamp: 61_000,
+        oldestTimestamp: 61_000,
+        sourceMix: {
+          PSKReporter: 1,
+          RBN: 0,
+          Cluster: 0,
+          "WSJT-X": 0,
+        },
+        modeMix: { FT8: 1 },
+        reportIds: ["future"],
+        reports: [],
+        densityScore: 0.1,
+        recencyScore: 1,
+        color: "#3b82f6",
+      },
+    ]);
+
+    expect(renderer.getNextAnimationDelay(1_000)).toBe(60_000);
+    expect(renderer.getNextAnimationDelay(65_999)).toBe(0);
+    expect(renderer.getNextAnimationDelay(66_000)).toBeNull();
+  });
+
   it("exposes exactly the persisted cells that remain clickable", () => {
     const renderer = new GridGlowRenderer();
     renderer.persistEdges = true;

@@ -72,11 +72,16 @@ import {
   type DifficultyLevel,
 } from "./LocationMarker";
 import { SpotActivityLayout3D } from "./SpotActivityLayout3D";
+import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
 import { GridPersistOverlay } from "./GridPersistOverlay";
 import { IonosphericShells } from "./IonosphericShells";
 import { RayPathArc } from "./RayPathArc";
 import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
-import { gridActivityResolutionForView } from "@/lib/map/gridActivityModel";
+import {
+  gridActivityGridForCoordinate,
+  gridActivityResolutionForView,
+} from "@/lib/map/gridActivityModel";
+import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import { traceRayPath } from "@/lib/utils/rayTrace";
 import { SpotHighlight } from "./SpotHighlight";
 import { SelectedSpotArc } from "./SelectedSpotArc";
@@ -1103,6 +1108,69 @@ const GlobeScene = React.memo(function GlobeScene({
     layers.gridActivity,
   );
 
+  // Arrival pulses are intentionally separate from the persistent activity
+  // cells. They preserve the existing short "new report" heartbeat whenever
+  // Spots or Spot Traces is visible without the Grid Activity layer.
+  const previousArrivalIdsRef = useRef<Set<string>>(new Set());
+  const [arrivalGlows, setArrivalGlows] = useState<GridGlowSpot[]>([]);
+  useEffect(() => {
+    const previousIds = previousArrivalIdsRef.current;
+    const currentIds = new Set(resolvedSpots.map((spot) => spot.id));
+    previousArrivalIdsRef.current = currentIds;
+    if (
+      layers.gridActivity ||
+      (!layers.spots && !layers.spotTraces) ||
+      resolvedSpots.length === 0
+    ) {
+      // The pulse renderer unmounts while hidden. Drop the last batch so
+      // remounting cannot replay stale arrivals as if they were new.
+      setArrivalGlows([]);
+      return;
+    }
+
+    const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
+    const initialLoad = previousIds.size === 0;
+    const arrivals: GridGlowSpot[] = [];
+    for (const spot of resolvedSpots) {
+      if (previousIds.has(spot.id)) continue;
+      const color = getSpotColor(spot, colorMode);
+      const timestamp = Date.now() - (initialLoad ? Math.random() * 1_000 : 0);
+      const fields = new Set<string>();
+
+      const addExactField = (
+        lat: number,
+        lon: number,
+        approximate: boolean,
+      ) => {
+        if (approximate) return;
+        try {
+          fields.add(gridActivityGridForCoordinate(lat, lon, 2));
+        } catch {
+          // A malformed feed coordinate must not interrupt the map render.
+        }
+      };
+
+      // Prefix-centroid fallbacks are too imprecise for a field pulse. Exact
+      // endpoints share the canonical boundary clamp with activity selection.
+      addExactField(spot.dxLat, spot.dxLon, spot.dxLocApprox);
+      addExactField(
+        spot.spotterLat,
+        spot.spotterLon,
+        spot.spotterLocApprox,
+      );
+      for (const gridField of fields) {
+        arrivals.push({ gridField, color, timestamp });
+      }
+    }
+    if (arrivals.length > 0) setArrivalGlows(arrivals);
+  }, [
+    layers.gridActivity,
+    layers.spots,
+    layers.spotTraces,
+    resolvedSpots,
+    uiPrefs.spotColorMode,
+  ]);
+
   // ── Ionospheric ray path computation ────────────────────────────────────
   const kIndexData = useKIndex();
   const currentKp = useMemo(() => {
@@ -1591,6 +1659,11 @@ const GlobeScene = React.memo(function GlobeScene({
           <GridPersistOverlay cells={gridActivity.cells} />
         )}
 
+        {/* Preserve transient arrival pulses when persistent activity is off. */}
+        {!layers.gridActivity && (layers.spots || layers.spotTraces) && (
+          <GridGlowOverlay spots={arrivalGlows} />
+        )}
+
         {/* Pin markers from saved locations - distinctive pushpin style */}
         {pins.map((pin) => {
           const catMeta = getCategoryMeta(pin.category);
@@ -1900,6 +1973,7 @@ export function GlobeView({
       ? tooltipActivity.cellsByGrid.get(grid)
       : undefined;
     if (activityCell) return [...activityCell.reports];
+    if (gridActivityEnabled) return [];
     return collectGridSpots(
       tooltipPosition.grid.slice(0, 4),
       allSpots,
@@ -1921,6 +1995,7 @@ export function GlobeView({
         ? tooltipActivity.cellsByGrid.get(grid.toUpperCase())
         : undefined;
       if (activityCell) return [...activityCell.reports];
+      if (gridActivityEnabled) return [];
       return collectGridSpots(
         grid,
         allSpots,
@@ -1976,9 +2051,11 @@ export function GlobeView({
   const handleGlobeQuickClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       if (!gridActivityEnabled) return false;
-      const grid = latLonToGrid(lat, lon, tooltipActivity.resolution)
-        .slice(0, tooltipActivity.resolution)
-        .toUpperCase();
+      const grid = gridActivityGridForCoordinate(
+        lat,
+        lon,
+        tooltipActivity.resolution,
+      );
       const gridMembers = getGridCollectionSpots(grid);
       if (gridMembers.length === 0) return false;
       setSelectedGridCollection({ grid, spots: gridMembers, screenPos });

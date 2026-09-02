@@ -23,7 +23,10 @@ import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotFilters } from "@/types/operatingProfile";
 import { useMapStore } from "@/stores/mapStore";
-import { getSpotFetchLimit } from "@/lib/map/spotDensity";
+import {
+  getSpotFetchLimit,
+  MAX_SPOT_FETCH_LIMIT,
+} from "@/lib/map/spotDensity";
 import { selectMapSpotCandidates } from "@/lib/map/spotCandidates";
 
 interface UseLiveSpotsOptions {
@@ -39,11 +42,15 @@ interface UseLiveSpotsOptions {
   spotFilters?: SpotFilters;
   /** Preserve every receiver/source report for evidence-oriented consumers. */
   deduplicate?: boolean;
+  /** Explicit per-source request budget for renderer-independent evidence. */
+  fetchLimit?: number;
 }
 
 interface UseLiveSpotsResult {
   /** Combined spots from all sources */
   spots: LiveSpot[];
+  /** Eligible reports before visual deduplication, for semantic aggregation. */
+  evidenceSpots: LiveSpot[];
   /** Stable identity for every option that changes the returned feed snapshot. */
   feedScopeKey: string;
   /** Loading state */
@@ -138,6 +145,7 @@ export function useLiveSpots({
   sources = DEFAULT_SOURCES,
   spotFilters,
   deduplicate = true,
+  fetchLimit,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // How many spots each source contributes. Derived from the map's existing
   // display-density setting -- fetching a flat 50 is why raising that slider
@@ -146,7 +154,13 @@ export function useLiveSpots({
   // turned down. In the query key so changing it refetches rather than waiting
   // for the next interval.
   const displayDensity = useMapStore((s) => s.displayDensity);
-  const spotLimit = getSpotFetchLimit(displayDensity);
+  const spotLimit =
+    fetchLimit === undefined
+      ? getSpotFetchLimit(displayDensity)
+      : Math.min(
+          MAX_SPOT_FETCH_LIMIT,
+          Math.max(1, Math.floor(Number.isFinite(fetchLimit) ? fetchLimit : 1)),
+        );
   const pskEnabled = enabled && sources.includes("PSKReporter");
   const rbnEnabled = enabled && sources.includes("RBN");
   const feedScopeKey = JSON.stringify({
@@ -206,8 +220,10 @@ export function useLiveSpots({
       .map((d) => wsjtxDecodeToLiveSpot(d, wsjtxStatus.frequency));
   }, [wsjtxDecodes, wsjtxStatus, wsjtxConnected, sources, spotLimit]);
 
-  // Combine and deduplicate spots
-  const spots = useMemo(() => {
+  // Establish the complete eligible evidence set once. Visual consumers use
+  // the deduplicated projection below, while activity summaries retain each
+  // receiver/source report from the same network snapshot.
+  const evidenceSpots = useMemo(() => {
     const allSpots: LiveSpot[] = [];
 
     if (pskQuery.data) {
@@ -230,23 +246,28 @@ export function useLiveSpots({
       sources,
       spotFilters,
     });
-    // Map renderers prefer one visual per callsign/frequency/minute. Evidence
-    // views can retain every receiver and source before grouping it themselves.
-    const selected = deduplicate
-      ? deduplicateSpots(eligibleSpots)
-      : eligibleSpots;
-    const sorted = selected.sort(
+    return eligibleSpots.sort(
       (a, b) => b.time.getTime() - a.time.getTime(),
     );
-    return sorted;
   }, [
-    deduplicate,
     pskQuery.data,
     rbnQuery.data,
     sources,
     spotFilters,
     wsjtxSpots,
   ]);
+
+  // Map renderers prefer one visual per callsign/frequency/minute. Evidence
+  // views can opt out and retain every report before grouping it themselves.
+  const spots = useMemo(
+    () =>
+      deduplicate
+        ? deduplicateSpots(evidenceSpots).sort(
+            (a, b) => b.time.getTime() - a.time.getTime(),
+          )
+        : evidenceSpots,
+    [deduplicate, evidenceSpots],
+  );
 
   // Group spots by source
   const spotsBySource = useMemo(() => {
@@ -283,6 +304,7 @@ export function useLiveSpots({
 
   return {
     spots,
+    evidenceSpots,
     feedScopeKey,
     isLoading,
     isFeedReady,

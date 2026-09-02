@@ -436,13 +436,22 @@ export class GridGlowRenderer {
    */
   getNextAnimationDelay(now: number = Date.now()): number | null {
     this.pruneExpired(now);
-    for (const cell of this.activityCells) {
-      const age = now - cell.newestTimestamp;
-      if (age >= 0 && age < GRID_ACTIVITY_RECENCY_PULSE_MS) return 0;
-    }
-    if (this.glows.length === 0) return null;
-
     let nextDelay = Number.POSITIVE_INFINITY;
+    for (const cell of this.activityCells) {
+      // Reports slightly ahead of the local clock are accepted by the shared
+      // model. Their visual is static at full freshness, so sleep until their
+      // timestamp instead of chaining needless animation frames during skew.
+      if (now < cell.newestTimestamp) {
+        nextDelay = Math.min(nextDelay, cell.newestTimestamp - now);
+        continue;
+      }
+      const age = now - cell.newestTimestamp;
+      if (age < GRID_ACTIVITY_RECENCY_PULSE_MS) return 0;
+    }
+    if (this.glows.length === 0) {
+      return Number.isFinite(nextDelay) ? Math.max(1, nextDelay) : null;
+    }
+
     for (const glow of this.glows) {
       const elapsed = now - glow.startTime;
       if (elapsed < TOTAL_DURATION_MS) return 0;

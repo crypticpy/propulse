@@ -136,7 +136,10 @@ import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
 import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
-import { gridActivityResolutionForView } from "@/lib/map/gridActivityModel";
+import {
+  gridActivityGridForCoordinate,
+  gridActivityResolutionForView,
+} from "@/lib/map/gridActivityModel";
 import {
   drawActivationPills,
   sameActivationPillScreenPlacements,
@@ -3934,6 +3937,7 @@ export function FlatMapView({
         .toUpperCase();
       const cell = gridActivity.cellsByGrid.get(activityGrid);
       if (cell) return [...cell.reports];
+      return [];
     }
     return collectGridSpots(
       tooltipPosition.grid,
@@ -3952,11 +3956,13 @@ export function FlatMapView({
 
   const getGridCollectionSpots = useCallback(
     (grid: string): LiveSpot[] => {
-      const activityCell = gridActivity.cellsByGrid.get(grid.toUpperCase());
-      if (activityCell) return [...activityCell.reports];
+      if (layers.gridActivity) {
+        const activityCell = gridActivity.cellsByGrid.get(grid.toUpperCase());
+        return activityCell ? [...activityCell.reports] : [];
+      }
       return collectGridSpots(grid, allSpots, spots, resolvedSpots).spots;
     },
-    [allSpots, gridActivity.cellsByGrid, resolvedSpots, spots],
+    [allSpots, gridActivity.cellsByGrid, layers.gridActivity, resolvedSpots, spots],
   );
 
   // Handle map click - show flyout
@@ -4185,9 +4191,11 @@ export function FlatMapView({
           : zoomRef.current.scale >= 3
             ? 6
             : 4;
-        const grid = latLonToGrid(lat, lon, gridPrecision)
-          .slice(0, gridPrecision)
-          .toUpperCase();
+        const grid = layers.gridActivity
+          ? gridActivityGridForCoordinate(lat, lon, gridActivity.resolution)
+          : latLonToGrid(lat, lon, gridPrecision)
+              .slice(0, gridPrecision)
+              .toUpperCase();
         const gridMembers = getGridCollectionSpots(grid);
         if (gridMembers.length === 0) return false;
         hoveredSpotOwnerRef.current = null;

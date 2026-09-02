@@ -121,6 +121,23 @@ describe("useLiveSpots feed readiness", () => {
     ]);
   });
 
+  it("retains receiver evidence even when the visual feed deduplicates it", () => {
+    mocks.psk.dataUpdatedAt = 100;
+    mocks.psk.isError = false;
+    mocks.psk.data = [spot("receiver-one")];
+    mocks.rbn.dataUpdatedAt = 200;
+    mocks.rbn.isError = false;
+    mocks.rbn.data = [spot("receiver-two", { source: "RBN" })];
+
+    const { result } = renderHook(() => useLiveSpots());
+
+    expect(result.current.spots).toHaveLength(1);
+    expect(result.current.evidenceSpots.map(({ id }) => id)).toEqual([
+      "receiver-one",
+      "receiver-two",
+    ]);
+  });
+
   it("changes feed scope when density changes the effective fetch limit", () => {
     const { result, rerender } = renderHook(() =>
       useLiveSpots({ grid: "EM10aa", sources: ["RBN"] }),
@@ -131,6 +148,19 @@ describe("useLiveSpots feed readiness", () => {
     rerender();
 
     expect(result.current.feedScopeKey).not.toBe(initialScope);
+    expect(result.current.feedScopeKey).toContain('"spotLimit":200');
+  });
+
+  it("keeps an explicit evidence request budget independent of display density", () => {
+    const { result, rerender } = renderHook(() =>
+      useLiveSpots({ fetchLimit: 200 }),
+    );
+    const initialScope = result.current.feedScopeKey;
+
+    mocks.displayDensity = 10;
+    rerender();
+
+    expect(result.current.feedScopeKey).toBe(initialScope);
     expect(result.current.feedScopeKey).toContain('"spotLimit":200');
   });
 });

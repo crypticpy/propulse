@@ -106,7 +106,9 @@ function transformHamQTHRBNEntry(
   const mode = entry.mode || "CW";
 
   return {
-    id: `rbn_${callsign}_${timeUnix}`,
+    // Receiver and frequency are part of report identity: a callsign can be
+    // heard by several skimmers (or on several frequencies) in one second.
+    id: `rbn_${callsign}_${bestSpotter}_${frequency}_${timeUnix}`,
     spotter: bestSpotter || "RBN",
     dx: callsign,
     frequency,
@@ -243,7 +245,7 @@ function transformRBNSpot(spot: RBNSpot): LiveSpot {
     getLocationFromPrefix(dxPrefix) || getLocationFromContinent(spot.dx_cont);
 
   return {
-    id: `rbn_${spot.callsign}_${spot.time}`,
+    id: `rbn_${spot.callsign}_${spot.de_pfx}_${spot.freq}_${spot.time}`,
     spotter: spot.de_pfx || "RBN",
     dx: spot.callsign,
     frequency: Math.round(spot.freq),

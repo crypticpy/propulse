@@ -5,6 +5,7 @@ import {
   recordFlatMapTileRange,
   resetFlatMapDiagnostics,
   setFlatMapTileBoundsDebug,
+  subscribeFlatMapDiagnostics,
 } from "./flatMapDiagnostics";
 
 describe("flat-map retained rendering diagnostics", () => {
@@ -43,5 +44,18 @@ describe("flat-map retained rendering diagnostics", () => {
       yEnd: 21,
     });
     expect(snapshot.debugTileBounds).toBe(true);
+  });
+
+  it("invalidates retained surfaces when the tile-bounds switch changes", () => {
+    let invalidations = 0;
+    const unsubscribe = subscribeFlatMapDiagnostics(() => invalidations++);
+
+    setFlatMapTileBoundsDebug(true);
+    setFlatMapTileBoundsDebug(true);
+    setFlatMapTileBoundsDebug(false);
+    unsubscribe();
+    setFlatMapTileBoundsDebug(true);
+
+    expect(invalidations).toBe(2);
   });
 });

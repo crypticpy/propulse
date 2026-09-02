@@ -151,7 +151,10 @@ import {
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { getSpotLayerPolicy } from "@/lib/map/spotLayerPolicy";
 import { findTopmostLabelIndex } from "@/lib/map/labelHitTesting";
-import { recordFlatMapLayerPaint } from "@/lib/map/flatMapDiagnostics";
+import {
+  recordFlatMapLayerPaint,
+  subscribeFlatMapDiagnostics,
+} from "@/lib/map/flatMapDiagnostics";
 import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
 
 interface FlatMapViewProps {
@@ -3321,6 +3324,14 @@ export function FlatMapView({
   const tileLayerRef = useRef<FlatTileLayer | null>(null);
   // Bumped when an async tile finishes loading, forcing a recomposite
   const [tileEpoch, setTileEpoch] = useState(0);
+  const [diagnosticsEpoch, setDiagnosticsEpoch] = useState(0);
+  useEffect(
+    () =>
+      subscribeFlatMapDiagnostics(() =>
+        setDiagnosticsEpoch((epoch) => epoch + 1),
+      ),
+    [],
+  );
   const [visibleTileProviderId, setVisibleTileProviderId] = useState<
     string | null
   >(null);
@@ -3339,7 +3350,11 @@ export function FlatMapView({
     offsetX: 0,
     offsetY: 0,
   });
-  const [navigationActive, setNavigationActive] = useState(false);
+  const [animationNavigationActive, setAnimationNavigationActive] =
+    useState(false);
+  const [gestureNavigationActive, setGestureNavigationActive] = useState(false);
+  const navigationActive =
+    animationNavigationActive || gestureNavigationActive;
   // Zoom animation ref for smooth transitions
   const zoomAnimationRef = useRef<ZoomAnimation | null>(null);
   const zoomRafRef = useRef<number>(0);
@@ -4432,7 +4447,7 @@ export function FlatMapView({
       zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
     } else {
       zoomAnimationRef.current = null;
-      setNavigationActive(false);
+      setAnimationNavigationActive(false);
     }
   }, [clampOffsets]);
 
@@ -4515,7 +4530,7 @@ export function FlatMapView({
 
       const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
 
-      setNavigationActive(true);
+      setAnimationNavigationActive(true);
       zoomAnimationRef.current = {
         startTime: performance.now(),
         startScale: visualScale,
@@ -4648,7 +4663,7 @@ export function FlatMapView({
     }
 
     const z = zoomRef.current;
-    setNavigationActive(true);
+    setAnimationNavigationActive(true);
     zoomAnimationRef.current = {
       startTime: performance.now(),
       startScale: z.scale,
@@ -4696,7 +4711,7 @@ export function FlatMapView({
       cancelAnimationFrame(zoomRafRef.current);
     }
 
-    setNavigationActive(true);
+    setAnimationNavigationActive(true);
     zoomAnimationRef.current = {
       startTime: performance.now(),
       startScale: z.scale,
@@ -4994,7 +5009,7 @@ export function FlatMapView({
     canvasRef,
     onPan: handleGesturePan,
     onPinchZoom: handleGesturePinchZoom,
-    onActiveChange: setNavigationActive,
+    onActiveChange: setGestureNavigationActive,
     enabled: true,
   });
 
@@ -5073,6 +5088,7 @@ export function FlatMapView({
     themeId,
     tileEpoch,
     tileProvider?.id,
+    diagnosticsEpoch,
     qualitySettings.effective,
     qualitySettings.renderDevicePixelRatio,
   ]);
@@ -5238,6 +5254,7 @@ export function FlatMapView({
     themeId,
     tileEpoch,
     tileProvider?.id,
+    diagnosticsEpoch,
     layers.muf,
     layers.terminator,
     layers.greyline,
@@ -5722,7 +5739,15 @@ export function FlatMapView({
           ref={glowCanvasRef}
           className="absolute inset-0 pointer-events-none"
           aria-hidden="true"
-          style={{ width: viewportSize.width, height: viewportSize.height }}
+          style={{
+            width: viewportSize.width,
+            height: viewportSize.height,
+            // The renderer paints additive light into a transparent retained
+            // surface. Preserve that operation when the browser composites
+            // this separate canvas over imagery; normal source-over can
+            // darken underlying channels despite the internal `lighter` pass.
+            mixBlendMode: "plus-lighter",
+          }}
         />
         <canvas
           ref={canvasRef}

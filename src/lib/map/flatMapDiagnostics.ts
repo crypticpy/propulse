@@ -22,6 +22,17 @@ const paints: Record<FlatMapRetainedLayer, number> = {
 
 let tileRange: FlatMapTileRangeSnapshot | null = null;
 let debugTileBounds = false;
+const listeners = new Set<() => void>();
+
+/** Subscribe retained surfaces to developer-only display-setting changes. */
+export function subscribeFlatMapDiagnostics(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function publishDiagnosticsChange(): void {
+  for (const listener of listeners) listener();
+}
 
 /** Record a retained-surface paint without coupling production rendering to UI state. */
 export function recordFlatMapLayerPaint(layer: FlatMapRetainedLayer): void {
@@ -64,7 +75,12 @@ export function resetFlatMapDiagnostics(): void {
 }
 
 export function setFlatMapTileBoundsDebug(enabled: boolean): void {
+  if (debugTileBounds === enabled) return;
   debugTileBounds = enabled;
+  // Tile outlines are painted into the retained base bitmap, then copied into
+  // the science bitmap. Wake both surfaces immediately so switching the flag
+  // never waits for navigation or leaves stale outlines behind.
+  publishDiagnosticsChange();
 }
 
 declare global {

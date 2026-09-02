@@ -55,6 +55,7 @@ import {
   MAX_ENDPOINT_INSTANCES,
 } from "@/lib/map/spotEndpointCapacity";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import type { SpotHoverInteraction } from "@/hooks/useSpotHoverArbitration";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -426,9 +427,13 @@ interface LiveSpotArcsProps {
   onSpotHover?: (
     spot: LiveSpot,
     screenPos: ScreenAnchor,
+    interaction: SpotHoverInteraction,
   ) => void;
   /** Callback when spot hover ends */
-  onSpotHoverEnd?: (spot?: LiveSpot) => void;
+  onSpotHoverEnd?: (
+    spot?: LiveSpot,
+    interaction?: SpotHoverInteraction,
+  ) => void;
   /** Callback when a spot label or endpoint is selected. */
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   /** Callback when a cluster is clicked */
@@ -978,12 +983,20 @@ export function LiveSpotArcs({
                               onSpotHover(
                                 orig ?? spot.originalSpot,
                                 screenPos,
+                                {
+                                  surface: "label",
+                                  interactionId: `${spot.source}:${spot.id}:dx-label`,
+                                },
                               )
                           : undefined
                       }
                       onHoverEnd={
-                        onSpotHoverEnd && orig
-                          ? () => onSpotHoverEnd(orig)
+                        onSpotHoverEnd
+                          ? () =>
+                              onSpotHoverEnd(orig ?? spot.originalSpot, {
+                                surface: "label",
+                                interactionId: `${spot.source}:${spot.id}:dx-label`,
+                              })
                           : undefined
                       }
                       selected={orig?.id === selectedSpotId}
@@ -1016,13 +1029,25 @@ export function LiveSpotArcs({
                         spot.spotterLon,
                       )}
                       onHover={
-                        onSpotHover && orig
-                          ? (screenPos) => onSpotHover(orig, screenPos)
+                        onSpotHover
+                          ? (screenPos) =>
+                              onSpotHover(
+                                orig ?? spot.originalSpot,
+                                screenPos,
+                                {
+                                  surface: "label",
+                                  interactionId: `${spot.source}:${spot.id}:spotter-label`,
+                                },
+                              )
                           : undefined
                       }
                       onHoverEnd={
-                        onSpotHoverEnd && orig
-                          ? () => onSpotHoverEnd(orig)
+                        onSpotHoverEnd
+                          ? () =>
+                              onSpotHoverEnd(orig ?? spot.originalSpot, {
+                                surface: "label",
+                                interactionId: `${spot.source}:${spot.id}:spotter-label`,
+                              })
                           : undefined
                       }
                       onSelect={

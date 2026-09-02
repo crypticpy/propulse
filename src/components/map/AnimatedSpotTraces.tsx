@@ -44,6 +44,7 @@ import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import type { LiveSpot } from "@/types/livespot";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import type { SpotHoverInteraction } from "@/hooks/useSpotHoverArbitration";
 import {
   getTraceEndpointOpacity,
   reconcileTraceFeed,
@@ -69,8 +70,15 @@ interface AnimatedSpotTracesProps {
   isFeedReady?: boolean;
   /** Changes when the backing query scope changes (for example QTH/source). */
   hydrationKey?: string;
-  onSpotHover?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
-  onSpotHoverEnd?: (spot?: LiveSpot) => void;
+  onSpotHover?: (
+    spot: LiveSpot,
+    screenPos: ScreenAnchor,
+    interaction: SpotHoverInteraction,
+  ) => void;
+  onSpotHoverEnd?: (
+    spot?: LiveSpot,
+    interaction?: SpotHoverInteraction,
+  ) => void;
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
 }
 
@@ -160,8 +168,15 @@ interface TraceAnimationProps {
   sourceSpot: LiveSpot;
   sourceOcclusionOpacity: number;
   destinationOcclusionOpacity: number;
-  onSpotHover?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
-  onSpotHoverEnd?: (spot?: LiveSpot) => void;
+  onSpotHover?: (
+    spot: LiveSpot,
+    screenPos: ScreenAnchor,
+    interaction: SpotHoverInteraction,
+  ) => void;
+  onSpotHoverEnd?: (
+    spot?: LiveSpot,
+    interaction?: SpotHoverInteraction,
+  ) => void;
   onSpotSelect?: (spot: LiveSpot, screenPos: ScreenAnchor) => void;
   /** Callback when this trace finishes its full lifecycle — receives spotId */
   onComplete: (spotId: string) => void;

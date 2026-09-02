@@ -64,7 +64,29 @@ describe("SpotEndpointHitArea selection", () => {
     expect(onHover).toHaveBeenCalledWith(
       spot.originalSpot,
       { x: 120, y: 80 },
+      {
+        surface: "endpoint",
+        interactionId: "PSKReporter:spot-1:endpoint:-22.50000:-43.00000",
+      },
     );
+  });
+
+  it("does not reclaim hover on every pointer movement", () => {
+    const onHover = vi.fn();
+    const { container } = render(
+      <SpotEndpointHitArea
+        lat={-22.5}
+        lon={-43}
+        spot={resolvedSpot()}
+        onHover={onHover}
+      />,
+    );
+    const endpoint = container.querySelector("mesh")!;
+    fireEvent.pointerEnter(endpoint, { clientX: 120, clientY: 80 });
+    fireEvent.pointerMove(endpoint, { clientX: 122, clientY: 82 });
+    fireEvent.pointerMove(endpoint, { clientX: 124, clientY: 84 });
+
+    expect(onHover).toHaveBeenCalledOnce();
   });
 
   it("selects the endpoint without allowing the globe surface to handle it", () => {
@@ -148,6 +170,10 @@ describe("SpotEndpointHitArea selection", () => {
     expect(onHoverEnd).toHaveBeenCalledOnce();
     expect(onHoverEnd).toHaveBeenCalledWith(
       expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
+      expect.objectContaining({
+        surface: "endpoint",
+        interactionId: "PSKReporter:spot-1:endpoint:-22.50000:-43.00000",
+      }),
     );
   });
 
@@ -183,6 +209,10 @@ describe("SpotEndpointHitArea selection", () => {
     expect(activeHoverEnd).toHaveBeenCalledOnce();
     expect(activeHoverEnd).toHaveBeenCalledWith(
       expect.objectContaining({ id: "spot-1", dx: "PY2ABC" }),
+      expect.objectContaining({
+        surface: "endpoint",
+        interactionId: "PSKReporter:spot-1:endpoint:-22.50000:-43.00000",
+      }),
     );
   });
 });

@@ -14,6 +14,8 @@ interface SpotHoverPreviewProps {
   position: ScreenAnchor;
   spot: PresentableSpot | null;
   displayTime: Date;
+  /** Map-owned portal layer that must remain above Drei Html labels. */
+  portalTarget?: Element | null;
   /** Keeps the preview alive while pointer or keyboard focus moves into it. */
   onInteractStart?: () => void;
   /** Requests delayed dismissal after pointer or focus leaves the preview. */
@@ -32,6 +34,7 @@ export function SpotHoverPreview({
   position,
   spot,
   displayTime,
+  portalTarget,
   onInteractStart,
   onInteractEnd,
   onActivate,
@@ -60,6 +63,7 @@ export function SpotHoverPreview({
   return (
     <TargetHoverTooltip
       visible={visible}
+      portalTarget={portalTarget}
       position={position}
       label={formatSpotPresentationLabel(spot.dx, spot.comment)}
       grid={selection?.spot.dxGrid || spot.dxGrid}

@@ -23,6 +23,7 @@ import {
   type PresentableSpot,
 } from "@/lib/map/spotPresentation";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import type { SpotHoverInteraction } from "@/hooks/useSpotHoverArbitration";
 import {
   createGlobeOcclusionFrame,
   getGlobeOcclusionOpacity,
@@ -34,8 +35,15 @@ import { SpotLabel } from "../SpotLabel";
 
 interface ActivationMarkers3DProps {
   spots: MappableActivationSpot[];
-  onSpotHover?: (spot: PresentableSpot, screenPos: ScreenAnchor) => void;
-  onSpotHoverEnd?: (spot?: PresentableSpot) => void;
+  onSpotHover?: (
+    spot: PresentableSpot,
+    screenPos: ScreenAnchor,
+    interaction: SpotHoverInteraction,
+  ) => void;
+  onSpotHoverEnd?: (
+    spot?: PresentableSpot,
+    interaction?: SpotHoverInteraction,
+  ) => void;
   onSpotSelect?: (spot: PresentableSpot, screenPos: ScreenAnchor) => void;
   onClusterClick?: (
     cluster: SpotClusterData,
@@ -232,10 +240,19 @@ export function ActivationMarkers3D({
             ariaLabel={`${spot.callsign}, ${formatActivationFrequency(spot.frequencyKHz)} ${spot.frequencyKHz >= 1_000 ? "megahertz" : "kilohertz"}, ${spot.mode}, ${spot.program} ${spot.reference}, ${spot.referenceName}. Select as target and open station details`}
             onHover={
               onSpotHover
-                ? (screenPos) => onSpotHover(presentableSpot, screenPos)
+                ? (screenPos) =>
+                    onSpotHover(presentableSpot, screenPos, {
+                      surface: "label",
+                      interactionId: `activation:${spot.id}:label`,
+                    })
                 : undefined
             }
-            onHoverEnd={() => onSpotHoverEnd?.(presentableSpot)}
+            onHoverEnd={() =>
+              onSpotHoverEnd?.(presentableSpot, {
+                surface: "label",
+                interactionId: `activation:${spot.id}:label`,
+              })
+            }
             onSelect={
               onSpotSelect
                 ? (screenPos) => onSpotSelect(presentableSpot, screenPos)

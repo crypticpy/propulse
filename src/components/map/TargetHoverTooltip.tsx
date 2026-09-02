@@ -39,6 +39,8 @@ export interface OptimalBandSignalSummary {
 
 export interface TargetHoverTooltipProps {
   visible: boolean;
+  /** Optional map-owned portal layer with deterministic DOM stacking order. */
+  portalTarget?: Element | null;
   position: ScreenAnchor;
   label: string;
   grid?: string;
@@ -144,6 +146,7 @@ function SignalMeter({
 
 export function TargetHoverTooltip({
   visible,
+  portalTarget,
   position,
   label,
   grid,
@@ -205,12 +208,10 @@ export function TargetHoverTooltip({
         interactive ? (event) => event.stopPropagation() : undefined
       }
       className={`
-        fixed z-50 ${interactive ? "pointer-events-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" : "pointer-events-none"}
-        bg-gray-900/95 backdrop-blur-md
+        fixed z-[100] ${interactive ? "pointer-events-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" : "pointer-events-none"}
+        bg-gray-950
         border border-white/10 rounded-lg
         shadow-xl
-        transition-opacity duration-150
-        ${visible ? "opacity-100" : "opacity-0"}
         ${className}
       `}
       style={{
@@ -224,7 +225,7 @@ export function TargetHoverTooltip({
         // The tooltip is deliberately offset from its anchor. This transparent
         // interaction bridge covers most of that visual gap so a normal mouse
         // movement does not briefly leave both the tag and the preview.
-        <span className="absolute -inset-2" aria-hidden="true" />
+        <span className="absolute -inset-3" aria-hidden="true" />
       )}
       <div className="px-3 py-2 border-b border-white/10">
         <div className="flex items-center justify-between gap-2">
@@ -282,7 +283,7 @@ export function TargetHoverTooltip({
     </div>
   );
 
-  return createPortal(tooltipContent, document.body);
+  return createPortal(tooltipContent, portalTarget ?? document.body);
 }
 
 TargetHoverTooltip.displayName = "TargetHoverTooltip";

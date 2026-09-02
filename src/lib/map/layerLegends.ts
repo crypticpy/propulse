@@ -2,7 +2,7 @@
  * Layer Legend Builder
  *
  * Builds legend specs (title + color swatches) for every currently-enabled
- * marker layer on the map. Colors are sourced directly from each layer
+ * colored map layer. Colors are sourced directly from each layer
  * file's own color table (re-exported from those files) so this legend can
  * never drift out of sync with the markers it describes -- the same
  * precedent established by IonosphereLegend / IonosphericShells.tsx.
@@ -19,6 +19,7 @@ import {
   BAND_COLORS,
   SNR_COLOR_STOPS,
   AGE_COLOR_STOPS,
+  SPOT_REPLAY_COLOR,
 } from "@/lib/utils/spotColors";
 import { FT8_DECODE_COLORS } from "@/components/map/layers/Ft8DecodeLayer3D";
 import { CATEGORY_META } from "@/lib/utils/satellite";
@@ -46,6 +47,7 @@ import {
   LIGHTNING_STRONG_KA,
 } from "@/lib/map/lightningColors";
 import { LUNAR_SUBPOINT_COLOR } from "@/lib/map/lunarSubpointMarker";
+import { GEOMAG_FIELD_COLORS } from "@/components/map/layers/GeomagneticFieldLines3D";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,7 +59,7 @@ export interface LegendEntry {
 }
 
 export interface LayerLegendSpec {
-  key: keyof MapState["layers"];
+  key: keyof MapState["layers"] | "replay";
   title: string;
   entries: LegendEntry[];
   note?: string;
@@ -175,6 +177,29 @@ function buildActivationsSpec(): LayerLegendSpec {
       { color: BAND_COLORS.default, label: "Other" },
     ],
     note: "POTA/SOTA/WWFF callsign pills use band colors",
+  };
+}
+
+function buildReplaySpec(): LayerLegendSpec {
+  return {
+    key: "replay",
+    title: "Spot Replay",
+    entries: [{ color: SPOT_REPLAY_COLOR, label: "Historical route" }],
+    note: "Past reports; hover or click either endpoint to inspect",
+  };
+}
+
+function buildGeomagneticFieldSpec(): LayerLegendSpec {
+  return {
+    key: "geomagField",
+    title: "Magnetic Field",
+    entries: [
+      { color: GEOMAG_FIELD_COLORS.quiet, label: "Quiet Kp 0-3" },
+      { color: GEOMAG_FIELD_COLORS.active, label: "Active Kp 4-5" },
+      { color: GEOMAG_FIELD_COLORS.storm, label: "Storm Kp 6-7" },
+      { color: GEOMAG_FIELD_COLORS.severe, label: "Severe Kp 8-9" },
+    ],
+    note: "Modeled physics lines, not radio paths or stations",
   };
 }
 
@@ -455,7 +480,12 @@ export function isLayerVisibleInView(
  */
 export function buildLayerLegends(
   layers: MapState["layers"],
-  opts: { spotColorMode: SpotColorMode; viewMode: ViewMode },
+  opts: {
+    spotColorMode: SpotColorMode;
+    viewMode: ViewMode;
+    replayEnabled?: boolean;
+    replaySpotCount?: number;
+  },
 ): LayerLegendSpec[] {
   const specs: LayerLegendSpec[] = [];
   const on = (layer: keyof MapState["layers"]) =>
@@ -463,10 +493,22 @@ export function buildLayerLegends(
 
   if (on("spots")) specs.push(buildSpotsSpec(opts.spotColorMode));
   if (on("activations")) specs.push(buildActivationsSpec());
+  // Replay geometry lives inside the globe's spots renderer. Requiring the
+  // same layer gate plus a non-empty effective replay set prevents the legend
+  // from advertising cached or currently unrendered historical routes.
+  if (
+    on("spots") &&
+    opts.replayEnabled &&
+    (opts.replaySpotCount ?? 0) > 0 &&
+    opts.viewMode === "globe"
+  ) {
+    specs.push(buildReplaySpec());
+  }
   if (on("lunarSubpoint")) specs.push(buildLunarSubpointSpec());
   if (on("ft8Spotter")) specs.push(buildFt8SpotterSpec());
   if (on("satellites")) specs.push(buildSatellitesSpec());
   if (on("beacons")) specs.push(buildBeaconsSpec());
+  if (on("geomagField")) specs.push(buildGeomagneticFieldSpec());
   if (on("wspr")) specs.push(buildWsprSpec());
   if (on("contestQsos") || on("loggedQsos")) specs.push(buildQsoSpec(layers));
   if (on("earthquakes")) specs.push(buildEarthquakesSpec());

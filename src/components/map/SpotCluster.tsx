@@ -12,6 +12,10 @@
  */
 
 import { useRef, useMemo, useState, useCallback, useEffect } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -36,6 +40,10 @@ const HEAD_SIZE = 0.02;
 export interface SpotClusterProps {
   /** The cluster data to render */
   cluster: SpotClusterType;
+  /** Fixed semantic color for layers whose legend is band- rather than mode-based. */
+  color?: string;
+  /** Accessible name for the focusable HTML count badge. */
+  ariaLabel?: string;
   /** Click handler for cluster expansion */
   onClick?: (
     cluster: SpotClusterType,
@@ -135,7 +143,13 @@ function createHexagonGeometry(
  * />
  * ```
  */
-export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
+export function SpotCluster({
+  cluster,
+  color: colorOverride,
+  ariaLabel,
+  onClick,
+  onHover,
+}: SpotClusterProps) {
   const groupRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Mesh>(null);
   const headGlowMeshRef = useRef<THREE.Mesh>(null);
@@ -164,10 +178,12 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
     return getUpDirection(cluster.center.lat, cluster.center.lon);
   }, [cluster.center.lat, cluster.center.lon]);
 
-  // Get color from primary spot's mode
+  // Most DX clusters use mode colors. Feature-specific layers can override
+  // that default so an aggregated marker keeps the same semantics as its
+  // individual markers and legend.
   const color = useMemo(() => {
-    return getModeColor(cluster.primarySpot.mode);
-  }, [cluster.primarySpot.mode]);
+    return colorOverride ?? getModeColor(cluster.primarySpot.mode);
+  }, [cluster.primarySpot.mode, colorOverride]);
 
   // Calculate dynamic size based on cluster count
   const sizeMultiplier = Math.min(1 + (cluster.count - 3) * 0.05, 1.5);
@@ -211,6 +227,38 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
       onClick?.(cluster, screenPos);
     },
     [cluster, onClick],
+  );
+
+  const openFromElement = useCallback(
+    (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      onClick?.(cluster, {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+    },
+    [cluster, onClick],
+  );
+
+  const handleAccessibleClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openFromElement(event.currentTarget);
+    },
+    [openFromElement],
+  );
+
+  const handleAccessibleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (event.key !== "Enter" && event.key !== " ") return;
+      // Explicitly activate both keys because the Drei HTML overlay sits over
+      // a canvas whose own keyboard handlers must never consume this action.
+      event.preventDefault();
+      openFromElement(event.currentTarget);
+    },
+    [openFromElement],
   );
 
   // Handle pointer enter
@@ -365,23 +413,51 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         center
         zIndexRange={[1, 0]}
         style={{
-          pointerEvents: "none",
+          pointerEvents: onClick && occlusionOpacity > 0.05 ? "auto" : "none",
           transition: "opacity 0.2s ease",
           opacity: occlusionOpacity,
         }}
       >
-        <div
-          className="px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap"
-          style={{
-            backgroundColor: color,
-            color: "#0A0A1A",
-            boxShadow: `0 0 10px ${color}80`,
-            transform: isHovered ? "scale(1.2)" : "scale(1)",
-            transition: "all 0.2s ease",
-          }}
-        >
-          {cluster.count}
-        </div>
+        {onClick ? (
+          <button
+            type="button"
+            className="appearance-none border-0 px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap"
+            disabled={occlusionOpacity <= 0.05}
+            aria-label={
+              ariaLabel ??
+              `Open ${cluster.count} spots near ${cluster.center.lat.toFixed(1)}, ${cluster.center.lon.toFixed(1)}`
+            }
+            onClick={handleAccessibleClick}
+            onKeyDown={handleAccessibleKeyDown}
+            onPointerEnter={() => setIsHovered(true)}
+            onPointerLeave={() => setIsHovered(false)}
+            onFocus={() => setIsHovered(true)}
+            onBlur={() => setIsHovered(false)}
+            style={{
+              backgroundColor: color,
+              color: "#0A0A1A",
+              boxShadow: `0 0 10px ${color}80`,
+              cursor: "pointer",
+              transform: isHovered ? "scale(1.2)" : "scale(1)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            {cluster.count}
+          </button>
+        ) : (
+          <div
+            className="px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap"
+            style={{
+              backgroundColor: color,
+              color: "#0A0A1A",
+              boxShadow: `0 0 10px ${color}80`,
+              transform: isHovered ? "scale(1.2)" : "scale(1)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            {cluster.count}
+          </div>
+        )}
       </Html>
     </group>
   );

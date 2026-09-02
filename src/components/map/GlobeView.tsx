@@ -902,7 +902,7 @@ interface GlobeSceneProps {
     spot: PresentableSpot,
     screenPos: ScreenAnchor,
   ) => void;
-  onSpotHoverEnd?: () => void;
+  onSpotHoverEnd?: (spot?: PresentableSpot) => void;
   onSpotSelect?: (spot: PresentableSpot, screenPos: ScreenAnchor) => void;
   onClusterClick?: (
     cluster: SpotClusterData,
@@ -1638,6 +1638,7 @@ const GlobeScene = React.memo(function GlobeScene({
             onSpotHover={onSpotHover}
             onSpotHoverEnd={onSpotHoverEnd}
             onSpotSelect={onSpotSelect}
+            onClusterClick={onClusterClick}
           />
         )}
 
@@ -1930,6 +1931,7 @@ export function GlobeView({
     screenPos: ScreenAnchor;
   } | null>(null);
   const spotHoverDismissRef = useRef<number | null>(null);
+  const hoveredSpotOwnerRef = useRef<string | null>(null);
 
   // State for cluster click popover
   const [selectedCluster, setSelectedCluster] =
@@ -2144,17 +2146,28 @@ export function GlobeView({
   const handleSpotHover = useCallback(
     (spot: PresentableSpot, screenPos: ScreenAnchor) => {
       cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = `${spot.source ?? "Cluster"}:${spot.id}`;
       setHoveredSpotData({ spot, screenPos });
     },
     [cancelSpotHoverDismiss],
   );
 
-  const handleSpotHoverEnd = useCallback(() => {
+  const handleSpotHoverEnd = useCallback((spot?: PresentableSpot) => {
+    const owner = spot
+      ? `${spot.source ?? "Cluster"}:${spot.id}`
+      : hoveredSpotOwnerRef.current;
+    // Feed refreshes and animated trace expiry can unmount an old hit target
+    // after a different label has taken hover ownership. That stale leave must
+    // never dismiss the new label's preview.
+    if (owner && hoveredSpotOwnerRef.current !== owner) return;
     if (spotHoverDismissRef.current !== null) return;
     spotHoverDismissRef.current = window.setTimeout(() => {
-      setHoveredSpotData(null);
+      if (!owner || hoveredSpotOwnerRef.current === owner) {
+        hoveredSpotOwnerRef.current = null;
+        setHoveredSpotData(null);
+      }
       spotHoverDismissRef.current = null;
-    }, 180);
+    }, 260);
   }, []);
 
   // Handle cluster click from LiveSpotArcs → SpotCluster
@@ -2181,6 +2194,7 @@ export function GlobeView({
         ...(selection?.spot ?? {}),
       };
       cancelSpotHoverDismiss();
+      hoveredSpotOwnerRef.current = null;
       setHoveredSpotData(null);
       setHoveredTargetPos(null);
       setFlyoutPosition(null);

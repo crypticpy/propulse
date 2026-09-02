@@ -42,6 +42,8 @@ export interface TargetHoverTooltipProps {
   position: ScreenAnchor;
   label: string;
   grid?: string;
+  /** Compact provider/path attribution shown beneath the primary label. */
+  contextLabel?: string;
   difficulty?: DifficultyLevel;
   optimalSignal: OptimalBandSignalSummary | null;
   signalUnavailableReason?: string;
@@ -145,6 +147,7 @@ export function TargetHoverTooltip({
   position,
   label,
   grid,
+  contextLabel,
   difficulty,
   optimalSignal,
   signalUnavailableReason,
@@ -167,14 +170,15 @@ export function TargetHoverTooltip({
 
     const estimatedHeight =
       (optimalSignal?.notes ? 120 : 102) +
-      (distanceKm !== undefined || bearing !== undefined ? 18 : 0);
+      (distanceKm !== undefined || bearing !== undefined ? 18 : 0) +
+      (contextLabel ? 16 : 0);
     return placeAnchoredOverlay(
       position,
       { width: TOOLTIP_WIDTH, height: estimatedHeight },
       { width: viewportWidth, height: viewportHeight },
       { axis: "vertical", gap: 10, padding: EDGE_PADDING },
     );
-  }, [bearing, distanceKm, position, optimalSignal?.notes]);
+  }, [bearing, contextLabel, distanceKm, position, optimalSignal?.notes]);
 
   if (!visible) {
     return null;
@@ -216,6 +220,12 @@ export function TargetHoverTooltip({
         maxWidth: TOOLTIP_WIDTH,
       }}
     >
+      {interactive && (
+        // The tooltip is deliberately offset from its anchor. This transparent
+        // interaction bridge covers most of that visual gap so a normal mouse
+        // movement does not briefly leave both the tag and the preview.
+        <span className="absolute -inset-2" aria-hidden="true" />
+      )}
       <div className="px-3 py-2 border-b border-white/10">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -224,6 +234,11 @@ export function TargetHoverTooltip({
             </div>
             {grid && (
               <div className="text-[10px] text-gray-500 font-mono">{grid}</div>
+            )}
+            {contextLabel && (
+              <div className="mt-0.5 truncate text-[10px] text-cyan-200/70">
+                {contextLabel}
+              </div>
             )}
           </div>
           {difficultyLabel && difficultyColor && (

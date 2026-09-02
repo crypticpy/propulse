@@ -77,6 +77,14 @@ const LONGITUDE_DIVISIONS = 8;
 /** Particle speed (fraction of curve length per second) */
 const PARTICLE_SPEED = 0.08;
 
+/** Shared Kp palette used by both the field renderer and the map legend. */
+export const GEOMAG_FIELD_COLORS = {
+  quiet: "#33dd55",
+  active: "#ddcc00",
+  storm: "#ff8800",
+  severe: "#ff2222",
+} as const;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -90,10 +98,10 @@ function clamp(v: number, min: number, max: number): number {
  * Get field line color based on Kp index.
  */
 function getKpColor(kp: number): THREE.Color {
-  if (kp <= 3) return new THREE.Color("#33dd55"); // quiet green
-  if (kp <= 5) return new THREE.Color("#ddcc00"); // yellow
-  if (kp <= 7) return new THREE.Color("#ff8800"); // orange
-  return new THREE.Color("#ff2222"); // red
+  if (kp <= 3) return new THREE.Color(GEOMAG_FIELD_COLORS.quiet);
+  if (kp <= 5) return new THREE.Color(GEOMAG_FIELD_COLORS.active);
+  if (kp <= 7) return new THREE.Color(GEOMAG_FIELD_COLORS.storm);
+  return new THREE.Color(GEOMAG_FIELD_COLORS.severe);
 }
 
 /**

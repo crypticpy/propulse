@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { SpotCluster } from "@/hooks/useSpotClustering";
 import type { LiveSpot } from "@/types/livespot";
+import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
 
 const spot: LiveSpot = {
@@ -91,5 +92,39 @@ describe("ClusterDetailPopover", () => {
     unmount();
     expect(document.activeElement).toBe(invoker);
     invoker.remove();
+  });
+
+  it("preserves activation frequency precision and provider badges", () => {
+    const activationSpot: PresentableSpot & LiveSpot = {
+      ...spot,
+      frequency: 14074.5,
+      source: "Cluster",
+      activation: {
+        program: "POTA",
+        reference: "US-1234",
+        referenceName: "Test Park",
+        source: "Parks on the Air",
+        sourceUrl: "https://pota.app/",
+      },
+    };
+    const activationCluster: SpotCluster = {
+      ...cluster,
+      spots: [activationSpot],
+      primarySpot: activationSpot,
+    };
+
+    render(
+      <ClusterDetailPopover
+        visible
+        position={{ x: 400, y: 400 }}
+        cluster={activationCluster}
+        onClose={() => {}}
+        onSpotSelect={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("14.0745 MHz")).toBeTruthy();
+    expect(screen.getByText("POTA")).toBeTruthy();
+    expect(screen.queryByText("Cluster")).toBeNull();
   });
 });

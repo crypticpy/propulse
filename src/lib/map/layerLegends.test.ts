@@ -7,6 +7,7 @@ import {
   getAgeColor,
   getSnrColor,
   SNR_COLOR_STOPS,
+  SPOT_REPLAY_COLOR,
 } from "@/lib/utils/spotColors";
 import { EQ_MAGNITUDE_COLORS } from "@/components/map/EarthquakeOverlay3D";
 import { STORM_CATEGORY_HEX } from "@/components/map/TropicalCycloneOverlay3D";
@@ -23,6 +24,7 @@ import {
 import { getQsoBandColor } from "@/lib/map/qsoBandColors";
 import { WSPR_BAND_COLORS, getWsprBandColor } from "@/lib/map/wsprBandColors";
 import { LUNAR_SUBPOINT_COLOR } from "@/lib/map/lunarSubpointMarker";
+import { GEOMAG_FIELD_COLORS } from "@/components/map/layers/GeomagneticFieldLines3D";
 
 /** All layers off -- callers flip on only what a test needs. */
 function noLayers(): MapState["layers"] {
@@ -80,6 +82,69 @@ describe("buildLayerLegends", () => {
         viewMode: "globe",
       }),
     ).toEqual([]);
+  });
+
+  it("identifies historical replay routes independently of live spot colors", () => {
+    const specs = buildLayerLegends({ ...noLayers(), spots: true }, {
+      spotColorMode: "mode",
+      viewMode: "globe",
+      replayEnabled: true,
+      replaySpotCount: 4,
+    });
+
+    expect(specs).toEqual([
+      expect.objectContaining({ key: "spots" }),
+      expect.objectContaining({
+        key: "replay",
+        entries: [{ color: SPOT_REPLAY_COLOR, label: "Historical route" }],
+      }),
+    ]);
+  });
+
+  it("only identifies replay routes while replay geometry is rendered", () => {
+    const layers = { ...noLayers(), spots: true };
+    const baseOptions = {
+      spotColorMode: "mode" as const,
+      viewMode: "globe" as const,
+      replayEnabled: true,
+      replaySpotCount: 4,
+    };
+
+    expect(
+      buildLayerLegends({ ...layers, spots: false }, baseOptions).some(
+        (spec) => spec.key === "replay",
+      ),
+    ).toBe(false);
+    expect(
+      buildLayerLegends(layers, {
+        ...baseOptions,
+        replaySpotCount: 0,
+      }).some((spec) => spec.key === "replay"),
+    ).toBe(false);
+    expect(
+      buildLayerLegends(layers, {
+        ...baseOptions,
+        replayEnabled: false,
+      }).some((spec) => spec.key === "replay"),
+    ).toBe(false);
+  });
+
+  it("labels geomagnetic field curves as modeled physics, not radio paths", () => {
+    const specs = buildLayerLegends(
+      { ...noLayers(), geomagField: true },
+      { spotColorMode: "mode", viewMode: "globe" },
+    );
+
+    expect(specs[0]).toMatchObject({
+      key: "geomagField",
+      entries: [
+        { color: GEOMAG_FIELD_COLORS.quiet, label: "Quiet Kp 0-3" },
+        { color: GEOMAG_FIELD_COLORS.active, label: "Active Kp 4-5" },
+        { color: GEOMAG_FIELD_COLORS.storm, label: "Storm Kp 6-7" },
+        { color: GEOMAG_FIELD_COLORS.severe, label: "Severe Kp 8-9" },
+      ],
+    });
+    expect(specs[0].note).toMatch(/not radio paths/i);
   });
 
   it("orders enabled layers in the fixed display order, regardless of input order", () => {
@@ -274,7 +339,7 @@ describe("buildLayerLegends", () => {
     expect(colorsByLabel["Major flood"]).toBe(RIVER_STATUS_HEX.major);
   });
 
-  it("excludes raster/field layers even when enabled", () => {
+  it("excludes raster layers while retaining identifiable field-line geometry", () => {
     const layers = {
       ...noLayers(),
       radar: true,
@@ -301,8 +366,9 @@ describe("buildLayerLegends", () => {
       geomagField: true,
     };
     expect(
-      buildLayerLegends(layers, { spotColorMode: "mode", viewMode: "globe" }),
-    ).toEqual([]);
+      buildLayerLegends(layers, { spotColorMode: "mode", viewMode: "globe" })
+        .map((spec) => spec.key),
+    ).toEqual(["geomagField"]);
   });
 
   it("omits globe-only layers when the flat or azimuthal renderer is active", () => {

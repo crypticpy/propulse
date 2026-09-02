@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useSpotPathPresentation } from "@/hooks/useSpotPathPresentation";
 import {
   formatSpotPresentationLabel,
+  getSpotPresentationSource,
   type PresentableSpot,
 } from "@/lib/map/spotPresentation";
 import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
@@ -43,6 +44,16 @@ export function SpotHoverPreview({
     ? { lat: selection.target.lat, lon: selection.target.lon }
     : null;
   const path = useSpotPathPresentation(endpoint, displayTime);
+  const sourcePresentation = spot ? getSpotPresentationSource(spot) : null;
+  const contextLabel = spot
+    ? [
+        spot.id.startsWith("replay-") ? "Replay" : undefined,
+        sourcePresentation?.label,
+        spot.spotter ? `${spot.spotter} → ${spot.dx}` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
 
   if (!spot) return null;
 
@@ -52,6 +63,7 @@ export function SpotHoverPreview({
       position={position}
       label={formatSpotPresentationLabel(spot.dx, spot.comment)}
       grid={selection?.spot.dxGrid || spot.dxGrid}
+      contextLabel={contextLabel}
       difficulty={path.difficulty}
       optimalSignal={path.optimalSignal}
       signalUnavailableReason={path.unavailableReason}

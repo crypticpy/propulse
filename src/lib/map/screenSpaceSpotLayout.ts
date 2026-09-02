@@ -86,8 +86,8 @@ export interface SpotLayoutOptions {
   viewport: { width: number; height: number };
   viewportMarginPx?: number;
   collisionPaddingPx?: number;
-  /** Groups at or below this size receive offsets instead of an aggregate. */
-  smallStackLimit?: number;
+  /** Minimum number of distinct reports required to create an aggregate. */
+  minAggregateReportCount?: number;
   maxStackOffsetPx?: number;
 }
 
@@ -150,6 +150,29 @@ function boundsOverlap(left: Bounds, right: Bounds): boolean {
     left.bottom < right.top ||
     right.bottom < left.top
   );
+}
+
+function translatedBounds(bounds: Bounds, offsetY: number): Bounds {
+  return {
+    left: bounds.left,
+    right: bounds.right,
+    top: bounds.top + offsetY,
+    bottom: bounds.bottom + offsetY,
+  };
+}
+
+function boundsCellKeys(bounds: Bounds, cellSize: number): string[] {
+  const keys: string[] = [];
+  const minX = Math.floor(bounds.left / cellSize);
+  const maxX = Math.floor(bounds.right / cellSize);
+  const minY = Math.floor(bounds.top / cellSize);
+  const maxY = Math.floor(bounds.bottom / cellSize);
+  for (let cellX = minX; cellX <= maxX; cellX += 1) {
+    for (let cellY = minY; cellY <= maxY; cellY += 1) {
+      keys.push(`${cellX},${cellY}`);
+    }
+  }
+  return keys;
 }
 
 function normalizeLongitude(lon: number): number {
@@ -229,9 +252,11 @@ function isViewportCandidate<T>(
 }
 
 /**
- * Layout already-projected activity candidates with a spatial hash. Connected
- * collision components of one or two receive bounded offsets; denser groups
- * become one aggregate and no hidden member remains interactive.
+ * Layout already-projected activity candidates with a spatial hash. A
+ * collision component becomes an aggregate only after it contains the
+ * configured number of distinct reports. Smaller components receive bounded
+ * offsets; endpoint surfaces that cannot actually consume an offset yield to
+ * the higher-priority owner so no hidden member remains interactive.
  */
 export function layoutProjectedSpotCandidates<T>(
   input: readonly ProjectedSpotLayoutCandidate<T>[],
@@ -239,8 +264,18 @@ export function layoutProjectedSpotCandidates<T>(
 ): SpotLayoutResult<T> {
   const margin = Math.max(0, options.viewportMarginPx ?? 64);
   const padding = Math.max(0, options.collisionPaddingPx ?? 6);
-  const smallStackLimit = Math.max(1, Math.floor(options.smallStackLimit ?? 2));
+  const minAggregateReportCount = Math.max(
+    1,
+    Math.floor(options.minAggregateReportCount ?? 3),
+  );
   const maxStackOffset = Math.max(0, options.maxStackOffsetPx ?? 36);
+  // An "unbounded" fan preference still needs a finite search surface. A
+  // viewport-height traversal is enough to find every visible vertical slot
+  // without creating an unbounded spatial-hash loop.
+  const effectiveMaxStackOffset = Math.min(
+    maxStackOffset,
+    options.viewport.height + margin * 2,
+  );
   const sortedCandidates = input
     .filter((candidate) =>
       isViewportCandidate(candidate, options.viewport, margin),
@@ -290,25 +325,18 @@ export function layoutProjectedSpotCandidates<T>(
     candidateBounds(candidate, padding),
   );
   bounds.forEach((candidateBoundsValue, index) => {
-    const minX = Math.floor(candidateBoundsValue.left / cellSize);
-    const maxX = Math.floor(candidateBoundsValue.right / cellSize);
-    const minY = Math.floor(candidateBoundsValue.top / cellSize);
-    const maxY = Math.floor(candidateBoundsValue.bottom / cellSize);
     const compared = new Set<number>();
-    for (let cellX = minX; cellX <= maxX; cellX += 1) {
-      for (let cellY = minY; cellY <= maxY; cellY += 1) {
-        const key = `${cellX},${cellY}`;
-        for (const neighbor of cells.get(key) ?? []) {
-          if (compared.has(neighbor)) continue;
-          compared.add(neighbor);
-          if (boundsOverlap(candidateBoundsValue, bounds[neighbor])) {
-            unite(index, neighbor);
-          }
+    for (const key of boundsCellKeys(candidateBoundsValue, cellSize)) {
+      for (const neighbor of cells.get(key) ?? []) {
+        if (compared.has(neighbor)) continue;
+        compared.add(neighbor);
+        if (boundsOverlap(candidateBoundsValue, bounds[neighbor])) {
+          unite(index, neighbor);
         }
-        const bucket = cells.get(key);
-        if (bucket) bucket.push(index);
-        else cells.set(key, [index]);
       }
+      const bucket = cells.get(key);
+      if (bucket) bucket.push(index);
+      else cells.set(key, [index]);
     }
   });
 
@@ -320,62 +348,147 @@ export function layoutProjectedSpotCandidates<T>(
     else groups.set(root, [candidate]);
   });
 
+  const candidateIndexById = new Map(
+    candidates.map((candidate, index) => [candidate.id, index] as const),
+  );
+  const resolvedCandidateIds = new Set<string>();
+  const placedBounds = new Map<string, Array<{ id: string; bounds: Bounds }>>();
+  const insertPlacedBounds = (id: string, value: Bounds) => {
+    for (const key of boundsCellKeys(value, cellSize)) {
+      const bucket = placedBounds.get(key);
+      const entry = { id, bounds: value };
+      if (bucket) bucket.push(entry);
+      else placedBounds.set(key, [entry]);
+    }
+  };
+  const nearbyReservations = (root: number, searchBounds: Bounds): Bounds[] => {
+    const reservations: Bounds[] = [];
+    const seenOriginal = new Set<number>();
+    const seenPlaced = new Set<string>();
+    for (const key of boundsCellKeys(searchBounds, cellSize)) {
+      for (const neighbor of cells.get(key) ?? []) {
+        if (
+          seenOriginal.has(neighbor) ||
+          find(neighbor) === root ||
+          resolvedCandidateIds.has(candidates[neighbor].id)
+        ) {
+          continue;
+        }
+        seenOriginal.add(neighbor);
+        reservations.push(bounds[neighbor]);
+      }
+      for (const entry of placedBounds.get(key) ?? []) {
+        if (seenPlaced.has(entry.id)) continue;
+        seenPlaced.add(entry.id);
+        reservations.push(entry.bounds);
+      }
+    }
+    return reservations;
+  };
+
   const placements: SpotLayoutPlacement<T>[] = [];
   const aggregates: SpotLayoutAggregate<T>[] = [];
   for (const unsortedGroup of groups.values()) {
     const group = [...unsortedGroup].sort(compareSpotLayoutCandidates);
-    if (group.length <= smallStackLimit) {
-      // Fan alternately below and above the primary. Track the occupied extent
-      // on each side instead of multiplying one nominal label height: mixed
-      // endpoint/label sizes then remain separated by the requested padding.
-      const proposed: SpotLayoutPlacement<T>[] = [];
-      let positiveExtent = group[0].height / 2 + padding;
-      let negativeExtent = positiveExtent;
-      let fitsBound = true;
-      group.forEach((candidate, index) => {
-        let offsetY = 0;
-        if (index > 0 && index % 2 === 1) {
-          offsetY = positiveExtent + candidate.height / 2 + padding;
-          positiveExtent = offsetY + candidate.height / 2 + padding;
-        } else if (index > 0) {
-          offsetY = -(negativeExtent + candidate.height / 2 + padding);
-          negativeExtent = -offsetY + candidate.height / 2 + padding;
-        }
-        if (Math.abs(offsetY) > maxStackOffset) fitsBound = false;
-        proposed.push({ candidate, offsetX: 0, offsetY });
-      });
-      if (fitsBound) {
-        placements.push(...proposed);
-        continue;
-      }
-      // A preference can raise the nominal cluster threshold beyond what the
-      // bounded fan can physically separate. Treat that as an unresolved dense
-      // collision and aggregate it instead of silently reintroducing overlap.
-    }
-
     const reportIds = [...new Set(group.map((candidate) => candidate.reportId))]
       .sort();
-    const center = geographicCenter(group);
-    const screenCenter = {
-      x: group.reduce((sum, candidate) => sum + candidate.x, 0) / group.length,
-      y: group.reduce((sum, candidate) => sum + candidate.y, 0) / group.length,
-    };
-    aggregates.push({
-      id: stableAggregateId(group.map((candidate) => candidate.id)),
-      center,
-      screenCenter,
-      members: group,
-      memberReportIds: reportIds,
-      count: reportIds.length,
-      primary: group[0],
-      sizeScale: aggregateBeaconScale(reportIds.length),
-    });
+    if (group.length > 1 && reportIds.length >= minAggregateReportCount) {
+      const center = geographicCenter(group);
+      const screenCenter = {
+        x: group.reduce((sum, candidate) => sum + candidate.x, 0) / group.length,
+        y: group.reduce((sum, candidate) => sum + candidate.y, 0) / group.length,
+      };
+      const sizeScale = aggregateBeaconScale(reportIds.length);
+      const id = stableAggregateId(group.map((candidate) => candidate.id));
+      aggregates.push({
+        id,
+        center,
+        screenCenter,
+        members: group,
+        memberReportIds: reportIds,
+        count: reportIds.length,
+        primary: group[0],
+        sizeScale,
+      });
+      // Reserve the actual beacon footprint for later components. Its members
+      // no longer reserve their individual label/endpoint rectangles.
+      group.forEach((candidate) => resolvedCandidateIds.add(candidate.id));
+      const aggregateRadius = 22 * sizeScale + padding;
+      insertPlacedBounds(id, {
+        left: screenCenter.x - aggregateRadius,
+        right: screenCenter.x + aggregateRadius,
+        top: screenCenter.y - aggregateRadius,
+        bottom: screenCenter.y + aggregateRadius,
+      });
+      continue;
+    }
+
+    for (const candidate of group) {
+      const candidateIndex = candidateIndexById.get(candidate.id);
+      if (candidateIndex === undefined) continue;
+      const baseBounds = bounds[candidateIndex];
+      const searchBounds = {
+        left: baseBounds.left,
+        right: baseBounds.right,
+        top: baseBounds.top - effectiveMaxStackOffset,
+        bottom: baseBounds.bottom + effectiveMaxStackOffset,
+      };
+      const reservations = nearbyReservations(find(candidateIndex), searchBounds);
+      const offsetCandidates = new Set<number>([0]);
+
+      // Labels can consume a screen-space offset; geographic endpoint meshes
+      // cannot. For labels, every reservation contributes the two exact
+      // boundary offsets that place this candidate immediately above/below it.
+      if (candidate.kind !== "endpoint") {
+        for (const reservation of reservations) {
+          const below = reservation.bottom + 1 - baseBounds.top;
+          const above = reservation.top - 1 - baseBounds.bottom;
+          if (Math.abs(below) <= effectiveMaxStackOffset) {
+            offsetCandidates.add(below);
+          }
+          if (Math.abs(above) <= effectiveMaxStackOffset) {
+            offsetCandidates.add(above);
+          }
+        }
+      }
+
+      const orderedOffsets = [...offsetCandidates].sort((left, right) => {
+        const magnitude = Math.abs(left) - Math.abs(right);
+        if (magnitude !== 0) return magnitude;
+        // Prefer the traditional downward fan when both directions fit.
+        return right - left;
+      });
+      const offsetY = orderedOffsets.find((offset) => {
+        const translated = translatedBounds(baseBounds, offset);
+        const centerY = candidate.y + offset;
+        return (
+          centerY >= -margin &&
+          centerY <= options.viewport.height + margin &&
+          !reservations.some((reservation) =>
+            boundsOverlap(translated, reservation),
+          )
+        );
+      });
+
+      resolvedCandidateIds.add(candidate.id);
+      if (offsetY === undefined) {
+        // A sub-threshold collision must not masquerade as a valid aggregate.
+        // Suppress its lower-priority surface instead; consumers derive all hit
+        // ownership from placements, so it cannot blink beneath the winner.
+        rejectedIds.push(candidate.id);
+        continue;
+      }
+      const placement = { candidate, offsetX: 0, offsetY };
+      placements.push(placement);
+      insertPlacedBounds(candidate.id, translatedBounds(baseBounds, offsetY));
+    }
   }
 
   placements.sort((left, right) =>
     left.candidate.id.localeCompare(right.candidate.id),
   );
   aggregates.sort((left, right) => left.id.localeCompare(right.id));
+  rejectedIds.sort();
   return { placements, aggregates, rejectedIds };
 }
 
@@ -384,13 +497,13 @@ export function spotLayoutSignature<T>(result: SpotLayoutResult<T>): string {
   const placements = result.placements
     .map(
       ({ candidate, offsetX, offsetY }) =>
-        `${candidate.id}@${offsetX.toFixed(1)},${offsetY.toFixed(1)}:${candidate.lat.toFixed(5)},${candidate.lon.toFixed(5)}:${candidate.selected ? 1 : 0}${candidate.watched ? 1 : 0}${candidate.activeBand ? 1 : 0}:${candidate.observedAt ?? 0}:${candidate.contentRevision ?? ""}`,
+        `${candidate.id}@${offsetX.toFixed(1)},${offsetY.toFixed(1)}:${candidate.kind}:${candidate.width.toFixed(1)}x${candidate.height.toFixed(1)}:${candidate.lat.toFixed(5)},${candidate.lon.toFixed(5)}:${candidate.selected ? 1 : 0}${candidate.watched ? 1 : 0}${candidate.activeBand ? 1 : 0}:${candidate.observedAt ?? 0}:${candidate.contentRevision ?? ""}`,
     )
     .join("|");
   const aggregates = result.aggregates
     .map(
       (aggregate) =>
-        `${aggregate.id}@${aggregate.center.lat.toFixed(5)},${aggregate.center.lon.toFixed(5)}[${aggregate.members.map((member) => `${member.id}:${member.observedAt ?? 0}:${member.contentRevision ?? ""}`).join(",")}]`,
+        `${aggregate.id}@${aggregate.center.lat.toFixed(5)},${aggregate.center.lon.toFixed(5)}[${aggregate.members.map((member) => `${member.id}:${member.kind}:${member.width.toFixed(1)}x${member.height.toFixed(1)}:${member.observedAt ?? 0}:${member.contentRevision ?? ""}`).join(",")}]`,
     )
     .join("|");
   return `${placements}::${aggregates}`;

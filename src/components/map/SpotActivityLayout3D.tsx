@@ -7,7 +7,7 @@
  * candidate list and makes one deterministic placement/aggregation decision.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
@@ -149,6 +149,14 @@ export function SpotActivityLayout3D({
     [replayEnabled, replaySpots],
   );
   const labelScale = uiPrefs.labelScale ?? 1;
+  const [activeTraceSpots, setActiveTraceSpots] = useState<ResolvedSpot[]>([]);
+  const handleActiveTracesChange = useCallback(
+    (spots: ResolvedSpot[]) => setActiveTraceSpots(spots),
+    [],
+  );
+  const layoutLiveSpots = showLiveSpots
+    ? resolvedLiveSpots
+    : activeTraceSpots;
 
   const candidates = useMemo<
     SpotLayoutCandidate<GlobeSpotLayoutPayload>[]
@@ -157,7 +165,10 @@ export function SpotActivityLayout3D({
       includeLiveActivity: showLiveSpots || showSpotTraces,
       renderLiveLabels: showLiveSpots,
       includeActivations: showActivations,
-      resolvedLiveSpots,
+      // A trace-only view must describe the animations that actually made it
+      // through hydration and queueing, not the inactive feed snapshot. This
+      // keeps baseline reports from manufacturing clickable aggregates.
+      resolvedLiveSpots: layoutLiveSpots,
       includeReplayActivity: showLiveSpots && replayEnabled,
       resolvedReplaySpots,
       activationSpots,
@@ -174,7 +185,7 @@ export function SpotActivityLayout3D({
     labelScale,
     matchedSpotIds,
     replayEnabled,
-    resolvedLiveSpots,
+    layoutLiveSpots,
     resolvedReplaySpots,
     selectedSpotId,
     showActivations,
@@ -185,8 +196,19 @@ export function SpotActivityLayout3D({
     uiPrefs.spotColorMode,
   ]);
   const revision = useMemo(
-    () => globeSpotCandidateRevision(candidates),
-    [candidates],
+    () =>
+      [
+        globeSpotCandidateRevision(candidates),
+        `cluster:${clusteringPrefs.enabled ? 1 : 0}`,
+        `spacing:${clusteringPrefs.gridSize ?? 6}`,
+        `minimum:${clusteringPrefs.minClusterSize ?? 3}`,
+      ].join("|"),
+    [
+      candidates,
+      clusteringPrefs.enabled,
+      clusteringPrefs.gridSize,
+      clusteringPrefs.minClusterSize,
+    ],
   );
   const candidatesRef = useRef(candidates);
   const revisionRef = useRef(revision);
@@ -199,6 +221,7 @@ export function SpotActivityLayout3D({
   const lastRunRef = useRef(Number.NEGATIVE_INFINITY);
   const lastCameraPositionRef = useRef(new THREE.Vector3(Number.NaN, 0, 0));
   const lastCameraQuaternionRef = useRef(new THREE.Quaternion());
+  const lastWorldMatrixRef = useRef<THREE.Matrix4 | null>(null);
   const lastViewportRef = useRef({ width: 0, height: 0 });
   const localPosition = useMemo(() => new THREE.Vector3(), []);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
@@ -207,6 +230,10 @@ export function SpotActivityLayout3D({
   // The callback runs with the renderer, but the expensive projection/layout
   // pass and React update only occur after meaningful input/camera changes.
   useFrame(({ camera, clock, size }) => {
+    const group = groupRef.current;
+    if (!group) return;
+    group.updateWorldMatrix(true, false);
+
     const inputChanged = lastRevisionRef.current !== revisionRef.current;
     const viewportChanged =
       lastViewportRef.current.width !== size.width ||
@@ -217,7 +244,17 @@ export function SpotActivityLayout3D({
       1 -
         Math.abs(lastCameraQuaternionRef.current.dot(camera.quaternion)) >
         1e-7;
-    if (!inputChanged && !viewportChanged && !cameraMoved) return;
+    const worldMatrixChanged =
+      lastWorldMatrixRef.current === null ||
+      !lastWorldMatrixRef.current.equals(group.matrixWorld);
+    if (
+      !inputChanged &&
+      !viewportChanged &&
+      !cameraMoved &&
+      !worldMatrixChanged
+    ) {
+      return;
+    }
 
     const elapsed = clock.getElapsedTime();
     if (
@@ -228,13 +265,11 @@ export function SpotActivityLayout3D({
       return;
     }
 
-    const group = groupRef.current;
     const occlusionFrame = createGlobeOcclusionFrame(
       camera.position,
       useMapStore.getState().rotation.x,
     );
-    if (!group || !occlusionFrame) return;
-    group.updateWorldMatrix(true, false);
+    if (!occlusionFrame) return;
 
     const projected: ProjectedSpotLayoutCandidate<GlobeSpotLayoutPayload>[] =
       candidatesRef.current.map((candidate) => {
@@ -261,8 +296,11 @@ export function SpotActivityLayout3D({
       // value as visible pixel breathing room now that grouping is correctly
       // projection-aware. Its persisted 5–15 range maps cleanly to pixels.
       collisionPaddingPx: Math.max(4, clusteringPrefs.gridSize ?? 6),
-      smallStackLimit: clusteringPrefs.enabled
-        ? Math.max(1, (clusteringPrefs.minClusterSize ?? 3) - 1)
+      // The UI preference is explicitly a report threshold. A report may own
+      // two endpoint surfaces, so applying it to candidate count creates a
+      // one-report beacon and violates the control's meaning.
+      minAggregateReportCount: clusteringPrefs.enabled
+        ? Math.max(1, clusteringPrefs.minClusterSize ?? 3)
         : Number.MAX_SAFE_INTEGER,
       // With clustering explicitly disabled we honor that preference by
       // continuing the deterministic fan instead of capping offsets until
@@ -281,6 +319,11 @@ export function SpotActivityLayout3D({
     lastRunRef.current = elapsed;
     lastCameraPositionRef.current.copy(camera.position);
     lastCameraQuaternionRef.current.copy(camera.quaternion);
+    if (lastWorldMatrixRef.current) {
+      lastWorldMatrixRef.current.copy(group.matrixWorld);
+    } else {
+      lastWorldMatrixRef.current = group.matrixWorld.clone();
+    }
     lastViewportRef.current = { width: size.width, height: size.height };
   });
 
@@ -340,6 +383,9 @@ export function SpotActivityLayout3D({
           layout={layout}
           isFeedReady={liveSpotsFeedReady}
           hydrationKey={liveSpotsFeedScopeKey}
+          onActiveTracesChange={
+            showLiveSpots ? undefined : handleActiveTracesChange
+          }
           onSpotHover={onSpotHover}
           onSpotHoverEnd={onSpotHoverEnd}
           onSpotSelect={onSpotSelect}

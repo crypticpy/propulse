@@ -171,4 +171,13 @@ describe("buildGlobeSpotLayoutCandidates", () => {
       globeSpotCandidateRevision(first),
     );
   });
+
+  it("changes its revision when the retained renderer kind changes", () => {
+    const first = candidates().slice(0, 1);
+    const changed = [{ ...first[0], kind: "endpoint" as const }];
+
+    expect(globeSpotCandidateRevision(changed)).not.toBe(
+      globeSpotCandidateRevision(first),
+    );
+  });
 });

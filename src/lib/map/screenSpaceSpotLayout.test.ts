@@ -90,7 +90,7 @@ describe("layoutProjectedSpotCandidates", () => {
     expect(small.aggregates).toHaveLength(0);
     expect(small.placements.map((placement) => placement.offsetY)).toEqual([
       0,
-      34,
+      35,
     ]);
 
     const dense = layoutProjectedSpotCandidates(
@@ -105,7 +105,7 @@ describe("layoutProjectedSpotCandidates", () => {
     expect(dense.aggregates[0].count).toBe(3);
   });
 
-  it("aggregates when a raised threshold cannot fit the bounded stack", () => {
+  it("suppresses overflow instead of violating a raised report threshold", () => {
     const result = layoutProjectedSpotCandidates(
       [
         candidate("a", 300, 300),
@@ -113,11 +113,76 @@ describe("layoutProjectedSpotCandidates", () => {
         candidate("c", 300, 300),
         candidate("d", 300, 300),
       ],
-      { ...options, smallStackLimit: 10, maxStackOffsetPx: 40 },
+      {
+        ...options,
+        minAggregateReportCount: 10,
+        maxStackOffsetPx: 40,
+      },
     );
 
-    expect(result.placements).toHaveLength(0);
-    expect(result.aggregates[0].count).toBe(4);
+    expect(result.aggregates).toHaveLength(0);
+    expect(result.placements).toHaveLength(3);
+    expect(result.rejectedIds).toEqual(["d"]);
+  });
+
+  it("uses distinct report identities for the aggregation threshold", () => {
+    const result = layoutProjectedSpotCandidates(
+      [
+        candidate("report-a-dx", 300, 300, { reportId: "report-a" }),
+        candidate("report-a-rx", 301, 300, { reportId: "report-a" }),
+      ],
+      { ...options, minAggregateReportCount: 2 },
+    );
+
+    expect(result.aggregates).toHaveLength(0);
+    expect(result.placements).toHaveLength(2);
+  });
+
+  it("never assigns an offset that a geographic endpoint cannot consume", () => {
+    const result = layoutProjectedSpotCandidates(
+      [
+        candidate("endpoint-a", 300, 300, { kind: "endpoint" }),
+        candidate("endpoint-b", 300, 300, { kind: "endpoint" }),
+      ],
+      options,
+    );
+
+    expect(result.placements).toHaveLength(1);
+    expect(result.placements[0].offsetY).toBe(0);
+    expect(result.rejectedIds).toEqual(["endpoint-b"]);
+  });
+
+  it("computes offsets from each candidate's actual projected position", () => {
+    const result = layoutProjectedSpotCandidates(
+      [candidate("a", 300, 300), candidate("b", 300, 280)],
+      options,
+    );
+    const [first, second] = result.placements;
+    const firstCenter = first.candidate.y + first.offsetY;
+    const secondCenter = second.candidate.y + second.offsetY;
+
+    expect(second.offsetY).toBe(-15);
+    expect(Math.abs(firstCenter - secondCenter)).toBe(35);
+  });
+
+  it("does not displace a stack into a neighboring component", () => {
+    const result = layoutProjectedSpotCandidates(
+      [
+        candidate("a", 300, 100),
+        candidate("b", 300, 100),
+        candidate("c", 300, 135),
+      ],
+      options,
+    );
+    const centers = new Map(
+      result.placements.map(({ candidate: entry, offsetY }) => [
+        entry.id,
+        entry.y + offsetY,
+      ]),
+    );
+
+    expect(centers.get("b")).toBe(65);
+    expect(centers.get("c")).toBe(135);
   });
 
   it("collides DX, spotter, activation, and endpoint candidates together", () => {
@@ -222,7 +287,7 @@ describe("layoutProjectedSpotCandidates", () => {
         candidate("report-a-rx", 301, 300, { reportId: "report-a" }),
         candidate("report-b", 302, 300, { reportId: "report-b" }),
       ],
-      options,
+      { ...options, minAggregateReportCount: 2 },
     );
 
     expect(result.aggregates[0].members).toHaveLength(3);
@@ -231,6 +296,32 @@ describe("layoutProjectedSpotCandidates", () => {
       "report-b",
     ]);
     expect(result.aggregates[0].count).toBe(2);
+  });
+});
+
+describe("spotLayoutSignature", () => {
+  it("includes kind and dimensions that change the retained renderer", () => {
+    const label = layoutProjectedSpotCandidates(
+      [candidate("same", 300, 300)],
+      options,
+    );
+    const endpoint = layoutProjectedSpotCandidates(
+      [
+        candidate("same", 300, 300, {
+          kind: "endpoint",
+          width: 82,
+          height: 22,
+        }),
+      ],
+      options,
+    );
+    const resized = layoutProjectedSpotCandidates(
+      [candidate("same", 300, 300, { width: 96, height: 28 })],
+      options,
+    );
+
+    expect(spotLayoutSignature(endpoint)).not.toBe(spotLayoutSignature(label));
+    expect(spotLayoutSignature(resized)).not.toBe(spotLayoutSignature(label));
   });
 });
 

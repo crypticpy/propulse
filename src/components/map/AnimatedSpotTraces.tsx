@@ -77,6 +77,8 @@ interface AnimatedSpotTracesProps {
   isFeedReady?: boolean;
   /** Changes when the backing query scope changes (for example QTH/source). */
   hydrationKey?: string;
+  /** Reports whose trace lifecycle is currently mounted in the scene. */
+  onActiveTracesChange?: (spots: ResolvedSpot[]) => void;
   onSpotHover?: (
     spot: LiveSpot,
     screenPos: ScreenAnchor,
@@ -601,6 +603,7 @@ export function AnimatedSpotTraces({
   layout,
   isFeedReady: suppliedIsFeedReady,
   hydrationKey = "standalone",
+  onActiveTracesChange,
   onSpotHover,
   onSpotHoverEnd,
   onSpotSelect,
@@ -633,6 +636,10 @@ export function AnimatedSpotTraces({
 
   // Active traces currently animating
   const [activeTraces, setActiveTraces] = useState<QueuedTrace[]>([]);
+
+  useEffect(() => {
+    onActiveTracesChange?.(activeTraces.map(({ spot }) => spot));
+  }, [activeTraces, onActiveTracesChange]);
 
   // Last time we dequeued a trace
   const lastDequeueTime = useRef(0);

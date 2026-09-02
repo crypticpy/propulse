@@ -302,7 +302,7 @@ export function globeSpotCandidateRevision(
   return candidates
     .map(
       (candidate) =>
-        `${candidate.id}:${candidate.lat.toFixed(5)}:${candidate.lon.toFixed(5)}:${candidate.width.toFixed(1)}:${candidate.height.toFixed(1)}:${candidate.selected ? 1 : 0}:${candidate.watched ? 1 : 0}:${candidate.activeBand ? 1 : 0}:${candidate.observedAt ?? 0}:${candidate.contentRevision ?? ""}`,
+        `${candidate.id}:${candidate.kind}:${candidate.lat.toFixed(5)}:${candidate.lon.toFixed(5)}:${candidate.width.toFixed(1)}:${candidate.height.toFixed(1)}:${candidate.selected ? 1 : 0}:${candidate.watched ? 1 : 0}:${candidate.activeBand ? 1 : 0}:${candidate.observedAt ?? 0}:${candidate.contentRevision ?? ""}`,
     )
     .join("|");
 }

@@ -3937,6 +3937,7 @@ export function FlatMapView({
         .toUpperCase();
       const cell = gridActivity.cellsByGrid.get(activityGrid);
       if (cell) return [...cell.reports];
+      return [];
     }
     return collectGridSpots(
       tooltipPosition.grid,
@@ -3955,11 +3956,13 @@ export function FlatMapView({
 
   const getGridCollectionSpots = useCallback(
     (grid: string): LiveSpot[] => {
-      const activityCell = gridActivity.cellsByGrid.get(grid.toUpperCase());
-      if (activityCell) return [...activityCell.reports];
+      if (layers.gridActivity) {
+        const activityCell = gridActivity.cellsByGrid.get(grid.toUpperCase());
+        return activityCell ? [...activityCell.reports] : [];
+      }
       return collectGridSpots(grid, allSpots, spots, resolvedSpots).spots;
     },
-    [allSpots, gridActivity.cellsByGrid, resolvedSpots, spots],
+    [allSpots, gridActivity.cellsByGrid, layers.gridActivity, resolvedSpots, spots],
   );
 
   // Handle map click - show flyout

@@ -127,6 +127,10 @@ import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import {
+  useScopedMapLayers,
+  useScopedPublicSpots,
+} from "@/hooks/useMapOperationalContext";
+import {
   useSpotHoverArbitration,
   type SpotHoverInteraction,
 } from "@/hooks/useSpotHoverArbitration";
@@ -950,7 +954,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onTileFallbackChange,
   onCloudImageryStatusChange,
 }: GlobeSceneProps) {
-  const layers = useMapStore((s) => s.layers);
+  const layers = useScopedMapLayers();
   const target = useMapStore((s) => s.target);
   const selectedSpot = useDXStore((s) => s.selectedSpot);
   const pathMode = useMapStore((s) => s.pathMode);
@@ -1820,6 +1824,7 @@ export function GlobeView({
   hideRadarScrubber,
   hideSizeSliders = false,
 }: GlobeViewProps) {
+  const scopedLayers = useScopedMapLayers();
   const zoom = useMapStore((s) => s.zoom);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
   const qualitySettings = useResolvedDisplayQuality(displayQuality);
@@ -1831,7 +1836,7 @@ export function GlobeView({
   const setTarget = useMapStore((s) => s.setTarget);
   const setCenterLocation = useMapStore((s) => s.setCenterLocation);
   const mapStyle = useMapStore((s) => s.mapStyle);
-  const gridActivityEnabled = useMapStore((s) => s.layers.gridActivity);
+  const gridActivityEnabled = scopedLayers.gridActivity;
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const spotSourceFilters = useDXStore(
@@ -1866,7 +1871,8 @@ export function GlobeView({
   const [mapOverlayPortal, setMapOverlayPortal] =
     useState<HTMLDivElement | null>(null);
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
-  const { allSpots } = useDXCluster();
+  const { allSpots: unscopedAllSpots } = useDXCluster();
+  const allSpots = useScopedPublicSpots(unscopedAllSpots);
 
   // React Query dedupes this with the scene request. Keeping the canonical
   // activity snapshot outside the R3F reconciler lets DOM tooltips and clicks
@@ -1897,7 +1903,7 @@ export function GlobeView({
   // Note: useFt8SpotterData() is also called inside Ft8SpotterOverlay (R3F tree).
   // This is intentional — R3F Canvas uses a separate React reconciler, so hooks
   // cannot be shared across the boundary. The merge logic is cheap (~500 items).
-  const ft8SpotterEnabled = useMapStore((s) => s.layers.ft8Spotter);
+  const ft8SpotterEnabled = scopedLayers.ft8Spotter;
   const ft8SpotterData = useFt8SpotterData();
 
   // Radar animation state — lifted from WeatherRadarOverlay (inside Canvas)

@@ -76,7 +76,10 @@ const AzimuthalView = lazy(() =>
   })),
 );
 import { DXSpotList } from "@/components/dx";
-import { OpsConsole } from "@/components/ops/OpsConsole";
+import {
+  OperationalScopeControl,
+  OpsConsole,
+} from "@/components/ops/OpsConsole";
 import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
 import { BandScope } from "@/components/dx/BandScope";
 import { useRigStore } from "@/stores/rigStore";
@@ -130,6 +133,13 @@ import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 import { propagationModelVisible } from "@/lib/propagation/modelClient";
 import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
+import {
+  useMapOperationalContext,
+  useOperationalWorkspaceSync,
+  useScopedMapLayers,
+} from "@/hooks/useMapOperationalContext";
+import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { policyAllows } from "@/lib/map/operationalScope";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -166,7 +176,7 @@ export function PropSphere() {
   const setTimeOffset = useMapStore((s) => s.setTimeOffset);
   const target = useMapStore((s) => s.target);
   const setTarget = useMapStore((s) => s.setTarget);
-  const layers = useMapStore((s) => s.layers);
+  const layers = useScopedMapLayers();
   const replayEnabled = useMapStore((s) => s.replayEnabled);
   const replaySpotCount = useReplayStore((s) => s.replaySpots.length);
   const spotColorMode = useUIInteractionPrefs().spotColorMode ?? "mode";
@@ -206,6 +216,37 @@ export function PropSphere() {
   const requestContestEntryFocus = useContestUIEphemeralStore(
     (s) => s.requestEntryFocus,
   );
+  const setContestDockTab = useContestUIStore((s) => s.setDockTab);
+  const setWorkspaceOpen = useMapOperationalStore(
+    (state) => state.setWorkspaceOpen,
+  );
+  const operationalContext = useMapOperationalContext();
+  const showPublicActivity = policyAllows(
+    operationalContext.policy,
+    "liveSpots",
+    "public",
+  );
+
+  useOperationalWorkspaceSync();
+
+  // A focused scope opens the existing bottom workspace once. Operators may
+  // collapse it afterward without the effect fighting that local choice.
+  useEffect(() => {
+    if (operationalContext.scope === "observe") return;
+    const dockKey = contestSessionId ?? "no-session";
+    setContestDockTab(
+      dockKey,
+      operationalContext.scope === "contest" ? "contest" : "log",
+    );
+    setWorkspaceOpen(true);
+    setDXConsoleExpanded(true);
+  }, [
+    contestSessionId,
+    operationalContext.scope,
+    setContestDockTab,
+    setDXConsoleExpanded,
+    setWorkspaceOpen,
+  ]);
 
   // Contest-aware map overlays (needed mult markers, etc.)
   useContestOverlayEngine({ enabled: Boolean(contestSessionId) });
@@ -234,6 +275,12 @@ export function PropSphere() {
   // column. Keeping it out of that column prevents the map and DX drawer from
   // collapsing into the same pixels on shorter desktop displays.
   const [activityPanelOpen, setActivityPanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!showPublicActivity && activityPanelOpen) {
+      setActivityPanelOpen(false);
+    }
+  }, [activityPanelOpen, showPublicActivity]);
 
   // Panel display modes for normal desktop layout (full | mini | hidden)
   const [leftPanelMode, setLeftPanelMode] = useState<PanelMode>("full");
@@ -739,7 +786,7 @@ export function PropSphere() {
       {layoutMode !== "pro" && layoutMode !== "hamclock" && (
         <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
           {/* Live ticker bar — "top" position (below masthead) */}
-          {!isLiteMode && tickerPosition === "top" && (
+          {!isLiteMode && showPublicActivity && tickerPosition === "top" && (
             <DXNewsTicker className="flex-shrink-0 -mx-2 md:-mx-4 -mt-2 md:-mt-4 rounded-none" />
           )}
 
@@ -862,7 +909,9 @@ export function PropSphere() {
           )}
 
           {/* Live ticker bar — "above-panels" position */}
-          {!isLiteMode && tickerPosition === "above-panels" && (
+          {!isLiteMode &&
+            showPublicActivity &&
+            tickerPosition === "above-panels" && (
             <DXNewsTicker className="flex-shrink-0" />
           )}
 
@@ -1037,9 +1086,11 @@ export function PropSphere() {
                       useMapStore.getState().enterObservatory()
                     }
                     onSelectProfile={setLocalActiveProfile}
-                    onToggleActivity={() =>
-                      setActivityPanelOpen((open) => !open)
-                    }
+                    onToggleActivity={() => {
+                      if (showPublicActivity) {
+                        setActivityPanelOpen((open) => !open);
+                      }
+                    }}
                     panelLayoutActive={
                       leftPanelMode !== "full" || rightPanelMode !== "full"
                     }
@@ -1054,7 +1105,17 @@ export function PropSphere() {
                     showPanelControl
                   />
                 )}
-                statusControls={<MapStatusChip className="flex shrink-0" />}
+                statusControls={
+                  <div className="flex shrink-0 items-center gap-1">
+                    <OperationalScopeControl
+                      compact={mapToolbarLayout.iconOnly}
+                      onWorkspaceRequested={() =>
+                        setDXConsoleExpanded(true)
+                      }
+                    />
+                    <MapStatusChip className="flex shrink-0" />
+                  </div>
+                }
                 viewsControl={
                   <ViewsPopover
                     compact={mapToolbarLayout.iconOnly}
@@ -1137,7 +1198,7 @@ export function PropSphere() {
                   )}
                 </Suspense>
 
-                {activityPanelOpen && (
+                {activityPanelOpen && showPublicActivity && (
                   <div
                     id="nearby-activity-map-drawer"
                     className="absolute inset-x-2 top-2 z-30 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl shadow-2xl sm:inset-x-3 sm:top-3"
@@ -1477,7 +1538,7 @@ export function PropSphere() {
           </div>
 
           {/* Live ticker bar — "bottom" position (default) */}
-          {!isLiteMode && tickerPosition === "bottom" && (
+          {!isLiteMode && showPublicActivity && tickerPosition === "bottom" && (
             <DXNewsTicker className="flex-shrink-0" />
           )}
 
@@ -1498,7 +1559,7 @@ export function PropSphere() {
               {/* Normal Bottom Row: DX Spots (hidden when Console is expanded) */}
               {/* On lg (not xl): Shows Recommendations + DX Spots side by side */}
               {/* Compact fit drops it — the bottom tab strip has Recs/Spots tabs */}
-              {!compactFit && (
+              {!compactFit && showPublicActivity && (
                 <div
                   className={`hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px] ${isDXConsoleExpanded ? "!hidden" : ""}`}
                 >
@@ -1541,7 +1602,7 @@ export function PropSphere() {
 
               {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
               {/* Hidden when DX Console is expanded or in compact fit */}
-              {!compactFit && (
+              {!compactFit && showPublicActivity && (
                 <div
                   className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
                   data-tour="dx-spot-list"
@@ -1687,7 +1748,7 @@ export function PropSphere() {
                     Select a target for recommendations
                   </Card>
                 ))}
-              {activeTab === "spots" && (
+              {activeTab === "spots" && showPublicActivity && (
                 <DXSpotList
                   maxHeight="218px"
                   showFilters={true}
@@ -1695,6 +1756,13 @@ export function PropSphere() {
                   className="h-full"
                   onResearchGrid={handleResearchGrid}
                 />
+              )}
+              {activeTab === "spots" && !showPublicActivity && (
+                <Card className="flex h-full items-center justify-center px-5 text-center text-xs text-gray-500">
+                  Public discovery is hidden while logging or operating an
+                  unassisted contest. Your station, selected target, and own
+                  contacts remain on the map.
+                </Card>
               )}
             </div>
           </div>

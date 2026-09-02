@@ -981,9 +981,12 @@ export const useQSOStore = create<QSOStoreState>()(
     }),
     {
       name: "propulse-qso",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        // The in-progress draft is shared with PropSphere's docked/secondary
+        // workspace. Saving still goes through logQSO and the IndexedDB log.
+        form: state.form,
         formDefaults: state.formDefaults,
         filters: state.filters,
         sortField: state.sortField,
@@ -992,15 +995,16 @@ export const useQSOStore = create<QSOStoreState>()(
         nextSerialNumber: state.nextSerialNumber,
       }),
       migrate: (persisted, version) => {
-        if (version < 2) {
-          const state = persisted as Record<string, unknown>;
-          return {
-            ...state,
-            operatingMode: "general",
-            nextSerialNumber: 1,
-          };
-        }
-        return persisted;
+        const state = persisted as Record<string, unknown>;
+        return {
+          ...state,
+          ...(version < 2
+            ? { operatingMode: "general", nextSerialNumber: 1 }
+            : {}),
+          // Older versions intentionally did not persist drafts. Hydrating a
+          // complete default keeps the new cross-window form schema explicit.
+          ...(version < 3 ? { form: { ...DEFAULT_QSO_FORM } } : {}),
+        };
       },
     },
   ),

@@ -88,6 +88,7 @@ import {
   type AzimuthalSpotPillScreenPlacement,
 } from "@/lib/map/azimuthalSpotPillPlacement";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useScopedMapLayers } from "@/hooks/useMapOperationalContext";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
@@ -1594,7 +1595,7 @@ export function AzimuthalView({
   const hoveredSpotOwnerRef = useRef<string | null>(null);
   const selectMapSpot = useMapSpotSelection();
   const glowRafRef = useRef<number>(0);
-  const layers = useMapStore((s) => s.layers);
+  const layers = useScopedMapLayers();
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const setTarget = useMapStore((s) => s.setTarget);
   const setWatch = useWatchStore((s) => s.setWatch);

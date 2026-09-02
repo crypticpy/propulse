@@ -6,8 +6,14 @@ import {
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
+import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { useQSOStore } from "@/stores/qsoStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { formatSpotPresentationLabel } from "@/lib/map/spotPresentation";
+import {
+  mapSpotSourceProvenance,
+  type MapDataProvenance,
+} from "@/lib/map/operationalScope";
 
 export type MapSpotLocationSource = "coordinates" | "grid" | "callsign-prefix";
 
@@ -23,6 +29,20 @@ export interface MapSpotSelection {
 export interface MapSpotSelectionActions {
   setSelectedSpot: (spot: DXSpot) => void;
   setTarget: (target: TargetLocation | null) => void;
+  prepareQsoDraft?: (spot: {
+    callsign: string;
+    frequency: number;
+    mode: string;
+  }) => void;
+  setSelectedReport?: (report: {
+    id: string;
+    callsign: string;
+    frequency: number;
+    mode: string;
+    source: string;
+    provenance: MapDataProvenance;
+    selectedAt: number;
+  }) => void;
 }
 
 function isValidCoordinate(
@@ -130,7 +150,27 @@ export function commitMapSpotSelection(
   actions: MapSpotSelectionActions,
 ): MapSpotSelection | null {
   const resolved = resolveMapSpotSelection(spot);
-  actions.setSelectedSpot(resolved?.spot ?? spot);
+  const selectedSpot = resolved?.spot ?? spot;
+  const source =
+    (selectedSpot as DXSpot & { source?: string }).source ?? "Cluster";
+  actions.setSelectedSpot(selectedSpot);
+  // Preparing the canonical QSO draft is intentionally separate from entering
+  // focused logging scope. The selected card's Work & Log action makes that
+  // transition explicit while preserving the report that seeded the draft.
+  actions.prepareQsoDraft?.({
+    callsign: selectedSpot.dx,
+    frequency: selectedSpot.frequency,
+    mode: selectedSpot.mode || "SSB",
+  });
+  actions.setSelectedReport?.({
+    id: selectedSpot.id,
+    callsign: selectedSpot.dx,
+    frequency: selectedSpot.frequency,
+    mode: selectedSpot.mode || "SSB",
+    source,
+    provenance: mapSpotSourceProvenance(source),
+    selectedAt: Date.now(),
+  });
   if (resolved) {
     actions.setTarget(resolved.target);
   } else {
@@ -143,11 +183,20 @@ export function commitMapSpotSelection(
 export function useMapSpotSelection() {
   const setSelectedSpot = useDXStore((state) => state.setSelectedSpot);
   const setTarget = useMapStore((state) => state.setTarget);
+  const prepareQsoDraft = useQSOStore((state) => state.setFromSpot);
+  const setSelectedReport = useMapOperationalStore(
+    (state) => state.setSelectedReport,
+  );
 
   return useCallback(
     (spot: DXSpot) =>
-      commitMapSpotSelection(spot, { setSelectedSpot, setTarget }),
-    [setSelectedSpot, setTarget],
+      commitMapSpotSelection(spot, {
+        setSelectedSpot,
+        setTarget,
+        prepareQsoDraft,
+        setSelectedReport,
+      }),
+    [prepareQsoDraft, setSelectedReport, setSelectedSpot, setTarget],
   );
 }
 

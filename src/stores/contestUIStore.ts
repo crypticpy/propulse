@@ -9,7 +9,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 
-export type OpsDockTab = "dx" | "contest";
+export type OpsDockTab = "dx" | "log" | "contest";
 
 export interface DraftSelection {
   start: number;
@@ -74,6 +74,12 @@ interface ContestUIState {
   setAdoptModeFromSpot: (enabled: boolean) => void;
   focusEntryOnSpotPrefill: boolean;
   setFocusEntryOnSpotPrefill: (enabled: boolean) => void;
+
+  // ---------------------------------------------------------------------------
+  // Public spotting assistance (per contest session)
+  // ---------------------------------------------------------------------------
+  publicAssistanceBySessionId: Record<string, boolean>;
+  setPublicAssistance: (sessionId: string, enabled: boolean) => void;
 
   // ---------------------------------------------------------------------------
   // Lite HUD visibility per session (opt-out)
@@ -185,6 +191,17 @@ export const useContestUIStore = create<ContestUIState>()(
       setFocusEntryOnSpotPrefill: (enabled) =>
         set({ focusEntryOnSpotPrefill: enabled }),
 
+      // Assistance is session-scoped so a prior assisted entry cannot silently
+      // change the posture of a later non-assisted contest.
+      publicAssistanceBySessionId: {},
+      setPublicAssistance: (sessionId, enabled) =>
+        set((state) => ({
+          publicAssistanceBySessionId: {
+            ...state.publicAssistanceBySessionId,
+            [sessionId]: enabled,
+          },
+        })),
+
       liteHudDismissedBySessionId: {},
       dismissLiteHud: (sessionId) =>
         set((state) => ({
@@ -204,9 +221,9 @@ export const useContestUIStore = create<ContestUIState>()(
     {
       name: "propulse-contest-ui",
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
-        if (version >= 2) {
+        if (version >= 3) {
           return persisted as ContestUIState;
         }
 
@@ -229,6 +246,9 @@ export const useContestUIStore = create<ContestUIState>()(
           adoptModeFromSpot: state.adoptModeFromSpot ?? true,
           focusEntryOnSpotPrefill: state.focusEntryOnSpotPrefill ?? true,
 
+          publicAssistanceBySessionId:
+            state.publicAssistanceBySessionId ?? {},
+
           liteHudDismissedBySessionId: state.liteHudDismissedBySessionId ?? {},
         } as ContestUIState;
       },
@@ -241,6 +261,7 @@ export const useContestUIStore = create<ContestUIState>()(
         adoptBandFromSpot: state.adoptBandFromSpot,
         adoptModeFromSpot: state.adoptModeFromSpot,
         focusEntryOnSpotPrefill: state.focusEntryOnSpotPrefill,
+        publicAssistanceBySessionId: state.publicAssistanceBySessionId,
         liteHudDismissedBySessionId: state.liteHudDismissedBySessionId,
       }),
     },

@@ -65,6 +65,10 @@ import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import {
+  useScopedMapLayers,
+  useScopedPublicSpots,
+} from "@/hooks/useMapOperationalContext";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import {
@@ -3391,7 +3395,7 @@ export function FlatMapView({
   const startGlowLoopRef = useRef<() => void>(() => undefined);
   const glowRafRef = useRef<number>(0);
 
-  const layers = useMapStore((s) => s.layers);
+  const layers = useScopedMapLayers();
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const labelOptions = useMapStore((s) => s.labelOptions);
@@ -3534,7 +3538,8 @@ export function FlatMapView({
     [layers.gridActivity, layers.spotTraces, layers.spots],
   );
   const selectMapSpot = useMapSpotSelection();
-  const { allSpots } = useDXCluster();
+  const { allSpots: unscopedAllSpots } = useDXCluster();
+  const allSpots = useScopedPublicSpots(unscopedAllSpots);
 
   // Satellite positions for 2D overlay
   const { satellites: satPositions, selectedSatellite: selectedSat } =

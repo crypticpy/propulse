@@ -1,0 +1,245 @@
+import { useEffect, useMemo, useRef } from "react";
+import { useContestStore } from "@/stores/contestStore";
+import { useContestUIStore } from "@/stores/contestUIStore";
+import { useDXStore } from "@/stores/dxStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { useQSOStore } from "@/stores/qsoStore";
+import { useRigStore } from "@/stores/rigStore";
+import { useWSJTXStore } from "@/stores/wsjtxStore";
+import {
+  applyMapDataPolicyToLayers,
+  buildMapDataPolicy,
+  deriveMapDataScope,
+  policyAllows,
+  shouldRestoreAutomaticScopeAfterContest,
+  type MapDataPolicy,
+  type MapDataScope,
+} from "@/lib/map/operationalScope";
+
+export interface MapOperationalContext {
+  scope: MapDataScope;
+  automaticScope: MapDataScope;
+  manualScope: MapDataScope | null;
+  policy: MapDataPolicy;
+  contestSessionId: string | null;
+  workspaceOpen: boolean;
+}
+
+/** One source of truth for scope precedence and contest assistance policy. */
+export function useMapOperationalContext(): MapOperationalContext {
+  const activeSession = useContestStore((state) => state.activeSession);
+  const rigConnected = useRigStore((state) => state.connected);
+  const wsjtxConnected = useWSJTXStore((state) => state.connected);
+  const qsoDraftCallsign = useQSOStore((state) => state.form.callsign);
+  const manualScope = useMapOperationalStore((state) => state.manualScope);
+  const workspaceOpen = useMapOperationalStore((state) => state.workspaceOpen);
+  const contestSessionId = activeSession?.id ?? null;
+  const storedAssistance = useContestUIStore((state) =>
+    contestSessionId
+      ? state.publicAssistanceBySessionId[contestSessionId]
+      : undefined,
+  );
+  const declaredAssisted =
+    (
+      activeSession?.categories as
+        | { assisted?: "assisted" | "non-assisted" }
+        | undefined
+    )?.assisted === "assisted";
+  const stationOperationActive =
+    rigConnected ||
+    wsjtxConnected ||
+    (workspaceOpen && qsoDraftCallsign.trim().length > 0);
+  const automaticScope = deriveMapDataScope({
+    manualScope: null,
+    contestActive: Boolean(activeSession),
+    stationOperationActive,
+  });
+  const scope = deriveMapDataScope({
+    manualScope,
+    contestActive: Boolean(activeSession),
+    stationOperationActive,
+  });
+  const publicAssistance = storedAssistance ?? declaredAssisted;
+  const previousContestSessionIdRef = useRef(contestSessionId);
+  useEffect(() => {
+    if (
+      shouldRestoreAutomaticScopeAfterContest(
+        previousContestSessionIdRef.current,
+        contestSessionId,
+        useMapOperationalStore.getState().manualScope,
+      )
+    ) {
+      // A contest workspace is session-scoped. Returning to automatic scope
+      // and closing its operating-intent flag restores saved observation
+      // layers without mutating any of their configured values.
+      useMapOperationalStore.getState().setManualScope(null);
+      useMapOperationalStore.getState().setWorkspaceOpen(false);
+    }
+    previousContestSessionIdRef.current = contestSessionId;
+  }, [contestSessionId]);
+  const policy = useMemo(
+    () => buildMapDataPolicy(scope, publicAssistance),
+    [publicAssistance, scope],
+  );
+
+  return {
+    scope,
+    automaticScope,
+    manualScope,
+    policy,
+    contestSessionId,
+    workspaceOpen,
+  };
+}
+
+/** Renderer adapter: preserve configured layers and derive focused visibility. */
+export function useScopedMapLayers() {
+  const configuredLayers = useMapStore((state) => state.layers);
+  const { policy } = useMapOperationalContext();
+  return useMemo(
+    () => applyMapDataPolicyToLayers(configuredLayers, policy),
+    [configuredLayers, policy],
+  );
+}
+
+const EMPTY_SCOPED_SPOTS: never[] = [];
+
+/** Public DX-cluster records are never handed to an unassisted focused view. */
+export function useScopedPublicSpots<T>(spots: T[]): T[] {
+  const { policy } = useMapOperationalContext();
+  return policyAllows(policy, "liveSpots", "public")
+    ? spots
+    : (EMPTY_SCOPED_SPOTS as T[]);
+}
+
+type WorkspaceSnapshot = {
+  operational: Pick<
+    ReturnType<typeof useMapOperationalStore.getState>,
+    "manualScope" | "workspaceOpen" | "selectedReport"
+  >;
+  qso: Pick<
+    ReturnType<typeof useQSOStore.getState>,
+    "form" | "operatingMode"
+  >;
+  map: Pick<ReturnType<typeof useMapStore.getState>, "target">;
+  dx: Pick<ReturnType<typeof useDXStore.getState>, "selectedSpot">;
+  contest: Pick<
+    ReturnType<typeof useContestStore.getState>,
+    "activeSession" | "sessionHistory"
+  >;
+  contestUi: Pick<
+    ReturnType<typeof useContestUIStore.getState>,
+    | "dockTabBySessionId"
+    | "bandBySessionId"
+    | "modeBySessionId"
+    | "draftBySessionId"
+    | "draftSelectionBySessionId"
+    | "draftUpdatedAtBySessionId"
+    | "publicAssistanceBySessionId"
+  >;
+};
+
+type WorkspaceMessage =
+  | { kind: "request"; sender: string }
+  | { kind: "snapshot"; sender: string; snapshot: WorkspaceSnapshot };
+
+const WORKSPACE_CHANNEL = "propulse-operating-workspace-v1";
+
+function createWorkspaceSnapshot(): WorkspaceSnapshot {
+  const operational = useMapOperationalStore.getState();
+  const qso = useQSOStore.getState();
+  const map = useMapStore.getState();
+  const dx = useDXStore.getState();
+  const contest = useContestStore.getState();
+  const contestUi = useContestUIStore.getState();
+  return {
+    operational: {
+      manualScope: operational.manualScope,
+      workspaceOpen: operational.workspaceOpen,
+      selectedReport: operational.selectedReport,
+    },
+    qso: { form: qso.form, operatingMode: qso.operatingMode },
+    map: { target: map.target },
+    dx: { selectedSpot: dx.selectedSpot },
+    contest: {
+      activeSession: contest.activeSession,
+      sessionHistory: contest.sessionHistory,
+    },
+    contestUi: {
+      dockTabBySessionId: contestUi.dockTabBySessionId,
+      bandBySessionId: contestUi.bandBySessionId,
+      modeBySessionId: contestUi.modeBySessionId,
+      draftBySessionId: contestUi.draftBySessionId,
+      draftSelectionBySessionId: contestUi.draftSelectionBySessionId,
+      draftUpdatedAtBySessionId: contestUi.draftUpdatedAtBySessionId,
+      publicAssistanceBySessionId: contestUi.publicAssistanceBySessionId,
+    },
+  };
+}
+
+/**
+ * Keep the docked console and optional secondary window on the same canonical
+ * store state. BroadcastChannel transports presentation state only; QSO writes,
+ * contest scoring, lookup, and CAT commands still use their existing services.
+ */
+export function useOperationalWorkspaceSync(): void {
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const sender =
+      globalThis.crypto?.randomUUID?.() ??
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
+    let applyingRemote = false;
+    let publishQueued = false;
+
+    const publish = () => {
+      if (applyingRemote || publishQueued) return;
+      publishQueued = true;
+      queueMicrotask(() => {
+        publishQueued = false;
+        if (applyingRemote) return;
+        channel.postMessage({
+          kind: "snapshot",
+          sender,
+          snapshot: createWorkspaceSnapshot(),
+        } satisfies WorkspaceMessage);
+      });
+    };
+
+    const subscriptions = [
+      useMapOperationalStore.subscribe(publish),
+      useQSOStore.subscribe(publish),
+      useMapStore.subscribe(publish),
+      useDXStore.subscribe(publish),
+      useContestStore.subscribe(publish),
+      useContestUIStore.subscribe(publish),
+    ];
+
+    channel.onmessage = (event: MessageEvent<WorkspaceMessage>) => {
+      const message = event.data;
+      if (!message || message.sender === sender) return;
+      if (message.kind === "request") {
+        publish();
+        return;
+      }
+      if (message.kind !== "snapshot" || !message.snapshot) return;
+
+      applyingRemote = true;
+      const snapshot = message.snapshot;
+      useMapOperationalStore.setState(snapshot.operational);
+      useQSOStore.setState(snapshot.qso);
+      useMapStore.setState(snapshot.map);
+      useDXStore.setState(snapshot.dx);
+      useContestStore.setState(snapshot.contest);
+      useContestUIStore.setState(snapshot.contestUi);
+      applyingRemote = false;
+    };
+
+    channel.postMessage({ kind: "request", sender } satisfies WorkspaceMessage);
+    return () => {
+      for (const unsubscribe of subscriptions) unsubscribe();
+      channel.close();
+    };
+  }, []);
+}

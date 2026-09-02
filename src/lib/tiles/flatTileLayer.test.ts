@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authHeaders } from "@/lib/api/authFetch";
 import { ALL_PROVIDERS } from "./providers";
-import { createFlatTileLayer } from "./flatTileLayer";
+import { createFlatTileLayer, getFlatTileWindow } from "./flatTileLayer";
 
 vi.mock("@/lib/api/authFetch", () => ({
   authHeaders: vi.fn(async () => ({ Authorization: "Bearer test-token" })),
@@ -279,5 +279,166 @@ describe("createFlatTileLayer", () => {
     expect(fetch).toHaveBeenCalled();
     layer.dispose();
     vi.useRealTimers();
+  });
+
+  it("removes the offscreen prefetch ring during active navigation", () => {
+    const provider = ALL_PROVIDERS["mapbox-satellite"];
+    const view = {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+    };
+
+    const settled = getFlatTileWindow(provider, view, 0, 1);
+    const moving = getFlatTileWindow(
+      provider,
+      { ...view, navigationActive: true },
+      0,
+      1,
+    );
+
+    expect(settled).not.toBeNull();
+    expect(moving?.requested).toEqual(moving?.visible);
+    expect(settled?.requested.xStart).toBeLessThan(settled!.visible.xStart);
+    expect(settled?.requested.xEnd).toBeGreaterThan(settled!.visible.xEnd);
+  });
+
+  it("keeps edge viewports inside the wrapped XYZ and Mercator limits", () => {
+    const provider = ALL_PROVIDERS["mapbox-satellite"];
+    const west = getFlatTileWindow(
+      provider,
+      {
+        scale: 32,
+        offsetX: 0,
+        offsetY: -7_936,
+        renderWidth: 1024,
+        renderHeight: 512,
+        devicePixelRatio: 1,
+      },
+      0,
+      1,
+    );
+    const polarOnly = getFlatTileWindow(provider, {
+      scale: 64,
+      offsetX: 0,
+      offsetY: 0,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+    });
+
+    expect(west?.requested.xStart).toBe(0);
+    expect(west?.requested.xEnd).toBeLessThan(1 << west!.zoom);
+    expect(polarOnly).toBeNull();
+  });
+
+  it("coalesces a batch of tile completions into one frame invalidation", async () => {
+    const scheduled: FrameRequestCallback[] = [];
+    const onTileLoaded = vi.fn();
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      onTileLoaded,
+      {
+        maxConcurrentRequests: 4,
+        scheduleFrame: (callback) => {
+          scheduled.push(callback);
+          return scheduled.length;
+        },
+        cancelFrame: vi.fn(),
+      },
+    );
+
+    layer.draw({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D, {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+      navigationActive: true,
+    });
+
+    await vi.waitFor(() => expect(scheduled).toHaveLength(1));
+    expect(onTileLoaded).not.toHaveBeenCalled();
+    scheduled[0](performance.now());
+    expect(onTileLoaded).toHaveBeenCalledOnce();
+    layer.dispose();
+  });
+
+  it("cancels obsolete visible requests after a navigation change", async () => {
+    vi.mocked(fetch).mockImplementation(
+      () => new Promise<Response>(() => undefined),
+    );
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      vi.fn(),
+      { maxConcurrentRequests: 2 },
+    );
+    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+    const centeredView = {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+      navigationActive: true,
+    };
+
+    layer.draw(context, centeredView);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const obsoleteSignals = vi
+      .mocked(fetch)
+      .mock.calls.map(([, init]) => init?.signal);
+
+    layer.draw(context, { ...centeredView, offsetX: -1_000 });
+
+    expect(obsoleteSignals.every((signal) => signal?.aborted)).toBe(true);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(4));
+    layer.dispose();
+  });
+
+  it("reuses ready cache entries after a rapid pan reversal", async () => {
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      vi.fn(),
+      { maxConcurrentRequests: 64 },
+    );
+    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+    const centeredView = {
+      scale: 64,
+      offsetX: -32_256,
+      offsetY: -16_128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+      navigationActive: true,
+    };
+
+    const window = getFlatTileWindow(
+      ALL_PROVIDERS["mapbox-satellite"],
+      centeredView,
+    )!;
+    const visibleRequestCount =
+      (window.requested.xEnd - window.requested.xStart + 1) *
+      (window.requested.yEnd - window.requested.yStart + 1);
+
+    layer.draw(context, centeredView);
+    await vi.waitFor(() =>
+      expect(fetch).toHaveBeenCalledTimes(visibleRequestCount),
+    );
+    await vi.waitFor(() => expect(layer.draw(context, centeredView)).toBe(true));
+    const requestsAfterFirstView = vi.mocked(fetch).mock.calls.length;
+
+    layer.draw(context, { ...centeredView, offsetX: -1_000 });
+    layer.draw(context, centeredView);
+    await Promise.resolve();
+
+    expect(layer.draw(context, centeredView)).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(requestsAfterFirstView);
+    layer.dispose();
   });
 });

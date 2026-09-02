@@ -151,6 +151,11 @@ import {
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { getSpotLayerPolicy } from "@/lib/map/spotLayerPolicy";
 import { findTopmostLabelIndex } from "@/lib/map/labelHitTesting";
+import {
+  recordFlatMapLayerPaint,
+  subscribeFlatMapDiagnostics,
+} from "@/lib/map/flatMapDiagnostics";
+import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -229,6 +234,46 @@ let nightLightsCache: {
  */
 function getTimeMinute(date: Date): number {
   return Math.floor(date.getTime() / 60000);
+}
+
+/**
+ * Resize and clear one viewport-sized retained surface, then install the DPR
+ * and map transforms shared by every 2D layer. The caller must restore once.
+ */
+function beginFlatMapCanvasFrame(
+  canvas: HTMLCanvasElement,
+  viewport: { width: number; height: number },
+  devicePixelRatio: number,
+  zoom: FlatMapZoomState,
+  retainedBackground?: HTMLCanvasElement | null,
+): CanvasRenderingContext2D | null {
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+
+  const bufferWidth = Math.round(viewport.width * devicePixelRatio);
+  const bufferHeight = Math.round(viewport.height * devicePixelRatio);
+  if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+    canvas.width = bufferWidth;
+    canvas.height = bufferHeight;
+  }
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (retainedBackground) {
+    // Copy device pixels before installing the CSS/map transform. Scientific
+    // multiply/saturation passes must blend against imagery, not transparency.
+    context.drawImage(
+      retainedBackground,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+  }
+  context.save();
+  context.scale(devicePixelRatio, devicePixelRatio);
+  context.translate(zoom.offsetX, zoom.offsetY);
+  context.scale(zoom.scale, zoom.scale);
+  return context;
 }
 
 // Colors
@@ -3267,6 +3312,9 @@ export function FlatMapView({
   hideSizeSliders = false,
 }: FlatMapViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const baseCanvasRef = useRef<HTMLCanvasElement>(null);
+  const scienceCanvasRef = useRef<HTMLCanvasElement>(null);
+  const glowCanvasRef = useRef<HTMLCanvasElement>(null);
   const mapSurfaceRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [activationPillPlacements, setActivationPillPlacements] = useState<
@@ -3276,6 +3324,14 @@ export function FlatMapView({
   const tileLayerRef = useRef<FlatTileLayer | null>(null);
   // Bumped when an async tile finishes loading, forcing a recomposite
   const [tileEpoch, setTileEpoch] = useState(0);
+  const [diagnosticsEpoch, setDiagnosticsEpoch] = useState(0);
+  useEffect(
+    () =>
+      subscribeFlatMapDiagnostics(() =>
+        setDiagnosticsEpoch((epoch) => epoch + 1),
+      ),
+    [],
+  );
   const [visibleTileProviderId, setVisibleTileProviderId] = useState<
     string | null
   >(null);
@@ -3294,6 +3350,11 @@ export function FlatMapView({
     offsetX: 0,
     offsetY: 0,
   });
+  const [animationNavigationActive, setAnimationNavigationActive] =
+    useState(false);
+  const [gestureNavigationActive, setGestureNavigationActive] = useState(false);
+  const navigationActive =
+    animationNavigationActive || gestureNavigationActive;
   // Zoom animation ref for smooth transitions
   const zoomAnimationRef = useRef<ZoomAnimation | null>(null);
   const zoomRafRef = useRef<number>(0);
@@ -3320,8 +3381,9 @@ export function FlatMapView({
   const glowRendererRef = useRef<GridGlowRenderer>(new GridGlowRenderer());
   // Track which spot IDs have already triggered glows (avoid re-firing on every render)
   const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
-  // Tick counter to force canvas re-renders while glows are animating
-  const [glowTick, setGlowTick] = useState(0);
+  // Active-grid effects own their surface and clock; they never invalidate
+  // the base imagery, scientific, or live-interaction canvases.
+  const startGlowLoopRef = useRef<() => void>(() => undefined);
   const glowRafRef = useRef<number>(0);
 
   const layers = useMapStore((s) => s.layers);
@@ -3709,28 +3771,95 @@ export function FlatMapView({
 
     prevGlowSpotIdsRef.current = currentIds;
 
-    // Start the glow animation loop if there are active glows
-    if (
-      newCount > 0 &&
-      glowRendererRef.current.hasActiveGlows() &&
-      !glowRafRef.current
-    ) {
-      const tick = () => {
-        if (glowRendererRef.current.hasActiveGlows()) {
-          setGlowTick((t) => t + 1);
-          glowRafRef.current = requestAnimationFrame(tick);
-        } else {
-          glowRafRef.current = 0;
-        }
-      };
-      glowRafRef.current = requestAnimationFrame(tick);
-    }
+    if (newCount > 0) startGlowLoopRef.current();
   }, [
     resolvedSpots,
     layers.spots,
     layers.spotTraces,
     layers.gridActivity,
     spotColorMode,
+  ]);
+
+  // Paint grid activity on its own effect surface. Short pulses and the final
+  // edge fade use RAF; the steady one-minute persisted state sleeps until its
+  // next visual transition instead of repainting the complete map at 60fps.
+  useEffect(() => {
+    let running = true;
+    let wakeTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const cancelScheduledFrame = () => {
+      if (glowRafRef.current) cancelAnimationFrame(glowRafRef.current);
+      glowRafRef.current = 0;
+      if (wakeTimer) clearTimeout(wakeTimer);
+      wakeTimer = undefined;
+    };
+
+    const paint = () => {
+      glowRafRef.current = 0;
+      if (!running) return;
+
+      const canvas = glowCanvasRef.current;
+      if (!canvas) return;
+      const context = beginFlatMapCanvasFrame(
+        canvas,
+        viewportSize,
+        qualitySettings.renderDevicePixelRatio,
+        zoom,
+      );
+      if (!context) return;
+
+      const renderer = glowRendererRef.current;
+      const now = Date.now();
+      const effectsVisible =
+        layers.spots ||
+        layers.spotTraces ||
+        layers.gridActivity;
+      if (effectsVisible) {
+        renderer.draw(
+          context,
+          (lat, lon) =>
+            latLonToCanvas(lat, lon, displaySize.width, displaySize.height),
+          now,
+        );
+      }
+      context.restore();
+      recordFlatMapLayerPaint("effects");
+
+      const delay = effectsVisible
+        ? renderer.getNextAnimationDelay(now)
+        : null;
+      if (delay === 0) {
+        glowRafRef.current = requestAnimationFrame(paint);
+      } else if (delay !== null) {
+        wakeTimer = setTimeout(() => {
+          wakeTimer = undefined;
+          glowRafRef.current = requestAnimationFrame(paint);
+        }, delay);
+      }
+    };
+
+    const start = () => {
+      cancelScheduledFrame();
+      if (running) glowRafRef.current = requestAnimationFrame(paint);
+    };
+    startGlowLoopRef.current = start;
+    start();
+
+    return () => {
+      running = false;
+      if (startGlowLoopRef.current === start) {
+        startGlowLoopRef.current = () => undefined;
+      }
+      cancelScheduledFrame();
+    };
+  }, [
+    displaySize,
+    viewportSize,
+    zoom,
+    layers.spots,
+    layers.spotTraces,
+    layers.gridActivity,
+    qualitySettings.renderDevicePixelRatio,
   ]);
 
   // Clean up glow RAF on unmount
@@ -4318,6 +4447,7 @@ export function FlatMapView({
       zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
     } else {
       zoomAnimationRef.current = null;
+      setAnimationNavigationActive(false);
     }
   }, [clampOffsets]);
 
@@ -4400,6 +4530,7 @@ export function FlatMapView({
 
       const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
 
+      setAnimationNavigationActive(true);
       zoomAnimationRef.current = {
         startTime: performance.now(),
         startScale: visualScale,
@@ -4532,6 +4663,7 @@ export function FlatMapView({
     }
 
     const z = zoomRef.current;
+    setAnimationNavigationActive(true);
     zoomAnimationRef.current = {
       startTime: performance.now(),
       startScale: z.scale,
@@ -4579,6 +4711,7 @@ export function FlatMapView({
       cancelAnimationFrame(zoomRafRef.current);
     }
 
+    setAnimationNavigationActive(true);
     zoomAnimationRef.current = {
       startTime: performance.now(),
       startScale: z.scale,
@@ -4876,6 +5009,7 @@ export function FlatMapView({
     canvasRef,
     onPan: handleGesturePan,
     onPinchZoom: handleGesturePinchZoom,
+    onActiveChange: setGestureNavigationActive,
     enabled: true,
   });
 
@@ -4894,50 +5028,26 @@ export function FlatMapView({
     isGesturing,
   });
 
-  // Render map
+  // Retained base imagery and XYZ tiles. Spot, hover, grid-effect, and science
+  // updates never enter this dependency set, so they cannot repaint or request
+  // basemap tiles. Navigation is the only continuous invalidator.
   useEffect(() => {
-    // A redraw starts with no interactive labels. Repopulate only after their
-    // visible pills are painted so hidden/disabled labels cannot be selected.
-    placedLabelsRef.current = [];
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
+    const canvas = baseCanvasRef.current;
+    if (!canvas) return;
+    const context = beginFlatMapCanvasFrame(
+      canvas,
+      viewportSize,
+      qualitySettings.renderDevicePixelRatio,
+      zoom,
+    );
+    if (!context) return;
+
     const isStandard = mapStyle === "standard";
     if (!isStandard && !mapImage) {
+      context.restore();
       return;
     }
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      return;
-    }
-
-    const dpr = qualitySettings.renderDevicePixelRatio;
-    const renderWidth = displaySize.width;
-    const renderHeight = displaySize.height;
-
-    // Set canvas buffer size (accounting for DPR) - only resize when dimensions change
-    const bufferWidth = Math.round(viewportSize.width * dpr);
-    const bufferHeight = Math.round(viewportSize.height * dpr);
-    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
-      canvas.width = bufferWidth;
-      canvas.height = bufferHeight;
-    }
-
-    // Clear canvas before drawing
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Scale context for DPR
-    ctx.save();
-    ctx.scale(dpr, dpr);
-
-    // Apply zoom transform
-    ctx.save();
-    ctx.translate(zoom.offsetX, zoom.offsetY);
-    ctx.scale(zoom.scale, zoom.scale);
-
-    // Draw base map (vector-like standard map, or satellite imagery)
     const standardMapWidth =
       qualitySettings.effective === "uhd" ||
       qualitySettings.effective === "extreme"
@@ -4946,37 +5056,73 @@ export function FlatMapView({
     const baseImage: CanvasImageSource = isStandard
       ? getStandardMapCanvas(standardMapWidth, standardMapWidth / 2, themeId)
       : mapImage!;
-    ctx.drawImage(baseImage, 0, 0, renderWidth, renderHeight);
+    context.drawImage(baseImage, 0, 0, displaySize.width, displaySize.height);
 
-    // Composite sharp satellite tiles over the low-res base once zoomed in
     if (!isStandard && tileLayerRef.current) {
-      const drewProviderTiles = tileLayerRef.current.draw(ctx, {
+      const drewProviderTiles = tileLayerRef.current.draw(context, {
         scale: zoom.scale,
         offsetX: zoom.offsetX,
         offsetY: zoom.offsetY,
-        renderWidth,
-        renderHeight,
-        devicePixelRatio: dpr,
+        renderWidth: displaySize.width,
+        renderHeight: displaySize.height,
+        devicePixelRatio: qualitySettings.renderDevicePixelRatio,
+        navigationActive,
       });
       const nextVisibleProviderId = drewProviderTiles
         ? (tileProvider?.id ?? null)
         : null;
-      setVisibleTileProviderId((visibleProviderId) =>
-        visibleProviderId === nextVisibleProviderId
-          ? visibleProviderId
-          : nextVisibleProviderId,
+      setVisibleTileProviderId((current) =>
+        current === nextVisibleProviderId ? current : nextVisibleProviderId,
       );
     }
 
-    // Draw MUF overlay (before night side so it's properly darkened)
+    context.restore();
+    recordFlatMapLayerPaint("base");
+  }, [
+    displaySize,
+    viewportSize,
+    zoom,
+    navigationActive,
+    mapImage,
+    mapStyle,
+    themeId,
+    tileEpoch,
+    tileProvider?.id,
+    diagnosticsEpoch,
+    qualitySettings.effective,
+    qualitySettings.renderDevicePixelRatio,
+  ]);
+
+  // Retained propagation/scientific surface. It tracks the comparatively slow
+  // environmental and cartographic inputs but remains independent from live
+  // spots, selection, hover, and the active-grid animation clock.
+  useEffect(() => {
+    const canvas = scienceCanvasRef.current;
+    if (!canvas) return;
+    const context = beginFlatMapCanvasFrame(
+      canvas,
+      viewportSize,
+      qualitySettings.renderDevicePixelRatio,
+      zoom,
+      baseCanvasRef.current,
+    );
+    if (!context) return;
+
+    const isStandard = mapStyle === "standard";
+    if (!isStandard && !mapImage) {
+      context.restore();
+      return;
+    }
+    const renderWidth = displaySize.width;
+    const renderHeight = displaySize.height;
+
     if (layers.muf && currentSFI) {
-      drawMUF(ctx, currentSFI, displayTime, 0.45, renderWidth, renderHeight);
+      drawMUF(context, currentSFI, displayTime, 0.45, renderWidth, renderHeight);
     }
 
-    // Draw night side and terminator
     if (layers.terminator) {
       drawNightSide(
-        ctx,
+        context,
         displayTime,
         renderWidth,
         renderHeight,
@@ -4984,7 +5130,7 @@ export function FlatMapView({
         nightDarkness,
       );
       drawTerminator(
-        ctx,
+        context,
         displayTime,
         renderWidth,
         renderHeight,
@@ -4993,28 +5139,28 @@ export function FlatMapView({
       );
     }
 
-    // Draw greyline band (twilight zone with enhanced propagation)
     if (layers.greyline) {
-      drawGreyline(ctx, displayTime, renderWidth, renderHeight, highViz);
+      drawGreyline(context, displayTime, renderWidth, renderHeight, highViz);
     }
-
-    // Draw aurora overlay
     if (layers.aurora && auroraData) {
-      drawAurora(ctx, auroraData, 10, renderWidth, renderHeight, zoom.scale);
+      drawAurora(
+        context,
+        auroraData,
+        10,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
     }
-
-    // Draw night lights (city lights on dark side)
     if (!isStandard && layers.nightLights) {
-      drawNightLights(ctx, displayTime, renderWidth, renderHeight);
+      drawNightLights(context, displayTime, renderWidth, renderHeight);
     }
 
-    // Draw grid
-    drawGrid(ctx, renderWidth, renderHeight, highViz);
+    drawGrid(context, renderWidth, renderHeight, highViz);
 
-    // Draw country borders (always when enabled, independent of labels toggle)
     if (labelOptions.borders) {
       drawLabels(
-        ctx,
+        context,
         renderWidth,
         renderHeight,
         {
@@ -5037,30 +5183,24 @@ export function FlatMapView({
         themeId === "light",
       );
     }
-
-    // Draw WAS award overlay (behind state borders)
     if (labelOptions.wasOverlay) {
-      drawWASOverlay(ctx, renderWidth, renderHeight, wasStates);
+      drawWASOverlay(context, renderWidth, renderHeight, wasStates);
     }
-
-    // Draw state borders
     if (labelOptions.stateBorders) {
       drawStateBorders(
-        ctx,
+        context,
         renderWidth,
         renderHeight,
         isStandard,
         themeId === "light",
       );
     }
-
-    // Night-boosted border pass (clipped to night side)
     if (
       layers.terminator &&
       (labelOptions.borders || labelOptions.stateBorders)
     ) {
       drawNightBoostedBorders(
-        ctx,
+        context,
         displayTime,
         renderWidth,
         renderHeight,
@@ -5068,11 +5208,9 @@ export function FlatMapView({
         labelOptions.stateBorders,
       );
     }
-
-    // Draw text labels (country names, cities, maidenhead grid — only when labels layer is on)
     if (layers.labels) {
       drawLabels(
-        ctx,
+        context,
         renderWidth,
         renderHeight,
         {
@@ -5095,6 +5233,52 @@ export function FlatMapView({
         themeId === "light",
       );
     }
+
+    context.restore();
+    recordFlatMapLayerPaint("science");
+  }, [
+    displayTime,
+    displaySize,
+    viewportSize,
+    zoom,
+    navigationActive,
+    mapImage,
+    mapStyle,
+    nightDarkness,
+    currentSFI,
+    auroraData,
+    highViz,
+    labelOptions,
+    wasStates,
+    gridLabelDetail,
+    themeId,
+    tileEpoch,
+    tileProvider?.id,
+    diagnosticsEpoch,
+    layers.muf,
+    layers.terminator,
+    layers.greyline,
+    layers.aurora,
+    layers.nightLights,
+    layers.labels,
+    qualitySettings.effective,
+    qualitySettings.renderDevicePixelRatio,
+  ]);
+
+  // Live interaction surface: reports, paths, endpoints, labels, and markers.
+  useEffect(() => {
+    // A redraw starts with no interactive labels. Repopulate only after their
+    // visible pills are painted so hidden/disabled labels cannot be selected.
+    placedLabelsRef.current = [];
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const dpr = qualitySettings.renderDevicePixelRatio;
+    const renderWidth = displaySize.width;
+    const renderHeight = displaySize.height;
+    const ctx = beginFlatMapCanvasFrame(canvas, viewportSize, dpr, zoom);
+    if (!ctx) return;
 
     // Draw earthquake markers
     if (layers.earthquakes && earthquakeData.length > 0) {
@@ -5153,16 +5337,6 @@ export function FlatMapView({
         renderHeight,
         zoom.scale,
       );
-    }
-
-    // Draw grid glow pulses (after base map / terminator / labels, before spot arcs)
-    if (
-      (layers.spots || layers.spotTraces || layers.gridActivity) &&
-      glowRendererRef.current.hasActiveGlows()
-    ) {
-      const glowProject = (lat: number, lon: number) =>
-        latLonToCanvas(lat, lon, renderWidth, renderHeight);
-      glowRendererRef.current.draw(ctx, glowProject, Date.now());
     }
 
     // Highlight Maidenhead grid squares containing active spots
@@ -5457,11 +5631,9 @@ export function FlatMapView({
       }
     }
 
-    // Restore context after zoom transform
+    // Restore the shared DPR + map transform installed for this surface.
     ctx.restore();
-
-    // Restore DPR context
-    ctx.restore();
+    recordFlatMapLayerPaint("live");
   }, [
     displayTime,
     layers,
@@ -5469,9 +5641,6 @@ export function FlatMapView({
     labelOptions,
     station,
     target,
-    mapImage,
-    auroraData,
-    currentSFI,
     resolvedSpots,
     activationSpots,
     resolvedSelectedSpot,
@@ -5493,13 +5662,8 @@ export function FlatMapView({
     spotDotScale,
     mapPinScale,
     labelScale,
-    mapStyle,
-    nightDarkness,
-    wasStates,
     watchEnabled,
     matchedSpotIds,
-    glowTick,
-    tileEpoch,
     satPositions,
     selectedSat,
     earthquakeData,
@@ -5509,11 +5673,7 @@ export function FlatMapView({
     wsprSpots,
     contestQsoData,
     loggedQsoData,
-    gridLabelDetail,
-    qualitySettings.effective,
     qualitySettings.renderDevicePixelRatio,
-    themeId,
-    tileProvider?.id,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point
@@ -5560,9 +5720,40 @@ export function FlatMapView({
         className="relative flex-shrink-0"
         style={{ width: viewportSize.width, height: viewportSize.height }}
       >
+        {/* Retained base imagery + exact visible XYZ tiles. */}
+        <canvas
+          ref={baseCanvasRef}
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{ width: viewportSize.width, height: viewportSize.height }}
+        />
+        {/* Retained slow propagation, illumination, borders, and labels. */}
+        <canvas
+          ref={scienceCanvasRef}
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{ width: viewportSize.width, height: viewportSize.height }}
+        />
+        {/* Animated grid activity remains below selectable live spot content. */}
+        <canvas
+          ref={glowCanvasRef}
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{
+            width: viewportSize.width,
+            height: viewportSize.height,
+            // The renderer paints additive light into a transparent retained
+            // surface. Preserve that operation when the browser composites
+            // this separate canvas over imagery; normal source-over can
+            // darken underlying channels despite the internal `lighter` pass.
+            mixBlendMode: "plus-lighter",
+          }}
+        />
         <canvas
           ref={canvasRef}
-          className={hoveredPinData ? "cursor-pointer" : "cursor-crosshair"}
+          className={`absolute inset-0 ${
+            hoveredPinData ? "cursor-pointer" : "cursor-crosshair"
+          }`}
           aria-label="Interactive propagation map - click to select target location"
           role="img"
           style={{
@@ -5614,6 +5805,7 @@ export function FlatMapView({
             onSpotSelect={handleMapSpotSelect}
           />
         )}
+        {import.meta.env.DEV && <FlatMapDiagnosticsOverlay />}
       </div>
 
       {/* Aspect ratio slider — only in letterbox mode, hidden in lite mode

@@ -37,6 +37,8 @@ export interface UseFlatMapGesturesOptions {
    * of the two fingers in canvas-display coordinates.
    */
   onPinchZoom: (scaleDelta: number, centerX: number, centerY: number) => void;
+  /** Called only when the gesture transitions between idle and active. */
+  onActiveChange?: (active: boolean) => void;
   /** Whether touch gestures are enabled (default: true) */
   enabled?: boolean;
 }
@@ -85,6 +87,7 @@ export function useFlatMapGestures(
   // Store callbacks in refs to avoid re-attaching listeners on every render
   const onPanRef = useRef(options.onPan);
   const onPinchZoomRef = useRef(options.onPinchZoom);
+  const onActiveChangeRef = useRef(options.onActiveChange);
   const enabledRef = useRef(enabled);
 
   // Exposed flags for external coordination
@@ -95,6 +98,7 @@ export function useFlatMapGestures(
   useEffect(() => {
     onPanRef.current = options.onPan;
     onPinchZoomRef.current = options.onPinchZoom;
+    onActiveChangeRef.current = options.onActiveChange;
     enabledRef.current = enabled;
   });
 
@@ -111,6 +115,13 @@ export function useFlatMapGestures(
     // Gesture mode state
     type GestureMode = "none" | "pending" | "dragging" | "pinching";
     let mode: GestureMode = "none";
+    let reportedActive = false;
+
+    function reportActive(active: boolean): void {
+      if (reportedActive === active) return;
+      reportedActive = active;
+      onActiveChangeRef.current?.(active);
+    }
 
     // Single-pointer drag state
     let dragStartPos: { x: number; y: number } | null = null;
@@ -177,6 +188,7 @@ export function useFlatMapGestures(
         // (mice don't produce multi-pointer events, but guard anyway)
         mode = "pinching";
         isGesturing.current = true;
+        reportActive(true);
         isDragging.current = false;
         dragStartPos = null;
         lastDragPos = null;
@@ -209,6 +221,7 @@ export function useFlatMapGestures(
         if (d >= DRAG_THRESHOLD_PX) {
           mode = "dragging";
           isGesturing.current = true;
+          reportActive(true);
           isDragging.current = true;
           canvas!.style.cursor = "grabbing";
           // Start drag from current position (no jump)
@@ -270,6 +283,7 @@ export function useFlatMapGestures(
         mode = "none";
         isGesturing.current = false;
         isDragging.current = false;
+        reportActive(false);
         canvas!.style.cursor = "";
         dragStartPos = null;
         lastDragPos = null;
@@ -310,6 +324,7 @@ export function useFlatMapGestures(
       mode = "none";
       isGesturing.current = false;
       isDragging.current = false;
+      reportActive(false);
     };
     // Only re-attach when the canvas ref identity changes.
   }, [canvasRef]);

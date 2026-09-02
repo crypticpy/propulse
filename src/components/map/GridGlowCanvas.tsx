@@ -395,6 +395,29 @@ export class GridGlowRenderer {
     return this.glows.map((glow) => glow.gridSquare);
   }
 
+  /**
+   * Return when this effect surface next needs an animated paint.
+   *
+   * Transient pulses and the final persisted-edge fade use RAF (`0`). During
+   * the minute-long steady hold the renderer can sleep until the first edge
+   * begins fading. A newly added glow restarts the loop immediately.
+   */
+  getNextAnimationDelay(now: number = Date.now()): number | null {
+    this.pruneExpired(now);
+    if (this.glows.length === 0) return null;
+
+    let nextDelay = Number.POSITIVE_INFINITY;
+    for (const glow of this.glows) {
+      const elapsed = now - glow.startTime;
+      if (elapsed < TOTAL_DURATION_MS) return 0;
+      if (!this.persistEdges) continue;
+      if (elapsed >= PERSIST_HOLD_MS) return 0;
+      nextDelay = Math.min(nextDelay, PERSIST_HOLD_MS - elapsed);
+    }
+
+    return Number.isFinite(nextDelay) ? Math.max(1, nextDelay) : null;
+  }
+
   // -----------------------------------------------------------------------
   // Internal helpers
   // -----------------------------------------------------------------------

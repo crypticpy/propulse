@@ -4,6 +4,9 @@ import type { TileProviderConfig } from "@/lib/tiles/types";
 
 export type ExplorerStyle = "satellite" | "light" | "dark" | "contrast";
 
+/** Pause before creating a new WebGL map so a previous globe can release its context. */
+export const MAP_RENDERER_HANDOFF_MS = 80;
+
 export function resolveExplorerProvider(
   style: ExplorerStyle,
   subscriptionTier: "free" | "pro",
@@ -12,6 +15,12 @@ export function resolveExplorerProvider(
     return selectTileProvider("satellite", subscriptionTier);
   }
   return selectTileProvider("standard", subscriptionTier);
+}
+
+export function absoluteTileUrl(url: string): string {
+  if (!url.startsWith("/")) return url;
+  if (typeof window === "undefined") return url;
+  return `${window.location.origin}${url}`;
 }
 
 export function buildExplorerStyle(
@@ -67,5 +76,15 @@ export function buildExplorerStyle(
               : { "raster-fade-duration": 180 },
       },
     ],
+  };
+}
+
+export function buildGlobeFallbackStyle(
+  provider: TileProviderConfig,
+  maxZoom: number,
+): StyleSpecification {
+  return {
+    ...buildExplorerStyle(provider, "satellite", maxZoom),
+    name: "PropSphere Photorealistic Fallback",
   };
 }

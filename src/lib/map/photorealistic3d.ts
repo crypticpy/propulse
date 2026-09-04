@@ -44,3 +44,29 @@ export function supportsPhotorealistic3D(): boolean {
     canvas.getContext("webgl2") || canvas.getContext("webgl"),
   );
 }
+
+/** Google 3D tiles are attempted only when the flag is on and the session is Pro. */
+export function shouldAttemptGooglePhotorealistic(
+  subscriptionTier: "free" | "pro",
+  config: Photorealistic3DConfig = getPhotorealistic3DConfig(),
+): boolean {
+  return subscriptionTier === "pro" && config.enabled;
+}
+
+export const GOOGLE_KEY_FALLBACK_MESSAGE =
+  "Using Esri World Imagery. Add a Google Map Tiles API key for photorealistic city-scale detail.";
+
+/** Operator-facing reason for the Esri globe, never blaming a missing key the session already has. */
+export function photorealisticFallbackMessage(input: {
+  googleFailed: boolean;
+  webglSupported: boolean;
+  attemptedGoogle: boolean;
+}): string {
+  if (input.googleFailed) {
+    return "Using Esri World Imagery. Google photorealistic tiles could not be loaded.";
+  }
+  if (input.attemptedGoogle && !input.webglSupported) {
+    return "Using Esri World Imagery. This browser or GPU cannot render photorealistic 3D tiles.";
+  }
+  return GOOGLE_KEY_FALLBACK_MESSAGE;
+}

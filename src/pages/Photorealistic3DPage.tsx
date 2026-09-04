@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Canvas } from "@react-three/fiber";
 import {
-  GlobeControls,
-  TilesAttributionOverlay,
-  TilesPlugin,
-  TilesRenderer,
-} from "3d-tiles-renderer/r3f";
-import { GoogleCloudAuthPlugin } from "3d-tiles-renderer/plugins";
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LayoutModeDropdown } from "@/components/map/LayoutModeDropdown";
+import { SatelliteGlobeFallback } from "@/components/map/SatelliteGlobeFallback";
 import { authHeaders } from "@/lib/api/authFetch";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import {
   getPhotorealistic3DConfig,
+  photorealisticFallbackMessage,
+  shouldAttemptGooglePhotorealistic,
   supportsPhotorealistic3D,
 } from "@/lib/map/photorealistic3d";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
@@ -20,15 +23,16 @@ import { useKioskStore } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useProfileStore } from "@/stores/profileStore";
 
+const PhotorealisticGoogleTiles = lazy(
+  () => import("@/components/map/PhotorealisticGoogleTiles"),
+);
+
 interface PhotorealisticChromeProps {
   label?: string;
   onExit: () => void;
 }
 
-function PhotorealisticChrome({
-  label,
-  onExit,
-}: PhotorealisticChromeProps) {
+function PhotorealisticChrome({ label, onExit }: PhotorealisticChromeProps) {
   return (
     <>
       <div className="absolute top-3 left-3 z-20 flex max-w-[calc(100%-10rem)] flex-wrap items-center gap-2">
@@ -53,63 +57,18 @@ function PhotorealisticChrome({
   );
 }
 
-function UnavailableView({
-  reason,
-  onExit,
-  onOpenExplorer,
-  onRetry,
-}: {
-  reason: string;
-  onExit: () => void;
-  onOpenExplorer: () => void;
-  onRetry?: () => void;
-}) {
+function CrashToFallback({ onCrash }: { onCrash: () => void }) {
+  useEffect(() => {
+    onCrash();
+  }, [onCrash]);
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-deep-space p-6">
-      <PhotorealisticChrome onExit={onExit} />
-      <div className="max-w-lg rounded-2xl border border-white/10 bg-void-black/85 p-6 text-center shadow-2xl">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-amber-400/40 bg-amber-400/10 text-xl text-amber-300">
-          3D
-        </div>
-        <h1 className="font-orbitron text-xl text-white">
-          Photorealistic 3D is unavailable
-        </h1>
-        <p className="mt-3 text-sm text-gray-400">{reason}</p>
-        <p className="mt-3 text-xs text-gray-500">
-          Satellite Globe and Deep-Zoom Map remain fully available and do not
-          depend on Google.
-        </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="rounded-lg border border-cosmic-cyan/40 bg-cosmic-cyan/15 px-4 py-2 text-cosmic-cyan hover:bg-cosmic-cyan/25"
-            >
-              Try again
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onExit}
-            className="rounded-lg border border-plasma-orange/40 bg-plasma-orange/20 px-4 py-2 text-plasma-orange"
-          >
-            Open Satellite Globe
-          </button>
-          <button
-            type="button"
-            onClick={onOpenExplorer}
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-gray-300 hover:text-white"
-          >
-            Open 2D Explorer
-          </button>
-        </div>
-      </div>
+    <div className="flex h-full items-center justify-center bg-black">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-cosmic-cyan border-t-transparent" />
     </div>
   );
 }
 
-/** Experimental, isolated Google Photorealistic 3D Tiles presentation. */
+/** Experimental Google Photorealistic 3D, with a free Esri globe fallback. */
 export default function Photorealistic3DPage() {
   const navigate = useNavigate();
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
@@ -118,10 +77,16 @@ export default function Photorealistic3DPage() {
   const setLayoutMode = useMapStore((s) => s.setLayoutMode);
   const quality = useResolvedDisplayQuality(displayQuality);
   const config = useMemo(() => getPhotorealistic3DConfig(), []);
+  const attemptGoogle = shouldAttemptGooglePhotorealistic(
+    subscriptionTier,
+    config,
+  );
   const supported = useMemo(() => supportsPhotorealistic3D(), []);
-  const [providerSessionFailed, setProviderSessionFailed] = useState(false);
-  const [apiKey, setApiKey] = useState<string | null | undefined>();
+  const [apiKey, setApiKey] = useState<string | null | undefined>(
+    attemptGoogle ? undefined : null,
+  );
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [googleFailed, setGoogleFailed] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
 
   const exit = useCallback(() => {
@@ -137,10 +102,14 @@ export default function Photorealistic3DPage() {
   }, [navigate, setLayoutMode, stopKiosk]);
 
   const retry = useCallback(() => {
-    setProviderSessionFailed(false);
+    setGoogleFailed(false);
     setApiKey(undefined);
     setKeyError(null);
     setRetryNonce((value) => value + 1);
+  }, []);
+
+  const handleGoogleCrash = useCallback(() => {
+    setGoogleFailed(true);
   }, []);
 
   useEffect(() => {
@@ -152,7 +121,10 @@ export default function Photorealistic3DPage() {
   }, [exit]);
 
   useEffect(() => {
-    if (subscriptionTier !== "pro" || !config.enabled) return;
+    if (!attemptGoogle) {
+      setApiKey(null);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -182,70 +154,21 @@ export default function Photorealistic3DPage() {
     return () => {
       cancelled = true;
     };
-  }, [config.enabled, retryNonce, subscriptionTier]);
+  }, [attemptGoogle, retryNonce]);
 
-  if (subscriptionTier !== "pro") {
-    return (
-      <UnavailableView
-        onExit={exit}
-        onOpenExplorer={openExplorer}
-        reason="This experimental provider is limited to Pro accounts because every 3D tile consumes metered quota."
-      />
-    );
-  }
-  if (!config.enabled) {
-    return (
-      <UnavailableView
-        onExit={exit}
-        onOpenExplorer={openExplorer}
-        reason={
-          config.unavailableReason ?? "Provider configuration is incomplete."
-        }
-      />
-    );
-  }
-  if (apiKey === null) {
-    return (
-      <UnavailableView
-        onExit={exit}
-        onOpenExplorer={openExplorer}
-        onRetry={retry}
-        reason={keyError ?? "Provider configuration is incomplete."}
-      />
-    );
-  }
-  if (!supported) {
-    return (
-      <UnavailableView
-        onExit={exit}
-        onOpenExplorer={openExplorer}
-        reason="This browser or GPU does not expose the WebGL features needed for photorealistic 3D tiles."
-      />
-    );
-  }
-  if (providerSessionFailed) {
-    return (
-      <UnavailableView
-        onExit={exit}
-        onOpenExplorer={openExplorer}
-        onRetry={retry}
-        reason="Google tiles could not be loaded. The key, quota, network, or provider may be unavailable."
-      />
-    );
-  }
-  if (apiKey === undefined) {
-    return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-deep-space">
-        <PhotorealisticChrome onExit={exit} />
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-cosmic-cyan border-t-transparent" />
-          <p className="mt-3 text-sm text-gray-400">
-            Verifying metered 3D access…
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const useGoogle =
+    Boolean(apiKey) && supported && !googleFailed && attemptGoogle;
+  const showRetry =
+    attemptGoogle &&
+    !useGoogle &&
+    apiKey !== undefined &&
+    supported &&
+    (googleFailed || apiKey === null);
+  const fallbackBanner = photorealisticFallbackMessage({
+    googleFailed,
+    webglSupported: supported,
+    attemptedGoogle: attemptGoogle,
+  });
 
   const errorTarget =
     quality.effective === "extreme"
@@ -262,57 +185,86 @@ export default function Photorealistic3DPage() {
 
   return (
     <div className="fixed inset-0 z-[200] overflow-hidden bg-black">
-      <Canvas
-        dpr={[1, pixelRatio]}
-        camera={{ position: [0, 0, 1e8], near: 1, far: 1e10 }}
-      >
-        <TilesRenderer
-          key={apiKey}
-          errorTarget={errorTarget}
-          onLoadTileSet={() => setProviderSessionFailed(false)}
-          onLoadError={(event) => {
-            // Individual detail tiles can legitimately fail while the user
-            // moves. Only a root/session failure should eject a working view.
-            if (event.tile === null) setProviderSessionFailed(true);
-          }}
-        >
-          <TilesPlugin
-            plugin={GoogleCloudAuthPlugin}
-            args={
-              {
-                apiToken: apiKey,
-                autoRefreshToken: true,
-                useRecommendedSettings: false,
-              } as any // eslint-disable-line @typescript-eslint/no-explicit-any
+      {useGoogle && apiKey ? (
+        <ErrorBoundary fallback={<CrashToFallback onCrash={handleGoogleCrash} />}>
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-cosmic-cyan border-t-transparent" />
+              </div>
             }
-          />
-          <GlobeControls />
-          <TilesAttributionOverlay
-            style={{
-              left: "auto",
-              right: 0,
-              zIndex: 10,
-              maxWidth: "calc(100vw - 145px)",
-              textAlign: "right",
-              background: "rgba(0, 0, 0, 0.55)",
-            }}
-          />
-        </TilesRenderer>
-      </Canvas>
+          >
+            <PhotorealisticGoogleTiles
+              apiKey={apiKey}
+              errorTarget={errorTarget}
+              pixelRatio={pixelRatio}
+              onRootLoadError={handleGoogleCrash}
+            />
+          </Suspense>
+        </ErrorBoundary>
+      ) : apiKey === undefined ? (
+        <div className="flex h-full items-center justify-center bg-deep-space">
+          <div className="text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-cosmic-cyan border-t-transparent" />
+            <p className="mt-3 text-sm text-gray-400">
+              Verifying metered 3D access…
+            </p>
+          </div>
+        </div>
+      ) : (
+        <SatelliteGlobeFallback />
+      )}
 
-      <PhotorealisticChrome label={quality.label} onExit={exit} />
-      <div className="pointer-events-none absolute bottom-0 left-0 z-20 px-[10px] pt-[10px] pb-[5px]">
-        <img
-          src="/google-maps-logo-light-outline.svg"
-          alt="Google Maps"
-          width="105"
-          height="22"
-          className="h-[18px] w-auto"
-        />
-      </div>
-      <span className="absolute top-16 right-3 z-20 rounded bg-black/60 px-2 py-1 text-[10px] text-gray-400">
-        Metered provider · GPU cap {pixelRatio.toFixed(1)}×
-      </span>
+      <PhotorealisticChrome
+        label={useGoogle ? quality.label : "Fallback"}
+        onExit={exit}
+      />
+
+      {useGoogle ? (
+        <>
+          <div className="pointer-events-none absolute bottom-0 left-0 z-20 px-[10px] pt-[10px] pb-[5px]">
+            <img
+              src="/google-maps-logo-light-outline.svg"
+              alt="Google Maps"
+              width="105"
+              height="22"
+              className="h-[18px] w-auto"
+            />
+          </div>
+          <span className="absolute top-16 right-3 z-20 rounded bg-black/60 px-2 py-1 text-[10px] text-gray-400">
+            Metered provider · GPU cap {pixelRatio.toFixed(1)}×
+          </span>
+        </>
+      ) : apiKey !== undefined ? (
+        <div className="absolute top-16 right-3 z-20 flex max-w-sm flex-col items-end gap-2">
+          <span className="rounded bg-black/60 px-2 py-1 text-[10px] text-caution-amber">
+            {fallbackBanner}
+          </span>
+          {keyError && (
+            <span className="rounded bg-black/60 px-2 py-1 text-[10px] text-gray-400">
+              {keyError}
+            </span>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            {showRetry && (
+              <button
+                type="button"
+                onClick={retry}
+                className="rounded-lg border border-cosmic-cyan/40 bg-cosmic-cyan/15 px-3 py-1.5 text-xs text-cosmic-cyan hover:bg-cosmic-cyan/25"
+              >
+                Try again
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={openExplorer}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300 hover:text-white"
+            >
+              Open 2D Explorer
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

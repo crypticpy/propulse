@@ -11,6 +11,8 @@ import {
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { selectAvailableTileProvider } from "@/lib/tiles/providers";
 import {
+  MAP_RENDERER_HANDOFF_MS,
+  absoluteTileUrl,
   buildExplorerStyle,
   resolveExplorerProvider,
   type ExplorerStyle,
@@ -169,92 +171,97 @@ export default function MapExplorerPage() {
     ) {
       return;
     }
-    const absoluteUrl = provider.url.startsWith("/")
-      ? `${window.location.origin}${provider.url}`
-      : provider.url;
+    const absoluteUrl = absoluteTileUrl(provider.url);
     const initial = initialViewRef.current;
     errorBurstRef.current = { count: 0, lastAt: 0 };
     setLoadError(null);
-    let map: maplibregl.Map;
-    try {
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: buildExplorerStyle(
-          { ...provider, url: absoluteUrl },
-          style,
+    let map: maplibregl.Map | undefined;
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled || !containerRef.current) return;
+      try {
+        map = new maplibregl.Map({
+          container: containerRef.current,
+          style: buildExplorerStyle(
+            { ...provider, url: absoluteUrl },
+            style,
+            maxZoom,
+          ),
+          center: [initial.lon, initial.lat],
+          zoom: Math.min(initial.zoom, maxZoom),
           maxZoom,
-        ),
-        center: [initial.lon, initial.lat],
-        zoom: Math.min(initial.zoom, maxZoom),
-        maxZoom,
-        attributionControl: false,
-        pixelRatio: Math.min(
-          quality.renderDevicePixelRatio,
-          quality.maxDevicePixelRatio,
-        ),
-        transformRequest: (url) =>
-          authTokenRef.current && url.includes("/api/tiles/proxy")
-            ? {
-                url,
-                headers: {
-                  Authorization: `Bearer ${authTokenRef.current}`,
-                },
-              }
-            : { url },
-      });
-    } catch {
-      setLoadError(
-        "The deep-zoom renderer could not start in this browser or graphics context.",
-      );
-      return;
-    }
-    mapRef.current = map;
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: true }),
-      "bottom-right",
-    );
-    map.on("load", () => {
-      map.resize();
-      errorBurstRef.current = { count: 0, lastAt: 0 };
-      setReady(true);
-    });
-    map.on("sourcedata", (event) => {
-      if (event.sourceId === "basemap" && event.isSourceLoaded) {
-        errorBurstRef.current = { count: 0, lastAt: 0 };
-      }
-    });
-    map.on("moveend", () => {
-      const center = map.getCenter();
-      const zoom = map.getZoom();
-      initialViewRef.current = {
-        lat: center.lat,
-        lon: center.lng,
-        zoom,
-      };
-      setMapboxFeedbackUrl(
-        `https://apps.mapbox.com/feedback/#/${center.lng.toFixed(5)}/${center.lat.toFixed(5)}/${zoom.toFixed(2)}`,
-      );
-      const next = new URLSearchParams(window.location.search);
-      next.set("lat", center.lat.toFixed(5));
-      next.set("lon", center.lng.toFixed(5));
-      next.set("z", zoom.toFixed(2));
-      next.set("style", style);
-      setSearchParams(next, { replace: true });
-    });
-    map.on("error", () => {
-      const now = Date.now();
-      const current = errorBurstRef.current;
-      const count = now - current.lastAt > 5_000 ? 1 : current.count + 1;
-      errorBurstRef.current = { count, lastAt: now };
-      if (count >= 3) {
-        setFailedProviderIds((current) =>
-          current.includes(provider.id) ? current : [...current, provider.id],
+          attributionControl: false,
+          pixelRatio: Math.min(
+            quality.renderDevicePixelRatio,
+            quality.maxDevicePixelRatio,
+          ),
+          transformRequest: (url) =>
+            authTokenRef.current && url.includes("/api/tiles/proxy")
+              ? {
+                  url,
+                  headers: {
+                    Authorization: `Bearer ${authTokenRef.current}`,
+                  },
+                }
+              : { url },
+        });
+      } catch {
+        setLoadError(
+          "The deep-zoom renderer could not start in this browser or graphics context.",
         );
+        return;
       }
-    });
+      mapRef.current = map;
+      map.addControl(
+        new maplibregl.NavigationControl({ showCompass: true }),
+        "bottom-right",
+      );
+      map.on("load", () => {
+        map?.resize();
+        errorBurstRef.current = { count: 0, lastAt: 0 };
+        setReady(true);
+      });
+      map.on("sourcedata", (event) => {
+        if (event.sourceId === "basemap" && event.isSourceLoaded) {
+          errorBurstRef.current = { count: 0, lastAt: 0 };
+        }
+      });
+      map.on("moveend", () => {
+        if (!map) return;
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        initialViewRef.current = {
+          lat: center.lat,
+          lon: center.lng,
+          zoom,
+        };
+        setMapboxFeedbackUrl(
+          `https://apps.mapbox.com/feedback/#/${center.lng.toFixed(5)}/${center.lat.toFixed(5)}/${zoom.toFixed(2)}`,
+        );
+        const next = new URLSearchParams(window.location.search);
+        next.set("lat", center.lat.toFixed(5));
+        next.set("lon", center.lng.toFixed(5));
+        next.set("z", zoom.toFixed(2));
+        next.set("style", style);
+        setSearchParams(next, { replace: true });
+      });
+      map.on("error", () => {
+        const now = Date.now();
+        const current = errorBurstRef.current;
+        const count = now - current.lastAt > 5_000 ? 1 : current.count + 1;
+        errorBurstRef.current = { count, lastAt: now };
+        if (count >= 3) {
+          setFailedProviderIds((current) =>
+            current.includes(provider.id) ? current : [...current, provider.id],
+          );
+        }
+      });
+    }, MAP_RENDERER_HANDOFF_MS);
 
     return () => {
-      map.remove();
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      map?.remove();
       mapRef.current = null;
       setReady(false);
     };

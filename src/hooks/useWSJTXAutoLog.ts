@@ -7,9 +7,9 @@
  * 3. Detects new (not previously worked) DXCC entities
  * 4. Dispatches a custom DOM event for the UI toast system
  *
- * This hook is intended to be mounted once at the app root / PropSphere.
- * It does not render any UI itself — notification display is handled
- * by whichever toast/alert component listens for the custom event.
+ * Mount once at the app root (`WSJTXAutoLogHost` in App) so logs persist
+ * across /map, /log, /settings, and the rest of the SPA. Do not also mount
+ * it on individual pages or QSOs will double-write.
  */
 
 import { useEffect, useRef } from "react";
@@ -104,41 +104,37 @@ export function useWSJTXAutoLog(): void {
 
     const qso = lastMessage.payload as WSJTXQSOLoggedPayload;
 
-    void commitWsjtxLogged(qso);
+    void (async () => {
+      const result = await commitWsjtxLogged(qso);
+      if (result.status !== "logged") return;
 
-    // Look up DXCC entity for the logged callsign
-    const dxccState = useDXCCStore.getState();
-    const lookup = dxccState.lookupCallsign(qso.callsign);
-    const entity = lookup?.entity ?? null;
-    const isNewEntity = entity ? !dxccState.isWorked(entity.id) : false;
+      const dxccState = useDXCCStore.getState();
+      const lookup = dxccState.lookupCallsign(qso.callsign);
+      const entity = lookup?.entity ?? null;
+      const isNewEntity = entity ? !dxccState.isWorked(entity.id) : false;
+      const band = qso.frequency ? formatBand(qso.frequency) : "";
+      const detail: WSJTXQSOLoggedEventDetail = {
+        qso,
+        band,
+        isNewEntity,
+        entityName: entity?.name,
+      };
 
-    // Format band for display
-    const band = qso.frequency ? formatBand(qso.frequency) : "";
+      const bandInfo = band ? ` on ${band}` : "";
+      const reportInfo = qso.reportReceived ? ` (${qso.reportReceived})` : "";
+      const entityInfo =
+        isNewEntity && entity ? ` -- NEW DXCC: ${entity.name}` : "";
 
-    // Build the notification detail
-    const detail: WSJTXQSOLoggedEventDetail = {
-      qso,
-      band,
-      isNewEntity,
-      entityName: entity?.name,
-    };
+      console.info(
+        `[WSJT-X] QSO logged: ${qso.callsign}${bandInfo} ${qso.mode}${reportInfo}${entityInfo}`,
+      );
 
-    // Log to console for observability
-    const bandInfo = band ? ` on ${band}` : "";
-    const reportInfo = qso.reportReceived ? ` (${qso.reportReceived})` : "";
-    const entityInfo =
-      isNewEntity && entity ? ` -- NEW DXCC: ${entity.name}` : "";
-
-    console.info(
-      `[WSJT-X] QSO logged: ${qso.callsign}${bandInfo} ${qso.mode}${reportInfo}${entityInfo}`,
-    );
-
-    // Dispatch custom DOM event for the toast/notification system
-    window.dispatchEvent(
-      new CustomEvent<WSJTXQSOLoggedEventDetail>(WSJTX_QSO_LOGGED_EVENT, {
-        detail,
-      }),
-    );
+      window.dispatchEvent(
+        new CustomEvent<WSJTXQSOLoggedEventDetail>(WSJTX_QSO_LOGGED_EVENT, {
+          detail,
+        }),
+      );
+    })();
   }, [lastMessage, connected]);
 }
 

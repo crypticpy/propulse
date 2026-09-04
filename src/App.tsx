@@ -21,6 +21,11 @@ const RadioSetupWizard = lazy(() =>
     default: m.RadioSetupWizard,
   })),
 );
+const WSJTXAutoLogHost = lazy(() =>
+  import("@/components/ops/WSJTXAutoLogHost").then((m) => ({
+    default: m.WSJTXAutoLogHost,
+  })),
+);
 import type { RankTier } from "@/types/rank";
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
@@ -281,6 +286,9 @@ function App() {
           />
         )}
         <WelcomeOverlay />
+        <Suspense fallback={null}>
+          <WSJTXAutoLogHost />
+        </Suspense>
         {!isKiosk && (
           <Suspense fallback={null}>
             <RadioSetupWizard />

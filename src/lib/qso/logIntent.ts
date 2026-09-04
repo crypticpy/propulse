@@ -30,6 +30,7 @@ export type LogIntentResult =
   | { status: "ignored"; reason: "kiosk" | "contest-dock" | "missing-spot" }
   | { status: "pending-replace" }
   | { status: "logged"; id: string }
+  | { status: "duplicate" }
   | { status: "empty" };
 
 function currentDockTab(): "dx" | "log" | "contest" {
@@ -70,9 +71,9 @@ function enterContactFromSpot(spot: DXSpot): void {
   useMapOperationalStore.getState().setWorkspaceOpen(true);
 }
 
-function frequencyToKHz(frequency: number): number {
-  if (!Number.isFinite(frequency) || frequency <= 0) return 0;
-  return frequency >= 1_000_000 ? frequency / 1000 : frequency;
+function frequencyToKHz(frequencyHz: number): number {
+  if (!Number.isFinite(frequencyHz) || frequencyHz <= 0) return 0;
+  return frequencyHz / 1000;
 }
 
 function parseWsjtxPower(raw: string | undefined): number | null {
@@ -151,6 +152,30 @@ export async function commitLogIntent(): Promise<LogIntentResult> {
   return { status: "logged", id };
 }
 
+const MAX_WSJTX_FINGERPRINTS = 256;
+const seenWsjtxLogs = new Map<string, true>();
+
+function wsjtxLogFingerprint(payload: WSJTXQSOLoggedPayload): string {
+  return [
+    payload.callsign?.trim().toUpperCase() ?? "",
+    payload.timestamp ?? "",
+    String(payload.frequency ?? ""),
+    payload.mode?.trim().toUpperCase() ?? "",
+    payload.reportSent ?? "",
+    payload.reportReceived ?? "",
+  ].join("\0");
+}
+
+function rememberWsjtxLog(fingerprint: string): boolean {
+  if (seenWsjtxLogs.has(fingerprint)) return true;
+  seenWsjtxLogs.set(fingerprint, true);
+  if (seenWsjtxLogs.size > MAX_WSJTX_FINGERPRINTS) {
+    const oldest = seenWsjtxLogs.keys().next().value;
+    if (oldest) seenWsjtxLogs.delete(oldest);
+  }
+  return false;
+}
+
 /**
  * WSJT-X (and future digital adapters) write the book directly.
  * Does not touch the Contact/Desk draft.
@@ -163,6 +188,11 @@ export async function commitWsjtxLogged(
   }
   const callsign = payload.callsign?.trim().toUpperCase() ?? "";
   if (!callsign) return { status: "empty" };
+
+  const fingerprint = wsjtxLogFingerprint(payload);
+  if (rememberWsjtxLog(fingerprint)) {
+    return { status: "duplicate" };
+  }
 
   const frequency = frequencyToKHz(payload.frequency);
   const { date, timeOn } = utcDateParts(payload.timestamp);
@@ -202,6 +232,7 @@ export async function commitWsjtxLogged(
     }
     return { status: "logged", id };
   } catch (error) {
+    seenWsjtxLogs.delete(fingerprint);
     console.error("[logIntent] WSJT-X log failed:", error);
     return { status: "empty" };
   }

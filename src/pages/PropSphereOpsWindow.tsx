@@ -6,7 +6,6 @@ import { useMapDisplayTime } from "@/hooks/useUTCClock";
 import { useOperationalWorkspaceSync } from "@/hooks/useMapOperationalContext";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
-import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
 
 /** Full-window presentation of the same stores and commands as the map dock. */
 export function PropSphereOpsWindow() {
@@ -20,7 +19,6 @@ export function PropSphereOpsWindow() {
   useOperationalWorkspaceSync();
   useRigBridgeSync();
   useOperatingSync();
-  useWSJTXAutoLog();
 
   useEffect(() => {
     setWorkspaceOpen(true);

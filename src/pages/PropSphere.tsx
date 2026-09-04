@@ -85,7 +85,6 @@ import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
 import { BandScope } from "@/components/dx/BandScope";
 import { useRigStore } from "@/stores/rigStore";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
-import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
@@ -264,9 +263,6 @@ export function PropSphere() {
 
   // Contest-aware map overlays (needed mult markers, etc.)
   useContestOverlayEngine({ enabled: Boolean(contestSessionId) });
-
-  // Mount WSJT-X auto-log listener
-  useWSJTXAutoLog();
 
   // Rig CAT state
   const rigConnected = useRigStore((s) => s.connected);

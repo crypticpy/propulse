@@ -267,4 +267,44 @@ describe("commitWsjtxLogged", () => {
     expect(result.status).toBe("logged");
     expect(useQSOStore.getState().form.callsign).toBe("PY2ABC");
   });
+
+  it("treats WSJT-X frequency as Hz, including 630 m", async () => {
+    const result = await commitWsjtxLogged({
+      callsign: "W1LF",
+      frequency: 474_200,
+      mode: "FT8",
+      reportSent: "-10",
+      reportReceived: "-12",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:22:00.000Z",
+    });
+    expect(result.status).toBe("logged");
+    if (result.status !== "logged") return;
+    const entry = await getLogEntry(result.id);
+    expect(entry).toMatchObject({
+      callsign: "W1LF",
+      frequency: 474.2,
+      band: "630m",
+    });
+  });
+
+  it("does not write the same WSJT-X QSO twice", async () => {
+    const payload: WSJTXQSOLoggedPayload = {
+      callsign: "K1DUP",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-01",
+      reportReceived: "+02",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:23:00.000Z",
+    };
+    const first = await commitWsjtxLogged(payload);
+    const second = await commitWsjtxLogged(payload);
+    expect(first.status).toBe("logged");
+    expect(second).toEqual({ status: "duplicate" });
+    if (first.status !== "logged") return;
+    expect(await getLogEntry(first.id)).toMatchObject({ callsign: "K1DUP" });
+  });
 });

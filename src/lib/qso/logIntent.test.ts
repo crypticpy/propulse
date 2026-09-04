@@ -169,6 +169,7 @@ describe("commitLogIntent", () => {
   beforeEach(() => {
     useOpsPostureStore.getState().reset();
     useKioskStore.setState({ active: false });
+    useMapStore.setState({ target: null, justLogged: null });
     useQSOStore.setState({
       form: { ...DEFAULT_QSO_FORM, callsign: "K1ABC", frequency: 14074, mode: "FT8" },
     });
@@ -184,13 +185,35 @@ describe("commitLogIntent", () => {
     expect(useQSOStore.getState().form.callsign).toBe("");
     expect(useOpsPostureStore.getState().posture).toBe("desk");
   });
+
+  it("does not pulse the globe when the map target belongs to a different station", async () => {
+    // Work K1ABC (form callsign) then Inspect F4ABC (map target) then Enter --
+    // the target on the map is not the station being logged.
+    useMapStore.getState().setTarget({ lat: 48.8, lon: 2.3, name: "F4ABC" });
+    useOpsPostureStore.getState().enterContact({ callsign: "K1ABC", band: "20m" });
+    const result = await commitLogIntent();
+    expect(result.status).toBe("logged");
+    expect(useMapStore.getState().justLogged).toBeNull();
+  });
+
+  it("pulses the globe when the map target matches the logged callsign", async () => {
+    useMapStore.getState().setTarget({ lat: 48.8, lon: 2.3, name: "k1abc" });
+    useOpsPostureStore.getState().enterContact({ callsign: "K1ABC", band: "20m" });
+    const result = await commitLogIntent();
+    expect(result.status).toBe("logged");
+    expect(useMapStore.getState().justLogged).toMatchObject({
+      callsign: "K1ABC",
+      lat: 48.8,
+      lon: 2.3,
+    });
+  });
 });
 
 describe("commitWsjtxLogged", () => {
   beforeEach(() => {
     useOpsPostureStore.getState().reset();
     useKioskStore.setState({ active: false });
-    useMapStore.setState({ target: null });
+    useMapStore.setState({ target: null, justLogged: null });
     useQSOStore.setState({
       form: { ...DEFAULT_QSO_FORM, callsign: "PY2ABC", frequency: 14074 },
     });
@@ -306,5 +329,106 @@ describe("commitWsjtxLogged", () => {
     expect(second).toEqual({ status: "duplicate" });
     if (first.status !== "logged") return;
     expect(await getLogEntry(first.id)).toMatchObject({ callsign: "K1DUP" });
+  });
+
+  it("pulses the globe (justLogged) when a valid grid resolves", async () => {
+    const result = await commitWsjtxLogged({
+      callsign: "vk3xyz",
+      grid: "QF22",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-05",
+      reportReceived: "-09",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:24:00.000Z",
+    });
+    expect(result.status).toBe("logged");
+    expect(useMapStore.getState().justLogged).toMatchObject({
+      callsign: "VK3XYZ",
+      grid: "QF22",
+    });
+    expect(useMapStore.getState().justLogged?.lat).toBeCloseTo(
+      useMapStore.getState().target?.lat ?? NaN,
+    );
+  });
+
+  it("does not re-pulse the globe on a replayed duplicate", async () => {
+    const payload: WSJTXQSOLoggedPayload = {
+      callsign: "K1DUP2",
+      grid: "FN31",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-01",
+      reportReceived: "+02",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:25:00.000Z",
+    };
+    const first = await commitWsjtxLogged(payload);
+    expect(first.status).toBe("logged");
+    useMapStore.setState({ justLogged: null });
+
+    const second = await commitWsjtxLogged(payload);
+    expect(second).toEqual({ status: "duplicate" });
+    expect(useMapStore.getState().justLogged).toBeNull();
+  });
+
+  it("preserves an existing target for another station, but still pulses at the logged station's own coordinates", async () => {
+    useMapStore.getState().setTarget({ lat: 41.7, lon: -72.7, name: "K1ABC" });
+    const result = await commitWsjtxLogged({
+      callsign: "vk3xyz",
+      grid: "QF22",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-05",
+      reportReceived: "-09",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:27:00.000Z",
+    });
+    expect(result.status).toBe("logged");
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
+    expect(useMapStore.getState().justLogged).toMatchObject({
+      callsign: "VK3XYZ",
+      grid: "QF22",
+    });
+  });
+
+  it("sets the target when none exists yet", async () => {
+    useMapStore.setState({ target: null });
+    const result = await commitWsjtxLogged({
+      callsign: "g0abc",
+      grid: "IO91",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-05",
+      reportReceived: "-09",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:28:00.000Z",
+    });
+    expect(result.status).toBe("logged");
+    expect(useMapStore.getState().target).toMatchObject({
+      name: "G0ABC",
+      grid: "IO91",
+    });
+  });
+
+  it("does not pulse the globe while a kiosk is active", async () => {
+    useKioskStore.setState({ active: true });
+    const result = await commitWsjtxLogged({
+      callsign: "W9KIOSK",
+      grid: "EN52",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-05",
+      reportReceived: "-09",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:26:00.000Z",
+    });
+    expect(result).toEqual({ status: "ignored", reason: "kiosk" });
+    expect(useMapStore.getState().justLogged).toBeNull();
   });
 });

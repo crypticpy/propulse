@@ -90,6 +90,7 @@ import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import { traceRayPath } from "@/lib/utils/rayTrace";
 import { SpotHighlight } from "./SpotHighlight";
 import { SelectedSpotArc } from "./SelectedSpotArc";
+import { LoggedPulse } from "./LoggedPulse";
 import { OverlayLayers3D } from "./OverlayLayers3D";
 import { PinMarker } from "./PinMarker";
 import { PinFlyout } from "./PinFlyout";
@@ -212,6 +213,7 @@ import {
   WATERFALL_SAMPLE_INTERVAL_MS,
   type BandActivityRow,
 } from "@/lib/map/bandActivityWaterfall";
+import { useJustLoggedMarker } from "./hooks/useJustLoggedMarker";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
@@ -1921,6 +1923,9 @@ const GlobeScene = React.memo(function GlobeScene({
         {/* Highlighted arc for DX cluster selected spot */}
         {!selectedSpotMatchesTarget && <SelectedSpotArc />}
 
+        {/* Momentary pulse where a QSO was just logged (WSJT-X or manual) */}
+        <LoggedPulse />
+
         {/* Spot highlight effect */}
         <SpotHighlight />
 
@@ -1972,6 +1977,7 @@ export function GlobeView({
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
   const flyoutPosition = useMapStore((s) => s.flyoutPosition);
   const setFlyoutPosition = useMapStore((s) => s.setFlyoutPosition);
+  const justLogged = useJustLoggedMarker();
   const setTarget = useMapStore((s) => s.setTarget);
   const setCenterLocation = useMapStore((s) => s.setCenterLocation);
   const mapStyle = useMapStore((s) => s.mapStyle);
@@ -2624,17 +2630,33 @@ export function GlobeView({
         style={{ zIndex: GLOBE_DOM_LAYER_ORDER.mapOverlayPortal }}
       />
 
-      {contactPath && (
-        <div
-          className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border border-plasma-orange/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-plasma-orange backdrop-blur-sm"
-          data-contact-path-chip
-        >
-          {Math.round(contactPath.shortPath.bearing).toString().padStart(3, "0")}
-          ° {formatBearing(contactPath.shortPath.bearing)}
-          {" · "}
-          {formatDistance(contactPath.shortPath.distance)}
-          {" · RX "}
-          {Math.round(contactPath.shortPath.reciprocal)}°
+      {(contactPath || justLogged) && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 flex-col items-center gap-1">
+          {contactPath && (
+            <div
+              className="rounded-full border border-plasma-orange/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-plasma-orange backdrop-blur-sm"
+              data-contact-path-chip
+            >
+              {Math.round(contactPath.shortPath.bearing)
+                .toString()
+                .padStart(3, "0")}
+              ° {formatBearing(contactPath.shortPath.bearing)}
+              {" · "}
+              {formatDistance(contactPath.shortPath.distance)}
+              {" · RX "}
+              {Math.round(contactPath.shortPath.reciprocal)}°
+            </div>
+          )}
+
+          {justLogged && (
+            <div
+              key={justLogged.at}
+              className="animate-pulse rounded-full border border-signal-green/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-signal-green backdrop-blur-sm"
+              data-logged-chip
+            >
+              Logged {justLogged.callsign}
+            </div>
+          )}
         </div>
       )}
 

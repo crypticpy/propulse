@@ -96,6 +96,10 @@ function utcDateParts(iso: string | undefined): { date: string; timeOn: string }
  * Aether/SDR adapters. Inspect never prefills. Work prefills and frames.
  * Tune is CAT-only. Log commits qsoStore. Digital logs never clobber the
  * operator's in-progress draft.
+ *
+ * Aether/Web SDR authors: call this (or `commitWsjtxLogged` below) instead
+ * of writing to qsoStore/logStore directly. See `logIntent.adapters.test.ts`
+ * for the fixtures a new adapter is expected to satisfy.
  */
 export function applyLogIntent(
   verb: Exclude<LogIntentVerb, "log">,
@@ -149,6 +153,26 @@ export async function commitLogIntent(): Promise<LogIntentResult> {
   if (!id) return { status: "empty" };
   invalidateDxccCache();
   useOpsPostureStore.getState().exitContact("desk");
+
+  // Cheap pulse: only fires when a target with coordinates is already on
+  // the map (e.g. from an earlier Work/inspect) AND that target actually
+  // belongs to the callsign just logged. Otherwise Work K1ABC → Inspect
+  // F4ABC → Enter would pulse "Logged K1ABC" at F4ABC's coordinates. This
+  // never triggers a new lookup or touches the draft.
+  const target = useMapStore.getState().target;
+  if (
+    target &&
+    (target.name ?? "").trim().toUpperCase() === callsign.toUpperCase()
+  ) {
+    useMapStore.getState().setJustLogged({
+      callsign,
+      lat: target.lat,
+      lon: target.lon,
+      grid: target.grid,
+      at: Date.now(),
+    });
+  }
+
   return { status: "logged", id };
 }
 
@@ -179,6 +203,9 @@ function rememberWsjtxLog(fingerprint: string): boolean {
 /**
  * WSJT-X (and future digital adapters) write the book directly.
  * Does not touch the Contact/Desk draft.
+ *
+ * Aether/Web SDR authors: see `logIntent.adapters.test.ts` for the fixtures
+ * this contract is expected to satisfy.
  */
 export async function commitWsjtxLogged(
   payload: WSJTXQSOLoggedPayload,
@@ -225,7 +252,25 @@ export async function commitWsjtxLogged(
     if (grid && isValidGrid(grid)) {
       try {
         const { lat, lon } = gridToLatLon(grid);
-        useMapStore.getState().setTarget({ lat, lon, grid, name: callsign });
+        // Only move the shared map target when it's free or already tracking
+        // this same station -- an operator working K1ABC by hand shouldn't
+        // have their target clobbered by an unrelated WSJT-X log for another
+        // callsign. The pulse always fires with its own coordinates either
+        // way, since it doesn't depend on the target.
+        const currentTarget = useMapStore.getState().target;
+        const targetIsFreeOrSameStation =
+          !currentTarget ||
+          (currentTarget.name ?? "").trim().toUpperCase() === callsign;
+        if (targetIsFreeOrSameStation) {
+          useMapStore.getState().setTarget({ lat, lon, grid, name: callsign });
+        }
+        useMapStore.getState().setJustLogged({
+          callsign,
+          lat,
+          lon,
+          grid,
+          at: Date.now(),
+        });
       } catch {
         // Invalid grids stay off the globe; the QSO is still in the book.
       }

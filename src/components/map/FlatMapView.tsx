@@ -91,6 +91,7 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
+import { useFlatRadarCanvas } from "@/hooks/useFlatRadarCanvas";
 import { useThemeStore } from "@/stores/themeStore";
 import { useFlatMapBaseImage } from "./hooks/useFlatMapBaseImage";
 import { ImageryAttribution } from "./ImageryAttribution";
@@ -3478,6 +3479,7 @@ export function FlatMapView({
     hiResTexturesEnabled,
     qualitySettings.effective,
   );
+  const radarCanvas = useFlatRadarCanvas(Boolean(layers.radar));
 
   // Legacy arrival glows remain transient. Persistent density/recency is fed
   // separately by the canonical grid-activity snapshot below.
@@ -5235,6 +5237,14 @@ export function FlatMapView({
     const renderWidth = displaySize.width;
     const renderHeight = displaySize.height;
 
+    // RainViewer (+ NEXRAD) equirect overlay — after basemap underlay, before spots.
+    if (layers.radar && radarCanvas) {
+      context.save();
+      context.globalAlpha = 0.75;
+      context.drawImage(radarCanvas, 0, 0, renderWidth, renderHeight);
+      context.restore();
+    }
+
     if (layers.muf && currentSFI) {
       drawMUF(context, currentSFI, displayTime, 0.45, renderWidth, renderHeight);
     }
@@ -5375,11 +5385,13 @@ export function FlatMapView({
     tileProvider?.id,
     diagnosticsEpoch,
     layers.muf,
+    layers.radar,
     layers.terminator,
     layers.greyline,
     layers.aurora,
     layers.nightLights,
     layers.labels,
+    radarCanvas,
     qualitySettings.effective,
     qualitySettings.renderDevicePixelRatio,
   ]);

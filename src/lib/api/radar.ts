@@ -7,6 +7,13 @@
 /** Active radar data source */
 export type RadarSource = "nexrad" | "rainviewer";
 
+/**
+ * RainViewer color/options path segment.
+ * Color 6 = universal blue. Options `0_1` = original (no smooth) + snow —
+ * sharper precip edges than the previous `1_1` smooth style.
+ */
+export const RAINVIEWER_TILE_STYLE = "6/0_1" as const;
+
 export interface RadarManifest {
   /** Base host for tile URLs */
   host: string;
@@ -34,8 +41,7 @@ export async function fetchRadarManifest(
 
 /**
  * Get the tile URL for the latest radar frame
- * Tile scheme: {host}{path}/256/{z}/{x}/{y}/6/1_1.png
- * Color scheme 6 = universal blue, style 1_1 = smooth + snow
+ * Tile scheme: {host}{path}/{size}/{z}/{x}/{y}/{color}/{options}.png
  */
 export function getRadarTileUrl(
   manifest: RadarManifest,
@@ -46,7 +52,7 @@ export function getRadarTileUrl(
   const frames = manifest.radar.past;
   const latest = frames[frames.length - 1];
   if (!latest) return "";
-  return `${manifest.host}${latest.path}/256/${z}/${x}/${y}/6/1_1.png`;
+  return `${manifest.host}${latest.path}/256/${z}/${x}/${y}/${RAINVIEWER_TILE_STYLE}.png`;
 }
 
 /** Get tile URL for a specific frame */
@@ -58,7 +64,7 @@ export function getRadarTileUrlForFrame(
   y: number,
   tileSize: 256 | 512 = 256,
 ): string {
-  return `${manifest.host}${frame.path}/${tileSize}/${z}/${x}/${y}/6/1_1.png`;
+  return `${manifest.host}${frame.path}/${tileSize}/${z}/${x}/${y}/${RAINVIEWER_TILE_STYLE}.png`;
 }
 
 /** Get all frames in chronological order (past + nowcast) */

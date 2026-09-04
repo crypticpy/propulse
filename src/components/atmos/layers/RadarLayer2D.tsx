@@ -34,7 +34,7 @@ export function RadarLayer2D({ map }: RadarLayer2DProps) {
     if (frames.length === 0) return;
 
     const latestFrame = frames[frames.length - 1];
-    const tileUrl = `${manifest.host}${latestFrame.path}/256/{z}/{x}/{y}/6/1_1.png`;
+    const tileUrl = `${manifest.host}${latestFrame.path}/256/{z}/{x}/{y}/6/0_1.png`;
 
     // Skip if same URL already displayed
     if (tileUrl === currentUrlRef.current) return;

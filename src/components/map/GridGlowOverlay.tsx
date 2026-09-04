@@ -1,12 +1,13 @@
 /**
  * GridGlowOverlay Component
  *
- * Renders pulsing glow effects on Maidenhead grid fields when live spots arrive.
- * Each 2-char grid prefix (e.g., "EM", "FN", "JO") triggers a brief radial glow
- * on the globe surface, creating a visual heartbeat of propagation activity.
+ * Renders pulsing glow effects on Maidenhead grid squares when live spots arrive.
+ * Each 4-char square (e.g., "EM40", "FN31") triggers a brief radial glow on the
+ * globe surface — matching FlatMap / DX software conventions (2° × 1° cells),
+ * not the 20° × 10° field that would light half a continent.
  *
  * Technical approach:
- * - Single InstancedMesh with a pool of 20 instances (one draw call)
+ * - Single InstancedMesh with a pool of 128 instances (one draw call)
  * - Shared subdivided quad geometry (5x5) — vertex shader projects onto sphere
  * - Per-instance attributes: bounds (vec4), intensity (float)
  * - Per-instance color via InstancedMesh.setColorAt()
@@ -23,8 +24,8 @@ import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 // =============================================================================
 
 export interface GridGlowSpot {
-  /** 2-char Maidenhead grid field prefix (e.g., "EM", "FN") */
-  gridField: string;
+  /** 4-char Maidenhead grid square (e.g., "EM40", "FN31") */
+  gridSquare: string;
   /** CSS color string for the glow */
   color: string;
   /** Timestamp when the spot arrived */
@@ -41,7 +42,7 @@ export interface GridGlowOverlayProps {
 // =============================================================================
 
 /** Maximum number of simultaneously active glow instances */
-const POOL_SIZE = 20;
+const POOL_SIZE = 128;
 
 /** Sphere radius for glow overlay (between greyline at 1.002 and labels) */
 const GLOW_RADIUS = 1.003;
@@ -65,13 +66,13 @@ const TOTAL_DURATION = RISE_DURATION + FADE_DURATION;
 interface GlowSlot {
   /** Whether this slot is currently animating */
   active: boolean;
-  /** 2-char grid field this slot is rendering */
-  gridField: string;
+  /** 4-char grid square this slot is rendering */
+  gridSquare: string;
   /** Time (clock seconds) when the glow started */
   startTime: number;
   /** Current computed intensity (0..1) */
   intensity: number;
-  /** Peak intensity — boosted when same-field spots arrive mid-glow */
+  /** Peak intensity — boosted when same-square spots arrive mid-glow */
   peakIntensity: number;
 }
 
@@ -80,26 +81,44 @@ interface GlowSlot {
 // =============================================================================
 
 /**
- * Decode a 2-char Maidenhead grid field to geographic bounding box.
- *
- * Grid fields:
- * - First char (A-R): longitude field, each 20deg wide, starting at -180
- * - Second char (A-R): latitude field, each 10deg tall, starting at -90
+ * Decode a 4-char Maidenhead grid square to geographic bounding box (2° × 1°).
  */
-function gridFieldToBounds(field: string): {
+function gridSquareToBounds(grid: string): {
   minLat: number;
   maxLat: number;
   minLon: number;
   maxLon: number;
 } {
-  const lonField = field.charCodeAt(0) - 65; // A=0, R=17
-  const latField = field.charCodeAt(1) - 65;
+  const lonField = grid.charCodeAt(0) - 65; // A=0, R=17
+  const latField = grid.charCodeAt(1) - 65;
+  const lonSquare = grid.charCodeAt(2) - 48; // 0-9
+  const latSquare = grid.charCodeAt(3) - 48;
+  const minLon = lonField * 20 - 180 + lonSquare * 2;
+  const minLat = latField * 10 - 90 + latSquare * 1;
   return {
-    minLon: lonField * 20 - 180,
-    maxLon: (lonField + 1) * 20 - 180,
-    minLat: latField * 10 - 90,
-    maxLat: (latField + 1) * 10 - 90,
+    minLon,
+    maxLon: minLon + 2,
+    minLat,
+    maxLat: minLat + 1,
   };
+}
+
+function isValidGridSquare(grid: string): boolean {
+  if (grid.length !== 4) return false;
+  const a = grid.charCodeAt(0);
+  const b = grid.charCodeAt(1);
+  const c = grid.charCodeAt(2);
+  const d = grid.charCodeAt(3);
+  return (
+    a >= 65 &&
+    a <= 82 &&
+    b >= 65 &&
+    b <= 82 &&
+    c >= 48 &&
+    c <= 57 &&
+    d >= 48 &&
+    d <= 57
+  );
 }
 
 // =============================================================================
@@ -313,7 +332,7 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
     for (let i = 0; i < POOL_SIZE; i++) {
       slots.push({
         active: false,
-        gridField: "",
+        gridSquare: "",
         startTime: 0,
         intensity: 0,
         peakIntensity: 1.0,
@@ -367,10 +386,10 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
   }
 
   /**
-   * Activate a glow for a given grid field and color.
+   * Activate a glow for a given 4-char grid square and color.
    */
   function activateGlow(
-    gridField: string,
+    gridSquare: string,
     color: string,
     clockTime: number,
   ): void {
@@ -380,9 +399,9 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
 
     const boundsArray = boundsAttr.array as Float32Array;
 
-    // Check if this grid field already has an active glow — boost it instead
+    // Check if this square already has an active glow — boost it instead
     for (let i = 0; i < POOL_SIZE; i++) {
-      if (slots[i].active && slots[i].gridField === gridField) {
+      if (slots[i].active && slots[i].gridSquare === gridSquare) {
         // Boost peak intensity (capped at 1.0)
         slots[i].peakIntensity = Math.min(1.0, slots[i].peakIntensity + 0.25);
         // Restart the animation to extend visibility
@@ -396,13 +415,13 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
 
     // Configure the slot
     slot.active = true;
-    slot.gridField = gridField;
+    slot.gridSquare = gridSquare;
     slot.startTime = clockTime;
     slot.intensity = 0;
     slot.peakIntensity = 1.0;
 
     // Set instance bounds for this slot
-    const bounds = gridFieldToBounds(gridField);
+    const bounds = gridSquareToBounds(gridSquare);
     boundsArray[idx * 4] = bounds.minLon;
     boundsArray[idx * 4 + 1] = bounds.minLat;
     boundsArray[idx * 4 + 2] = bounds.maxLon;
@@ -446,21 +465,14 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
     if (unprocessedStart < spots.length) {
       for (let i = unprocessedStart; i < spots.length; i++) {
         const spot = spots[i];
-        // Validate grid field: must be exactly 2 uppercase letters A-R
-        if (
-          spot.gridField.length === 2 &&
-          spot.gridField.charCodeAt(0) >= 65 &&
-          spot.gridField.charCodeAt(0) <= 82 &&
-          spot.gridField.charCodeAt(1) >= 65 &&
-          spot.gridField.charCodeAt(1) <= 82
-        ) {
+        if (isValidGridSquare(spot.gridSquare)) {
           // Translate the parent's wall-clock arrival into the R3F clock.
           // Initial batches deliberately carry small age offsets, preventing
-          // every field from peaking on the same frame; future skew clamps to
+          // every square from peaking on the same frame; future skew clamps to
           // a just-arrived pulse instead of scheduling a negative animation.
           const ageSeconds = Math.max(0, (Date.now() - spot.timestamp) / 1000);
           activateGlow(
-            spot.gridField,
+            spot.gridSquare.toUpperCase(),
             spot.color,
             clockTime - ageSeconds,
           );

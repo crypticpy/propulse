@@ -89,7 +89,6 @@ const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "rayPath",
   "repeaters",
   "riverGauges",
-  "satelliteFootprints",
   "spectrumRing",
   "sporadicE",
   "sst",

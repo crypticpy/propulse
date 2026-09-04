@@ -80,7 +80,46 @@ export const HAMCLOCK_ENTER_LAYERS: Partial<MapState["layers"]> = {
   ...HAMCLOCK_MODE_LAYERS.traffic,
 };
 
+/** Overlay keys HamClock modes own — zeroed before applying a mode preset. */
+export const HAMCLOCK_CONTROLLED_LAYER_KEYS = [
+  "spots",
+  "spotTraces",
+  "gridActivity",
+  "satellites",
+  "satelliteFootprints",
+  "weather",
+  "lightning",
+  "muf",
+  "aurora",
+  "drap",
+  "goesCloud",
+  "radar",
+  "issTracker",
+  "earthquakes",
+  "fires",
+  "wspr",
+  "activations",
+  "nvis",
+] as const satisfies readonly (keyof MapState["layers"])[];
+
+export function applyHamClockModeLayers(
+  current: MapState["layers"],
+  mode: HamClockMode,
+): MapState["layers"] {
+  const cleared: MapState["layers"] = { ...current };
+  for (const key of HAMCLOCK_CONTROLLED_LAYER_KEYS) {
+    cleared[key] = false as never;
+  }
+  return {
+    ...cleared,
+    ...HAMCLOCK_ENTER_LAYERS,
+    ...HAMCLOCK_MODE_LAYERS[mode],
+  };
+}
+
 export interface HamClockEnterSnapshot {
+  /** Layout mode in effect before entering HamClock (Normal/Pro/Lite). */
+  layoutMode: Exclude<MapState["layoutMode"], "hamclock">;
   viewMode: ViewMode;
   mapStyle: MapState["mapStyle"];
   layers: MapState["layers"];

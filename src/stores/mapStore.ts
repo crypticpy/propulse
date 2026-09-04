@@ -14,8 +14,8 @@ import {
 } from "@/lib/map/layerCapabilities";
 import type { GridActivityEndpoint } from "@/lib/map/gridActivityModel";
 import {
+  applyHamClockModeLayers,
   HAMCLOCK_BEAUTY_DEFAULTS,
-  HAMCLOCK_ENTER_LAYERS,
   HAMCLOCK_MODE_LAYERS,
 } from "@/lib/hamclock/modePresets";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
@@ -1688,7 +1688,12 @@ export const useMapStore = create<MapState>((set, get) => ({
       state.layoutMode === "hamclock" && layoutMode !== "hamclock";
 
     if (enteringHamclock) {
+      const priorLayout: Exclude<LayoutMode, "hamclock"> =
+        state.layoutMode === "pro" || state.layoutMode === "lite"
+          ? state.layoutMode
+          : "normal";
       ham.setEnterSnapshot({
+        layoutMode: priorLayout,
         viewMode: state.viewMode,
         mapStyle: state.mapStyle,
         layers: { ...state.layers },
@@ -1700,23 +1705,21 @@ export const useMapStore = create<MapState>((set, get) => ({
       const preferred = ham.preferredViewMode;
       const modeLayers = HAMCLOCK_MODE_LAYERS[mode];
       const nextLayers = normalizeExclusiveLayers(
-        {
-          ...state.layers,
-          ...HAMCLOCK_ENTER_LAYERS,
-          ...modeLayers,
-        },
-        modeLayers.muf || HAMCLOCK_ENTER_LAYERS.muf ? "muf" : undefined,
+        applyHamClockModeLayers(state.layers, mode),
+        modeLayers.muf || mode === "traffic" || mode === "bands"
+          ? "muf"
+          : undefined,
       );
       const beautyQuality =
         quality.displayQuality === "data-saver"
           ? quality.displayQuality
           : HAMCLOCK_BEAUTY_DEFAULTS.displayQuality;
-      saveMapStyle(HAMCLOCK_BEAUTY_DEFAULTS.mapStyle);
-      quality.setDisplayQuality(beautyQuality);
-      saveStoredNumber(
-        NIGHT_DARKNESS_KEY,
-        HAMCLOCK_BEAUTY_DEFAULTS.nightDarkness,
-      );
+      // Apply beauty in memory only so a mid-HamClock reload does not leave
+      // temporary wall defaults stuck on Normal/Pro after layout remaps.
+      useDisplayQualityStore.setState({ displayQuality: beautyQuality });
+      if (mode === "bands") {
+        ham.setFiltersBeforeBands({ ...state.spotFilters });
+      }
       set({
         layoutMode,
         isFullscreen: false,
@@ -1734,12 +1737,6 @@ export const useMapStore = create<MapState>((set, get) => ({
             }
           : {}),
       });
-      if (mode === "bands") {
-        saveSpotFilters({
-          ...state.spotFilters,
-          bands: [...ham.bandFocus],
-        });
-      }
       return;
     }
 
@@ -1748,15 +1745,19 @@ export const useMapStore = create<MapState>((set, get) => ({
       ham.setEnterSnapshot(null);
       ham.setFiltersBeforeBands(null);
       if (snapshot) {
+        // Escape/X request "normal"; restore the pre-entry layout instead.
+        // Explicit Pro/Lite from the layout dropdown still wins.
+        const restoreLayout =
+          layoutMode === "normal" ? snapshot.layoutMode : layoutMode;
         saveMapStyle(snapshot.mapStyle);
         saveSpotFilters(snapshot.spotFilters);
         quality.setDisplayQuality(snapshot.displayQuality);
         saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
         set({
-          layoutMode,
-          isFullscreen: layoutMode === "pro",
-          isLiteMode: layoutMode === "lite",
-          ...(layoutMode === "lite" && { isDXConsoleExpanded: false }),
+          layoutMode: restoreLayout,
+          isFullscreen: restoreLayout === "pro",
+          isLiteMode: restoreLayout === "lite",
+          ...(restoreLayout === "lite" && { isDXConsoleExpanded: false }),
           viewMode: snapshot.viewMode,
           mapStyle: snapshot.mapStyle,
           layers: snapshot.layers,

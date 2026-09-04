@@ -28,6 +28,7 @@ describe("mapStore HamClock beauty enter/exit", () => {
   });
 
   it("applies beauty defaults on HamClock enter and restores on exit", () => {
+    useMapStore.setState({ layoutMode: "pro" });
     useMapStore.getState().setLayoutMode("hamclock");
 
     const entered = useMapStore.getState();
@@ -43,10 +44,27 @@ describe("mapStore HamClock beauty enter/exit", () => {
 
     useMapStore.getState().setLayoutMode("normal");
     const restored = useMapStore.getState();
+    expect(restored.layoutMode).toBe("pro");
     expect(restored.viewMode).toBe("globe");
     expect(restored.mapStyle).toBe("standard");
     expect(restored.nightDarkness).toBe(1);
     expect(useDisplayQualityStore.getState().displayQuality).toBe("auto");
+  });
+
+  it("seeds filtersBeforeBands when entering directly in Bands mode", () => {
+    useHamClockStore.setState({ hamclockMode: "bands", bandFocus: ["20m"] });
+    useMapStore.setState({
+      layoutMode: "normal",
+      spotFilters: {
+        ...useMapStore.getState().spotFilters,
+        bands: ["40m"],
+      },
+    });
+    useMapStore.getState().setLayoutMode("hamclock");
+    expect(useHamClockStore.getState().filtersBeforeBands?.bands).toEqual([
+      "40m",
+    ]);
+    expect(useMapStore.getState().spotFilters.bands).toEqual(["20m"]);
   });
 
   it("clamps night darkness", () => {

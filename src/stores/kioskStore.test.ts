@@ -375,6 +375,7 @@ describe("kioskStore", () => {
       "default-wall",
       "default-clock",
       "default-stopwatch",
+      "default-hamclock-weather",
     ]);
     expect(migrated.rotation).toEqual({ enabled: false, intervalSec: 90 });
     expect(migrated.breakInLevel).toBe("WARNING");

@@ -28,7 +28,7 @@ import {
   useHamClockStore,
   type HamClockMode,
 } from "@/stores/hamclockStore";
-import { HAMCLOCK_MODE_LAYERS } from "@/lib/hamclock/modePresets";
+import { HAMCLOCK_MODE_LAYERS, applyHamClockModeLayers } from "@/lib/hamclock/modePresets";
 import { normalizeExclusiveLayers } from "@/lib/map/layerCapabilities";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import {
@@ -145,7 +145,7 @@ function applyModeLayers(mode: HamClockMode) {
   const patch = HAMCLOCK_MODE_LAYERS[mode];
   useMapStore.setState({
     layers: normalizeExclusiveLayers(
-      { ...map.layers, ...patch },
+      applyHamClockModeLayers(map.layers, mode),
       patch.muf ? "muf" : undefined,
     ),
     activePreset: null,

@@ -14,7 +14,10 @@ export function applySceneToMap(scene: KioskScene): void {
   if (!capabilities.mapConfig || !scene.map) return;
 
   // Set HamClock mode before layout enter so beauty/mode presets use it.
-  if (scene.map.hamclockMode) {
+  if (
+    scene.map.layoutMode === "hamclock" &&
+    scene.map.hamclockMode
+  ) {
     useHamClockStore.getState().setHamclockMode(scene.map.hamclockMode);
   }
 

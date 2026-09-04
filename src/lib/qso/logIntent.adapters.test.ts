@@ -2,8 +2,8 @@
  * Fixtures documenting the LogIntent contract for adapters that do not exist
  * yet: Aether (digital-mode SDR console) and a Web SDR click-to-work flow.
  * Both are expected to integrate through the same `applyLogIntent` /
- * `commitWsjtxLogged` spine cluster, map, and WSJT-X already use -- see the
- * doc comments above those exports in logIntent.ts.
+ * `commitWsjtxLogged` spine that the cluster, map, and WSJT-X already use --
+ * see the doc comments above those exports in logIntent.ts.
  *
  * Mirrors the store setup/mocking style of logIntent.test.ts rather than
  * refactoring it.

@@ -155,10 +155,15 @@ export async function commitLogIntent(): Promise<LogIntentResult> {
   useOpsPostureStore.getState().exitContact("desk");
 
   // Cheap pulse: only fires when a target with coordinates is already on
-  // the map (e.g. from an earlier Work/inspect), so this never triggers a
-  // new lookup or touches the draft.
+  // the map (e.g. from an earlier Work/inspect) AND that target actually
+  // belongs to the callsign just logged. Otherwise Work K1ABC → Inspect
+  // F4ABC → Enter would pulse "Logged K1ABC" at F4ABC's coordinates. This
+  // never triggers a new lookup or touches the draft.
   const target = useMapStore.getState().target;
-  if (target) {
+  if (
+    target &&
+    (target.name ?? "").trim().toUpperCase() === callsign.toUpperCase()
+  ) {
     useMapStore.getState().setJustLogged({
       callsign,
       lat: target.lat,
@@ -247,7 +252,18 @@ export async function commitWsjtxLogged(
     if (grid && isValidGrid(grid)) {
       try {
         const { lat, lon } = gridToLatLon(grid);
-        useMapStore.getState().setTarget({ lat, lon, grid, name: callsign });
+        // Only move the shared map target when it's free or already tracking
+        // this same station -- an operator working K1ABC by hand shouldn't
+        // have their target clobbered by an unrelated WSJT-X log for another
+        // callsign. The pulse always fires with its own coordinates either
+        // way, since it doesn't depend on the target.
+        const currentTarget = useMapStore.getState().target;
+        const targetIsFreeOrSameStation =
+          !currentTarget ||
+          (currentTarget.name ?? "").trim().toUpperCase() === callsign;
+        if (targetIsFreeOrSameStation) {
+          useMapStore.getState().setTarget({ lat, lon, grid, name: callsign });
+        }
         useMapStore.getState().setJustLogged({
           callsign,
           lat,

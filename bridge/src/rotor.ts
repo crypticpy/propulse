@@ -210,6 +210,8 @@ export class RotorController {
 
   private socket: Socket | null = null;
   private connecting: Promise<void> | null = null;
+  private connectingSocket: Socket | null = null;
+  private connectingReject: ((error: Error) => void) | null = null;
   private responseBuffer = "";
   private pendingLines: string[] = [];
   private expectedLines = 1;
@@ -219,9 +221,17 @@ export class RotorController {
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private started = false;
+  private closed = false;
   private reconnectAttempts = 0;
   private status: RotorStatus = { ...DISCONNECTED_STATUS };
   private statusHandlers: RotorStatusHandler[] = [];
+  /**
+   * Consulted immediately before a queued `setHeading`/`stop` command
+   * connects or writes to rotctld. A non-null return rejects the command
+   * with that reason — closes the PTT race between "command entered the
+   * queue" and "command actually reached the wire".
+   */
+  private interlock: (() => string | null) | null = null;
 
   constructor(config: RotorConfig) {
     this.host = config.host;
@@ -232,6 +242,14 @@ export class RotorController {
   // --------------------------------------------------------------------------
   // Lifecycle & events
   // --------------------------------------------------------------------------
+
+  /**
+   * Set (or clear) the PTT interlock consulted before a move/stop command
+   * reaches rotctld. Safe to call before or after `start()`.
+   */
+  setInterlock(interlock: (() => string | null) | null): void {
+    this.interlock = interlock;
+  }
 
   onStatus(handler: RotorStatusHandler): () => void {
     this.statusHandlers.push(handler);
@@ -253,14 +271,25 @@ export class RotorController {
     this.schedulePoll(0);
   }
 
-  /** Stop polling and close the socket. Does not move the rotator. */
+  /**
+   * Stop polling, close the socket, and reject any queued or in-flight
+   * command. Once shut down the controller never opens a new socket or
+   * moves the rotator, even if a command was already waiting in the queue.
+   * Does not itself move the rotator.
+   */
   shutdown(): void {
     this.started = false;
+    this.closed = true;
     if (this.pollTimer) {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
-    this.closeSocket(new Error("rotor client stopped"));
+    if (this.connectingReject) {
+      const reject = this.connectingReject;
+      this.connectingReject = null;
+      reject(new Error("rotor client shut down"));
+    }
+    this.closeSocket(new Error("rotor client shut down"));
     this.emit({ ...DISCONNECTED_STATUS });
   }
 
@@ -274,14 +303,16 @@ export class RotorController {
 
   /** Explicit move. Never called by polling. */
   async setHeading(heading: RotorHeading): Promise<void> {
-    const response = await this.command(formatSetPositionCommand(heading));
+    const response = await this.command(formatSetPositionCommand(heading), 1, {
+      interlocked: true,
+    });
     parseRotorReport(response, "set_pos");
     this.emitMotion(true);
   }
 
   /** Stop all rotator motion (rotctld `S`). */
   async stop(): Promise<void> {
-    const response = await this.command("S");
+    const response = await this.command("S", 1, { interlocked: true });
     parseRotorReport(response, "stop");
     this.emitMotion(false);
   }
@@ -352,8 +383,26 @@ export class RotorController {
   // --------------------------------------------------------------------------
 
   /** Serialize every command: rotctld accepts one request at a time. */
-  private command(cmd: string, expectedLines = 1): Promise<string> {
+  private command(
+    cmd: string,
+    expectedLines = 1,
+    options?: { interlocked?: boolean },
+  ): Promise<string> {
+    if (this.closed) {
+      return Promise.reject(new Error("rotor client shut down"));
+    }
     const run = async (): Promise<string> => {
+      if (this.closed) {
+        throw new Error("rotor client shut down");
+      }
+      // Checked before connecting so a command that never should have been
+      // sent (PTT keyed while it waited in queue) never opens a socket.
+      if (options?.interlocked) {
+        const reason = this.interlock?.() ?? null;
+        if (reason) {
+          throw new Error(reason);
+        }
+      }
       await this.connect();
       return this.write(cmd, expectedLines);
     };
@@ -366,11 +415,16 @@ export class RotorController {
   }
 
   private connect(): Promise<void> {
+    if (this.closed) {
+      return Promise.reject(new Error("rotor client shut down"));
+    }
     if (this.socket) return Promise.resolve();
     if (this.connecting) return this.connecting;
 
     const attempt = new Promise<void>((resolve, reject) => {
       const sock = new Socket();
+      this.connectingSocket = sock;
+      this.connectingReject = reject;
       sock.setEncoding("utf-8");
       sock.setTimeout(CONNECT_TIMEOUT_MS);
       let connected = false;
@@ -379,6 +433,8 @@ export class RotorController {
         connected = true;
         sock.setTimeout(0);
         this.socket = sock;
+        this.connectingSocket = null;
+        this.connectingReject = null;
         resolve();
       });
 
@@ -396,6 +452,7 @@ export class RotorController {
 
       sock.on("close", () => {
         if (this.socket === sock) this.socket = null;
+        if (this.connectingSocket === sock) this.connectingSocket = null;
         this.failPending(new Error("rotctld connection closed"));
         this.responseBuffer = "";
       });
@@ -403,6 +460,8 @@ export class RotorController {
       sock.connect(this.port, this.host);
     }).finally(() => {
       this.connecting = null;
+      this.connectingSocket = null;
+      this.connectingReject = null;
     });
 
     this.connecting = attempt;
@@ -445,7 +504,9 @@ export class RotorController {
 
       this.commandTimer = setTimeout(() => {
         this.commandTimer = null;
-        this.failPending(new Error("rotctld command timed out"));
+        // Destroy the socket too: a late reply to the timed-out command
+        // must not be consumed as the response to the next command.
+        this.closeSocket(new Error("rotctld command timed out"));
       }, COMMAND_TIMEOUT_MS);
 
       socket.write(`${cmd}\n`);
@@ -471,6 +532,12 @@ export class RotorController {
 
   private closeSocket(error: Error): void {
     this.connecting = null;
+    if (this.connectingSocket) {
+      this.connectingSocket.removeAllListeners();
+      this.connectingSocket.destroy();
+      this.connectingSocket = null;
+    }
+    this.connectingReject = null;
     if (this.socket) {
       this.socket.removeAllListeners();
       this.socket.destroy();

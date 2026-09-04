@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ROTOR_DEFAULT_HOST,
   ROTOR_DEFAULT_PORT,
+  RotorController,
   applyKnownElevationFallback,
   formatSetPositionCommand,
   isRotorEnabled,
@@ -12,6 +13,9 @@ import {
   shouldBlockRotor,
   validateRotorHeading,
 } from "./rotor.js";
+
+/** Never actually reachable/routable — start() is never called either. */
+const UNREACHABLE_CONFIG = { host: "203.0.113.1", port: 4533 };
 
 test("rotor client is opt-in via BRIDGE_ROTOR=1", () => {
   assert.equal(isRotorEnabled({}), false);
@@ -175,4 +179,60 @@ test("applyKnownElevationFallback leaves an explicit elevation untouched", () =>
 test("applyKnownElevationFallback passes through non-object payloads unchanged", () => {
   assert.equal(applyKnownElevationFallback(null, 30), null);
   assert.equal(applyKnownElevationFallback("bad", 30), "bad");
+});
+
+test("setHeading rejects once shut down, without touching the network", async () => {
+  const controller = new RotorController(UNREACHABLE_CONFIG);
+  // start() is never called — if this rejection required a socket, the
+  // test would hang or time out instead of resolving immediately.
+  controller.shutdown();
+
+  await assert.rejects(
+    controller.setHeading({ azimuth: 90, elevation: 0 }),
+    /rotor client shut down/,
+  );
+  await assert.rejects(controller.stop(), /rotor client shut down/);
+});
+
+test("a command already queued when shutdown() runs is rejected, not sent", async () => {
+  const controller = new RotorController(UNREACHABLE_CONFIG);
+  const pending = controller.setHeading({ azimuth: 90, elevation: 0 });
+  controller.shutdown();
+
+  await assert.rejects(pending, /rotor client shut down/);
+});
+
+test("setInterlock rejects a queued move before it ever connects", async () => {
+  const controller = new RotorController(UNREACHABLE_CONFIG);
+  let interlockCalled = false;
+  controller.setInterlock(() => {
+    interlockCalled = true;
+    return "PTT is keyed";
+  });
+
+  // Never call start(); if the interlock ran after connecting, this would
+  // hang for CONNECT_TIMEOUT_MS against the unreachable host instead of
+  // rejecting immediately.
+  await assert.rejects(
+    controller.setHeading({ azimuth: 90, elevation: 0 }),
+    /PTT is keyed/,
+  );
+  assert.equal(interlockCalled, true);
+
+  controller.shutdown();
+});
+
+test("setInterlock is not consulted for getPosition polling reads", async () => {
+  const controller = new RotorController(UNREACHABLE_CONFIG);
+  let interlockCalled = false;
+  controller.setInterlock(() => {
+    interlockCalled = true;
+    return "PTT is keyed";
+  });
+  controller.shutdown();
+
+  // Rejects because the controller is shut down, not because of the
+  // interlock — proves get_pos ("p") is never gated by it.
+  await assert.rejects(controller.getPosition(), /rotor client shut down/);
+  assert.equal(interlockCalled, false);
 });

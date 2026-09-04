@@ -429,6 +429,12 @@ function ensureRotorController(): RotorController {
   controller.onStatus((status) => {
     broadcast(createMessage(MessageTypes.ROTOR_STATUS, status));
   });
+  // Re-checked inside the serialized command queue: PTT can key while a
+  // move/stop command is waiting behind an earlier one, after the fast
+  // pre-queue check in handleRotorSetHeading already passed.
+  controller.setInterlock(() =>
+    isTransmitting() ? "Rotator commands are blocked while PTT is keyed" : null,
+  );
   controller.start();
   rotorController = controller;
 

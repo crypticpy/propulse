@@ -207,4 +207,3 @@ export function farEndGainDbiFromPublicErp(
   }
   return 10 * Math.log10(theirErp / 100);
 }
-

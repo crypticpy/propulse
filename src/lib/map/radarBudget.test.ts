@@ -9,13 +9,13 @@ import {
 describe("PropSphere radar resource budget", () => {
   it("stays within the global overlay request and texture limits", () => {
     expect(RADAR_TEXTURE_BUDGET).toEqual({
-      zoom: 2,
-      tilesPerAxis: 4,
+      zoom: 3,
+      tilesPerAxis: 8,
       tileSize: 256,
-      maxFrames: 5,
+      maxFrames: 3,
     });
-    expect(radarRequestBudget()).toBe(80);
-    expect(radarRawTextureBytes()).toBe(20 * 1024 * 1024);
+    expect(radarRequestBudget()).toBe(192);
+    expect(radarRawTextureBytes()).toBe(48 * 1024 * 1024);
   });
 
   it("selects a bounded observation and handles an empty manifest", () => {

@@ -1,8 +1,10 @@
 export const RADAR_TEXTURE_BUDGET = {
-  zoom: 2,
-  tilesPerAxis: 4,
-  tileSize: 256,
-  maxFrames: 5,
+  /** Web-Mercator zoom for the global bake (was 2 → soft 1024² world). */
+  zoom: 3,
+  tilesPerAxis: 8,
+  tileSize: 256 as 256 | 512,
+  /** Fewer frames offsets the denser tile grid. */
+  maxFrames: 3,
 } as const;
 
 export function radarRequestBudget(): number {

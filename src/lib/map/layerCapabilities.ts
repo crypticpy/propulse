@@ -85,7 +85,6 @@ const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "meteorShowers",
   "noiseFloor",
   "nvis",
-  "radar",
   "rayPath",
   "repeaters",
   "riverGauges",

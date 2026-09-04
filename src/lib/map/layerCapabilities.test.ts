@@ -8,8 +8,7 @@ import {
 describe("PropSphere renderer capability matrix", () => {
   it("prevents globe-only overlays from becoming silent no-ops", () => {
     expect(getLayerAvailability("radar", "flat")).toEqual({
-      available: false,
-      reason: "Available in Globe view",
+      available: true,
     });
     expect(getLayerAvailability("spectrumRing", "azimuthal").available).toBe(
       false,

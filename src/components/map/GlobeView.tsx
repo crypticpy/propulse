@@ -1142,29 +1142,30 @@ const GlobeScene = React.memo(function GlobeScene({
       const timestamp = Date.now() - (initialLoad ? Math.random() * 1_000 : 0);
       const fields = new Set<string>();
 
-      const addExactField = (
+      const addExactSquare = (
         lat: number,
         lon: number,
         approximate: boolean,
       ) => {
         if (approximate) return;
         try {
-          fields.add(gridActivityGridForCoordinate(lat, lon, 2));
+          // 4-char Maidenhead square (2°×1°), not the 20°×10° field.
+          fields.add(latLonToGrid(lat, lon, 4).toUpperCase());
         } catch {
           // A malformed feed coordinate must not interrupt the map render.
         }
       };
 
-      // Prefix-centroid fallbacks are too imprecise for a field pulse. Exact
-      // endpoints share the canonical boundary clamp with activity selection.
-      addExactField(spot.dxLat, spot.dxLon, spot.dxLocApprox);
-      addExactField(
+      // Prefix-centroid fallbacks are too imprecise for a square pulse. Exact
+      // endpoints only — country centroids can sit in open ocean.
+      addExactSquare(spot.dxLat, spot.dxLon, spot.dxLocApprox);
+      addExactSquare(
         spot.spotterLat,
         spot.spotterLon,
         spot.spotterLocApprox,
       );
-      for (const gridField of fields) {
-        arrivals.push({ gridField, color, timestamp });
+      for (const gridSquare of fields) {
+        arrivals.push({ gridSquare, color, timestamp });
       }
     }
     if (arrivals.length > 0) setArrivalGlows(arrivals);

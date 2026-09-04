@@ -228,7 +228,7 @@ export default function Photorealistic3DPage() {
           </span>
         </>
       ) : apiKey !== undefined ? (
-        <div className="absolute top-16 right-3 z-20 flex max-w-[min(28rem,calc(100%-1.5rem))] flex-col items-end gap-2">
+        <div className="absolute top-16 right-3 z-20 flex max-w-sm flex-col items-end gap-2">
           <span className="rounded bg-black/60 px-2 py-1 text-[10px] text-caution-amber">
             {GOOGLE_KEY_BANNER}
           </span>

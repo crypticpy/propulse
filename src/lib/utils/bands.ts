@@ -782,6 +782,7 @@ export function getEnhancedBandConditions(
   mode: "SSB" | "CW" | "FT8" = "FT8",
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
+  farEndGainDbi: number | ((band: string) => number) = 0,
 ): PathBandCondition[] {
   // Calculate great circle distance
   const distance = calculateGreatCircleDistance(
@@ -831,6 +832,11 @@ export function getEnhancedBandConditions(
         ? Math.min(...rayResult.hops.map((h) => h.muf))
         : undefined;
 
+    const farEnd =
+      typeof farEndGainDbi === "function"
+        ? farEndGainDbi(band.name)
+        : farEndGainDbi;
+
     // Get full signal prediction using the signal.ts model
     // Pass kp, sfi, and muf so confidence intervals are computed
     const signalPred = predictSignalStrength(
@@ -840,7 +846,7 @@ export function getEnhancedBandConditions(
       absorptionDb,
       txPowerWatts,
       mode,
-      antennaGainDbi,
+      antennaGainDbi + farEnd,
       noiseEnvironment,
       rayResult.terrainLoss, // terrainLossDb
       kp,
@@ -1185,6 +1191,15 @@ function getPathIlluminationAtTime(
  * // Returns 24 hours of band conditions
  * ```
  */
+export interface ForecastStationParams {
+  txPowerWatts: number;
+  mode: "SSB" | "CW" | "FT8";
+  antennaGainDbi: number;
+  noiseEnvironment?: NoiseEnvironment;
+  /** Extra dBi folded from far-end public ERP (0 = our envelope only). */
+  farEndGainDbi?: number;
+}
+
 export function getForecastForPath(
   homeLat: number,
   homeLon: number,
@@ -1193,6 +1208,7 @@ export function getForecastForPath(
   kp: number,
   sfi: number,
   baseTime: Date = new Date(),
+  station?: ForecastStationParams,
 ): HourlyForecast[] {
   const forecasts: HourlyForecast[] = [];
 
@@ -1214,15 +1230,30 @@ export function getForecastForPath(
     );
 
     // Get full band conditions for this hour
-    const fullConditions = getBandConditionsForPath(
-      homeLat,
-      homeLon,
-      targetLat,
-      targetLon,
-      kp,
-      sfi,
-      illumination,
-    );
+    const fullConditions = station
+      ? getEnhancedBandConditions(
+          homeLat,
+          homeLon,
+          targetLat,
+          targetLon,
+          kp,
+          sfi,
+          hourDate,
+          station.txPowerWatts,
+          station.mode,
+          station.antennaGainDbi,
+          station.noiseEnvironment,
+          station.farEndGainDbi ?? 0,
+        )
+      : getBandConditionsForPath(
+          homeLat,
+          homeLon,
+          targetLat,
+          targetLon,
+          kp,
+          sfi,
+          illumination,
+        );
 
     // Filter to forecast bands and extract needed fields (including confidence intervals)
     const bands = fullConditions

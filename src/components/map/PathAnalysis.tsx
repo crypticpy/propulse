@@ -32,6 +32,8 @@ import {
 } from "@/lib/utils/path";
 import { getFrequencyLimits } from "@/lib/api/muf";
 import { useActiveMode } from "@/hooks/useActiveBandMode";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import { useChainPerformance } from "@/hooks/useChainPerformance";
 import { useKIndex, useMagnetometer, useSolarFlux } from "@/hooks/useSolarData";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
@@ -368,6 +370,9 @@ export function PathAnalysis({
   }, [analysisRadioId, radioInstances]);
 
   const activeMode = useActiveMode();
+  const { txPowerWatts, physicsMode } = useActiveStationGain();
+  const chainPerf = useChainPerformance();
+  const ourErp20 = chainPerf.bands.find((band) => band.band === "20m")?.erpWatts;
 
   // Fetch current solar data for frequency limits
   const { data: solarFluxData, dataUpdatedAt: fluxUpdatedAt } = useSolarFlux();
@@ -485,11 +490,8 @@ export function PathAnalysis({
     );
   }, [station, target, displayTime]);
 
-  // Map activeMode to the subset accepted by getFrequencyLimits
-  const freqLimitMode: "SSB" | "CW" | "FT8" =
-    activeMode === "SSB" || activeMode === "CW" || activeMode === "FT8"
-      ? activeMode
-      : "SSB";
+  // Map live mode onto the physics trio for frequency-limit modeling
+  const freqLimitMode = physicsMode;
 
   // Calculate frequency limits (MUF, FOT, LUF, HPF) at path midpoint
   const frequencyLimits = useMemo((): FrequencyLimits | null => {
@@ -502,13 +504,13 @@ export function PathAnalysis({
         metrics.midpoint.lon,
         currentSfi,
         displayTime,
-        100, // Default 100W TX power
+        txPowerWatts,
         freqLimitMode,
       );
     } catch {
       return null;
     }
-  }, [station, target, metrics, currentSfi, displayTime, freqLimitMode]);
+  }, [station, target, metrics, currentSfi, displayTime, txPowerWatts, freqLimitMode]);
 
   // No station configured
   if (!station) {
@@ -1048,6 +1050,13 @@ export function PathAnalysis({
                 subValue={`${metrics.midpoint.lon.toFixed(0)}°`}
               />
             </div>
+            {ourErp20 != null && (
+              <MetricItem
+                label="Your ERP"
+                value={`${Math.round(ourErp20)} W`}
+                subValue={`${physicsMode} 20m`}
+              />
+            )}
 
             {/* Terrain at Bounce Points */}
             {metrics.hops > 1 && (

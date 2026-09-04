@@ -9,6 +9,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { Card } from "@/components/ui/Card";
 import {
@@ -61,6 +62,12 @@ export function PropagationForecast({
 }: PropagationForecastProps) {
   const target = useMapStore((s) => s.target);
   const { station } = useUserStore();
+  const forecastStation = useForecastStationParams(
+    station?.lat,
+    station?.lon,
+    target?.lat,
+    target?.lon,
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -101,8 +108,9 @@ export function PropagationForecast({
       currentKp,
       currentSfi,
       displayTime,
+      forecastStation,
     );
-  }, [station, target, currentKp, currentSfi, displayTime]);
+  }, [station, target, currentKp, currentSfi, displayTime, forecastStation]);
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {

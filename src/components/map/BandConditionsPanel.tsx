@@ -17,6 +17,7 @@ import { BandVerdictDetailsDialog } from "@/components/dx/BandVerdictDetailsDial
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useBandActivity } from "@/hooks/useBandActivity";
@@ -25,7 +26,6 @@ import { useBandVerdicts, type BandLadderEntry } from "@/hooks/useBandVerdicts";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { oldestKnownTimestamp } from "@/hooks/projectSolarResource";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
-import { getAntennaGainForPath } from "@/lib/data/antennas";
 import {
   getBandConditionsForPath,
   getEnhancedBandConditions,
@@ -433,7 +433,8 @@ export function BandConditionsPanel({
   const target = useMapStore((s) => s.target);
   const showCorrelation = useMapStore((s) => s.showCorrelation);
   const station = useUserStore((s) => s.station);
-  const { antennaType } = useActiveStationGain();
+  const { antennaType, txPowerWatts, systemLossDb, physicsMode } =
+    useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const activeBand = useActiveBand();
   const {
@@ -639,7 +640,13 @@ export function BandConditionsPanel({
         target.lat,
         target.lon,
       );
-      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
+      const physics = physicsArgsForPath(
+        antennaType,
+        distance,
+        systemLossDb,
+        txPowerWatts,
+        physicsMode,
+      );
       return getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -648,9 +655,9 @@ export function BandConditionsPanel({
         currentKp,
         currentSfi,
         displayTime,
-        100, // Default 100W TX power
-        "FT8", // Default to FT8 mode
-        antennaGainDbi,
+        physics.txPowerWatts,
+        physics.mode,
+        physics.antennaGainDbi,
         noiseEnvironment,
       );
     } catch {
@@ -663,6 +670,9 @@ export function BandConditionsPanel({
     currentSfi,
     displayTime,
     antennaType,
+    txPowerWatts,
+    systemLossDb,
+    physicsMode,
     noiseEnvironment,
   ]);
 

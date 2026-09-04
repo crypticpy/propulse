@@ -8,6 +8,7 @@ import {
   bandPlannerHrefForTarget,
   buildWizardRecommendation,
   longPathFsplDeltaDb,
+  resolveAntennaGainDbi,
   correlateBandReality,
   applyContestCongestionRanking,
 } from "@/lib/dxwizard";
@@ -28,6 +29,10 @@ describe("dxwizard power", () => {
   it("estimates required power from SNR delta without 1500W clamp", () => {
     expect(estimateRequiredPowerWatts(-10, -18)).toBe(10);
     expect(estimateRequiredPowerWatts(-24, -18)).toBeGreaterThan(10);
+    expect(estimateRequiredPowerWatts(-40, -18)).toBeGreaterThan(1500);
+    expect(estimateRequiredPowerWatts(-24, -18, 50)).toBe(
+      Math.max(10, Math.round(50 * Math.pow(10, 6 / 10))),
+    );
     // Large deficit must exceed legal/kit ceiling so withinCeiling stays honest
     expect(estimateRequiredPowerWatts(-40, -18)).toBeGreaterThan(1500);
   });
@@ -155,6 +160,19 @@ describe("dxwizard recommend", () => {
     if (short20 && long20) {
       expect(long20.snrEstimate).toBeLessThan(short20.snrEstimate);
     }
+  });
+
+  it("uses long-path distance for antenna-pattern gain", () => {
+    const shared = {
+      antennaType: "yagi_5el" as const,
+      homeLat: 41.7,
+      homeLon: -72.7,
+      targetLat: 35.68,
+      targetLon: 139.76,
+    };
+    const short = resolveAntennaGainDbi({ ...shared, pathMode: "short" });
+    const long = resolveAntennaGainDbi({ ...shared, pathMode: "long" });
+    expect(long).not.toBe(short);
   });
 
   it("marks withinCeiling false when required watts exceed ceiling", () => {

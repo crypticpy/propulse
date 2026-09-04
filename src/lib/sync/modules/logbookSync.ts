@@ -12,6 +12,7 @@
 
 import { getSupabase } from "@/lib/supabase";
 import { getDB } from "@/lib/db";
+import { notifyLogEntries } from "@/lib/db/logStore";
 import type { LogEntry } from "@/lib/db/types";
 import type { SyncModule, SyncableTable, WriteQueueEntry } from "../types";
 import type { Tables, TablesInsert } from "@/types/supabase";
@@ -150,6 +151,7 @@ export const logbookSync: SyncModule = {
       }
 
       await tx.done;
+      notifyLogEntries();
 
       // Set cursor for next page
       cursor = data[data.length - 1].updated_at;

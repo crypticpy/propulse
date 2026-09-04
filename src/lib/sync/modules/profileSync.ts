@@ -315,6 +315,22 @@ export const profileSync: SyncModule = {
       throw new Error(`Profile push failed: ${profileError.message}`);
     }
 
+    const { data: cacheRow } = await supabase
+      .from("profiles")
+      .select("stats_cache")
+      .eq("id", userId)
+      .maybeSingle();
+    const existingCache =
+      cacheRow?.stats_cache &&
+      typeof cacheRow.stats_cache === "object" &&
+      !Array.isArray(cacheRow.stats_cache)
+        ? (cacheRow.stats_cache as Record<string, unknown>)
+        : {};
+    const { pushPublicEquipmentCache } = await import(
+      "./profileEquipmentCache"
+    );
+    await pushPublicEquipmentCache(userId, existingCache);
+
     // --- Upsert saved locations ---
     if (station.savedLocations.length > 0) {
       const locationRows = station.savedLocations.map((loc) =>

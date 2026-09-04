@@ -9,6 +9,7 @@
  */
 
 import { addLogEntry } from "@/lib/db/logStore";
+import { currentStationLogStamp } from "@/lib/station/stationLogStamp";
 
 // ─── Band Ranges (kHz) ─────────────────────────────────────────────────────
 
@@ -124,6 +125,7 @@ export async function logFt8Qso(options: Ft8QsoLogOptions): Promise<string> {
   const endDate = new Date(qso.endTime);
   const timeOff = formatTime(endDate);
 
+  const stamp = currentStationLogStamp();
   const id = await addLogEntry({
     callsign: qso.callsign,
     frequency: frequencyKHz,
@@ -135,8 +137,14 @@ export async function logFt8Qso(options: Ft8QsoLogOptions): Promise<string> {
     rstSent: formatFt8Rst(qso.reportSent),
     rstRcvd: formatFt8Rst(qso.reportReceived),
     grid: qso.grid,
-    stationCallsign: myCallsign,
-    myGrid,
+    stationCallsign: myCallsign || stamp.stationCallsign,
+    myGrid: myGrid || stamp.myGrid,
+    txPower: stamp.txPower,
+    myRig: stamp.myRig,
+    myAntenna: stamp.myAntenna,
+    chainId: stamp.chainId,
+    radioId: stamp.radioId,
+    antennaId: stamp.antennaId,
     // DXCC enrichment (optional)
     dxcc,
     country,

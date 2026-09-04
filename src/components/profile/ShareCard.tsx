@@ -20,6 +20,8 @@ import {
   type CardData,
   type CardTemplate,
 } from "@/lib/profile/cardRenderer";
+import { resolveChainKit, formatStationLine } from "@/lib/station/stationIdentity";
+import { useActiveChain, useStationInventory } from "@/stores/shackStore";
 
 export function ShareCard() {
   const station = useProfileStore((s) => s.station);
@@ -29,6 +31,9 @@ export function ShareCard() {
   const { dxccWorkedCount } = useAwardProgress();
 
   const { rank } = useOperatorRank();
+  const chain = useActiveChain();
+  const inventory = useStationInventory();
+  const kit = resolveChainKit(chain, inventory);
   const [template, setTemplate] = useState<CardTemplate>("minimalist");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,6 +52,14 @@ export function ShareCard() {
     totalQSOs,
     dxccCount: dxccWorkedCount,
     rank,
+    stationLine: kit
+      ? formatStationLine({
+          radioLabel: kit.radioLabel,
+          antennaLabel: kit.antennaLabel,
+          heightMeters: kit.antennaHeightMeters,
+          powerWatts: kit.powerWatts,
+        })
+      : undefined,
   };
 
   const unlockedTemplates = getUnlockedTemplates(rank);

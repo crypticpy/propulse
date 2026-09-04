@@ -8,6 +8,15 @@ import type { PublicProfile } from "@/types/social";
 import { useContactAnalysis } from "@/hooks/useContactAnalysis";
 import { BandConditionsBar } from "./BandConditionsBar";
 import { ScheduleOverlap } from "./ScheduleOverlap";
+import { useChainPerformance } from "@/hooks/useChainPerformance";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import {
+  dualEnvelopeCopy,
+  farEndGainDbiFromPublicErp,
+  parsePublicEquipmentSummary,
+} from "@/lib/station/stationIdentity";
+import { physicsArgsForPath } from "@/lib/station/stationPhysics";
+import { calculateGreatCircleDistance } from "@/lib/utils/bands";
 
 interface ContactThisStationProps {
   /** Target station's public profile */
@@ -58,6 +67,25 @@ export function ContactThisStation({
   const hasCoords =
     !!profile.lat && !!profile.lon && !!viewerLat && !!viewerLon;
 
+  const ourPerf = useChainPerformance();
+  const stationGain = useActiveStationGain();
+  const theirKit = parsePublicEquipmentSummary(profile.statsCache?.equipment);
+  const distanceKm =
+    hasCoords && profile.lat != null && profile.lon != null
+      ? calculateGreatCircleDistance(
+          viewerLat ?? 0,
+          viewerLon ?? 0,
+          profile.lat,
+          profile.lon,
+        )
+      : 0;
+  const physics = physicsArgsForPath(
+    stationGain.antennaType,
+    distanceKm,
+    stationGain.systemLossDb,
+    stationGain.txPowerWatts,
+    stationGain.physicsMode,
+  );
   const analysis = useContactAnalysis({
     viewerLat: viewerLat ?? 0,
     viewerLon: viewerLon ?? 0,
@@ -67,6 +95,10 @@ export function ContactThisStation({
     targetStats: profile.statsCache,
     viewerHours,
     targetHours: profile.operatingHours,
+    txPowerWatts: physics.txPowerWatts,
+    mode: physics.mode,
+    antennaGainDbi: physics.antennaGainDbi,
+    farEndGainDbi: (band) => farEndGainDbiFromPublicErp(theirKit, band),
   });
 
   if (!hasCoords || !analysis) return null;
@@ -97,6 +129,12 @@ export function ContactThisStation({
     recommendations.push(
       `Try ${bestBand}${modeStr}${timeStr} for best conditions`,
     );
+    const envelopeBand = bestBand === "40m" ? "40m" : "20m";
+    const ourErp = ourPerf.bands.find(
+      (band) => band.band === envelopeBand,
+    )?.erpWatts;
+    const envelope = dualEnvelopeCopy(ourErp, theirKit, envelopeBand);
+    if (envelope) recommendations.push(envelope);
   }
 
   return (

@@ -1233,6 +1233,7 @@ export function RadioManager({
                 onClick={() => setViewRadioId(userRadio.id)}
                 onEdit={() => openEditInstance(userRadio.id)}
                 onDelete={() => handleRemoveRadio(userRadio.id)}
+                instanceId={userRadio.id}
               />
             );
           })}

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   kIndex: vi.fn(),
   solarFlux: vi.fn(),
   distance: vi.fn(),
-  antennaGain: vi.fn(),
+  physics: vi.fn(),
   enhanced: vi.fn(),
   optimal: vi.fn(),
 }));
@@ -20,8 +20,8 @@ vi.mock("@/hooks/useSolarData", () => ({
   useSolarFlux: mocks.solarFlux,
 }));
 vi.mock("@/lib/utils/path", () => ({ getDistance: mocks.distance }));
-vi.mock("@/lib/data/antennas", () => ({
-  getAntennaGainForPath: mocks.antennaGain,
+vi.mock("@/lib/station/stationPhysics", () => ({
+  physicsArgsForPath: mocks.physics,
 }));
 vi.mock("@/lib/utils/bands", () => ({
   getEnhancedBandConditions: mocks.enhanced,
@@ -36,7 +36,12 @@ vi.mock("@/stores/settingsStore", () => ({
 
 describe("useOptimalMapSignal", () => {
   beforeEach(() => {
-    mocks.stationGain.mockReturnValue({ antennaType: "dipole" });
+    mocks.stationGain.mockReturnValue({
+      antennaType: "dipole",
+      txPowerWatts: 75,
+      systemLossDb: 1.2,
+      physicsMode: "FT8",
+    });
     mocks.kIndex.mockReturnValue({
       data: [{ kp_index: 2 }, { kp_index: 4 }],
       isPlaceholderData: false,
@@ -46,7 +51,11 @@ describe("useOptimalMapSignal", () => {
       isPlaceholderData: false,
     });
     mocks.distance.mockReturnValue(1_500);
-    mocks.antennaGain.mockReturnValue(2.5);
+    mocks.physics.mockReturnValue({
+      txPowerWatts: 75,
+      mode: "FT8",
+      antennaGainDbi: 2.5,
+    });
     mocks.enhanced.mockReturnValue([{ band: "20m" }]);
     mocks.optimal.mockReturnValue({
       band: "20m",
@@ -68,7 +77,7 @@ describe("useOptimalMapSignal", () => {
       }),
     );
 
-    expect(mocks.antennaGain).toHaveBeenCalledWith("dipole", 1_500);
+    expect(mocks.physics).toHaveBeenCalledWith("dipole", 1_500, 1.2, 75, "FT8");
     expect(mocks.enhanced).toHaveBeenCalledWith(
       30,
       -97,
@@ -77,7 +86,7 @@ describe("useOptimalMapSignal", () => {
       4,
       135,
       displayTime,
-      100,
+      75,
       "FT8",
       2.5,
       "rural",

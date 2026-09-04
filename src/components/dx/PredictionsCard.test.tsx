@@ -4,12 +4,14 @@ import { PredictionsCard } from "@/components/dx/PredictionsCard";
 import {
   getRankedBandPredictions,
   isDaytime,
+  rankPredictionsForStation,
 } from "@/lib/propagation/bandRanking";
 
 const mocks = vi.hoisted(() => ({
   longitude: -97,
   solarFlux: [{ flux: 180 }],
   kIndex: [{ kp_index: 1 }],
+  chain: { bands: [] as Array<{ band: string; supported: boolean; erpWatts: number }> },
 }));
 
 vi.mock("@/hooks/useSolarData", () => ({
@@ -21,10 +23,15 @@ vi.mock("@/hooks/useStationCastContext", () => ({
   useStationCastContext: () => ({ location: { lon: mocks.longitude } }),
 }));
 
+vi.mock("@/hooks/useChainPerformance", () => ({
+  useChainPerformance: () => mocks.chain,
+}));
+
 beforeEach(() => {
   mocks.longitude = -97;
   mocks.solarFlux = [{ flux: 180 }];
   mocks.kIndex = [{ kp_index: 1 }];
+  mocks.chain = { bands: [] };
 });
 
 describe("getRankedBandPredictions", () => {
@@ -53,6 +60,20 @@ describe("getRankedBandPredictions", () => {
 
     expect(isDaytime(-97, afternoonInTexas)).toBe(true);
     expect(isDaytime(120, afternoonInTexas)).toBe(false);
+  });
+
+  it("prefers chain-supported bands with higher ERP", () => {
+    const ranked = getRankedBandPredictions(1, 180, true, 12);
+    const predictions = rankPredictionsForStation(
+      ranked,
+      [
+        { band: "10m", supported: true, erpWatts: 400 },
+        { band: "20m", supported: true, erpWatts: 40 },
+      ],
+      3,
+    );
+
+    expect(predictions[0]?.band).toBe("10m");
   });
 });
 

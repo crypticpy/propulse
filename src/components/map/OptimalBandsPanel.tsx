@@ -10,8 +10,8 @@ import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
   getPathMetrics,
@@ -69,7 +69,8 @@ export function OptimalBandsPanel({
 }: OptimalBandsPanelProps) {
   const target = useMapStore((s) => s.target);
   const { station } = useUserStore();
-  const { antennaType } = useActiveStationGain();
+  const { antennaType, txPowerWatts, systemLossDb, physicsMode } =
+    useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -188,9 +189,12 @@ export function OptimalBandsPanel({
       return null;
     }
     try {
-      const antennaGainDbi = getAntennaGainForPath(
+      const physics = physicsArgsForPath(
         antennaType,
         pathMetrics.shortPath.distance,
+        systemLossDb,
+        txPowerWatts,
+        physicsMode,
       );
       return getEnhancedBandConditions(
         station.lat,
@@ -200,9 +204,9 @@ export function OptimalBandsPanel({
         currentKp,
         currentSfi,
         displayTime,
-        100,
-        "FT8",
-        antennaGainDbi,
+        physics.txPowerWatts,
+        physics.mode,
+        physics.antennaGainDbi,
         noiseEnvironment,
       );
     } catch {
@@ -216,6 +220,9 @@ export function OptimalBandsPanel({
     currentSfi,
     displayTime,
     antennaType,
+    txPowerWatts,
+    systemLossDb,
+    physicsMode,
     noiseEnvironment,
   ]);
 

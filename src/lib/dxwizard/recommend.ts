@@ -81,7 +81,10 @@ export function buildWizardRecommendation(
   } = params;
 
   const date = params.date ?? new Date();
-  const txPowerBaseline = 100;
+  const txPowerBaseline =
+    Number.isFinite(txPowerCeilingWatts) && txPowerCeilingWatts > 0
+      ? txPowerCeilingWatts
+      : 100;
 
   const modelMode: "SSB" | "CW" | "FT8" =
     mode === "SSB" ? "SSB" : mode === "CW" || mode === "RTTY" ? "CW" : "FT8";
@@ -127,6 +130,7 @@ export function buildWizardRecommendation(
       const requiredWatts = estimateRequiredPowerWatts(
         b.snrEstimate,
         snrTarget,
+        txPowerCeilingWatts || 100,
       );
       const legalMax = getMaxAllowedPowerWatts({
         band: b.band,

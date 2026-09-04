@@ -22,6 +22,7 @@ import {
   type BestWindow,
 } from "@/lib/utils/bands";
 import { useActiveMode } from "@/hooks/useActiveBandMode";
+import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { gridToLatLon } from "@/lib/utils/grid";
 import type { UserStation } from "@/types/user";
@@ -110,6 +111,12 @@ export function MobileBandPlanner({
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
 
   const activeMode = useActiveMode();
+  const forecastStation = useForecastStationParams(
+    station.lat,
+    station.lon,
+    targetCoords?.lat,
+    targetCoords?.lon,
+  );
   const modelNowCast = useNowCastBandPredictions({
     origin: station,
     target: targetCoords,
@@ -156,8 +163,9 @@ export function MobileBandPlanner({
       currentKp,
       currentFlux,
       new Date(),
+      forecastStation,
     );
-  }, [station, targetCoords, currentKp, currentFlux]);
+  }, [station, targetCoords, currentKp, currentFlux, forecastStation]);
 
   // Best windows
   const bestWindows = useMemo<BestWindow[]>(() => {

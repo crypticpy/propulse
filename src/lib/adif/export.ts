@@ -185,6 +185,15 @@ export function exportADIF(
     if (entry.myAntenna) {
       fields.push(field("MY_ANTENNA", entry.myAntenna));
     }
+    if (entry.chainId) {
+      fields.push(field("APP_PROPULSE_CHAIN_ID", entry.chainId));
+    }
+    if (entry.radioId) {
+      fields.push(field("APP_PROPULSE_RADIO_ID", entry.radioId));
+    }
+    if (entry.antennaId) {
+      fields.push(field("APP_PROPULSE_ANTENNA_ID", entry.antennaId));
+    }
 
     // Station callsign
     if (

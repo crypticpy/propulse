@@ -15,8 +15,10 @@ import { useStationCastContext } from "@/hooks/useStationCastContext";
 import {
   getRankedBandPredictions,
   isDaytime,
+  rankPredictionsForStation,
 } from "@/lib/propagation/bandRanking";
 import { getConditionColor } from "@/lib/utils/bands";
+import { useChainPerformance } from "@/hooks/useChainPerformance";
 
 /**
  * Icon component for predictions/forecast
@@ -132,6 +134,7 @@ export function PredictionsCard({
   const { data: solarFluxData, isLoading: sfiLoading } = useSolarFlux();
   const { data: kIndexData, isLoading: kpLoading } = useKIndex();
   const stationCast = useStationCastContext();
+  const chainPerf = useChainPerformance();
   const isDay = isDaytime(stationCast.location?.lon);
   const predictionLimit = Math.max(1, maxPredictions);
 
@@ -158,13 +161,12 @@ export function PredictionsCard({
       return [];
     }
 
-    return getRankedBandPredictions(
-      currentKp,
-      currentSfi,
-      isDay,
+    return rankPredictionsForStation(
+      getRankedBandPredictions(currentKp, currentSfi, isDay, 12),
+      chainPerf.bands,
       predictionLimit,
     );
-  }, [currentSfi, currentKp, isDay, predictionLimit]);
+  }, [currentSfi, currentKp, isDay, predictionLimit, chainPerf.bands]);
 
   const isLoading = sfiLoading || kpLoading;
 

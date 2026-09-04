@@ -32,6 +32,8 @@ import {
 } from "@/lib/db/logStore";
 import { getDB } from "@/lib/db/index";
 import { currentStationLogStamp } from "@/lib/station/stationLogStamp";
+import { pickChainForActivation } from "@/lib/station/stationKit";
+import { useShackStore } from "@/stores/shackStore";
 import { getDeviceId } from "@/lib/sync/deviceId";
 import { getRSTDefault } from "@/lib/utils/rstDefaults";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
@@ -154,6 +156,7 @@ const STICKY_FIELDS: (keyof QSOFormState)[] = [
   "stx",
   "fieldDayClass",
   "fieldDaySection",
+  "chainId",
 ];
 
 /** Build a reset form, keeping sticky defaults */
@@ -428,7 +431,10 @@ export const useQSOStore = create<QSOStoreState>()(
         const timeOn = nowISO.slice(11, 16);
 
         // Build LogEntry fields from form state + live Ham Shack stamp
-        const stamp = currentStationLogStamp({ powerOverride: form.txPower });
+        const stamp = currentStationLogStamp({
+          powerOverride: form.txPower,
+          chainIdOverride: form.chainId || undefined,
+        });
         const entry: Omit<LogEntry, "id" | "createdAt" | "updatedAt"> = {
           callsign,
           frequency: form.frequency,
@@ -448,6 +454,9 @@ export const useQSOStore = create<QSOStoreState>()(
           myRig: stamp.myRig,
           myAntenna: stamp.myAntenna,
           myGrid: stamp.myGrid,
+          chainId: stamp.chainId,
+          radioId: stamp.radioId,
+          antennaId: stamp.antennaId,
           stationCallsign: stamp.stationCallsign,
           mySig: form.mySig || undefined,
           mySigInfo: form.mySigInfo || undefined,
@@ -913,6 +922,16 @@ export const useQSOStore = create<QSOStoreState>()(
           }
         }
 
+        const shack = useShackStore.getState();
+        const pickedChainId = pickChainForActivation(
+          shack.stationChains,
+          shack.activeChainId,
+          defaults.mySig,
+        );
+        if (defaults.mySig && pickedChainId) {
+          defaults.chainId = pickedChainId;
+        }
+
         set((s) => ({
           formDefaults: { ...s.formDefaults, ...defaults },
           form: { ...s.form, ...defaults },
@@ -981,7 +1000,7 @@ export const useQSOStore = create<QSOStoreState>()(
     }),
     {
       name: "propulse-qso",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         // The in-progress draft is shared with PropSphere's docked/secondary
@@ -1004,6 +1023,19 @@ export const useQSOStore = create<QSOStoreState>()(
           // Older versions intentionally did not persist drafts. Hydrating a
           // complete default keeps the new cross-window form schema explicit.
           ...(version < 3 ? { form: { ...DEFAULT_QSO_FORM } } : {}),
+          ...(version < 4
+            ? {
+                form: {
+                  ...DEFAULT_QSO_FORM,
+                  ...((state.form as object | undefined) ?? {}),
+                  chainId:
+                    typeof (state.form as { chainId?: unknown } | undefined)
+                      ?.chainId === "string"
+                      ? (state.form as { chainId: string }).chainId
+                      : "",
+                },
+              }
+            : {}),
         };
       },
     },

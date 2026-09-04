@@ -16,6 +16,7 @@ import {
   getEnhancedBandConditions,
   getForecastForPath,
   getBestWindows,
+  type ForecastStationParams,
   type PathBandCondition,
   type BestWindow,
 } from "./bands";
@@ -180,6 +181,7 @@ export function getOptimalBand(
   correlationData?: BandCorrelationSummary[],
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
+  txPowerWatts: number = 100,
 ): BandRecommendation | null {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -189,7 +191,7 @@ export function getOptimalBand(
     kp,
     sfi,
     time,
-    100, // Default 100W
+    txPowerWatts,
     mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
     antennaGainDbi,
     noiseEnvironment,
@@ -241,6 +243,7 @@ export function getAlternateBands(
   correlationData?: BandCorrelationSummary[],
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
+  txPowerWatts: number = 100,
 ): BandRecommendation[] {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -250,7 +253,7 @@ export function getAlternateBands(
     kp,
     sfi,
     time,
-    100,
+    txPowerWatts,
     mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
     antennaGainDbi,
     noiseEnvironment,
@@ -297,6 +300,7 @@ export function getBestTimeWindows(
   sfi: number,
   time: Date,
   mode: OperatingMode,
+  station?: ForecastStationParams,
 ): TimeWindow[] {
   const forecast = getForecastForPath(
     homeLat,
@@ -306,6 +310,7 @@ export function getBestTimeWindows(
     kp,
     sfi,
     time,
+    station,
   );
 
   const windows = getBestWindows(forecast);
@@ -410,7 +415,11 @@ export function getRecommendations(
   correlationData?: BandCorrelationSummary[],
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
+  station?: ForecastStationParams,
 ): PropagationRecommendations {
+  const txPowerWatts = station?.txPowerWatts ?? 100;
+  const gainDbi = station?.antennaGainDbi ?? antennaGainDbi;
+  const noise = station?.noiseEnvironment ?? noiseEnvironment;
   const optimal = getOptimalBand(
     homeLat,
     homeLon,
@@ -421,8 +430,9 @@ export function getRecommendations(
     time,
     mode,
     correlationData,
-    antennaGainDbi,
-    noiseEnvironment,
+    gainDbi,
+    noise,
+    txPowerWatts,
   );
 
   const alternatives = getAlternateBands(
@@ -435,8 +445,9 @@ export function getRecommendations(
     time,
     mode,
     correlationData,
-    antennaGainDbi,
-    noiseEnvironment,
+    gainDbi,
+    noise,
+    txPowerWatts,
   );
 
   const timeWindows = getBestTimeWindows(
@@ -448,6 +459,7 @@ export function getRecommendations(
     sfi,
     time,
     mode,
+    station,
   );
 
   // If no optimal band found, create a "closed" recommendation

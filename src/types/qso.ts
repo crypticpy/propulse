@@ -43,6 +43,8 @@ export interface QSOFormState {
   notes: string;
   /** Transmit power in watts */
   txPower: number | null;
+  /** Station chain to stamp (empty = active chain) */
+  chainId: string;
   /** Activation program (POTA, SOTA, etc.) */
   mySig: string;
   /** My activation reference */
@@ -209,6 +211,7 @@ export const DEFAULT_QSO_FORM: QSOFormState = {
   qth: "",
   notes: "",
   txPower: null,
+  chainId: "",
   mySig: "",
   mySigInfo: "",
   sig: "",

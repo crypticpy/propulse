@@ -116,6 +116,9 @@ describe("stationLogStamp", () => {
       myAntenna: "Hex Beam",
       txPower: 100,
       stationLine: "Desk 7300 · Hex Beam @ 12 m · 100 W",
+      chainId: "chain-1",
+      radioId: "owned-radio",
+      antennaId: "hex",
     });
   });
 

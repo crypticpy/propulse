@@ -9,7 +9,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { useProfileStore } from "@/stores/profileStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
@@ -43,6 +43,7 @@ import {
   PersonalRecords,
   ArchetypeRadar,
   MyShackTab,
+  PublicShackPanel,
 } from "@/components/profile";
 import { EquipmentSummary } from "@/components/profile/EquipmentSummary";
 import { QSLSummary } from "@/components/profile/QSLSummary";
@@ -104,6 +105,13 @@ function OtherProfileView({
   const [error, setError] = useState<string | null>(null);
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname.endsWith("/shack")) {
+      setActiveTab("shack");
+    }
+  }, [location.pathname]);
 
   // Viewer's own data for ContactThisStation and shared-interest highlighting
   const viewerStation = useProfileStore((s) => s.station);
@@ -470,21 +478,11 @@ function OtherProfileView({
 
       {activeTab === "shack" && (
         <div className={panelClass}>
-          {(!vis || vis.equipment !== "private") && profile.statsCache ? (
-            <div>
-              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
-                Station Equipment
-              </h3>
-              {profile.statsCache.equipment ? (
-                <pre className="text-sm text-gray-300 whitespace-pre-wrap">
-                  {JSON.stringify(profile.statsCache.equipment, null, 2)}
-                </pre>
-              ) : (
-                <p className="text-gray-500 text-sm italic py-4 text-center">
-                  Equipment info not available
-                </p>
-              )}
-            </div>
+          {(!vis || vis.equipment !== "private") ? (
+            <PublicShackPanel
+              equipment={profile.statsCache?.equipment}
+              ownerUserId={profile.id}
+            />
           ) : (
             <p className="text-gray-500 text-sm italic py-4 text-center">
               Equipment info is private
@@ -711,6 +709,7 @@ function OtherProfileView({
 
 export default function ProfilePage() {
   const { callsign: routeCallsign } = useParams<{ callsign?: string }>();
+  const location = useLocation();
   const isViewingOther = !!routeCallsign;
 
   const station = useProfileStore((s) => s.station);
@@ -745,6 +744,12 @@ export default function ProfilePage() {
   }, [entries]);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
+
+  useEffect(() => {
+    if (location.pathname.endsWith("/shack")) {
+      setActiveTab("shack");
+    }
+  }, [location.pathname]);
 
   // Local form state
   const [callsign, setCallsign] = useState(station?.callsign ?? "");

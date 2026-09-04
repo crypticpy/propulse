@@ -96,3 +96,32 @@ export function getRankedBandPredictions(
   );
   return predictions.slice(0, Math.max(0, limit));
 }
+
+export function rankPredictionsForStation(
+  predictions: BandPrediction[],
+  chainBands: Array<{ band: string; supported: boolean; erpWatts: number }>,
+  limit: number,
+): BandPrediction[] {
+  const safeLimit = Math.max(1, limit);
+  if (chainBands.length === 0) {
+    return predictions.slice(0, safeLimit);
+  }
+  const erpByBand = new Map(
+    chainBands.map((band) => [band.band, band.erpWatts]),
+  );
+  const supported = new Set(
+    chainBands.filter((band) => band.supported).map((band) => band.band),
+  );
+  const scored = predictions.map((prediction, index) => ({
+    prediction,
+    index,
+    supported: supported.size === 0 || supported.has(prediction.band),
+    erp: erpByBand.get(prediction.band) ?? 0,
+  }));
+  scored.sort((a, b) => {
+    if (a.supported !== b.supported) return a.supported ? -1 : 1;
+    if (a.erp !== b.erp) return b.erp - a.erp;
+    return a.index - b.index;
+  });
+  return scored.slice(0, safeLimit).map((item) => item.prediction);
+}

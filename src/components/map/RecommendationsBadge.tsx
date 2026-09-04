@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from "react";
+import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
   getRecommendations,
@@ -31,6 +32,12 @@ export function RecommendationsBadge({
   displayTime,
   className = "",
 }: RecommendationsBadgeProps) {
+  const station = useForecastStationParams(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+  );
   // Fetch solar data
   const { data: kIndexData } = useKIndex();
   const { data: solarFluxData } = useSolarFlux();
@@ -60,6 +67,10 @@ export function RecommendationsBadge({
       currentSfi,
       displayTime,
       "FT8",
+      undefined,
+      0,
+      undefined,
+      station,
     );
   }, [
     homeLat,
@@ -69,6 +80,7 @@ export function RecommendationsBadge({
     currentKp,
     currentSfi,
     displayTime,
+    station,
   ]);
 
   const optimal = recommendations?.optimal ?? null;

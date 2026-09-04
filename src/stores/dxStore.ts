@@ -162,10 +162,26 @@ export const useDXStore = create<DXState>()(
 
       // Filters
       filters: DEFAULT_FILTERS,
-      setFilters: (filters) => set({ filters }),
+      setFilters: (filters) =>
+        set({
+          filters: {
+            ...filters,
+            bands: Array.isArray(filters.bands)
+              ? filters.bands.map((band) => band.toLowerCase())
+              : filters.bands,
+          },
+        }),
       updateFilter: (key, value) =>
         set((state) => ({
-          filters: { ...state.filters, [key]: value },
+          filters: {
+            ...state.filters,
+            [key]:
+              key === "bands" && Array.isArray(value)
+                ? value.map((band) =>
+                    typeof band === "string" ? band.toLowerCase() : band,
+                  )
+                : value,
+          },
         })),
       clearFilters: () => set({ filters: DEFAULT_FILTERS }),
 
@@ -209,11 +225,15 @@ export const useDXStore = create<DXState>()(
         if (!persisted?.filters) {
           return currentState;
         }
+        const bands = Array.isArray(persisted.filters.bands)
+          ? persisted.filters.bands.map((band) => band.toLowerCase())
+          : DEFAULT_FILTERS.bands;
         return {
           ...currentState,
           filters: {
             ...DEFAULT_FILTERS,
             ...persisted.filters,
+            bands,
           },
         };
       },

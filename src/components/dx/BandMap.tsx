@@ -92,9 +92,9 @@ function getSpotTimeMs(time: Date | string | number): number {
 function getSpotSize(spotTime: Date | string | number, now: number): number {
   const ageMs = now - getSpotTimeMs(spotTime);
   if (!Number.isFinite(ageMs)) return 4;
-  const ageMinutes = ageMs / 60000;
+  const ageMinutes = Math.max(0, ageMs / 60000);
   // Size ranges from 8 (newest) to 4 (oldest)
-  return Math.max(4, 8 - (ageMinutes / TIME_WINDOW_MINUTES) * 4);
+  return Math.max(4, Math.min(8, 8 - (ageMinutes / TIME_WINDOW_MINUTES) * 4));
 }
 
 /**

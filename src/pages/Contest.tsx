@@ -34,7 +34,6 @@ import {
 } from "@/hooks/useContestHotkeys";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRigStore } from "@/stores/rigStore";
-import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
 
@@ -74,9 +73,6 @@ function rigModeToContestMode(rigMode: string): string {
  */
 export function Contest() {
   const isMobile = useIsMobile();
-
-  // Mount WSJT-X auto-log listener
-  useWSJTXAutoLog();
 
   // CAT control state
   const rigConnected = useRigStore((s) => s.connected);

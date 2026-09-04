@@ -5,8 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
-import { useMapOperationalStore } from "@/stores/mapOperationalStore";
-import { useQSOStore } from "@/stores/qsoStore";
+import { applyLogIntent } from "@/lib/qso/logIntent";
+import { useKioskStore } from "@/stores/kioskStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
@@ -25,7 +25,6 @@ import {
 import {
   formatSpotCopyText,
   getSpotPresentationSource,
-  mapSpotModeToRigMode,
   type PresentableSpot,
 } from "@/lib/map/spotPresentation";
 import {
@@ -140,23 +139,10 @@ export function SelectedSpotCard({
   const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
   const target = useMapStore((state) => state.target);
   const setTarget = useMapStore((state) => state.setTarget);
-  const setDXConsoleExpanded = useMapStore(
-    (state) => state.setDXConsoleExpanded,
-  );
-  const setManualScope = useMapOperationalStore(
-    (state) => state.setManualScope,
-  );
-  const setWorkspaceOpen = useMapOperationalStore(
-    (state) => state.setWorkspaceOpen,
-  );
-  const prepareQsoDraft = useQSOStore((state) => state.setFromSpot);
+  const isKiosk = useKioskStore((state) => state.active);
   const { station } = useUserStore();
   const setWatch = useWatchStore((state) => state.setWatch);
   const catEnabled = useRigStore((state) => state.catEnabled);
-  const setPendingFrequency = useRigStore(
-    (state) => state.setPendingFrequency,
-  );
-  const setPendingMode = useRigStore((state) => state.setPendingMode);
 
   const adjustedPosition = useMemo(() => {
     const viewport = {
@@ -250,9 +236,8 @@ export function SelectedSpotCard({
 
   const handleTune = useCallback(() => {
     if (!spot) return;
-    setPendingFrequency(spot.frequency * 1000);
-    setPendingMode(mapSpotModeToRigMode(spot.mode, spot.frequency));
-  }, [setPendingFrequency, setPendingMode, spot]);
+    applyLogIntent("tune", spot);
+  }, [spot]);
 
   const handleAnalyzeDxWizard = useCallback(() => {
     if (!spot) return;
@@ -292,27 +277,9 @@ export function SelectedSpotCard({
 
   const handleWorkAndLog = useCallback(() => {
     if (!spot) return;
-    // This explicit action seeds the existing qsoStore draft and enters the
-    // operating workspace; merely inspecting public activity stays read-only.
-    selectMapSpot(spot);
-    prepareQsoDraft({
-      callsign: spot.dx,
-      frequency: spot.frequency,
-      mode: spot.mode || "SSB",
-    });
-    setManualScope("log");
-    setWorkspaceOpen(true);
-    setDXConsoleExpanded(true);
+    applyLogIntent("work", spot);
     onClose();
-  }, [
-    onClose,
-    prepareQsoDraft,
-    selectMapSpot,
-    setDXConsoleExpanded,
-    setManualScope,
-    setWorkspaceOpen,
-    spot,
-  ]);
+  }, [onClose, spot]);
 
   if (!spot) return null;
 
@@ -521,7 +488,9 @@ export function SelectedSpotCard({
         </div>
 
         <div className="grid grid-cols-3 gap-1.5 border-t border-white/10 px-3 py-2.5">
-          <ActionButton onClick={handleWorkAndLog}>Work &amp; log</ActionButton>
+          {!isKiosk && (
+            <ActionButton onClick={handleWorkAndLog}>Work &amp; log</ActionButton>
+          )}
           <ActionButton
             onClick={handleSetTarget}
             active={targetSelected}

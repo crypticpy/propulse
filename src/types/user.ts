@@ -348,6 +348,16 @@ export interface UIInteractionPreferences {
   mapAspectRatio: number;
   /** When enabled, spot arcs peak at band-dependent heights (160m low, 10m high) instead of flat (default: false) */
   bandHeightArcs: boolean;
+  /**
+   * Map clicks QSY the radio. Off by default so browsing spots does not
+   * move VFO. Work and T still tune explicitly.
+   */
+  spotClickTunesRadio: boolean;
+  /**
+   * Clear the Contact callsign when CAT leaves the working band.
+   * In-band VFO tweaks still follow into the form.
+   */
+  qsyWipeOnBandChange: boolean;
 }
 
 // =============================================================================
@@ -644,6 +654,8 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
   labelScale: 1.0,
   mapAspectRatio: 2.0,
   bandHeightArcs: true,
+  spotClickTunesRadio: false,
+  qsyWipeOnBandChange: true,
 };
 
 // =============================================================================

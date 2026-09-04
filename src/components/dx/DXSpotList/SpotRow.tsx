@@ -118,6 +118,7 @@ export const SpotRow = memo(function SpotRow({
   onBandClick,
   onFrequencyCopied,
   onSetTarget,
+  onWork,
   onWatchCallsign,
   onHideSpot,
   showAgeColumn = true,
@@ -199,6 +200,14 @@ export const SpotRow = memo(function SpotRow({
       onSetTarget?.(spot);
     },
     [spot, onSetTarget],
+  );
+
+  const handleWork = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onWork?.(spot);
+    },
+    [spot, onWork],
   );
 
   const handleWatchCallsign = useCallback(
@@ -510,6 +519,16 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Quick action buttons - visible on hover */}
       <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        {onWork && (
+          <button
+            onClick={handleWork}
+            className="p-0.5 rounded text-gray-400 hover:text-signal-green hover:bg-signal-green/10 transition-colors"
+            title="Work this station (L)"
+            aria-label={`Work ${spot.dx}`}
+          >
+            <span className="px-0.5 text-[9px] font-bold leading-none">L</span>
+          </button>
+        )}
         {/* Tune (radio) - only when CAT is enabled */}
         {catEnabled && (
           <button

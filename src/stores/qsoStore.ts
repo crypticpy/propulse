@@ -21,7 +21,6 @@ import type {
 } from "@/types/qso";
 import { DEFAULT_QSO_FORM, DEFAULT_QSO_FILTERS } from "@/types/qso";
 import { useProfileStore } from "@/stores/profileStore";
-import { useShackStore } from "@/stores/shackStore";
 import type { LogEntry } from "@/lib/db/types";
 import {
   addLogEntry,
@@ -32,6 +31,7 @@ import {
   getLogEntriesPaginated,
 } from "@/lib/db/logStore";
 import { getDB } from "@/lib/db/index";
+import { currentStationLogStamp } from "@/lib/station/stationLogStamp";
 import { getDeviceId } from "@/lib/sync/deviceId";
 import { getRSTDefault } from "@/lib/utils/rstDefaults";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
@@ -427,7 +427,8 @@ export const useQSOStore = create<QSOStoreState>()(
         const date = nowISO.slice(0, 10);
         const timeOn = nowISO.slice(11, 16);
 
-        // Build LogEntry fields from form state
+        // Build LogEntry fields from form state + live Ham Shack stamp
+        const stamp = currentStationLogStamp({ powerOverride: form.txPower });
         const entry: Omit<LogEntry, "id" | "createdAt" | "updatedAt"> = {
           callsign,
           frequency: form.frequency,
@@ -443,7 +444,11 @@ export const useQSOStore = create<QSOStoreState>()(
           name: form.name || undefined,
           qth: form.qth || undefined,
           notes: form.notes || undefined,
-          txPower: form.txPower ?? undefined,
+          txPower: form.txPower ?? stamp.txPower ?? undefined,
+          myRig: stamp.myRig,
+          myAntenna: stamp.myAntenna,
+          myGrid: stamp.myGrid,
+          stationCallsign: stamp.stationCallsign,
           mySig: form.mySig || undefined,
           mySigInfo: form.mySigInfo || undefined,
           sig: form.sig || undefined,
@@ -874,9 +879,12 @@ export const useQSOStore = create<QSOStoreState>()(
 
       initializeFromProfile: () => {
         const profileState = useProfileStore.getState();
-        const shackState = useShackStore.getState();
 
         const defaults: Partial<QSOFormState> = {};
+        const stamp = currentStationLogStamp();
+        if (stamp.txPower != null) {
+          defaults.txPower = stamp.txPower;
+        }
 
         // Resolve active location from profile
         const station = profileState.station;
@@ -886,14 +894,6 @@ export const useQSOStore = create<QSOStoreState>()(
           const activeLocation = station.savedLocations.find(
             (loc) => loc.id === activeLocId,
           );
-
-          // Power from shack active radio equipment
-          const activeRadioInstance = shackState.radios.find(
-            (r) => r.id === shackState.activeRadioId,
-          );
-          if (activeRadioInstance?.customPowerLimit) {
-            defaults.txPower = activeRadioInstance.customPowerLimit;
-          }
 
           // Activation refs from active location
           if (activeLocation) {

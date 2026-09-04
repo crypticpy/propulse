@@ -44,6 +44,8 @@ export interface SpotRowProps {
   onFrequencyCopied?: (frequency: number) => void;
   /** Quick action: set target on map (crosshair icon) */
   onSetTarget?: (spot: DXSpot) => void;
+  /** Quick action: work/log this spot */
+  onWork?: (spot: DXSpot) => void;
   /** Quick action: watch callsign (eye icon) */
   onWatchCallsign?: (spot: DXSpot) => void;
   /** Quick action: hide spot (x icon) */

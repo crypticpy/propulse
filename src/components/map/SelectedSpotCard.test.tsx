@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 import { presentActivationSpot } from "@/lib/map/spotPresentation";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 
@@ -12,9 +14,14 @@ const { selectMapSpot, navigate } = vi.hoisted(() => ({
   navigate: vi.fn(),
 }));
 
-vi.mock("@/hooks/useMapSpotSelection", () => ({
-  useMapSpotSelection: () => selectMapSpot,
-}));
+vi.mock("@/hooks/useMapSpotSelection", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/hooks/useMapSpotSelection")>();
+  return {
+    ...actual,
+    useMapSpotSelection: () => selectMapSpot,
+  };
+});
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
@@ -79,6 +86,8 @@ describe("SelectedSpotCard", () => {
       workspaceOpen: false,
       selectedReport: null,
     });
+    useOpsPostureStore.getState().reset();
+    useMapStore.setState({ target: null, isDXConsoleExpanded: false });
     useQSOStore.setState((state) => ({
       form: {
         ...state.form,
@@ -183,15 +192,19 @@ describe("SelectedSpotCard", () => {
     expect(useQSOStore.getState().form.callsign).toBe("");
     await user.click(screen.getByRole("button", { name: "Work & log" }));
 
-    expect(selectMapSpot).toHaveBeenCalledWith(spot);
     expect(useQSOStore.getState().form).toMatchObject({
       callsign: "PY2ABC",
       frequency: 14074,
       mode: "FT8",
     });
-    expect(useMapOperationalStore.getState()).toMatchObject({
-      manualScope: "log",
-      workspaceOpen: true,
+    expect(useMapStore.getState().target).toMatchObject({
+      lat: -23.5,
+      lon: -46.6,
+    });
+    expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
+    expect(useOpsPostureStore.getState()).toMatchObject({
+      posture: "contact",
+      contactCallsign: "PY2ABC",
     });
     expect(onClose).toHaveBeenCalledOnce();
   });

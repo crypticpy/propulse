@@ -8,6 +8,7 @@ import { useDXStore } from "@/stores/dxStore";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import type { DXSpot } from "@/types/dxcluster";
+import { maybeTuneOnMapClick } from "@/lib/qso/mapClickTune";
 import { formatSpotPresentationLabel } from "@/lib/map/spotPresentation";
 import {
   mapSpotSourceProvenance,
@@ -177,12 +178,15 @@ export function useMapSpotSelection() {
   );
 
   return useCallback(
-    (spot: DXSpot) =>
-      commitMapSpotSelection(spot, {
+    (spot: DXSpot) => {
+      const result = commitMapSpotSelection(spot, {
         setSelectedSpot,
         setTarget,
         setSelectedReport,
-      }),
+      });
+      maybeTuneOnMapClick(spot);
+      return result;
+    },
     [setSelectedReport, setSelectedSpot, setTarget],
   );
 }

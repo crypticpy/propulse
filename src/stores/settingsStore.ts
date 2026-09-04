@@ -695,7 +695,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 35,
+      version: 36,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -1047,6 +1047,17 @@ export const useSettingsStore = create<SettingsStore>()(
           // Preserve the historical 500 km lightning / 800 km weather behavior
           // for existing operators while making that station-centered scope explicit.
           state.tickerCoverageArea ??= "regional";
+        }
+        if (version < 36) {
+          const ui = state.uiInteraction as Record<string, unknown> | undefined;
+          if (ui) {
+            if (ui.spotClickTunesRadio === undefined) {
+              ui.spotClickTunesRadio = false;
+            }
+            if (ui.qsyWipeOnBandChange === undefined) {
+              ui.qsyWipeOnBandChange = true;
+            }
+          }
         }
         return state as unknown as SettingsState & SettingsStore;
       },

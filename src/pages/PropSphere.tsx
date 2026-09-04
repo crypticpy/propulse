@@ -80,11 +80,11 @@ import {
   OperationalScopeControl,
   OpsConsole,
 } from "@/components/ops/OpsConsole";
+import { OpsLoggerStrip } from "@/components/ops/OpsLoggerStrip";
 import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
 import { BandScope } from "@/components/dx/BandScope";
 import { useRigStore } from "@/stores/rigStore";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
-import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
@@ -93,6 +93,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useDisplayFit } from "@/hooks/useDisplayFit";
 import { useMapDisplayTime } from "@/hooks/useUTCClock";
 import { useKioskStore } from "@/stores/kioskStore";
+import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useUserStore } from "@/stores/userStore";
 import { BUILTIN_PROFILES } from "@/constants/operatingProfiles";
@@ -193,6 +194,9 @@ export function PropSphere() {
   const activePreset = useMapStore((s) => s.activePreset);
   const layoutMode = useMapStore((s) => s.layoutMode);
   const isLiteMode = useMapStore((s) => s.isLiteMode);
+  const opsPosture = useOpsPostureStore((s) => s.posture);
+  const showOpsLoggerStrip =
+    !isKiosk && (opsPosture === "contact" || opsPosture === "desk");
   const isDXConsoleExpanded = useMapStore((s) => s.isDXConsoleExpanded);
   // P1: compact fit collapses the side panels into the bottom tab strip on
   // cramped viewports (or by explicit override) — desktop (≥lg) only; below
@@ -259,9 +263,6 @@ export function PropSphere() {
 
   // Contest-aware map overlays (needed mult markers, etc.)
   useContestOverlayEngine({ enabled: Boolean(contestSessionId) });
-
-  // Mount WSJT-X auto-log listener
-  useWSJTXAutoLog();
 
   // Rig CAT state
   const rigConnected = useRigStore((s) => s.connected);
@@ -1411,6 +1412,11 @@ export function PropSphere() {
                     </div>
                   </div>
                 )}
+                {isLiteMode && showOpsLoggerStrip && (
+                  <div className="absolute bottom-0 left-0 right-0 z-20 hidden lg:block">
+                    <OpsLoggerStrip />
+                  </div>
+                )}
               </div>
             </Card>
 
@@ -1703,6 +1709,7 @@ export function PropSphere() {
 
           {/* Mobile/Tablet Bottom Panel (shown on < lg, and on desktop in compact fit) */}
           <div className={compactFit && !isLiteMode ? "" : "lg:hidden"}>
+            {showOpsLoggerStrip && !isDXConsoleExpanded && <OpsLoggerStrip />}
             {/* Tab Navigation */}
             <div className="flex border-b border-white/10 mb-2">
               {(

@@ -4,14 +4,12 @@ import {
 } from "@/lib/utils/bands";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
 import type { AntennaType } from "@/lib/data/antennas";
-import {
-  clampWatts,
-  estimateRequiredPowerWatts,
-} from "./power";
+import { clampWatts, estimateRequiredPowerWatts } from "./power";
 import {
   getMaxAllowedPowerWatts,
   pickAllowedFrequenciesKHz,
 } from "./frequencies";
+import { applyContestCongestionRanking } from "./contestRank";
 import {
   MODE_SNR_TARGET_DB,
   type BandCandidate,
@@ -78,6 +76,8 @@ export function buildWizardRecommendation(
     kitMaxPowerWatts,
     antennaGainDbi,
     noiseEnvironment,
+    optimizeFor = "propagation",
+    congestionContext,
   } = params;
 
   const date = params.date ?? new Date();
@@ -164,6 +164,33 @@ export function buildWizardRecommendation(
     return { type: "none", bands, antennaGainDbi };
   }
 
+  const contestActive =
+    Boolean(congestionContext?.isContestWeekend) &&
+    (congestionContext?.activeContests.length ?? 0) > 0;
+
+  if (contestActive && congestionContext) {
+    const effectiveOptimize =
+      optimizeFor === "propagation" ? "balance" : optimizeFor;
+    const ranked = applyContestCongestionRanking({
+      candidates,
+      mode,
+      optimizeFor: effectiveOptimize,
+      congestionContext,
+    });
+    if (!ranked.best) {
+      return { type: "none", bands, antennaGainDbi };
+    }
+    return {
+      type: "ok",
+      best: ranked.best,
+      candidates: ranked.candidates,
+      bands,
+      antennaGainDbi,
+      contestAlternatives: ranked.alternatives,
+      optimizeFor: ranked.optimizeFor,
+    };
+  }
+
   const sorted = [...candidates].sort((a, b) => {
     if (a.withinCeiling !== b.withinCeiling) {
       return a.withinCeiling ? -1 : 1;
@@ -180,5 +207,6 @@ export function buildWizardRecommendation(
     candidates: sorted,
     bands,
     antennaGainDbi,
+    optimizeFor,
   };
 }

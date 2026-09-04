@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -14,6 +14,10 @@ import {
 } from "@/stores/userStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useRigStore } from "@/stores/rigStore";
+import { useContestContext } from "@/hooks/useContestContext";
+import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { useStationPerformance } from "@/hooks/useStationPerformance";
 import { RADIO_DATABASE } from "@/lib/data/radios";
 import type { ITURegion, LicenseClass } from "@/types/bandplan";
 import type { RadioEquipment } from "@/types/radio";
@@ -23,6 +27,7 @@ import {
   type ResolvedTarget,
   type WizardMode,
   type WizardPathMode,
+  type WizardOptimizeFor,
   buildWizardRecommendation,
   resolveAntennaGainDbi,
   resolveTargetQuery,
@@ -36,6 +41,8 @@ import {
   getModeTips,
   clampCeilingToKit,
   snrMarginDb,
+  correlateBandReality,
+  formatKHz,
 } from "@/lib/dxwizard";
 
 const DEFAULT_KP = 3;
@@ -66,6 +73,15 @@ export function useDXWizardSession() {
 
   const mapTarget = useMapStore((s) => s.target);
   const recentTargets = useMapStore((s) => s.recentTargets);
+  const setMapTarget = useMapStore((s) => s.setTarget);
+  const addSavedTarget = useUserStore((s) => s.addTarget);
+  const navigate = useNavigate();
+  const catEnabled = useRigStore((s) => s.catEnabled);
+  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
+  const setPendingMode = useRigStore((s) => s.setPendingMode);
+  const contestContext = useContestContext();
+  const stationPerformance = useStationPerformance();
+  const bandVerdicts = useBandVerdicts();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -83,6 +99,9 @@ export function useDXWizardSession() {
 
   const [mode, setMode] = useState<WizardMode>("FT8");
   const [pathMode, setPathMode] = useState<WizardPathMode>("short");
+  const [optimizeFor, setOptimizeFor] =
+    useState<WizardOptimizeFor>("propagation");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [licenseClass, setLicenseClass] = useState<LicenseClass>(
     (preferences.licenseClass ?? "GENERAL") as LicenseClass,
   );
@@ -313,8 +332,28 @@ export function useDXWizardSession() {
     [applyTarget],
   );
 
+  // Default optimize-for to Balance on contest weekends
+  useEffect(() => {
+    if (
+      contestContext.isContestWeekend &&
+      contestContext.activeContests.length > 0 &&
+      optimizeFor === "propagation"
+    ) {
+      setOptimizeFor("balance");
+    }
+    // only react to contest weekend transitions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contestContext.isContestWeekend, contestContext.activeContests.length]);
+
   const antennaGainDbi = useMemo(() => {
     if (!station || !target) return 0;
+    const shackBand = stationPerformance.bands.find(
+      (b) => b.band.toLowerCase() === "20m" || b.supported,
+    );
+    const override =
+      shackBand && Number.isFinite(shackBand.antennaGainDbi)
+        ? shackBand.antennaGainDbi
+        : undefined;
     return resolveAntennaGainDbi({
       antennaType,
       homeLat: station.lat,
@@ -322,8 +361,18 @@ export function useDXWizardSession() {
       targetLat: target.lat,
       targetLon: target.lon,
       pathMode,
+      overrideGainDbi: override,
     });
-  }, [antennaType, pathMode, station, target]);
+  }, [antennaType, pathMode, station, stationPerformance.bands, target]);
+
+  const congestionContext = useMemo(
+    () => ({
+      activeContests: contestContext.activeContests,
+      isContestWeekend: contestContext.isContestWeekend,
+      currentHourUtc: new Date().getUTCHours(),
+    }),
+    [contestContext.activeContests, contestContext.isContestWeekend],
+  );
 
   const recommendation = useMemo(() => {
     if (!station || !target) return null;
@@ -345,21 +394,59 @@ export function useDXWizardSession() {
       antennaGainDbi,
       noiseEnvironment,
       pathMode,
+      optimizeFor,
+      congestionContext,
     });
   }, [
     antennaGainDbi,
+    congestionContext,
     currentKp,
     currentSfi,
     ituRegion,
     licenseClass,
     mode,
     noiseEnvironment,
+    optimizeFor,
     pathMode,
     selectedRadio?.maxPower,
     station,
     target,
     txPowerCeilingWatts,
   ]);
+
+  const realityCheck = useMemo(() => {
+    if (!recommendation || recommendation.type !== "ok") return null;
+    const band = recommendation.best.band;
+    const ladder =
+      bandVerdicts.bands.find(
+        (b) => b.band.toLowerCase() === band.toLowerCase(),
+      )?.stable ?? null;
+    return correlateBandReality({
+      modelStatus: recommendation.best.status,
+      ladderState: ladder,
+    });
+  }, [bandVerdicts.bands, recommendation]);
+
+  const shackSummary = useMemo(() => {
+    const preset = stationPerformance.preset;
+    if (!preset) return null;
+    const bestBand =
+      recommendation?.type === "ok"
+        ? stationPerformance.bands.find(
+            (b) =>
+              b.band.toLowerCase() ===
+              recommendation.best.band.toLowerCase(),
+          )
+        : stationPerformance.bestBand;
+    if (!bestBand) {
+      return { name: preset.name, erpWatts: null as number | null, gainDbi: null as number | null };
+    }
+    return {
+      name: preset.name,
+      erpWatts: Math.round(bestBand.erpWatts),
+      gainDbi: bestBand.antennaGainDbi,
+    };
+  }, [recommendation, stationPerformance]);
 
   const pathSummary = useMemo(() => {
     if (!station || !target) return null;
@@ -405,6 +492,71 @@ export function useDXWizardSession() {
     if (!target) return "/planner";
     return bandPlannerHrefForTarget(target.grid);
   }, [target]);
+
+  const openOnMap = useCallback(() => {
+    if (!target) return;
+    setMapTarget({
+      lat: target.lat,
+      lon: target.lon,
+      grid: target.grid,
+      name: target.label,
+    });
+    navigate("/map");
+  }, [navigate, setMapTarget, target]);
+
+  const saveTarget = useCallback(() => {
+    if (!target) return;
+    addSavedTarget({
+      name: target.label,
+      grid: target.grid,
+      lat: target.lat,
+      lon: target.lon,
+    });
+    setActionMessage("Target saved to profile.");
+  }, [addSavedTarget, target]);
+
+  const tuneRecommended = useCallback(() => {
+    if (!recommendation || recommendation.type !== "ok") return;
+    const khz = recommendation.best.freqsKHz[0];
+    if (!khz) return;
+    setPendingFrequency(khz * 1000);
+    const rigMode =
+      mode === "CW" ? "CW" : mode === "SSB" ? (khz < 10000 ? "LSB" : "USB") : "USB";
+    setPendingMode(rigMode);
+    setActionMessage(
+      catEnabled
+        ? `Tuned to ${formatKHz(khz)} ${rigMode}`
+        : `Queued ${formatKHz(khz)} ${rigMode} (enable CAT to apply)`,
+    );
+  }, [
+    catEnabled,
+    mode,
+    recommendation,
+    setPendingFrequency,
+    setPendingMode,
+  ]);
+
+  const copySummary = useCallback(async () => {
+    if (!target || !recommendation || recommendation.type !== "ok") return;
+    const best = recommendation.best;
+    const bearing = pathSummary
+      ? `${Math.round(pathSummary.active.bearing)}°`
+      : "";
+    const text = [
+      `DX Wizard → ${target.label} (${target.grid})`,
+      `Band ${best.band} · ${formatKHz(best.freqsKHz[0])} · ${mode}`,
+      `Power ~${best.requiredWatts}W · ${pathMode} path ${bearing}`,
+      realityCheck ? `Reality: ${realityCheck.label}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setActionMessage("Summary copied.");
+    } catch {
+      setActionMessage("Clipboard unavailable.");
+    }
+  }, [mode, pathMode, pathSummary, realityCheck, recommendation, target]);
 
   const radioLabel = useMemo(() => {
     if (!selectedRadio) return "";
@@ -463,6 +615,8 @@ export function useDXWizardSession() {
     modes: WIZARD_MODES,
     pathMode,
     setPathMode,
+    optimizeFor,
+    setOptimizeFor,
     licenseClass,
     setLicenseClass,
     ituRegion,
@@ -488,6 +642,15 @@ export function useDXWizardSession() {
     antennaGainDbi,
     bandPlannerHref,
     targetBandsForContest,
+    realityCheck,
+    shackSummary,
+    contestContext,
+    catEnabled,
+    actionMessage,
+    openOnMap,
+    saveTarget,
+    tuneRecommended,
+    copySummary,
     getRadioLabel,
   };
 }

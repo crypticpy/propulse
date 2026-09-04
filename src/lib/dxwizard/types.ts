@@ -9,6 +9,9 @@ export type WizardMode = "SSB" | "CW" | "FT8" | "FT4" | "RTTY";
 
 export type WizardPathMode = "short" | "long";
 
+/** How to weigh contest congestion vs propagation. */
+export type WizardOptimizeFor = "propagation" | "clear" | "balance";
+
 export interface ResolvedTarget {
   label: string;
   grid: string;
@@ -25,6 +28,8 @@ export interface BandCandidate extends PathBandCondition {
   withinCeiling: boolean;
   freqsKHz: number[];
   legalMaxWatts: number | null;
+  contestImpact?: import("@/lib/contest/contestCongestionModel").CongestionLevel;
+  contestDescription?: string;
 }
 
 export interface WizardRecommendationOk {
@@ -33,6 +38,12 @@ export interface WizardRecommendationOk {
   candidates: BandCandidate[];
   bands: PathBandCondition[];
   antennaGainDbi: number;
+  contestAlternatives?: Array<{
+    band: string;
+    reason: string;
+    congestionLevel: import("@/lib/contest/contestCongestionModel").CongestionLevel;
+  }>;
+  optimizeFor?: WizardOptimizeFor;
 }
 
 export interface WizardRecommendationNone {
@@ -66,6 +77,8 @@ export interface WizardRecommendParams {
   antennaGainDbi: number;
   noiseEnvironment?: NoiseEnvironment;
   pathMode: WizardPathMode;
+  optimizeFor?: WizardOptimizeFor;
+  congestionContext?: import("@/lib/contest/contestCongestionModel").CongestionContext;
 }
 
 export interface WizardPathSummary {

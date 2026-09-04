@@ -17,6 +17,7 @@ import {
   getPropagationModeLabel,
 } from "./dxWizardViewHelpers";
 import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 import type { LicenseClass, ITURegion } from "@/types/bandplan";
 import type { WizardMode } from "@/lib/dxwizard";
 
@@ -129,12 +130,17 @@ export function DXWizard() {
                   />
                 )}
 
+                <OptimizeAndStationCard session={session} />
+
                 <ResultsCard
                   recommendation={recommendation}
                   tips={tips}
                   mode={mode}
                   bestMarginDb={bestMarginDb}
+                  realityCheck={session.realityCheck}
                 />
+
+                <ActionsCard session={session} />
 
                 {nextWindow && (
                   <Card className="p-5">
@@ -505,6 +511,112 @@ function OperatorCard({
   );
 }
 
+function OptimizeAndStationCard({
+  session,
+}: {
+  session: ReturnType<typeof useDXWizardSession>;
+}) {
+  const contestActive =
+    session.contestContext.isContestWeekend &&
+    session.contestContext.activeContests.length > 0;
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-xs font-semibold text-white">Optimize for</div>
+          <div className="text-[10px] text-gray-500">
+            {contestActive
+              ? "Contest weekend — Balance prefers quieter spectrum"
+              : "Propagation ranking (contest re-rank when contests run)"}
+          </div>
+        </div>
+        <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg">
+          {(
+            [
+              ["propagation", "Propagation"],
+              ["balance", "Balance"],
+              ["clear", "Clear"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => session.setOptimizeFor(id)}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                session.optimizeFor === id
+                  ? "bg-plasma-orange text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {session.shackSummary && (
+        <div className="text-[10px] text-gray-400 font-mono">
+          Station: {session.shackSummary.name}
+          {session.shackSummary.erpWatts != null &&
+            ` · ERP ≈ ${session.shackSummary.erpWatts}W`}
+          {session.shackSummary.gainDbi != null &&
+            ` · Ant ${session.shackSummary.gainDbi >= 0 ? "+" : ""}${session.shackSummary.gainDbi.toFixed(1)} dBi`}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ActionsCard({
+  session,
+}: {
+  session: ReturnType<typeof useDXWizardSession>;
+}) {
+  if (!session.target || !session.recommendation) return null;
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap gap-2">
+        <ActionBtn onClick={session.openOnMap}>Open on map</ActionBtn>
+        <ActionBtn onClick={session.saveTarget}>Save target</ActionBtn>
+        <ActionBtn onClick={() => void session.tuneRecommended()}>
+          {session.catEnabled ? "Tune radio" : "Queue tune"}
+        </ActionBtn>
+        <ActionBtn onClick={() => void session.copySummary()}>
+          Copy summary
+        </ActionBtn>
+        <Link
+          to={session.bandPlannerHref}
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10"
+        >
+          Band Planner
+        </Link>
+      </div>
+      {session.actionMessage && (
+        <div className="text-[10px] text-signal-green mt-2">
+          {session.actionMessage}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ActionBtn({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10"
+    >
+      {children}
+    </button>
+  );
+}
+
 function PathGeometryCard({
   pathSummary,
   pathMode,
@@ -600,11 +712,13 @@ function ResultsCard({
   tips,
   mode,
   bestMarginDb,
+  realityCheck,
 }: {
   recommendation: ReturnType<typeof useDXWizardSession>["recommendation"];
   tips: Array<{ label: string; value: string }>;
   mode: WizardMode;
   bestMarginDb: number | null;
+  realityCheck: ReturnType<typeof useDXWizardSession>["realityCheck"];
 }) {
   if (!recommendation) {
     return (
@@ -642,7 +756,27 @@ function ResultsCard({
 
   return (
     <Card className="p-5 space-y-4">
-      <h3 className="text-sm font-semibold text-white">3) Recommendations</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-white">3) Recommendations</h3>
+        {realityCheck && (
+          <span
+            className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border ${
+              realityCheck.label === "Confirmed"
+                ? "text-signal-green border-signal-green/40 bg-signal-green/10"
+                : realityCheck.label === "Surprise Open"
+                  ? "text-plasma-orange border-plasma-orange/40 bg-plasma-orange/10"
+                  : realityCheck.label === "Closed"
+                    ? "text-gray-400 border-white/10 bg-white/5"
+                    : "text-caution-amber border-caution-amber/40 bg-caution-amber/10"
+            }`}
+          >
+            {realityCheck.label}
+          </span>
+        )}
+      </div>
+      {realityCheck && (
+        <div className="text-[10px] text-gray-500">{realityCheck.detail}</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white/5 rounded-xl p-4">
@@ -729,6 +863,12 @@ function ResultsCard({
               Band plan max: {best.legalMaxWatts}W
             </div>
           )}
+          {best.contestImpact && best.contestImpact !== "clear" && (
+            <div className="mt-2 text-[10px] text-caution-amber">
+              Contest: {best.contestImpact}
+              {best.contestDescription ? ` — ${best.contestDescription}` : ""}
+            </div>
+          )}
         </div>
         <div className="bg-white/5 rounded-xl p-4">
           <div className="text-xs font-semibold text-white mb-2">
@@ -746,6 +886,23 @@ function ResultsCard({
           </div>
         </div>
       </div>
+
+      {recommendation.contestAlternatives &&
+        recommendation.contestAlternatives.length > 0 && (
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            <div className="text-xs font-semibold text-white mb-2">
+              Quieter alternatives
+            </div>
+            <div className="space-y-1 text-xs text-gray-300">
+              {recommendation.contestAlternatives.slice(0, 4).map((a) => (
+                <div key={a.band}>
+                  <span className="font-mono text-white">{a.band}</span> —{" "}
+                  {a.reason}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       <AllBandsList
         bands={recommendation.bands}

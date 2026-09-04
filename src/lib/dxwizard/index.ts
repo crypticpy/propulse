@@ -1,6 +1,7 @@
 export type {
   WizardMode,
   WizardPathMode,
+  WizardOptimizeFor,
   ResolvedTarget,
   BandCandidate,
   WizardRecommendation,
@@ -54,3 +55,15 @@ export {
 } from "./pathGeometry";
 
 export { getModeTips } from "./tips";
+
+export {
+  applyContestCongestionRanking,
+  type ContestRankResult,
+  type ContestRankedCandidate,
+} from "./contestRank";
+
+export {
+  correlateBandReality,
+  type RealityCheck,
+  type RealityCheckLabel,
+} from "./correlation";

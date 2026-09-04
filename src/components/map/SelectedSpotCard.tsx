@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -10,6 +11,7 @@ import { useRigStore } from "@/stores/rigStore";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { getEntityFromCallsign } from "@/lib/utils/gridUtils";
+import { latLonToGrid } from "@/lib/utils/grid";
 import {
   formatBearing,
   formatDistance,
@@ -133,9 +135,11 @@ export function SelectedSpotCard({
 }: SelectedSpotCardProps) {
   const cardRef = useRef<HTMLElement>(null);
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
   const selectMapSpot = useMapSpotSelection();
   const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
   const target = useMapStore((state) => state.target);
+  const setTarget = useMapStore((state) => state.setTarget);
   const setDXConsoleExpanded = useMapStore(
     (state) => state.setDXConsoleExpanded,
   );
@@ -249,6 +253,38 @@ export function SelectedSpotCard({
     setPendingFrequency(spot.frequency * 1000);
     setPendingMode(mapSpotModeToRigMode(spot.mode, spot.frequency));
   }, [setPendingFrequency, setPendingMode, spot]);
+
+  const handleAnalyzeDxWizard = useCallback(() => {
+    if (!spot) return;
+    if (
+      typeof spot.dxLat === "number" &&
+      typeof spot.dxLon === "number" &&
+      Number.isFinite(spot.dxLat) &&
+      Number.isFinite(spot.dxLon)
+    ) {
+      const grid =
+        spot.dxGrid || latLonToGrid(spot.dxLat, spot.dxLon);
+      setTarget({
+        lat: spot.dxLat,
+        lon: spot.dxLon,
+        grid,
+        name: spot.dx,
+      });
+      const params = new URLSearchParams({
+        call: spot.dx,
+        grid,
+      });
+      if (spot.mode) {
+        const m = spot.mode.toUpperCase();
+        if (["FT8", "FT4", "CW", "SSB", "RTTY"].includes(m)) {
+          params.set("mode", m);
+        }
+      }
+      navigate(`/dx?${params.toString()}`);
+      return;
+    }
+    navigate(`/dx?call=${encodeURIComponent(spot.dx)}`);
+  }, [navigate, setTarget, spot]);
 
   const handleWorkAndLog = useCallback(() => {
     if (!spot) return;
@@ -490,6 +526,9 @@ export function SelectedSpotCard({
             {targetSelected ? "Target selected" : "Set target"}
           </ActionButton>
           <ActionButton onClick={handleViewPath}>View path</ActionButton>
+          <ActionButton onClick={handleAnalyzeDxWizard}>
+            DX Wizard
+          </ActionButton>
           <ActionButton onClick={handleCopy}>
             {copied ? "Copied" : "Copy details"}
           </ActionButton>

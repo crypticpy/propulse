@@ -257,22 +257,6 @@
   animation: cardEntrance 0.5s ease-out forwards;
 }
 
-/* Just-logged globe pulse chip -- holds, then fades over the same ~2s
-   window mapStore clears the justLogged marker (see LoggedPulse.tsx). */
-@keyframes loggedChipFade {
-  0%,
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate-logged-chip-fade {
-  animation: loggedChipFade 2s ease-out forwards;
-}
-
 /* Shimmer loading effect */
 @keyframes shimmer {
   0% {

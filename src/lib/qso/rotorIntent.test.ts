@@ -109,4 +109,25 @@ describe("turnBeamToBearing", () => {
       reason: "invalid-bearing",
     });
   });
+
+  it("preserves the known elevation for an az_el rotator", () => {
+    useShackStore.setState({
+      accessories: [{ ...ROTATOR, rotatorType: "az_el" }],
+    });
+    useRigStore.setState({
+      rotorStatus: { connected: true, azimuth: 10, elevation: 32 },
+    });
+    expect(turnBeamToBearing(247.4)).toEqual({ status: "ok", azimuth: 247.4 });
+    expect(useRigStore.getState().pendingRotorHeading).toEqual({
+      azimuth: 247.4,
+      elevation: 32,
+    });
+  });
+
+  it("does not send elevation for an azimuth-only rotator", () => {
+    expect(turnBeamToBearing(247.4)).toEqual({ status: "ok", azimuth: 247.4 });
+    expect(useRigStore.getState().pendingRotorHeading).toEqual({
+      azimuth: 247.4,
+    });
+  });
 });

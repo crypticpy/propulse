@@ -49,8 +49,9 @@ export function turnBeamToBearing(
 
   const shack = useShackStore.getState();
   const rig = useRigStore.getState();
+  const rotator = resolveActiveRotator(shack);
   const available = canTurnBeam({
-    rotator: resolveActiveRotator(shack),
+    rotator,
     bridgeCapabilities: rig.bridgeCapabilities,
     rotorStatus: rig.rotorStatus,
     kioskActive: false,
@@ -61,6 +62,14 @@ export function turnBeamToBearing(
   }
 
   const azimuth = normalizeAzimuth(options.longPath ? bearing + 180 : bearing);
-  rig.setPendingRotorHeading({ azimuth });
+
+  const elevation = rig.rotorStatus?.elevation;
+  const isAzEl =
+    rotator?.rotatorType === "az_el" || rotator?.rotatorType === "elevation";
+  if (isAzEl && typeof elevation === "number" && Number.isFinite(elevation)) {
+    rig.setPendingRotorHeading({ azimuth, elevation });
+  } else {
+    rig.setPendingRotorHeading({ azimuth });
+  }
   return { status: "ok", azimuth };
 }

@@ -23,7 +23,32 @@ type RigUpdatePayload = {
   frequency?: number;
   mode?: string;
   band?: string;
+  ptt?: boolean;
 };
+
+interface RigUpdateFields {
+  /** `undefined` when the payload carried no `connected` field. */
+  connected?: boolean;
+  /** Fields to apply via rigStore.updateStatus (may be empty). */
+  status: Partial<Pick<RigUpdatePayload, "frequency" | "mode" | "band" | "ptt">>;
+}
+
+/**
+ * Pick out the fields a `rig.update`/`rig.status` payload carries. `ptt`
+ * reflects the rig's own polled hardware state (footswitch, front panel,
+ * etc.), not just bridge-initiated PTT.
+ */
+export function parseRigUpdatePayload(payload: RigUpdatePayload): RigUpdateFields {
+  const status: RigUpdateFields["status"] = {};
+  if (typeof payload.frequency === "number") status.frequency = payload.frequency;
+  if (typeof payload.mode === "string") status.mode = payload.mode;
+  if (typeof payload.band === "string") status.band = payload.band;
+  if (typeof payload.ptt === "boolean") status.ptt = payload.ptt;
+  return {
+    connected: typeof payload.connected === "boolean" ? payload.connected : undefined,
+    status,
+  };
+}
 
 function readCapabilities(payload: unknown): string[] {
   if (typeof payload !== "object" || payload === null) return [];
@@ -200,11 +225,9 @@ export function useRigBridgeSync() {
     const msg = lastMessage as BridgeMessage<RigUpdatePayload>;
 
     if ((msg.type === "rig.update" || msg.type === "rig.status") && msg.payload) {
-      const { connected, frequency, mode, band } = msg.payload;
-      if (typeof connected === "boolean") setConnected(connected);
-      if (typeof frequency === "number") updateStatus({ frequency });
-      if (typeof mode === "string") updateStatus({ mode });
-      if (typeof band === "string") updateStatus({ band });
+      const { connected, status } = parseRigUpdatePayload(msg.payload);
+      if (connected !== undefined) setConnected(connected);
+      if (Object.keys(status).length > 0) updateStatus(status);
     }
 
     if (msg.id && msg.id === connectRequestIdRef.current) {

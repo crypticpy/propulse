@@ -23,7 +23,7 @@ export function HamClockLayerChips() {
       aria-label="Quick map layers"
     >
       {CHIPS.map(({ key, label, title }) => {
-        const active = layers[key];
+        const active = Boolean(layers?.[key]);
         return (
           <button
             key={key}

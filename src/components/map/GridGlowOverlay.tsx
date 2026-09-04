@@ -466,7 +466,16 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
       for (let i = unprocessedStart; i < spots.length; i++) {
         const spot = spots[i];
         if (isValidGridSquare(spot.gridSquare)) {
-          activateGlow(spot.gridSquare.toUpperCase(), spot.color, clockTime);
+          // Translate the parent's wall-clock arrival into the R3F clock.
+          // Initial batches deliberately carry small age offsets, preventing
+          // every square from peaking on the same frame; future skew clamps to
+          // a just-arrived pulse instead of scheduling a negative animation.
+          const ageSeconds = Math.max(0, (Date.now() - spot.timestamp) / 1000);
+          activateGlow(
+            spot.gridSquare.toUpperCase(),
+            spot.color,
+            clockTime - ageSeconds,
+          );
         }
       }
       processedCountRef.current = spots.length;

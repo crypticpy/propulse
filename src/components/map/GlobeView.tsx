@@ -1149,8 +1149,9 @@ const GlobeScene = React.memo(function GlobeScene({
       ) => {
         if (approximate) return;
         try {
-          // 4-char Maidenhead square (2°×1°), not the 20°×10° field.
-          fields.add(latLonToGrid(lat, lon, 4).toUpperCase());
+          // 4-char Maidenhead square (2°×1°). Clamp inclusive 90/180 API
+          // bounds into RR99 — raw latLonToGrid can emit an invalid S field.
+          fields.add(gridActivityGridForCoordinate(lat, lon, 4));
         } catch {
           // A malformed feed coordinate must not interrupt the map render.
         }

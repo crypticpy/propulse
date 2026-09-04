@@ -51,14 +51,27 @@ export function parseWizardDeepLink(
   const pathMode = parsePath(params.get("path"));
   const callParam = params.get("call")?.trim().toUpperCase() || null;
 
-  const gridParam = params.get("grid")?.trim();
-  if (gridParam && isValidGrid(gridParam)) {
-    const grid = gridParam.toUpperCase();
-    const { lat, lon } = gridToLatLon(gridForLatLon(grid));
+  // Prefer explicit lat/lon when present so spot deep-links keep exact
+  // coordinates instead of snapping to grid-cell center.
+  const lat = parseExplicitCoordinate(params.get("lat"));
+  const lon = parseExplicitCoordinate(params.get("lon"));
+  if (
+    lat != null &&
+    lon != null &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  ) {
+    const gridParam = params.get("grid")?.trim();
+    const grid =
+      gridParam && isValidGrid(gridParam)
+        ? gridParam.toUpperCase().slice(0, 6)
+        : latLonToGrid(lat, lon);
     return {
       target: {
         label: callParam ? `${callParam} · ${grid}` : grid,
-        grid: grid.length >= 6 ? grid.slice(0, 6) : grid,
+        grid,
         lat,
         lon,
         source: "url",
@@ -70,25 +83,16 @@ export function parseWizardDeepLink(
     };
   }
 
-  // Require explicit non-empty lat/lon params — Number(null) === 0 would
-  // otherwise treat every /dx visit (and call-only links) as 0°,0°.
-  const lat = parseExplicitCoordinate(params.get("lat"));
-  const lon = parseExplicitCoordinate(params.get("lon"));
-  if (
-    lat != null &&
-    lon != null &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lon >= -180 &&
-    lon <= 180
-  ) {
-    const grid = latLonToGrid(lat, lon);
+  const gridParam = params.get("grid")?.trim();
+  if (gridParam && isValidGrid(gridParam)) {
+    const grid = gridParam.toUpperCase();
+    const coords = gridToLatLon(gridForLatLon(grid));
     return {
       target: {
         label: callParam ? `${callParam} · ${grid}` : grid,
-        grid,
-        lat,
-        lon,
+        grid: grid.length >= 6 ? grid.slice(0, 6) : grid,
+        lat: coords.lat,
+        lon: coords.lon,
         source: "url",
         callsign: callParam ?? undefined,
       },

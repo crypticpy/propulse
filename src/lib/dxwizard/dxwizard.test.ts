@@ -60,6 +60,15 @@ describe("dxwizard deepLink", () => {
     expect(deep.target?.lat).toBeLessThan(43);
   });
 
+  it("prefers explicit lat/lon over grid center", () => {
+    const deep = parseWizardDeepLink(
+      "?grid=FN31pr&lat=41.714&lon=-72.727&call=W1AW",
+    );
+    expect(deep.target?.lat).toBeCloseTo(41.714, 5);
+    expect(deep.target?.lon).toBeCloseTo(-72.727, 5);
+    expect(deep.target?.grid).toBe("FN31PR");
+  });
+
   it("builds planner href", () => {
     expect(bandPlannerHrefForTarget("fn31")).toBe("/planner?grid=FN31");
   });

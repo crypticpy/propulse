@@ -23,9 +23,79 @@ export interface AnchoredOverlayPosition {
   placement: OverlayPlacement;
 }
 
+export interface OverlayFrame {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  /** `absolute` when the overlay is portaled into a map-owned layer. */
+  position: "fixed" | "absolute";
+}
+
+export interface PlaceAnchoredOverlayOptions {
+  axis?: "vertical" | "horizontal";
+  gap?: number;
+  padding?: number;
+}
+
 function clamp(value: number, min: number, max: number) {
   if (max < min) return min;
   return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Viewport box for an overlay portal. Map-owned layers (the globe overlay
+ * sibling that sits above Drei Html labels) are `position: absolute; inset: 0`
+ * inside a clipped, isolated globe container. `position: fixed` descendants of
+ * that box are containing-blocked to the globe, so client coordinates must be
+ * converted into the portal's local space or the preview jumps into the
+ * adjacent HamClock panel.
+ */
+export function resolveOverlayFrame(
+  portal: Element | null | undefined,
+): OverlayFrame {
+  if (
+    typeof document !== "undefined" &&
+    portal instanceof Element &&
+    portal !== document.body &&
+    portal !== document.documentElement
+  ) {
+    const rect = portal.getBoundingClientRect();
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      position: "absolute",
+    };
+  }
+  return {
+    left: 0,
+    top: 0,
+    width: typeof window === "undefined" ? 1920 : window.innerWidth,
+    height: typeof window === "undefined" ? 1080 : window.innerHeight,
+    position: "fixed",
+  };
+}
+
+/** Place a viewport-space anchor inside a portal or the window. */
+export function placeAnchoredOverlayInFrame(
+  anchor: ScreenAnchor,
+  overlay: OverlaySize,
+  frame: Pick<OverlayFrame, "left" | "top" | "width" | "height">,
+  options: PlaceAnchoredOverlayOptions = {},
+): AnchoredOverlayPosition {
+  return placeAnchoredOverlay(
+    {
+      x: anchor.x - frame.left,
+      y: anchor.y - frame.top,
+      width: anchor.width,
+      height: anchor.height,
+    },
+    overlay,
+    { width: frame.width, height: frame.height },
+    options,
+  );
 }
 
 /**
@@ -38,11 +108,7 @@ export function placeAnchoredOverlay(
   anchor: ScreenAnchor,
   overlay: OverlaySize,
   viewport: ViewportSize,
-  options: {
-    axis?: "vertical" | "horizontal";
-    gap?: number;
-    padding?: number;
-  } = {},
+  options: PlaceAnchoredOverlayOptions = {},
 ): AnchoredOverlayPosition {
   const axis = options.axis ?? "vertical";
   const gap = options.gap ?? 12;

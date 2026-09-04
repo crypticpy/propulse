@@ -67,21 +67,38 @@ describe("SpotHoverPreview", () => {
     const portalTarget = document.createElement("div");
     portalTarget.dataset.testid = "map-overlay-portal";
     document.body.appendChild(portalTarget);
+    vi.spyOn(portalTarget, "getBoundingClientRect").mockReturnValue({
+      x: 400,
+      y: 80,
+      left: 400,
+      top: 80,
+      width: 800,
+      height: 640,
+      right: 1200,
+      bottom: 720,
+      toJSON: () => ({}),
+    });
 
     render(
       <SpotHoverPreview
         visible
         portalTarget={portalTarget}
-        position={{ x: 300, y: 300, width: 90, height: 22 }}
+        position={{ x: 900, y: 360, width: 80, height: 22 }}
         spot={spot}
         displayTime={new Date("2026-08-31T12:00:00Z")}
         onActivate={vi.fn()}
       />,
     );
 
-    expect(
-      portalTarget.querySelector('[aria-label*="Open spot details"]'),
-    ).not.toBeNull();
+    const preview = portalTarget.querySelector(
+      '[aria-label*="Open spot details"]',
+    );
+    expect(preview).not.toBeNull();
+    expect(preview).toBeInstanceOf(HTMLElement);
+    const el = preview as HTMLElement;
+    expect(el.className).toContain("absolute");
+    expect(el.className).not.toContain("fixed");
+    expect(el.style.left).toBe("410px");
     portalTarget.remove();
   });
 

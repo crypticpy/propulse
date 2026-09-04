@@ -44,3 +44,11 @@ export function supportsPhotorealistic3D(): boolean {
     canvas.getContext("webgl2") || canvas.getContext("webgl"),
   );
 }
+
+/** Google 3D tiles are attempted only when the flag is on and the session is Pro. */
+export function shouldAttemptGooglePhotorealistic(
+  subscriptionTier: "free" | "pro",
+  config: Photorealistic3DConfig = getPhotorealistic3DConfig(),
+): boolean {
+  return subscriptionTier === "pro" && config.enabled;
+}

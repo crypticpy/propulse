@@ -330,10 +330,21 @@ function App() {
             <Route path="/pair" element={<PairClaimPage />} />
             <Route path="/displays" element={<DisplaysPage />} />
             <Route path="/map" element={<MapRoute />} />
-            <Route path="/map/explorer" element={<MapExplorerPage />} />
+            <Route
+              path="/map/explorer"
+              element={
+                <ErrorBoundary>
+                  <MapExplorerPage />
+                </ErrorBoundary>
+              }
+            />
             <Route
               path="/map/photorealistic"
-              element={<Photorealistic3DPage />}
+              element={
+                <ErrorBoundary>
+                  <Photorealistic3DPage />
+                </ErrorBoundary>
+              }
             />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />

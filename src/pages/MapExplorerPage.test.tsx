@@ -131,6 +131,7 @@ describe("MapExplorerPage", () => {
     expect(
       screen.getByRole("button", { name: /Deep-Zoom Map/ }),
     ).toBeTruthy();
+    await waitFor(() => expect(mapMock.options.length).toBeGreaterThan(0));
     await user.click(screen.getByRole("button", { name: /Return to PropSphere/ }));
     expect(screen.getByLabelText("Current route").textContent).toBe("/map");
     expect(useKioskStore.getState().active).toBe(false);

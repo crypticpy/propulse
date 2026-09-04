@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getPhotorealistic3DConfig } from "./photorealistic3d";
+import {
+  getPhotorealistic3DConfig,
+  shouldAttemptGooglePhotorealistic,
+} from "./photorealistic3d";
 
 describe("getPhotorealistic3DConfig", () => {
   it("is closed by default", () => {
@@ -22,5 +25,24 @@ describe("getPhotorealistic3DConfig", () => {
     });
     expect(config.enabled).toBe(true);
     expect(config.maxDevicePixelRatio).toBe(2);
+  });
+});
+
+describe("shouldAttemptGooglePhotorealistic", () => {
+  const enabled = getPhotorealistic3DConfig({
+    VITE_GOOGLE_PHOTOREALISTIC_3D_ENABLED: "true",
+  });
+  const disabled = getPhotorealistic3DConfig({});
+
+  it("skips Google for free sessions even when the flag is on", () => {
+    expect(shouldAttemptGooglePhotorealistic("free", enabled)).toBe(false);
+  });
+
+  it("skips Google when the experimental flag is off", () => {
+    expect(shouldAttemptGooglePhotorealistic("pro", disabled)).toBe(false);
+  });
+
+  it("attempts Google only for Pro sessions with the flag on", () => {
+    expect(shouldAttemptGooglePhotorealistic("pro", enabled)).toBe(true);
   });
 });

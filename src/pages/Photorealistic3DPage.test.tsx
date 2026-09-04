@@ -1,16 +1,51 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authHeadersMock = vi.hoisted(() => vi.fn(async () => ({})));
+const mapMock = vi.hoisted(() => ({
+  options: [] as Array<Record<string, unknown>>,
+  remove: vi.fn(),
+}));
+const photorealisticConfigMock = vi.hoisted(() => ({
+  enabled: false,
+  maxDevicePixelRatio: 1.5,
+  unavailableReason: "Photorealistic 3D is disabled by configuration." as
+    | string
+    | null,
+}));
 
 vi.mock("@/lib/api/authFetch", () => ({ authHeaders: authHeadersMock }));
-vi.mock("@/lib/map/photorealistic3d", () => ({
-  getPhotorealistic3DConfig: () => ({
-    enabled: true,
-    maxDevicePixelRatio: 1.5,
-    unavailableReason: null,
-  }),
-  supportsPhotorealistic3D: () => true,
-}));
+vi.mock("@/lib/map/photorealistic3d", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/map/photorealistic3d")
+  >("@/lib/map/photorealistic3d");
+  return {
+    ...actual,
+    getPhotorealistic3DConfig: () => photorealisticConfigMock,
+    supportsPhotorealistic3D: () => true,
+  };
+});
+
+vi.mock("maplibre-gl", () => {
+  class MockMap {
+    constructor(options: Record<string, unknown>) {
+      mapMock.options.push(options);
+    }
+    addControl = vi.fn();
+    remove = mapMock.remove;
+    resize = vi.fn();
+    setProjection = vi.fn();
+    on = vi.fn((name: string, callback: () => void) => {
+      if (name === "load") callback();
+      return this;
+    });
+  }
+  return {
+    default: {
+      Map: MockMap,
+      NavigationControl: class NavigationControl {},
+    },
+  };
+});
 
 vi.mock("@react-three/fiber", () => ({
   Canvas: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
@@ -27,7 +62,7 @@ vi.mock("3d-tiles-renderer/plugins", () => ({
   GoogleCloudAuthPlugin: class GoogleCloudAuthPlugin {},
 }));
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { useKioskStore } from "@/stores/kioskStore";
@@ -43,12 +78,42 @@ describe("Photorealistic3DPage", () => {
   beforeEach(() => {
     localStorage.clear();
     authHeadersMock.mockClear();
+    mapMock.options.length = 0;
+    mapMock.remove.mockClear();
+    photorealisticConfigMock.enabled = false;
+    photorealisticConfigMock.unavailableReason =
+      "Photorealistic 3D is disabled by configuration.";
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn(() => ({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    });
     useProfileStore.setState({ subscriptionTier: "free" });
     useKioskStore.setState({ active: true, activeSceneId: "photo" });
     useMapStore.setState({ layoutMode: "pro" });
   });
 
-  it("keeps navigation visible in unavailable/kiosk state and exits to Normal", async () => {
+  it("falls back to the free globe instead of blocking as unavailable", async () => {
+    render(
+      <MemoryRouter initialEntries={["/map/photorealistic"]}>
+        <Photorealistic3DPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText(/Photorealistic 3D is unavailable/)).toBeNull();
+    expect(
+      await screen.findByText(/Add a Google Map Tiles API key/i),
+    ).toBeTruthy();
+    expect(screen.getByText(/Fallback/)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Photorealistic 3D/ }),
+    ).toBeTruthy();
+  });
+
+  it("keeps navigation visible in fallback/kiosk state and exits to Normal", async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter initialEntries={["/map/photorealistic"]}>
@@ -57,7 +122,6 @@ describe("Photorealistic3DPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Photorealistic 3D is unavailable")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /Photorealistic 3D/ }),
     ).toBeTruthy();
@@ -109,6 +173,8 @@ describe("Photorealistic3DPage", () => {
         json: async () => ({ apiKey: "browser-restricted-key" }),
       });
     vi.stubGlobal("fetch", fetchMock);
+    photorealisticConfigMock.enabled = true;
+    photorealisticConfigMock.unavailableReason = null;
     useProfileStore.setState({ subscriptionTier: "pro" });
     useKioskStore.setState({ active: false, activeSceneId: null });
 
@@ -120,6 +186,9 @@ describe("Photorealistic3DPage", () => {
     );
 
     expect(await screen.findByText("Provider key unavailable")).toBeTruthy();
+    expect(
+      await screen.findByText(/Add a Google Map Tiles API key/i),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /Try again/ }));
     expect(await screen.findByText(/Metered provider/)).toBeTruthy();
     expect(screen.getByAltText("Google Maps")).toMatchObject({
@@ -127,5 +196,30 @@ describe("Photorealistic3DPage", () => {
       height: 22,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders the metered Google surface when a key is delivered", async () => {
+    photorealisticConfigMock.enabled = true;
+    photorealisticConfigMock.unavailableReason = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ apiKey: "browser-restricted-key" }),
+      }),
+    );
+    useProfileStore.setState({ subscriptionTier: "pro" });
+    useKioskStore.setState({ active: false, activeSceneId: null });
+
+    render(
+      <MemoryRouter initialEntries={["/map/photorealistic"]}>
+        <Photorealistic3DPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/Metered provider/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByText(/Add a Google Map Tiles API key/i)).toBeNull(),
+    );
   });
 });

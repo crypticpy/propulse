@@ -8,7 +8,7 @@ import { useDXStore } from "@/stores/dxStore";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import type { DXSpot } from "@/types/dxcluster";
-import { maybeTuneOnMapClick } from "@/lib/qso/radioFollow";
+import { maybeTuneOnMapClick } from "@/lib/qso/mapClickTune";
 import { formatSpotPresentationLabel } from "@/lib/map/spotPresentation";
 import {
   mapSpotSourceProvenance,

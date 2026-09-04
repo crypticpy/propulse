@@ -7,9 +7,9 @@ import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { maybeTuneOnMapClick } from "./mapClickTune";
 import {
   applyCatFrequencyFollow,
-  maybeTuneOnMapClick,
   shouldWipeDraftOnQsy,
 } from "./radioFollow";
 

@@ -1,8 +1,5 @@
 import { getRadioById } from "@/lib/data/radios";
-import {
-  stationPresetToChain,
-  type StationInventory,
-} from "@/lib/station/stationChainEngine";
+import { stationPresetToChain } from "@/lib/station/stationPresetToChain";
 import { useProfileStore } from "@/stores/profileStore";
 import { useShackStore } from "@/stores/shackStore";
 import type { RadioEquipment, UserRadio } from "@/types/radio";
@@ -83,16 +80,18 @@ function radioLabel(
   );
 }
 
-export function inventoryFromShack(shack: StationStampSource): StationInventory {
+interface ResolvedInventory {
+  radios: Array<{ userRadio: UserRadio; equipment: RadioEquipment | undefined }>;
+  antennas: UserAntenna[];
+}
+
+function inventoryFromShack(shack: StationStampSource): ResolvedInventory {
   return {
     radios: shack.radios.map((userRadio) => ({
       userRadio,
       equipment: resolveRadioEquipment(userRadio.equipmentId, shack.customRadios),
     })),
     antennas: shack.antennas,
-    feedlines: shack.feedlines,
-    accessories: shack.accessories,
-    inlineComponents: shack.inlineComponents,
   };
 }
 

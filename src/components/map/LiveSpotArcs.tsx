@@ -621,6 +621,7 @@ interface EndpointData {
   lon: number;
   color: string;
   size: number;
+  opacity?: number;
 }
 
 /**
@@ -671,6 +672,8 @@ const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
         tmpColor.set("#000000");
       } else {
         tmpColor.set(ep.color);
+        const opacity = ep.opacity ?? 1;
+        if (opacity < 1) tmpColor.multiplyScalar(opacity);
       }
       mesh.setColorAt(i, tmpColor);
     }
@@ -962,6 +965,7 @@ export function LiveSpotArcs({
               lon: spot.spotterLon,
               color,
               size: 0.006 * spotDotScale * endpointScale,
+              opacity: filterOpacity,
             });
           }
           if (dxVisible) {
@@ -970,6 +974,7 @@ export function LiveSpotArcs({
               lon: spot.dxLon,
               color,
               size: 0.008 * spotDotScale * endpointScale,
+              opacity: filterOpacity,
             });
           }
 
@@ -993,6 +998,7 @@ export function LiveSpotArcs({
                   callsign={spot.callsign}
                   mode={spot.mode}
                   frequency={spot.frequency}
+                  opacity={filterOpacity}
                   screenOffset={{
                     x: dxPlacement?.offsetX ?? 0,
                     y: dxPlacement?.offsetY ?? 0,
@@ -1036,7 +1042,7 @@ export function LiveSpotArcs({
                   callsign={spot.spotter}
                   mode={spot.mode}
                   isSpotter
-                  opacity={0.6}
+                  opacity={0.6 * filterOpacity}
                   screenOffset={{
                     x: spotterPlacement?.offsetX ?? 0,
                     y: spotterPlacement?.offsetY ?? 0,

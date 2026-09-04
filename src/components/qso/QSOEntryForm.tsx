@@ -22,6 +22,16 @@ import { DupeWarningBadge } from "./DupeWarningBadge";
 import { DxccStatusBadge } from "./DxccStatusBadge";
 import { QSOSuccessToast } from "./QSOSuccessToast";
 import type { OperatingMode, QSOLookupResult } from "@/types/qso";
+import {
+  useActiveChain,
+  useShackStore,
+  useStationChains,
+} from "@/stores/shackStore";
+import { useRigStore } from "@/stores/rigStore";
+import {
+  isFieldActivationSig,
+  pickChainForActivation,
+} from "@/lib/station/stationKit";
 
 // ── Public Interface ─────────────────────────────────────────────────────────
 
@@ -445,6 +455,34 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
     setOperatingMode,
   } = useQSOEntry();
 
+  const chains = useStationChains();
+  const activeChain = useActiveChain();
+  const setActiveChain = useShackStore((s) => s.setActiveChain);
+  const rigPower = useRigStore((s) => s.power);
+  const kitTouchedRef = useRef(false);
+
+  useEffect(() => {
+    if (form.txPower != null) return;
+    const next =
+      rigPower > 0 ? rigPower : (activeChain?.operatingPowerWatts ?? null);
+    if (next != null) setField("txPower", next);
+  }, [activeChain?.operatingPowerWatts, form.txPower, rigPower, setField]);
+
+  useEffect(() => {
+    if (!isFieldActivationSig(form.mySig) || kitTouchedRef.current) return;
+    const next = pickChainForActivation(
+      chains,
+      activeChain?.id ?? null,
+      form.mySig,
+    );
+    if (next && next !== form.chainId) {
+      setField("chainId", next);
+    }
+    if (next && next !== activeChain?.id) {
+      setActiveChain(next);
+    }
+  }, [activeChain?.id, chains, form.chainId, form.mySig, setActiveChain, setField]);
+
   // Activate auto-lookup and dupe check hooks
   useCallsignLookup();
   useDupeCheck();
@@ -685,6 +723,38 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
 
       {/* ── FIELD GRID (always visible) ─────────────────────────────────────── */}
       <div className="space-y-1.5">
+        {chains.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            <label
+              htmlFor="qso-chain"
+              className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
+            >
+              Signal path
+            </label>
+            <select
+              id="qso-chain"
+              value={form.chainId || activeChain?.id || ""}
+              onChange={(e) => {
+                kitTouchedRef.current = true;
+                setField("chainId", e.target.value);
+              }}
+              className="
+                h-8 px-2
+                bg-white/5 border border-white/10 rounded-md
+                text-white text-sm font-mono
+                focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
+                focus:outline-none
+                transition-colors
+              "
+            >
+              {chains.map((chain) => (
+                <option key={chain.id} value={chain.id}>
+                  {chain.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {/* Row 1: RST Sent, RST Received, TX Power */}
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-2">
@@ -713,7 +783,13 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
                 const val = e.target.value;
                 setField("txPower", val ? Number(val) : null);
               }}
-              placeholder="100"
+              placeholder={
+                rigPower > 0
+                  ? String(Math.round(rigPower))
+                  : activeChain
+                    ? String(Math.round(activeChain.operatingPowerWatts))
+                    : "100"
+              }
               className="
                 h-8 px-2
                 bg-white/5 border border-white/10 rounded-md

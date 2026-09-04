@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { getAntennaGainForPath } from "@/lib/data/antennas";
+import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import { getDistance } from "@/lib/utils/path";
@@ -31,7 +31,8 @@ export function useOptimalMapSignal({
   displayTime,
   enabled = true,
 }: UseOptimalMapSignalOptions) {
-  const { antennaType } = useActiveStationGain();
+  const { antennaType, txPowerWatts, systemLossDb, physicsMode } =
+    useActiveStationGain();
   const noiseEnvironment = useSettingsStore((state) => state.noiseEnvironment);
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();
@@ -61,7 +62,13 @@ export function useOptimalMapSignal({
         target.lat,
         target.lon,
       );
-      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
+      const physics = physicsArgsForPath(
+        antennaType,
+        distance,
+        systemLossDb,
+        txPowerWatts,
+        physicsMode,
+      );
       const conditions = getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -70,9 +77,9 @@ export function useOptimalMapSignal({
         currentKp,
         currentSfi,
         displayTime,
-        100,
-        "FT8",
-        antennaGainDbi,
+        physics.txPowerWatts,
+        physics.mode,
+        physics.antennaGainDbi,
         noiseEnvironment,
       );
       const best = pickOptimalBandCondition(conditions);
@@ -96,6 +103,9 @@ export function useOptimalMapSignal({
     station,
     target,
     antennaType,
+    txPowerWatts,
+    systemLossDb,
+    physicsMode,
     currentKp,
     currentSfi,
     displayTime,

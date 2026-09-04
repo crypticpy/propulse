@@ -21,6 +21,7 @@ import {
   DIFFICULTY_LABELS,
   type DifficultyLevel,
 } from "./LocationMarker";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import {
   placeAnchoredOverlayInFrame,
   resolveOverlayFrame,
@@ -165,6 +166,7 @@ export function TargetHoverTooltip({
   onClick,
   onKeyDown,
 }: TargetHoverTooltipProps) {
+  const { txPowerWatts, physicsMode } = useActiveStationGain();
   const overlayFrame = resolveOverlayFrame(portalTarget);
   const estimatedHeight =
     (optimalSignal?.notes ? 120 : 102) +
@@ -267,7 +269,7 @@ export function TargetHoverTooltip({
           </div>
         )}
         <div className="text-[10px] uppercase tracking-wide text-gray-500">
-          Optimal Band Signal (100W FT8)
+          Optimal Band Signal ({Math.round(txPowerWatts)}W {physicsMode})
         </div>
         <SignalMeter
           signal={optimalSignal}

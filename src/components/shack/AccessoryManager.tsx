@@ -1105,6 +1105,7 @@ export function AccessoryManager({
                     stats={getAccessoryStats(a)}
                     capabilities={getAccessoryCapabilities(a)}
                     imageId={a.imageId}
+                    instanceId={a.id}
                     galleryImageIds={
                       a.category === "amplifier" ? a.galleryImageIds : undefined
                     }

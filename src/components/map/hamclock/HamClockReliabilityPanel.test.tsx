@@ -17,6 +17,18 @@ const mocks = vi.hoisted(() => ({
     | "deuteranopia"
     | "protanopia"
     | "tritanopia",
+  chain: null as {
+    id: string;
+    name: string;
+    operatingPowerWatts: number;
+    nodes: Array<{ type: "antenna"; antennaId: string }>;
+  } | null,
+  antennas: [] as Array<{
+    id: string;
+    name: string;
+    gainPatternType: "hex_beam";
+  }>,
+  updateChain: vi.fn(),
 }));
 
 vi.mock("@/hooks/useActiveLocation", () => ({
@@ -69,6 +81,13 @@ vi.mock("@/stores/settingsStore", () => ({
       colorBlindMode: mocks.colorBlindMode,
     }),
 }));
+vi.mock("@/stores/shackStore", () => ({
+  useActiveChain: () => mocks.chain,
+  useUserAntennas: () => mocks.antennas,
+  useShackStore: (
+    selector: (state: { updateChain: typeof mocks.updateChain }) => unknown,
+  ) => selector({ updateChain: mocks.updateChain }),
+}));
 vi.mock("@/lib/hamclock/reliabilityForecast", async (importOriginal) => {
   const actual = await importOriginal<
     typeof import("@/lib/hamclock/reliabilityForecast")
@@ -85,6 +104,9 @@ describe("HamClockReliabilityPanel", () => {
     mocks.now = new Date("2026-08-31T12:30:00.000Z");
     mocks.timeOffset = 0;
     mocks.colorBlindMode = "none";
+    mocks.chain = null;
+    mocks.antennas = [];
+    mocks.updateChain.mockReset();
     mocks.build.mockReturnValue([
       {
         band: "20m",
@@ -195,5 +217,30 @@ describe("HamClockReliabilityPanel", () => {
     expect(cell.getAttribute("style")).toContain("rgb(0, 119, 187)");
     expect(cell.getAttribute("style")).toContain("repeating-linear-gradient");
     expect(screen.getByText("Workable").textContent).toBe("\u2713Workable");
+  });
+
+  it("quantizes chain power for the matrix and does not mutate the chain", () => {
+    mocks.chain = {
+      id: "home",
+      name: "Home",
+      operatingPowerWatts: 75,
+      nodes: [{ type: "antenna", antennaId: "a1" }],
+    };
+    mocks.antennas = [
+      { id: "a1", name: "Hexbeam", gainPatternType: "hex_beam" },
+    ];
+
+    render(<HamClockReliabilityPanel />);
+
+    expect(mocks.build).toHaveBeenCalledWith(
+      expect.objectContaining({
+        powerWatts: 100,
+        antennaType: "hex_beam",
+      }),
+    );
+    expect(mocks.updateChain).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Reliability antenna")).toBeNull();
+    expect(screen.getByText("Hexbeam")).toBeTruthy();
+    expect(screen.getByText(/Live path Home at 75 W/)).toBeTruthy();
   });
 });

@@ -74,6 +74,10 @@ interface AntennaForm {
   isRotatable: boolean;
   polarization: AntennaPolarization;
   mounting: AntennaMounting;
+  manufacturer: string;
+  modelNumber: string;
+  swrByBand: Record<string, string>;
+  gainDbiOverride: Record<string, string>;
   notes: string;
 }
 
@@ -87,8 +91,36 @@ function createDefaultForm(): AntennaForm {
     isRotatable: false,
     polarization: "horizontal",
     mounting: "mast",
+    manufacturer: "",
+    modelNumber: "",
+    swrByBand: {},
+    gainDbiOverride: {},
     notes: "",
   };
+}
+
+function recordToStringMap(
+  values?: Record<string, number>,
+): Record<string, string> {
+  if (!values) return {};
+  return Object.fromEntries(
+    Object.entries(values).map(([band, value]) => [band, String(value)]),
+  );
+}
+
+function parseOptionalNumberMap(
+  values: Record<string, string>,
+  bands: Set<string>,
+): Record<string, number> | undefined {
+  const parsed: Record<string, number> = {};
+  for (const band of bands) {
+    const raw = values[band]?.trim();
+    if (!raw) continue;
+    const value = Number.parseFloat(raw);
+    if (!Number.isFinite(value)) continue;
+    parsed[band] = value;
+  }
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
 function formFromAntenna(a: UserAntenna): AntennaForm {
@@ -101,6 +133,10 @@ function formFromAntenna(a: UserAntenna): AntennaForm {
     isRotatable: a.isRotatable ?? false,
     polarization: a.polarization,
     mounting: a.mounting,
+    manufacturer: a.manufacturer ?? "",
+    modelNumber: a.modelNumber ?? "",
+    swrByBand: recordToStringMap(a.swrByBand),
+    gainDbiOverride: recordToStringMap(a.gainDbiOverride),
     notes: a.notes ?? "",
   };
 }
@@ -365,6 +401,10 @@ export function AntennaManager({
       isRotatable: form.isRotatable,
       polarization: form.polarization,
       mounting: form.mounting,
+      manufacturer: form.manufacturer.trim() || undefined,
+      modelNumber: form.modelNumber.trim() || undefined,
+      swrByBand: parseOptionalNumberMap(form.swrByBand, form.bands),
+      gainDbiOverride: parseOptionalNumberMap(form.gainDbiOverride, form.bands),
       notes: form.notes.trim() || undefined,
     };
 
@@ -430,6 +470,7 @@ export function AntennaManager({
               )}
               imageId={a.imageId}
               galleryImageIds={a.galleryImageIds}
+              instanceId={a.id}
               onClick={() => setViewAntennaId(a.id)}
               onEdit={() => openEdit(a)}
               onDelete={() => handleDelete(a.id)}
@@ -690,6 +731,83 @@ export function AntennaManager({
               </select>
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Manufacturer
+              </label>
+              <input
+                type="text"
+                value={form.manufacturer}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, manufacturer: e.target.value }))
+                }
+                placeholder="DX Engineering"
+                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Model
+              </label>
+              <input
+                type="text"
+                value={form.modelNumber}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, modelNumber: e.target.value }))
+                }
+                placeholder="EFHW-8010"
+                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {form.bands.size > 0 && (
+            <div>
+              <p className="text-sm font-medium text-gray-200 mb-2">
+                SWR and gain override
+              </p>
+              <div className="space-y-2">
+                {Array.from(form.bands).map((band) => (
+                  <div key={band} className="grid grid-cols-3 gap-2 items-center">
+                    <span className="text-xs font-mono text-gray-400">{band}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      step={0.1}
+                      value={form.swrByBand[band] ?? ""}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          swrByBand: { ...p.swrByBand, [band]: e.target.value },
+                        }))
+                      }
+                      placeholder="SWR"
+                      className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                    />
+                    <input
+                      type="number"
+                      step={0.1}
+                      value={form.gainDbiOverride[band] ?? ""}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          gainDbiOverride: {
+                            ...p.gainDbiOverride,
+                            [band]: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="dBi"
+                      className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           <div>

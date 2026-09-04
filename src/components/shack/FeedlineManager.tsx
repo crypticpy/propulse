@@ -371,6 +371,7 @@ export function FeedlineManager({
                 />
               }
               imageId={f.imageId}
+              instanceId={f.id}
               onClick={() => setViewFeedlineId(f.id)}
               onEdit={() => openEdit(f)}
               onDelete={() => handleDelete(f.id)}

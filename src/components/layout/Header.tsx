@@ -11,8 +11,6 @@ import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { useOperatorRank } from "@/hooks/useOperatorRank";
-import { RankBadge } from "@/components/rank/RankBadge";
 import { ConflictBadge } from "@/components/qso/ConflictBadge";
 import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
 
@@ -21,6 +19,11 @@ import { ConnectivityBadge } from "@/components/ui/ConnectivityBadge";
 const QuickLocationControl = lazy(() =>
   import("@/components/location/QuickLocationControl").then((module) => ({
     default: module.QuickLocationControl,
+  })),
+);
+const HeaderRankBadge = lazy(() =>
+  import("./HeaderRankBadge").then((module) => ({
+    default: module.HeaderRankBadge,
   })),
 );
 
@@ -434,7 +437,6 @@ function AuthHeaderButton() {
   const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
-  const { rank } = useOperatorRank();
 
   // No Supabase → original profile icon
   if (!isSupabaseConfigured) {
@@ -482,7 +484,9 @@ function AuthHeaderButton() {
 
   return (
     <div className="flex items-center gap-1.5">
-      <RankBadge rank={rank} size="sm" />
+      <Suspense fallback={null}>
+        <HeaderRankBadge />
+      </Suspense>
       {subscriptionTier === "pro" && (
         <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30">
           PRO

@@ -24,6 +24,7 @@ import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useActiveMode } from "@/hooks/useActiveBandMode";
+import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
@@ -68,6 +69,12 @@ export function BandPlanner() {
     lon: number;
     grid: string;
   } | null>(null);
+  const forecastStation = useForecastStationParams(
+    operatingStation?.lat,
+    operatingStation?.lon,
+    targetCoords?.lat,
+    targetCoords?.lon,
+  );
 
   // Selected band for detailed view
   const [selectedBand, setSelectedBand] = useState<string | null>(null);
@@ -186,8 +193,9 @@ export function BandPlanner() {
       currentKp,
       currentFlux,
       new Date(),
+      forecastStation,
     );
-  }, [operatingStation, targetCoords, currentKp, currentFlux]);
+  }, [operatingStation, targetCoords, currentKp, currentFlux, forecastStation]);
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {

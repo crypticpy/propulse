@@ -7,7 +7,13 @@
  */
 
 import { Link } from "react-router-dom";
-import { useShackStore, useUserRadios } from "@/stores/shackStore";
+import {
+  useActiveChain,
+  useShackStore,
+  useStationInventory,
+  useUserRadios,
+} from "@/stores/shackStore";
+import { resolveChainKit } from "@/lib/station/stationIdentity";
 import { EquipmentCardSm } from "@/components/shack/EquipmentCardSm";
 import type { EquipmentType } from "@/components/shack/equipmentCardTypes";
 import { ANTENNA_TYPE_LABELS } from "@/types/shack";
@@ -27,6 +33,9 @@ export function MyShackTab({ className }: MyShackTabProps) {
   const antennas = useShackStore((s) => s.antennas);
   const feedlines = useShackStore((s) => s.feedlines);
   const accessories = useShackStore((s) => s.accessories);
+  const chain = useActiveChain();
+  const inventory = useStationInventory();
+  const kit = resolveChainKit(chain, inventory);
 
   const hasEquipment =
     userRadios.length > 0 ||
@@ -168,6 +177,18 @@ export function MyShackTab({ className }: MyShackTabProps) {
 
   return (
     <div className={className}>
+      {kit && (
+        <div className="mb-5 rounded-xl border border-white/10 bg-void/40 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+            Active path
+          </p>
+          <p className="text-sm text-gray-100">
+            {kit.chainName} · {kit.radioLabel} · {kit.antennaLabel}
+            {kit.powerWatts ? ` · ${Math.round(kit.powerWatts)} W` : ""}
+          </p>
+        </div>
+      )}
+
       {/* Shack Builder link */}
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">

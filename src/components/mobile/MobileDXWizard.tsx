@@ -406,7 +406,7 @@ function ResultsStep({
               {isExpanded && (
                 <div className="mt-2 pt-2 border-t border-white/10 text-xs text-gray-300 space-y-1">
                   <div>
-                    SNR @100W:{" "}
+                    SNR @{session.txPowerCeilingWatts}W:{" "}
                     <span className="font-mono text-white">
                       {band.snrEstimate} dB
                     </span>

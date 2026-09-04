@@ -29,6 +29,7 @@ export { HeroStatsBlock } from "./HeroStatsBlock";
 export { PersonalRecords } from "./PersonalRecords";
 export { ArchetypeRadar } from "./ArchetypeRadar";
 export { MyShackTab } from "./MyShackTab";
+export { PublicShackPanel } from "./PublicShackPanel";
 export { InterestTagPicker } from "./InterestTagPicker";
 export { InterestTagDisplay } from "./InterestTagDisplay";
 export { OperatingHoursChart } from "./OperatingHoursChart";

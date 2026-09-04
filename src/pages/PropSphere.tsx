@@ -28,6 +28,7 @@ import {
   LayerLegend,
   MapSizeSliders,
   MapStatusChip,
+  ActiveKitChip,
   RecommendationsPanel,
   OptimalBandsPanel,
   OperatorProfile,
@@ -1124,6 +1125,7 @@ export function PropSphere() {
                       }
                     />
                     <MapStatusChip className="flex shrink-0" />
+                    <ActiveKitChip className="flex shrink-0" />
                   </div>
                 }
                 viewsControl={

@@ -26,6 +26,9 @@ import { StatCountUp } from "@/components/rank/StatCountUp";
 import { CardSignature } from "@/components/rank/LegendaryEffects";
 import { EnergyBorderOverlay } from "@/components/rank/LegendaryEffects";
 import { ChromaticBorderOverlay } from "@/components/rank/EtherealEffects";
+import { useEquipmentHistory } from "@/stores/shackStore";
+import { useStationQsoIndex } from "@/hooks/useStationQsoIndex";
+import { useVerdictStore } from "@/stores/verdictStore";
 
 // Inject card-level keyframe once
 const CARD_STYLE_ID = "equipment-card-styles";
@@ -39,9 +42,11 @@ function ensureCardStyles() {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .card-sheen { animation: none !important; }
-}`;
+@keyframes cardFlip {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(180deg); }
+}
+`;
   document.head.appendChild(style);
 }
 
@@ -96,6 +101,8 @@ export interface EquipmentCardProps {
   visualization?: ReactNode;
   /** UUID referencing a stored image in IndexedDB */
   imageId?: string;
+  /** Direct photo URL for visitor/public cards (Supabase Storage). */
+  photoUrl?: string;
   /** Gallery image IDs for photo count badge display */
   galleryImageIds?: string[];
   onClick?: () => void;
@@ -103,6 +110,8 @@ export interface EquipmentCardProps {
   onDelete?: () => void;
   onDuplicate?: () => void;
   duplicateLabel?: string;
+  /** Inventory id used for QSO wear and history on the reverse face. */
+  instanceId?: string;
 }
 
 // ─── StatIconSvg (16x16, stroke-based, currentColor) ────────────────────────
@@ -380,24 +389,45 @@ export function EquipmentCard({
   onToggleActive,
   visualization,
   imageId,
+  photoUrl,
   galleryImageIds,
   onClick,
   onEdit,
   onDelete,
   onDuplicate,
   duplicateLabel = "Duplicate",
+  instanceId,
 }: EquipmentCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [flipped, setFlipped] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
   useEffect(() => {
     ensureCardStyles();
   }, []);
-  const { url: imageUrl } = useImageUrl(imageId);
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [photoUrl, imageId]);
+  const { url: storedImageUrl } = useImageUrl(imageId);
+  const imageUrl = photoFailed ? null : photoUrl || storedImageUrl;
   const accentHex = ACCENT_HEX[equipmentType];
   const glowClass = GLOW_SHADOW[equipmentType];
   const hasActions = onEdit || onDelete || onDuplicate;
 
   // Operator rank integration
   const rankState = useOperatorRank();
+  const history = useEquipmentHistory();
+  const { qsoCountById } = useStationQsoIndex();
+  const verdictResults = useVerdictStore((state) => state.results);
+  const qsoCount = instanceId ? (qsoCountById[instanceId] ?? 0) : 0;
+  const historyLines = instanceId
+    ? history
+        .filter((entry) => entry.equipmentId === instanceId)
+        .slice(-5)
+        .reverse()
+        .map((entry) => `${entry.action} · ${entry.equipmentName}`)
+    : [];
+  const wearTier =
+    qsoCount > 1000 ? "veteran" : qsoCount > 100 ? "seasoned" : "new";
   const assets = useRankAssets(rankState.rank);
   const rankBorderStyle = getRankBorderStyle(rankState.rank, accentHex);
   const sheenOpacity = getSheenOpacity(rankState.rank);
@@ -442,7 +472,7 @@ export function EquipmentCard({
         className={[
           // Layout
           "group relative flex flex-col w-full min-w-0",
-          // Background & shape
+          // 3D flip
           "bg-[#0f1420] rounded-xl overflow-hidden",
           // Border (dynamic color set via style)
           "border-2",
@@ -453,7 +483,7 @@ export function EquipmentCard({
           // Hover lift + glow
           isHovered ? `-translate-y-0.5 ${glowClass}` : "",
           // Press feedback
-          "active:scale-[0.98]",
+          "active:scale-95",
           // Active card ring + glow
           isActive
             ? "ring-1 ring-signal-green/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
@@ -481,7 +511,21 @@ export function EquipmentCard({
           <ChromaticBorderOverlay enabled={true} />
         )}
 
-        {/* ── Holographic Foil Sheen (hover only) ── */}
+        {/* ── Wear / patina from on-air use (QSO count, not rank) ── */}
+        {wearTier !== "new" && (
+          <div
+            className="absolute top-0 right-0 w-16 h-16 pointer-events-none z-[1]"
+            style={{
+              background:
+                wearTier === "veteran"
+                  ? "radial-gradient(circle at 100% 0%, rgba(212,175,55,0.35), transparent 70%)"
+                  : "radial-gradient(circle at 100% 0%, rgba(160,140,100,0.28), transparent 70%)",
+              maskImage:
+                "repeating-linear-gradient(135deg, black 0 2px, transparent 2px 5px)",
+            }}
+            aria-hidden
+          />
+        )}
         <div
           className="absolute inset-0 pointer-events-none z-[1] transition-opacity duration-500"
           style={{
@@ -524,13 +568,35 @@ export function EquipmentCard({
           )}
 
           {/* Action buttons — hover only */}
-          {hasActions && (
-            <div
-              className={[
-                "absolute top-2 right-2 flex items-center gap-1",
-                "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
-              ].join(" ")}
+          <div
+            className={[
+              "absolute top-2 right-2 flex items-center gap-1",
+              hasActions
+                ? "opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                : "",
+            ].join(" ")}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFlipped((value) => !value);
+              }}
+              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center opacity-100"
+              aria-label={flipped ? `Show front of ${title}` : `Flip ${title}`}
+              title="Flip card"
             >
+              <svg
+                viewBox="0 0 16 16"
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                aria-hidden
+              >
+                <path d="M2 8h12M10 4l4 4-4 4" />
+              </svg>
+            </button>
               {onEdit && (
                 <button
                   type="button"
@@ -574,12 +640,63 @@ export function EquipmentCard({
                 </button>
               )}
             </div>
-          )}
         </div>
 
-        {/* ── Symbol Art Zone ── */}
-        <div className="relative z-[2] min-h-[100px] sm:min-h-[120px] py-3 sm:py-4 flex items-center justify-center overflow-hidden mx-3">
-          {visualization ? (
+        {/* ── Symbol Art Zone (CSS 3D flip) ── */}
+        <div
+          className="relative z-[2] min-h-[100px] sm:min-h-[120px] py-3 sm:py-4 flex items-center justify-center overflow-hidden mx-3"
+          style={{ perspective: 1000 }}
+        >
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{
+              transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+              transformStyle: "preserve-3d",
+              transition: "transform 500ms ease",
+            }}
+          >
+            <div
+              className="w-full"
+              style={{
+                transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                backfaceVisibility: "hidden",
+              }}
+            >
+          {flipped ? (
+            <div className="px-2 py-1 w-full space-y-1.5">
+              {displayStats?.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="flex items-center justify-between text-[11px] text-gray-300"
+                >
+                  <span className="text-gray-500">{stat.label}</span>
+                  <span className="font-mono">{stat.value}</span>
+                </div>
+              ))}
+              {qsoCount > 0 && (
+                <p className="text-[11px] font-mono text-plasma-orange">
+                  {qsoCount} QSO{qsoCount === 1 ? "" : "s"} on this piece
+                </p>
+              )}
+              {historyLines.length > 0 && (
+                <ul className="space-y-0.5">
+                  {historyLines.map((line) => (
+                    <li
+                      key={line}
+                      className="text-[10px] text-gray-500 truncate"
+                    >
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(!displayStats || displayStats.length === 0) &&
+                historyLines.length === 0 &&
+                qsoCount === 0 && (
+                  <p className="text-[11px] text-gray-500">No logged history yet</p>
+                )}
+            </div>
+          ) : visualization ? (
             visualization
           ) : imageUrl ? (
             <>
@@ -587,6 +704,7 @@ export function EquipmentCard({
                 src={imageUrl}
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover"
+                onError={() => setPhotoFailed(true)}
               />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
             </>
@@ -649,6 +767,8 @@ export function EquipmentCard({
               </span>
             </div>
           )}
+            </div>
+          </div>
           <ParticleAurora
             enabled={
               rankState.hasParticles && rankState.preferences.enableParticles
@@ -701,11 +821,32 @@ export function EquipmentCard({
               } else {
                 pillStyle = CAPABILITY_STYLES[cap.category];
               }
+              const liveDot =
+                (equipmentType === "radio" || equipmentType === "antenna") &&
+                cap.category === "band"
+                  ? Object.values(verdictResults).find(
+                      (result) => result.band === cap.label,
+                    )?.evaluation.state
+                  : undefined;
+              const dotClass =
+                liveDot === "hot" || liveDot === "verified"
+                  ? "bg-signal-green"
+                  : liveDot === "stirring" || liveDot === "forecast"
+                    ? "bg-caution-amber"
+                    : liveDot === "closed"
+                      ? "bg-alert-red"
+                      : null;
               return (
                 <span
                   key={`${cap.category}-${cap.label}-${i}`}
-                  className={`px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
                 >
+                  {dotClass && (
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${dotClass}`}
+                      aria-hidden
+                    />
+                  )}
                   {cap.label}
                 </span>
               );

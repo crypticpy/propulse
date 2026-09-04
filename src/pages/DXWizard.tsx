@@ -138,6 +138,7 @@ export function DXWizard() {
                   mode={mode}
                   bestMarginDb={bestMarginDb}
                   realityCheck={session.realityCheck}
+                  txPowerWatts={session.txPowerCeilingWatts}
                 />
 
                 <ActionsCard session={session} />
@@ -713,12 +714,14 @@ function ResultsCard({
   mode,
   bestMarginDb,
   realityCheck,
+  txPowerWatts,
 }: {
   recommendation: ReturnType<typeof useDXWizardSession>["recommendation"];
   tips: Array<{ label: string; value: string }>;
   mode: WizardMode;
   bestMarginDb: number | null;
   realityCheck: ReturnType<typeof useDXWizardSession>["realityCheck"];
+  txPowerWatts: number;
 }) {
   if (!recommendation) {
     return (
@@ -818,7 +821,7 @@ function ResultsCard({
       <div className="bg-white/5 rounded-xl p-4 border border-white/10">
         <div className="text-xs text-gray-300">{best.notes}</div>
         <div className="mt-2 text-[10px] text-gray-400 font-mono">
-          Est. SNR <InfoTip content={SIGNAL_TOOLTIPS.snr} /> @100W:{" "}
+          Est. SNR <InfoTip content={SIGNAL_TOOLTIPS.snr} /> @{txPowerWatts}W:{" "}
           {best.snrEstimate} dB
           {bestMarginDb !== null && (
             <>

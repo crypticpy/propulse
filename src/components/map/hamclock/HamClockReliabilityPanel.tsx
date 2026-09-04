@@ -16,6 +16,8 @@ import {
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useActiveChain, useUserAntennas } from "@/stores/shackStore";
+import { nearestHamClockPower } from "@/lib/station/stationPhysics";
 import type {
   HamClockReliabilityMode,
   HamClockReliabilityPower,
@@ -115,6 +117,20 @@ export function HamClockReliabilityPanel() {
   const solarFluxQuery = useSolarFlux();
   const kp = kIndexQuery.data?.[kIndexQuery.data.length - 1]?.kp_index;
   const sfi = solarFluxQuery.data?.[solarFluxQuery.data.length - 1]?.flux;
+  const activeChain = useActiveChain();
+  const antennas = useUserAntennas();
+  const chainAntennaId = activeChain?.nodes.find(
+    (node) => node.type === "antenna",
+  );
+  const chainAntenna =
+    chainAntennaId?.type === "antenna"
+      ? antennas.find((antenna) => antenna.id === chainAntennaId.antennaId)
+      : undefined;
+  const matrixPowerWatts = activeChain
+    ? nearestHamClockPower(activeChain.operatingPowerWatts)
+    : reliability.powerWatts;
+  const matrixAntennaType =
+    chainAntenna?.gainPatternType ?? reliability.antennaType;
 
   const result = useMemo(() => {
     if (!origin || !target || kp == null || sfi == null) {
@@ -129,8 +145,8 @@ export function HamClockReliabilityPanel() {
           sfi,
           baseTime: forecastBaseTime,
           mode: reliability.mode,
-          powerWatts: reliability.powerWatts,
-          antennaType: reliability.antennaType,
+          powerWatts: matrixPowerWatts,
+          antennaType: matrixAntennaType,
           noiseEnvironment,
         }),
         failed: false,
@@ -146,7 +162,9 @@ export function HamClockReliabilityPanel() {
     kp,
     sfi,
     forecastBaseTime,
-    reliability,
+    reliability.mode,
+    matrixPowerWatts,
+    matrixAntennaType,
     noiseEnvironment,
   ]);
 
@@ -215,40 +233,59 @@ export function HamClockReliabilityPanel() {
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-[9px] uppercase tracking-wide text-gray-500">
           Power
-          <select
-            aria-label="Reliability power"
-            value={reliability.powerWatts}
-            onChange={(event) =>
-              setReliability({
-                powerWatts: Number(event.target.value) as HamClockReliabilityPower,
-              })
-            }
-            className={selectClass}
-          >
-            {POWERS.map((power) => (
-              <option key={power} value={power}>
-                {power.toLocaleString()} W
-              </option>
-            ))}
-          </select>
+          {activeChain ? (
+            <span
+              aria-label="Reliability power"
+              className={`${selectClass} text-gray-400`}
+            >
+              {matrixPowerWatts.toLocaleString()} W matrix
+            </span>
+          ) : (
+            <select
+              aria-label="Reliability power"
+              value={reliability.powerWatts}
+              onChange={(event) =>
+                setReliability({
+                  powerWatts: Number(
+                    event.target.value,
+                  ) as HamClockReliabilityPower,
+                })
+              }
+              className={selectClass}
+            >
+              {POWERS.map((power) => (
+                <option key={power} value={power}>
+                  {power.toLocaleString()} W
+                </option>
+              ))}
+            </select>
+          )}
         </label>
-        <label className="col-span-2 flex min-w-0 flex-col gap-1 text-[9px] uppercase tracking-wide text-gray-500">
+        <div className="col-span-2 flex min-w-0 flex-col gap-1 text-[9px] uppercase tracking-wide text-gray-500">
           Antenna
-          <select
-            aria-label="Reliability antenna"
-            value={reliability.antennaType}
-            onChange={(event) =>
-              setReliability({ antennaType: event.target.value as AntennaType })
-            }
-            className={selectClass}
-          >
-            {ANTENNA_TYPES.map((antenna) => (
-              <option key={antenna.type} value={antenna.type}>
-                {antenna.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          {activeChain ? (
+            <p className="rounded border border-white/10 bg-void-black px-1.5 py-1 font-mono text-[10px] normal-case tracking-normal text-gray-200">
+              {chainAntenna?.name ?? "Chain antenna"}
+            </p>
+          ) : (
+            <select
+              aria-label="Reliability antenna"
+              value={reliability.antennaType}
+              onChange={(event) =>
+                setReliability({
+                  antennaType: event.target.value as AntennaType,
+                })
+              }
+              className={selectClass}
+            >
+              {ANTENNA_TYPES.map((antenna) => (
+                <option key={antenna.type} value={antenna.type}>
+                  {antenna.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-2 font-mono text-[10px]">
@@ -360,8 +397,9 @@ export function HamClockReliabilityPanel() {
         })}
       </div>
       <p className="text-[9px] leading-relaxed text-gray-600">
-        Enhanced path-model index using current Kp/SFI. Relative comparison,
-        not a guaranteed QSO probability.
+        {activeChain
+          ? `Live path ${activeChain.name} at ${Math.round(activeChain.operatingPowerWatts)} W. Matrix power is quantized for display only and does not change the station.`
+          : "No signal path — using HamClock kit. Enhanced path-model index using current Kp/SFI. Relative comparison, not a guaranteed QSO probability."}
       </p>
     </div>
   );

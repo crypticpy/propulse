@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useCallback } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Link, Navigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -12,8 +12,6 @@ import { useSync } from "@/hooks/useSync";
 import { useAuthStore } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useProfileStore } from "@/stores/profileStore";
-import { useOperatorRank } from "@/hooks/useOperatorRank";
-import { RankUpCelebration } from "@/components/rank/RankUpCelebration";
 import { WelcomeOverlay } from "@/components/onboarding";
 
 const RadioSetupWizard = lazy(() =>
@@ -26,7 +24,11 @@ const WSJTXAutoLogHost = lazy(() =>
     default: m.WSJTXAutoLogHost,
   })),
 );
-import type { RankTier } from "@/types/rank";
+const RankPersistenceHost = lazy(() =>
+  import("@/components/rank/RankPersistenceHost").then((m) => ({
+    default: m.RankPersistenceHost,
+  })),
+);
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
 import { NetAlertToasts } from "@/components/nets/NetAlertToasts";
@@ -231,33 +233,7 @@ function App() {
     recordLogin();
   }, [recordLogin]);
 
-  // Rank-up celebration — invoke hook to trigger rank computation side-effects
-  useOperatorRank({ persist: true });
-  const rankHistory = useProfileStore((s) => s.operatorRank.rankHistory);
-  const rankCelebrationSeen = useProfileStore((s) => s.rankCelebrationSeen);
-  const markCelebrationSeen = useProfileStore((s) => s.markCelebrationSeen);
-  const [showCelebration, setShowCelebration] = useState(false);
   const [upgradeToast, setUpgradeToast] = useState(false);
-  const [celebrationRanks, setCelebrationRanks] = useState<{
-    from: RankTier;
-    to: RankTier;
-  } | null>(null);
-
-  // Check if there's a new rank transition to celebrate
-  useEffect(() => {
-    if (rankHistory.length === 0) return;
-    const latestTransition = rankHistory[rankHistory.length - 1];
-    const latestTimestamp = latestTransition.timestamp;
-
-    // Show celebration if latest transition is newer than last seen
-    if (!rankCelebrationSeen || latestTimestamp > rankCelebrationSeen) {
-      setCelebrationRanks({
-        from: latestTransition.from,
-        to: latestTransition.to,
-      });
-      setShowCelebration(true);
-    }
-  }, [rankHistory, rankCelebrationSeen]);
 
   // Upgrade success toast — detect ?upgraded=true and show briefly
   useEffect(() => {
@@ -270,21 +246,12 @@ function App() {
     }
   }, []);
 
-  const handleDismissCelebration = useCallback(() => {
-    setShowCelebration(false);
-    markCelebrationSeen();
-  }, [markCelebrationSeen]);
-
   return (
     <ErrorBoundary>
       <AuthGate>
-        {!isKiosk && showCelebration && celebrationRanks && (
-          <RankUpCelebration
-            fromRank={celebrationRanks.from}
-            toRank={celebrationRanks.to}
-            onDismiss={handleDismissCelebration}
-          />
-        )}
+        <Suspense fallback={null}>
+          <RankPersistenceHost />
+        </Suspense>
         <WelcomeOverlay />
         <Suspense fallback={null}>
           <WSJTXAutoLogHost />
@@ -357,6 +324,8 @@ function App() {
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/:callsign" element={<ProfilePage />} />
+            <Route path="/op/:callsign" element={<ProfilePage />} />
+            <Route path="/op/:callsign/shack" element={<ProfilePage />} />
             <Route path="/shack" element={<ShackPage />} />
             <Route path="/sdr" element={<SdrConsole />} />
             <Route path="/sdr/setup" element={<RadioDaemonSetup />} />

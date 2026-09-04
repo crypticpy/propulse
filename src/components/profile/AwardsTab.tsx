@@ -8,6 +8,7 @@
 import { useAwardProgress } from "@/hooks/useAwardProgress";
 import { AwardProgressRing } from "./AwardProgressRing";
 import { AchievementGrid } from "./AchievementGrid";
+import { TrophyShelf } from "./TrophyShelf";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -187,7 +188,9 @@ export function AwardsTab() {
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
           Achievement Badges
         </h3>
-        <AchievementGrid />
+        <TrophyShelf>
+          <AchievementGrid />
+        </TrophyShelf>
       </div>
     </div>
   );

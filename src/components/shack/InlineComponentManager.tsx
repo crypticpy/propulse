@@ -833,6 +833,7 @@ export function InlineComponentManager({
               ]}
               stats={getInlineStats(c)}
               imageId={c.imageId}
+              instanceId={c.id}
               onClick={() => setViewInlineId(c.id)}
               onEdit={() => openEdit(c)}
               onDelete={() => requestDelete(c)}

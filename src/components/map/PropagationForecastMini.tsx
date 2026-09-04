@@ -12,6 +12,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useForecastDisplayPrefs } from "@/stores/userStore";
 import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
+import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { predictionIssueLabels } from "@/lib/propagation/predictionPresentation";
@@ -190,6 +191,12 @@ export function PropagationForecastMini({
   const { station } = useUserStore();
   const activeBand = useActiveBand();
   const activeMode = useActiveMode();
+  const forecastStation = useForecastStationParams(
+    station?.lat,
+    station?.lon,
+    target?.lat,
+    target?.lon,
+  );
   const forecastDisplay = useForecastDisplayPrefs();
   const updateForecastDisplay = useUserStore((s) => s.updateForecastDisplay);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -376,8 +383,9 @@ export function PropagationForecastMini({
       currentKp,
       currentSfi,
       displayTime,
+      forecastStation,
     );
-  }, [station, target, currentKp, currentSfi, displayTime]);
+  }, [station, target, currentKp, currentSfi, displayTime, forecastStation]);
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {

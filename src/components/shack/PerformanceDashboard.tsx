@@ -2,10 +2,11 @@
  * PerformanceDashboard — Per-band capability matrix and system summary.
  *
  * Shows a detailed table of band performance data and summary cards
- * for the active station preset.
+ * Shows a detailed table of band performance data and summary cards
+ * for the active signal path.
  */
 
-import { useStationPerformance } from "@/hooks/useStationPerformance";
+import { useChainPerformance } from "@/hooks/useChainPerformance";
 import { BandCapabilityStrip } from "./BandCapabilityStrip";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -30,13 +31,13 @@ function lossClass(value: number): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PerformanceDashboard() {
-  const perf = useStationPerformance();
+  const perf = useChainPerformance();
 
-  if (!perf.preset) {
+  if (!perf.chain) {
     return (
       <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
         <p className="text-center text-gray-500 text-sm">
-          Activate a station preset to see performance data
+          Activate a signal path in the Diagram lab to see performance data
         </p>
       </div>
     );
@@ -46,12 +47,17 @@ export function PerformanceDashboard() {
     return (
       <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
         <p className="text-center text-gray-500 text-sm">
-          No band data available for the active preset. Ensure the antenna has
-          bands configured.
+          No band data available for the active signal path. Ensure the antenna
+          has bands configured.
         </p>
       </div>
     );
   }
+
+  const losses = perf.bands.map((b) => b.feedlineLossDb);
+  const totalLossRangeDb = losses.length
+    ? `${Math.min(...losses).toFixed(1)} - ${Math.max(...losses).toFixed(1)}`
+    : "";
 
   const bandLossData = perf.bands.map((b) => ({
     band: b.band,
@@ -92,13 +98,13 @@ export function PerformanceDashboard() {
             </div>
           </div>
         )}
-        {perf.totalLossRangeDb && (
+        {totalLossRangeDb && (
           <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
             <div className="text-xs text-gray-400 mb-1">
               Feedline Loss Range
             </div>
             <div className="text-lg font-bold text-gray-200">
-              {perf.totalLossRangeDb} dB
+              {totalLossRangeDb} dB
             </div>
             <div className="text-xs text-gray-500">Across all bands</div>
           </div>

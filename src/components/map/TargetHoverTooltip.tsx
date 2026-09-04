@@ -6,7 +6,6 @@
  * existing propagation utilities.
  */
 
-import { useMemo } from "react";
 import type {
   FocusEventHandler,
   KeyboardEventHandler,
@@ -23,7 +22,8 @@ import {
   type DifficultyLevel,
 } from "./LocationMarker";
 import {
-  placeAnchoredOverlay,
+  placeAnchoredOverlayInFrame,
+  resolveOverlayFrame,
   type ScreenAnchor,
 } from "@/lib/map/anchoredOverlay";
 
@@ -165,23 +165,17 @@ export function TargetHoverTooltip({
   onClick,
   onKeyDown,
 }: TargetHoverTooltipProps) {
-  const adjustedPosition = useMemo(() => {
-    const viewportWidth =
-      typeof window !== "undefined" ? window.innerWidth : 1920;
-    const viewportHeight =
-      typeof window !== "undefined" ? window.innerHeight : 1080;
-
-    const estimatedHeight =
-      (optimalSignal?.notes ? 120 : 102) +
-      (distanceKm !== undefined || bearing !== undefined ? 18 : 0) +
-      (contextLabel ? 16 : 0);
-    return placeAnchoredOverlay(
-      position,
-      { width: TOOLTIP_WIDTH, height: estimatedHeight },
-      { width: viewportWidth, height: viewportHeight },
-      { axis: "vertical", gap: 10, padding: EDGE_PADDING },
-    );
-  }, [bearing, contextLabel, distanceKm, position, optimalSignal?.notes]);
+  const overlayFrame = resolveOverlayFrame(portalTarget);
+  const estimatedHeight =
+    (optimalSignal?.notes ? 120 : 102) +
+    (distanceKm !== undefined || bearing !== undefined ? 18 : 0) +
+    (contextLabel ? 16 : 0);
+  const adjustedPosition = placeAnchoredOverlayInFrame(
+    position,
+    { width: TOOLTIP_WIDTH, height: estimatedHeight },
+    overlayFrame,
+    { axis: "vertical", gap: 10, padding: EDGE_PADDING },
+  );
 
   if (!visible) {
     return null;
@@ -208,7 +202,7 @@ export function TargetHoverTooltip({
         interactive ? (event) => event.stopPropagation() : undefined
       }
       className={`
-        fixed z-[100] ${interactive ? "pointer-events-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" : "pointer-events-none"}
+        ${overlayFrame.position === "absolute" ? "absolute" : "fixed"} z-[100] ${interactive ? "pointer-events-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" : "pointer-events-none"}
         bg-gray-950
         border border-white/10 rounded-lg
         shadow-xl

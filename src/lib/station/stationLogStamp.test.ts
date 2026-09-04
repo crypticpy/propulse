@@ -166,4 +166,49 @@ describe("stationLogStamp", () => {
     expect(stamp.txPower).toBe(5);
     expect(stamp.stationLine).toContain("5 W");
   });
+
+  it("stamps the chain-linked operating location grid", () => {
+    const chain: StationChain = {
+      id: "chain-1",
+      name: "POTA",
+      nodes: [{ type: "radio", radioId: "owned-radio" }],
+      feedlineRuns: [],
+      operatingPowerWatts: 50,
+      linkedLocationId: "park",
+      shackAccessoryIds: [],
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const stamp = resolveStationLogStamp(
+      emptyShack({
+        radios: [userRadio],
+        customRadios: [equipment],
+        stationChains: [chain],
+        activeChainId: "chain-1",
+      }),
+      {
+        ...station,
+        savedLocations: [
+          {
+            id: "home",
+            name: "Home",
+            grid: "FN42",
+            lat: 42.3,
+            lon: -71.1,
+            type: "home",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+          {
+            id: "park",
+            name: "POTA K-1234",
+            grid: "FN32",
+            lat: 41.8,
+            lon: -72.2,
+            type: "pota",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+      },
+    );
+    expect(stamp.myGrid).toBe("FN32");
+  });
 });

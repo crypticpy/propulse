@@ -135,10 +135,15 @@ export function resolveStationLogStamp(
     options.powerOverride ??
     chain?.operatingPowerWatts ??
     resolvedRadio?.userRadio.customPowerLimit;
+  const linkedGrid = chain?.linkedLocationId
+    ? station?.savedLocations.find(
+        (location) => location.id === chain.linkedLocationId,
+      )?.grid
+    : undefined;
 
   return {
     stationCallsign: station?.callsign?.trim().toUpperCase() || undefined,
-    myGrid: station?.grid?.trim() || undefined,
+    myGrid: linkedGrid?.trim() || station?.grid?.trim() || undefined,
     myRig,
     myAntenna,
     txPower: typeof txPower === "number" && Number.isFinite(txPower) ? txPower : undefined,

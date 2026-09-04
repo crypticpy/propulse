@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -14,6 +14,10 @@ import {
 } from "@/stores/userStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useRigStore } from "@/stores/rigStore";
+import { useContestContext } from "@/hooks/useContestContext";
+import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { useStationPerformance } from "@/hooks/useStationPerformance";
 import { RADIO_DATABASE } from "@/lib/data/radios";
 import type { ITURegion, LicenseClass } from "@/types/bandplan";
 import type { RadioEquipment } from "@/types/radio";
@@ -23,6 +27,7 @@ import {
   type ResolvedTarget,
   type WizardMode,
   type WizardPathMode,
+  type WizardOptimizeFor,
   buildWizardRecommendation,
   resolveAntennaGainDbi,
   resolveTargetQuery,
@@ -36,6 +41,8 @@ import {
   getModeTips,
   clampCeilingToKit,
   snrMarginDb,
+  correlateBandReality,
+  formatKHz,
 } from "@/lib/dxwizard";
 
 const DEFAULT_KP = 3;
@@ -66,6 +73,15 @@ export function useDXWizardSession() {
 
   const mapTarget = useMapStore((s) => s.target);
   const recentTargets = useMapStore((s) => s.recentTargets);
+  const setMapTarget = useMapStore((s) => s.setTarget);
+  const addSavedTarget = useUserStore((s) => s.addTarget);
+  const navigate = useNavigate();
+  const catEnabled = useRigStore((s) => s.catEnabled);
+  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
+  const setPendingMode = useRigStore((s) => s.setPendingMode);
+  const contestContext = useContestContext();
+  const stationPerformance = useStationPerformance();
+  const bandVerdicts = useBandVerdicts();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -83,6 +99,9 @@ export function useDXWizardSession() {
 
   const [mode, setMode] = useState<WizardMode>("FT8");
   const [pathMode, setPathMode] = useState<WizardPathMode>("short");
+  const [optimizeFor, setOptimizeFor] =
+    useState<WizardOptimizeFor>("propagation");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [licenseClass, setLicenseClass] = useState<LicenseClass>(
     (preferences.licenseClass ?? "GENERAL") as LicenseClass,
   );
@@ -313,7 +332,7 @@ export function useDXWizardSession() {
     [applyTarget],
   );
 
-  const antennaGainDbi = useMemo(() => {
+  const baseAntennaGainDbi = useMemo(() => {
     if (!station || !target) return 0;
     return resolveAntennaGainDbi({
       antennaType,
@@ -325,15 +344,25 @@ export function useDXWizardSession() {
     });
   }, [antennaType, pathMode, station, target]);
 
+  const congestionContext = useMemo(
+    () => ({
+      activeContests: contestContext.activeContests,
+      isContestWeekend: contestContext.isContestWeekend,
+      currentHourUtc: new Date().getUTCHours(),
+    }),
+    [contestContext.activeContests, contestContext.isContestWeekend],
+  );
+
   const recommendation = useMemo(() => {
     if (!station || !target) return null;
-    return buildWizardRecommendation({
-      station: {
-        lat: station.lat,
-        lon: station.lon,
-        grid: station.grid,
-        callsign: station.callsign,
-      },
+    const stationInput = {
+      lat: station.lat,
+      lon: station.lon,
+      grid: station.grid,
+      callsign: station.callsign,
+    };
+    const shared = {
+      station: stationInput,
       target,
       mode,
       ituRegion,
@@ -342,24 +371,95 @@ export function useDXWizardSession() {
       currentSfi,
       txPowerCeilingWatts,
       kitMaxPowerWatts: selectedRadio?.maxPower ?? txPowerCeilingWatts,
-      antennaGainDbi,
       noiseEnvironment,
       pathMode,
+      optimizeFor,
+      congestionContext,
+    } as const;
+
+    // First pass with path antenna model, then re-rank with shack gain for
+    // the recommended band so ERP reflects the kit actually used on that band.
+    const first = buildWizardRecommendation({
+      ...shared,
+      antennaGainDbi: baseAntennaGainDbi,
+    });
+    if (first.type !== "ok") return first;
+
+    const shackBand = stationPerformance.bands.find(
+      (b) => b.band.toLowerCase() === first.best.band.toLowerCase(),
+    );
+    if (
+      !shackBand ||
+      !Number.isFinite(shackBand.antennaGainDbi) ||
+      Math.abs(shackBand.antennaGainDbi - baseAntennaGainDbi) < 0.05
+    ) {
+      return first;
+    }
+
+    return buildWizardRecommendation({
+      ...shared,
+      antennaGainDbi: shackBand.antennaGainDbi,
     });
   }, [
-    antennaGainDbi,
+    baseAntennaGainDbi,
+    congestionContext,
     currentKp,
     currentSfi,
     ituRegion,
     licenseClass,
     mode,
     noiseEnvironment,
+    optimizeFor,
     pathMode,
     selectedRadio?.maxPower,
     station,
+    stationPerformance.bands,
     target,
     txPowerCeilingWatts,
   ]);
+
+  const antennaGainDbi =
+    recommendation?.antennaGainDbi ?? baseAntennaGainDbi;
+
+  const realityCheck = useMemo(() => {
+    if (!recommendation || recommendation.type !== "ok") return null;
+    const band = recommendation.best.band;
+    const ladder =
+      bandVerdicts.bands.find(
+        (b) => b.band.toLowerCase() === band.toLowerCase(),
+      )?.stable ?? null;
+    const check = correlateBandReality({
+      modelStatus: recommendation.best.status,
+      ladderState: ladder,
+    });
+    // Ladder is scoped to Band Health (regional/global/DX pair from profile),
+    // not necessarily this wizard path — keep the claim honest in the detail.
+    return {
+      ...check,
+      detail: `${check.detail} Live scope: ${bandVerdicts.scope.label}.`,
+    };
+  }, [bandVerdicts.bands, bandVerdicts.scope.label, recommendation]);
+
+  const shackSummary = useMemo(() => {
+    const preset = stationPerformance.preset;
+    if (!preset) return null;
+    const bestBand =
+      recommendation?.type === "ok"
+        ? stationPerformance.bands.find(
+            (b) =>
+              b.band.toLowerCase() ===
+              recommendation.best.band.toLowerCase(),
+          )
+        : stationPerformance.bestBand;
+    if (!bestBand) {
+      return { name: preset.name, erpWatts: null as number | null, gainDbi: null as number | null };
+    }
+    return {
+      name: preset.name,
+      erpWatts: Math.round(bestBand.erpWatts),
+      gainDbi: bestBand.antennaGainDbi,
+    };
+  }, [recommendation, stationPerformance]);
 
   const pathSummary = useMemo(() => {
     if (!station || !target) return null;
@@ -405,6 +505,71 @@ export function useDXWizardSession() {
     if (!target) return "/planner";
     return bandPlannerHrefForTarget(target.grid);
   }, [target]);
+
+  const openOnMap = useCallback(() => {
+    if (!target) return;
+    setMapTarget({
+      lat: target.lat,
+      lon: target.lon,
+      grid: target.grid,
+      name: target.label,
+    });
+    navigate("/map");
+  }, [navigate, setMapTarget, target]);
+
+  const saveTarget = useCallback(() => {
+    if (!target) return;
+    addSavedTarget({
+      name: target.label,
+      grid: target.grid,
+      lat: target.lat,
+      lon: target.lon,
+    });
+    setActionMessage("Target saved to profile.");
+  }, [addSavedTarget, target]);
+
+  const tuneRecommended = useCallback(() => {
+    if (!recommendation || recommendation.type !== "ok") return;
+    const khz = recommendation.best.freqsKHz[0];
+    if (!khz) return;
+    setPendingFrequency(khz * 1000);
+    const rigMode =
+      mode === "CW" ? "CW" : mode === "SSB" ? (khz < 10000 ? "LSB" : "USB") : "USB";
+    setPendingMode(rigMode);
+    setActionMessage(
+      catEnabled
+        ? `Tuned to ${formatKHz(khz)} ${rigMode}`
+        : `Queued ${formatKHz(khz)} ${rigMode} (enable CAT to apply)`,
+    );
+  }, [
+    catEnabled,
+    mode,
+    recommendation,
+    setPendingFrequency,
+    setPendingMode,
+  ]);
+
+  const copySummary = useCallback(async () => {
+    if (!target || !recommendation || recommendation.type !== "ok") return;
+    const best = recommendation.best;
+    const bearing = pathSummary
+      ? `${Math.round(pathSummary.active.bearing)}°`
+      : "";
+    const text = [
+      `DX Wizard → ${target.label} (${target.grid})`,
+      `Band ${best.band} · ${formatKHz(best.freqsKHz[0])} · ${mode}`,
+      `Power ~${best.requiredWatts}W · ${pathMode} path ${bearing}`,
+      realityCheck ? `Reality: ${realityCheck.label}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setActionMessage("Summary copied.");
+    } catch {
+      setActionMessage("Clipboard unavailable.");
+    }
+  }, [mode, pathMode, pathSummary, realityCheck, recommendation, target]);
 
   const radioLabel = useMemo(() => {
     if (!selectedRadio) return "";
@@ -463,6 +628,8 @@ export function useDXWizardSession() {
     modes: WIZARD_MODES,
     pathMode,
     setPathMode,
+    optimizeFor,
+    setOptimizeFor,
     licenseClass,
     setLicenseClass,
     ituRegion,
@@ -488,6 +655,15 @@ export function useDXWizardSession() {
     antennaGainDbi,
     bandPlannerHref,
     targetBandsForContest,
+    realityCheck,
+    shackSummary,
+    contestContext,
+    catEnabled,
+    actionMessage,
+    openOnMap,
+    saveTarget,
+    tuneRecommended,
+    copySummary,
     getRadioLabel,
   };
 }

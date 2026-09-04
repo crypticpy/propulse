@@ -8,7 +8,10 @@ import {
   bandPlannerHrefForTarget,
   buildWizardRecommendation,
   longPathFsplDeltaDb,
+  correlateBandReality,
+  applyContestCongestionRanking,
 } from "@/lib/dxwizard";
+import type { ContestCalendarEntry } from "@/lib/contest/contestCalendarTypes";
 
 describe("dxwizard power", () => {
   it("clamps watts to 1–1500", () => {
@@ -182,6 +185,120 @@ describe("dxwizard recommend", () => {
       if (over) {
         expect(over.requiredWatts).toBeGreaterThan(over.ceilingWatts);
       }
+    }
+  });
+});
+
+describe("dxwizard correlation", () => {
+  it("marks confirmed when model and live agree open", () => {
+    const r = correlateBandReality({
+      modelStatus: "excellent",
+      ladderState: "verified",
+    });
+    expect(r.label).toBe("Confirmed");
+  });
+
+  it("marks surprise open when live beats closed model", () => {
+    const r = correlateBandReality({
+      modelStatus: "closed",
+      ladderState: "hot",
+    });
+    expect(r.label).toBe("Surprise Open");
+  });
+});
+
+describe("dxwizard contest rank", () => {
+  it("prefers clearer bands when optimizeFor is clear", () => {
+    const base = {
+      requiredWatts: 50,
+      ceilingWatts: 100,
+      withinCeiling: true,
+      freqsKHz: [14074],
+      legalMaxWatts: 1500,
+      frequency: "14 MHz",
+      snrEstimate: -12,
+      notes: "",
+      status: "good" as const,
+    };
+    const contest: ContestCalendarEntry = {
+      id: "cq-ww",
+      name: "CQ WW",
+      sponsor: "CQ",
+      startUtc: new Date().toISOString(),
+      endUtc: new Date(Date.now() + 86400000).toISOString(),
+      bands: ["20m", "15m", "10m", "40m", "80m", "160m"],
+      modes: ["SSB", "CW", "FT8", "DIGITAL"],
+      exchange: "RST + Zone",
+      description: "Major DX contest",
+      difficulty: "advanced",
+      estimatedParticipants: 50000,
+      tags: ["dx", "major"],
+      warcExempt: true,
+    };
+
+    const ranked = applyContestCongestionRanking({
+      candidates: [
+        { ...base, band: "20m", snrEstimate: -10, requiredWatts: 40 },
+        { ...base, band: "17m", snrEstimate: -12, requiredWatts: 50 },
+      ],
+      mode: "FT8",
+      optimizeFor: "clear",
+      congestionContext: {
+        isContestWeekend: true,
+        currentHourUtc: 14,
+        activeContests: [contest],
+      },
+    });
+    expect(ranked.best?.band).toBe("17m");
+    expect(ranked.candidates.find((c) => c.band === "20m")?.contestImpact).not.toBe(
+      "clear",
+    );
+  });
+
+  it("honors propagation optimizeFor on contest weekends", () => {
+    const contest: ContestCalendarEntry = {
+      id: "cq-ww",
+      name: "CQ WW",
+      sponsor: "CQ",
+      startUtc: new Date().toISOString(),
+      endUtc: new Date(Date.now() + 86400000).toISOString(),
+      bands: ["20m", "15m", "10m", "40m", "80m", "160m"],
+      modes: ["SSB", "CW", "FT8", "DIGITAL"],
+      exchange: "RST + Zone",
+      description: "Major DX contest",
+      difficulty: "advanced",
+      estimatedParticipants: 50000,
+      tags: ["dx", "major"],
+      warcExempt: true,
+    };
+    const result = buildWizardRecommendation({
+      station: { lat: 41.7, lon: -72.7, grid: "FN31" },
+      target: {
+        label: "Tokyo",
+        grid: "PM95",
+        lat: 35.68,
+        lon: 139.76,
+        source: "grid",
+      },
+      mode: "FT8",
+      ituRegion: "ITU2",
+      licenseClass: "EXTRA",
+      currentKp: 2,
+      currentSfi: 150,
+      txPowerCeilingWatts: 100,
+      kitMaxPowerWatts: 100,
+      antennaGainDbi: 0,
+      pathMode: "short",
+      optimizeFor: "propagation",
+      congestionContext: {
+        isContestWeekend: true,
+        currentHourUtc: 14,
+        activeContests: [contest],
+      },
+      date: new Date("2026-03-15T18:00:00Z"),
+    });
+    if (result.type === "ok") {
+      expect(result.optimizeFor).toBe("propagation");
     }
   });
 });

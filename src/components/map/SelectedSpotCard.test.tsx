@@ -7,11 +7,24 @@ import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 
-const { selectMapSpot } = vi.hoisted(() => ({ selectMapSpot: vi.fn() }));
+const { selectMapSpot, navigate } = vi.hoisted(() => ({
+  selectMapSpot: vi.fn(),
+  navigate: vi.fn(),
+}));
 
 vi.mock("@/hooks/useMapSpotSelection", () => ({
   useMapSpotSelection: () => selectMapSpot,
 }));
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>(
+    "react-router-dom",
+  );
+  return {
+    ...actual,
+    useNavigate: () => navigate,
+  };
+});
 
 vi.mock("./LiveSpotArcs", () => ({
   formatSpotAge: () => "2:15",
@@ -60,6 +73,7 @@ const spot: LiveSpot = {
 describe("SelectedSpotCard", () => {
   beforeEach(() => {
     selectMapSpot.mockReset();
+    navigate.mockReset();
     useMapOperationalStore.setState({
       manualScope: null,
       workspaceOpen: false,

@@ -114,7 +114,7 @@ describe("stored spot routes", () => {
           spotter: "N0XYZ",
           dx: "K0ABC",
           frequency: 14074,
-          band: "20M",
+          band: "20m",
         },
       ],
       meta: { schemaVersion: 1, source: "dxcluster", status: "ok" },

@@ -76,7 +76,8 @@ export function BandActivityBar({
 
     for (const spot of spots) {
       if (spot.band) {
-        countMap.set(spot.band, (countMap.get(spot.band) || 0) + 1);
+        const band = spot.band.toLowerCase();
+        countMap.set(band, (countMap.get(band) || 0) + 1);
       }
     }
 

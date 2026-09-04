@@ -254,7 +254,7 @@ export function selectAvailableBands(state: DXState): string[] {
   const bands = new Set<string>();
   for (const spot of state.spots) {
     if (spot.band) {
-      bands.add(spot.band);
+      bands.add(spot.band.toLowerCase());
     }
   }
   // Sort bands by frequency order

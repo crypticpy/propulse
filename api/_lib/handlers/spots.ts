@@ -34,7 +34,7 @@ export async function handleSpotsDxcluster(req: Request): Promise<Response> {
     mode: row.mode || undefined,
     comment: row.comment || "",
     time: row.spotted_at,
-    band: row.band.toUpperCase(),
+    band: row.band.toLowerCase(),
     continent: row.continent || undefined,
     dxcc: row.dxcc ?? undefined,
   }));

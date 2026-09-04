@@ -83,8 +83,15 @@ function getBandMapModeColor(mode?: string): string {
 /**
  * Calculate spot size based on age (newer = larger)
  */
-function getSpotSize(spotTime: Date, now: number): number {
-  const ageMs = now - spotTime.getTime();
+function getSpotTimeMs(time: Date | string | number): number {
+  if (time instanceof Date) return time.getTime();
+  const parsed = new Date(time).getTime();
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function getSpotSize(spotTime: Date | string | number, now: number): number {
+  const ageMs = now - getSpotTimeMs(spotTime);
+  if (!Number.isFinite(ageMs)) return 4;
   const ageMinutes = ageMs / 60000;
   // Size ranges from 8 (newest) to 4 (oldest)
   return Math.max(4, 8 - (ageMinutes / TIME_WINDOW_MINUTES) * 4);
@@ -102,7 +109,8 @@ export function BandMap({
   className = "",
 }: BandMapProps) {
   const activeBand = useActiveBand();
-  const selectedBand = selectedBandProp ?? activeBand;
+  const selectedBandRaw = selectedBandProp ?? activeBand;
+  const selectedBand = selectedBandRaw?.toLowerCase() || null;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(600);
@@ -122,10 +130,11 @@ export function BandMap({
     const cutoffTime = now - TIME_WINDOW_MINUTES * 60 * 1000;
 
     return spots.filter((spot) => {
-      if (spot.band !== selectedBand) {
+      if ((spot.band ?? "").toLowerCase() !== selectedBand) {
         return false;
       }
-      if (spot.time.getTime() < cutoffTime) {
+      const spotTime = getSpotTimeMs(spot.time);
+      if (!Number.isFinite(spotTime) || spotTime < cutoffTime) {
         return false;
       }
       return true;
@@ -186,12 +195,15 @@ export function BandMap({
 
   // Map time to Y position (newest at top)
   const timeToY = useCallback(
-    (time: Date): number => {
+    (time: Date | string | number): number => {
       const now = Date.now();
       const plotHeight = canvasHeight - MARGINS.top - MARGINS.bottom;
-      const ageMs = now - time.getTime();
-      const ageMinutes = ageMs / 60000;
-      const normalized = ageMinutes / TIME_WINDOW_MINUTES;
+      const ageMs = now - getSpotTimeMs(time);
+      const ageMinutes = Number.isFinite(ageMs) ? ageMs / 60000 : TIME_WINDOW_MINUTES;
+      const normalized = Math.min(
+        1,
+        Math.max(0, ageMinutes / TIME_WINDOW_MINUTES),
+      );
       return MARGINS.top + normalized * plotHeight;
     },
     [canvasHeight],

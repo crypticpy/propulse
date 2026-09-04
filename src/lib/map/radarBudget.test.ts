@@ -4,6 +4,7 @@ import {
   radarRequestBudget,
   RADAR_TEXTURE_BUDGET,
   selectInitialRadarFrameIndex,
+  selectRadarFramesToLoad,
 } from "@/lib/map/radarBudget";
 
 describe("PropSphere radar resource budget", () => {
@@ -22,5 +23,13 @@ describe("PropSphere radar resource budget", () => {
     expect(selectInitialRadarFrameIndex([], 0)).toBeUndefined();
     expect(selectInitialRadarFrameIndex([7, 8, 9, 10, 11], 10)).toBe(9);
     expect(selectInitialRadarFrameIndex([10, 11], 0)).toBe(11);
+  });
+
+  it("reserves the latest observation when nowcast would crowd the budget", () => {
+    // 10 past + 3 nowcast, maxFrames 3: must include index 9 (latest past)
+    expect(selectRadarFramesToLoad(13, 10, 3)).toEqual([9, 11, 12]);
+    expect(selectRadarFramesToLoad(10, 10, 3)).toEqual([7, 8, 9]);
+    expect(selectRadarFramesToLoad(5, 0, 3)).toEqual([2, 3, 4]);
+    expect(selectRadarFramesToLoad(2, 2, 3)).toEqual([0, 1]);
   });
 });

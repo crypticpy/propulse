@@ -19,6 +19,7 @@ import { getAllRadarFrames } from "@/lib/api/radar";
 import {
   RADAR_TEXTURE_BUDGET,
   selectInitialRadarFrameIndex,
+  selectRadarFramesToLoad,
 } from "@/lib/map/radarBudget";
 import { compositeRadarTilesForFrame } from "@/lib/map/radarComposite";
 import {
@@ -72,11 +73,10 @@ function WeatherRadarOverlayInner({
   const allFrames = useMemo(() => getAllRadarFrames(manifest), [manifest]);
   const pastCount = manifest.radar.past.length;
 
-  const framesToLoad = useMemo(() => {
-    if (allFrames.length <= MAX_FRAMES) return allFrames.map((_, i) => i);
-    const startIdx = allFrames.length - MAX_FRAMES;
-    return Array.from({ length: MAX_FRAMES }, (_, i) => startIdx + i);
-  }, [allFrames]);
+  const framesToLoad = useMemo(
+    () => selectRadarFramesToLoad(allFrames.length, pastCount, MAX_FRAMES),
+    [allFrames.length, pastCount],
+  );
 
   const setFrame = useCallback((displayIndex: number) => {
     const loadedIndices = getLoadedFrameIndices(framesRef.current);

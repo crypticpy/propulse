@@ -142,7 +142,7 @@ export function gridActivityGridForCoordinate(
   resolution: GridActivityResolution,
 ): string {
   // The shared converter's minimum public precision is four characters.
-  // Slice its field/square result for the global two-character activity LOD.
+  // Slice only when a caller still asks for field (2) resolution in tests.
   // Clamp the inclusive north/east API bounds into the final legal field;
   // exactly 90/180 otherwise quantizes one cell beyond Maidenhead's A-R range.
   const safeLat = Math.min(89.999999, lat);
@@ -360,23 +360,24 @@ export function rankGridActivityCells(
     .map(({ cell }) => cell);
 }
 
-/** Map zoom to the finest resolution whose cells remain practical to select. */
+/**
+ * Activity fills use GridTracker-sized cells, never 2-character fields.
+ * A field is 20°×10° (the Gulf of Mexico, several US states). A square is
+ * 2°×1° — about county-to-metro size, which is what operators expect.
+ * Subsquares (5′×2.5′) appear only after a deep zoom.
+ */
 export function gridActivityResolutionForView(
   projection: "globe" | "flat" | "azimuthal",
   zoom: number,
 ): GridActivityResolution {
   const safeZoom = Number.isFinite(zoom) ? Math.max(0, zoom) : 1;
   if (projection === "flat") {
-    if (safeZoom >= 24) return 6;
-    if (safeZoom >= 2.5) return 4;
-    return 2;
+    return safeZoom >= 24 ? 6 : 4;
   }
   if (projection === "globe") {
-    if (safeZoom >= 8) return 6;
-    if (safeZoom >= 2.25) return 4;
-    return 2;
+    return safeZoom >= 8 ? 6 : 4;
   }
-  return safeZoom >= 2.4 ? 4 : 2;
+  return safeZoom >= 6 ? 6 : 4;
 }
 
 /** Decode 2-, 4-, or 6-character Maidenhead cells into geographic bounds. */

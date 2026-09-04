@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authHeadersMock = vi.hoisted(() => vi.fn(async () => ({})));
 const mapMock = vi.hoisted(() => ({
+  callbacks: new Map<string, (event?: unknown) => void>(),
   options: [] as Array<Record<string, unknown>>,
   remove: vi.fn(),
 }));
@@ -12,6 +13,7 @@ const photorealisticConfigMock = vi.hoisted(() => ({
     | string
     | null,
 }));
+const supportsPhotorealisticMock = vi.hoisted(() => ({ value: true }));
 
 vi.mock("@/lib/api/authFetch", () => ({ authHeaders: authHeadersMock }));
 vi.mock("@/lib/map/photorealistic3d", async () => {
@@ -21,7 +23,7 @@ vi.mock("@/lib/map/photorealistic3d", async () => {
   return {
     ...actual,
     getPhotorealistic3DConfig: () => photorealisticConfigMock,
-    supportsPhotorealistic3D: () => true,
+    supportsPhotorealistic3D: () => supportsPhotorealisticMock.value,
   };
 });
 
@@ -34,7 +36,8 @@ vi.mock("maplibre-gl", () => {
     remove = mapMock.remove;
     resize = vi.fn();
     setProjection = vi.fn();
-    on = vi.fn((name: string, callback: () => void) => {
+    on = vi.fn((name: string, callback: (event?: unknown) => void) => {
+      mapMock.callbacks.set(name, callback);
       if (name === "load") callback();
       return this;
     });
@@ -62,7 +65,7 @@ vi.mock("3d-tiles-renderer/plugins", () => ({
   GoogleCloudAuthPlugin: class GoogleCloudAuthPlugin {},
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { useKioskStore } from "@/stores/kioskStore";
@@ -78,11 +81,13 @@ describe("Photorealistic3DPage", () => {
   beforeEach(() => {
     localStorage.clear();
     authHeadersMock.mockClear();
+    mapMock.callbacks.clear();
     mapMock.options.length = 0;
     mapMock.remove.mockClear();
     photorealisticConfigMock.enabled = false;
     photorealisticConfigMock.unavailableReason =
       "Photorealistic 3D is disabled by configuration.";
+    supportsPhotorealisticMock.value = true;
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn(() => ({
@@ -111,6 +116,7 @@ describe("Photorealistic3DPage", () => {
     expect(
       screen.getByRole("button", { name: /Photorealistic 3D/ }),
     ).toBeTruthy();
+    expect(await screen.findByText(/Powered by Esri/)).toBeTruthy();
   });
 
   it("keeps navigation visible in fallback/kiosk state and exits to Normal", async () => {
@@ -221,5 +227,48 @@ describe("Photorealistic3DPage", () => {
     await waitFor(() =>
       expect(screen.queryByText(/Add a Google Map Tiles API key/i)).toBeNull(),
     );
+  });
+
+  it("explains missing WebGL instead of asking for another API key", async () => {
+    photorealisticConfigMock.enabled = true;
+    photorealisticConfigMock.unavailableReason = null;
+    supportsPhotorealisticMock.value = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ apiKey: "browser-restricted-key" }),
+      }),
+    );
+    useProfileStore.setState({ subscriptionTier: "pro" });
+    useKioskStore.setState({ active: false, activeSceneId: null });
+
+    render(
+      <MemoryRouter initialEntries={["/map/photorealistic"]}>
+        <Photorealistic3DPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/browser or GPU/i)).toBeTruthy();
+    expect(screen.queryByText(/Add a Google Map Tiles API key/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
+  });
+
+  it("surfaces a sustained Esri imagery outage instead of a blank globe", async () => {
+    render(
+      <MemoryRouter initialEntries={["/map/photorealistic"]}>
+        <Photorealistic3DPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(mapMock.options.length).toBeGreaterThan(0));
+    act(() => {
+      mapMock.callbacks.get("error")?.();
+      mapMock.callbacks.get("error")?.();
+      mapMock.callbacks.get("error")?.();
+    });
+    expect(
+      await screen.findByText(/fallback globe could not load imagery/i),
+    ).toBeTruthy();
   });
 });

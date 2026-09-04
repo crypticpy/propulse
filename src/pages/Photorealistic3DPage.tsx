@@ -14,6 +14,7 @@ import { authHeaders } from "@/lib/api/authFetch";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import {
   getPhotorealistic3DConfig,
+  photorealisticFallbackMessage,
   shouldAttemptGooglePhotorealistic,
   supportsPhotorealistic3D,
 } from "@/lib/map/photorealistic3d";
@@ -25,9 +26,6 @@ import { useProfileStore } from "@/stores/profileStore";
 const PhotorealisticGoogleTiles = lazy(
   () => import("@/components/map/PhotorealisticGoogleTiles"),
 );
-
-const GOOGLE_KEY_BANNER =
-  "Using Esri World Imagery. Add a Google Map Tiles API key for photorealistic city-scale detail.";
 
 interface PhotorealisticChromeProps {
   label?: string;
@@ -160,7 +158,17 @@ export default function Photorealistic3DPage() {
 
   const useGoogle =
     Boolean(apiKey) && supported && !googleFailed && attemptGoogle;
-  const showRetry = attemptGoogle && !useGoogle && apiKey !== undefined;
+  const showRetry =
+    attemptGoogle &&
+    !useGoogle &&
+    apiKey !== undefined &&
+    supported &&
+    (googleFailed || apiKey === null);
+  const fallbackBanner = photorealisticFallbackMessage({
+    googleFailed,
+    webglSupported: supported,
+    attemptedGoogle: attemptGoogle,
+  });
 
   const errorTarget =
     quality.effective === "extreme"
@@ -230,7 +238,7 @@ export default function Photorealistic3DPage() {
       ) : apiKey !== undefined ? (
         <div className="absolute top-16 right-3 z-20 flex max-w-sm flex-col items-end gap-2">
           <span className="rounded bg-black/60 px-2 py-1 text-[10px] text-caution-amber">
-            {GOOGLE_KEY_BANNER}
+            {fallbackBanner}
           </span>
           {keyError && (
             <span className="rounded bg-black/60 px-2 py-1 text-[10px] text-gray-400">

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  GOOGLE_KEY_FALLBACK_MESSAGE,
   getPhotorealistic3DConfig,
+  photorealisticFallbackMessage,
   shouldAttemptGooglePhotorealistic,
 } from "./photorealistic3d";
 
@@ -44,5 +46,44 @@ describe("shouldAttemptGooglePhotorealistic", () => {
 
   it("attempts Google only for Pro sessions with the flag on", () => {
     expect(shouldAttemptGooglePhotorealistic("pro", enabled)).toBe(true);
+  });
+});
+
+describe("photorealisticFallbackMessage", () => {
+  it("asks for a key only when Google was never attempted", () => {
+    expect(
+      photorealisticFallbackMessage({
+        googleFailed: false,
+        webglSupported: true,
+        attemptedGoogle: false,
+      }),
+    ).toBe(GOOGLE_KEY_FALLBACK_MESSAGE);
+  });
+
+  it("does not blame a missing key after Google tiles fail", () => {
+    expect(
+      photorealisticFallbackMessage({
+        googleFailed: true,
+        webglSupported: true,
+        attemptedGoogle: true,
+      }),
+    ).toMatch(/could not be loaded/i);
+    expect(
+      photorealisticFallbackMessage({
+        googleFailed: true,
+        webglSupported: true,
+        attemptedGoogle: true,
+      }),
+    ).not.toMatch(/API key/i);
+  });
+
+  it("explains missing WebGL instead of asking for a key", () => {
+    expect(
+      photorealisticFallbackMessage({
+        googleFailed: false,
+        webglSupported: false,
+        attemptedGoogle: true,
+      }),
+    ).toMatch(/browser or GPU/i);
   });
 });

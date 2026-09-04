@@ -332,28 +332,8 @@ export function useDXWizardSession() {
     [applyTarget],
   );
 
-  // Default optimize-for to Balance on contest weekends
-  useEffect(() => {
-    if (
-      contestContext.isContestWeekend &&
-      contestContext.activeContests.length > 0 &&
-      optimizeFor === "propagation"
-    ) {
-      setOptimizeFor("balance");
-    }
-    // only react to contest weekend transitions
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contestContext.isContestWeekend, contestContext.activeContests.length]);
-
-  const antennaGainDbi = useMemo(() => {
+  const baseAntennaGainDbi = useMemo(() => {
     if (!station || !target) return 0;
-    const shackBand = stationPerformance.bands.find(
-      (b) => b.band.toLowerCase() === "20m" || b.supported,
-    );
-    const override =
-      shackBand && Number.isFinite(shackBand.antennaGainDbi)
-        ? shackBand.antennaGainDbi
-        : undefined;
     return resolveAntennaGainDbi({
       antennaType,
       homeLat: station.lat,
@@ -361,9 +341,8 @@ export function useDXWizardSession() {
       targetLat: target.lat,
       targetLon: target.lon,
       pathMode,
-      overrideGainDbi: override,
     });
-  }, [antennaType, pathMode, station, stationPerformance.bands, target]);
+  }, [antennaType, pathMode, station, target]);
 
   const congestionContext = useMemo(
     () => ({
@@ -376,13 +355,14 @@ export function useDXWizardSession() {
 
   const recommendation = useMemo(() => {
     if (!station || !target) return null;
-    return buildWizardRecommendation({
-      station: {
-        lat: station.lat,
-        lon: station.lon,
-        grid: station.grid,
-        callsign: station.callsign,
-      },
+    const stationInput = {
+      lat: station.lat,
+      lon: station.lon,
+      grid: station.grid,
+      callsign: station.callsign,
+    };
+    const shared = {
+      station: stationInput,
       target,
       mode,
       ituRegion,
@@ -391,14 +371,37 @@ export function useDXWizardSession() {
       currentSfi,
       txPowerCeilingWatts,
       kitMaxPowerWatts: selectedRadio?.maxPower ?? txPowerCeilingWatts,
-      antennaGainDbi,
       noiseEnvironment,
       pathMode,
       optimizeFor,
       congestionContext,
+    } as const;
+
+    // First pass with path antenna model, then re-rank with shack gain for
+    // the recommended band so ERP reflects the kit actually used on that band.
+    const first = buildWizardRecommendation({
+      ...shared,
+      antennaGainDbi: baseAntennaGainDbi,
+    });
+    if (first.type !== "ok") return first;
+
+    const shackBand = stationPerformance.bands.find(
+      (b) => b.band.toLowerCase() === first.best.band.toLowerCase(),
+    );
+    if (
+      !shackBand ||
+      !Number.isFinite(shackBand.antennaGainDbi) ||
+      Math.abs(shackBand.antennaGainDbi - baseAntennaGainDbi) < 0.05
+    ) {
+      return first;
+    }
+
+    return buildWizardRecommendation({
+      ...shared,
+      antennaGainDbi: shackBand.antennaGainDbi,
     });
   }, [
-    antennaGainDbi,
+    baseAntennaGainDbi,
     congestionContext,
     currentKp,
     currentSfi,
@@ -410,9 +413,13 @@ export function useDXWizardSession() {
     pathMode,
     selectedRadio?.maxPower,
     station,
+    stationPerformance.bands,
     target,
     txPowerCeilingWatts,
   ]);
+
+  const antennaGainDbi =
+    recommendation?.antennaGainDbi ?? baseAntennaGainDbi;
 
   const realityCheck = useMemo(() => {
     if (!recommendation || recommendation.type !== "ok") return null;
@@ -421,11 +428,17 @@ export function useDXWizardSession() {
       bandVerdicts.bands.find(
         (b) => b.band.toLowerCase() === band.toLowerCase(),
       )?.stable ?? null;
-    return correlateBandReality({
+    const check = correlateBandReality({
       modelStatus: recommendation.best.status,
       ladderState: ladder,
     });
-  }, [bandVerdicts.bands, recommendation]);
+    // Ladder is scoped to Band Health (regional/global/DX pair from profile),
+    // not necessarily this wizard path — keep the claim honest in the detail.
+    return {
+      ...check,
+      detail: `${check.detail} Live scope: ${bandVerdicts.scope.label}.`,
+    };
+  }, [bandVerdicts.bands, bandVerdicts.scope.label, recommendation]);
 
   const shackSummary = useMemo(() => {
     const preset = stationPerformance.preset;

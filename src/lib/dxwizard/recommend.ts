@@ -169,12 +169,10 @@ export function buildWizardRecommendation(
     (congestionContext?.activeContests.length ?? 0) > 0;
 
   if (contestActive && congestionContext) {
-    const effectiveOptimize =
-      optimizeFor === "propagation" ? "balance" : optimizeFor;
     const ranked = applyContestCongestionRanking({
       candidates,
       mode,
-      optimizeFor: effectiveOptimize,
+      optimizeFor,
       congestionContext,
     });
     if (!ranked.best) {

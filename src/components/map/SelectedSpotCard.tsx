@@ -272,6 +272,10 @@ export function SelectedSpotCard({
       });
       const params = new URLSearchParams({
         call: spot.dx,
+        // Prefer exact coordinates so deep-link hydrate does not snap to
+        // grid-cell center when only a locator is present.
+        lat: String(spot.dxLat),
+        lon: String(spot.dxLon),
         grid,
       });
       if (spot.mode) {

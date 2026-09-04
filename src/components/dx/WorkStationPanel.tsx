@@ -39,11 +39,15 @@ export function WorkStationPanel({
 
   const wizardHref = useMemo(() => {
     const params = new URLSearchParams({ call: spot.dx });
-    if (spot.dxGrid) params.set("grid", spot.dxGrid);
-    else if (spot.dxLat != null && spot.dxLon != null) {
-      params.set("grid", latLonToGrid(spot.dxLat, spot.dxLon));
+    if (spot.dxLat != null && spot.dxLon != null) {
       params.set("lat", String(spot.dxLat));
       params.set("lon", String(spot.dxLon));
+      params.set(
+        "grid",
+        spot.dxGrid || latLonToGrid(spot.dxLat, spot.dxLon),
+      );
+    } else if (spot.dxGrid) {
+      params.set("grid", spot.dxGrid);
     }
     const mode = (spot.mode || "").toUpperCase();
     if (["FT8", "FT4", "CW", "SSB", "RTTY"].includes(mode)) {

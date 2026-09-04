@@ -287,6 +287,15 @@ export interface FlyoutPosition {
   grid: string;
 }
 
+/** Just-logged marker for the globe pulse (ephemeral, not persisted) */
+export interface LoggedMarker {
+  callsign: string;
+  lat: number;
+  lon: number;
+  grid?: string;
+  at: number;
+}
+
 /** Panel collapse states for persistence */
 export interface PanelStates {
   bandConditions: boolean; // true = collapsed
@@ -503,6 +512,10 @@ export interface MapState {
   setTooltipPosition: (pos: TooltipPosition | null) => void;
   flyoutPosition: FlyoutPosition | null;
   setFlyoutPosition: (pos: FlyoutPosition | null) => void;
+
+  // Just-logged marker for the globe pulse (ephemeral — not persisted)
+  justLogged: LoggedMarker | null;
+  setJustLogged: (marker: LoggedMarker | null) => void;
 
   // Path mode (short/long path display)
   pathMode: "short" | "long";
@@ -1257,6 +1270,7 @@ const initialState = {
   overlayLayers: {} as Record<string, OverlayLayerModel>,
   tooltipPosition: null as TooltipPosition | null,
   flyoutPosition: null as FlyoutPosition | null,
+  justLogged: null as LoggedMarker | null,
   pathMode: "short" as "short" | "long",
   panelStates: loadPanelStates(),
   mapStyle: loadMapStyle(),
@@ -1808,6 +1822,8 @@ export const useMapStore = create<MapState>((set, get) => ({
   setTooltipPosition: (tooltipPosition) => set({ tooltipPosition }),
 
   setFlyoutPosition: (flyoutPosition) => set({ flyoutPosition }),
+
+  setJustLogged: (justLogged) => set({ justLogged }),
 
   setPathMode: (pathMode) => set({ pathMode }),
 

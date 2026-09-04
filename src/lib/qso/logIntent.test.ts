@@ -190,7 +190,7 @@ describe("commitWsjtxLogged", () => {
   beforeEach(() => {
     useOpsPostureStore.getState().reset();
     useKioskStore.setState({ active: false });
-    useMapStore.setState({ target: null });
+    useMapStore.setState({ target: null, justLogged: null });
     useQSOStore.setState({
       form: { ...DEFAULT_QSO_FORM, callsign: "PY2ABC", frequency: 14074 },
     });
@@ -306,5 +306,65 @@ describe("commitWsjtxLogged", () => {
     expect(second).toEqual({ status: "duplicate" });
     if (first.status !== "logged") return;
     expect(await getLogEntry(first.id)).toMatchObject({ callsign: "K1DUP" });
+  });
+
+  it("pulses the globe (justLogged) when a valid grid resolves", async () => {
+    const result = await commitWsjtxLogged({
+      callsign: "vk3xyz",
+      grid: "QF22",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-05",
+      reportReceived: "-09",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:24:00.000Z",
+    });
+    expect(result.status).toBe("logged");
+    expect(useMapStore.getState().justLogged).toMatchObject({
+      callsign: "VK3XYZ",
+      grid: "QF22",
+    });
+    expect(useMapStore.getState().justLogged?.lat).toBeCloseTo(
+      useMapStore.getState().target?.lat ?? NaN,
+    );
+  });
+
+  it("does not re-pulse the globe on a replayed duplicate", async () => {
+    const payload: WSJTXQSOLoggedPayload = {
+      callsign: "K1DUP2",
+      grid: "FN31",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-01",
+      reportReceived: "+02",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:25:00.000Z",
+    };
+    const first = await commitWsjtxLogged(payload);
+    expect(first.status).toBe("logged");
+    useMapStore.setState({ justLogged: null });
+
+    const second = await commitWsjtxLogged(payload);
+    expect(second).toEqual({ status: "duplicate" });
+    expect(useMapStore.getState().justLogged).toBeNull();
+  });
+
+  it("does not pulse the globe while a kiosk is active", async () => {
+    useKioskStore.setState({ active: true });
+    const result = await commitWsjtxLogged({
+      callsign: "W9KIOSK",
+      grid: "EN52",
+      frequency: 14_074_000,
+      mode: "FT8",
+      reportSent: "-05",
+      reportReceived: "-09",
+      txPower: "",
+      comments: "",
+      timestamp: "2026-09-04T16:26:00.000Z",
+    });
+    expect(result).toEqual({ status: "ignored", reason: "kiosk" });
+    expect(useMapStore.getState().justLogged).toBeNull();
   });
 });

@@ -96,6 +96,10 @@ function utcDateParts(iso: string | undefined): { date: string; timeOn: string }
  * Aether/SDR adapters. Inspect never prefills. Work prefills and frames.
  * Tune is CAT-only. Log commits qsoStore. Digital logs never clobber the
  * operator's in-progress draft.
+ *
+ * Aether/Web SDR authors: call this (or `commitWsjtxLogged` below) instead
+ * of writing to qsoStore/logStore directly. See `logIntent.adapters.test.ts`
+ * for the fixtures a new adapter is expected to satisfy.
  */
 export function applyLogIntent(
   verb: Exclude<LogIntentVerb, "log">,
@@ -149,6 +153,21 @@ export async function commitLogIntent(): Promise<LogIntentResult> {
   if (!id) return { status: "empty" };
   invalidateDxccCache();
   useOpsPostureStore.getState().exitContact("desk");
+
+  // Cheap pulse: only fires when a target with coordinates is already on
+  // the map (e.g. from an earlier Work/inspect), so this never triggers a
+  // new lookup or touches the draft.
+  const target = useMapStore.getState().target;
+  if (target) {
+    useMapStore.getState().setJustLogged({
+      callsign,
+      lat: target.lat,
+      lon: target.lon,
+      grid: target.grid,
+      at: Date.now(),
+    });
+  }
+
   return { status: "logged", id };
 }
 
@@ -179,6 +198,9 @@ function rememberWsjtxLog(fingerprint: string): boolean {
 /**
  * WSJT-X (and future digital adapters) write the book directly.
  * Does not touch the Contact/Desk draft.
+ *
+ * Aether/Web SDR authors: see `logIntent.adapters.test.ts` for the fixtures
+ * this contract is expected to satisfy.
  */
 export async function commitWsjtxLogged(
   payload: WSJTXQSOLoggedPayload,
@@ -226,6 +248,13 @@ export async function commitWsjtxLogged(
       try {
         const { lat, lon } = gridToLatLon(grid);
         useMapStore.getState().setTarget({ lat, lon, grid, name: callsign });
+        useMapStore.getState().setJustLogged({
+          callsign,
+          lat,
+          lon,
+          grid,
+          at: Date.now(),
+        });
       } catch {
         // Invalid grids stay off the globe; the QSO is still in the book.
       }

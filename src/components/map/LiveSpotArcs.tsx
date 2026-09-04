@@ -45,6 +45,11 @@ import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { getArcOpacity } from "@/lib/map/arcAppearance";
 import {
+  contactSpotOpacity,
+  isSameStationCall,
+} from "@/lib/map/contactMapPolicy";
+import { useOpsPostureStore } from "@/stores/opsPostureStore";
+import {
   getEndpointInstanceCount,
   MAX_ENDPOINT_INSTANCES,
 } from "@/lib/map/spotEndpointCapacity";
@@ -814,6 +819,9 @@ export function LiveSpotArcs({
 
   // Active band from operating store — used to visually distinguish on-band arcs
   const activeBand = useActiveBand();
+  const contactPosture = useOpsPostureStore((s) => s.posture);
+  const contactCallsign = useOpsPostureStore((s) => s.contactCallsign);
+  const contactBand = useOpsPostureStore((s) => s.contactBand);
 
   // ── Replay spots (sepia-toned historical arcs) ──────────────────────────
   const replayEnabled = useMapStore((s) => s.replayEnabled);
@@ -928,9 +936,21 @@ export function LiveSpotArcs({
           const matchesActiveBand =
             !activeBandLower || !spotBand || spotBand === activeBandLower;
           const activeBandOpacity = matchesActiveBand ? 1.0 : 0.3;
-          const filterOpacity = passesFilter
-            ? activeBandOpacity
-            : 0.3 * activeBandOpacity;
+          const contactOpacity = contactSpotOpacity({
+            posture: contactPosture,
+            isContactTarget: isSameStationCall(
+              orig?.dx ?? spot.callsign,
+              contactCallsign,
+            ),
+            matchesContactBand: Boolean(
+              contactBand &&
+                spotBand &&
+                spotBand === contactBand.toLowerCase(),
+            ),
+          });
+          const filterOpacity =
+            (passesFilter ? activeBandOpacity : 0.3 * activeBandOpacity) *
+            contactOpacity;
 
           const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
 

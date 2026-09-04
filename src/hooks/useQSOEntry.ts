@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
+import { applyCatFrequencyFollow } from "@/lib/qso/radioFollow";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useRigStore } from "@/stores/rigStore";
@@ -85,9 +86,7 @@ export function useQSOEntry() {
     // Frequency: Hz → kHz
     if (rigFrequency > 0 && rigFrequency !== lastRigFreqRef.current) {
       lastRigFreqRef.current = rigFrequency;
-      const freqKHz = Math.round(rigFrequency / 10) / 100; // Hz → kHz with 2 decimal precision
-      setField("frequency", freqKHz);
-      setField("rigSource", "bridge");
+      applyCatFrequencyFollow(rigFrequency);
     }
 
     // Mode

@@ -6,18 +6,19 @@
  */
 
 import { useCallback, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore, type OpsDockTab } from "@/stores/contestUIStore";
-import { DXConsole } from "@/components/dx";
+import { DXConsole, DXSpotList } from "@/components/dx";
 import { ContestDock } from "@/components/contest/ContestDock";
-import { QSOEntryForm } from "@/components/qso";
 import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
+import { OpsLoggerStrip } from "@/components/ops/OpsLoggerStrip";
 import { useMapStore } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
+import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
+import { useKioskStore } from "@/stores/kioskStore";
 import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
 import type { MapDataScope } from "@/lib/map/operationalScope";
 
@@ -76,19 +77,28 @@ export function OperationalScopeControl({
   const setPublicAssistance = useContestUIStore(
     (state) => state.setPublicAssistance,
   );
+  const setDesk = useOpsPostureStore((state) => state.setDesk);
+  const exitContact = useOpsPostureStore((state) => state.exitContact);
 
   const handleScopeChange = useCallback(
     (value: string) => {
       const next = value === "auto" ? null : (value as MapDataScope);
       setManualScope(next);
       const resolved = next ?? automaticScope;
+      if (resolved === "observe") {
+        exitContact("observe");
+      } else if (resolved === "log") {
+        setDesk();
+      }
       if (resolved !== "observe") {
         setWorkspaceOpen(true);
         onWorkspaceRequested?.();
       }
     }, [
       automaticScope,
+      exitContact,
       onWorkspaceRequested,
+      setDesk,
       setManualScope,
       setWorkspaceOpen,
     ],
@@ -171,34 +181,18 @@ function LoggingDock() {
     void loadEntries(0, 8);
   }, [loadEntries]);
 
-  const handleLogged = useCallback(() => {
-    void loadEntries(0, 8);
-  }, [loadEntries]);
-
   return (
-    <div className="grid h-full min-h-0 gap-3 overflow-y-auto p-3 lg:grid-cols-3">
-      <div className="min-w-0 space-y-3 lg:col-span-2">
-        <div className="flex items-center justify-between gap-3 px-1">
-          <div>
-            <h3 className="font-orbitron text-sm font-bold text-white">
-              Contact workspace
-            </h3>
-            <p className="text-[10px] text-gray-500">
-              Shared with the full Logbook, CAT, and WSJT-X
-            </p>
-          </div>
-          <Link
-            to="/log"
-            className="text-[10px] text-cosmic-cyan hover:text-white"
-          >
-            Open full log →
-          </Link>
-        </div>
-        <QSOEntryForm onQSOLogged={handleLogged} />
-        <WSJTXStatusPanel defaultCollapsed={!wsjtxConnected} />
+    <div className="grid h-full min-h-0 gap-3 p-3 lg:grid-cols-3">
+      <div className="min-h-0 min-w-0 lg:col-span-2">
+        <DXSpotList
+          showHeader={false}
+          showFilters={true}
+          maxHeight="100%"
+          className="h-full"
+        />
       </div>
 
-      <aside className="min-w-0 space-y-3">
+      <aside className="min-h-0 min-w-0 space-y-3 overflow-y-auto">
         <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
             Current operation
@@ -221,8 +215,8 @@ function LoggingDock() {
           </div>
           {selectedReport && (
             <div className="mt-2 rounded-md border border-cosmic-cyan/20 bg-cosmic-cyan/5 px-2 py-1.5 text-[10px] text-gray-400">
-              Seeded from {selectedReport.source} · {selectedReport.provenance}
-              {" "}report
+              Seeded from {selectedReport.source} · {selectedReport.provenance}{" "}
+              report
             </div>
           )}
         </section>
@@ -256,6 +250,8 @@ function LoggingDock() {
             )}
           </div>
         </section>
+
+        <WSJTXStatusPanel defaultCollapsed={!wsjtxConnected} />
       </aside>
     </div>
   );
@@ -282,9 +278,15 @@ export function OpsConsole({
   const setWorkspaceOpen = useMapOperationalStore(
     (state) => state.setWorkspaceOpen,
   );
+  const posture = useOpsPostureStore((state) => state.posture);
+  const setDesk = useOpsPostureStore((state) => state.setDesk);
+  const exitContact = useOpsPostureStore((state) => state.exitContact);
+  const isKiosk = useKioskStore((state) => state.active);
 
   // Auto-enter contest pane when a session exists and user arrives in PropSphere.
+  // Contact/Desk own the dock tab so Work does not hide the band map.
   useEffect(() => {
+    if (posture === "contact" || posture === "desk") return;
     if (scope === "observe") {
       setDockTab(dockKey, "dx");
     } else if (scope === "log") {
@@ -292,7 +294,7 @@ export function OpsConsole({
     } else if (scope === "contest" && sessionId) {
       setDockTab(sessionId, "contest");
     }
-  }, [dockKey, scope, sessionId, setDockTab]);
+  }, [dockKey, posture, scope, sessionId, setDockTab]);
 
   const handleCollapse = useCallback(() => {
     setWorkspaceOpen(false);
@@ -306,6 +308,11 @@ export function OpsConsole({
       { id: "contest", label: "Contest", disabled: false },
     ];
   }, []);
+
+  const showLoggerStrip =
+    !isKiosk &&
+    dockTab !== "contest" &&
+    (posture === "contact" || posture === "desk" || dockTab === "log");
 
   return (
     <div
@@ -337,10 +344,18 @@ export function OpsConsole({
                 disabled={disabled}
                 onClick={() => {
                   setDockTab(dockKey, tab.id);
-                  const nextScope: MapDataScope =
-                    tab.id === "dx" ? "observe" : tab.id;
-                  setManualScope(nextScope);
-                  if (nextScope !== "observe") setWorkspaceOpen(true);
+                  if (tab.id === "dx") {
+                    setManualScope("observe");
+                    exitContact("observe");
+                  } else if (tab.id === "log") {
+                    setManualScope("log");
+                    setWorkspaceOpen(true);
+                    if (posture !== "contact") setDesk();
+                  } else {
+                    setManualScope("contest");
+                    setWorkspaceOpen(true);
+                    exitContact("observe");
+                  }
                 }}
                 className={`
                   px-3 py-1 rounded-md text-xs font-bold transition-colors
@@ -382,6 +397,8 @@ export function OpsConsole({
           </svg>
         </button>
       </div>
+
+      {showLoggerStrip && <OpsLoggerStrip />}
 
       {/* Content */}
       <div className="flex-1 min-h-0">

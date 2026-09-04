@@ -20,7 +20,12 @@ import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics, getBearing } from "@/lib/utils/path";
+import {
+  formatBearing,
+  formatDistance,
+  getBearing,
+  getPathMetrics,
+} from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { GlobeDepthDome } from "./GlobeDepthDome";
@@ -131,6 +136,8 @@ import {
   useScopedMapLayers,
 } from "@/hooks/useMapOperationalContext";
 import { policyAllows } from "@/lib/map/operationalScope";
+import { computeContactFrame } from "@/lib/map/contactMapPolicy";
+import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import {
   useSpotHoverArbitration,
   type SpotHoverInteraction,
@@ -432,19 +439,37 @@ function CameraController() {
   const pausedAutoRotateRef = useRef(false);
   /** Animation frame ID for cleanup */
   const watchPanRafRef = useRef<number>(0);
+  const contactPanRafRef = useRef(0);
+  const posture = useOpsPostureStore((s) => s.posture);
+  const frameGeneration = useOpsPostureStore((s) => s.frameGeneration);
+  const captureCameraSnapshot = useOpsPostureStore(
+    (s) => s.captureCameraSnapshot,
+  );
+  const markUserPanned = useOpsPostureStore((s) => s.markUserPanned);
+  const clearCameraSnapshot = useOpsPostureStore((s) => s.clearCameraSnapshot);
+  const contactTarget = useMapStore((s) => s.target);
+  const prevContactPostureRef = useRef(posture);
 
   // Detect user drag interactions to suppress auto-pan for 10 seconds
+  // and cancel Contact framing if the operator takes the camera.
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
     const onStart = () => {
       lastUserDragRef.current = Date.now();
+      if (useOpsPostureStore.getState().posture === "contact") {
+        markUserPanned();
+        if (contactPanRafRef.current) {
+          cancelAnimationFrame(contactPanRafRef.current);
+          contactPanRafRef.current = 0;
+        }
+      }
     };
     controls.addEventListener("start", onStart);
     return () => {
       controls.removeEventListener("start", onStart);
     };
-  }, []);
+  }, [markUserPanned]);
 
   // Watch-based auto-pan effect
   useEffect(() => {
@@ -582,6 +607,111 @@ function CameraController() {
     autoRotate,
     observatoryMode,
   ]);
+
+  // Contact posture: pause rotate, frame QTH+DX once, restore unless the
+  // operator panned (GridTracker Fit-to-QRZ lesson).
+  useEffect(() => {
+    if (posture !== "contact") return;
+    if (useOpsPostureStore.getState().userPanned) return;
+    const controls = controlsRef.current;
+    if (!controls) return;
+    if (
+      !station ||
+      !contactTarget ||
+      !Number.isFinite(station.lat) ||
+      !Number.isFinite(station.lon) ||
+      !Number.isFinite(contactTarget.lat) ||
+      !Number.isFinite(contactTarget.lon)
+    ) {
+      return;
+    }
+
+    captureCameraSnapshot({
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+    });
+
+    if (contactPanRafRef.current) {
+      cancelAnimationFrame(contactPanRafRef.current);
+    }
+
+    const frame = computeContactFrame(
+      { lat: station.lat, lon: station.lon },
+      { lat: contactTarget.lat, lon: contactTarget.lon },
+    );
+    const startPosition = camera.position.clone();
+    const endPosition = latLonToCameraPosition(
+      frame.lat,
+      frame.lon,
+      frame.distance,
+    );
+    const duration = 600;
+    const startTime = Date.now();
+
+    function animateContactFrame() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      camera.position.lerpVectors(startPosition, endPosition, eased);
+      camera.lookAt(0, 0, 0);
+      controls!.update();
+      if (progress < 1) {
+        contactPanRafRef.current = requestAnimationFrame(animateContactFrame);
+      } else {
+        contactPanRafRef.current = 0;
+      }
+    }
+
+    animateContactFrame();
+    return () => {
+      if (contactPanRafRef.current) {
+        cancelAnimationFrame(contactPanRafRef.current);
+        contactPanRafRef.current = 0;
+      }
+    };
+  }, [
+    camera,
+    captureCameraSnapshot,
+    contactTarget,
+    frameGeneration,
+    posture,
+    station,
+  ]);
+
+  useEffect(() => {
+    const wasContact = prevContactPostureRef.current === "contact";
+    prevContactPostureRef.current = posture;
+    if (!wasContact || posture === "contact") return;
+
+    const snapshot = useOpsPostureStore.getState().cameraSnapshot;
+    const panned = useOpsPostureStore.getState().userPanned;
+    const controls = controlsRef.current;
+    if (snapshot && !panned && controls) {
+      if (contactPanRafRef.current) {
+        cancelAnimationFrame(contactPanRafRef.current);
+      }
+      const startPosition = camera.position.clone();
+      const endPosition = new THREE.Vector3(snapshot.x, snapshot.y, snapshot.z);
+      const duration = 500;
+      const startTime = Date.now();
+      function animateRestore() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        camera.position.lerpVectors(startPosition, endPosition, eased);
+        camera.lookAt(0, 0, 0);
+        controls!.update();
+        if (progress < 1) {
+          contactPanRafRef.current = requestAnimationFrame(animateRestore);
+        } else {
+          contactPanRafRef.current = 0;
+        }
+      }
+      animateRestore();
+    }
+    clearCameraSnapshot();
+  }, [camera, clearCameraSnapshot, posture]);
 
   // Animate camera to focus on selected spot
   useEffect(() => {
@@ -872,7 +1002,7 @@ function CameraController() {
       maxDistance={4}
       dampingFactor={0.1}
       enableDamping
-      autoRotate={autoRotate}
+      autoRotate={autoRotate && posture !== "contact"}
     />
   );
 }
@@ -1852,6 +1982,7 @@ export function GlobeView({
     (s) => s.filters.sources as SpotSource[] | undefined,
   );
   const station = useUserStore((s) => s.station);
+  const opsPosture = useOpsPostureStore((s) => s.posture);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const tileProvider = useMemo(
     () => selectTileProvider(mapStyle, subscriptionTier),
@@ -2033,6 +2164,15 @@ export function GlobeView({
     return getPathMetrics(station.lat, station.lon, target.lat, target.lon)
       .difficulty;
   }, [station, target]);
+
+  const contactPath = useMemo(() => {
+    if (opsPosture !== "contact" || !station || !target) return null;
+    try {
+      return getPathMetrics(station.lat, station.lon, target.lat, target.lon);
+    } catch {
+      return null;
+    }
+  }, [opsPosture, station, target]);
 
   const optimalSignal = useOptimalMapSignal({
     station,
@@ -2483,6 +2623,20 @@ export function GlobeView({
         className="pointer-events-none absolute inset-0"
         style={{ zIndex: GLOBE_DOM_LAYER_ORDER.mapOverlayPortal }}
       />
+
+      {contactPath && (
+        <div
+          className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border border-plasma-orange/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-plasma-orange backdrop-blur-sm"
+          data-contact-path-chip
+        >
+          {Math.round(contactPath.shortPath.bearing).toString().padStart(3, "0")}
+          ° {formatBearing(contactPath.shortPath.bearing)}
+          {" · "}
+          {formatDistance(contactPath.shortPath.distance)}
+          {" · RX "}
+          {Math.round(contactPath.shortPath.reciprocal)}°
+        </div>
+      )}
 
       <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">
         <CloudImageryAttribution status={cloudImageryStatus} />

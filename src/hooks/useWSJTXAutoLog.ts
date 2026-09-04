@@ -2,18 +2,19 @@
  * useWSJTXAutoLog - Auto-logging hook for WSJT-X QSOs
  *
  * Listens for `wsjtx.qso_logged` messages from the ProPulse Bridge and:
- * 1. Looks up the callsign's DXCC entity
- * 2. Detects new (not previously worked) DXCC entities
- * 3. Dispatches a custom DOM event for the UI toast system
- * 4. Logs the QSO to the console for debugging
+ * 1. Commits the QSO to the local logbook (without clobbering an in-progress draft)
+ * 2. Looks up the callsign's DXCC entity
+ * 3. Detects new (not previously worked) DXCC entities
+ * 4. Dispatches a custom DOM event for the UI toast system
  *
- * This hook is intended to be mounted once at the app root level.
+ * This hook is intended to be mounted once at the app root / PropSphere.
  * It does not render any UI itself — notification display is handled
  * by whichever toast/alert component listens for the custom event.
  */
 
 import { useEffect, useRef } from "react";
 import { useBridge } from "@/hooks/useBridge";
+import { commitWsjtxLogged } from "@/lib/qso/logIntent";
 import { useDXCCStore } from "@/stores/dxccStore";
 import { useUserStore } from "@/stores/userStore";
 import type { WSJTXQSOLoggedPayload } from "@/types/bridge";
@@ -102,6 +103,8 @@ export function useWSJTXAutoLog(): void {
     lastProcessedIdRef.current = messageId;
 
     const qso = lastMessage.payload as WSJTXQSOLoggedPayload;
+
+    void commitWsjtxLogged(qso);
 
     // Look up DXCC entity for the logged callsign
     const dxccState = useDXCCStore.getState();

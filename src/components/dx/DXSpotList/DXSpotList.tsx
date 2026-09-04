@@ -23,6 +23,7 @@ import type { DXSpotSource } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore, formatCriteriaSummary } from "@/stores/watchStore";
 import { useContestWatch } from "@/hooks/useContestWatch";
+import { applyLogIntent } from "@/lib/qso/logIntent";
 
 /** Source badge styling map */
 const SOURCE_BADGE_STYLES: Record<
@@ -196,6 +197,10 @@ export function DXSpotList({
     [handleContextAction],
   );
 
+  const handleWorkSpot = useCallback((spot: DXSpot) => {
+    applyLogIntent("work", spot);
+  }, []);
+
   // --- QoL1: Keyboard-first DX spot navigation ---
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const spotListRef = useRef<HTMLDivElement>(null);
@@ -261,6 +266,22 @@ export function DXSpotList({
           }
           break;
         }
+        case "l":
+        case "L": {
+          if (focusedIndex >= 0 && focusedIndex < len) {
+            e.preventDefault();
+            handleWorkSpot(watchSortedSpots[focusedIndex]);
+          }
+          break;
+        }
+        case "t":
+        case "T": {
+          if (focusedIndex >= 0 && focusedIndex < len) {
+            e.preventDefault();
+            applyLogIntent("tune", watchSortedSpots[focusedIndex]);
+          }
+          break;
+        }
         case "Escape": {
           e.preventDefault();
           setFocusedIndex(-1);
@@ -275,6 +296,7 @@ export function DXSpotList({
       handleSelectSpot,
       handleSetTarget,
       handleWatchCallsign,
+      handleWorkSpot,
     ],
   );
 
@@ -613,6 +635,7 @@ export function DXSpotList({
                   onGridClick={handleGridFilterChange}
                   onBandClick={handleBandBadgeClick}
                   onSetTarget={handleSetTarget}
+                  onWork={handleWorkSpot}
                   onWatchCallsign={handleWatchCallsign}
                   onHideSpot={handleHideSpot}
                   showAgeColumn={spotAgePrefs.showAgeColumn}

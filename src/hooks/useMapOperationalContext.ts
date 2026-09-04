@@ -14,6 +14,8 @@ import {
   type MapDataPolicy,
   type MapDataScope,
 } from "@/lib/map/operationalScope";
+import { resolveMapPolicyScope } from "@/lib/map/contactMapPolicy";
+import { useOpsPostureStore } from "@/stores/opsPostureStore";
 
 export interface MapOperationalContext {
   scope: MapDataScope;
@@ -32,6 +34,7 @@ export function useMapOperationalContext(): MapOperationalContext {
   const qsoDraftCallsign = useQSOStore((state) => state.form.callsign);
   const manualScope = useMapOperationalStore((state) => state.manualScope);
   const workspaceOpen = useMapOperationalStore((state) => state.workspaceOpen);
+  const opsPosture = useOpsPostureStore((state) => state.posture);
   const contestSessionId = activeSession?.id ?? null;
   const storedAssistance = useContestUIStore((state) =>
     contestSessionId
@@ -60,8 +63,12 @@ export function useMapOperationalContext(): MapOperationalContext {
   });
   const publicAssistance = storedAssistance ?? declaredAssisted;
   const policy = useMemo(
-    () => buildMapDataPolicy(scope, publicAssistance),
-    [publicAssistance, scope],
+    () =>
+      buildMapDataPolicy(
+        resolveMapPolicyScope(scope, opsPosture),
+        publicAssistance,
+      ),
+    [opsPosture, publicAssistance, scope],
   );
 
   return {

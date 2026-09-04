@@ -483,6 +483,24 @@ export function PreferencesSection() {
         <SectionHeader>Interaction</SectionHeader>
 
         <ToggleSwitch
+          label="Click to Tune"
+          description="Map clicks QSY the radio. Leave off to browse spots without moving VFO."
+          checked={uiInteraction.spotClickTunesRadio === true}
+          onChange={(checked) =>
+            updateUIInteraction({ spotClickTunesRadio: checked })
+          }
+        />
+
+        <ToggleSwitch
+          label="Wipe Draft on Band QSY"
+          description="Clear the callsign when CAT leaves the band you were working"
+          checked={uiInteraction.qsyWipeOnBandChange !== false}
+          onChange={(checked) =>
+            updateUIInteraction({ qsyWipeOnBandChange: checked })
+          }
+        />
+
+        <ToggleSwitch
           label="Show Hover Info Tips"
           description="Show brief explanations when hovering info icons"
           checked={uiInteraction.showHoverTooltips ?? true}

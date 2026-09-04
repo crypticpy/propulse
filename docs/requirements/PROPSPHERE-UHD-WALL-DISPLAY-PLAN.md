@@ -1,7 +1,7 @@
 # PropSphere UHD and Wall Display Plan
 
-Status: core implementation complete; provider rollout and physical-display sign-off remain  
-Owner: PropSphere  
+Status: core implementation complete; provider rollout and physical-display sign-off remain
+Owner: PropSphere
 Last updated: 2026-08-31
 
 ## Implementation record

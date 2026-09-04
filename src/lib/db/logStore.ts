@@ -7,6 +7,19 @@ import { getDB } from "./index";
 import type { LogEntry } from "./types";
 import { generateId, now } from "./utils";
 
+const logListeners = new Set<() => void>();
+
+export function subscribeLogEntries(listener: () => void): () => void {
+  logListeners.add(listener);
+  return () => {
+    logListeners.delete(listener);
+  };
+}
+
+function notifyLogEntries() {
+  logListeners.forEach((listener) => listener());
+}
+
 /**
  * Add a new log entry to the database
  * @param entry - Log entry data without id, createdAt, and updatedAt
@@ -28,6 +41,7 @@ export async function addLogEntry(
   };
 
   await db.add("logEntries", logEntry);
+  notifyLogEntries();
   return id;
 }
 
@@ -72,6 +86,7 @@ export async function updateLogEntry(
   }
 
   await db.put("logEntries", updated);
+  notifyLogEntries();
 }
 
 /**
@@ -81,6 +96,7 @@ export async function updateLogEntry(
 export async function deleteLogEntry(id: string): Promise<void> {
   const db = await getDB();
   await db.delete("logEntries", id);
+  notifyLogEntries();
 }
 
 /**
@@ -201,6 +217,7 @@ export async function addLogEntries(
   }
 
   await tx.done;
+  notifyLogEntries();
   return ids;
 }
 

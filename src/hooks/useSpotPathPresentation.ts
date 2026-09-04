@@ -3,7 +3,7 @@ import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUserStore } from "@/stores/userStore";
-import { getAntennaGainForPath } from "@/lib/data/antennas";
+import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import { getDistance, getPathMetrics } from "@/lib/utils/path";
@@ -27,7 +27,8 @@ export function useSpotPathPresentation(
   displayTime: Date,
 ): SpotPathPresentation {
   const { station } = useUserStore();
-  const { antennaType } = useActiveStationGain();
+  const { antennaType, txPowerWatts, systemLossDb, physicsMode } =
+    useActiveStationGain();
   const noiseEnvironment = useSettingsStore((state) => state.noiseEnvironment);
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();
@@ -71,7 +72,13 @@ export function useSpotPathPresentation(
     try {
       const metrics = getPathMetrics(station.lat, station.lon, lat, lon);
       const distanceKm = getDistance(station.lat, station.lon, lat, lon);
-      const antennaGainDbi = getAntennaGainForPath(antennaType, distanceKm);
+      const physics = physicsArgsForPath(
+        antennaType,
+        distanceKm,
+        systemLossDb,
+        txPowerWatts,
+        physicsMode,
+      );
       const conditions = getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -80,9 +87,9 @@ export function useSpotPathPresentation(
         currentKp,
         currentSfi,
         displayTime,
-        100,
-        "FT8",
-        antennaGainDbi,
+        physics.txPowerWatts,
+        physics.mode,
+        physics.antennaGainDbi,
         noiseEnvironment,
       );
       const best = pickOptimalBandCondition(conditions);
@@ -110,6 +117,9 @@ export function useSpotPathPresentation(
     }
   }, [
     antennaType,
+    txPowerWatts,
+    systemLossDb,
+    physicsMode,
     currentKp,
     currentSfi,
     displayTime,

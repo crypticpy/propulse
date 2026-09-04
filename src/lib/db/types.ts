@@ -89,6 +89,12 @@ export interface LogEntry {
   myRig?: string;
   /** My antenna description */
   myAntenna?: string;
+  /** Active station chain at log time */
+  chainId?: string;
+  /** Owned radio instance used for this QSO */
+  radioId?: string;
+  /** Antenna instance used for this QSO */
+  antennaId?: string;
   /** Propagation mode */
   propMode?: string;
   /** Satellite name */

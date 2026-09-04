@@ -28,6 +28,10 @@ describe("dxwizard power", () => {
   it("estimates required power from SNR delta without 1500W clamp", () => {
     expect(estimateRequiredPowerWatts(-10, -18)).toBe(10);
     expect(estimateRequiredPowerWatts(-24, -18)).toBeGreaterThan(10);
+    expect(estimateRequiredPowerWatts(-40, -18)).toBeGreaterThan(1500);
+    expect(estimateRequiredPowerWatts(-24, -18, 50)).toBe(
+      Math.max(10, Math.round(50 * Math.pow(10, 6 / 10))),
+    );
     // Large deficit must exceed legal/kit ceiling so withinCeiling stays honest
     expect(estimateRequiredPowerWatts(-40, -18)).toBeGreaterThan(1500);
   });

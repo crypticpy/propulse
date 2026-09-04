@@ -10,9 +10,11 @@ import { useMemo, useEffect } from "react";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
+import { useStationQsoIndex } from "@/hooks/useStationQsoIndex";
 import { useProfileStore } from "@/stores/profileStore";
 import { useShackStore } from "@/stores/shackStore";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { stationRankCredit } from "@/lib/station/stationRank";
 
 import type {
   RankTier,
@@ -145,22 +147,24 @@ export function useOperatorRank(
   const accessories = useShackStore((s) => s.accessories);
   const inlineComponents = useShackStore((s) => s.inlineComponents);
   const stationChains = useShackStore((s) => s.stationChains);
+  const { qsoCountById, stampedQsoCount } = useStationQsoIndex();
 
   const isLoading = achievementsLoading || stats.isLoading;
   const rankOverride = operatorRank.rankOverride ?? null;
 
   // 2. Compute rank state
   const computed = useMemo(() => {
-    // Equipment total: radios + antennas + feedlines + accessories + inline components
-    const equipmentCount =
-      radios.length +
-      antennas.length +
-      feedlines.length +
-      accessories.length +
-      inlineComponents.length;
-
-    // Signal path count from station chains
-    const signalPathCount = stationChains.length;
+    const { equipmentCount, signalPathCount } = stationRankCredit(
+      {
+        radioIds: radios.map((radio) => radio.id),
+        antennaIds: antennas.map((antenna) => antenna.id),
+        feedlineIds: feedlines.map((feedline) => feedline.id),
+        accessoryIds: accessories.map((accessory) => accessory.id),
+        inlineIds: inlineComponents.map((item) => item.id),
+        chainIds: stationChains.map((chain) => chain.id),
+      },
+      { qsoCountById, stampedQsoCount },
+    );
 
     // Unique band-mode slots: count unique bands from logbook stats as a proxy.
     // A proper band-mode cross-reference would require per-entry iteration;
@@ -235,12 +239,14 @@ export function useOperatorRank(
     stats.uniqueCountries,
     stats.qsosByBand,
     loginStreakDays,
-    radios.length,
-    antennas.length,
-    feedlines.length,
-    accessories.length,
-    inlineComponents.length,
-    stationChains.length,
+    radios,
+    antennas,
+    feedlines,
+    accessories,
+    inlineComponents,
+    stationChains,
+    qsoCountById,
+    stampedQsoCount,
     completeness.score,
     rankOverride,
   ]);

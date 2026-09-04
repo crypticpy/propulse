@@ -29,6 +29,7 @@ import type {
   FeedlineRun,
 } from "@/types/stationChain";
 import { MAX_CHAINS, MAX_CHAIN_NODES } from "@/types/stationChain";
+import type { StationInventory } from "@/lib/station/stationChainEngine";
 import { computeInsertPosition } from "@/lib/chainOrdering";
 import { deleteImage } from "@/lib/db/imageStore";
 
@@ -2058,6 +2059,29 @@ export function useActiveChain(): StationChain | null {
   const chains = useShackStore((s) => s.stationChains);
   if (!activeChainId) return null;
   return chains.find((c) => c.id === activeChainId) ?? null;
+}
+
+export function getStationInventory(): StationInventory {
+  const state = useShackStore.getState();
+  return {
+    radios: (state.radios || []).map((userRadio) => ({
+      userRadio,
+      equipment: resolveEquipmentById(userRadio.equipmentId, state.customRadios),
+    })),
+    antennas: state.antennas,
+    feedlines: state.feedlines,
+    accessories: state.accessories,
+    inlineComponents: state.inlineComponents,
+  };
+}
+
+export function useStationInventory(): StationInventory {
+  const radios = useUserRadios();
+  const antennas = useUserAntennas();
+  const feedlines = useUserFeedlines();
+  const accessories = useUserAccessories();
+  const inlineComponents = useInlineComponents();
+  return { radios, antennas, feedlines, accessories, inlineComponents };
 }
 
 // Re-export helpers for use by migration utility and sync modules

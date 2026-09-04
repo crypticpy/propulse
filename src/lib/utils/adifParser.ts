@@ -260,6 +260,15 @@ function recordToLogEntry(
     name: record.get("NAME"),
     qth: record.get("QTH"),
     notes: record.get("COMMENT") || record.get("NOTES"),
+    txPower: record.get("TX_PWR")
+      ? parseFloat(record.get("TX_PWR")!)
+      : undefined,
+    myGrid: record.get("MY_GRIDSQUARE"),
+    myRig: record.get("MY_RIG"),
+    myAntenna: record.get("MY_ANTENNA"),
+    chainId: record.get("APP_PROPULSE_CHAIN_ID"),
+    radioId: record.get("APP_PROPULSE_RADIO_ID"),
+    antennaId: record.get("APP_PROPULSE_ANTENNA_ID"),
     qslSent: parseQSLStatus(record.get("QSL_SENT")),
     qslRcvd: parseQSLStatus(record.get("QSL_RCVD")),
     lotw:
@@ -372,6 +381,28 @@ export function generateADIF(entries: LogEntry[]): string {
     // Notes/comments
     if (entry.notes) {
       fields.push(formatField("COMMENT", entry.notes));
+    }
+
+    if (entry.txPower != null && Number.isFinite(entry.txPower)) {
+      fields.push(formatField("TX_PWR", String(entry.txPower)));
+    }
+    if (entry.myGrid) {
+      fields.push(formatField("MY_GRIDSQUARE", entry.myGrid.toUpperCase()));
+    }
+    if (entry.myRig) {
+      fields.push(formatField("MY_RIG", entry.myRig));
+    }
+    if (entry.myAntenna) {
+      fields.push(formatField("MY_ANTENNA", entry.myAntenna));
+    }
+    if (entry.chainId) {
+      fields.push(formatField("APP_PROPULSE_CHAIN_ID", entry.chainId));
+    }
+    if (entry.radioId) {
+      fields.push(formatField("APP_PROPULSE_RADIO_ID", entry.radioId));
+    }
+    if (entry.antennaId) {
+      fields.push(formatField("APP_PROPULSE_ANTENNA_ID", entry.antennaId));
     }
 
     // QSL status

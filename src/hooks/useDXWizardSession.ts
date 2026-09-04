@@ -5,6 +5,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { physicsArgsForPath } from "@/lib/station/stationPhysics";
+import { getDistance } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -17,7 +19,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useContestContext } from "@/hooks/useContestContext";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
-import { useStationPerformance } from "@/hooks/useStationPerformance";
+import { useChainPerformance } from "@/hooks/useChainPerformance";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { RADIO_DATABASE } from "@/lib/data/radios";
 import type { ITURegion, LicenseClass } from "@/types/bandplan";
 import type { RadioEquipment } from "@/types/radio";
@@ -29,7 +32,6 @@ import {
   type WizardPathMode,
   type WizardOptimizeFor,
   buildWizardRecommendation,
-  resolveAntennaGainDbi,
   resolveTargetQuery,
   resolveCallsignTarget,
   targetFromMapLocation,
@@ -66,9 +68,6 @@ export function useDXWizardSession() {
   const activeRadio = useActiveRadio();
   const customRadios = useUserStore((s) => s.preferences.customRadios || []);
   const radioInstances = useUserStore((s) => s.preferences.radios || []);
-  const antennaType = useUserStore(
-    (s) => s.preferences.antennaType ?? "isotropic",
-  );
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
 
   const mapTarget = useMapStore((s) => s.target);
@@ -80,7 +79,8 @@ export function useDXWizardSession() {
   const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
   const setPendingMode = useRigStore((s) => s.setPendingMode);
   const contestContext = useContestContext();
-  const stationPerformance = useStationPerformance();
+  const stationGain = useActiveStationGain();
+  const chainPerf = useChainPerformance();
   const bandVerdicts = useBandVerdicts();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -111,7 +111,21 @@ export function useDXWizardSession() {
 
   const [selectedRadioId, setSelectedRadioId] = useState<string | null>(null);
   const [showRadioPicker, setShowRadioPicker] = useState(false);
-  const [txPowerCeilingWatts, setTxPowerCeilingWatts] = useState(100);
+  const chainPowerWatts =
+    Number.isFinite(stationGain.txPowerWatts) && stationGain.txPowerWatts > 0
+      ? Math.round(stationGain.txPowerWatts)
+      : 100;
+  const [ceilingOverride, setCeilingOverride] = useState<number | null>(null);
+  const txPowerCeilingWatts = ceilingOverride ?? chainPowerWatts;
+  const setTxPowerCeilingWatts = useCallback(
+    (value: number | ((prev: number) => number)) => {
+      setCeilingOverride((prev) => {
+        const current = prev ?? chainPowerWatts;
+        return typeof value === "function" ? value(current) : value;
+      });
+    },
+    [chainPowerWatts],
+  );
 
   const hydratedRef = useRef(false);
 
@@ -269,8 +283,11 @@ export function useDXWizardSession() {
 
   // Clamp ceiling whenever kit max shrinks
   useEffect(() => {
-    setTxPowerCeilingWatts((prev) => clampCeilingToKit(prev, effectiveMaxPower));
-  }, [effectiveMaxPower]);
+    const clamped = clampCeilingToKit(txPowerCeilingWatts, effectiveMaxPower);
+    if (clamped !== txPowerCeilingWatts) {
+      setCeilingOverride(clamped);
+    }
+  }, [effectiveMaxPower, txPowerCeilingWatts]);
 
   const applyTarget = useCallback((next: ResolvedTarget) => {
     setTarget(next);
@@ -334,15 +351,27 @@ export function useDXWizardSession() {
 
   const baseAntennaGainDbi = useMemo(() => {
     if (!station || !target) return 0;
-    return resolveAntennaGainDbi({
-      antennaType,
-      homeLat: station.lat,
-      homeLon: station.lon,
-      targetLat: target.lat,
-      targetLon: target.lon,
-      pathMode,
-    });
-  }, [antennaType, pathMode, station, target]);
+    const distance = getDistance(
+      station.lat,
+      station.lon,
+      target.lat,
+      target.lon,
+    );
+    return physicsArgsForPath(
+      stationGain.antennaType,
+      distance,
+      stationGain.systemLossDb,
+      txPowerCeilingWatts,
+      mode,
+    ).antennaGainDbi;
+  }, [
+    mode,
+    station,
+    stationGain.antennaType,
+    stationGain.systemLossDb,
+    target,
+    txPowerCeilingWatts,
+  ]);
 
   const congestionContext = useMemo(
     () => ({
@@ -385,7 +414,7 @@ export function useDXWizardSession() {
     });
     if (first.type !== "ok") return first;
 
-    const shackBand = stationPerformance.bands.find(
+    const shackBand = chainPerf.bands.find(
       (b) => b.band.toLowerCase() === first.best.band.toLowerCase(),
     );
     if (
@@ -413,7 +442,7 @@ export function useDXWizardSession() {
     pathMode,
     selectedRadio?.maxPower,
     station,
-    stationPerformance.bands,
+    chainPerf.bands,
     target,
     txPowerCeilingWatts,
   ]);
@@ -441,25 +470,25 @@ export function useDXWizardSession() {
   }, [bandVerdicts.bands, bandVerdicts.scope.label, recommendation]);
 
   const shackSummary = useMemo(() => {
-    const preset = stationPerformance.preset;
-    if (!preset) return null;
+    const name = chainPerf.chain?.name;
+    if (!name) return null;
     const bestBand =
       recommendation?.type === "ok"
-        ? stationPerformance.bands.find(
+        ? chainPerf.bands.find(
             (b) =>
               b.band.toLowerCase() ===
               recommendation.best.band.toLowerCase(),
           )
-        : stationPerformance.bestBand;
+        : chainPerf.bestBand;
     if (!bestBand) {
-      return { name: preset.name, erpWatts: null as number | null, gainDbi: null as number | null };
+      return { name, erpWatts: null as number | null, gainDbi: null as number | null };
     }
     return {
-      name: preset.name,
+      name,
       erpWatts: Math.round(bestBand.erpWatts),
       gainDbi: bestBand.antennaGainDbi,
     };
-  }, [recommendation, stationPerformance]);
+  }, [chainPerf.bands, chainPerf.bestBand, chainPerf.chain?.name, recommendation]);
 
   const pathSummary = useMemo(() => {
     if (!station || !target) return null;

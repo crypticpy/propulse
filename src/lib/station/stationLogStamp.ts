@@ -1,4 +1,9 @@
 import { getRadioById } from "@/lib/data/radios";
+import type { StationInventory } from "@/lib/station/stationChainEngine";
+import {
+  formatStationLine,
+  resolveChainKit,
+} from "@/lib/station/stationKit";
 import { stationPresetToChain } from "@/lib/station/stationPresetToChain";
 import { useProfileStore } from "@/stores/profileStore";
 import { useShackStore } from "@/stores/shackStore";
@@ -13,6 +18,8 @@ import type {
 import type { StationChain } from "@/types/stationChain";
 import type { UserStation } from "@/types/user";
 
+export { formatStationLine };
+
 /**
  * Fields stamped onto a log entry from the active Ham Shack chain.
  * Ham Shack owns the inventory; PropSphere/logger only reads it.
@@ -24,6 +31,9 @@ export interface StationLogStamp {
   myAntenna?: string;
   txPower?: number;
   stationLine: string;
+  chainId?: string;
+  radioId?: string;
+  antennaId?: string;
 }
 
 export interface StationStampSource {
@@ -38,27 +48,6 @@ export interface StationStampSource {
   activePresetId: string | null;
   stationChains: StationChain[];
   activeChainId: string | null;
-}
-
-export function formatStationLine(input: {
-  radioLabel?: string;
-  antennaLabel?: string;
-  heightMeters?: number;
-  powerWatts?: number;
-}): string {
-  const parts: string[] = [];
-  if (input.radioLabel) parts.push(input.radioLabel);
-  if (input.antennaLabel) {
-    const height =
-      input.heightMeters != null && Number.isFinite(input.heightMeters)
-        ? ` @ ${Math.round(input.heightMeters)} m`
-        : "";
-    parts.push(`${input.antennaLabel}${height}`);
-  }
-  if (input.powerWatts != null && Number.isFinite(input.powerWatts)) {
-    parts.push(`${Math.round(input.powerWatts)} W`);
-  }
-  return parts.join(" · ");
 }
 
 function resolveRadioEquipment(
@@ -80,26 +69,26 @@ function radioLabel(
   );
 }
 
-interface ResolvedInventory {
-  radios: Array<{ userRadio: UserRadio; equipment: RadioEquipment | undefined }>;
-  antennas: UserAntenna[];
-}
-
-function inventoryFromShack(shack: StationStampSource): ResolvedInventory {
+function inventoryFromShack(shack: StationStampSource): StationInventory {
   return {
     radios: shack.radios.map((userRadio) => ({
       userRadio,
       equipment: resolveRadioEquipment(userRadio.equipmentId, shack.customRadios),
     })),
     antennas: shack.antennas,
+    feedlines: shack.feedlines,
+    accessories: shack.accessories,
+    inlineComponents: shack.inlineComponents,
   };
 }
 
 export function resolveOperatingChain(
   shack: StationStampSource,
+  chainIdOverride?: string | null,
 ): StationChain | null {
-  if (shack.activeChainId) {
-    const chain = shack.stationChains.find((item) => item.id === shack.activeChainId);
+  const requested = chainIdOverride?.trim() || shack.activeChainId;
+  if (requested) {
+    const chain = shack.stationChains.find((item) => item.id === requested);
     if (chain) return chain;
   }
   if (shack.activePresetId) {
@@ -112,10 +101,13 @@ export function resolveOperatingChain(
 export function resolveStationLogStamp(
   shack: StationStampSource,
   station: UserStation | null | undefined,
-  options: { powerOverride?: number | null } = {},
+  options: {
+    powerOverride?: number | null;
+    chainIdOverride?: string | null;
+  } = {},
 ): StationLogStamp {
   const inventory = inventoryFromShack(shack);
-  const chain = resolveOperatingChain(shack);
+  const chain = resolveOperatingChain(shack, options.chainIdOverride);
 
   const radioNode = chain?.nodes.find((node) => node.type === "radio");
   const antennaNode = chain?.nodes.find((node) => node.type === "antenna");
@@ -129,6 +121,7 @@ export function resolveStationLogStamp(
     ? inventory.antennas.find((item) => item.id === antennaId)
     : undefined;
 
+  const kit = resolveChainKit(chain, inventory);
   const myRig = radioLabel(resolvedRadio?.userRadio, resolvedRadio?.equipment);
   const myAntenna = antenna?.name;
   const txPower =
@@ -154,12 +147,16 @@ export function resolveStationLogStamp(
       powerWatts:
         typeof txPower === "number" && Number.isFinite(txPower) ? txPower : undefined,
     }),
+    chainId: kit?.chainId,
+    radioId: kit?.radioId,
+    antennaId: kit?.antennaId,
   };
 }
 
 /** Read the live Ham Shack + profile stores. Safe from actions (not only hooks). */
 export function currentStationLogStamp(options: {
   powerOverride?: number | null;
+  chainIdOverride?: string | null;
 } = {}): StationLogStamp {
   return resolveStationLogStamp(
     useShackStore.getState(),

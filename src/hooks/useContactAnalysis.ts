@@ -7,6 +7,7 @@
 import { useMemo } from "react";
 import {
   getBandConditionsForPath,
+  getEnhancedBandConditions,
   calculateGreatCircleDistance,
   type PathBandCondition,
 } from "@/lib/utils/bands";
@@ -40,6 +41,10 @@ interface UseContactAnalysisParams {
   targetStats?: Record<string, unknown>;
   viewerHours?: number[];
   targetHours?: number[];
+  txPowerWatts?: number;
+  mode?: "SSB" | "CW" | "FT8";
+  antennaGainDbi?: number;
+  farEndGainDbi?: number;
 }
 
 /**
@@ -133,6 +138,10 @@ export function useContactAnalysis(
     targetStats,
     viewerHours,
     targetHours,
+    txPowerWatts,
+    mode,
+    antennaGainDbi,
+    farEndGainDbi,
   } = params;
 
   const { data: kIndexData } = useKIndex();
@@ -166,15 +175,31 @@ export function useContactAnalysis(
 
     // Band conditions
     const pathIllumination = approximatePathIllumination();
-    const bandConditions = getBandConditionsForPath(
-      viewerLat,
-      viewerLon,
-      targetLat,
-      targetLon,
-      kp,
-      sfi,
-      pathIllumination,
-    );
+    const bandConditions =
+      txPowerWatts != null && mode != null && antennaGainDbi != null
+        ? getEnhancedBandConditions(
+            viewerLat,
+            viewerLon,
+            targetLat,
+            targetLon,
+            kp,
+            sfi,
+            new Date(),
+            txPowerWatts,
+            mode,
+            antennaGainDbi,
+            undefined,
+            farEndGainDbi ?? 0,
+          )
+        : getBandConditionsForPath(
+            viewerLat,
+            viewerLon,
+            targetLat,
+            targetLon,
+            kp,
+            sfi,
+            pathIllumination,
+          );
 
     // Shared bands and modes
     const viewerBands = extractRecordKeys(viewerStats, "qsosByBand");
@@ -254,6 +279,10 @@ export function useContactAnalysis(
     targetStats,
     viewerHours,
     targetHours,
+    txPowerWatts,
+    mode,
+    antennaGainDbi,
+    farEndGainDbi,
     kIndexData,
     solarFluxData,
   ]);

@@ -31,6 +31,7 @@ export interface CardData {
   totalQSOs?: number;
   dxccCount?: number;
   rank?: RankTier;
+  stationLine?: string;
 }
 
 export const CARD_TEMPLATES: {
@@ -1032,6 +1033,19 @@ const TEMPLATE_RENDERERS: Record<
   "ethereal-rift": renderEtherealRift,
 };
 
+function drawStationLine(
+  ctx: CanvasRenderingContext2D,
+  data: CardData,
+) {
+  if (!data.stationLine) return;
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.font = "400 16px monospace";
+  ctx.fillStyle = COLORS.gray400;
+  ctx.fillText(data.stationLine, 36, CARD_HEIGHT - 28);
+  ctx.restore();
+}
+
 /**
  * Render a profile card to a PNG Blob.
  *
@@ -1059,10 +1073,11 @@ export async function renderProfileCard(
 
   const renderer = TEMPLATE_RENDERERS[template];
   renderer(ctx, data);
+  drawStationLine(ctx, data);
 
   // Draw QR code in bottom-right corner if requested
   if (options?.showQR && data.callsign && data.callsign !== "N0CALL") {
-    const qrUrl = `https://propulse.app/profile/${data.callsign}`;
+    const qrUrl = `https://propulse.app/op/${data.callsign}`;
     await drawQRCode(ctx, qrUrl, CARD_WIDTH - 100, CARD_HEIGHT - 100, 80);
   }
 

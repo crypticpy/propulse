@@ -161,7 +161,7 @@ function HamClockTime() {
 
   return (
     <>
-      <span className="text-2xl font-mono font-bold text-white tracking-wider drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">
+      <span className="text-2xl font-mono font-bold text-white tracking-wider">
         {fmtHMS(now)} UTC
       </span>
       <span className="text-[11px] text-gray-400 font-mono">

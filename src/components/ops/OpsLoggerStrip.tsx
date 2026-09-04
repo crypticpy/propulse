@@ -12,9 +12,16 @@ import { useDxccStatus } from "@/hooks/useDxccStatus";
 import { useQSOEntry } from "@/hooks/useQSOEntry";
 import { formatBearing, formatDistance, getPathMetrics } from "@/lib/utils/path";
 import { applyLogIntent, commitLogIntent } from "@/lib/qso/logIntent";
+import { turnBeamToBearing } from "@/lib/qso/rotorIntent";
+import {
+  canTurnBeam,
+  resolveActiveRotator,
+} from "@/lib/station/rotorAvailability";
 import { currentStationLogStamp } from "@/lib/station/stationLogStamp";
+import { useKioskStore } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
+import { useRigStore } from "@/stores/rigStore";
 import { useShackStore } from "@/stores/shackStore";
 import { useUserStore } from "@/stores/userStore";
 
@@ -43,6 +50,12 @@ export function OpsLoggerStrip() {
     (s) =>
       `${s.activeChainId ?? ""}:${s.activePresetId ?? ""}:${s.activeRadioId ?? ""}`,
   );
+  const accessories = useShackStore((s) => s.accessories);
+  const stationChains = useShackStore((s) => s.stationChains);
+  const kioskActive = useKioskStore((s) => s.active);
+  const bridgeCapabilities = useRigStore((s) => s.bridgeCapabilities);
+  const rotorStatus = useRigStore((s) => s.rotorStatus);
+  const rigPtt = useRigStore((s) => s.ptt);
   const callsignRef = useRef<HTMLInputElement>(null);
   const [isLogging, setIsLogging] = useState(false);
   const [loggedFlash, setLoggedFlash] = useState<string | null>(null);
@@ -70,6 +83,27 @@ export function OpsLoggerStrip() {
       powerOverride: form.txPower,
     }).stationLine;
   }, [form.txPower, shackKey]);
+
+  const showTurnBeam = useMemo(() => {
+    void accessories;
+    void shackKey;
+    void stationChains;
+    return canTurnBeam({
+      rotator: resolveActiveRotator(useShackStore.getState()),
+      bridgeCapabilities,
+      rotorStatus,
+      kioskActive,
+      posture,
+    });
+  }, [
+    accessories,
+    bridgeCapabilities,
+    kioskActive,
+    posture,
+    rotorStatus,
+    shackKey,
+    stationChains,
+  ]);
 
   const handleLog = useCallback(
     async (forceDupe = false) => {
@@ -265,6 +299,36 @@ export function OpsLoggerStrip() {
               RX {Math.round(path.shortPath.reciprocal)}°
             </span>
           </div>
+        )}
+
+        {path && showTurnBeam && (
+          <button
+            type="button"
+            data-contact-turn-beam
+            disabled={rigPtt}
+            onClick={(event) =>
+              turnBeamToBearing(path.shortPath.bearing, {
+                longPath: event.shiftKey,
+              })
+            }
+            title={
+              rigPtt
+                ? "PTT is keyed — release before turning the beam"
+                : "Turn beam to short path (Shift-click for long path)"
+            }
+            className={`h-9 rounded-md px-2 font-mono text-[10px] uppercase tracking-wide ${
+              rigPtt
+                ? "cursor-not-allowed bg-white/5 text-gray-600"
+                : "bg-cosmic-cyan/15 text-cosmic-cyan hover:bg-cosmic-cyan/25"
+            }`}
+          >
+            Turn beam
+            {rotorStatus?.azimuth != null && (
+              <span className="ml-1 text-gray-400">
+                beam {Math.round(rotorStatus.azimuth)}°
+              </span>
+            )}
+          </button>
         )}
 
         {stationLine && (

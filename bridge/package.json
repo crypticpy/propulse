@@ -8,7 +8,7 @@
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc && node ../scripts/bundle-bridge-api.mjs",
-    "test": "npm run build && node --test dist/pttSafety.node-test.js",
+    "test": "npm run build && node --test dist/pttSafety.node-test.js dist/rotor.node-test.js",
     "build:full": "cd .. && npm run build && cd bridge && npm run build",
     "clean": "rm -rf dist"
   },

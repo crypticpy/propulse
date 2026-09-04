@@ -192,6 +192,11 @@ Response from bridge with capabilities.
 }
 ```
 
+**Capabilities** are what the client may use, not what it must assume. Optional
+integrations only appear when they were configured — `rotor` is present only
+when the bridge was started with `BRIDGE_ROTOR=1` (see §4.3). Clients MUST hide
+controls for a capability the bridge did not advertise.
+
 ---
 
 ### 4.2 Rig Control (CAT)
@@ -317,7 +322,89 @@ Set rig parameters.
 
 ---
 
-### 4.3 Contest Session
+### 4.3 Rotator Control
+
+Rotator support is **opt-in**. The bridge only speaks these messages, and only
+advertises the `rotor` capability in `bridge.welcome`, when it was started with
+`BRIDGE_ROTOR=1`.
+
+| Variable       | Default     | Purpose                                        |
+| -------------- | ----------- | ---------------------------------------------- |
+| `BRIDGE_ROTOR` | _(unset)_   | Set to `1` to enable the rotctld client        |
+| `ROTCTLD_HOST` | `127.0.0.1` | rotctld host (only used when enabled)          |
+| `ROTCTLD_PORT` | `4533`      | rotctld port (only used when enabled)          |
+
+Host/port variables configure an enabled client; they never enable one on their
+own. When rotor control is disabled, `rotor.setHeading` and `rotor.stop` return
+`ROTOR_UNAVAILABLE` and clients should not render turn-beam controls at all.
+
+The bridge polls `p` (get_pos) once per second while at least one client is
+connected. Polling never moves the rotator — motion happens only in response to
+an explicit `rotor.setHeading` or `rotor.stop`.
+
+#### `rotor.status`
+
+Pushed by the bridge whenever the rotator state changes, and returned on request
+when a client sends `rotor.status` with an empty payload.
+
+```json
+{
+  "type": "rotor.status",
+  "ts": "2026-09-04T12:00:00.000Z",
+  "payload": {
+    "connected": true,
+    "azimuth": 247.0,
+    "elevation": 0.0,
+    "moving": false
+  }
+}
+```
+
+| Field       | Type            | Description                                    |
+| ----------- | --------------- | ---------------------------------------------- |
+| `connected` | boolean         | Whether the bridge is talking to rotctld       |
+| `azimuth`   | number \| null  | Degrees 0–360, `null` when position is unknown |
+| `elevation` | number \| null  | Degrees 0–90, `null` when position is unknown  |
+| `moving`    | boolean         | Position changed since the previous poll       |
+| `error`     | string          | Last transport error (present while offline)   |
+
+#### `rotor.setHeading`
+
+Turn the rotator to an absolute heading. One message = one explicit move.
+
+**Request**:
+
+```json
+{
+  "type": "rotor.setHeading",
+  "id": "req-010",
+  "ts": "2026-09-04T12:00:05.000Z",
+  "payload": {
+    "azimuth": 247.0,
+    "elevation": 0.0
+  }
+}
+```
+
+**Response** (success): `rotor.setHeading.ack` with
+`{ "success": true, "azimuth": 247, "elevation": 0 }`.
+
+**Validation**: `azimuth` is a required finite number in 0–360. `elevation` is
+optional, a finite number in 0–90, and defaults to `0` for azimuth-only
+rotators. Anything else is rejected with `INVALID_PAYLOAD`.
+
+**PTT safety**: the bridge rejects `rotor.setHeading` with
+`ROTOR_BLOCKED_BY_PTT` whenever PTT is keyed (manual PTT owner or an active FT8
+TX cycle). Release PTT before turning the beam.
+
+#### `rotor.stop`
+
+Stop all rotator motion immediately (rotctld `S`). Empty payload; replies with
+`rotor.stop.ack` and `{ "success": true }`.
+
+---
+
+### 4.4 Contest Session
 
 #### `contest.session.create`
 
@@ -486,7 +573,7 @@ Broadcast when session state changes.
 
 ---
 
-### 4.4 Multi-op Coordination
+### 4.5 Multi-op Coordination
 
 #### `contest.lock.set`
 
@@ -646,7 +733,7 @@ Add a shared note visible to all operators.
 
 ---
 
-### 4.5 N1MM Integration
+### 4.6 N1MM Integration
 
 #### `n1mm.rx`
 
@@ -761,6 +848,9 @@ All errors follow a consistent format:
 | `CONFLICT`         | 409        | Resource conflict (e.g., lock already held) |
 | `RIG_DISCONNECTED` | 503        | rigctld not connected                       |
 | `RIG_ERROR`        | 500        | rigctld returned an error                   |
+| `ROTOR_UNAVAILABLE`   | 503     | Rotor control disabled (`BRIDGE_ROTOR` unset)  |
+| `ROTOR_BLOCKED_BY_PTT` | 409    | Rotator command refused while PTT is keyed     |
+| `ROTOR_COMMAND_FAILED` | 500    | rotctld returned an error or the socket failed |
 | `BRIDGE_ERROR`     | 500        | Internal bridge error                       |
 | `N1MM_UNAVAILABLE` | 503        | N1MM integration not available              |
 
@@ -902,7 +992,6 @@ Standard mode strings used across all messages:
 
 The following are explicitly **out of scope** for v1.0 but may be added in future versions:
 
-- **Rotor Control**: AZ/EL rotor integration via rotctld
 - **Amplifier Control**: Automatic band-switching amplifier support
 - **CW Keying**: Direct CW keying through bridge
 - **Voice Keyer**: DVK integration for SSB

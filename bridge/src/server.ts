@@ -30,6 +30,12 @@ import { DXClusterClient } from "./cluster.js";
 import { WSJTXListener } from "./wsjtx.js";
 import { WSJTXEmitter } from "./wsjtxEmitter.js";
 import { RigController, type RigControllerConfig } from "./rig.js";
+import {
+  RotorController,
+  isRotorEnabled,
+  resolveRotorConfig,
+  validateRotorHeading,
+} from "./rotor.js";
 import { PttSafetyController } from "./pttSafety.js";
 import { CivSpectrumClient, pixelToDb, type CivSpectrumLine } from "./civ.js";
 import { AudioCapture } from "./audioCapture.js";
@@ -400,6 +406,41 @@ async function releaseManualPtt(reason: string): Promise<void> {
 
 async function setManualPtt(clientId: string, enabled: boolean): Promise<void> {
   await pttSafety.setManualPtt(clientId, enabled);
+}
+
+// --------------------------------------------------------------------------
+// Rotator Integration (opt-in via BRIDGE_ROTOR=1)
+// --------------------------------------------------------------------------
+
+const rotorEnabled = isRotorEnabled(process.env);
+let rotorController: RotorController | null = null;
+
+/** Create (once) and start the rotor client. Only called when enabled. */
+function ensureRotorController(): RotorController {
+  if (rotorController) return rotorController;
+
+  const config = resolveRotorConfig(process.env);
+  const controller = new RotorController(config);
+  controller.onStatus((status) => {
+    broadcast(createMessage(MessageTypes.ROTOR_STATUS, status));
+  });
+  controller.start();
+  rotorController = controller;
+
+  logger.info("Rotor client started", { host: config.host, port: config.port });
+  return controller;
+}
+
+function stopRotor(): void {
+  if (!rotorController) return;
+  rotorController.shutdown();
+  rotorController = null;
+  logger.info("Rotor client stopped");
+}
+
+/** True while any PTT path holds the rig keyed. Rotators never turn under TX. */
+function isTransmitting(): boolean {
+  return pttSafety.owner !== null || txActive;
 }
 
 async function configurePttSafety(lockout: boolean): Promise<void> {
@@ -2671,6 +2712,33 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
       break;
     }
 
+    // ------------------------------------------------------------------
+    // Rotator control
+    // ------------------------------------------------------------------
+    case MessageTypes.ROTOR_STATUS: {
+      sendToClient(
+        client,
+        createMessage(
+          MessageTypes.ROTOR_STATUS,
+          rotorEnabled
+            ? ensureRotorController().getStatus()
+            : { connected: false, azimuth: null, elevation: null },
+          message.id,
+        ),
+      );
+      break;
+    }
+
+    case MessageTypes.ROTOR_SET_HEADING: {
+      handleRotorSetHeading(client, message);
+      break;
+    }
+
+    case MessageTypes.ROTOR_STOP: {
+      handleRotorStop(client, message);
+      break;
+    }
+
     case "safety.configure": {
       const payload =
         typeof message.payload === "object" && message.payload !== null
@@ -2955,6 +3023,112 @@ function handleRigSetPTT(
 }
 
 // --------------------------------------------------------------------------
+// Rotator Command Handlers
+// --------------------------------------------------------------------------
+
+function rejectRotorCommand(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+  code: string,
+  reason: string,
+): void {
+  sendToClient(
+    client,
+    createMessage("error", { code, message: reason }, message.id),
+  );
+}
+
+function handleRotorSetHeading(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+): void {
+  if (!rotorEnabled) {
+    rejectRotorCommand(
+      client,
+      message,
+      "ROTOR_UNAVAILABLE",
+      "Rotor control is disabled (set BRIDGE_ROTOR=1 to enable)",
+    );
+    return;
+  }
+  if (isTransmitting()) {
+    rejectRotorCommand(
+      client,
+      message,
+      "ROTOR_BLOCKED_BY_PTT",
+      "Rotator commands are blocked while PTT is keyed",
+    );
+    return;
+  }
+
+  let heading: ReturnType<typeof validateRotorHeading>;
+  try {
+    heading = validateRotorHeading(message.payload);
+  } catch (err: unknown) {
+    rejectRotorCommand(
+      client,
+      message,
+      "INVALID_PAYLOAD",
+      err instanceof Error ? err.message : String(err),
+    );
+    return;
+  }
+
+  (async () => {
+    try {
+      await ensureRotorController().setHeading(heading);
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, ...heading },
+          message.id,
+        ),
+      );
+    } catch (err: unknown) {
+      rejectRotorCommand(
+        client,
+        message,
+        "ROTOR_COMMAND_FAILED",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  })();
+}
+
+function handleRotorStop(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+): void {
+  if (!rotorEnabled) {
+    rejectRotorCommand(
+      client,
+      message,
+      "ROTOR_UNAVAILABLE",
+      "Rotor control is disabled (set BRIDGE_ROTOR=1 to enable)",
+    );
+    return;
+  }
+
+  (async () => {
+    try {
+      await ensureRotorController().stop();
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { success: true }, message.id),
+      );
+    } catch (err: unknown) {
+      rejectRotorCommand(
+        client,
+        message,
+        "ROTOR_COMMAND_FAILED",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  })();
+}
+
+// --------------------------------------------------------------------------
 // FT8 TX Command Handlers
 // --------------------------------------------------------------------------
 
@@ -3202,6 +3376,9 @@ function startServer(): void {
 
     clients.set(clientId, client);
 
+    // Poll the rotator only while at least one client is listening.
+    if (rotorEnabled) ensureRotorController();
+
     logger.info("Client connected", {
       clientId,
       remoteAddress,
@@ -3212,7 +3389,16 @@ function startServer(): void {
     const welcomeMessage = createMessage("bridge.welcome", {
       clientId,
       serverVersion: "0.3.0",
-      capabilities: ["rig", "contest", "sync", "cluster", "wsjtx", "static", "api"],
+      capabilities: [
+        "rig",
+        "contest",
+        "sync",
+        "cluster",
+        "wsjtx",
+        "static",
+        "api",
+        ...(rotorEnabled ? ["rotor"] : []),
+      ],
       staticServerUrl: fs.existsSync(DIST_DIR)
         ? `http://127.0.0.1:${STATIC_PORT}`
         : null,
@@ -3231,6 +3417,8 @@ function startServer(): void {
 
     socket.on("close", (code, reason) => {
       clients.delete(clientId);
+
+      if (clients.size === 0) stopRotor();
 
       void pttSafety
         .releaseIfOwnedBy(clientId, "owning client disconnected")
@@ -3325,6 +3513,7 @@ function startServer(): void {
     stopWSJTX();
     stopWSJTXEmitter();
     stopRig();
+    stopRotor();
     stopCiv();
     if (icomSpectrumDispose) {
       icomSpectrumDispose();

@@ -116,6 +116,33 @@ export interface SetPTTRequest {
 export type RigUpdatePayload = RigStatus;
 
 /**
+ * Rotator status pushed by the bridge (`rotor.status`).
+ * Null azimuth/elevation means the position is not known yet.
+ */
+export interface RotorStatusPayload {
+  /** Whether the bridge is talking to rotctld */
+  connected: boolean;
+  /** Azimuth in degrees (0–360) */
+  azimuth: number | null;
+  /** Elevation in degrees (0–90) */
+  elevation: number | null;
+  /** Whether the rotator moved since the previous poll */
+  moving?: boolean;
+  /** Last transport/protocol error while disconnected */
+  error?: string;
+}
+
+/**
+ * Request to turn the rotator to an absolute heading (`rotor.setHeading`)
+ */
+export interface RotorSetHeadingRequest {
+  /** Azimuth in degrees (0–360) */
+  azimuth: number;
+  /** Elevation in degrees (0–90), omitted for azimuth-only rotators */
+  elevation?: number;
+}
+
+/**
  * Bridge message types for type-safe message handling
  */
 export type BridgeMessageType =
@@ -127,7 +154,11 @@ export type BridgeMessageType =
   | "rig.connect"
   | "rig.disconnect"
   | "rig:test"
+  | "rotor.status"
+  | "rotor.setHeading"
+  | "rotor.stop"
   | "bridge.ping"
+  | "bridge.welcome"
   | "bridge.pong"
   | "bridge.subscribe"
   | "bridge.unsubscribe"

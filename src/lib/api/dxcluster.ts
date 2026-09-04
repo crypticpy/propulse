@@ -322,6 +322,7 @@ export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
         mode = extractModeFromComment(comment);
       }
 
+      const rawBand = String(item.band ?? "").trim();
       return {
         id: (item.id as string) || crypto.randomUUID(),
         spotter: String(item.spotter ?? item.de ?? ""),
@@ -330,7 +331,10 @@ export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
         mode,
         comment,
         time,
-        band: String(item.band ?? "") || getBandFromFrequency(frequency),
+        // Edge feed historically returns "20M"; app BandIds / BandMap ranges are "20m".
+        band: rawBand
+          ? rawBand.toLowerCase()
+          : getBandFromFrequency(frequency),
         spotterGrid: item.spotterGrid as string | undefined,
         dxGrid: item.dxGrid as string | undefined,
       };
@@ -344,6 +348,7 @@ export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
  * Convert a bridge ClusterSpotPayload to a DXSpot.
  */
 export function clusterPayloadToSpot(payload: ClusterSpotPayload): DXSpot {
+  const rawBand = payload.band?.trim();
   return {
     id: payload.id,
     spotter: payload.spotter,
@@ -354,6 +359,8 @@ export function clusterPayloadToSpot(payload: ClusterSpotPayload): DXSpot {
     mode: payload.mode,
     comment: payload.comment,
     time: new Date(payload.time),
-    band: payload.band || getBandFromFrequency(payload.frequency),
+    band: rawBand
+      ? rawBand.toLowerCase()
+      : getBandFromFrequency(payload.frequency),
   };
 }

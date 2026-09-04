@@ -84,8 +84,9 @@ function filterSpots(spots: DXSpot[], filters: DXClusterFilters): DXSpot[] {
 
   // Filter by bands
   if (filters.bands && filters.bands.length > 0) {
+    const allowed = new Set(filters.bands.map((band) => band.toLowerCase()));
     filtered = filtered.filter(
-      (spot) => spot.band && filters.bands!.includes(spot.band),
+      (spot) => spot.band && allowed.has(spot.band.toLowerCase()),
     );
   }
 

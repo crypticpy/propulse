@@ -66,8 +66,13 @@ export function BandActivityBar({
   // Merge prop-provided active bands with the global active band from operatingStore
   const globalActiveBand = useActiveBand();
   const activeBands = useMemo(() => {
-    if (activeBandsProp && activeBandsProp.length > 0) return activeBandsProp;
-    return globalActiveBand ? [globalActiveBand] : [];
+    const source =
+      activeBandsProp && activeBandsProp.length > 0
+        ? activeBandsProp
+        : globalActiveBand
+          ? [globalActiveBand]
+          : [];
+    return source.map((band) => band.toLowerCase());
   }, [activeBandsProp, globalActiveBand]);
 
   // Count spots per band and build ordered segments
@@ -76,7 +81,8 @@ export function BandActivityBar({
 
     for (const spot of spots) {
       if (spot.band) {
-        countMap.set(spot.band, (countMap.get(spot.band) || 0) + 1);
+        const band = spot.band.toLowerCase();
+        countMap.set(band, (countMap.get(band) || 0) + 1);
       }
     }
 

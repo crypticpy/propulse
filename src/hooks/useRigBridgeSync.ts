@@ -51,10 +51,10 @@ export function parseRigUpdatePayload(payload: RigUpdatePayload): RigUpdateField
 }
 
 function readCapabilities(payload: unknown): string[] {
-  if (typeof payload !== "object" || payload === null) return [];
-  const raw = (payload as { capabilities?: unknown }).capabilities;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((item): item is string => typeof item === "string");
+  const raw = (payload as { capabilities?: unknown } | null)?.capabilities;
+  return Array.isArray(raw)
+    ? raw.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 export function useRigBridgeSync() {
@@ -164,11 +164,15 @@ export function useRigBridgeSync() {
     );
   }, [catConfigured, setBackend, setCATEnabled, settings.catBackend]);
 
-  useEffect(() => {
-    if (!bridgeConnected || catConfigured) return;
+  const resetRequestRefs = () => {
     connectRequestIdRef.current = null;
     pendingFrequencyRequestRef.current = null;
     pendingModeRequestRef.current = null;
+  };
+
+  useEffect(() => {
+    if (!bridgeConnected || catConfigured) return;
+    resetRequestRefs();
     setConnected(false);
     send("rig.disconnect", {});
   }, [bridgeConnected, catConfigured, send, setConnected]);
@@ -177,9 +181,7 @@ export function useRigBridgeSync() {
   useEffect(() => {
     if (!bridgeConnected) {
       setConnected(false);
-      connectRequestIdRef.current = null;
-      pendingFrequencyRequestRef.current = null;
-      pendingModeRequestRef.current = null;
+      resetRequestRefs();
       pendingRotorRequestRef.current = null;
       // Capabilities and rotor state belong to the dropped session.
       setBridgeCapabilities([]);
@@ -241,34 +243,19 @@ export function useRigBridgeSync() {
     }
 
     if (msg.id && msg.id === pendingFrequencyRequestRef.current?.id) {
-      if (msg.type === "rig.setFrequency.ack") {
-        pendingFrequencyRequestRef.current = null;
-        clearPendingFrequency();
-      } else if (msg.type === "error") {
-        pendingFrequencyRequestRef.current = null;
-        clearPendingFrequency();
-        console.error("Rig frequency command failed", msg.payload);
-      }
+      pendingFrequencyRequestRef.current = null;
+      clearPendingFrequency();
+      if (msg.type === "error") console.error("Rig frequency command failed", msg.payload);
     }
     if (msg.id && msg.id === pendingModeRequestRef.current?.id) {
-      if (msg.type === "rig.setMode.ack") {
-        pendingModeRequestRef.current = null;
-        clearPendingMode();
-      } else if (msg.type === "error") {
-        pendingModeRequestRef.current = null;
-        clearPendingMode();
-        console.error("Rig mode command failed", msg.payload);
-      }
+      pendingModeRequestRef.current = null;
+      clearPendingMode();
+      if (msg.type === "error") console.error("Rig mode command failed", msg.payload);
     }
     if (msg.id && msg.id === pendingRotorRequestRef.current?.id) {
-      if (msg.type === "rotor.setHeading.ack") {
-        pendingRotorRequestRef.current = null;
-        clearPendingRotorHeading();
-      } else if (msg.type === "error") {
-        pendingRotorRequestRef.current = null;
-        clearPendingRotorHeading();
-        console.error("Rotor heading command failed", msg.payload);
-      }
+      pendingRotorRequestRef.current = null;
+      clearPendingRotorHeading();
+      if (msg.type === "error") console.error("Rotor heading command failed", msg.payload);
     }
   }, [
     clearPendingFrequency,

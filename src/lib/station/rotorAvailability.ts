@@ -24,6 +24,9 @@ export const ROTOR_CAPABILITY = "rotor";
  * accessory node in the signal path or through `shackAccessoryIds`. If no
  * chain is active, or the chain references no rotator, the answer is null —
  * owning a rotator in inventory is never enough to command hardware.
+ *
+ * An `"elevation"`-only rotator is never returned: it cannot turn azimuth,
+ * so it is never a valid Turn beam target.
  */
 export function resolveActiveRotator(
   shack: StationStampSource,
@@ -39,7 +42,9 @@ export function resolveActiveRotator(
 
   const rotator = shack.accessories.find(
     (accessory) =>
-      accessory.category === "rotator" && referenced.has(accessory.id),
+      accessory.category === "rotator" &&
+      referenced.has(accessory.id) &&
+      (accessory as RotatorAccessory).rotatorType !== "elevation",
   );
   return rotator ? (rotator as RotatorAccessory) : null;
 }

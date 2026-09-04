@@ -130,4 +130,15 @@ describe("turnBeamToBearing", () => {
       azimuth: 247.4,
     });
   });
+
+  it("is ignored for an elevation-only rotator (cannot turn azimuth)", () => {
+    useShackStore.setState({
+      accessories: [{ ...ROTATOR, rotatorType: "elevation" }],
+    });
+    expect(turnBeamToBearing(247)).toEqual({
+      status: "ignored",
+      reason: "unavailable",
+    });
+    expect(useRigStore.getState().pendingRotorHeading).toBeNull();
+  });
 });

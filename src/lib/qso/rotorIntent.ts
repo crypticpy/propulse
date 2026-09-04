@@ -64,8 +64,7 @@ export function turnBeamToBearing(
   const azimuth = normalizeAzimuth(options.longPath ? bearing + 180 : bearing);
 
   const elevation = rig.rotorStatus?.elevation;
-  const isAzEl =
-    rotator?.rotatorType === "az_el" || rotator?.rotatorType === "elevation";
+  const isAzEl = rotator?.rotatorType === "az_el";
   if (isAzEl && typeof elevation === "number" && Number.isFinite(elevation)) {
     rig.setPendingRotorHeading({ azimuth, elevation });
   } else {

@@ -110,6 +110,40 @@ describe("resolveActiveRotator", () => {
       ),
     ).toBe(ROTATOR);
   });
+
+  it("never resolves an elevation-only rotator", () => {
+    const elevationOnly: RotatorAccessory = {
+      ...ROTATOR,
+      id: "rot-el",
+      rotatorType: "elevation",
+    };
+    expect(
+      resolveActiveRotator(
+        shack({
+          accessories: [elevationOnly, AMPLIFIER],
+          stationChains: [chain({ shackAccessoryIds: ["rot-el"] })],
+          activeChainId: "chain-1",
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("resolves an az_el rotator", () => {
+    const azEl: RotatorAccessory = {
+      ...ROTATOR,
+      id: "rot-azel",
+      rotatorType: "az_el",
+    };
+    expect(
+      resolveActiveRotator(
+        shack({
+          accessories: [azEl, AMPLIFIER],
+          stationChains: [chain({ shackAccessoryIds: ["rot-azel"] })],
+          activeChainId: "chain-1",
+        }),
+      ),
+    ).toBe(azEl);
+  });
 });
 
 describe("canTurnBeam", () => {

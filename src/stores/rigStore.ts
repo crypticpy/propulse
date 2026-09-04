@@ -95,8 +95,6 @@ export interface RigState {
     azimuth: number;
     elevation?: number;
   }) => void;
-  /** Clear all pending commands (after dispatch or cancel) */
-  clearPending: () => void;
   clearPendingFrequency: () => void;
   clearPendingMode: () => void;
   clearPendingRotorHeading: () => void;
@@ -185,12 +183,6 @@ export const useRigStore = create<RigState>()((set, get) => ({
 
   setPendingRotorHeading: (heading) => set({ pendingRotorHeading: heading }),
 
-  clearPending: () =>
-    set({
-      pendingFrequency: null,
-      pendingMode: null,
-      pendingRotorHeading: null,
-    }),
   clearPendingFrequency: () => set({ pendingFrequency: null }),
   clearPendingMode: () => set({ pendingMode: null }),
   clearPendingRotorHeading: () => set({ pendingRotorHeading: null }),

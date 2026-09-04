@@ -127,8 +127,7 @@ describe("OpsLoggerStrip", () => {
     expect(container.querySelector("[data-contact-turn-beam]")).toBeNull();
   });
 
-  it("shows Turn beam and commands the short-path bearing when available", async () => {
-    const user = userEvent.setup();
+  it("lazy-loads Turn beam once the gate is open", async () => {
     givePath();
     useShackStore.setState({
       accessories: [ROTATOR],
@@ -140,20 +139,16 @@ describe("OpsLoggerStrip", () => {
       rotorStatus: { connected: true, azimuth: 90, elevation: 0 },
     });
 
-    const { container } = render(
+    render(
       <MemoryRouter>
         <OpsLoggerStrip />
       </MemoryRouter>,
     );
 
-    const button = container.querySelector("[data-contact-turn-beam]");
-    expect(button).not.toBeNull();
-    expect(button?.textContent).toContain("beam 90°");
-
-    await user.click(button as HTMLElement);
-    const staged = useRigStore.getState().pendingRotorHeading;
-    expect(staged).not.toBeNull();
-    expect(staged?.azimuth).toBeGreaterThan(0);
-    expect(staged?.azimuth).toBeLessThan(360);
+    // The control is behind a lazy import + Suspense boundary, so it is not
+    // present synchronously — the interaction itself is covered by
+    // TurnBeamControl.test.tsx.
+    const button = await screen.findByText("Turn beam");
+    expect(button.closest("[data-contact-turn-beam]")).not.toBeNull();
   });
 });

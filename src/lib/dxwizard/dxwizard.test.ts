@@ -236,6 +236,7 @@ describe("dxwizard contest rank", () => {
       difficulty: "advanced",
       estimatedParticipants: 50000,
       tags: ["dx", "major"],
+      warcExempt: true,
     };
 
     const ranked = applyContestCongestionRanking({

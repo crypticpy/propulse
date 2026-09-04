@@ -32,8 +32,10 @@ import { WSJTXEmitter } from "./wsjtxEmitter.js";
 import { RigController, type RigControllerConfig } from "./rig.js";
 import {
   RotorController,
+  applyKnownElevationFallback,
   isRotorEnabled,
   resolveRotorConfig,
+  shouldBlockRotor,
   validateRotorHeading,
 } from "./rotor.js";
 import { PttSafetyController } from "./pttSafety.js";
@@ -367,6 +369,9 @@ let activeTxTimer: ReturnType<typeof setTimeout> | null = null;
 let txActive = false;
 let ft8TxGeneration = 0;
 
+/** Last polled PTT state reported by the rig itself (footswitch, front panel, etc). */
+let lastRigPtt = false;
+
 /** Maximum TX duration safety limit in milliseconds */
 const FT8_TX_MAX_DURATION_MS = 20_000;
 /** Minimum TX duration in milliseconds */
@@ -440,7 +445,11 @@ function stopRotor(): void {
 
 /** True while any PTT path holds the rig keyed. Rotators never turn under TX. */
 function isTransmitting(): boolean {
-  return pttSafety.owner !== null || txActive;
+  return shouldBlockRotor({
+    manualPttOwned: pttSafety.owner !== null,
+    txActive,
+    rigPtt: lastRigPtt,
+  });
 }
 
 async function configurePttSafety(lockout: boolean): Promise<void> {
@@ -617,6 +626,8 @@ async function startRig(
   rigController = new RigController(config);
 
   rigStatusDispose = rigController.onStatus((status) => {
+    if (typeof status.ptt === "boolean") lastRigPtt = status.ptt;
+
     // Bridge-protocol broadcast (envelope format)
     broadcast(createMessage(MessageTypes.RIG_STATUS, status));
     // Compatibility: some frontend code still listens for rig.update.
@@ -651,6 +662,7 @@ async function startRig(
 
 function stopRig(): void {
   ft8TxGeneration += 1;
+  lastRigPtt = false;
   if (activeTxTimer) {
     clearTimeout(activeTxTimer);
     activeTxTimer = null;
@@ -3063,7 +3075,11 @@ function handleRotorSetHeading(
 
   let heading: ReturnType<typeof validateRotorHeading>;
   try {
-    heading = validateRotorHeading(message.payload);
+    const payload = applyKnownElevationFallback(
+      message.payload,
+      ensureRotorController().getStatus().elevation,
+    );
+    heading = validateRotorHeading(payload);
   } catch (err: unknown) {
     rejectRotorCommand(
       client,
@@ -3409,6 +3425,16 @@ function startServer(): void {
     });
 
     socket.send(JSON.stringify(welcomeMessage));
+
+    // A freshly connected client has no rotor status yet, and emit()
+    // suppresses unchanged polls — without this seed, a second client would
+    // sit at rotorStatus null until the rotator actually moves.
+    if (rotorEnabled) {
+      sendToClient(
+        client,
+        createMessage(MessageTypes.ROTOR_STATUS, ensureRotorController().getStatus()),
+      );
+    }
 
     socket.on("message", (data) => {
       const messageString = data.toString();

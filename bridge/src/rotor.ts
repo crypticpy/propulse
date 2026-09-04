@@ -116,6 +116,44 @@ function finiteNumber(value: unknown): number | undefined {
 }
 
 /**
+ * Fill in a missing `elevation` on an untrusted `rotor.setHeading` payload
+ * with the controller's last known elevation, before validation. Az/el
+ * rotators must not be commanded back to 0° elevation just because a caller
+ * (e.g. an azimuth-only "turn beam" click) omitted the field; fall back to 0
+ * only when the current elevation is unknown (`null`).
+ */
+export function applyKnownElevationFallback(
+  payload: unknown,
+  knownElevation: number | null,
+): unknown {
+  if (typeof payload !== "object" || payload === null) return payload;
+  const p = payload as Record<string, unknown>;
+  if ((p.elevation === undefined || p.elevation === null) && knownElevation !== null) {
+    return { ...p, elevation: knownElevation };
+  }
+  return payload;
+}
+
+export interface RotorInterlockState {
+  /** A client currently holds manual PTT ownership. */
+  manualPttOwned: boolean;
+  /** An FT8 (or similar scheduled) transmission is in progress. */
+  txActive: boolean;
+  /** Last polled PTT state reported by the rig itself, if known. */
+  rigPtt: boolean;
+}
+
+/**
+ * Whether rotor commands should be blocked because the station is
+ * transmitting by any means: a client-owned manual PTT, a scheduled TX
+ * (e.g. FT8), or the rig's own polled PTT state (covers PTT keyed outside
+ * the bridge, e.g. a footswitch or the radio's front panel).
+ */
+export function shouldBlockRotor(state: RotorInterlockState): boolean {
+  return state.manualPttOwned || state.txActive || state.rigPtt;
+}
+
+/**
  * Validate an untrusted `rotor.setHeading` payload.
  * Azimuth is required (0–360). Elevation is optional (0–90, defaults to 0).
  */

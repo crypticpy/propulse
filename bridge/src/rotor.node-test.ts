@@ -3,11 +3,13 @@ import test from "node:test";
 import {
   ROTOR_DEFAULT_HOST,
   ROTOR_DEFAULT_PORT,
+  applyKnownElevationFallback,
   formatSetPositionCommand,
   isRotorEnabled,
   parseRotorPosition,
   parseRotorReport,
   resolveRotorConfig,
+  shouldBlockRotor,
   validateRotorHeading,
 } from "./rotor.js";
 
@@ -124,4 +126,53 @@ test("validateRotorHeading rejects out-of-range and non-finite input", () => {
     () => validateRotorHeading({ azimuth: 10, elevation: "30" }),
     /Invalid elevation/,
   );
+});
+
+test("shouldBlockRotor blocks on manual PTT, active TX, or observed rig PTT", () => {
+  assert.equal(
+    shouldBlockRotor({ manualPttOwned: false, txActive: false, rigPtt: false }),
+    false,
+  );
+  assert.equal(
+    shouldBlockRotor({ manualPttOwned: true, txActive: false, rigPtt: false }),
+    true,
+  );
+  assert.equal(
+    shouldBlockRotor({ manualPttOwned: false, txActive: true, rigPtt: false }),
+    true,
+  );
+  assert.equal(
+    shouldBlockRotor({ manualPttOwned: false, txActive: false, rigPtt: true }),
+    true,
+  );
+});
+
+test("applyKnownElevationFallback fills in a missing elevation from known state", () => {
+  assert.deepEqual(
+    applyKnownElevationFallback({ azimuth: 90 }, 30),
+    { azimuth: 90, elevation: 30 },
+  );
+  assert.deepEqual(
+    applyKnownElevationFallback({ azimuth: 90, elevation: null }, 30),
+    { azimuth: 90, elevation: 30 },
+  );
+});
+
+test("applyKnownElevationFallback falls back to 0 only when elevation is unknown", () => {
+  assert.deepEqual(
+    applyKnownElevationFallback({ azimuth: 90 }, null),
+    { azimuth: 90 },
+  );
+});
+
+test("applyKnownElevationFallback leaves an explicit elevation untouched", () => {
+  assert.deepEqual(
+    applyKnownElevationFallback({ azimuth: 90, elevation: 12 }, 30),
+    { azimuth: 90, elevation: 12 },
+  );
+});
+
+test("applyKnownElevationFallback passes through non-object payloads unchanged", () => {
+  assert.equal(applyKnownElevationFallback(null, 30), null);
+  assert.equal(applyKnownElevationFallback("bad", 30), "bad");
 });

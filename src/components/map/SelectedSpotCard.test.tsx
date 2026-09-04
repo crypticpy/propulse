@@ -73,6 +73,7 @@ const spot: LiveSpot = {
 describe("SelectedSpotCard", () => {
   beforeEach(() => {
     selectMapSpot.mockReset();
+    navigate.mockReset();
     useMapOperationalStore.setState({
       manualScope: null,
       workspaceOpen: false,

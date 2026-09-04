@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { ImageryAttribution } from "@/components/map/ImageryAttribution";
 import {
   MAP_RENDERER_HANDOFF_MS,
   buildGlobeFallbackStyle,
@@ -16,6 +17,7 @@ export function SatelliteGlobeFallback({
   className = "",
 }: SatelliteGlobeFallbackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const errorBurstRef = useRef({ count: 0, lastAt: 0 });
   const [failed, setFailed] = useState(false);
   const provider = ALL_PROVIDERS["esri-world"];
 
@@ -36,9 +38,21 @@ export function SatelliteGlobeFallback({
           pixelRatio: Math.min(window.devicePixelRatio || 1, 1.75),
         });
         map.setProjection({ type: "globe" });
-        map.on("load", () => map?.resize());
+        map.on("load", () => {
+          errorBurstRef.current = { count: 0, lastAt: 0 };
+          map?.resize();
+        });
+        map.on("sourcedata", (event) => {
+          if (event.sourceId === "basemap" && event.isSourceLoaded) {
+            errorBurstRef.current = { count: 0, lastAt: 0 };
+          }
+        });
         map.on("error", () => {
-          /* Tile misses are expected at the poles; constructor success is enough. */
+          const now = Date.now();
+          const current = errorBurstRef.current;
+          const count = now - current.lastAt > 5_000 ? 1 : current.count + 1;
+          errorBurstRef.current = { count, lastAt: now };
+          if (count >= 3) setFailed(true);
         });
       } catch {
         setFailed(true);
@@ -52,13 +66,18 @@ export function SatelliteGlobeFallback({
     };
   }, [provider]);
 
-  if (failed) {
-    return (
-      <div className="flex h-full items-center justify-center bg-deep-space px-6 text-center text-sm text-gray-400">
-        The fallback globe could not start in this graphics context.
-      </div>
-    );
-  }
-
-  return <div ref={containerRef} className={`absolute inset-0 ${className}`} />;
+  return (
+    <>
+      <div ref={containerRef} className={`absolute inset-0 ${className}`} />
+      {failed ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-deep-space px-6 text-center text-sm text-gray-400">
+          The fallback globe could not load imagery.
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute bottom-3 left-3 z-20">
+          <ImageryAttribution provider={provider} className="self-start" />
+        </div>
+      )}
+    </>
+  );
 }

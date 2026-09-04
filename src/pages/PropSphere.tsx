@@ -1343,6 +1343,7 @@ export function PropSphere() {
 
                       {/* Right: Callsign badge + S-meter */}
                       <div className="flex items-center gap-2">
+                        <ActiveKitChip className="pointer-events-auto" />
                         <QuickLocationControl variant="icon" />
                         {catActive && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">

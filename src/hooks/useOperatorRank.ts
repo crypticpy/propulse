@@ -147,9 +147,10 @@ export function useOperatorRank(
   const accessories = useShackStore((s) => s.accessories);
   const inlineComponents = useShackStore((s) => s.inlineComponents);
   const stationChains = useShackStore((s) => s.stationChains);
-  const { qsoCountById, stampedQsoCount } = useStationQsoIndex();
+  const { qsoCountById, stampedQsoCount, isLoading: indexLoading } =
+    useStationQsoIndex();
 
-  const isLoading = achievementsLoading || stats.isLoading;
+  const isLoading = achievementsLoading || stats.isLoading || indexLoading;
   const rankOverride = operatorRank.rankOverride ?? null;
 
   // 2. Compute rank state

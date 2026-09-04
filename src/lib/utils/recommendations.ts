@@ -418,6 +418,8 @@ export function getRecommendations(
   station?: ForecastStationParams,
 ): PropagationRecommendations {
   const txPowerWatts = station?.txPowerWatts ?? 100;
+  const gainDbi = station?.antennaGainDbi ?? antennaGainDbi;
+  const noise = station?.noiseEnvironment ?? noiseEnvironment;
   const optimal = getOptimalBand(
     homeLat,
     homeLon,
@@ -428,8 +430,8 @@ export function getRecommendations(
     time,
     mode,
     correlationData,
-    antennaGainDbi,
-    noiseEnvironment,
+    gainDbi,
+    noise,
     txPowerWatts,
   );
 
@@ -443,8 +445,8 @@ export function getRecommendations(
     time,
     mode,
     correlationData,
-    antennaGainDbi,
-    noiseEnvironment,
+    gainDbi,
+    noise,
     txPowerWatts,
   );
 

@@ -782,7 +782,7 @@ export function getEnhancedBandConditions(
   mode: "SSB" | "CW" | "FT8" = "FT8",
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
-  farEndGainDbi: number = 0,
+  farEndGainDbi: number | ((band: string) => number) = 0,
 ): PathBandCondition[] {
   // Calculate great circle distance
   const distance = calculateGreatCircleDistance(
@@ -832,6 +832,11 @@ export function getEnhancedBandConditions(
         ? Math.min(...rayResult.hops.map((h) => h.muf))
         : undefined;
 
+    const farEnd =
+      typeof farEndGainDbi === "function"
+        ? farEndGainDbi(band.name)
+        : farEndGainDbi;
+
     // Get full signal prediction using the signal.ts model
     // Pass kp, sfi, and muf so confidence intervals are computed
     const signalPred = predictSignalStrength(
@@ -841,7 +846,7 @@ export function getEnhancedBandConditions(
       absorptionDb,
       txPowerWatts,
       mode,
-      antennaGainDbi + farEndGainDbi,
+      antennaGainDbi + farEnd,
       noiseEnvironment,
       rayResult.terrainLoss, // terrainLossDb
       kp,

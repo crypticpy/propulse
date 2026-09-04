@@ -460,13 +460,14 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
   const setActiveChain = useShackStore((s) => s.setActiveChain);
   const rigPower = useRigStore((s) => s.power);
   const kitTouchedRef = useRef(false);
+  const powerTouchedRef = useRef(false);
 
   useEffect(() => {
-    if (form.txPower != null) return;
+    if (powerTouchedRef.current) return;
     const next =
       rigPower > 0 ? rigPower : (activeChain?.operatingPowerWatts ?? null);
     if (next != null) setField("txPower", next);
-  }, [activeChain?.operatingPowerWatts, form.txPower, rigPower, setField]);
+  }, [activeChain?.operatingPowerWatts, rigPower, setField]);
 
   useEffect(() => {
     if (!isFieldActivationSig(form.mySig) || kitTouchedRef.current) return;
@@ -781,6 +782,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
               value={form.txPower ?? ""}
               onChange={(e) => {
                 const val = e.target.value;
+                powerTouchedRef.current = val.length > 0;
                 setField("txPower", val ? Number(val) : null);
               }}
               placeholder={

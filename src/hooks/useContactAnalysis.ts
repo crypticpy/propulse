@@ -44,7 +44,7 @@ interface UseContactAnalysisParams {
   txPowerWatts?: number;
   mode?: "SSB" | "CW" | "FT8";
   antennaGainDbi?: number;
-  farEndGainDbi?: number;
+  farEndGainDbi?: number | ((band: string) => number);
 }
 
 /**

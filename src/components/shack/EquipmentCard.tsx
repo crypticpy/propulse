@@ -46,6 +46,11 @@ function ensureCardStyles() {
   from { transform: rotateY(0deg); }
   to { transform: rotateY(180deg); }
 }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes cardSheen {
+    0%, 100% { background-position: 0% 0; }
+  }
+}
 `;
   document.head.appendChild(style);
 }
@@ -531,7 +536,11 @@ export function EquipmentCard({
           style={{
             backgroundImage: sheenGradient,
             backgroundSize: "200% 100%",
-            animation: isHovered ? "cardSheen 1.5s ease-in-out" : "none",
+            animation:
+              isHovered &&
+              !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                ? "cardSheen 1.5s ease-in-out"
+                : "none",
             opacity: isHovered ? sheenOpacity : 0,
           }}
         />
@@ -652,7 +661,10 @@ export function EquipmentCard({
             style={{
               transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
               transformStyle: "preserve-3d",
-              transition: "transform 500ms ease",
+              transition: window.matchMedia("(prefers-reduced-motion: reduce)")
+                .matches
+                ? "none"
+                : "transform 500ms ease",
             }}
           >
             <div

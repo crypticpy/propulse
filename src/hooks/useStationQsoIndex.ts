@@ -1,9 +1,9 @@
 /**
  * Shared QSO-count index for shack cards, rank, and completeness.
- * Loads IndexedDB once and refreshes when the log mutates — never via useLogbook.
+ * One IndexedDB scan, reused by every subscriber — never via useLogbook.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getAllLogEntries,
   subscribeLogEntries,
@@ -14,13 +14,14 @@ export interface StationQsoIndex {
   qsoCountById: Record<string, number>;
   stampedQsoCount: number;
   entries: Array<Pick<LogEntry, "radioId" | "antennaId" | "chainId">>;
+  isLoading: boolean;
 }
 
 function emptyIndex(): StationQsoIndex {
-  return { qsoCountById: {}, stampedQsoCount: 0, entries: [] };
+  return { qsoCountById: {}, stampedQsoCount: 0, entries: [], isLoading: true };
 }
 
-function indexEntries(entries: LogEntry[]): StationQsoIndex {
+function indexEntries(entries: LogEntry[]): Omit<StationQsoIndex, "isLoading"> {
   const qsoCountById: Record<string, number> = {};
   let stampedQsoCount = 0;
   const slim: StationQsoIndex["entries"] = [];
@@ -46,27 +47,42 @@ function indexEntries(entries: LogEntry[]): StationQsoIndex {
   return { qsoCountById, stampedQsoCount, entries: slim };
 }
 
+let current: StationQsoIndex = emptyIndex();
+const subscribers = new Set<(index: StationQsoIndex) => void>();
+let started = false;
+
+function emit(next: StationQsoIndex) {
+  current = next;
+  subscribers.forEach((listener) => listener(next));
+}
+
+function startSharedIndex() {
+  if (started) return;
+  started = true;
+  const load = () => {
+    void getAllLogEntries()
+      .then((entries) => {
+        emit({ ...indexEntries(entries), isLoading: false });
+      })
+      .catch(() => {
+        emit({ ...emptyIndex(), isLoading: false });
+      });
+  };
+  load();
+  subscribeLogEntries(load);
+}
+
 export function useStationQsoIndex(): StationQsoIndex {
-  const [index, setIndex] = useState<StationQsoIndex>(emptyIndex);
+  const [index, setIndex] = useState<StationQsoIndex>(current);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = () => {
-      void getAllLogEntries()
-        .then((entries) => {
-          if (!cancelled) setIndex(indexEntries(entries));
-        })
-        .catch(() => {
-          if (!cancelled) setIndex(emptyIndex());
-        });
-    };
-    load();
-    const unsubscribe = subscribeLogEntries(load);
+    startSharedIndex();
+    setIndex(current);
+    subscribers.add(setIndex);
     return () => {
-      cancelled = true;
-      unsubscribe();
+      subscribers.delete(setIndex);
     };
   }, []);
 
-  return useMemo(() => index, [index]);
+  return index;
 }

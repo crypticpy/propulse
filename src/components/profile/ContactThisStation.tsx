@@ -86,8 +86,6 @@ export function ContactThisStation({
     stationGain.txPowerWatts,
     stationGain.physicsMode,
   );
-  const farEndGainDbi = farEndGainDbiFromPublicErp(theirKit, "20m");
-
   const analysis = useContactAnalysis({
     viewerLat: viewerLat ?? 0,
     viewerLon: viewerLon ?? 0,
@@ -100,7 +98,7 @@ export function ContactThisStation({
     txPowerWatts: physics.txPowerWatts,
     mode: physics.mode,
     antennaGainDbi: physics.antennaGainDbi,
-    farEndGainDbi,
+    farEndGainDbi: (band) => farEndGainDbiFromPublicErp(theirKit, band),
   });
 
   if (!hasCoords || !analysis) return null;

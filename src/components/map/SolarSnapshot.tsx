@@ -11,6 +11,7 @@ import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { calculatePropagationIndex } from "@/components/solar/PropagationIndex";
+import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { getRecommendations } from "@/lib/utils/recommendations";
 import {
   getGreylineStatus,
@@ -232,6 +233,12 @@ export function SolarSnapshot({
 }: SolarSnapshotProps) {
   const { use24h } = useTimeFormat();
   const [showHelp, setShowHelp] = useState(false);
+  const station = useForecastStationParams(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+  );
 
   // Fetch solar data
   const { data: kIndexData, isLoading: kLoading } = useKIndex();
@@ -289,6 +296,10 @@ export function SolarSnapshot({
       currentSfi,
       displayTime,
       "FT8",
+      undefined,
+      0,
+      undefined,
+      station,
     );
   }, [
     homeLat,
@@ -298,6 +309,7 @@ export function SolarSnapshot({
     currentKp,
     currentSfi,
     displayTime,
+    station,
   ]);
 
   // Check storm risk conditions

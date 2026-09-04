@@ -16,7 +16,7 @@ export function subscribeLogEntries(listener: () => void): () => void {
   };
 }
 
-function notifyLogEntries() {
+export function notifyLogEntries() {
   logListeners.forEach((listener) => listener());
 }
 

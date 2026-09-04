@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
+import { useProfileStore } from "@/stores/profileStore";
 import type { Json } from "@/types/supabase";
 
 /**
@@ -28,14 +29,19 @@ export async function pushPublicEquipmentCache(
     : null;
   const kit = resolveChainKit(activeChain, inventory);
   const chainPerf = computeStationChainPerformance(activeChain, inventory);
+  const equipmentPublic =
+    useProfileStore.getState().visibilitySettings.equipment !== "private";
+  const nextCache = { ...existingCache };
+  if (equipmentPublic) {
+    nextCache.equipment = buildPublicEquipmentSummary(kit, chainPerf.bands);
+  } else {
+    delete nextCache.equipment;
+  }
   const supabase = getSupabase();
   const { error: cacheError } = await supabase
     .from("profiles")
     .update({
-      stats_cache: {
-        ...existingCache,
-        equipment: buildPublicEquipmentSummary(kit, chainPerf.bands),
-      } as unknown as Json,
+      stats_cache: nextCache as unknown as Json,
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);

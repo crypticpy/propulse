@@ -928,7 +928,7 @@ export const useQSOStore = create<QSOStoreState>()(
           shack.activeChainId,
           defaults.mySig,
         );
-        if (pickedChainId) {
+        if (defaults.mySig && pickedChainId) {
           defaults.chainId = pickedChainId;
         }
 

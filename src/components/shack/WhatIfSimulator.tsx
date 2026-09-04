@@ -5,7 +5,7 @@
  * Apply writes those values back to the live chain.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useActiveChain,
   useShackStore,
@@ -52,12 +52,24 @@ export function WhatIfSimulator() {
     ? inventory.feedlines.find((item) => item.id === liveFeedlineId)
     : undefined;
 
+  const chainId = chain?.id;
   const [powerWatts, setPowerWatts] = useState(
     chain?.operatingPowerWatts ?? 100,
   );
   const [lengthFeet, setLengthFeet] = useState(liveFeedline?.lengthFeet ?? 50);
   const [swr, setSwr] = useState(1.5);
   const [swrTouched, setSwrTouched] = useState(false);
+  const [swrBand, setSwrBand] = useState(liveAntenna?.bands[0] ?? "20m");
+
+  useEffect(() => {
+    if (!chain) return;
+    setPowerWatts(chain.operatingPowerWatts);
+    setLengthFeet(liveFeedline?.lengthFeet ?? 50);
+    setSwr(1.5);
+    setSwrTouched(false);
+    setSwrBand(liveAntenna?.bands[0] ?? "20m");
+    // Reset the sandbox only when the operator switches paths, not on Apply.
+  }, [chainId]); // eslint-disable-line react-hooks/exhaustive-deps -- chainId is the switch signal
 
   const baseline = useMemo(
     () => computeStationChainPerformance(chain, inventory),
@@ -68,10 +80,10 @@ export function WhatIfSimulator() {
     if (!chain) return null;
     const antennas: UserAntenna[] = inventory.antennas.map((antenna) => {
       if (antenna.id !== liveAntenna?.id || !swrTouched) return antenna;
-      const swrByBand = Object.fromEntries(
-        antenna.bands.map((band) => [band, swr]),
-      );
-      return { ...antenna, swrByBand };
+      return {
+        ...antenna,
+        swrByBand: { ...antenna.swrByBand, [swrBand]: swr },
+      };
     });
     const feedlines: UserFeedline[] = inventory.feedlines.map((feedline) =>
       feedline.id === liveFeedline?.id
@@ -83,7 +95,7 @@ export function WhatIfSimulator() {
       antennas,
       feedlines,
     });
-  }, [chain, inventory, lengthFeet, liveAntenna?.id, liveFeedline?.id, powerWatts, swr, swrTouched]);
+  }, [chain, inventory, lengthFeet, liveAntenna?.id, liveFeedline?.id, powerWatts, swr, swrBand, swrTouched]);
 
   if (!chain) {
     return (
@@ -119,13 +131,9 @@ export function WhatIfSimulator() {
       updateFeedline(liveFeedline.id, { lengthFeet });
     }
     if (liveAntenna && swrTouched) {
-      const existing = liveAntenna.swrByBand ?? {};
-      const keys = Object.keys(existing);
-      const swrByBand =
-        keys.length > 0
-          ? Object.fromEntries(keys.map((band) => [band, swr]))
-          : { [liveAntenna.bands[0] ?? "20m"]: swr };
-      updateAntenna(liveAntenna.id, { swrByBand });
+      updateAntenna(liveAntenna.id, {
+        swrByBand: { ...liveAntenna.swrByBand, [swrBand]: swr },
+      });
     }
   }
 
@@ -207,6 +215,20 @@ export function WhatIfSimulator() {
               {swr.toFixed(1)}:1
             </span>
           </div>
+          {liveAntenna && liveAntenna.bands.length > 1 && (
+            <select
+              aria-label="SWR band"
+              value={swrBand}
+              onChange={(event) => setSwrBand(event.target.value)}
+              className="mb-1.5 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-gray-300"
+            >
+              {liveAntenna.bands.map((band) => (
+                <option key={band} value={band}>
+                  {band}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             type="range"
             min={1}

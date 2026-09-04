@@ -20,6 +20,7 @@ import {
   getStatusBgColorClass,
 } from "@/lib/utils/recommendations";
 import { useActiveMode } from "@/hooks/useActiveBandMode";
+import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import type {
   OperatingMode,
   PropagationRecommendations,
@@ -66,6 +67,12 @@ export function RecommendationsPanel({
       ? activeMode
       : "FT8";
   const [selectedMode, setSelectedMode] = useState<OperatingMode>(initialMode);
+  const station = useForecastStationParams(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+  );
 
   // Keep selectedMode in sync when activeMode changes externally
   useEffect(() => {
@@ -119,6 +126,10 @@ export function RecommendationsPanel({
       currentSfi,
       displayTime,
       selectedMode,
+      undefined,
+      0,
+      undefined,
+      station,
     );
   }, [
     homeLat,
@@ -129,6 +140,7 @@ export function RecommendationsPanel({
     currentSfi,
     displayTime,
     selectedMode,
+    station,
   ]);
 
   // Find the next best window if not currently optimal

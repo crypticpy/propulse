@@ -21,6 +21,7 @@ import {
 } from "@/stores/mapStore";
 import type { DisplayQuality } from "@/stores/displayQualityStore";
 import type { ThemeId } from "@/lib/themes";
+import type { HamClockMode } from "@/lib/hamclock/modePresets";
 
 export interface KioskSceneMapConfig {
   layoutMode: LayoutMode;
@@ -32,6 +33,8 @@ export interface KioskSceneMapConfig {
   mapStyle?: MapStyle;
   theme?: ThemeId;
   showLiveClouds?: boolean;
+  /** Optional HamClock product mode applied before layout enter. */
+  hamclockMode?: HamClockMode;
 }
 
 export type KioskTransition = "fade" | "cut";
@@ -167,9 +170,27 @@ export const DEFAULT_PRESENTATION: KioskPresentation = {
 export const DEFAULT_SCENES: KioskScene[] = [
   {
     id: "default-wall",
-    name: "The Wall",
+    name: "HamClock Wall",
     route: "/map",
-    map: { layoutMode: "hamclock" },
+    map: {
+      layoutMode: "hamclock",
+      viewMode: "flat",
+      mapStyle: "satellite",
+      quality: "uhd",
+      hamclockMode: "traffic",
+    },
+  },
+  {
+    id: "default-hamclock-weather",
+    name: "HamClock Weather",
+    route: "/map",
+    map: {
+      layoutMode: "hamclock",
+      viewMode: "flat",
+      mapStyle: "satellite",
+      quality: "uhd",
+      hamclockMode: "weather",
+    },
   },
   {
     id: "default-globe",
@@ -267,6 +288,12 @@ const VALID_THEMES = new Set<ThemeId>([
   "high-contrast",
   "midnight",
 ]);
+const VALID_HAMCLOCK_MODES = new Set<HamClockMode>([
+  "traffic",
+  "bands",
+  "satellites",
+  "weather",
+]);
 const VALID_BREAK_IN_LEVELS = new Set<BreakInLevel>([
   "CRITICAL",
   "WARNING",
@@ -338,6 +365,9 @@ function sanitizeMapConfig(
   }
   if (capabilities.theme && VALID_THEMES.has(value.theme as ThemeId)) {
     config.theme = value.theme as ThemeId;
+  }
+  if (VALID_HAMCLOCK_MODES.has(value.hamclockMode as HamClockMode)) {
+    config.hamclockMode = value.hamclockMode as HamClockMode;
   }
   if (
     capabilities.liveClouds &&

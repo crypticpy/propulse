@@ -3220,6 +3220,64 @@ const SAT_CATEGORY_COLORS: Record<SatelliteCategory, string> = {
   other: "#888888",
 };
 
+const EARTH_RADIUS_KM = 6371;
+/** Visual shrink so flat footprints stay readable at typical wall zooms. */
+const FOOTPRINT_VISUAL_SCALE = 0.5;
+const MAX_FLAT_FOOTPRINTS = 5;
+
+/**
+ * Draw radio coverage footprints for visible satellites on the equirectangular
+ * flat map. Angular horizon radius matches the globe overlay helper.
+ */
+function drawSatelliteFootprints(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  satellites: SatelliteInfo[],
+  selectedSat: SatelliteInfo | null,
+) {
+  const footprints = satellites
+    .filter((s) => s.isVisible && s.position)
+    .slice(0, MAX_FLAT_FOOTPRINTS);
+
+  if (footprints.length === 0) return;
+
+  const pxPerDegX = width / 360;
+  const pxPerDegY = height / 180;
+
+  ctx.save();
+  for (const sat of footprints) {
+    const alt = Math.max(sat.position.alt, 1);
+    const angularRad =
+      Math.acos(EARTH_RADIUS_KM / (EARTH_RADIUS_KM + alt)) *
+      FOOTPRINT_VISUAL_SCALE;
+    const radiusDeg = (angularRad * 180) / Math.PI;
+    const { x, y } = latLonToCanvas(
+      sat.position.lat,
+      sat.position.lon,
+      width,
+      height,
+    );
+    const rx = Math.max(2, radiusDeg * pxPerDegX);
+    const ry = Math.max(2, radiusDeg * pxPerDegY);
+    const color = SAT_CATEGORY_COLORS[sat.category] ?? "#aaaaaa";
+    const selected =
+      selectedSat !== null && sat.noradId === selectedSat.noradId;
+
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = selected ? 0.22 : 0.12;
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = selected ? 0.85 : 0.45;
+    ctx.lineWidth = selected ? 1.5 : 1;
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 /**
  * Draw satellite diamond markers on the 2D flat map.
  * Visible satellites use their category color; below-horizon satellites are dim gray.
@@ -3549,7 +3607,7 @@ export function FlatMapView({
 
   // Satellite positions for 2D overlay
   const { satellites: satPositions, selectedSatellite: selectedSat } =
-    useSatellites(layers.satellites);
+    useSatellites(layers.satellites || layers.satelliteFootprints);
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.
@@ -5512,6 +5570,15 @@ export function FlatMapView({
     }
 
     // Draw satellite positions (2D canvas markers)
+    if (layers.satelliteFootprints && satPositions.length > 0) {
+      drawSatelliteFootprints(
+        ctx,
+        renderWidth,
+        renderHeight,
+        satPositions,
+        selectedSat,
+      );
+    }
     if (layers.satellites && satPositions.length > 0) {
       drawSatellites(
         ctx,

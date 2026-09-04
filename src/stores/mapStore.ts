@@ -13,6 +13,13 @@ import {
   toggleExclusiveLayer,
 } from "@/lib/map/layerCapabilities";
 import type { GridActivityEndpoint } from "@/lib/map/gridActivityModel";
+import {
+  HAMCLOCK_BEAUTY_DEFAULTS,
+  HAMCLOCK_ENTER_LAYERS,
+  HAMCLOCK_MODE_LAYERS,
+} from "@/lib/hamclock/modePresets";
+import { useDisplayQualityStore } from "@/stores/displayQualityStore";
+import { useHamClockStore } from "@/stores/hamclockStore";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -1672,6 +1679,94 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   setLayoutMode: (layoutMode) => {
     saveLayoutMode(layoutMode);
+    const state = get();
+    const ham = useHamClockStore.getState();
+    const quality = useDisplayQualityStore.getState();
+    const enteringHamclock =
+      layoutMode === "hamclock" && state.layoutMode !== "hamclock";
+    const leavingHamclock =
+      state.layoutMode === "hamclock" && layoutMode !== "hamclock";
+
+    if (enteringHamclock) {
+      ham.setEnterSnapshot({
+        viewMode: state.viewMode,
+        mapStyle: state.mapStyle,
+        layers: { ...state.layers },
+        spotFilters: { ...state.spotFilters },
+        displayQuality: quality.displayQuality,
+        nightDarkness: state.nightDarkness,
+      });
+      const mode = ham.hamclockMode;
+      const preferred = ham.preferredViewMode;
+      const modeLayers = HAMCLOCK_MODE_LAYERS[mode];
+      const nextLayers = normalizeExclusiveLayers(
+        {
+          ...state.layers,
+          ...HAMCLOCK_ENTER_LAYERS,
+          ...modeLayers,
+        },
+        modeLayers.muf || HAMCLOCK_ENTER_LAYERS.muf ? "muf" : undefined,
+      );
+      const beautyQuality =
+        quality.displayQuality === "data-saver"
+          ? quality.displayQuality
+          : HAMCLOCK_BEAUTY_DEFAULTS.displayQuality;
+      saveMapStyle(HAMCLOCK_BEAUTY_DEFAULTS.mapStyle);
+      quality.setDisplayQuality(beautyQuality);
+      saveStoredNumber(
+        NIGHT_DARKNESS_KEY,
+        HAMCLOCK_BEAUTY_DEFAULTS.nightDarkness,
+      );
+      set({
+        layoutMode,
+        isFullscreen: false,
+        isLiteMode: false,
+        viewMode: preferred,
+        mapStyle: HAMCLOCK_BEAUTY_DEFAULTS.mapStyle,
+        nightDarkness: HAMCLOCK_BEAUTY_DEFAULTS.nightDarkness,
+        layers: nextLayers,
+        ...(mode === "bands"
+          ? {
+              spotFilters: {
+                ...state.spotFilters,
+                bands: [...ham.bandFocus],
+              },
+            }
+          : {}),
+      });
+      if (mode === "bands") {
+        saveSpotFilters({
+          ...state.spotFilters,
+          bands: [...ham.bandFocus],
+        });
+      }
+      return;
+    }
+
+    if (leavingHamclock) {
+      const snapshot = ham.enterSnapshot;
+      ham.setEnterSnapshot(null);
+      ham.setFiltersBeforeBands(null);
+      if (snapshot) {
+        saveMapStyle(snapshot.mapStyle);
+        saveSpotFilters(snapshot.spotFilters);
+        quality.setDisplayQuality(snapshot.displayQuality);
+        saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
+        set({
+          layoutMode,
+          isFullscreen: layoutMode === "pro",
+          isLiteMode: layoutMode === "lite",
+          ...(layoutMode === "lite" && { isDXConsoleExpanded: false }),
+          viewMode: snapshot.viewMode,
+          mapStyle: snapshot.mapStyle,
+          layers: snapshot.layers,
+          spotFilters: snapshot.spotFilters,
+          nightDarkness: snapshot.nightDarkness,
+        });
+        return;
+      }
+    }
+
     set({
       layoutMode,
       isFullscreen: layoutMode === "pro",

@@ -4,6 +4,7 @@ import {
   kioskSceneSupportsLiveClouds,
   type KioskScene,
 } from "@/stores/kioskStore";
+import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useThemeStore } from "@/stores/themeStore";
 
@@ -11,6 +12,11 @@ import { useThemeStore } from "@/stores/themeStore";
 export function applySceneToMap(scene: KioskScene): void {
   const capabilities = getKioskRouteCapabilities(scene.route);
   if (!capabilities.mapConfig || !scene.map) return;
+
+  // Set HamClock mode before layout enter so beauty/mode presets use it.
+  if (scene.map.hamclockMode) {
+    useHamClockStore.getState().setHamclockMode(scene.map.hamclockMode);
+  }
 
   const map = useMapStore.getState();
   if (capabilities.layoutMode) map.setLayoutMode(scene.map.layoutMode);

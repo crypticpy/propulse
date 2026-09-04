@@ -13,11 +13,23 @@
  * Escape key or X button returns to normal layout mode.
  */
 
-import { lazy, Suspense, useEffect, useMemo, useCallback } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import { useUTCClock } from "@/hooks/useUTCClock";
-import { useMapStore } from "@/stores/mapStore";
+import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
-import { useHamClockStore } from "@/stores/hamclockStore";
+import {
+  useHamClockStore,
+  type HamClockMode,
+} from "@/stores/hamclockStore";
+import { HAMCLOCK_MODE_LAYERS } from "@/lib/hamclock/modePresets";
+import { normalizeExclusiveLayers } from "@/lib/map/layerCapabilities";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import {
   useKIndex,
@@ -37,6 +49,8 @@ import { HamClockSpotsSidebar } from "./hamclock/HamClockSpotsSidebar";
 import { LayoutModeDropdown } from "./LayoutModeDropdown";
 import { HamClockBestBandHero } from "./hamclock/HamClockBestBandHero";
 import { HamClockProjectionSwitch } from "./hamclock/HamClockProjectionSwitch";
+import { HamClockModeSwitch } from "./hamclock/HamClockModeSwitch";
+import { HamClockLayerChips } from "./hamclock/HamClockLayerChips";
 import { HamClockContestsPanel } from "./hamclock/HamClockContestsPanel";
 import { HamClockDxpeditionsPanel } from "./hamclock/HamClockDxpeditionsPanel";
 import { HamClockReliabilityPanel } from "./hamclock/HamClockReliabilityPanel";
@@ -126,6 +140,18 @@ function bzColor(bz: number): string {
   return "bg-signal-green/80 text-void-black";
 }
 
+function applyModeLayers(mode: HamClockMode) {
+  const map = useMapStore.getState();
+  const patch = HAMCLOCK_MODE_LAYERS[mode];
+  useMapStore.setState({
+    layers: normalizeExclusiveLayers(
+      { ...map.layers, ...patch },
+      patch.muf ? "muf" : undefined,
+    ),
+    activePreset: null,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Isolated clock component — prevents 1s re-renders of entire HamClockView
 // ---------------------------------------------------------------------------
@@ -135,7 +161,7 @@ function HamClockTime() {
 
   return (
     <>
-      <span className="text-xl font-mono font-bold text-white tracking-wider">
+      <span className="text-2xl font-mono font-bold text-white tracking-wider drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">
         {fmtHMS(now)} UTC
       </span>
       <span className="text-[11px] text-gray-400 font-mono">
@@ -471,14 +497,20 @@ function SpaceWeatherContent() {
 // Info Sidebar (stacked station, propagation, and live schedule panels)
 // ---------------------------------------------------------------------------
 
-function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
+function InfoSidebarContent({
+  displayTime,
+  mode,
+}: {
+  displayTime: Date;
+  mode: HamClockMode;
+}) {
   const panelCollapsed = useHamClockStore((s) => s.panelCollapsed);
   const togglePanel = useHamClockStore((s) => s.togglePanel);
   const location = useActiveLocation();
 
   return (
     <div className="flex flex-col h-full">
-      <HamClockBestBandHero />
+      {(mode === "traffic" || mode === "bands") && <HamClockBestBandHero />}
 
       <HamClockInfoPanel
         id="de"
@@ -524,8 +556,8 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
       <HamClockInfoPanel
         id="bands"
         title="Band Conditions"
-        collapsed={panelCollapsed.bands ?? false}
-        onToggle={() => togglePanel("bands")}
+        collapsed={panelCollapsed.bands ?? mode !== "bands"}
+        onToggle={() => togglePanel("bands", mode !== "bands")}
       >
         <div className="max-h-64 overflow-y-auto">
           <BandConditionsPanel
@@ -592,6 +624,14 @@ export function HamClockView({
   const infoSidebarCollapsed = useHamClockStore((s) => s.infoSidebarCollapsed);
   const toggleSpotsSidebar = useHamClockStore((s) => s.toggleSpotsSidebar);
   const toggleInfoSidebar = useHamClockStore((s) => s.toggleInfoSidebar);
+  const hamclockMode = useHamClockStore((s) => s.hamclockMode);
+  const setHamclockMode = useHamClockStore((s) => s.setHamclockMode);
+  const setPreferredViewMode = useHamClockStore((s) => s.setPreferredViewMode);
+  const setFiltersBeforeBands = useHamClockStore(
+    (s) => s.setFiltersBeforeBands,
+  );
+
+  const prevModeRef = useRef(hamclockMode);
 
   // Derived: which sidebar is which
   const leftIsSpots = spotsSide === "left";
@@ -620,6 +660,33 @@ export function HamClockView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Apply mode layer/filter transitions when the operator changes product mode.
+  useEffect(() => {
+    const prev = prevModeRef.current;
+    if (prev === hamclockMode) return;
+
+    const map = useMapStore.getState();
+    if (hamclockMode === "bands" && prev !== "bands") {
+      setFiltersBeforeBands({ ...map.spotFilters });
+      map.setSpotFilters({
+        ...map.spotFilters,
+        bands: [...useHamClockStore.getState().bandFocus],
+      });
+    } else if (prev === "bands" && hamclockMode !== "bands") {
+      const restore = useHamClockStore.getState().filtersBeforeBands;
+      if (restore) map.setSpotFilters(restore);
+      setFiltersBeforeBands(null);
+    }
+
+    applyModeLayers(hamclockMode);
+    prevModeRef.current = hamclockMode;
+  }, [hamclockMode, setFiltersBeforeBands]);
+
+  // Ensure the active mode's layer preset is applied on first mount.
+  useEffect(() => {
+    applyModeLayers(useHamClockStore.getState().hamclockMode);
+  }, []);
+
   // Renderer click adapter: every projection reports geographic coordinates,
   // while the optional HamClock host callback also expects a screen point.
   const handleMapClick = useCallback(
@@ -634,10 +701,20 @@ export function HamClockView({
     setSpotsSide(spotsSide === "left" ? "right" : "left");
   }, [spotsSide, setSpotsSide]);
 
-  // Sidebar content renderers
-  const spotsSidebar = <HamClockSpotsSidebar />;
+  const handleProjectionChange = useCallback(
+    (mode: ViewMode) => {
+      setViewMode(mode);
+      setPreferredViewMode(mode);
+    },
+    [setViewMode, setPreferredViewMode],
+  );
 
-  const infoSidebar = <InfoSidebarContent displayTime={displayTime} />;
+  // Sidebar content renderers
+  const spotsSidebar = <HamClockSpotsSidebar mode={hamclockMode} />;
+
+  const infoSidebar = (
+    <InfoSidebarContent displayTime={displayTime} mode={hamclockMode} />
+  );
 
   return (
     <div
@@ -654,7 +731,7 @@ export function HamClockView({
       {/* HEADER BAR (36px)                                                 */}
       {/* ================================================================= */}
       <header
-        className="flex items-center justify-between px-3 border-b border-white/10"
+        className="flex items-center justify-between gap-2 px-3 border-b border-white/10"
         style={{ gridArea: "header" }}
       >
         {/* Left: display mode + sidebar toggle + station callsign */}
@@ -690,18 +767,22 @@ export function HamClockView({
               )}
             </svg>
           </button>
-          <span className="font-mono text-sm font-bold text-signal-green truncate">
+          <HamClockModeSwitch
+            value={hamclockMode}
+            onChange={setHamclockMode}
+          />
+          <span className="font-mono text-sm font-bold text-signal-green truncate hidden xl:inline">
             {station?.callsign || "NO CALL"}
           </span>
           {station?.grid && (
-            <span className="font-mono text-xs text-gray-400">
+            <span className="font-mono text-xs text-gray-400 hidden xl:inline">
               {station.grid}
             </span>
           )}
         </div>
 
         {/* Center: UTC clock */}
-        <div className="flex items-center gap-2 leading-tight">
+        <div className="flex items-center gap-3 leading-tight">
           <HamClockTime />
         </div>
 
@@ -709,7 +790,7 @@ export function HamClockView({
         <div className="flex items-center gap-2">
           <HamClockProjectionSwitch
             value={viewMode}
-            onChange={setViewMode}
+            onChange={handleProjectionChange}
           />
 
           <button
@@ -722,6 +803,7 @@ export function HamClockView({
           </button>
 
           <SolarPills />
+          <HamClockLayerChips />
           <LayersPopover />
           <WatchStatusPill className="hidden sm:flex" />
 

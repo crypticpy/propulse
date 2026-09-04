@@ -56,8 +56,11 @@ export function DXWizardSection() {
           </ul>
 
           <HelpCallout type="tip">
-            The DX Wizard shares target data with PropSphere — clicking a
-            location on the map automatically sets it as the wizard's target.
+            Targets set on PropSphere appear under Recent targets and are
+            auto-loaded when you open DX Wizard if a map target is active. You
+            can also deep-link with{" "}
+            <code className="text-plasma-orange">/dx?grid=FN31</code> or{" "}
+            <code className="text-plasma-orange">/dx?call=JA1ABC</code>.
           </HelpCallout>
         </div>
       </HelpAccordion>
@@ -66,19 +69,27 @@ export function DXWizardSection() {
       <HelpAccordion
         id="operator-settings"
         title="Operator Settings"
-        summary="Configure your mode, license, radio, and power"
+        summary="Configure your mode, license, radio, path, and power"
       >
         <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
           <div>
             <h4 className="text-white font-semibold mb-1">Mode</h4>
             <p>
-              Choose from <strong>FT8</strong>, <strong>CW</strong>, or{" "}
-              <strong>SSB</strong>. The selected mode determines the SNR
-              threshold used in the recommendation algorithm and which
-              mode-specific operating tips are displayed. FT8 has the lowest
-              threshold (-18 dB), making it the best choice for marginal paths.
-              CW requires -12 dB, and SSB requires the strongest signal at -6
-              dB.
+              Choose from <strong>FT8</strong>, <strong>FT4</strong>,{" "}
+              <strong>CW</strong>, <strong>SSB</strong>, or{" "}
+              <strong>RTTY</strong>. The selected mode sets the SNR target used
+              for power estimates and which band-plan segments are suggested.
+              FT8 (-18 dB) and FT4 (-17 dB) are best for marginal paths; CW
+              needs about -12 dB, RTTY about -8 dB, and SSB about -6 dB.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="text-white font-semibold mb-1">Short / Long path</h4>
+            <p>
+              Toggle short-path vs long-path geometry for bearing, distance, and
+              antenna-gain distance. Use long path for near-antipodal DX when
+              the short path is closed or polar.
             </p>
           </div>
 

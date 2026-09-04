@@ -1,455 +1,162 @@
 /**
- * MobileDXWizard Component
- *
- * Step-based mobile flow replacing the desktop 2-column DXWizard layout.
- * Step 1: Target input, mode picker, radio selection, power ceiling, analyze button.
- * Step 2: Best band recommendation card, per-band expandable cards, mode tips.
- *
- * All data and callbacks are passed as props from the parent DXWizard page.
+ * MobileDXWizard — step-based mobile flow over useDXWizardSession.
  */
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { getPathStatusColor } from "@/lib/utils/bands";
-import type { PathBandCondition } from "@/lib/utils/bands";
-import type { RadioEquipment } from "@/types/radio";
-import type { LicenseClass } from "@/types/bandplan";
-import type { ITURegion } from "@/types/bandplan";
-
-type WizardMode = "SSB" | "CW" | "FT8";
-
-interface ResolvedTarget {
-  label: string;
-  grid: string;
-  lat: number;
-  lon: number;
-  source: "grid" | "coords" | "geocode" | "callsign";
-  callsign?: string;
-}
-
-interface BandCandidate extends PathBandCondition {
-  requiredWatts: number;
-  ceilingWatts: number;
-  withinCeiling: boolean;
-  freqsKHz: number[];
-  legalMaxWatts: number | null;
-}
-
-interface Recommendation {
-  type: "ok" | "none";
-  best?: BandCandidate;
-  bands: PathBandCondition[];
-  antennaGainDbi: number;
-}
+import { useContestContext } from "@/hooks/useContestContext";
+import { DxWizardContestNote } from "@/components/dx/DxWizardContestNote";
+import type { DXWizardSession } from "@/hooks/useDXWizardSession";
+import { formatKHz } from "@/lib/dxwizard";
+import { formatPathBearing, formatPathDistanceKm } from "@/pages/dxWizardViewHelpers";
+import type { LicenseClass, ITURegion } from "@/types/bandplan";
 
 export interface MobileDXWizardProps {
-  // Target input state
-  targetQuery: string;
-  onTargetQueryChange: (query: string) => void;
-  resolvedTarget: ResolvedTarget | null;
-  isResolving: boolean;
-  onResolveTarget: () => void;
-  targetError: string | null;
-
-  // Callsign lookup
-  callsignInput: string;
-  onCallsignInputChange: (value: string) => void;
-  onLookupCallsign: () => void;
-  callsignLoading: boolean;
-  callsignError: string | null;
-
-  // Mode/power state
-  mode: WizardMode;
-  onModeChange: (mode: WizardMode) => void;
-  txPowerCeilingWatts: number;
-  onPowerChange: (watts: number) => void;
-  effectiveMaxPower: number;
-
-  // License / region
-  licenseClass: LicenseClass;
-  onLicenseClassChange: (lc: LicenseClass) => void;
-  ituRegion: ITURegion;
-  onItuRegionChange: (r: ITURegion) => void;
-
-  // Station
-  station: { callsign: string; grid: string; lat: number; lon: number } | null;
-
-  // Results
-  recommendation: Recommendation | null;
-  tips: Array<{ label: string; value: string }>;
-
-  // Radio
-  selectedRadio: RadioEquipment | null;
-  onShowRadioPicker: () => void;
-  radioLabel: string;
-
-  // Solar
-  currentKp: number;
-  currentSfi: number;
-  kIndexError: boolean;
-  solarFluxError: boolean;
-
-  // Data freshness
-  dataUpdatedAt: number | undefined;
-  isRefetching: boolean;
-  onRefresh: () => void;
+  session: DXWizardSession;
 }
 
-function formatKHz(khz: number): string {
-  if (khz >= 1000) {
-    return `${(khz / 1000).toFixed(3)} MHz`;
-  }
-  return `${khz} kHz`;
-}
-
-export function MobileDXWizard(props: MobileDXWizardProps) {
+export function MobileDXWizard({ session }: MobileDXWizardProps) {
   const [showResults, setShowResults] = useState(false);
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
+  const contestContext = useContestContext();
 
   const handleAnalyze = () => {
-    if (props.resolvedTarget) {
-      setShowResults(true);
-    }
+    if (session.target) setShowResults(true);
   };
 
-  // Results view
-  if (showResults && props.recommendation) {
-    if (props.recommendation.type === "none") {
-      return (
-        <div className="p-4 space-y-3">
-          <button
-            onClick={() => setShowResults(false)}
-            className="text-sm text-gray-400 flex items-center gap-1"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Change target
-          </button>
-
-          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4">
-            <div className="text-alert-red font-semibold mb-1">
-              No viable band/mode options
-            </div>
-            <div className="text-sm text-gray-300">
-              Try FT8, reduce constraints, or wait for improved conditions.
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (props.recommendation.type === "ok" && props.recommendation.best) {
-      const best = props.recommendation.best;
-      const allBands = props.recommendation.bands;
-
-      return (
-        <div className="p-4 space-y-3">
-          {/* Back button */}
-          <button
-            onClick={() => setShowResults(false)}
-            className="text-sm text-gray-400 flex items-center gap-1"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Change target
-          </button>
-
-          {/* Resolved target summary */}
-          {props.resolvedTarget && (
-            <div className="text-xs text-gray-400 font-mono">
-              {props.resolvedTarget.label} ({props.resolvedTarget.grid})
-            </div>
-          )}
-
-          {/* Best band card */}
-          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-3">
-            <div className="text-xs text-gray-400 uppercase tracking-wide">
-              Best Band
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <div
-                  className={`text-3xl font-orbitron font-bold ${getPathStatusColor(best.status)}`}
-                >
-                  {best.band}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {best.frequency}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-xl font-mono font-bold text-plasma-orange">
-                  {best.requiredWatts}W
-                </div>
-                <div className="text-[10px] text-gray-400">
-                  Ceiling: {best.ceilingWatts}W
-                  {!best.withinCeiling && (
-                    <span className="text-alert-red ml-1">exceeds</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Target frequency */}
-            <div className="flex items-center justify-between pt-2 border-t border-white/10">
-              <div>
-                <div className="text-[10px] text-gray-400 uppercase">
-                  Frequency
-                </div>
-                <div className="text-sm font-mono font-bold text-white">
-                  {formatKHz(best.freqsKHz[0])}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] text-gray-400 uppercase">Mode</div>
-                <div className="text-sm font-mono font-bold text-white">
-                  {props.mode}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] text-gray-400 uppercase">
-                  SNR @100W
-                </div>
-                <div className="text-sm font-mono font-bold text-white">
-                  {best.snrEstimate} dB
-                </div>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="text-xs text-gray-300 pt-2 border-t border-white/10">
-              {best.notes}
-            </div>
-          </div>
-
-          {/* Mode tips card */}
-          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4">
-            <div className="text-xs font-semibold text-white mb-2">
-              DX Tips ({props.mode})
-            </div>
-            <div className="space-y-1.5">
-              {props.tips.map((t) => (
-                <div key={t.label} className="text-xs">
-                  <span className="text-gray-400 font-semibold">
-                    {t.label}:
-                  </span>{" "}
-                  <span className="text-gray-300">{t.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* All bands list */}
-          <div className="space-y-2">
-            <div className="text-xs text-gray-400 uppercase tracking-wide px-1">
-              All Bands
-            </div>
-            {allBands.map((band) => {
-              const isExpanded = expandedBand === band.band;
-              return (
-                <button
-                  key={band.band}
-                  type="button"
-                  onClick={() => setExpandedBand(isExpanded ? null : band.band)}
-                  className="w-full text-left bg-white/[0.03] border border-white/10 rounded-xl p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`font-mono font-bold text-sm ${getPathStatusColor(band.status)}`}
-                      >
-                        {band.band}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {band.frequency}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 capitalize">
-                        {band.status}
-                      </span>
-                      <svg
-                        className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  {isExpanded && (
-                    <div className="mt-2 pt-2 border-t border-white/10 text-xs text-gray-300 space-y-1">
-                      <div>
-                        SNR @100W:{" "}
-                        <span className="font-mono text-white">
-                          {band.snrEstimate} dB
-                        </span>
-                      </div>
-                      {band.pathLoss !== undefined && (
-                        <div>
-                          Path loss:{" "}
-                          <span className="font-mono text-white">
-                            {Math.round(band.pathLoss)} dB
-                          </span>
-                        </div>
-                      )}
-                      <div className="text-gray-400">{band.notes}</div>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Solar indices */}
-          <div className="flex items-center justify-center gap-4 text-[10px] text-gray-500 font-mono pt-2">
-            <span>Kp={props.currentKp}</span>
-            <span>SFI={props.currentSfi}</span>
-            {(props.kIndexError || props.solarFluxError) && (
-              <span className="text-caution-amber">Solar data issue</span>
-            )}
-          </div>
-        </div>
-      );
-    }
+  if (showResults && session.recommendation) {
+    return (
+      <ResultsStep
+        session={session}
+        expandedBand={expandedBand}
+        setExpandedBand={setExpandedBand}
+        onBack={() => setShowResults(false)}
+        contestContext={contestContext}
+      />
+    );
   }
 
-  // Input view (Step 1)
   return (
     <div className="p-4 space-y-4">
-      <DataFreshnessIndicator
-        dataUpdatedAt={props.dataUpdatedAt}
-        onRefresh={props.onRefresh}
-        isRefetching={props.isRefetching}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-orbitron text-xl font-black text-gradient-orange">
+            DX Wizard
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Target → constraints → band & power advice
+          </p>
+        </div>
+        <DataFreshnessIndicator
+          dataUpdatedAt={session.wizardDataUpdatedAt}
+          onRefresh={session.refetchWizardData}
+          isRefetching={session.wizardIsRefetching}
+        />
+      </div>
 
-      {/* Station not set warning */}
-      {!props.station && (
-        <div className="bg-alert-red/10 border border-alert-red/30 rounded-2xl p-4">
-          <div className="text-white font-semibold text-sm mb-1">
-            Station not set
-          </div>
-          <div className="text-xs text-gray-300">
-            Set your callsign and grid square in Settings to enable path
-            calculations.
+      {!session.station && (
+        <div className="rounded-xl border border-alert-red/40 bg-alert-red/10 p-3 text-sm text-gray-200">
+          Set your station callsign and grid in Settings first.
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label className="text-xs text-gray-400">Target</label>
+        <div className="flex gap-2">
+          <input
+            value={session.targetQuery}
+            onChange={(e) => session.setTargetQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void session.resolveTarget();
+              }
+            }}
+            placeholder="Grid, place, or coords"
+            className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => void session.resolveTarget()}
+            className="px-3 py-2 rounded-lg bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange text-sm font-medium"
+          >
+            Go
+          </button>
+        </div>
+        {session.targetError && (
+          <div className="text-xs text-alert-red">{session.targetError}</div>
+        )}
+      </div>
+
+      {session.recentTargets.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-500">Recent targets</div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {session.recentTargets.slice(0, 8).map((rt, i) => (
+              <button
+                key={`${rt.lat}-${rt.lon}-${i}`}
+                type="button"
+                onClick={() => session.selectRecentTarget(rt)}
+                className="shrink-0 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200"
+              >
+                {rt.name ?? rt.grid ?? `${rt.lat.toFixed(1)},${rt.lon.toFixed(1)}`}
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Target input */}
-      <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-3">
-        <h3 className="text-sm font-medium text-white">Target</h3>
-        <div className="space-y-2">
+      <div className="space-y-2">
+        <label className="text-xs text-gray-400">Callsign</label>
+        <div className="flex gap-2">
           <input
-            value={props.targetQuery}
-            onChange={(e) => props.onTargetQueryChange(e.target.value)}
-            placeholder="Grid, coords, or location"
-            className="w-full px-3 py-2.5 bg-deep-space/70 border border-white/10 rounded-xl
-                       text-white placeholder-gray-500 text-sm
-                       focus:outline-none focus:border-plasma-orange/50"
+            value={session.callsignInput}
+            onChange={(e) => session.setCallsignInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void session.handleLookupCallsign();
+              }
+            }}
+            placeholder="JA1ABC"
+            className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-sm font-mono"
           />
           <button
             type="button"
-            onClick={props.onResolveTarget}
-            disabled={props.isResolving}
-            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl
-                       text-gray-200 text-sm font-medium
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => void session.handleLookupCallsign()}
+            className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 text-sm"
           >
-            {props.isResolving ? "Resolving..." : "Resolve Location"}
+            Lookup
           </button>
-          {props.targetError && (
-            <div className="text-xs text-alert-red">{props.targetError}</div>
-          )}
         </div>
-
-        {/* Callsign lookup */}
-        <div className="pt-2 border-t border-white/10">
-          <div className="text-xs text-gray-400 mb-2">Callsign lookup</div>
-          <div className="flex gap-2">
-            <input
-              value={props.callsignInput}
-              onChange={(e) => props.onCallsignInputChange(e.target.value)}
-              placeholder="e.g., W1AW"
-              className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-xl
-                         text-white placeholder-gray-500 font-mono text-sm
-                         focus:outline-none focus:border-plasma-orange/50"
-            />
-            <button
-              type="button"
-              onClick={props.onLookupCallsign}
-              disabled={props.callsignLoading}
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl
-                         text-gray-200 text-sm font-medium
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {props.callsignLoading ? "..." : "Lookup"}
-            </button>
-          </div>
-          {props.callsignError && (
-            <div className="text-xs text-alert-red mt-1">
-              {props.callsignError}
-            </div>
-          )}
-        </div>
-
-        {/* Resolved target display */}
-        {props.resolvedTarget && (
-          <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-            <div className="text-[10px] text-gray-400">Resolved target</div>
-            <div className="text-white font-semibold text-sm truncate">
-              {props.resolvedTarget.label}
-            </div>
-            <div className="text-xs text-gray-300 font-mono mt-0.5">
-              {props.resolvedTarget.grid} &bull;{" "}
-              {props.resolvedTarget.lat.toFixed(3)}&deg;,{" "}
-              {props.resolvedTarget.lon.toFixed(3)}&deg;
-            </div>
-          </div>
+        {session.callsignError && (
+          <div className="text-xs text-alert-red">{session.callsignError}</div>
         )}
       </div>
 
-      {/* Mode picker */}
-      <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-3">
-        <h3 className="text-sm font-medium text-white">Mode</h3>
-        <div className="flex gap-2">
-          {(["FT8", "CW", "SSB"] as const).map((m) => (
+      {session.target && (
+        <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white">
+          {session.target.label}
+          <div className="text-[10px] text-gray-400 font-mono mt-1">
+            {session.target.grid}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label className="text-xs text-gray-400">Mode</label>
+        <div className="flex flex-wrap gap-1">
+          {session.modes.map((m) => (
             <button
               key={m}
               type="button"
-              onClick={() => props.onModeChange(m)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                props.mode === m
-                  ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30"
-                  : "bg-white/[0.03] text-gray-400 border border-white/10"
+              onClick={() => session.setMode(m)}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-semibold ${
+                session.mode === m
+                  ? "bg-plasma-orange text-white"
+                  : "bg-white/5 text-gray-300"
               }`}
             >
               {m}
@@ -458,63 +165,259 @@ export function MobileDXWizard(props: MobileDXWizardProps) {
         </div>
       </div>
 
-      {/* Radio & Power */}
-      <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-3">
-        <h3 className="text-sm font-medium text-white">Equipment</h3>
+      <div className="flex gap-1">
+        {(["short", "long"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => session.setPathMode(m)}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold ${
+              session.pathMode === m
+                ? "bg-plasma-orange text-white"
+                : "bg-white/5 text-gray-300"
+            }`}
+          >
+            {m === "short" ? "Short path" : "Long path"}
+          </button>
+        ))}
+      </div>
 
-        {/* Radio selection */}
+      <div className="grid grid-cols-2 gap-2">
+        <select
+          value={session.licenseClass}
+          onChange={(e) =>
+            session.setLicenseClass(e.target.value as LicenseClass)
+          }
+          className="px-2 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-xs"
+        >
+          {["TECHNICIAN", "GENERAL", "EXTRA", "ADVANCED", "NOVICE"].map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <select
+          value={session.ituRegion}
+          onChange={(e) => session.setItuRegion(e.target.value as ITURegion)}
+          className="px-2 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-xs"
+        >
+          {["ITU1", "ITU2", "ITU3"].map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => session.setShowRadioPicker(true)}
+        className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-left text-white text-sm"
+      >
+        {session.radioLabel || "Select radio…"}
+      </button>
+
+      <div>
+        <div className="flex justify-between text-xs text-gray-400 mb-1">
+          <span>TX ceiling</span>
+          <span className="font-mono text-white">
+            {session.txPowerCeilingWatts}W
+          </span>
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={session.effectiveMaxPower}
+          value={Math.min(
+            session.txPowerCeilingWatts,
+            session.effectiveMaxPower,
+          )}
+          onChange={(e) =>
+            session.setTxPowerCeilingWatts(Number(e.target.value))
+          }
+          className="w-full"
+        />
+      </div>
+
+      <button
+        type="button"
+        disabled={!session.target || !session.station}
+        onClick={handleAnalyze}
+        className="w-full py-3 rounded-xl bg-plasma-orange text-white font-semibold disabled:opacity-40"
+      >
+        Analyze path
+      </button>
+
+      <div className="text-center text-[10px] text-gray-500 font-mono">
+        Kp={session.currentKp} · SFI={session.currentSfi}
+      </div>
+    </div>
+  );
+}
+
+function ResultsStep({
+  session,
+  expandedBand,
+  setExpandedBand,
+  onBack,
+  contestContext,
+}: {
+  session: DXWizardSession;
+  expandedBand: string | null;
+  setExpandedBand: (b: string | null) => void;
+  onBack: () => void;
+  contestContext: ReturnType<typeof useContestContext>;
+}) {
+  const rec = session.recommendation!;
+  const path = session.pathSummary;
+
+  if (rec.type === "none") {
+    return (
+      <div className="p-4 space-y-3">
         <button
           type="button"
-          onClick={props.onShowRadioPicker}
-          className="w-full px-3 py-2.5 bg-deep-space/70 border border-white/10 rounded-xl
-                     text-left text-white text-sm
-                     focus:outline-none focus:border-plasma-orange/50 transition-colors"
+          onClick={onBack}
+          className="text-sm text-gray-400"
         >
-          {props.radioLabel || "Select a radio..."}
+          ← Change target
         </button>
+        <div className="rounded-2xl border border-white/10 p-4">
+          <div className="text-alert-red font-semibold">No viable options</div>
+          <div className="text-sm text-gray-300 mt-1">
+            Try FT8/FT4 or check the next window.
+          </div>
+        </div>
+        {session.nextWindow && (
+          <Link
+            to={session.bandPlannerHref}
+            className="block text-center py-2 rounded-lg bg-plasma-orange/20 text-plasma-orange text-sm"
+          >
+            {session.nextWindow.label} — Band Planner
+          </Link>
+        )}
+      </div>
+    );
+  }
 
-        {/* Power ceiling */}
-        <div>
-          <label className="block text-xs text-gray-300 mb-1">
-            TX power ceiling
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={1}
-              max={props.effectiveMaxPower}
-              value={props.txPowerCeilingWatts}
-              onChange={(e) => props.onPowerChange(Number(e.target.value))}
-              className="flex-1"
-            />
-            <div className="w-16 text-right font-mono text-sm text-white">
-              {props.txPowerCeilingWatts}W
+  const best = rec.best;
+
+  return (
+    <div className="p-4 space-y-3">
+      <button type="button" onClick={onBack} className="text-sm text-gray-400">
+        ← Change target
+      </button>
+
+      {session.target && (
+        <div className="text-xs text-gray-400 font-mono">
+          {session.target.label} ({session.target.grid})
+        </div>
+      )}
+
+      {path && (
+        <div className="rounded-2xl border border-white/10 p-3 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <div className="text-gray-500">Distance</div>
+            <div className="font-mono text-white">
+              {formatPathDistanceKm(path.active.distanceKm)}
+            </div>
+          </div>
+          <div>
+            <div className="text-gray-500">Bearing</div>
+            <div className="font-mono text-white">
+              {formatPathBearing(path.active.bearing)}
             </div>
           </div>
         </div>
+      )}
+
+      <div className="rounded-2xl border border-white/10 p-4 space-y-3">
+        <div className="text-xs text-gray-400 uppercase">Best band</div>
+        <div className="flex items-end justify-between">
+          <div>
+            <div
+              className={`text-3xl font-orbitron font-bold ${getPathStatusColor(best.status)}`}
+            >
+              {best.band}
+            </div>
+            <div className="text-xs text-gray-400">{best.frequency}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xl font-mono font-bold text-plasma-orange">
+              {best.requiredWatts}W
+            </div>
+            <div className="text-[10px] text-gray-400">
+              Ceiling: {best.ceilingWatts}W
+              {!best.withinCeiling && (
+                <span className="text-alert-red"> · exceeds</span>
+              )}
+            </div>
+            <div className="text-[10px] text-gray-400">
+              {formatKHz(best.freqsKHz[0])} · {session.mode}
+            </div>
+          </div>
+        </div>
+        <div className="text-xs text-gray-300">{best.notes}</div>
       </div>
 
-      {/* Solar indices */}
-      <div className="flex items-center justify-center gap-4 text-xs text-gray-500 font-mono">
-        <span>Kp={props.currentKp}</span>
-        <span>SFI={props.currentSfi}</span>
-        {(props.kIndexError || props.solarFluxError) && (
-          <span className="text-caution-amber">Solar data issue</span>
+      {session.nextWindow && (
+        <Link
+          to={session.bandPlannerHref}
+          className="block rounded-xl border border-plasma-orange/40 bg-plasma-orange/10 p-3 text-sm text-plasma-orange"
+        >
+          {session.nextWindow.label}
+          <div className="text-[10px] text-gray-400 mt-1">
+            Open Band Planner →
+          </div>
+        </Link>
+      )}
+
+      {(contestContext.isContestWeekend ||
+        contestContext.activeContests.length > 0) &&
+        session.targetBandsForContest.length > 0 && (
+          <DxWizardContestNote
+            targetBands={session.targetBandsForContest}
+            contestContext={contestContext}
+          />
         )}
-      </div>
 
-      {/* Analyze button */}
-      <button
-        type="button"
-        onClick={handleAnalyze}
-        disabled={!props.resolvedTarget || !props.station}
-        className="w-full py-3.5 rounded-xl bg-plasma-orange/20 text-plasma-orange
-                   font-semibold text-base border border-plasma-orange/30
-                   disabled:opacity-30 disabled:cursor-not-allowed
-                   active:bg-plasma-orange/30 transition-colors"
-      >
-        Analyze Path
-      </button>
+      <div className="space-y-2">
+        <div className="text-xs text-gray-400 uppercase px-1">All bands</div>
+        {rec.bands.map((band) => {
+          const isExpanded = expandedBand === band.band;
+          return (
+            <button
+              key={band.band}
+              type="button"
+              onClick={() =>
+                setExpandedBand(isExpanded ? null : band.band)
+              }
+              className="w-full text-left bg-white/[0.03] border border-white/10 rounded-xl p-3"
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className={`font-mono font-bold text-sm ${getPathStatusColor(band.status)}`}
+                >
+                  {band.band}
+                </span>
+                <span className="text-xs text-gray-400 capitalize">
+                  {band.status}
+                </span>
+              </div>
+              {isExpanded && (
+                <div className="mt-2 pt-2 border-t border-white/10 text-xs text-gray-300 space-y-1">
+                  <div>
+                    SNR @100W:{" "}
+                    <span className="font-mono text-white">
+                      {band.snrEstimate} dB
+                    </span>
+                  </div>
+                  <div className="text-gray-400">{band.notes}</div>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

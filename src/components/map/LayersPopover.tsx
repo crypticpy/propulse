@@ -551,7 +551,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             key: "gridActivity",
             label: "Grid Activity",
             title:
-              "Persistent Maidenhead grid highlights showing recent spot activity",
+              "Persistent 4-character Maidenhead squares (2° × 1°) for recent spot activity",
             getValue: () => layers.gridActivity,
             onToggle: () => toggleLayer("gridActivity"),
           },

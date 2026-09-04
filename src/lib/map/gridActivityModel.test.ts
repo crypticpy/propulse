@@ -217,13 +217,30 @@ describe("buildGridActivitySnapshot", () => {
 });
 
 describe("activity LOD and ranking", () => {
-  it("uses only resolutions practical for each projection scale", () => {
-    expect(gridActivityResolutionForView("flat", 1)).toBe(2);
+  it("paints squares at world scale and subsquares only when zoomed in", () => {
+    expect(gridActivityResolutionForView("flat", 1)).toBe(4);
     expect(gridActivityResolutionForView("flat", 3)).toBe(4);
     expect(gridActivityResolutionForView("flat", 24)).toBe(6);
-    expect(gridActivityResolutionForView("globe", 1)).toBe(2);
+    expect(gridActivityResolutionForView("globe", 1)).toBe(4);
     expect(gridActivityResolutionForView("globe", 3)).toBe(4);
+    expect(gridActivityResolutionForView("globe", 8)).toBe(6);
+    expect(gridActivityResolutionForView("azimuthal", 1)).toBe(4);
     expect(gridActivityResolutionForView("azimuthal", 3)).toBe(4);
+  });
+
+  it("keeps default globe zoom inside a 2° × 1° square, not a 20° field", () => {
+    const resolution = gridActivityResolutionForView("globe", 1);
+    const snapshot = buildGridActivitySnapshot([resolved("gulf")], {
+      resolution,
+      now: NOW,
+    });
+    expect(snapshot.cells[0].grid).toBe("EM10");
+    const bounds = gridActivityBounds(snapshot.cells[0].grid);
+    expect(bounds.maxLon - bounds.minLon).toBe(2);
+    expect(bounds.maxLat - bounds.minLat).toBe(1);
+    expect(
+      gridActivityBounds("EM").maxLon - gridActivityBounds("EM").minLon,
+    ).toBe(20);
   });
 
   it("ranks visible, recent, dense cells deterministically before budgeting", () => {

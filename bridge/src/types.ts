@@ -70,6 +70,32 @@ export interface RigUpdateRequest {
   split?: boolean;
 }
 
+// ============================================================================
+// Rotator Control Messages
+// ============================================================================
+
+/** Current rotator status (pushed by the bridge; null values = unknown) */
+export interface RotorStatus {
+  connected: boolean;
+  /** Azimuth in degrees (0–360) */
+  azimuth: number | null;
+  /** Elevation in degrees (0–90) */
+  elevation: number | null;
+  /** Whether the rotator moved since the previous poll */
+  moving?: boolean;
+  /** Last transport/protocol error while disconnected */
+  error?: string;
+}
+
+/** Request to turn the rotator to an absolute heading */
+export interface RotorSetHeadingRequest {
+  azimuth: number;
+  elevation?: number;
+}
+
+export type RotorStatusMessage = MessageEnvelope<RotorStatus>;
+export type RotorSetHeadingMessage = MessageEnvelope<RotorSetHeadingRequest>;
+
 export type RigStatusMessage = MessageEnvelope<RigStatus>;
 export type RigUpdateMessage = MessageEnvelope<RigUpdateRequest>;
 export type RigSetMessage = MessageEnvelope<RigUpdateRequest>;
@@ -316,6 +342,11 @@ export const MessageTypes = {
   RIG_CONNECT: "rig.connect",
   RIG_DISCONNECT: "rig.disconnect",
   RIG_TEST: "rig:test",
+
+  // Rotator control
+  ROTOR_STATUS: "rotor.status",
+  ROTOR_SET_HEADING: "rotor.setHeading",
+  ROTOR_STOP: "rotor.stop",
 
   // Contest session management
   CONTEST_SESSION_CREATE: "contest.session.create",

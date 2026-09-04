@@ -172,6 +172,7 @@ Local iterative development without PRs is allowed while prototyping. Use short-
 **Bridge** (env or defaults):
 
 - `BRIDGE_PORT` (default 9867), `BRIDGE_HOST` (default 127.0.0.1), `BRIDGE_STATIC_PORT` (default 3173)
+- `BRIDGE_ROTOR=1` enables the rotctld client (opt-in; gates the `rotor` capability), configured by `ROTCTLD_HOST` (default 127.0.0.1) / `ROTCTLD_PORT` (default 4533)
 
 ## Technical Gotchas
 

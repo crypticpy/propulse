@@ -49,15 +49,24 @@ npm run bridge:build  # Build for production
 
 Configuration is done via environment variables:
 
-| Variable      | Default     | Description                   |
-| ------------- | ----------- | ----------------------------- |
-| `BRIDGE_PORT` | `9867`      | WebSocket server port         |
-| `BRIDGE_HOST` | `127.0.0.1` | Bind address (localhost only) |
+| Variable       | Default     | Description                                      |
+| -------------- | ----------- | ------------------------------------------------ |
+| `BRIDGE_PORT`  | `9867`      | WebSocket server port                            |
+| `BRIDGE_HOST`  | `127.0.0.1` | Bind address (localhost only)                    |
+| `BRIDGE_ROTOR` | _(unset)_   | Set to `1` to enable the Hamlib rotctld client   |
+| `ROTCTLD_HOST` | `127.0.0.1` | rotctld host (only used when the rotor is on)    |
+| `ROTCTLD_PORT` | `4533`      | rotctld port (only used when the rotor is on)    |
+
+Rotator control is opt-in: only `BRIDGE_ROTOR=1` enables it, and only then does
+the welcome message advertise the `rotor` capability. `ROTCTLD_HOST`/
+`ROTCTLD_PORT` configure an enabled client; they never enable one. Rotator
+commands are refused while PTT is keyed.
 
 Example:
 
 ```bash
 BRIDGE_PORT=9868 npm run dev
+BRIDGE_ROTOR=1 npm run dev      # with a rotctld on 127.0.0.1:4533
 ```
 
 ## Security

@@ -3,7 +3,7 @@
  * Call · Freq · Mode · RST · Enter. DXCC color and dupe live on the callsign.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { DxccStatusBadge, DupeWarningBadge } from "@/components/qso";
 import { useCallsignLookup } from "@/hooks/useCallsignLookup";
@@ -17,6 +17,12 @@ import { useMapStore } from "@/stores/mapStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useShackStore } from "@/stores/shackStore";
 import { useUserStore } from "@/stores/userStore";
+
+const TurnBeamControl = lazy(() =>
+  import("@/components/ops/TurnBeamControl").then((m) => ({
+    default: m.TurnBeamControl,
+  })),
+);
 
 const FIELD =
   "h-9 w-full rounded-md border border-white/10 bg-white/5 px-2 font-mono text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none focus:ring-1 focus:ring-plasma-orange/30";
@@ -265,6 +271,12 @@ export function OpsLoggerStrip() {
               RX {Math.round(path.shortPath.reciprocal)}°
             </span>
           </div>
+        )}
+
+        {path && (posture === "contact" || posture === "desk") && (
+          <Suspense fallback={null}>
+            <TurnBeamControl bearing={path.shortPath.bearing} />
+          </Suspense>
         )}
 
         {stationLine && (

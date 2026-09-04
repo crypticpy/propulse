@@ -5,7 +5,7 @@
  */
 
 import { create } from "zustand";
-import type { RigMode } from "@/types/bridge";
+import type { RigMode, RotorStatusPayload } from "@/types/bridge";
 import { frequencyToBand } from "@/types/bridge";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -50,6 +50,16 @@ export interface RigState {
   /** Timestamp of last status update */
   lastUpdate: number;
 
+  // Bridge session
+  /** Capabilities advertised by the bridge welcome message (e.g. "rotor") */
+  bridgeCapabilities: string[];
+  /** Latest rotor status pushed by the bridge, or null when unknown */
+  rotorStatus: RotorStatusPayload | null;
+  /** Replace the advertised bridge capabilities */
+  setBridgeCapabilities: (capabilities: string[]) => void;
+  /** Store the latest rotor status */
+  setRotorStatus: (status: RotorStatusPayload | null) => void;
+
   // Actions
   /** Update rig status fields (partial update) */
   updateStatus: (status: Partial<RigState>) => void;
@@ -74,14 +84,20 @@ export interface RigState {
   pendingFrequency: number | null;
   /** Mode pending to be sent to rig, or null */
   pendingMode: string | null;
+  /** Rotator heading pending to be sent to the bridge, or null */
+  pendingRotorHeading: { azimuth: number; elevation?: number } | null;
   /** Stage a frequency change command */
   setPendingFrequency: (hz: number) => void;
   /** Stage a mode change command */
   setPendingMode: (mode: string) => void;
-  /** Clear all pending commands (after dispatch or cancel) */
-  clearPending: () => void;
+  /** Stage a rotator heading command */
+  setPendingRotorHeading: (heading: {
+    azimuth: number;
+    elevation?: number;
+  }) => void;
   clearPendingFrequency: () => void;
   clearPendingMode: () => void;
+  clearPendingRotorHeading: () => void;
 
   // Derived selectors
   /** Get the current band derived from frequency */
@@ -109,9 +125,18 @@ export const useRigStore = create<RigState>()((set, get) => ({
   rigModel: "",
   lastUpdate: 0,
 
+  // Bridge session
+  bridgeCapabilities: [],
+  rotorStatus: null,
+
   // Pending commands
   pendingFrequency: null,
   pendingMode: null,
+  pendingRotorHeading: null,
+
+  setBridgeCapabilities: (capabilities) => set({ bridgeCapabilities: capabilities }),
+
+  setRotorStatus: (status) => set({ rotorStatus: status }),
 
   // Actions
   updateStatus: (status) =>
@@ -156,9 +181,11 @@ export const useRigStore = create<RigState>()((set, get) => ({
 
   setPendingMode: (mode) => set({ pendingMode: mode }),
 
-  clearPending: () => set({ pendingFrequency: null, pendingMode: null }),
+  setPendingRotorHeading: (heading) => set({ pendingRotorHeading: heading }),
+
   clearPendingFrequency: () => set({ pendingFrequency: null }),
   clearPendingMode: () => set({ pendingMode: null }),
+  clearPendingRotorHeading: () => set({ pendingRotorHeading: null }),
 
   // Derived selectors
   getCurrentBand: () => {

@@ -343,4 +343,3 @@ Shipped as one feature branch (`feat/propsphere-ops-logger`), not per-item PRs. 
 | §8 persist Desk | Reload returns to Desk if that was last | `opsPostureStore.deskPreferred` |
 
 **Still out (PR3):** rotator command, award-needed Observe filter, `/log` redesign.
-

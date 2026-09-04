@@ -1,5 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, LoadingSpinner, DataFreshnessIndicator } from "@/components/ui";
+import { isValidGrid } from "@/lib/utils/grid";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { SOLAR_TOOLTIPS, PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { useUserStore } from "@/stores/userStore";
@@ -56,6 +58,8 @@ export function BandPlanner() {
   );
   const toggleFavoredBand = useUserStore((s) => s.toggleFavoredBand);
   const isMobile = useIsMobile();
+
+  const [searchParams] = useSearchParams();
 
   // Target location state
   const [targetGrid, setTargetGrid] = useState("");
@@ -152,6 +156,15 @@ export function BandPlanner() {
     } else {
       setTargetCoords(null);
     }
+  }, []);
+
+  // Hydrate from DX Wizard / deep-link (?grid=)
+  useEffect(() => {
+    const gridParam = searchParams.get("grid")?.trim();
+    if (gridParam && isValidGrid(gridParam)) {
+      handleTargetChange(gridParam.toUpperCase());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot from URL
   }, []);
 
   // Calculate forecast

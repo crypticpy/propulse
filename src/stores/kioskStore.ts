@@ -21,6 +21,7 @@ import {
 } from "@/stores/mapStore";
 import type { DisplayQuality } from "@/stores/displayQualityStore";
 import type { ThemeId } from "@/lib/themes";
+import type { HamClockMode } from "@/lib/hamclock/modePresets";
 
 export interface KioskSceneMapConfig {
   layoutMode: LayoutMode;
@@ -32,6 +33,8 @@ export interface KioskSceneMapConfig {
   mapStyle?: MapStyle;
   theme?: ThemeId;
   showLiveClouds?: boolean;
+  /** Optional HamClock product mode applied before layout enter. */
+  hamclockMode?: HamClockMode;
 }
 
 export type KioskTransition = "fade" | "cut";
@@ -167,9 +170,25 @@ export const DEFAULT_PRESENTATION: KioskPresentation = {
 export const DEFAULT_SCENES: KioskScene[] = [
   {
     id: "default-wall",
-    name: "The Wall",
+    name: "HamClock Wall",
     route: "/map",
-    map: { layoutMode: "hamclock" },
+    map: {
+      layoutMode: "hamclock",
+      viewMode: "flat",
+      mapStyle: "satellite",
+      hamclockMode: "traffic",
+    },
+  },
+  {
+    id: "default-hamclock-weather",
+    name: "HamClock Weather",
+    route: "/map",
+    map: {
+      layoutMode: "hamclock",
+      viewMode: "flat",
+      mapStyle: "satellite",
+      hamclockMode: "weather",
+    },
   },
   {
     id: "default-globe",
@@ -186,6 +205,10 @@ export const DEFAULT_SCENES: KioskScene[] = [
 
 const V3_WALL_SCENES = DEFAULT_SCENES.filter(
   (scene) => scene.id === "default-clock" || scene.id === "default-stopwatch",
+);
+const V5_HAMCLOCK_SCENES = DEFAULT_SCENES.filter(
+  (scene) =>
+    scene.id === "default-wall" || scene.id === "default-hamclock-weather",
 );
 const LEGACY_DEFAULT_SCENE_IDS = new Set([
   "default-wall",
@@ -267,6 +290,12 @@ const VALID_THEMES = new Set<ThemeId>([
   "high-contrast",
   "midnight",
 ]);
+const VALID_HAMCLOCK_MODES = new Set<HamClockMode>([
+  "traffic",
+  "bands",
+  "satellites",
+  "weather",
+]);
 const VALID_BREAK_IN_LEVELS = new Set<BreakInLevel>([
   "CRITICAL",
   "WARNING",
@@ -338,6 +367,12 @@ function sanitizeMapConfig(
   }
   if (capabilities.theme && VALID_THEMES.has(value.theme as ThemeId)) {
     config.theme = value.theme as ThemeId;
+  }
+  if (
+    VALID_HAMCLOCK_MODES.has(value.hamclockMode as HamClockMode) &&
+    config.layoutMode === "hamclock"
+  ) {
+    config.hamclockMode = value.hamclockMode as HamClockMode;
   }
   if (
     capabilities.liveClouds &&
@@ -467,6 +502,7 @@ function normalizePersistedKioskState(value: unknown): PersistedKioskState {
 
 /**
  * v4 adds scene playback/presentation fields and the dedicated map routes.
+ * v5 refreshes shipped HamClock wall templates for default-derived playlists.
  * Every version still crosses the same strict normalizer, so unsupported
  * fields from old, remote, or hand-edited payloads never reach consumers.
  */
@@ -512,6 +548,40 @@ export function migrateKioskState(
             (scene) => ({ ...scene }),
           ),
         ];
+      }
+    }
+    candidate = legacy;
+  }
+  if (version < 5) {
+    const legacy = isRecord(candidate) ? { ...candidate } : {};
+    if (Array.isArray(legacy.scenes)) {
+      const scenes = legacy.scenes as unknown[];
+      const hasLegacyDefault = scenes.some(
+        (scene) =>
+          isRecord(scene) &&
+          typeof scene.id === "string" &&
+          LEGACY_DEFAULT_SCENE_IDS.has(scene.id),
+      );
+      if (hasLegacyDefault) {
+        const byId = new Map(
+          V5_HAMCLOCK_SCENES.map((scene) => [scene.id, scene] as const),
+        );
+        const existingIds = new Set(
+          scenes.flatMap((scene) =>
+            isRecord(scene) && typeof scene.id === "string" ? [scene.id] : [],
+          ),
+        );
+        const nextScenes: unknown[] = scenes.map((scene) => {
+          if (!isRecord(scene) || typeof scene.id !== "string") return scene;
+          const refreshed = byId.get(scene.id);
+          return refreshed ? { ...refreshed } : scene;
+        });
+        for (const scene of V5_HAMCLOCK_SCENES) {
+          if (!existingIds.has(scene.id)) {
+            nextScenes.push({ ...scene });
+          }
+        }
+        legacy.scenes = nextScenes;
       }
     }
     candidate = legacy;
@@ -716,7 +786,7 @@ export const useKioskStore = create<KioskStore>()(
     }),
     {
       name: "propulse-kiosk",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         scenes: state.scenes,

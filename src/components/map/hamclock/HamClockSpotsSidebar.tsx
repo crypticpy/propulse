@@ -17,6 +17,11 @@ import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useMapStore } from "@/stores/mapStore";
 import {
+  useHamClockStore,
+  type HamClockMode,
+} from "@/stores/hamclockStore";
+import { HamClockBandFocus } from "./HamClockBandFocus";
+import {
   ACTIVATION_PROGRAM_META,
   type ActivationProgram,
   type ActivationSpot,
@@ -189,7 +194,13 @@ function ActivationSpotList({
 // Component
 // ---------------------------------------------------------------------------
 
-export function HamClockSpotsSidebar() {
+interface HamClockSpotsSidebarProps {
+  mode?: HamClockMode;
+}
+
+export function HamClockSpotsSidebar({
+  mode = "traffic",
+}: HamClockSpotsSidebarProps) {
   const [activeTab, setActiveTab] = useState<SpotTab>("DX");
   const tabRefs = useRef<
     Partial<Record<SpotTab, HTMLButtonElement | null>>
@@ -215,6 +226,26 @@ export function HamClockSpotsSidebar() {
   // Current DX/activation target (if any)
   const target = useMapStore((s) => s.target);
   const setTarget = useMapStore((s) => s.setTarget);
+  const setSpotFilters = useMapStore((s) => s.setSpotFilters);
+  const spotFilters = useMapStore((s) => s.spotFilters);
+
+  const bandFocus = useHamClockStore((s) => s.bandFocus);
+  const toggleBandFocus = useHamClockStore((s) => s.toggleBandFocus);
+  const setBandFocus = useHamClockStore((s) => s.setBandFocus);
+  const showBandFocus = mode === "bands" && activeTab === "DX";
+
+  const handleToggleBand = (band: string) => {
+    const next = bandFocus.includes(band)
+      ? bandFocus.filter((b) => b !== band)
+      : [...bandFocus, band];
+    toggleBandFocus(band);
+    setSpotFilters({ ...spotFilters, bands: next });
+  };
+
+  const handleClearBands = () => {
+    setBandFocus([]);
+    setSpotFilters({ ...spotFilters, bands: [] });
+  };
 
   const selectActivation = (spot: ActivationSpot) => {
     if (spot.latitude === undefined || spot.longitude === undefined) return;
@@ -295,6 +326,14 @@ export function HamClockSpotsSidebar() {
         ))}
       </div>
 
+      {showBandFocus && (
+        <HamClockBandFocus
+          selected={bandFocus}
+          onToggle={handleToggleBand}
+          onClear={handleClearBands}
+        />
+      )}
+
       {/* ── Target indicator (shown only when a target is set) ── */}
       {target && (
         <div className="px-3 py-1.5 border-b border-plasma-orange/30 bg-plasma-orange/5 shrink-0">
@@ -321,7 +360,7 @@ export function HamClockSpotsSidebar() {
       >
         {activeTab === "DX" ? (
           <DXSpotList
-            showFilters={false}
+            showFilters={mode !== "satellites"}
             showHeader={false}
             maxHeight="100%"
             className="!bg-transparent !border-0 !rounded-none"

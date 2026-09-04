@@ -12,8 +12,30 @@ vi.mock("@/stores/mapStore", () => ({
         viewMode: "flat",
         setViewMode: vi.fn(),
         target: null,
+        layers: {
+          muf: false,
+          aurora: false,
+          drap: false,
+          weather: false,
+        },
+        toggleLayer: vi.fn(),
+        spotFilters: { bands: [] },
+        setSpotFilters: vi.fn(),
       }),
-    { getState: () => ({ setLayoutMode: vi.fn() }) },
+    {
+      getState: () => ({
+        setLayoutMode: vi.fn(),
+        layers: {
+          muf: false,
+          aurora: false,
+          drap: false,
+          weather: false,
+        },
+        spotFilters: { bands: [] },
+        setSpotFilters: vi.fn(),
+      }),
+      setState: vi.fn(),
+    },
   ),
 }));
 
@@ -23,17 +45,32 @@ vi.mock("@/stores/userStore", () => ({
 }));
 
 vi.mock("@/stores/hamclockStore", () => ({
-  useHamClockStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      spotsSide: "left",
-      setSpotsSide: vi.fn(),
-      spotsSidebarCollapsed: false,
-      infoSidebarCollapsed: false,
-      toggleSpotsSidebar: vi.fn(),
-      toggleInfoSidebar: vi.fn(),
-      panelCollapsed: {},
-      togglePanel: vi.fn(),
-    }),
+  useHamClockStore: Object.assign(
+    (selector: (state: Record<string, unknown>) => unknown) =>
+      selector({
+        spotsSide: "left",
+        setSpotsSide: vi.fn(),
+        spotsSidebarCollapsed: false,
+        infoSidebarCollapsed: false,
+        toggleSpotsSidebar: vi.fn(),
+        toggleInfoSidebar: vi.fn(),
+        panelCollapsed: {},
+        togglePanel: vi.fn(),
+        hamclockMode: "traffic",
+        setHamclockMode: vi.fn(),
+        setPreferredViewMode: vi.fn(),
+        setFiltersBeforeBands: vi.fn(),
+        bandFocus: [],
+        filtersBeforeBands: null,
+      }),
+    {
+      getState: () => ({
+        hamclockMode: "traffic",
+        bandFocus: [],
+        filtersBeforeBands: null,
+      }),
+    },
+  ),
 }));
 
 vi.mock("@/hooks/useUTCClock", () => ({ useUTCClock: () => new Date(0) }));

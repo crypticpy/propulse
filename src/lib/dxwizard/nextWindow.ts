@@ -3,13 +3,20 @@ import {
   getBestWindows,
   type BestWindow,
 } from "@/lib/utils/bands";
-import type { WizardNextWindow, WizardStationInput, ResolvedTarget } from "./types";
+import {
+  MODE_SNR_TARGET_DB,
+  type WizardMode,
+  type WizardNextWindow,
+  type WizardStationInput,
+  type ResolvedTarget,
+} from "./types";
 
 export function computeNextWindow(params: {
   station: WizardStationInput;
   target: ResolvedTarget;
   currentKp: number;
   currentSfi: number;
+  mode: WizardMode;
   now?: Date;
 }): WizardNextWindow | null {
   const now = params.now ?? new Date();
@@ -22,7 +29,10 @@ export function computeNextWindow(params: {
     params.currentSfi,
     now,
   );
-  const windows = getBestWindows(forecast);
+  const snrFloor = MODE_SNR_TARGET_DB[params.mode];
+  const windows = getBestWindows(forecast).filter(
+    (w) => w.peakStatus !== "closed" && w.peakSnr >= snrFloor,
+  );
   if (windows.length === 0) return null;
 
   const currentHour = now.getUTCHours();
@@ -36,7 +46,6 @@ export function computeNextWindow(params: {
 
   const best = ranked[0];
   let hoursAway = (best.peakHour - currentHour + 24) % 24;
-  // If peak is "now" (same hour) treat as 0
   if (best.peakHour === currentHour) hoursAway = 0;
 
   const label =

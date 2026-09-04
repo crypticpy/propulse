@@ -7,8 +7,9 @@ export function clampWatts(value: number): number {
 
 /**
  * Scale required TX power from an SNR estimate taken at 100W.
- * Clamps future/impossible values and never recommends below 10W when
- * already meeting target (operators still need a usable floor).
+ * Returns an uncapped requirement so feasibility checks are honest —
+ * paths needing >1500W must not appear `withinCeiling` at a 1500W station.
+ * Floor is 10W when already meeting the SNR target.
  */
 export function estimateRequiredPowerWatts(
   snrAt100W: number,
@@ -19,7 +20,7 @@ export function estimateRequiredPowerWatts(
     return 10;
   }
   const scale = Math.pow(10, deltaDb / 10);
-  return clampWatts(100 * scale);
+  return Math.max(10, Math.round(100 * scale));
 }
 
 /** Keep the operator ceiling inside the radio's max output. */

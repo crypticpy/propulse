@@ -346,6 +346,12 @@ function ResultsStep({
               {best.requiredWatts}W
             </div>
             <div className="text-[10px] text-gray-400">
+              Ceiling: {best.ceilingWatts}W
+              {!best.withinCeiling && (
+                <span className="text-alert-red"> · exceeds</span>
+              )}
+            </div>
+            <div className="text-[10px] text-gray-400">
               {formatKHz(best.freqsKHz[0])} · {session.mode}
             </div>
           </div>

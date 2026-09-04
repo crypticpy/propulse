@@ -3,11 +3,17 @@ import {
   formatBearing,
   formatDistance,
   getMidpoint,
-  getPathIllumination,
+  getLongPathPoints,
+  getPathPoints,
+  getDistance,
 } from "@/lib/utils/path";
 import { classifyPropagationMode } from "@/lib/utils/propagationModes";
 import type { Season } from "@/lib/utils/propagationModes";
-import { isPointInDaylight, getSolarAngle } from "@/lib/utils/sun";
+import {
+  isPointInDaylight,
+  getSolarAngle,
+  getSubsolarPoint,
+} from "@/lib/utils/sun";
 import type { WizardPathMode, WizardPathSummary, WizardMode } from "./types";
 import { MODE_SNR_TARGET_DB } from "./types";
 
@@ -20,8 +26,7 @@ const MODE_FREQ_MHZ: Record<WizardMode, number> = {
 };
 
 function seasonForDate(date: Date, lat: number): Season {
-  const month = date.getUTCMonth(); // 0-11
-  // Meteorological seasons; flip for southern hemisphere
+  const month = date.getUTCMonth();
   const northern: Season[] = [
     "winter",
     "winter",
@@ -49,6 +54,20 @@ function seasonForDate(date: Date, lat: number): Season {
   return season;
 }
 
+function pathIlluminationFromPoints(
+  points: Array<{ lat: number; lon: number }>,
+  date: Date,
+): number {
+  if (points.length === 0) return 0;
+  const subsolar = getSubsolarPoint(date);
+  let daylightCount = 0;
+  for (const point of points) {
+    const angle = getDistance(point.lat, point.lon, subsolar.lat, subsolar.lon);
+    if (angle < 10018) daylightCount++;
+  }
+  return (daylightCount / points.length) * 100;
+}
+
 export function buildPathSummary(params: {
   homeLat: number;
   homeLon: number;
@@ -58,6 +77,8 @@ export function buildPathSummary(params: {
   mode: WizardMode;
   sfi: number;
   kp: number;
+  /** RF frequency for mode classification — prefer recommended band. */
+  frequencyMHz?: number;
   date?: Date;
 }): WizardPathSummary {
   const date = params.date ?? new Date();
@@ -67,6 +88,7 @@ export function buildPathSummary(params: {
     params.targetLat,
     params.targetLon,
   );
+  const shortDistanceKm = metrics.shortPath.distance;
   const active =
     params.pathMode === "long"
       ? {
@@ -80,28 +102,43 @@ export function buildPathSummary(params: {
           reciprocal: metrics.shortPath.reciprocal,
         };
 
-  const mid = getMidpoint(
-    params.homeLat,
-    params.homeLon,
-    params.targetLat,
-    params.targetLon,
-  );
+  const pathPoints =
+    params.pathMode === "long"
+      ? getLongPathPoints(
+          params.homeLat,
+          params.homeLon,
+          params.targetLat,
+          params.targetLon,
+          40,
+        )
+      : getPathPoints(
+          params.homeLat,
+          params.homeLon,
+          params.targetLat,
+          params.targetLon,
+          20,
+        );
+
+  const mid =
+    pathPoints.length > 0
+      ? pathPoints[Math.floor(pathPoints.length / 2)]
+      : getMidpoint(
+          params.homeLat,
+          params.homeLon,
+          params.targetLat,
+          params.targetLon,
+        );
+
   const isDaytime = isPointInDaylight(mid.lat, mid.lon, date);
   const solarAngle = getSolarAngle(mid.lat, mid.lon, date);
-  // Near-terminator: solar elevation roughly -6°..+6° → grayline band
-  const isGrayLine = Math.abs(90 - solarAngle) <= 6;
-  const illumination = getPathIllumination(
-    params.homeLat,
-    params.homeLon,
-    params.targetLat,
-    params.targetLon,
-    date,
-  );
+  const isGrayLine = Math.abs(solarAngle - 90) <= 6;
+  const illumination = pathIlluminationFromPoints(pathPoints, date);
   const grayFromPath = illumination > 15 && illumination < 85;
 
+  // scoreLongPath expects short-path distance; always pass SP km.
   const propagation = classifyPropagationMode({
-    frequencyMHz: MODE_FREQ_MHZ[params.mode],
-    distanceKm: active.distanceKm,
+    frequencyMHz: params.frequencyMHz ?? MODE_FREQ_MHZ[params.mode],
+    distanceKm: shortDistanceKm,
     homeLat: params.homeLat,
     homeLon: params.homeLon,
     targetLat: params.targetLat,

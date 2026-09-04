@@ -29,6 +29,7 @@ export {
 export {
   buildWizardRecommendation,
   resolveAntennaGainDbi,
+  longPathFsplDeltaDb,
 } from "./recommend";
 
 export {

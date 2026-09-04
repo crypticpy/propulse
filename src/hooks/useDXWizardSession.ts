@@ -363,6 +363,10 @@ export function useDXWizardSession() {
 
   const pathSummary = useMemo(() => {
     if (!station || !target) return null;
+    const bestFreqMHz =
+      recommendation?.type === "ok"
+        ? Number.parseFloat(recommendation.best.frequency)
+        : undefined;
     return buildPathSummary({
       homeLat: station.lat,
       homeLon: station.lon,
@@ -372,8 +376,12 @@ export function useDXWizardSession() {
       mode,
       sfi: currentSfi,
       kp: currentKp,
+      frequencyMHz:
+        Number.isFinite(bestFreqMHz) && bestFreqMHz! > 0
+          ? bestFreqMHz
+          : undefined,
     });
-  }, [currentKp, currentSfi, mode, pathMode, station, target]);
+  }, [currentKp, currentSfi, mode, pathMode, recommendation, station, target]);
 
   const nextWindow = useMemo(() => {
     if (!station || !target) return null;
@@ -382,8 +390,9 @@ export function useDXWizardSession() {
       target,
       currentKp,
       currentSfi,
+      mode,
     });
-  }, [currentKp, currentSfi, station, target]);
+  }, [currentKp, currentSfi, mode, station, target]);
 
   const tips = useMemo(() => getModeTips(mode), [mode]);
 

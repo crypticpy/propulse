@@ -25,6 +25,21 @@ function parsePath(raw: string | null): WizardPathMode | null {
   return null;
 }
 
+/** Truncate 8-char grids to 6 chars for gridToLatLon. */
+function gridForLatLon(grid: string): string {
+  const upper = grid.toUpperCase();
+  if (upper.length >= 8) return upper.slice(0, 6);
+  return upper;
+}
+
+function parseExplicitCoordinate(
+  raw: string | null,
+): number | null {
+  if (raw == null || raw.trim() === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
 /** Parse `/dx?...` search params into wizard session seeds. */
 export function parseWizardDeepLink(
   search: string | URLSearchParams,
@@ -39,11 +54,11 @@ export function parseWizardDeepLink(
   const gridParam = params.get("grid")?.trim();
   if (gridParam && isValidGrid(gridParam)) {
     const grid = gridParam.toUpperCase();
-    const { lat, lon } = gridToLatLon(grid);
+    const { lat, lon } = gridToLatLon(gridForLatLon(grid));
     return {
       target: {
         label: callParam ? `${callParam} · ${grid}` : grid,
-        grid,
+        grid: grid.length >= 6 ? grid.slice(0, 6) : grid,
         lat,
         lon,
         source: "url",
@@ -55,9 +70,18 @@ export function parseWizardDeepLink(
     };
   }
 
-  const lat = Number(params.get("lat"));
-  const lon = Number(params.get("lon"));
-  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+  // Require explicit non-empty lat/lon params — Number(null) === 0 would
+  // otherwise treat every /dx visit (and call-only links) as 0°,0°.
+  const lat = parseExplicitCoordinate(params.get("lat"));
+  const lon = parseExplicitCoordinate(params.get("lon"));
+  if (
+    lat != null &&
+    lon != null &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  ) {
     const grid = latLonToGrid(lat, lon);
     return {
       target: {
@@ -93,6 +117,8 @@ export function buildWizardSearchParams(params: {
       out.set("call", params.target.callsign);
     }
     out.set("grid", params.target.grid);
+    out.set("lat", String(params.target.lat));
+    out.set("lon", String(params.target.lon));
   }
   out.set("mode", params.mode);
   if (params.pathMode === "long") {

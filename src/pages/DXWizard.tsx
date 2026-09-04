@@ -776,13 +776,21 @@ function AllBandsList({
   const candidateMap = new Map(
     (candidates ?? []).map((c) => [c.band, c] as const),
   );
+  // Ranked candidates first, then remaining closed/unavailable bands.
+  const candidateBands = (candidates ?? [])
+    .map((c) => bands.find((b) => b.band === c.band))
+    .filter((b): b is (typeof bands)[number] => Boolean(b));
+  const candidateBandSet = new Set(candidateBands.map((b) => b.band));
+  const remainder = bands.filter((b) => !candidateBandSet.has(b.band));
+  const ordered = [...candidateBands, ...remainder];
+
   return (
     <div className="space-y-2">
       <div className="text-xs text-gray-400 uppercase tracking-wide">
         All bands
       </div>
       <div className="space-y-1 max-h-72 overflow-y-auto">
-        {bands.map((band) => {
+        {ordered.map((band) => {
           const cand = candidateMap.get(band.band);
           return (
             <div

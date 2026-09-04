@@ -8,6 +8,7 @@ import {
   bandPlannerHrefForTarget,
   buildWizardRecommendation,
   longPathFsplDeltaDb,
+  resolveAntennaGainDbi,
   correlateBandReality,
   applyContestCongestionRanking,
 } from "@/lib/dxwizard";
@@ -159,6 +160,19 @@ describe("dxwizard recommend", () => {
     if (short20 && long20) {
       expect(long20.snrEstimate).toBeLessThan(short20.snrEstimate);
     }
+  });
+
+  it("uses long-path distance for antenna-pattern gain", () => {
+    const shared = {
+      antennaType: "yagi_5el" as const,
+      homeLat: 41.7,
+      homeLon: -72.7,
+      targetLat: 35.68,
+      targetLon: 139.76,
+    };
+    const short = resolveAntennaGainDbi({ ...shared, pathMode: "short" });
+    const long = resolveAntennaGainDbi({ ...shared, pathMode: "long" });
+    expect(long).not.toBe(short);
   });
 
   it("marks withinCeiling false when required watts exceed ceiling", () => {

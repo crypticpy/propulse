@@ -5,8 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { physicsArgsForPath } from "@/lib/station/stationPhysics";
-import { getDistance } from "@/lib/utils/path";
+import { physicsAntennaGainDbi } from "@/lib/station/stationPhysics";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -32,6 +31,7 @@ import {
   type WizardPathMode,
   type WizardOptimizeFor,
   buildWizardRecommendation,
+  resolveAntennaGainDbi,
   resolveTargetQuery,
   resolveCallsignTarget,
   targetFromMapLocation,
@@ -351,27 +351,18 @@ export function useDXWizardSession() {
 
   const baseAntennaGainDbi = useMemo(() => {
     if (!station || !target) return 0;
-    const distance = getDistance(
-      station.lat,
-      station.lon,
-      target.lat,
-      target.lon,
-    );
-    return physicsArgsForPath(
-      stationGain.antennaType,
-      distance,
+    return physicsAntennaGainDbi(
+      resolveAntennaGainDbi({
+        antennaType: stationGain.antennaType,
+        homeLat: station.lat,
+        homeLon: station.lon,
+        targetLat: target.lat,
+        targetLon: target.lon,
+        pathMode,
+      }),
       stationGain.systemLossDb,
-      txPowerCeilingWatts,
-      mode,
-    ).antennaGainDbi;
-  }, [
-    mode,
-    station,
-    stationGain.antennaType,
-    stationGain.systemLossDb,
-    target,
-    txPowerCeilingWatts,
-  ]);
+    );
+  }, [pathMode, station, stationGain.antennaType, stationGain.systemLossDb, target]);
 
   const congestionContext = useMemo(
     () => ({

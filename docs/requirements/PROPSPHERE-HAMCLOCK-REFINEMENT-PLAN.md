@@ -1,7 +1,7 @@
 # PropSphere HamClock Refinement Plan
 
-Status: complete  
-Owner: PropSphere  
+Status: complete
+Owner: PropSphere
 Last updated: 2026-09-04
 
 ## Implementation record (2026-09-04)

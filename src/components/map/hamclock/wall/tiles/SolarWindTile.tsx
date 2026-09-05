@@ -114,8 +114,32 @@ export function SolarWindTile() {
     );
   }
 
-  const state =
-    bz !== null && bz <= -10
+  // Speed and Bz come from two independent L1 feeds, so one can be present
+  // while the other is missing. A verdict drawn from half the picture would be
+  // a quiet all-clear the data does not support, so name the absent feed
+  // instead and keep the state bar neutral.
+  const missing =
+    speed === null
+      ? plasmaQuery.isError
+        ? "NO SPEED · PLASMA FEED UNAVAILABLE"
+        : "NO SPEED · PLASMA FEED LOADING"
+      : bz === null
+        ? magQuery.isError
+          ? "NO Bz · MAG FEED UNAVAILABLE"
+          : "NO Bz · MAG FEED LOADING"
+        : null;
+
+  const verdict =
+    missing ??
+    (bz !== null && bz < 0
+      ? "Bz SOUTH · COUPLING"
+      : speed !== null && speed >= 600
+        ? "HIGH-SPEED STREAM"
+        : "QUIET STREAM");
+
+  const state = missing
+    ? "var(--hc-dim2)"
+    : bz !== null && bz <= -10
       ? "var(--hc-bad)"
       : speed !== null && speed >= 600
         ? "var(--hc-warn)"
@@ -140,13 +164,7 @@ export function SolarWindTile() {
         />
       </div>
       <TileSub>
-        <span>
-          {bz !== null && bz < 0
-            ? "Bz SOUTH · COUPLING"
-            : speed !== null && speed >= 600
-              ? "HIGH-SPEED STREAM"
-              : "QUIET STREAM"}
-        </span>
+        <span>{verdict}</span>
         {plasma?.density != null && (
           <span>{plasma.density.toFixed(1)} p/cm³</span>
         )}

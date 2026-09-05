@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
+import SunCalc from "suncalc";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BandActivityTile } from "./BandActivityTile";
 import { GreyLineTile } from "./GreyLineTile";
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   solar: vi.fn(),
   weather: vi.fn(),
   contacts: vi.fn(),
+  moonArgs: vi.fn(),
 }));
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
@@ -35,6 +37,19 @@ vi.mock("@/hooks/useLocalWeather", () => ({
 vi.mock("@/lib/hamclock/recentContacts", () => ({
   readHamClockContacts: mocks.contacts,
 }));
+// Real ephemeris, but the call is recorded so the zone argument is testable.
+vi.mock("@/lib/utils/moon", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils/moon")>();
+  return {
+    ...actual,
+    getMoonConditions: (
+      ...args: Parameters<typeof actual.getMoonConditions>
+    ) => {
+      mocks.moonArgs(...args);
+      return actual.getMoonConditions(...args);
+    },
+  };
+});
 
 /** Austin, TX — the QTH the approved mock is drawn around. */
 const AUSTIN = {
@@ -43,9 +58,20 @@ const AUSTIN = {
   grid: "EM10dg",
   lat: 30.27,
   lon: -97.74,
+  timezone: "America/Chicago",
   type: "home" as const,
   createdAt: "2026-01-01T00:00:00.000Z",
 };
+
+/** Wall-clock hh:mm for `value` in `zone`, the shape `formatClock` prints. */
+function clockIn(value: Date, zone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: zone,
+  }).format(value);
+}
 
 /** `useSolarResource` hands back the validated envelope, not a bare payload. */
 function envelope<T>(data: T) {
@@ -108,6 +134,31 @@ describe("BandActivityTile", () => {
     expect(container.querySelector(".hc-verdict")?.textContent).toBe("470");
     // The zero-count band is dropped rather than drawn as an empty bar.
     expect(screen.queryByText("10m")).toBeNull();
+  });
+
+  it("totals every active band even though only six bars are drawn", () => {
+    const counts: Array<[string, number]> = [
+      ["20m", 470],
+      ["40m", 416],
+      ["15m", 300],
+      ["17m", 200],
+      ["10m", 100],
+      ["30m", 50],
+      ["80m", 25],
+      ["160m", 5],
+    ];
+    mocks.activity.mockReturnValue({
+      data: new Map(
+        counts.map(([band, count60m]) => [band, { band, count60m }]),
+      ),
+      isPending: false,
+      isError: false,
+    });
+    const { container } = draw(<BandActivityTile />);
+    // Six bars, but the summary describes all eight bands and all 1,566 spots.
+    expect(container.querySelectorAll(".hc-bar")).toHaveLength(6);
+    expect(screen.getByText("1,566")).toBeTruthy();
+    expect(screen.getByText(/8 bands/)).toBeTruthy();
   });
 
   it("explains an empty feed instead of drawing an empty chart", () => {
@@ -197,6 +248,45 @@ describe("SolarWindTile", () => {
     expect(screen.getAllByText("—")).toHaveLength(2);
     expect(screen.getByText("L1 solar-wind feed unavailable")).toBeTruthy();
   });
+
+  it("names the dead feed instead of calling half a picture quiet", () => {
+    // Plasma is up, mag is down: a "QUIET STREAM" verdict here would be an
+    // all-clear with no Bz behind it.
+    mocks.solar.mockImplementation((sourceId: string) =>
+      sourceId === "swpc-solar-wind-plasma"
+        ? envelope([
+            {
+              time_tag: "2026-09-05T13:12:00Z",
+              speed: 367,
+              density: 4.2,
+              temperature: 90_000,
+            },
+          ])
+        : FAILED,
+    );
+    draw(<SolarWindTile />);
+    expect(screen.getByText("NO Bz · MAG FEED UNAVAILABLE")).toBeTruthy();
+    expect(screen.queryByText("QUIET STREAM")).toBeNull();
+  });
+
+  it("says the plasma feed is still loading when only Bz has arrived", () => {
+    mocks.solar.mockImplementation((sourceId: string) =>
+      sourceId === "swpc-solar-wind-plasma"
+        ? EMPTY
+        : envelope([
+            {
+              time_tag: "2026-09-05T13:12:00Z",
+              bx_gsm: 1,
+              by_gsm: 2,
+              bz_gsm: 1.4,
+              bt: 5,
+            },
+          ]),
+    );
+    draw(<SolarWindTile />);
+    expect(screen.getByText("NO SPEED · PLASMA FEED LOADING")).toBeTruthy();
+    expect(screen.queryByText("QUIET STREAM")).toBeNull();
+  });
 });
 
 describe("SpaceWxTile", () => {
@@ -249,6 +339,22 @@ describe("SunTile", () => {
     draw(<SunTile />);
     expect(screen.getByText("Sunset")).toBeTruthy();
     expect(screen.getByText(/^\d+h \d+m$/)).toBeTruthy();
+  });
+
+  it("prints the LOCAL clocks in the QTH's zone, not the browser's", () => {
+    mocks.location.mockReturnValue({ ...AUSTIN, timezone: "Asia/Tokyo" });
+    draw(<SunTile />);
+    const { sunrise, sunset } = SunCalc.getTimes(
+      new Date("2026-09-05T13:14:00Z"),
+      AUSTIN.lat,
+      AUSTIN.lon,
+    );
+    expect(screen.getByText(clockIn(sunset, "Asia/Tokyo"))).toBeTruthy();
+    expect(
+      screen.getByText(
+        `${clockIn(sunrise, "Asia/Tokyo")} / ${clockIn(sunset, "Asia/Tokyo")}`,
+      ),
+    ).toBeTruthy();
   });
 
   it("asks for a QTH when none is configured", () => {
@@ -307,6 +413,16 @@ describe("MoonTile", () => {
         /NEW MOON|WAXING|FIRST QUARTER|FULL MOON|LAST QUARTER|WANING/,
       ),
     ).toBeTruthy();
+  });
+
+  it("resolves rise and set against the QTH's calendar day", () => {
+    draw(<MoonTile />);
+    expect(mocks.moonArgs).toHaveBeenCalledWith(
+      expect.any(Date),
+      AUSTIN.lat,
+      AUSTIN.lon,
+      "America/Chicago",
+    );
   });
 
   it("asks for a QTH when none is configured", () => {

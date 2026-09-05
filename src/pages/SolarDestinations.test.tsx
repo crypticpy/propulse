@@ -1,0 +1,79 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.hoisted(() => {
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      clear: () => values.clear(),
+      getItem: (key: string) => values.get(key) ?? null,
+      key: (index: number) => [...values.keys()][index] ?? null,
+      get length() {
+        return values.size;
+      },
+      removeItem: (key: string) => values.delete(key),
+      setItem: (key: string, value: string) => values.set(key, value),
+    },
+  });
+});
+
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useProfileStore } from "@/stores/profileStore";
+import { useOperatingStore } from "@/stores/operatingStore";
+import { useRigStore } from "@/stores/rigStore";
+import { DXWizard } from "./DXWizard";
+import { BandPlanner } from "./BandPlanner";
+import { getEnhancedBandConditions, getForecastForPath } from "@/lib/utils/bands";
+
+const view = vi.hoisted(() => ({ mobile: false }));
+vi.mock("@/hooks/useIsMobile", () => ({ useIsMobile: () => view.mobile }));
+vi.mock("@/hooks/useSolarData", () => ({
+  useKIndex: () => ({ data: [{ kp_index: 2 }], dataUpdatedAt: Date.now(), refetch: vi.fn() }),
+  useSolarFlux: () => ({ data: [{ flux: 150 }], dataUpdatedAt: Date.now(), refetch: vi.fn() }),
+  useMagnetometer: () => ({ data: [{ bz_gsm: 2 }], dataUpdatedAt: Date.now(), refetch: vi.fn() }),
+}));
+vi.mock("@/hooks/useStationCastContext", () => ({ useStationCastContext: () => ({ location: { name: "Field kit", grid: "CM87ss", lat: 37.77, lon: -122.42 }, chain: { name: "Field kit" }, deriveEnvelope: () => null }) }));
+vi.mock("@/hooks/useActiveStationGain", () => ({
+  useActiveStationGain: () => ({ antennaType: "dipole", txPowerWatts: 50, systemLossDb: 1 }),
+  useForecastStationParams: () => ({ txPowerWatts: 50, mode: "FT8", antennaGainDbi: 1 }),
+}));
+vi.mock("@/hooks/useNowCastBandPredictions", () => ({ useNowCastBandPredictions: () => ({ visible: false }) }));
+vi.mock("@/hooks/useResearchParticipation", () => ({ useResearchParticipation: () => ({ state: null }) }));
+vi.mock("@/lib/utils/bands", async (original) => ({ ...await original<typeof import("@/lib/utils/bands")>(), getEnhancedBandConditions: vi.fn(() => []), getForecastForPath: vi.fn(() => []) }));
+
+const handoff = { version: 1, mode: "CW", target: { lat: 35.68, lon: 139.76, name: "Tokyo" }, at: "2026-09-05T12:00:00.000Z" };
+function mount(component: React.ReactNode, route: string) {
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[{ pathname: route, state: { solarHandoff: handoff } }]}>{component}</MemoryRouter></QueryClientProvider>);
+}
+beforeEach(() => {
+  vi.clearAllMocks();
+  useProfileStore.setState({ station: { callsign: "W1TEST", grid: "FN31pr", lat: 41.5, lon: -72.5 } as NonNullable<ReturnType<typeof useProfileStore.getState>["station"]> });
+  useOperatingStore.setState({ activeMode: "FT8" });
+  useRigStore.setState({ pendingMode: null, pendingFrequency: null });
+});
+for (const mobile of [false, true]) {
+  describe(mobile ? "mobile receiving pages" : "desktop receiving pages", () => {
+    it("hydrates exact target, active station, mode and time in DX analysis", () => {
+      view.mobile = mobile;
+      mount(<DXWizard />, "/dx");
+      const call = vi.mocked(getEnhancedBandConditions).mock.calls.at(-1)!;
+      expect(call.slice(0, 4)).toEqual([37.77, -122.42, 35.68, 139.76]);
+      expect(call[6]?.toISOString()).toBe(handoff.at);
+      expect(call[8]).toBe("CW");
+      expect(screen.getByDisplayValue("PM95vq")).not.toBeNull();
+      expect(useRigStore.getState()).toMatchObject({ pendingFrequency: null, pendingMode: null });
+    });
+    it("hydrates the selected UTC day and mode into the planner computation", () => {
+      view.mobile = mobile;
+      mount(<BandPlanner />, "/planner");
+      const call = vi.mocked(getForecastForPath).mock.calls.at(-1)!;
+      expect(call.slice(0, 4)).toEqual([37.77, -122.42, 35.68, 139.76]);
+      expect(call[6]?.toISOString()).toBe(handoff.at);
+      expect(call[7]?.mode).toBe("CW");
+      expect(screen.getByDisplayValue("PM95vq")).not.toBeNull();
+      expect(screen.getByText(/Planning.*current solar inputs/)).not.toBeNull();
+    });
+  });
+}

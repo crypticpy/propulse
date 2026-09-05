@@ -1,9 +1,12 @@
+import { useSolarHandoff } from "@/hooks/useSolarHandoff";
+import { SolarHandoffNotice } from "@/components/solar/SolarHandoffNotice";
+import { solarAnalysisMode } from "@/lib/solar/handoff";
 /**
  * MobileBandPlanner Component
  *
  * Mobile-friendly band planner with card-based layout replacing the
  * desktop 24-column heatmap table. Features:
- * - "Right Now" best band card
+ * - Best band at the selected hour
  * - Per-band cards with 24-hour gradient bars
  * - Tap-to-expand hourly detail
  * - Compact target input
@@ -99,18 +102,20 @@ export function MobileBandPlanner({
   stationChainName,
   locationName,
 }: MobileBandPlannerProps) {
+  const solarHandoff = useSolarHandoff();
   // Target location state
-  const [targetGrid, setTargetGrid] = useState("");
+  const [targetGrid, setTargetGrid] = useState(solarHandoff?.target?.grid ?? "");
   const [targetCoords, setTargetCoords] = useState<{
     lat: number;
     lon: number;
     grid: string;
-  } | null>(null);
+  } | null>(solarHandoff?.target ?? null);
 
   // Expanded band card
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
 
-  const activeMode = useActiveMode();
+  const liveMode = useActiveMode();
+  const activeMode = solarHandoff?.mode ?? liveMode;
   const forecastStation = useForecastStationParams(
     station.lat,
     station.lon,
@@ -162,10 +167,10 @@ export function MobileBandPlanner({
       targetCoords.lon,
       currentKp,
       currentFlux,
-      new Date(),
-      forecastStation,
+      solarHandoff?.at ? new Date(solarHandoff.at) : new Date(),
+      forecastStation && solarHandoff ? { ...forecastStation, mode: solarAnalysisMode(solarHandoff.mode) } : forecastStation,
     );
-  }, [station, targetCoords, currentKp, currentFlux, forecastStation]);
+  }, [station, targetCoords, currentKp, currentFlux, forecastStation, solarHandoff]);
 
   // Best windows
   const bestWindows = useMemo<BestWindow[]>(() => {
@@ -174,7 +179,7 @@ export function MobileBandPlanner({
   }, [forecast]);
 
   // Current UTC hour
-  const currentHour = new Date().getUTCHours();
+  const currentHour = (solarHandoff?.at ? new Date(solarHandoff.at) : new Date()).getUTCHours();
 
   // Best band right now
   const bestBandNow = useMemo(() => {
@@ -201,6 +206,7 @@ export function MobileBandPlanner({
 
   return (
     <div className="min-h-screen">
+      <SolarHandoffNotice handoff={solarHandoff} />
       <div className="px-4 pt-4 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -324,7 +330,7 @@ export function MobileBandPlanner({
           </div>
         )}
 
-        {targetCoords && modelNowCast.visible && (
+        {!solarHandoff?.at && targetCoords && modelNowCast.visible && (
           <NowCastBandPanel
             state={modelNowCast}
             bands={HF_MODEL_BANDS}
@@ -345,10 +351,10 @@ export function MobileBandPlanner({
         {/* Forecast content */}
         {targetCoords && !isLoading && forecast.length > 0 && (
           <>
-            {/* Right Now card */}
+            {/* {solarHandoff?.at ? "Selected planning hour" : "Right Now"} card */}
             <Card>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-white">Right Now</h3>
+                <h3 className="text-sm font-semibold text-white">{solarHandoff?.at ? "Selected planning hour" : "Right Now"}</h3>
                 <span className="text-[10px] text-gray-500 font-mono">
                   {currentHour.toString().padStart(2, "0")}:00 UTC
                 </span>

@@ -1,3 +1,5 @@
+import { useApplySolarMapHandoff } from "@/hooks/useSolarHandoff";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
 /**
  * MobileMap Component
  *
@@ -55,6 +57,7 @@ function GlobeLoadingFallback() {
 }
 
 export function MobileMap() {
+  useApplySolarMapHandoff();
   const [activeTab, setActiveTab] = useState<MobileMapTab>("bands");
   const [showPanel, setShowPanel] = useState(false);
   const [reachMapEnabled, setReachMapEnabled] = useState(false);
@@ -98,7 +101,9 @@ export function MobileMap() {
     isTouch && isPortrait && !hintDismissed && viewMode === "globe";
 
   // User store
-  const station = useUserStore((s) => s.station);
+  const baseStation = useUserStore((s) => s.station);
+  const stationContext = useStationCastContext();
+  const station = useMemo(() => baseStation && stationContext.location ? { ...baseStation, ...stationContext.location } : baseStation, [baseStation, stationContext.location]);
 
   // Display time (matches PropSphere logic)
   const displayTime = useMemo(() => {

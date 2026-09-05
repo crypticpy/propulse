@@ -6,7 +6,7 @@ import type { SolarWidgetState } from "@/lib/solar/contracts";
 describe("WidgetShell state contract", () => {
   const expected: Array<[SolarWidgetState, string]> = [
     ["loading", "Loading"],
-    ["fresh", "Current"],
+    ["fresh", "Data current"],
     ["refreshing", "Refreshing"],
     ["stale", "Stale"],
     ["partial", "Partial"],
@@ -79,4 +79,11 @@ describe("WidgetShell state contract", () => {
     expect(screen.getByText(/current successful response/i)).not.toBeNull();
     expect(screen.queryByText(/No usable last-good/i)).toBeNull();
   });
+});
+
+
+it("distinguishes forecast issue age from observation age", () => {
+  render(<WidgetShell title="Forecast" state="fresh" observedAt={new Date().toISOString()} timestampLabel="Issued">Forecast content</WidgetShell>);
+  expect(screen.getByText(/Issued just now/)).not.toBeNull();
+  expect(screen.queryByText(/Observed/)).toBeNull();
 });

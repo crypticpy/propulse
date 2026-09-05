@@ -1,3 +1,4 @@
+import { SolarHandoffNotice } from "@/components/solar/SolarHandoffNotice";
 import { Card } from "@/components/ui/Card";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -29,6 +30,7 @@ export function DXWizard() {
   if (isMobile) {
     return (
       <>
+        <SolarHandoffNotice handoff={session.solarHandoff} />
         <MobileDXWizard session={session} />
         <RadioPickerModal
           isOpen={session.showRadioPicker}
@@ -55,6 +57,7 @@ export function DXWizard() {
 
   return (
     <div className="min-h-screen p-4 md:p-6">
+      <SolarHandoffNotice handoff={session.solarHandoff} />
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">

@@ -1,8 +1,15 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, lazy, Suspense, useMemo, useState } from "react";
 import { useBandActivity } from "@/hooks/useBandActivity";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
+
+// The report is only worth its bytes once an operator opens it.
+const BandActivityReport = lazy(() =>
+  import("../reports/BandActivityReport").then((m) => ({
+    default: m.BandActivityReport,
+  })),
+);
 
 /** A rail tile can carry six bars before the type stops reading at ten feet. */
 const MAX_BARS = 6;
@@ -15,6 +22,7 @@ const MAX_BARS = 6;
 export function BandActivityTile() {
   const { scope, activityScope } = useBandVerdicts();
   const { data, isPending, isError } = useBandActivity(activityScope);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const bars = useMemo(() => {
     const entries = [...(data?.values() ?? [])].filter(
@@ -47,38 +55,48 @@ export function BandActivityTile() {
   const total = bars.reduce((sum, entry) => sum + entry.count60m, 0);
 
   return (
-    <HamClockTile
-      title="Band activity"
-      source={`${source} · 60 MIN`}
-      state={getBandColor(top.band)}
-    >
-      <div className="hc-heroline">
-        <TileHero flush>{top.band.toUpperCase()}</TileHero>
-        <div className="hc-verdict hc-glow hc-accent-text">
-          {top.count60m.toLocaleString()}
+    <>
+      <HamClockTile
+        title="Band activity"
+        source={`${source} · 60 MIN`}
+        state={getBandColor(top.band)}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`Band activity: ${top.band} hottest with ${top.count60m} spots. Open the band activity report`}
+      >
+        <div className="hc-heroline">
+          <TileHero flush>{top.band.toUpperCase()}</TileHero>
+          <div className="hc-verdict hc-glow hc-accent-text">
+            {top.count60m.toLocaleString()}
+          </div>
         </div>
-      </div>
-      <div className="hc-bars">
-        {bars.map((entry) => (
-          <Fragment key={entry.band}>
-            <span className="hc-bars-k">{entry.band}</span>
-            <span className="hc-bar">
-              <i
-                style={{
-                  width: `${Math.max(2, (entry.count60m / top.count60m) * 100)}%`,
-                  color: getBandColor(entry.band),
-                }}
-              />
-            </span>
-            <span className="hc-bars-v">{entry.count60m}</span>
-          </Fragment>
-        ))}
-      </div>
-      <TileSub>
-        <span>
-          <b>{total.toLocaleString()}</b> spots · {bars.length} bands
-        </span>
-      </TileSub>
-    </HamClockTile>
+        <div className="hc-bars">
+          {bars.map((entry) => (
+            <Fragment key={entry.band}>
+              <span className="hc-bars-k">{entry.band}</span>
+              <span className="hc-bar">
+                <i
+                  style={{
+                    width: `${Math.max(2, (entry.count60m / top.count60m) * 100)}%`,
+                    color: getBandColor(entry.band),
+                  }}
+                />
+              </span>
+              <span className="hc-bars-v">{entry.count60m}</span>
+            </Fragment>
+          ))}
+        </div>
+        <TileSub>
+          <span>
+            <b>{total.toLocaleString()}</b> spots · {bars.length} bands
+          </span>
+        </TileSub>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <BandActivityReport open onClose={() => setReportOpen(false)} />
+        </Suspense>
+      )}
+    </>
   );
 }

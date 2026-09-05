@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, lazy, Suspense, useState } from "react";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
 import { getBandColor } from "@/lib/utils/spotColors";
 import {
@@ -9,6 +9,13 @@ import {
   WALL_FORECAST_BANDS,
   type WallReliabilityStatus,
 } from "./useWallReliability";
+
+// The report is only worth its bytes once an operator opens it.
+const ForecastReport = lazy(() =>
+  import("../reports/ForecastReport").then((m) => ({
+    default: m.ForecastReport,
+  })),
+);
 
 const IDLE_COPY: Record<Exclude<WallReliabilityStatus, "ready">, string> = {
   "no-station": "Set an operating location to score your paths.",
@@ -24,6 +31,7 @@ const IDLE_COPY: Record<Exclude<WallReliabilityStatus, "ready">, string> = {
  */
 export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
   const { status, cells, hour, targetLabel, mode } = useWallReliability();
+  const [reportOpen, setReportOpen] = useState(false);
 
   if (status !== "ready") {
     return (
@@ -40,45 +48,61 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
   const tone = best ? wallScoreTone(best.score) : "hc-dim-text";
 
   return (
-    <HamClockTile
-      title={title}
-      source={`${mode} · ${String(hour).padStart(2, "0")}Z`}
-      state={best && best.score >= 75 ? "var(--hc-good)" : undefined}
-    >
-      <div className="hc-heroline">
-        <TileHero tone={tone} flush>
-          {best ? best.band.toUpperCase() : "—"}
-        </TileHero>
-        <div className={`hc-verdict hc-glow ${tone}`}>
-          {best ? `${best.score}%` : "SHUT"}
+    <>
+      <HamClockTile
+        title={title}
+        source={`${mode} · ${String(hour).padStart(2, "0")}Z`}
+        state={best && best.score >= 75 ? "var(--hc-good)" : undefined}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`${
+          best ? `${best.band} ${best.score} percent` : "Nothing open"
+        } to ${targetLabel}. Open the propagation report`}
+      >
+        <div className="hc-heroline">
+          <TileHero tone={tone} flush>
+            {best ? best.band.toUpperCase() : "—"}
+          </TileHero>
+          <div className={`hc-verdict hc-glow ${tone}`}>
+            {best ? `${best.score}%` : "SHUT"}
+          </div>
         </div>
-      </div>
-      <TileSub>
-        <span>{best ? "BEST TO" : "NOTHING OPEN TO"}</span>
-        <span>{targetLabel.toUpperCase()}</span>
-      </TileSub>
+        <TileSub>
+          <span>{best ? "BEST TO" : "NOTHING OPEN TO"}</span>
+          <span>{targetLabel.toUpperCase()}</span>
+        </TileSub>
 
-      <div className="hcf-bars">
-        {WALL_FORECAST_BANDS.map((band) => {
-          const score = wallReliabilityScore(cells, band, hour) ?? 0;
-          return (
-            <Fragment key={band}>
-              <span className="hcf-bars-k">{band}</span>
-              <span className="hcf-bar">
-                <i
-                  style={{
-                    width: `${Math.max(0, Math.min(100, score))}%`,
-                    color: getBandColor(band),
-                  }}
-                />
-              </span>
-              <span className={`hcf-bars-v ${wallScoreTone(score)}`}>
-                {score}
-              </span>
-            </Fragment>
-          );
-        })}
-      </div>
-    </HamClockTile>
+        <div className="hcf-bars">
+          {WALL_FORECAST_BANDS.map((band) => {
+            const score = wallReliabilityScore(cells, band, hour) ?? 0;
+            return (
+              <Fragment key={band}>
+                <span className="hcf-bars-k">{band}</span>
+                <span className="hcf-bar">
+                  <i
+                    style={{
+                      width: `${Math.max(0, Math.min(100, score))}%`,
+                      color: getBandColor(band),
+                    }}
+                  />
+                </span>
+                <span className={`hcf-bars-v ${wallScoreTone(score)}`}>
+                  {score}
+                </span>
+              </Fragment>
+            );
+          })}
+        </div>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <ForecastReport
+            open
+            onClose={() => setReportOpen(false)}
+            focus="reliability"
+          />
+        </Suspense>
+      )}
+    </>
   );
 }

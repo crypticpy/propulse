@@ -1,7 +1,12 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
+
+// The report is only worth its bytes once an operator opens it.
+const WeatherReport = lazy(() =>
+  import("../reports/WeatherReport").then((m) => ({ default: m.WeatherReport })),
+);
 
 /** Severity ranking; `Unknown` sorts last so a named severity always wins. */
 const SEVERITY_RANK: Record<WeatherAlert["severity"], number> = {
@@ -65,6 +70,19 @@ function worstAlert(alerts: WeatherAlert[]): WeatherAlert | null {
 export function AlertsTile({ title = "Weather alerts" }: WallTileProps) {
   const { alerts, isLoading, error } = useWeatherAlerts();
   const worst = useMemo(() => worstAlert(alerts), [alerts]);
+  const [reportOpen, setReportOpen] = useState(false);
+
+  // Mounted next to every return below, so the report is reachable whether the
+  // sky is clear or on fire.
+  const report = reportOpen && (
+    <Suspense fallback={null}>
+      <WeatherReport
+        open
+        onClose={() => setReportOpen(false)}
+        focus="alerts"
+      />
+    </Suspense>
+  );
 
   if (error) {
     return (
@@ -86,35 +104,49 @@ export function AlertsTile({ title = "Weather alerts" }: WallTileProps) {
 
   if (!worst) {
     return (
-      <HamClockTile title={title} source="NWS · US" state="var(--hc-good)">
-        <TileHero tone="hc-good">ALL CLEAR</TileHero>
-        <TileSub>
-          <span>NO ACTIVE NWS ALERTS</span>
-        </TileSub>
-      </HamClockTile>
+      <>
+        <HamClockTile
+          title={title}
+          source="NWS · US"
+          state="var(--hc-good)"
+          onOpen={() => setReportOpen(true)}
+          openLabel="No active NWS alerts. Open the weather report"
+        >
+          <TileHero tone="hc-good">ALL CLEAR</TileHero>
+          <TileSub>
+            <span>NO ACTIVE NWS ALERTS</span>
+          </TileSub>
+        </HamClockTile>
+        {report}
+      </>
     );
   }
 
   const tone = SEVERITY_TONE[worst.severity];
 
   return (
-    <HamClockTile
-      title={title}
-      source="NWS · US"
-      state={SEVERITY_STATE[worst.severity]}
-    >
-      <div className="hc-heroline">
-        <TileHero tone={tone} flush>
-          {alerts.length}
-        </TileHero>
-        <div className={`hc-verdict hc-glow ${tone}`}>
-          {worst.severity.toUpperCase()}
+    <>
+      <HamClockTile
+        title={title}
+        source="NWS · US"
+        state={SEVERITY_STATE[worst.severity]}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`${alerts.length} active NWS alerts, worst ${worst.event}. Open the weather report`}
+      >
+        <div className="hc-heroline">
+          <TileHero tone={tone} flush>
+            {alerts.length}
+          </TileHero>
+          <div className={`hc-verdict hc-glow ${tone}`}>
+            {worst.severity.toUpperCase()}
+          </div>
         </div>
-      </div>
-      <div className={`hcf-alert ${tone}`}>
-        <b>{worst.event}</b>
-        <span>{worst.areaDesc}</span>
-      </div>
-    </HamClockTile>
+        <div className={`hcf-alert ${tone}`}>
+          <b>{worst.event}</b>
+          <span>{worst.areaDesc}</span>
+        </div>
+      </HamClockTile>
+      {report}
+    </>
   );
 }

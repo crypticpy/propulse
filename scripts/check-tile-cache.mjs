@@ -40,10 +40,7 @@ runInNewContext(
 );
 
 for (const [url, cache] of [
-  [
-    "https://propulse.cloud/api/tiles/proxy?provider=mapbox&z=4&x=5&y=6",
-    "tiles-pro",
-  ],
+  ["https://propulse.cloud/api/tiles/proxy?provider=mapbox&z=4&x=5&y=6", null],
   [
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/5/6",
     "tiles-esri",
@@ -55,6 +52,13 @@ for (const [url, cache] of [
   const match = routes.find(
     ({ pattern }) => typeof pattern?.test === "function" && pattern.test(url),
   );
+  if (cache === null) {
+    // NetworkOnly still honors the browser HTTP cache. It must not place
+    // bearer-token variants into a long-lived service-worker cache.
+    assert.equal(match?.handler.kind, "NetworkOnly", url);
+    assert.equal(match?.handler.cacheName, undefined, url);
+    continue;
+  }
   assert.equal(match?.handler.kind, "CacheFirst", url);
   assert.equal(match?.handler.cacheName, cache, url);
   assert(
@@ -64,5 +68,5 @@ for (const [url, cache] of [
   );
 }
 console.log(
-  "Built worker routes HD, Esri and OSM tiles to bounded CacheFirst caches.",
+  "Built worker caches public tiles and leaves private HD caching to authenticated HTTP semantics.",
 );

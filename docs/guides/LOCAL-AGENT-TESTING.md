@@ -286,11 +286,13 @@ paint counts are in `tmp/hamclock-check/functional.json`; screenshots include
 the committed image; CSS transforms preview a gesture until its final repaint.
 
 After a production build, run `node scripts/check-tile-cache.mjs`. This evaluates
-the generated worker's route registrations and verifies that HD, Esri and OSM
-tile requests reach their bounded CacheFirst caches. A general API route must not
-capture `/api/tiles/` first. This check verifies cache routing, not authentication
-or an offline entitlement. Local dev uses the browser's HTTP cache and decoded
-tile LRU; persistent Workbox caches require a controlling production worker.
+the generated worker's route registrations: public Esri/OSM tiles use bounded
+30-day CacheFirst caches; authenticated HD proxy tiles use NetworkOnly so the
+browser honors the endpoint's private one-hour HTTP cache and `Vary: Authorization`.
+A general API route must not capture `/api/tiles/` first. Token refresh may require
+new private requests; no offline or cross-session HD entitlement is promised.
+Both paths also reuse the decoded tile LRU. Local dev has HTTP/memory caching;
+persistent public Workbox caches require a controlling production worker.
 
 For performance comparisons, keep viewport, DPR, layer selection, initial camera,
 provider and cold/warm cache state fixed. Record other concurrent workloads.

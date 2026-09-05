@@ -8,7 +8,18 @@ describe("resolveUnits", () => {
   });
 
   it("picks imperial for US grid fields and metric everywhere else", () => {
-    for (const grid of ["CM87", "DM79", "DN31", "EL96", "EM10dg", "EN52", "FM19", "FN31"]) {
+    for (const grid of [
+      "CM87",
+      "DM79",
+      "DN31",
+      "EL96",
+      "EM10dg",
+      "EN52",
+      "FM19",
+      "FN31",
+      "BP51", // Anchorage
+      "BL11", // Honolulu
+    ]) {
       expect(resolveUnits("auto", grid)).toBe("imperial");
     }
     for (const grid of ["JO62", "PM95", "GF15", "IO91"]) {

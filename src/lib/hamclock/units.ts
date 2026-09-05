@@ -5,9 +5,20 @@ export type ResolvedUnits = "imperial" | "metric";
 /**
  * Maidenhead fields covering the contiguous United States, Alaska and Hawaii —
  * the only places where an operator expects Fahrenheit and miles per hour by
- * default. Everything else resolves to metric.
+ * default. Everything else resolves to metric. Fields are coarse (FN, EN and
+ * DM spill into Canada and Mexico), which is why "auto" is a default and the
+ * explicit Imperial / Metric choices exist beside it.
  */
 const IMPERIAL_FIELDS = new Set([
+  // Alaska
+  "AO",
+  "AP",
+  "BO",
+  "BP",
+  // Hawaii
+  "BK",
+  "BL",
+  // Contiguous United States
   "CM",
   "DM",
   "DN",

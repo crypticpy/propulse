@@ -4,10 +4,13 @@ import type { ReactElement } from "react";
 import SunCalc from "suncalc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
+import { latLonToGrid } from "@/lib/utils/grid";
+import { formatDistance, getPathMetrics } from "@/lib/utils/path";
 import { TileHero } from "../HamClockTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
 import { ClusterTile } from "./ClusterTile";
+import { DxTargetTile } from "./DxTargetTile";
 import { GreyLineTile } from "./GreyLineTile";
 import { WALL_TILES } from "./index";
 import { MoonTile } from "./MoonTile";
@@ -28,8 +31,24 @@ const mocks = vi.hoisted(() => ({
   weather: vi.fn(),
   contacts: vi.fn(),
   moonArgs: vi.fn(),
+  target: vi.fn(),
 }));
 
+vi.mock("@/stores/mapStore", () => ({
+  // ClusterTile reads `spotFilters` from the real store; keep its shape so
+  // that tile keeps working now this file also stubs `target` for
+  // DxTargetTile.
+  useMapStore: (
+    selector: (state: {
+      target: unknown;
+      spotFilters: { bands: string[]; modes: string[] };
+    }) => unknown,
+  ) =>
+    selector({
+      target: mocks.target(),
+      spotFilters: { bands: [], modes: [] },
+    }),
+}));
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
 vi.mock("@/hooks/useBandActivity", () => ({ useBandActivity: mocks.activity }));
 vi.mock("@/hooks/useBandLadder", () => ({ useBandLadder: mocks.ladder }));
@@ -125,6 +144,7 @@ beforeEach(() => {
     hasLocation: true,
   });
   mocks.contacts.mockResolvedValue([]);
+  mocks.target.mockReturnValue(null);
 });
 
 describe("BandActivityTile", () => {
@@ -594,6 +614,58 @@ describe("RecentContactsTile", () => {
     draw(<RecentContactsTile />);
     expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
     expect(mocks.contacts).not.toHaveBeenCalled();
+  });
+});
+
+describe("DxTargetTile", () => {
+  const TOKYO = {
+    lat: 35.6895,
+    lon: 139.6917,
+    grid: "PM95tj",
+    name: "JA1ABC",
+  };
+
+  it("names the neutral empty state instead of erroring when no target is chosen", () => {
+    const { container } = draw(<DxTargetTile />);
+    expect(container.querySelector(".hc-hero")?.textContent).toBe("—");
+    expect(screen.getByText("PICK A TARGET ON THE MAP")).toBeTruthy();
+  });
+
+  it("heroes the target's grid and sub-lines distance and bearing from the QTH", () => {
+    mocks.target.mockReturnValue(TOKYO);
+    const { container } = draw(<DxTargetTile />);
+    const metrics = getPathMetrics(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      TOKYO.lat,
+      TOKYO.lon,
+    );
+    expect(container.querySelector(".hc-hero")?.textContent).toBe(
+      TOKYO.grid,
+    );
+    expect(
+      screen.getByText(formatDistance(metrics.shortPath.distance)),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(`${Math.round(metrics.shortPath.bearing)}°`),
+    ).toBeTruthy();
+  });
+
+  it("derives a grid from the target's coordinates when the target carries none", () => {
+    mocks.target.mockReturnValue({ lat: TOKYO.lat, lon: TOKYO.lon });
+    const { container } = draw(<DxTargetTile />);
+    expect(container.querySelector(".hc-hero")?.textContent).toBe(
+      latLonToGrid(TOKYO.lat, TOKYO.lon),
+    );
+  });
+
+  it("names the missing QTH instead of hiding the target", () => {
+    mocks.target.mockReturnValue(TOKYO);
+    mocks.location.mockReturnValue(null);
+    draw(<DxTargetTile />);
+    expect(
+      screen.getByText("SET YOUR QTH TO SEE DISTANCE AND BEARING"),
+    ).toBeTruthy();
   });
 });
 

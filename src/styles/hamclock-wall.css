@@ -1,32 +1,38 @@
 /**
- * HamClock wall density
+ * HamClock wall and desk density
  *
  * Every size derives from the viewport height so 1080p and 4K render the same
- * composition; the text-scale setting governs desk density only. Values are
- * ported from the approved mock (docs/plans.local/hamclock-wall-mock).
- * Colours come exclusively from the `--hc-*` theme tokens.
+ * composition. Desk density is the same shell (`HamClockWall`) at a smaller
+ * footprint: `--hc-scale` (1 at wall, ~0.72 at desk, D5) multiplies every
+ * token below, so the two densities differ by one number rather than a
+ * second layout (wall spec §3, §15). Values are ported from the approved
+ * mock (docs/plans.local/hamclock-wall-mock). Colours come exclusively from
+ * the `--hc-*` theme tokens.
  */
 
 :root {
-  --hc-t-title: 1.25vh;
-  --hc-t-small: 1.45vh;
-  --hc-t-body: 1.75vh;
-  --hc-t-mid: 2.4vh;
+  --hc-scale: 1;
+  --hc-t-title: calc(1.25vh * var(--hc-scale));
+  --hc-t-small: calc(1.45vh * var(--hc-scale));
+  --hc-t-body: calc(1.75vh * var(--hc-scale));
+  --hc-t-mid: calc(2.4vh * var(--hc-scale));
   /*
    * Hero tokens clamp between a vh floor and a cqi (container inline-size)
    * ceiling. `.hc-tile` is a size container, so the ceiling scales with the
    * rail's actual width rather than the viewport: a narrow rail shrinks the
-   * hero before it ever needs the ResizeObserver fallback in TileHero.
+   * hero before it ever needs the ResizeObserver fallback in TileHero. Only
+   * the vh floor and ceiling scale with density; the cqi ceiling already
+   * tracks the (also scaled) rail width.
    */
-  --hc-t-hero: clamp(2.4vh, 4.9vh, 9cqi);
-  --hc-t-hero-lg: clamp(2.8vh, 6.2vh, 11cqi);
-  --hc-t-hero-long: clamp(1.6vh, 3.4vh, 6.5cqi);
+  --hc-t-hero: clamp(calc(2.4vh * var(--hc-scale)), calc(4.9vh * var(--hc-scale)), 9cqi);
+  --hc-t-hero-lg: clamp(calc(2.8vh * var(--hc-scale)), calc(6.2vh * var(--hc-scale)), 11cqi);
+  --hc-t-hero-long: clamp(calc(1.6vh * var(--hc-scale)), calc(3.4vh * var(--hc-scale)), 6.5cqi);
 
-  --hc-rail: 18vw;
-  --hc-gap: 1vh;
-  --hc-pad: 1.25vh;
-  --hc-header-h: 7.4vh;
-  --hc-footer-h: 3.4vh;
+  --hc-rail: calc(18vw * var(--hc-scale));
+  --hc-gap: calc(1vh * var(--hc-scale));
+  --hc-pad: calc(1.25vh * var(--hc-scale));
+  --hc-header-h: calc(7.4vh * var(--hc-scale));
+  --hc-footer-h: calc(3.4vh * var(--hc-scale));
 }
 
 /* ---------- shell ---------- */
@@ -41,6 +47,11 @@
   color: var(--hc-fg);
   font-family: var(--hc-font-body);
   overflow: hidden;
+}
+/* Desk density (wall spec §3, §15): the same shell, tuned smaller on a
+ * 1440p monitor and read at arm's length rather than from ten feet. */
+.hc-wall[data-density="desk"] {
+  --hc-scale: 0.72;
 }
 
 .hc-stage {
@@ -166,6 +177,12 @@
   top: 0;
   height: var(--hc-state-bar);
   background: var(--hc-state, var(--hc-line));
+}
+/* Desk rails are opaque (wall spec §3): a solid panel instead of the glass
+ * blur, with the hairline border above already carrying the separation. */
+.hc-wall[data-density="desk"] .hc-tile {
+  background: var(--hc-panel);
+  backdrop-filter: none;
 }
 .hc-tile--grow {
   flex: 1 1 auto;

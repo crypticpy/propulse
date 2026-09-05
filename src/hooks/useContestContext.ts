@@ -64,7 +64,7 @@ const UPCOMING_WINDOW_DAYS = 30;
  * }
  * ```
  */
-export function useContestContext(): ContestCalendarContext {
+export function useContestContext(at?: string): ContestCalendarContext {
   // -------------------------------------------------------------------------
   // Clock tick — drives all derived state
   // -------------------------------------------------------------------------
@@ -124,7 +124,8 @@ export function useContestContext(): ContestCalendarContext {
   // Derived state (all memoized)
   // -------------------------------------------------------------------------
 
-  const now = useMemo(() => new Date(tick), [tick]);
+  // A supplied planning instant drives both bundled and remote calendar entries.
+  const now = useMemo(() => new Date(at ?? tick), [at, tick]);
 
   const activeContests = useMemo(() => {
     const staticActive = getActiveContests(now);

@@ -114,7 +114,7 @@ export function Header({
     <>
       <header className="glass-panel sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3">
               <span className="text-2xl md:text-3xl animate-pulse-glow">
@@ -186,7 +186,7 @@ export function Header({
                 </button>
 
                 {/* Dropdown menu - shows on hover */}
-                <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-150 absolute top-full left-0 pt-1 z-[200]">
+                <div className="invisible group-hover:visible group-focus-within:visible opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 absolute top-full right-0 pt-1 z-[200]">
                   <div className="py-1 w-44 bg-deep-space border border-white/20 rounded-lg shadow-2xl">
                     {toolsItems.map((item) => {
                       const isActive = location.pathname === item.path;

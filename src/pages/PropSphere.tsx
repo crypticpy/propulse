@@ -1,3 +1,5 @@
+import { useStationCastContext } from "@/hooks/useStationCastContext";
+import { useApplySolarMapHandoff } from "@/hooks/useSolarHandoff";
 /**
  * PropSphere Page
  *
@@ -171,6 +173,7 @@ type PanelTab = "path" | "bands" | "recs" | "spots";
 type PanelMode = "full" | "mini" | "hidden";
 
 export function PropSphere() {
+  useApplySolarMapHandoff();
   const isKiosk = useKioskStore((s) => s.active);
   const viewMode = useMapStore((s) => s.viewMode);
   const timeOffset = useMapStore((s) => s.timeOffset);
@@ -206,7 +209,9 @@ export function PropSphere() {
   const setDXConsoleExpanded = useMapStore((s) => s.setDXConsoleExpanded);
   const pathMode = useMapStore((s) => s.pathMode);
   const setReplayEnabled = useMapStore((s) => s.setReplayEnabled);
-  const station = useUserStore((state) => state.station);
+  const baseStation = useUserStore((state) => state.station);
+  const stationContext = useStationCastContext();
+  const station = useMemo(() => baseStation && stationContext.location ? { ...baseStation, ...stationContext.location } : baseStation, [baseStation, stationContext.location]);
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);
   const spotCount = useDXStore((state) => state.spots.length);
   const setPublicDxSpots = useDXStore((state) => state.setSpots);

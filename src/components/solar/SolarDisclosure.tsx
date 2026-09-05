@@ -16,7 +16,7 @@ export function SolarDisclosure({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-black/10">
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black/10">
       <button
         type="button"
         aria-expanded={open}

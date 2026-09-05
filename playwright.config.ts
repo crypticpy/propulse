@@ -12,6 +12,8 @@ export default defineConfig({
   fullyParallel: true,
   use: {
     baseURL,
+    serviceWorkers: "block",
+    timezoneId: "America/Chicago",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -20,7 +22,7 @@ export default defineConfig({
     { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: `node scripts/dev-session.mjs start --owner playwright --task solar-browser-tests --profile local --port ${port}`,
+    command: process.env.PROPULSE_E2E_SERVER_COMMAND ?? `node scripts/dev-session.mjs start --owner playwright --task solar-browser-tests --profile local --port ${port}`,
     url: `${baseURL}/solar`,
     reuseExistingServer: false,
     gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },

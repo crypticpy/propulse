@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useSolarResource } from "./useSolarResource";
 import { fetchSolarResource, SolarClientError } from "@/lib/api/solarClient";
@@ -23,7 +23,6 @@ import type {
 } from "@/lib/solar/dataTypes";
 import {
   currentKp,
-  generalHfGuidance,
   latestByTime,
   predictedKp,
   protonScale,
@@ -35,6 +34,8 @@ import {
   SOLAR_QUERY_KEYS,
   type SolarSourceGroup,
 } from "@/lib/solar/sourcePolicies";
+import { buildSolarBriefing, usableEvidence } from "@/lib/solar/briefing";
+import { buildSolarTrends } from "@/lib/solar/trends";
 import { sourceIdsForVisibleGroups } from "@/lib/solar/widgetRegistry";
 
 const DEFAULT_GROUPS: ReadonlySet<SolarSourceGroup> = new Set([
@@ -56,17 +57,15 @@ export interface SolarResourceView<T> {
 function view<T>(
   sourceId: SolarSourceId,
   query: UseQueryResult<SolarResource<T>>,
+  now: number,
 ): SolarResourceView<T> {
   if (!query) throw new Error(`Solar query hook returned no result for ${sourceId}`);
   const resource = query.data;
   const data = resource?.envelope.data;
   const isEmpty = Array.isArray(data) && data.length === 0;
-  return {
-    sourceId,
-    query,
-    resource,
-    data,
-    state: widgetState({
+  const projected = usableEvidence({
+    sourceId, resource, data,
+    state: query.isError && resource ? "stale" : widgetState({
       resource,
       pending: query.isPending,
       fetching: query.isFetching,
@@ -76,6 +75,9 @@ function view<T>(
         query.error.body.error.code === "HARD_EXPIRED",
       empty: isEmpty,
     }),
+  }, now);
+  return {
+    ...projected, query,
     refresh: () => query.refetch(),
   };
 }
@@ -85,6 +87,11 @@ export interface UseSolarModelOptions {
 }
 
 export function useSolarModel(options: UseSolarModelOptions = {}) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const enabledGroups = options.enabledGroups ?? DEFAULT_GROUPS;
   const enabled = (sourceId: SolarSourceId) =>
     enabledGroups.has(getSolarSourcePolicy(sourceId).group);
@@ -108,24 +115,25 @@ export function useSolarModel(options: UseSolarModelOptions = {}) {
 
   const resources = useMemo(
     () => ({
-      kp: view("noaa-k-index", kpQuery),
-      flux: view("noaa-solar-flux", fluxQuery),
-      magnetometer: view("noaa-magnetometer", magnetometerQuery),
-      probabilities: view("noaa-probabilities", probabilitiesQuery),
-      sunspots: view("noaa-sunspots", sunspotsQuery),
-      xray: view("noaa-xray", xrayQuery),
-      protons: view("noaa-protons", protonsQuery),
-      dst: view("noaa-dst", dstQuery),
-      drap: view("noaa-drap", drapQuery),
-      forecast: view("noaa-flux-forecast", forecastQuery),
-      cme: view("nasa-cme", cmeQuery),
-      scales: view("swpc-scales", scalesQuery),
-      alerts: view("swpc-alerts", alertsQuery),
-      latestFlare: view("swpc-xray-latest", latestFlareQuery),
-      windMag: view("swpc-solar-wind-mag", windMagQuery),
-      windPlasma: view("swpc-solar-wind-plasma", windPlasmaQuery),
+      kp: view("noaa-k-index", kpQuery, now),
+      flux: view("noaa-solar-flux", fluxQuery, now),
+      magnetometer: view("noaa-magnetometer", magnetometerQuery, now),
+      probabilities: view("noaa-probabilities", probabilitiesQuery, now),
+      sunspots: view("noaa-sunspots", sunspotsQuery, now),
+      xray: view("noaa-xray", xrayQuery, now),
+      protons: view("noaa-protons", protonsQuery, now),
+      dst: view("noaa-dst", dstQuery, now),
+      drap: view("noaa-drap", drapQuery, now),
+      forecast: view("noaa-flux-forecast", forecastQuery, now),
+      cme: view("nasa-cme", cmeQuery, now),
+      scales: view("swpc-scales", scalesQuery, now),
+      alerts: view("swpc-alerts", alertsQuery, now),
+      latestFlare: view("swpc-xray-latest", latestFlareQuery, now),
+      windMag: view("swpc-solar-wind-mag", windMagQuery, now),
+      windPlasma: view("swpc-solar-wind-plasma", windPlasmaQuery, now),
     }),
     [
+      now,
       alertsQuery,
       cmeQuery,
       drapQuery,
@@ -170,13 +178,12 @@ export function useSolarModel(options: UseSolarModelOptions = {}) {
       sunspot,
       plasma,
       predictedKp: predictedKp(resources.kp.data),
-      guidance: generalHfGuidance({
-        sfi: flux?.flux ?? null,
-        kp: kp?.kp ?? null,
-        bz: mag?.bz_gsm ?? null,
-      }),
+      probabilityWindowEnded: resources.probabilities.data != null && now >= Date.parse(resources.probabilities.data.issue_time) + 86_400_000,
     };
-  }, [resources]);
+  }, [resources, now]);
+
+  const briefing = useMemo(() => buildSolarBriefing(resources, now), [resources, now]);
+  const trends = useMemo(() => buildSolarTrends(resources, now), [resources, now]);
 
   const visibleSourceIds = useMemo(
     () => sourceIdsForVisibleGroups(enabledGroups),
@@ -228,6 +235,8 @@ export function useSolarModel(options: UseSolarModelOptions = {}) {
   return {
     resources,
     current,
+    briefing,
+    trends,
     pageHealth,
     unavailableCritical,
     degradedCritical,

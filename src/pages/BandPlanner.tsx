@@ -1,3 +1,6 @@
+import { useSolarPlanningMode, useSolarHandoff } from "@/hooks/useSolarHandoff";
+import { SolarHandoffNotice, SolarPlanningModeControl } from "@/components/solar/SolarHandoffNotice";
+import { solarAnalysisMode } from "@/lib/solar/handoff";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, LoadingSpinner, DataFreshnessIndicator } from "@/components/ui";
@@ -23,7 +26,6 @@ import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
-import { useActiveMode } from "@/hooks/useActiveBandMode";
 import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
@@ -39,6 +41,8 @@ import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
  * - Storm/confidence indicators
  */
 export function BandPlanner() {
+  const solarHandoff = useSolarHandoff();
+  const { mode: activeMode, setMode: setPlanningMode } = useSolarPlanningMode(solarHandoff);
   // User station
   const station = useUserStore((s) => s.station);
   const stationCast = useStationCastContext();
@@ -63,12 +67,12 @@ export function BandPlanner() {
   const [searchParams] = useSearchParams();
 
   // Target location state
-  const [targetGrid, setTargetGrid] = useState("");
+  const [targetGrid, setTargetGrid] = useState(solarHandoff?.target?.grid ?? "");
   const [targetCoords, setTargetCoords] = useState<{
     lat: number;
     lon: number;
     grid: string;
-  } | null>(null);
+  } | null>(solarHandoff?.target ?? null);
   const forecastStation = useForecastStationParams(
     operatingStation?.lat,
     operatingStation?.lon,
@@ -134,7 +138,6 @@ export function BandPlanner() {
     [currentKp, currentFlux, currentBz],
   );
   const researchParticipation = useResearchParticipation();
-  const activeMode = useActiveMode();
   const modelNowCast = useNowCastBandPredictions({
     origin: stationCast.location,
     target: targetCoords,
@@ -192,10 +195,10 @@ export function BandPlanner() {
       targetCoords.lon,
       currentKp,
       currentFlux,
-      new Date(),
-      forecastStation,
+      solarHandoff?.at ? new Date(solarHandoff.at) : new Date(),
+      forecastStation && solarHandoff ? { ...forecastStation, mode: solarAnalysisMode(activeMode) } : forecastStation,
     );
-  }, [operatingStation, targetCoords, currentKp, currentFlux, forecastStation]);
+  }, [operatingStation, targetCoords, currentKp, currentFlux, forecastStation, solarHandoff, activeMode]);
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {
@@ -206,7 +209,7 @@ export function BandPlanner() {
   }, [forecast]);
 
   // Current UTC hour
-  const currentHour = new Date().getUTCHours();
+  const currentHour = (solarHandoff?.at ? new Date(solarHandoff.at) : new Date()).getUTCHours();
 
   // Best band at the current hour (for "right now" display)
   const bestBandNow = useMemo(() => {
@@ -291,6 +294,8 @@ export function BandPlanner() {
   if (isMobile && operatingStation) {
     return (
       <MobileBandPlanner
+        activeMode={activeMode}
+        onPlanningModeChange={setPlanningMode}
         station={operatingStation}
         currentKp={currentKp}
         currentFlux={currentFlux}
@@ -332,6 +337,8 @@ export function BandPlanner() {
 
   return (
     <div className="min-h-screen">
+      <SolarHandoffNotice handoff={solarHandoff} />
+      {solarHandoff && <SolarPlanningModeControl mode={activeMode} onChange={setPlanningMode} />}
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -600,7 +607,7 @@ export function BandPlanner() {
               </div>
             </Card>
 
-            {targetCoords && modelNowCast.visible && (
+            {!solarHandoff?.at && targetCoords && modelNowCast.visible && (
               <NowCastBandPanel
                 state={modelNowCast}
                 bands={HF_MODEL_BANDS}
@@ -660,11 +667,11 @@ export function BandPlanner() {
 
             {targetCoords && !isLoading && forecast.length > 0 && (
               <>
-                {/* Right Now */}
+                {/* {solarHandoff?.at ? "Selected planning hour" : "Right Now"} */}
                 <Card>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-white">
-                      Right Now
+                      {solarHandoff?.at ? "Selected planning hour" : "Right Now"}
                     </h3>
                     <span className="text-xs text-gray-400 font-mono">
                       {currentHour.toString().padStart(2, "0")}:00 UTC
@@ -1030,7 +1037,7 @@ export function BandPlanner() {
                   <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
                     <span>00:00 UTC</span>
                     <span className="text-plasma-orange font-medium">
-                      Now: {currentHour.toString().padStart(2, "0")}:00 UTC
+                      {solarHandoff?.at ? "Selected:" : "Now:"} {currentHour.toString().padStart(2, "0")}:00 UTC
                     </span>
                     <span>23:00 UTC</span>
                   </div>

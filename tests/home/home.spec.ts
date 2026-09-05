@@ -69,6 +69,10 @@ test("impact briefing leads on phone, expired inputs are explained, and refresh 
   await refresh.focus();
   await expect(page.getByRole("tooltip")).toContainText("six solar sources");
   if (page.viewportSize()!.width < 768) {
+    expect(await briefing.evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('[aria-label="Band activity"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+    await refresh.focus();
+    await page.keyboard.press("Tab");
+    await expect(briefing.getByRole("link", { name: "Open PropSphere" })).toBeFocused();
     expect((await briefing.boundingBox())!.y).toBeLessThan((await page.getByRole("region", { name: "Band activity" }).boundingBox())!.y);
   }
 });
@@ -157,4 +161,28 @@ test("cached successful responses cannot renew the age of old observations", asy
   await expect(activity.getByText("Stale",{exact:true})).toBeVisible();
   await expect(activity.getByText("999",{exact:true})).toHaveCount(0);
   await expect(activity.getByText(/Activity updates are unavailable/)).toBeVisible();
+});
+
+
+test("band buttons announce the selected nearby disclosure", async ({ page }) => {
+  await fixtures(page);
+  await page.goto("/");
+  const band = page.getByRole("button", { name: "20m nearby reports" });
+  await expect(band).toHaveAttribute("aria-expanded", "false");
+  await expect(band).toHaveAttribute("aria-controls", "home-nearby-reports");
+  await band.click();
+  await expect(band).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#home-nearby-reports")).toBeVisible();
+  await page.getByRole("button", { name: "Close nearby reports", exact: true }).click();
+  await expect(band).toHaveAttribute("aria-expanded", "false");
+});
+
+test("empty solar measurements have a neutral no-data status", async ({ page }) => {
+  const { solar } = await fixtures(page);
+  solar.setData("/api/solar/flux", []);
+  solar.setData("/api/solar/xray", []);
+  await page.goto("/");
+  const briefing = page.getByRole("region", { name: "Operating briefing" });
+  await expect(briefing.getByRole("status").filter({ hasText: "No data" })).toHaveCount(2);
+  await expect(briefing.getByText("—", { exact: true })).toHaveCount(2);
 });

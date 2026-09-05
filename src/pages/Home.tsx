@@ -25,6 +25,8 @@ export function Home() {
   const { pinned, toggle } = useHomePreferences(isMobile);
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const status = model.briefing.state === "loading" ? "Checking solar sources" : model.briefing.missing.length || model.briefing.delayed.length ? "Some solar updates are pending" : "Solar sources up to date";
+  const activityPanel = publicActivity ? <Suspense key="activity" fallback={<p className="p-4 text-sm text-slate-400">Opening band activity…</p>}><Activity now={now} isMobile={isMobile} /></Suspense> : <section key="activity" className="rounded-2xl border border-white/10 bg-panel p-5"><h2 className="font-orbitron text-sm text-white">Focused operating</h2><p className="mt-3 text-sm leading-6 text-slate-300">Public spotting is hidden by your current operating policy. Your solar briefing and log remain available.</p></section>;
+  const briefingPanel = <HomeBriefing key="briefing" model={model} />;
   return <main className="mx-auto w-full max-w-7xl space-y-5 px-3 py-4 sm:px-6 sm:py-6" data-home-elevation>
     <header className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[auto_1fr_auto]">
       <div><h1 className="font-orbitron text-xl text-white sm:text-2xl">Station briefing</h1><p className="mt-1 text-xs text-slate-400">{callsign ? `${callsign} · ` : "Welcome to ProPulse · "}Your next session starts here</p></div>
@@ -33,8 +35,7 @@ export function Home() {
     </header>
     {model.refreshResult.failed.length > 0 && <p role="status" className="text-xs text-amber-200">Some solar sources could not refresh. Available readings remain within their source limits; updates retry automatically.</p>}
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-      {publicActivity ? <Suspense fallback={<p className="p-4 text-sm text-slate-400">Opening band activity…</p>}><Activity now={now} isMobile={isMobile} /></Suspense> : <section className="rounded-2xl border border-white/10 bg-panel p-5"><h2 className="font-orbitron text-sm text-white">Focused operating</h2><p className="mt-3 text-sm leading-6 text-slate-300">Public spotting is hidden by your current operating policy. Your solar briefing and log remain available.</p></section>}
-      <div className={model.briefing.tone === "impact" ? "order-first lg:order-none" : ""}><HomeBriefing model={model} /></div>
+      {isMobile && model.briefing.tone === "impact" ? [briefingPanel, activityPanel] : [activityPanel, briefingPanel]}
     </div>
     <div className="grid items-start gap-5 lg:grid-cols-2"><HomeStation now={now} /><HomeSession now={now} isMobile={isMobile} /></div>
     {pinned.length > 0 && <section aria-label="Pinned widgets" className="space-y-3"><div className="flex items-center justify-between"><h2 className="font-orbitron text-sm text-white">Your favorites</h2>{isMobile && <button type="button" aria-expanded={phonePinsOpen} onClick={() => setPhonePinsOpen(!phonePinsOpen)} className="min-h-11 text-sm text-cyan-200">{phonePinsOpen ? "Hide" : `Show ${pinned.length} favorites`}</button>}</div>{(!isMobile || phonePinsOpen) && <Suspense fallback={<p className="text-sm text-slate-400">Opening favorites…</p>}><Widgets ids={pinned} /></Suspense>}</section>}

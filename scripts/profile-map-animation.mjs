@@ -144,7 +144,7 @@ try {
   }, viewMode);
   await page.waitForTimeout(3000);
   if (errors.length) throw new Error(errors.join("\n"));
-  await page.locator("canvas").first().waitFor({timeout:30000});
+  await page.getByRole("img", {name: viewMode === "flat" ? "Interactive propagation map - click to select target location" : "Azimuthal projection map centered on your location - click to select target, scroll to zoom", exact: true}).waitFor({timeout:30000});
   if (!(await page.locator("body").innerText()).includes("Test Tokyo")) throw new Error("Target context disappeared");
   await page.screenshot({path:`tmp/map-animation-check/${viewMode}.png`});
   console.log(`PASS ${viewMode}: target path remains mounted without page errors`);

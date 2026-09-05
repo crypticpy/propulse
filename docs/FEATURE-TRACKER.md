@@ -648,7 +648,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-27 | User-selected rails (Pages & Tiles tab)                       | PR #234, `railLayout` model                 |
 | HW-52 | Use presets: five shipped, user-saved                         | PR #234, `wall/presets.ts`                  |
 | HW-53 | No radio dependency: station tiles degrade to a neutral state | PR #234, `SET HOME IN SETTINGS`             |
-| HW-20 | Auto-page dwell mode                                          | PR #TBD, `useWallAutoPage.ts`               |
+| HW-20 | Auto-page dwell mode                                          | PR #236, `useWallAutoPage.ts`               |
 
 ### Partial (4)
 

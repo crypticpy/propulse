@@ -21,7 +21,16 @@ vi.mock("@/hooks/useDXCluster", () => ({
 }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
-    selector({ target: mocks.target, setTarget: mocks.setTarget }),
+    selector({
+      target: mocks.target,
+      setTarget: mocks.setTarget,
+      spotFilters: { bands: [], modes: [] },
+      setSpotFilters: vi.fn(),
+    }),
+}));
+
+vi.mock("./HamClockRecentContacts", () => ({
+  HamClockRecentContacts: () => <div>Recent contacts</div>,
 }));
 
 const response: ActivationSpotsResponse = {
@@ -119,7 +128,9 @@ describe("HamClockSpotsSidebar", () => {
     expect(screen.getByText("K5ABC")).toBeTruthy();
     expect(screen.getByText("US-1234")).toBeTruthy();
     expect(screen.getByText("CQ from the overlook")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Parks on the Air/i })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Parks on the Air/i }),
+    ).toBeTruthy();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Target K5ABC at US-1234" }),

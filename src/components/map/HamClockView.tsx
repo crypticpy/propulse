@@ -20,15 +20,32 @@ import {
   useMemo,
   useCallback,
   useRef,
+  useState,
+  type CSSProperties,
 } from "react";
+import "@/styles/hamclock.css";
+import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
+import {
+  HAMCLOCK_PANELS,
+  useHamClockDisplayStore,
+} from "@/stores/hamclockDisplayStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useKioskStore } from "@/stores/kioskStore";
+import {
+  hamClockProjectionContent,
+  HAMCLOCK_TEXT_SCALE,
+  hamClockPanelWidths,
+  hamClockHomeRegion,
+} from "@/lib/hamclock/displayLayout";
+import { HamClockDisplaySettings } from "./hamclock/HamClockDisplaySettings";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useHamClockStore, type HamClockMode } from "@/stores/hamclockStore";
 import {
-  useHamClockStore,
-  type HamClockMode,
-} from "@/stores/hamclockStore";
-import { HAMCLOCK_MODE_LAYERS, applyHamClockModeLayers } from "@/lib/hamclock/modePresets";
+  HAMCLOCK_MODE_LAYERS,
+  applyHamClockModeLayers,
+} from "@/lib/hamclock/modePresets";
 import { normalizeExclusiveLayers } from "@/lib/map/layerCapabilities";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import {
@@ -504,13 +521,16 @@ function InfoSidebarContent({
   displayTime: Date;
   mode: HamClockMode;
 }) {
-  const panelCollapsed = useHamClockStore((s) => s.panelCollapsed);
-  const togglePanel = useHamClockStore((s) => s.togglePanel);
+  const panelCollapsed = useHamClockDisplayStore((s) => s.panelCollapsed);
+  const togglePanel = useHamClockDisplayStore((s) => s.togglePanelExpansion);
   const location = useActiveLocation();
+  const hidden = useHamClockDisplayStore((s) => s.hiddenPanels);
 
   return (
-    <div className="flex flex-col h-full">
-      {(mode === "traffic" || mode === "bands") && <HamClockBestBandHero />}
+    <div className="hamclock-ui flex flex-col min-h-0">
+      {!hidden.includes("best") && (mode === "traffic" || mode === "bands") && (
+        <HamClockBestBandHero />
+      )}
 
       <HamClockInfoPanel
         id="de"
@@ -575,9 +595,7 @@ function InfoSidebarContent({
         collapsed={panelCollapsed.reliability ?? true}
         onToggle={() => togglePanel("reliability", true)}
       >
-        {!(panelCollapsed.reliability ?? true) && (
-          <HamClockReliabilityPanel />
-        )}
+        {!(panelCollapsed.reliability ?? true) && <HamClockReliabilityPanel />}
       </HamClockInfoPanel>
 
       <HamClockInfoPanel
@@ -586,9 +604,7 @@ function InfoSidebarContent({
         collapsed={panelCollapsed.dxpeditions ?? true}
         onToggle={() => togglePanel("dxpeditions", true)}
       >
-        {!(panelCollapsed.dxpeditions ?? true) && (
-          <HamClockDxpeditionsPanel />
-        )}
+        {!(panelCollapsed.dxpeditions ?? true) && <HamClockDxpeditionsPanel />}
       </HamClockInfoPanel>
 
       <HamClockInfoPanel
@@ -611,19 +627,67 @@ export function HamClockView({
   displayTime,
   onLocationClick,
 }: HamClockViewProps) {
+  useHamClockRadioFollow();
+  const display = useHamClockDisplayStore();
+  const frameHome = display.frameHome;
+  const appSize = useSettingsStore((s) => s.textScale);
+  const textScale =
+    HAMCLOCK_TEXT_SCALE[
+      display.textSize === "inherit" ? appSize : display.textSize
+    ];
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const activeLocation = useActiveLocation();
+  const kiosk = useKioskStore((s) => s.active);
+  const homeStarted = useRef(false);
+  const userNavigated = useRef(false);
+  useEffect(() => {
+    const resize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  useEffect(() => {
+    if (
+      homeStarted.current ||
+      userNavigated.current ||
+      kiosk ||
+      !activeLocation
+    )
+      return;
+    homeStarted.current = true;
+    frameHome(hamClockHomeRegion(activeLocation.lat, activeLocation.lon));
+  }, [activeLocation, kiosk, frameHome]);
+  const infoVisible = HAMCLOCK_PANELS.some(
+    ([id]) =>
+      id !== "spots" && id !== "contacts" && !display.hiddenPanels.includes(id),
+  );
+  const spotsVisible =
+    !display.hiddenPanels.includes("spots") ||
+    !display.hiddenPanels.includes("contacts");
+  const widths = hamClockPanelWidths(
+    viewportWidth,
+    textScale,
+    display.smartScaling,
+    infoVisible,
+    spotsVisible,
+  );
   const station = useUserStore((s) => s.station);
+  const observatory = useMapStore((s) => s.observatoryMode);
   const viewMode = useMapStore((s) => s.viewMode);
+  const mapContent = hamClockProjectionContent(viewMode, display.mapContent);
   const setViewMode = useMapStore((s) => s.setViewMode);
 
-  // HamClock layout preferences
-  const spotsSide = useHamClockStore((s) => s.spotsSide);
-  const setSpotsSide = useHamClockStore((s) => s.setSpotsSide);
-  const spotsSidebarCollapsed = useHamClockStore(
+  const spotsSide = useHamClockDisplayStore((s) => s.spotsSide);
+  const setSpotsSide = useHamClockDisplayStore((s) => s.setSpotsSide);
+  const spotsSidebarCollapsed = useHamClockDisplayStore(
     (s) => s.spotsSidebarCollapsed,
   );
-  const infoSidebarCollapsed = useHamClockStore((s) => s.infoSidebarCollapsed);
-  const toggleSpotsSidebar = useHamClockStore((s) => s.toggleSpotsSidebar);
-  const toggleInfoSidebar = useHamClockStore((s) => s.toggleInfoSidebar);
+  const infoSidebarCollapsed = useHamClockDisplayStore(
+    (s) => s.infoSidebarCollapsed,
+  );
+  const toggleSpotsSidebar = useHamClockDisplayStore(
+    (s) => s.toggleSpotsSidebar,
+  );
+  const toggleInfoSidebar = useHamClockDisplayStore((s) => s.toggleInfoSidebar);
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
   const setHamclockMode = useHamClockStore((s) => s.setHamclockMode);
   const setPreferredViewMode = useHamClockStore((s) => s.setPreferredViewMode);
@@ -633,23 +697,21 @@ export function HamClockView({
 
   const prevModeRef = useRef(hamclockMode);
 
-  // Derived: which sidebar is which
   const leftIsSpots = spotsSide === "left";
   const leftCollapsed = leftIsSpots
-    ? spotsSidebarCollapsed
-    : infoSidebarCollapsed;
+    ? spotsSidebarCollapsed || !spotsVisible
+    : infoSidebarCollapsed || !infoVisible;
   const rightCollapsed = leftIsSpots
-    ? infoSidebarCollapsed
-    : spotsSidebarCollapsed;
+    ? infoSidebarCollapsed || !infoVisible
+    : spotsSidebarCollapsed || !spotsVisible;
   const toggleLeft = leftIsSpots ? toggleSpotsSidebar : toggleInfoSidebar;
   const toggleRight = leftIsSpots ? toggleInfoSidebar : toggleSpotsSidebar;
 
-  const SPOTS_WIDTH = 280;
-  const INFO_WIDTH = 240;
+  const SPOTS_WIDTH = widths.spots;
+  const INFO_WIDTH = widths.info;
   const leftWidth = leftIsSpots ? SPOTS_WIDTH : INFO_WIDTH;
   const rightWidth = leftIsSpots ? INFO_WIDTH : SPOTS_WIDTH;
 
-  // Escape key to exit
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -687,8 +749,21 @@ export function HamClockView({
     applyModeLayers(useHamClockStore.getState().hamclockMode);
   }, []);
 
-  // Renderer click adapter: every projection reports geographic coordinates,
-  // while the optional HamClock host callback also expects a screen point.
+  useEffect(() => {
+    if (hamclockMode !== "traffic" && hamclockMode !== "bands") return;
+    const map = useMapStore.getState();
+    const showActivity = mapContent !== "contacts";
+    useMapStore.setState({
+      layers: {
+        ...map.layers,
+        spots: showActivity,
+        spotTraces: false,
+        gridActivity: showActivity,
+        loggedQsos: mapContent !== "activity",
+      },
+    });
+  }, [mapContent, hamclockMode]);
+
   const handleMapClick = useCallback(
     (lat: number, lon: number) => {
       onLocationClick?.(lat, lon, { x: 0, y: 0 });
@@ -696,7 +771,6 @@ export function HamClockView({
     [onLocationClick],
   );
 
-  // Swap sides handler
   const handleSwapSides = useCallback(() => {
     setSpotsSide(spotsSide === "left" ? "right" : "left");
   }, [spotsSide, setSpotsSide]);
@@ -709,32 +783,31 @@ export function HamClockView({
     [setViewMode, setPreferredViewMode],
   );
 
-  // Sidebar content renderers
   const spotsSidebar = <HamClockSpotsSidebar mode={hamclockMode} />;
-
   const infoSidebar = (
     <InfoSidebarContent displayTime={displayTime} mode={hamclockMode} />
   );
 
   return (
     <div
+      data-hamclock-root
       className="fixed inset-0 z-[200] bg-void-black text-white select-none"
-      style={{
-        display: "grid",
-        gridTemplateAreas: `"header header header" "left map right" "ticker ticker ticker"`,
-        gridTemplateRows: "36px 1fr 30px",
-        gridTemplateColumns: `${leftCollapsed ? "0px" : `${leftWidth}px`} 1fr ${rightCollapsed ? "0px" : `${rightWidth}px`}`,
-        transition: "grid-template-columns 200ms ease-out",
-      }}
+      style={
+        {
+          "--hamclock-scale": textScale,
+          "--hamclock-spacing":
+            display.smartScaling && display.hiddenPanels.length < 4 ? 0.85 : 1,
+          display: "grid",
+          gridTemplateAreas: `"header header header" "left map right" "ticker ticker ticker"`,
+          gridTemplateRows: "auto minmax(0, 1fr) 30px",
+          gridTemplateColumns: `${leftCollapsed ? "0px" : `${leftWidth}px`} minmax(0, 1fr) ${rightCollapsed ? "0px" : `${rightWidth}px`}`,
+        } as CSSProperties
+      }
     >
-      {/* ================================================================= */}
-      {/* HEADER BAR (36px)                                                 */}
-      {/* ================================================================= */}
       <header
-        className="flex items-center justify-between gap-2 px-3 border-b border-white/10"
+        className="hamclock-ui flex flex-wrap items-center justify-between gap-2 px-3 py-1 border-b border-white/10"
         style={{ gridArea: "header" }}
       >
-        {/* Left: display mode + sidebar toggle + station callsign */}
         <div className="flex items-center gap-2 min-w-0">
           <LayoutModeDropdown className="shrink-0" />
           <button
@@ -767,10 +840,7 @@ export function HamClockView({
               )}
             </svg>
           </button>
-          <HamClockModeSwitch
-            value={hamclockMode}
-            onChange={setHamclockMode}
-          />
+          <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
           <span className="font-mono text-sm font-bold text-signal-green truncate hidden xl:inline">
             {station?.callsign || "NO CALL"}
           </span>
@@ -781,18 +851,73 @@ export function HamClockView({
           )}
         </div>
 
-        {/* Center: UTC clock */}
         <div className="flex items-center gap-3 leading-tight">
           <HamClockTime />
         </div>
 
-        {/* Right: Swap + Solar + Layers + Watch + sidebar toggle + exit */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {(hamclockMode === "traffic" || hamclockMode === "bands") && (
+            <div
+              className="flex rounded border border-white/20 p-0.5"
+              role="group"
+              aria-label="Map content"
+            >
+              {(
+                [
+                  ["activity", "Activity"],
+                  ["contacts", "My contacts"],
+                  ["both", "Both"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={mapContent === value}
+                  disabled={viewMode === "azimuthal" && value !== "activity"}
+                  title={
+                    viewMode === "azimuthal" && value !== "activity"
+                      ? "Map logged contacts in Flat or 3D"
+                      : undefined
+                  }
+                  className={`rounded px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed ${mapContent === value ? "bg-signal-green text-void-black" : "text-gray-400 hover:bg-white/10"}`}
+                  onClick={() => display.setMapContent(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            aria-pressed={observatory}
+            className={`rounded border border-white/20 px-2 py-1 text-xs ${observatory ? "text-signal-green" : "text-gray-300"}`}
+            onClick={() =>
+              observatory
+                ? useMapStore.getState().exitObservatory()
+                : useMapStore.getState().enterObservatory()
+            }
+          >
+            Observatory
+          </button>
+          <HamClockDisplaySettings />
+          <button
+            type="button"
+            disabled={!activeLocation}
+            className="rounded border border-white/20 px-2 py-1 text-xs text-gray-200 disabled:opacity-40"
+            onClick={() => {
+              if (observatory) useMapStore.getState().exitObservatory();
+              if (activeLocation)
+                display.frameHome(
+                  hamClockHomeRegion(activeLocation.lat, activeLocation.lon),
+                );
+            }}
+          >
+            Home region
+          </button>
           <HamClockProjectionSwitch
             value={viewMode}
             onChange={handleProjectionChange}
           />
-
           <button
             onClick={handleSwapSides}
             className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -801,12 +926,10 @@ export function HamClockView({
           >
             <SwapIcon />
           </button>
-
           <SolarPills />
           <HamClockLayerChips />
           <LayersPopover />
           <WatchStatusPill className="hidden sm:flex" />
-
           <button
             onClick={toggleRight}
             className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
@@ -837,7 +960,6 @@ export function HamClockView({
               )}
             </svg>
           </button>
-
           <button
             onClick={() => useMapStore.getState().setLayoutMode("normal")}
             className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
@@ -856,9 +978,6 @@ export function HamClockView({
         </div>
       </header>
 
-      {/* ================================================================= */}
-      {/* LEFT SIDEBAR                                                       */}
-      {/* ================================================================= */}
       <HamClockSidebar
         side="left"
         collapsed={leftCollapsed}
@@ -868,13 +987,26 @@ export function HamClockView({
         {leftIsSpots ? spotsSidebar : infoSidebar}
       </HamClockSidebar>
 
-      {/* ================================================================= */}
-      {/* MAP (fills all remaining space)                                    */}
-      {/* ================================================================= */}
       <main
-        className="overflow-hidden relative bg-void-black"
+        className="min-h-0 min-w-0 overflow-hidden relative bg-void-black"
         style={{ gridArea: "map" }}
+        onPointerDownCapture={() => {
+          userNavigated.current = true;
+        }}
+        onWheelCapture={() => {
+          userNavigated.current = true;
+        }}
       >
+        {viewMode === "flat" &&
+          display.homeRequest &&
+          Math.abs(display.homeRequest.lon) +
+            display.homeRequest.longitudeSpan / 2 >
+            180 && (
+            <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-gray-200">
+              Dateline region · world overview. Use 3D for a centered regional
+              view.
+            </div>
+          )}
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">
@@ -903,15 +1035,18 @@ export function HamClockView({
           )}
         </Suspense>
 
-        {/* Watch status pill floating at bottom-center of map */}
+        {(hamclockMode === "traffic" || hamclockMode === "bands") &&
+          mapContent !== "activity" && (
+            <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-gray-200 pointer-events-none">
+              ○ Logged contacts · UTC{" "}
+              {mapContent === "both" && " · • Live activity"}
+            </div>
+          )}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
           <WatchStatusPill className="sm:hidden" />
         </div>
       </main>
 
-      {/* ================================================================= */}
-      {/* RIGHT SIDEBAR                                                      */}
-      {/* ================================================================= */}
       <HamClockSidebar
         side="right"
         collapsed={rightCollapsed}
@@ -921,8 +1056,6 @@ export function HamClockView({
         {leftIsSpots ? infoSidebar : spotsSidebar}
       </HamClockSidebar>
 
-      {/* The crawl owns RSS polling and alert break-ins, so it must remain
-          mounted in HamClock just as it is in the normal PropSphere layout. */}
       <div className="min-w-0" style={{ gridArea: "ticker" }}>
         <DXNewsTicker className="rounded-none" />
       </div>

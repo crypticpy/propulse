@@ -96,10 +96,35 @@ export function preservedCenterOffsets(
   const u =
     (prev.viewport.width / 2 - zoom.offsetX) / (prev.map.width * zoom.scale);
   const v =
-    (prev.viewport.height / 2 - zoom.offsetY) /
-    (prev.map.height * zoom.scale);
+    (prev.viewport.height / 2 - zoom.offsetY) / (prev.map.height * zoom.scale);
   return {
     offsetX: next.viewport.width / 2 - u * next.map.width * zoom.scale,
     offsetY: next.viewport.height / 2 - v * next.map.height * zoom.scale,
+  };
+}
+
+/** Preserve geographic scale as well as center when HamClock panels resize. */
+export function preserveFlatMapCamera(
+  prev: FlatMapLayout,
+  next: FlatMapLayout,
+  zoom: FlatMapZoomState,
+): FlatMapZoomState {
+  // The same longitude span must occupy the same number of CSS pixels.
+  const scale = Math.max(
+    1,
+    Math.min(64, (zoom.scale * prev.map.width) / next.map.width),
+  );
+  const u =
+    (prev.viewport.width / 2 - zoom.offsetX) / (prev.map.width * zoom.scale);
+  const v =
+    (prev.viewport.height / 2 - zoom.offsetY) / (prev.map.height * zoom.scale);
+  return {
+    scale,
+    ...clampMapOffsets(
+      next,
+      scale,
+      next.viewport.width / 2 - u * next.map.width * scale,
+      next.viewport.height / 2 - v * next.map.height * scale,
+    ),
   };
 }

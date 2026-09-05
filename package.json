@@ -6,6 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:session": "node scripts/dev-session.mjs",
+    "test:dev-session": "node --test scripts/dev-session.test.mjs",
+    "test:hamclock:browser": "node scripts/check-hamclock-display.mjs",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",

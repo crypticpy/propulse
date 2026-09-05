@@ -5,6 +5,7 @@ import {
   clampMapOffsets,
   computeFlatMapLayout,
   preservedCenterOffsets,
+  preserveFlatMapCamera,
 } from "./flatMapLayout";
 
 describe("computeFlatMapLayout", () => {
@@ -38,6 +39,49 @@ describe("computeFlatMapLayout", () => {
       expect(map.height).toBeGreaterThanOrEqual(viewport.height);
       expect(map.width).toBe(map.height * 2);
     }
+  });
+});
+
+describe("preserveFlatMapCamera", () => {
+  it("keeps regional geography the same size when a sidebar changes width", () => {
+    const before = computeFlatMapLayout(1600, 600, true, 2);
+    const after = computeFlatMapLayout(1200, 600, true, 2);
+    const zoom = { scale: 2, offsetX: -600, offsetY: -300 };
+    const result = preserveFlatMapCamera(before, after, zoom);
+    expect(after.map.width * result.scale).toBeCloseTo(
+      before.map.width * zoom.scale,
+    );
+    expect(
+      (after.viewport.width / 2 - result.offsetX) /
+        (after.map.width * result.scale),
+    ).toBeCloseTo(
+      (before.viewport.width / 2 - zoom.offsetX) /
+        (before.map.width * zoom.scale),
+    );
+    expect(preserveFlatMapCamera(after, before, result)).toEqual(zoom);
+  });
+
+  it("does not drift through repeated resize notifications at a fixed viewport", () => {
+    const layout = computeFlatMapLayout(3320, 2094, true, 2);
+    const original = { scale: 3, offsetX: -3000, offsetY: -1500 };
+    let zoom = original;
+    for (let i = 0; i < 100; i++)
+      zoom = preserveFlatMapCamera(layout, layout, zoom);
+    expect(zoom.scale).toBe(original.scale);
+    expect(zoom.offsetX).toBeCloseTo(original.offsetX);
+    expect(zoom.offsetY).toBeCloseTo(original.offsetY);
+  });
+
+  it("respects zoom and pan limits when the whole world must cover a larger viewport", () => {
+    const before = computeFlatMapLayout(600, 300, true, 2);
+    const after = computeFlatMapLayout(1200, 600, true, 2);
+    expect(
+      preserveFlatMapCamera(before, after, {
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+      }),
+    ).toEqual({ scale: 1, offsetX: 0, offsetY: 0 });
   });
 });
 

@@ -53,6 +53,7 @@ const SOURCE_BADGE_STYLES: Record<
  * Includes worked status indicators from logbook and alert highlighting.
  */
 export function DXSpotList({
+  compact = false,
   maxHeight = "400px",
   showFilters = true,
   showHeader = true,
@@ -512,21 +513,23 @@ export function DXSpotList({
         }
       >
         {/* Column Headers - sticky at top of scroll container */}
-        <div
-          className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
-          role="row"
-          style={{ borderLeft: "3px solid transparent" }}
-        >
-          <div>Time</div>
-          {spotAgePrefs.showAgeColumn && <div>Age</div>}
-          <div>Band</div>
-          <div>Freq</div>
-          <div>DX</div>
-          <div className="text-right">Dist-km</div>
-          <div>Spotter</div>
-          <div>Info</div>
-          <div></div>
-        </div>
+        {!compact && (
+          <div
+            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
+            role="row"
+            style={{ borderLeft: "3px solid transparent" }}
+          >
+            <div>Time</div>
+            {spotAgePrefs.showAgeColumn && <div>Age</div>}
+            <div>Band</div>
+            <div>Freq</div>
+            <div>DX</div>
+            <div className="text-right">Dist-km</div>
+            <div>Spotter</div>
+            <div>Info</div>
+            <div></div>
+          </div>
+        )}
         {/* Watch filter banner — sticky below column headers */}
         {watchCriteria !== null && (
           <div className="sticky top-[29px] z-10 bg-signal-green/10 border-b border-signal-green/20 px-2 py-1.5 flex items-center justify-between text-[11px]">
@@ -613,6 +616,7 @@ export function DXSpotList({
                   </span>
                 )}
                 <SpotRow
+                  compact={compact}
                   spot={spot}
                   index={index}
                   isSelected={selectedSpot?.id === spot.id}

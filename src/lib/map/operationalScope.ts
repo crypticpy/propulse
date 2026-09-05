@@ -169,10 +169,9 @@ export function selectScopedLiveSpotSources(
 export function applyMapDataPolicyToLayers<T extends MapLayerFlags>(
   configured: T,
   policy: MapDataPolicy,
+  hamClockContent?: "activity" | "contacts" | "both",
 ): T {
-  if (policy.scope === "observe") return configured;
-
-  return {
+  const scoped = policy.scope === "observe" ? configured : {
     ...configured,
     // These surfaces now consume the scoped station/session feed, so enabling
     // them does not re-enable unrelated public traffic.
@@ -186,6 +185,23 @@ export function applyMapDataPolicyToLayers<T extends MapLayerFlags>(
     wspr: false,
     loggedQsos: policy.scope === "log",
     contestQsos: policy.scope === "contest",
+  };
+  if (!hamClockContent) return scoped;
+  const activity = hamClockContent !== "contacts";
+  return {
+    ...scoped,
+    spots: scoped.spots && activity,
+    spotTraces: false,
+    gridActivity: scoped.gridActivity && activity,
+    ft8Spotter: scoped.ft8Spotter && activity,
+    rayPath: scoped.rayPath && activity,
+    activations: scoped.activations && activity,
+    beacons: scoped.beacons && activity,
+    wspr: scoped.wspr && activity,
+    // HamClock's log reader uses only the active session (or today) and valid
+    // grids. Do not substitute the contest overlay's prefix-centroid locations.
+    loggedQsos: hamClockContent !== "activity",
+    contestQsos: false,
   };
 }
 

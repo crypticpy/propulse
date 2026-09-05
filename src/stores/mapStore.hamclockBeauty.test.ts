@@ -76,3 +76,61 @@ describe("mapStore HamClock beauty enter/exit", () => {
     expect(useMapStore.getState().nightDarkness).toBe(0);
   });
 });
+
+it("keeps HamClock panels and projection in Observatory, restoring filters on final exit", () => {
+  useHamClockStore.setState({
+    hamclockMode: "traffic",
+    preferredViewMode: "flat",
+    bandFocus: ["20m"],
+  });
+  useMapStore.setState({
+    layoutMode: "normal",
+    viewMode: "globe",
+    spotFilters: { bands: ["40m"], modes: ["CW"] },
+    observatoryMode: false,
+  });
+  useMapStore.getState().setLayoutMode("hamclock");
+  expect(useMapStore.getState().spotFilters.bands).toEqual(["20m"]);
+  useMapStore.getState().enterObservatory();
+  expect(useMapStore.getState()).toMatchObject({
+    layoutMode: "hamclock",
+    viewMode: "flat",
+    observatoryMode: true,
+  });
+  useMapStore.getState().exitObservatory();
+  expect(useMapStore.getState()).toMatchObject({
+    layoutMode: "hamclock",
+    viewMode: "flat",
+    observatoryMode: false,
+  });
+  useMapStore.getState().enterObservatory();
+  useMapStore.getState().setLayoutMode("normal");
+  expect(useMapStore.getState()).toMatchObject({
+    layoutMode: "normal",
+    viewMode: "globe",
+    observatoryMode: false,
+    spotFilters: { bands: ["40m"], modes: ["CW"] },
+  });
+});
+
+it("clears Observatory on HamClock exit even without an entry snapshot", () => {
+  useHamClockStore.setState({ enterSnapshot: null });
+  useMapStore.setState({
+    layoutMode: "hamclock",
+    viewMode: "flat",
+    autoRotate: false,
+    observatoryMode: false,
+    observatoryPreviousState: null,
+  });
+  useMapStore.getState().enterObservatory();
+  useMapStore.getState().setLayoutMode("normal");
+  expect(useMapStore.getState()).toMatchObject({
+    layoutMode: "normal",
+    observatoryMode: false,
+    observatoryPreviousState: null,
+    autoRotate: false,
+  });
+  useMapStore.getState().enterObservatory();
+  expect(useMapStore.getState().observatoryMode).toBe(true);
+  useMapStore.getState().exitObservatory();
+});

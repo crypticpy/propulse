@@ -1469,10 +1469,10 @@ export const useMapStore = create<MapState>((set, get) => ({
           viewMode: state.viewMode,
         },
         observatoryMode: true,
-        layoutMode: "pro" as LayoutMode,
-        isFullscreen: true,
+        layoutMode: state.layoutMode === "hamclock" ? "hamclock" : "pro",
+        isFullscreen: state.layoutMode !== "hamclock",
         autoRotate: true,
-        viewMode: "globe" as ViewMode,
+        viewMode: state.layoutMode === "hamclock" ? state.viewMode : "globe",
       };
     }),
 
@@ -1701,6 +1701,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     const leavingHamclock =
       state.layoutMode === "hamclock" && layoutMode !== "hamclock";
 
+    const observatoryExit = leavingHamclock ? {
+      observatoryMode: false,
+      observatoryPreviousState: null,
+      autoRotate: state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
+    } : {};
+
     if (enteringHamclock) {
       const priorLayout: Exclude<LayoutMode, "hamclock"> =
         state.layoutMode === "pro" || state.layoutMode === "lite"
@@ -1742,7 +1748,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         mapStyle: HAMCLOCK_BEAUTY_DEFAULTS.mapStyle,
         nightDarkness: HAMCLOCK_BEAUTY_DEFAULTS.nightDarkness,
         layers: nextLayers,
-        ...(mode === "bands"
+        ...(mode === "bands" || mode === "traffic"
           ? {
               spotFilters: {
                 ...state.spotFilters,
@@ -1768,6 +1774,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         quality.setDisplayQuality(snapshot.displayQuality);
         saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
         set({
+          ...observatoryExit,
           layoutMode: restoreLayout,
           isFullscreen: restoreLayout === "pro",
           isLiteMode: restoreLayout === "lite",
@@ -1783,6 +1790,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     }
 
     set({
+      ...observatoryExit,
       layoutMode,
       isFullscreen: layoutMode === "pro",
       isLiteMode: layoutMode === "lite",

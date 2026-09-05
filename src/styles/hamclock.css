@@ -1,0 +1,43 @@
+/* Local, absolute typography avoids multiplying the application's root scale. */
+.hamclock-ui {
+  font-size: calc(14px * var(--hamclock-scale, 1));
+}
+.hamclock-ui
+  :is(
+    .text-xs,
+    [class~="text-[8px]"],
+    [class~="text-[9px]"],
+    [class~="text-[10px]"],
+    [class~="text-[11px]"]
+  ) {
+  font-size: calc(11px * var(--hamclock-scale, 1));
+  line-height: 1.4;
+}
+.hamclock-ui .text-sm {
+  font-size: calc(14px * var(--hamclock-scale, 1));
+  line-height: 1.4;
+}
+.hamclock-ui .text-base {
+  font-size: calc(16px * var(--hamclock-scale, 1));
+}
+.hamclock-ui .text-lg {
+  font-size: calc(18px * var(--hamclock-scale, 1));
+}
+.hamclock-ui .text-xl {
+  font-size: calc(20px * var(--hamclock-scale, 1));
+}
+.hamclock-ui .text-2xl {
+  font-size: calc(24px * var(--hamclock-scale, 1));
+}
+.hamclock-ui .text-3xl {
+  font-size: calc(30px * var(--hamclock-scale, 1));
+}
+.hamclock-ui [data-panel-id] > button {
+  padding: calc(8px * var(--hamclock-scale, 1) * var(--hamclock-spacing, 1))
+    calc(12px * var(--hamclock-scale, 1));
+}
+.hamclock-ui input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  accent-color: #ff6b35;
+}

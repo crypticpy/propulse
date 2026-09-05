@@ -1,3 +1,4 @@
+import { useOperatingMonitorBridge } from "@/hooks/useOperatingMonitor";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Link, Navigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
@@ -212,6 +213,7 @@ function NotFound() {
 }
 
 function App() {
+  useOperatingMonitorBridge();
   // Apply text scale preference to DOM
   useTextScale();
   // Apply high-contrast mode class to <html>

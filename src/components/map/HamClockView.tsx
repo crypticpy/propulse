@@ -28,6 +28,7 @@ import "@/styles/hamclock-themes.css";
 import "@/styles/hamclock-wall.css";
 import "@/styles/hamclock-wall-forecast.css";
 import "@/styles/hamclock-wall-report.css";
+import "@/styles/hamclock-wall-controls.css";
 import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
 import { ensureHamClockThemeFont } from "@/lib/hamclock/themeFonts";
 import {

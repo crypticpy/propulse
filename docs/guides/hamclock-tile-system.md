@@ -132,7 +132,7 @@ text on a TV reads as broken.
 - Temperatures and speeds go through `resolveUnits`, `formatTemperature` and `formatSpeed` in `src/lib/hamclock/units.ts`. The operator's unit choice is read from `hamclockDisplayStore.units`.
 - Clocks go through `formatClock(date, zone)` in `wall/tokens.ts`. Show local and UTC together, never one alone, in headers and sun/moon times.
 - Countdowns go through `formatCountdown(minutes)`.
-- Every report ends with a footer: `DATA: <source> · UPDATED hh:mm UTC · <age>`. The age comes from the feed being displayed, not from a neighbouring feed.
+- Every report ends with a footer: `DATA: <source> · UPDATED hh:mm UTC · <age>`, built with `reportFooter(source, updatedAt)` in `wall/tokens.ts` so every report ages its feed with the same word ladder (`formatAge`: JUST NOW / N MIN AGO / N H AGO / N D AGO / WAITING). The age comes from the feed being displayed, not from a neighbouring feed.
 - Empty states name the gap: `NONE MAPPED`, `NO MAPPED ALERTS`, `WAITING`, `NO RECEIVER`. Never `ALL CLEAR` for a feed whose coverage does not support the claim. See `WeatherReport.tsx` and `EmcommReport.tsx`.
 - Numbers keep one format per column: one decimal place for scores, integers for counts, signed with a sign for deltas.
 
@@ -152,26 +152,27 @@ Built on `WallReport` (`wall/reports/WallReport.tsx`), which wraps
 
 ## 8. Settings rows
 
-- A row is icon · name · provenance line · optional caveat · one large `ON` / `OFF` button that spells the state.
-- Rows with options carry a gear that expands the row inline. No second popover.
+- A row is icon · name · provenance line · optional caveat · one large `ON` / `OFF` button that spells the state. Build it with `HamClockToggleRow` (`wall/controls/HamClockToggleRow.tsx`); do not hand-roll a row.
+- Rows with options carry a gear that expands the row inline via `HamClockToggleRow`'s `options` prop. No second popover.
 - Row height is at least 56 px at desk scale. Text is `--hc-t-body`, never caption size.
-- Tabs never scroll; split the tab instead.
-- Dialogs open on click and close on close, Escape or backdrop. Never on pointer leave.
+- Tabs never scroll; split the tab instead. Build a tab strip with `HamClockTabs` (`wall/controls/HamClockTabs.tsx`).
+- Dialogs open on click and close on close, Escape or backdrop. Never on pointer leave. Build the shell with `HamClockButton` for every action and `HamClockDialog` (`wall/controls/HamClockDialog.tsx`) for the panel itself.
 
 **Why:** hover-opened menus close when the hand drifts, and small switches read as decoration.
 
 ## 9. Configuration dialogs
 
-Any widget with options gets a gear that opens a centered configuration dialog
-on the report shell (`WallReport`). Spec: `docs/designs/hamclock-wall-spec.md`
-section 13.
+Any widget with options gets a gear that opens a centered configuration
+dialog on `HamClockDialog` (size `config`, `wall/controls/HamClockDialog.tsx`).
+Spec: `docs/designs/hamclock-wall-spec.md` section 13.
 
 **Row anatomy:** category chip (tone colour) · name · one-line description ·
 status line (`— · NOT YET FETCHED` or `UPDATED hh:mm · n ago`) · big `ON` /
 `OFF` · optional `REFRESH`. Same row as the Layers tab.
 
 **Segmented choices.** A setting with a fixed set of values is a row of big
-buttons with one lit. Never a `<select>`.
+buttons with one lit, built with `HamClockSegmented`
+(`wall/controls/HamClockSegmented.tsx`). Never a `<select>`.
 
 **Why:** a dropdown needs a precise click and hides the other choices; a
 segmented row is readable and clickable from the couch.
@@ -190,9 +191,14 @@ committing.
 **No scroll.** More than eight rows paginates by category tab. The dialog never
 grows past the report size limits.
 
-**Contract.** Declare `config: { schema, defaults, ConfigPanel }` on the tile's
-`WALL_TILES` entry; values persist per tile id in `hamclockWidgetConfigStore`
-and are validated through `schema` on read. Widgets that already own a store
+**Contract.** Build a `WidgetConfig<T>` (`schema`, `defaults`, `ConfigPanel`)
+and pass it through `registerWidgetConfig()` onto the tile's `WALL_TILES`
+entry as `config` — that function is the only place the type is erased to
+`RegisteredWidgetConfig`, so the registry can hold every widget's config in
+one record without an unsound cast anywhere else. The panel itself calls
+`useWidgetConfig(id, config)` to read and write the persisted value; it
+validates through `schema` on every read and write, in
+`src/stores/hamclockWidgetConfigStore.ts`. Widgets that already own a store
 (`feedStore`, `dxStore`) wrap it instead of copying it.
 
 - Do: a `Fetch every` row with 15 / 30 / 60 / 120 as four buttons.
@@ -236,3 +242,215 @@ and are validated through `schema` on read. Widgets that already own a store
 - Saving a user-entered URL without a server-side verify.
 - Hiding clipped hero text with `overflow: hidden` or an ellipsis.
 - Placing the same tile on both rails of a page.
+- Don't build a new toggle, tab strip, segmented control, button or dialog shell. Use the `wall/controls` primitives; if one is missing, extend it there.
+
+## 14. Code patterns
+
+Complete, copy-pasteable starting points for the five things a batch PR does
+most often. Each is real code, trimmed to fit.
+
+**(a) A tile with hero, sub and a report.**
+
+```tsx
+import { useState } from "react";
+import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
+import { MyReport } from "../reports/MyReport";
+
+export function MyTile() {
+  const [open, setOpen] = useState(false);
+  const value = useMyData();
+
+  return (
+    <>
+      <HamClockTile
+        title="My widget"
+        source="NOAA SWPC"
+        state={value ? "var(--hc-good)" : undefined}
+        onOpen={() => setOpen(true)}
+      >
+        <TileHero tone={value ? "hc-good" : "hc-dim-text"}>
+          {value ?? "—"}
+        </TileHero>
+        <TileSub>
+          <span>{value ? "Live" : "Waiting for data…"}</span>
+        </TileSub>
+      </HamClockTile>
+      <MyReport open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+```
+
+**(b) A report on `WallReport` using `reportFooter`.**
+
+```tsx
+import { useMyData } from "@/hooks/useMyData";
+import { reportFooter } from "../tokens";
+import { WallReport, type WallReportFact } from "./WallReport";
+
+export function MyReport({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { data, observedAt } = useMyData();
+  const facts: WallReportFact[] = [{ label: "SSN", value: data?.ssn ?? "—" }];
+  const { footer, updated } = reportFooter("NOAA SWPC", observedAt);
+
+  return (
+    <WallReport
+      open={open}
+      onClose={onClose}
+      title="My widget · detail"
+      hero={data?.value ?? "—"}
+      facts={facts}
+      footer={footer}
+      updated={updated}
+    />
+  );
+}
+```
+
+**(c) A settings tab: `HamClockToggleRow`s with an inline `HamClockSegmented`.**
+
+```tsx
+import { useState } from "react";
+import { HamClockSegmented, HamClockToggleRow } from "../controls";
+
+export function DisplayTab() {
+  const [autoPage, setAutoPage] = useState(true);
+  const [dwell, setDwell] = useState<"15" | "30" | "60">("30");
+  const [optionsOpen, setOptionsOpen] = useState(false);
+
+  return (
+    <HamClockToggleRow
+      label="Auto page"
+      detail="Rotates both rails on a timer"
+      checked={autoPage}
+      onChange={setAutoPage}
+      expanded={optionsOpen}
+      onExpandedChange={setOptionsOpen}
+      options={
+        <HamClockSegmented
+          label="Dwell"
+          value={dwell}
+          onChange={setDwell}
+          options={[
+            { value: "15", label: "15 S" },
+            { value: "30", label: "30 S" },
+            { value: "60", label: "60 S" },
+          ]}
+        />
+      }
+    />
+  );
+}
+```
+
+**(d) A widget config dialog: schema, registry entry, panel, dialog.**
+
+```ts
+// wall/config/MyWidgetConfig.schema.ts
+import { z } from "zod";
+export const myWidgetConfigSchema = z.object({
+  intervalMin: z.union([z.literal(15), z.literal(30), z.literal(60)]),
+});
+export type MyWidgetConfig = z.infer<typeof myWidgetConfigSchema>;
+export const MY_WIDGET_CONFIG_DEFAULTS: MyWidgetConfig = { intervalMin: 30 };
+```
+
+```tsx
+// wall/tiles/index.ts — one registry entry
+import { registerWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
+myTile: {
+  title: "My widget",
+  Component: MyTile,
+  config: registerWidgetConfig({
+    schema: myWidgetConfigSchema,
+    defaults: MY_WIDGET_CONFIG_DEFAULTS,
+    ConfigPanel: MyWidgetConfigPanel,
+  }),
+},
+```
+
+```tsx
+// wall/config/MyWidgetConfigPanel.tsx
+import { useWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
+import { HamClockButton, HamClockDialog, HamClockSegmented } from "../controls";
+import {
+  MY_WIDGET_CONFIG_DEFAULTS,
+  myWidgetConfigSchema,
+} from "./MyWidgetConfig.schema";
+
+export function MyWidgetConfigDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useWidgetConfig("myTile", {
+    schema: myWidgetConfigSchema,
+    defaults: MY_WIDGET_CONFIG_DEFAULTS,
+    ConfigPanel: () => null,
+  });
+
+  return (
+    <HamClockDialog
+      open={open}
+      onClose={onClose}
+      title="MY WIDGET"
+      purpose="Choose how often this widget refreshes."
+      hint="SELECT to apply · BACK to cancel"
+      actions={
+        <HamClockButton variant="primary" size="lg" onClick={onClose}>
+          SAVE
+        </HamClockButton>
+      }
+    >
+      <HamClockSegmented
+        label="Fetch every"
+        value={String(value.intervalMin) as "15" | "30" | "60"}
+        onChange={(next) =>
+          setValue({ intervalMin: Number(next) as 15 | 30 | 60 })
+        }
+        options={[
+          { value: "15", label: "15 MIN" },
+          { value: "30", label: "30 MIN" },
+          { value: "60", label: "60 MIN" },
+        ]}
+      />
+    </HamClockDialog>
+  );
+}
+```
+
+**(e) The test skeleton for a new tile.**
+
+```tsx
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { MyTile } from "./MyTile";
+
+vi.mock("@/hooks/useMyData", () => ({ useMyData: vi.fn() }));
+
+describe("MyTile", () => {
+  it("renders the hero when data is present", () => {
+    render(<MyTile />);
+    expect(screen.getByText("My widget")).not.toBeNull();
+  });
+
+  it("renders its empty state when data has not arrived", () => {
+    render(<MyTile />);
+    expect(screen.getByText("Waiting for data…")).not.toBeNull();
+  });
+
+  it("opens its report", () => {
+    render(<MyTile />);
+    screen.getByRole("button", { name: /open report/i }).click();
+    expect(screen.getByRole("dialog")).not.toBeNull();
+  });
+});
+```

@@ -16,6 +16,23 @@ export const HAMCLOCK_PANELS = [
   ["contacts", "Recent Contacts"],
 ] as const;
 export type HamClockPanelId = (typeof HAMCLOCK_PANELS)[number][0];
+
+/** Wall = full-bleed map with tile rails; desk = the accordion layout. */
+export type HamClockDensity = "wall" | "desk";
+export type HamClockTheme = "pulse" | "classic" | "brass";
+export type HamClockUnits = "imperial" | "metric" | "auto";
+export type HamClockRailSide = "left" | "right";
+export const HAMCLOCK_DENSITIES: readonly HamClockDensity[] = ["wall", "desk"];
+export const HAMCLOCK_THEMES: readonly HamClockTheme[] = [
+  "pulse",
+  "classic",
+  "brass",
+];
+export const HAMCLOCK_UNITS: readonly HamClockUnits[] = [
+  "auto",
+  "imperial",
+  "metric",
+];
 export interface HomeRegion {
   lat: number;
   lon: number;
@@ -24,6 +41,20 @@ export interface HomeRegion {
 }
 interface HamClockDisplayState {
   textSize: TextScale | "inherit" | "200" | "250";
+  density: HamClockDensity;
+  theme: HamClockTheme;
+  units: HamClockUnits;
+  /** Rails page independently, so each side keeps its own index. */
+  pageIndex: Record<HamClockRailSide, number>;
+  setDensity: (value: HamClockDensity) => void;
+  setTheme: (value: HamClockTheme) => void;
+  setUnits: (value: HamClockUnits) => void;
+  setPage: (side: HamClockRailSide, index: number) => void;
+  stepPage: (
+    side: HamClockRailSide,
+    delta: number,
+    pageCount: number,
+  ) => void;
   smartScaling: boolean;
   hiddenPanels: HamClockPanelId[];
   mapContent: "activity" | "contacts" | "both";
@@ -50,6 +81,11 @@ interface HamClockDisplayState {
 }
 const defaults = {
   textSize: "inherit" as const,
+  // Desk stays the default until the wall tiles land (flipped in the next PR).
+  density: "desk" as const,
+  theme: "pulse" as const,
+  units: "auto" as const,
+  pageIndex: { left: 0, right: 0 } as Record<HamClockRailSide, number>,
   smartScaling: true,
   hiddenPanels: [] as HamClockPanelId[],
   mapContent: "activity" as const,
@@ -60,6 +96,12 @@ const defaults = {
   infoSidebarCollapsed: false,
 };
 const validPanels = new Set<string>(HAMCLOCK_PANELS.map(([id]) => id));
+
+function pageOrZero(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : 0;
+}
 
 /** A display's choices survive reload without changing another tab's presentation. */
 export const useHamClockDisplayStore = create<HamClockDisplayState>()(
@@ -73,6 +115,18 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
             [id]: !(s.panelCollapsed[id] ?? defaultCollapsed),
           },
         })),
+      setDensity: (density) => set({ density }),
+      setTheme: (theme) => set({ theme }),
+      setUnits: (units) => set({ units }),
+      setPage: (side, index) =>
+        set((s) => ({ pageIndex: { ...s.pageIndex, [side]: index } })),
+      stepPage: (side, delta, pageCount) =>
+        set((s) => {
+          if (pageCount < 1) return {};
+          const next =
+            (((s.pageIndex[side] + delta) % pageCount) + pageCount) % pageCount;
+          return { pageIndex: { ...s.pageIndex, [side]: next } };
+        }),
       setSpotsSide: (spotsSide) => set({ spotsSide }),
       toggleSpotsSidebar: () =>
         set((s) => ({ spotsSidebarCollapsed: !s.spotsSidebarCollapsed })),
@@ -100,10 +154,25 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
     }),
     {
       name: "propulse-hamclock-display",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => sessionStorage),
+      migrate: (persisted: unknown, version: number) => {
+        const state = (persisted ?? {}) as Record<string, unknown>;
+        if (version < 2) {
+          // Wall density, pulse theme, automatic units and page 0 per rail.
+          state.density = defaults.density;
+          state.theme = defaults.theme;
+          state.units = defaults.units;
+          state.pageIndex = { ...defaults.pageIndex };
+        }
+        return state as unknown as HamClockDisplayState;
+      },
       partialize: ({
         textSize,
+        density,
+        theme,
+        units,
+        pageIndex,
         smartScaling,
         hiddenPanels,
         mapContent,
@@ -114,6 +183,10 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
         infoSidebarCollapsed,
       }) => ({
         textSize,
+        density,
+        theme,
+        units,
+        pageIndex,
         smartScaling,
         hiddenPanels,
         mapContent,
@@ -132,6 +205,17 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
           )
             ? p.textSize!
             : "inherit",
+          density: p.density === "wall" ? "wall" : "desk",
+          theme: HAMCLOCK_THEMES.includes(p.theme as HamClockTheme)
+            ? (p.theme as HamClockTheme)
+            : "pulse",
+          units: HAMCLOCK_UNITS.includes(p.units as HamClockUnits)
+            ? (p.units as HamClockUnits)
+            : "auto",
+          pageIndex: {
+            left: pageOrZero(p.pageIndex?.left),
+            right: pageOrZero(p.pageIndex?.right),
+          },
           smartScaling:
             typeof p.smartScaling === "boolean" ? p.smartScaling : true,
           hiddenPanels: Array.isArray(p.hiddenPanels)

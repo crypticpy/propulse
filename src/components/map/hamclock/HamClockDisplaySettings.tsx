@@ -1,8 +1,29 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  HAMCLOCK_DENSITIES,
   HAMCLOCK_PANELS,
+  HAMCLOCK_THEMES,
+  HAMCLOCK_UNITS,
   useHamClockDisplayStore,
+  type HamClockDensity,
+  type HamClockTheme,
+  type HamClockUnits,
 } from "@/stores/hamclockDisplayStore";
+
+const DENSITY_LABEL: Record<HamClockDensity, string> = {
+  wall: "Wall",
+  desk: "Desk",
+};
+const THEME_LABEL: Record<HamClockTheme, string> = {
+  pulse: "Pulse",
+  classic: "Classic",
+  brass: "Brass",
+};
+const UNITS_LABEL: Record<HamClockUnits, string> = {
+  auto: "Auto",
+  imperial: "Imperial",
+  metric: "Metric",
+};
 
 export function HamClockDisplaySettings() {
   const [open, setOpen] = useState(false);
@@ -105,6 +126,57 @@ export function HamClockDisplaySettings() {
               ×
             </button>
           </div>
+          <label className="mb-3 flex items-center justify-between gap-3">
+            Density
+            <select
+              aria-label="Density"
+              value={s.density}
+              onChange={(e) =>
+                s.setDensity(e.target.value as HamClockDensity)
+              }
+              className="rounded border border-white/20 bg-void-black p-1"
+            >
+              {HAMCLOCK_DENSITIES.map((value) => (
+                <option key={value} value={value}>
+                  {DENSITY_LABEL[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="mb-3 text-xs text-gray-400">
+            Wall is the full-bleed map with tile rails for a TV read from
+            across the room. Desk keeps the panel layout.
+          </p>
+          <label className="mb-3 flex items-center justify-between gap-3">
+            Theme
+            <select
+              aria-label="Theme"
+              value={s.theme}
+              onChange={(e) => s.setTheme(e.target.value as HamClockTheme)}
+              className="rounded border border-white/20 bg-void-black p-1"
+            >
+              {HAMCLOCK_THEMES.map((value) => (
+                <option key={value} value={value}>
+                  {THEME_LABEL[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="mb-3 flex items-center justify-between gap-3">
+            Units
+            <select
+              aria-label="Units"
+              value={s.units}
+              onChange={(e) => s.setUnits(e.target.value as HamClockUnits)}
+              className="rounded border border-white/20 bg-void-black p-1"
+            >
+              {HAMCLOCK_UNITS.map((value) => (
+                <option key={value} value={value}>
+                  {UNITS_LABEL[value]}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="mb-3 flex items-center justify-between gap-3">
             Text Size
             <select

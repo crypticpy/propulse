@@ -1,0 +1,130 @@
+/**
+ * HamClock theme tokens
+ *
+ * Every colour, font, radius and glow the HamClock layout uses comes from a
+ * `--hc-*` variable declared here and selected by `[data-hamclock-theme]` on
+ * the HamClock root. `pulse` is the default and is also declared on `:root`
+ * so tokens still resolve for content portalled outside the HamClock subtree.
+ *
+ * State colours are derived from the shared `--color-*-rgb` tokens in
+ * design-tokens.css, so the colour-blind palettes keep composing with themes.
+ */
+
+:root,
+[data-hamclock-theme="pulse"] {
+  --hc-bg: #0a0e1a;
+  --hc-panel: #0d1527;
+  --hc-glass: rgba(13, 21, 39, 0.74);
+  --hc-blur: 10px;
+  --hc-line: rgba(255, 255, 255, 0.09);
+  --hc-fg: #ffffff;
+  --hc-dim: rgba(255, 255, 255, 0.46);
+  --hc-dim2: rgba(255, 255, 255, 0.28);
+
+  --hc-accent-rgb: 255 107 53;
+  --hc-info-rgb: 68 221 255;
+  --hc-good-rgb: var(--color-excellent-rgb, 0 255 136);
+  --hc-warn-rgb: var(--color-caution-rgb, 255 210 63);
+  --hc-bad-rgb: var(--color-alert-rgb, 255 68 85);
+
+  --hc-font-display: "Orbitron", sans-serif;
+  --hc-font-mono: "JetBrains Mono", monospace;
+  --hc-font-body: "Inter", sans-serif;
+  --hc-display-weight: 900;
+
+  --hc-radius: 0.7vh;
+  --hc-glow: 1;
+  --hc-state-bar: 2px;
+}
+
+/* HamClock-faithful terminal look: opaque black, square corners, no glow. */
+[data-hamclock-theme="classic"] {
+  --hc-bg: #000000;
+  --hc-panel: #000000;
+  --hc-glass: #000000;
+  --hc-blur: 0px;
+  --hc-line: #444444;
+  --hc-fg: #ffffff;
+  --hc-dim: #aaaaaa;
+  --hc-dim2: #777777;
+
+  --hc-accent-rgb: 255 255 0;
+  --hc-info-rgb: 0 255 255;
+
+  --hc-font-display: "Inter", sans-serif;
+  --hc-font-mono: "JetBrains Mono", monospace;
+  --hc-font-body: "Inter", sans-serif;
+  --hc-display-weight: 800;
+
+  --hc-radius: 0;
+  --hc-glow: 0;
+  --hc-state-bar: 0px;
+}
+
+/* Nautical / engraved: deep navy, brass hairlines, cream type, no glow. */
+[data-hamclock-theme="brass"] {
+  --hc-bg: #0f1a24;
+  --hc-panel: #142330;
+  --hc-glass: rgba(20, 30, 40, 0.86);
+  --hc-blur: 0px;
+  --hc-line: rgba(201, 166, 90, 0.45);
+  --hc-fg: #f3e9d2;
+  --hc-dim: rgba(243, 233, 210, 0.55);
+  --hc-dim2: rgba(243, 233, 210, 0.32);
+
+  --hc-accent-rgb: 201 166 90;
+  --hc-info-rgb: 122 158 178;
+
+  /* Cormorant Garamond / IBM Plex Mono load on demand in a later phase. */
+  --hc-font-display: Georgia, "Times New Roman", serif;
+  --hc-font-mono: "JetBrains Mono", monospace;
+  --hc-font-body: Georgia, "Times New Roman", serif;
+  --hc-display-weight: 600;
+
+  --hc-radius: 0.3vh;
+  --hc-glow: 0;
+  --hc-state-bar: 0px;
+}
+
+/* Resolved colours — kept out of the theme blocks so each theme only has to
+ * declare the rgb triples it wants to change. */
+:root,
+[data-hamclock-theme] {
+  --hc-accent: rgb(var(--hc-accent-rgb));
+  --hc-info: rgb(var(--hc-info-rgb));
+  --hc-good: rgb(var(--hc-good-rgb));
+  --hc-warn: rgb(var(--hc-warn-rgb));
+  --hc-bad: rgb(var(--hc-bad-rgb));
+}
+
+/* Glow is a 0/1 switch: at 0 the blur radius collapses and the shadow
+ * disappears, so classic and brass pay nothing for it. */
+.hc-glow {
+  text-shadow: 0 0 calc(1.9vh * var(--hc-glow, 0))
+    rgb(var(--hc-tone-rgb, 255 255 255) / 0.42);
+}
+
+.hc-good {
+  color: var(--hc-good);
+  --hc-tone-rgb: var(--hc-good-rgb);
+}
+.hc-warn {
+  color: var(--hc-warn);
+  --hc-tone-rgb: var(--hc-warn-rgb);
+}
+.hc-bad {
+  color: var(--hc-bad);
+  --hc-tone-rgb: var(--hc-bad-rgb);
+}
+.hc-accent-text {
+  color: var(--hc-accent);
+  --hc-tone-rgb: var(--hc-accent-rgb);
+}
+.hc-info-text {
+  color: var(--hc-info);
+  --hc-tone-rgb: var(--hc-info-rgb);
+}
+.hc-dim-text {
+  color: var(--hc-dim);
+  --hc-tone-rgb: 255 255 255;
+}

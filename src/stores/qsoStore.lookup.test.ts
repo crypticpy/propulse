@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { shouldPreserveLookupGrid, useQSOStore } from "./qsoStore";
 
+vi.mock("@/lib/api/authFetch", () => ({ authHeaders: async () => ({ Authorization: "Bearer test-session" }) }));
+
 function lookupResponse(overrides: Record<string, unknown> = {}) {
   return {
     ok: true,
@@ -133,4 +135,47 @@ describe("qsoStore callsign lookup", () => {
     );
     expect(useQSOStore.getState().lookupResult).toBeNull();
   });
+  it("falls back from a portable DX Callook 404 while preserving the activation grid", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: "Callsign not found" }), { status: 404 }));
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ callsign: "G4ABC", name: "DX Operator", grid: "IO91wm", country: "England", cqzone: 14, ituzone: 27, source: "hamqth" })));
+    const store = useQSOStore.getState();
+    store.setField("callsign", "G4ABC/P");
+    store.setField("grid", "IO92aa");
+    await store.lookupCallsign("G4ABC/P", { preserveGrid: true });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/callsign/lookup?callsign=G4ABC");
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/callsign/hamqth?callsign=G4ABC", { headers: { Authorization: "Bearer test-session" } });
+    expect(useQSOStore.getState().form).toEqual(expect.objectContaining({ callsign: "G4ABC/P", name: "DX Operator", grid: "IO92aa" }));
+    expect(useQSOStore.getState().lookupResult).toEqual(expect.objectContaining({ source: "hamqth", cqZone: 14, ituZone: 27 }));
+  });
+
+  it.each([
+    [501, "credentials are not configured"],
+    [401, "Sign in"],
+    [429, "rate limit"],
+    [502, "Upstream unavailable"],
+    [404, "HamQTH: Callsign not found"],
+  ])("explains a failed international lookup (%s)", async (status, message) => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "Callsign not found" }), { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: status === 404 ? "Callsign not found" : "Upstream unavailable" }), { status: Number(status) }));
+    const store = useQSOStore.getState();
+    store.setField("callsign", "G4ABC");
+    await store.lookupCallsign("G4ABC");
+    expect(useQSOStore.getState().lookupLoading).toBe(false);
+    expect(useQSOStore.getState().lookupError).toContain(message);
+    expect(useQSOStore.getState().lookupResult).toBeNull();
+  });
+
+  it("uses HamQTH when Callook is unreachable", async () => {
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(new Error("Network unavailable"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ callsign: "G4ABC", grid: "IO91wm", source: "hamqth" })));
+    const store = useQSOStore.getState();
+    store.setField("callsign", "G4ABC");
+    await store.lookupCallsign("G4ABC");
+    expect(useQSOStore.getState().form.grid).toBe("IO91wm");
+    expect(useQSOStore.getState().lookupError).toBeNull();
+  });
+
 });

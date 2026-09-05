@@ -706,47 +706,8 @@ export const useQSOStore = create<QSOStoreState>()(
           lookupError: null,
         });
         try {
-          const resp = await fetch(
-            `/api/callsign/lookup?callsign=${encodeURIComponent(callsign)}`,
-          );
-
-          if (!resp.ok) {
-            const body = (await resp.json().catch(() => ({}))) as Record<
-              string,
-              unknown
-            >;
-            set((state) =>
-              requestGeneration === callsignLookupGeneration &&
-              state.form.callsign.trim().toUpperCase() === requestedCallsign
-                ? {
-                    lookupLoading: false,
-                    lookupError:
-                      typeof body.error === "string"
-                        ? body.error
-                        : `Lookup failed (${resp.status})`,
-                    lookupResult: null,
-                  }
-                : {},
-            );
-            return;
-          }
-
-          const data = (await resp.json()) as Record<string, unknown>;
-          const result: QSOLookupResult = {
-            callsign: String(data.callsign ?? callsign),
-            name: data.name ? String(data.name) : undefined,
-            grid: data.grid ? String(data.grid) : undefined,
-            qth: data.qth ? String(data.qth) : undefined,
-            country: data.country ? String(data.country) : undefined,
-            dxcc: typeof data.dxcc === "number" ? data.dxcc : undefined,
-            cqZone: typeof data.cqZone === "number" ? data.cqZone : undefined,
-            ituZone:
-              typeof data.ituZone === "number" ? data.ituZone : undefined,
-            lat: typeof data.lat === "number" ? data.lat : undefined,
-            lon: typeof data.lon === "number" ? data.lon : undefined,
-            imageUrl: data.imageUrl ? String(data.imageUrl) : undefined,
-            source: (data.source as QSOLookupResult["source"]) ?? "callook",
-          };
+          const { lookupQSOCallsign } = await import("@/lib/api/qsoCallsignLookup");
+          const result = await lookupQSOCallsign(requestedCallsign);
 
           // Apply lookup data to form and store result
           const formUpdates: Partial<QSOFormState> = {};

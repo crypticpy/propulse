@@ -19,6 +19,12 @@ export interface CallookResult {
   grantDate?: string;
   expiryDate?: string;
   licenseId?: string;
+  qth?: string;
+  country?: string;
+  dxcc?: number;
+  cqZone?: number;
+  ituZone?: number;
+  imageUrl?: string;
   source: "callook";
 }
 
@@ -157,6 +163,12 @@ export async function fetchCallook(
       callsign: data.callsign || normalized,
       name: data.name,
       grid: data.grid,
+      qth: data.qth,
+      country: data.country,
+      dxcc: data.dxcc,
+      cqZone: data.cqZone,
+      ituZone: data.ituZone,
+      imageUrl: data.imageUrl,
       lat: data.lat != null ? Number(data.lat) : undefined,
       lon: data.lon != null ? Number(data.lon) : undefined,
       licenseClass: data.licenseClass,

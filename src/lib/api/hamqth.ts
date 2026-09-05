@@ -40,6 +40,7 @@ export interface HamQTHLookupResult {
  * HamQTH error response
  */
 export interface HamQTHError {
+  status?: number;
   /** Error message describing what went wrong */
   error: string;
   /** Provider identifier */
@@ -97,11 +98,13 @@ export async function fetchHamQTH(
             errorData.error ||
             `HTTP error ${response.status}: ${response.statusText}`,
           provider: "hamqth",
+          status: response.status,
         };
       } catch {
         return {
           error: `HTTP error ${response.status}: ${response.statusText}`,
           provider: "hamqth",
+          status: response.status,
         };
       }
     }

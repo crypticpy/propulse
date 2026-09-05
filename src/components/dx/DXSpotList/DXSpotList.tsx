@@ -532,7 +532,7 @@ export function DXSpotList({
         )}
         {/* Watch filter banner — sticky below column headers */}
         {watchCriteria !== null && (
-          <div className="sticky top-[29px] z-10 bg-signal-green/10 border-b border-signal-green/20 px-2 py-1.5 flex items-center justify-between text-[11px]">
+          <div className={`sticky ${compact ? "top-0" : "top-[29px]"} z-10 bg-signal-green/10 border-b border-signal-green/20 px-2 py-1.5 flex items-center justify-between text-[11px]`}>
             <div className="flex items-center gap-1.5 text-signal-green min-w-0">
               <svg
                 className="w-3.5 h-3.5 shrink-0"

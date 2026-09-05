@@ -72,7 +72,7 @@ function dataFor(pathname: string, now: string): unknown {
   }
 }
 
-export async function installSolarFixtures(page: Page, options: { firstVisit?: boolean; textScale?: string } = {}) {
+export async function installSolarFixtures(page: Page, options: { firstVisit?: boolean; textScale?: string; extraLocations?: Array<{ id: string; name: string; grid: string; lat: number; lon: number }> } = {}) {
   const requested: string[] = [];
   const overrides = new Map<string, unknown>();
   const ages = new Map<string, number>();
@@ -87,7 +87,7 @@ export async function installSolarFixtures(page: Page, options: { firstVisit?: b
       const home = { id: "solar-fixture-home", name: "Home QTH", grid: "DM79", lat: 39.5, lon: -105, type: "home", createdAt: new Date().toISOString() };
       localStorage.setItem("propulse-profile", JSON.stringify({
         ...profile,
-        state: { ...profile.state, station: { callsign: "N0TEST", grid: home.grid, lat: home.lat, lon: home.lon, homeLocationId: home.id, activeLocationId: null, savedLocations: [home] } },
+        state: { ...profile.state, station: { callsign: "N0TEST", grid: home.grid, lat: home.lat, lon: home.lon, homeLocationId: home.id, activeLocationId: null, savedLocations: [home, ...(options.extraLocations ?? []).map(location => ({ ...location, type: "home", createdAt: new Date().toISOString() }))] } },
       }));
     }
     localStorage.setItem("propulse-onboarding-completed", "true");

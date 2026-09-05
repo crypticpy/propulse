@@ -123,3 +123,14 @@ describe("NearbyActivityExplorer", () => {
     ).toBeTruthy();
   });
 });
+
+it("uses the setup location override for both feed queries and distance filtering", () => {
+  liveMocks.isError = false;
+  liveMocks.options.mockClear();
+  useActivityExplorerStore.setState({mode:"band",band:"40m",maxDistanceKm:5000,maxAgeMinutes:15});
+  render(<MemoryRouter><NearbyActivityExplorer locationOverride={{lat:35.68,lon:139.76,grid:"PM95vq"}} /></MemoryRouter>);
+  expect(liveMocks.options).toHaveBeenCalledWith(expect.objectContaining({grid:"PM95vq",enabled:true}));
+  // The Texas report is outside 5,000 km of Tokyo, but inside that radius of
+  // the profile's Texas QTH. This verifies the origin used for filtering too.
+  expect(screen.queryByText("K5ABC")).toBeNull();
+});

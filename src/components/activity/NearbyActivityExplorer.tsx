@@ -21,6 +21,8 @@ import { useMapStore } from "@/stores/mapStore";
 import type { LiveSpot } from "@/types/livespot";
 
 interface NearbyActivityExplorerProps {
+  /** Home supplies the active setup location; other callers keep their QTH. */
+  locationOverride?: { lat: number; lon: number; grid: string } | null;
   className?: string;
   onClose?: () => void;
 }
@@ -135,9 +137,11 @@ function ActivityRow({
 export function NearbyActivityExplorer({
   className = "",
   onClose,
+  locationOverride,
 }: NearbyActivityExplorerProps) {
   const navigate = useNavigate();
-  const activeLocation = useActiveLocation();
+  const defaultLocation = useActiveLocation();
+  const activeLocation = locationOverride === undefined ? defaultLocation : locationOverride;
   const live = useLiveSpots({
     grid: activeLocation?.grid,
     enabled: Boolean(activeLocation),

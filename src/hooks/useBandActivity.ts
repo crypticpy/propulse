@@ -48,16 +48,22 @@ export function scopeQueryString(scope: BandActivityScope): string {
   return "";
 }
 
+/** Map compatibility for existing consumers, with the server snapshot age
+ * preserved for displays that promise current observations. */
+export interface BandActivitySnapshot extends Map<string, BandActivityStatus> {
+  fetchedAt: number | null;
+}
+
 async function fetchBandActivity(
   scope: BandActivityScope,
-): Promise<Map<string, BandActivityStatus>> {
+): Promise<BandActivitySnapshot> {
   const response = await fetch(
     `/api/spots/band-activity${scopeQueryString(scope)}`,
   );
   if (!response.ok) {
     throw new Error(`band-activity request failed (${response.status})`);
   }
-  const payload = (await response.json()) as { bands?: unknown[] };
+  const payload = (await response.json()) as { bands?: unknown[]; meta?: { fetchedAt?: unknown } };
   const entries = Array.isArray(payload.bands) ? payload.bands : [];
 
   const byBand = new Map<string, BandActivityStatus>();
@@ -75,7 +81,8 @@ async function fetchBandActivity(
       crowded: isCrowded(entry.count60m, entry.thresholds, entry.sampleCount),
     });
   }
-  return byBand;
+  const stamp = typeof payload.meta?.fetchedAt === "string" ? Date.parse(payload.meta.fetchedAt) : NaN;
+  return Object.assign(byBand, { fetchedAt: Number.isFinite(stamp) ? stamp : null });
 }
 
 const GLOBAL_SCOPE: BandActivityScope = { type: "global" };

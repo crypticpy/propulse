@@ -17,7 +17,7 @@ vi.hoisted(() => {
   });
 });
 
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useProfileStore } from "@/stores/profileStore";
@@ -56,7 +56,7 @@ function mount(component: React.ReactNode, route: string, context = handoff) {
 beforeEach(() => {
   vi.clearAllMocks();
   useProfileStore.setState({ station: { callsign: "W1TEST", grid: "FN31pr", lat: 41.5, lon: -72.5 } as NonNullable<ReturnType<typeof useProfileStore.getState>["station"]> });
-  useOperatingStore.setState({ activeMode: "FT8", manualMode: "FT8", contestLocked: false, _catConnected: false, _wsjtxConnected: false });
+  useOperatingStore.setState({ activeMode: "FT8", manualMode: "FT8", contestLocked: false, contestSessionId: null, _contestBand: null, _contestMode: null, _catConnected: false, _wsjtxConnected: false });
   useRigStore.setState({ pendingMode: null, pendingFrequency: null });
 });
 for (const mobile of [false, true]) {
@@ -77,6 +77,26 @@ for (const mobile of [false, true]) {
       mount(<DXWizard />, "/dx", { ...handoff, mode });
       expect(vi.mocked(buildWizardRecommendation).mock.calls.at(-1)![0].mode).toBe(mode);
       expect(screen.queryByText(/modeled with FT8 sensitivity/)).toBeNull();
+    });
+    it.each(["CAT", "WSJT-X", "contest"])("retains editable planning intent with %s precedence", (source) => {
+      view.mobile = mobile;
+      useOperatingStore.setState({ activeMode: "SSB", manualMode: "SSB", catOverridden: false });
+      const operating = useOperatingStore.getState();
+      if (source === "CAT") operating.updateFromCAT("20m", "SSB", 14_150_000);
+      else if (source === "WSJT-X") operating.updateFromWSJTX("20m", "SSB", 14_150_000);
+      else {
+        operating.setContestSession("solar-handoff-test");
+        operating.updateFromContest("20m", "SSB");
+        operating.setContestLocked(true);
+      }
+      mount(<BandPlanner />, "/planner");
+      expect(vi.mocked(getForecastForPath).mock.calls.at(-1)![7]?.mode).toBe("CW");
+      const select = screen.getByRole("combobox", { name: "Planning mode" });
+      expect((select as HTMLSelectElement).value).toBe("CW");
+      fireEvent.change(select, { target: { value: "FT8" } });
+      expect(vi.mocked(getForecastForPath).mock.calls.at(-1)![7]?.mode).toBe("FT8");
+      expect(useOperatingStore.getState()).toMatchObject({ activeMode: "SSB", manualMode: "SSB", catOverridden: false });
+      expect(useRigStore.getState()).toMatchObject({ pendingMode: null, pendingFrequency: null });
     });
     it("hydrates the selected UTC day and mode into the planner computation", () => {
       view.mobile = mobile;

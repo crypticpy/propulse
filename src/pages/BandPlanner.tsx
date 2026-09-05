@@ -1,5 +1,5 @@
-import { useInitializeSolarMode, useSolarHandoff } from "@/hooks/useSolarHandoff";
-import { SolarHandoffNotice } from "@/components/solar/SolarHandoffNotice";
+import { useSolarPlanningMode, useSolarHandoff } from "@/hooks/useSolarHandoff";
+import { SolarHandoffNotice, SolarPlanningModeControl } from "@/components/solar/SolarHandoffNotice";
 import { solarAnalysisMode } from "@/lib/solar/handoff";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -26,7 +26,6 @@ import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
-import { useActiveMode } from "@/hooks/useActiveBandMode";
 import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
@@ -43,7 +42,7 @@ import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
  */
 export function BandPlanner() {
   const solarHandoff = useSolarHandoff();
-  useInitializeSolarMode(solarHandoff);
+  const { mode: activeMode, setMode: setPlanningMode } = useSolarPlanningMode(solarHandoff);
   // User station
   const station = useUserStore((s) => s.station);
   const stationCast = useStationCastContext();
@@ -139,7 +138,6 @@ export function BandPlanner() {
     [currentKp, currentFlux, currentBz],
   );
   const researchParticipation = useResearchParticipation();
-  const activeMode = useActiveMode();
   const modelNowCast = useNowCastBandPredictions({
     origin: stationCast.location,
     target: targetCoords,
@@ -296,6 +294,8 @@ export function BandPlanner() {
   if (isMobile && operatingStation) {
     return (
       <MobileBandPlanner
+        activeMode={activeMode}
+        onPlanningModeChange={setPlanningMode}
         station={operatingStation}
         currentKp={currentKp}
         currentFlux={currentFlux}
@@ -338,6 +338,7 @@ export function BandPlanner() {
   return (
     <div className="min-h-screen">
       <SolarHandoffNotice handoff={solarHandoff} />
+      {solarHandoff && <SolarPlanningModeControl mode={activeMode} onChange={setPlanningMode} />}
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

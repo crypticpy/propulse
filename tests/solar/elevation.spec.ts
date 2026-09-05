@@ -121,3 +121,22 @@ test("first visit reaches the briefing without configuring hardware", async ({ p
   if (await setup.isVisible()) await setup.click();
   await expect(page.getByRole("heading", { name: "Supportive HF background conditions" })).toBeVisible();
 });
+
+for (const [link, destination] of [["Plan a session", "/planner"], ["Find a band for a target", "/dx"]] as const) {
+  test(`operating link opens ${destination} with usable handoff context`, async ({ page }) => {
+    await installSolarFixtures(page);
+    await page.goto("/solar");
+    await page.getByRole("link", { name: link, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(destination));
+    await expect(page.getByText(/From Solar Pulse/)).toBeVisible();
+    if (destination === "/planner") {
+      const mode = page.getByRole("combobox", { name: "Planning mode" });
+      await expect(mode).toHaveValue("SSB");
+      await mode.selectOption("CW");
+      await expect(mode).toHaveValue("CW");
+    } else {
+      await expect(page).toHaveURL(/mode=SSB/);
+      await expect(page.getByText(/From Solar Pulse/)).toBeVisible();
+    }
+  });
+}

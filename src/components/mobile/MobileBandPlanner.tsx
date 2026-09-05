@@ -1,5 +1,6 @@
 import { useSolarHandoff } from "@/hooks/useSolarHandoff";
-import { SolarHandoffNotice } from "@/components/solar/SolarHandoffNotice";
+import { SolarHandoffNotice, SolarPlanningModeControl } from "@/components/solar/SolarHandoffNotice";
+import type { UIMode } from "@/lib/utils/modeNormalize";
 import { solarAnalysisMode } from "@/lib/solar/handoff";
 /**
  * MobileBandPlanner Component
@@ -24,7 +25,6 @@ import {
   type HourlyForecast,
   type BestWindow,
 } from "@/lib/utils/bands";
-import { useActiveMode } from "@/hooks/useActiveBandMode";
 import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { gridToLatLon } from "@/lib/utils/grid";
@@ -45,6 +45,8 @@ import type { ResearchSubjectBinding } from "@/lib/propagation/modelClient";
 type ForecastStatus = "excellent" | "good" | "fair" | "poor" | "closed";
 
 interface MobileBandPlannerProps {
+  activeMode: UIMode;
+  onPlanningModeChange: (mode: UIMode) => void;
   station: UserStation;
   currentKp: number | null;
   currentFlux: number | null;
@@ -87,6 +89,8 @@ function getStatusLabel(status: ForecastStatus): string {
 // --- Component ---
 
 export function MobileBandPlanner({
+  activeMode,
+  onPlanningModeChange,
   station,
   currentKp,
   currentFlux,
@@ -114,7 +118,6 @@ export function MobileBandPlanner({
   // Expanded band card
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
 
-  const activeMode = useActiveMode();
   const forecastStation = useForecastStationParams(
     station.lat,
     station.lon,
@@ -206,6 +209,7 @@ export function MobileBandPlanner({
   return (
     <div className="min-h-screen">
       <SolarHandoffNotice handoff={solarHandoff} />
+      {solarHandoff && <SolarPlanningModeControl mode={activeMode} onChange={onPlanningModeChange} />}
       <div className="px-4 pt-4 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

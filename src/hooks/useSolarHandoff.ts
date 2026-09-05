@@ -1,6 +1,6 @@
 import { useMapStore } from "@/stores/mapStore";
 import { useOperatingStore } from "@/stores/operatingStore";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { parseSolarHandoff } from "@/lib/solar/handoff";
 
@@ -10,14 +10,17 @@ export function useSolarHandoff() {
   return useMemo(() => parseSolarHandoff(state?.solarHandoff), [state]);
 }
 
-/** Initialize the shared planner mode once; later operator changes remain authoritative. */
-export function useInitializeSolarMode(handoff: ReturnType<typeof parseSolarHandoff>) {
-  const applied = useRef<unknown>(null);
+/** Keep planning intent local so telemetry and contest locks cannot discard it. */
+export function useSolarPlanningMode(handoff: ReturnType<typeof parseSolarHandoff>) {
+  const liveMode = useOperatingStore((state) => state.activeMode);
+  const [mode, setMode] = useState(handoff?.mode ?? liveMode);
+  const previousLiveMode = useRef(liveMode);
   useEffect(() => {
-    if (!handoff || applied.current === handoff) return;
-    applied.current = handoff;
-    useOperatingStore.getState().setManualMode(handoff.mode);
-  }, [handoff]);
+    if (previousLiveMode.current === liveMode) return;
+    previousLiveMode.current = liveMode;
+    setMode(liveMode);
+  }, [liveMode]);
+  return { mode: handoff ? mode : liveMode, setMode };
 }
 
 

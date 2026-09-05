@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { DXNewsTicker } from "@/components/map/DXNewsTicker";
+import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useDXStore } from "@/stores/dxStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockPager } from "./HamClockPager";
@@ -19,10 +20,12 @@ function shouldIgnoreKey(event: KeyboardEvent): boolean {
 }
 
 /** Live feed health for the footer. Reads the spot store the cluster hook
- * already fills, so the footer never opens a second feed. */
+ * already fills, so the footer never opens a second feed. The model dot
+ * follows the band-verdict engine that drives the Best band hero. */
 function WallStatus() {
   const count = useDXStore((s) => s.spots.length);
   const source = useDXStore((s) => s.spotSource);
+  const modelReady = useBandVerdicts().ready;
   return (
     <div className="hc-status">
       <span>
@@ -30,8 +33,8 @@ function WallStatus() {
         CLUSTER {count} · {source === "bridge" ? "BRIDGE" : "REST"}
       </span>
       <span>
-        <i />
-        MODEL
+        <i className={modelReady ? "" : "hc-status-idle"} />
+        MODEL {modelReady ? "LIVE" : "WAITING"}
       </span>
     </div>
   );

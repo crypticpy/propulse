@@ -221,7 +221,7 @@ function isCurrentSpotTime(spottedAt: Date, nowMs: number): boolean {
   return age >= -FUTURE_TOLERANCE_MS && age <= MAX_SPOT_AGE_MS;
 }
 
-function isTerminalStatus(comments: string): boolean {
+export function isTerminalStatus(comments: string): boolean {
   return /\b(?:QRT|TEST|IGNORE)\b/i.test(comments);
 }
 

@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 16        | 3       | 35          | 0        | 54      |
-| **Grand Total**                         | **280**   | **10**  | **43**      | **1**    | **334** |
+| HamClock Wall (2026-09-05)              | 15        | 4       | 36          | 0        | 55      |
+| **Grand Total**                         | **279**   | **11**  | **44**      | **1**    | **335** |
 
-**Delivery rate: 84% delivered, 3% partial, 13% not started**
+**Delivery rate: 83% delivered, 3% partial, 13% not started**
 
 ---
 
@@ -617,9 +617,9 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 ## 13. HamClock Wall (2026-09-05)
 
-_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-54). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171._
+_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171._
 
-### Delivered (16)
+### Delivered (15)
 
 | ID    | Feature                                                      | Notes                                       |
 | ----- | ------------------------------------------------------------ | ------------------------------------------- |
@@ -633,22 +633,22 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-54).
 | HW-08 | Page taxonomy v1 (five pages)                                | PR #169, `wall/pages.ts`                    |
 | HW-09 | Report modal shell on `AccessibleDialog`                     | PR #170                                     |
 | HW-10 | Six reports wired to thirteen tiles                          | PR #170                                     |
-| HW-11 | Honest empty states and freshness in reports                 | PR #170                                     |
 | HW-12 | Classic and brass themes, picker, fonts on demand            | PR #171                                     |
 | HW-13 | Wall controls: map content, home region, Escape scoping      | PR #171                                     |
 | HW-14 | Kiosk scene HamClock pinning                                 | PR #171, `src/lib/kiosk/applySceneToMap.ts` |
 | HW-15 | Accessibility baseline: sr-only tables, focus return         | PR #170, #171                               |
 | HW-16 | Style guide for tiles, reports and settings                  | `docs/guides/hamclock-tile-system.md`       |
 
-### Partial (3)
+### Partial (4)
 
-| ID    | Feature                 | Gap                                                                                                 |
-| ----- | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| HW-17 | Forecast horizon        | 24 h from the two-day physics reliability forecast; FutureCast horizons not wired into the wall yet |
-| HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only                                                               |
-| HW-19 | SDR decodes tile        | Idle until a shared receiver exists                                                                 |
+| ID    | Feature                                      | Gap                                                                                                                                                        |
+| ----- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HW-17 | Forecast horizon                             | 24 h from the two-day physics reliability forecast; FutureCast horizons not wired into the wall yet                                                        |
+| HW-18 | Weather alerts coverage                      | Nationwide feed, mapped geometry only                                                                                                                      |
+| HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
+| HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
 
-### Not Started (35)
+### Not Started (36)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -687,6 +687,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-54).
 | HW-52 | Use presets: five shipped, user-saved                            | Spec section 7                                       |
 | HW-53 | No radio dependency: station tiles degrade to a neutral state    | Spec section 7                                       |
 | HW-54 | Both rails follow the page; de-duplicated shipped pages          | Owner: right rail locked                             |
+| HW-55 | Persist a tile provider id in `mapStore`                         | Esri / Mapbox and OSM / CARTO selectable; B6         |
 
 ---
 

@@ -27,7 +27,7 @@ BEST BAND NOW              ← title, small caps, dim
 - Do: `BestBandTile` (`src/components/map/hamclock/wall/tiles/BestBandTile.tsx`).
 - Don't: a label-left / value-right row list with mixed number formats (the retired `HamClockLocationConditions` layout).
 - A tile may replace the sub line with one small graphic (moon phase, sun arc, four-dot ladder). Never both.
-- The tile is one `<button>`; `onOpen` opens its report and `openLabel` names it. See `HamClockTile.tsx`.
+- The tile is a semantic `<section>`. When `onOpen` is set, a transparent full-bleed sibling `<button>` (`.hc-tile-open`) overlays it, so the heading stays outside the control and `openLabel` names the button. Further controls such as the config gear are sibling buttons positioned in the tile corner, never nested in the overlay. See `HamClockTile.tsx`.
 
 ## 2. Type scale
 
@@ -70,29 +70,32 @@ on the brass theme.
 
 ## 4. Theme token contract
 
-Every theme block in `src/styles/hamclock-themes.css` declares these and only
-these. A tile may consume any of them; a tile may not invent a new one without
-adding it to all three themes.
+Every theme block in `src/styles/hamclock-themes.css` declares every
+non-state token below, and only those. The three state triples are inherited
+from the shared palette and must not be redeclared per theme: classic and brass
+deliberately omit them so the colour-blind palettes keep composing. A tile may
+consume any token; a tile may not invent a new one without adding it to all
+three themes.
 
-| Token                            | Meaning                              |
-| -------------------------------- | ------------------------------------ |
-| `--hc-bg`                        | page background                      |
-| `--hc-panel`                     | opaque rail / dialog surface         |
-| `--hc-glass`                     | translucent rail surface (wall)      |
-| `--hc-blur`                      | backdrop blur radius for glass       |
-| `--hc-line`                      | hairline separators and borders      |
-| `--hc-fg`                        | primary text                         |
-| `--hc-dim`, `--hc-dim2`          | secondary and tertiary text          |
-| `--hc-accent-rgb`                | brand accent triple                  |
-| `--hc-info-rgb`                  | informational triple                 |
-| `--hc-good-rgb` / `warn` / `bad` | state triples (inherit from palette) |
-| `--hc-font-display`              | hero face                            |
-| `--hc-font-mono`                 | value face                           |
-| `--hc-font-body`                 | title and prose face                 |
-| `--hc-display-weight`            | hero weight                          |
-| `--hc-radius`                    | corner radius                        |
-| `--hc-glow`                      | 0 or 1, multiplies every glow        |
-| `--hc-state-bar`                 | thickness of the tile state bar      |
+| Token                            | Meaning                                    |
+| -------------------------------- | ------------------------------------------ |
+| `--hc-bg`                        | page background                            |
+| `--hc-panel`                     | opaque rail / dialog surface               |
+| `--hc-glass`                     | translucent rail surface (wall)            |
+| `--hc-blur`                      | backdrop blur radius for glass             |
+| `--hc-line`                      | hairline separators and borders            |
+| `--hc-fg`                        | primary text                               |
+| `--hc-dim`, `--hc-dim2`          | secondary and tertiary text                |
+| `--hc-accent-rgb`                | brand accent triple                        |
+| `--hc-info-rgb`                  | informational triple                       |
+| `--hc-good-rgb` / `warn` / `bad` | state triples: inherited, never redeclared |
+| `--hc-font-display`              | hero face                                  |
+| `--hc-font-mono`                 | value face                                 |
+| `--hc-font-body`                 | title and prose face                       |
+| `--hc-display-weight`            | hero weight                                |
+| `--hc-radius`                    | corner radius                              |
+| `--hc-glow`                      | 0 or 1, multiplies every glow              |
+| `--hc-state-bar`                 | thickness of the tile state bar            |
 
 Resolved colours (`--hc-accent`, `--hc-info`, `--hc-good`, `--hc-warn`,
 `--hc-bad`) are computed once from the triples and never redeclared per theme.
@@ -102,7 +105,7 @@ Resolved colours (`--hc-accent`, `--hc-info`, `--hc-good`, `--hc-warn`,
 ## 5. Spacing and hit targets
 
 - Rail gap `--hc-gap`, tile padding `--hc-pad`, both vh-based.
-- The whole tile is clickable. Minimum tile height is 44 px at desk scale, and buttons inside dialogs are at least 44 × 44 px.
+- The whole tile face is clickable through the overlay button. Minimum tile height is 44 px at desk scale, and buttons inside dialogs are at least 44 × 44 px.
 - No element inside a tile, rail or report scrolls. If content does not fit, the tile shows less and the report shows the rest.
 
 **Why:** small targets and nested scroll regions are the two things the wall's
@@ -173,12 +176,16 @@ buttons with one lit. Never a `<select>`.
 **Why:** a dropdown needs a precise click and hides the other choices; a
 segmented row is readable and clickable from the couch.
 
-**Verify before save.** A user-entered URL is fetched server-side through the
-edge proxy (`api/feeds/rss.ts`) and must return a parsed title before the ADD
-button enables. The browser never fetches the URL itself.
+**Verify before save.** A user-entered URL is verified through the existing
+`api/_lib/handlers/rssFeed.ts` handler and must return a parsed title before
+the ADD button enables. The browser never fetches the URL itself. The handler
+is an SSRF boundary: keep its scheme, port and hostname-class controls exactly
+as they are (it already accepts the residual case where a public DNS name
+resolves privately).
 
-**Why:** CORS, mixed content and private-network probes all disappear when the
-proxy is the only fetcher, and the user sees a real title before committing.
+**Why:** CORS and mixed content disappear when the proxy is the only fetcher,
+the SSRF gate stays in one place, and the user sees a real title before
+committing.
 
 **No scroll.** More than eight rows paginates by category tab. The dialog never
 grows past the report size limits.
@@ -213,7 +220,7 @@ and are validated through `schema` on read. Widgets that already own a store
 2. Add a `[data-hamclock-theme="<id>"]` block in `src/styles/hamclock-themes.css` declaring every token in section 4. Do not redeclare the state triples.
 3. If the theme uses a web font, add its stylesheet href to `HAMCLOCK_THEME_FONT_HREF` in `src/lib/hamclock/themeFonts.ts`.
 4. Add the miniature preview label in `HamClockThemePicker.tsx` and a test case.
-5. Check contrast: dim text on the glass surface must stay at or above 7:1 over the brightest basemap.
+5. Check contrast: dim text on the glass surface must stay at or above 6:1 over the brightest basemap (the verified minimum; brass `--hc-dim` over 90% glass on a white basemap is about 6.1:1, PR #171). Hero text targets 7:1. Raising the floor is a token change across all themes, not a per-tile fix.
 
 ## 13. What not to do
 

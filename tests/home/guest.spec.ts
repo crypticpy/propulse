@@ -4,7 +4,12 @@ test.skip(process.env.PROPULSE_E2E_GUEST !== "1", "Requires a build with disposa
 
 test("first visit and cached personal settings stay public without radio connections", async ({ page }, info) => {
   const sockets: string[] = [];
-  page.on("websocket", socket => sockets.push(socket.url()));
+  page.on("websocket", socket => {
+    const url = new URL(socket.url());
+    // The managed Vite server opens HMR on its own origin in dev-mode checks.
+    const viteHmr = url.host === new URL(info.project.use.baseURL!).host && url.pathname === "/" && url.searchParams.has("token");
+    if (!viteHmr) sockets.push(socket.url());
+  });
   await page.route(url => url.pathname.startsWith("/api/"), route => route.fulfill({ status: 503, json: { error: "Guest source unavailable fixture" } }));
   await page.route("https://home-guest.invalid/**", route => route.fulfill({ status: 503, json: {} }));
   await page.addInitScript(() => {

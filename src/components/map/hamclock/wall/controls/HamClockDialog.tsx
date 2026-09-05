@@ -1,6 +1,40 @@
-import type { ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+
+/**
+ * Lets a nested cancelable sub-view (the Map tab's style chooser, B6 PR #222
+ * fix #2) register a guard that runs before Escape closes the whole dialog.
+ * A context instead of a prop because the sub-view is several layers below
+ * `HamClockDialog` (through `HamClockTabs` and the tab's own content) with no
+ * prop path between them; only one guard is expected at a time since only
+ * one cancelable sub-view is ever open.
+ */
+const HamClockDialogEscapeGuardContext = createContext<
+  ((guard: (() => boolean) | null) => void) | null
+>(null);
+
+/**
+ * Registers `guard` to run before Escape closes the enclosing `HamClockDialog`.
+ * Returning `true` from `guard` cancels the sub-view instead (the caller is
+ * expected to do that itself) and skips the dialog close. Pass `null` while
+ * the sub-view is not open; the hook also clears the guard on unmount.
+ */
+export function useHamClockDialogEscapeGuard(guard: (() => boolean) | null) {
+  const setGuard = useContext(HamClockDialogEscapeGuardContext);
+  useEffect(() => {
+    if (!setGuard) return;
+    setGuard(guard);
+    return () => setGuard(null);
+  }, [setGuard, guard]);
+}
 
 export interface HamClockDialogProps {
   open: boolean;
@@ -38,11 +72,17 @@ export function HamClockDialog({
   children,
 }: HamClockDialogProps) {
   const theme = useHamClockDisplayStore((s) => s.theme);
+  const guardRef = useRef<(() => boolean) | null>(null);
+  const setGuard = useCallback((guard: (() => boolean) | null) => {
+    guardRef.current = guard;
+  }, []);
+  const handleEscape = useCallback(() => guardRef.current?.() ?? false, []);
 
   return (
     <AccessibleDialog
       open={open}
       onClose={onClose}
+      onEscape={handleEscape}
       title={title}
       description={purpose}
       chrome="bare"
@@ -54,33 +94,35 @@ export function HamClockDialog({
         "data-hamclock-theme": theme,
       }}
     >
-      <div className="hcc-dialog-head">
-        <div className="hcc-dialog-head-text">
-          {/* AccessibleDialog owns the accessible name in a hidden heading,
-              so the drawn title is decoration and must not be read twice. */}
-          <p className="hcc-dialog-title" aria-hidden="true">
-            {title}
-          </p>
-          {/* AccessibleDialog already wires `purpose` up as the dialog's
-              accessible description (aria-describedby); this is the same
-              text drawn visibly, so it must not be read a second time. */}
-          {purpose && (
-            <p className="hcc-dialog-purpose" aria-hidden="true">
-              {purpose}
+      <HamClockDialogEscapeGuardContext.Provider value={setGuard}>
+        <div className="hcc-dialog-head">
+          <div className="hcc-dialog-head-text">
+            {/* AccessibleDialog owns the accessible name in a hidden heading,
+                so the drawn title is decoration and must not be read twice. */}
+            <p className="hcc-dialog-title" aria-hidden="true">
+              {title}
             </p>
-          )}
+            {/* AccessibleDialog already wires `purpose` up as the dialog's
+                accessible description (aria-describedby); this is the same
+                text drawn visibly, so it must not be read a second time. */}
+            {purpose && (
+              <p className="hcc-dialog-purpose" aria-hidden="true">
+                {purpose}
+              </p>
+            )}
+          </div>
+          <button type="button" className="hcc-dialog-close" onClick={onClose}>
+            ESC · CLOSE
+          </button>
         </div>
-        <button type="button" className="hcc-dialog-close" onClick={onClose}>
-          ESC · CLOSE
-        </button>
-      </div>
-      <div className="hcc-dialog-body">{children}</div>
-      {(hint || actions) && (
-        <div className="hcc-dialog-foot">
-          <span className="hcc-dialog-hint">{hint}</span>
-          <div className="hcc-dialog-actions">{actions}</div>
-        </div>
-      )}
+        <div className="hcc-dialog-body">{children}</div>
+        {(hint || actions) && (
+          <div className="hcc-dialog-foot">
+            <span className="hcc-dialog-hint">{hint}</span>
+            <div className="hcc-dialog-actions">{actions}</div>
+          </div>
+        )}
+      </HamClockDialogEscapeGuardContext.Provider>
     </AccessibleDialog>
   );
 }

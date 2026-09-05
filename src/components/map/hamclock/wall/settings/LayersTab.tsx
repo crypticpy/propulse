@@ -1,7 +1,8 @@
-import { getLayerAvailability } from "@/lib/map/layerCapabilities";
 import {
   LAYER_CATEGORIES,
+  effectiveLayerCaveat,
   formatLayerProvenance,
+  isLayerToggleDisabled,
   layersInCategory,
   type LayerCategoryId,
 } from "@/lib/map/layerRegistry";
@@ -24,24 +25,18 @@ function LayerCategoryPanel({ category }: { category: LayerCategoryId }) {
 
   return (
     <div className="hcc-layers-grid">
-      {layersInCategory(category).map((entry) => {
-        const availability = getLayerAvailability(entry.key, viewMode);
-        const caveat = availability.available
-          ? entry.caveat
-          : availability.reason;
-        return (
-          <HamClockToggleRow
-            key={entry.key}
-            icon={<span className="hcc-layer-icon">{entry.icon}</span>}
-            label={entry.name}
-            detail={formatLayerProvenance(entry)}
-            caveat={caveat}
-            checked={layers[entry.key]}
-            disabled={!availability.available}
-            onChange={() => toggleLayer(entry.key)}
-          />
-        );
-      })}
+      {layersInCategory(category).map((entry) => (
+        <HamClockToggleRow
+          key={entry.key}
+          icon={<span className="hcc-layer-icon">{entry.icon}</span>}
+          label={entry.name}
+          detail={formatLayerProvenance(entry)}
+          caveat={effectiveLayerCaveat(entry.key, viewMode)}
+          checked={layers[entry.key]}
+          disabled={isLayerToggleDisabled(entry.key, viewMode)}
+          onChange={() => toggleLayer(entry.key)}
+        />
+      ))}
     </div>
   );
 }

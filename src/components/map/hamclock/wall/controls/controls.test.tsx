@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockButton } from "./HamClockButton";
-import { HamClockDialog } from "./HamClockDialog";
+import { HamClockDialog, useHamClockDialogEscapeGuard } from "./HamClockDialog";
 import { HamClockSegmented } from "./HamClockSegmented";
 import { HamClockTabs } from "./HamClockTabs";
 import { HamClockToggleRow } from "./HamClockToggleRow";
@@ -421,5 +421,52 @@ describe("HamClockDialog", () => {
     expect(document.querySelector(".hcc-dialog-foot")).not.toBeNull();
     expect(screen.getByText("SELECT to apply")).not.toBeNull();
     expect(screen.getByRole("button", { name: "SAVE" })).not.toBeNull();
+  });
+
+  it("lets a nested sub-view guard Escape via useHamClockDialogEscapeGuard, skipping the close (B6 PR #222 fix #2)", () => {
+    const onClose = vi.fn();
+    const cancelSubView = vi.fn(() => true);
+
+    function GuardingChild() {
+      useHamClockDialogEscapeGuard(cancelSubView);
+      return <p>Sub-view open</p>;
+    }
+
+    render(
+      <HamClockDialog open onClose={onClose} title="SETTINGS">
+        <GuardingChild />
+      </HamClockDialog>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(cancelSubView).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("closes normally once the guard is cleared (sub-view unmounted or passed null)", () => {
+    const onClose = vi.fn();
+
+    function GuardingChild({ active }: { active: boolean }) {
+      useHamClockDialogEscapeGuard(active ? () => true : null);
+      return <p>Sub-view</p>;
+    }
+
+    const { rerender } = render(
+      <HamClockDialog open onClose={onClose} title="SETTINGS">
+        <GuardingChild active={false} />
+      </HamClockDialog>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <HamClockDialog open onClose={onClose} title="SETTINGS">
+        <GuardingChild active />
+      </HamClockDialog>,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

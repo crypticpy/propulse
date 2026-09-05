@@ -55,6 +55,22 @@ describe("LAYER_REGISTRY", () => {
       "Local solar-position astronomy · Real-time · Global",
     );
   });
+
+  it("every blocked entry has a non-empty blockedReason (B6 fix #4)", () => {
+    for (const entry of Object.values(LAYER_REGISTRY)) {
+      if (entry.availability === "blocked") {
+        expect(entry.blockedReason?.length ?? 0).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("blocks exactly the sources the audit marks Blocked — WSPR, lightning, TEC", () => {
+    const blockedKeys = Object.values(LAYER_REGISTRY)
+      .filter((entry) => entry.availability === "blocked")
+      .map((entry) => entry.key)
+      .sort();
+    expect(blockedKeys).toEqual(["lightning", "tec", "wspr"]);
+  });
 });
 
 describe("effectiveLayerCaveat", () => {

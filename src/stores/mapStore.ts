@@ -891,12 +891,22 @@ function loadTileProviderId(): TileProviderId | null {
   return null;
 }
 
-function saveTileProviderId(id: TileProviderId) {
+/**
+ * Persist (or clear) the tile provider override. Shared by `setTileProviderId`
+ * and the HamClock exit-restore path (B6 fix #5) so both write the identical
+ * versioned envelope — or clear it — instead of the exit path reimplementing
+ * the null-vs-concrete branching inline.
+ */
+function persistTileProviderId(id: TileProviderId | null) {
   try {
-    localStorage.setItem(
-      TILE_PROVIDER_LS_KEY,
-      JSON.stringify({ version: TILE_PROVIDER_SCHEMA_VERSION, id }),
-    );
+    if (id) {
+      localStorage.setItem(
+        TILE_PROVIDER_LS_KEY,
+        JSON.stringify({ version: TILE_PROVIDER_SCHEMA_VERSION, id }),
+      );
+    } else {
+      localStorage.removeItem(TILE_PROVIDER_LS_KEY);
+    }
   } catch {
     /* ignore */
   }
@@ -1561,18 +1571,10 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   setTileProviderId: (tileProviderId) =>
     set(() => {
-      if (tileProviderId) {
-        saveTileProviderId(tileProviderId);
-      } else {
-        // `null` means "no explicit choice" — clear the stored override so a
-        // future load derives fresh from `mapStyle` and tier again, instead
-        // of persisting a concrete id that would misrepresent it as chosen.
-        try {
-          localStorage.removeItem(TILE_PROVIDER_LS_KEY);
-        } catch {
-          /* ignore */
-        }
-      }
+      // `null` means "no explicit choice" — clearing the stored override lets
+      // a future load derive fresh from `mapStyle` and tier again, instead of
+      // persisting a concrete id that would misrepresent it as chosen.
+      persistTileProviderId(tileProviderId);
       return { tileProviderId };
     }),
 
@@ -1796,6 +1798,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         layoutMode: priorLayout,
         viewMode: state.viewMode,
         mapStyle: state.mapStyle,
+        tileProviderId: state.tileProviderId,
         layers: { ...state.layers },
         spotFilters: { ...state.spotFilters },
         displayQuality: quality.displayQuality,
@@ -1850,6 +1853,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         const restoreLayout =
           layoutMode === "normal" ? snapshot.layoutMode : layoutMode;
         saveMapStyle(snapshot.mapStyle);
+        persistTileProviderId(snapshot.tileProviderId);
         saveSpotFilters(snapshot.spotFilters);
         quality.setDisplayQuality(snapshot.displayQuality);
         saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
@@ -1861,6 +1865,7 @@ export const useMapStore = create<MapState>((set, get) => ({
           ...(restoreLayout === "lite" && { isDXConsoleExpanded: false }),
           viewMode: snapshot.viewMode,
           mapStyle: snapshot.mapStyle,
+          tileProviderId: snapshot.tileProviderId,
           layers: snapshot.layers,
           spotFilters: snapshot.spotFilters,
           nightDarkness: snapshot.nightDarkness,

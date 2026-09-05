@@ -55,4 +55,18 @@ describe("LayersTab", () => {
     expect(toggle.disabled).toBe(true);
     expect(row.textContent).toMatch(/azimuthal/i);
   });
+
+  it("disables a blocked source's toggle even where the projection supports it, with blockedReason in the caveat slot (B6 fix #4)", () => {
+    render(<LayersTab />);
+
+    const activityTab = screen.getByRole("tab", { name: "Spots & Activity" });
+    fireEvent.click(activityTab);
+
+    const row = screen.getByText("WSPR Paths").closest(".hcc-row")!;
+    const toggle = row.querySelector('[role="switch"]') as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    expect(row.textContent).toMatch(
+      /disabled pending wspr\.live usage permission/i,
+    );
+  });
 });

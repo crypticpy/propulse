@@ -28,10 +28,18 @@ export interface LayerRegistryEntry {
   cadence: string;
   coverage: string;
   /** Evergreen caveat independent of the current projection — a data-source
-   * limitation, an estimate/model disclosure, or a permission block. The
-   * projection-specific reason (`getLayerAvailability`) is layered on top of
-   * this at render time, it does not replace it in the registry itself. */
+   * limitation or an estimate/model disclosure (not a permission block; see
+   * `availability`/`blockedReason` for that). The projection-specific reason
+   * (`getLayerAvailability`) is layered on top of this at render time, it
+   * does not replace it in the registry itself. */
   caveat?: string;
+  /** Whether the underlying source is authorized and operational, per
+   * `docs/PROP-SPHERE-LAYER-SOURCE-AUDIT.md`'s "Blocked" class. A blocked
+   * layer's toggle must stay disabled regardless of projection support. */
+  availability: "live" | "blocked";
+  /** Required when `availability` is "blocked" — the reason shown in the
+   * caveat slot in place of an evergreen `caveat`. */
+  blockedReason?: string;
 }
 
 export const LAYER_CATEGORIES: readonly LayerCategoryMeta[] = [
@@ -58,6 +66,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   // ---------- Illumination & Reference ----------
   terminator: {
     key: "terminator",
+    availability: "live",
     icon: "DN",
     name: "Day/Night Terminator",
     category: "illumination",
@@ -67,6 +76,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   greyline: {
     key: "greyline",
+    availability: "live",
     icon: "GL",
     name: "Greyline",
     category: "illumination",
@@ -76,6 +86,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   nightLights: {
     key: "nightLights",
+    availability: "live",
     icon: "NL",
     name: "Night Lights",
     category: "illumination",
@@ -86,6 +97,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   lunarSubpoint: {
     key: "lunarSubpoint",
+    availability: "live",
     icon: "MN",
     name: "Lunar Subpoint",
     category: "illumination",
@@ -95,6 +107,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   labels: {
     key: "labels",
+    availability: "live",
     icon: "LB",
     name: "Labels",
     category: "illumination",
@@ -106,6 +119,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   // ---------- Propagation ----------
   muf: {
     key: "muf",
+    availability: "live",
     icon: "MU",
     name: "MUF Heatmap",
     category: "propagation",
@@ -116,6 +130,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   aurora: {
     key: "aurora",
+    availability: "live",
     icon: "AU",
     name: "Aurora Oval",
     category: "propagation",
@@ -125,6 +140,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   ionosphere: {
     key: "ionosphere",
+    availability: "live",
     icon: "IO",
     name: "Ionosphere Shells",
     category: "propagation",
@@ -135,6 +151,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   rayPath: {
     key: "rayPath",
+    availability: "live",
     icon: "RP",
     name: "Ray Path",
     category: "propagation",
@@ -145,6 +162,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   nvis: {
     key: "nvis",
+    availability: "live",
     icon: "NV",
     name: "NVIS Coverage",
     category: "propagation",
@@ -156,6 +174,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   // ---------- HF Conditions ----------
   sporadicE: {
     key: "sporadicE",
+    availability: "live",
     icon: "ES",
     name: "Sporadic E",
     category: "hfConditions",
@@ -166,6 +185,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   drap: {
     key: "drap",
+    availability: "live",
     icon: "DR",
     name: "D-RAP Absorption",
     category: "hfConditions",
@@ -175,6 +195,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   ducting: {
     key: "ducting",
+    availability: "live",
     icon: "DC",
     name: "Ducting Climatology",
     category: "hfConditions",
@@ -185,6 +206,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   noiseFloor: {
     key: "noiseFloor",
+    availability: "live",
     icon: "NF",
     name: "HF Noise Floor",
     category: "hfConditions",
@@ -195,6 +217,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   geomagField: {
     key: "geomagField",
+    availability: "live",
     icon: "GF",
     name: "Geomagnetic Field",
     category: "hfConditions",
@@ -207,6 +230,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   // ---------- Spots & Activity ----------
   spots: {
     key: "spots",
+    availability: "live",
     icon: "SP",
     name: "Live Spots",
     category: "activity",
@@ -216,6 +240,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   activations: {
     key: "activations",
+    availability: "live",
     icon: "AC",
     name: "Activations",
     category: "activity",
@@ -225,6 +250,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   spotTraces: {
     key: "spotTraces",
+    availability: "live",
     icon: "ST",
     name: "Spot Traces",
     category: "activity",
@@ -234,6 +260,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   ft8Spotter: {
     key: "ft8Spotter",
+    availability: "live",
     icon: "F8",
     name: "FT8 Spotter",
     category: "activity",
@@ -243,6 +270,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   gridActivity: {
     key: "gridActivity",
+    availability: "live",
     icon: "GA",
     name: "Grid Activity",
     category: "activity",
@@ -252,16 +280,18 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   wspr: {
     key: "wspr",
+    availability: "blocked",
+    blockedReason: "Disabled pending WSPR.live usage permission",
     icon: "WS",
     name: "WSPR Paths",
     category: "activity",
     source: "WSPR.live",
     cadence: "2 min",
     coverage: "Global",
-    caveat: "Disabled pending WSPR.live usage permission",
   },
   aprs: {
     key: "aprs",
+    availability: "live",
     icon: "AP",
     name: "APRS Stations",
     category: "activity",
@@ -273,6 +303,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   // ---------- Signals & Satellites ----------
   satellites: {
     key: "satellites",
+    availability: "live",
     icon: "SA",
     name: "Satellites",
     category: "signals",
@@ -282,6 +313,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   issTracker: {
     key: "issTracker",
+    availability: "live",
     icon: "IS",
     name: "ISS Tracker",
     category: "signals",
@@ -291,6 +323,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   satelliteFootprints: {
     key: "satelliteFootprints",
+    availability: "live",
     icon: "SF",
     name: "Sat Footprints",
     category: "signals",
@@ -300,6 +333,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   beacons: {
     key: "beacons",
+    availability: "live",
     icon: "BC",
     name: "Beacon Network",
     category: "signals",
@@ -309,6 +343,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   spectrumRing: {
     key: "spectrumRing",
+    availability: "live",
     icon: "BW",
     name: "Band Activity Waterfall",
     category: "signals",
@@ -318,6 +353,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   timeStations: {
     key: "timeStations",
+    availability: "live",
     icon: "TS",
     name: "Time Stations",
     category: "signals",
@@ -327,6 +363,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   meteorShowers: {
     key: "meteorShowers",
+    availability: "live",
     icon: "MS",
     name: "Meteor Showers",
     category: "signals",
@@ -337,6 +374,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   repeaters: {
     key: "repeaters",
+    availability: "live",
     icon: "RT",
     name: "Repeaters",
     category: "signals",
@@ -348,6 +386,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   // ---------- Weather & Hazards ----------
   earthquakes: {
     key: "earthquakes",
+    availability: "live",
     icon: "EQ",
     name: "Earthquakes",
     category: "weather",
@@ -357,6 +396,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   weather: {
     key: "weather",
+    availability: "live",
     icon: "WX",
     name: "Weather Alerts",
     category: "weather",
@@ -366,16 +406,18 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   lightning: {
     key: "lightning",
+    availability: "blocked",
+    blockedReason: "Disabled — no authorized lightning data source",
     icon: "LT",
     name: "Lightning",
     category: "weather",
     source: "Blitzortung / LightningMaps",
     cadence: "1 min",
     coverage: "Global",
-    caveat: "Disabled — no authorized lightning data source",
   },
   fires: {
     key: "fires",
+    availability: "live",
     icon: "FR",
     name: "Active Fires",
     category: "weather",
@@ -385,6 +427,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   radar: {
     key: "radar",
+    availability: "live",
     icon: "RD",
     name: "Weather Radar",
     category: "weather",
@@ -395,6 +438,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   tropical: {
     key: "tropical",
+    availability: "live",
     icon: "TC",
     name: "Tropical Cyclones",
     category: "weather",
@@ -404,6 +448,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   riverGauges: {
     key: "riverGauges",
+    availability: "live",
     icon: "RG",
     name: "River Gauges",
     category: "weather",
@@ -415,6 +460,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   // ---------- Atmosphere & Log ----------
   goesCloud: {
     key: "goesCloud",
+    availability: "live",
     icon: "GC",
     name: "GOES-East Cloud",
     category: "atmosphere",
@@ -425,16 +471,18 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   tec: {
     key: "tec",
+    availability: "blocked",
+    blockedReason: "Disabled — pipeline retired pending replacement",
     icon: "TE",
     name: "Ionospheric TEC",
     category: "atmosphere",
     source: "NOAA experimental TEC pipeline",
     cadence: "15 min intended",
     coverage: "Global",
-    caveat: "Disabled — pipeline retired pending replacement",
   },
   sst: {
     key: "sst",
+    availability: "live",
     icon: "SST",
     name: "Sea Surface Temperature",
     category: "atmosphere",
@@ -445,6 +493,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   contestQsos: {
     key: "contestQsos",
+    availability: "live",
     icon: "CQ",
     name: "Contest QSOs",
     category: "atmosphere",
@@ -454,6 +503,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   loggedQsos: {
     key: "loggedQsos",
+    availability: "live",
     icon: "LQ",
     name: "Logged QSOs",
     category: "atmosphere",
@@ -490,5 +540,32 @@ export function effectiveLayerCaveat(
 ): string | undefined {
   const availability = getLayerAvailability(key, viewMode);
   if (!availability.available) return availability.reason;
-  return LAYER_REGISTRY[key].caveat;
+  const entry = LAYER_REGISTRY[key];
+  if (entry.availability === "blocked") return entry.blockedReason;
+  return entry.caveat;
+}
+
+/**
+ * The registry's own caveat text, independent of projection or viewMode —
+ * the blocked reason when the source is blocked, otherwise the evergreen
+ * caveat. Used by static reference surfaces (the PropSphere help table) that
+ * have no current viewMode to weigh against `getLayerAvailability`.
+ */
+export function registryCaveat(entry: LayerRegistryEntry): string | undefined {
+  return entry.availability === "blocked" ? entry.blockedReason : entry.caveat;
+}
+
+/**
+ * Whether a layer's toggle should be disabled: the current projection cannot
+ * render it, or its source is blocked (B6 fix #4) — either reason is
+ * surfaced through `effectiveLayerCaveat`, not just this boolean.
+ */
+export function isLayerToggleDisabled(
+  key: PropSphereLayerKey,
+  viewMode: PropSphereViewMode,
+): boolean {
+  return (
+    !getLayerAvailability(key, viewMode).available ||
+    LAYER_REGISTRY[key].availability === "blocked"
+  );
 }

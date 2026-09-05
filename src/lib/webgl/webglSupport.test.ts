@@ -62,9 +62,12 @@ describe("probeWebGLSupport", () => {
     expect(isWebGLSupported()).toBe(true);
   });
 
-  it("falls back to webgl when webgl2 is unavailable", () => {
+  it("reports no-context when only WebGL 1 is available", () => {
     const context = { getExtension: () => null };
     stubCreateElement((contextId) => (contextId === "webgl" ? context : null));
-    expect(probeWebGLSupport()).toEqual({ supported: true, reason: null });
+    expect(probeWebGLSupport()).toEqual({
+      supported: false,
+      reason: "no-context",
+    });
   });
 });

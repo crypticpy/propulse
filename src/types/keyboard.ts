@@ -73,7 +73,7 @@ export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
   {
     key: "s",
     action: "togglePathMode",
-    description: "Toggle short/long path",
+    description: "Cycle short / long / both path",
     category: "navigation",
   },
 

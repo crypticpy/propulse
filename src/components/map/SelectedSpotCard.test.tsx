@@ -80,6 +80,11 @@ const spot: LiveSpot = {
 describe("SelectedSpotCard", () => {
   beforeEach(() => {
     selectMapSpot.mockReset();
+    selectMapSpot.mockReturnValue({
+      spot,
+      target: { lat: spot.dxLat, lon: spot.dxLon },
+      locationSource: "coordinates",
+    });
     navigate.mockReset();
     useMapOperationalStore.setState({
       manualScope: null,
@@ -150,6 +155,27 @@ describe("SelectedSpotCard", () => {
     expect(onMapClick).not.toHaveBeenCalled();
     expect(useMapStore.getState().isolateTargetPath).toBe(true);
     expect(useMapStore.getState().pathMode).toBe("both");
+  });
+
+  it("does not isolate or notify onViewPath when the spot can't be resolved to a target", async () => {
+    selectMapSpot.mockReturnValue(null);
+    const user = userEvent.setup();
+    const onViewPath = vi.fn();
+
+    render(
+      <SelectedSpotCard
+        spot={spot}
+        position={{ x: 400, y: 300 }}
+        onViewPath={onViewPath}
+        onOperator={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "View path" }));
+
+    expect(onViewPath).not.toHaveBeenCalled();
+    expect(useMapStore.getState().isolateTargetPath).toBe(false);
   });
 
   it("shows an explicit unavailable reason and renders nothing without a spot", () => {

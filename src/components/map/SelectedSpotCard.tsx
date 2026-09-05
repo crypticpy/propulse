@@ -207,7 +207,8 @@ export function SelectedSpotCard({
 
   const handleViewPath = useCallback(() => {
     if (!spot) return;
-    selectMapSpot(spot);
+    const selection = selectMapSpot(spot);
+    if (!selection) return;
     setIsolateTargetPath(true);
     onViewPath?.();
   }, [onViewPath, selectMapSpot, setIsolateTargetPath, spot]);

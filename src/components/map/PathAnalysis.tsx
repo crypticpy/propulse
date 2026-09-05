@@ -315,7 +315,6 @@ export function PathAnalysis({
   const setPathMode = useMapStore((s) => s.setPathMode);
   const isolateTargetPath = useMapStore((s) => s.isolateTargetPath);
   const toggleIsolateTargetPath = useMapStore((s) => s.toggleIsolateTargetPath);
-  const rayPathEnabled = useMapStore((s) => s.layers.rayPath);
   const toggleLayer = useMapStore((s) => s.toggleLayer);
   const recentTargets = useMapStore((s) => s.recentTargets);
   const setTarget = useMapStore((s) => s.setTarget);
@@ -323,8 +322,7 @@ export function PathAnalysis({
   const { pushAction } = useUndoStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const pathPresentation = useTargetPathPresentation(displayTime);
-  const bouncesActive =
-    rayPathEnabled || pathPresentation.isolateTargetPath;
+  const bouncesActive = pathPresentation.showRayPath;
   const activeLeg = pathMode === "long" ? "long" : "short";
   const activeRadio = useActiveRadio();
   const preferTested = usePreferTestedSpecs();

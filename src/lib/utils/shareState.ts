@@ -104,7 +104,7 @@ function encodeCoord(coord: number): string {
  * - v: view mode (g/f/a)
  * - t: time offset (-24 to +24)
  * - l: layer flags (0-255)
- * - p: path mode (s/l)
+ * - p: path mode (s/l/b, omitted defaults to s)
  * - lat: target latitude
  * - lon: target longitude
  * - n: target name (optional)

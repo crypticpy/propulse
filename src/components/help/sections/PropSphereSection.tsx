@@ -860,7 +860,7 @@ export function PropSphereSection() {
                 { key: "2", action: "Switch to Flat Map view" },
                 { key: "3", action: "Switch to Azimuthal view" },
                 { key: "L", action: "Toggle Lite mode" },
-                { key: "T", action: "Toggle short/long path display" },
+                { key: "T", action: "Cycle short / long / both path display" },
                 { key: "B", action: "Cycle band filter" },
                 { key: "R", action: "Research grid (requires target)" },
                 { key: "P", action: "Add pin (requires target)" },

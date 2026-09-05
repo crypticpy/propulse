@@ -1,9 +1,9 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
-import { useDXCluster } from "@/hooks/useDXCluster";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { getBandColor } from "@/lib/utils/spotColors";
+import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { HamClockTile } from "../HamClockTile";
@@ -41,8 +41,14 @@ function spotDetail(spot: DXSpot): string {
   return comment ? comment : `de ${spot.spotter}`;
 }
 
+/**
+ * Reads the DX store the map stage's `useDXCluster` already fills. The tile
+ * can be mounted on both rails at once, and each `useDXCluster` call owns its
+ * own bridge socket and history, so the tile must never open a feed itself.
+ */
 export function ClusterTile() {
-  const { allSpots, source } = useDXCluster();
+  const allSpots = useDXStore((s) => s.spots);
+  const source = useDXStore((s) => s.spotSource);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const now = useUTCClock(10_000);
   const [reportOpen, setReportOpen] = useState(false);

@@ -1,7 +1,7 @@
 # Home elevation plan
 
 Date: 2026-09-05.
-Status: implementation delivered in the Home worktree; release verification in progress.
+Status: implementation complete; review, deployment, and live verification are tracked in [PR #162](https://github.com/crypticpy/propulse/pull/162).
 Scope: Home (`/`) on desktop and mobile, plus focused handoffs to existing operating tools.
 
 ## Outcome

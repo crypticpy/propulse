@@ -42,6 +42,16 @@ const SIDE_OPTIONS: { value: HamClockRailSide; label: string }[] = [
   { value: "right", label: "RIGHT RAIL" },
 ];
 
+/** Nothing in a wall dialog scrolls (owner rule): at 1366×768 the preset
+ * cards, both segmented pickers, all 8 tile rows, the pager and the
+ * reset/save row together exceed the 80vh dialog, so this tab is two
+ * sub-pages behind one segmented control instead of one long panel. */
+type PagesTilesSubPage = "presets" | "tiles";
+const SUBPAGE_OPTIONS: { value: PagesTilesSubPage; label: string }[] = [
+  { value: "presets", label: "PRESETS" },
+  { value: "tiles", label: "TILES" },
+];
+
 function otherSideOf(side: HamClockRailSide): HamClockRailSide {
   return side === "left" ? "right" : "left";
 }
@@ -134,17 +144,23 @@ function TileOptionsGear({ id }: { id: TileId }) {
  * `autoPage` immediately. The suggested theme is never applied with it — a
  * `WallPreset` carries one, but switching it is a separate confirm the
  * parent renders (`ThemeOfferBanner`) so a preset never silently changes the
- * look an operator already chose.
+ * look an operator already chose. Every selection — a shipped preset or one
+ * of the operator's own saved ones below it — replaces (or clears) the
+ * offer rather than only ever adding one, so choosing a preset that matches
+ * the active theme after choosing one that didn't never leaves a stale
+ * banner pointing at the earlier suggestion (bot review after PR #234).
  */
 function PresetCards({
   onThemeOffer,
 }: {
-  onThemeOffer: (preset: WallPreset) => void;
+  onThemeOffer: (preset: WallPreset | null) => void;
 }) {
   const applyLayoutPreset = useHamClockDisplayStore(
     (s) => s.applyLayoutPreset,
   );
   const theme = useHamClockDisplayStore((s) => s.theme);
+  const savedPresets = useHamClockDisplayStore((s) => s.presets);
+  const deletePreset = useHamClockDisplayStore((s) => s.deletePreset);
 
   return (
     <div className="hcc-presets">
@@ -162,11 +178,49 @@ function PresetCards({
             <HamClockButton
               onClick={() => {
                 applyLayoutPreset(preset.layout, preset.autoPage);
-                if (preset.theme !== theme) onThemeOffer(preset);
+                onThemeOffer(preset.theme !== theme ? preset : null);
               }}
             >
               USE THIS PRESET
             </HamClockButton>
+          </div>
+        );
+      })}
+      {savedPresets.map((preset) => {
+        const pageCount = railLayoutPageIds(preset.layout).length;
+        return (
+          <div className="hcc-preset-card" key={preset.id}>
+            <p className="hcc-preset-card-name">
+              {preset.name.toUpperCase()}
+              <span className="hcc-preset-card-tag">SAVED</span>
+            </p>
+            <p className="hcc-preset-card-note">
+              {pageCount} page{pageCount === 1 ? "" : "s"} ·{" "}
+              {preset.autoPage.enabled
+                ? `auto-page ${preset.autoPage.dwellSeconds}s`
+                : "no auto-page"}
+            </p>
+            <div className="hcc-preset-card-actions">
+              <HamClockButton
+                onClick={() => {
+                  applyLayoutPreset(preset.layout, preset.autoPage);
+                  // A saved preset carries no suggested theme (unlike a
+                  // shipped WallPreset), so choosing one always clears any
+                  // offer a shipped preset left behind rather than leaving
+                  // it pointing at a theme this choice did not suggest.
+                  onThemeOffer(null);
+                }}
+              >
+                USE THIS PRESET
+              </HamClockButton>
+              <HamClockButton
+                variant="danger"
+                aria-label={`Remove ${preset.name}`}
+                onClick={() => deletePreset(preset.id)}
+              >
+                REMOVE
+              </HamClockButton>
+            </div>
           </div>
         );
       })}
@@ -418,34 +472,51 @@ function ResetAndSaveRow() {
 }
 
 /**
- * Pages & Tiles: presets first (large one-shot cards, §7), then the
- * page/rail picker an operator uses to hand-tune the composition the preset
- * left them with (§6). `HAMCLOCK_WALL_PAGES` still names the five page slots
- * — this batch does not let an operator add or remove a page, only edit what
- * each one shows.
+ * Pages & Tiles: two sub-pages behind a segmented control instead of one long
+ * panel (bot review after PR #234) — at 1366×768 the preset cards, both
+ * segmented pickers, all 8 tile rows, the pager and the reset/save row
+ * together exceed the 80vh dialog, and nothing in a wall dialog scrolls.
+ * "PRESETS" carries the one-shot cards (§7) plus the theme offer and the
+ * reset/save row; "TILES" carries the page/rail picker an operator uses to
+ * hand-tune the composition the preset left them with (§6).
+ * `HAMCLOCK_WALL_PAGES` still names the five page slots — this batch does
+ * not let an operator add or remove a page, only edit what each one shows.
  */
 export function PagesTilesTab() {
+  const [subPage, setSubPage] = useState<PagesTilesSubPage>("presets");
   const [pageId, setPageId] = useState<string>(HAMCLOCK_WALL_PAGES[0].id);
   const [side, setSide] = useState<HamClockRailSide>("left");
   const [themeOffer, setThemeOffer] = useState<WallPreset | null>(null);
 
   return (
     <div className="hcc-tabgrid hcc-pages-tiles">
-      <PresetCards onThemeOffer={setThemeOffer} />
-      {themeOffer && (
-        <ThemeOfferBanner
-          preset={themeOffer}
-          onDismiss={() => setThemeOffer(null)}
+      <HamClockSegmented
+        label="Pages & Tiles section"
+        hideLabel
+        value={subPage}
+        onChange={setSubPage}
+        options={SUBPAGE_OPTIONS}
+      />
+      {subPage === "presets" ? (
+        <>
+          <PresetCards onThemeOffer={setThemeOffer} />
+          {themeOffer && (
+            <ThemeOfferBanner
+              preset={themeOffer}
+              onDismiss={() => setThemeOffer(null)}
+            />
+          )}
+          <ResetAndSaveRow />
+        </>
+      ) : (
+        <SlotEditor
+          key={`${pageId}-${side}`}
+          pageId={pageId}
+          side={side}
+          onPageChange={setPageId}
+          onSideChange={setSide}
         />
       )}
-      <SlotEditor
-        key={`${pageId}-${side}`}
-        pageId={pageId}
-        side={side}
-        onPageChange={setPageId}
-        onSideChange={setSide}
-      />
-      <ResetAndSaveRow />
     </div>
   );
 }

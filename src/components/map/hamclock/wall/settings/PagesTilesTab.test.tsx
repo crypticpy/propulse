@@ -7,6 +7,14 @@ import { WALL_PRESETS } from "../presets";
 import { WALL_TILES } from "../tiles";
 import { PagesTilesTab } from "./PagesTilesTab";
 
+/** SlotEditor now lives on its own "TILES" sub-page (bot review after PR
+ * #234 — the flat single-panel tab overflowed the 80vh dialog at 1366×768).
+ * Tests that interact with the page/rail picker or the tile toggle list
+ * must switch there first. */
+function goToTilesSubPage() {
+  fireEvent.click(screen.getByRole("radio", { name: "TILES" }));
+}
+
 describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
   beforeEach(() => {
     localStorage.removeItem("propulse-hamclock-widget-config");
@@ -79,6 +87,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("shows a page and rail picker with all five shipped pages", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     for (const page of HAMCLOCK_WALL_PAGES) {
       expect(screen.getByText(page.title.toUpperCase())).toBeTruthy();
     }
@@ -88,6 +97,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("shows the used/limit count for the selected page and rail", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     // Default page is "spots", default rail is "left"; the shipped
     // composition places 3 tiles there at wall density (limit 4).
     expect(screen.getByText("3 of 4 used")).toBeTruthy();
@@ -95,6 +105,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("toggles a tile on and off, updating railLayout for the selected page and rail", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     const row = screen.getByText(WALL_TILES.xray.title).closest(".hcc-row")!;
     const toggle = row.querySelector('[role="switch"]') as HTMLButtonElement;
     expect(toggle.textContent).toBe("OFF");
@@ -116,6 +127,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("disables and labels a tile already on this page's other rail", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     // The shipped "spots" page places bestBand on the right rail; the left
     // picker (default selection) must refuse to add it too.
     const row = screen
@@ -129,6 +141,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("reorders placed tiles with the up/down buttons", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     // Shipped left/spots order: cluster, bandActivity, recentContacts.
     const clusterRow = screen
       .getByText(WALL_TILES.cluster.title)
@@ -146,6 +159,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("disables adding another tile once the rail's slot limit is reached", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     // Shipped left/spots already has 3 of 4; add one more to hit the limit.
     const xrayRow = screen.getByText(WALL_TILES.xray.title).closest(".hcc-row")!;
     fireEvent.click(xrayRow.querySelector('[role="switch"]')!);
@@ -192,6 +206,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("shows an OPTIONS gear only on tiles that carry a config, and opens that tile's panel", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     // recentContacts is the reference registration (B5); page to where it
     // sits in the picker's tile list (18 tiles, 8 per page -> page 3).
     fireEvent.click(screen.getByRole("button", { name: "NEXT" }));
@@ -207,6 +222,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
   it("pages through the tile list with PREV/NEXT", () => {
     render(<PagesTilesTab />);
+    goToTilesSubPage();
     expect(screen.getByText("1 / 3")).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "PREV" }) as HTMLButtonElement)
@@ -215,5 +231,83 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "NEXT" }));
     expect(screen.getByText("2 / 3")).toBeTruthy();
+  });
+
+  it("renders saved presets as SAVED-tagged cards and applies their layout/autoPage when selected", () => {
+    useHamClockDisplayStore.getState().setRailLayout({
+      left: [{ pageId: "spots", tileIds: ["xray"] }],
+      right: [],
+    });
+    useHamClockDisplayStore
+      .getState()
+      .setAutoPage({ enabled: false, dwellSeconds: 15 });
+    const saved = useHamClockDisplayStore.getState().savePreset("My Wall");
+    // Put the store back on the shipped layout/autoPage so the assertions
+    // below can only pass if selecting the card actually re-applies them.
+    useHamClockDisplayStore.getState().resetRailLayout();
+    useHamClockDisplayStore
+      .getState()
+      .setAutoPage({ enabled: true, dwellSeconds: 30 });
+
+    render(<PagesTilesTab />);
+    const card = screen.getByText("MY WALL").closest(".hcc-preset-card")!;
+    expect(card.querySelector(".hcc-preset-card-tag")?.textContent).toBe(
+      "SAVED",
+    );
+
+    fireEvent.click(
+      Array.from(card.querySelectorAll("button")).find(
+        (b) => b.textContent === "USE THIS PRESET",
+      )!,
+    );
+    expect(useHamClockDisplayStore.getState().railLayout).toEqual(
+      saved.layout,
+    );
+    expect(useHamClockDisplayStore.getState().autoPage).toEqual(
+      saved.autoPage,
+    );
+  });
+
+  it("removes a saved preset when its REMOVE button is used", () => {
+    useHamClockDisplayStore.getState().savePreset("Temp Preset");
+    render(<PagesTilesTab />);
+    expect(screen.getByText("TEMP PRESET")).toBeTruthy();
+
+    const card = screen.getByText("TEMP PRESET").closest(".hcc-preset-card")!;
+    fireEvent.click(
+      Array.from(card.querySelectorAll("button")).find(
+        (b) => b.textContent === "REMOVE",
+      )!,
+    );
+    expect(useHamClockDisplayStore.getState().presets).toHaveLength(0);
+    expect(screen.queryByText("TEMP PRESET")).toBeNull();
+  });
+
+  it("clears a stale theme offer once a later preset selection matches the active theme", () => {
+    render(<PagesTilesTab />);
+    // Weather wall suggests "classic", which differs from the default
+    // "pulse" theme, so the offer appears without the operator choosing
+    // either option yet.
+    const weatherCard = screen
+      .getByText("WEATHER WALL")
+      .closest(".hcc-preset-card")!;
+    fireEvent.click(
+      Array.from(weatherCard.querySelectorAll("button")).find(
+        (b) => b.textContent === "USE THIS PRESET",
+      )!,
+    );
+    expect(screen.getByText(/suggests the CLASSIC theme/)).toBeTruthy();
+
+    // Radio suggests "pulse", which still matches the (untouched) active
+    // theme — this selection must clear the stale Classic offer rather than
+    // leaving it on screen pointing at a preset that is no longer selected.
+    const radioCard = screen.getByText("RADIO").closest(".hcc-preset-card")!;
+    fireEvent.click(
+      Array.from(radioCard.querySelectorAll("button")).find(
+        (b) => b.textContent === "USE THIS PRESET",
+      )!,
+    );
+    expect(screen.queryByText(/suggests the/)).toBeNull();
+    expect(useHamClockDisplayStore.getState().theme).toBe("pulse");
   });
 });

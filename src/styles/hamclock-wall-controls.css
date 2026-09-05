@@ -500,6 +500,23 @@
   letter-spacing: 0.04em;
   color: var(--hc-dim2);
 }
+.hcc-preset-card-tag {
+  margin-left: 0.6em;
+  padding: 0.1vh 0.5vw;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hcc-t-caption-sm);
+  letter-spacing: 0.1em;
+  color: var(--hc-accent);
+  background: rgb(var(--hc-accent-rgb) / 0.14);
+  border: 1px solid var(--hc-accent);
+  border-radius: calc(var(--hc-radius) * 0.5);
+  vertical-align: middle;
+}
+.hcc-preset-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6vh 0.8vw;
+}
 
 .hcc-theme-offer {
   display: flex;

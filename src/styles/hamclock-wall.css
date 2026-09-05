@@ -266,7 +266,7 @@
   gap: 0.7vw;
   align-items: center;
   padding: 0.62vh 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--hc-line);
   font-family: var(--hc-font-mono);
   font-size: var(--hc-t-body);
   flex: 0 0 auto;

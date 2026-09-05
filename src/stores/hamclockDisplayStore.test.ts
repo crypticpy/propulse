@@ -71,7 +71,7 @@ it("resets every persisted preference and preserves expansion independently acro
   expect(localStorage.getItem("propulse-hamclock-display")).toBeNull();
 });
 
-it("migrates a v1 session to wall density, pulse theme, auto units and page 0", async () => {
+it("migrates a v1 session to desk density, pulse theme, auto units and page 0", async () => {
   sessionStorage.setItem(
     "propulse-hamclock-display",
     JSON.stringify({

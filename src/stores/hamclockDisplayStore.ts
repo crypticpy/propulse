@@ -159,7 +159,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         if (version < 2) {
-          // Wall density, pulse theme, automatic units and page 0 per rail.
+          // Desk density, pulse theme, automatic units and page 0 per rail.
           state.density = defaults.density;
           state.theme = defaults.theme;
           state.units = defaults.units;

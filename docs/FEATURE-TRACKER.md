@@ -21,8 +21,8 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 15        | 4       | 36          | 0        | 55      |
-| **Grand Total**                         | **279**   | **11**  | **44**      | **1**    | **335** |
+| HamClock Wall (2026-09-05)              | 16        | 4       | 35          | 0        | 55      |
+| **Grand Total**                         | **280**   | **11**  | **43**      | **1**    | **335** |
 
 **Delivery rate: 83% delivered, 3% partial, 13% not started**
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
 
-### Delivered (15)
+### Delivered (16)
 
 | ID    | Feature                                                      | Notes                                       |
 | ----- | ------------------------------------------------------------ | ------------------------------------------- |
@@ -638,6 +638,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-14 | Kiosk scene HamClock pinning                                 | PR #171, `src/lib/kiosk/applySceneToMap.ts` |
 | HW-15 | Accessibility baseline: sr-only tables, focus return         | PR #170, #171                               |
 | HW-16 | Style guide for tiles, reports and settings                  | `docs/guides/hamclock-tile-system.md`       |
+| HW-32 | Lightning bolt glyph (2D and 3D)                             | PR #217, `src/lib/map/lightningGlyph.ts`    |
 
 ### Partial (4)
 
@@ -648,7 +649,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
 | HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
 
-### Not Started (36)
+### Not Started (35)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -664,7 +665,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-29 | Trend charts in reports; chart components read theme tokens      | Reuse solar chart components                         |
 | HW-30 | Report pin                                                       |                                                      |
 | HW-31 | Best Band Now ranked table report                                |                                                      |
-| HW-32 | Lightning bolt glyph (2D and 3D)                                 | Production bug: white bloom dots                     |
 | HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                     |
 | HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                     |
 | HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                       |

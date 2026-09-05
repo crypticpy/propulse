@@ -40,6 +40,11 @@ export const LIGHTNING_BOLT_PATH: readonly (readonly [number, number])[] = [
  * document's styles are attached. */
 const FALLBACK_WARN_RGB = "255 210 63";
 
+/** Fallback halo strength (matches the `var(--hc-glow, 0)` default already
+ * baked into `.hc-glow` in `hamclock-themes.css`) for contexts with no
+ * themed HamClock ancestor — no halo. */
+const FALLBACK_GLOW = 0;
+
 /** Square texture resolution for the 3D billboard (oversampled so the bolt
  * stays crisp at the ~18-24px on-screen size the globe renders it at). */
 const TEXTURE_SIZE = 64;
@@ -87,27 +92,65 @@ export const LIGHTNING_BASE_PIXEL_SIZE = 20;
  * `size` x `size` box anchored at the canvas origin. Pure canvas path code —
  * no globals, no caching — so it is the one piece of this module that is
  * directly unit testable.
+ *
+ * `glow` (0..1, default 0) is the halo strength from the `--hc-glow` token
+ * (spec §16: one subtle halo, on for the pulse theme, off for classic/brass).
+ * When positive, a soft shadow-blurred pass of the same silhouette is drawn
+ * first, then the solid bolt on top — never additive blending on the core
+ * glyph.
  */
 export function drawLightningBolt(
   ctx: CanvasRenderingContext2D,
   size: number,
   color: string,
+  glow = 0,
 ): void {
+  const tracePath = () => {
+    ctx.beginPath();
+    LIGHTNING_BOLT_PATH.forEach(([nx, ny], index) => {
+      const x = nx * size;
+      const y = ny * size;
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.closePath();
+  };
+
+  if (glow > 0) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = glow * size * 0.25;
+    tracePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
   ctx.save();
   ctx.fillStyle = color;
-  ctx.beginPath();
-  LIGHTNING_BOLT_PATH.forEach(([nx, ny], index) => {
-    const x = nx * size;
-    const y = ny * size;
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  });
-  ctx.closePath();
+  tracePath();
   ctx.fill();
   ctx.restore();
+}
+
+/**
+ * The element whose computed style carries the resolved `--hc-warn`/
+ * `--hc-glow` values for the active HamClock theme. In
+ * `hamclock-themes.css`, `classic`/`brass` overrides are scoped to
+ * `[data-hamclock-theme="classic"|"brass"]`, and `HamClockView.tsx` sets
+ * `data-hamclock-theme` on a div inside the view — never on
+ * `document.documentElement`. So `document.documentElement` only ever sees
+ * the `:root` (pulse) defaults; the first `[data-hamclock-theme]` element in
+ * DOM order is the HamClockView root (portalled report/swatch elements come
+ * later in document order, so `querySelector` still finds the real one
+ * first). Outside HamClock there is no such element, and `:root` correctly
+ * gives the pulse defaults for the fallback chain.
+ */
+function themedElement(): Element {
+  return document.querySelector("[data-hamclock-theme]") ?? document.documentElement;
 }
 
 /**
@@ -125,7 +168,7 @@ export function resolveLightningTone(): string {
     return `rgb(${FALLBACK_WARN_RGB})`;
   }
 
-  const root = getComputedStyle(document.documentElement);
+  const root = getComputedStyle(themedElement());
 
   const warn = root.getPropertyValue("--hc-warn").trim();
   if (warn && !warn.includes("var(")) {
@@ -141,12 +184,67 @@ export function resolveLightningTone(): string {
 }
 
 /**
- * Build (or reuse) an off-screen canvas with the bolt drawn at `size` in
- * `color`. Returns `null` when canvas 2D rendering isn't available — jsdom's
- * default `HTMLCanvasElement.getContext` returns `null` — so callers can
- * degrade gracefully instead of throwing in tests.
+ * Resolve the halo strength from the `--hc-glow` token at call time (spec
+ * §16): 1 on the pulse theme, 0 on classic/brass. Outside a themed HamClock
+ * ancestor — or in a non-DOM test environment — the token is unset, so this
+ * falls back to `FALLBACK_GLOW`, matching the `var(--hc-glow, 0)` default
+ * already baked into `.hc-glow` in `hamclock-themes.css`.
  */
-function buildGlyphCanvas(color: string, size: number): HTMLCanvasElement | null {
+export function resolveLightningGlow(): number {
+  if (typeof document === "undefined") {
+    return FALLBACK_GLOW;
+  }
+
+  const root = getComputedStyle(themedElement());
+  const raw = root.getPropertyValue("--hc-glow").trim();
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : FALLBACK_GLOW;
+}
+
+/**
+ * Watch for changes to the DOM attributes that can change the resolved
+ * lightning tone or glow: `data-color-blind` (set by `useColorBlindMode` on
+ * `document.documentElement`) and `data-hamclock-theme` (set by
+ * `HamClockView.tsx` on a div *inside* the view, not on `<html>`). Callers
+ * re-resolve `resolveLightningTone` / `resolveLightningGlow` and rebuild
+ * their texture/image inside `callback` — this only signals that something
+ * relevant changed.
+ *
+ * Observes with `subtree: true` (the theme attribute lives below `<html>`),
+ * so the filter is intentionally narrow — `class`/`style` are excluded
+ * because with `subtree: true` those would fire on every class/style change
+ * anywhere in the page, not just theme-relevant ones.
+ *
+ * Returns a disposer that stops observing. No-ops (returns a no-op disposer)
+ * when `MutationObserver` isn't available.
+ */
+export function observeLightningTone(callback: () => void): () => void {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") {
+    return () => {};
+  }
+
+  const observer = new MutationObserver(() => callback());
+  observer.observe(document.documentElement, {
+    attributes: true,
+    subtree: true,
+    attributeFilter: ["data-color-blind", "data-hamclock-theme"],
+  });
+
+  return () => observer.disconnect();
+}
+
+/**
+ * Build (or reuse) an off-screen canvas with the bolt drawn at `size` in
+ * `color` (and halo strength `glow`). Returns `null` when canvas 2D
+ * rendering isn't available — jsdom's default `HTMLCanvasElement.getContext`
+ * returns `null` — so callers can degrade gracefully instead of throwing in
+ * tests.
+ */
+function buildGlyphCanvas(
+  color: string,
+  size: number,
+  glow: number,
+): HTMLCanvasElement | null {
   if (typeof document === "undefined") return null;
 
   const canvas = document.createElement("canvas");
@@ -155,46 +253,74 @@ function buildGlyphCanvas(color: string, size: number): HTMLCanvasElement | null
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  drawLightningBolt(ctx, size, color);
+  drawLightningBolt(ctx, size, color, glow);
   return canvas;
 }
 
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
+function glyphCacheKey(color: string, glow: number): string {
+  return `${color}|${glow}`;
+}
+
 /**
- * Memoised per colour: the 3D billboard sprite texture for a given strike
- * tone. Built once per colour and reused for every instance/frame instead of
- * re-rasterising the glyph continuously.
+ * Memoised per `${color}|${glow}`: the 3D billboard sprite texture for a
+ * given strike tone and halo strength. Built once per combination and reused
+ * for every instance/frame instead of re-rasterising the glyph continuously.
  */
-export function getLightningGlyphTexture(color: string): THREE.CanvasTexture | null {
-  const cached = textureCache.get(color);
+export function getLightningGlyphTexture(
+  color: string,
+  glow = 0,
+): THREE.CanvasTexture | null {
+  const key = glyphCacheKey(color, glow);
+  const cached = textureCache.get(key);
   if (cached) return cached;
 
-  const canvas = buildGlyphCanvas(color, TEXTURE_SIZE);
+  const canvas = buildGlyphCanvas(color, TEXTURE_SIZE, glow);
   if (!canvas) return null;
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
-  textureCache.set(color, texture);
+  textureCache.set(key, texture);
   return texture;
+}
+
+/**
+ * Dispose and evict a cached texture for `${color}|${glow}` (if any). Callers
+ * use this when the resolved tone/glow changes — e.g. a colour-blind mode or
+ * theme switch — to free the GPU resource for the tone that's no longer in
+ * use rather than leaking one texture per tone ever seen.
+ */
+export function disposeLightningGlyphTexture(color: string, glow = 0): void {
+  const key = glyphCacheKey(color, glow);
+  const cached = textureCache.get(key);
+  if (!cached) return;
+  cached.dispose();
+  textureCache.delete(key);
 }
 
 const imageDataCache = new Map<string, ImageData>();
 
 /**
- * Memoised per colour: the same bolt glyph as raw `ImageData`, for maplibre's
- * `map.addImage` (a symbol layer icon rather than a three.js texture).
+ * Memoised per `${color}|${glow}`: the same bolt glyph as raw `ImageData`,
+ * for maplibre's `map.addImage`/`map.updateImage` (a symbol layer icon
+ * rather than a three.js texture).
  */
-export function getLightningGlyphImageData(color: string): ImageData | null {
-  const cached = imageDataCache.get(color);
+export function getLightningGlyphImageData(
+  color: string,
+  glow = 0,
+): ImageData | null {
+  const key = glyphCacheKey(color, glow);
+  const cached = imageDataCache.get(key);
   if (cached) return cached;
 
-  const canvas = buildGlyphCanvas(color, LIGHTNING_ICON_SIZE);
+  const canvas = buildGlyphCanvas(color, LIGHTNING_ICON_SIZE, glow);
   if (!canvas) return null;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
   const imageData = ctx.getImageData(0, 0, LIGHTNING_ICON_SIZE, LIGHTNING_ICON_SIZE);
-  imageDataCache.set(color, imageData);
+  imageDataCache.set(key, imageData);
   return imageData;
 }

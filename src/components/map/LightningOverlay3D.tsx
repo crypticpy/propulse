@@ -26,21 +26,25 @@
  *   brightness fades linearly toward LIGHTNING_FADED_BRIGHTNESS as it approaches the
  *   10-minute cutoff, where it is dropped entirely
  * - Strike size varies modestly by peak current (currentKA)
- * - Colour comes from the `--hc-warn` design token, resolved once per
- *   mount — never a hardcoded hex
+ * - Colour comes from the `--hc-warn` design token and halo strength from
+ *   `--hc-glow`, both re-resolved whenever colour-blind mode or the
+ *   HamClock theme changes — never a hardcoded hex
  *
  * The component is memoised on the `strikes` array reference to avoid
  * unnecessary React reconciliation; all per-frame work happens in useFrame.
  */
 
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { LightningStrike } from "@/lib/api/lightning";
 import { latLonTo3D } from "@/components/map/lib/globeCoords";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import {
+  disposeLightningGlyphTexture,
   getLightningGlyphTexture,
+  observeLightningTone,
+  resolveLightningGlow,
   resolveLightningTone,
   LIGHTNING_BASE_PIXEL_SIZE,
   LIGHTNING_FADED_BRIGHTNESS,
@@ -81,6 +85,13 @@ const tempColor = new THREE.Color();
  * out locally so they end up facing the camera in world space. */
 const parentWorldQuat = new THREE.Quaternion();
 const billboardQuat = new THREE.Quaternion();
+/** Scratch vectors for converting a strike's local position (this mesh lives
+ * inside the globe's tilt/spin group) into world space, then into the
+ * camera's local space to read perspective depth along its view axis —
+ * Euclidean distance-to-camera would be wrong here since the strike position
+ * starts out local, not world. */
+const tempWorldPos = new THREE.Vector3();
+const tempCameraLocalPos = new THREE.Vector3();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -114,10 +125,37 @@ export const LightningOverlay3D = React.memo(
     // Maps from visible strike index back to original strikes array index
     const cachedIndicesRef = useRef<Uint16Array | null>(null);
 
-    // Tone read once per mount from the --hc-warn token (falls back to the
-    // app's caution colour outside a themed HamClock ancestor).
-    const tone = useMemo(() => resolveLightningTone(), []);
-    const texture = useMemo(() => getLightningGlyphTexture(tone), [tone]);
+    // Tone/glow from the --hc-warn/--hc-glow tokens (falls back to the app's
+    // caution colour and no halo outside a themed HamClock ancestor).
+    // Re-resolved whenever `data-color-blind` or `data-hamclock-theme`
+    // changes on <html>, not just once per mount — colour-blind mode and
+    // theme switches must repaint the glyph, not just future spec panels.
+    const [tone, setTone] = useState(() => resolveLightningTone());
+    const [glow, setGlow] = useState(() => resolveLightningGlow());
+    const texture = useMemo(() => getLightningGlyphTexture(tone, glow), [tone, glow]);
+
+    // Dispose the previously cached texture once a tone/glow change has
+    // actually swapped the material's map to a new one, so switching themes
+    // repeatedly doesn't leak one GPU texture per tone ever seen.
+    const prevGlyphKeyRef = useRef(`${tone}|${glow}`);
+    useEffect(() => {
+      const key = `${tone}|${glow}`;
+      const prevKey = prevGlyphKeyRef.current;
+      if (prevKey !== key) {
+        const separatorIndex = prevKey.lastIndexOf("|");
+        const prevColor = prevKey.slice(0, separatorIndex);
+        const prevGlow = Number(prevKey.slice(separatorIndex + 1));
+        disposeLightningGlyphTexture(prevColor, prevGlow);
+        prevGlyphKeyRef.current = key;
+      }
+    }, [tone, glow]);
+
+    useEffect(() => {
+      return observeLightningTone(() => {
+        setTone(resolveLightningTone());
+        setGlow(resolveLightningGlow());
+      });
+    }, []);
 
     const recomputeCache = useCallback(
       (strikesArr: LightningStrike[], now: number) => {
@@ -184,6 +222,12 @@ export const LightningOverlay3D = React.memo(
       const cachedCount = cachedIndices.length;
       let count = 0;
 
+      // Ensure this mesh's matrixWorld reflects the current frame's parent
+      // (tilt/spin group) transform before using it below — mirrors the
+      // pattern in LiveSpotArcs for the same local-mesh-inside-a-rotated-
+      // group setup.
+      mesh.updateWorldMatrix(true, false);
+
       // Billboards must face the camera in world space, but this mesh's
       // transform is local to the globe's tilt/spin group — cancel that
       // group's world rotation out so the local quaternion resolves back to
@@ -243,8 +287,19 @@ export const LightningOverlay3D = React.memo(
         const pixelSize = LIGHTNING_BASE_PIXEL_SIZE * sizeFactor * pulseScale;
 
         dummy.position.set(x, y, z);
-        const distance = dummy.position.distanceTo(camera.position);
-        const worldScale = pixelSize * pixelToWorld * distance;
+
+        // `dummy.position` is local to this mesh (a child of the globe's
+        // tilt/spin group), so it must be converted to world space before
+        // any camera-space math. Perspective depth — not Euclidean
+        // distance-to-camera — is what determines on-screen size for a
+        // billboard, so measure it along the camera's own view axis: the
+        // world position expressed in the camera's local space has -z equal
+        // to the forward depth.
+        tempWorldPos.copy(dummy.position).applyMatrix4(mesh.matrixWorld);
+        tempCameraLocalPos.copy(tempWorldPos);
+        camera.worldToLocal(tempCameraLocalPos);
+        const depth = Math.max(1e-4, -tempCameraLocalPos.z);
+        const worldScale = pixelSize * pixelToWorld * depth;
 
         dummy.quaternion.copy(billboardQuat);
         dummy.scale.setScalar(worldScale);

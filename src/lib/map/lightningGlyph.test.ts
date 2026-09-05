@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   LIGHTNING_BOLT_PATH,
   drawLightningBolt,
   getLightningGlyphImageData,
   getLightningGlyphTexture,
+  observeLightningTone,
+  resolveLightningGlow,
   resolveLightningTone,
 } from "./lightningGlyph";
 
@@ -68,6 +70,24 @@ describe("drawLightningBolt", () => {
       `moveTo:${firstPoint[0] * 20},${firstPoint[1] * 20}`,
     );
   });
+
+  it("draws only the solid bolt when glow is 0 (the default)", () => {
+    const { ctx, calls } = createMockCtx();
+    drawLightningBolt(ctx, 40, "rgb(1 2 3)");
+    expect(calls.filter((c) => c === "fill")).toHaveLength(1);
+  });
+
+  it("draws a soft halo pass before the solid bolt when glow > 0", () => {
+    const { ctx, calls } = createMockCtx();
+    drawLightningBolt(ctx, 40, "rgb(1 2 3)", 0.5);
+
+    // Halo pass, then the solid bolt — two full save/fill/restore cycles.
+    expect(calls.filter((c) => c === "fill")).toHaveLength(2);
+    expect(calls.filter((c) => c === "save")).toHaveLength(2);
+    expect(calls.filter((c) => c === "restore")).toHaveLength(2);
+    expect(ctx.shadowColor).toBe("rgb(1 2 3)");
+    expect(ctx.shadowBlur).toBe(0.5 * 40 * 0.25);
+  });
 });
 
 describe("resolveLightningTone", () => {
@@ -76,6 +96,29 @@ describe("resolveLightningTone", () => {
     // resolve empty here and the hard-coded fallback (matching
     // --color-caution-rgb's own default) applies.
     expect(resolveLightningTone()).toBe("rgb(255 210 63)");
+  });
+});
+
+describe("resolveLightningTone / resolveLightningGlow (themed element)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("read --hc-warn/--hc-glow from the nearest [data-hamclock-theme] element rather than <html>", () => {
+    // In hamclock-themes.css, classic/brass overrides are scoped to
+    // [data-hamclock-theme="..."], and HamClockView.tsx sets that attribute
+    // on a div inside the view, never on document.documentElement. If the
+    // resolvers read document.documentElement (as before this fix), they'd
+    // see jsdom's blank <html> and fall back to the pulse defaults
+    // regardless of the theme.
+    const themed = document.createElement("div");
+    themed.setAttribute("data-hamclock-theme", "classic");
+    themed.style.setProperty("--hc-warn", "rgb(10 20 30)");
+    themed.style.setProperty("--hc-glow", "0");
+    document.body.appendChild(themed);
+
+    expect(resolveLightningTone()).toBe("rgb(10 20 30)");
+    expect(resolveLightningGlow()).toBe(0);
   });
 });
 
@@ -88,5 +131,64 @@ describe("getLightningGlyphTexture", () => {
 describe("getLightningGlyphImageData", () => {
   it("returns null when canvas 2D rendering isn't available (jsdom default)", () => {
     expect(getLightningGlyphImageData("rgb(9 9 9)")).toBeNull();
+  });
+});
+
+describe("resolveLightningGlow", () => {
+  it("falls back to no halo when no stylesheet declares --hc-glow", () => {
+    // jsdom runs with no compiled CSS, so --hc-glow resolves empty here and
+    // the fallback (matching the var(--hc-glow, 0) default baked into
+    // hamclock-themes.css) applies.
+    expect(resolveLightningGlow()).toBe(0);
+  });
+});
+
+describe("observeLightningTone", () => {
+  afterEach(() => {
+    document.documentElement.removeAttribute("data-color-blind");
+    document.documentElement.removeAttribute("data-hamclock-theme");
+  });
+
+  it("fires the callback when a watched attribute changes, and stops once disposed", async () => {
+    const callback = vi.fn();
+    const dispose = observeLightningTone(callback);
+
+    document.documentElement.setAttribute("data-color-blind", "deuteranopia");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(callback).toHaveBeenCalledTimes(1);
+
+    dispose();
+    document.documentElement.setAttribute("data-hamclock-theme", "brass");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a no-op disposer when MutationObserver isn't available", () => {
+    const original = globalThis.MutationObserver;
+    // @ts-expect-error -- simulating an environment without MutationObserver
+    delete globalThis.MutationObserver;
+
+    const dispose = observeLightningTone(vi.fn());
+    expect(() => dispose()).not.toThrow();
+
+    globalThis.MutationObserver = original;
+  });
+
+  it("fires when data-hamclock-theme changes on a descendant div, not only on <html>", async () => {
+    // HamClockView.tsx sets data-hamclock-theme on a div inside the view,
+    // not on document.documentElement — the observer must watch the subtree
+    // to see it.
+    const themed = document.createElement("div");
+    document.body.appendChild(themed);
+
+    const callback = vi.fn();
+    const dispose = observeLightningTone(callback);
+
+    themed.setAttribute("data-hamclock-theme", "brass");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(callback).toHaveBeenCalledTimes(1);
+
+    dispose();
+    themed.remove();
   });
 });

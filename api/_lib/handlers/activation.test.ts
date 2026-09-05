@@ -122,6 +122,35 @@ describe("handleActivationPota - activator branch", () => {
     expect(payload).toEqual({ error: "POTA API returned 403" });
   });
 
+  it("excludes invalid rows and rows with terminal comments for the same callsign", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json([
+          { spotId: 1, activator: "K5ABC", reference: "US-1234", invalid: 1 },
+          {
+            spotId: 2,
+            activator: "K5ABC",
+            reference: "US-1234",
+            comments: "QRT 73",
+          },
+          { spotId: 3, activator: "K5ABC", reference: "US-1234" },
+        ]),
+      ),
+    );
+
+    const response = await handleActivationPota(
+      new Request("https://propulse.test/api/activation?activator=K5ABC", {
+        headers: { "x-forwarded-for": "192.0.2.9" },
+      }),
+    );
+    const payload = (await response.json()) as { spots: { spotId: number }[] };
+
+    expect(response.status).toBe(200);
+    expect(payload.spots).toHaveLength(1);
+    expect(payload.spots[0]).toMatchObject({ spotId: 3 });
+  });
+
   it("returns an empty spots array when the upstream body is not an array", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(null)));
 
@@ -155,7 +184,7 @@ describe("handleActivationPota - search branch", () => {
       }),
     );
     const payload = (await response.json()) as {
-      parks: { ref: string; name: string; location: string; grid: string; active: boolean }[];
+      parks: { ref: string; name: string; location: string; grid: string; active?: boolean }[];
     };
 
     expect(response.status).toBe(200);
@@ -165,8 +194,8 @@ describe("handleActivationPota - search branch", () => {
       name: "Park Number 0",
       location: "",
       grid: "",
-      active: true,
     });
+    expect(payload.parks[0]).not.toHaveProperty("active");
   });
 
   it("uses the raw display when it does not start with the ref", async () => {

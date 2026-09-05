@@ -17,6 +17,7 @@
  */
 
 import { applyRateLimit } from "../rateLimit";
+import { isTerminalStatus } from "./activationSpots";
 
 /** Get the allowed CORS origin based on environment */
 function getAllowedOrigin(): string {
@@ -76,7 +77,8 @@ interface NormalizedPark {
   name: string;
   location: string;
   grid: string;
-  active: boolean;
+  /** Omitted for `/lookup` results, which carry no status field. */
+  active?: boolean;
 }
 
 /** Normalize a POTA park record for the frontend */
@@ -108,13 +110,14 @@ function normalizeLookupPark(entry: POTALookupEntry): NormalizedPark {
     name,
     location: "",
     grid: "",
-    active: true,
   };
 }
 
 /** A single row from the POTA `/spot/activator` feed */
 interface POTASpotRow {
   activator?: unknown;
+  invalid?: unknown;
+  comments?: unknown;
   [key: string]: unknown;
 }
 
@@ -245,11 +248,16 @@ export async function handleActivationPota(request: Request): Promise<Response> 
       const data = (await response.json()) as POTASpotRow[] | null;
       const target = baseCallsign(activator);
       const spots = Array.isArray(data)
-        ? data.filter(
-            (row) =>
+        ? data.filter((row) => {
+            if (row?.invalid === true || row?.invalid === 1) return false;
+            if (typeof row?.comments === "string" && isTerminalStatus(row.comments)) {
+              return false;
+            }
+            return (
               typeof row?.activator === "string" &&
-              baseCallsign(row.activator) === target,
-          )
+              baseCallsign(row.activator) === target
+            );
+          })
         : [];
 
       return new Response(JSON.stringify({ spots }), {

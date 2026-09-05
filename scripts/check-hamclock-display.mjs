@@ -32,6 +32,7 @@ const context = await browser.newContext({
   viewport: { width: 1920, height: 1080 },
 });
 await context.addInitScript(() => {
+  performance.setResourceTimingBufferSize(10000);
   localStorage.setItem("propulse-welcome-seen", "true");
   localStorage.setItem("propulse-onboarding-completed", "true");
   localStorage.setItem(

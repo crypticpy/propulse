@@ -27,16 +27,18 @@ const UNITS_OPTIONS: { value: HamClockUnits; label: string }[] = [
 ];
 
 const MAP_CONTENT_VALUES = ["activity", "contacts", "both"] as const;
-const MAP_CONTENT_LABELS: Record<(typeof MAP_CONTENT_VALUES)[number], string> = {
-  activity: "ACTIVITY",
-  contacts: "MY CONTACTS",
-  both: "BOTH",
-};
+const MAP_CONTENT_LABELS: Record<(typeof MAP_CONTENT_VALUES)[number], string> =
+  {
+    activity: "ACTIVITY",
+    contacts: "MY CONTACTS",
+    both: "BOTH",
+  };
 
-type DwellSeconds = "15" | "30" | "60" | "120";
+type DwellSeconds = "15" | "30" | "45" | "60" | "120";
 const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
   { value: "15", label: "15 S" },
   { value: "30", label: "30 S" },
+  { value: "45", label: "45 S" },
   { value: "60", label: "60 S" },
   { value: "120", label: "120 S" },
 ];

@@ -55,7 +55,7 @@ export function HamClockPager({
       </button>
       <button
         type="button"
-        className="hcc-toggle"
+        className="hcc-toggle hc-pager-auto"
         aria-pressed={autoPageEnabled}
         aria-label="Auto-page rotation"
         data-state={autoPageEnabled ? "on" : "off"}

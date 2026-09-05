@@ -178,7 +178,7 @@ describe("qsoStore callsign lookup", () => {
     expect(useQSOStore.getState().lookupError).toBeNull();
   });
 
-  it.each(["K1A/QRP", "VP9/K1A", "K1A/MM", "K1A/PORTABLE", "EA8/K1A"])("looks up the station call in %s", async callsign => {
+  it.each(["K1A/QRP", "VP9/K1A", "K1A/MM", "K1A/PORTABLE", "EA8/K1A", "CE0Y/K1A", "K1A/CE0Y", "CE0Y/K1A/QRP"])("looks up the station call in %s", async callsign => {
     const store = useQSOStore.getState();
     store.setField("callsign", callsign);
     await store.lookupCallsign(callsign);

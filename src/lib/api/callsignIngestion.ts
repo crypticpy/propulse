@@ -7,6 +7,7 @@
  * Gracefully handles missing API keys, 404s, and partial failures.
  */
 
+import { DXCC_ENTITIES } from "@/lib/data/dxccEntities";
 import { fetchCallook, isCallookError } from "./callook";
 import { fetchHamQTH, isHamQTHError } from "./hamqth";
 import { fetchQRZ, isQRZError } from "./qrz";
@@ -46,7 +47,11 @@ export function stripCallsignModifiers(raw: string): string {
   // Base station calls end in letters after a numeral. This excludes QRP,
   // P, MM, and location-only prefixes such as VP9 even for short K1A calls.
   const candidates = segments.filter(part => /^[A-Z0-9]*[0-9][A-Z]+$/.test(part));
-  const parts = candidates.length ? candidates : segments;
+  // Some operating prefixes (CE0Y, 3D2R, ...) themselves look like calls.
+  // Prefer a candidate that is not an exact known DXCC prefix, in either
+  // prefix/call or call/prefix notation. Standalone calls are left untouched.
+  const stationCandidates = candidates.filter(part => !DXCC_ENTITIES.some(entity => entity.prefix === part));
+  const parts = stationCandidates.length ? stationCandidates : candidates.length ? candidates : segments;
   if (parts.length === 0) return upper;
   // Prefer the more specific station call if multiple segments qualify.
   let longest = parts[0];

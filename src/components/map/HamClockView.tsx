@@ -29,6 +29,7 @@ import "@/styles/hamclock-wall.css";
 import "@/styles/hamclock-wall-forecast.css";
 import "@/styles/hamclock-wall-report.css";
 import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
+import { ensureHamClockThemeFont } from "@/lib/hamclock/themeFonts";
 import {
   HAMCLOCK_PANELS,
   useHamClockDisplayStore,
@@ -650,6 +651,11 @@ export function HamClockView({
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
+  // Desk density shares the wall's theme; fetch the serif faces here too so a
+  // persisted classic/brass theme is not stuck on fallback fonts at desk.
+  useEffect(() => {
+    ensureHamClockThemeFont(display.theme);
+  }, [display.theme]);
   useEffect(() => {
     if (
       homeStarted.current ||

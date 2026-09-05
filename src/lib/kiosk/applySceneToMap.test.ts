@@ -3,7 +3,12 @@ import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import type { KioskScene } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { applySceneToMap } from "./applySceneToMap";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import {
+  __resetHamClockPinForTests,
+  applySceneToMap,
+  restoreHamClockDisplay,
+} from "./applySceneToMap";
 
 function mapPresentationState() {
   const map = useMapStore.getState();
@@ -37,6 +42,8 @@ describe("applySceneToMap", () => {
     }));
     useDisplayQualityStore.setState({ displayQuality: "auto" });
     useThemeStore.setState({ themeId: "dark" });
+    restoreHamClockDisplay();
+    useHamClockDisplayStore.getState().resetDisplay();
   });
 
   it("applies the full PropSphere map scene contract", () => {
@@ -167,5 +174,102 @@ describe("applySceneToMap", () => {
     expect(mapPresentationState()).toEqual(beforeMap);
     expect(useDisplayQualityStore.getState().displayQuality).toBe(beforeQuality);
     expect(useThemeStore.getState().themeId).toBe(beforeTheme);
+  });
+
+  it("pins the HamClock wall to a scene's pages and hands it back afterwards", () => {
+    const display = useHamClockDisplayStore.getState();
+    display.setDensity("desk");
+    display.setTheme("classic");
+    display.setPage("left", 4);
+
+    applySceneToMap({
+      id: "wall",
+      name: "Wall",
+      route: "/map",
+      map: {
+        layoutMode: "hamclock",
+        hamclock: { leftPage: 1, rightPage: 2, theme: "brass" },
+      },
+    });
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "wall",
+      theme: "brass",
+      pageIndex: { left: 1, right: 2 },
+    });
+
+    // Any scene that does not pin the wall returns the operator's own setup,
+    // including one with no map configuration at all.
+    applySceneToMap({ id: "solar", name: "Solar", route: "/solar" });
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "desk",
+      theme: "classic",
+      pageIndex: { left: 4, right: 0 },
+    });
+  });
+
+  it("snapshots the operator's display once across consecutive pinned scenes", () => {
+    useHamClockDisplayStore.getState().setTheme("pulse");
+    useHamClockDisplayStore.getState().setPage("right", 3);
+
+    applySceneToMap({
+      id: "wall-a",
+      name: "A",
+      route: "/map",
+      map: { layoutMode: "hamclock", hamclock: { leftPage: 1, rightPage: 1 } },
+    });
+    applySceneToMap({
+      id: "wall-b",
+      name: "B",
+      route: "/map",
+      map: { layoutMode: "hamclock", hamclock: { leftPage: 2, rightPage: 2 } },
+    });
+
+    restoreHamClockDisplay();
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      theme: "pulse",
+      pageIndex: { left: 0, right: 3 },
+    });
+    // Nothing is pinned any more, so a second restore changes nothing.
+    useHamClockDisplayStore.getState().setPage("right", 1);
+    restoreHamClockDisplay();
+    expect(useHamClockDisplayStore.getState().pageIndex.right).toBe(1);
+  });
+
+  it("recovers the pre-pin baseline from sessionStorage after a simulated reload", () => {
+    useHamClockDisplayStore.getState().setDensity("desk");
+    useHamClockDisplayStore.getState().setTheme("classic");
+    useHamClockDisplayStore.getState().setPage("left", 4);
+
+    applySceneToMap({
+      id: "wall",
+      name: "Wall",
+      route: "/map",
+      map: {
+        layoutMode: "hamclock",
+        hamclock: { leftPage: 1, rightPage: 2, theme: "brass" },
+      },
+    });
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "wall",
+      theme: "brass",
+    });
+
+    // A reload wipes the module-level snapshot but not sessionStorage, which
+    // still holds both the pin overrides (via the display store's own
+    // persistence) and the pre-pin baseline this module mirrored there.
+    __resetHamClockPinForTests();
+
+    restoreHamClockDisplay();
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "desk",
+      theme: "classic",
+      pageIndex: { left: 4, right: 0 },
+    });
+    expect(sessionStorage.getItem("propulse-hamclock-prepin")).toBeNull();
   });
 });

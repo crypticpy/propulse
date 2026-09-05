@@ -8,8 +8,14 @@ import {
   type BreakInLevel,
   type KioskHeaderScale,
   type KioskScene,
+  type KioskSceneHamClockConfig,
   type KioskTransition,
 } from "@/stores/kioskStore";
+import {
+  HAMCLOCK_THEMES,
+  type HamClockTheme,
+} from "@/stores/hamclockDisplayStore";
+import { HAMCLOCK_WALL_PAGES } from "@/components/map/hamclock/wall/pages";
 import { applySceneToMap } from "@/lib/kiosk/applySceneToMap";
 import {
   useMapStore,
@@ -48,6 +54,19 @@ const HEADER_SCALES: ReadonlyArray<{
   { value: "standard", label: "Standard" },
   { value: "large", label: "Large" },
 ];
+
+/** Merge one HamClock pin edit, dropping the pin entirely once every field
+ * is back to "keep current" so an untouched scene stores nothing. */
+function withWallPin(
+  current: KioskSceneHamClockConfig | undefined,
+  patch: Partial<KioskSceneHamClockConfig>,
+): KioskSceneHamClockConfig | undefined {
+  const next: KioskSceneHamClockConfig = { ...current, ...patch };
+  if (next.leftPage === undefined) delete next.leftPage;
+  if (next.rightPage === undefined) delete next.rightPage;
+  if (next.theme === undefined) delete next.theme;
+  return Object.keys(next).length > 0 ? next : undefined;
+}
 
 const inputClass =
   "bg-deep-space border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-plasma-orange/60";
@@ -657,6 +676,83 @@ export function KioskPage() {
                               ))}
                             </select>
                           </label>
+                        )}
+                        {scene.map.layoutMode === "hamclock" && (
+                          <>
+                            {(
+                              [
+                                ["left", "Left rail page"],
+                                ["right", "Right rail page"],
+                              ] as const
+                            ).map(([side, label]) => (
+                              <label
+                                key={side}
+                                className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500"
+                              >
+                                {label}
+                                <select
+                                  value={
+                                    (side === "left"
+                                      ? scene.map?.hamclock?.leftPage
+                                      : scene.map?.hamclock?.rightPage) ?? ""
+                                  }
+                                  onChange={(event) => {
+                                    const page =
+                                      event.target.value === ""
+                                        ? undefined
+                                        : Number(event.target.value);
+                                    updateScene(scene.id, {
+                                      map: {
+                                        ...scene.map!,
+                                        hamclock: withWallPin(
+                                          scene.map!.hamclock,
+                                          side === "left"
+                                            ? { leftPage: page }
+                                            : { rightPage: page },
+                                        ),
+                                      },
+                                    });
+                                  }}
+                                  className={inputClass}
+                                >
+                                  <option value="">Keep current</option>
+                                  {HAMCLOCK_WALL_PAGES.map((page, index) => (
+                                    <option key={page.id} value={index}>
+                                      {page.title}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            ))}
+                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                              HamClock theme
+                              <select
+                                value={scene.map.hamclock?.theme ?? ""}
+                                onChange={(event) =>
+                                  updateScene(scene.id, {
+                                    map: {
+                                      ...scene.map!,
+                                      hamclock: withWallPin(
+                                        scene.map!.hamclock,
+                                        {
+                                          theme:
+                                            (event.target
+                                              .value as HamClockTheme) ||
+                                            undefined,
+                                        },
+                                      ),
+                                    },
+                                  })
+                                }
+                                className={inputClass}
+                              >
+                                <option value="">Keep current</option>
+                                {HAMCLOCK_THEMES.map((value) => (
+                                  <option key={value}>{value}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </>
                         )}
                         {capabilities.autoRotate &&
                           scene.map.viewMode === "globe" && (

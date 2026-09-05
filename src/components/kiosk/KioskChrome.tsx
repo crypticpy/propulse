@@ -5,7 +5,10 @@ import {
   type KioskHeaderScale,
   type KioskScene,
 } from "@/stores/kioskStore";
-import { applySceneToMap } from "@/lib/kiosk/applySceneToMap";
+import {
+  applySceneToMap,
+  restoreHamClockDisplay,
+} from "@/lib/kiosk/applySceneToMap";
 import { useAlertsStore } from "@/stores/alertsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUserStore } from "@/stores/userStore";
@@ -202,15 +205,31 @@ export function KioskChrome() {
     rotation.intervalSec,
   ]);
 
+  // Leaving the wall shell for any reason hands a pinned HamClock display
+  // back to whatever the operator had set before the rotation took it. Kept
+  // to a stable-deps mount/unmount effect (clearTransitionTimers never
+  // changes identity) so it does not also fire — and cancel an in-flight
+  // fade's navigation timer — on every scene change.
   useEffect(
     () => () => {
       clearTransitionTimers();
+      restoreHamClockDisplay();
     },
     [clearTransitionTimers],
   );
 
+  // The cleanup above also runs during a React StrictMode mount ->
+  // cleanup -> mount replay, which would otherwise strand the operator's
+  // pre-kiosk display unpinned even though the wall is still active. Re-apply
+  // the current scene's pin whenever it (re)becomes active so that replay —
+  // and any ordinary scene change — always ends pinned to the right page.
+  useEffect(() => {
+    if (activeScene) applySceneToMap(activeScene);
+  }, [activeScene]);
+
   const exitKiosk = useCallback(() => {
     clearTransitionTimers();
+    restoreHamClockDisplay();
     stop();
     setLayoutMode("normal");
     if (document.fullscreenElement) {

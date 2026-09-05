@@ -22,6 +22,28 @@ import {
 import type { DisplayQuality } from "@/stores/displayQualityStore";
 import type { ThemeId } from "@/lib/themes";
 import type { HamClockMode } from "@/lib/hamclock/modePresets";
+import {
+  HAMCLOCK_THEMES,
+  type HamClockTheme,
+} from "@/stores/hamclockDisplayStore";
+
+/**
+ * HamClock wall pinning for one scene.
+ *
+ * A rotation that stops on the wall should be able to say which page each
+ * rail shows, so a playlist can walk a display through Spots, Solar and
+ * Forecast without an operator touching the pagers. A pinned scene forces
+ * wall density; what the operator had before the first pin is restored when
+ * the rotation leaves HamClock or the wall exits.
+ */
+export interface KioskSceneHamClockConfig {
+  /** Index into HAMCLOCK_WALL_PAGES for the left rail. */
+  leftPage?: number;
+  /** Index into HAMCLOCK_WALL_PAGES for the right rail. */
+  rightPage?: number;
+  /** HamClock presentation theme (pulse / classic / brass). */
+  theme?: HamClockTheme;
+}
 
 export interface KioskSceneMapConfig {
   layoutMode: LayoutMode;
@@ -35,6 +57,8 @@ export interface KioskSceneMapConfig {
   showLiveClouds?: boolean;
   /** Optional HamClock product mode applied before layout enter. */
   hamclockMode?: HamClockMode;
+  /** Optional HamClock wall pinning; only meaningful for the hamclock layout. */
+  hamclock?: KioskSceneHamClockConfig;
 }
 
 export type KioskTransition = "fade" | "cut";
@@ -177,6 +201,7 @@ export const DEFAULT_SCENES: KioskScene[] = [
       viewMode: "flat",
       mapStyle: "satellite",
       hamclockMode: "traffic",
+      hamclock: { leftPage: 0, rightPage: 0 },
     },
   },
   {
@@ -188,6 +213,7 @@ export const DEFAULT_SCENES: KioskScene[] = [
       viewMode: "flat",
       mapStyle: "satellite",
       hamclockMode: "weather",
+      hamclock: { leftPage: 3, rightPage: 3 },
     },
   },
   {
@@ -206,7 +232,7 @@ export const DEFAULT_SCENES: KioskScene[] = [
 const V3_WALL_SCENES = DEFAULT_SCENES.filter(
   (scene) => scene.id === "default-clock" || scene.id === "default-stopwatch",
 );
-const V5_HAMCLOCK_SCENES = DEFAULT_SCENES.filter(
+const HAMCLOCK_DEFAULT_SCENES = DEFAULT_SCENES.filter(
   (scene) =>
     scene.id === "default-wall" || scene.id === "default-hamclock-weather",
 );
@@ -296,6 +322,7 @@ const VALID_HAMCLOCK_MODES = new Set<HamClockMode>([
   "satellites",
   "weather",
 ]);
+const VALID_HAMCLOCK_THEMES = new Set<HamClockTheme>(HAMCLOCK_THEMES);
 const VALID_BREAK_IN_LEVELS = new Set<BreakInLevel>([
   "CRITICAL",
   "WARNING",
@@ -313,6 +340,36 @@ function clampAutoRotateSpeed(sec: number): number {
     MAX_AUTO_ROTATE_SPEED_SEC,
     Math.max(MIN_AUTO_ROTATE_SPEED_SEC, Math.round(sec)),
   );
+}
+
+/** The wall clamps a stale page index into range itself, so the boundary only
+ * has to reject values that are not page indexes at all. The ceiling is a
+ * sanity bound on hand-edited and remote payloads. */
+const MAX_WALL_PAGE_INDEX = 31;
+
+function sanitizeWallPage(value: unknown): number | undefined {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= MAX_WALL_PAGE_INDEX
+    ? value
+    : undefined;
+}
+
+function sanitizeHamClockConfig(
+  value: unknown,
+): KioskSceneHamClockConfig | undefined {
+  if (!isRecord(value)) return undefined;
+  const config: KioskSceneHamClockConfig = {};
+  const leftPage = sanitizeWallPage(value.leftPage);
+  if (leftPage !== undefined) config.leftPage = leftPage;
+  const rightPage = sanitizeWallPage(value.rightPage);
+  if (rightPage !== undefined) config.rightPage = rightPage;
+  if (VALID_HAMCLOCK_THEMES.has(value.theme as HamClockTheme)) {
+    config.theme = value.theme as HamClockTheme;
+  }
+  // An empty object would pin nothing while still forcing wall density.
+  return Object.keys(config).length > 0 ? config : undefined;
 }
 
 function sanitizeMapConfig(
@@ -373,6 +430,10 @@ function sanitizeMapConfig(
     config.layoutMode === "hamclock"
   ) {
     config.hamclockMode = value.hamclockMode as HamClockMode;
+  }
+  if (config.layoutMode === "hamclock") {
+    const hamclock = sanitizeHamClockConfig(value.hamclock);
+    if (hamclock) config.hamclock = hamclock;
   }
   if (
     capabilities.liveClouds &&
@@ -502,7 +563,8 @@ function normalizePersistedKioskState(value: unknown): PersistedKioskState {
 
 /**
  * v4 adds scene playback/presentation fields and the dedicated map routes.
- * v5 refreshes shipped HamClock wall templates for default-derived playlists.
+ * v5 and v6 refresh the shipped HamClock wall templates for default-derived
+ * playlists: v5 introduced them, v6 pins each one to its wall page.
  * Every version still crosses the same strict normalizer, so unsupported
  * fields from old, remote, or hand-edited payloads never reach consumers.
  */
@@ -552,37 +614,26 @@ export function migrateKioskState(
     }
     candidate = legacy;
   }
-  if (version < 5) {
+  if (version < 6) {
     const legacy = isRecord(candidate) ? { ...candidate } : {};
     if (Array.isArray(legacy.scenes)) {
       const scenes = legacy.scenes as unknown[];
-      const hasLegacyDefault = scenes.some(
-        (scene) =>
-          isRecord(scene) &&
-          typeof scene.id === "string" &&
-          LEGACY_DEFAULT_SCENE_IDS.has(scene.id),
+      // v6 only teaches existing scenes about their shipped HamClock page
+      // pin — it must never discard a user's own name/enabled/duration/
+      // transition/map edits, and never resurrect a scene the user deleted.
+      const byId = new Map(
+        HAMCLOCK_DEFAULT_SCENES.map((scene) => [scene.id, scene] as const),
       );
-      if (hasLegacyDefault) {
-        const byId = new Map(
-          V5_HAMCLOCK_SCENES.map((scene) => [scene.id, scene] as const),
-        );
-        const existingIds = new Set(
-          scenes.flatMap((scene) =>
-            isRecord(scene) && typeof scene.id === "string" ? [scene.id] : [],
-          ),
-        );
-        const nextScenes: unknown[] = scenes.map((scene) => {
-          if (!isRecord(scene) || typeof scene.id !== "string") return scene;
-          const refreshed = byId.get(scene.id);
-          return refreshed ? { ...refreshed } : scene;
-        });
-        for (const scene of V5_HAMCLOCK_SCENES) {
-          if (!existingIds.has(scene.id)) {
-            nextScenes.push({ ...scene });
-          }
-        }
-        legacy.scenes = nextScenes;
-      }
+      legacy.scenes = scenes.map((scene) => {
+        if (!isRecord(scene) || typeof scene.id !== "string") return scene;
+        const template = byId.get(scene.id);
+        const templatePin = template?.map?.hamclock;
+        if (!templatePin || !isRecord(scene.map)) return scene;
+        return {
+          ...scene,
+          map: { ...scene.map, hamclock: templatePin },
+        };
+      });
     }
     candidate = legacy;
   }
@@ -786,7 +837,7 @@ export const useKioskStore = create<KioskStore>()(
     }),
     {
       name: "propulse-kiosk",
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         scenes: state.scenes,

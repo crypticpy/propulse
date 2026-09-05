@@ -25,7 +25,12 @@ test("first visit and cached personal settings stay public without radio connect
   const home = page.locator("[data-home-dashboard]");
   await expect(page.locator("[data-public-home-shell]")).toBeVisible();
   await expect(home.getByText("Guest · Global view · no sign-in needed")).toBeVisible();
+  await expect(home.getByRole("region", { name: "Your information panels" })).toHaveCount(0);
+  await home.getByRole("button", { name: "Show more information panels" }).click();
+  for (const name of ["This day in history", "Countdowns", "Radio news"]) await home.getByRole("button", { name: `Add ${name} to Home`, exact: true }).click();
   await expect(home.getByText("Sign in to view your saved personal panel.")).toHaveCount(3);
+  await home.getByRole("region", { name: "Your information panels" }).getByRole("button", { name: "Remove Radio news from Home" }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("propulse-home-widgets-v1")!))).toEqual({ desktop: ["history", "countdowns", "news"], mobile: ["history", "countdowns", "news"] });
   await expect(page.getByRole("button",{name:"My Shack"})).toHaveCount(0);
   await expect(home.getByText("Your station & recent operating")).toHaveCount(0);
   await home.getByRole("button",{name:"Set your location"}).click();

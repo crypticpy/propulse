@@ -59,7 +59,7 @@ function ActivityRow({
   now: Date;
   expanded: boolean;
   onToggle: () => void;
-  onTarget: () => void;
+  onTarget?: () => void;
 }) {
   const path =
     result.distanceKm === null
@@ -122,7 +122,7 @@ function ActivityRow({
               )}
             </div>
           </div>
-          {result.lat !== undefined && result.lon !== undefined && (
+          {onTarget && result.lat !== undefined && result.lon !== undefined && (
             <button
               type="button"
               onClick={onTarget}
@@ -220,7 +220,7 @@ export function NearbyActivityExplorer({
   ]);
 
   const handleTarget = (result: ActivityResult) => {
-    if (result.lat === undefined || result.lon === undefined) return;
+    if (publicOnly || result.lat === undefined || result.lon === undefined) return;
     setTarget({
       lat: result.lat,
       lon: result.lon,
@@ -424,7 +424,7 @@ export function NearbyActivityExplorer({
                     current === result.id ? null : result.id,
                   )
                 }
-                onTarget={() => handleTarget(result)}
+                onTarget={publicOnly ? undefined : () => handleTarget(result)}
               />
             </div>
           ))}

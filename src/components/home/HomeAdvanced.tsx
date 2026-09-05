@@ -18,7 +18,7 @@ export function HomeAdvanced({ model, now, publicActivity }: { model: ReturnType
   const mapTarget = useMapStore(s => s.target);
   const activeMode = useActiveMode();
   const [targetGrid, setTargetGrid] = useState(guest ? "" : mapTarget?.grid?.slice(0, 6) ?? "");
-  const [mode, setMode] = useState<"SSB" | "CW" | "FT8">(activeMode === "CW" ? "CW" : activeMode === "SSB" ? "SSB" : "FT8");
+  const [mode, setMode] = useState<"SSB" | "CW" | "FT8">(!guest && activeMode === "CW" ? "CW" : !guest && activeMode === "SSB" ? "SSB" : "FT8");
   const [powerOverride, setPower] = useState<string | null>(null);
   const power = powerOverride ?? String(guest ? 100 : station.chain?.operatingPowerWatts ?? 100);
   const activeStation = useActiveStationGain();

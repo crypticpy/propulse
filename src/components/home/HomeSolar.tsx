@@ -7,10 +7,10 @@ import type { useSolarModel } from "@/hooks/useSolarModel";
 import { useHomeLocation } from "@/hooks/useHomeLocation";
 import { HomeStatus } from "./HomeStatus";
 export function HomeSolar({ model, now }: { model: ReturnType<typeof useSolarModel>; now: number }) {
-  const { location } = useHomeLocation();
+  const { location, guest } = useHomeLocation();
   const mode = useActiveMode();
   const target = useMapStore(s => s.target);
-  const state = { solarHandoff: parseSolarHandoff({ version: 1, origin: "home", mode, target: target ?? undefined }) };
+  const state = guest ? undefined : { solarHandoff: parseSolarHandoff({ version: 1, origin: "home", mode, target: target ?? undefined }) };
   const { current, resources, briefing } = model;
   const predictions = upcomingKp(current.predictedKp, now);
   const today = new Date(now).toISOString().slice(0,10);

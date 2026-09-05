@@ -19,7 +19,7 @@ export function HomeWidgets({ ids }: { ids: string[] }) {
 export function HomeWidget({ id }: { id: string }) {
   const { location, guest } = useHomeLocation();
   const profile = useProfileStore(s => s.station);
-  if (guest && ["history", "countdowns", "news"].includes(id)) return <p>Sign in to view your saved personal panel.</p>;
+  if (guest && ["history", "countdowns", "news", "contests"].includes(id)) return <p>Sign in to view your saved personal panel.</p>;
   if (guest && id === "clocks") return <section aria-label="World clocks">{["UTC", "Europe/London", "America/New_York", "Asia/Tokyo"].map(zone => <p key={zone}>{zone.replace(/_/g, " ")} · <time>{new Date().toLocaleTimeString(undefined, { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false })}</time></p>)}<p>Sign in to customize your saved clocks.</p></section>;
   if (id === "moon") {
     const moon = getMoonSnapshot(new Date(), location?.lat ?? 0, location?.lon ?? 0);

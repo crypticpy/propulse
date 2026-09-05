@@ -1157,17 +1157,18 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
   - A log-scale option on `SolarSeriesChart` (prop only, token colours)
   - Map links that toggle the existing D-RAP and aurora layers behind the dialog
 - **Out of scope:**
-  - New feeds; every resource below is already fetched by `SolarPulse`
   - The engine comparison strip; these reports show observations, not our prediction
+  - Any new upstream provider; the feed work below stays on NOAA / NASA products the app already proxies
 - **Files to touch:**
   - `wall/reports/SolarReport.tsx`, new `wall/reports/XrayReport.tsx`, new `wall/reports/SolarWindReport.tsx`
   - `wall/reports/reports.test.tsx`
   - `wall/tiles/SpaceWxTile.tsx`, `wall/tiles/XrayTile.tsx`, `wall/tiles/SolarWindTile.tsx`, `wall/tiles/index.ts`
-  - `src/hooks/useSolarExpanded.ts`, `src/hooks/useSolarData.ts` (expose already-fetched resources; no new requests)
+  - `src/hooks/useSolarExpanded.ts`, `src/hooks/useSolarData.ts`
   - `src/lib/solar/selectors.ts`
   - `src/components/solar/SolarSeriesChart.tsx`
   - `src/styles/hamclock-wall-report.css`
-- **Do not touch:** `src/pages/SolarPulse.tsx`, `src/lib/solar/sourcePolicies.ts` fetch policy, `api/solar/*`
+  - `src/lib/solar/sourcePolicies.ts` and `api/solar/*` for the three horizons the reports promise and the current products do not carry: the 27-day flux forecast (`noaa-flux-forecast` is a three-day product today), a 24 h X-ray curve (`noaa-xray` reads the six-hour endpoint), and 24 h of Bz / speed / density (the wind policies keep ≤ 90 magnetometer rows and one plasma summary). Extend retention and point at the 1-day products; if that pushes the batch past 15 files, ship the feed work first as `B19a` (`feat(solar): report horizons for the wall`) and the reports as `B19b`.
+- **Do not touch:** `src/pages/SolarPulse.tsx` (it must keep rendering identically from the same resources)
 - **Style guide rules that apply:** §7 Reports (one chart per tab, `sr-only` twin for the probability grid); §6 Data formatting (empty states name the gap: `NO FLARES ABOVE B`, `NONE MAPPED`, never `ALL CLEAR`); §3 Tone tokens for the R / S / G scales
 - **Already available:**
   - resources `noaa-protons`, `noaa-dst`, `noaa-drap`, `noaa-probabilities`, `noaa-sunspots`, `noaa-flux-forecast`
@@ -1272,7 +1273,9 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
   - `wall/reports/WeatherReport.tsx`, new `wall/reports/AlertsReport.tsx`, `wall/reports/reports.test.tsx`
   - `wall/tiles/WeatherTile.tsx` and the B13 hourly / 7-day tiles (wiring only)
   - `wall/tiles/AlertsTile.tsx`, `wall/tiles/index.ts`
-  - `src/lib/utils/alertMatcher.ts` (24 h bucketing helper)
+  - `src/lib/api/weather.ts` `WeatherAlert` and its parser: keep `effective`, `expires`, `sender`, `urgency`, `certainty` and `areaDesc` from the NWS payload (the parser drops them today)
+  - new `src/lib/weather/alertHistory.ts` and test: a rolling 24 h store of alert snapshots (id, severity, effective, expires) persisted in `localStorage`, appended on every fetch so expired alerts stay in the chart; a cold client shows `COLLECTING SINCE hh:mm UTC` over the hours it has not seen
+  - `src/lib/utils/alertMatcher.ts` matches DX spots, not NWS alerts — leave it alone
   - `src/styles/hamclock-wall-report.css`
 - **Do not touch:** `src/components/atmos/*`, `wall/config/WeatherConfig.tsx`, `wall/settings/*`
 - **Style guide rules that apply:** §6 Data formatting (`resolveUnits`, `formatTemperature`, `formatSpeed`, `reportFooter` from the observation time added in B9); §7 Reports; empty states name the gap (`NO MAPPED ALERTS`, never `ALL CLEAR`)
@@ -1308,7 +1311,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
   - `wall/tiles/index.ts`, `wall/tiles/tiles.test.tsx`, `wall/reports/reports.test.tsx`
   - `wall/pages.ts`, `wall/presets.ts`
   - `src/hooks/useRIM.ts` and its test (rolling series and per-sub-score availability)
-  - `src/lib/atmos/rim.ts` (export the reason for each sub-score; no scoring change)
+  - `src/lib/atmos/rim.ts` and `rim.test.ts`: `computeRIM` drops a sub-score whose `dataAvailable` is false and renormalises the remaining weights instead of scoring a fallback value; it returns the reason for each sub-score and the list of excluded inputs. This is a scoring change and is covered by tests for every combination of one and two missing inputs; `AtmosPulse` consumers see the same composite when all inputs are present.
   - `src/components/atmos/MonitoredRegionManager.tsx` (props only)
   - `src/styles/hamclock-wall-report.css`
 - **Do not touch:** `src/components/atmos/layers/*`, `src/pages/AtmosPulse.tsx`, `wall/settings/*`
@@ -1335,7 +1338,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
   - `BandActivityReport` per section 26.14: `BANDS` and `TOP DX` tabs, stacked 6 h per-band chart, mode split, furthest spot, contributing feeds named, band rows that set the map's band focus
   - `RecentContactsReport` per section 26.15: today / week / month counts, unique DXCC, best DX, top band and mode, 30-day daily chart coloured by dominant band, selecting a day refills the facts
   - `ClusterDetailPopover` gains the `WallReport` shell, the pin, focus return and the standard footer. Chrome only: no layout change, no new data, no engine strip.
-  - 6 h per-band bucketing and 30-day log aggregation as new computations over existing data
+  - 6 h per-band history from a new `api/spots/band-history` edge route over the durable `band_hourly_stats` aggregate in Supabase (the only spot history that survives the 2 h `spot_history` window), plus a client-side 10-minute rolling store of the live counts for the most recent hour; 30-day log aggregation as a new computation over `logStore`
 - **Out of scope:**
   - Cluster filters and the cluster config dialog (B11)
   - Editing QSOs from the wall
@@ -1345,8 +1348,9 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
   - `src/components/map/ClusterDetailPopover.tsx` and `ClusterDetailPopover.test.tsx`
   - `src/lib/hamclock/recentContacts.ts` and `recentContacts.test.ts`
   - `src/lib/utils/bandActivity.ts` and `bandActivity.test.ts`
+  - new `api/spots/band-history.ts` (+ handler test under `api/_lib/handlers/`) reading `band_hourly_stats`, and new `src/hooks/useBandHistory.ts`
   - `src/styles/hamclock-wall-report.css`
-- **Do not touch:** `src/hooks/useBandVerdicts.ts` internals, `src/stores/dxStore.ts`, `src/lib/db/logStore`
+- **Do not touch:** `src/hooks/useBandVerdicts.ts` internals, `src/stores/dxStore.ts`, `src/lib/db/logStore`, the collector
 - **Style guide rules that apply:** §7 Reports (`sr-only` twin for the top-DX list); §6 Data formatting (integers for counts, distances unit-resolved, `reportFooter` per feed); §3 Tone tokens for band colours
 - **Already available:**
   - `useBandVerdicts`, `useBandLadder`, `src/components/map/bandHealthPresentation.ts`
@@ -1487,7 +1491,7 @@ comparison the headline. This is the product's core claim: nobody else puts
 physics, a trained model and live observation next to each other and lets the
 operator see where they disagree.
 
-- **PHYSICS** — the custom ITU-R P.533 engine (`src/lib/utils/ionosphere.ts`, `rayTrace.ts`, `signal.ts`, `src/lib/hamclock/reliabilityForecast.ts`).
+- **PHYSICS** — our simplified physics model in the spirit of ITU-R P.533: calibrated Chapman / CCIR layer heuristics, a secant-law oblique MUF and a multi-hop ray trace (`src/lib/utils/ionosphere.ts`, `rayTrace.ts`, `signal.ts`, `src/lib/hamclock/reliabilityForecast.ts`). It is not a P.533 implementation and the wall must not call it one: column titles and chart sources read `PHYSICS`, and any provenance text says "P.533-style physics model". A full P.533 port would be its own tracked item.
 - **NOWCAST** — the trained NowCast / FutureCast models on Railway (`src/lib/propagation/modelClient.ts`, `src/hooks/useNowCastBandPredictions.ts`).
 - **OBSERVED** — what the air actually shows: RBN / DX cluster / PSKReporter counts and the band-health ladder (`src/hooks/useBandVerdicts.ts`, `src/hooks/useBandLadder.ts`).
 
@@ -1502,7 +1506,11 @@ report title and above the fact columns.
 
 ```ts
 interface EngineReading {
-  value: string; // already formatted, one format per column
+  value: string; // display only, already formatted, one format per column
+  comparable:
+    | { kind: "number"; value: number; unit: "MHz" | "dB" | "pct" | "spots" }
+    | { kind: "verdict"; verdict: "closed" | "marginal" | "open" }
+    | { kind: "none" }; // unavailable engines carry no comparable
   detail?: string; // "SNR +9 dB", "412 spots / 30 min"
   confidence?: number; // 0-100, rendered as a bar, omitted when unknown
   updatedAt?: Date; // drives the freshness word ladder
@@ -1517,7 +1525,7 @@ interface EngineComparisonStripProps {
 ```
 
 - Three equal columns titled `PHYSICS` · `NOWCAST` · `OBSERVED`. Each column is value (`--hc-t-hero-long` class rules from section 8), one detail line, one confidence/freshness line.
-- **Agreement tone** is computed from the three readings, not asserted: all three within one verdict step → `hc-good` and the word `AGREE`; one outlier → `hc-warn` and `SPLIT`; physics and nowcast on opposite sides of the open/closed line → `hc-bad` and `DISAGREE`. The word sits centred under the three columns with a one-line reason ("model sees an opening physics does not").
+- **Agreement tone** is computed by `compareEngines()` from the three `comparable` fields only — never by parsing `value`. Two numbers of the same unit are mapped to a verdict step by the report's own thresholds (MUF: band usable / marginal / closed against the subject band; SNR and probability: the mode's `minSNR` margin and the 40 / 60 % lines); a `verdict` is used as is; `none` takes that engine out of the comparison and the word is computed from the remaining two (or reads `NO COMPARISON` with one). All three within one verdict step → `hc-good` and the word `AGREE`; one outlier → `hc-warn` and `SPLIT`; physics and nowcast on opposite sides of the open/closed line → `hc-bad` and `DISAGREE`. The word sits centred under the three columns with a one-line reason ("model sees an opening physics does not").
 - `unavailable` renders `MODEL OFF` / `NO SPOTS` in `hc-dim-text`. A missing engine never falls back to another engine's number and never renders as zero. FutureCast horizons that `runtimeActivation` has not enabled are `unavailable`, not hidden, so the wall never implies the model was consulted.
 - `stale` keeps the value but tones it `hc-warn` and shows the age. Freshness words come from `formatAge` (`wall/tokens.ts`); the strip never invents a timestamp.
 - The strip is one row at ≥ 1600 px and stays one row below it by dropping the detail lines, never by scrolling.
@@ -1685,7 +1693,8 @@ extension it depends on.
 - **Data:**
   - active alerts, severity, area, expiry, geometry — existing alerts feed (`AlertsTile.tsx`, `src/lib/utils/alertMatcher.ts`)
   - alert area scoping (home county / state / radius) and severity floor — delivered by HW-18 in B11 — existing after B11
-  - 24 h alert count history — new computation (bucket the feed's effective times; no new fetch)
+  - severity, urgency, certainty, area, effective, expires, sender — `WeatherAlert` after the B22 parser extension (the current type carries none of the timing fields)
+  - 24 h alert count history — `src/lib/weather/alertHistory.ts` rolling snapshot store from B22; the active-only NWS query cannot reconstruct history on its own, so the chart is honest about how much of the 24 h it has actually observed
 - **Empty / stale:** no alerts → `NO MAPPED ALERTS` with the covered area named underneath, never `ALL CLEAR`. Feed stale → the count is kept with its age and the chart's trailing hours are dimmed.
 
 ### 26.13 Radio Impact Model
@@ -1723,7 +1732,7 @@ strip; it is what the strip's third column reads from.
   - per-band spot counts, reporters, hysteresis states — `src/hooks/useBandVerdicts.ts`, `src/components/map/bandHealthPresentation.ts` — existing
   - band ladder rows with `updatedAt` — `src/hooks/useBandLadder.ts` — existing
   - mode split and distance — `src/lib/utils/bandActivity.ts`, `modeNormalize.ts` — existing
-  - 6 h per-band history — new computation (bucket the existing spot window; no new feed)
+  - 6 h per-band history — `api/spots/band-history` over `band_hourly_stats` (hourly buckets) joined with the client's own 10-minute live counts for the current hour — new in B24; the live spot window is only 2 h and the verdict log records state flips, not counts, so neither can back-fill the chart on a fresh load
 - **Empty / stale:** no spots → `NO SPOTS IN WINDOW` with the window length named, and the feed list still shown so the operator can see which feed is quiet. Cluster disconnected → that feed row reads `WAITING`.
 
 ### 26.15 Recent contacts

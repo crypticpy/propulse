@@ -5,6 +5,10 @@
  * sync hooks), so both layouts load it with React.lazy to keep it out of the
  * app entry bundle. The hosts still mount on every route exactly as they did
  * when they were inlined in Layout / MobileLayout.
+ *
+ * Rig PTT monitoring (useRigBridgeSync) and the ON-AIR banner stay out of
+ * this deferred chunk — they mount synchronously in Layout/MobileLayout so
+ * PTT state and the on-air indicator are never delayed by chunk load.
  */
 
 import { useState, useCallback, useEffect } from "react";
@@ -18,7 +22,6 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
 import { BandSuggestToast } from "@/components/operating/BandSuggestToast";
-import { OnAirBanner } from "@/components/operating/OnAirBanner";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
@@ -30,13 +33,12 @@ import { useBandOpeningFeed } from "@/hooks/useBandOpeningFeed";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
-import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useLanSettingsSync } from "@/hooks/useLanSettingsSync";
 import type { AlertDisplayStyle } from "@/types/user";
 
 export interface ShellOverlaysProps {
-  /** Desktop adds contest voice/hotkeys and the ON-AIR banner; mobile adds the install prompt */
+  /** Desktop adds contest voice/hotkeys; mobile adds the install prompt */
   variant: "desktop" | "mobile";
   /** Routes that own their own alerting (atmos, kiosk, display) suppress ambient toasts/overlays */
   quiet: boolean;
@@ -75,8 +77,6 @@ export function ShellOverlays({
 
   // Initialize sync queue background processor
   useSyncQueue();
-  // Keep rigStore synced with Bridge/Daemon CAT state
-  useRigBridgeSync();
   // Keep operatingStore synced with rig, WSJT-X, and contest state
   useOperatingSync();
 
@@ -136,9 +136,6 @@ export function ShellOverlays({
 
       {/* Undo Toast - fixed position bottom-left */}
       <UndoToast />
-
-      {/* ON-AIR transmit banner — every route, kiosk included */}
-      {variant === "desktop" && <OnAirBanner />}
 
       {/* DX Spot Alert Toasts */}
       {!quiet && (

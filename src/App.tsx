@@ -12,12 +12,8 @@ import { useSync } from "@/hooks/useSync";
 import { useAuthStore } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useProfileStore } from "@/stores/profileStore";
+import { WelcomeOverlay } from "@/components/onboarding";
 
-const WelcomeOverlay = lazy(() =>
-  import("@/components/onboarding/WelcomeOverlay").then((m) => ({
-    default: m.WelcomeOverlay,
-  })),
-);
 const RadioSetupWizard = lazy(() =>
   import("@/components/onboarding/RadioSetupWizard").then((m) => ({
     default: m.RadioSetupWizard,
@@ -260,9 +256,7 @@ function App() {
         <Suspense fallback={null}>
           <RankPersistenceHost />
         </Suspense>
-        <Suspense fallback={null}>
-          <WelcomeOverlay />
-        </Suspense>
+        <WelcomeOverlay />
         <Suspense fallback={null}>
           <WSJTXAutoLogHost />
         </Suspense>

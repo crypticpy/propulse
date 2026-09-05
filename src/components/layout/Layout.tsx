@@ -7,6 +7,8 @@ import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useDisplaySync } from "@/hooks/useDisplaySync";
 import { useConnectivityTier } from "@/hooks/useConnectivityTier";
+import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
+import { OnAirBanner } from "@/components/operating/OnAirBanner";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
@@ -49,6 +51,9 @@ export function Layout() {
 
   // Keep the connectivity tier (cloud / LAN bridge / offline) current
   useConnectivityTier();
+
+  // Keep rigStore synced with Bridge/Daemon CAT state
+  useRigBridgeSync();
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts({
@@ -108,6 +113,9 @@ export function Layout() {
           <Outlet />
         </Suspense>
       </div>
+
+      {/* ON-AIR transmit banner — every route, kiosk included */}
+      <OnAirBanner />
 
       {/* Modals, toasts, sync hooks — nothing here renders at first paint */}
       <Suspense fallback={null}>

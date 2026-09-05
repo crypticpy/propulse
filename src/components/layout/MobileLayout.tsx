@@ -6,6 +6,7 @@ import { BottomTabBar } from "./BottomTabBar";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { AlertBanner } from "@/components/alerts/AlertBanner";
 import { useConnectivityTier } from "@/hooks/useConnectivityTier";
+import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -54,6 +55,9 @@ export function MobileLayout() {
 
   // Keep the connectivity tier (cloud / LAN bridge / offline) current
   useConnectivityTier();
+
+  // Keep rigStore synced with Bridge/Daemon CAT state
+  useRigBridgeSync();
 
   // Pull-to-refresh for mobile
   const {

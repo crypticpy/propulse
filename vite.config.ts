@@ -1198,11 +1198,14 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           // Install only the application shell and its synchronous imports.
           // Lazy routes are cached after use so installing Propulse does not
-          // download every radio, mapping, and 3D feature up front.
+          // download every radio, mapping, and 3D feature up front. The
+          // ShellOverlays chunk is deferred for first paint but mounts on
+          // every route, so it ships with the shell.
           globPatterns: [
             "*.{html,svg}",
             "assets/index-*.{js,css}",
-            "assets/vendor-{react,tanstack,utils,supabase,drei,r3f,three-core}-*.js",
+            "assets/ShellOverlays-*.js",
+            "assets/vendor-{react,tanstack,utils,drei,r3f,three-core}-*.js",
           ],
           cleanupOutdatedCaches: true,
           navigateFallback: "/index.html",

@@ -22,3 +22,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate requirement coverage and dependency gates
         run: python3 docs/designs/profile-shack-workbench/verify-plan.py
+      - name: Exercise scope and drift regression checks
+        run: python3 -m unittest discover -s docs/designs/profile-shack-workbench -p "test_*.py"

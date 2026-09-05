@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Validate the versioned workbench requirement register and dependency graph."""
+import argparse
 import json
 from pathlib import Path
 
@@ -7,11 +8,14 @@ ROOT = Path(__file__).resolve().parent
 
 def validate(plan):
     expected = {f"S{i:02}" for i in range(1, 18)}
-    assert set(plan["requirements"]) == expected, "Approved S01–S17 scope changed"
+    assert len(plan["requirements"]) == 17 and set(plan["requirements"]) == expected, "Approved S01–S17 scope changed"
     tasks = {t["id"]: t for t in plan["tasks"]}
     assert len(tasks) == len(plan["tasks"]), "Duplicate work package IDs"
+    assert set(tasks) == {f"W{i:02}" for i in range(1, 23)}, "Approved W01–W22 work packages changed"
+    assert plan["completion_gate"] == "W21", "Approved completion gate changed"
     phases = {p["id"]: p for p in plan["phases"]}
     assert len(phases) == len(plan["phases"]), "Duplicate phase IDs"
+    assert set(phases) == {str(i) for i in range(6)}, "Approved P0–P5 phases changed"
     numbers = [t["issue"]["number"] for t in tasks.values()]
     assert len(numbers) == len(set(numbers)), "Issue reused by multiple work packages"
     owners = plan["requirement_deliverables"]
@@ -55,7 +59,47 @@ def validate(plan):
         assert phase["exit_gate"] and phase["milestone"]["number"], "Missing phase gate/milestone"
     return len(tasks), sum(len(t["depends_on"]) for t in tasks.values())
 
+def generated_sections(plan):
+    tasks = {t["id"]: t for t in plan["tasks"]}
+    def link(task):
+        issue = task["issue"]
+        return f"[{task['id']} · #{issue['number']}]({issue['url']})"
+    phases = ["| Phase | Milestone | Exit evidence |", "|---|---|---|"]
+    for phase in plan["phases"]:
+        phases.append(f"| P{phase['id']} | [{phase['title']}]({phase['milestone']['url']}) | {phase['exit_gate']} |")
+    packages = ["| Work package | Phase | Blocked by | Delivers |", "|---|---|---|---|"]
+    for task in plan["tasks"]:
+        deps = ", ".join(link(tasks[d]) for d in task["depends_on"]) or "None — ready to claim"
+        packages.append(f"| {link(task)} {task['title']} | P{task['phase']} | {deps} | {', '.join(task['requirements'])} |")
+    coverage = ["| Requirement | Implementation evidence belongs in |", "|---|---|"]
+    for requirement, ids in plan["requirement_deliverables"].items():
+        coverage.append(f"| {requirement} | {', '.join(link(tasks[i]) for i in ids)} |")
+    return {name: "\n".join(lines) for name, lines in (("phases", phases), ("packages", packages), ("coverage", coverage))}
+
+
+def sync_document(plan, document, write=False):
+    for name, expected in generated_sections(plan).items():
+        start = f"<!-- workbench:{name}:start -->"
+        end = f"<!-- workbench:{name}:end -->"
+        assert document.count(start) == document.count(end) == 1, f"Missing/duplicate {name} document markers"
+        before, rest = document.split(start)
+        actual, after = rest.split(end)
+        assert start not in after, f"Invalid {name} document marker order"
+        wanted = "\n" + expected + "\n"
+        if not write:
+            assert actual == wanted, f"Stale {name} table: run verify-plan.py --write-docs"
+        document = before + start + wanted + end + after
+    return document
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--write-docs", action="store_true", help="Regenerate the marked delivery tables from the validated JSON register")
+    args = parser.parse_args()
     plan = json.loads((ROOT / "delivery-plan.json").read_text())
     count, edges = validate(plan)
-    print(f"Workbench plan valid: 17 requirements, {count} deliverables, {len(plan['phases'])} phases, {edges} dependency edges; every deliverable reaches the completion gate.")
+    document_path = ROOT / "DELIVERY-PLAN.md"
+    document = sync_document(plan, document_path.read_text(), write=args.write_docs)
+    if args.write_docs:
+        document_path.write_text(document)
+    print(f"Workbench plan valid: 17 requirements, {count} deliverables, {len(plan['phases'])} phases, {edges} dependency edges; every deliverable reaches the completion gate and published tables match.")

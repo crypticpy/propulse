@@ -18,6 +18,7 @@ No due dates or capacity commitments have been invented. Scope changes require e
 
 Phases describe prerequisite maturity, not separately marketed feature releases. Independent branches of the graph can proceed in parallel once their own blockers clear; a phase number alone does not imply every issue in the prior phase blocks it.
 
+<!-- workbench:phases:start -->
 | Phase | Milestone | Exit evidence |
 |---|---|---|
 | P0 | [Contracts and executable fixtures](https://github.com/crypticpy/propulse/milestone/1) | Agree domain boundaries, review representative fixtures, and choose the editor architecture before downstream implementation. |
@@ -26,6 +27,7 @@ Phases describe prerequisite maturity, not separately marketed feature releases.
 | P3 | [Workbench integration and accessible editing](https://github.com/crypticpy/propulse/milestone/4) | Inventory, canvas/list editing, guided construction, and evidence-aware results use the same services. |
 | P4 | [Profile and alternate graph views](https://github.com/crypticpy/propulse/milestone/5) | Profile composition, notebooks, extra layers, export, and rack arrangement reuse established data and permission contracts. |
 | P5 | [Integrated verification and cutover](https://github.com/crypticpy/propulse/milestone/6) | Real operator validation and integrated data/access/release evidence meet the agreed gates; all S01–S17 remain accounted for. |
+<!-- workbench:phases:end -->
 
 ## Dependency map
 
@@ -63,6 +65,7 @@ flowchart TD
 
 ## Work packages and exact prerequisites
 
+<!-- workbench:packages:start -->
 | Work package | Phase | Blocked by | Delivers |
 |---|---|---|---|
 | [W01 · #174](https://github.com/crypticpy/propulse/issues/174) Define domain contracts and representative station fixtures | P0 | None — ready to claim | S01, S02, S03, S04, S05, S06, S07, S08, S09, S10, S11, S12, S13, S14, S15, S16, S17 |
@@ -87,11 +90,13 @@ flowchart TD
 | [W20 · #193](https://github.com/crypticpy/propulse/issues/193) Add an optional rack and bench arrangement view | P4 | [W03 · #176](https://github.com/crypticpy/propulse/issues/176), [W06 · #179](https://github.com/crypticpy/propulse/issues/179), [W12 · #185](https://github.com/crypticpy/propulse/issues/185) | S08, S10, S17 |
 | [W22 · #194](https://github.com/crypticpy/propulse/issues/194) Validate workflows with real operators and resolve findings | P5 | [W13 · #186](https://github.com/crypticpy/propulse/issues/186), [W16 · #189](https://github.com/crypticpy/propulse/issues/189), [W17 · #190](https://github.com/crypticpy/propulse/issues/190) | S01, S04, S05, S06, S07, S09, S10, S11, S12, S15 |
 | [W21 · #195](https://github.com/crypticpy/propulse/issues/195) Verify all requirements and complete the controlled cutover | P5 | [W04 · #177](https://github.com/crypticpy/propulse/issues/177), [W08 · #181](https://github.com/crypticpy/propulse/issues/181), [W13 · #186](https://github.com/crypticpy/propulse/issues/186), [W14 · #187](https://github.com/crypticpy/propulse/issues/187), [W16 · #189](https://github.com/crypticpy/propulse/issues/189), [W17 · #190](https://github.com/crypticpy/propulse/issues/190), [W18 · #191](https://github.com/crypticpy/propulse/issues/191), [W19 · #192](https://github.com/crypticpy/propulse/issues/192), [W20 · #193](https://github.com/crypticpy/propulse/issues/193), [W22 · #194](https://github.com/crypticpy/propulse/issues/194) | S01, S02, S03, S04, S05, S06, S07, S08, S09, S10, S11, S12, S13, S14, S15, S16, S17 |
+<!-- workbench:packages:end -->
 
 ## Requirement coverage
 
 These are the primary implementation deliverables for each requirement. Shared architecture and final verification also trace back to every requirement, but do not substitute for implementing it. See PUNCH-LIST.md for the complete original acceptance text.
 
+<!-- workbench:coverage:start -->
 | Requirement | Implementation evidence belongs in |
 |---|---|
 | S01 | [W08 · #181](https://github.com/crypticpy/propulse/issues/181) |
@@ -111,10 +116,11 @@ These are the primary implementation deliverables for each requirement. Shared a
 | S15 | [W17 · #190](https://github.com/crypticpy/propulse/issues/190) |
 | S16 | [W19 · #192](https://github.com/crypticpy/propulse/issues/192) |
 | S17 | [W20 · #193](https://github.com/crypticpy/propulse/issues/193) |
+<!-- workbench:coverage:end -->
 
 ## Keeping the plan honest
 
-Run `python3 docs/designs/profile-shack-workbench/verify-plan.py` after changing the register. The scoped GitHub workflow checks S01–S17 coverage, unique issue identities, explicit implementation mappings, valid phase ordering, acyclic dependencies and that every deliverable reaches W21. It verifies plan structure, not whether an implementation works or whether mutable GitHub status is truthful. Required-check branch protection is unchanged.
+Run `python3 docs/designs/profile-shack-workbench/verify-plan.py --write-docs` after changing the register to regenerate the marked phase, dependency and coverage tables. Run the same command without `--write-docs` to check for drift, and `python3 -m unittest discover -s docs/designs/profile-shack-workbench -p "test_*.py"` for regression tests. The scoped GitHub workflow runs the validator and regression tests. It checks the approved S01–S17, W01–W22 and P0–P5 ID sets, unique issue identities, explicit implementation mappings, valid phase ordering, acyclic dependencies, reachability of every deliverable to W21, and exact agreement between the generated tables and register. Explicitly approved changes to the work-package or phase set must also update the validator and its tests. It verifies plan structure, not whether an implementation works or whether mutable GitHub status is truthful. Required-check branch protection is unchanged.
 
 When splitting or changing work, update the JSON, this table, issue bodies, native sub-issue/dependency links and project fields in the same planning change. Reconcile remote links and status before each phase signoff. The project and issues hold current progress; the versioned register holds approved scope and dependency contracts. Setup-time IDs are metadata, not evidence of implementation completion.
 

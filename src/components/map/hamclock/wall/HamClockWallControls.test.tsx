@@ -18,6 +18,25 @@ vi.mock("@/components/map/LayersPopover", () => ({
 }));
 
 describe("HamClockWallControls", () => {
+  it("renders the Display settings trigger in the fixed instrument slot, not inside the CONTROLS popout", () => {
+    render(<HamClockWallControls />);
+
+    // Visible before CONTROLS is ever opened — same fixed slot and order as
+    // the desk header (mode · WALL | DESK · projection · Display).
+    expect(screen.getByRole("button", { name: "Display" })).not.toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "HamClock controls" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "CONTROLS" }));
+
+    // Still exactly one Display trigger once the popout (layers only now)
+    // opens — it was never duplicated into the popout.
+    expect(screen.getAllByRole("button", { name: "Display" })).toHaveLength(
+      1,
+    );
+  });
+
   it("closes on Escape pressed inside the portalled LayersPopover without exiting HamClock", async () => {
     const windowKeyDown = vi.fn();
     window.addEventListener("keydown", windowKeyDown);

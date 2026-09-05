@@ -1304,6 +1304,13 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      modulePreload: {
+        // Chromium can discard HTML preload responses when the module loader
+        // receives the same scripts through our service worker. Let the entry's
+        // imports load them; retain dependency preloading for lazy route imports.
+        resolveDependencies: (_url, dependencies, { hostType }) =>
+          hostType === "html" ? [] : dependencies,
+      },
       // Code splitting configuration for optimal bundle sizes
       rollupOptions: {
         output: {

@@ -8,6 +8,7 @@ import {
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
+import { HamClockDensitySwitch } from "../HamClockDensitySwitch";
 import { HamClockDisplaySettings } from "../HamClockDisplaySettings";
 import { HamClockModeSwitch } from "../HamClockModeSwitch";
 import { HamClockProjectionSwitch } from "../HamClockProjectionSwitch";
@@ -79,9 +80,13 @@ function WallHomeRegion() {
 }
 
 /**
- * Wall density has no second toolbar row: the desk header's controls collapse
- * into one anchored overflow cluster at the right end of the header, with the
- * exit affordance always visible outside the menu.
+ * Wall density has no second toolbar row, so the desk header's controls
+ * collapse into one anchored overflow cluster at the right end of the
+ * header. Mode, density and projection stay always visible ahead of the
+ * cluster — the same fixed slot and order as the desk header (B1/HW-22) —
+ * so switching back to desk density is never a menu away. The CONTROLS
+ * trigger keeps opening the remaining popout content, and the exit
+ * affordance is always visible outside the menu.
  */
 export function HamClockWallControls() {
   const [open, setOpen] = useState(false);
@@ -140,6 +145,9 @@ export function HamClockWallControls() {
 
   return (
     <div className="hc-tools" ref={container}>
+      <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
+      <HamClockDensitySwitch />
+      <HamClockProjectionSwitch value={viewMode} onChange={handleProjection} />
       <button
         ref={trigger}
         type="button"
@@ -166,11 +174,6 @@ export function HamClockWallControls() {
           role="group"
           aria-label="HamClock controls"
         >
-          <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
-          <HamClockProjectionSwitch
-            value={viewMode}
-            onChange={handleProjection}
-          />
           {showMapContent && <WallMapContent />}
           <WallHomeRegion />
           <LayersPopover />

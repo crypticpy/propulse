@@ -109,9 +109,6 @@ vi.mock("./hamclock/HamClockSpotsSidebar", () => ({
 vi.mock("./hamclock/HamClockBestBandHero", () => ({
   HamClockBestBandHero: () => <div />,
 }));
-vi.mock("./hamclock/HamClockProjectionSwitch", () => ({
-  HamClockProjectionSwitch: () => <div />,
-}));
 vi.mock("./hamclock/HamClockContestsPanel", () => ({
   HamClockContestsPanel: () => <div />,
 }));
@@ -135,6 +132,13 @@ vi.mock("./DXNewsTicker", () => ({
   ),
 }));
 
+/** True when `a` appears before `b` in document order. */
+function isBefore(a: Element, b: Element): boolean {
+  return Boolean(
+    a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
 describe("HamClockView", () => {
   it("keeps the alert and news crawl mounted below the wall display", () => {
     // Desk density owns the grid-area layout this assertion describes; wall
@@ -148,5 +152,28 @@ describe("HamClockView", () => {
 
     const crawl = screen.getByRole("marquee", { name: /alert crawl/i });
     expect(crawl.parentElement?.style.gridArea).toBe("ticker");
+  });
+
+  it("shows WALL in the header without opening a menu, and orders mode, density, projection and the settings trigger consistently with the wall header (B1/HW-22)", () => {
+    useHamClockDisplayStore.getState().setDensity("desk");
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+
+    // WALL is directly visible — no menu needs opening. Previously the only
+    // way back to wall density was a <select> buried in Display settings.
+    const wall = screen.getByRole("button", { name: "WALL" });
+    expect(wall).toBeTruthy();
+
+    const mode = screen.getByRole("group", { name: "HamClock mode" });
+    const density = screen.getByRole("group", { name: "HamClock density" });
+    const projection = screen.getByRole("group", { name: "Map projection" });
+    const settingsTrigger = screen.getByRole("button", { name: "Display" });
+
+    expect(isBefore(mode, density)).toBe(true);
+    expect(isBefore(density, projection)).toBe(true);
+    expect(isBefore(projection, settingsTrigger)).toBe(true);
   });
 });

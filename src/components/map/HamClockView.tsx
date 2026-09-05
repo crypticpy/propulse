@@ -42,6 +42,7 @@ import {
   hamClockPanelWidths,
   hamClockHomeRegion,
 } from "@/lib/hamclock/displayLayout";
+import { HamClockDensitySwitch } from "./hamclock/HamClockDensitySwitch";
 import { HamClockDisplaySettings } from "./hamclock/HamClockDisplaySettings";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
@@ -927,7 +928,6 @@ export function HamClockView({
               )}
             </svg>
           </button>
-          <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
           <span className="font-mono text-sm font-bold text-signal-green truncate hidden xl:inline">
             {station?.callsign || "NO CALL"}
           </span>
@@ -943,6 +943,18 @@ export function HamClockView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Fixed instrument slot: mode, WALL | DESK, projection and the
+           * settings trigger, in that order — identical to the wall
+           * header's HamClockWallControls cluster (B1/HW-22), so an
+           * operator never has to open a menu to find the way back to
+           * wall density. */}
+          <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
+          <HamClockDensitySwitch />
+          <HamClockProjectionSwitch
+            value={viewMode}
+            onChange={handleProjectionChange}
+          />
+          <HamClockDisplaySettings />
           {(hamclockMode === "traffic" || hamclockMode === "bands") && (
             <div
               className="flex rounded border border-white/20 p-0.5"
@@ -974,6 +986,7 @@ export function HamClockView({
               ))}
             </div>
           )}
+          <LayersPopover />
           <button
             type="button"
             aria-pressed={observatory}
@@ -986,7 +999,6 @@ export function HamClockView({
           >
             Observatory
           </button>
-          <HamClockDisplaySettings />
           <button
             type="button"
             disabled={!activeLocation}
@@ -1001,10 +1013,6 @@ export function HamClockView({
           >
             Home region
           </button>
-          <HamClockProjectionSwitch
-            value={viewMode}
-            onChange={handleProjectionChange}
-          />
           <button
             onClick={handleSwapSides}
             className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -1015,7 +1023,6 @@ export function HamClockView({
           </button>
           <SolarPills />
           <HamClockLayerChips />
-          <LayersPopover />
           <WatchStatusPill className="hidden sm:flex" />
           <button
             onClick={toggleRight}

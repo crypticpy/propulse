@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { workbenchArchiveSchema } from "@/lib/station/workbench/contracts";
+import { workbenchArchiveSchema, type WorkbenchArchive } from "@/lib/station/workbench/contracts";
 import { createExperimentFixture, createPortableSharedFixture } from "@/lib/station/workbench/fixtures";
 
 describe("W03 transition contracts", () => {
@@ -46,6 +46,24 @@ describe("W03 transition contracts", () => {
     archive.revisions[0].transition = { kind: "clone", sourceRevisionId: archive.revisions[1].id };
     archive.revisions[1].transition = { kind: "clone", sourceRevisionId: archive.revisions[0].id };
     expect(workbenchArchiveSchema.safeParse(archive).success).toBe(false);
+  });
+
+  it("validates long newest-first histories and detects a deep cycle without recursion", () => {
+    const count = 15000;
+    const archive: WorkbenchArchive = {
+      schemaVersion: 1, ownerId: "owner", inventory: [], models: [], evidence: [], locations: [], layouts: [], experiments: [], publications: [], operating: null,
+      setups: [{ id: "setup", ownerId: "owner", name: "History", locationId: null, draftRevisionId: `r${count - 1}`, archivedAt: null, legacy: [] }],
+      revisions: Array.from({ length: count }, (_, index): WorkbenchArchive["revisions"][number] => ({
+        id: `r${index}`, ownerId: "owner", setupId: "setup", parentRevisionId: index ? `r${index - 1}` : null,
+        createdAt: "2026-09-05T00:00:00Z", equipment: [], models: [], evidence: [], location: null, connections: [], cableRuns: [], routes: [],
+        settings: { frequencyHz: { state: "unknown", reason: "Undeclared" }, requestedPowerWatts: { state: "unknown", reason: "Undeclared" }, mode: null }, notes: "",
+      })).reverse(),
+    };
+    expect(workbenchArchiveSchema.safeParse(archive).success).toBe(true);
+    archive.revisions[count - 1].parentRevisionId = `r${count - 1}`;
+    const result = workbenchArchiveSchema.safeParse(archive);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.some((issue) => issue.message.includes("provenance cycle"))).toBe(true);
   });
 
   it("keeps explicit band intent optional and never infers it from frequency", () => {

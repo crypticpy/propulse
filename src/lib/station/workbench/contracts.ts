@@ -387,7 +387,6 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     owned(revision);
     if (!setups.has(revision.setupId)) issue(`Missing setup: ${revision.setupId}`);
     if (revision.parentRevisionId !== null && revisions.get(revision.parentRevisionId)?.setupId !== revision.setupId) issue(`Invalid parent revision: ${revision.id}`);
-    const ancestors = new Set([revision.id]);
     const transition = revision.transition;
     if (transition) {
       if ((transition.kind === "initial" || transition.kind === "clone") && revision.parentRevisionId !== null) issue(`Initial or cloned revision cannot have a parent: ${revision.id}`);
@@ -397,12 +396,6 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
         if (!source || source.id === revision.id) issue(`Missing or self transition source: ${revision.id}`);
         else if (transition.kind === "restore" ? source.setupId !== revision.setupId : source.setupId === revision.setupId) issue(`Invalid transition source setup: ${revision.id}`);
       }
-    }
-    let ancestorId = revision.parentRevisionId;
-    while (ancestorId) {
-      if (ancestors.has(ancestorId)) { issue(`Revision ancestry cycle: ${revision.id}`); break; }
-      ancestors.add(ancestorId);
-      ancestorId = revisions.get(ancestorId)?.parentRevisionId ?? null;
     }
     const equipment = unique(revision.equipment, "snapshot instance");
     const pinnedEvidence = unique(revision.evidence, "snapshot evidence");
@@ -508,18 +501,26 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
   // Parent and source provenance jointly form history; neither edge may point back into itself.
   const checkedHistory = new Set<string>();
   const visitingHistory = new Set<string>();
-  const visitHistory = (revisionId: string): void => {
-    if (visitingHistory.has(revisionId)) { issue(`Revision provenance cycle: ${revisionId}`); return; }
-    if (checkedHistory.has(revisionId)) return;
-    const revision = revisions.get(revisionId);
-    if (!revision) return;
-    visitingHistory.add(revisionId);
-    if (revision.parentRevisionId) visitHistory(revision.parentRevisionId);
-    if (revision.transition?.kind === "clone" || revision.transition?.kind === "restore") visitHistory(revision.transition.sourceRevisionId);
-    visitingHistory.delete(revisionId);
-    checkedHistory.add(revisionId);
-  };
-  archive.revisions.forEach((revision) => visitHistory(revision.id));
+  for (const start of archive.revisions) {
+    if (checkedHistory.has(start.id)) continue;
+    const stack: { id: string; exiting: boolean }[] = [{ id: start.id, exiting: false }];
+    while (stack.length) {
+      const frame = stack.pop()!;
+      if (frame.exiting) {
+        visitingHistory.delete(frame.id);
+        checkedHistory.add(frame.id);
+        continue;
+      }
+      if (visitingHistory.has(frame.id)) { issue(`Revision provenance cycle: ${frame.id}`); continue; }
+      if (checkedHistory.has(frame.id)) continue;
+      const revision = revisions.get(frame.id);
+      if (!revision) continue;
+      visitingHistory.add(frame.id);
+      stack.push({ id: frame.id, exiting: true });
+      if (revision.transition?.kind === "clone" || revision.transition?.kind === "restore") stack.push({ id: revision.transition.sourceRevisionId, exiting: false });
+      if (revision.parentRevisionId) stack.push({ id: revision.parentRevisionId, exiting: false });
+    }
+  }
   archive.layouts.forEach((layout) => {
     owned(layout);
     const revision = revisions.get(layout.revisionId);

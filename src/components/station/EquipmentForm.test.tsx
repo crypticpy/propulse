@@ -57,7 +57,7 @@ describe("equipment review form", () => {
       screen.getByText("Use a different name for each port."),
     ).toBeTruthy();
     await user.click(
-      screen.getByRole("button", { name: "Move rf in up", exact: true }),
+      screen.getByRole("button", { name: "Move rf in up" }),
     );
     expect(
       screen.getByText("Use a different name for each port."),

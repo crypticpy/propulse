@@ -49,9 +49,11 @@ interface HamClockWallProps {
 /**
  * Wall density: a full-bleed map with two translucent tile rails, a callsign
  * header with dual clocks, the existing DX news ticker, and a footer carrying
- * a pager control at each end plus the WALL/DESK switch. Both rails and both
- * pagers share the one page index — pick the page from either side of the
- * screen and the whole wall turns to it together.
+ * a pager control at each end. Both rails and both pagers share the one page
+ * index — pick the page from either side of the screen and the whole wall
+ * turns to it together. The WALL/DESK switch lives in the header (alongside
+ * mode, projection and settings, in the fixed slot the desk header also
+ * uses — B1/HW-22), not the footer, so there is exactly one control for it.
  */
 export function HamClockWall({ children }: HamClockWallProps) {
   // Both rails follow one page (wall spec §4/§5): `left` is the canonical
@@ -59,8 +61,6 @@ export function HamClockWall({ children }: HamClockWallProps) {
   // one number.
   const page = useHamClockDisplayStore((s) => s.pageIndex.left);
   const stepPage = useHamClockDisplayStore((s) => s.stepPage);
-  const density = useHamClockDisplayStore((s) => s.density);
-  const setDensity = useHamClockDisplayStore((s) => s.setDensity);
   const theme = useHamClockDisplayStore((s) => s.theme);
   const pageCount = HAMCLOCK_WALL_PAGES.length;
   const onStep = useCallback(
@@ -102,22 +102,6 @@ export function HamClockWall({ children }: HamClockWallProps) {
       <footer className="hc-ftr">
         <HamClockPager pageIndex={page} onStep={onStep} />
         <WallStatus />
-        <div className="hc-mode" role="group" aria-label="Layout density">
-          <button
-            type="button"
-            aria-pressed={density === "wall"}
-            onClick={() => setDensity("wall")}
-          >
-            WALL
-          </button>
-          <button
-            type="button"
-            aria-pressed={density === "desk"}
-            onClick={() => setDensity("desk")}
-          >
-            DESK
-          </button>
-        </div>
         <HamClockPager pageIndex={page} onStep={onStep} />
       </footer>
     </div>

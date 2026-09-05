@@ -204,10 +204,15 @@ describe("HamClockWall", () => {
     dialog.remove();
   });
 
-  it("switches density from the footer WALL/DESK control", () => {
+  it("no longer renders a footer WALL/DESK control — it moved to the header", () => {
+    // The header's HamClockDensitySwitch (rendered by the real, unmocked
+    // HamClockWallHeader) is the only WALL/DESK toggle now; see
+    // HamClockWallHeader.test.tsx for its coverage. HamClockWallControls is
+    // stubbed out above, so this asserts the footer copy was removed rather
+    // than merely hidden.
     renderWall();
-    useHamClockDisplayStore.getState().setDensity("wall");
-    fireEvent.click(screen.getByRole("button", { name: "DESK" }));
-    expect(useHamClockDisplayStore.getState().density).toBe("desk");
+    expect(
+      screen.queryByRole("group", { name: "Layout density" }),
+    ).toBeNull();
   });
 });

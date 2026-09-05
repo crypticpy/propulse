@@ -1,0 +1,10 @@
+Use case: ui-mockup.
+Generate ONE polished ProPulse Profile customization concept image, with no image references. High fidelity desktop webapp viewport, wide 1600x1000 composition. Elegant mature ham radio community product, warm white canvas and graphite navigation/sidebar, restrained orange, clean readable humanist sans, no neon or game stats wall, no device frame and no collage.
+Header "PROPULSE"; primary navigation "Profile", "My gear", "Setups", "Experiments".
+Page title "Your operator profile", top right "Preview as visitor" and orange "Save layout".
+Main center-left profile composition: tasteful wide realistic photograph of a modest welcoming radio desk with generic transceiver, homemade key, notebook, plant and daylight. Below identity "Alex Morgan" and small "DEMO OPERATOR", rough location "Pacific Northwest", small tags "Portable • CW • Homebrew".
+Hero headline "Small station. Lots of experimenting."
+Three concise editorial modules: "Where to find me" with "20 m / CW / Weekend mornings"; "Featured setup" showing a clean simple radio-to-wire-antenna mini diagram and "Portable wire kit"; "On my workbench" with a small build photograph and "Learning antenna measurements". Include "Happy to help with: First HF setup". Optional compact stats low priority.
+Right narrow customization inspector titled "Make it yours": reorderable section list with drag grips PLUS up/down controls; switches "Cover photo", "Featured setup", "Operating interests", "On-air schedule", "Stats" with Stats off. Accent swatches and "Comfortable" density. Privacy row "Location: Region only", "Setup: Public summary", and "Preview audience: Visitor".
+Clearly curate a public showcase separate from private inventory. No serials, exact address, money, badges rewarding expensive gear, rankings, or follower counts. Bottom tiny label "Design concept • fictional operator".
+Use real-looking modest desk photography inside the UI; strong typographic hierarchy and generous whitespace. Make this something an operator is proud to share. All interface text should be crisp, correctly spelled, and comfortably readable. Flat straight-on screenshot, edge-to-edge interface.

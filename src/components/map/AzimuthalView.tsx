@@ -2688,6 +2688,7 @@ export function AzimuthalView({
 
     // Draw grid glow pulses (before spot arcs, after bearing labels)
     if (
+      !pathPresentation.hideOtherPaths &&
       (layers.spots || layers.spotTraces || layers.gridActivity) &&
       (layers.gridActivity || glowRendererRef.current.hasActiveGlows())
     ) {

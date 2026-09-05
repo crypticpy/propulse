@@ -3594,6 +3594,7 @@ export function FlatMapView({
           spots: layers.spots,
           spotTraces: layers.spotTraces,
           gridActivity: layers.gridActivity,
+          activations: layers.activations,
         },
         {
           isolateTargetPath: pathPresentation.isolateTargetPath,
@@ -3601,6 +3602,7 @@ export function FlatMapView({
         },
       ),
     [
+      layers.activations,
       layers.gridActivity,
       layers.spotTraces,
       layers.spots,
@@ -3902,8 +3904,7 @@ export function FlatMapView({
 
       const renderer = glowRendererRef.current;
       const now = Date.now();
-      const effectsVisible =
-        layers.spots || layers.spotTraces || layers.gridActivity;
+      const effectsVisible = spotLayerPolicy.activityVisible;
       if (effectsVisible) {
         renderer.draw(
           context,
@@ -3944,9 +3945,7 @@ export function FlatMapView({
     displaySize,
     viewportSize,
     zoom,
-    layers.spots,
-    layers.spotTraces,
-    layers.gridActivity,
+    spotLayerPolicy.activityVisible,
     qualitySettings.renderDevicePixelRatio,
   ]);
 
@@ -4253,8 +4252,10 @@ export function FlatMapView({
         findSpotEndpointAtScreenPos(screenPos);
       if (!hit) {
         const gridHighlightEnabled =
-          layers.gridActivity ||
-          (layers.labels && labelOptions.maidenheadGrid && layers.spots);
+          spotLayerPolicy.gridCollectionsInteractive ||
+          (layers.labels &&
+            labelOptions.maidenheadGrid &&
+            spotLayerPolicy.labelsInteractive);
         if (!gridHighlightEnabled) return false;
         const gridPrecision = layers.gridActivity
           ? gridActivity.resolution
@@ -4291,7 +4292,7 @@ export function FlatMapView({
       labelOptions.maidenheadGrid,
       layers.gridActivity,
       layers.labels,
-      layers.spots,
+      spotLayerPolicy,
       setFlyoutPosition,
       setTooltipPosition,
     ],
@@ -5729,7 +5730,7 @@ export function FlatMapView({
       );
     }
 
-    if (layers.activations && activationSpots.length > 0) {
+    if (spotLayerPolicy.activationsVisible && activationSpots.length > 0) {
       const placements = drawActivationPills(
         ctx,
         activationSpots,
@@ -6263,7 +6264,7 @@ export function FlatMapView({
             }}
           />
           {/* FT8 Decode overlay — enriched decode markers + great-circle arcs */}
-          {layers.ft8Spotter && (
+          {layers.ft8Spotter && !pathPresentation.hideOtherPaths && (
             <Ft8DecodeLayerFlat
               decodes={ft8EnrichedDecodes}
               myLat={station?.lat}
@@ -6278,7 +6279,7 @@ export function FlatMapView({
               scale={zoom.scale}
             />
           )}
-          {layers.activations && (
+          {spotLayerPolicy.activationsVisible && (
             <ActivationPillButtons
               placements={activationPillPlacements}
               onSpotHover={handleSpotHover}

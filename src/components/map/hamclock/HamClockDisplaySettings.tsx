@@ -1,18 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  HAMCLOCK_DENSITIES,
   HAMCLOCK_PANELS,
   HAMCLOCK_UNITS,
   useHamClockDisplayStore,
-  type HamClockDensity,
   type HamClockUnits,
 } from "@/stores/hamclockDisplayStore";
 import { HamClockThemePicker } from "./HamClockThemePicker";
 
-const DENSITY_LABEL: Record<HamClockDensity, string> = {
-  wall: "Wall",
-  desk: "Desk",
-};
 const UNITS_LABEL: Record<HamClockUnits, string> = {
   auto: "Auto",
   imperial: "Imperial",
@@ -120,27 +114,10 @@ export function HamClockDisplaySettings() {
               ×
             </button>
           </div>
-          <label className="mb-3 flex items-center justify-between gap-3">
-            Density
-            <select
-              aria-label="Density"
-              value={s.density}
-              onChange={(e) =>
-                s.setDensity(e.target.value as HamClockDensity)
-              }
-              className="rounded border border-white/20 bg-void-black p-1"
-            >
-              {HAMCLOCK_DENSITIES.map((value) => (
-                <option key={value} value={value}>
-                  {DENSITY_LABEL[value]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="mb-3 text-xs text-gray-400">
-            Wall is the full-bleed map with tile rails for a TV read from
-            across the room. Desk keeps the panel layout.
-          </p>
+          {/* Density (WALL | DESK) moved to the header's HamClockDensitySwitch
+           * (B1/HW-22) — it was previously only reachable from this buried
+           * select, which is exactly the "no visible way back to wall"
+           * complaint this batch fixes. */}
           <HamClockThemePicker />
           <label className="mb-3 flex items-center justify-between gap-3">
             Units

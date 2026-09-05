@@ -34,18 +34,20 @@ try {
   const mapState = () => page.evaluate(async () => {
     const resource = performance.getEntriesByType("resource").find(e => new URL(e.name).pathname === "/src/stores/mapStore.ts");
     const { useMapStore } = await import(resource?.name ?? "/src/stores/mapStore.ts");
+    const operationalResource = performance.getEntriesByType("resource").find(e => new URL(e.name).pathname === "/src/stores/mapOperationalStore.ts");
+    const { useMapOperationalStore } = await import(operationalResource?.name ?? "/src/stores/mapOperationalStore.ts");
     const state = useMapStore.getState();
-    return { viewMode: state.viewMode, expanded: state.isDXConsoleExpanded };
+    return { viewMode: state.viewMode, expanded: state.isDXConsoleExpanded, workspaceOpen: useMapOperationalStore.getState().workspaceOpen };
   });
   console.log("Checking saved Log startup");
   await page.goto(new URL("/map", origin).href);
   await expect(page.locator("canvas[data-engine]")).toBeVisible({ timeout: 60000 });
-  await expect.poll(mapState).toEqual({ viewMode: "globe", expanded: false });
+  await expect.poll(mapState).toEqual({ viewMode: "globe", expanded: false, workspaceOpen: false });
   await expect(page.getByRole("button", { name: "Expand to Ops Console", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Expand to Ops Console", exact: true }).click();
-  await expect.poll(async () => (await mapState()).expanded).toBe(true);
+  await expect.poll(async () => (await mapState()).expanded && (await mapState()).workspaceOpen).toBe(true);
   await page.getByRole("button", { name: "Collapse ops console", exact: true }).click();
-  await expect.poll(async () => (await mapState()).expanded).toBe(false);
+  await expect.poll(async () => !(await mapState()).expanded && !(await mapState()).workspaceOpen).toBe(true);
   results.checks.push("Saved Log scope starts minimized; explicit open and collapse work.");
   for (const width of [768, 834, 1024, 1300, 1440]) {
     console.log(`Checking navigation at ${width}px`);
@@ -74,12 +76,30 @@ try {
     results.checks.push(`Navigation and account controls stay fixed across Home/Solar/Map at ${width}px.`);
   }
   await page.setViewportSize({ width: 1300, height: 900 });
-  await expect.poll(async () => (await mapState()).expanded).toBe(false);
+  await expect.poll(async () => !(await mapState()).expanded && !(await mapState()).workspaceOpen).toBe(true);
   await page.getByRole("combobox", { name: "PropSphere operating scope", exact: true }).first().selectOption("observe");
   await expect(page.locator("canvas[data-engine]")).toBeVisible();
   await page.getByRole("combobox", { name: "PropSphere operating scope", exact: true }).first().selectOption("log");
-  await expect.poll(async () => (await mapState()).expanded).toBe(true);
+  await expect.poll(async () => (await mapState()).expanded && (await mapState()).workspaceOpen).toBe(true);
   results.checks.push("Explicit Log selection still opens the console.");
+  await page.getByRole("button", { name: "Collapse ops console", exact: true }).click();
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.evaluate(async () => {
+    const loaded = async path => import(performance.getEntriesByType("resource").find(e => new URL(e.name).pathname === path)?.name ?? path);
+    const { useContestStore } = await loaded("/src/stores/contestStore.ts");
+    const { useContestUIStore } = await loaded("/src/stores/contestUIStore.ts");
+    const { useMapOperationalStore } = await loaded("/src/stores/mapOperationalStore.ts");
+    useContestStore.getState().startContest("cqww-ssb", "04", { operator: "single-op", power: "low", mode: "ssb", band: "all" });
+    useContestUIStore.getState().setPublicAssistance(useContestStore.getState().activeSession.id, true);
+    useMapOperationalStore.getState().setManualScope("contest");
+  });
+  await expect(page.locator('[data-map-scope="contest"][data-public-assistance="true"]').first()).toBeVisible();
+  await expect.poll(async () => (await mapState()).expanded).toBe(false);
+  await page.getByRole("button", { name: "Expand to Ops Console", exact: true }).click();
+  await expect.poll(async () => (await mapState()).expanded && (await mapState()).workspaceOpen).toBe(true);
+  await page.getByRole("button", { name: "Collapse ops console", exact: true }).click();
+  await expect.poll(async () => !(await mapState()).expanded && !(await mapState()).workspaceOpen).toBe(true);
+  results.checks.push("Assisted contest opener remains available at 1100px; opening/collapse updates shared workspace state.");
   expect(results.errors).toEqual([]);
   const fallbackContext = await browser.newContext({ viewport: { width: 1300, height: 900 } });
   await fallbackContext.addInitScript(() => {

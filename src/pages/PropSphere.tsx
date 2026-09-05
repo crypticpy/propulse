@@ -142,6 +142,7 @@ import {
   useOperationalWorkspaceSync,
   useScopedMapLayers,
 } from "@/hooks/useMapOperationalContext";
+import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { policyAllows } from "@/lib/map/operationalScope";
 
 /**
@@ -206,6 +207,10 @@ export function PropSphere() {
   // lg the responsive classes already produce the tabbed layout.
   const compactFit = useDisplayFit();
   const setDXConsoleExpanded = useMapStore((s) => s.setDXConsoleExpanded);
+  const openOpsConsole = useCallback(() => {
+    useMapOperationalStore.getState().setWorkspaceOpen(true);
+    setDXConsoleExpanded(true);
+  }, [setDXConsoleExpanded]);
   const pathMode = useMapStore((s) => s.pathMode);
   const setReplayEnabled = useMapStore((s) => s.setReplayEnabled);
   const baseStation = useUserStore((state) => state.station);
@@ -1117,9 +1122,7 @@ export function PropSphere() {
                   <div className="flex shrink-0 items-center gap-1">
                     <OperationalScopeControl
                       compact={mapToolbarLayout.iconOnly}
-                      onWorkspaceRequested={() =>
-                        setDXConsoleExpanded(true)
-                      }
+                      onWorkspaceRequested={openOpsConsole}
                     />
                     <MapStatusChip className="flex shrink-0" />
                     <ActiveKitChip className="flex shrink-0" />
@@ -1560,10 +1563,10 @@ export function PropSphere() {
           {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
           {!isLiteMode && (
             <>
-              {!isDXConsoleExpanded && !showPublicActivity && (
+              {!isDXConsoleExpanded && operationalContext.scope !== "observe" && (
                 <button
                   type="button"
-                  onClick={() => setDXConsoleExpanded(true)}
+                  onClick={openOpsConsole}
                   aria-label="Expand to Ops Console"
                   className="hidden min-h-11 shrink-0 items-center justify-between rounded-xl border border-white/10 bg-nebula-blue/50 px-4 text-sm text-gray-300 transition-colors hover:bg-nebula-blue/80 lg:flex"
                 >
@@ -1660,7 +1663,7 @@ export function PropSphere() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDXConsoleExpanded(true);
+                            openOpsConsole();
                           }}
                           className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
                           title="Expand to Ops Console"

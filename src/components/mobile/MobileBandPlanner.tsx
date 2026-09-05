@@ -114,8 +114,7 @@ export function MobileBandPlanner({
   // Expanded band card
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
 
-  const liveMode = useActiveMode();
-  const activeMode = solarHandoff?.mode ?? liveMode;
+  const activeMode = useActiveMode();
   const forecastStation = useForecastStationParams(
     station.lat,
     station.lon,
@@ -168,9 +167,9 @@ export function MobileBandPlanner({
       currentKp,
       currentFlux,
       solarHandoff?.at ? new Date(solarHandoff.at) : new Date(),
-      forecastStation && solarHandoff ? { ...forecastStation, mode: solarAnalysisMode(solarHandoff.mode) } : forecastStation,
+      forecastStation && solarHandoff ? { ...forecastStation, mode: solarAnalysisMode(activeMode) } : forecastStation,
     );
-  }, [station, targetCoords, currentKp, currentFlux, forecastStation, solarHandoff]);
+  }, [station, targetCoords, currentKp, currentFlux, forecastStation, solarHandoff, activeMode]);
 
   // Best windows
   const bestWindows = useMemo<BestWindow[]>(() => {

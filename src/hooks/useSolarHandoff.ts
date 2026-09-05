@@ -10,6 +10,16 @@ export function useSolarHandoff() {
   return useMemo(() => parseSolarHandoff(state?.solarHandoff), [state]);
 }
 
+/** Initialize the shared planner mode once; later operator changes remain authoritative. */
+export function useInitializeSolarMode(handoff: ReturnType<typeof parseSolarHandoff>) {
+  const applied = useRef<unknown>(null);
+  useEffect(() => {
+    if (!handoff || applied.current === handoff) return;
+    applied.current = handoff;
+    useOperatingStore.getState().setManualMode(handoff.mode);
+  }, [handoff]);
+}
+
 
 export function useApplySolarMapHandoff() {
   const handoff = useSolarHandoff();

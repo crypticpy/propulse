@@ -1,5 +1,5 @@
 import { useSolarHandoff } from "@/hooks/useSolarHandoff";
-import { solarAnalysisMode } from "@/lib/solar/handoff";
+import { solarWizardMode } from "@/lib/solar/handoff";
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 /**
  * useDXWizardSession — shared state + recommendation pipeline for desktop
@@ -85,7 +85,7 @@ export function useDXWizardSession() {
   const catEnabled = useRigStore((s) => s.catEnabled);
   const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
   const setPendingMode = useRigStore((s) => s.setPendingMode);
-  const contestContext = useContestContext();
+  const contestContext = useContestContext(solarHandoff?.at);
   const stationGain = useActiveStationGain();
   const chainPerf = useChainPerformance();
   const bandVerdicts = useBandVerdicts();
@@ -104,7 +104,7 @@ export function useDXWizardSession() {
   const [showRecentDropdown, setShowRecentDropdown] = useState(false);
   const recentDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [mode, setMode] = useState<WizardMode>(solarHandoff ? solarAnalysisMode(solarHandoff.mode) : "FT8");
+  const [mode, setMode] = useState<WizardMode>(solarHandoff ? solarWizardMode(solarHandoff.mode) : "FT8");
   const [pathMode, setPathMode] = useState<WizardPathMode>("short");
   const [optimizeFor, setOptimizeFor] =
     useState<WizardOptimizeFor>("propagation");
@@ -377,9 +377,9 @@ export function useDXWizardSession() {
     () => ({
       activeContests: contestContext.activeContests,
       isContestWeekend: contestContext.isContestWeekend,
-      currentHourUtc: new Date().getUTCHours(),
+      currentHourUtc: (solarHandoff?.at ? new Date(solarHandoff.at) : new Date()).getUTCHours(),
     }),
-    [contestContext.activeContests, contestContext.isContestWeekend],
+    [contestContext.activeContests, contestContext.isContestWeekend, solarHandoff?.at],
   );
 
   const recommendation = useMemo(() => {

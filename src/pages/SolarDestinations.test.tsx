@@ -17,7 +17,7 @@ vi.hoisted(() => {
   });
 });
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useProfileStore } from "@/stores/profileStore";
@@ -25,6 +25,7 @@ import { useOperatingStore } from "@/stores/operatingStore";
 import { useRigStore } from "@/stores/rigStore";
 import { DXWizard } from "./DXWizard";
 import { BandPlanner } from "./BandPlanner";
+import { buildWizardRecommendation } from "@/lib/dxwizard";
 import { getEnhancedBandConditions, getForecastForPath } from "@/lib/utils/bands";
 
 const view = vi.hoisted(() => ({ mobile: false }));
@@ -43,14 +44,19 @@ vi.mock("@/hooks/useNowCastBandPredictions", () => ({ useNowCastBandPredictions:
 vi.mock("@/hooks/useResearchParticipation", () => ({ useResearchParticipation: () => ({ state: null }) }));
 vi.mock("@/lib/utils/bands", async (original) => ({ ...await original<typeof import("@/lib/utils/bands")>(), getEnhancedBandConditions: vi.fn(() => []), getForecastForPath: vi.fn(() => []) }));
 
+vi.mock("@/lib/dxwizard", async (original) => {
+  const actual = await original<typeof import("@/lib/dxwizard")>();
+  return { ...actual, buildWizardRecommendation: vi.fn(actual.buildWizardRecommendation) };
+});
+
 const handoff = { version: 1, mode: "CW", target: { lat: 35.68, lon: 139.76, name: "Tokyo" }, at: "2026-09-05T12:00:00.000Z" };
-function mount(component: React.ReactNode, route: string) {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[{ pathname: route, state: { solarHandoff: handoff } }]}>{component}</MemoryRouter></QueryClientProvider>);
+function mount(component: React.ReactNode, route: string, context = handoff) {
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[{ pathname: route, state: { solarHandoff: context } }]}>{component}</MemoryRouter></QueryClientProvider>);
 }
 beforeEach(() => {
   vi.clearAllMocks();
   useProfileStore.setState({ station: { callsign: "W1TEST", grid: "FN31pr", lat: 41.5, lon: -72.5 } as NonNullable<ReturnType<typeof useProfileStore.getState>["station"]> });
-  useOperatingStore.setState({ activeMode: "FT8" });
+  useOperatingStore.setState({ activeMode: "FT8", manualMode: "FT8", contestLocked: false, _catConnected: false, _wsjtxConnected: false });
   useRigStore.setState({ pendingMode: null, pendingFrequency: null });
 });
 for (const mobile of [false, true]) {
@@ -62,8 +68,15 @@ for (const mobile of [false, true]) {
       expect(call.slice(0, 4)).toEqual([37.77, -122.42, 35.68, 139.76]);
       expect(call[6]?.toISOString()).toBe(handoff.at);
       expect(call[8]).toBe("CW");
+      expect(vi.mocked(buildWizardRecommendation).mock.calls.at(-1)![0].congestionContext?.currentHourUtc).toBe(12);
       expect(screen.getByDisplayValue("PM95vq")).not.toBeNull();
       expect(useRigStore.getState()).toMatchObject({ pendingFrequency: null, pendingMode: null });
+    });
+    it.each(["FT4", "RTTY"])("preserves %s in the wizard UI and recommendation inputs", (mode) => {
+      view.mobile = mobile;
+      mount(<DXWizard />, "/dx", { ...handoff, mode });
+      expect(vi.mocked(buildWizardRecommendation).mock.calls.at(-1)![0].mode).toBe(mode);
+      expect(screen.queryByText(/modeled with FT8 sensitivity/)).toBeNull();
     });
     it("hydrates the selected UTC day and mode into the planner computation", () => {
       view.mobile = mobile;
@@ -74,6 +87,11 @@ for (const mobile of [false, true]) {
       expect(call[7]?.mode).toBe("CW");
       expect(screen.getByDisplayValue("PM95vq")).not.toBeNull();
       expect(screen.getByText(/Planning.*current solar inputs/)).not.toBeNull();
+      act(() => useOperatingStore.getState().setManualMode("SSB"));
+      const updated = vi.mocked(getForecastForPath).mock.calls.at(-1)!;
+      expect(updated[7]?.mode).toBe("SSB");
+      expect(updated[6]?.toISOString()).toBe(handoff.at);
+      expect(useRigStore.getState()).toMatchObject({ pendingFrequency: null, pendingMode: null });
     });
   });
 }

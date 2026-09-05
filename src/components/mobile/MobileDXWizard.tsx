@@ -20,7 +20,7 @@ export interface MobileDXWizardProps {
 export function MobileDXWizard({ session }: MobileDXWizardProps) {
   const [showResults, setShowResults] = useState(false);
   const [expandedBand, setExpandedBand] = useState<string | null>(null);
-  const contestContext = useContestContext();
+  const contestContext = useContestContext(session.solarHandoff?.at);
 
   const handleAnalyze = () => {
     if (session.target) setShowResults(true);

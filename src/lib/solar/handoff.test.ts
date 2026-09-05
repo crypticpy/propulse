@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSolarHandoff, solarAnalysisMode } from "./handoff";
+import { parseSolarHandoff, solarAnalysisMode, solarWizardMode } from "./handoff";
 describe("solar operating handoff", () => {
   it("preserves exact coordinates, mode and planning time while deriving the grid", () => {
     const result = parseSolarHandoff({ version: 1, mode: "CW", target: { lat: 35.68, lon: 139.76, grid: "bogus", name: "Tokyo" }, at: "2026-09-05T12:00:00Z" });
@@ -10,5 +10,6 @@ describe("solar operating handoff", () => {
     expect(parseSolarHandoff({ version: 1, mode: "FT8" })).toEqual({ version: 1, mode: "FT8" });
   });
   it.each([{ version: 2, mode: "CW" }, { version: 1, mode: "invalid" }, { version: 1, mode: "CW", at: "invalid" }, { version: 1, mode: "CW", target: { lat: 91, lon: 0 } }])("rejects invalid intent", (value) => expect(parseSolarHandoff(value)).toBeNull());
+  it.each(["FT4", "RTTY", "CW", "SSB", "FT8"] as const)("preserves supported %s wizard intent", (mode) => expect(solarWizardMode(mode)).toBe(mode));
   it("explicitly maps modes unsupported by the path engine", () => expect(solarAnalysisMode("FT4")).toBe("FT8"));
 });

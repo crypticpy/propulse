@@ -1,4 +1,4 @@
-import { useSolarHandoff } from "@/hooks/useSolarHandoff";
+import { useInitializeSolarMode, useSolarHandoff } from "@/hooks/useSolarHandoff";
 import { SolarHandoffNotice } from "@/components/solar/SolarHandoffNotice";
 import { solarAnalysisMode } from "@/lib/solar/handoff";
 import { useState, useMemo, useCallback, useEffect } from "react";
@@ -43,6 +43,7 @@ import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
  */
 export function BandPlanner() {
   const solarHandoff = useSolarHandoff();
+  useInitializeSolarMode(solarHandoff);
   // User station
   const station = useUserStore((s) => s.station);
   const stationCast = useStationCastContext();
@@ -138,8 +139,7 @@ export function BandPlanner() {
     [currentKp, currentFlux, currentBz],
   );
   const researchParticipation = useResearchParticipation();
-  const liveMode = useActiveMode();
-  const activeMode = solarHandoff?.mode ?? liveMode;
+  const activeMode = useActiveMode();
   const modelNowCast = useNowCastBandPredictions({
     origin: stationCast.location,
     target: targetCoords,
@@ -198,9 +198,9 @@ export function BandPlanner() {
       currentKp,
       currentFlux,
       solarHandoff?.at ? new Date(solarHandoff.at) : new Date(),
-      forecastStation && solarHandoff ? { ...forecastStation, mode: solarAnalysisMode(solarHandoff.mode) } : forecastStation,
+      forecastStation && solarHandoff ? { ...forecastStation, mode: solarAnalysisMode(activeMode) } : forecastStation,
     );
-  }, [operatingStation, targetCoords, currentKp, currentFlux, forecastStation, solarHandoff]);
+  }, [operatingStation, targetCoords, currentKp, currentFlux, forecastStation, solarHandoff, activeMode]);
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {

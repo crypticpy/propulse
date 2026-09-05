@@ -1,5 +1,6 @@
 import { ALL_UI_MODES, type UIMode } from "@/lib/utils/modeNormalize";
 import { latLonToGrid } from "@/lib/utils/grid";
+import { WIZARD_MODES, type WizardMode } from "@/lib/dxwizard/types";
 
 export interface SolarHandoff {
   version: 1;
@@ -22,4 +23,9 @@ export function parseSolarHandoff(value: unknown): SolarHandoff | null {
 /** Physics modes supported by the current path engine. Keep the mapping visible. */
 export function solarAnalysisMode(mode: UIMode): "SSB" | "CW" | "FT8" {
   return mode === "CW" ? "CW" : ["FT8", "FT4", "DATA", "RTTY"].includes(mode) ? "FT8" : "SSB";
+}
+
+/** Keep supported wizard modes intact; its recommendation pipeline owns physics mapping. */
+export function solarWizardMode(mode: UIMode): WizardMode {
+  return WIZARD_MODES.includes(mode as WizardMode) ? mode as WizardMode : solarAnalysisMode(mode);
 }

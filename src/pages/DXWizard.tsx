@@ -25,12 +25,12 @@ import type { WizardMode } from "@/lib/dxwizard";
 export function DXWizard() {
   const session = useDXWizardSession();
   const isMobile = useIsMobile();
-  const contestContext = useContestContext();
+  const contestContext = useContestContext(session.solarHandoff?.at);
 
   if (isMobile) {
     return (
       <>
-        <SolarHandoffNotice handoff={session.solarHandoff} />
+        <SolarHandoffNotice handoff={session.solarHandoff} destination="wizard" />
         <MobileDXWizard session={session} />
         <RadioPickerModal
           isOpen={session.showRadioPicker}
@@ -57,7 +57,7 @@ export function DXWizard() {
 
   return (
     <div className="min-h-screen p-4 md:p-6">
-      <SolarHandoffNotice handoff={session.solarHandoff} />
+      <SolarHandoffNotice handoff={session.solarHandoff} destination="wizard" />
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">

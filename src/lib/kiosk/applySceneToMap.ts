@@ -98,8 +98,12 @@ export function restoreHamClockDisplay(): void {
   const display = useHamClockDisplayStore.getState();
   display.setDensity(snapshot.density);
   display.setTheme(snapshot.theme);
+  // Both rails follow one page (HW-54): `setPage` writes the same index to
+  // both keys, so restoring from `left` alone is correct even for a legacy
+  // snapshot captured before paging was synchronized (`{left, right}` split).
+  // Calling `setPage` a second time with `right` would just overwrite `left`
+  // right back to the stale `right` value.
   display.setPage("left", snapshot.pageIndex.left);
-  display.setPage("right", snapshot.pageIndex.right);
 }
 
 function applyHamClockPin(pin: KioskSceneHamClockConfig | undefined): void {

@@ -100,7 +100,7 @@ export function HamClockWall({ children }: HamClockWallProps) {
       <DXNewsTicker className="rounded-none" />
 
       <footer className="hc-ftr">
-        <HamClockPager side="left" pageIndex={page} onStep={onStep} />
+        <HamClockPager pageIndex={page} onStep={onStep} />
         <WallStatus />
         <div className="hc-mode" role="group" aria-label="Layout density">
           <button
@@ -118,7 +118,7 @@ export function HamClockWall({ children }: HamClockWallProps) {
             DESK
           </button>
         </div>
-        <HamClockPager side="right" pageIndex={page} onStep={onStep} />
+        <HamClockPager pageIndex={page} onStep={onStep} />
       </footer>
     </div>
   );

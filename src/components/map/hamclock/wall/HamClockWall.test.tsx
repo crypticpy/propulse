@@ -178,8 +178,10 @@ describe("HamClockWall", () => {
     expect(within(left).getByText("DX cluster")).toBeTruthy();
     expect(within(right).getByText("Best band now")).toBeTruthy();
 
+    // Both footer pagers announce the same shared wall page (HW-54); either
+    // one's "Next" arrow steps both rails together, so click the first.
     fireEvent.click(
-      screen.getByRole("button", { name: "Next left rail page" }),
+      screen.getAllByRole("button", { name: "Next wall page" })[0],
     );
 
     expect(useHamClockDisplayStore.getState().pageIndex).toEqual({

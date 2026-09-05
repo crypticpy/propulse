@@ -117,7 +117,33 @@ export function TileHero({ tone, large, flush, children }: TileHeroProps) {
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(el);
-    return () => observer.disconnect();
+
+    // A theme swap can bring in a new display face (`ensureHamClockThemeFont`)
+    // whose metrics differ from the fallback the hero was fitted against.
+    // Re-measure once the face finishes loading, and again if the theme
+    // attribute itself flips before the font load fires — both are guarded
+    // for jsdom, which has neither API.
+    const fontSet =
+      typeof document !== "undefined" ? document.fonts : undefined;
+    fontSet?.addEventListener?.("loadingdone", fit);
+
+    let themeObserver: MutationObserver | undefined;
+    if (typeof MutationObserver !== "undefined") {
+      const themeRoot =
+        el.closest<HTMLElement>("[data-hamclock-theme]") ??
+        document.documentElement;
+      themeObserver = new MutationObserver(fit);
+      themeObserver.observe(themeRoot, {
+        attributes: true,
+        attributeFilter: ["data-hamclock-theme"],
+      });
+    }
+
+    return () => {
+      observer.disconnect();
+      fontSet?.removeEventListener?.("loadingdone", fit);
+      themeObserver?.disconnect();
+    };
   }, [children]);
 
   return (

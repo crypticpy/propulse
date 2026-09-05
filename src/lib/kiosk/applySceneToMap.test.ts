@@ -274,4 +274,27 @@ describe("applySceneToMap", () => {
     });
     expect(sessionStorage.getItem("propulse-hamclock-prepin")).toBeNull();
   });
+
+  it("restores from the left page of a legacy pre-sync split snapshot", () => {
+    // A snapshot written before paging was synchronized (HW-54) could have
+    // `left` and `right` diverge. `left` is canonical, so restoring must use
+    // it alone rather than letting a second `setPage("right", …)` call clobber
+    // it back to the stale `right` value.
+    sessionStorage.setItem(
+      "propulse-hamclock-prepin",
+      JSON.stringify({
+        density: "wall",
+        theme: "pulse",
+        pageIndex: { left: 4, right: 0 },
+      }),
+    );
+
+    restoreHamClockDisplay();
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "wall",
+      theme: "pulse",
+      pageIndex: { left: 4, right: 4 },
+    });
+  });
 });

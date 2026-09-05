@@ -1,8 +1,7 @@
 import { useOperatingMonitorBridge } from "@/hooks/useOperatingMonitor";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Link, Navigate, useParams } from "react-router-dom";
-import { Layout } from "@/components/layout/Layout";
-import { MobileLayout } from "@/components/layout/MobileLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { useTextScale } from "@/hooks/useTextScale";
@@ -10,7 +9,8 @@ import { useHighContrast } from "@/hooks/useHighContrast";
 import { useColorBlindMode } from "@/hooks/useColorBlindMode";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSync } from "@/hooks/useSync";
-import { useAuthStore } from "@/stores/authStore";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { WelcomeOverlay } from "@/components/onboarding";
@@ -183,11 +183,6 @@ function NcsRedirect({ suffix }: { suffix: string }) {
   return <Navigate to={`/ncs/${netId}${suffix}`} replace />;
 }
 
-function AppLayout() {
-  const isMobile = useIsMobile();
-  return isMobile ? <MobileLayout /> : <Layout />;
-}
-
 function MapRoute() {
   const isMobile = useIsMobile();
   return isMobile ? <MobileMap /> : <PropSphere />;
@@ -212,8 +207,12 @@ function NotFound() {
   );
 }
 
-function App() {
+function PersonalMonitorHost() {
   useOperatingMonitorBridge();
+  return null;
+}
+
+function App() {
   // Apply text scale preference to DOM
   useTextScale();
   // Apply high-contrast mode class to <html>
@@ -222,6 +221,8 @@ function App() {
   useColorBlindMode();
 
   // Kiosk screens are unattended: suppress first-run wizards and celebrations
+  const authenticated = useAuthStore(selectIsAuthenticated);
+  const personalSession = !isSupabaseConfigured || authenticated;
   const isKiosk = useKioskStore((s) => s.active);
 
   // Initialize auth on app boot (checks for existing session, sets up listener)
@@ -236,8 +237,8 @@ function App() {
   // Record daily login for streak tracking
   const recordLogin = useProfileStore((s) => s.recordLogin);
   useEffect(() => {
-    recordLogin();
-  }, [recordLogin]);
+    if (personalSession) recordLogin();
+  }, [recordLogin, personalSession]);
 
   const [upgradeToast, setUpgradeToast] = useState(false);
 
@@ -255,14 +256,15 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthGate>
+        {personalSession && <PersonalMonitorHost />}
         <Suspense fallback={null}>
-          <RankPersistenceHost />
+          {personalSession && <RankPersistenceHost />}
         </Suspense>
-        <WelcomeOverlay />
+        {personalSession && <WelcomeOverlay />}
         <Suspense fallback={null}>
-          <WSJTXAutoLogHost />
+          {personalSession && <WSJTXAutoLogHost />}
         </Suspense>
-        {!isKiosk && (
+        {personalSession && !isKiosk && (
           <Suspense fallback={null}>
             <RadioSetupWizard />
           </Suspense>
@@ -372,7 +374,7 @@ function App() {
           </Route>
         </Routes>
         <Suspense fallback={null}>
-          <NetAlertToasts />
+          {personalSession && <NetAlertToasts />}
         </Suspense>
         <Suspense fallback={null}>
           <SpeedInsights />

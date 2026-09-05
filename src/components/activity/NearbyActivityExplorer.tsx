@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useStore, type StoreApi } from "zustand";
 import { useNavigate } from "react-router-dom";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -15,12 +16,14 @@ import {
 } from "@/lib/activity/activityExplorer";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { getBandColor } from "@/lib/utils/spotColors";
-import { useActivityExplorerStore } from "@/stores/activityExplorerStore";
+import { createGuestActivityExplorerStore, useActivityExplorerStore, type ActivityExplorerStore } from "@/stores/activityExplorerStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import type { LiveSpot } from "@/types/livespot";
 
 interface NearbyActivityExplorerProps {
+  publicOnly?: boolean;
+  filterStore?: StoreApi<ActivityExplorerStore>;
   /** Home supplies the active setup location; other callers keep their QTH. */
   locationOverride?: { lat: number; lon: number; grid: string } | null;
   className?: string;
@@ -56,7 +59,7 @@ function ActivityRow({
   now: Date;
   expanded: boolean;
   onToggle: () => void;
-  onTarget: () => void;
+  onTarget?: () => void;
 }) {
   const path =
     result.distanceKm === null
@@ -119,7 +122,7 @@ function ActivityRow({
               )}
             </div>
           </div>
-          {result.lat !== undefined && result.lon !== undefined && (
+          {onTarget && result.lat !== undefined && result.lon !== undefined && (
             <button
               type="button"
               onClick={onTarget}
@@ -138,14 +141,18 @@ export function NearbyActivityExplorer({
   className = "",
   onClose,
   locationOverride,
+  publicOnly = false,
+  filterStore,
 }: NearbyActivityExplorerProps) {
   const navigate = useNavigate();
+  const [guestFilters] = useState(createGuestActivityExplorerStore);
   const defaultLocation = useActiveLocation();
   const activeLocation = locationOverride === undefined ? defaultLocation : locationOverride;
   const live = useLiveSpots({
     grid: activeLocation?.grid,
     enabled: Boolean(activeLocation),
     deduplicate: false,
+    ...(publicOnly ? { sources: ["PSKReporter", "RBN"] as ("PSKReporter" | "RBN")[] } : {}),
   });
   const clusterSpots = useDXStore((state) => state.spots);
   const setTarget = useMapStore((state) => state.setTarget);
@@ -162,7 +169,7 @@ export function NearbyActivityExplorer({
     setToleranceKHz,
     setMaxAgeMinutes,
     setMaxDistanceKm,
-  } = useActivityExplorerStore();
+  } = useStore(filterStore ?? (publicOnly ? guestFilters : useActivityExplorerStore));
   const [now, setNow] = useState(() => new Date());
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -175,9 +182,9 @@ export function NearbyActivityExplorer({
   const combinedSpots = useMemo<LiveSpot[]>(
     () => [
       ...live.spots,
-      ...clusterSpots.map((spot) => ({ ...spot, source: "Cluster" as const })),
+      ...(publicOnly ? [] : clusterSpots).map((spot) => ({ ...spot, source: "Cluster" as const })),
     ],
-    [clusterSpots, live.spots],
+    [clusterSpots, live.spots, publicOnly],
   );
   const results = useMemo(() => {
     if (!activeLocation || (mode === "frequency" && frequencyKHz === null)) {
@@ -213,7 +220,7 @@ export function NearbyActivityExplorer({
   ]);
 
   const handleTarget = (result: ActivityResult) => {
-    if (result.lat === undefined || result.lon === undefined) return;
+    if (publicOnly || result.lat === undefined || result.lon === undefined) return;
     setTarget({
       lat: result.lat,
       lon: result.lon,
@@ -286,6 +293,7 @@ export function NearbyActivityExplorer({
                 key={value}
                 type="button"
                 onClick={() => setMode(value)}
+                aria-pressed={mode === value}
                 className={`min-h-9 rounded-md px-3 text-xs font-medium transition-colors ${
                   mode === value
                     ? "bg-plasma-orange/20 text-plasma-orange"
@@ -416,7 +424,7 @@ export function NearbyActivityExplorer({
                     current === result.id ? null : result.id,
                   )
                 }
-                onTarget={() => handleTarget(result)}
+                onTarget={publicOnly ? undefined : () => handleTarget(result)}
               />
             </div>
           ))}

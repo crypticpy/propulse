@@ -41,6 +41,25 @@ function resetAuthState() {
 afterEach(resetAuthState);
 
 describe("AuthGate", () => {
+  it("renders public Home before auth initializes but keeps private routes waiting", () => {
+    resetAuthState();
+    const home = renderGate("/");
+    expect(screen.getByText("Protected application")).toBeTruthy();
+    home.unmount();
+    renderGate("/log");
+    expect(screen.queryByText("Protected application")).toBeNull();
+  });
+
+  it("allows a first-time guest onto Home while keeping private tools gated", async () => {
+    resetAuthState();
+    useAuthStore.setState({ initialized: true });
+    const home = renderGate("/");
+    expect(screen.getByText("Protected application")).toBeTruthy();
+    home.unmount();
+    renderGate("/log");
+    expect(screen.queryByText("Protected application")).toBeNull();
+  });
+
   it("shows the password form during an authenticated recovery session", async () => {
     useAuthStore.setState({
       user,

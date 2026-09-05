@@ -10,7 +10,7 @@ vi.mock("@/stores/shackStore", () => ({
   useUserRadios: () => [], useUserAntennas: () => [],
 }));
 it("displays the active legacy preset rather than selecting an unrelated saved chain", () => {
-  render(<MemoryRouter><HomeStation now={Date.now()} /></MemoryRouter>);
+  render(<MemoryRouter><HomeStation /></MemoryRouter>);
   expect((screen.getByRole("combobox",{name:"Home active station setup"}) as HTMLSelectElement).value).toBe("preset:legacy");
   expect((screen.getByRole("option",{name:"Legacy home station · legacy preset"}) as HTMLOptionElement).selected).toBe(true);
   expect(screen.getByText("50 W configured")).toBeTruthy();

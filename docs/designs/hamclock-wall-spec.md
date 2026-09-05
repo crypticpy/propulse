@@ -539,7 +539,7 @@ linked from each heading in section 24.
 - Claiming = set Agent, assign yourself, move the item to **Claimed**. Move it to **In progress** when the branch exists.
 - Opening the PR moves the item to **In review**. Merging moves it to **Done**.
 - B1 to B3 are P1 bug and Workstream HamClock Wall; B4 to B12 are P2 core, HamClock Wall; B13 to B16 are P3 expansion, Weather (AtmosPulse fold-in).
-- B17 to B21 and B24 are P2 core, Workstream HamClock Wall; B22 and B23 are P3 expansion, Weather (AtmosPulse fold-in); B25 is P3 expansion, Workstream Forecast engine. B17 to B25 have no issue numbers yet; open them from these briefs when B9 merges.
+- B17 to B21 and B24 are P2 core, Workstream HamClock Wall; B22 and B23 are P3 expansion, Weather (AtmosPulse fold-in); B25 is P3 expansion, Workstream Forecast engine. Issues #225–#233 (B17–B25) are on the board as Backlog until B9 merges.
 
 ## 24. Development breakdown
 
@@ -1072,7 +1072,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): emcomm and /atmos retirement [B16: HW-48, HW-49]`, branch `feat/hamclock-b16-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B17 — Engine comparison strip and MUF report
+### B17 — Engine comparison strip and MUF report (#225)
 
 - **Covers:** HW-56, HW-57
 - **Intent:** The three-engine comparison is the product's core claim and nothing on the wall shows it. Build `EngineComparisonStrip` once, prove it on the MUF report, and retrofit it onto the Best band report that B9 delivered. The MUF tile currently opens the shared Forecast report; give it the ionosphere detail the engine already computes and never surfaces.
@@ -1111,7 +1111,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): engine comparison strip and MUF report [B17: HW-56, HW-57]`, branch `feat/hamclock-b17-<slug>`
 - **Do not:** name, imply or add VOACAP anywhere; add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B18 — Reliability and propagation forecast reports
+### B18 — Reliability and propagation forecast reports (#226)
 
 - **Covers:** HW-58, HW-59
 - **Intent:** The reliability engine computes an SNR, a confidence and a status per cell and the wall shows only a coloured dot. The forecast matrix shows a 24 h grid with no time axis and no model horizons. Give both their own report and put the three engines on one chart.
@@ -1146,7 +1146,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): reliability and propagation forecast reports [B18: HW-58, HW-59]`, branch `feat/hamclock-b18-<slug>`
 - **Do not:** name, imply or add VOACAP anywhere; add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B19 — Solar, X-ray and solar wind reports
+### B19 — Solar, X-ray and solar wind reports (#227)
 
 - **Covers:** HW-60, HW-61, HW-62
 - **Intent:** Three tiles share one Solar report today and half the space-weather data the app already fetches never reaches the wall. Split the shared report into three dedicated ones and surface the flare events, D-RAP absorption, probabilities, Dst, proton flux, aurora oval and CMEs that `SolarPulse` already reads. The shared Solar report is retired when the third one lands, because nothing points at it any more.
@@ -1183,7 +1183,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): solar, x-ray and solar wind reports [B19: HW-60, HW-61, HW-62]`, branch `feat/hamclock-b19-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B20 — Sun and grey line reports
+### B20 — Sun and grey line reports (#228)
 
 - **Covers:** HW-63, HW-64
 - **Intent:** Sun and Grey line both open the shared Sun & Moon report. Give the sun its own elevation curve, twilights and day-length trend, and give the grey line the per-band tiers and target overlap that `greyline.ts` can already reason about but never shows.
@@ -1219,7 +1219,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): sun and grey line reports [B20: HW-63, HW-64]`, branch `feat/hamclock-b20-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B21 — EME module and Moon report
+### B21 — EME module and Moon report (#229)
 
 - **Covers:** HW-65, HW-66
 - **Intent:** The moon is currently a phase glyph. EME operators need the numbers that decide whether tonight is worth setting up for, and none of them exist in the app. Build one tested module and one EME-grade report on top of it.
@@ -1253,7 +1253,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): EME module and moon report [B21: HW-65, HW-66]`, branch `feat/hamclock-b21-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B22 — Weather fetch extension, weather report, alerts report
+### B22 — Weather fetch extension, weather report, alerts report (#230)
 
 - **Covers:** HW-67, HW-41, HW-68
 - **Intent:** `fetchLocalWeather` asks Open-Meteo for one day and current conditions only, so the hourly and 7-day tiles B13 places have nothing to show and the weather report cannot have a chart. Extend the fetch, then build the Weather report and give alerts their own report instead of a list inside the tile.
@@ -1290,7 +1290,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): weather fetch extension, weather and alerts reports [B22: HW-67, HW-41, HW-68]`, branch `feat/hamclock-b22-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B23 — Radio Impact Model tile and report
+### B23 — Radio Impact Model tile and report (#231)
 
 - **Covers:** HW-69, HW-47
 - **Intent:** `computeRIM` already turns lightning, flooding, NVIS viability, repeater health and ducting into a composite and four sub-scores, and none of it is on the wall. Make it a tile and a report, and fold the monitored regions in as the report's second tab. HW-47 moves here from B16.
@@ -1327,7 +1327,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): radio impact model tile and report [B23: HW-69, HW-47]`, branch `feat/hamclock-b23-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B24 — Band activity, recent contacts and cluster chrome
+### B24 — Band activity, recent contacts and cluster chrome (#232)
 
 - **Covers:** HW-70, HW-71, HW-72
 - **Intent:** Band activity is the observed engine's own page and deserves history and a mode split; recent contacts has a tile and no report; and the DX cluster modal predates the report chrome. Finish the activity side of the wall.
@@ -1362,7 +1362,7 @@ B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
 - **PR:** ≤ 15 files, title `feat(hamclock): band activity, recent contacts and cluster chrome [B24: HW-70, HW-71, HW-72]`, branch `feat/hamclock-b24-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B25 — Model track: weather features in NowCast (backlog)
+### B25 — Model track: weather features in NowCast (backlog, #233)
 
 - **Covers:** HW-73
 - **Intent:** Terrestrial weather is an input the propagation model does not have. `operationalWeather.ts` and `ml/service/operational_weather.py` are **space** weather and are not this. This batch adds weather-derived features to NowCast. It starts only after every panel above is live, because until the wall is stable a model change cannot be told apart from a display change.

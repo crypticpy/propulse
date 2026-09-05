@@ -17,7 +17,8 @@
  */
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
+import { MapAnimationClock } from "./MapAnimationClock";
+import { useMapAnimationFrame } from "./hooks/useMapAnimationFrame";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import type { Line2, LineSegments2 } from "three-stdlib";
@@ -281,7 +282,7 @@ function AnimatedHopLine({
   const lineRef = useRef<Line2 | LineSegments2 | null>(null);
   const dashOffsetRef = useRef(0);
 
-  useFrame((_, delta) => {
+  useMapAnimationFrame((_, delta) => {
     if (!shouldAnimate || !lineRef.current) return;
 
     dashOffsetRef.current -= delta * DASH_ANIMATION_SPEED;
@@ -289,7 +290,7 @@ function AnimatedHopLine({
     if (material && hasDashOffset(material)) {
       material.dashOffset = dashOffsetRef.current;
     }
-  });
+  }, shouldAnimate);
 
   if (points.length < 2) return null;
 
@@ -351,14 +352,14 @@ function HopGlowLine({
 }) {
   const lineRef = useRef<Line2 | LineSegments2 | null>(null);
 
-  useFrame(({ clock }) => {
+  useMapAnimationFrame(({ clock }) => {
     if (!shouldAnimate || !lineRef.current) return;
 
     const material = getLineMaterial(lineRef.current);
     if (material && hasOpacity(material)) {
       material.opacity = Math.sin(clock.elapsedTime * 2) * 0.08 + 0.14;
     }
-  });
+  }, shouldAnimate);
 
   if (points.length < 2) return null;
 
@@ -414,7 +415,7 @@ function IonosphereBounceHighlight({
   }, [position]);
 
   // Pulsing animation
-  useFrame(({ clock }) => {
+  useMapAnimationFrame(({ clock }) => {
     if (!shouldAnimate) return;
     const t = clock.elapsedTime;
     const pulse = Math.sin(t * 2.5) * 0.35 + 0.65;
@@ -429,7 +430,7 @@ function IonosphereBounceHighlight({
       const scale = 1.0 + (1 - pulse) * 0.3;
       ringRef.current.scale.setScalar(scale);
     }
-  });
+  }, shouldAnimate);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
@@ -671,6 +672,7 @@ export function RayPathArc({
   const hopOpacity = emphasis === "secondary" ? 0.6 : 0.85;
 
   return (
+    <MapAnimationClock>
     <group name={`ray-path-arc-${pathMode}`}>
       {/* Render each hop as an arc */}
       {hopSegments.map((seg, i) => (
@@ -714,6 +716,7 @@ export function RayPathArc({
           color={m.color}
           type="reflection"
           qualityScore={m.qualityScore}
+          shouldAnimate={shouldAnimate}
         />
       ))}
 
@@ -741,6 +744,7 @@ export function RayPathArc({
         />
       ))}
     </group>
+    </MapAnimationClock>
   );
 }
 

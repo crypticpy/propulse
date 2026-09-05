@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useMapAnimationFrame } from "./hooks/useMapAnimationFrame";
 import * as THREE from "three";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
@@ -30,6 +30,7 @@ interface ReflectionMarkerProps {
   type: "reflection" | "ground";
   /** Optional quality score (0-100) — low values trigger pulsing */
   qualityScore?: number;
+  shouldAnimate?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,7 @@ export function ReflectionMarker({
   color,
   type,
   qualityScore,
+  shouldAnimate = true,
 }: ReflectionMarkerProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
@@ -78,7 +80,7 @@ export function ReflectionMarker({
   const glowMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   const shouldPulse =
-    qualityScore !== undefined && qualityScore < PULSE_THRESHOLD;
+    shouldAnimate && qualityScore !== undefined && qualityScore < PULSE_THRESHOLD;
 
   const position = useMemo(
     () => latLonTo3D(lat, lon, radius),
@@ -89,7 +91,7 @@ export function ReflectionMarker({
     type === "reflection" ? REFLECTION_SPHERE_RADIUS : GROUND_SPHERE_RADIUS;
 
   // Animate pulsing for low-quality markers
-  useFrame(({ clock }) => {
+  useMapAnimationFrame(({ clock }) => {
     if (!shouldPulse) return;
 
     const pulse = Math.sin(clock.elapsedTime * PULSE_SPEED) * 0.3 + 0.7;
@@ -104,7 +106,7 @@ export function ReflectionMarker({
     if (glowMaterialRef.current) {
       glowMaterialRef.current.opacity = pulse * 0.2;
     }
-  });
+  }, shouldPulse);
 
   // Validate coordinates
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {

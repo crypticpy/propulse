@@ -12,7 +12,7 @@
  * - Each trace travels over 2.5s with quintic ease-out for ultra-smooth decel
  * - The landing ring is blended into the final 15% of travel — the head dot
  *   shrinks while the ring expands, creating a seamless arrival with no jerk
- * - Child <TraceAnimation> components drive their own useFrame loops
+ * - Child <TraceAnimation> components share one collection frame subscription
  * - Pool capped at maxTraces (default 40) concurrent animations
  */
 
@@ -23,7 +23,8 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { useFrame } from "@react-three/fiber";
+import { MapAnimationClock } from "./MapAnimationClock";
+import { useMapAnimationFrame } from "./hooks/useMapAnimationFrame";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -259,7 +260,7 @@ const TraceAnimation = React.memo(
       };
     }, []);
 
-    useFrame((state) => {
+    useMapAnimationFrame((state) => {
       // The destination stays visible and correctly sized for the entire trace
       // lifetime, including the otherwise-sleeping persist phase.
       const endpointScale = getScreenSpaceScale(
@@ -594,7 +595,11 @@ const TraceAnimation = React.memo(
 // MAIN COMPONENT
 // =============================================================================
 
-export function AnimatedSpotTraces({
+export function AnimatedSpotTraces(props: AnimatedSpotTracesProps) {
+  return <MapAnimationClock><AnimatedSpotTracesContent {...props} /></MapAnimationClock>;
+}
+
+function AnimatedSpotTracesContent({
   grid,
   maxTraces = 40,
   feedSpots: suppliedFeedSpots,
@@ -749,7 +754,7 @@ export function AnimatedSpotTraces({
   ]);
 
   // Dequeue traces on a timer driven by useFrame
-  useFrame((state) => {
+  useMapAnimationFrame((state) => {
     if (pendingQueue.current.length === 0) return; // nothing to dequeue
 
     const clock = state.clock.getElapsedTime();

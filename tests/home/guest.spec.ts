@@ -14,6 +14,7 @@ test("first visit and cached personal settings stay public without radio connect
   await page.route("https://home-guest.invalid/**", route => route.fulfill({ status: 503, json: {} }));
   await page.addInitScript(() => {
     localStorage.setItem("propulse-home-location-v1", "IO91WM");
+    localStorage.setItem("propulse-activity-explorer", JSON.stringify({ state: { mode: "frequency", band: "20m", frequencyInput: "14.313", toleranceKHz: 5, maxAgeMinutes: 60, maxDistanceKm: 1000 }, version: 1 }));
     localStorage.setItem("propulse-feeds", JSON.stringify({ state: { feeds: [{ id: "private", name: "Private operator feed", url: "https://private-feed.invalid/rss" }], activeFeedId: "private" } }));
     localStorage.setItem("propulse-settings", JSON.stringify({state:{bridgeEnabled:true, bridgeHost:"127.0.0.1", bridgePort:8787},version:0}));
     localStorage.setItem("propulse-home-widgets-v1", JSON.stringify({desktop:["history","countdowns","news"],mobile:["history","countdowns","news"]}));
@@ -32,6 +33,12 @@ test("first visit and cached personal settings stay public without radio connect
   await page.getByRole("button",{name:"Use this location",exact:true}).click();
   await home.getByRole("button",{name:"Explore nearby reports"}).click();
   await expect(home.getByText(/Nearby reports use IO91/)).toBeVisible();
+  const explorer = home.getByRole("region", { name: "Nearby on-air activity" });
+  await expect(explorer.getByRole("button", { name: "Band", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await explorer.getByRole("button", { name: "Frequency", exact: true }).click();
+  await expect(explorer.getByLabel("Frequency", { exact: true })).toHaveValue("7.200");
+  await explorer.getByLabel("Frequency", { exact: true }).fill("7.074");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("propulse-activity-explorer")!).state.frequencyInput)).toBe("14.313");
   expect(sockets).toEqual([]);
   expect(feedRequests).toEqual([]);
   await expect(page.getByText("Private operator feed")).toHaveCount(0);

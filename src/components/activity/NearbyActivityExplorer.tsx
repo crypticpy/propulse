@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useStore, type StoreApi } from "zustand";
 import { useNavigate } from "react-router-dom";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -15,13 +16,14 @@ import {
 } from "@/lib/activity/activityExplorer";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { getBandColor } from "@/lib/utils/spotColors";
-import { useActivityExplorerStore } from "@/stores/activityExplorerStore";
+import { createGuestActivityExplorerStore, useActivityExplorerStore, type ActivityExplorerStore } from "@/stores/activityExplorerStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import type { LiveSpot } from "@/types/livespot";
 
 interface NearbyActivityExplorerProps {
   publicOnly?: boolean;
+  filterStore?: StoreApi<ActivityExplorerStore>;
   /** Home supplies the active setup location; other callers keep their QTH. */
   locationOverride?: { lat: number; lon: number; grid: string } | null;
   className?: string;
@@ -140,8 +142,10 @@ export function NearbyActivityExplorer({
   onClose,
   locationOverride,
   publicOnly = false,
+  filterStore,
 }: NearbyActivityExplorerProps) {
   const navigate = useNavigate();
+  const [guestFilters] = useState(createGuestActivityExplorerStore);
   const defaultLocation = useActiveLocation();
   const activeLocation = locationOverride === undefined ? defaultLocation : locationOverride;
   const live = useLiveSpots({
@@ -165,7 +169,7 @@ export function NearbyActivityExplorer({
     setToleranceKHz,
     setMaxAgeMinutes,
     setMaxDistanceKm,
-  } = useActivityExplorerStore();
+  } = useStore(filterStore ?? (publicOnly ? guestFilters : useActivityExplorerStore));
   const [now, setNow] = useState(() => new Date());
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -289,6 +293,7 @@ export function NearbyActivityExplorer({
                 key={value}
                 type="button"
                 onClick={() => setMode(value)}
+                aria-pressed={mode === value}
                 className={`min-h-9 rounded-md px-3 text-xs font-medium transition-colors ${
                   mode === value
                     ? "bg-plasma-orange/20 text-plasma-orange"

@@ -19,11 +19,11 @@ export function hamClockPanelWidths(
 ) {
   const info = infoVisible ? 260 * scale : 0;
   const spots = spotsVisible ? 310 * scale : 0;
-  const mapSpace = Math.min(640, width * 0.45);
+  const mapSpace = smart
+    ? Math.min(640, width * 0.45)
+    : Math.min(320, width * 0.4);
   const fit =
-    smart && info + spots > 0
-      ? Math.min(1, (width - mapSpace) / (info + spots))
-      : 1;
+    info + spots > 0 ? Math.min(1, (width - mapSpace) / (info + spots)) : 1;
   return { info: Math.round(info * fit), spots: Math.round(spots * fit) };
 }
 
@@ -54,4 +54,12 @@ export function globeRegionDistance(
     Math.cos(vertical) + Math.sin(vertical) / tan,
     Math.cos(horizontal) + Math.sin(horizontal) / (tan * Math.max(0.2, aspect)),
   );
+}
+
+/** The single-world flat renderer needs a full-world fallback across the seam. */
+export function flatHomeRegion(region: HomeRegion): HomeRegion {
+  const crossesDateline = Math.abs(region.lon) + region.longitudeSpan / 2 > 180;
+  return crossesDateline
+    ? { lat: 0, lon: 0, latitudeSpan: 180, longitudeSpan: 360 }
+    : region;
 }

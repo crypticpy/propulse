@@ -1,5 +1,7 @@
+import { computeFlatMapLayout } from "@/components/map/lib/flatMapLayout";
 import { expect, it } from "vitest";
 import {
+  flatHomeRegion,
   globeRegionDistance,
   hamClockHomeRegion,
   hamClockPanelWidths,
@@ -26,4 +28,29 @@ it("frames the US region and fits globe distance to the available aspect ratio",
     globeRegionDistance(region, 45, 1.8),
   );
   expect(hamClockHomeRegion(51, 0).lon).toBe(0);
+});
+
+it("keeps a usable center and visible sidebars with smart scaling disabled", () => {
+  const panels = hamClockPanelWidths(1280, 2.5, false, true, true);
+  expect(panels.info + panels.spots).toBeLessThanOrEqual(960);
+  expect(panels.info).toBeGreaterThan(0);
+  expect(panels.spots).toBeGreaterThan(0);
+});
+
+it("uses a complete world overview for both dateline edges in Flat while retaining globe centering", () => {
+  for (const lon of [-179, 179]) {
+    const region = hamClockHomeRegion(-17, lon);
+    expect(region.lon).toBe(lon);
+    expect(flatHomeRegion(region)).toEqual({
+      lat: 0,
+      lon: 0,
+      latitudeSpan: 180,
+      longitudeSpan: 360,
+    });
+    const layout = computeFlatMapLayout(900, 900, false, 2);
+    expect(layout.viewport).toEqual(layout.map);
+    expect(layout.map.width / layout.map.height).toBe(2);
+  }
+  const us = hamClockHomeRegion(39, -98);
+  expect(flatHomeRegion(us)).toBe(us);
 });

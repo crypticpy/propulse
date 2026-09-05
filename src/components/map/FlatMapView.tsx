@@ -6,6 +6,7 @@
  */
 
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { flatHomeRegion } from "@/lib/hamclock/displayLayout";
 import { FlatMufRaster } from "./lib/flatMufRaster";
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
@@ -3357,6 +3358,8 @@ export function FlatMapView({
   const homeRequest = useHamClockDisplayStore((s) => s.homeRequest);
   const appliedHomeRef = useRef(0);
   const layoutMode = useMapStore((s) => s.layoutMode);
+  const homeRegion = useMemo(() => homeRequest ? flatHomeRegion(homeRequest) : null, [homeRequest]);
+  const datelineOverview = layoutMode === "hamclock" && homeRegion?.longitudeSpan === 360;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const scienceCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -4688,11 +4691,11 @@ export function FlatMapView({
       const next = computeFlatMapLayout(
         rect.width,
         rect.height,
-        fillContainer,
-        mapAspectRatio,
+        fillContainer && !datelineOverview,
+        datelineOverview ? 2 : mapAspectRatio,
       );
       const z = zoomRef.current;
-      const camera = lastLayout && fillContainer
+      const camera = lastLayout && fillContainer && !datelineOverview
         ? preserveFlatMapCamera(lastLayout, next, z)
         : { scale: z.scale, ...(lastLayout
           ? preservedCenterOffsets(lastLayout, next, z)
@@ -4731,7 +4734,7 @@ export function FlatMapView({
       cancelAnimationFrame(rafId);
       observer.disconnect();
     };
-  }, [fillContainer, mapAspectRatio]);
+  }, [fillContainer, mapAspectRatio, datelineOverview]);
 
   useEffect(() => {
     if (layoutMode !== "hamclock") return;
@@ -4752,19 +4755,21 @@ export function FlatMapView({
   useEffect(() => {
     if (layoutMode !== "hamclock" || !homeRequest || appliedHomeRef.current === homeRequest.revision) return;
     const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect || Math.abs(rect.width - viewportSize.width) > 1 || Math.abs(rect.height - viewportSize.height) > 1) return;
+    if (!rect || !homeRegion) return;
+    const expected = computeFlatMapLayout(rect.width, rect.height, fillContainer && !datelineOverview, datelineOverview ? 2 : mapAspectRatio);
+    if (Math.abs(expected.viewport.width - viewportSize.width) > 1 || Math.abs(expected.viewport.height - viewportSize.height) > 1) return;
     appliedHomeRef.current = homeRequest.revision;
     const scale = Math.max(1, Math.min(MAX_ZOOM_SCALE,
-      viewportSize.width / (displaySize.width * homeRequest.longitudeSpan / 360),
-      viewportSize.height / (displaySize.height * homeRequest.latitudeSpan / 180)));
-    const pos = latLonToCanvas(homeRequest.lat, homeRequest.lon, displaySize.width, displaySize.height);
+      viewportSize.width / (displaySize.width * homeRegion.longitudeSpan / 360),
+      viewportSize.height / (displaySize.height * homeRegion.latitudeSpan / 180)));
+    const pos = latLonToCanvas(homeRegion.lat, homeRegion.lon, displaySize.width, displaySize.height);
     cancelAnimationFrame(zoomRafRef.current);
     zoomAnimationRef.current = null;
     const next = { scale, ...clampMapOffsets(layout, scale,
       viewportSize.width / 2 - pos.x * scale, viewportSize.height / 2 - pos.y * scale) };
     zoomRef.current = next;
     setZoom(next);
-  }, [homeRequest, layoutMode, layout, displaySize, viewportSize]);
+  }, [homeRequest, homeRegion, datelineOverview, fillContainer, mapAspectRatio, layoutMode, layout, displaySize, viewportSize]);
 
   // Smooth pan-to-preset animation (500ms ease-out)
   // When activePresetId changes, animate from current zoom to the preset view
@@ -5861,7 +5866,7 @@ export function FlatMapView({
       ref={containerRef}
       className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
         fillContainer
-          ? ""
+          ? datelineOverview ? "flex items-center justify-center" : ""
           : "min-h-[400px] rounded-xl flex items-center justify-center"
       }`}
     >

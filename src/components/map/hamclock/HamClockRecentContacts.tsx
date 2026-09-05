@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { readHamClockContacts } from "@/lib/hamclock/recentContacts";
 import { useContestStore } from "@/stores/contestStore";
@@ -11,7 +10,12 @@ export function HamClockRecentContacts() {
   const hidden = useHamClockDisplayStore((s) =>
     s.hiddenPanels.includes("contacts"),
   );
-  const [expanded, setExpanded] = useState(true);
+  const expanded = useHamClockDisplayStore(
+    (s) => !(s.panelCollapsed.contacts ?? false),
+  );
+  const toggleExpansion = useHamClockDisplayStore(
+    (s) => s.togglePanelExpansion,
+  );
   const {
     data = [],
     isPending,
@@ -19,9 +23,10 @@ export function HamClockRecentContacts() {
   } = useQuery({
     queryKey: ["hamclock-recent-contacts", contestId],
     queryFn: () => readHamClockContacts(contestId),
-    enabled: !hidden,
-    refetchInterval: 5000,
+    enabled: !hidden && expanded,
+    refetchInterval: !hidden && expanded ? 5000 : false,
     refetchIntervalInBackground: true,
+    staleTime: 0,
   });
   if (hidden) return null;
   const entries = data;
@@ -34,7 +39,7 @@ export function HamClockRecentContacts() {
       <button
         type="button"
         aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => toggleExpansion("contacts")}
         className="flex shrink-0 items-center justify-between px-3 py-2 text-xs uppercase text-gray-200"
       >
         <span>Recent Contacts</span>

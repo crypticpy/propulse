@@ -9,7 +9,7 @@
  * No props needed -- reads everything from stores.
  */
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
@@ -229,7 +229,9 @@ export function HamClockSpotsSidebar({
   const target = useMapStore((s) => s.target);
   const setTarget = useMapStore((s) => s.setTarget);
   const setSpotFilters = useMapStore((s) => s.setSpotFilters);
-  const [expanded, setExpanded] = useState(true);
+  const expanded = useHamClockDisplayStore(
+    (s) => !(s.panelCollapsed.spots ?? false),
+  );
   const setBandFocus = useHamClockStore((s) => s.setBandFocus);
 
   const display = useHamClockDisplayStore();
@@ -238,37 +240,6 @@ export function HamClockSpotsSidebar({
   const showBandFocus =
     (mode === "bands" || mode === "traffic") && activeTab === "DX";
   const spotsHidden = display.hiddenPanels.includes("spots");
-  const applyingRadioFilter = useRef(false);
-  useEffect(() => {
-    if (!followRadio) return;
-    // A manual choice in either the band chips or the shared DX filters wins.
-    return useMapStore.subscribe((current, previous) => {
-      if (
-        current.spotFilters !== previous.spotFilters &&
-        !applyingRadioFilter.current
-      ) {
-        useHamClockDisplayStore.getState().setFollowRadio(false);
-      }
-    });
-  }, [followRadio]);
-  useEffect(() => {
-    if (!followRadio || !radio) return;
-    const filters = useMapStore.getState().spotFilters;
-    if (
-      filters.bands.length !== 1 ||
-      filters.bands[0] !== radio.band ||
-      filters.modes.length !== 1 ||
-      filters.modes[0] !== radio.mode
-    ) {
-      applyingRadioFilter.current = true;
-      try {
-        setSpotFilters({ bands: [radio.band], modes: [radio.mode] });
-      } finally {
-        applyingRadioFilter.current = false;
-      }
-    }
-  }, [followRadio, radio, setSpotFilters]);
-
   const handleToggleBand = (band: string) => {
     const next = spotFilters.bands.includes(band)
       ? spotFilters.bands.filter((b) => b !== band)
@@ -331,7 +302,7 @@ export function HamClockSpotsSidebar({
             type="button"
             aria-label="DX Spots"
             aria-expanded={expanded}
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => display.togglePanelExpansion("spots")}
             className="flex items-center justify-between px-3 py-2 border-b border-white/10 shrink-0"
           >
             <div className="flex items-center gap-2">

@@ -24,6 +24,7 @@ import {
   type CSSProperties,
 } from "react";
 import "@/styles/hamclock.css";
+import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
 import {
   HAMCLOCK_PANELS,
   useHamClockDisplayStore,
@@ -519,8 +520,8 @@ function InfoSidebarContent({
   displayTime: Date;
   mode: HamClockMode;
 }) {
-  const panelCollapsed = useHamClockStore((s) => s.panelCollapsed);
-  const togglePanel = useHamClockStore((s) => s.togglePanel);
+  const panelCollapsed = useHamClockDisplayStore((s) => s.panelCollapsed);
+  const togglePanel = useHamClockDisplayStore((s) => s.togglePanelExpansion);
   const location = useActiveLocation();
   const hidden = useHamClockDisplayStore((s) => s.hiddenPanels);
 
@@ -625,6 +626,7 @@ export function HamClockView({
   displayTime,
   onLocationClick,
 }: HamClockViewProps) {
+  useHamClockRadioFollow();
   const display = useHamClockDisplayStore();
   const frameHome = display.frameHome;
   const appSize = useSettingsStore((s) => s.textScale);
@@ -672,14 +674,18 @@ export function HamClockView({
   const viewMode = useMapStore((s) => s.viewMode);
   const setViewMode = useMapStore((s) => s.setViewMode);
 
-  const spotsSide = useHamClockStore((s) => s.spotsSide);
-  const setSpotsSide = useHamClockStore((s) => s.setSpotsSide);
-  const spotsSidebarCollapsed = useHamClockStore(
+  const spotsSide = useHamClockDisplayStore((s) => s.spotsSide);
+  const setSpotsSide = useHamClockDisplayStore((s) => s.setSpotsSide);
+  const spotsSidebarCollapsed = useHamClockDisplayStore(
     (s) => s.spotsSidebarCollapsed,
   );
-  const infoSidebarCollapsed = useHamClockStore((s) => s.infoSidebarCollapsed);
-  const toggleSpotsSidebar = useHamClockStore((s) => s.toggleSpotsSidebar);
-  const toggleInfoSidebar = useHamClockStore((s) => s.toggleInfoSidebar);
+  const infoSidebarCollapsed = useHamClockDisplayStore(
+    (s) => s.infoSidebarCollapsed,
+  );
+  const toggleSpotsSidebar = useHamClockDisplayStore(
+    (s) => s.toggleSpotsSidebar,
+  );
+  const toggleInfoSidebar = useHamClockDisplayStore((s) => s.toggleInfoSidebar);
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
   const setHamclockMode = useHamClockStore((s) => s.setHamclockMode);
   const setPreferredViewMode = useHamClockStore((s) => s.setPreferredViewMode);
@@ -983,6 +989,16 @@ export function HamClockView({
           userNavigated.current = true;
         }}
       >
+        {viewMode === "flat" &&
+          display.homeRequest &&
+          Math.abs(display.homeRequest.lon) +
+            display.homeRequest.longitudeSpan / 2 >
+            180 && (
+            <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-gray-200">
+              Dateline region · world overview. Use 3D for a centered regional
+              view.
+            </div>
+          )}
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">

@@ -330,6 +330,49 @@ try {
   check(
     "Shared manual DX filters stop radio following; re-enabling resumes it",
   );
+  await page
+    .getByRole("button", { name: "Collapse right sidebar", exact: true })
+    .first()
+    .click();
+  await operator.evaluate(async () => {
+    const { useOperatingStore: o } = await import(
+      performance
+        .getEntriesByType("resource")
+        .find(
+          (e) => new URL(e.name).pathname === "/src/stores/operatingStore.ts",
+        )?.name || "/src/stores/operatingStore.ts"
+    );
+    o.setState({
+      activeBand: "20m",
+      activeMode: "FT8",
+      activeFrequency: 14074000,
+    });
+  });
+  await expect
+    .poll(async () => (await state()).spotFilters)
+    .toEqual({ bands: ["20m"], modes: ["FT8"] });
+  await page
+    .getByRole("button", { name: "Expand right sidebar", exact: true })
+    .first()
+    .click();
+  await operator.evaluate(async () => {
+    const { useOperatingStore: o } = await import(
+      performance
+        .getEntriesByType("resource")
+        .find(
+          (e) => new URL(e.name).pathname === "/src/stores/operatingStore.ts",
+        )?.name || "/src/stores/operatingStore.ts"
+    );
+    o.setState({
+      activeBand: "40m",
+      activeMode: "CW",
+      activeFrequency: 7030000,
+    });
+  });
+  await expect
+    .poll(async () => (await state()).spotFilters)
+    .toEqual({ bands: ["40m"], modes: ["CW"] });
+  check("Radio following continues with its sidebar collapsed");
   const monitoredSource = await page.evaluate(async () => {
     const { useOperatingStore: o } = await import(
       performance
@@ -421,6 +464,52 @@ try {
   await page.keyboard.press("Escape");
   await expect(page.locator('[data-panel-id="moon"]')).toHaveCount(1);
   check("250% text keeps controls reachable; reset restores panels");
+  expect((await state()).layers.loggedQsos).toBe(false);
+  await page.getByRole("button", { name: "Display", exact: true }).click();
+  await page.getByLabel("Text Size", { exact: true }).selectOption("250");
+  await page
+    .getByRole("checkbox", { name: "Smart scaling", exact: true })
+    .uncheck();
+  await page.keyboard.press("Escape");
+  const constrained = await page
+    .locator("[data-hamclock-root]")
+    .evaluate((e) => ({
+      width: e.clientWidth,
+      scroll: e.scrollWidth,
+      mapWidth: e.querySelector("main").getBoundingClientRect().width,
+    }));
+  expect(constrained.scroll).toBeLessThanOrEqual(constrained.width + 1);
+  expect(constrained.mapWidth).toBeGreaterThanOrEqual(319);
+  check("Disabling smart scaling still reserves usable map space at 250%");
+  await page.evaluate(async () => {
+    const { useHamClockDisplayStore: d } = await import(
+      performance
+        .getEntriesByType("resource")
+        .find(
+          (e) =>
+            new URL(e.name).pathname === "/src/stores/hamclockDisplayStore.ts",
+        )?.name || "/src/stores/hamclockDisplayStore.ts"
+    );
+    d.getState().resetDisplay();
+    d.getState().frameHome({
+      lat: -17,
+      lon: 179,
+      latitudeSpan: 65,
+      longitudeSpan: 105,
+    });
+  });
+  await expect(
+    page.getByText(/Dateline region · world overview/),
+  ).toBeVisible();
+  await expect
+    .poll(async () =>
+      page
+        .locator('[data-hamclock-root] main canvas[role="img"]')
+        .evaluate((e) => e.clientWidth / e.clientHeight),
+    )
+    .toBeCloseTo(2, 1);
+  check("Dateline Flat fallback shows an uncropped 2:1 world overview");
+
   expect(errors).toEqual([]);
 } catch (e) {
   result.failure = String(e);

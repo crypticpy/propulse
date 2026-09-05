@@ -28,6 +28,17 @@ interface HamClockDisplayState {
   hiddenPanels: HamClockPanelId[];
   mapContent: "activity" | "contacts" | "both";
   followRadio: boolean;
+  panelCollapsed: Partial<Record<HamClockPanelId, boolean>>;
+  spotsSide: "left" | "right";
+  spotsSidebarCollapsed: boolean;
+  infoSidebarCollapsed: boolean;
+  togglePanelExpansion: (
+    id: HamClockPanelId,
+    defaultCollapsed?: boolean,
+  ) => void;
+  setSpotsSide: (side: "left" | "right") => void;
+  toggleSpotsSidebar: () => void;
+  toggleInfoSidebar: () => void;
   homeRequest: (HomeRegion & { revision: number }) | null;
   setTextSize: (value: HamClockDisplayState["textSize"]) => void;
   setSmartScaling: (value: boolean) => void;
@@ -41,6 +52,12 @@ const defaults = {
   textSize: "inherit" as const,
   smartScaling: true,
   hiddenPanels: [] as HamClockPanelId[],
+  mapContent: "activity" as const,
+  followRadio: false,
+  panelCollapsed: {} as Partial<Record<HamClockPanelId, boolean>>,
+  spotsSide: "right" as const,
+  spotsSidebarCollapsed: false,
+  infoSidebarCollapsed: false,
 };
 const validPanels = new Set<string>(HAMCLOCK_PANELS.map(([id]) => id));
 
@@ -49,8 +66,18 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
   persist(
     (set) => ({
       ...defaults,
-      mapContent: "activity",
-      followRadio: false,
+      togglePanelExpansion: (id, defaultCollapsed = false) =>
+        set((s) => ({
+          panelCollapsed: {
+            ...s.panelCollapsed,
+            [id]: !(s.panelCollapsed[id] ?? defaultCollapsed),
+          },
+        })),
+      setSpotsSide: (spotsSide) => set({ spotsSide }),
+      toggleSpotsSidebar: () =>
+        set((s) => ({ spotsSidebarCollapsed: !s.spotsSidebarCollapsed })),
+      toggleInfoSidebar: () =>
+        set((s) => ({ infoSidebarCollapsed: !s.infoSidebarCollapsed })),
       homeRequest: null,
       setTextSize: (textSize) => set({ textSize }),
       setSmartScaling: (smartScaling) => set({ smartScaling }),
@@ -81,7 +108,21 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
         hiddenPanels,
         mapContent,
         followRadio,
-      }) => ({ textSize, smartScaling, hiddenPanels, mapContent, followRadio }),
+        panelCollapsed,
+        spotsSide,
+        spotsSidebarCollapsed,
+        infoSidebarCollapsed,
+      }) => ({
+        textSize,
+        smartScaling,
+        hiddenPanels,
+        mapContent,
+        followRadio,
+        panelCollapsed,
+        spotsSide,
+        spotsSidebarCollapsed,
+        infoSidebarCollapsed,
+      }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<HamClockDisplayState>;
         return {
@@ -102,6 +143,18 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
             ? p.mapContent!
             : "activity",
           followRadio: p.followRadio === true,
+          panelCollapsed:
+            p.panelCollapsed && typeof p.panelCollapsed === "object"
+              ? Object.fromEntries(
+                  Object.entries(p.panelCollapsed).filter(
+                    ([id, value]) =>
+                      validPanels.has(id) && typeof value === "boolean",
+                  ),
+                )
+              : {},
+          spotsSide: p.spotsSide === "left" ? "left" : "right",
+          spotsSidebarCollapsed: p.spotsSidebarCollapsed === true,
+          infoSidebarCollapsed: p.infoSidebarCollapsed === true,
         };
       },
     },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   HAMCLOCK_PANELS,
   useHamClockDisplayStore,
@@ -10,6 +10,29 @@ export function HamClockDisplaySettings() {
   const ref = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const s = useHamClockDisplayStore();
+  const menu = useRef<HTMLElement>(null);
+  const [position, setPosition] = useState({ left: 8, top: 8 });
+  useLayoutEffect(() => {
+    if (!open) return;
+    const placeMenu = () => {
+      const anchor = button.current?.getBoundingClientRect();
+      const box = menu.current?.getBoundingClientRect();
+      if (!anchor || !box) return;
+      setPosition({
+        left: Math.max(
+          8,
+          Math.min(anchor.right - box.width, window.innerWidth - box.width - 8),
+        ),
+        top: Math.max(
+          8,
+          Math.min(anchor.bottom + 8, window.innerHeight - box.height - 8),
+        ),
+      });
+    };
+    placeMenu();
+    window.addEventListener("resize", placeMenu);
+    return () => window.removeEventListener("resize", placeMenu);
+  }, [open, s.textSize, needsScroll]);
   useEffect(() => {
     if (!open) return;
     const dismiss = (e: PointerEvent) => {
@@ -63,10 +86,14 @@ export function HamClockDisplaySettings() {
       </button>
       {open && (
         <section
+          ref={menu}
           id="hamclock-display-settings"
           aria-label="HamClock display settings"
-          style={{ width: "calc(320px * var(--hamclock-scale, 1))" }}
-          className="absolute right-0 top-full z-50 mt-2 max-w-[90vw] max-h-[75vh] overflow-auto rounded-lg border border-white/20 bg-deep-space p-4 text-sm text-gray-200 shadow-xl"
+          style={{
+            width: "calc(320px * var(--hamclock-scale, 1))",
+            ...position,
+          }}
+          className="fixed z-50 max-w-[90vw] max-h-[75vh] overflow-auto rounded-lg border border-white/20 bg-deep-space p-4 text-sm text-gray-200 shadow-xl"
         >
           <div className="mb-3 flex items-center justify-between">
             <strong>Display settings</strong>

@@ -438,3 +438,6 @@ one-hour continuous-use soak; signed-in cross-device log synchronization and pai
 Display Wall assignment behavior. The new operating monitor currently covers windows
 at the same browser origin. It does not introduce a cross-device radio transport.
 AZ retains its existing station-centered projection and navigation behavior.
+Flat uses a letterboxed world overview when the requested home region crosses the
+dateline, so both sides remain visible. The globe retains regional centering across
+the dateline; seamless wrapping of Flat's imagery and overlays remains future work.

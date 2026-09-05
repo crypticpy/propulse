@@ -130,7 +130,7 @@ Each row needs owner, friend, visitor and signed-out actors. Use disposable test
 
 Command: `npx vitest run src/lib/station/workbench/publication`
 
-Covered negatives: synthetic private nested fields; wrong-account `ownerPreviewAs`; extra client audience fields; absent/pending/revoked friendship; missing publication; version mismatch; missing/revoked/absent grants; section changes; grid precision; malformed grids; hidden+grid; unknown featured ids; mixed equipment ownership; owner preview; visitor and signed-out shapes; input immutability; no leakage through errors or media metadata.
+Covered negatives: synthetic private nested fields; wrong-account `ownerPreviewAs`; extra client audience fields; absent/pending/revoked friendship; missing publication; version mismatch; missing/revoked/absent grants; URL-shaped `derivativeId` values; section changes; Maidenhead field/square/subsquare precision; malformed grids; hidden+grid; unknown featured ids; mixed equipment ownership; owner default vs visitor preview; visitor and signed-out shapes; input immutability; no leakage through errors or media metadata.
 
 ## Proposed shared-contract additions (not applied)
 
@@ -138,5 +138,5 @@ This slice did not edit `src/lib/station/workbench/contracts.ts` or root exports
 
 - `signed-out` on `publishedProfileSchema.audience`
 - section visibility, location disclosure and intended media IDs on `publicationSourceSchema`
-- grant records (`assetId`, `derivativeId`, audience, status) as server tables, not client DTO fields
+- grant records (`assetId`, `derivativeId`, audience, status) as server tables, not client DTO fields; `derivativeId` is an opaque reference, never a storage URL
 - W15/W16 module payloads for FP23–FP40 (license, contact/social, awards, rank, on-air, nets, stats, QSL, share-card inputs) without putting private credentials or exact coordinates on the public type

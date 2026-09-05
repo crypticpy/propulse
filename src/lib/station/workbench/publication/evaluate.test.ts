@@ -59,7 +59,7 @@ function source(overrides: Partial<PublicationPolicySource> = {}): PublicationPo
       { id: "projects", kind: "projects", title: "Projects", text: "Needs a W15 section mapping" },
     ],
     sectionVisibility: { stats: "public", awards: "friends", equipment: "friends", activity: "friends", location: "public" },
-    locationDisclosure: { precision: "field", disclosedGrid: "EM18xx" },
+    locationDisclosure: { precision: "square", disclosedGrid: "EM18xx" },
     intendedMediaAssetIds: ["shack-cover"],
     pinnedEquipment: structuredClone(archive.inventory),
     pinnedLocation: structuredClone(archive.locations[0]),
@@ -159,7 +159,7 @@ describe("evaluatePublicationPolicy", () => {
     expect(beforeSource).toEqual(source());
   });
 
-  it("uses the same public shape for owner preview as the previewed audience", () => {
+  it("uses the same public shape for an explicit owner visitor preview", () => {
     const visitor = evaluatePublicationPolicy(source(), access({ verifiedAccountId: VISITOR, friendship: { state: "absent" } }));
     const ownerAsVisitor = evaluatePublicationPolicy(
       source(),
@@ -175,6 +175,21 @@ describe("evaluatePublicationPolicy", () => {
     expect(ownerAsVisitor.projection.regionLabel).toBe(visitor.projection.regionLabel);
     expect(visitor.projection.featuredSetup).toBeNull();
     expectNoLeaks(ownerAsVisitor.projection, ["EN50", "home-r1", "home-hf"]);
+  });
+
+  it("keeps the owner's default projection as owner, including friends-visible sections", () => {
+    const owner = evaluatePublicationPolicy(
+      source(),
+      access({ verifiedAccountId: FIXTURE_OWNER, friendship: { state: "absent" } }),
+    );
+    const visitor = evaluatePublicationPolicy(source(), access({ verifiedAccountId: VISITOR, friendship: { state: "absent" } }));
+    expect(owner.ok && visitor.ok).toBe(true);
+    if (!owner.ok || !visitor.ok) return;
+    expect(owner.viewerKind).toBe("owner");
+    expect(owner.projection.audience).toBe("owner");
+    expect(owner.projection.featuredSetup?.equipmentLabels).toEqual(["My HF transceiver", "Home-built dipole"]);
+    expect(visitor.projection.featuredSetup).toBeNull();
+    expectNoLeaks(owner.projection, ["EN50", "home-r1"]);
   });
 
   it("includes friend-only featured summaries only for friend-shaped projections", () => {
@@ -205,20 +220,25 @@ describe("evaluatePublicationPolicy", () => {
     expectNoLeaks(result.projection, ["EM18", "EN50"]);
   });
 
-  it("applies chosen grid precision and never derives public location from private coordinates", () => {
-    const field = evaluatePublicationPolicy(source(), access({ verifiedAccountId: VISITOR, friendship: { state: "absent" } }));
-    const square = evaluatePublicationPolicy(
-      source({ locationDisclosure: { precision: "square", disclosedGrid: "em18xx" } }),
+  it("applies Maidenhead field/square/subsquare precision and never derives public location from private coordinates", () => {
+    const field = evaluatePublicationPolicy(
+      source({ locationDisclosure: { precision: "field", disclosedGrid: "EM18xx" } }),
+      access({ verifiedAccountId: VISITOR, friendship: { state: "absent" } }),
+    );
+    const square = evaluatePublicationPolicy(source(), access({ verifiedAccountId: VISITOR, friendship: { state: "absent" } }));
+    const subsquare = evaluatePublicationPolicy(
+      source({ locationDisclosure: { precision: "subsquare", disclosedGrid: "em18xx" } }),
       access({ verifiedAccountId: VISITOR, friendship: { state: "absent" } }),
     );
     const hidden = evaluatePublicationPolicy(
       source({ locationDisclosure: { precision: "hidden" } }),
       access({ verifiedAccountId: VISITOR, friendship: { state: "absent" } }),
     );
-    expect(field.ok && square.ok && hidden.ok).toBe(true);
-    if (!field.ok || !square.ok || !hidden.ok) return;
-    expect(field.projection.regionLabel).toBe("EM18");
-    expect(square.projection.regionLabel).toBe("EM18XX");
+    expect(field.ok && square.ok && subsquare.ok && hidden.ok).toBe(true);
+    if (!field.ok || !square.ok || !subsquare.ok || !hidden.ok) return;
+    expect(field.projection.regionLabel).toBe("EM");
+    expect(square.projection.regionLabel).toBe("EM18");
+    expect(subsquare.projection.regionLabel).toBe("EM18XX");
     expect(hidden.projection.regionLabel).toBeNull();
     expectNoLeaks(field.projection, ["EN50"]);
     expect(JSON.stringify(field)).not.toMatch(/"latitude":0|"longitude":0/);
@@ -260,13 +280,24 @@ describe("evaluatePublicationPolicy", () => {
     expectNoLeaks(stale);
   });
 
+  it("rejects URL-shaped media grants instead of copying private original URLs into the projection", () => {
+    const result = evaluatePublicationPolicy(
+      source(),
+      access({
+        mediaGrants: [{ assetId: "shack-cover", derivativeId: PRIVATE_URL, audience: "visitor", status: "current" }],
+      }),
+    );
+    expect(result).toMatchObject({ ok: false, code: "invalid-input" });
+    expectNoLeaks(result);
+  });
+
   it("omits revoked or absent media grants and never emits private original URLs", () => {
     const result = evaluatePublicationPolicy(
       source({ intendedMediaAssetIds: ["shack-cover", "private-photo"] }),
       access({
         mediaGrants: [
           { assetId: "shack-cover", derivativeId: "old-cover-url", audience: "visitor", status: "revoked" },
-          { assetId: "private-photo", derivativeId: PRIVATE_URL, audience: "owner", status: "current" },
+          { assetId: "private-photo", derivativeId: "owner-only-derivative", audience: "owner", status: "current" },
           { assetId: "missing-grant", derivativeId: "unused", audience: "visitor", status: "absent" },
         ],
       }),
@@ -277,6 +308,7 @@ describe("evaluatePublicationPolicy", () => {
     expectNoLeaks(result.projection);
     expect(JSON.stringify(result.projection)).not.toContain("revoked");
     expect(JSON.stringify(result.projection)).not.toContain("old-cover-url");
+    expect(JSON.stringify(result.projection)).not.toContain("owner-only-derivative");
   });
 
   it("keeps visitor media limited to visitor grants even when a friend grant exists", () => {
@@ -305,7 +337,7 @@ describe("evaluatePublicationPolicy", () => {
 
   it.each([
     ["malformed grid", { locationDisclosure: { precision: "field" as const, disclosedGrid: "ZZ99" } }],
-    ["too-short disclosed grid", { locationDisclosure: { precision: "square" as const, disclosedGrid: "EM18" } }],
+    ["too-short disclosed grid", { locationDisclosure: { precision: "square" as const, disclosedGrid: "EM" } }],
     ["hidden disclosure with a grid", { locationDisclosure: { precision: "hidden" as const, disclosedGrid: "EM18" } }],
     ["unknown featured instance", { featuredSetup: { title: "Home HF", description: "A small station", instanceIds: ["missing-radio"] } }],
     ["foreign equipment owner", { pinnedEquipment: source().pinnedEquipment.map((item) => ({ ...item, ownerId: WRONG })) }],

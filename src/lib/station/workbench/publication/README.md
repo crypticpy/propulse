@@ -19,9 +19,9 @@ Successful results include a private `lineage` object (`sourceId`, `setupId`, `r
 
 - Missing `sectionVisibility` keys are withheld, not treated as public.
 - Featured setup summaries copy selected equipment **labels** only. Inventory objects cannot be spread into the public featured shape.
-- Public location is the chosen disclosure grid truncated to field/square/extended precision. Hidden precision publishes no region. Private `pinnedLocation` coordinates, including valid `0,0`, are never copied and never converted into a grid by default.
-- Media output lists **current** grant `derivativeId` values whose grant audience is allowed for the projected shape. Revoked/absent grants and private original URLs are omitted. The policy does not claim that an already issued URL has been revoked.
-- Owner preview uses `ownerPreviewAs` only when `verifiedAccountId` matches the pinned publication owner. The projected fields follow the previewed audience, including denying a visitor preview of a friends-only publication.
+- Public location is the chosen Maidenhead disclosure truncated to field (2), square (4), subsquare (6) or extended (8) characters. Hidden precision publishes no region. Private `pinnedLocation` coordinates, including valid `0,0`, are never copied and never converted into a grid by default.
+- Media output lists **current** grant derivative IDs whose grant audience is allowed for the projected shape. Derivative IDs are opaque references, not URLs. Revoked/absent grants are omitted. The policy does not claim that an already issued URL has been revoked.
+- Owner preview uses `ownerPreviewAs` only when `verifiedAccountId` matches the pinned publication owner. The default owner projection is owner-shaped; an explicit visitor/friend preview uses that audience's fields, including denying a visitor preview of a friends-only publication.
 - `pending`, `revoked` and `absent` friendship are visitor, not friend. Signed-out viewers use the visitor field allowlist and `audience: "visitor"` because the W01 output enum has no signed-out member.
 
 ## Covered modules versus future contract extensions

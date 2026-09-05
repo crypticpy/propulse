@@ -9,11 +9,12 @@ const id = z.string().trim().min(1);
 const friendshipState = z.enum(["absent", "pending", "revoked", "current"]);
 const publicationAudience = z.enum(["owner", "visitor", "friend"]);
 const sectionLevel = z.enum(["public", "friends", "private"]);
-const gridPrecision = z.enum(["hidden", "field", "square", "extended"]);
+const gridPrecision = z.enum(["hidden", "field", "square", "subsquare", "extended"]);
 const moduleKind = z.enum(["identity", "interests", "station", "activity", "projects", "qsl"]);
 const moduleSection = z.enum(["identity", "stats", "awards", "equipment", "activity", "location"]);
-const GRID = /^[A-R]{2}[0-9]{2}([A-X]{2}([0-9]{2})?)?$/i;
-const PRECISION_LENGTH = { hidden: 0, field: 4, square: 6, extended: 8 } as const;
+const GRID = /^[A-R]{2}([0-9]{2}([A-X]{2}([0-9]{2})?)?)?$/i;
+const PRECISION_LENGTH = { hidden: 0, field: 2, square: 4, subsquare: 6, extended: 8 } as const;
+const mediaRef = z.string().trim().min(1).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
 const INVALID_INPUT = "Malformed publication policy input";
 
 export const PUBLICATION_POLICY_TRUST_BOUNDARY = {
@@ -29,7 +30,7 @@ export const publicationAccessContextSchema = z.object({
   publicationPresent: z.boolean(),
   publicationVersion: z.number().int().positive().nullable(),
   mediaGrants: z.array(z.object({
-    assetId: id, derivativeId: id, audience: publicationAudience, status: z.enum(["current", "revoked", "absent"]),
+    assetId: mediaRef, derivativeId: mediaRef, audience: publicationAudience, status: z.enum(["current", "revoked", "absent"]),
   }).strict()),
   ownerPreviewAs: publicationAudience.optional(),
 }).strict();
@@ -45,7 +46,7 @@ export const publicationPolicySourceSchema = z.object({
     activity: sectionLevel.optional(), location: sectionLevel.optional(),
   }).strict(),
   locationDisclosure: z.object({ precision: gridPrecision, disclosedGrid: z.string().optional() }).strict(),
-  intendedMediaAssetIds: z.array(id),
+  intendedMediaAssetIds: z.array(mediaRef),
   pinnedEquipment: z.array(equipmentInstanceSchema),
   pinnedLocation: locationSchema.nullable(),
   recoveryEnvelopes: z.array(legacyRecordSchema),
@@ -111,10 +112,9 @@ function viewerKind(ownerId: string, access: PublicationAccessContext): Publicat
 
 function projectionAudience(
   viewer: PublicationViewerKind,
-  publicationAudienceValue: "owner" | "friend" | "visitor",
   previewAs: "owner" | "friend" | "visitor" | undefined,
 ): "owner" | "friend" | "visitor" {
-  if (viewer === "owner") return previewAs ?? publicationAudienceValue;
+  if (viewer === "owner") return previewAs ?? "owner";
   if (viewer === "friend") return "friend";
   return "visitor";
 }
@@ -235,7 +235,7 @@ export function evaluatePublicationPolicy(sourceInput: unknown, accessInput: unk
       return deny("forbidden", "Publication is not available to this audience");
     }
 
-    const shapeAudience = projectionAudience(viewer, source.publication.audience, access.ownerPreviewAs);
+    const shapeAudience = projectionAudience(viewer, access.ownerPreviewAs);
     const publicGrid = sectionVisible(source.sectionVisibility.location, shapeAudience) ? disclosedGrid : null;
     const equipmentVisible = sectionVisible(source.sectionVisibility.equipment, shapeAudience);
     const modules = source.modules.filter((module) => {

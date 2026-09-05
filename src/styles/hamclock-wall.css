@@ -573,9 +573,11 @@
   flex: 0 0 auto;
 }
 .hc-mode button {
+  min-height: max(4.4vh, 44px);
+  min-width: max(4vw, 44px);
   padding: 0.35vh 0.9vw;
   font-family: var(--hc-font-display);
-  font-size: 1.2vh;
+  font-size: max(1.2vh, 12px);
   letter-spacing: 0.2em;
   color: var(--hc-dim);
   background: transparent;

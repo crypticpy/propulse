@@ -82,11 +82,12 @@ function WallHomeRegion() {
 /**
  * Wall density has no second toolbar row, so the desk header's controls
  * collapse into one anchored overflow cluster at the right end of the
- * header. Mode, density and projection stay always visible ahead of the
- * cluster — the same fixed slot and order as the desk header (B1/HW-22) —
- * so switching back to desk density is never a menu away. The CONTROLS
- * trigger keeps opening the remaining popout content, and the exit
- * affordance is always visible outside the menu.
+ * header. Mode, density, projection and Display settings stay always
+ * visible ahead of the cluster — the same fixed slot and order as the desk
+ * header (mode · WALL | DESK · projection · Display, B1/HW-22) — so
+ * switching back to desk density, or reaching Display settings, is never a
+ * menu away. The CONTROLS trigger now only opens map content, home region
+ * and layers; the exit affordance is always visible outside the menu.
  */
 export function HamClockWallControls() {
   const [open, setOpen] = useState(false);
@@ -148,6 +149,7 @@ export function HamClockWallControls() {
       <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
       <HamClockDensitySwitch />
       <HamClockProjectionSwitch value={viewMode} onChange={handleProjection} />
+      <HamClockDisplaySettings />
       <button
         ref={trigger}
         type="button"
@@ -177,7 +179,6 @@ export function HamClockWallControls() {
           {showMapContent && <WallMapContent />}
           <WallHomeRegion />
           <LayersPopover />
-          <HamClockDisplaySettings />
         </div>
       )}
     </div>

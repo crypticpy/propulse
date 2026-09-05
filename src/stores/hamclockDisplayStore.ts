@@ -81,8 +81,8 @@ interface HamClockDisplayState {
 }
 const defaults = {
   textSize: "inherit" as const,
-  // Desk stays the default until the wall tiles land (flipped in the next PR).
-  density: "desk" as const,
+  // Wall is the shipped default; desk stays one click away in the footer.
+  density: "wall" as const,
   theme: "pulse" as const,
   units: "auto" as const,
   pageIndex: { left: 0, right: 0 } as Record<HamClockRailSide, number>,
@@ -154,16 +154,20 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
     }),
     {
       name: "propulse-hamclock-display",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => sessionStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         if (version < 2) {
-          // Desk density, pulse theme, automatic units and page 0 per rail.
-          state.density = defaults.density;
+          // Pulse theme, automatic units and page 0 per rail.
           state.theme = defaults.theme;
           state.units = defaults.units;
           state.pageIndex = { ...defaults.pageIndex };
+        }
+        if (version < 3) {
+          // The wall tiles have landed, so every pre-wall session adopts the
+          // new default rather than staying on the accordion it never chose.
+          state.density = "wall";
         }
         return state as unknown as HamClockDisplayState;
       },
@@ -205,7 +209,9 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
           )
             ? p.textSize!
             : "inherit",
-          density: p.density === "wall" ? "wall" : "desk",
+          density: HAMCLOCK_DENSITIES.includes(p.density as HamClockDensity)
+            ? (p.density as HamClockDensity)
+            : defaults.density,
           theme: HAMCLOCK_THEMES.includes(p.theme as HamClockTheme)
             ? (p.theme as HamClockTheme)
             : "pulse",

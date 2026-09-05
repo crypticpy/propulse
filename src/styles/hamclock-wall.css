@@ -312,6 +312,179 @@
   color: var(--hc-good);
 }
 
+/* ---------- band bars ---------- */
+
+.hc-bars {
+  display: grid;
+  grid-template-columns: 2.6vw 1fr 2.6vw;
+  gap: 0.45vh 0.7vw;
+  align-items: center;
+  margin-top: 0.9vh;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+}
+.hc-bars-k {
+  color: var(--hc-dim);
+  letter-spacing: 0.06em;
+}
+.hc-bars-v {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.hc-bar {
+  height: 1.15vh;
+  border-radius: calc(var(--hc-radius) * 0.45);
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.hc-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  box-shadow: 0 0 calc(0.8vh * var(--hc-glow, 0)) currentColor;
+}
+
+/* ---------- x-ray class scale ---------- */
+
+.hc-gbar {
+  position: relative;
+  height: 1.1vh;
+  margin-top: 1vh;
+  border-radius: calc(var(--hc-radius) * 0.6);
+  background: linear-gradient(
+    90deg,
+    var(--hc-dim2) 0 40%,
+    var(--hc-good) 40% 60%,
+    var(--hc-warn) 60% 80%,
+    var(--hc-bad) 80%
+  );
+}
+.hc-gbar i {
+  position: absolute;
+  top: -0.5vh;
+  width: 0.4vw;
+  height: 2.1vh;
+  border-radius: 0.2vh;
+  background: var(--hc-fg);
+  box-shadow: 0 0 calc(1vh * var(--hc-glow, 0)) var(--hc-fg);
+  transform: translateX(-50%);
+}
+.hc-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5vh;
+  font-family: var(--hc-font-mono);
+  font-size: 1.25vh;
+  letter-spacing: 0.2em;
+  color: var(--hc-dim2);
+}
+
+/* ---------- arc gauges ---------- */
+
+.hc-gauges {
+  display: flex;
+  justify-content: space-around;
+  gap: 0.8vw;
+  margin-top: 0.6vh;
+}
+.hc-gauge {
+  width: 46%;
+  text-align: center;
+}
+.hc-gauge svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.hc-gauge-val {
+  margin-top: -2.4vh;
+  font-family: var(--hc-font-display);
+  font-weight: var(--hc-display-weight);
+  font-size: var(--hc-t-mid);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hc-gauge-lbl {
+  margin-top: 0.4vh;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+  letter-spacing: 0.16em;
+  color: var(--hc-dim);
+}
+
+/* ---------- NOAA G / S / R chips ---------- */
+
+.hc-gsr {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1vw;
+  margin-top: 0.9vh;
+}
+.hc-gsr-scales {
+  display: flex;
+  gap: 0.9vw;
+  flex: 0 0 auto;
+}
+.hc-scale {
+  text-align: center;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+  letter-spacing: 0.12em;
+  color: var(--hc-dim);
+}
+.hc-scale b {
+  display: block;
+  width: 2.6vh;
+  height: 2.6vh;
+  margin: 0 auto 0.5vh;
+  border: 0.25vh solid var(--hc-line);
+  border-radius: 50%;
+  background: rgb(var(--hc-tone-rgb, 255 255 255) / 0.16);
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: 1.4vh;
+  line-height: 2.1vh;
+}
+.hc-hero-unit {
+  margin-left: 0.5vw;
+  font-size: var(--hc-t-mid);
+  letter-spacing: 0.14em;
+  color: var(--hc-dim);
+}
+
+/* ---------- glyph + hero rows (sun, weather, moon) ---------- */
+
+.hc-media {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1vw;
+  align-items: center;
+  margin-top: 0.5vh;
+}
+.hc-media .hc-hero {
+  margin-top: 0;
+}
+.hc-media-icon {
+  width: 6.6vh;
+  height: 6.6vh;
+  flex: 0 0 auto;
+}
+.hc-sunico {
+  width: 6.2vh;
+  height: 6.2vh;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 40% 40%,
+    var(--hc-fg),
+    var(--hc-warn) 55%,
+    var(--hc-accent) 100%
+  );
+  box-shadow: 0 0 calc(3vh * var(--hc-glow, 0)) var(--hc-warn);
+}
+
 /* ---------- placeholder ---------- */
 
 .hc-placeholder {

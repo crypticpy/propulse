@@ -1,0 +1,182 @@
+/**
+ * HamClock wall — forecast, emergency and receiver tiles
+ *
+ * A second sheet beside `hamclock-wall.css` so the forecast/alert/SDR tiles
+ * can land without touching the shared wall stylesheet. Same rules apply:
+ * every size derives from the viewport height, and every colour comes from a
+ * `--hc-*` theme token so the classic/brass themes and the colour-blind
+ * palettes compose for free. Class prefix `hcf-` keeps this sheet from
+ * colliding with the shared `hc-` vocabulary.
+ */
+
+/* ---------- band × time dot matrix (forecast) ---------- */
+
+.hcf-matrix {
+  display: grid;
+  gap: 0.4vh 0.4vw;
+  align-items: center;
+  margin-top: 0.9vh;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+}
+.hcf-matrix-corner {
+  min-width: 0;
+}
+.hcf-matrix-head {
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: calc(var(--hc-t-title) * 0.95);
+  letter-spacing: 0.16em;
+  color: var(--hc-dim2);
+  text-align: center;
+  white-space: nowrap;
+}
+.hcf-matrix-head--now {
+  color: var(--hc-fg);
+}
+.hcf-matrix-band {
+  color: var(--hc-dim);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* The dot carries its tone through `color`, so one theme class on the cell
+ * drives both the fill and the glow. */
+.hcf-dot {
+  width: 1.5vh;
+  height: 1.5vh;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 calc(0.9vh * var(--hc-glow, 0)) currentColor;
+}
+.hcf-dot--off {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+.hcf-dot--half {
+  background: linear-gradient(
+    90deg,
+    currentColor 0 50%,
+    rgba(255, 255, 255, 0.1) 50%
+  );
+}
+
+/* ---------- per-band bars (reliability) ---------- */
+
+.hcf-bars {
+  display: grid;
+  grid-template-columns: 2.8vw 1fr 3vw;
+  gap: 0.45vh 0.7vw;
+  align-items: center;
+  margin-top: 0.9vh;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+}
+.hcf-bars-k {
+  color: var(--hc-dim);
+  letter-spacing: 0.06em;
+}
+.hcf-bars-v {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.hcf-bar {
+  height: 1.15vh;
+  border-radius: calc(var(--hc-radius) * 0.45);
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.hcf-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  box-shadow: 0 0 calc(0.8vh * var(--hc-glow, 0)) currentColor;
+}
+
+/* ---------- inline unit beside a numeric hero ---------- */
+
+.hcf-unit {
+  font-size: var(--hc-t-mid);
+  letter-spacing: 0.14em;
+  margin-left: 0.5vw;
+  color: var(--hc-dim);
+  text-shadow: none;
+}
+
+/* ---------- alert banner ---------- */
+
+.hcf-alert {
+  margin-top: 0.8vh;
+  padding: 0.55vh 0.7vw;
+  border-radius: calc(var(--hc-radius) * 0.7);
+  border-left: 0.4vh solid currentColor;
+  background: rgb(var(--hc-tone-rgb, 255 255 255) / 0.12);
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+}
+.hcf-alert b {
+  display: block;
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: var(--hc-t-title);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.hcf-alert span {
+  display: block;
+  color: var(--hc-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- emcomm score meter ---------- */
+
+.hcf-meter {
+  height: 1vh;
+  margin-top: 0.9vh;
+  border-radius: calc(var(--hc-radius) * 0.45);
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.hcf-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  box-shadow: 0 0 calc(0.8vh * var(--hc-glow, 0)) currentColor;
+}
+
+/* ---------- band scope strip ---------- */
+
+.hcf-scope {
+  display: block;
+  width: 100%;
+  height: 7vh;
+  margin-top: 0.9vh;
+  border-radius: calc(var(--hc-radius) * 0.7);
+  background: rgba(255, 255, 255, 0.04);
+}
+.hcf-scope path {
+  fill: rgb(var(--hc-tone-rgb, var(--hc-info-rgb)) / 0.22);
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ---------- designed idle / no-data block ---------- */
+
+.hcf-idle {
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+  color: var(--hc-dim);
+  letter-spacing: 0.08em;
+  margin-top: 0.7vh;
+  line-height: 1.4;
+}

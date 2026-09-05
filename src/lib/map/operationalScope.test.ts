@@ -146,3 +146,16 @@ describe("operational map scope", () => {
     expect(isOwnStationIdentity("W1XYZ", "K1ABC/P")).toBe(false);
   });
 });
+
+it("honors HamClock contact content after every operational scope without adding public assistance", () => {
+  for (const scope of ["observe", "log", "contest"] as const) {
+    const policy = buildMapDataPolicy(scope, false);
+    const contacts = applyMapDataPolicyToLayers(LAYERS, policy, "contacts");
+    expect(contacts).toMatchObject({ loggedQsos: true, contestQsos: false, spots: false, spotTraces: false, gridActivity: false, activations: false, ft8Spotter: false });
+    const activity = applyMapDataPolicyToLayers(LAYERS, policy, "activity");
+    expect(activity.loggedQsos).toBe(false);
+    expect(activity.contestQsos).toBe(false);
+    expect(activity.spots).toBe(applyMapDataPolicyToLayers(LAYERS, policy).spots);
+    if (scope === "contest") expect(policyAllows(policy, "liveSpots", "public")).toBe(false);
+  }
+});

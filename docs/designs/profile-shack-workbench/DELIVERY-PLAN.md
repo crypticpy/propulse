@@ -16,7 +16,13 @@ No due dates or capacity commitments have been invented. Scope changes require e
 
 ## Design foundation review gate
 
-[Foundation child issue #219](https://github.com/crypticpy/propulse/issues/219) tracks the approved design tokens, reusable component library and working equipment review page under W01. See the [library contracts and browser evidence](../station-ui/README.md). Codex builds this foundation personally; the owner reviews it before broader UI work is distributed to agents. This child does not replace any of the 22 work packages or complete W01's domain contracts. HamClock work remains independently owned.
+[Foundation child issue #219](https://github.com/crypticpy/propulse/issues/219) tracks the approved design tokens, reusable component library and working equipment review page under W01. See the [library contracts and browser evidence](../station-ui/README.md). The foundation shipped in PR #220 and the owner approved the working page and visual direction. The owner subsequently authorized Codex to coordinate the remaining refactor with agents, preserving existing features. This child does not replace any of the 22 work packages or complete W01's domain contracts. HamClock work remains independently owned.
+
+## Implementation contracts and preservation gate
+
+W01 records the [domain/lifecycle/migration decisions](DOMAIN-DECISIONS.md), [editor architecture](EDITOR-ARCHITECTURE.md), [executable contract examples](../../../src/lib/station/workbench/README.md), and [existing feature preservation register](FEATURE-PRESERVATION.md). Every later shack/profile surface uses the published station-ui library and its visual-comfort rules. Agent assignments name bounded file scopes; the coordinator reviews integration and bot feedback before merge.
+
+Each preservation row needs a destination and passing evidence before the old feature is retired. This includes metadata, operating/logging/forecast consumers, profile/social behavior, media and access boundaries, not just visible cards. A source audit is not passing parity evidence. W21 verifies this register alongside S01–S17; newly discovered features are added rather than silently omitted. Existing defects may be corrected explicitly with tests, while the useful capability is retained.
 
 ## Technical phases
 

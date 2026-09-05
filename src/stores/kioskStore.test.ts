@@ -517,13 +517,16 @@ describe("kioskStore", () => {
       map: {
         layoutMode: "hamclock",
         hamclock: {
-          leftPage: 2,
-          rightPage: -1,
+          leftPage: "solar",
+          rightPage: "",
           theme: "brass",
         },
       },
     });
-    expect(pinned.map?.hamclock).toEqual({ leftPage: 2, theme: "brass" });
+    // B4/HW-27: a page pin is a page id (string), validated for shape only —
+    // an empty string is not a usable id, so it is dropped like any other
+    // malformed value while a valid sibling field survives.
+    expect(pinned.map?.hamclock).toEqual({ leftPage: "solar", theme: "brass" });
 
     const garbage = useKioskStore.getState().addScene({
       name: "Garbage pin",
@@ -532,7 +535,7 @@ describe("kioskStore", () => {
         layoutMode: "hamclock",
         hamclock: {
           leftPage: 1.5,
-          rightPage: 99,
+          rightPage: "x".repeat(65),
           theme: "neon",
         } as never,
       },
@@ -545,7 +548,7 @@ describe("kioskStore", () => {
       route: "/map",
       map: {
         layoutMode: "pro",
-        hamclock: { leftPage: 1 },
+        hamclock: { leftPage: "solar" },
       },
     });
     expect(proScene.map?.hamclock).toBeUndefined();
@@ -584,7 +587,10 @@ describe("kioskStore", () => {
     expect(wall?.name).toBe("My Custom Wall");
     expect(wall?.enabled).toBe(false);
     expect(wall?.durationSec).toBe(45);
-    expect(wall?.map?.hamclock).toEqual({ leftPage: 0, rightPage: 0 });
+    expect(wall?.map?.hamclock).toEqual({
+      leftPage: "spots",
+      rightPage: "spots",
+    });
 
     // default-hamclock-weather was never in the persisted payload (the user
     // deleted it) and must not be resurrected by the migration.

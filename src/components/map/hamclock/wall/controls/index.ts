@@ -13,5 +13,8 @@ export type {
 export { HamClockTabs } from "./HamClockTabs";
 export type { HamClockTab, HamClockTabsProps } from "./HamClockTabs";
 
-export { HamClockDialog } from "./HamClockDialog";
+export {
+  HamClockDialog,
+  useHamClockDialogEscapeGuard,
+} from "./HamClockDialog";
 export type { HamClockDialogProps } from "./HamClockDialog";

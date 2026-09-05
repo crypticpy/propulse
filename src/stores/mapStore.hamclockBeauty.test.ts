@@ -67,6 +67,40 @@ describe("mapStore HamClock beauty enter/exit", () => {
     expect(useMapStore.getState().spotFilters.bands).toEqual(["20m"]);
   });
 
+  it("snapshots tileProviderId on HamClock enter and restores it (in memory and persisted) on exit — B6 fix #5", () => {
+    localStorage.clear();
+    useMapStore.setState({ layoutMode: "normal", tileProviderId: "esri-world" });
+    useMapStore.getState().setTileProviderId("esri-world");
+
+    useMapStore.getState().setLayoutMode("hamclock");
+    // A style chosen inside HamClock must not leak into the restored session.
+    useMapStore.getState().setTileProviderId("carto-dark");
+    expect(useMapStore.getState().tileProviderId).toBe("carto-dark");
+
+    useMapStore.getState().setLayoutMode("normal");
+
+    expect(useMapStore.getState().tileProviderId).toBe("esri-world");
+    expect(
+      JSON.parse(
+        localStorage.getItem("propulse-tile-provider-id") as string,
+      ),
+    ).toEqual({ version: 1, id: "esri-world" });
+  });
+
+  it("restores a null tileProviderId (no explicit choice) by clearing the persisted override on HamClock exit", () => {
+    localStorage.clear();
+    useMapStore.setState({ layoutMode: "normal", tileProviderId: null });
+
+    useMapStore.getState().setLayoutMode("hamclock");
+    useMapStore.getState().setTileProviderId("mapbox-satellite");
+    expect(localStorage.getItem("propulse-tile-provider-id")).not.toBeNull();
+
+    useMapStore.getState().setLayoutMode("normal");
+
+    expect(useMapStore.getState().tileProviderId).toBeNull();
+    expect(localStorage.getItem("propulse-tile-provider-id")).toBeNull();
+  });
+
   it("clamps night darkness", () => {
     useMapStore.getState().setNightDarkness(0.45);
     expect(useMapStore.getState().nightDarkness).toBe(0.45);

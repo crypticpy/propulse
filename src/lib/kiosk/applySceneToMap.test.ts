@@ -188,12 +188,13 @@ describe("applySceneToMap", () => {
       route: "/map",
       map: {
         layoutMode: "hamclock",
-        hamclock: { leftPage: 1, rightPage: 2, theme: "brass" },
+        hamclock: { leftPage: "solar", rightPage: "forecast", theme: "brass" },
       },
     });
 
-    // Both rails follow one page, so a pin is one index: leftPage is
-    // canonical when a scene still sets both.
+    // Both rails follow one page, so a pin is one page id resolved against
+    // the current railLayout: leftPage is canonical when a scene still sets
+    // both. "solar" is index 1 in the shipped layout.
     expect(useHamClockDisplayStore.getState()).toMatchObject({
       density: "wall",
       theme: "brass",
@@ -219,13 +220,19 @@ describe("applySceneToMap", () => {
       id: "wall-a",
       name: "A",
       route: "/map",
-      map: { layoutMode: "hamclock", hamclock: { leftPage: 1, rightPage: 1 } },
+      map: {
+        layoutMode: "hamclock",
+        hamclock: { leftPage: "solar", rightPage: "solar" },
+      },
     });
     applySceneToMap({
       id: "wall-b",
       name: "B",
       route: "/map",
-      map: { layoutMode: "hamclock", hamclock: { leftPage: 2, rightPage: 2 } },
+      map: {
+        layoutMode: "hamclock",
+        hamclock: { leftPage: "forecast", rightPage: "forecast" },
+      },
     });
 
     restoreHamClockDisplay();
@@ -251,7 +258,7 @@ describe("applySceneToMap", () => {
       route: "/map",
       map: {
         layoutMode: "hamclock",
-        hamclock: { leftPage: 1, rightPage: 2, theme: "brass" },
+        hamclock: { leftPage: "solar", rightPage: "forecast", theme: "brass" },
       },
     });
 
@@ -273,6 +280,27 @@ describe("applySceneToMap", () => {
       pageIndex: { left: 4, right: 4 },
     });
     expect(sessionStorage.getItem("propulse-hamclock-prepin")).toBeNull();
+  });
+
+  it("falls back to page 0 when a pinned page id no longer exists in the current railLayout", () => {
+    // B4/HW-27: a pin references a page id, not an index, so it must resolve
+    // against the operator's live railLayout rather than a fixed page list.
+    useHamClockDisplayStore.getState().setPage("left", 3);
+
+    applySceneToMap({
+      id: "wall",
+      name: "Wall",
+      route: "/map",
+      map: {
+        layoutMode: "hamclock",
+        hamclock: { leftPage: "retired-page" },
+      },
+    });
+
+    expect(useHamClockDisplayStore.getState().pageIndex).toEqual({
+      left: 0,
+      right: 0,
+    });
   });
 
   it("restores from the left page of a legacy pre-sync split snapshot", () => {

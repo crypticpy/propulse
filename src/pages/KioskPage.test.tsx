@@ -207,11 +207,11 @@ describe("KioskPage wall display editor", () => {
 
     await user.selectOptions(
       within(editor).getByLabelText("Wall page"),
-      "2",
+      "forecast",
     );
 
     expect(useKioskStore.getState().scenes.at(-1)).toMatchObject({
-      map: { hamclock: { leftPage: 2, rightPage: 2 } },
+      map: { hamclock: { leftPage: "forecast", rightPage: "forecast" } },
     });
   });
 

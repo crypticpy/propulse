@@ -1,13 +1,12 @@
-import { useCallback, useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { DXNewsTicker } from "@/components/map/DXNewsTicker";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { ensureHamClockThemeFont } from "@/lib/hamclock/themeFonts";
 import { useDXStore } from "@/stores/dxStore";
-import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useHamClockDisplayStore, wallPages } from "@/stores/hamclockDisplayStore";
 import { HamClockPager } from "./HamClockPager";
 import { HamClockRail } from "./HamClockRail";
 import { HamClockWallHeader } from "./HamClockWallHeader";
-import { HAMCLOCK_WALL_PAGES } from "./pages";
 
 /** Arrow keys page the rails, but not while the operator is typing or reading
  * a report. */
@@ -65,7 +64,12 @@ export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
   const page = useHamClockDisplayStore((s) => s.pageIndex.left);
   const stepPage = useHamClockDisplayStore((s) => s.stepPage);
   const theme = useHamClockDisplayStore((s) => s.theme);
-  const pageCount = HAMCLOCK_WALL_PAGES.length;
+  const railLayout = useHamClockDisplayStore((s) => s.railLayout);
+  // The pages the operator's own layout actually cycles through (wall spec
+  // §4/§5, review pass after B4), not a fixed shipped five — a preset with
+  // one page steps one page, not five with empty rails.
+  const pages = useMemo(() => wallPages(railLayout), [railLayout]);
+  const pageCount = pages.length;
   const onStep = useCallback(
     (delta: number) => stepPage("left", delta, pageCount),
     [stepPage, pageCount],
@@ -103,9 +107,9 @@ export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
       <DXNewsTicker className="rounded-none" />
 
       <footer className="hc-ftr">
-        <HamClockPager pageIndex={page} onStep={onStep} />
+        <HamClockPager pages={pages} pageIndex={page} onStep={onStep} />
         <WallStatus />
-        <HamClockPager pageIndex={page} onStep={onStep} />
+        <HamClockPager pages={pages} pageIndex={page} onStep={onStep} />
       </footer>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { readHamClockContacts } from "@/lib/hamclock/recentContacts";
 import { getBandColor } from "@/lib/utils/spotColors";
@@ -23,6 +24,7 @@ function formatAge(ms: number): string {
 /** The operator's own most recent QSOs — the contest session when one is
  * running, otherwise today's log. */
 export function RecentContactsTile() {
+  const location = useActiveLocation();
   const contestId = useContestStore((s) => s.activeSession?.id ?? null);
   const now = useUTCClock(30_000);
   const { data, isPending, error } = useQuery({
@@ -30,11 +32,23 @@ export function RecentContactsTile() {
     queryFn: () => readHamClockContacts(contestId),
     refetchInterval: 15_000,
     staleTime: 10_000,
+    // No station/home set (wall spec §7, HW-53): don't read the logbook at
+    // all rather than showing an empty "no contacts" state that implies a
+    // station is configured.
+    enabled: Boolean(location),
   });
   const [{ rowCount }] = useWidgetConfig(
     "recentContacts",
     recentContactsConfig,
   );
+
+  if (!location) {
+    return (
+      <HamClockTile title="Recent contacts">
+        <p className="hc-placeholder">SET HOME IN SETTINGS</p>
+      </HamClockTile>
+    );
+  }
 
   const entries = (data ?? []).slice(0, rowCount);
   const scope = contestId ? "SESSION" : "TODAY";

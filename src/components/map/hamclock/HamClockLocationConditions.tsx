@@ -10,6 +10,13 @@ import {
   weatherCodeToIcon,
 } from "@/lib/api/openMeteo";
 import { formatLocationTime } from "@/lib/hamclock/locationConditions";
+import {
+  formatSpeed,
+  formatTemperature,
+  resolveUnits,
+} from "@/lib/hamclock/units";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useUserStore } from "@/stores/userStore";
 
 interface HamClockLocationConditionsProps {
   latitude: number;
@@ -32,6 +39,11 @@ export function HamClockLocationConditions({
     latitude,
     longitude,
   );
+  // Units follow the operator's preference (resolved from the home grid), so
+  // a DX card reads in the same system as the DE card.
+  const unitsSetting = useHamClockDisplayStore((s) => s.units);
+  const homeGrid = useUserStore((s) => s.station?.grid);
+  const units = resolveUnits(unitsSetting, homeGrid);
   const localTime = formatLocationTime(
     displayTime,
     weather?.timezone ?? timeZone,
@@ -70,10 +82,10 @@ export function HamClockLocationConditions({
           </div>
           <div className="shrink-0 text-right">
             <div className="font-mono text-sm font-bold text-white">
-              {Math.round(weather.temperature)}°C
+              {formatTemperature(weather.temperature, units)}
             </div>
             <div className="font-mono text-[9px] text-gray-500">
-              {Math.round(weather.windSpeed)} km/h{" "}
+              {formatSpeed(weather.windSpeed, units)}{" "}
               {WIND_DIRS[Math.round(weather.windDirection / 45) % 8]}
             </div>
           </div>

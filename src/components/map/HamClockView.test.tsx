@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockView } from "./HamClockView";
 
 vi.mock("@/stores/mapStore", () => ({
@@ -136,6 +137,9 @@ vi.mock("./DXNewsTicker", () => ({
 
 describe("HamClockView", () => {
   it("keeps the alert and news crawl mounted below the wall display", () => {
+    // Desk density owns the grid-area layout this assertion describes; wall
+    // density has its own shell and is covered by HamClockWall.test.tsx.
+    useHamClockDisplayStore.getState().setDensity("desk");
     render(
       <MemoryRouter initialEntries={["/map"]}>
         <HamClockView displayTime={new Date(0)} />

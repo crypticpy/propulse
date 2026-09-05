@@ -1240,6 +1240,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
         createPortal(
           <div
             ref={popoverRef}
+            data-layers-popover=""
             className="fixed z-[250] animate-in fade-in slide-in-from-top-1"
             style={{ top: popoverPos.top, left: popoverPos.left }}
             onMouseEnter={handlePopoverEnter}

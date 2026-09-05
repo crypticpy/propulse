@@ -24,6 +24,8 @@ import {
   type CSSProperties,
 } from "react";
 import "@/styles/hamclock.css";
+import "@/styles/hamclock-themes.css";
+import "@/styles/hamclock-wall.css";
 import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
 import {
   HAMCLOCK_PANELS,
@@ -74,6 +76,7 @@ import { HamClockReliabilityPanel } from "./hamclock/HamClockReliabilityPanel";
 import { HamClockMoonPanel } from "./hamclock/HamClockMoonPanel";
 import { HamClockLocationConditions } from "./hamclock/HamClockLocationConditions";
 import { DXNewsTicker } from "./DXNewsTicker";
+import { HamClockWall } from "./hamclock/wall/HamClockWall";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -787,10 +790,86 @@ export function HamClockView({
   const infoSidebar = (
     <InfoSidebarContent displayTime={displayTime} mode={hamclockMode} />
   );
+  const wall = display.density === "wall";
+
+  const mapStage = (
+    <main
+      className="min-h-0 min-w-0 overflow-hidden relative bg-void-black"
+      style={{ gridArea: wall ? undefined : "map" }}
+      onPointerDownCapture={() => {
+        userNavigated.current = true;
+      }}
+      onWheelCapture={() => {
+        userNavigated.current = true;
+      }}
+    >
+      {viewMode === "flat" &&
+        display.homeRequest &&
+        Math.abs(display.homeRequest.lon) +
+          display.homeRequest.longitudeSpan / 2 >
+          180 && (
+          <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-gray-200">
+            Dateline region · world overview. Use 3D for a centered regional
+            view.
+          </div>
+        )}
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">
+            Loading projection…
+          </div>
+        }
+      >
+        {viewMode === "flat" && (
+          <FlatMapView
+            displayTime={displayTime}
+            onLocationClick={handleMapClick}
+            fillContainer
+          />
+        )}
+        {viewMode === "azimuthal" && (
+          <AzimuthalView
+            displayTime={displayTime}
+            onLocationClick={handleMapClick}
+          />
+        )}
+        {viewMode === "globe" && (
+          <GlobeView
+            displayTime={displayTime}
+            onLocationClick={handleMapClick}
+          />
+        )}
+      </Suspense>
+
+      {(hamclockMode === "traffic" || hamclockMode === "bands") &&
+        mapContent !== "activity" && (
+          <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-gray-200 pointer-events-none">
+            ○ Logged contacts · UTC{" "}
+            {mapContent === "both" && " · • Live activity"}
+          </div>
+        )}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+        <WatchStatusPill className="sm:hidden" />
+      </div>
+    </main>
+  );
+
+  if (wall) {
+    return (
+      <div
+        data-hamclock-root
+        data-hamclock-theme={display.theme}
+        className="fixed inset-0 z-[200] bg-void-black text-white select-none"
+      >
+        <HamClockWall>{mapStage}</HamClockWall>
+      </div>
+    );
+  }
 
   return (
     <div
       data-hamclock-root
+      data-hamclock-theme={display.theme}
       className="fixed inset-0 z-[200] bg-void-black text-white select-none"
       style={
         {
@@ -987,65 +1066,7 @@ export function HamClockView({
         {leftIsSpots ? spotsSidebar : infoSidebar}
       </HamClockSidebar>
 
-      <main
-        className="min-h-0 min-w-0 overflow-hidden relative bg-void-black"
-        style={{ gridArea: "map" }}
-        onPointerDownCapture={() => {
-          userNavigated.current = true;
-        }}
-        onWheelCapture={() => {
-          userNavigated.current = true;
-        }}
-      >
-        {viewMode === "flat" &&
-          display.homeRequest &&
-          Math.abs(display.homeRequest.lon) +
-            display.homeRequest.longitudeSpan / 2 >
-            180 && (
-            <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-gray-200">
-              Dateline region · world overview. Use 3D for a centered regional
-              view.
-            </div>
-          )}
-        <Suspense
-          fallback={
-            <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">
-              Loading projection…
-            </div>
-          }
-        >
-          {viewMode === "flat" && (
-            <FlatMapView
-              displayTime={displayTime}
-              onLocationClick={handleMapClick}
-              fillContainer
-            />
-          )}
-          {viewMode === "azimuthal" && (
-            <AzimuthalView
-              displayTime={displayTime}
-              onLocationClick={handleMapClick}
-            />
-          )}
-          {viewMode === "globe" && (
-            <GlobeView
-              displayTime={displayTime}
-              onLocationClick={handleMapClick}
-            />
-          )}
-        </Suspense>
-
-        {(hamclockMode === "traffic" || hamclockMode === "bands") &&
-          mapContent !== "activity" && (
-            <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-gray-200 pointer-events-none">
-              ○ Logged contacts · UTC{" "}
-              {mapContent === "both" && " · • Live activity"}
-            </div>
-          )}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
-          <WatchStatusPill className="sm:hidden" />
-        </div>
-      </main>
+      {mapStage}
 
       <HamClockSidebar
         side="right"

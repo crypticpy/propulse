@@ -10,6 +10,19 @@
  * already in use for tiles and reports.
  */
 
+:root {
+  /* Font-size floors: every `vh` type size below keeps a legible minimum in
+   * px at short viewport heights instead of shrinking without limit. */
+  --hcc-t-body: max(var(--hc-t-body), 14px);
+  --hcc-t-caption: max(var(--hc-t-small), 12px);
+  --hcc-t-caption-sm: max(1.15vh, 12px);
+  --hcc-t-hint: max(1.4vh, 12px);
+  --hcc-t-dialog-title: max(2.2vh, 14px);
+  --hcc-t-control: max(1.5vh, 14px);
+  --hcc-t-control-lg: max(1.7vh, 14px);
+  --hcc-t-tab: max(1.4vh, 14px);
+}
+
 /* ---------- button ---------- */
 
 .hcc-btn {
@@ -21,7 +34,7 @@
   padding: 0.6vh 1.4vw;
   font-family: var(--hc-font-display);
   font-weight: 700;
-  font-size: 1.5vh;
+  font-size: var(--hcc-t-control);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--hc-fg);
@@ -33,7 +46,7 @@
 .hcc-btn--lg {
   min-height: max(6vh, 52px);
   padding: 0.8vh 1.8vw;
-  font-size: 1.7vh;
+  font-size: var(--hcc-t-control-lg);
 }
 .hcc-btn--quiet {
   color: var(--hc-dim);
@@ -89,7 +102,7 @@
 .hcc-row-label {
   font-family: var(--hc-font-body);
   font-weight: 600;
-  font-size: var(--hc-t-body);
+  font-size: var(--hcc-t-body);
   color: var(--hc-fg);
 }
 .hcc-row[data-disabled="true"] .hcc-row-label {
@@ -97,13 +110,13 @@
 }
 .hcc-row-detail {
   font-family: var(--hc-font-mono);
-  font-size: var(--hc-t-small);
+  font-size: var(--hcc-t-caption);
   letter-spacing: 0.04em;
   color: var(--hc-dim);
 }
 .hcc-row-caveat {
   font-family: var(--hc-font-mono);
-  font-size: var(--hc-t-small);
+  font-size: var(--hcc-t-caption);
   letter-spacing: 0.04em;
   color: var(--hc-warn);
 }
@@ -121,7 +134,7 @@
   min-height: max(4.8vh, 44px);
   padding: 0.4vh 0.9vw;
   font-family: var(--hc-font-mono);
-  font-size: var(--hc-t-small);
+  font-size: var(--hcc-t-caption);
   letter-spacing: 0.12em;
   color: var(--hc-dim);
   background: transparent;
@@ -147,7 +160,7 @@
   min-height: max(4.8vh, 44px);
   font-family: var(--hc-font-display);
   font-weight: 700;
-  font-size: 1.5vh;
+  font-size: var(--hcc-t-control);
   letter-spacing: 0.18em;
   border-radius: var(--hc-radius);
   cursor: pointer;
@@ -186,7 +199,7 @@
 .hcc-seg-label {
   margin: 0;
   font-family: var(--hc-font-mono);
-  font-size: var(--hc-t-small);
+  font-size: var(--hcc-t-caption);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--hc-dim);
@@ -213,13 +226,13 @@
 .hcc-seg-btn-label {
   font-family: var(--hc-font-display);
   font-weight: 700;
-  font-size: 1.5vh;
+  font-size: var(--hcc-t-control);
   letter-spacing: 0.1em;
   color: var(--hc-dim);
 }
 .hcc-seg-btn-detail {
   font-family: var(--hc-font-mono);
-  font-size: 1.15vh;
+  font-size: var(--hcc-t-caption-sm);
   letter-spacing: 0.04em;
   color: var(--hc-dim2);
 }
@@ -259,7 +272,7 @@
   padding: 0.5vh 1.2vw;
   font-family: var(--hc-font-display);
   font-weight: 700;
-  font-size: 1.4vh;
+  font-size: var(--hcc-t-tab);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--hc-dim);
@@ -339,7 +352,7 @@
   margin: 0;
   font-family: var(--hc-font-display);
   font-weight: 700;
-  font-size: 2.2vh;
+  font-size: var(--hcc-t-dialog-title);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--hc-fg);
@@ -347,7 +360,7 @@
 .hcc-dialog-purpose {
   margin: 0.4vh 0 0;
   font-family: var(--hc-font-mono);
-  font-size: var(--hc-t-small);
+  font-size: var(--hcc-t-caption);
   letter-spacing: 0.04em;
   color: var(--hc-dim);
 }
@@ -356,7 +369,7 @@
   min-height: max(5vh, 44px);
   padding: 0.4vh 0.8vw;
   font-family: var(--hc-font-mono);
-  font-size: 1.5vh;
+  font-size: var(--hcc-t-control);
   letter-spacing: 0.14em;
   color: var(--hc-dim);
   background: transparent;
@@ -390,7 +403,7 @@
 }
 .hcc-dialog-hint {
   font-family: var(--hc-font-mono);
-  font-size: 1.4vh;
+  font-size: var(--hcc-t-hint);
   letter-spacing: 0.1em;
   color: var(--hc-dim2);
   text-transform: uppercase;

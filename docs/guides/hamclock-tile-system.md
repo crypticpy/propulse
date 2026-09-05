@@ -376,9 +376,38 @@ myTile: {
 ```
 
 ```tsx
-// wall/config/MyWidgetConfigPanel.tsx
+// wall/config/MyWidgetConfigPanel.tsx — registered as the tile's ConfigPanel,
+// and reused directly by the dialog below via `useWidgetConfig`.
+import { HamClockSegmented } from "../controls";
+import type { MyWidgetConfig } from "./MyWidgetConfig.schema";
+
+export function MyWidgetConfigPanel({
+  value,
+  onChange,
+}: {
+  value: MyWidgetConfig;
+  onChange: (next: MyWidgetConfig) => void;
+}) {
+  return (
+    <HamClockSegmented
+      label="Fetch every"
+      value={String(value.intervalMin) as "15" | "30" | "60"}
+      onChange={(v) => onChange({ intervalMin: Number(v) as 15 | 30 | 60 })}
+      options={[
+        { value: "15", label: "15 MIN" },
+        { value: "30", label: "30 MIN" },
+        { value: "60", label: "60 MIN" },
+      ]}
+    />
+  );
+}
+```
+
+```tsx
+// wall/config/MyWidgetConfigDialog.tsx
 import { useWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
-import { HamClockButton, HamClockDialog, HamClockSegmented } from "../controls";
+import { HamClockDialog } from "../controls";
+import { MyWidgetConfigPanel } from "./MyWidgetConfigPanel";
 import {
   MY_WIDGET_CONFIG_DEFAULTS,
   myWidgetConfigSchema,
@@ -394,34 +423,12 @@ export function MyWidgetConfigDialog({
   const [value, setValue] = useWidgetConfig("myTile", {
     schema: myWidgetConfigSchema,
     defaults: MY_WIDGET_CONFIG_DEFAULTS,
-    ConfigPanel: () => null,
+    ConfigPanel: MyWidgetConfigPanel,
   });
 
   return (
-    <HamClockDialog
-      open={open}
-      onClose={onClose}
-      title="MY WIDGET"
-      purpose="Choose how often this widget refreshes."
-      hint="SELECT to apply · BACK to cancel"
-      actions={
-        <HamClockButton variant="primary" size="lg" onClick={onClose}>
-          SAVE
-        </HamClockButton>
-      }
-    >
-      <HamClockSegmented
-        label="Fetch every"
-        value={String(value.intervalMin) as "15" | "30" | "60"}
-        onChange={(next) =>
-          setValue({ intervalMin: Number(next) as 15 | 30 | 60 })
-        }
-        options={[
-          { value: "15", label: "15 MIN" },
-          { value: "30", label: "30 MIN" },
-          { value: "60", label: "60 MIN" },
-        ]}
-      />
+    <HamClockDialog open={open} onClose={onClose} title="MY WIDGET">
+      <MyWidgetConfigPanel value={value} onChange={setValue} />
     </HamClockDialog>
   );
 }

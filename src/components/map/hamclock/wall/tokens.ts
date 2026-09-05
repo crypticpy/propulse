@@ -132,7 +132,9 @@ export function reportTone(
  * "5 MIN AGO", "2 H AGO", "JUST NOW", "WAITING" (null) — the wall never
  * shows raw seconds, because a reader ten feet away cannot use "43s" for
  * anything. A timestamp more than a minute ahead of `now` is clock skew, not
- * a real reading, so it reads as "JUST NOW" rather than a negative age.
+ * a real reading, so it reads as "JUST NOW" rather than a negative age. The
+ * unit is chosen *after* rounding, so 59m30s reads "1 H AGO" rather than
+ * "60 MIN AGO", and 23h30m reads "1 D AGO" rather than "24 H AGO".
  */
 export function formatAge(
   updatedAt: Date | number | null | undefined,
@@ -146,9 +148,11 @@ export function formatAge(
   const seconds = Math.max(0, deltaMs / 1000);
   if (seconds < 45) return "JUST NOW";
   const minutes = seconds / 60;
-  if (minutes < 60) return `${Math.round(minutes)} MIN AGO`;
+  const roundedMinutes = Math.round(minutes);
+  if (roundedMinutes < 60) return `${roundedMinutes} MIN AGO`;
   const hours = minutes / 60;
-  if (hours < 24) return `${Math.round(hours)} H AGO`;
+  const roundedHours = Math.round(hours);
+  if (roundedHours < 24) return `${roundedHours} H AGO`;
   const days = hours / 24;
   return `${Math.round(days)} D AGO`;
 }

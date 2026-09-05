@@ -22,6 +22,18 @@ describe("HamClockButton", () => {
     expect(button.getAttribute("aria-busy")).toBeNull();
     expect((button as HTMLButtonElement).disabled).toBe(false);
   });
+
+  it("defaults to type=button but lets a caller override it", () => {
+    const { rerender } = render(<HamClockButton>REFRESH</HamClockButton>);
+    expect(
+      screen.getByRole("button", { name: "REFRESH" }).getAttribute("type"),
+    ).toBe("button");
+
+    rerender(<HamClockButton type="submit">SAVE</HamClockButton>);
+    expect(
+      screen.getByRole("button", { name: "SAVE" }).getAttribute("type"),
+    ).toBe("submit");
+  });
 });
 
 describe("HamClockToggleRow", () => {
@@ -58,6 +70,17 @@ describe("HamClockToggleRow", () => {
     );
     fireEvent.click(screen.getByText("Auto page"));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("gives the switch a stable accessible name from the row label", () => {
+    render(
+      <HamClockToggleRow
+        label="Auto page"
+        checked={false}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("switch", { name: "Auto page" })).not.toBeNull();
   });
 
   it("clicking the toggle button does flip the state", () => {
@@ -150,6 +173,44 @@ describe("HamClockSegmented", () => {
       screen.getByRole("radio", { name: "A" }).getAttribute("aria-checked"),
     ).toBe("true");
   });
+
+  it("falls back to the first enabled option as the tab stop when the value matches a disabled option", () => {
+    render(
+      <HamClockSegmented
+        label="Choice"
+        options={options}
+        value="b"
+        onChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("radio", { name: "A" }).getAttribute("tabindex"),
+    ).toBe("0");
+    expect(
+      screen.getByRole("radio", { name: "B" }).getAttribute("tabindex"),
+    ).toBe("-1");
+    expect(
+      screen.getByRole("radio", { name: "C" }).getAttribute("tabindex"),
+    ).toBe("-1");
+  });
+
+  it("falls back to the first enabled option as the tab stop when the value matches no option", () => {
+    const onChange = vi.fn();
+    render(
+      <HamClockSegmented
+        label="Choice"
+        options={options}
+        value={"missing" as Val}
+        onChange={onChange}
+      />,
+    );
+    const a = screen.getByRole("radio", { name: "A" });
+    expect(a.getAttribute("tabindex")).toBe("0");
+    // Arrow-key movement starts from the fallback tab stop (A), so the next
+    // enabled option (skipping disabled B) is C.
+    fireEvent.keyDown(a, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith("c");
+  });
 });
 
 describe("HamClockTabs", () => {
@@ -187,6 +248,46 @@ describe("HamClockTabs", () => {
     expect(screen.getByText("Content one")).not.toBeNull();
     expect(screen.queryByText("Content two")).toBeNull();
   });
+
+  it("uses the first enabled tab as the tab stop when the active tab is disabled or unknown", () => {
+    const tabsWithDisabled = [
+      { id: "one", label: "One", content: <p>Content one</p>, disabled: true },
+      { id: "two", label: "Two", content: <p>Content two</p> },
+    ];
+    const { rerender } = render(
+      <HamClockTabs label="Sections" tabs={tabsWithDisabled} active="one" />,
+    );
+    expect(
+      screen.getByRole("tab", { name: "Two" }).getAttribute("tabindex"),
+    ).toBe("0");
+    expect(
+      screen.getByRole("tab", { name: "One" }).getAttribute("tabindex"),
+    ).toBe("-1");
+
+    rerender(<HamClockTabs label="Sections" tabs={tabs} active="unknown-id" />);
+    expect(
+      screen.getByRole("tab", { name: "One" }).getAttribute("tabindex"),
+    ).toBe("0");
+  });
+
+  it("gives the focused tab tabIndex 0 while the tablist has focus, and resets to the active tab on blur", () => {
+    render(<HamClockTabs label="Sections" tabs={tabs} />);
+    const one = screen.getByRole("tab", { name: "One" });
+    const two = screen.getByRole("tab", { name: "Two" });
+    one.focus();
+    fireEvent.keyDown(one, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(two);
+    expect(two.getAttribute("tabindex")).toBe("0");
+    expect(one.getAttribute("tabindex")).toBe("-1");
+    // Selection is still "one" — the focused tab is a roving tab stop, not
+    // a change of which tab is selected.
+    expect(one.getAttribute("aria-selected")).toBe("true");
+
+    // Focus leaves the tablist entirely: the tab stop resets to the active tab.
+    fireEvent.blur(two, { relatedTarget: document.body });
+    expect(one.getAttribute("tabindex")).toBe("0");
+    expect(two.getAttribute("tabindex")).toBe("-1");
+  });
 });
 
 describe("HamClockDialog", () => {
@@ -206,7 +307,28 @@ describe("HamClockDialog", () => {
       </HamClockDialog>,
     );
     expect(screen.getAllByText("SETTINGS").length).toBeGreaterThan(0);
-    expect(screen.getByText("Configure the wall.")).not.toBeNull();
+    // Rendered twice: the visible (aria-hidden) purpose line, and the
+    // sr-only description AccessibleDialog wires up via aria-describedby.
+    expect(screen.getAllByText("Configure the wall.").length).toBe(2);
+  });
+
+  it("exposes purpose as the dialog's accessible description", () => {
+    render(
+      <HamClockDialog
+        open
+        onClose={vi.fn()}
+        title="SETTINGS"
+        purpose="Configure the wall."
+      >
+        <p>Body</p>
+      </HamClockDialog>,
+    );
+    const dialog = screen.getByRole("dialog");
+    const describedBy = dialog.getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    expect(document.getElementById(describedBy as string)?.textContent).toBe(
+      "Configure the wall.",
+    );
   });
 
   it("closes via the ESC · CLOSE button", () => {

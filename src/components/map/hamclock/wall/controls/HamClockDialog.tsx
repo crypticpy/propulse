@@ -44,6 +44,7 @@ export function HamClockDialog({
       open={open}
       onClose={onClose}
       title={title}
+      description={purpose}
       chrome="bare"
       zIndexClassName="z-[350]"
       panelProps={{
@@ -60,7 +61,14 @@ export function HamClockDialog({
           <p className="hcc-dialog-title" aria-hidden="true">
             {title}
           </p>
-          {purpose && <p className="hcc-dialog-purpose">{purpose}</p>}
+          {/* AccessibleDialog already wires `purpose` up as the dialog's
+              accessible description (aria-describedby); this is the same
+              text drawn visibly, so it must not be read a second time. */}
+          {purpose && (
+            <p className="hcc-dialog-purpose" aria-hidden="true">
+              {purpose}
+            </p>
+          )}
         </div>
         <button type="button" className="hcc-dialog-close" onClick={onClose}>
           ESC · CLOSE

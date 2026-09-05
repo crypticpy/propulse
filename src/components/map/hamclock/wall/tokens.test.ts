@@ -31,6 +31,18 @@ describe("formatAge", () => {
     expect(formatAge(NOW - 3 * 24 * 60 * 60_000, NOW)).toBe("3 D AGO");
   });
 
+  it("rounds 59m30s up to the next hour rather than showing 60 minutes", () => {
+    expect(formatAge(NOW - 59.5 * 60_000, NOW)).toBe("1 H AGO");
+  });
+
+  it("rounds 23h30m up to the next day rather than showing 24 hours", () => {
+    expect(formatAge(NOW - 23.5 * 60 * 60_000, NOW)).toBe("1 D AGO");
+  });
+
+  it("rounds an hours-based delta to the correct day count", () => {
+    expect(formatAge(NOW - 36 * 60 * 60_000, NOW)).toBe("2 D AGO");
+  });
+
   it("treats a small future skew as JUST NOW", () => {
     expect(formatAge(NOW + 30_000, NOW)).toBe("JUST NOW");
   });

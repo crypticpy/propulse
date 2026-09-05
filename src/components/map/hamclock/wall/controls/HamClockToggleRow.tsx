@@ -44,6 +44,7 @@ export function HamClockToggleRow({
   actions,
 }: HamClockToggleRowProps) {
   const panelId = useId();
+  const labelId = useId();
   const [internalExpanded, setInternalExpanded] = useState(false);
   const isExpanded = expanded ?? internalExpanded;
 
@@ -61,7 +62,9 @@ export function HamClockToggleRow({
       <div className="hcc-row-main">
         {icon && <span className="hcc-row-icon">{icon}</span>}
         <div className="hcc-row-text">
-          <span className="hcc-row-label">{label}</span>
+          <span className="hcc-row-label" id={labelId}>
+            {label}
+          </span>
           {detail && <span className="hcc-row-detail">{detail}</span>}
           {caveat && <span className="hcc-row-caveat">{caveat}</span>}
         </div>
@@ -83,6 +86,7 @@ export function HamClockToggleRow({
           type="button"
           role="switch"
           aria-checked={checked}
+          aria-labelledby={labelId}
           className="hcc-toggle"
           data-state={checked ? "on" : "off"}
           disabled={disabled}

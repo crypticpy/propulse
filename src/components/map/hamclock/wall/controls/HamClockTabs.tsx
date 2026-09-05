@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -46,6 +47,20 @@ export function HamClockTabs({
   const activeId = active ?? internalActive;
   const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
   const enabled = useMemo(() => tabs.filter((tab) => !tab.disabled), [tabs]);
+  // Roving tab stop, tracked separately from the committed selection: while
+  // the tablist has focus the *focused* tab is the tab stop (manual
+  // activation lets the operator arrow past several tabs before committing
+  // one), and it resets to the active tab once focus leaves the strip.
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const activeIsEnabled = enabled.some((tab) => tab.id === activeId);
+  const fallbackActiveId = activeIsEnabled ? activeId : enabled[0]?.id;
+  const tabStopId = focusedId ?? fallbackActiveId;
+
+  function handleTablistBlur(event: FocusEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+      setFocusedId(null);
+    }
+  }
 
   function commit(id: string) {
     onChange?.(id);
@@ -103,7 +118,12 @@ export function HamClockTabs({
 
   return (
     <div className="hcc-tabs">
-      <div role="tablist" aria-label={label} className="hcc-tablist">
+      <div
+        role="tablist"
+        aria-label={label}
+        className="hcc-tablist"
+        onBlur={handleTablistBlur}
+      >
         {tabs.map((tab) => {
           const selected = tab.id === activeId;
           const tabButtonId = `${baseId}-tab-${tab.id}`;
@@ -121,10 +141,11 @@ export function HamClockTabs({
               aria-selected={selected}
               aria-controls={panelId}
               disabled={tab.disabled}
-              tabIndex={selected ? 0 : -1}
+              tabIndex={tab.id === tabStopId ? 0 : -1}
               className="hcc-tab"
               onClick={() => commit(tab.id)}
               onKeyDown={(event) => handleKeyDown(event, tab.id)}
+              onFocus={() => setFocusedId(tab.id)}
             >
               {tab.label}
             </button>

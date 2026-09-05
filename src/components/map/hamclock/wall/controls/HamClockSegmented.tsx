@@ -32,6 +32,10 @@ export function HamClockSegmented<T extends string>({
 }: HamClockSegmentedProps<T>) {
   const buttonRefs = useRef(new Map<T, HTMLButtonElement>());
   const enabled = options.filter((option) => !option.disabled);
+  // If `value` matches no option, or matches a disabled one, the roving tab
+  // stop still has to land somewhere reachable: the first enabled option.
+  const selectedIsEnabled = enabled.some((option) => option.value === value);
+  const tabStopValue = selectedIsEnabled ? value : enabled[0]?.value;
 
   function focusValue(target: T) {
     buttonRefs.current.get(target)?.focus();
@@ -96,7 +100,7 @@ export function HamClockSegmented<T extends string>({
               role="radio"
               aria-checked={selected}
               disabled={option.disabled}
-              tabIndex={selected ? 0 : -1}
+              tabIndex={option.value === tabStopValue ? 0 : -1}
               className="hcc-seg-btn"
               onClick={() => onChange(option.value)}
               onKeyDown={handleKeyDown}

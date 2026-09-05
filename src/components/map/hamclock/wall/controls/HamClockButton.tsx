@@ -22,13 +22,14 @@ export function HamClockButton({
   busy = false,
   size = "md",
   disabled,
+  type = "button",
   children,
   ...rest
 }: HamClockButtonProps) {
   return (
     <button
       {...rest}
-      type="button"
+      type={type}
       className={`hcc-btn hcc-btn--${variant} hcc-btn--${size}`}
       aria-busy={busy || undefined}
       disabled={busy || disabled}

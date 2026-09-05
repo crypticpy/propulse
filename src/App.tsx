@@ -1,6 +1,13 @@
 import { useOperatingMonitorBridge } from "@/hooks/useOperatingMonitor";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Routes, Route, Link, Navigate, useParams } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Link,
+  Navigate,
+  useParams,
+  useLocation,
+} from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthGate } from "@/components/auth/AuthGate";
@@ -212,7 +219,7 @@ function PersonalMonitorHost() {
   return null;
 }
 
-function App() {
+function Application() {
   // Apply text scale preference to DOM
   useTextScale();
   // Apply high-contrast mode class to <html>
@@ -382,6 +389,32 @@ function App() {
       </AuthGate>
     </ErrorBoundary>
   );
+}
+
+const DesignSystemPage = lazy(() =>
+  import("@/pages/design-system/DesignSystemPage").then((module) => ({
+    default: module.DesignSystemPage,
+  })),
+);
+
+function App() {
+  const { pathname } = useLocation();
+  // Exact, data-free review routes. Existing application auth and hosts stay unchanged.
+  if (
+    pathname === "/design-system" ||
+    pathname === "/design-system/add-equipment"
+  ) {
+    return (
+      <ErrorBoundary>
+        <Suspense
+          fallback={<p role="status">Loading station design library…</p>}
+        >
+          <DesignSystemPage />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+  return <Application />;
 }
 
 export default App;

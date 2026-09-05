@@ -1,0 +1,154 @@
+.station-ui.station-review {
+  min-height: 100vh;
+  background: var(--su-canvas);
+}
+.station-review .review-masthead {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem max(1.5rem, calc((100vw - 1240px) / 2));
+  border-bottom: 1px solid var(--su-line);
+  background: var(--su-panel);
+}
+.station-review .review-brand {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  color: var(--su-text);
+  font: 700 1.5rem var(--font-display, Orbitron, sans-serif);
+  text-decoration: none;
+}
+.station-review .review-brand svg,
+.station-review .review-brand > span > span {
+  color: var(--su-accent-text);
+}
+.station-review .review-shell {
+  max-width: 1288px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+.station-review .review-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  justify-content: space-between;
+  align-items: end;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--su-line);
+}
+.station-review .review-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.station-review .review-settings .su-field {
+  min-width: 130px;
+}
+.station-review .review-content {
+  padding: 2.5rem 0 4rem;
+  outline: none;
+}
+.station-review .review-equipment {
+  max-width: 1020px;
+  margin: auto;
+}
+.station-review .review-content > .su-stack {
+  gap: 2.5rem;
+}
+.station-review .review-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+  padding: 2rem 0;
+}
+.station-review .review-hero h2 {
+  font-size: clamp(1.5rem, 3vw, 2.3rem);
+  margin: 0.75rem 0 1rem;
+  line-height: 1.4;
+}
+.station-review .review-hero p:not(.su-eyebrow) {
+  color: var(--su-muted);
+  max-width: 52ch;
+  margin-bottom: 1.5rem;
+}
+.station-review .review-hero > .su-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.station-review .review-swatches {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.station-review .review-swatches > div {
+  min-width: 0;
+}
+.station-review .review-swatches span {
+  display: block;
+  height: 76px;
+  border-radius: 8px;
+  border: 1px solid var(--su-line);
+  margin-bottom: 0.5rem;
+}
+.station-review .review-swatches code {
+  font: 0.75rem var(--font-mono, monospace);
+  color: var(--su-muted);
+}
+.station-review .review-mono {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+}
+.station-review .review-footer {
+  border-top: 1px solid var(--su-line);
+  padding: 1.5rem 0;
+  color: var(--su-muted);
+  font-size: 0.8rem;
+}
+.station-review .review-skip {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1000;
+  padding: 0.75rem;
+  background: var(--su-panel);
+  color: var(--su-text);
+  transform: translateY(-200%);
+}
+.station-review .review-skip:focus {
+  transform: translateY(0);
+}
+@media (max-width: 800px) {
+  .station-review .review-hero {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .station-review .review-swatches {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .station-review .review-masthead > .su-inline .su-badge {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .station-review .review-shell {
+    padding: 0 1rem;
+  }
+  .station-review .review-masthead {
+    padding: 1rem;
+    flex-wrap: wrap;
+  }
+  .station-review .review-settings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .station-review .review-settings .su-field {
+    min-width: 0;
+  }
+  .station-review .review-content {
+    padding-top: 1.5rem;
+  }
+}

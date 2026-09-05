@@ -1,0 +1,28 @@
+Use case: ui-mockup.
+Create ONE new high-fidelity desktop application screenshot, landscape 1792x1120, flat straight-on edge-to-edge UI. No device frame, collage or 3D. A calm coherent ProPulse ham-radio application design concept with a private profile composition studio and public visitor preview.
+Shared brand: page #141827, global chrome #0a0a1a, panels #191e2e, inputs #111624, slate hairline borders, near-white #e2e8f0 text, readable #a0abba secondary. Plasma Orange #ff6b35 for active tabs and primary buttons, VERY DARK TEXT on orange-filled primary button. Muted cyan #85c4d0 for links. No neon/glowing type, heavy blur or decorative dashboard metrics. Inter-like humanist sans readable16–18px body, restrained geometric Orbitron-like page title and PROPULSE wordmark, JetBrains Mono-like callsign. 8px field/button radius,12px panel radius,24px clear gaps.
+ONE slim global header: orange sun/signal glyph + PROPULSE, Home / Solar Pulse / PropSphere / Tools, small "14:20 UTC", generic avatar. Below it ONE local navigation: Profile / My gear / Setups / Experiments; Profile selected orange.
+Page heading "Profile studio". Adjacent preview audience toggle "Preview as visitor" SELECTED, alternative "Friend". Right aligned secondary button "Save draft" and only primary orange button with DARK TEXT "Review & publish".
+Main layout split approx35% left studio controls and65% right public profile preview. Spacious yet enough content visible in one viewport; ordinary coherent UI not a dense form.
+LEFT CONTROL PANEL: heading "Your profile". Subheading "Sections". Five compact reorderable rows with visible six-dot drag handles on left AND explicit up/down arrow buttons on right, visibility eye icon and audience dropdown:
+"Station story" — "Public"
+"Featured setup" — "Public"
+"Projects" — "Public"
+"On the air" — "Public"
+"Activity" — "Hidden", with crossed-out eye.
+Only these five rows, no duplicates. Small guidance "Drag or use arrows to reorder".
+Expanded "Appearance" group with button "Crop cover photo"; accent selection text "Accent" and three swatches "Plasma Orange" selected with checkmark, "Cyan", "Purple". Theme segmented choice "Dark" SELECTED / "Light" / "High contrast". Density segmented choice "Comfortable" SELECTED / "Compact".
+Field "Featured setup" dropdown "Home station". Quiet action "Reset layout".
+RIGHT PUBLIC PREVIEW: within a clean border with small chrome label "Visitor view". Render a believable miniature public profile, using exactly the visible-public content selected on the left and matching their order. No editor handles or private inventory data inside visitor preview. Warm natural photographic station banner roughly200px high: modest generic desktop radio, headphones, notebook, small lamp on wood desk; afternoon light, no brand labels, serials, receipts or exact location. Fictional callsign and name "N0CALL · Alex" clean overlay on darkened lower banner; subtitle "Home station". Short interest tags "Homebrew", "HF digital", "Portable weekends". Banner is smaller than a full public standalone profile so several modules remain visible.
+Under banner: "STATION STORY" section with "Built for relaxed evening contacts and weekend experiments." and "Most changes start with a notebook and a question."
+Next "FEATURED SETUP" section: small generic radio → coax → wire dipole diagram with connecting lines, labels "HF radio", "Coax feedline", "Wire dipole"; text "Home station", "Owner-declared bands: 40m · 20m · 10m"; "Modes: SSB · FT8 · Learning CW". No precise performance values or live hardware activity.
+Next concise "PROJECTS" section: small warm photo thumbnail of coiled wire beside antenna sketch notebook, title "A homebrew dipole", text "Notes from building, adjusting and learning.", muted cyan link "View project".
+Final compact "ON THE AIR" row "Usually: Weekday evenings" and "Enjoys: Unhurried contacts and antenna experiments". This describes preference, not current hardware status. DO NOT show Activity, private metadata, exact address/location or inventory details in visitor preview.
+Small page footer "Design concept • fictional profile". All customization stays within the coherent shared navy/orange design. No arbitrary CSS fields, no scores, badges or invented telemetry. Legible text with clean hierarchy, selected states unambiguous and clear separation between controls and visitor preview.
+
+TARGETED EDIT PROMPT (second built-in call, preserving first-generation image):
+Edit this Profile studio screenshot with only three tiny visual corrections. Preserve every layout position, every text label, all photos, colors, controls, and values except the following:
+1. Make the PROPULSE wordmark in the global header plasma orange #ff6b35 to match the orange sun glyph.
+2. In the Featured setup miniature diagram in the visitor preview, extend the feedline connection from the right endpoint of the Coax feedline directly to the bottom of the wire dipole's central stem, using the same thin subdued line. Ensure this reads as one continuous radio-to-coax-to-antenna connection, not disconnected decorative icons.
+3. Change the text on the orange-filled "Visitor" selected control and the orange-filled "Comfortable" selected control to very dark navy, matching the dark text on the existing orange Review & publish button.
+No other changes.

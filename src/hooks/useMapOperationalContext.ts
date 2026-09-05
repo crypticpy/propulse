@@ -193,6 +193,7 @@ export function useOperationalWorkspaceSync(): void {
       globalThis.crypto?.randomUUID?.() ??
       `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
+    let disposed = false;
     let applyingRemote = false;
     let publishQueued = false;
     let nextRevision = 0;
@@ -203,13 +204,13 @@ export function useOperationalWorkspaceSync(): void {
     >();
 
     const publish = (...domains: WorkspaceDomain[]) => {
-      if (applyingRemote) return;
+      if (disposed || applyingRemote) return;
       for (const domain of domains) pendingDomains.add(domain);
       if (publishQueued) return;
       publishQueued = true;
       queueMicrotask(() => {
         publishQueued = false;
-        if (applyingRemote) {
+        if (disposed || applyingRemote) {
           pendingDomains.clear();
           return;
         }
@@ -344,6 +345,7 @@ export function useOperationalWorkspaceSync(): void {
 
     channel.postMessage({ kind: "request", sender } satisfies WorkspaceMessage);
     return () => {
+      disposed = true;
       for (const unsubscribe of subscriptions) unsubscribe();
       channel.close();
     };

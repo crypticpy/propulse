@@ -207,6 +207,10 @@ export function PropSphere() {
   // lg the responsive classes already produce the tabbed layout.
   const compactFit = useDisplayFit();
   const setDXConsoleExpanded = useMapStore((s) => s.setDXConsoleExpanded);
+  const openOpsConsole = useCallback(() => {
+    useMapOperationalStore.getState().setWorkspaceOpen(true);
+    setDXConsoleExpanded(true);
+  }, [setDXConsoleExpanded]);
   const pathMode = useMapStore((s) => s.pathMode);
   const setReplayEnabled = useMapStore((s) => s.setReplayEnabled);
   const baseStation = useUserStore((state) => state.station);
@@ -228,9 +232,6 @@ export function PropSphere() {
     (s) => s.requestEntryFocus,
   );
   const setContestDockTab = useContestUIStore((s) => s.setDockTab);
-  const setWorkspaceOpen = useMapOperationalStore(
-    (state) => state.setWorkspaceOpen,
-  );
   const operationalContext = useMapOperationalContext();
   const showPublicActivity = policyAllows(
     operationalContext.policy,
@@ -248,8 +249,8 @@ export function PropSphere() {
 
   useOperationalWorkspaceSync();
 
-  // A focused scope opens the existing bottom workspace once. Operators may
-  // collapse it afterward without the effect fighting that local choice.
+  // Restore the relevant tab without opening the console on route entry.
+  // Explicit scope changes and workspace actions own expansion.
   useEffect(() => {
     if (operationalContext.scope === "observe") return;
     const dockKey = contestSessionId ?? "no-session";
@@ -257,14 +258,10 @@ export function PropSphere() {
       dockKey,
       operationalContext.scope === "contest" ? "contest" : "log",
     );
-    setWorkspaceOpen(true);
-    setDXConsoleExpanded(true);
   }, [
     contestSessionId,
     operationalContext.scope,
     setContestDockTab,
-    setDXConsoleExpanded,
-    setWorkspaceOpen,
   ]);
 
   // Contest-aware map overlays (needed mult markers, etc.)
@@ -1125,9 +1122,7 @@ export function PropSphere() {
                   <div className="flex shrink-0 items-center gap-1">
                     <OperationalScopeControl
                       compact={mapToolbarLayout.iconOnly}
-                      onWorkspaceRequested={() =>
-                        setDXConsoleExpanded(true)
-                      }
+                      onWorkspaceRequested={openOpsConsole}
                     />
                     <MapStatusChip className="flex shrink-0" />
                     <ActiveKitChip className="flex shrink-0" />
@@ -1568,6 +1563,17 @@ export function PropSphere() {
           {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
           {!isLiteMode && (
             <>
+              {!isDXConsoleExpanded && operationalContext.scope !== "observe" && (
+                <button
+                  type="button"
+                  onClick={openOpsConsole}
+                  aria-label="Expand to Ops Console"
+                  className="hidden min-h-11 shrink-0 items-center justify-between rounded-xl border border-white/10 bg-nebula-blue/50 px-4 text-sm text-gray-300 transition-colors hover:bg-nebula-blue/80 lg:flex"
+                >
+                  <span>Ops Console</span>
+                  <span className="text-xs text-gray-400">Open workspace ↗</span>
+                </button>
+              )}
               {/* Ops Console (when expanded) - takes full bottom area */}
               {isDXConsoleExpanded && (
                 <div className="hidden lg:block flex-1 min-h-[400px]">
@@ -1657,7 +1663,7 @@ export function PropSphere() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDXConsoleExpanded(true);
+                            openOpsConsole();
                           }}
                           className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
                           title="Expand to Ops Console"

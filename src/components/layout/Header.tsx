@@ -3,10 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { formatUTC } from "@/lib/utils/time";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
-import {
-  useActiveLocation,
-  useIsTemporaryActive,
-} from "@/hooks/useActiveLocation";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useProfileStore } from "@/stores/profileStore";
@@ -52,22 +48,6 @@ export function Header({
 }: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-  // Skip the tick on /map, where the clock is not rendered -- otherwise the
-  // masthead re-renders once a second on top of the heaviest page in the app
-  // to update something nobody can see.
-  const clockVisible = location.pathname !== "/map";
-  useEffect(() => {
-    if (!clockVisible) return;
-    // Catch up immediately: the clock froze while it was hidden, so without
-    // this the masthead shows the time you left /map for up to a second.
-    setCurrentTime(new Date());
-    const id = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(id);
-  }, [clockVisible]);
-  const activeLocation = useActiveLocation();
-  const isTemporaryActive = useIsTemporaryActive();
-
   // Main nav items (always visible)
   const mainNavItems: NavItem[] = [
     { path: "/", label: "Home", icon: "🏠" },
@@ -97,30 +77,17 @@ export function Header({
       location.pathname === item.path ||
       location.pathname.startsWith(item.path + "/"),
   );
-  const activeToolLabel = toolsItems.find(
-    (item) =>
-      location.pathname === item.path ||
-      location.pathname.startsWith(item.path + "/"),
-  )?.label;
-
-  // On /map the masthead's job is navigation only. Time, grid and system
-  // health are properties of what you are looking at, so PropSphere's
-  // MapStatusChip owns them there -- and the masthead clock was a literal
-  // duplicate of TimeControl's, two clocks competing for the same fact.
-  // Every other route keeps them here; nothing else renders them.
-  const showStatusCluster = clockVisible;
-
   return (
     <>
       <header className="glass-panel sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
+          <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 py-2 lg:grid-cols-[auto_auto_minmax(0,1fr)]">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3">
               <span className="text-2xl md:text-3xl animate-pulse-glow">
                 ☀️
               </span>
-              <div className="hidden sm:block">
+              <div className="hidden xl:block">
                 <h1 className="font-orbitron text-lg md:text-xl font-black text-gradient-orange tracking-wider">
                   PROPULSE
                 </h1>
@@ -131,7 +98,7 @@ export function Header({
             </Link>
 
             {/* Navigation */}
-            <nav className="flex items-center gap-1 md:gap-2 overflow-x-auto sm:overflow-visible max-w-[60vw] sm:max-w-none">
+            <nav aria-label="Main navigation" className="order-last col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto md:overflow-visible lg:order-none lg:col-span-1">
               {/* Main nav items */}
               {mainNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
@@ -140,6 +107,7 @@ export function Header({
                     key={item.path}
                     to={item.path}
                     aria-label={item.label}
+                    aria-current={isActive ? "page" : undefined}
                     className={`
                       flex-shrink-0 flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-lg text-sm font-medium
                       transition-colors
@@ -151,7 +119,7 @@ export function Header({
                     `}
                   >
                     <span>{item.icon}</span>
-                    <span className="hidden md:inline">{item.label}</span>
+                    <span className="hidden sm:inline">{item.label}</span>
                   </Link>
                 );
               })}
@@ -169,7 +137,7 @@ export function Header({
                   `}
                 >
                   <span>🛠️</span>
-                  <span>{activeToolLabel || "Tools"}</span>
+                  <span>Tools</span>
                   <svg
                     className="w-4 h-4 transition-transform group-hover:rotate-180"
                     fill="none"
@@ -220,6 +188,7 @@ export function Header({
                     key={item.path}
                     to={item.path}
                     aria-label={item.label}
+                    aria-current={isActive ? "page" : undefined}
                     className={`
                       md:hidden flex-shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium
                       transition-colors
@@ -237,29 +206,16 @@ export function Header({
             </nav>
 
             {/* Right side: Time & Settings */}
-            <div className="flex items-center gap-4">
-              {/* Real-time UTC Clock */}
-              {showStatusCluster && (
-                <div className="hidden sm:block text-right">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-                    <span className="font-mono text-sm md:text-base text-signal-green font-semibold">
-                      {formatUTC(currentTime)}
-                    </span>
-                    <span className="text-[10px] text-gray-500 font-medium">
-                      UTC
-                    </span>
-                  </div>
-                  <Suspense
-                    fallback={<span className="ml-auto h-5 w-14" aria-hidden="true" />}
-                  >
-                    <QuickLocationControl className="ml-auto" />
-                  </Suspense>
-                </div>
-              )}
+            <div className="flex min-w-0 items-center justify-end gap-2">
+              <div className="hidden shrink-0 text-right sm:block">
+                <HeaderClock />
+                <Suspense fallback={<span className="inline-block h-4 w-14" aria-hidden="true" />}>
+                  <QuickLocationControl className="ml-auto" />
+                </Suspense>
+              </div>
 
-              {/* Alert Indicator + Temporary Location + Settings Button */}
-              <div className="flex items-center gap-2">
+              {/* Global status and account controls stay in the same place on every route. */}
+              <div className="flex shrink-0 items-center gap-1">
                 {/* Alert Indicator */}
                 {alertCount > 0 && (
                   <button
@@ -307,36 +263,10 @@ export function Header({
                   </button>
                 )}
 
-                {isTemporaryActive && activeLocation && (
-                  <div
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/20 border border-amber-500/30"
-                    title={`Operating from: ${activeLocation.name || activeLocation.grid}`}
-                  >
-                    <svg
-                      className="w-3.5 h-3.5 text-amber-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                      aria-hidden="true"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-xs font-mono font-medium text-amber-400">
-                      {activeLocation.grid}
-                    </span>
-                  </div>
-                )}
-                {showStatusCluster && (
-                  <>
-                    <ConflictBadge />
-                    <ConnectivityBadge />
-                    <SyncStatusIndicator />
-                    <HealthStatusIndicator />
-                  </>
-                )}
+                <ConflictBadge />
+                <ConnectivityBadge />
+                <SyncStatusIndicator />
+                <HealthStatusIndicator compact />
                 {/* Profile / Auth */}
                 <AuthHeaderButton />
                 {/* Shack */}
@@ -424,6 +354,21 @@ export function Header({
         </div>
       </header>
     </>
+  );
+}
+
+// Keep the ticking clock local so map rendering and the rest of the masthead
+// do not rerender every second. UTC is included by formatUTC.
+function HeaderClock() {
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <time dateTime={currentTime.toISOString()} className="block whitespace-nowrap font-mono text-sm font-semibold text-signal-green">
+      {formatUTC(currentTime)}
+    </time>
   );
 }
 

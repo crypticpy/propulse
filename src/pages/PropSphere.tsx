@@ -142,7 +142,6 @@ import {
   useOperationalWorkspaceSync,
   useScopedMapLayers,
 } from "@/hooks/useMapOperationalContext";
-import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { policyAllows } from "@/lib/map/operationalScope";
 
 /**
@@ -228,9 +227,6 @@ export function PropSphere() {
     (s) => s.requestEntryFocus,
   );
   const setContestDockTab = useContestUIStore((s) => s.setDockTab);
-  const setWorkspaceOpen = useMapOperationalStore(
-    (state) => state.setWorkspaceOpen,
-  );
   const operationalContext = useMapOperationalContext();
   const showPublicActivity = policyAllows(
     operationalContext.policy,
@@ -248,8 +244,8 @@ export function PropSphere() {
 
   useOperationalWorkspaceSync();
 
-  // A focused scope opens the existing bottom workspace once. Operators may
-  // collapse it afterward without the effect fighting that local choice.
+  // Restore the relevant tab without opening the console on route entry.
+  // Explicit scope changes and workspace actions own expansion.
   useEffect(() => {
     if (operationalContext.scope === "observe") return;
     const dockKey = contestSessionId ?? "no-session";
@@ -257,14 +253,10 @@ export function PropSphere() {
       dockKey,
       operationalContext.scope === "contest" ? "contest" : "log",
     );
-    setWorkspaceOpen(true);
-    setDXConsoleExpanded(true);
   }, [
     contestSessionId,
     operationalContext.scope,
     setContestDockTab,
-    setDXConsoleExpanded,
-    setWorkspaceOpen,
   ]);
 
   // Contest-aware map overlays (needed mult markers, etc.)
@@ -1568,6 +1560,17 @@ export function PropSphere() {
           {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
           {!isLiteMode && (
             <>
+              {!isDXConsoleExpanded && !showPublicActivity && (
+                <button
+                  type="button"
+                  onClick={() => setDXConsoleExpanded(true)}
+                  aria-label="Expand to Ops Console"
+                  className="hidden min-h-11 shrink-0 items-center justify-between rounded-xl border border-white/10 bg-nebula-blue/50 px-4 text-sm text-gray-300 transition-colors hover:bg-nebula-blue/80 lg:flex"
+                >
+                  <span>Ops Console</span>
+                  <span className="text-xs text-gray-400">Open workspace ↗</span>
+                </button>
+              )}
               {/* Ops Console (when expanded) - takes full bottom area */}
               {isDXConsoleExpanded && (
                 <div className="hidden lg:block flex-1 min-h-[400px]">

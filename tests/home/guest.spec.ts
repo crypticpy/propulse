@@ -5,9 +5,10 @@ test.skip(process.env.PROPULSE_E2E_GUEST !== "1", "Requires a build with disposa
 test("first visit and cached personal settings stay public without radio connections", async ({ page }, info) => {
   const sockets: string[] = [];
   page.on("websocket", socket => sockets.push(socket.url()));
-  await page.route("**/api/**", route => route.fulfill({ status: 503, json: { error: "Guest source unavailable fixture" } }));
+  await page.route(url => url.pathname.startsWith("/api/"), route => route.fulfill({ status: 503, json: { error: "Guest source unavailable fixture" } }));
   await page.route("https://home-guest.invalid/**", route => route.fulfill({ status: 503, json: {} }));
   await page.addInitScript(() => {
+    localStorage.setItem("propulse-home-location-v1", "IO91WM");
     localStorage.setItem("propulse-settings", JSON.stringify({state:{bridgeEnabled:true, bridgeHost:"127.0.0.1", bridgePort:8787},version:0}));
     localStorage.setItem("propulse-home-widgets-v1", JSON.stringify({desktop:["history","countdowns"],mobile:["history","countdowns"]}));
   });

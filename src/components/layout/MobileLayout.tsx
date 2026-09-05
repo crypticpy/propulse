@@ -1,40 +1,24 @@
-import { Suspense, useState, useCallback, useEffect } from "react";
+import { lazy, Suspense, useState, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { MobileHeader } from "./MobileHeader";
 import { BottomTabBar } from "./BottomTabBar";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
-import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
-import { useBandOpeningFeed } from "@/hooks/useBandOpeningFeed";
-import {
-  AlertBanner,
-  AlertToastContainer,
-  AlertHistoryModal,
-  SpotAlertToastContainer,
-} from "@/components/alerts";
-import { useSpotAlerts } from "@/hooks/useSpotAlerts";
-import { UndoToast } from "@/components/ui/UndoToast";
-import { CommandPalette } from "@/components/ui/CommandPalette";
-import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
-import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
-import { AuthModal } from "@/components/auth";
-import { PWAInstallPrompt } from "@/components/ui/PWAInstallPrompt";
-import { useUndoRedo } from "@/hooks/useUndoRedo";
-import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
-import { useSyncQueue } from "@/hooks/useSyncQueue";
-import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
-import { useOperatingSync } from "@/hooks/useOperatingSync";
+import { AlertBanner } from "@/components/alerts/AlertBanner";
 import { useConnectivityTier } from "@/hooks/useConnectivityTier";
-import { useLanSettingsSync } from "@/hooks/useLanSettingsSync";
+import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
-import { BandSuggestToast } from "@/components/operating/BandSuggestToast";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
 import { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
+
+// Modals, toasts, and background sync hooks are invisible at first paint, so
+// they load right after the shell instead of inside the entry bundle.
+const ShellOverlays = lazy(() =>
+  import("./ShellOverlays").then((m) => ({ default: m.ShellOverlays })),
+);
 
 // Matches BottomTabBar's visible tab order (Tools drawer sub-pages excluded)
 const MOBILE_ROUTES = [
@@ -56,9 +40,6 @@ const MOBILE_ROUTES = [
  */
 export function MobileLayout() {
   const [showAlertHistory, setShowAlertHistory] = useState(false);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -67,43 +48,16 @@ export function MobileLayout() {
     enabled: location.pathname !== "/solar",
   });
 
-  // Feed live spots to the band opening detector (runs on all routes)
-  useBandOpeningFeed();
-
   // Alert display style preference
   const alertDisplayStyle = useSettingsStore(
     (s) => s.notifications?.alertDisplayStyle ?? "toast",
   );
 
-  // Initialize satellite pass alert monitoring (browser notifications)
-  useSatelliteAlerts();
-
-  // Initialize sync queue background processor
-  useSyncQueue();
-  // Keep rigStore synced with Bridge/Daemon CAT state
-  useRigBridgeSync();
-  // Keep operatingStore synced with rig, WSJT-X, and contest state
-  useOperatingSync();
-
   // Keep the connectivity tier (cloud / LAN bridge / offline) current
   useConnectivityTier();
 
-  // Pull shared shack settings when served by the bridge (no-op elsewhere)
-  useLanSettingsSync();
-
-  // DX spot alert monitoring
-  const {
-    alerts: spotAlerts,
-    startMonitoring: startSpotAlerts,
-    isMonitoring: isSpotMonitoring,
-  } = useSpotAlerts();
-
-  // Auto-start spot alert monitoring when rules exist
-  useEffect(() => {
-    if (!isSpotMonitoring) {
-      startSpotAlerts();
-    }
-  }, [isSpotMonitoring, startSpotAlerts]);
+  // Keep rigStore synced with Bridge/Daemon CAT state
+  useRigBridgeSync();
 
   // Pull-to-refresh for mobile
   const {
@@ -123,23 +77,6 @@ export function MobileLayout() {
     },
     [pullRef, swipeRef],
   );
-
-  // Initialize undo/redo keyboard shortcuts
-  useUndoRedo({ enabled: true });
-
-  // Global keyboard shortcuts (Ctrl+K, ?, Escape)
-  useGlobalShortcuts({
-    onOpenCommandPalette: useCallback(
-      () => setShowCommandPalette((v) => !v),
-      [],
-    ),
-    onShowShortcuts: useCallback(() => setShowShortcuts((v) => !v), []),
-    onEscape: useCallback(() => {
-      setShowCommandPalette(false);
-      setShowShortcuts(false);
-    }, []),
-    enabled: true,
-  });
 
   return (
     <div className="h-[100dvh] flex flex-col bg-void-black">
@@ -189,56 +126,18 @@ export function MobileLayout() {
       {/* Fixed bottom tab bar */}
       <BottomTabBar />
 
-      {/* Toast notifications */}
-      {(alertDisplayStyle === "toast" || alertDisplayStyle === "both") && (
-        <AlertToastContainer
-          onDismiss={dismissAlert}
-          onToastClick={() => setShowAlertHistory(true)}
+      {/* Modals, toasts, sync hooks — nothing here renders at first paint */}
+      <Suspense fallback={null}>
+        <ShellOverlays
+          variant="mobile"
+          quiet={false}
+          alertDisplayStyle={alertDisplayStyle}
+          dismissAlert={dismissAlert}
+          showAlertHistory={showAlertHistory}
+          onOpenAlertHistory={() => setShowAlertHistory(true)}
+          onCloseAlertHistory={() => setShowAlertHistory(false)}
         />
-      )}
-
-      {/* Alert History Modal */}
-      <AlertHistoryModal
-        isOpen={showAlertHistory}
-        onClose={() => setShowAlertHistory(false)}
-      />
-
-      {/* Undo Toast */}
-      <UndoToast />
-
-      {/* DX Spot Alert Toasts */}
-      <SpotAlertToastContainer alerts={spotAlerts} onDismiss={() => {}} />
-
-      {/* Command Palette (Ctrl+K) */}
-      <CommandPalette
-        isOpen={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        onShowShortcuts={() => {
-          setShowCommandPalette(false);
-          setShowShortcuts(true);
-        }}
-        onOpenSettings={() => navigate("/settings")}
-        onRefreshData={() => queryClient.invalidateQueries()}
-      />
-
-      {/* Keyboard Shortcuts Help (?) */}
-      <ShortcutsHelpModal
-        isOpen={showShortcuts}
-        onClose={() => setShowShortcuts(false)}
-      />
-
-      {/* PWA Install + Update Prompts */}
-      <PWAInstallPrompt />
-      <PWAUpdatePrompt />
-
-      {/* Auth Modal */}
-      <AuthModal />
-
-      {/* Band opening suggest toast — bottom-center */}
-      <BandSuggestToast />
-
-      {/* Visual alert glow overlay (accessibility — opt-in) */}
-      <AlertGlowOverlay />
+      </Suspense>
     </div>
   );
 }

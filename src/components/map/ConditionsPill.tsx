@@ -7,7 +7,7 @@
 
 import { useMemo } from "react";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { calculatePropagationIndex } from "@/components/solar/PropagationIndex";
+import { calculatePropagationIndex } from "@/lib/utils/propagationIndex";
 
 interface ConditionsPillProps {
   className?: string;

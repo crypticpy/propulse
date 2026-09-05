@@ -8,10 +8,15 @@
  * Touch target meets 44x44 minimum via min-w/min-h with flex centering.
  */
 
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useOperatingStore } from "@/stores/operatingStore";
 import { BAND_COLORS } from "@/lib/utils/spotColors";
-import { BandModeModal } from "./BandModeModal";
+
+// The full band/mode picker is only visible after a tap; loading it lazily
+// keeps it out of the app entry bundle without changing mount semantics.
+const BandModeModal = lazy(() =>
+  import("./BandModeModal").then((m) => ({ default: m.BandModeModal })),
+);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,7 +73,9 @@ export function BandModePill({ className }: BandModePillProps) {
         <span className="text-gray-400">{activeMode}</span>
       </button>
 
-      <BandModeModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <Suspense fallback={null}>
+        <BandModeModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      </Suspense>
     </>
   );
 }

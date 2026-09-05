@@ -53,12 +53,8 @@ export default {
         "fade-in-up": "fadeInUp 0.5s ease-out both",
         shake: "shake 0.5s ease-in-out",
         "slide-in-right": "slideInRight 0.25s ease-out both",
-        // Operator Rank System animations (keyframes in globals.css)
-        "rank-legendary-glow": "rankLegendaryGlow 3s ease-in-out infinite",
-        "rank-ethereal-shift": "rankEtherealShift 12s linear infinite",
-        "rank-pulse-glow": "rankPulseGlow 3s ease-in-out infinite",
-        "rank-golden-ring": "rankGoldenRing 4s ease-in-out infinite",
-        "rank-chromatic-ring": "rankChromaticRing 12s linear infinite",
+        // Operator Rank System animations live in src/styles/rank-animations.css
+        // (keyframes + .animate-rank-* utilities), loaded with the rank-styled routes.
         "alert-glow-pulse": "alertGlowPulse 4s ease-in-out infinite",
       },
       keyframes: {

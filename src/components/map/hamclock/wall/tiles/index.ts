@@ -1,12 +1,18 @@
 import type { ComponentType } from "react";
 import type { WallTileProps } from "../HamClockTile";
+import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
 import { ClusterTile } from "./ClusterTile";
+import { EmcommTile } from "./EmcommTile";
+import { ForecastMatrixTile } from "./ForecastMatrixTile";
 import { GreyLineTile } from "./GreyLineTile";
 import { MoonTile } from "./MoonTile";
-import { PlaceholderTile } from "./PlaceholderTile";
+import { MufTile } from "./MufTile";
 import { RecentContactsTile } from "./RecentContactsTile";
+import { ReliabilityTile } from "./ReliabilityTile";
+import { SdrDecodesTile } from "./SdrDecodesTile";
+import { SdrScopeTile } from "./SdrScopeTile";
 import { SolarWindTile } from "./SolarWindTile";
 import { SpaceWxTile } from "./SpaceWxTile";
 import { SunTile } from "./SunTile";
@@ -15,9 +21,7 @@ import { XrayTile } from "./XrayTile";
 
 /**
  * Every tile the wall pages can reference. Pages are data, so adding a tile is
- * one file plus one line here. Slots whose real implementation lands in a
- * later phase point at `PlaceholderTile`, which renders the registered title
- * and says what it is waiting for.
+ * one file plus one line here.
  */
 export type TileId =
   | "bestBand"
@@ -55,12 +59,12 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   sun: { title: "Sunrise / sunset", Component: SunTile },
   weather: { title: "Local weather", Component: WeatherTile },
   moon: { title: "Moon", Component: MoonTile },
-  forecastMatrix: { title: "3-day band forecast", Component: PlaceholderTile },
-  reliability: { title: "24h reliability", Component: PlaceholderTile },
-  muf: { title: "MUF", Component: PlaceholderTile },
-  alerts: { title: "Weather alerts", Component: PlaceholderTile },
-  emcomm: { title: "Emcomm", Component: PlaceholderTile },
-  sdrScope: { title: "Band scope", Component: PlaceholderTile },
-  sdrDecodes: { title: "Decodes", Component: PlaceholderTile },
+  forecastMatrix: { title: "24h band forecast", Component: ForecastMatrixTile },
+  reliability: { title: "24h reliability", Component: ReliabilityTile },
+  muf: { title: "MUF", Component: MufTile },
+  alerts: { title: "Weather alerts", Component: AlertsTile },
+  emcomm: { title: "Emcomm", Component: EmcommTile },
+  sdrScope: { title: "Band scope", Component: SdrScopeTile },
+  sdrDecodes: { title: "Decodes", Component: SdrDecodesTile },
   recentContacts: { title: "Recent contacts", Component: RecentContactsTile },
 };

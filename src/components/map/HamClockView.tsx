@@ -26,6 +26,7 @@ import {
 import "@/styles/hamclock.css";
 import "@/styles/hamclock-themes.css";
 import "@/styles/hamclock-wall.css";
+import "@/styles/hamclock-wall-forecast.css";
 import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
 import {
   HAMCLOCK_PANELS,

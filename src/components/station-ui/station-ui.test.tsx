@@ -1,9 +1,11 @@
+import { useThemeStore } from "@/stores/themeStore";
 import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
   StationProvider,
+  EquipmentTile,
   TextField,
   Tabs,
   Dialog,
@@ -15,9 +17,64 @@ import {
 } from "./index";
 
 describe("station design primitives", () => {
+  it("follows the app's complete custom-color predicate without changing preferences", () => {
+    const original = useThemeStore.getState();
+    try {
+      for (const [secondary, expected] of [
+        [null, "#ff6b35"],
+        ["#ffffff", "#000000"],
+      ] as const) {
+        useThemeStore.setState({
+          accentId: "plasma",
+          customPrimary: "#000000",
+          customSecondary: secondary,
+        });
+        const { getByTestId, unmount } = render(
+          <StationProvider data-testid="theme" />,
+        );
+        expect(getByTestId("theme").style.getPropertyValue("--su-accent")).toBe(
+          expected,
+        );
+        expect(useThemeStore.getState().customSecondary).toBe(secondary);
+        unmount();
+      }
+    } finally {
+      useThemeStore.setState(original);
+    }
+  });
+
+  it("distinguishes inspector actions from actual selection tiles", () => {
+    render(
+      <StationProvider>
+        <EquipmentTile
+          name="Inspect tuner"
+          kind="tuner"
+          opensDialog
+          onSelect={() => {}}
+        />
+        <EquipmentTile
+          name="Select antenna"
+          kind="antenna"
+          selected
+          onSelect={() => {}}
+        />
+      </StationProvider>,
+    );
+    const inspector = screen.getByRole("button", { name: "Inspect tuner" });
+    expect(inspector.hasAttribute("aria-pressed")).toBe(false);
+    expect(inspector.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(
+      screen
+        .getByRole("button", { name: "Select antenna" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
   it("keeps text and custom accent labels legible across every theme", () => {
     for (const [theme, palette] of Object.entries(stationPalettes)) {
-      expect(stationContrast(palette.line, palette.panel)).toBeGreaterThanOrEqual(3);
+      expect(
+        stationContrast(palette.line, palette.panel),
+      ).toBeGreaterThanOrEqual(3);
       for (const background of [palette.canvas, palette.panel, palette.input]) {
         for (const foreground of [
           palette.text,
@@ -135,7 +192,7 @@ describe("station design primitives", () => {
   it("rejects unsuitable photos and reports decode failures", () => {
     const change = vi.fn();
     const { rerender } = render(<ImagePicker onChange={change} />);
-    fireEvent.change(screen.getByLabelText("Equipment photo"), {
+    fireEvent.change(screen.getByLabelText("Add a photo · Equipment photo"), {
       target: {
         files: [new File(["x"], "bad.svg", { type: "image/svg+xml" })],
       },

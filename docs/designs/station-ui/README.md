@@ -13,7 +13,7 @@ The approved navy/orange visual direction now has a shared React implementation.
 - 4/8 px spacing rhythm; 8 px controls and 12 px surfaces. Comfortable controls are 44 px at the default text scale. Compact desktop controls are 40 px; coarse pointers retain 44 px targets.
 - Four semantic palettes: deep space, daylight, high contrast and midnight. A provider follows existing app theme/accent preferences unless given a local override. Review controls never persist changes to the user's theme settings.
 - Native input, select, checkbox, radio, details and button behavior comes first. Focus outlines, text errors, keyboard tab navigation and explicit reorder buttons are part of the shared implementation.
-- Modal focus, Escape isolation, background inertness and focus restoration use the existing `AccessibleDialog`. The wrapper carries scoped theme tokens into its portal.
+- Modal focus, Escape isolation, background inertness and focus restoration use the existing `AccessibleDialog`. The wrapper carries scoped theme tokens into its portal. Detail views stay centered; fixed side flyouts are prohibited by the repository UX contract.
 - Styles live under the `station-ui` / `su-` namespace. No global palette, legacy component or HamClock change is required.
 
 ## Component inventory and contracts
@@ -28,9 +28,9 @@ The approved navy/orange visual direction now has a shared React implementation.
 | Layout | `Stack`, `Inline`, `Grid`, `Surface`, `Divider`, `PageHeader`, `Section`, `ActionBar`, `Disclosure` | Surface owns its inset; Section supplies an h2 and grouping. One PageHeader/h1 per page. Disclosure is native details. Grid collapses on small screens. |
 | Feedback | `Badge`, `ProvenanceBadge`, `Notice`, `EmptyState`, `Skeleton` | Tone is not a domain status. Provenance is measured/manufacturer/declared/estimated/unknown. Set Notice `live` only for changing feedback; default notices do not announce on mount. |
 | Navigation | `SectionNav`, `Tabs` | SectionNav takes href/label/current. Tabs takes value/onChange/items; unique values, automatic activation, arrows/Home/End, disabled items skipped. |
-| Overlays | `Dialog`, `Drawer` | `open`, `onClose`, `title`, optional description/footer. Keep a trigger mounted for focus return. Consumer handles dirty-form confirmation and save lifecycle. |
+| Overlays | `Dialog` | `open`, `onClose`, `title`, optional description/footer. Keep a trigger mounted for focus return. Consumer handles dirty-form confirmation and save lifecycle. |
 | Data | `KeyValueList`, `Table` | KeyValueList takes label/value pairs. Table requires a caption; supply proper header cells and scopes. Scroll region supports keyboard overflow. |
-| Station objects | `EquipmentGlyph`, `EquipmentTile`, `PortButton`, `ConnectionPreview`, `SetupStatus`, `ReorderControls` | Presentation only. Selection callbacks never switch hardware. Name each port. Editing and using are separate labels. Supply both reorder callbacks and boundary states. |
+| Station objects | `EquipmentGlyph`, `EquipmentTile`, `PortButton`, `ConnectionPreview`, `SetupStatus`, `ReorderControls` | Presentation only. Selection callbacks never switch hardware. Omit `selected` for action tiles; use `opensDialog` for inspector triggers. Name each port. Editing and using are separate labels. Supply both reorder callbacks and boundary states. |
 
 Public prop types are exported for controls/provider/fields/equipment kind. Other component props can be inferred with React's `ComponentProps<typeof Component>`; no duplicate feature-side type definitions are needed.
 
@@ -68,7 +68,7 @@ npm run dev:session -- start --owner station-design-system --task "Review statio
 PROPULSE_REVIEW_URL=http://127.0.0.1:<allocated-port> node scripts/check-station-design.mjs
 ```
 
-The browser check requires an identity match for the current checkout, owner and local profile. It creates a fresh browser context and writes evidence to `/private/tmp/station-review-evidence` (override with `PROPULSE_REVIEW_OUTPUT`). It checks both routes across all four themes with axe, responsive overflow, photo selection/removal, port editing, validation, saves, drawer/Escape, reset cancellation, compact mode, reduced motion and 200% text scaling.
+The browser check requires an identity match for the current checkout, owner and local profile. It creates a fresh browser context and writes evidence to `station-review-evidence` inside the system temporary directory (override with `PROPULSE_REVIEW_OUTPUT`). It checks both routes across all four themes with axe, responsive overflow, photo selection/removal, port editing, validation, saves, inspector dialog/Escape, reset cancellation, compact mode, reduced motion and 200% text scaling.
 
 Unit tests cover token/text contrast including extreme custom accents, native label/error associations, keyboard tab navigation, portal themes/focus restoration, invalid image handling, port operations, validation, save failure and in-flight submission locking. Existing dialog and auth tests remain part of the full suite. Automated checks supplement visual and keyboard inspection; they are not a claim of full screen-reader certification.
 

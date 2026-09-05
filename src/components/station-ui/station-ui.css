@@ -554,15 +554,6 @@
   background: var(--su-panel);
   box-shadow: 0 20px 80px #0008;
 }
-.su-dialog--right {
-  position: fixed !important;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  border-radius: 0.75rem 0 0 0.75rem;
-  max-height: 100dvh;
-  width: min(34rem, 100vw);
-}
 .su-dialog-header {
   display: flex;
   justify-content: space-between;

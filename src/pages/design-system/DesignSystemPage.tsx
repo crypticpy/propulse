@@ -17,7 +17,6 @@ import {
   ConnectionPreview,
   Dialog,
   Divider,
-  Drawer,
   EmptyState,
   EquipmentTile,
   Grid,
@@ -167,6 +166,7 @@ export function DesignSystemPage() {
                     {examples.map((example, index) => (
                       <EquipmentTile
                         key={index}
+                        opensDialog
                         name={example.name}
                         kind={example.kind || "tuner"}
                         detail={`${example.ports.length} ports · ${example.ownership}`}
@@ -190,7 +190,7 @@ export function DesignSystemPage() {
           controls and room to grow.
         </footer>
       </div>
-      <Drawer
+      <Dialog
         open={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.name ?? "Saved example"}
@@ -245,7 +245,7 @@ export function DesignSystemPage() {
             </Button>
           </Stack>
         )}
-      </Drawer>
+      </Dialog>
     </StationProvider>
   );
 }
@@ -255,7 +255,7 @@ function Catalog() {
   const [choice, setChoice] = useState("owned");
   const [enabled, setEnabled] = useState(true);
   const [dialog, setDialog] = useState(false);
-  const [drawer, setDrawer] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [gear, setGear] = useState("tuner");
   const [port, setPort] = useState("RF IN");
   const [message, setMessage] = useState("");
@@ -389,7 +389,7 @@ function Catalog() {
                           </Button>
                           <IconButton
                             label="Open settings"
-                            onClick={() => setDrawer(true)}
+                            onClick={() => setInspectorOpen(true)}
                           >
                             <Settings2 size={18} aria-hidden="true" />
                           </IconButton>
@@ -572,21 +572,20 @@ function Catalog() {
             },
             {
               value: "overlays",
-              label: "Dialogs & drawers",
+              label: "Dialogs & details",
               content: (
                 <Surface>
                   <Stack>
                     <h3>Focused decisions, familiar exits.</h3>
                     <p>
-                      Dialogs and drawers inherit the preview theme, contain
-                      keyboard focus, close with Escape and return focus to the
-                      trigger.
+                      Dialogs inherit the preview theme, contain keyboard focus,
+                      close with Escape and return focus to the trigger.
                     </p>
                     <Inline>
                       <Button onClick={() => setDialog(true)}>
                         Open confirmation
                       </Button>
-                      <Button onClick={() => setDrawer(true)}>
+                      <Button onClick={() => setInspectorOpen(true)}>
                         Open inspector
                       </Button>
                     </Inline>
@@ -624,11 +623,11 @@ function Catalog() {
       >
         <p>Destructive actions name the item and explain the consequence.</p>
       </Dialog>
-      <Drawer
-        open={drawer}
-        onClose={() => setDrawer(false)}
+      <Dialog
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
         title="Equipment inspector"
-        description="A shared drawer for focused editing."
+        description="A centered dialog for focused editing."
       >
         <Stack>
           <EquipmentTile
@@ -649,12 +648,12 @@ function Catalog() {
             ]}
           />
           <ActionBar>
-            <Button variant="primary" onClick={() => setDrawer(false)}>
+            <Button variant="primary" onClick={() => setInspectorOpen(false)}>
               Done
             </Button>
           </ActionBar>
         </Stack>
-      </Drawer>
+      </Dialog>
     </Stack>
   );
 }

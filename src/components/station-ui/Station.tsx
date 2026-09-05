@@ -65,14 +65,16 @@ export function EquipmentTile({
   name,
   kind,
   detail,
-  selected = false,
+  selected,
   onSelect,
+  opensDialog,
 }: {
   name: string;
   kind: EquipmentKind;
   detail?: string;
   selected?: boolean;
   onSelect: () => void;
+  opensDialog?: boolean;
 }) {
   return (
     <button
@@ -80,6 +82,7 @@ export function EquipmentTile({
       className="su-equipment-tile"
       aria-pressed={selected}
       onClick={onSelect}
+      aria-haspopup={opensDialog ? "dialog" : undefined}
     >
       <EquipmentGlyph kind={kind} />
       <span>
@@ -92,7 +95,7 @@ export function EquipmentTile({
 export function PortButton({
   name,
   detail,
-  selected = false,
+  selected,
   onClick,
 }: {
   name: string;

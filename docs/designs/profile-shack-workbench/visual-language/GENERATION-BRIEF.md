@@ -1,6 +1,6 @@
 # ProPulse station workbench visual-language exploration
 
-Status: proposed visual direction for review, not implemented UI or a new approved scope. Built-in ImageGen only. Do not modify application or HamClock files.
+Historical generation brief: written while the direction was proposed. The owner subsequently approved the visual direction; see README.md and manifest.json. These remain concept images, not implemented UI or a scope expansion. Built-in ImageGen only. Do not modify application or HamClock files.
 
 ## Shared image prompt foundation
 

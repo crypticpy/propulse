@@ -24,9 +24,13 @@ export function StationProvider({
   const appTheme = useThemeStore((s) => s.themeId);
   const appAccent = useThemeStore((s) => s.accentId);
   const customPrimary = useThemeStore((s) => s.customPrimary);
+  const customSecondary = useThemeStore((s) => s.customSecondary);
   const resolvedTheme = getTheme(theme ?? appTheme).id;
   const resolvedAccent =
-    accent ?? customPrimary ?? getAccentPreset(appAccent).primary;
+    accent ??
+    (customPrimary && customSecondary
+      ? customPrimary
+      : getAccentPreset(appAccent).primary);
   const value = useMemo(
     () => ({
       theme: resolvedTheme,

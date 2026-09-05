@@ -40,6 +40,48 @@ describe("equipment review form", () => {
     ).toBeTruthy();
     expect(save).not.toHaveBeenCalled();
   });
+  it("preserves duplicate-name errors during connector edits and reordering", async () => {
+    const { user } = setup();
+    await fillBasics(user);
+    await user.clear(screen.getByRole("textbox", { name: "Port 2 name" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Port 2 name" }),
+      "rf in",
+    );
+    await user.click(screen.getByRole("button", { name: "Save example" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Port 1 connector" }),
+      "BNC",
+    );
+    expect(
+      screen.getByText("Use a different name for each port."),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "Move rf in up", exact: true }),
+    );
+    expect(
+      screen.getByText("Use a different name for each port."),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("textbox", { name: "Port 1 name" })
+        .getAttribute("aria-invalid"),
+    ).toBe("true");
+    await user.clear(screen.getByRole("textbox", { name: "Port 1 name" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Port 1 name" }),
+      "GROUND",
+    );
+    expect(
+      screen.queryByText("Use a different name for each port."),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole("textbox", { name: "Port 1 name" })
+        .hasAttribute("aria-invalid"),
+    ).toBe(false);
+  });
+
   it("adds, reorders and removes ports, then saves normalized input", async () => {
     const { user, save } = setup();
     await fillBasics(user);

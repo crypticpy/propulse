@@ -47,6 +47,19 @@ const blank = (): EquipmentFormValues => ({
   addToDraft: false,
 });
 
+function portNameError(
+  ports: EquipmentFormValues["ports"],
+): string | undefined {
+  if (ports.some((port) => !port.name.trim()))
+    return "Name each port so you can find it when connecting equipment.";
+  if (
+    new Set(ports.map((port) => port.name.trim().toLowerCase())).size !==
+    ports.length
+  )
+    return "Use a different name for each port.";
+  return undefined;
+}
+
 export function EquipmentForm({
   onSave,
 }: {
@@ -88,7 +101,11 @@ export function EquipmentForm({
     setSaved("");
     setErrors((previous) => {
       const next = { ...previous };
-      delete next[key];
+      if (key === "ports" && previous.ports) {
+        const error = portNameError(value as EquipmentFormValues["ports"]);
+        if (error) next.ports = error;
+        else delete next.ports;
+      } else delete next[key];
       delete next.save;
       return next;
     });
@@ -119,14 +136,8 @@ export function EquipmentForm({
           if (!values.name.trim())
             nextErrors.name = "Give this equipment a name.";
           if (!values.kind) nextErrors.kind = "Choose an equipment type.";
-          if (values.ports.some((port) => !port.name.trim()))
-            nextErrors.ports =
-              "Name each port so you can find it when connecting equipment.";
-          else if (
-            new Set(values.ports.map((port) => port.name.trim().toLowerCase()))
-              .size !== values.ports.length
-          )
-            nextErrors.ports = "Use a different name for each port.";
+          const portsError = portNameError(values.ports);
+          if (portsError) nextErrors.ports = portsError;
           if (
             values.powerWatts &&
             (!Number.isFinite(Number(values.powerWatts)) ||

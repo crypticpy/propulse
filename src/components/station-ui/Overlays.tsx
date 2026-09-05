@@ -12,7 +12,6 @@ export function Dialog({
   description,
   children,
   footer,
-  placement = "center",
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,7 +19,6 @@ export function Dialog({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  placement?: "center" | "right";
 }) {
   const { theme, density, tokens } = useStationTheme();
   return (
@@ -31,7 +29,7 @@ export function Dialog({
       description={description}
       chrome="bare"
       panelProps={{
-        className: `station-ui su-dialog su-dialog--${placement}`,
+        className: "station-ui su-dialog",
         style: tokens,
         "data-station-theme": theme,
         "data-density": density,
@@ -54,7 +52,4 @@ export function Dialog({
       {footer && <footer className="su-dialog-footer">{footer}</footer>}
     </AccessibleDialog>
   );
-}
-export function Drawer(props: Omit<Parameters<typeof Dialog>[0], "placement">) {
-  return <Dialog {...props} placement="right" />;
 }

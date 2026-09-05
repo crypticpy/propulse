@@ -40,7 +40,7 @@ export {
   Skeleton,
 } from "./Feedback";
 export { SectionNav, Tabs } from "./Navigation";
-export { Dialog, Drawer } from "./Overlays";
+export { Dialog } from "./Overlays";
 export { KeyValueList, Table, Avatar } from "./DataDisplay";
 export {
   EquipmentGlyph,

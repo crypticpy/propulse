@@ -312,7 +312,7 @@ export function ImagePicker({
         id={id}
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        aria-label={label}
+        aria-label={`${fileName ? "Replace photo" : "Add a photo"} · ${label}`}
         aria-describedby={error ? `${id}-error` : undefined}
         aria-invalid={!!error || undefined}
         onChange={(event) => {

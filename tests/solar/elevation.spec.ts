@@ -34,6 +34,19 @@ test("unusable X-ray data qualifies supportive inputs instead of silently retain
   await expect(page.getByRole("region", { name: "GOES long X-ray", exact: true })).not.toContainText("B4.0");
 });
 
+test("retained event probabilities disclose when their one-day forecast window ended", async ({ page }, info) => {
+  const fixture = await installSolarFixtures(page);
+  const issued = new Date(Date.now() - 25 * 3_600_000).toISOString();
+  fixture.setData("/api/solar/probabilities", { issue_time: issued, horizon: "1 day", c_class: 40, m_class: 10, x_class: 1, proton_10mev: 2 });
+  fixture.ageData("/api/solar/probabilities", 25 * 3_600_000);
+  await page.goto("/solar");
+  if (info.project.name.startsWith("mobile")) await page.getByRole("button", { name: /^Official forecast/ }).click();
+  const forecast = page.getByRole("region", { name: "One-day event probabilities", exact: true });
+  await expect(forecast).toContainText("one-day window has ended");
+  await expect(forecast).not.toContainText("Data current");
+  await expect(forecast).toContainText("40%");
+});
+
 test("chart inspection works with keyboard and touch and retains data gaps", async ({ page }) => {
   const fixture = await installSolarFixtures(page);
   const now = Date.now();

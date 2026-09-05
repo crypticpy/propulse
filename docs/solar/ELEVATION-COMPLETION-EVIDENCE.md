@@ -25,7 +25,7 @@ The release branch is based on current main (`20b47e34`, after Shack PR #148). I
 - `npm run lint`: passed.
 - `npm test -- --reporter=dot --silent`: 247 files, 1,473 tests passed, including Solar, destination, and existing DX Wizard tests. The old local radar test mismatch is absent on current main.
 - `npm run build` and `npm run check:bundles`: passed against the unchanged budgets on main, including a build with the configured public client environment. App entry 805.94/216.60 KiB raw/gzip (850/240 budget); SolarPulse 57.37/16.92 KiB (60/18); precache 17 entries / 2510.60 KiB (17/2700).
-- Deterministic Playwright: 12 passed; 4 intentional viewport-specific skips. The isolated managed server ran from this release checkout at 127.0.0.1:5182 and stopped afterward.
+- Deterministic Playwright: 14 passed; 4 intentional viewport-specific skips. The isolated managed server ran from this release checkout at 127.0.0.1:5182 and stopped afterward.
 - Browser fixtures use America/Chicago, blocked service workers, large shared text, and reduced motion. Checked 390×844, 834×1194, 1440×1000, and 2560×1440. Provider images and charts were loaded before captures.
 - Cold mobile gates retain six essential feeds, fewer than 250 main descendants, zero charts/tables/images until expanded, 44px buttons, and no horizontal page overflow.
 
@@ -40,6 +40,8 @@ The browser runner accepts an optional `PROPULSE_E2E_SERVER_COMMAND` for agent-o
 ## Review limitations and follow-up target
 
 Screenshots use deterministic solar envelopes and downloaded NOAA/NASA imagery for visual review. They do not establish live-provider availability, authenticated cloud behavior, or actual radio interaction. The local Playwright server is separately owned and stops after verification.
+
+The pre-release production synthetic passed 23/24 checks. The probability product failed the probe's 24-hour freshness check; its retained envelope was still within the existing three-day data policy. The UI now explicitly labels the ended one-day forecast window without changing cache limits.
 
 The five-second comprehension check remains an unmeasured usability target, not a claimed study result. A newcomer and experienced operator should inspect a quiet and an impact fixture and identify the current concern/geography, what changed, and the next action. Record confusion between data freshness, event severity, and predictions. No human research outcome is asserted here.
 

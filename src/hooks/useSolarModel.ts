@@ -178,9 +178,9 @@ export function useSolarModel(options: UseSolarModelOptions = {}) {
       sunspot,
       plasma,
       predictedKp: predictedKp(resources.kp.data),
-
+      probabilityWindowEnded: resources.probabilities.data != null && now >= Date.parse(resources.probabilities.data.issue_time) + 86_400_000,
     };
-  }, [resources]);
+  }, [resources, now]);
 
   const briefing = useMemo(() => buildSolarBriefing(resources, now), [resources, now]);
   const trends = useMemo(() => buildSolarTrends(resources, now), [resources, now]);

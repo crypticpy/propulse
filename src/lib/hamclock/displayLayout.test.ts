@@ -1,6 +1,7 @@
 import { computeFlatMapLayout } from "@/components/map/lib/flatMapLayout";
 import { expect, it } from "vitest";
 import {
+  hamClockProjectionContent,
   flatHomeRegion,
   globeRegionDistance,
   hamClockHomeRegion,
@@ -53,4 +54,12 @@ it("uses a complete world overview for both dateline edges in Flat while retaini
   }
   const us = hamClockHomeRegion(39, -98);
   expect(flatHomeRegion(us)).toBe(us);
+});
+
+it("uses activity in AZ and restores the selected content in projections that support contacts", () => {
+  for (const content of ["activity", "contacts", "both"] as const) {
+    expect(hamClockProjectionContent("azimuthal", content)).toBe("activity");
+    expect(hamClockProjectionContent("flat", content)).toBe(content);
+    expect(hamClockProjectionContent("globe", content)).toBe(content);
+  }
 });

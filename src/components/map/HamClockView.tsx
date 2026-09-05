@@ -32,6 +32,7 @@ import {
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import {
+  hamClockProjectionContent,
   HAMCLOCK_TEXT_SCALE,
   hamClockPanelWidths,
   hamClockHomeRegion,
@@ -672,6 +673,7 @@ export function HamClockView({
   const station = useUserStore((s) => s.station);
   const observatory = useMapStore((s) => s.observatoryMode);
   const viewMode = useMapStore((s) => s.viewMode);
+  const mapContent = hamClockProjectionContent(viewMode, display.mapContent);
   const setViewMode = useMapStore((s) => s.setViewMode);
 
   const spotsSide = useHamClockDisplayStore((s) => s.spotsSide);
@@ -750,17 +752,17 @@ export function HamClockView({
   useEffect(() => {
     if (hamclockMode !== "traffic" && hamclockMode !== "bands") return;
     const map = useMapStore.getState();
-    const showActivity = display.mapContent !== "contacts";
+    const showActivity = mapContent !== "contacts";
     useMapStore.setState({
       layers: {
         ...map.layers,
         spots: showActivity,
         spotTraces: false,
         gridActivity: showActivity,
-        loggedQsos: display.mapContent !== "activity",
+        loggedQsos: mapContent !== "activity",
       },
     });
-  }, [display.mapContent, hamclockMode]);
+  }, [mapContent, hamclockMode]);
 
   const handleMapClick = useCallback(
     (lat: number, lon: number) => {
@@ -870,8 +872,14 @@ export function HamClockView({
                 <button
                   key={value}
                   type="button"
-                  aria-pressed={display.mapContent === value}
-                  className={`rounded px-2 py-1 text-xs ${display.mapContent === value ? "bg-signal-green text-void-black" : "text-gray-400 hover:bg-white/10"}`}
+                  aria-pressed={mapContent === value}
+                  disabled={viewMode === "azimuthal" && value !== "activity"}
+                  title={
+                    viewMode === "azimuthal" && value !== "activity"
+                      ? "Map logged contacts in Flat or 3D"
+                      : undefined
+                  }
+                  className={`rounded px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed ${mapContent === value ? "bg-signal-green text-void-black" : "text-gray-400 hover:bg-white/10"}`}
                   onClick={() => display.setMapContent(value)}
                 >
                   {label}
@@ -1028,10 +1036,10 @@ export function HamClockView({
         </Suspense>
 
         {(hamclockMode === "traffic" || hamclockMode === "bands") &&
-          display.mapContent !== "activity" && (
+          mapContent !== "activity" && (
             <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-gray-200 pointer-events-none">
               ○ Logged contacts · UTC{" "}
-              {display.mapContent === "both" && " · • Live activity"}
+              {mapContent === "both" && " · • Live activity"}
             </div>
           )}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">

@@ -430,8 +430,21 @@ try {
     layoutMode: "hamclock",
     viewMode: "azimuthal",
   });
-  check("Azimuthal projection smoke");
+  await expect(
+    page.getByRole("button", { name: "My contacts", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Both", exact: true }),
+  ).toBeDisabled();
+  expect((await state()).layers.loggedQsos).toBe(false);
+  check(
+    "Azimuthal shows activity and disables unsupported contact-map choices",
+  );
   await page.getByRole("button", { name: "Flat map", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Both", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => (await state()).layers.loggedQsos).toBe(true);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForTimeout(1000);
   const overflow = await page

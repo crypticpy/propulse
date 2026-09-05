@@ -437,7 +437,9 @@ screen and a distant display; warm/cold GPU traces against the stated frame budg
 one-hour continuous-use soak; signed-in cross-device log synchronization and paired
 Display Wall assignment behavior. The new operating monitor currently covers windows
 at the same browser origin. It does not introduce a cross-device radio transport.
-AZ retains its existing station-centered projection and navigation behavior.
+AZ retains its existing station-centered activity projection. Its contact-map
+choices are disabled until a logged-contact overlay is available; the list stays
+usable and Flat/3D retain the selected contact-map preference.
 Flat uses a letterboxed world overview when the requested home region crosses the
 dateline, so both sides remain visible. The globe retains regional centering across
 the dateline; seamless wrapping of Flat's imagery and overlays remains future work.

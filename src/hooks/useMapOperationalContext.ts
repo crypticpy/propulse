@@ -1,3 +1,4 @@
+import { hamClockProjectionContent } from "@/lib/hamclock/displayLayout";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
@@ -89,7 +90,8 @@ export function useScopedMapLayers() {
   const hamClock = useMapStore(s => s.layoutMode === "hamclock");
   const mode = useHamClockStore(s => s.hamclockMode);
   const content = useHamClockDisplayStore(s => s.mapContent);
-  const hamClockContent = hamClock && (mode === "traffic" || mode === "bands") ? content : undefined;
+  const projection = useMapStore(s => s.viewMode);
+  const hamClockContent = hamClock && (mode === "traffic" || mode === "bands") ? hamClockProjectionContent(projection, content) : undefined;
   const { policy } = useMapOperationalContext();
   return useMemo(
     () => applyMapDataPolicyToLayers(configuredLayers, policy, hamClockContent),

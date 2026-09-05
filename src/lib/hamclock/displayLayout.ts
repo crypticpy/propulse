@@ -63,3 +63,11 @@ export function flatHomeRegion(region: HomeRegion): HomeRegion {
     ? { lat: 0, lon: 0, latitudeSpan: 180, longitudeSpan: 360 }
     : region;
 }
+
+/** AZ currently has no logged-contact renderer; retain the choice for Flat/3D. */
+export function hamClockProjectionContent(
+  projection: string,
+  content: "activity" | "contacts" | "both",
+) {
+  return projection === "azimuthal" ? "activity" : content;
+}

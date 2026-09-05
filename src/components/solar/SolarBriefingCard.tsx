@@ -14,16 +14,16 @@ export function SolarBriefingCard({ briefing, scales, children }: { briefing: So
     <section aria-label="HF briefing" className={`rounded-2xl border bg-panel p-4 sm:p-6 ${briefing.tone === "impact" ? "border-alert-red/40" : "border-caution-amber/25"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
         <p className="font-semibold uppercase tracking-widest text-caution-amber">Your HF briefing · global context</p>
-        <span role="status">{briefing.state === "loading" ? "Checking evidence" : incomplete ? "Evidence incomplete" : "Evidence current"}</span>
+        <span role="status">{briefing.state === "loading" ? "Checking updates" : incomplete ? "Updates pending" : "Sources current"}</span>
       </div>
       <h2 className="mt-4 max-w-4xl text-2xl font-semibold leading-tight text-white sm:text-3xl">{briefing.title}</h2>
       <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-200">
         {shown.map((statement) => <p key={statement.id}>{statement.text}</p>)}
-        {!shown.length && <p>Current impact evidence is not yet sufficient. Inspect individual readings as they become available.</p>}
+        {!shown.length && <p>Propulse is checking for current measurements. Your station settings are unaffected.</p>}
         {moreOpen && remaining.map((statement) => <p key={statement.id}>{statement.text}</p>)}
       </div>
       {remaining.length > 0 && <button type="button" onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen} className="mt-2 min-h-11 rounded-lg px-3 text-sm text-cyan-200 hover:bg-white/5">{moreOpen ? "Less context" : "Why this briefing?"}</button>}
-      {incomplete && <p className="mt-3 text-xs leading-6 text-amber-200">{briefing.missing.length > 0 && `Unavailable: ${briefing.missing.join(", ")}. `}{briefing.delayed.length > 0 && `Delayed: ${briefing.delayed.join(", ")}. `}Supportive readings do not establish an all-clear.</p>}
+      {incomplete && <p className="mt-3 text-xs leading-6 text-amber-200">{briefing.missing.length > 0 && `Fresh readings aren’t available yet for ${briefing.missing.join(", ")}. `}{briefing.delayed.length > 0 && `Updates are delayed for ${briefing.delayed.join(", ")}. `}Propulse checks again automatically; no setting needs changing. Unreported conditions remain uncertain.</p>}
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/10 pt-4 text-xs text-slate-300" aria-label="Official NOAA scales">
         {[["R", "Radio blackout", scales?.radio_blackout?.scale], ["S", "Radiation storm", scales?.solar_radiation?.scale], ["G", "Geomagnetic", scales?.geomagnetic_storm?.scale]].map(([code, label, value]) => <p key={String(code)}><strong className={`mr-2 font-mono text-base ${typeof value === "number" && value > 0 ? "text-alert-red" : "text-white"}`}>{value == null ? `${code} —` : `${code}${value}`}</strong>{label}</p>)}
       </div>

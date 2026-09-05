@@ -29,8 +29,8 @@ test("unusable X-ray data qualifies supportive inputs instead of silently retain
   fixture.ageData("/api/solar/xray", 3_600_000);
   await page.goto("/solar");
   const briefing = page.getByRole("region", { name: "HF briefing", exact: true });
-  await expect(briefing.getByRole("heading")).toHaveText("The HF picture is incomplete");
-  await expect(briefing).toContainText("Unavailable:");
+  await expect(briefing.getByRole("heading")).toHaveText("Latest Kp shows quiet geomagnetic conditions");
+  await expect(briefing).toContainText("Fresh readings aren’t available yet for");
   await expect(page.getByRole("region", { name: "GOES long X-ray", exact: true })).not.toContainText("B4.0");
 });
 
@@ -43,7 +43,7 @@ test("retained event probabilities disclose when their one-day forecast window e
   if (info.project.name.startsWith("mobile")) await page.getByRole("button", { name: /^Official forecast/ }).click();
   const forecast = page.getByRole("region", { name: "One-day event probabilities", exact: true });
   await expect(forecast).toContainText("one-day window has ended");
-  await expect(forecast).not.toContainText("Data current");
+  await expect(forecast).not.toContainText("Current");
   await expect(forecast).toContainText("40%");
 });
 
@@ -96,7 +96,7 @@ test("responsive visual review including larger shared text and reduced motion",
   for (const [name, width, height] of [["phone", 390, 844], ["tablet", 834, 1194], ["desktop", 1440, 1000], ["large", 2560, 1440]] as const) {
     await page.setViewportSize({ width, height });
     await page.goto("/solar");
-    await expect(page.getByRole("region", { name: "HF briefing", exact: true })).toContainText("Evidence current");
+    await expect(page.getByRole("region", { name: "HF briefing", exact: true })).toContainText("Sources current");
     await expect(page.locator("html")).toHaveAttribute("data-text-scale", "lg");
     const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
     const overflow = await page.locator("body *").evaluateAll((nodes) => nodes.filter((node) => node.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && getComputedStyle(node).position !== "fixed").slice(0, 15).map((node) => ({ tag: node.tagName, class: node.className, right: node.getBoundingClientRect().right })));
@@ -140,3 +140,22 @@ for (const [link, destination] of [["Plan a session", "/planner"], ["Find a band
     }
   });
 }
+
+
+test("refresh explains its scope on focus and desktop readings include recent trends", async ({ page }, info) => {
+  await installSolarFixtures(page);
+  await page.goto("/solar");
+  const refresh = page.getByRole("button", { name: "Refresh", exact: true });
+  const help = page.getByRole("tooltip", { name: "" });
+  await expect(help).not.toBeVisible();
+  await refresh.focus();
+  await expect(page.locator("#solar-refresh-help")).toBeVisible();
+  await expect(page.locator("#solar-refresh-help")).toContainText("Images update on their own schedule");
+  const reading = page.getByRole("region", { name: "Planetary Kp", exact: true });
+  await expect(reading.getByRole("status")).toContainText("Current");
+  if (!info.project.name.startsWith("mobile")) {
+    await expect(reading.getByRole("img", { name: /Recent Kp intervals/ })).toBeVisible();
+    const outlook = page.getByRole("region", { name: "Three-day outlook", exact: true });
+    await expect(outlook.getByRole("img", { name: /Predicted Kp through the UTC day/ })).toHaveCount(3);
+  }
+});

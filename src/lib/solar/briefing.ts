@@ -96,7 +96,7 @@ export function buildSolarBriefing(raw: BriefingInputs, now: number): SolarBrief
   if (xrayEvent && !rEvent) add("xray", "impact", `X-ray flux is at ${xrayClass(xray.flux)}. Sunlit HF absorption may be elevated.`, ["noaa-xray"]);
   // Keep differing snapshots visible, including the reverse case after a flare.
   if (xray && r != null && rEvent !== xrayEvent) add("different-times", "notice",
-    `X-ray flux (${xrayClass(xray.flux)}) and the official R${r} snapshot differ. Compare their observation times in the evidence; they can update at different times.`,
+    `X-ray flux (${xrayClass(xray.flux)}) and the official R${r} snapshot differ. Compare their observation times under Sources & times; they can update at different times.`,
     ["noaa-xray", "swpc-scales"]);
   if (s != null && s > 0) add("radiation", "impact", `NOAA reports S${s} radiation-storm conditions. HF paths through polar regions may be affected.`, ["swpc-scales"]);
   if (g != null && g > 0) add("geomagnetic", "impact", `NOAA reports G${g} geomagnetic-storm conditions. HF propagation may be disrupted, with effects depending on latitude and path.`, ["swpc-scales"]);
@@ -111,7 +111,7 @@ export function buildSolarBriefing(raw: BriefingInputs, now: number): SolarBrief
   const supportive = kp != null && kp.kp < 3 && flux != null && flux.flux >= 100;
   const title = impact
     ? rEvent || xrayEvent ? "Radio-blackout conditions need attention" : s != null && s > 0 ? "Polar HF paths need attention" : "Geomagnetic disturbance needs attention"
-    : incomplete ? "The HF picture is incomplete"
+    : incomplete ? kp ? `Latest Kp shows ${kp.kp < 4 ? "quiet" : "unsettled"} geomagnetic conditions` : "Waiting for current space-weather updates"
     : watch ? "Check the latest NOAA outlook"
     : supportive ? "Supportive HF background conditions" : "Mixed HF background conditions";
   return {

@@ -1,4 +1,4 @@
-import { parseUtcInstant } from "@/lib/solar/normalization";
+import { formatUtc, hasData, sourceProps } from "@/components/solar/presentation";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { AccessibleDialog } from "@/components/ui";
 import { SolarBriefingCard } from "@/components/solar/SolarBriefingCard";
@@ -7,7 +7,12 @@ import { useSolarDisclosureState } from "@/hooks/useSolarDisclosureState";
 import { SolarDisclosure } from "@/components/solar/SolarDisclosure";
 import { SolarImageCard } from "@/components/solar/SolarImageCard";
 import { SolarImageDetail } from "@/components/solar/SolarImageDetail";
+import type { SolarMiniChartProps } from "@/components/solar/SolarMiniChart";
 import type { SolarSeriesChartProps } from "@/components/solar/SolarSeriesChart";
+const MiniChart = lazy(() => import("@/components/solar/SolarMiniChart").then(module => ({ default: module.SolarMiniChart })));
+function SolarMiniChart(props: SolarMiniChartProps) {
+  return <Suspense fallback={null}><MiniChart {...props} /></Suspense>;
+}
 const Chart = lazy(() => import("@/components/solar/SolarSeriesChart").then((module) => ({ default: module.SolarSeriesChart })));
 function SolarSeriesChart(props: SolarSeriesChartProps) {
   return <Suspense fallback={<p role="status" className="py-8 text-sm text-slate-400">Loading chart…</p>}><Chart {...props} /></Suspense>;
@@ -16,7 +21,6 @@ import { WidgetShell } from "@/components/solar/WidgetShell";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   useSolarModel,
-  type SolarResourceView,
 } from "@/hooks/useSolarModel";
 import type {
   OfficialSolarAlert,
@@ -27,9 +31,10 @@ import {
   type SolarImageProductId,
 } from "@/lib/solar/mediaProducts";
 import {
-  getSolarSourcePolicy,
   type SolarSourceGroup,
 } from "@/lib/solar/sourcePolicies";
+
+const SolarForecastPanel = lazy(() => import("@/components/solar/SolarForecastPanel").then(module => ({ default: module.SolarForecastPanel })));
 
 const SolarAnimationPlayer = lazy(() =>
   import("@/components/solar/SolarAnimationPlayer").then((module) => ({
@@ -48,37 +53,6 @@ const imageProducts = Object.keys(SOLAR_IMAGE_PRODUCTS) as SolarImageProductId[]
 
 function formatNumber(value: number | null | undefined, digits = 1): string {
   return value === null || value === undefined ? "—" : value.toFixed(digits);
-}
-
-function formatUtc(value: string): string {
-  return new Date(parseUtcInstant(value) ?? NaN).toLocaleString(undefined, {
-    timeZone: "UTC",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "short",
-  });
-}
-
-function hasData<T>(view: SolarResourceView<T>): boolean {
-  if (Array.isArray(view.data)) return view.data.length > 0;
-  return view.data !== undefined && view.data !== null;
-}
-
-function sourceProps<T>(view: SolarResourceView<T>) {
-  const policy = getSolarSourcePolicy(view.sourceId);
-  return {
-    state: view.state,
-    observedAt: view.resource?.envelope.observedAt,
-    provider: view.resource?.envelope.provider ?? policy.provider,
-    sourceUrl: view.resource?.envelope.sourceUrl ?? policy.sourceUrl,
-    hasData: hasData(view),
-    staleMessage: view.resource?.lastError
-      ? "The latest refresh failed. Last validated data remains visible."
-      : "The latest validated observation is older than this product's normal cadence. Last validated data remains visible.",
-    onRetry: () => void view.query.refetch(),
-  };
 }
 
 function MetricValue({
@@ -150,16 +124,20 @@ export function SolarPulse() {
       ? `${model.refreshResult.succeeded.length} refreshed · ${model.refreshResult.failed.length} could not refresh`
       : model.refreshResult.succeeded.length
         ? `${model.refreshResult.succeeded.length} sources refreshed`
-        : "Visible sections refresh together; images update separately";
+        : "";
 
   return (
     <main className="min-h-full bg-deep-space px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 pb-4 md:grid-cols-[auto_minmax(0,1fr)_auto]">
           <div><h1 className="font-orbitron text-2xl font-bold text-white">Solar Pulse</h1><p className="mt-1 text-sm text-slate-400">Space weather for your next session</p></div>
-          <div className="max-w-md text-xs text-slate-400">
-            <button type="button" onClick={() => void model.refreshVisible()} disabled={model.refreshResult.running} className="min-h-11 rounded-lg border border-white/10 px-4 text-sm text-cyan-200 hover:bg-white/5 disabled:opacity-60">{model.refreshResult.running ? "Refreshing…" : "Refresh"}</button>
-            <p role="status" className="mt-1">{model.pageHealth === "healthy" ? "Visible critical sources current" : model.pageHealth === "loading" ? "Checking sources" : "Some visible sources are delayed or unavailable"}</p><p className="mt-1">{refreshSummary}</p>
+          <div role="status" className="order-last col-span-2 text-xs text-slate-400 md:order-none md:col-span-1 md:px-3 md:text-right">
+            <p>{model.pageHealth === "healthy" ? "Core readings up to date" : model.pageHealth === "loading" ? "Checking space-weather updates" : "Some readings are delayed · see the briefing below"}</p>
+            {refreshSummary && <p className="mt-1">{refreshSummary}</p>}
+          </div>
+          <div className="group relative justify-self-end">
+            <button type="button" aria-describedby="solar-refresh-help" onClick={() => void model.refreshVisible()} disabled={model.refreshResult.running} className="min-h-11 rounded-lg border border-white/10 px-4 text-sm text-cyan-200 hover:bg-white/5 disabled:opacity-60">{model.refreshResult.running ? "Refreshing…" : "Refresh"}</button>
+            <p id="solar-refresh-help" role="tooltip" className="absolute right-0 top-full z-20 mt-2 hidden w-64 rounded-xl border border-white/15 bg-panel p-3 text-xs leading-5 text-slate-200 shadow-xl group-hover:block group-focus-within:block">Refreshes data in the open sections. Images update on their own schedule.</p>
           </div>
         </header>
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
@@ -179,15 +157,16 @@ export function SolarPulse() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <WidgetShell compact
               title="Planetary Kp"
-              eyebrow="3-hour observed / estimated"
+              eyebrow={current.kp ? `${current.kp.kind === "estimated" ? "Estimated" : "Observed"} · 3-hour Kp` : "3-hour observed / estimated"}
               {...sourceProps(resources.kp)}
               action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "kp" })} />}
             >
               <MetricValue
                 value={formatNumber(current.kp?.kp)}
-                note={current.kp ? `${current.kp.kind === "observed" ? "Observed" : "Estimated"} planetary value for the interval starting ${formatUtc(current.kp.time_tag)}.` : "No current Kp interval."}
+                note="Measures geomagnetic disturbance over three hours. Storm-range readings can signal disruption on high-latitude HF paths."
                 tone={current.kp && current.kp.kp >= 5 ? "rose" : current.kp && current.kp.kp >= 4 ? "amber" : "green"}
               />
+              {!isMobile && <SolarMiniChart label="Recent Kp intervals" points={(resources.kp.data ?? []).filter(p => p.kind !== "predicted").map(p => ({ timestamp: p.time_tag, value: p.kp, kind: p.kind }))} unit="Kp" min={0} max={9} intervalMs={10_800_000} maxGapMs={10_800_000} />}
             </WidgetShell>
             <WidgetShell compact
               title="10.7 cm solar flux"
@@ -198,9 +177,10 @@ export function SolarPulse() {
               <MetricValue
                 value={formatNumber(current.flux?.flux, 0)}
                 unit="sfu"
-                note="A global proxy for solar EUV output and ionospheric ionization—not a path forecast by itself."
+                note="Tracks solar activity that supports ionization. Combine it with your path and time when choosing a band."
                 tone="amber"
               />
+              {!isMobile && <SolarMiniChart label="Recent solar flux" points={(resources.flux.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="sfu" maxGapMs={129_600_000} />}
             </WidgetShell>
             <WidgetShell compact
               title="IMF Bz"
@@ -211,9 +191,10 @@ export function SolarPulse() {
               <MetricValue
                 value={formatNumber(current.mag?.bz_gsm)}
                 unit="nT"
-                note={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm < 0 ? "Southward Bz can increase geomagnetic coupling when sustained." : "Northward or near-neutral Bz is less favorable for strong coupling."}
+                note={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm < 0 ? "Sustained southward Bz can drive geomagnetic disturbance. Watch the trend and check Kp." : "Northward or near-neutral Bz is less likely to drive geomagnetic disturbance."}
                 tone={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm <= -8 ? "rose" : "cyan"}
               />
+              {!isMobile && <SolarMiniChart label="Recent Bz orientation" points={(resources.magnetometer.data ?? []).filter(p => p.bz_gsm !== null).map(p => ({ timestamp: p.time_tag, value: p.bz_gsm! }))} unit="nT" maxGapMs={300_000} />}
             </WidgetShell>
             <WidgetShell compact
               title="GOES long X-ray"
@@ -226,6 +207,7 @@ export function SolarPulse() {
                 note={current.xray ? `${current.xray.flux.toExponential(2)} W/m². Elevated flux can produce sunlit-side HF absorption.` : "No usable long-channel observation."}
                 tone={current.xrayClass?.startsWith("M") || current.xrayClass?.startsWith("X") ? "rose" : "cyan"}
               />
+              {!isMobile && <SolarMiniChart label="Recent X-ray flux" points={(resources.xray.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="W/m²" logarithmic maxGapMs={300_000} />}
             </WidgetShell>
           </div>
         </section>
@@ -244,53 +226,9 @@ export function SolarPulse() {
           open={forecastOpen}
           onToggle={() => toggleGroup("forecast")}
         >
-          <div className="grid gap-3 xl:grid-cols-[1.4fr_.6fr]">
-            <WidgetShell title="Planetary Kp timeline" eyebrow="Three-hour intervals · observed, estimated, predicted" {...sourceProps(resources.kp)} timestampLabel="Checked" observedAt={resources.kp.resource?.envelope.fetchedAt}>
-              {current.predictedKp.length > 0 && <p className="mb-4 text-sm leading-6 text-slate-300">Official predicted Kp spans {formatUtc(current.predictedKp[0].time_tag)} to {formatUtc(new Date((parseUtcInstant(current.predictedKp[current.predictedKp.length - 1].time_tag) ?? 0) + 10_800_000).toISOString())}. {current.predictedKp.some((p) => p.kp >= 5) ? "Some predicted intervals reach the geomagnetic storm range; inspect their times below." : "No supplied predicted interval reaches Kp 5."} This describes the supplied forecast horizon, not conditions beyond it.</p>}
-              <SolarSeriesChart
-                points={(resources.kp.data ?? []).map((point) => ({ timestamp: point.time_tag, value: point.kp, kind: point.kind }))}
-                label="Planetary Kp observed, estimated, and predicted three-hour intervals"
-                unit="Kp"
-                intervalMs={10_800_000}
-                maxGapMs={10_800_000}
-                thresholds={[{ value: 5, label: "Storm range" }]}
-                min={0}
-                max={9}
-              />
-            </WidgetShell>
-            <WidgetShell title="One-day event probabilities" timestampLabel="Issued" eyebrow="Official NOAA forecast" {...sourceProps(resources.probabilities)} state={current.probabilityWindowEnded ? "stale" : resources.probabilities.state} staleMessage={current.probabilityWindowEnded ? "This forecast's one-day window has ended. These are the previous issue's probabilities; waiting for a newer NOAA forecast." : undefined}>
-              {resources.probabilities.data && (
-                <div className="space-y-3">
-                  {[
-                    ["C-class flare", resources.probabilities.data.c_class],
-                    ["M-class flare", resources.probabilities.data.m_class],
-                    ["X-class flare", resources.probabilities.data.x_class],
-                    [">=10 MeV proton event", resources.probabilities.data.proton_10mev],
-                  ].map(([label, value]) => (
-                    <div key={String(label)}>
-                      <div className="flex justify-between text-xs"><span className="text-slate-400">{label}</span><span className="font-mono text-white">{value}%</span></div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-amber-300" style={{ width: `${value}%` }} /></div>
-                    </div>
-                  ))}
-                  <p className="border-t border-white/[0.07] pt-3 text-xs text-slate-400">Issued {formatUtc(resources.probabilities.data.issue_time)} · one-day horizon.</p>
-                </div>
-              )}
-            </WidgetShell>
-          </div>
-          <WidgetShell title="Three-day outlook" timestampLabel="Issued" eyebrow="Official NOAA forecast" {...sourceProps(resources.forecast)} className="mt-3">
-            {resources.forecast.data && (
-              <div className="grid gap-3 sm:grid-cols-3">
-                {resources.forecast.data.forecast.map((day) => <article key={day.date} className="rounded-xl border border-white/10 bg-black/15 p-4">
-                  <h3 className="text-sm font-semibold text-white">{new Date(day.date).toLocaleDateString(undefined, { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" })}</h3>
-                  <p className="mt-3 text-xs text-slate-400">Predicted SFI <strong className="block font-mono text-xl text-cyan-200">{day.predicted_flux} sfu</strong></p>
-                  <p className="mt-2 text-xs text-slate-400">Predicted planetary A <strong className="font-mono text-base text-amber-200">{day.predicted_planetary_a}</strong></p>
-                  <p className="mt-2 text-xs text-slate-400">Valid {day.date.slice(0, 10)} UTC · full day</p>
-                  <SolarOperatingActions compact at={`${day.date.slice(0, 10)}T12:00:00Z`} />
-                </article>)}
-                <p className="text-xs text-slate-400 sm:col-span-3">Issued {formatUtc(resources.forecast.data.issued_at)}. Planning opens this UTC day at 12:00; these global values do not predict a contact.</p>
-              </div>
-            )}
-          </WidgetShell>
+          <Suspense fallback={<p role="status" className="py-8 text-sm text-slate-400">Loading forecast…</p>}>
+            <SolarForecastPanel resources={resources} current={current} />
+          </Suspense>
         </SolarDisclosure>
 
         <WidgetShell

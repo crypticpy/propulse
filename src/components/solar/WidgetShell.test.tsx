@@ -6,13 +6,13 @@ import type { SolarWidgetState } from "@/lib/solar/contracts";
 describe("WidgetShell state contract", () => {
   const expected: Array<[SolarWidgetState, string]> = [
     ["loading", "Loading"],
-    ["fresh", "Data current"],
+    ["fresh", "Current"],
     ["refreshing", "Refreshing"],
     ["stale", "Stale"],
     ["partial", "Partial"],
     ["empty", "No current items"],
     ["unavailable", "Unavailable"],
-    ["error", "Could not load"],
+    ["error", "Error"],
   ];
 
   it.each(expected)("announces the %s state", (state, label) => {
@@ -37,7 +37,7 @@ describe("WidgetShell state contract", () => {
       </WidgetShell>,
     );
     expect(screen.getByText("123 sfu")).not.toBeNull();
-    expect(screen.getByText(/Last validated data remains visible/i)).not.toBeNull();
+    expect(screen.getByText(/older than expected/i)).not.toBeNull();
     expect(screen.queryByText(/refresh failed/i)).toBeNull();
     expect(screen.getByRole("link", { name: "NOAA SWPC" }).getAttribute("href")).toBe(
       "https://services.swpc.noaa.gov/",
@@ -77,7 +77,7 @@ describe("WidgetShell state contract", () => {
       </WidgetShell>,
     );
     expect(screen.getByText(/current successful response/i)).not.toBeNull();
-    expect(screen.queryByText(/No usable last-good/i)).toBeNull();
+    expect(screen.queryByText(/No recent reading is available/i)).toBeNull();
   });
 });
 

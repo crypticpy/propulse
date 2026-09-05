@@ -1247,7 +1247,7 @@ export default defineConfig(({ mode }) => {
             {
               // Cache public data APIs only — exclude credential-forwarding endpoints
               urlPattern:
-                /^https:\/\/.*\/api\/(?!solar\/|log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
+                /^https:\/\/.*\/api\/(?!solar\/|tiles\/|log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
               handler: "NetworkFirst",
               options: {
                 cacheName: "api-cache",
@@ -1283,16 +1283,12 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              // Mapbox/ESRI proxy tiles (Pro tier)
+              // Authenticated imagery uses the browser's private HTTP cache
+              // (one hour, Vary: Authorization) plus the decoded tile LRU.
+              // Avoid persisting JWT-keyed copies across refreshes/accounts in
+              // CacheStorage; never ignore Vary to share entitled responses.
               urlPattern: /\/api\/tiles\/proxy/,
-              handler: "CacheFirst",
-              options: {
-                cacheName: "tiles-pro",
-                expiration: {
-                  maxEntries: 3000,
-                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-                },
-              },
+              handler: "NetworkOnly",
             },
           ],
         },

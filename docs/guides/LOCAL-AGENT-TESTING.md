@@ -275,3 +275,28 @@ uses the configured DOM storage implementation):
 ```sh
 NODE_OPTIONS=--no-experimental-webstorage npx vitest run src/lib/hamclock src/lib/map/filterMapSpots.test.ts src/hooks/useGridActivityMap.test.ts src/components/map/lib/flatMapScene.test.ts src/components/map/lib/flatMufRaster.test.ts src/components/map/lib/flatMapLayout.test.ts src/stores/hamclockStore.test.ts src/stores/hamclockDisplayStore.test.ts src/stores/mapStore.hamclockBeauty.test.ts src/components/map/hamclock
 ```
+
+## HamClock map fidelity regression
+
+`node scripts/check-hamclock-display.mjs <managed-local-url>` also checks a 4K
+intercontinental home view, both complete world edges (including Japan/Australia),
+and bounded retained-surface repaints during wheel gestures. Camera geometry and
+paint counts are in `tmp/hamclock-check/functional.json`; screenshots include
+`home-context-4k.png` and `world-context-4k.png`. The diagnostic camera describes
+the committed image; CSS transforms preview a gesture until its final repaint.
+
+After a production build, run `node scripts/check-tile-cache.mjs`. This evaluates
+the generated worker's route registrations: public Esri/OSM tiles use bounded
+30-day CacheFirst caches; authenticated HD proxy tiles use NetworkOnly so the
+browser honors the endpoint's private one-hour HTTP cache and `Vary: Authorization`.
+A general API route must not capture `/api/tiles/` first. Token refresh may require
+new private requests; no offline or cross-session HD entitlement is promised.
+Both paths also reuse the decoded tile LRU. Local dev has HTTP/memory caching;
+persistent public Workbox caches require a controlling production worker.
+
+For performance comparisons, keep viewport, DPR, layer selection, initial camera,
+provider and cold/warm cache state fixed. Record other concurrent workloads.
+Headless timing is diagnostic evidence, not a physical-display frame-rate promise.
+On a cold Vite dependency cache, allow optimization/reloads to finish before
+injecting store fixtures; a destroyed execution context at startup needs a stable
+reload, not another dev server.

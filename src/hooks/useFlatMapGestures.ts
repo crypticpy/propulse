@@ -30,6 +30,8 @@ const DRAG_THRESHOLD_PX = 4;
 export interface UseFlatMapGesturesOptions {
   /** Ref to the canvas element to attach event listeners to */
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  /** Stable viewport coordinates while the retained canvas transforms. */
+  coordinateSurfaceRef?: React.RefObject<HTMLElement | null>;
   /** Called during single-pointer drag with pixel deltas */
   onPan: (deltaX: number, deltaY: number) => void;
   /**
@@ -152,7 +154,9 @@ export function useFlatMapGestures(
      * (relative to the canvas bounding rect, NOT scaled by DPR).
      */
     function toCanvasCoords(e: PointerEvent): { x: number; y: number } {
-      const rect = canvas!.getBoundingClientRect();
+      const rect = (
+        options.coordinateSurfaceRef?.current ?? canvas!
+      ).getBoundingClientRect();
       return {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
@@ -327,7 +331,7 @@ export function useFlatMapGestures(
       reportActive(false);
     };
     // Only re-attach when the canvas ref identity changes.
-  }, [canvasRef]);
+  }, [canvasRef, options.coordinateSurfaceRef]);
 
   return { isGesturing, isDragging };
 }

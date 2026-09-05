@@ -8,6 +8,10 @@ vi.mock("@/lib/api/authFetch", () => ({
 }));
 
 class FakeImage {
+  static instances: FakeImage[] = [];
+  constructor() {
+    FakeImage.instances.push(this);
+  }
   crossOrigin: string | null = null;
   naturalWidth = 512;
   naturalHeight = 512;
@@ -26,11 +30,18 @@ class FakeImage {
 }
 
 describe("createFlatTileLayer", () => {
+  const projectionDraw = vi.fn();
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   beforeEach(() => {
+    projectionDraw.mockClear();
+    FakeImage.instances = [];
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: projectionDraw,
+    } as unknown as ReturnType<HTMLCanvasElement["getContext"]>);
     vi.stubGlobal("Image", FakeImage);
     vi.stubGlobal(
       "fetch",
@@ -44,6 +55,59 @@ describe("createFlatTileLayer", () => {
       createObjectURL: vi.fn(() => "blob:tile"),
       revokeObjectURL: vi.fn(),
     });
+  });
+
+  it("loads HD imagery at the broad 4K home view and requests only the actual viewport", () => {
+    const view = {
+      scale: 1.3,
+      offsetX: -500,
+      offsetY: -200,
+      renderWidth: 4188,
+      renderHeight: 2094,
+      viewportWidth: 3270,
+      viewportHeight: 2000,
+      devicePixelRatio: 1,
+    };
+    const window = getFlatTileWindow(ALL_PROVIDERS["mapbox-satellite"], view)!;
+    expect(window.zoom).toBe(4);
+    expect(window.mapBounds.right).toBeCloseTo((3270 + 500) / 1.3);
+    expect(window.mapBounds.bottom).toBeCloseTo((2000 + 200) / 1.3);
+  });
+
+  it("warps each decoded tile once and reuses the projected pixels without another fetch", async () => {
+    const layer = createFlatTileLayer(
+      ALL_PROVIDERS["mapbox-satellite"],
+      vi.fn(),
+      { maxConcurrentRequests: 64 },
+    );
+    const context = {
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const view = {
+      scale: 64,
+      offsetX: -32256,
+      offsetY: -16128,
+      renderWidth: 1024,
+      renderHeight: 512,
+      devicePixelRatio: 1,
+    };
+    layer.draw(context, view);
+    await vi.waitFor(() => expect(layer.draw(context, view)).toBe(true));
+    const warps = projectionDraw.mock.calls.length;
+    const fetches = vi.mocked(fetch).mock.calls.length;
+    expect(warps).toBeGreaterThan(0);
+    const projectedSources = new Set(
+      projectionDraw.mock.calls.map(([source]) => source),
+    );
+    for (const source of projectedSources) {
+      expect(source.src).toBe("");
+      expect(source.onload).toBeNull();
+      expect(source.onerror).toBeNull();
+    }
+    for (let i = 0; i < 20; i++) layer.draw(context, view);
+    expect(projectionDraw).toHaveBeenCalledTimes(warps);
+    expect(fetch).toHaveBeenCalledTimes(fetches);
+    layer.dispose();
   });
 
   it("fetches bearer-protected flat-map tiles with authorization headers", async () => {
@@ -131,8 +195,7 @@ describe("createFlatTileLayer", () => {
     });
 
     const visibleLeft = -view.offsetX / view.scale;
-    const visibleRight =
-      (view.renderWidth - view.offsetX) / view.scale;
+    const visibleRight = (view.renderWidth - view.offsetX) / view.scale;
     for (const call of drawImage.mock.calls) {
       const destinationX = call[5] as number;
       const destinationWidth = call[7] as number;
@@ -222,7 +285,9 @@ describe("createFlatTileLayer", () => {
       devicePixelRatio: 1,
     });
 
-    await vi.waitFor(() => expect(onProviderUnavailable).toHaveBeenCalledOnce());
+    await vi.waitFor(() =>
+      expect(onProviderUnavailable).toHaveBeenCalledOnce(),
+    );
     layer.dispose();
   });
 
@@ -235,7 +300,9 @@ describe("createFlatTileLayer", () => {
       vi.fn(),
       { maxConcurrentRequests: 2, prefetchRadius: 1 },
     );
-    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+    const context = {
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
 
     layer.draw(context, {
       scale: 64,
@@ -261,7 +328,9 @@ describe("createFlatTileLayer", () => {
       vi.fn(),
       { settleDelayMs: 120, maxConcurrentRequests: 1 },
     );
-    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+    const context = {
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
 
     layer.draw(context, {
       scale: 64,
@@ -377,7 +446,9 @@ describe("createFlatTileLayer", () => {
       vi.fn(),
       { maxConcurrentRequests: 2 },
     );
-    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+    const context = {
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
     const centeredView = {
       scale: 64,
       offsetX: -32_256,
@@ -407,7 +478,9 @@ describe("createFlatTileLayer", () => {
       vi.fn(),
       { maxConcurrentRequests: 64 },
     );
-    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D;
+    const context = {
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
     const centeredView = {
       scale: 64,
       offsetX: -32_256,
@@ -430,7 +503,9 @@ describe("createFlatTileLayer", () => {
     await vi.waitFor(() =>
       expect(fetch).toHaveBeenCalledTimes(visibleRequestCount),
     );
-    await vi.waitFor(() => expect(layer.draw(context, centeredView)).toBe(true));
+    await vi.waitFor(() =>
+      expect(layer.draw(context, centeredView)).toBe(true),
+    );
     const requestsAfterFirstView = vi.mocked(fetch).mock.calls.length;
 
     layer.draw(context, { ...centeredView, offsetX: -1_000 });

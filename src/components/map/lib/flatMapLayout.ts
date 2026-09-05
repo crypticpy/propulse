@@ -6,7 +6,8 @@
  * and its backing buffer. In letterbox mode they coincide. In fillContainer
  * mode the viewport is the container and the map box covers it (center-cropped
  * on the long axis), so the projection is never stretched; the cropped part
- * stays reachable by panning and the pan offsets carry the centering.
+ * stays reachable by panning and the pan offsets carry the centering. Zooming
+ * below that cover scale fits the whole world, with centered letterbox margins.
  */
 
 import type { FlatMapZoomState } from "@/types/map";
@@ -54,7 +55,7 @@ export function computeFlatMapLayout(
 }
 
 /**
- * Keep the map edges at or beyond the viewport edges. The map box can be
+ * Keep oversized axes within their pan bounds, and center smaller axes. The map box can be
  * larger than the viewport even at scale 1, so the lower bound is
  * "viewport minus scaled map", not "-(scale - 1) × size".
  */
@@ -67,9 +68,23 @@ export function clampMapOffsets(
   const minOffsetX = layout.viewport.width - layout.map.width * scale;
   const minOffsetY = layout.viewport.height - layout.map.height * scale;
   return {
-    offsetX: Math.max(minOffsetX, Math.min(0, offsetX)),
-    offsetY: Math.max(minOffsetY, Math.min(0, offsetY)),
+    offsetX:
+      minOffsetX > 0
+        ? minOffsetX / 2
+        : Math.max(minOffsetX, Math.min(0, offsetX)),
+    offsetY:
+      minOffsetY > 0
+        ? minOffsetY / 2
+        : Math.max(minOffsetY, Math.min(0, offsetY)),
   };
+}
+
+/** Fit the entire world, including on tall displays with fixed sidebars. */
+export function flatMapMinimumScale(layout: FlatMapLayout): number {
+  return Math.min(
+    layout.viewport.width / layout.map.width,
+    layout.viewport.height / layout.map.height,
+  );
 }
 
 /** Offsets that put the center of the scaled map box at the viewport center. */
@@ -111,7 +126,7 @@ export function preserveFlatMapCamera(
 ): FlatMapZoomState {
   // The same longitude span must occupy the same number of CSS pixels.
   const scale = Math.max(
-    1,
+    flatMapMinimumScale(next),
     Math.min(64, (zoom.scale * prev.map.width) / next.map.width),
   );
   const u =

@@ -1,3 +1,5 @@
+import { isWebGLSupported } from "@/lib/webgl/webglSupport";
+
 export interface Photorealistic3DConfig {
   enabled: boolean;
   maxDevicePixelRatio: number;
@@ -38,11 +40,7 @@ export function getPhotorealistic3DConfig(
 }
 
 export function supportsPhotorealistic3D(): boolean {
-  if (typeof document === "undefined") return false;
-  const canvas = document.createElement("canvas");
-  return Boolean(
-    canvas.getContext("webgl2") || canvas.getContext("webgl"),
-  );
+  return isWebGLSupported();
 }
 
 /** Google 3D tiles are attempted only when the flag is on and the session is Pro. */

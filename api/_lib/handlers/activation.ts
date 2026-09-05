@@ -17,6 +17,7 @@
  */
 
 import { applyRateLimit } from "../rateLimit";
+import { isTerminalStatus } from "./activationSpots";
 
 /** Get the allowed CORS origin based on environment */
 function getAllowedOrigin(): string {
@@ -76,7 +77,8 @@ interface NormalizedPark {
   name: string;
   location: string;
   grid: string;
-  active: boolean;
+  /** Omitted for `/lookup` results, which carry no status field. */
+  active?: boolean;
 }
 
 /** Normalize a POTA park record for the frontend */
@@ -88,6 +90,48 @@ function normalizePark(park: POTAPark): NormalizedPark {
     grid: park.grid6 || park.grid4 || "",
     active: park.active === 1,
   };
+}
+
+/** A single result row from the POTA `/lookup` endpoint */
+interface POTALookupEntry {
+  type: string;
+  id: number;
+  display: string;
+  value: string;
+}
+
+/** Normalize a POTA `/lookup` park entry for the frontend */
+function normalizeLookupPark(entry: POTALookupEntry): NormalizedPark {
+  const ref = entry.value;
+  const display = entry.display ?? "";
+  const name = display.startsWith(ref) ? display.slice(ref.length).trim() : display;
+  return {
+    ref,
+    name,
+    location: "",
+    grid: "",
+  };
+}
+
+/** A single row from the POTA `/spot/activator` feed */
+interface POTASpotRow {
+  activator?: unknown;
+  invalid?: unknown;
+  comments?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Base callsign for matching: trimmed, uppercased, with prefix/suffix
+ * modifiers stripped. The longest slash-separated segment is the callsign
+ * itself (W1ABC/P -> W1ABC, TI7/W1ABC -> W1ABC).
+ */
+function baseCallsign(callsign: string): string {
+  return callsign
+    .trim()
+    .toUpperCase()
+    .split("/")
+    .reduce((best, part) => (part.length > best.length ? part : best), "");
 }
 
 export async function handleActivationPota(request: Request): Promise<Response> {
@@ -115,7 +159,7 @@ export async function handleActivationPota(request: Request): Promise<Response> 
   try {
     // Search parks
     if (search) {
-      const potaUrl = `${POTA_API_BASE}/park/autocomplete/${encodeURIComponent(search)}`;
+      const potaUrl = `${POTA_API_BASE}/lookup?search=${encodeURIComponent(search)}`;
       const response = await fetch(potaUrl, { headers: POTA_HEADERS });
 
       if (!response.ok) {
@@ -125,9 +169,12 @@ export async function handleActivationPota(request: Request): Promise<Response> 
         );
       }
 
-      const data = (await response.json()) as POTAPark[];
+      const data = (await response.json()) as POTALookupEntry[] | null;
       const parks = Array.isArray(data)
-        ? data.slice(0, 10).map(normalizePark)
+        ? data
+            .filter((entry) => entry && entry.type === "park")
+            .slice(0, 10)
+            .map(normalizeLookupPark)
         : [];
 
       return new Response(JSON.stringify({ parks }), {
@@ -188,28 +235,30 @@ export async function handleActivationPota(request: Request): Promise<Response> 
 
     // Check if a callsign is currently activating a POTA park
     if (activator) {
-      const potaUrl = `${POTA_API_BASE}/spot/activator/${encodeURIComponent(activator)}`;
+      const potaUrl = `${POTA_API_BASE}/spot/activator`;
       const response = await fetch(potaUrl, { headers: POTA_HEADERS });
 
       if (!response.ok) {
-        // 404 = not currently active, which is normal
-        if (response.status === 404) {
-          return new Response(JSON.stringify({ spots: [] }), {
-            status: 200,
-            headers: {
-              ...potaCorsHeaders(),
-              "Cache-Control": "s-maxage=60, stale-while-revalidate=30",
-            },
-          });
-        }
         return new Response(
           JSON.stringify({ error: `POTA API returned ${response.status}` }),
           { status: response.status, headers: potaCorsHeaders() },
         );
       }
 
-      const data = await response.json();
-      const spots = Array.isArray(data) ? data : [];
+      const data = (await response.json()) as POTASpotRow[] | null;
+      const target = baseCallsign(activator);
+      const spots = Array.isArray(data)
+        ? data.filter((row) => {
+            if (row?.invalid === true || row?.invalid === 1) return false;
+            if (typeof row?.comments === "string" && isTerminalStatus(row.comments)) {
+              return false;
+            }
+            return (
+              typeof row?.activator === "string" &&
+              baseCallsign(row.activator) === target
+            );
+          })
+        : [];
 
       return new Response(JSON.stringify({ spots }), {
         status: 200,

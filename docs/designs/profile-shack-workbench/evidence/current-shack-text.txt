@@ -1,0 +1,131 @@
+☀️
+PROPULSE
+
+THE IONOSPHERE, VISUALIZED
+
+🏠
+Home
+☀️
+Solar Pulse
+🌍
+PropSphere
+🛠️
+Tools
+10:03:44 UTC
+DM79
+Degraded
+My Shack
+?
+
+Signal Path Diagram
+
+27 items
+Equipment
+Diagram
+Performance
+Shack Overview
+Edit Signal Paths
+Home HF — demo
+
+3 nodes
+
+100W
+Ground
++
+100%
+−
+Fit
+-1.2 dB
++4.2 dB
+⋯
+RADIO
+HF Workhorse
+100W
+TX/RX
+RX
+PL-259
+⋯
+LMR-400 50ft (Tower Run)
+LMR-400, 50 ft
+Z = 50Ω
+Total: -0.0 dB
+PL-259
+⚠ N
+⋯
+ANTENNA
+Hex Beam (20m-10m)
+Hex Beam
+SWR 1.3:1
++4.2 dB
+⚠ PL-259
+YOUR EQUIPMENT
+Drag to canvas
+Radios (5)
+Antennas (5)
+Feedlines (5)
+Accessories (5)
+Shack Gear (3)
+Inline (4)
+Icom IC-7300
+In Use
+
+Icom
+
+Yaesu FT-991A
+
+Yaesu
+
+Elecraft KX3
+
+Elecraft
+
+Kenwood TS-590SG
+
+Kenwood
+
+Elecraft K4
+
+Elecraft
+
+LOSS BUDGET
+10m
+12m
+15m
+17m
+20m
+100W
+Input
+0 dB
+Icom IC-7300
+-1.2 dB
+LMR-400 50ft (Tower Run)
++4.2 dB
+Hex Beam (20m-10m)
+122W
+ERP
+PERFORMANCE ANALYSIS
+Best Band
+10m
+182W ERP
+Worst Band
+20m
+122W ERP
+Net Loss Range
+1.2 - 1.3 dB
+Across all bands
+PER-BAND PERFORMANCE
+Band	TX Power	System Loss	Ant. Gain	ERP
+10m	100W	-1.3 dB	+6.0 dBi	182W
+12m	100W	-1.2 dB	+5.5 dBi	163W
+15m	100W	-1.2 dB	+5.2 dBi	152W
+17m	100W	-1.2 dB	+4.8 dBi	140W
+20m	100W	-1.2 dB	+4.2 dBi	122W
+NODE BREAKDOWN — 20M
+Node	Type	Input	Gain	Loss	Net	Output
+Icom IC-7300	Radio	100W	0.0	0.0	+0.0	100W
+LMR-400 50ft (Tower Run)	Feedline	100W	0.0	-1.2	-1.2	76.3W
+Hex Beam (20m-10m)	Antenna	76.3W	+4.2	0.0	+4.2	201W
+Total System
++3.0 dB
+122W ERP
+Add Signal Path

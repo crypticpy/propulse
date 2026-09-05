@@ -1,0 +1,7 @@
+Use case: precise-object-edit
+Edit the attached ProPulse Experiments workbench image. Preserve its overall layout, typography, navigation, title, RF paths, table values, assumptions inspector, inventory notice, buttons, and color palette.
+Make exactly these targeted changes:
+1. Replace both under-diagram loss charts, including their horizontal bars, axes, tick marks, numbers, and "Loss budget (cable loss only)" labels, with uncluttered typographic callouts in those same two regions. Left region: "Estimated cable loss", large "2.0 dB", small "Illustrative cable model". Right region: "Estimated cable loss", large "1.0 dB", small "Illustrative cable model". Use consistent warm-white text treatment for both callouts, no chart bars.
+2. Remove the bottom "Measured / Declared / Estimated / Unknown" line-style legend entirely, including its colored line symbols. Replace it with two plain warm-white text lines: "Both columns: estimated" and "Measurements: not provided".
+Goal: both comparisons must read as hypothetical estimates, without suggesting the cyan baseline is measured, and no imprecise chart geometry.
+Do not change anything else. Keep every other existing label and value accurate. Maintain original wide app viewport composition.

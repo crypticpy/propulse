@@ -434,8 +434,8 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-19 | SDR decodes tile                                                                            | Partial     | PR #169                               | idle until a shared receiver exists                                                                                                                                                                                                                                 |
 | HW-20 | Auto-page dwell mode                                                                        | Not started |                                       | today only kiosk scenes rotate pages                                                                                                                                                                                                                                |
 | HW-21 | Layer registry with provenance text                                                         | Not started |                                       | feeds settings, help, status line                                                                                                                                                                                                                                   |
-| HW-22 | Header parity: WALL/DESK toggle and reduced top rail                                        | Not started |                                       | owner bug: no way back to wall from desk                                                                                                                                                                                                                            |
-| HW-23 | Layers popover viewport clamp and trigger move (interim)                                    | Not started |                                       | owner bug: menu renders off screen                                                                                                                                                                                                                                  |
+| HW-22 | Header parity: WALL/DESK toggle and reduced top rail                                        | Delivered   | PR #216                               | mode · WALL \| DESK · projection · Display in one fixed slot at both densities; owner bug (no way back to wall from desk) closed                                                                                                                                    |
+| HW-23 | Layers popover viewport clamp and trigger move (interim)                                    | Delivered   | PR #216                               | `LayersPopover` clamps to the viewport on open and resize; owner bug (menu renders off screen) closed                                                                                                                                                               |
 | HW-24 | Desk on wall tiles, paged, scale token                                                      | Not started |                                       | retires accordion sidebar                                                                                                                                                                                                                                           |
 | HW-25 | Desk cleanup: DE station block, duplicate weather, DX target                                | Not started |                                       |                                                                                                                                                                                                                                                                     |
 | HW-26 | Centered settings panel with tabs                                                           | Not started |                                       | replaces all header popouts                                                                                                                                                                                                                                         |
@@ -469,7 +469,7 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-54 | Both rails follow the page; remove fixed band-activity slot; de-duplicated shipped pages    | Not started |                                       | owner: right rail locked                                                                                                                                                                                                                                            |
 | HW-55 | Persist a tile provider id in `mapStore` so Esri / Mapbox and OSM / CARTO become selectable | Not started |                                       | migration derives it from `mapStyle` + tier; section 14                                                                                                                                                                                                             |
 
-Totals: 16 delivered, 4 partial, 35 not started.
+Totals: 18 delivered, 4 partial, 33 not started.
 
 ## 22. Open decisions
 
@@ -684,6 +684,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **Already available:**
   - `AccessibleDialog` (`src/components/ui/AccessibleDialog.tsx`, `chrome="bare"`)
   - `useHamclockDisplayStore`, `useKioskStore`
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall/settings`
 - **Acceptance:**
   - [ ] SETTINGS opens a centered dialog with tabs; the map stays visible around it.
@@ -720,6 +721,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
   - `docs/PROP-SPHERE-LAYER-SOURCE-AUDIT.md` for provenance text
   - `src/lib/tiles/providers.ts` (esri-world, osm, carto-dark, mapbox-satellite)
   - `useMapStore` (`layers`, `toggleLayer`, `mapStyle`, `setMapStyle`, `applyPreset`)
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/lib/map/layerRegistry.test.ts src/components/map/hamclock/wall/settings`
 - **Acceptance:**
   - [ ] Every layer row shows source · cadence · coverage, and the help page shows the same words.
@@ -856,6 +858,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
   - `useFeedStore` (`FeedSource`, `TickerCrawlPreferences`, `addFeed`, `updateFeed`)
   - `useRssFeeds` in `src/hooks/useRssFeed.ts`
   - `api/_lib/rateLimit.ts` for the proxy
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/stores/hamclockWidgetConfigStore.test.ts src/components/map/hamclock/wall/config api/feeds`
 - **Acceptance:**
   - [ ] The news tile gear opens a centered dialog with big-button fetch intervals and max age.
@@ -888,6 +891,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
   - `useWeatherAlerts`, `useLocalWeather`
   - `formatClock` in `wall/tokens.ts`
   - `BAND_ORDER` in `src/lib/data/bandRanges.ts`
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall/config src/hooks/useWeatherAlerts.test.ts src/components/map/hamclock/wall/HamClockWall.test.tsx`
 - **Acceptance:**
   - [ ] I can add up to the configured number of city clocks to the top rail from settings.

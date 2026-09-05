@@ -49,13 +49,13 @@ interface HamClockWallProps {
 /**
  * Wall density: a full-bleed map with two translucent tile rails, a callsign
  * header with dual clocks, the existing DX news ticker, and a footer carrying
- * one pager per rail plus the WALL/DESK switch.
+ * one pager per rail. The WALL/DESK switch lives in the header (alongside
+ * mode, projection and settings, in the fixed slot the desk header also
+ * uses — B1/HW-22), not the footer, so there is exactly one control for it.
  */
 export function HamClockWall({ children }: HamClockWallProps) {
   const pageIndex = useHamClockDisplayStore((s) => s.pageIndex);
   const stepPage = useHamClockDisplayStore((s) => s.stepPage);
-  const density = useHamClockDisplayStore((s) => s.density);
-  const setDensity = useHamClockDisplayStore((s) => s.setDensity);
   const theme = useHamClockDisplayStore((s) => s.theme);
   const pageCount = HAMCLOCK_WALL_PAGES.length;
 
@@ -104,22 +104,6 @@ export function HamClockWall({ children }: HamClockWallProps) {
           onStep={(delta) => stepPage("left", delta, pageCount)}
         />
         <WallStatus />
-        <div className="hc-mode" role="group" aria-label="Layout density">
-          <button
-            type="button"
-            aria-pressed={density === "wall"}
-            onClick={() => setDensity("wall")}
-          >
-            WALL
-          </button>
-          <button
-            type="button"
-            aria-pressed={density === "desk"}
-            onClick={() => setDensity("desk")}
-          >
-            DESK
-          </button>
-        </div>
         <HamClockPager
           side="right"
           pageIndex={pageIndex.right}

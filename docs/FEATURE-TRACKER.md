@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 16        | 4       | 35          | 0        | 55      |
-| **Grand Total**                         | **280**   | **11**  | **43**      | **1**    | **335** |
+| HamClock Wall (2026-09-05)              | 18        | 4       | 33          | 0        | 55      |
+| **Grand Total**                         | **282**   | **11**  | **41**      | **1**    | **335** |
 
-**Delivery rate: 83% delivered, 3% partial, 13% not started**
+**Delivery rate: 84% delivered, 3% partial, 12% not started**
 
 ---
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
 
-### Delivered (16)
+### Delivered (18)
 
 | ID    | Feature                                                      | Notes                                       |
 | ----- | ------------------------------------------------------------ | ------------------------------------------- |
@@ -638,6 +638,8 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-14 | Kiosk scene HamClock pinning                                 | PR #171, `src/lib/kiosk/applySceneToMap.ts` |
 | HW-15 | Accessibility baseline: sr-only tables, focus return         | PR #170, #171                               |
 | HW-16 | Style guide for tiles, reports and settings                  | `docs/guides/hamclock-tile-system.md`       |
+| HW-22 | Header parity: WALL/DESK toggle and reduced top rail         | PR #216                                     |
+| HW-23 | Layers popover viewport clamp and trigger move               | PR #216                                     |
 | HW-32 | Lightning bolt glyph (2D and 3D)                             | PR #217, `src/lib/map/lightningGlyph.ts`    |
 
 ### Partial (4)
@@ -649,14 +651,12 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
 | HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
 
-### Not Started (35)
+### Not Started (33)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
 | HW-20 | Auto-page dwell mode                                             | Only kiosk scenes rotate pages today                 |
 | HW-21 | Layer registry with provenance text                              | Feeds settings, help, status line                    |
-| HW-22 | Header parity: WALL/DESK toggle and reduced top rail             | Production bug: no way back to wall                  |
-| HW-23 | Layers popover viewport clamp and trigger move                   | Production bug: menu off screen                      |
 | HW-24 | Desk on wall tiles, paged, scale token                           | Retires accordion sidebar                            |
 | HW-25 | Desk cleanup: DE station block, duplicate weather, DX target     |                                                      |
 | HW-26 | Centered settings panel with tabs                                | Replaces all header popouts                          |

@@ -17,6 +17,7 @@ import {
   useState,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useMemo,
   type ReactNode,
@@ -921,16 +922,43 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
     return counts;
   }, [categories, uiPrefs.bandHeightArcs, viewMode]);
 
-  // ── Position calculation ──
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
+  // ── Position calculation, clamped to the viewport ──
+  // The popover is rendered directly under the trigger by default. Its
+  // rendered box is measured (not just requested) with a layout effect so
+  // the browser never paints the naive position first, and a ResizeObserver
+  // plus a window resize listener re-clamp it as the active category's
+  // submenu changes height or the window changes size (HW-23) — B1: this
+  // is a no-op whenever the naive position already fits, which is every
+  // caller of LayersPopover outside HamClock's cramped header.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const popover = popoverRef.current;
+    if (!trigger || !popover) return;
+    const margin = 8;
+    const place = () => {
+      const anchor = trigger.getBoundingClientRect();
+      const box = popover.getBoundingClientRect();
       setPopoverPos({
-        top: rect.bottom + 2,
-        left: rect.left,
+        top: Math.max(
+          margin,
+          Math.min(anchor.bottom + 2, window.innerHeight - box.height - margin),
+        ),
+        left: Math.max(
+          margin,
+          Math.min(anchor.left, window.innerWidth - box.width - margin),
+        ),
       });
-    }
-  }, [open]);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(popover);
+    window.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, [open, activeCategory]);
 
   // ── Open/close logic ──
   const openPopover = useCallback(() => {

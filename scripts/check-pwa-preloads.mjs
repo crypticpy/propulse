@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 
-const target = new URL(process.argv[2]);
-assert(["http:", "https:"].includes(target.protocol), "Supply a built app URL");
+let target;
+try {
+  target = new URL(process.argv[2]);
+  assert(["http:", "https:"].includes(target.protocol));
+} catch {
+  console.error("Usage: node scripts/check-pwa-preloads.mjs <http(s)://built-app-url>");
+  process.exit(2);
+}
 const browser = await chromium.launch({ channel: process.env.PWA_BROWSER_CHANNEL });
 const results = [];
 try {

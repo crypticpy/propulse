@@ -37,49 +37,56 @@
   --hc-state-bar: 2px;
 }
 
-/* HamClock-faithful terminal look: opaque black, square corners, no glow. */
+/* Elegant restraint: warm off-white on a near-black page, a serif display
+ * face, hairline rules, square corners, no glow. `--hc-good/warn/bad` are not
+ * redeclared, so they keep inheriting the colour-blind-aware triples above. */
 [data-hamclock-theme="classic"] {
-  --hc-bg: #000000;
-  --hc-panel: #000000;
-  --hc-glass: #000000;
+  --hc-bg: #0d0c0b;
+  --hc-panel: #141210;
+  /* 92% keeps a tile legible over the brightest basemap; see the contrast
+   * numbers in the theme review (dim ≥ 7:1 worst case). */
+  --hc-glass: rgba(20, 18, 16, 0.92);
   --hc-blur: 0px;
-  --hc-line: #444444;
-  --hc-fg: #ffffff;
-  --hc-dim: #aaaaaa;
-  --hc-dim2: #777777;
+  --hc-line: rgba(214, 203, 180, 0.22);
+  --hc-fg: #f6f1e6;
+  --hc-dim: #b8b0a1;
+  --hc-dim2: #8b8375;
 
-  --hc-accent-rgb: 255 255 0;
-  --hc-info-rgb: 0 255 255;
+  --hc-accent-rgb: 230 217 184;
+  --hc-info-rgb: 143 179 201;
 
-  --hc-font-display: "Inter", sans-serif;
-  --hc-font-mono: "JetBrains Mono", monospace;
-  --hc-font-body: "Inter", sans-serif;
-  --hc-display-weight: 800;
+  --hc-font-display: "Cormorant Garamond", "Iowan Old Style", Georgia,
+    "Times New Roman", serif;
+  --hc-font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  --hc-font-body: "Inter", system-ui, sans-serif;
+  --hc-display-weight: 600;
 
   --hc-radius: 0;
   --hc-glow: 0;
   --hc-state-bar: 0px;
 }
 
-/* Nautical / engraved: deep navy, brass hairlines, cream type, no glow. */
+/* Nautical / engraved: deep navy plates, brass hairlines, cream type, no
+ * glow. State colours inherit from the palette blocks above for the same
+ * reason as classic. */
 [data-hamclock-theme="brass"] {
-  --hc-bg: #0f1a24;
-  --hc-panel: #142330;
-  --hc-glass: rgba(20, 30, 40, 0.86);
+  --hc-bg: #0a1420;
+  --hc-panel: #0e1e2c;
+  --hc-glass: rgba(14, 30, 44, 0.9);
   --hc-blur: 0px;
-  --hc-line: rgba(201, 166, 90, 0.45);
-  --hc-fg: #f3e9d2;
-  --hc-dim: rgba(243, 233, 210, 0.55);
-  --hc-dim2: rgba(243, 233, 210, 0.32);
+  --hc-line: rgba(199, 163, 90, 0.45);
+  --hc-fg: #f4e9cf;
+  --hc-dim: #c3b291;
+  --hc-dim2: #94836a;
 
-  --hc-accent-rgb: 201 166 90;
-  --hc-info-rgb: 122 158 178;
+  --hc-accent-rgb: 199 163 90;
+  --hc-info-rgb: 141 178 199;
 
-  /* Cormorant Garamond / IBM Plex Mono load on demand in a later phase. */
-  --hc-font-display: Georgia, "Times New Roman", serif;
-  --hc-font-mono: "JetBrains Mono", monospace;
-  --hc-font-body: Georgia, "Times New Roman", serif;
-  --hc-display-weight: 600;
+  --hc-font-display: "Cormorant Garamond", "Hoefler Text", Georgia,
+    "Times New Roman", serif;
+  --hc-font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  --hc-font-body: "Inter", system-ui, sans-serif;
+  --hc-display-weight: 700;
 
   --hc-radius: 0.3vh;
   --hc-glow: 0;
@@ -127,4 +134,56 @@
 .hc-dim-text {
   color: var(--hc-dim);
   --hc-tone-rgb: 255 255 255;
+}
+
+/* ---------- theme picker preview ----------
+ * A miniature tile rendered inside the display settings. It carries its own
+ * `data-hamclock-theme`, so it paints from that theme's tokens rather than
+ * the active one and stays honest when a token changes. */
+
+.hc-swatch {
+  display: block;
+  padding: 0.45rem 0.5rem 0.5rem;
+  background: var(--hc-panel);
+  border: 1px solid var(--hc-line);
+  border-radius: max(2px, var(--hc-radius));
+  color: var(--hc-fg);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+.hc-swatch::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--hc-state-bar);
+  background: var(--hc-good);
+}
+.hc-swatch-title {
+  display: block;
+  font-family: var(--hc-font-mono);
+  font-weight: 600;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--hc-dim);
+}
+.hc-swatch-hero {
+  display: block;
+  font-family: var(--hc-font-display);
+  font-weight: var(--hc-display-weight);
+  font-size: 20px;
+  line-height: 1.1;
+  color: var(--hc-good);
+}
+.hc-swatch-sub {
+  display: block;
+  font-family: var(--hc-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--hc-dim);
+}
+.hc-swatch-sub b {
+  color: var(--hc-accent);
+  font-weight: 600;
 }

@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { DXNewsTicker } from "@/components/map/DXNewsTicker";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { ensureHamClockThemeFont } from "@/lib/hamclock/themeFonts";
 import { useDXStore } from "@/stores/dxStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockPager } from "./HamClockPager";
@@ -55,7 +56,14 @@ export function HamClockWall({ children }: HamClockWallProps) {
   const stepPage = useHamClockDisplayStore((s) => s.stepPage);
   const density = useHamClockDisplayStore((s) => s.density);
   const setDensity = useHamClockDisplayStore((s) => s.setDensity);
+  const theme = useHamClockDisplayStore((s) => s.theme);
   const pageCount = HAMCLOCK_WALL_PAGES.length;
+
+  // The serif themes' faces are fetched the first time a wall runs one, so
+  // the default look never pays for fonts it does not use.
+  useEffect(() => {
+    ensureHamClockThemeFont(theme);
+  }, [theme]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

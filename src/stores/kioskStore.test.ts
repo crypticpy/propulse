@@ -507,4 +507,83 @@ describe("kioskStore", () => {
     expect(hydrated.activeSceneId).toBe(DEFAULT_SCENES[0].id);
     expect(typeof hydrated.start).toBe("function");
   });
+  it("keeps only usable HamClock wall pins on a scene", () => {
+    const store = useKioskStore.getState();
+    const pinned = store.addScene({
+      name: "Pinned wall",
+      route: "/map",
+      map: {
+        layoutMode: "hamclock",
+        hamclock: {
+          leftPage: 2,
+          rightPage: -1,
+          theme: "brass",
+        },
+      },
+    });
+    expect(pinned.map?.hamclock).toEqual({ leftPage: 2, theme: "brass" });
+
+    const garbage = useKioskStore.getState().addScene({
+      name: "Garbage pin",
+      route: "/map",
+      map: {
+        layoutMode: "hamclock",
+        hamclock: {
+          leftPage: 1.5,
+          rightPage: 99,
+          theme: "neon",
+        } as never,
+      },
+    });
+    expect(garbage.map?.hamclock).toBeUndefined();
+
+    // A pin only means something to the HamClock layout.
+    const proScene = useKioskStore.getState().addScene({
+      name: "Pro wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        hamclock: { leftPage: 1 },
+      },
+    });
+    expect(proScene.map?.hamclock).toBeUndefined();
+  });
+
+  it("pins the shipped HamClock wall scenes to their pages when migrating v5", () => {
+    const migrated = migrateKioskState(
+      {
+        scenes: [
+          {
+            id: "default-wall",
+            name: "HamClock Wall",
+            route: "/map",
+            map: {
+              layoutMode: "hamclock",
+              viewMode: "flat",
+              mapStyle: "satellite",
+              hamclockMode: "traffic",
+            },
+          },
+          { id: "custom", name: "Mine", route: "/solar" },
+        ],
+        rotation: { enabled: true, intervalSec: 120 },
+        breakInLevel: "CRITICAL",
+        presentation: { ...DEFAULT_PRESENTATION },
+        active: false,
+        activeSceneId: null,
+      },
+      5,
+    );
+
+    const wall = migrated.scenes.find((scene) => scene.id === "default-wall");
+    const weather = migrated.scenes.find(
+      (scene) => scene.id === "default-hamclock-weather",
+    );
+    expect(wall?.map?.hamclock).toEqual({ leftPage: 0, rightPage: 0 });
+    expect(weather?.map?.hamclock).toEqual({ leftPage: 3, rightPage: 3 });
+    // A hand-made scene is never rewritten by the refresh.
+    expect(migrated.scenes.find((scene) => scene.id === "custom")).toMatchObject(
+      { route: "/solar" },
+    );
+  });
 });

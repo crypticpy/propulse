@@ -277,7 +277,7 @@
 .hc-chip {
   font-weight: 700;
   font-size: var(--hc-t-small);
-  color: #0a0e1a;
+  color: var(--hc-bg);
   text-align: center;
   border-radius: calc(var(--hc-radius) * 0.6);
   padding: 0.28vh 0;
@@ -628,4 +628,58 @@
   border: 1px solid var(--hc-line);
   border-radius: var(--hc-radius);
   box-shadow: 0 2vh 5vh rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- theme treatments ----------
+ * Differences the token table cannot express. The two non-pulse themes drop
+ * the glass blur and the drop shadow, and move their micro-labels onto the
+ * mono face so the serif display face is reserved for the values a reader
+ * takes in from across the room. */
+
+[data-hamclock-theme="classic"] .hc-tile,
+[data-hamclock-theme="brass"] .hc-tile {
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* Engraved plate: a dark bevel inside the brass hairline under a faint
+ * top-lit gradient, and a cut-in shadow on the display type. */
+[data-hamclock-theme="brass"] .hc-tile {
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 240, 205, 0.05),
+    rgba(0, 0, 0, 0.14)
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(10, 20, 32, 0.85),
+    inset 0 0 0 2px rgba(199, 163, 90, 0.2);
+}
+[data-hamclock-theme="brass"] .hc-call,
+[data-hamclock-theme="brass"] .hc-hero,
+[data-hamclock-theme="brass"] .hc-verdict {
+  text-shadow: 0 0.12vh 0 rgba(0, 0, 0, 0.55);
+}
+
+[data-hamclock-theme="classic"] .hc-tile-title,
+[data-hamclock-theme="brass"] .hc-tile-title,
+[data-hamclock-theme="classic"] .hc-clock-lbl,
+[data-hamclock-theme="brass"] .hc-clock-lbl,
+[data-hamclock-theme="classic"] .hc-pager b,
+[data-hamclock-theme="brass"] .hc-pager b,
+[data-hamclock-theme="classic"] .hc-mode button,
+[data-hamclock-theme="brass"] .hc-mode button,
+[data-hamclock-theme="classic"] .hc-scale b,
+[data-hamclock-theme="brass"] .hc-scale b {
+  font-family: var(--hc-font-mono);
+}
+
+/* The serif faces carry their own width, so the mock's display tracking is
+ * too loose for them. */
+[data-hamclock-theme="classic"] .hc-call,
+[data-hamclock-theme="brass"] .hc-call,
+[data-hamclock-theme="classic"] .hc-hero,
+[data-hamclock-theme="brass"] .hc-hero,
+[data-hamclock-theme="classic"] .hc-verdict,
+[data-hamclock-theme="brass"] .hc-verdict {
+  letter-spacing: 0.01em;
 }

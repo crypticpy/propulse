@@ -5,7 +5,10 @@ import {
   type KioskHeaderScale,
   type KioskScene,
 } from "@/stores/kioskStore";
-import { applySceneToMap } from "@/lib/kiosk/applySceneToMap";
+import {
+  applySceneToMap,
+  restoreHamClockDisplay,
+} from "@/lib/kiosk/applySceneToMap";
 import { useAlertsStore } from "@/stores/alertsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUserStore } from "@/stores/userStore";
@@ -202,15 +205,19 @@ export function KioskChrome() {
     rotation.intervalSec,
   ]);
 
+  // Leaving the wall shell for any reason hands a pinned HamClock display
+  // back to whatever the operator had set before the rotation took it.
   useEffect(
     () => () => {
       clearTransitionTimers();
+      restoreHamClockDisplay();
     },
     [clearTransitionTimers],
   );
 
   const exitKiosk = useCallback(() => {
     clearTransitionTimers();
+    restoreHamClockDisplay();
     stop();
     setLayoutMode("normal");
     if (document.fullscreenElement) {

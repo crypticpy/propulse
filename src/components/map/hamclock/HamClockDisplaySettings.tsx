@@ -2,22 +2,16 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   HAMCLOCK_DENSITIES,
   HAMCLOCK_PANELS,
-  HAMCLOCK_THEMES,
   HAMCLOCK_UNITS,
   useHamClockDisplayStore,
   type HamClockDensity,
-  type HamClockTheme,
   type HamClockUnits,
 } from "@/stores/hamclockDisplayStore";
+import { HamClockThemePicker } from "./HamClockThemePicker";
 
 const DENSITY_LABEL: Record<HamClockDensity, string> = {
   wall: "Wall",
   desk: "Desk",
-};
-const THEME_LABEL: Record<HamClockTheme, string> = {
-  pulse: "Pulse",
-  classic: "Classic",
-  brass: "Brass",
 };
 const UNITS_LABEL: Record<HamClockUnits, string> = {
   auto: "Auto",
@@ -147,21 +141,7 @@ export function HamClockDisplaySettings() {
             Wall is the full-bleed map with tile rails for a TV read from
             across the room. Desk keeps the panel layout.
           </p>
-          <label className="mb-3 flex items-center justify-between gap-3">
-            Theme
-            <select
-              aria-label="Theme"
-              value={s.theme}
-              onChange={(e) => s.setTheme(e.target.value as HamClockTheme)}
-              className="rounded border border-white/20 bg-void-black p-1"
-            >
-              {HAMCLOCK_THEMES.map((value) => (
-                <option key={value} value={value}>
-                  {THEME_LABEL[value]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <HamClockThemePicker />
           <label className="mb-3 flex items-center justify-between gap-3">
             Units
             <select

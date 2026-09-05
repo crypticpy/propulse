@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   ladder: vi.fn(),
   cluster: vi.fn(),
   location: vi.fn(),
+  reliability: vi.fn(),
 }));
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
@@ -29,7 +30,18 @@ vi.mock("@/stores/userStore", () => ({
 }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
-    selector({ spotFilters: { bands: [], modes: [] } }),
+    selector({
+      spotFilters: { bands: [], modes: [] },
+      timeOffset: 0,
+      absoluteTime: null,
+    }),
+}));
+// Page 0's right rail now carries Reliability (spec §4); the tile's own
+// fixtures live in tiles.test.tsx / wallTiles.test.tsx, so here it only needs
+// to mount without the hook's real station/solar dependency chain.
+vi.mock("./tiles/useWallReliability", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./tiles/useWallReliability")>()),
+  useWallReliability: mocks.reliability,
 }));
 // The solar and logbook tiles are exercised in tiles.test.tsx; here they only
 // need to mount without opening a network or IndexedDB connection.
@@ -80,6 +92,14 @@ describe("HamClockWall", () => {
       type: "home",
       createdAt: "2026-01-01T00:00:00.000Z",
     });
+    mocks.reliability.mockReturnValue({
+      status: "no-station",
+      cells: new Map(),
+      hour: 0,
+      hourIndex: 0,
+      targetLabel: "",
+      mode: "SSB",
+    });
   });
 
   function renderWall() {
@@ -106,34 +126,72 @@ describe("HamClockWall", () => {
     ).toBe(2);
   });
 
-  it("renders the page-0 tiles in both rails", () => {
+  it("renders the page-0 tiles, each rail showing its own set with no repeats", () => {
     renderWall();
     const left = screen.getByRole("complementary", { name: "Left tile rail" });
     const right = screen.getByRole("complementary", { name: "Right tile rail" });
-    for (const title of ["Best band now", "DX cluster", "Band activity"]) {
+    const leftTitles = ["DX cluster", "Band activity", "Recent contacts"];
+    const rightTitles = [
+      "Best band now",
+      "Grey line",
+      "MUF",
+      "24h reliability",
+      "Emcomm",
+    ];
+    for (const title of leftTitles) {
       expect(within(left).getByText(title)).toBeTruthy();
-      expect(within(right).getByText(title)).toBeTruthy();
+      expect(within(right).queryByText(title)).toBeNull();
     }
-    expect(within(left).getByText("Grey line")).toBeTruthy();
-    expect(within(right).getByText("Recent contacts")).toBeTruthy();
+    for (const title of rightTitles) {
+      expect(within(right).getByText(title)).toBeTruthy();
+      expect(within(left).queryByText(title)).toBeNull();
+    }
   });
 
-  it("pages the right rail with ArrowRight and the left rail with Shift+ArrowRight", () => {
+  it("steps the whole wall together with either arrow key (both rails follow one page)", () => {
     renderWall();
     expect(screen.getAllByText("SPOTS & ACTIVITY")).toHaveLength(2);
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(useHamClockDisplayStore.getState().pageIndex).toEqual({
-      left: 0,
+      left: 1,
       right: 1,
     });
-    expect(screen.getByText("SOLAR & SPACE WX")).toBeTruthy();
+    // Both footer pagers show the same page — there is only one page.
+    expect(screen.getAllByText("SOLAR & SPACE WX")).toHaveLength(2);
 
-    fireEvent.keyDown(window, { key: "ArrowRight", shiftKey: true });
+    // Shift no longer targets a single rail; it still steps the shared page.
+    fireEvent.keyDown(window, { key: "ArrowLeft", shiftKey: true });
+    expect(useHamClockDisplayStore.getState().pageIndex).toEqual({
+      left: 0,
+      right: 0,
+    });
+    expect(screen.getAllByText("SPOTS & ACTIVITY")).toHaveLength(2);
+  });
+
+  it("stepping from either pager's arrow moves both rails' tiles together", () => {
+    renderWall();
+    const left = screen.getByRole("complementary", { name: "Left tile rail" });
+    const right = screen.getByRole("complementary", {
+      name: "Right tile rail",
+    });
+    expect(within(left).getByText("DX cluster")).toBeTruthy();
+    expect(within(right).getByText("Best band now")).toBeTruthy();
+
+    // Both footer pagers announce the same shared wall page (HW-54); either
+    // one's "Next" arrow steps both rails together, so click the first.
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Next wall page" })[0],
+    );
+
     expect(useHamClockDisplayStore.getState().pageIndex).toEqual({
       left: 1,
       right: 1,
     });
+    expect(within(left).queryByText("DX cluster")).toBeNull();
+    expect(within(left).getByText("X-ray flux")).toBeTruthy();
+    expect(within(right).queryByText("Best band now")).toBeNull();
+    expect(within(right).getByText("Moon")).toBeTruthy();
   });
 
   it("ignores arrow keys while a report dialog is open", () => {

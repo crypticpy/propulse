@@ -1,4 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { heroSizeClass } from "./tokens";
+
+/** Floor for the measure-and-shrink step: past this the hero would be
+ * unreadable, so a value this long needs the report, not a smaller tile. */
+const MIN_HERO_FIT = 0.6;
+const HERO_FIT_STEP = 0.1;
 
 /**
  * Props every registered wall tile accepts. Only the placeholder reads
@@ -69,16 +75,81 @@ export function HamClockTile({
 export interface TileHeroProps {
   /** Theme colour class: `hc-good`, `hc-warn`, `hc-accent-text`, … */
   tone?: string;
+  /** Force the biggest size regardless of string length (one-word verdicts). */
   large?: boolean;
   /** Drop the top margin when the hero sits inside a hero row. */
   flush?: boolean;
   children: ReactNode;
 }
 
+/**
+ * The tile's one hero value. When `children` is a plain string the size
+ * class is picked automatically from its length (`heroSizeClass`) so a value
+ * such as "NO MAPPED ALERTS" never needs a caller to think about type scale.
+ * `large` still wins when a tile deliberately wants the biggest word (a
+ * one-word verdict) regardless of length.
+ *
+ * The `clamp()` tokens and the tile's `container-type: inline-size` (see
+ * `hamclock-wall.css`) handle the common case. For the rare value that still
+ * overflows after layout — a long callsign, an unusually wide font — a
+ * `ResizeObserver` measures `scrollWidth` against `clientWidth` and steps an
+ * inline `--hc-hero-fit` multiplier down until it fits or hits the floor.
+ * `overflow: hidden` is never the fix for that overflow: shrinking is.
+ */
 export function TileHero({ tone, large, flush, children }: TileHeroProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const autoClass =
+    !large && typeof children === "string" ? heroSizeClass(children) : null;
+
+  // jsdom has no ResizeObserver; the class-based sizing above still applies,
+  // this step only refines it for a real, laid-out browser.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const fit = () => {
+      el.style.removeProperty("--hc-hero-fit");
+      let step = 1;
+      while (el.scrollWidth > el.clientWidth && step > MIN_HERO_FIT) {
+        step = Math.max(MIN_HERO_FIT, step - HERO_FIT_STEP);
+        el.style.setProperty("--hc-hero-fit", step.toFixed(2));
+      }
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+
+    // A theme swap can bring in a new display face (`ensureHamClockThemeFont`)
+    // whose metrics differ from the fallback the hero was fitted against.
+    // Re-measure once the face finishes loading, and again if the theme
+    // attribute itself flips before the font load fires — both are guarded
+    // for jsdom, which has neither API.
+    const fontSet =
+      typeof document !== "undefined" ? document.fonts : undefined;
+    fontSet?.addEventListener?.("loadingdone", fit);
+
+    let themeObserver: MutationObserver | undefined;
+    if (typeof MutationObserver !== "undefined") {
+      const themeRoot =
+        el.closest<HTMLElement>("[data-hamclock-theme]") ??
+        document.documentElement;
+      themeObserver = new MutationObserver(fit);
+      themeObserver.observe(themeRoot, {
+        attributes: true,
+        attributeFilter: ["data-hamclock-theme"],
+      });
+    }
+
+    return () => {
+      observer.disconnect();
+      fontSet?.removeEventListener?.("loadingdone", fit);
+      themeObserver?.disconnect();
+    };
+  }, [children]);
+
   return (
     <div
-      className={`hc-hero hc-glow${large ? " hc-hero--lg" : ""}${
+      ref={ref}
+      className={`hc-hero hc-glow${large ? " hc-hero--lg" : autoClass ? ` ${autoClass}` : ""}${
         flush ? " hc-hero--flush" : ""
       }${tone ? ` ${tone}` : ""}`}
     >

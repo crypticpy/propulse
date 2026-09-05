@@ -98,8 +98,12 @@ export function restoreHamClockDisplay(): void {
   const display = useHamClockDisplayStore.getState();
   display.setDensity(snapshot.density);
   display.setTheme(snapshot.theme);
+  // Both rails follow one page (HW-54): `setPage` writes the same index to
+  // both keys, so restoring from `left` alone is correct even for a legacy
+  // snapshot captured before paging was synchronized (`{left, right}` split).
+  // Calling `setPage` a second time with `right` would just overwrite `left`
+  // right back to the stale `right` value.
   display.setPage("left", snapshot.pageIndex.left);
-  display.setPage("right", snapshot.pageIndex.right);
 }
 
 function applyHamClockPin(pin: KioskSceneHamClockConfig | undefined): void {
@@ -119,8 +123,11 @@ function applyHamClockPin(pin: KioskSceneHamClockConfig | undefined): void {
   // A pinned page only means something at wall density.
   display.setDensity("wall");
   if (pin.theme) display.setTheme(pin.theme);
-  if (pin.leftPage !== undefined) display.setPage("left", pin.leftPage);
-  if (pin.rightPage !== undefined) display.setPage("right", pin.rightPage);
+  // Both rails follow one page (HW-54), so a pin is one index: leftPage is
+  // canonical and rightPage only counts when leftPage is absent. B4 collapses
+  // the two fields into a page id.
+  const page = pin.leftPage ?? pin.rightPage;
+  if (page !== undefined) display.setPage("left", page);
 }
 
 /** Apply only the presentation controls supported by a wall scene's route. */

@@ -679,51 +679,39 @@ export function KioskPage() {
                         )}
                         {scene.map.layoutMode === "hamclock" && (
                           <>
-                            {(
-                              [
-                                ["left", "Left rail page"],
-                                ["right", "Right rail page"],
-                              ] as const
-                            ).map(([side, label]) => (
-                              <label
-                                key={side}
-                                className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500"
+                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                              Wall page
+                              <select
+                                value={scene.map?.hamclock?.leftPage ?? ""}
+                                onChange={(event) => {
+                                  const page =
+                                    event.target.value === ""
+                                      ? undefined
+                                      : Number(event.target.value);
+                                  updateScene(scene.id, {
+                                    map: {
+                                      ...scene.map!,
+                                      // Both rails follow one page (HW-54):
+                                      // leftPage is canonical, rightPage is
+                                      // written the same so a pre-B4 reader of
+                                      // the scene still sees a consistent pin.
+                                      hamclock: withWallPin(
+                                        scene.map!.hamclock,
+                                        { leftPage: page, rightPage: page },
+                                      ),
+                                    },
+                                  });
+                                }}
+                                className={inputClass}
                               >
-                                {label}
-                                <select
-                                  value={
-                                    (side === "left"
-                                      ? scene.map?.hamclock?.leftPage
-                                      : scene.map?.hamclock?.rightPage) ?? ""
-                                  }
-                                  onChange={(event) => {
-                                    const page =
-                                      event.target.value === ""
-                                        ? undefined
-                                        : Number(event.target.value);
-                                    updateScene(scene.id, {
-                                      map: {
-                                        ...scene.map!,
-                                        hamclock: withWallPin(
-                                          scene.map!.hamclock,
-                                          side === "left"
-                                            ? { leftPage: page }
-                                            : { rightPage: page },
-                                        ),
-                                      },
-                                    });
-                                  }}
-                                  className={inputClass}
-                                >
-                                  <option value="">Keep current</option>
-                                  {HAMCLOCK_WALL_PAGES.map((page, index) => (
-                                    <option key={page.id} value={index}>
-                                      {page.title}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            ))}
+                                <option value="">Keep current</option>
+                                {HAMCLOCK_WALL_PAGES.map((page, index) => (
+                                  <option key={page.id} value={index}>
+                                    {page.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                             <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
                               HamClock theme
                               <select

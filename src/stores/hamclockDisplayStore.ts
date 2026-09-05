@@ -39,12 +39,48 @@ export interface HomeRegion {
   latitudeSpan: number;
   longitudeSpan: number;
 }
+
+/** The tile ids one wall page places on each rail. Kept as plain strings
+ * (not `TileId`) so this store has no compile-time dependency on the wall
+ * component tree — `wall/pages.ts` is the caller. */
+export interface PageTileSlots {
+  left: readonly string[];
+  right: readonly string[];
+}
+
+/**
+ * Rejects a page composition where a tile id appears twice — on both rails,
+ * or twice within one rail. "One tile, one place" (wall spec §2) means a
+ * duplicate is a bug in the page data, not a valid layout, so this throws
+ * rather than silently dropping the repeat: `wall/pages.ts` calls it once at
+ * module load so a regression fails at import/test time instead of shipping
+ * a wall that shows the same widget twice.
+ */
+export function assertUniqueTilesPerPage(pages: readonly PageTileSlots[]): void {
+  pages.forEach((page, index) => {
+    const seen = new Set<string>();
+    for (const id of [...page.left, ...page.right]) {
+      if (seen.has(id)) {
+        throw new Error(
+          `hamclockDisplayStore: page ${index} places tile "${id}" more than once`,
+        );
+      }
+      seen.add(id);
+    }
+  });
+}
 interface HamClockDisplayState {
   textSize: TextScale | "inherit" | "200" | "250";
   density: HamClockDensity;
   theme: HamClockTheme;
   units: HamClockUnits;
-  /** Rails page independently, so each side keeps its own index. */
+  /**
+   * The page is one concept shared by both rails (wall spec §4/§5): `left`
+   * is canonical and `right` always mirrors it. Kept as a per-side record
+   * only so the persisted shape doesn't need a migration — `setPage`/
+   * `stepPage` always write both keys together, and `merge` collapses any
+   * stale persisted divergence back onto `left` on read.
+   */
   pageIndex: Record<HamClockRailSide, number>;
   setDensity: (value: HamClockDensity) => void;
   setTheme: (value: HamClockTheme) => void;
@@ -118,14 +154,18 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
       setDensity: (density) => set({ density }),
       setTheme: (theme) => set({ theme }),
       setUnits: (units) => set({ units }),
-      setPage: (side, index) =>
-        set((s) => ({ pageIndex: { ...s.pageIndex, [side]: index } })),
-      stepPage: (side, delta, pageCount) =>
+      // `side` stays in the signature so every existing caller (arrow keys,
+      // the footer pagers, kiosk scene pins) keeps compiling, but both rails
+      // always follow the same page: a set/step on either side writes the
+      // resulting index to both keys.
+      setPage: (_side, index) =>
+        set(() => ({ pageIndex: { left: index, right: index } })),
+      stepPage: (_side, delta, pageCount) =>
         set((s) => {
           if (pageCount < 1) return {};
           const next =
-            (((s.pageIndex[side] + delta) % pageCount) + pageCount) % pageCount;
-          return { pageIndex: { ...s.pageIndex, [side]: next } };
+            (((s.pageIndex.left + delta) % pageCount) + pageCount) % pageCount;
+          return { pageIndex: { left: next, right: next } };
         }),
       setSpotsSide: (spotsSide) => set({ spotsSide }),
       toggleSpotsSidebar: () =>
@@ -218,9 +258,12 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
           units: HAMCLOCK_UNITS.includes(p.units as HamClockUnits)
             ? (p.units as HamClockUnits)
             : "auto",
+          // Both rails follow one page: a stale session from before paging
+          // was synchronized (or a kiosk pin that set the two keys apart)
+          // collapses onto the left value here rather than staying split.
           pageIndex: {
             left: pageOrZero(p.pageIndex?.left),
-            right: pageOrZero(p.pageIndex?.right),
+            right: pageOrZero(p.pageIndex?.left),
           },
           smartScaling:
             typeof p.smartScaling === "boolean" ? p.smartScaling : true,

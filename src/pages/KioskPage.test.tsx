@@ -189,6 +189,32 @@ describe("KioskPage wall display editor", () => {
     });
   });
 
+  it("pins the HamClock wall to one page from a single selector, not per rail", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /HamClock Operations/ }),
+    );
+    const created = useKioskStore.getState().scenes.at(-1)!;
+    const editor = document.getElementById(`scene-editor-${created.id}`)!;
+
+    // Both rails follow one page (HW-54): the editor offers one "Wall page"
+    // selector, not the retired per-rail pair.
+    expect(within(editor).getByLabelText("Wall page")).toBeTruthy();
+    expect(within(editor).queryByLabelText("Left rail page")).toBeNull();
+    expect(within(editor).queryByLabelText("Right rail page")).toBeNull();
+
+    await user.selectOptions(
+      within(editor).getByLabelText("Wall page"),
+      "2",
+    );
+
+    expect(useKioskStore.getState().scenes.at(-1)).toMatchObject({
+      map: { hamclock: { leftPage: 2, rightPage: 2 } },
+    });
+  });
+
   it("labels inherited map settings as keep-current instead of fake defaults", async () => {
     const user = userEvent.setup();
     renderPage();

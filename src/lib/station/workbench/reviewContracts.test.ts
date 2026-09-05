@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evidenceSchema, publishedProfileSchema, workbenchArchiveSchema } from "@/lib/station/workbench/contracts";
 import {
-  createExperimentFixture, createHfFixture, createMultipleCableRunsFixture,
+  createExperimentFixture, createHfFixture, createInlineAndLayersFixture, createMultipleCableRunsFixture,
   createPortableSharedFixture, createSwitchedFixture, FIXTURE_DATE, FIXTURE_OWNER,
 } from "@/lib/station/workbench/fixtures";
 
@@ -92,6 +92,23 @@ describe("W01 review boundary regressions", () => {
     revision.routes[0].analysis = { state: "documentation-only", reasons: ["Non-exclusive internal splitter has no supported analysis"] };
     archive.operating = null;
     expect(workbenchArchiveSchema.safeParse(archive).success).toBe(true);
+  });
+
+  it("keeps non-RF documentation out of RF branch detection on unknown ports", () => {
+    const archive = createInlineAndLayersFixture();
+    const revision = archive.revisions[0];
+    const radio = revision.equipment.find((item) => item.id === "radio")!;
+    radio.ports[0].signal = "unknown";
+    for (const connection of revision.connections.filter((item) => item.signal !== "rf")) {
+      const auxiliaryPortId = connection.to.portId;
+      connection.to.portId = "antenna";
+      radio.internalPaths.push({
+        id: `${connection.signal}-documentation`, fromPortId: "antenna", toPortId: auxiliaryPortId,
+        signal: connection.signal,
+      });
+    }
+    expect(workbenchArchiveSchema.safeParse(archive).success).toBe(true);
+    expect(archive.revisions[0].routes[0].analysis.state).toBe("candidate");
   });
 
   it("allows experiments within one setup and rejects unrelated setup revisions", () => {

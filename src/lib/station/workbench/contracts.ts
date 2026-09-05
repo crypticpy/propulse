@@ -380,8 +380,8 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
         if (previous && !sameEndpoint(previous, from)) issue(`Disconnected route: ${route.id}`);
         if (hopSignal !== "rf") issue(`Non-RF route hop: ${route.id}`);
         if (route.analysis.state === "candidate" && [from, to].some((point) => {
-          const externalCount = revision.connections.filter((connection) => sameEndpoint(connection.from, point) || sameEndpoint(connection.to, point)).length;
-          const paths = equipment.get(point.instanceId)?.internalPaths.filter((path) => path.fromPortId === point.portId || path.toPortId === point.portId) ?? [];
+          const externalCount = revision.connections.filter((connection) => connection.signal === "rf" && (sameEndpoint(connection.from, point) || sameEndpoint(connection.to, point))).length;
+          const paths = equipment.get(point.instanceId)?.internalPaths.filter((path) => path.signal === "rf" && (path.fromPortId === point.portId || path.toPortId === point.portId)) ?? [];
           const internalChoices = new Set(paths.map((path) => JSON.stringify(path.exclusiveGroupId ? ["group", path.exclusiveGroupId] : ["path", path.id])));
           return externalCount > 1 || internalChoices.size > 1;
         })) issue(`Unmodeled RF branch: ${route.id}`);

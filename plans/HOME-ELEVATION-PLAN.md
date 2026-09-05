@@ -1,7 +1,7 @@
 # Home elevation plan
 
-Date: 2026-09-05.  
-Status: implementation delivered in the Home worktree; release verification in progress.  
+Date: 2026-09-05.
+Status: implementation delivered in the Home worktree; release verification in progress.
 Scope: Home (`/`) on desktop and mobile, plus focused handoffs to existing operating tools.
 
 ## Outcome

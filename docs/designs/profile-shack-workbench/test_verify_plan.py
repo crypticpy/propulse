@@ -49,6 +49,10 @@ class PlanRegressionTests(unittest.TestCase):
         next(t for t in self.plan["tasks"] if t["id"] == "W02")["depends_on"].append("W03")
         self.reject("Dependency cycle")
 
+    def test_cleared_prerequisites_cannot_create_another_ready_root(self):
+        next(t for t in self.plan["tasks"] if t["id"] == "W15")["depends_on"] = []
+        self.reject("W01 must be the sole dependency root")
+
     def test_orphaned_operator_gate(self):
         next(t for t in self.plan["tasks"] if t["id"] == "W21")["depends_on"].remove("W22")
         self.reject("Tasks bypass completion gate")

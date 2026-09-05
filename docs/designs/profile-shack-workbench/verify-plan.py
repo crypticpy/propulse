@@ -13,6 +13,7 @@ def validate(plan):
     assert len(tasks) == len(plan["tasks"]), "Duplicate work package IDs"
     assert set(tasks) == {f"W{i:02}" for i in range(1, 23)}, "Approved W01–W22 work packages changed"
     assert plan["completion_gate"] == "W21", "Approved completion gate changed"
+    assert {task_id for task_id, task in tasks.items() if not task["depends_on"]} == {"W01"}, "W01 must be the sole dependency root"
     phases = {p["id"]: p for p in plan["phases"]}
     assert len(phases) == len(plan["phases"]), "Duplicate phase IDs"
     assert set(phases) == {str(i) for i in range(6)}, "Approved P0–P5 phases changed"

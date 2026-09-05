@@ -99,30 +99,39 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
     render(<PagesTilesTab />);
     goToTilesSubPage();
     // Default page is "spots", default rail is "left"; the shipped
-    // composition places 3 tiles there at wall density (limit 4).
-    expect(screen.getByText("3 of 4 used")).toBeTruthy();
+    // composition (including the DX target tile, HW-25) fills the wall
+    // limit of 4.
+    expect(screen.getByText("4 of 4 used")).toBeTruthy();
   });
 
   it("toggles a tile on and off, updating railLayout for the selected page and rail", () => {
     render(<PagesTilesTab />);
     goToTilesSubPage();
-    const row = screen.getByText(WALL_TILES.xray.title).closest(".hcc-row")!;
+    // Left/spots ships full (4 of 4, HW-25); toggle the shipped DX target
+    // tile off and back on rather than trying to add a fifth. DX target is
+    // the 19th registered tile, so it sits on the picker's third page of
+    // eight.
+    fireEvent.click(screen.getByRole("button", { name: "NEXT" }));
+    fireEvent.click(screen.getByRole("button", { name: "NEXT" }));
+    const row = screen
+      .getByText(WALL_TILES.dxTarget.title)
+      .closest(".hcc-row")!;
     const toggle = row.querySelector('[role="switch"]') as HTMLButtonElement;
-    expect(toggle.textContent).toBe("OFF");
+    expect(toggle.textContent).toBe("ON");
 
     fireEvent.click(toggle);
     expect(
       useHamClockDisplayStore
         .getState()
         .railLayout.left.find((p) => p.pageId === "spots")?.tileIds,
-    ).toContain("xray");
+    ).not.toContain("dxTarget");
 
     fireEvent.click(toggle);
     expect(
       useHamClockDisplayStore
         .getState()
         .railLayout.left.find((p) => p.pageId === "spots")?.tileIds,
-    ).not.toContain("xray");
+    ).toContain("dxTarget");
   });
 
   it("disables and labels a tile already on this page's other rail", () => {
@@ -142,7 +151,8 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
   it("reorders placed tiles with the up/down buttons", () => {
     render(<PagesTilesTab />);
     goToTilesSubPage();
-    // Shipped left/spots order: cluster, bandActivity, recentContacts.
+    // Shipped left/spots order: cluster, bandActivity, recentContacts,
+    // dxTarget (HW-25).
     const clusterRow = screen
       .getByText(WALL_TILES.cluster.title)
       .closest(".hcc-row")!;
@@ -154,22 +164,21 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
       useHamClockDisplayStore
         .getState()
         .railLayout.left.find((p) => p.pageId === "spots")?.tileIds,
-    ).toEqual(["bandActivity", "cluster", "recentContacts"]);
+    ).toEqual(["bandActivity", "cluster", "recentContacts", "dxTarget"]);
   });
 
   it("disables adding another tile once the rail's slot limit is reached", () => {
     render(<PagesTilesTab />);
     goToTilesSubPage();
-    // Shipped left/spots already has 3 of 4; add one more to hit the limit.
-    const xrayRow = screen.getByText(WALL_TILES.xray.title).closest(".hcc-row")!;
-    fireEvent.click(xrayRow.querySelector('[role="switch"]')!);
+    // Shipped left/spots already ships full at 4 of 4 (HW-25 added the DX
+    // target tile), so any tile not already placed is refused outright.
     expect(screen.getByText("4 of 4 used")).toBeTruthy();
 
-    const spaceWxRow = screen
-      .getByText(WALL_TILES.spaceWx.title)
+    const xrayRow = screen
+      .getByText(WALL_TILES.xray.title)
       .closest(".hcc-row")!;
-    expect(spaceWxRow.getAttribute("data-disabled")).toBe("true");
-    expect(spaceWxRow.querySelector(".hcc-row-detail")?.textContent).toBe(
+    expect(xrayRow.getAttribute("data-disabled")).toBe("true");
+    expect(xrayRow.querySelector(".hcc-row-detail")?.textContent).toBe(
       "RAIL FULL",
     );
   });
@@ -187,7 +196,7 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
       useHamClockDisplayStore
         .getState()
         .railLayout.left.find((p) => p.pageId === "spots")?.tileIds,
-    ).toEqual(["cluster", "bandActivity", "recentContacts"]);
+    ).toEqual(["cluster", "bandActivity", "recentContacts", "dxTarget"]);
   });
 
   it("saves the current layout as a named preset", () => {

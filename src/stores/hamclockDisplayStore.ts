@@ -164,9 +164,7 @@ export function railLayoutPageSlots(layout: RailLayout): PageTileSlots[] {
  * existing left-then-right-only ordering, so a page named only on the right
  * rail is still shown rather than dropped.
  */
-export function wallPages(
-  layout: RailLayout,
-): { id: string; title: string }[] {
+export function wallPages(layout: RailLayout): { id: string; title: string }[] {
   return railLayoutPageIds(layout).map((id) => ({ id, title: pageTitle(id) }));
 }
 
@@ -186,6 +184,35 @@ function isRailPageShape(
   value: unknown,
 ): value is { pageId: unknown; tileIds: unknown } {
   return typeof value === "object" && value !== null && "pageId" in value;
+}
+
+/**
+ * Migration helper: when `side`/`pageId` in a persisted layout still holds
+ * exactly `previousShipped`, replace it with the current shipped tiles for
+ * that page. Any other content (customised, missing, malformed) is returned
+ * untouched; `sanitizeRailLayout` deals with malformed shapes later.
+ */
+export function adoptShippedRailPage(
+  layout: unknown,
+  side: HamClockRailSide,
+  pageId: string,
+  previousShipped: readonly string[],
+): unknown {
+  if (typeof layout !== "object" || layout === null) return layout;
+  const raw = layout as Record<string, unknown>;
+  if (!Array.isArray(raw[side])) return layout;
+  const shipped = SHIPPED_RAIL_LAYOUT[side].find((p) => p.pageId === pageId);
+  if (!shipped) return layout;
+  const pages = (raw[side] as unknown[]).map((entry) => {
+    if (!isRailPageShape(entry) || entry.pageId !== pageId) return entry;
+    const ids = entry.tileIds;
+    const unchanged =
+      Array.isArray(ids) &&
+      ids.length === previousShipped.length &&
+      ids.every((id, i) => id === previousShipped[i]);
+    return unchanged ? { pageId, tileIds: [...shipped.tileIds] } : entry;
+  });
+  return { ...raw, [side]: pages };
 }
 
 /**
@@ -212,7 +239,8 @@ export function sanitizeRailLayout(value: unknown): RailLayout {
       pages.push({
         pageId,
         tileIds: tileIds.filter(
-          (id): id is string => typeof id === "string" && KNOWN_TILE_IDS.has(id),
+          (id): id is string =>
+            typeof id === "string" && KNOWN_TILE_IDS.has(id),
         ),
       });
     }
@@ -259,7 +287,8 @@ function sanitizePresets(value: unknown): HamClockPreset[] {
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) continue;
     const candidate = entry as Record<string, unknown>;
-    if (typeof candidate.id !== "string" || candidate.id.trim() === "") continue;
+    if (typeof candidate.id !== "string" || candidate.id.trim() === "")
+      continue;
     if (typeof candidate.name !== "string" || candidate.name.trim() === "") {
       continue;
     }
@@ -293,11 +322,7 @@ interface HamClockDisplayState {
   setTheme: (value: HamClockTheme) => void;
   setUnits: (value: HamClockUnits) => void;
   setPage: (side: HamClockRailSide, index: number) => void;
-  stepPage: (
-    side: HamClockRailSide,
-    delta: number,
-    pageCount: number,
-  ) => void;
+  stepPage: (side: HamClockRailSide, delta: number, pageCount: number) => void;
   smartScaling: boolean;
   hiddenPanels: HamClockPanelId[];
   mapContent: "activity" | "contacts" | "both";
@@ -343,7 +368,10 @@ interface HamClockDisplayState {
   deletePreset: (id: string) => void;
   /** Replaces `railLayout` and `autoPage` together, as choosing a preset
    * does (§7). Rejects (returns `false`) the same way `setRailLayout` does. */
-  applyLayoutPreset: (layout: RailLayout, autoPage: HamClockAutoPage) => boolean;
+  applyLayoutPreset: (
+    layout: RailLayout,
+    autoPage: HamClockAutoPage,
+  ) => boolean;
 }
 const defaults = {
   textSize: "inherit" as const,
@@ -465,7 +493,9 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
         return preset;
       },
       deletePreset: (id) =>
-        set((s) => ({ presets: s.presets.filter((preset) => preset.id !== id) })),
+        set((s) => ({
+          presets: s.presets.filter((preset) => preset.id !== id),
+        })),
       applyLayoutPreset: (layout, autoPage) => {
         if (findDuplicateTile(railLayoutPageSlots(layout))) return false;
         const railLayout = cloneRailLayout(layout);
@@ -483,7 +513,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
     }),
     {
       name: "propulse-hamclock-display",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => sessionStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
@@ -506,6 +536,17 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
           state.pinnedTile = undefined;
           state.presets = [];
           state.autoPage = { ...DEFAULT_AUTO_PAGE };
+        }
+        if (version < 5) {
+          // B8 added the DX target tile to the shipped Spots left rail. A
+          // session still on the pre-B8 shipped composition adopts the new
+          // one; a rail the operator rearranged is left exactly as it is.
+          state.railLayout = adoptShippedRailPage(
+            state.railLayout,
+            "left",
+            "spots",
+            ["cluster", "bandActivity", "recentContacts"],
+          );
         }
         return state as unknown as HamClockDisplayState;
       },
@@ -600,7 +641,9 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
           spotsSidebarCollapsed: p.spotsSidebarCollapsed === true,
           infoSidebarCollapsed: p.infoSidebarCollapsed === true,
           railLayout,
-          pinnedTile: isValidPinnedTile(p.pinnedTile) ? p.pinnedTile : undefined,
+          pinnedTile: isValidPinnedTile(p.pinnedTile)
+            ? p.pinnedTile
+            : undefined,
           presets: sanitizePresets(p.presets),
           autoPage: isValidAutoPage(p.autoPage)
             ? p.autoPage

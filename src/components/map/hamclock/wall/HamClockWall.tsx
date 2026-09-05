@@ -50,13 +50,17 @@ interface HamClockWallProps {
 }
 
 /**
- * Wall density: a full-bleed map with two translucent tile rails, a callsign
- * header with dual clocks, the existing DX news ticker, and a footer carrying
- * a pager control at each end. Both rails and both pagers share the one page
- * index — pick the page from either side of the screen and the whole wall
- * turns to it together. The WALL/DESK switch lives in the header (alongside
- * mode, projection and settings, in the fixed slot the desk header also
- * uses — B1/HW-22), not the footer, so there is exactly one control for it.
+ * The HamClock shell at both densities (wall spec §3, §15, HW-24/HW-25): a
+ * full-bleed map with two tile rails, a callsign header with dual clocks,
+ * the existing DX news ticker, and a footer carrying a pager control at
+ * each end. Both rails and both pagers share the one page index — pick the
+ * page from either side of the screen and the whole shell turns to it
+ * together. Desk renders the identical tree at `--hc-scale` ~0.72 with
+ * opaque rails (`data-density`, `hamclock-wall.css`) instead of a second
+ * layout, so a batch that adds a tile never has to build it twice. The
+ * WALL/DESK switch lives in the header (alongside mode, projection and
+ * settings, in the fixed slot — B1/HW-22), not the footer, so there is
+ * exactly one control for it.
  */
 export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
   // Runs the auto-page dwell timer (wall spec §5, HW-20). Mounted here,
@@ -71,6 +75,7 @@ export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
   const page = useHamClockDisplayStore((s) => s.pageIndex.left);
   const stepPage = useHamClockDisplayStore((s) => s.stepPage);
   const theme = useHamClockDisplayStore((s) => s.theme);
+  const density = useHamClockDisplayStore((s) => s.density);
   const railLayout = useHamClockDisplayStore((s) => s.railLayout);
   // The pages the operator's own layout actually cycles through (wall spec
   // §4/§5, review pass after B4), not a fixed shipped five — a preset with
@@ -102,7 +107,7 @@ export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
   }, [onStep]);
 
   return (
-    <div className="hc-wall">
+    <div className="hc-wall" data-density={density}>
       <HamClockWallHeader onOpenSettings={onOpenSettings} />
 
       <div className="hc-stage">

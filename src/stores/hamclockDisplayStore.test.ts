@@ -501,3 +501,52 @@ it("migrates a v3 session by seeding railLayout, presets and autoPage", async ()
     "sdr",
   ]);
 });
+
+it("migrates a v4 session still on the pre-B8 Spots rail to include the DX target tile", async () => {
+  sessionStorage.setItem(
+    "propulse-hamclock-display",
+    JSON.stringify({
+      version: 4,
+      state: {
+        railLayout: {
+          left: [
+            {
+              pageId: "spots",
+              tileIds: ["cluster", "bandActivity", "recentContacts"],
+            },
+            { pageId: "solar", tileIds: ["muf"] },
+          ],
+          right: [{ pageId: "spots", tileIds: ["bestBand"] }],
+        },
+      },
+    }),
+  );
+  await display.persist.rehydrate();
+  const layout = display.getState().railLayout;
+  expect(layout.left[0]).toEqual({
+    pageId: "spots",
+    tileIds: ["cluster", "bandActivity", "recentContacts", "dxTarget"],
+  });
+  expect(layout.left[1]).toEqual({ pageId: "solar", tileIds: ["muf"] });
+  expect(layout.right[0]).toEqual({ pageId: "spots", tileIds: ["bestBand"] });
+});
+
+it("leaves a customised Spots rail alone when migrating from v4", async () => {
+  sessionStorage.setItem(
+    "propulse-hamclock-display",
+    JSON.stringify({
+      version: 4,
+      state: {
+        railLayout: {
+          left: [{ pageId: "spots", tileIds: ["cluster", "recentContacts"] }],
+          right: [{ pageId: "spots", tileIds: ["bestBand"] }],
+        },
+      },
+    }),
+  );
+  await display.persist.rehydrate();
+  expect(display.getState().railLayout.left[0]).toEqual({
+    pageId: "spots",
+    tileIds: ["cluster", "recentContacts"],
+  });
+});

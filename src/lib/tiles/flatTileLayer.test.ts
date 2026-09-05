@@ -8,6 +8,10 @@ vi.mock("@/lib/api/authFetch", () => ({
 }));
 
 class FakeImage {
+  static instances: FakeImage[] = [];
+  constructor() {
+    FakeImage.instances.push(this);
+  }
   crossOrigin: string | null = null;
   naturalWidth = 512;
   naturalHeight = 512;
@@ -34,6 +38,7 @@ describe("createFlatTileLayer", () => {
 
   beforeEach(() => {
     projectionDraw.mockClear();
+    FakeImage.instances = [];
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
       drawImage: projectionDraw,
     } as unknown as ReturnType<HTMLCanvasElement["getContext"]>);
@@ -91,6 +96,14 @@ describe("createFlatTileLayer", () => {
     const warps = projectionDraw.mock.calls.length;
     const fetches = vi.mocked(fetch).mock.calls.length;
     expect(warps).toBeGreaterThan(0);
+    const projectedSources = new Set(
+      projectionDraw.mock.calls.map(([source]) => source),
+    );
+    for (const source of projectedSources) {
+      expect(source.src).toBe("");
+      expect(source.onload).toBeNull();
+      expect(source.onerror).toBeNull();
+    }
     for (let i = 0; i < 20; i++) layer.draw(context, view);
     expect(projectionDraw).toHaveBeenCalledTimes(warps);
     expect(fetch).toHaveBeenCalledTimes(fetches);

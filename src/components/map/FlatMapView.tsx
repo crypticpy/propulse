@@ -19,6 +19,7 @@ import {
 import {
   drawFlatTerminator as drawTerminator,
   nightLightIntensity,
+  flatIlluminationRasterSizes,
 } from "./lib/flatMapIllumination";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -448,13 +449,14 @@ function drawNightSide(
   width: number,
   height: number,
   variant: "satellite" | "standard",
-  opacity = 1,
+  opacity: number,
+  rasterWidth: number,
 ) {
-  // Illumination is a smooth geographic field. Its cache must not grow or
-  // regenerate when a sidebar changes the viewport's pixel dimensions.
+  // Quantized, quality-bounded sizes avoid rebuilding for small viewport changes.
+  const rasterHeight = rasterWidth / 2;
   ctx.save();
-  ctx.scale(width / 2048, height / 1024);
-  drawNightSideRaster(ctx, date, 2048, 1024, variant, opacity);
+  ctx.scale(width / rasterWidth, height / rasterHeight);
+  drawNightSideRaster(ctx, date, rasterWidth, rasterHeight, variant, opacity);
   ctx.restore();
 }
 
@@ -2435,12 +2437,13 @@ function drawNightLights(
   date: Date,
   width: number,
   height: number,
+  rasterWidth: number,
 ) {
-  // Preserve all native night-texture detail without recomputing an enlarged
-  // light mask for every viewport size. Pan and zoom only resample the cache.
+  // Retain native detail on large displays while respecting Data Saver/small views.
+  const rasterHeight = rasterWidth / 2;
   ctx.save();
-  ctx.scale(width / 4096, height / 2048);
-  drawNightLightsRaster(ctx, date, 4096, 2048);
+  ctx.scale(width / rasterWidth, height / rasterHeight);
+  drawNightLightsRaster(ctx, date, rasterWidth, rasterHeight);
   ctx.restore();
 }
 
@@ -3428,6 +3431,10 @@ export function FlatMapView({
   const hiResTexturesEnabled = useSettingsStore((s) => s.globeHiResTextures);
   const themeId = useThemeStore((s) => s.themeId);
   const qualitySettings = useResolvedDisplayQuality(displayQuality);
+  const illuminationSize = flatIlluminationRasterSizes(
+    displaySize.width * zoom.scale * qualitySettings.renderDevicePixelRatio,
+    qualitySettings.effective,
+  );
   const mapImage = useFlatMapBaseImage(
     mapStyle,
     hiResTexturesEnabled,
@@ -5406,6 +5413,7 @@ export function FlatMapView({
         renderHeight,
         isStandard ? "standard" : "satellite",
         nightDarkness,
+        illuminationSize.mask,
       );
       drawTerminator(
         context,
@@ -5432,7 +5440,13 @@ export function FlatMapView({
       );
     }
     if (!isStandard && layers.nightLights) {
-      drawNightLights(context, displayTime, renderWidth, renderHeight);
+      drawNightLights(
+        context,
+        displayTime,
+        renderWidth,
+        renderHeight,
+        illuminationSize.lights,
+      );
     }
 
     drawGrid(context, renderWidth, renderHeight, highViz);
@@ -5542,6 +5556,8 @@ export function FlatMapView({
     layers.aurora,
     layers.nightLights,
     layers.labels,
+    illuminationSize.lights,
+    illuminationSize.mask,
     radarCanvas,
     qualitySettings.effective,
     qualitySettings.renderDevicePixelRatio,
@@ -5973,8 +5989,8 @@ export function FlatMapView({
   // The settled viewport retains full-resolution tiles and all scientific layers.
   useEffect(() => {
     if (mapStyle !== "standard" && !mapImage) return;
-    const width = 2048;
-    const height = 1024;
+    const width = Math.min(2048, illuminationSize.lights);
+    const height = width / 2;
     const world = document.createElement("canvas");
     world.width = width;
     world.height = height;
@@ -6010,11 +6026,12 @@ export function FlatMapView({
         height,
         standard ? "standard" : "satellite",
         nightDarkness,
+        illuminationSize.mask,
       );
       drawTerminator(ctx, displayTime, width, height, highViz, standard);
     }
     if (!standard && layers.nightLights)
-      drawNightLights(ctx, displayTime, width, height);
+      drawNightLights(ctx, displayTime, width, height, illuminationSize.lights);
     nightOverlayCache = savedNight;
     nightLightsCache = savedLights;
     navigationWorldRef.current = world;
@@ -6042,6 +6059,8 @@ export function FlatMapView({
     layers.muf,
     layers.terminator,
     layers.nightLights,
+    illuminationSize.lights,
+    illuminationSize.mask,
   ]);
 
   // Runs after the three retained surfaces have painted the committed camera,

@@ -1,4 +1,17 @@
+import type { EffectiveDisplayQuality } from "@/lib/map/displayQuality";
 import { getSubsolarPoint } from "@/lib/utils/sun";
+
+/** Stable size buckets preserve detail without processing UHD pixels on small views. */
+export function flatIlluminationRasterSizes(
+  worldDevicePixels: number,
+  quality: EffectiveDisplayQuality,
+): { lights: number; mask: number } {
+  const cap =
+    quality === "data-saver" ? 1024 : quality === "balanced" ? 2048 : 4096;
+  const requested = 2 ** Math.ceil(Math.log2(Math.max(256, worldDevicePixels)));
+  const lights = Math.min(cap, requested);
+  return { lights, mask: Math.max(256, lights / 2) };
+}
 
 /** The bundled night texture includes blue terrain; that is not emitted light. */
 export function nightLightIntensity(

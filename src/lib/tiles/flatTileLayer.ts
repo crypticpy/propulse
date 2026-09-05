@@ -197,7 +197,7 @@ export function createFlatTileLayer(
     entry.controller?.abort();
     entry.img.onload = null;
     entry.img.onerror = null;
-    if (wasLoading) entry.img.src = "";
+    entry.img.src = "";
     if (entry.projected) {
       entry.projected.width = 0;
       entry.projected.height = 0;
@@ -376,6 +376,11 @@ export function createFlatTileLayer(
           );
         }
         entry.projected = projected;
+        // The projected pixels now own the decoded tile. Drop the original
+        // image resource so the LRU does not retain two decoded copies.
+        img.onload = null;
+        img.onerror = null;
+        img.src = "";
       }
     }
     const surface = entry.projected ?? img;

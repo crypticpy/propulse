@@ -27,11 +27,21 @@ const UNITS_OPTIONS: { value: HamClockUnits; label: string }[] = [
 ];
 
 const MAP_CONTENT_VALUES = ["activity", "contacts", "both"] as const;
-const MAP_CONTENT_LABELS: Record<(typeof MAP_CONTENT_VALUES)[number], string> = {
-  activity: "ACTIVITY",
-  contacts: "MY CONTACTS",
-  both: "BOTH",
-};
+const MAP_CONTENT_LABELS: Record<(typeof MAP_CONTENT_VALUES)[number], string> =
+  {
+    activity: "ACTIVITY",
+    contacts: "MY CONTACTS",
+    both: "BOTH",
+  };
+
+type DwellSeconds = "15" | "30" | "45" | "60" | "120";
+const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
+  { value: "15", label: "15 S" },
+  { value: "30", label: "30 S" },
+  { value: "45", label: "45 S" },
+  { value: "60", label: "60 S" },
+  { value: "120", label: "120 S" },
+];
 
 /**
  * Density, units, map content, smart scaling and the home-region re-frame —
@@ -55,6 +65,8 @@ export function DisplayTab() {
   const setMapContent = useHamClockDisplayStore((s) => s.setMapContent);
   const smartScaling = useHamClockDisplayStore((s) => s.smartScaling);
   const setSmartScaling = useHamClockDisplayStore((s) => s.setSmartScaling);
+  const autoPage = useHamClockDisplayStore((s) => s.autoPage);
+  const setAutoPage = useHamClockDisplayStore((s) => s.setAutoPage);
   const frameHome = useHamClockDisplayStore((s) => s.frameHome);
   const viewMode = useMapStore((s) => s.viewMode);
   const location = useActiveLocation();
@@ -90,6 +102,23 @@ export function DisplayTab() {
         detail="Fits panel widths and spacing to the desk text size"
         checked={smartScaling}
         onChange={setSmartScaling}
+      />
+      <HamClockToggleRow
+        label="Auto-page"
+        detail="Rotates both rails through the wall's pages on a timer"
+        caveat="Pauses on any touch, click or key and resumes after a minute of quiet"
+        checked={autoPage.enabled}
+        onChange={(enabled) => setAutoPage({ ...autoPage, enabled })}
+        options={
+          <HamClockSegmented
+            label="Dwell"
+            value={String(autoPage.dwellSeconds) as DwellSeconds}
+            onChange={(value) =>
+              setAutoPage({ ...autoPage, dwellSeconds: Number(value) })
+            }
+            options={DWELL_OPTIONS}
+          />
+        }
       />
       <div className="hcc-row hcc-action-row">
         <div className="hcc-row-main">

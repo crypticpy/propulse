@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BandActivityTile } from "../tiles/BandActivityTile";
 import { BandActivityReport } from "./BandActivityReport";
+import { DxTargetReport } from "./DxTargetReport";
 import { ForecastReport } from "./ForecastReport";
 import { SolarReport } from "./SolarReport";
 import { WeatherReport } from "./WeatherReport";
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   solar: vi.fn(),
   weather: vi.fn(),
   alerts: vi.fn(),
+  target: vi.fn(),
 }));
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
@@ -51,7 +53,11 @@ vi.mock("@/hooks/useWeatherAlerts", () => ({
 }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
-    selector({ timeOffset: 0, absoluteTime: null }),
+    selector({
+      timeOffset: 0,
+      absoluteTime: null,
+      target: mocks.target(),
+    }),
 }));
 
 /** `useSolarResource` hands back the validated envelope, not a bare payload. */
@@ -119,6 +125,7 @@ beforeEach(() => {
     hasLocation: true,
   });
   mocks.alerts.mockReturnValue({ alerts: [], isLoading: false, error: null });
+  mocks.target.mockReturnValue(null);
 });
 
 describe("wall reports", () => {
@@ -381,5 +388,68 @@ describe("WeatherReport focus", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(dialog.querySelector(".hcr-hero")?.className).toContain("hc-bad");
+  });
+});
+
+describe("DxTargetReport", () => {
+  const TOKYO = {
+    lat: 35.6895,
+    lon: 139.6917,
+    grid: "PM95tj",
+    name: "JA1ABC",
+  };
+
+  it("shows a neutral empty state when no target is chosen", () => {
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe(
+      "NO TARGET",
+    );
+    expect(
+      screen.getByText(/Pick a target on the map/i),
+    ).toBeTruthy();
+  });
+
+  it("facts the target's callsign, grid, coordinates and both path bearings", () => {
+    mocks.target.mockReturnValue(TOKYO);
+
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("JA1ABC");
+    expect(screen.getByText("CALLSIGN")).toBeTruthy();
+    expect(screen.getAllByText("JA1ABC").length).toBeGreaterThan(0);
+    expect(screen.getByText("GRID")).toBeTruthy();
+    expect(screen.getAllByText("PM95tj").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("SHORT PATH").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("LONG PATH").length).toBeGreaterThan(0);
+  });
+
+  it("renders the target's weather when Open-Meteo has data", () => {
+    mocks.target.mockReturnValue(TOKYO);
+    mocks.weather.mockReturnValue({
+      weather: {
+        temperature: 22,
+        windSpeed: 12,
+        windDirection: 90,
+        humidity: 55,
+        pressure: 1010,
+        precipitationProbability: 0,
+        precipitation: 0,
+        weatherCode: 1,
+        isDay: true,
+      },
+      isLoading: false,
+      error: null,
+      hasLocation: true,
+    });
+
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("TEMPERATURE")).toBeTruthy();
+    expect(screen.getByText("WIND")).toBeTruthy();
+    expect(screen.getByText("HUMIDITY")).toBeTruthy();
+    expect(screen.getByText("55%")).toBeTruthy();
   });
 });

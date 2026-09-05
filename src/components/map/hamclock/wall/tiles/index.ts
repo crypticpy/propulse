@@ -7,6 +7,7 @@ import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
 import { ClusterTile } from "./ClusterTile";
+import { DxTargetTile } from "./DxTargetTile";
 import { EmcommTile } from "./EmcommTile";
 import { ForecastMatrixTile } from "./ForecastMatrixTile";
 import { GreyLineTile } from "./GreyLineTile";
@@ -44,7 +45,8 @@ export type TileId =
   | "emcomm"
   | "sdrScope"
   | "sdrDecodes"
-  | "recentContacts";
+  | "recentContacts"
+  | "dxTarget";
 
 export interface WallTile {
   title: string;
@@ -76,4 +78,5 @@ export const WALL_TILES: Record<TileId, WallTile> = {
     Component: RecentContactsTile,
     config: registerWidgetConfig(recentContactsConfig),
   },
+  dxTarget: { title: "DX target", Component: DxTargetTile },
 };

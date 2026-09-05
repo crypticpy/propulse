@@ -1,7 +1,7 @@
 # Propulse Feature Tracker
 
 > Master reference of all planned features, their delivery status, and remaining gaps.
-> Updated 2026-09-05: added section 13 (HamClock Wall) from `docs/designs/hamclock-wall-spec.md`. Earlier sections last cross-referenced 2026-02-11.
+> Updated 2026-09-05: added section 13 (HamClock Wall) from `docs/designs/hamclock-wall-spec.md`, then extended it with HW-56 to HW-73 (the dedicated reports of spec section 26). Earlier sections last cross-referenced 2026-02-11.
 
 ---
 
@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 33        | 2       | 20          | 0        | 55      |
-| **Grand Total**                         | **294**   | **9**   | **31**      | **1**    | **335** |
+| HamClock Wall (2026-09-05)              | 31        | 4       | 38          | 0        | 73      |
+| **Grand Total**                         | **292**   | **11**  | **49**      | **1**    | **353** |
 
-**Delivery rate: 88% delivered, 3% partial, 9% not started**
+**Delivery rate: 83% delivered, 3% partial, 14% not started**
 
 ---
 
@@ -617,77 +617,95 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 ## 13. HamClock Wall (2026-09-05)
 
-_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
+_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
 
-### Delivered (33)
+### Delivered (31)
 
-| ID    | Feature                                                       | Notes                                                                                                                                                                          |
-| ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| HW-01 | Wall shell: full-bleed map, header, paged rails, pager        | PR #167, `wall/HamClockWall.tsx`                                                                                                                                               |
-| HW-02 | Theme token layer and pulse theme                             | PR #167, `src/styles/hamclock-themes.css`                                                                                                                                      |
-| HW-03 | Display store: density, theme, units, page index, migrations  | PR #167, #169, `hamclockDisplayStore` v3                                                                                                                                       |
-| HW-04 | Unit resolution (auto / imperial / metric)                    | PR #167, `src/lib/hamclock/units.ts`                                                                                                                                           |
-| HW-05 | Keyboard paging and footer pager                              | PR #167                                                                                                                                                                        |
-| HW-06 | Sixteen live tiles                                            | PR #169, `wall/tiles/index.ts`                                                                                                                                                 |
-| HW-07 | Wall as default density                                       | PR #169                                                                                                                                                                        |
-| HW-08 | Page taxonomy v1 (five pages)                                 | PR #169, `wall/pages.ts`                                                                                                                                                       |
-| HW-09 | Report modal shell on `AccessibleDialog`                      | PR #170                                                                                                                                                                        |
-| HW-10 | Six reports wired to thirteen tiles                           | PR #170                                                                                                                                                                        |
-| HW-12 | Classic and brass themes, picker, fonts on demand             | PR #171                                                                                                                                                                        |
-| HW-13 | Wall controls: map content, home region, Escape scoping       | PR #171                                                                                                                                                                        |
-| HW-14 | Kiosk scene HamClock pinning                                  | PR #171, `src/lib/kiosk/applySceneToMap.ts`                                                                                                                                    |
-| HW-15 | Accessibility baseline: sr-only tables, focus return          | PR #170, #171                                                                                                                                                                  |
-| HW-16 | Style guide for tiles, reports and settings                   | `docs/guides/hamclock-tile-system.md`                                                                                                                                          |
-| HW-21 | Layer registry with provenance text                           | PR #222, `src/lib/map/layerRegistry.ts`; feeds settings and help — no distinct wall status line component exists                                                               |
-| HW-22 | Header parity: WALL/DESK toggle and reduced top rail          | PR #216                                                                                                                                                                        |
-| HW-23 | Layers popover viewport clamp and trigger move                | PR #216                                                                                                                                                                        |
-| HW-26 | Centered settings panel with tabs                             | PR #221                                                                                                                                                                        |
-| HW-32 | Lightning bolt glyph (2D and 3D)                              | PR #217, `src/lib/map/lightningGlyph.ts`                                                                                                                                       |
-| HW-39 | Map style chooser on the settings Map tab                     | PR #222, `wall/settings/MapTab.tsx`                                                                                                                                            |
-| HW-50 | Duplicate guard: store validation and picker grey-out         | PR #218, `assertUniqueTilesPerPage`                                                                                                                                            |
-| HW-51 | Hero text fit: clamp, container units, length classes, tests  | PR #218, `HamClockTile.tsx`, `tokens.ts`                                                                                                                                       |
-| HW-54 | Both rails follow the page; de-duplicated shipped pages       | PR #218, `hamclockDisplayStore.ts`                                                                                                                                             |
-| HW-55 | Persist a tile provider id in `mapStore`                      | PR #222, Esri / Mapbox and OSM / CARTO selectable                                                                                                                              |
-| HW-27 | User-selected rails (Pages & Tiles tab)                       | PR #234, `railLayout` model                                                                                                                                                    |
-| HW-52 | Use presets: five shipped, user-saved                         | PR #234, `wall/presets.ts`                                                                                                                                                     |
-| HW-53 | No radio dependency: station tiles degrade to a neutral state | PR #234, `SET HOME IN SETTINGS`                                                                                                                                                |
-| HW-11 | Honest empty states and freshness in reports                  | PR #TBD, every report footer now follows `reportFooter()`'s `DATA: source · UPDATED hh:mm UTC · age` contract; `LocalWeatherData.observedAt` derives the true UTC instant      |
-| HW-17 | Forecast horizon                                              | PR #TBD, `ForecastReport` marks matrix hour columns and adds a MODEL fact per activated `FUTURECAST_HORIZONS_HOURS`, overlaying the existing 24 h physics matrix               |
-| HW-29 | Trend charts in reports; chart components read theme tokens   | PR #TBD, `SolarMiniChart`/`SolarSeriesChart` read `--hcr-chart-*` under `[data-hamclock-theme]` with unchanged hex fallbacks on `/solar`; `MetricCard` excluded (no sparkline) |
-| HW-30 | Report pin                                                    | PR #TBD, `WallReport` PIN/UNPIN control + `HamClockPinnedReportHost`, session-only, survives page/scene changes                                                                |
-| HW-31 | Best Band Now ranked table report                             | PR #TBD, new `wall/reports/BestBandReport.tsx` replacing `BandVerdictDetailsDialog` on `BestBandTile`                                                                          |
+| ID    | Feature                                                       | Notes                                                                                                            |
+| ----- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| HW-01 | Wall shell: full-bleed map, header, paged rails, pager        | PR #167, `wall/HamClockWall.tsx`                                                                                 |
+| HW-02 | Theme token layer and pulse theme                             | PR #167, `src/styles/hamclock-themes.css`                                                                        |
+| HW-03 | Display store: density, theme, units, page index, migrations  | PR #167, #169, `hamclockDisplayStore` v3                                                                         |
+| HW-04 | Unit resolution (auto / imperial / metric)                    | PR #167, `src/lib/hamclock/units.ts`                                                                             |
+| HW-05 | Keyboard paging and footer pager                              | PR #167                                                                                                          |
+| HW-06 | Sixteen live tiles                                            | PR #169, `wall/tiles/index.ts`                                                                                   |
+| HW-07 | Wall as default density                                       | PR #169                                                                                                          |
+| HW-08 | Page taxonomy v1 (five pages)                                 | PR #169, `wall/pages.ts`                                                                                         |
+| HW-09 | Report modal shell on `AccessibleDialog`                      | PR #170                                                                                                          |
+| HW-10 | Six reports wired to thirteen tiles                           | PR #170                                                                                                          |
+| HW-12 | Classic and brass themes, picker, fonts on demand             | PR #171                                                                                                          |
+| HW-13 | Wall controls: map content, home region, Escape scoping       | PR #171                                                                                                          |
+| HW-14 | Kiosk scene HamClock pinning                                  | PR #171, `src/lib/kiosk/applySceneToMap.ts`                                                                      |
+| HW-15 | Accessibility baseline: sr-only tables, focus return          | PR #170, #171                                                                                                    |
+| HW-16 | Style guide for tiles, reports and settings                   | `docs/guides/hamclock-tile-system.md`                                                                            |
+| HW-21 | Layer registry with provenance text                           | PR #222, `src/lib/map/layerRegistry.ts`; feeds settings and help — no distinct wall status line component exists |
+| HW-22 | Header parity: WALL/DESK toggle and reduced top rail          | PR #216                                                                                                          |
+| HW-23 | Layers popover viewport clamp and trigger move                | PR #216                                                                                                          |
+| HW-26 | Centered settings panel with tabs                             | PR #221                                                                                                          |
+| HW-32 | Lightning bolt glyph (2D and 3D)                              | PR #217, `src/lib/map/lightningGlyph.ts`                                                                         |
+| HW-39 | Map style chooser on the settings Map tab                     | PR #222, `wall/settings/MapTab.tsx`                                                                              |
+| HW-50 | Duplicate guard: store validation and picker grey-out         | PR #218, `assertUniqueTilesPerPage`                                                                              |
+| HW-51 | Hero text fit: clamp, container units, length classes, tests  | PR #218, `HamClockTile.tsx`, `tokens.ts`                                                                         |
+| HW-54 | Both rails follow the page; de-duplicated shipped pages       | PR #218, `hamclockDisplayStore.ts`                                                                               |
+| HW-55 | Persist a tile provider id in `mapStore`                      | PR #222, Esri / Mapbox and OSM / CARTO selectable                                                                |
+| HW-27 | User-selected rails (Pages & Tiles tab)                       | PR #234, `railLayout` model                                                                                      |
+| HW-52 | Use presets: five shipped, user-saved                         | PR #234, `wall/presets.ts`                                                                                       |
+| HW-53 | No radio dependency: station tiles degrade to a neutral state | PR #234, `SET HOME IN SETTINGS`                                                                                  |
+| HW-20 | Auto-page dwell mode                                          | PR #236, `useWallAutoPage.ts`                                                                                    |
+| HW-24 | Desk on wall tiles, paged, scale token                        | PR #238, `--hc-scale` in `hamclock-wall.css`, `HamClockWall` at both densities                                   |
+| HW-25 | Desk cleanup: DE station block, duplicate weather, DX target  | PR #238, `HamClockSidebar.tsx`/`HamClockLocationConditions.tsx` deleted, `DxTargetTile`/`DxTargetReport` added   |
 
-### Partial (2)
+### Partial (4)
 
-| ID    | Feature                 | Gap                                   |
-| ----- | ----------------------- | ------------------------------------- |
-| HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
-| HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
+| ID    | Feature                                      | Gap                                                                                                                                                        |
+| ----- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HW-17 | Forecast horizon                             | 24 h from the two-day physics reliability forecast; FutureCast horizons not wired into the wall yet                                                        |
+| HW-18 | Weather alerts coverage                      | Nationwide feed, mapped geometry only                                                                                                                      |
+| HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
+| HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
 
-### Not Started (20)
+### Not Started (38)
 
-| ID    | Feature                                                          | Notes                                                |
-| ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
-| HW-20 | Auto-page dwell mode                                             | Only kiosk scenes rotate pages today                 |
-| HW-24 | Desk on wall tiles, paged, scale token                           | Retires accordion sidebar                            |
-| HW-25 | Desk cleanup: DE station block, duplicate weather, DX target     |                                                      |
-| HW-28 | World clocks bar                                                 | Open decision D1                                     |
-| HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                     |
-| HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                     |
-| HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                       |
-| HW-36 | Widget config contract and `hamclockWidgetConfigStore`           | Segmented choices, no scroll, per-tile persistence   |
-| HW-37 | News feeds config dialog (first configurable widget)             | Over `feedStore`; verify URLs via `api/feeds/rss.ts` |
-| HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts      | One PR per widget                                    |
-| HW-40 | Weather page with seven weather tiles                            | Spec section 16                                      |
-| HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details |                                                      |
-| HW-42 | Radar report with 2D and 3D scrubber                             |                                                      |
-| HW-43 | Lightning report                                                 | After HW-32                                          |
-| HW-44 | Weather configuration dialog                                     | HW-36 contract                                       |
-| HW-45 | Weather layers category on the Layers tab                        | HW-21 registry                                       |
-| HW-46 | AtmosPulse 2D layers available in 2D and 3D on the map           | Twelve layers                                        |
-| HW-47 | Monitored regions and RIM scores as a report                     |                                                      |
-| HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
-| HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
+| ID    | Feature                                                          | Notes                                                  |
+| ----- | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| HW-28 | World clocks bar                                                 | Open decision D1                                       |
+| HW-29 | Trend charts in reports; chart components read theme tokens      | Reuse solar chart components                           |
+| HW-30 | Report pin                                                       |                                                        |
+| HW-31 | Best Band Now ranked table report                                |                                                        |
+| HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                       |
+| HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                       |
+| HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                         |
+| HW-36 | Widget config contract and `hamclockWidgetConfigStore`           | Segmented choices, no scroll, per-tile persistence     |
+| HW-37 | News feeds config dialog (first configurable widget)             | Over `feedStore`; verify URLs via `api/feeds/rss.ts`   |
+| HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts      | One PR per widget                                      |
+| HW-40 | Weather page with seven weather tiles                            | Spec section 16                                        |
+| HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details | Moved from B13 to B22 with the fetch extension         |
+| HW-42 | Radar report with 2D and 3D scrubber                             |                                                        |
+| HW-43 | Lightning report                                                 | After HW-32                                            |
+| HW-44 | Weather configuration dialog                                     | HW-36 contract                                         |
+| HW-45 | Weather layers category on the Layers tab                        | HW-21 registry                                         |
+| HW-46 | AtmosPulse 2D layers available in 2D and 3D on the map           | Twelve layers                                          |
+| HW-47 | Monitored regions and RIM scores as a report                     | Moved from B16 to B23 with the RIM tile                |
+| HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                        |
+| HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                       |
+| HW-56 | `EngineComparisonStrip` on every model-backed report             | Physics / NowCast / Observed; spec 26.1; B17           |
+| HW-57 | MUF report: ionosphere facts, hop table, usable window           | B17                                                    |
+| HW-58 | Reliability report: SNR, confidence, station inputs              | B18                                                    |
+| HW-59 | Propagation forecast report: 48 h chart, FutureCast horizons     | B18                                                    |
+| HW-60 | Solar report: SFI, SSN, flux forecast, cycle 25                  | B19                                                    |
+| HW-61 | X-ray and flares report: B/C/M/X curve, D-RAP, probabilities     | B19                                                    |
+| HW-62 | Solar wind and geomagnetic report: Bz, Kp, Dst, aurora, CMEs     | B19                                                    |
+| HW-63 | Sun report: twilights, elevation curve, day-length trend         | B20                                                    |
+| HW-64 | Grey line report: per-band tiers, windows, target overlap        | B20                                                    |
+| HW-65 | EME computation module `src/lib/utils/eme.ts`                    | New: path loss, sky noise, mutual window, Doppler; B21 |
+| HW-66 | Moon and EME report                                              | B21; depends on HW-65                                  |
+| HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                        |
+| HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                    |
+| HW-69 | Radio Impact Model tile                                          | Over `computeRIM` / `useRIM`; B23                      |
+| HW-70 | Band activity report: history, mode split, top DX                | B24                                                    |
+| HW-71 | Recent contacts report: log statistics, 30-day chart             | B24                                                    |
+| HW-72 | DX cluster modal adopts the report chrome, pin and footer        | Chrome only; B24                                       |
+| HW-73 | Model track: weather-derived features in NowCast                 | Backlog, after every panel is live; B25                |
 
 ---
 

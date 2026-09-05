@@ -645,9 +645,9 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-50 | Duplicate guard: store validation and picker grey-out         | PR #218, `assertUniqueTilesPerPage`         |
 | HW-51 | Hero text fit: clamp, container units, length classes, tests  | PR #218, `HamClockTile.tsx`, `tokens.ts`    |
 | HW-54 | Both rails follow the page; de-duplicated shipped pages       | PR #218, `hamclockDisplayStore.ts`          |
-| HW-27 | User-selected rails (Pages & Tiles tab)                       | PR (B4), `railLayout` model                 |
-| HW-52 | Use presets: five shipped, user-saved                         | PR (B4), `wall/presets.ts`                  |
-| HW-53 | No radio dependency: station tiles degrade to a neutral state | PR (B4), `SET HOME IN SETTINGS`             |
+| HW-27 | User-selected rails (Pages & Tiles tab)                       | PR #234, `railLayout` model                 |
+| HW-52 | Use presets: five shipped, user-saved                         | PR #234, `wall/presets.ts`                  |
+| HW-53 | No radio dependency: station tiles degrade to a neutral state | PR #234, `SET HOME IN SETTINGS`             |
 
 ### Partial (4)
 

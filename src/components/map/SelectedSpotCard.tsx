@@ -139,6 +139,7 @@ export function SelectedSpotCard({
   const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
   const target = useMapStore((state) => state.target);
   const setTarget = useMapStore((state) => state.setTarget);
+  const setIsolateTargetPath = useMapStore((state) => state.setIsolateTargetPath);
   const isKiosk = useKioskStore((state) => state.active);
   const { station } = useUserStore();
   const setWatch = useWatchStore((state) => state.setWatch);
@@ -207,8 +208,9 @@ export function SelectedSpotCard({
   const handleViewPath = useCallback(() => {
     if (!spot) return;
     selectMapSpot(spot);
+    setIsolateTargetPath(true);
     onViewPath?.();
-  }, [onViewPath, selectMapSpot, spot]);
+  }, [onViewPath, selectMapSpot, setIsolateTargetPath, spot]);
 
   const handleCopy = useCallback(async () => {
     if (!spot || !navigator.clipboard) return;

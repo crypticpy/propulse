@@ -13,10 +13,25 @@ export interface SpotLayerPolicy {
   selectedTargetVisible: boolean;
 }
 
+export interface SpotLayerPolicyOptions {
+  isolateTargetPath?: boolean;
+  hasTarget?: boolean;
+}
+
 /** Shared visibility/interaction matrix for the 2D spot overlays. */
 export function getSpotLayerPolicy(
   layers: SpotLayerFlags,
+  options?: SpotLayerPolicyOptions,
 ): SpotLayerPolicy {
+  if (options?.isolateTargetPath && options.hasTarget) {
+    return {
+      pathsVisible: false,
+      endpointsInteractive: false,
+      labelsInteractive: false,
+      gridCollectionsInteractive: false,
+      selectedTargetVisible: false,
+    };
+  }
   const pathsVisible = layers.spots || layers.spotTraces;
   return {
     pathsVisible,

@@ -5,7 +5,7 @@
  * Uses compact encoding to keep URLs short while preserving all relevant state.
  */
 
-import type { ViewMode, TargetLocation } from "@/stores/mapStore";
+import type { ViewMode, TargetLocation, PathMode } from "@/stores/mapStore";
 
 /**
  * Share state interface - all the state that can be shared via URL
@@ -28,8 +28,8 @@ export interface ShareState {
     nightLights: boolean;
     labels: boolean;
   };
-  /** Path mode: short or long */
-  pathMode: "short" | "long";
+  /** Path mode: short, long, or both */
+  pathMode: PathMode;
 }
 
 /**
@@ -125,9 +125,11 @@ export function encodeShareState(state: ShareState): URLSearchParams {
   const layerFlags = encodeLayers(state.layers);
   params.set("l", layerFlags.toString());
 
-  // Path mode (only if long)
+  // Path mode (only if not the default short path)
   if (state.pathMode === "long") {
     params.set("p", "l");
+  } else if (state.pathMode === "both") {
+    params.set("p", "b");
   }
 
   // Target location
@@ -190,6 +192,8 @@ export function decodeShareState(
   const pathCode = params.get("p");
   if (pathCode === "l") {
     result.pathMode = "long";
+  } else if (pathCode === "b") {
+    result.pathMode = "both";
   } else {
     result.pathMode = "short";
   }

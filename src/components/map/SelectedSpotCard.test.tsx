@@ -87,7 +87,12 @@ describe("SelectedSpotCard", () => {
       selectedReport: null,
     });
     useOpsPostureStore.getState().reset();
-    useMapStore.setState({ target: null, isDXConsoleExpanded: false });
+    useMapStore.setState({
+      target: null,
+      isDXConsoleExpanded: false,
+      isolateTargetPath: false,
+      pathMode: "short",
+    });
     useQSOStore.setState((state) => ({
       form: {
         ...state.form,
@@ -143,6 +148,8 @@ describe("SelectedSpotCard", () => {
     expect(onOperator).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
     expect(onMapClick).not.toHaveBeenCalled();
+    expect(useMapStore.getState().isolateTargetPath).toBe(true);
+    expect(useMapStore.getState().pathMode).toBe("both");
   });
 
   it("shows an explicit unavailable reason and renders nothing without a spot", () => {

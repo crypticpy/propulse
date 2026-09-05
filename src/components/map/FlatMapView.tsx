@@ -26,6 +26,7 @@ import { useUserStore } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
   getPathPoints,
+  getLongPathPoints,
   getPathMetrics,
   getDistance,
   getBearing,
@@ -79,6 +80,9 @@ import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
+import type { BounceMarker } from "@/lib/map/targetPathPresentation";
+import { pathEmphasis } from "@/lib/map/targetPathPresentation";
 import {
   useMapOperationalContext,
   useScopedMapLayers,
@@ -955,17 +959,26 @@ function drawPath(
   width: number = MAP_WIDTH,
   height: number = MAP_HEIGHT,
   zoomScale = 1.0,
+  pathMode: "short" | "long" = "short",
+  bounceMarkers: BounceMarker[] = [],
+  alpha = 0.55,
 ) {
   const zoomDamp = Math.max(1, zoomScale);
-  const points = getPathPoints(startLat, startLon, endLat, endLon, 100);
+  const points =
+    pathMode === "long"
+      ? getLongPathPoints(startLat, startLon, endLat, endLon, 150)
+      : getPathPoints(startLat, startLon, endLat, endLon, 100);
 
-  // Draw path with crisp lines (no shadow blur for sharpness)
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.8 / zoomDamp;
+  ctx.lineWidth = (pathMode === "long" ? 1.4 : 1.8) / zoomDamp;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.setLineDash([6 / zoomDamp, 5 / zoomDamp]);
-  ctx.globalAlpha = 0.55;
+  ctx.setLineDash(
+    pathMode === "long"
+      ? [10 / zoomDamp, 7 / zoomDamp]
+      : [6 / zoomDamp, 5 / zoomDamp],
+  );
+  ctx.globalAlpha = alpha;
 
   ctx.beginPath();
   let lastX = -1;
@@ -973,7 +986,6 @@ function drawPath(
   for (const point of points) {
     const { x, y } = latLonToCanvas(point.lat, point.lon, width, height);
 
-    // Handle wrap-around at date line
     if (lastX >= 0 && Math.abs(x - lastX) > width / 2) {
       ctx.stroke();
       ctx.beginPath();
@@ -987,8 +999,21 @@ function drawPath(
   }
 
   ctx.stroke();
-  ctx.globalAlpha = 1.0;
   ctx.setLineDash([]);
+
+  for (const marker of bounceMarkers) {
+    const { x, y } = latLonToCanvas(marker.lat, marker.lon, width, height);
+    ctx.globalAlpha = Math.min(1, alpha + 0.35);
+    ctx.fillStyle = marker.color;
+    ctx.beginPath();
+    ctx.arc(x, y, 4 / zoomDamp, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.45)";
+    ctx.lineWidth = 1 / zoomDamp;
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1.0;
 }
 
 /**
@@ -3561,14 +3586,28 @@ export function FlatMapView({
   const spotSourceFilters = useDXStore(
     (s) => s.filters.sources as SpotSource[] | undefined,
   );
+  const pathPresentation = useTargetPathPresentation(displayTime);
   const spotLayerPolicy = useMemo(
     () =>
-      getSpotLayerPolicy({
-        spots: layers.spots,
-        spotTraces: layers.spotTraces,
-        gridActivity: layers.gridActivity,
-      }),
-    [layers.gridActivity, layers.spotTraces, layers.spots],
+      getSpotLayerPolicy(
+        {
+          spots: layers.spots,
+          spotTraces: layers.spotTraces,
+          gridActivity: layers.gridActivity,
+        },
+        {
+          isolateTargetPath: pathPresentation.isolateTargetPath,
+          hasTarget: Boolean(station && target),
+        },
+      ),
+    [
+      layers.gridActivity,
+      layers.spotTraces,
+      layers.spots,
+      pathPresentation.isolateTargetPath,
+      station,
+      target,
+    ],
   );
   const selectMapSpot = useMapSpotSelection();
   const { allSpots } = useDXCluster(undefined, { enabled: publicDxEnabled });
@@ -5817,17 +5856,25 @@ export function FlatMapView({
 
     // Draw path if both home and target exist (use difficulty color)
     if (station && target) {
-      drawPath(
-        ctx,
-        station.lat,
-        station.lon,
-        target.lat,
-        target.lon,
-        targetMarkerColor,
-        renderWidth,
-        renderHeight,
-        zoom.scale,
-      );
+      for (const mode of pathPresentation.modes) {
+        const emphasis = pathEmphasis(pathPresentation.pathMode, mode);
+        drawPath(
+          ctx,
+          station.lat,
+          station.lon,
+          target.lat,
+          target.lon,
+          targetMarkerColor,
+          renderWidth,
+          renderHeight,
+          zoom.scale,
+          mode,
+          mode === "short"
+            ? pathPresentation.shortBounces
+            : pathPresentation.longBounces,
+          emphasis === "secondary" ? 0.38 : 0.55,
+        );
+      }
     }
 
     // Draw markers
@@ -5956,6 +6003,7 @@ export function FlatMapView({
     targetMarkerColor,
     pathDifficulty,
     pathMetrics,
+    pathPresentation,
     pins,
     hoveredPinData,
     hoveredSpotData,

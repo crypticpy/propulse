@@ -22,6 +22,7 @@ import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
+export type PathMode = "short" | "long" | "both";
 export type MapStyle = "satellite" | "standard";
 export type LayoutMode = "normal" | "pro" | "lite" | "hamclock";
 export type GlobeOrientation = "qth" | "natural";
@@ -517,10 +518,15 @@ export interface MapState {
   justLogged: LoggedMarker | null;
   setJustLogged: (marker: LoggedMarker | null) => void;
 
-  // Path mode (short/long path display)
-  pathMode: "short" | "long";
-  setPathMode: (mode: "short" | "long") => void;
+  // Path mode (short / long / both)
+  pathMode: PathMode;
+  setPathMode: (mode: PathMode) => void;
   togglePathMode: () => void;
+
+  /** Hide other traces and keep only the targeted path (ephemeral). */
+  isolateTargetPath: boolean;
+  setIsolateTargetPath: (isolate: boolean) => void;
+  toggleIsolateTargetPath: () => void;
 
   // Panel collapse states (persisted)
   panelStates: PanelStates;
@@ -1271,7 +1277,8 @@ const initialState = {
   tooltipPosition: null as TooltipPosition | null,
   flyoutPosition: null as FlyoutPosition | null,
   justLogged: null as LoggedMarker | null,
-  pathMode: "short" as "short" | "long",
+  pathMode: "short" as PathMode,
+  isolateTargetPath: false,
   panelStates: loadPanelStates(),
   mapStyle: loadMapStyle(),
   // One preserves the carefully tuned existing treatment in every renderer.
@@ -1389,7 +1396,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     set((state) => {
       // If target is null, just clear it without affecting recent targets
       if (!target) {
-        return { target: null };
+        return { target: null, isolateTargetPath: false };
       }
 
       // Add to recent targets (avoiding duplicates by lat/lon)
@@ -1837,8 +1844,32 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   togglePathMode: () =>
     set((state) => ({
-      pathMode: state.pathMode === "short" ? "long" : "short",
+      pathMode:
+        state.pathMode === "short"
+          ? "long"
+          : state.pathMode === "long"
+            ? "both"
+            : "short",
     })),
+
+  setIsolateTargetPath: (isolate) =>
+    set((state) => {
+      if (!isolate) {
+        return { isolateTargetPath: false };
+      }
+      return {
+        isolateTargetPath: true,
+        pathMode: "both" as PathMode,
+        layers: state.layers.rayPath
+          ? state.layers
+          : { ...state.layers, rayPath: true },
+      };
+    }),
+
+  toggleIsolateTargetPath: () => {
+    const isolate = !get().isolateTargetPath;
+    get().setIsolateTargetPath(isolate);
+  },
 
   togglePanel: (panelId) =>
     set((state) => {

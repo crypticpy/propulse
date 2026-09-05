@@ -59,6 +59,9 @@ import {
 import type { TerrainType } from "@/lib/utils/terrain";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { PROPAGATION_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
+import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
+import { hopQualityColor } from "@/lib/map/targetPathPresentation";
+import type { RayTraceResult } from "@/lib/utils/rayTrace";
 
 interface PathAnalysisProps {
   /** Current display time for illumination calculation */
@@ -264,6 +267,40 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
   );
 });
 
+function HopStrip({
+  label,
+  result,
+}: {
+  label: string;
+  result: RayTraceResult;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-6 text-[9px] font-medium uppercase tracking-wider text-gray-500">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {result.hops.map((hop, index) => (
+          <span
+            key={`${label}-${index}`}
+            className="rounded px-1.5 py-0.5 font-mono text-[9px]"
+            style={{
+              color: hopQualityColor(hop.qualityScore),
+              backgroundColor: `${hopQualityColor(hop.qualityScore)}22`,
+            }}
+            title={`Hop ${index + 1}: score ${hop.qualityScore}/100, MUF ${hop.muf.toFixed(1)} MHz`}
+          >
+            {index + 1}F
+          </span>
+        ))}
+      </div>
+      <span className="ml-auto font-mono text-[9px] text-gray-500">
+        {result.overallScore}/100
+      </span>
+    </div>
+  );
+}
+
 export function PathAnalysis({
   displayTime,
   className = "",
@@ -276,11 +313,19 @@ export function PathAnalysis({
   const target = useMapStore((s) => s.target);
   const pathMode = useMapStore((s) => s.pathMode);
   const setPathMode = useMapStore((s) => s.setPathMode);
+  const isolateTargetPath = useMapStore((s) => s.isolateTargetPath);
+  const toggleIsolateTargetPath = useMapStore((s) => s.toggleIsolateTargetPath);
+  const rayPathEnabled = useMapStore((s) => s.layers.rayPath);
+  const toggleLayer = useMapStore((s) => s.toggleLayer);
   const recentTargets = useMapStore((s) => s.recentTargets);
   const setTarget = useMapStore((s) => s.setTarget);
   const clearRecentTargets = useMapStore((s) => s.clearRecentTargets);
   const { pushAction } = useUndoStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
+  const pathPresentation = useTargetPathPresentation(displayTime);
+  const bouncesActive =
+    rayPathEnabled || pathPresentation.isolateTargetPath;
+  const activeLeg = pathMode === "long" ? "long" : "short";
   const activeRadio = useActiveRadio();
   const preferTested = usePreferTestedSpecs();
   const { customRadios } = preferences;
@@ -649,13 +694,28 @@ export function PathAnalysis({
             {/* Path mode badge */}
             <span
               className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium ${
-                pathMode === "long"
-                  ? "bg-plasma-orange/20 text-plasma-orange"
-                  : "bg-white/10 text-gray-400"
+                pathMode === "short"
+                  ? "bg-white/10 text-gray-400"
+                  : "bg-plasma-orange/20 text-plasma-orange"
               }`}
             >
-              {pathMode === "long" ? "LP" : "SP"}
+              {pathMode === "both" ? "SP+LP" : pathMode === "long" ? "LP" : "SP"}
             </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleIsolateTargetPath();
+              }}
+              className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium transition-colors ${
+                isolateTargetPath
+                  ? "bg-cyan-500/30 text-cyan-200"
+                  : "bg-white/10 text-gray-400 hover:text-white"
+              }`}
+              title="Hide other traces and show only this target's short and long path"
+            >
+              Solo
+            </button>
 
             {/* Difficulty indicator dot */}
             <div
@@ -671,12 +731,12 @@ export function PathAnalysis({
             {/* Distance - show based on path mode */}
             <span
               className={`text-sm font-mono font-semibold ${
-                pathMode === "long"
+                activeLeg === "long"
                   ? getLongPathDistanceColor(metrics.difficulty)
                   : getDistanceColor(metrics.difficulty)
               }`}
             >
-              {pathMode === "long"
+              {activeLeg === "long"
                 ? formatDistance(metrics.longPath.distance)
                 : formatDistance(metrics.shortPath.distance)}
             </span>
@@ -695,7 +755,7 @@ export function PathAnalysis({
 
             {/* Bearing compact - show based on path mode */}
             <span className="text-[10px] font-mono text-gray-400">
-              {pathMode === "long"
+              {activeLeg === "long"
                 ? `${Math.round(metrics.longPath.bearing)}° ${formatBearing(metrics.longPath.bearing)}`
                 : `${Math.round(metrics.shortPath.bearing)}° ${formatBearing(metrics.shortPath.bearing)}`}
             </span>
@@ -922,6 +982,7 @@ export function PathAnalysis({
             </span>
             <div className="flex rounded-md overflow-hidden border border-white/10">
               <button
+                type="button"
                 onClick={() => setPathMode("short")}
                 className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                   pathMode === "short"
@@ -933,23 +994,83 @@ export function PathAnalysis({
                 SP
               </button>
               <button
+                type="button"
                 onClick={() => setPathMode("long")}
                 className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                   pathMode === "long"
-                    ? "bg-plasma-orange/30 text-plasma-orange"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    ? "bg-plasma-orange/30 text-plasma-orange border-r border-plasma-orange/30"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border-r border-white/10"
                 }`}
                 title="Long Path - around the other side of Earth"
               >
                 LP
               </button>
+              <button
+                type="button"
+                onClick={() => setPathMode("both")}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                  pathMode === "both"
+                    ? "bg-plasma-orange/30 text-plasma-orange"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
+                title="Show short and long path together"
+              >
+                Both
+              </button>
             </div>
           </div>
+
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-400">
+              Target path
+            </span>
+            <div className="flex rounded-md overflow-hidden border border-white/10">
+              <button
+                type="button"
+                onClick={() => toggleLayer("rayPath")}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                  bouncesActive
+                    ? "bg-cyan-500/20 text-cyan-300 border-r border-cyan-500/30"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border-r border-white/10"
+                }`}
+                title="Show modeled ionospheric skip bounces on the targeted path"
+              >
+                Bounces
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleIsolateTargetPath()}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                  isolateTargetPath
+                    ? "bg-cyan-500/20 text-cyan-300"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
+                title="Hide every other trace and keep only this target's short and long path"
+              >
+                This path only
+              </button>
+            </div>
+          </div>
+
+          {pathPresentation.showRayPath &&
+            (pathPresentation.shortResult || pathPresentation.longResult) && (
+              <div className="mb-3 space-y-1.5 rounded-lg border border-white/10 bg-white/5 p-2">
+                <div className="text-[9px] font-medium uppercase tracking-wider text-gray-500">
+                  Modeled hops · {pathPresentation.frequencyMHz.toFixed(3)} MHz
+                </div>
+                {pathPresentation.shortResult && (
+                  <HopStrip label="SP" result={pathPresentation.shortResult} />
+                )}
+                {pathPresentation.longResult && (
+                  <HopStrip label="LP" result={pathPresentation.longResult} />
+                )}
+              </div>
+            )}
 
           {/* Short Path */}
           <div
             className={`space-y-2 rounded-lg p-2 transition-colors ${
-              pathMode === "short"
+              pathMode === "short" || pathMode === "both"
                 ? "bg-plasma-orange/10 border border-plasma-orange/20"
                 : "bg-white/5 border border-transparent"
             }`}
@@ -958,7 +1079,7 @@ export function PathAnalysis({
               <h4 className="text-xs font-medium text-gray-400 inline-flex items-center gap-1">
                 Short Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>
-              {pathMode === "short" && (
+              {(pathMode === "short" || pathMode === "both") && (
                 <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
                   Active
                 </span>
@@ -990,7 +1111,7 @@ export function PathAnalysis({
           {/* Long Path */}
           <div
             className={`space-y-2 pt-3 mt-3 rounded-lg p-2 transition-colors ${
-              pathMode === "long"
+              pathMode === "long" || pathMode === "both"
                 ? "bg-plasma-orange/10 border border-plasma-orange/20"
                 : "bg-white/5 border border-transparent"
             }`}
@@ -999,7 +1120,7 @@ export function PathAnalysis({
               <h4 className="text-xs font-medium text-gray-400 inline-flex items-center gap-1">
                 Long Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>
-              {pathMode === "long" && (
+              {(pathMode === "long" || pathMode === "both") && (
                 <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
                   Active
                 </span>

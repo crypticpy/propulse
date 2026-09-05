@@ -19,4 +19,17 @@ describe("getSpotLayerPolicy", () => {
       expect(policy.selectedTargetVisible).toBe(true);
     },
   );
+
+  it("hides every other path overlay while the targeted path is isolated", () => {
+    const policy = getSpotLayerPolicy(
+      { spots: true, spotTraces: true, gridActivity: true },
+      { isolateTargetPath: true, hasTarget: true },
+    );
+
+    expect(policy.pathsVisible).toBe(false);
+    expect(policy.endpointsInteractive).toBe(false);
+    expect(policy.labelsInteractive).toBe(false);
+    expect(policy.gridCollectionsInteractive).toBe(false);
+    expect(policy.selectedTargetVisible).toBe(false);
+  });
 });

@@ -72,6 +72,8 @@ interface RayPathArcProps {
   endLon: number;
   /** Path mode — short (default) or long */
   pathMode?: "short" | "long";
+  /** Visual weight when both short and long path are shown */
+  emphasis?: "primary" | "secondary";
   /** When true, render ionosphere-layer-colored bounce highlights */
   showIonosphereHighlights?: boolean;
   /** Display time — needed to compute ionospheric layer heights for highlights */
@@ -267,11 +269,13 @@ function AnimatedHopLine({
   points,
   color,
   lineWidth,
+  opacity,
   shouldAnimate,
 }: {
   points: Array<[number, number, number]>;
   color: string;
   lineWidth: number;
+  opacity: number;
   shouldAnimate: boolean;
 }) {
   const lineRef = useRef<Line2 | LineSegments2 | null>(null);
@@ -295,7 +299,7 @@ function AnimatedHopLine({
       points={points}
       color={color}
       lineWidth={lineWidth}
-      opacity={0.85}
+      opacity={opacity}
       transparent
       dashed
       dashSize={0.02}
@@ -312,10 +316,12 @@ function StaticHopLine({
   points,
   color,
   lineWidth,
+  opacity,
 }: {
   points: Array<[number, number, number]>;
   color: string;
   lineWidth: number;
+  opacity: number;
 }) {
   if (points.length < 2) return null;
 
@@ -324,7 +330,7 @@ function StaticHopLine({
       points={points}
       color={color}
       lineWidth={lineWidth}
-      opacity={0.85}
+      opacity={opacity}
       transparent
       depthTest={true}
       depthWrite={false}
@@ -490,6 +496,7 @@ export function RayPathArc({
   endLat,
   endLon,
   pathMode = "short",
+  emphasis = "primary",
   showIonosphereHighlights = false,
   displayTime,
 }: RayPathArcProps) {
@@ -660,8 +667,11 @@ export function RayPathArc({
     return null;
   }
 
+  const lineWidth = emphasis === "secondary" ? 1.8 : 2.5;
+  const hopOpacity = emphasis === "secondary" ? 0.6 : 0.85;
+
   return (
-    <group name="ray-path-arc">
+    <group name={`ray-path-arc-${pathMode}`}>
       {/* Render each hop as an arc */}
       {hopSegments.map((seg, i) => (
         <group key={`hop-${i}`}>
@@ -679,14 +689,16 @@ export function RayPathArc({
             <AnimatedHopLine
               points={seg.points}
               color={seg.color}
-              lineWidth={2.5}
+              lineWidth={lineWidth}
+              opacity={hopOpacity}
               shouldAnimate={shouldAnimate}
             />
           ) : (
             <StaticHopLine
               points={seg.points}
               color={seg.color}
-              lineWidth={2.5}
+              lineWidth={lineWidth}
+              opacity={hopOpacity}
             />
           )}
         </group>

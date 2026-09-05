@@ -1,0 +1,109 @@
+☀️
+PROPULSE
+
+THE IONOSPHERE, VISUALIZED
+
+🏠
+Home
+☀️
+Solar Pulse
+🌍
+PropSphere
+🛠️
+Tools
+10:03:45 UTC
+DM79
+Degraded
+KB0EL
+NOVICE
+🌈 Bands
+💻 Digital
+⚡ Contest
+620
+QSOS
+38
+DXCC
+DM79
+GRID
+
+Clark B Ashworth
+
+Grid
+DM79
+Coordinates
+39.74, -104.99
+61%
+Good Progress
+Edit Profile
+Overview
+My Shack
+Stats & Records
+Awards
+Social
+
+ACTIVE PATH
+
+Home HF — demo · HF Workhorse · Hex Beam (20m-10m) · 100 W
+
+MY STATION
+View full station in Shack Builder →
+RADIOS(5)
+HF Workhorse
+RADIO
+100W
+All-Band Base
+RADIO
+100W
+Portable QRP
+RADIO
+15W
+Contest Backup
+RADIO
+100W
+DX Chaser
+RADIO
+100W
+ANTENNAS(5)
+Hex Beam (20m-10m)
+ANTENNA
+EFHW 80m-10m
+ANTENNA
+2m/70cm Dual-Band Vertical
+ANTENNA
+40m Dipole
+ANTENNA
+SteppIR 3-Element (20m-6m)
+ANTENNA
+FEEDLINES(5)
+LMR-400 50ft (Tower Run)
+FEEDLINE
+50ft
+RG-213 100ft (EFHW Run)
+FEEDLINE
+100ft
+LMR-600 75ft (SteppIR Run)
+FEEDLINE
+75ft
+RG-8X 25ft (Shack Patch)
+FEEDLINE
+25ft
+RG-58 15ft (VHF Jumper)
+FEEDLINE
+15ft
+ACCESSORIES(8)
+Ameritron AL-811H
+ACCESSORY
+Elecraft KPA1500
+ACCESSORY
+Palstar AT2K
+ACCESSORY
+DX Engineering BPF-1 (20m)
+ACCESSORY
+MFJ-1700C
+ACCESSORY
+Diamond SX-200 SWR/Power Meter
+ACCESSORY
+Astron RS-35M
+ACCESSORY
+Yaesu G-800DXA
+ACCESSORY

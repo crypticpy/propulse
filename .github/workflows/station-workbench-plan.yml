@@ -1,0 +1,24 @@
+name: Station workbench traceability
+
+on:
+  pull_request:
+    paths:
+      - "docs/designs/profile-shack-workbench/**"
+      - ".github/workflows/station-workbench-plan.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/designs/profile-shack-workbench/**"
+      - ".github/workflows/station-workbench-plan.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate requirement coverage and dependency gates
+        run: python3 docs/designs/profile-shack-workbench/verify-plan.py

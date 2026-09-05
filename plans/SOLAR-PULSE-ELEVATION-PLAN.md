@@ -1,7 +1,7 @@
 # Solar Pulse elevation plan
 
-Status: all three implementation passes delivered; see [verification evidence](../docs/solar/ELEVATION-COMPLETION-EVIDENCE.md).  
-Date: 2026-09-04.  
+Status: all three implementation passes delivered; see [verification evidence](../docs/solar/ELEVATION-COMPLETION-EVIDENCE.md).
+Date: 2026-09-04.
 Scope: `/solar`, its presentation and interpretation, and focused handoffs to existing operating tools.
 
 Solar Pulse should be the space-weather briefing an operator checks before a session and returns to when the bands change. In a few seconds, it should explain what is happening, what changed, which kinds of HF paths may be affected, and what to inspect next.

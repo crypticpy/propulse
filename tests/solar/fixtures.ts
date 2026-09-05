@@ -169,4 +169,3 @@ export async function installSolarFixtures(page: Page, options: { firstVisit?: b
     },
   };
 }
-

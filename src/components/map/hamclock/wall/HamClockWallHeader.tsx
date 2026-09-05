@@ -2,6 +2,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useUserStore } from "@/stores/userStore";
 import { HamClockWallControls } from "./HamClockWallControls";
+import { HamClockPinnedReportHost } from "./reports/WallReport";
 
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = [
@@ -99,6 +100,10 @@ export function HamClockWallHeader({
       </div>
       <WallClocks />
       <HamClockWallControls onOpenSettings={onOpenSettings} />
+      {/* Mounted once, outside the paged rails (HW-30): a pinned report keeps
+          rendering here while the tile that opened it unmounts on page or
+          scene changes. Renders nothing when no report is pinned. */}
+      <HamClockPinnedReportHost />
     </header>
   );
 }

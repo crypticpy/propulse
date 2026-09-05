@@ -14,8 +14,13 @@ import {
   WALL_FORECAST_BANDS,
   type WallReliabilityStatus,
 } from "../tiles/useWallReliability";
-import { reportTone } from "../tokens";
+import { reportTone, reportFooter } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
+import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import {
+  FUTURECAST_HORIZONS_HOURS,
+  propagationFutureCastHorizonIsActivated,
+} from "@/lib/propagation/runtimeActivation";
 
 /** Which tile opened the report; it only chooses the hero. */
 export type ForecastFocus = "forecast" | "reliability" | "muf";
@@ -89,6 +94,18 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
   // idle note, since that half of the report genuinely has nothing to draw.
   const mufReady = focus === "muf" && muf !== null;
 
+  // HW-17: FutureCast model horizons are activated per a signed runtime
+  // manifest (see runtimeActivation.ts); when none are active the matrix and
+  // facts render exactly as before — no new data feed, only an overlay on
+  // the existing physics hours that correspond to an activated offset.
+  const activatedHorizons = FUTURECAST_HORIZONS_HOURS.filter((horizon) =>
+    propagationFutureCastHorizonIsActivated(horizon),
+  );
+  const idleFooter = reportFooter(
+    "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
+    null,
+  );
+
   if (status !== "ready" && !mufReady) {
     return (
       <WallReport
@@ -98,7 +115,8 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
         hero="—"
         verdict="NO PATH"
         facts={facts}
-        footer="ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL"
+        footer={idleFooter.footer}
+        updated={idleFooter.updated}
       >
         <p className="hcr-note">{IDLE_COPY[status]}</p>
       </WallReport>
@@ -116,7 +134,31 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
       (best?.band.toUpperCase() ?? "—")
     );
   const verdict =
-    status === "ready" ? (best ? `${best.score}%` : "SHUT") : IDLE_VERDICT[status];
+    status === "ready"
+      ? best
+        ? `${best.score}%`
+        : "SHUT"
+      : IDLE_VERDICT[status];
+
+  const { footer, updated } = reportFooter(
+    "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
+    status === "ready" ? Date.now() : null,
+  );
+
+  // 24h MUF trend across the same hours the matrix already covers, at the
+  // report's own QTH/SFI — no new feed, just the existing physics call swept
+  // across the day instead of evaluated once for the hero.
+  const mufChart =
+    location && sfi != null
+      ? HOURS.map((column) => {
+          const at = new Date(displayTime);
+          at.setUTCHours(at.getUTCHours() - hour + column, 0, 0, 0);
+          return {
+            timestamp: at.toISOString(),
+            value: getMUFAtLocation(location.lat, location.lon, sfi, at),
+          };
+        })
+      : [];
 
   return (
     <WallReport
@@ -130,9 +172,21 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
       tone={reportTone(toneClass)}
       hero={hero}
       verdict={verdict}
-      facts={facts}
-      footer="ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL"
-      updated={status === "ready" ? `${String(hour).padStart(2, "0")}Z NOW` : undefined}
+      facts={
+        activatedHorizons.length
+          ? [
+              ...facts,
+              {
+                label: "MODEL",
+                value: `+${activatedHorizons.join("H, +")}H HORIZONS`,
+              },
+            ]
+          : facts
+      }
+      footer={footer}
+      updated={updated}
+      pinId={`forecast-${focus}`}
+      pinElement={<ForecastReport open onClose={onClose} focus={focus} />}
     >
       {status === "ready" ? (
         <div className="hcr-box">
@@ -143,16 +197,21 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
             aria-hidden="true"
           >
             <span />
-            {HOURS.map((column) => (
-              <span
-                key={column}
-                className={`hcr-matrix-head${
-                  column === hour ? " hcr-matrix-head--now" : ""
-                }`}
-              >
-                {column % 3 === 0 ? String(column).padStart(2, "0") : ""}
-              </span>
-            ))}
+            {HOURS.map((column) => {
+              const isModelHour = activatedHorizons.some(
+                (horizon) => (hour + horizon) % 24 === column,
+              );
+              return (
+                <span
+                  key={column}
+                  className={`hcr-matrix-head${
+                    column === hour ? " hcr-matrix-head--now" : ""
+                  }${isModelHour ? " hcr-matrix-head--model" : ""}`}
+                >
+                  {column % 3 === 0 ? String(column).padStart(2, "0") : ""}
+                </span>
+              );
+            })}
             {WALL_FORECAST_BANDS.map((band) => (
               <Fragment key={band}>
                 <span
@@ -188,11 +247,16 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
             <thead>
               <tr>
                 <th scope="col">Band</th>
-                {HOURS.map((column) => (
-                  <th key={column} scope="col">
-                    {`${String(column).padStart(2, "0")}Z`}
-                  </th>
-                ))}
+                {HOURS.map((column) => {
+                  const isModelHour = activatedHorizons.some(
+                    (horizon) => (hour + horizon) % 24 === column,
+                  );
+                  return (
+                    <th key={column} scope="col">
+                      {`${String(column).padStart(2, "0")}Z${isModelHour ? " (model)" : ""}`}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -218,6 +282,16 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
         </div>
       ) : (
         <p className="hcr-note">{IDLE_COPY[status]}</p>
+      )}
+      {mufChart.length > 0 && (
+        <div className="hcr-chart">
+          <SolarMiniChart
+            label="MUF — 24 H · ITU-R P.533"
+            points={mufChart}
+            unit="MHz"
+            maxGapMs={2 * 60 * 60 * 1000}
+          />
+        </div>
       )}
     </WallReport>
   );

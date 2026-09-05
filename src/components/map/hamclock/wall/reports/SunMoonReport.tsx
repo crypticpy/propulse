@@ -5,8 +5,9 @@ import { useUTCClock } from "@/hooks/useUTCClock";
 import { getGreylineStatus } from "@/lib/utils/greyline";
 import { getMoonConditions } from "@/lib/utils/moon";
 import { MoonGlyph } from "../tiles/MoonTile";
-import { formatClock, formatCountdown } from "../tokens";
+import { formatClock, formatCountdown, reportFooter } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
+import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 
 /** Which tile opened the report; it only chooses the hero. */
 export type SunMoonFocus = "sun" | "greyline" | "moon";
@@ -54,7 +55,8 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
   }, [location, now]);
 
   const greyline = useMemo(
-    () => (location ? getGreylineStatus(location.lat, location.lon, now) : null),
+    () =>
+      location ? getGreylineStatus(location.lat, location.lon, now) : null,
     [location, now],
   );
 
@@ -67,6 +69,7 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
   );
 
   if (!location || !sun || !greyline || !moon) {
+    const idle = reportFooter("SUNCALC · DE", null);
     return (
       <WallReport
         open={open}
@@ -74,7 +77,8 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
         title="Sun & moon report"
         hero="—"
         verdict="NO QTH"
-        footer="SUNCALC · DE"
+        footer={idle.footer}
+        updated={idle.updated}
       >
         <p className="hcr-note">
           Set your operating location to see sunrise, sunset, the grey-line
@@ -103,17 +107,23 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
     greyline.nextEventTime === null
       ? "—"
       : `${formatClock(
-          new Date(greyline.nextEventTime.getTime() - GREYLINE_WINDOW_MIN * 60_000),
+          new Date(
+            greyline.nextEventTime.getTime() - GREYLINE_WINDOW_MIN * 60_000,
+          ),
           location.timezone,
         )}–${formatClock(
-          new Date(greyline.nextEventTime.getTime() + GREYLINE_WINDOW_MIN * 60_000),
+          new Date(
+            greyline.nextEventTime.getTime() + GREYLINE_WINDOW_MIN * 60_000,
+          ),
           location.timezone,
         )}`;
 
   const moonUp = moon.altitude > 0;
-  const hero = focus === "moon" ? `${Math.round(moon.illumination * 100)}%` : countdown;
+  const hero =
+    focus === "moon" ? `${Math.round(moon.illumination * 100)}%` : countdown;
   const verdict = focus === "moon" ? moon.phaseName.toUpperCase() : state;
-  const tone = focus === "moon" ? (moonUp ? "hc-info-text" : "hc-dim-text") : stateTone;
+  const tone =
+    focus === "moon" ? (moonUp ? "hc-info-text" : "hc-dim-text") : stateTone;
 
   const facts: WallReportFact[] = [
     { label: "SUNRISE", value: formatClock(sun.rise, location.timezone) },
@@ -124,7 +134,33 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
     { label: "ILLUM", value: `${Math.round(moon.illumination * 100)}%` },
     { label: "MOONRISE", value: formatClock(moon.rise, location.timezone) },
     { label: "MOONSET", value: formatClock(moon.set, location.timezone) },
+    { label: "NEXT EVENT", value: `${nextWord} ${countdown}` },
   ];
+
+  // SunCalc is instantaneous, not a polled feed — "now" is always the
+  // freshest read, so the footer's age is honestly "just now" rather than
+  // undefined. Trend chart: real SunCalc output swept across a two-week
+  // window centred on today, not a sampled/faked series.
+  const { footer, updated } = reportFooter(
+    "SUNCALC AT THE ACTIVE QTH · LOCAL CLOCK",
+    now,
+  );
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const trendPoints = Array.from({ length: 15 }, (_, i) => {
+    const at = new Date(now.getTime() + (i - 7) * DAY_MS);
+    const value =
+      focus === "moon"
+        ? SunCalc.getMoonIllumination(at).fraction * 100
+        : (() => {
+            const times = SunCalc.getTimes(at, location.lat, location.lon);
+            const rise = valid(times.sunrise);
+            const set = valid(times.sunset);
+            return rise && set
+              ? (set.getTime() - rise.getTime()) / (60 * 60 * 1000)
+              : NaN;
+          })();
+    return { timestamp: at.toISOString(), value };
+  }).filter((point) => Number.isFinite(point.value));
 
   return (
     <WallReport
@@ -141,8 +177,10 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
       hero={hero}
       verdict={verdict}
       facts={facts}
-      footer="SUNCALC AT THE ACTIVE QTH · LOCAL CLOCK"
-      updated={`${nextWord} ${countdown}`}
+      footer={footer}
+      updated={updated}
+      pinId={`sunmoon-${focus}`}
+      pinElement={<SunMoonReport open onClose={onClose} focus={focus} />}
     >
       <div className="hcr-cols">
         <div className="hcr-box">
@@ -182,6 +220,18 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
             </dl>
           </div>
         </div>
+      </div>
+      <div className="hcr-chart">
+        <SolarMiniChart
+          label={
+            focus === "moon"
+              ? "MOON ILLUM — 15 D · SUNCALC"
+              : "DAY LENGTH — 15 D · SUNCALC"
+          }
+          points={trendPoints}
+          unit={focus === "moon" ? "%" : "h"}
+          maxGapMs={2 * DAY_MS}
+        />
       </div>
     </WallReport>
   );

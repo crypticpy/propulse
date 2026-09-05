@@ -1,4 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
+import {
+  cloneElement,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { create } from "zustand";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 
@@ -43,6 +49,79 @@ export interface WallReportProps {
   /** Right side of the foot: when they were read. */
   updated?: string;
   children?: ReactNode;
+  /**
+   * A stable id for this report instance (e.g. "solar-kp") plus the fully
+   * rendered element that opened it. Supplying both turns on the PIN
+   * control (HW-30); a report without an id/element keeps the old
+   * close-only chrome.
+   */
+  pinId?: string;
+  pinElement?: ReactElement;
+}
+
+/**
+ * Session-only pin state (HW-30): not persisted, one report pinned at a
+ * time. Pinning stores the *already-rendered* report element (with its
+ * onClose swapped for `unpin`) and hands it to `HamClockPinnedReportHost`,
+ * mounted once in `HamClockWallHeader` — a location that survives page
+ * steps and kiosk scene changes because the rails only mount the current
+ * page's tiles (`HamClockRail`unmounts a report's owning tile on
+ * navigation, which is exactly what pinning must survive).
+ */
+interface PinState {
+  id: string | null;
+  element: ReactElement | null;
+  pin: (id: string, element: ReactElement) => void;
+  unpin: () => void;
+}
+
+const usePinnedReportStore = create<PinState>((set) => ({
+  id: null,
+  element: null,
+  pin: (id, element) => set({ id, element }),
+  unpin: () => set({ id: null, element: null }),
+}));
+
+/** Mount once, outside the paged rails (e.g. `HamClockWallHeader`), so a
+ * pinned report keeps rendering while the tile that opened it unmounts. */
+export function HamClockPinnedReportHost() {
+  const element = usePinnedReportStore((s) => s.element);
+  return element ?? null;
+}
+
+function PinButton({
+  id,
+  element,
+  onClose,
+}: {
+  id: string;
+  element: ReactElement;
+  onClose: () => void;
+}) {
+  const pinnedId = usePinnedReportStore((s) => s.id);
+  const pin = usePinnedReportStore((s) => s.pin);
+  const unpin = usePinnedReportStore((s) => s.unpin);
+  const isPinned = pinnedId === id;
+
+  return (
+    <button
+      type="button"
+      className="hcr-pin"
+      aria-pressed={isPinned}
+      onClick={() => {
+        if (isPinned) {
+          unpin();
+        } else {
+          pin(id, cloneElement(element, { onClose: unpin }));
+        }
+        // Either action supersedes this instance: pinning hands off to the
+        // header host, unpinning should close the dialog outright.
+        onClose();
+      }}
+    >
+      {isPinned ? "UNPIN" : "PIN"}
+    </button>
+  );
 }
 
 /**
@@ -67,6 +146,8 @@ export function WallReport({
   footer,
   updated,
   children,
+  pinId,
+  pinElement,
 }: WallReportProps) {
   const theme = useHamClockDisplayStore((s) => s.theme);
   const toneClass = TONE_CLASS[tone];
@@ -92,6 +173,9 @@ export function WallReport({
         <p className="hcr-title" aria-hidden="true">
           {title}
         </p>
+        {pinId && pinElement && (
+          <PinButton id={pinId} element={pinElement} onClose={onClose} />
+        )}
         <button type="button" className="hcr-close" onClick={onClose}>
           ESC · CLOSE
         </button>

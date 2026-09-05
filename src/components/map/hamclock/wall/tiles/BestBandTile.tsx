@@ -1,10 +1,7 @@
-import { useMemo, useState } from "react";
-import { BandVerdictDetailsDialog } from "@/components/dx/BandVerdictDetailsDialog";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
-import { useBandActivity } from "@/hooks/useBandActivity";
-import { useBandLadder } from "@/hooks/useBandLadder";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
-import { canonicalForBand, selectBestBand } from "@/lib/verdict/bestBand";
+import { selectBestBand } from "@/lib/verdict/bestBand";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 import {
   LADDER_WALL_CLASS,
@@ -12,15 +9,21 @@ import {
   LADDER_WALL_STATE,
 } from "../tokens";
 
+// The report is only worth its bytes once an operator opens it.
+const BestBandReport = lazy(() =>
+  import("../reports/BestBandReport").then((m) => ({
+    default: m.BestBandReport,
+  })),
+);
+
 /**
- * Best band now, wall density. Same hooks, same selection and the same
- * evidence dialog as the desk hero — only the presentation changes.
+ * Best band now, wall density. Same hooks and selection as the desk hero;
+ * the drill-down is the ranked Best Band report (HW-31), not the desk's
+ * single-band evidence dialog.
  */
 export function BestBandTile() {
   const location = useActiveLocation();
-  const { bands, ready, scope, activityScope } = useBandVerdicts();
-  const { data: activityByBand } = useBandActivity(activityScope);
-  const { data: canonicalByKey } = useBandLadder();
+  const { bands, ready, scope } = useBandVerdicts();
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const { best, second } = useMemo(() => {
@@ -91,13 +94,9 @@ export function BestBandTile() {
       </HamClockTile>
 
       {detailsOpen && (
-        <BandVerdictDetailsDialog
-          entry={best}
-          activity={activityByBand?.get(best.band)}
-          canonical={canonicalForBand(canonicalByKey, scope, best.band)}
-          scopeLabel={scope.label}
-          onClose={() => setDetailsOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <BestBandReport open onClose={() => setDetailsOpen(false)} />
+        </Suspense>
       )}
     </>
   );

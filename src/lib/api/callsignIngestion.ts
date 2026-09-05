@@ -36,14 +36,19 @@ export interface IngestionResult {
 
 /**
  * Strip portable/modifier suffixes from a callsign.
- * Uses longest-part heuristic: W1ABC/P → W1ABC, VE3/W1ABC → W1ABC
+ * Prefer a callsign-shaped segment over suffixes and location prefixes.
  */
 export function stripCallsignModifiers(raw: string): string {
   const upper = raw.trim().toUpperCase();
   if (!upper.includes("/")) return upper;
 
-  const parts = upper.split("/");
-  // Return the longest part — that's the base callsign
+  const segments = upper.split("/").filter(Boolean);
+  // Base station calls end in letters after a numeral. This excludes QRP,
+  // P, MM, and location-only prefixes such as VP9 even for short K1A calls.
+  const candidates = segments.filter(part => /^[A-Z0-9]*[0-9][A-Z]+$/.test(part));
+  const parts = candidates.length ? candidates : segments;
+  if (parts.length === 0) return upper;
+  // Prefer the more specific station call if multiple segments qualify.
   let longest = parts[0];
   for (let i = 1; i < parts.length; i++) {
     if (parts[i].length > longest.length) {

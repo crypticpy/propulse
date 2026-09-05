@@ -160,6 +160,7 @@ export function useDxccStatus(
         let slots = getCachedSlots(resolvedEntity.id);
         if (!slots) {
           slots = await getWorkedDxccSlots(resolvedEntity.id);
+          if (requestId !== requestIdRef.current) return;
           setCachedSlots(resolvedEntity.id, slots);
         }
 

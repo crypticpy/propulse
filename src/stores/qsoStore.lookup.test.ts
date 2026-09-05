@@ -146,7 +146,7 @@ describe("qsoStore callsign lookup", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/callsign/lookup?callsign=G4ABC");
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/callsign/hamqth?callsign=G4ABC", { headers: { Authorization: "Bearer test-session" } });
     expect(useQSOStore.getState().form).toEqual(expect.objectContaining({ callsign: "G4ABC/P", name: "DX Operator", grid: "IO92aa" }));
-    expect(useQSOStore.getState().lookupResult).toEqual(expect.objectContaining({ source: "hamqth", cqZone: 14, ituZone: 27 }));
+    expect(useQSOStore.getState().lookupResult).toEqual(expect.objectContaining({ source: "hamqth", callsign: "G4ABC/P" }));
   });
 
   it.each([
@@ -176,6 +176,35 @@ describe("qsoStore callsign lookup", () => {
     await store.lookupCallsign("G4ABC");
     expect(useQSOStore.getState().form.grid).toBe("IO91wm");
     expect(useQSOStore.getState().lookupError).toBeNull();
+  });
+
+  it.each(["K1A/QRP", "VP9/K1A", "K1A/MM", "K1A/PORTABLE", "EA8/K1A"])("looks up the station call in %s", async callsign => {
+    const store = useQSOStore.getState();
+    store.setField("callsign", callsign);
+    await store.lookupCallsign(callsign);
+    expect(fetch).toHaveBeenCalledWith("/api/callsign/lookup?callsign=K1A");
+  });
+
+  it("distinguishes rejected provider credentials from user sign-in and network failures", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "Callsign not found" }), { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "HamQTH auth error: Wrong username or password" }), { status: 500 }));
+    const store = useQSOStore.getState();
+    store.setField("callsign", "G4ABC");
+    await store.lookupCallsign("G4ABC");
+    expect(useQSOStore.getState().lookupError).toContain("HamQTH server authentication failed");
+    expect(useQSOStore.getState().lookupError).not.toContain("Sign in");
+  });
+
+  it("withholds a portable operator's directory location outside an activation flow", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "Callsign not found" }), { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ callsign: "G4ABC", name: "Portable Operator", grid: "IO91wm", qth: "Home town", country: "England", lat: 51.5, lon: -0.1, cqzone: 14, source: "hamqth" })));
+    const store = useQSOStore.getState();
+    store.setField("callsign", "G4ABC/P");
+    await store.lookupCallsign("G4ABC/P");
+    expect(useQSOStore.getState().form).toEqual(expect.objectContaining({ name: "Portable Operator", grid: "", qth: "" }));
+    expect(useQSOStore.getState().lookupResult).toEqual({ callsign: "G4ABC/P", name: "Portable Operator", imageUrl: undefined, source: "hamqth" });
   });
 
 });

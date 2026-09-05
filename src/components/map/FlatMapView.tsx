@@ -5252,8 +5252,10 @@ export function FlatMapView({
       zoomAnimationRef.current = null;
       setAnimationNavigationActive(false);
       setGestureNavigationActive(active);
-      if (!active && navigationZoomRef.current)
-        setZoom({ ...navigationZoomRef.current });
+      // Even a threshold-only drag (or a motionless pinch) must run the
+      // post-paint cleanup. Keep click suppression through this pointerup.
+      if (!active)
+        setZoom({ ...(navigationZoomRef.current ?? zoomRef.current) });
     },
     enabled: true,
   });

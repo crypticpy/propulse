@@ -400,14 +400,15 @@ export function useFlatMapClickHandler(
       }
 
       hoverTimer = setTimeout(() => {
+        hoverTimer = null;
         const coords = eventToLatLon(event);
         if (!coords) {
+          onHoverEndRef.current?.();
           return;
         }
 
         const screenPos = { x: event.clientX, y: event.clientY };
         onLocationHoverRef.current?.(coords.lat, coords.lon, screenPos);
-        hoverTimer = null;
       }, HOVER_DEBOUNCE_MS);
     }
 

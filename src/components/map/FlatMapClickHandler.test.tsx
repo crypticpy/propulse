@@ -45,6 +45,32 @@ afterEach(() => {
 });
 
 describe("useFlatMapClickHandler overlay click ownership", () => {
+  it("clears an existing geographic hover when entering a letterbox margin", () => {
+    vi.useFakeTimers();
+    const onLocationHover = vi.fn();
+    const onHoverEnd = vi.fn();
+    function LetterboxHover() {
+      const canvasRef = useRef<HTMLCanvasElement>(null);
+      useFlatMapClickHandler({
+        canvasRef,
+        zoom: { scale: 0.5, offsetX: 50, offsetY: 25 },
+        displaySize: { width: 200, height: 100 },
+        onLocationHover,
+        onHoverEnd,
+      });
+      return <canvas ref={canvasRef} data-testid="hover-map" />;
+    }
+    const { getByTestId } = render(<LetterboxHover />);
+    const canvas = getByTestId("hover-map") as HTMLCanvasElement;
+    mockBounds(canvas);
+    fireEvent.pointerMove(canvas, { clientX: 100, clientY: 50 });
+    vi.advanceTimersByTime(1000);
+    expect(onLocationHover).toHaveBeenCalledTimes(1);
+    fireEvent.pointerMove(canvas, { clientX: 10, clientY: 10 });
+    vi.advanceTimersByTime(1000);
+    expect(onLocationHover).toHaveBeenCalledTimes(1);
+    expect(onHoverEnd).toHaveBeenCalledTimes(1);
+  });
   it("ignores letterbox margins and suppresses selection during a visual camera gesture", () => {
     const onQuickClick = vi.fn(() => true);
     const navigating = { current: false };

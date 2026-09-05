@@ -496,6 +496,28 @@ try {
     "World zoom-out includes Japan and Australia; gestures reuse retained imagery",
   );
   await page.screenshot({ path: "tmp/hamclock-check/world-context-4k.png" });
+  // Cross the pan threshold with exactly one move, then release before a
+  // preview camera exists. This used to leave all clicks suppressed.
+  const emptyOcean = {
+    x:
+      bounds.x +
+      worldCamera.offsetX +
+      (150 / 360) * worldCamera.mapWidth * worldCamera.scale,
+    y:
+      bounds.y +
+      worldCamera.offsetY +
+      (90 / 180) * worldCamera.mapHeight * worldCamera.scale,
+  };
+  await page.mouse.move(emptyOcean.x, emptyOcean.y);
+  await page.mouse.down();
+  await page.mouse.move(emptyOcean.x + 5, emptyOcean.y);
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await page.mouse.dblclick(emptyOcean.x, emptyOcean.y, { delay: 60 });
+  await expect
+    .poll(async () => (await camera()).scale, { timeout: 5000 })
+    .toBeGreaterThan(worldCamera.scale + 0.01);
+  check("Map double-click remains usable after a threshold-only drag");
   await page.getByRole("button", { name: "Home region", exact: true }).click();
   await page.waitForTimeout(700);
   await page.getByRole("button", { name: "3D globe", exact: true }).click();

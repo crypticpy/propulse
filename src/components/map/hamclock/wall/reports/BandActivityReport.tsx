@@ -38,6 +38,7 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
   const trend = useHamClockSessionTrend(
     `band-activity-${activityScopeKey}`,
     bars.length > 0 ? total : null,
+    fetchedAt ?? undefined,
   );
 
   const facts: WallReportFact[] = [

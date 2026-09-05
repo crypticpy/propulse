@@ -53,10 +53,22 @@ function deltaMufMHz(band: string, mufMHz: number | null): number | null {
   return mufMHz - range.endKHz / 1000;
 }
 
-function BandSparkline({ band, score }: { band: string; score: number }) {
-  const trend = useHamClockSessionTrend(`best-band-score-${band}`, score);
+function BandSparkline({
+  band,
+  score,
+  stamp,
+}: {
+  band: string;
+  score: number;
+  stamp: number | undefined;
+}) {
+  const trend = useHamClockSessionTrend(
+    `best-band-score-${band}`,
+    score,
+    stamp,
+  );
   return (
-    <div className="hcr-table-spark">
+    <div className="hcr-bandtable-spark">
       <SolarMiniChart
         label={`${band} score trend`}
         points={trend}
@@ -73,13 +85,17 @@ function BandSparkline({ band, score }: { band: string; score: number }) {
  * carries the ≥44px hit target and sets band focus on the map. */
 function BandRow({
   entry,
+  rank,
   leader,
   mufMHz,
+  activityFetchedAt,
   onFocus,
 }: {
   entry: BandLadderEntry;
+  rank: number;
   leader: boolean;
   mufMHz: number | null;
+  activityFetchedAt: number | null;
   onFocus: (band: string) => void;
 }) {
   const { band, stable, result } = entry;
@@ -90,7 +106,7 @@ function BandRow({
 
   return (
     <button type="button" className="hcr-bandrow" onClick={() => onFocus(band)}>
-      <span>{leader ? "1" : "—"}</span>
+      <span>{rank}</span>
       <span className="hcr-bandrow-band" style={{ color: getBandColor(band) }}>
         {band.toUpperCase()}
       </span>
@@ -119,7 +135,11 @@ function BandRow({
       <span className={`hcr-bandrow-score ${LADDER_WALL_CLASS[stable]}`}>
         {scoreValue}
       </span>
-      <BandSparkline band={band} score={scoreValue} />
+      <BandSparkline
+        band={band}
+        score={scoreValue}
+        stamp={activityFetchedAt ?? undefined}
+      />
     </button>
   );
 }
@@ -232,8 +252,10 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
             <BandRow
               key={entry.band}
               entry={entry}
+              rank={index + 1}
               leader={index === 0}
               mufMHz={muf}
+              activityFetchedAt={activityFetchedAt}
               onFocus={handleFocus}
             />
           ))}
@@ -295,8 +317,10 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
               <BandRow
                 key={entry.band}
                 entry={entry}
+                rank={ranked.indexOf(entry) + 1}
                 leader={false}
                 mufMHz={muf}
+                activityFetchedAt={activityFetchedAt}
                 onFocus={handleFocus}
               />
             ))}

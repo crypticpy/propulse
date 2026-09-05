@@ -134,6 +134,7 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
   const trend = useHamClockSessionTrend(
     trendKey,
     weather ? weather.temperature : null,
+    weather?.observedAt?.getTime(),
   );
 
   const { footer, updated } = reportFooter(

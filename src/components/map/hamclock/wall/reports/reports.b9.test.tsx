@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, renderHook, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
@@ -7,6 +7,7 @@ import { HamClockPinnedReportHost } from "./WallReport";
 import { WeatherReport } from "./WeatherReport";
 import { BestBandReport } from "./BestBandReport";
 import { ForecastReport } from "./ForecastReport";
+import { useHamClockSessionTrend } from "./sessionTrend";
 
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
@@ -330,6 +331,16 @@ describe("BestBandReport (HW-31)", () => {
     expect(captions.some((c) => c?.includes("Surprise activity"))).toBe(true);
   });
 
+  it("prints the numeric rank for every row, not just an em dash below the leader", () => {
+    render(<BestBandReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    const rows = dialog.querySelectorAll(".hcr-bandtable button.hcr-bandrow");
+    // The `#` column is each row's first child span.
+    expect(rows[0].querySelector("span")?.textContent).toBe("1");
+    expect(rows[1].querySelector("span")?.textContent).toBe("2");
+    expect(rows[2].querySelector("span")?.textContent).toBe("3");
+  });
+
   it("omits the surprise section when nothing in the ladder is surprising", () => {
     mocks.verdicts.mockReturnValue({
       bands: [
@@ -392,6 +403,51 @@ describe("ForecastReport model horizons (HW-17)", () => {
     );
     expect(facts.some((row) => row?.includes("+3H"))).toBe(true);
   });
+
+  it("marks the exact absolute hour column, not one wrapped modulo 24", () => {
+    // hour=13, horizon=3 -> column 16. A `% 24` implementation would also
+    // land on 16 here (no wrap), so this pins the in-range case precisely.
+    mocks.horizonActivated.mockImplementation((h: number) => h === 3);
+    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
+
+    const dialog = screen.getByRole("dialog");
+    const heads = dialog.querySelectorAll(".hcr-matrix-head");
+    expect(heads).toHaveLength(24);
+    heads.forEach((head, column) => {
+      expect(head.classList.contains("hcr-matrix-head--model")).toBe(
+        column === 16,
+      );
+    });
+  });
+
+  it("marks no column for a horizon that crosses midnight, and never marks +24H on the current-hour cell", () => {
+    // hour=22: +6H is 04Z tomorrow (22+6=28, outside the displayed 0-23
+    // range). A `(hour + horizon) % 24` implementation would wrongly mark
+    // column 4 of *today*. +24H (22+24=46) is also always out of range, so
+    // it must never land back on the current-hour column (22).
+    mocks.reliability.mockReturnValue({
+      status: "ready",
+      cells: new Map(),
+      hour: 22,
+      hourIndex: 500_000,
+      targetLabel: "Tokyo",
+      mode: "SSB",
+    });
+    mocks.horizonActivated.mockImplementation(
+      (h: number) => h === 6 || h === 24,
+    );
+    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-matrix-head--model")).toBeNull();
+    expect(
+      dialog.querySelector(".hcr-matrix-head--now.hcr-matrix-head--model"),
+    ).toBeNull();
+    const srHeaders = Array.from(
+      dialog.querySelectorAll("table.sr-only thead th"),
+    ).map((th) => th.textContent);
+    expect(srHeaders.some((text) => text?.includes("(model)"))).toBe(false);
+  });
 });
 
 describe("WeatherReport footer contract (HW-11)", () => {
@@ -438,5 +494,47 @@ describe("WeatherReport footer contract (HW-11)", () => {
     const dialog = screen.getByRole("dialog");
     const footSpans = dialog.querySelectorAll(".hcr-foot span");
     expect(footSpans[1].textContent).toBe("WAITING");
+  });
+});
+
+describe("useHamClockSessionTrend stamp-only refresh", () => {
+  it("appends a new sample when the stamp advances even though the value is unchanged", () => {
+    const key = "test-stamp-only-refresh";
+    const { result, rerender } = renderHook(
+      (props: { value: number; stamp: number }) =>
+        useHamClockSessionTrend(key, props.value, props.stamp),
+      {
+        initialProps: {
+          value: 42,
+          stamp: Date.parse("2026-09-05T12:50:00Z"),
+        },
+      },
+    );
+    expect(result.current).toHaveLength(1);
+
+    // Same value, later stamp — a stable feed's refresh, not a genuine
+    // change. Without threading the stamp into the effect's dependencies,
+    // this would be a no-op and the series would plateau at one point.
+    rerender({ value: 42, stamp: Date.parse("2026-09-05T12:55:00Z") });
+
+    expect(result.current).toHaveLength(2);
+    expect(result.current.map((p) => p.value)).toEqual([42, 42]);
+    expect(result.current[1].timestamp).toBe(
+      new Date("2026-09-05T12:55:00Z").toISOString(),
+    );
+  });
+
+  it("keeps the existing dedupe-by-value behaviour when no stamp is given", () => {
+    const key = "test-no-stamp-dedupe";
+    const { result, rerender } = renderHook(
+      (props: { value: number }) => useHamClockSessionTrend(key, props.value),
+      { initialProps: { value: 7 } },
+    );
+    expect(result.current).toHaveLength(1);
+
+    // Re-render with the identical value and no stamp: same as before this
+    // fix, a rerender alone (no dependency change) samples nothing new.
+    rerender({ value: 7 });
+    expect(result.current).toHaveLength(1);
   });
 });

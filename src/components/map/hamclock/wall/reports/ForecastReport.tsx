@@ -101,6 +101,14 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
   const activatedHorizons = FUTURECAST_HORIZONS_HOURS.filter((horizon) =>
     propagationFutureCastHorizonIsActivated(horizon),
   );
+  // The matrix only ever displays today's 24 columns (`column` is 0–23), so
+  // marking a horizon here means the absolute hour `hour + horizon` — not
+  // that value wrapped modulo 24 — falls on one of those columns. A horizon
+  // that crosses midnight (e.g. +6H at 20Z → 02Z tomorrow) simply matches no
+  // column, rather than mislabeling today's cell at that wrapped hour; +24H
+  // can therefore never land on the current-hour cell.
+  const isFutureCastColumn = (column: number): boolean =>
+    activatedHorizons.some((horizon) => hour + horizon === column);
   const idleFooter = reportFooter(
     "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
     null,
@@ -140,9 +148,15 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
         : "SHUT"
       : IDLE_VERDICT[status];
 
+  // The matrix is built from Kp/SFI, so its freshness is the Kp reading's
+  // own observation time — never "now", which would hide a stale or failed
+  // refetch behind a false "just now". react-query defaults `dataUpdatedAt`
+  // to 0 before the first fetch, so treat that as unknown, not epoch.
+  const kpUpdatedAt =
+    kIndexQuery.dataUpdatedAt > 0 ? kIndexQuery.dataUpdatedAt : null;
   const { footer, updated } = reportFooter(
     "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
-    status === "ready" ? Date.now() : null,
+    status === "ready" ? kpUpdatedAt : null,
   );
 
   // 24h MUF trend across the same hours the matrix already covers, at the
@@ -198,9 +212,7 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
           >
             <span />
             {HOURS.map((column) => {
-              const isModelHour = activatedHorizons.some(
-                (horizon) => (hour + horizon) % 24 === column,
-              );
+              const isModelHour = isFutureCastColumn(column);
               return (
                 <span
                   key={column}
@@ -248,9 +260,7 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
               <tr>
                 <th scope="col">Band</th>
                 {HOURS.map((column) => {
-                  const isModelHour = activatedHorizons.some(
-                    (horizon) => (hour + horizon) % 24 === column,
-                  );
+                  const isModelHour = isFutureCastColumn(column);
                   return (
                     <th key={column} scope="col">
                       {`${String(column).padStart(2, "0")}Z${isModelHour ? " (model)" : ""}`}

@@ -66,6 +66,7 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
   const trend = useHamClockSessionTrend(
     "emcomm-composite",
     rimResult?.emcommReadiness.dataAvailable ? rimResult.composite : null,
+    rimResult?.emcommReadiness.dataAvailable ? rimResult.updatedAt : undefined,
   );
 
   if (!rimResult || !rimResult.emcommReadiness.dataAvailable) {

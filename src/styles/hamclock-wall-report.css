@@ -501,4 +501,18 @@
   display: block;
   width: 100%;
   height: 3.6vh;
+  overflow: hidden;
+}
+.hcr-bandtable-spark figure {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.hcr-bandtable-spark figcaption {
+  display: none;
+}
+.hcr-bandtable-spark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }

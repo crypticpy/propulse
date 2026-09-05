@@ -112,6 +112,25 @@ function xrayStrip(
   return cells;
 }
 
+/** Severity rank so the worse of two tones can be picked deterministically. */
+const TONE_RANK: Record<string, number> = {
+  "hc-good": 0,
+  "hc-warn": 1,
+  "hc-bad": 2,
+};
+
+/**
+ * The worse of two tone classes. Bz and wind speed are independent readings
+ * of the same wind hero, so whichever one is angrier should win rather than
+ * always deferring to Bz — a northward Bz reads good even at a 700 km/s
+ * stream, which would otherwise hide the high-speed tone the tile shows.
+ */
+function worseTone(a: string | null, b: string | null): string | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return TONE_RANK[a] >= TONE_RANK[b] ? a : b;
+}
+
 const SCALE_LABEL = {
   G: "GEOMAGNETIC STORM",
   S: "SOLAR RADIATION",
@@ -188,11 +207,10 @@ export function SolarReport({ open, onClose, focus }: SolarReportProps) {
         ? xrayTone(xrayLabel.charAt(0)).tone
         : "hc-dim-text"
       : focus === "wind"
-        ? bz !== null
-          ? bzTone(bz)
-          : speed !== null
-            ? windSpeedTone(speed)
-            : "hc-dim-text"
+        ? (worseTone(
+            bz !== null ? bzTone(bz) : null,
+            speed !== null ? windSpeedTone(speed) : null,
+          ) ?? "hc-dim-text")
         : kp !== null
           ? kpTone(kp).tone
           : "hc-dim-text";

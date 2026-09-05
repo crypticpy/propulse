@@ -59,7 +59,10 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
   );
 
   const moon = useMemo(
-    () => (location ? getMoonConditions(now, location.lat, location.lon) : null),
+    () =>
+      location
+        ? getMoonConditions(now, location.lat, location.lon, location.timezone)
+        : null,
     [location, now],
   );
 
@@ -101,8 +104,10 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
       ? "—"
       : `${formatClock(
           new Date(greyline.nextEventTime.getTime() - GREYLINE_WINDOW_MIN * 60_000),
+          location.timezone,
         )}–${formatClock(
           new Date(greyline.nextEventTime.getTime() + GREYLINE_WINDOW_MIN * 60_000),
+          location.timezone,
         )}`;
 
   const moonUp = moon.altitude > 0;
@@ -111,14 +116,14 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
   const tone = focus === "moon" ? (moonUp ? "hc-info-text" : "hc-dim-text") : stateTone;
 
   const facts: WallReportFact[] = [
-    { label: "SUNRISE", value: formatClock(sun.rise) },
-    { label: "SUNSET", value: formatClock(sun.set) },
+    { label: "SUNRISE", value: formatClock(sun.rise, location.timezone) },
+    { label: "SUNSET", value: formatClock(sun.set, location.timezone) },
     { label: "DAY LENGTH", value: spanLabel(sun.rise, sun.set) },
     { label: "GREY LINE", value: greyWindow },
     { label: "MOON", value: moon.phaseName.toUpperCase() },
     { label: "ILLUM", value: `${Math.round(moon.illumination * 100)}%` },
-    { label: "MOONRISE", value: formatClock(moon.rise) },
-    { label: "MOONSET", value: formatClock(moon.set) },
+    { label: "MOONRISE", value: formatClock(moon.rise, location.timezone) },
+    { label: "MOONSET", value: formatClock(moon.set, location.timezone) },
   ];
 
   return (
@@ -144,11 +149,11 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
           <h4>Sun · {state}</h4>
           <dl className="hcr-kv">
             <dt>SUNRISE</dt>
-            <dd>{formatClock(sun.rise)}</dd>
+            <dd>{formatClock(sun.rise, location.timezone)}</dd>
             <dt>SOLAR NOON</dt>
-            <dd>{formatClock(sun.noon)}</dd>
+            <dd>{formatClock(sun.noon, location.timezone)}</dd>
             <dt>SUNSET</dt>
-            <dd>{formatClock(sun.set)}</dd>
+            <dd>{formatClock(sun.set, location.timezone)}</dd>
             <dt>DAY LENGTH</dt>
             <dd>{spanLabel(sun.rise, sun.set)}</dd>
           </dl>
@@ -171,7 +176,8 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
               <dd>{Math.round(moon.azimuth)}°</dd>
               <dt>RISE / SET</dt>
               <dd>
-                {formatClock(moon.rise)} / {formatClock(moon.set)}
+                {formatClock(moon.rise, location.timezone)} /{" "}
+                {formatClock(moon.set, location.timezone)}
               </dd>
             </dl>
           </div>

@@ -114,10 +114,14 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
     : focus === "alerts"
       ? "ALL CLEAR"
       : condition;
-  const tone = worst
-    ? SEVERITY_TONE[worst.severity]
-    : focus === "alerts"
-      ? "hc-good"
+  // The NWS alert set is nationwide, so its severity should only colour the
+  // hero when that alert set is the thing being shown — a local Open-Meteo
+  // reading has nothing to do with an alert active somewhere else in the US.
+  const tone =
+    focus === "alerts"
+      ? worst
+        ? SEVERITY_TONE[worst.severity]
+        : "hc-good"
       : "hc-info-text";
 
   const facts: WallReportFact[] = [

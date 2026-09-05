@@ -29,6 +29,14 @@ const IDLE_COPY: Record<Exclude<WallReliabilityStatus, "ready">, string> = {
   failed: "Space weather unavailable — no forecast to draw.",
 };
 
+/** Short verdict word for the idle statuses, in place of a reliability score. */
+const IDLE_VERDICT: Record<Exclude<WallReliabilityStatus, "ready">, string> = {
+  "no-station": "NO QTH",
+  "no-target": "NO TARGET",
+  loading: "LOADING",
+  failed: "NO DATA",
+};
+
 export interface ForecastReportProps {
   open: boolean;
   onClose: () => void;
@@ -69,7 +77,13 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
     { label: "HOUR", value: `${String(hour).padStart(2, "0")}Z` },
   ];
 
-  if (status !== "ready") {
+  // The MUF only needs a QTH and SFI, not a DX target, so a `muf`-focused open
+  // can render its hero and facts even while the reliability matrix (which
+  // does need a target) is idle. The matrix body still falls back to the
+  // idle note, since that half of the report genuinely has nothing to draw.
+  const mufReady = focus === "muf" && muf !== null;
+
+  if (status !== "ready" && !mufReady) {
     return (
       <WallReport
         open={open}
@@ -95,68 +109,77 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
     ) : (
       (best?.band.toUpperCase() ?? "—")
     );
-  const verdict = best ? `${best.score}%` : "SHUT";
+  const verdict =
+    status === "ready" ? (best ? `${best.score}%` : "SHUT") : IDLE_VERDICT[status];
 
   return (
     <WallReport
       open={open}
       onClose={onClose}
-      title={`Propagation report · ${targetLabel} · ${mode}`}
+      title={
+        status === "ready"
+          ? `Propagation report · ${targetLabel} · ${mode}`
+          : "Propagation report · 24h path forecast"
+      }
       tone={reportTone(toneClass)}
       hero={hero}
       verdict={verdict}
       facts={facts}
       footer="ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL"
-      updated={`${String(hour).padStart(2, "0")}Z NOW`}
+      updated={status === "ready" ? `${String(hour).padStart(2, "0")}Z NOW` : undefined}
     >
-      <div className="hcr-box">
-        <h4>24h reliability · band × UTC hour</h4>
-        <div
-          className="hcr-matrix"
-          style={{ gridTemplateColumns: "4vw repeat(24, 1fr)" }}
-          aria-hidden="true"
-        >
-          <span />
-          {HOURS.map((column) => (
-            <span
-              key={column}
-              className={`hcr-matrix-head${
-                column === hour ? " hcr-matrix-head--now" : ""
-              }`}
-            >
-              {column % 3 === 0 ? String(column).padStart(2, "0") : ""}
-            </span>
-          ))}
-          {WALL_FORECAST_BANDS.map((band) => (
-            <Fragment key={band}>
+      {status === "ready" ? (
+        <div className="hcr-box">
+          <h4>24h reliability · band × UTC hour</h4>
+          <div
+            className="hcr-matrix"
+            style={{ gridTemplateColumns: "4vw repeat(24, 1fr)" }}
+            aria-hidden="true"
+          >
+            <span />
+            {HOURS.map((column) => (
               <span
-                className="hcr-matrix-band"
-                style={{ color: getBandColor(band) }}
+                key={column}
+                className={`hcr-matrix-head${
+                  column === hour ? " hcr-matrix-head--now" : ""
+                }`}
               >
-                {band}
+                {column % 3 === 0 ? String(column).padStart(2, "0") : ""}
               </span>
-              {HOURS.map((column) => {
-                const score = wallReliabilityScore(cells, band, column);
-                const dead = score == null || score <= 0;
-                return (
-                  <span
-                    key={column}
-                    className={`hcf-dot ${wallScoreTone(score)}${
-                      dead ? " hcf-dot--off" : ""
-                    }`}
-                  />
-                );
-              })}
-            </Fragment>
-          ))}
+            ))}
+            {WALL_FORECAST_BANDS.map((band) => (
+              <Fragment key={band}>
+                <span
+                  className="hcr-matrix-band"
+                  style={{ color: getBandColor(band) }}
+                >
+                  {band}
+                </span>
+                {HOURS.map((column) => {
+                  const score = wallReliabilityScore(cells, band, column);
+                  const dead = score == null || score <= 0;
+                  return (
+                    <span
+                      key={column}
+                      className={`hcf-dot ${wallScoreTone(score)}${
+                        dead ? " hcf-dot--off" : ""
+                      }`}
+                    />
+                  );
+                })}
+              </Fragment>
+            ))}
+          </div>
+          <p className="sr-only">
+            {WALL_FORECAST_BANDS.map((band) => {
+              const score = wallReliabilityScore(cells, band, hour);
+              return `${band} now ${score == null ? "no data" : `${score} percent`}`;
+            }).join(". ")}
+          </p>
         </div>
-        <p className="sr-only">
-          {WALL_FORECAST_BANDS.map((band) => {
-            const score = wallReliabilityScore(cells, band, hour);
-            return `${band} now ${score == null ? "no data" : `${score} percent`}`;
-          }).join(". ")}
-        </p>
-      </div>
+      ) : (
+        <p className="hcr-note">{IDLE_COPY[status]}</p>
+      )}
     </WallReport>
   );
 }

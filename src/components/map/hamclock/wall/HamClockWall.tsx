@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { DXNewsTicker } from "@/components/map/DXNewsTicker";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { useWallAutoPage } from "@/hooks/useWallAutoPage";
 import { ensureHamClockThemeFont } from "@/lib/hamclock/themeFonts";
 import { useDXStore } from "@/stores/dxStore";
 import { useHamClockDisplayStore, wallPages } from "@/stores/hamclockDisplayStore";
@@ -58,6 +59,12 @@ interface HamClockWallProps {
  * uses — B1/HW-22), not the footer, so there is exactly one control for it.
  */
 export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
+  // Runs the auto-page dwell timer (wall spec §5, HW-20). Mounted here,
+  // rather than in `HamClockView`, because this component only renders at
+  // wall density — desk never runs the timer regardless of the stored
+  // `autoPage.enabled` value.
+  useWallAutoPage();
+
   // Both rails follow one page (wall spec §4/§5): `left` is the canonical
   // index the store keeps `right` mirrored to, so the wall only ever reads
   // one number.

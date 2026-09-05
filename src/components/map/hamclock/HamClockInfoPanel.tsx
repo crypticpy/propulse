@@ -7,6 +7,7 @@
  * using the CSS grid-template-rows 0fr/1fr technique for smooth height transitions.
  */
 
+import { useHamClockDisplayStore, type HamClockPanelId } from "@/stores/hamclockDisplayStore";
 import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,8 @@ export function HamClockInfoPanel({
   onToggle,
   children,
 }: HamClockInfoPanelProps) {
+  const hidden = useHamClockDisplayStore((s) => s.hiddenPanels.includes(id as HamClockPanelId));
+  if (hidden) return null;
   return (
     <div className="border-b border-white/10" data-panel-id={id}>
       {/* Header row */}

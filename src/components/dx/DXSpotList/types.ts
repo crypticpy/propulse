@@ -28,6 +28,7 @@ export interface WorkedStatus {
  * Props for the SpotRow component
  */
 export interface SpotRowProps {
+  compact?: boolean;
   spot: DXSpot;
   index: number;
   isSelected: boolean;
@@ -97,6 +98,7 @@ export interface FilterControlsProps {
  * Props for the main DXSpotList component
  */
 export interface DXSpotListProps {
+  compact?: boolean;
   /** Maximum height of the list container */
   maxHeight?: string;
   /** Show filter controls */

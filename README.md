@@ -373,3 +373,7 @@ This project is not yet licensed. All rights reserved.
 <p align="center">
   Built for the amateur radio community. 73 de Propulse.
 </p>
+
+### Local testing with multiple agents
+
+See [Local agent testing](docs/guides/LOCAL-AGENT-TESTING.md) for owned dev servers, isolated browser profiles, login/first-visit setup, and the HamClock regression check.

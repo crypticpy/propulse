@@ -1469,10 +1469,10 @@ export const useMapStore = create<MapState>((set, get) => ({
           viewMode: state.viewMode,
         },
         observatoryMode: true,
-        layoutMode: "pro" as LayoutMode,
-        isFullscreen: true,
+        layoutMode: state.layoutMode === "hamclock" ? "hamclock" : "pro",
+        isFullscreen: state.layoutMode !== "hamclock",
         autoRotate: true,
-        viewMode: "globe" as ViewMode,
+        viewMode: state.layoutMode === "hamclock" ? state.viewMode : "globe",
       };
     }),
 
@@ -1742,7 +1742,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         mapStyle: HAMCLOCK_BEAUTY_DEFAULTS.mapStyle,
         nightDarkness: HAMCLOCK_BEAUTY_DEFAULTS.nightDarkness,
         layers: nextLayers,
-        ...(mode === "bands"
+        ...(mode === "bands" || mode === "traffic"
           ? {
               spotFilters: {
                 ...state.spotFilters,
@@ -1768,6 +1768,9 @@ export const useMapStore = create<MapState>((set, get) => ({
         quality.setDisplayQuality(snapshot.displayQuality);
         saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
         set({
+          observatoryMode: false,
+          observatoryPreviousState: null,
+          autoRotate: state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
           layoutMode: restoreLayout,
           isFullscreen: restoreLayout === "pro",
           isLiteMode: restoreLayout === "lite",

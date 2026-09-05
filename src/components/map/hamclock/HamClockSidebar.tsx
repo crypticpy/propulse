@@ -2,9 +2,8 @@
  * HamClockSidebar -- Collapsible sidebar wrapper for HamClock view
  *
  * Renders a fixed-width sidebar column on either edge of the HamClock layout.
- * When collapsed, shows a slim 24px tab with a chevron pointing inward.
+ * When collapsed, keeps an overlaid tab with a chevron pointing inward.
  * When expanded, shows full-width content with a collapse tab on the inner edge.
- * Width animates with a 200ms ease-out CSS transition.
  */
 
 import type { ReactNode } from "react";
@@ -73,7 +72,7 @@ export function HamClockSidebar({
   className = "",
 }: HamClockSidebarProps) {
   const isLeft = side === "left";
-  const currentWidth = collapsed ? 24 : width;
+  const currentWidth = collapsed ? 0 : width;
 
   // Determine which chevron to show:
   // Left sidebar expanded -> collapse = point left; collapsed -> expand = point right
@@ -95,16 +94,18 @@ export function HamClockSidebar({
 
   return (
     <div
-      className={`relative h-full flex-shrink-0 ${borderClass} ${className}`}
+      className={`relative h-full min-h-0 min-w-0 flex-shrink-0 ${borderClass} ${className}`}
       style={{
         width: currentWidth,
         minWidth: currentWidth,
-        transition: "width 200ms ease-out, min-width 200ms ease-out",
       }}
     >
       {/* Sidebar content (hidden when collapsed) */}
       {!collapsed && (
-        <div className="h-full overflow-y-auto overflow-x-hidden bg-void-black/95">
+        <div
+          data-hamclock-scroll
+          className="h-full min-h-0 overflow-y-auto overflow-x-hidden bg-void-black/95"
+        >
           {children}
         </div>
       )}

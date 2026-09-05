@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
+import { pageTitle } from "@/lib/hamclock/wallPages";
 import { useKioskStore } from "@/stores/kioskStore";
 import { HamClockButton } from "../controls";
-import { HAMCLOCK_WALL_PAGES, wallPageIndex } from "../pages";
 
 /**
  * Read-only: what the active kiosk scene is pinning the wall to, if
@@ -26,8 +26,8 @@ export function KioskTab() {
 
   let summary = "No kiosk scene is pinning the wall.";
   if (scene && pin) {
-    const leftTitle = HAMCLOCK_WALL_PAGES[wallPageIndex(pin.leftPage ?? 0)].title;
-    const rightTitle = HAMCLOCK_WALL_PAGES[wallPageIndex(pin.rightPage ?? 0)].title;
+    const leftTitle = pageTitle(pin.leftPage ?? pin.rightPage ?? "spots");
+    const rightTitle = pageTitle(pin.rightPage ?? pin.leftPage ?? "spots");
     summary =
       leftTitle === rightTitle
         ? `"${scene.name}" pins the wall to ${leftTitle}.`

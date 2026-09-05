@@ -1,8 +1,26 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   assertUniqueTilesPerPage,
+  findDuplicateTile,
+} from "@/lib/hamclock/wallPages";
+import {
+  clampPageIndex,
+  railLayoutPageIds,
+  sanitizeRailLayout,
   useHamClockDisplayStore as display,
+  wallPages,
+  type RailLayout,
 } from "./hamclockDisplayStore";
+
+function cloneLayout(layout: RailLayout): RailLayout {
+  return {
+    left: layout.left.map((page) => ({ ...page, tileIds: [...page.tileIds] })),
+    right: layout.right.map((page) => ({
+      ...page,
+      tileIds: [...page.tileIds],
+    })),
+  };
+}
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -225,4 +243,261 @@ describe("assertUniqueTilesPerPage", () => {
       ]),
     ).not.toThrow();
   });
+});
+
+describe("findDuplicateTile", () => {
+  it("returns null for a layout with no repeats", () => {
+    expect(
+      findDuplicateTile([{ left: ["cluster"], right: ["bestBand"] }]),
+    ).toBeNull();
+  });
+
+  it("reports the page index and tile id of the first repeat", () => {
+    expect(
+      findDuplicateTile([
+        { left: ["cluster"], right: [] },
+        { left: ["moon"], right: ["moon"] },
+      ]),
+    ).toEqual({ pageIndex: 1, tileId: "moon" });
+  });
+});
+
+describe("railLayoutPageIds", () => {
+  it("orders left-rail page ids first, then any right-only page ids", () => {
+    const layout: RailLayout = {
+      left: [
+        { pageId: "spots", tileIds: [] },
+        { pageId: "solar", tileIds: [] },
+      ],
+      right: [
+        { pageId: "solar", tileIds: [] },
+        { pageId: "weather", tileIds: [] },
+      ],
+    };
+    expect(railLayoutPageIds(layout)).toEqual(["spots", "solar", "weather"]);
+  });
+});
+
+describe("railLayout / setRailLayout (HW-27, HW-50)", () => {
+  it("seeds the shipped composition by default", () => {
+    const layout = display.getState().railLayout;
+    expect(railLayoutPageIds(layout)).toEqual([
+      "spots",
+      "solar",
+      "forecast",
+      "weather",
+      "sdr",
+    ]);
+  });
+
+  it("accepts a layout with no repeated tile placements", () => {
+    const layout = cloneLayout(display.getState().railLayout);
+    layout.left[0].tileIds = ["cluster"];
+    const accepted = display.getState().setRailLayout(layout);
+    expect(accepted).toBe(true);
+    expect(display.getState().railLayout.left[0].tileIds).toEqual(["cluster"]);
+  });
+
+  it("rejects a layout that places the same tile twice on one page and keeps the previous layout", () => {
+    const before = cloneLayout(display.getState().railLayout);
+    const bad = cloneLayout(before);
+    bad.left[0].tileIds = ["cluster"];
+    bad.right[0].tileIds = [...bad.right[0].tileIds, "cluster"];
+
+    const accepted = display.getState().setRailLayout(bad);
+
+    expect(accepted).toBe(false);
+    expect(display.getState().railLayout).toEqual(before);
+  });
+
+  it("resets to the shipped layout", () => {
+    const layout = cloneLayout(display.getState().railLayout);
+    layout.left[0].tileIds = ["cluster"];
+    display.getState().setRailLayout(layout);
+    display.getState().resetRailLayout();
+    expect(railLayoutPageIds(display.getState().railLayout)).toEqual([
+      "spots",
+      "solar",
+      "forecast",
+      "weather",
+      "sdr",
+    ]);
+    expect(display.getState().railLayout.left[0].tileIds).not.toEqual([
+      "cluster",
+    ]);
+  });
+});
+
+describe("wallPages / pageIndex clamp (review pass after B4)", () => {
+  it("shows exactly one page when the layout defines only one (a Living-room-style preset)", () => {
+    const onePageLayout: RailLayout = {
+      left: [{ pageId: "weather", tileIds: ["weather", "alerts"] }],
+      right: [{ pageId: "weather", tileIds: ["emcomm", "moon"] }],
+    };
+    const accepted = display.getState().setRailLayout(onePageLayout);
+    expect(accepted).toBe(true);
+    const pages = wallPages(display.getState().railLayout);
+    expect(pages).toEqual([{ id: "weather", title: "Weather & Emergency" }]);
+  });
+
+  it("appends a page named only on the right rail, so nothing is lost", () => {
+    const layout: RailLayout = {
+      left: [{ pageId: "spots", tileIds: ["cluster"] }],
+      right: [{ pageId: "solar", tileIds: ["sun"] }],
+    };
+    expect(wallPages(layout).map((p) => p.id)).toEqual(["spots", "solar"]);
+  });
+
+  it("clamps pageIndex to the new layout's page count when setRailLayout shrinks it (page 4 of 5 -> page 1 of 2)", () => {
+    display.getState().setPage("left", 4);
+    expect(display.getState().pageIndex).toEqual({ left: 4, right: 4 });
+
+    const twoPageLayout = cloneLayout(display.getState().railLayout);
+    twoPageLayout.left = twoPageLayout.left.slice(0, 2);
+    twoPageLayout.right = twoPageLayout.right.slice(0, 2);
+    const accepted = display.getState().setRailLayout(twoPageLayout);
+
+    expect(accepted).toBe(true);
+    expect(display.getState().pageIndex).toEqual({ left: 1, right: 1 });
+  });
+
+  it("clamps pageIndex the same way when a preset switch shrinks the page count", () => {
+    display.getState().setPage("left", 4);
+    const twoPageLayout = cloneLayout(display.getState().railLayout);
+    twoPageLayout.left = twoPageLayout.left.slice(0, 2);
+    twoPageLayout.right = twoPageLayout.right.slice(0, 2);
+
+    const applied = display
+      .getState()
+      .applyLayoutPreset(twoPageLayout, { enabled: true, dwellSeconds: 15 });
+
+    expect(applied).toBe(true);
+    expect(display.getState().pageIndex).toEqual({ left: 1, right: 1 });
+  });
+});
+
+describe("clampPageIndex", () => {
+  it("clamps into [0, count - 1], and to 0 when count is less than 1", () => {
+    expect(clampPageIndex(4, 5)).toBe(4);
+    expect(clampPageIndex(4, 2)).toBe(1);
+    expect(clampPageIndex(-1, 5)).toBe(0);
+    expect(clampPageIndex(0, 0)).toBe(0);
+  });
+});
+
+describe("presets (wall spec §7)", () => {
+  it("saves the current railLayout and autoPage as a new preset", () => {
+    display.getState().setAutoPage({ enabled: false, dwellSeconds: 45 });
+    const preset = display.getState().savePreset("My Preset");
+    expect(preset.name).toBe("My Preset");
+    expect(preset.autoPage).toEqual({ enabled: false, dwellSeconds: 45 });
+    expect(display.getState().presets).toHaveLength(1);
+    expect(display.getState().presets[0].id).toBe(preset.id);
+  });
+
+  it("deletes a preset by id", () => {
+    const preset = display.getState().savePreset("Delete me");
+    display.getState().deletePreset(preset.id);
+    expect(display.getState().presets).toHaveLength(0);
+  });
+
+  it("applies a preset's layout and autoPage together, rejecting a duplicate-tile layout", () => {
+    const layout = cloneLayout(display.getState().railLayout);
+    layout.left[0].tileIds = ["cluster"];
+    const applied = display
+      .getState()
+      .applyLayoutPreset(layout, { enabled: true, dwellSeconds: 10 });
+    expect(applied).toBe(true);
+    expect(display.getState().railLayout.left[0].tileIds).toEqual(["cluster"]);
+    expect(display.getState().autoPage).toEqual({
+      enabled: true,
+      dwellSeconds: 10,
+    });
+
+    const before = cloneLayout(display.getState().railLayout);
+    const bad = cloneLayout(before);
+    bad.left[0].tileIds = ["cluster", "cluster"];
+    const rejected = display
+      .getState()
+      .applyLayoutPreset(bad, { enabled: false, dwellSeconds: 20 });
+    expect(rejected).toBe(false);
+    expect(display.getState().railLayout).toEqual(before);
+  });
+});
+
+describe("sanitizeRailLayout (read-time cleanup, wall spec §6)", () => {
+  it("falls back to the shipped layout for a non-object value", () => {
+    expect(railLayoutPageIds(sanitizeRailLayout(undefined))).toEqual([
+      "spots",
+      "solar",
+      "forecast",
+      "weather",
+      "sdr",
+    ]);
+  });
+
+  it("drops unknown tile ids and unknown page ids", () => {
+    const cleaned = sanitizeRailLayout({
+      left: [
+        { pageId: "spots", tileIds: ["cluster", "retired-tile"] },
+        { pageId: "retired-page", tileIds: ["moon"] },
+      ],
+      right: [{ pageId: "spots", tileIds: ["bestBand"] }],
+    });
+    expect(cleaned.left).toEqual([{ pageId: "spots", tileIds: ["cluster"] }]);
+    expect(cleaned.right).toEqual([{ pageId: "spots", tileIds: ["bestBand"] }]);
+  });
+
+  it("falls back per-side to the shipped composition when a side ends up empty", () => {
+    const cleaned = sanitizeRailLayout({
+      left: [{ pageId: "retired-page", tileIds: ["moon"] }],
+      right: [{ pageId: "spots", tileIds: ["bestBand"] }],
+    });
+    expect(railLayoutPageIds({ left: cleaned.left, right: [] })).toEqual([
+      "spots",
+      "solar",
+      "forecast",
+      "weather",
+      "sdr",
+    ]);
+    expect(cleaned.right).toEqual([{ pageId: "spots", tileIds: ["bestBand"] }]);
+  });
+
+  it("falls back to the whole shipped layout when cleanup still leaves a duplicate", () => {
+    const cleaned = sanitizeRailLayout({
+      left: [{ pageId: "spots", tileIds: ["cluster"] }],
+      right: [{ pageId: "spots", tileIds: ["cluster"] }],
+    });
+    expect(railLayoutPageIds(cleaned)).toEqual([
+      "spots",
+      "solar",
+      "forecast",
+      "weather",
+      "sdr",
+    ]);
+  });
+});
+
+it("migrates a v3 session by seeding railLayout, presets and autoPage", async () => {
+  sessionStorage.setItem(
+    "propulse-hamclock-display",
+    JSON.stringify({
+      version: 3,
+      state: { density: "desk", theme: "brass" },
+    }),
+  );
+  await display.persist.rehydrate();
+  expect(display.getState()).toMatchObject({
+    density: "desk",
+    theme: "brass",
+    presets: [],
+    autoPage: { enabled: true, dwellSeconds: 30 },
+  });
+  expect(railLayoutPageIds(display.getState().railLayout)).toEqual([
+    "spots",
+    "solar",
+    "forecast",
+    "weather",
+    "sdr",
+  ]);
 });

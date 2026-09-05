@@ -337,7 +337,7 @@ describe("KioskChrome", () => {
         makeScene("wall", "/map", {
           map: {
             layoutMode: "hamclock",
-            hamclock: { leftPage: 1, rightPage: 2, theme: "brass" },
+            hamclock: { leftPage: "solar", rightPage: "forecast", theme: "brass" },
           },
         }),
       ],
@@ -355,8 +355,9 @@ describe("KioskChrome", () => {
     );
 
     await waitFor(() => {
-      // Both rails follow one page, so a pin is one index: leftPage is
-      // canonical when a scene still sets both.
+      // Both rails follow one page, so a pin is one page id: leftPage is
+      // canonical when a scene still sets both. "solar" is index 1 in the
+      // shipped layout.
       expect(useHamClockDisplayStore.getState()).toMatchObject({
         density: "wall",
         theme: "brass",

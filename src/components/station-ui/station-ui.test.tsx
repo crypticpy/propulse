@@ -19,6 +19,26 @@ import {
 } from "./index";
 
 describe("station design primitives", () => {
+  it("announces a unit suffix alongside the hint and validation error", () => {
+    render(
+      <StationProvider>
+        <TextField
+          label="Frequency"
+          suffix="MHz"
+          hint="Enter a frequency"
+          error="Frequency is required"
+        />
+      </StationProvider>,
+    );
+    const input = screen.getByRole("textbox", { name: "Frequency" });
+    expect(
+      input
+        .getAttribute("aria-describedby")
+        ?.split(" ")
+        .map((id) => document.getElementById(id)?.textContent),
+    ).toEqual(["Enter a frequency", "Frequency is required", "MHz"]);
+  });
+
   it("preserves external invalid states and prioritizes a supplied field error", () => {
     const { rerender } = render(
       <StationProvider>

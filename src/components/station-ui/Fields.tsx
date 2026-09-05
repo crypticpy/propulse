@@ -104,10 +104,22 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
               {...props}
               {...control}
               aria-invalid={error ? true : props["aria-invalid"]}
+              aria-describedby={
+                [
+                  control["aria-describedby"],
+                  suffix ? `${control.id}-suffix` : undefined,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
               ref={ref}
               className={`su-input ${className}`}
             />
-            {suffix && <span className="su-input-suffix">{suffix}</span>}
+            {suffix && (
+              <span id={`${control.id}-suffix`} className="su-input-suffix">
+                {suffix}
+              </span>
+            )}
           </div>
         )}
       </Field>

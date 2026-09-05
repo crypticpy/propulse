@@ -372,7 +372,7 @@ export function EquipmentForm({
                 min="0"
                 step="any"
                 suffix="W"
-                hint="Leave blank when unknown. This is your entry, not a verified rating."
+                hint="Power in watts. Leave blank when unknown. This is your entry, not a verified rating."
                 value={values.powerWatts}
                 error={errors.powerWatts}
                 onChange={(event) => update("powerWatts", event.target.value)}

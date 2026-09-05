@@ -438,7 +438,7 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-23 | Layers popover viewport clamp and trigger move (interim)                                    | Delivered   | PR #216                               | `LayersPopover` clamps to the viewport on open and resize; owner bug (menu renders off screen) closed                                                                                                                                                               |
 | HW-24 | Desk on wall tiles, paged, scale token                                                      | Not started |                                       | retires accordion sidebar                                                                                                                                                                                                                                           |
 | HW-25 | Desk cleanup: DE station block, duplicate weather, DX target                                | Not started |                                       |                                                                                                                                                                                                                                                                     |
-| HW-26 | Centered settings panel with tabs                                                           | Not started |                                       | replaces all header popouts                                                                                                                                                                                                                                         |
+| HW-26 | Centered settings panel with tabs                                                           | Delivered   | PR (B5)                               | replaces all header popouts                                                                                                                                                                                                                                         |
 | HW-27 | User-selected rails (Pages & Tiles tab, `railLayout`)                                       | Not started |                                       |                                                                                                                                                                                                                                                                     |
 | HW-28 | World clocks bar                                                                            | Not started |                                       | open decision D1                                                                                                                                                                                                                                                    |
 | HW-29 | Trend charts in reports, chart components read theme tokens                                 | Not started |                                       | reuse `SolarMiniChart`, `SolarSeriesChart`, `MetricCard`                                                                                                                                                                                                            |
@@ -469,7 +469,7 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-54 | Both rails follow the page; remove fixed band-activity slot; de-duplicated shipped pages    | Not started |                                       | owner: right rail locked                                                                                                                                                                                                                                            |
 | HW-55 | Persist a tile provider id in `mapStore` so Esri / Mapbox and OSM / CARTO become selectable | Not started |                                       | migration derives it from `mapStyle` + tier; section 14                                                                                                                                                                                                             |
 
-Totals: 18 delivered, 4 partial, 33 not started.
+Totals: 19 delivered, 4 partial, 32 not started.
 
 ## 22. Open decisions
 
@@ -667,10 +667,13 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **Covers:** HW-26
 - **Intent:** Header popouts are hover-fragile and off screen. Replace them with one centered settings dialog with tabs Display, Pages & Tiles, Layers, Map, Theme, Kiosk, none of which scroll.
 - **In scope:**
-  - `HamClockSettingsDialog` on `AccessibleDialog`, opened by SETTINGS, closed by close/Escape/backdrop, ≤ 70 vw
+  - `HamClockSettingsDialog` on `HamClockDialog` (size `settings`, itself built on `AccessibleDialog`), tabs on `HamClockTabs`, opened by SETTINGS, closed by close/Escape/backdrop
   - Display, Pages & Tiles (moved from B4), Theme, Kiosk tabs
   - Layers and Map tabs as placeholders that say what is coming
   - Remove `HamClockDisplaySettings` and the wall controls popout
+  - One tile wired through the widget-config contract (guide §9) as the
+    reference registration: `recentContacts` (`wall/config/recentContactsConfig.ts`),
+    surfaced by an OPTIONS gear on Pages & Tiles
 - **Out of scope:**
   - Layer registry, Layers tab content, Map tab content (B6)
 - **Files to touch:**

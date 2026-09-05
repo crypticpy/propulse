@@ -21,8 +21,8 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 18        | 4       | 33          | 0        | 55      |
-| **Grand Total**                         | **282**   | **11**  | **41**      | **1**    | **335** |
+| HamClock Wall (2026-09-05)              | 19        | 4       | 32          | 0        | 55      |
+| **Grand Total**                         | **283**   | **11**  | **40**      | **1**    | **335** |
 
 **Delivery rate: 84% delivered, 3% partial, 12% not started**
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
 
-### Delivered (18)
+### Delivered (19)
 
 | ID    | Feature                                                      | Notes                                       |
 | ----- | ------------------------------------------------------------ | ------------------------------------------- |
@@ -640,6 +640,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-16 | Style guide for tiles, reports and settings                  | `docs/guides/hamclock-tile-system.md`       |
 | HW-22 | Header parity: WALL/DESK toggle and reduced top rail         | PR #216                                     |
 | HW-23 | Layers popover viewport clamp and trigger move               | PR #216                                     |
+| HW-26 | Centered settings panel with tabs                            | PR (B5)                                     |
 | HW-32 | Lightning bolt glyph (2D and 3D)                             | PR #217, `src/lib/map/lightningGlyph.ts`    |
 
 ### Partial (4)
@@ -651,7 +652,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
 | HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
 
-### Not Started (33)
+### Not Started (32)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -659,7 +660,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-21 | Layer registry with provenance text                              | Feeds settings, help, status line                    |
 | HW-24 | Desk on wall tiles, paged, scale token                           | Retires accordion sidebar                            |
 | HW-25 | Desk cleanup: DE station block, duplicate weather, DX target     |                                                      |
-| HW-26 | Centered settings panel with tabs                                | Replaces all header popouts                          |
 | HW-27 | User-selected rails (Pages & Tiles tab)                          | `railLayout` model                                   |
 | HW-28 | World clocks bar                                                 | Open decision D1                                     |
 | HW-29 | Trend charts in reports; chart components read theme tokens      | Reuse solar chart components                         |

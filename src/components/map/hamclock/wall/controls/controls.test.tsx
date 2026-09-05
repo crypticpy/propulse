@@ -211,6 +211,31 @@ describe("HamClockSegmented", () => {
     fireEvent.keyDown(a, { key: "ArrowRight" });
     expect(onChange).toHaveBeenCalledWith("c");
   });
+
+  it("renders a preview inside the radio button when provided", () => {
+    render(
+      <HamClockSegmented
+        label="Choice"
+        options={[
+          {
+            value: "a" as Val,
+            label: "A",
+            preview: <span data-testid="a-preview" />,
+          },
+          { value: "b" as Val, label: "B" },
+        ]}
+        value="a"
+        onChange={vi.fn()}
+      />,
+    );
+    const a = screen.getByRole("radio", { name: "A" });
+    expect(a.querySelector('[data-testid="a-preview"]')).not.toBeNull();
+    expect(
+      screen
+        .getByRole("radio", { name: "B" })
+        .querySelector(".hcc-seg-btn-preview"),
+    ).toBeNull();
+  });
 });
 
 describe("HamClockTabs", () => {

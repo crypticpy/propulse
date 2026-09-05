@@ -9,9 +9,10 @@ import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { HamClockDensitySwitch } from "../HamClockDensitySwitch";
-import { HamClockDisplaySettings } from "../HamClockDisplaySettings";
 import { HamClockModeSwitch } from "../HamClockModeSwitch";
 import { HamClockProjectionSwitch } from "../HamClockProjectionSwitch";
+import { HamClockButton } from "./controls";
+import { HamClockSettingsDialog } from "./settings/HamClockSettingsDialog";
 
 const MAP_CONTENT_OPTIONS = [
   ["activity", "Activity"],
@@ -82,15 +83,17 @@ function WallHomeRegion() {
 /**
  * Wall density has no second toolbar row, so the desk header's controls
  * collapse into one anchored overflow cluster at the right end of the
- * header. Mode, density, projection and Display settings stay always
- * visible ahead of the cluster — the same fixed slot and order as the desk
- * header (mode · WALL | DESK · projection · Display, B1/HW-22) — so
- * switching back to desk density, or reaching Display settings, is never a
- * menu away. The CONTROLS trigger now only opens map content, home region
- * and layers; the exit affordance is always visible outside the menu.
+ * header. Mode, density, projection and SETTINGS stay always visible ahead
+ * of the cluster — the same fixed slot and order as the desk header (mode ·
+ * WALL | DESK · projection · SETTINGS, B1/HW-22) — so switching back to desk
+ * density, or reaching settings, is never a menu away. SETTINGS opens the
+ * centered `HamClockSettingsDialog` (B5/HW-26), not a popout. The CONTROLS
+ * trigger now only opens map content, home region and layers; the exit
+ * affordance is always visible outside the menu.
  */
 export function HamClockWallControls() {
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
@@ -149,7 +152,13 @@ export function HamClockWallControls() {
       <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
       <HamClockDensitySwitch />
       <HamClockProjectionSwitch value={viewMode} onChange={handleProjection} />
-      <HamClockDisplaySettings />
+      <HamClockButton onClick={() => setSettingsOpen(true)}>
+        SETTINGS
+      </HamClockButton>
+      <HamClockSettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
       <button
         ref={trigger}
         type="button"

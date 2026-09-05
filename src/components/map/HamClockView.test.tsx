@@ -170,7 +170,7 @@ describe("HamClockView", () => {
     const mode = screen.getByRole("group", { name: "HamClock mode" });
     const density = screen.getByRole("group", { name: "HamClock density" });
     const projection = screen.getByRole("group", { name: "Map projection" });
-    const settingsTrigger = screen.getByRole("button", { name: "Display" });
+    const settingsTrigger = screen.getByRole("button", { name: "SETTINGS" });
 
     expect(isBefore(mode, density)).toBe(true);
     expect(isBefore(density, projection)).toBe(true);

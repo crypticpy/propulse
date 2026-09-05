@@ -44,7 +44,8 @@ import {
   hamClockHomeRegion,
 } from "@/lib/hamclock/displayLayout";
 import { HamClockDensitySwitch } from "./hamclock/HamClockDensitySwitch";
-import { HamClockDisplaySettings } from "./hamclock/HamClockDisplaySettings";
+import { HamClockButton } from "./hamclock/wall/controls";
+import { HamClockSettingsDialog } from "./hamclock/wall/settings/HamClockSettingsDialog";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -644,6 +645,7 @@ export function HamClockView({
       display.textSize === "inherit" ? appSize : display.textSize
     ];
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const activeLocation = useActiveLocation();
   const kiosk = useKioskStore((s) => s.active);
   const homeStarted = useRef(false);
@@ -955,7 +957,13 @@ export function HamClockView({
             value={viewMode}
             onChange={handleProjectionChange}
           />
-          <HamClockDisplaySettings />
+          <HamClockButton onClick={() => setSettingsOpen(true)}>
+            SETTINGS
+          </HamClockButton>
+          <HamClockSettingsDialog
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+          />
           {(hamclockMode === "traffic" || hamclockMode === "bands") && (
             <div
               className="flex rounded border border-white/20 p-0.5"

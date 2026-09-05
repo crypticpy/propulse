@@ -110,7 +110,7 @@ export const internalPathSchema = z.object({
 
 /** Private recovery envelope, never a public projection field. JSON values are retained verbatim. */
 export const legacyRecordSchema = z.object({
-  kind: z.enum(["radio", "radio-model", "antenna", "feedline", "feedline-run", "inline", "accessory", "chain", "preset", "profile", "location"]),
+  kind: z.enum(["radio", "radio-model", "antenna", "feedline", "feedline-run", "inline", "accessory", "chain", "preset", "profile", "location", "workbench"]),
   sourceId: id, sourceVersion: z.number().int().nonnegative(), payload: jsonObject,
 }).strict();
 
@@ -184,18 +184,28 @@ export const routeIntentSchema = z.object({
   ]),
 }).strict();
 
+export const revisionTransitionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("initial") }).strict(),
+  z.object({ kind: z.literal("edit") }).strict(),
+  z.object({ kind: z.literal("clone"), sourceRevisionId: id }).strict(),
+  z.object({ kind: z.literal("restore"), sourceRevisionId: id }).strict(),
+]);
+
 export const setupRevisionSchema = z.object({
   id, ownerId: id, setupId: id, parentRevisionId: id.nullable(), createdAt: instant,
+  transition: revisionTransitionSchema.optional(),
   /** Resolved inputs are copied at revision creation. Later shared edits cannot rewrite them. */
   equipment: z.array(equipmentInstanceSchema), models: z.array(equipmentModelSchema),
   evidence: z.array(evidenceSchema), location: locationSchema.nullable(),
   connections: z.array(connectionSchema), cableRuns: z.array(cableRunSchema), routes: z.array(routeIntentSchema),
-  settings: z.object({ frequencyHz: quantitySchema, requestedPowerWatts: quantitySchema, mode: z.string().nullable() }).strict(),
+  settings: z.object({ frequencyHz: quantitySchema, requestedPowerWatts: quantitySchema, mode: z.string().nullable(), bandId: id.nullable().optional() }).strict(),
   notes: z.string(),
 }).strict();
 
 export const layoutSchema = z.object({
-  id, ownerId: id, setupId: id, revisionId: id, view: z.enum(["diagram", "rack"]),
+  id, ownerId: id, setupId: id, revisionId: id, view: z.enum(["diagram", "rack", "list"]),
+  itemOrder: z.array(id).optional(),
+  preferences: z.object({ showLabels: z.boolean().optional(), showPorts: z.boolean().optional(), showGrid: z.boolean().optional(), snapToGrid: z.boolean().optional() }).strict().optional(),
   positions: z.array(z.object({ instanceId: id, x: finite, y: finite, groupId: id.nullable() }).strict()),
   groups: z.array(z.object({ id, label: id }).strict()),
   viewport: z.object({ x: finite, y: finite, zoom: finite.positive() }).strict(),
@@ -244,6 +254,9 @@ export type EquipmentModel = z.infer<typeof equipmentModelSchema>;
 export type EquipmentPort = z.infer<typeof portSchema>;
 export type EquipmentInternalPath = z.infer<typeof internalPathSchema>;
 export type EquipmentPrivateMetadata = z.infer<typeof equipmentPrivateMetadataSchema>;
+export type Setup = z.infer<typeof setupSchema>;
+export type Layout = z.infer<typeof layoutSchema>;
+export type RevisionTransition = z.infer<typeof revisionTransitionSchema>;
 export type SetupRevision = z.infer<typeof setupRevisionSchema>;
 export type WorkbenchArchive = z.infer<typeof archiveObjectSchema>;
 export type RouteIntent = z.infer<typeof routeIntentSchema>;
@@ -375,6 +388,16 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     if (!setups.has(revision.setupId)) issue(`Missing setup: ${revision.setupId}`);
     if (revision.parentRevisionId !== null && revisions.get(revision.parentRevisionId)?.setupId !== revision.setupId) issue(`Invalid parent revision: ${revision.id}`);
     const ancestors = new Set([revision.id]);
+    const transition = revision.transition;
+    if (transition) {
+      if ((transition.kind === "initial" || transition.kind === "clone") && revision.parentRevisionId !== null) issue(`Initial or cloned revision cannot have a parent: ${revision.id}`);
+      if ((transition.kind === "edit" || transition.kind === "restore") && revision.parentRevisionId === null) issue(`Edited or restored revision requires a parent: ${revision.id}`);
+      if (transition.kind === "clone" || transition.kind === "restore") {
+        const source = revisions.get(transition.sourceRevisionId);
+        if (!source || source.id === revision.id) issue(`Missing or self transition source: ${revision.id}`);
+        else if (transition.kind === "restore" ? source.setupId !== revision.setupId : source.setupId === revision.setupId) issue(`Invalid transition source setup: ${revision.id}`);
+      }
+    }
     let ancestorId = revision.parentRevisionId;
     while (ancestorId) {
       if (ancestors.has(ancestorId)) { issue(`Revision ancestry cycle: ${revision.id}`); break; }
@@ -482,10 +505,30 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
       });
     });
   });
+  // Parent and source provenance jointly form history; neither edge may point back into itself.
+  const checkedHistory = new Set<string>();
+  const visitingHistory = new Set<string>();
+  const visitHistory = (revisionId: string): void => {
+    if (visitingHistory.has(revisionId)) { issue(`Revision provenance cycle: ${revisionId}`); return; }
+    if (checkedHistory.has(revisionId)) return;
+    const revision = revisions.get(revisionId);
+    if (!revision) return;
+    visitingHistory.add(revisionId);
+    if (revision.parentRevisionId) visitHistory(revision.parentRevisionId);
+    if (revision.transition?.kind === "clone" || revision.transition?.kind === "restore") visitHistory(revision.transition.sourceRevisionId);
+    visitingHistory.delete(revisionId);
+    checkedHistory.add(revisionId);
+  };
+  archive.revisions.forEach((revision) => visitHistory(revision.id));
   archive.layouts.forEach((layout) => {
     owned(layout);
     const revision = revisions.get(layout.revisionId);
     if (!revision || revision.setupId !== layout.setupId) issue(`Invalid layout revision: ${layout.id}`);
+    if (layout.itemOrder !== undefined) {
+      const order = new Set(layout.itemOrder);
+      if (order.size !== layout.itemOrder.length || order.size !== revision?.equipment.length
+        || revision.equipment.some((item) => !order.has(item.id))) issue(`Layout order must include every revision item exactly once: ${layout.id}`);
+    }
     const groups = unique(layout.groups, "layout group");
     const positions = new Set<string>();
     layout.positions.forEach((position) => {

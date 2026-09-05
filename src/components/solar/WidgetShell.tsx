@@ -4,7 +4,7 @@ import { recordSolarTelemetry } from "@/lib/solar/telemetry";
 
 const stateLabel: Record<SolarWidgetState, string> = {
   loading: "Loading",
-  fresh: "Current",
+  fresh: "Data current",
   refreshing: "Refreshing",
   stale: "Stale",
   partial: "Partial",
@@ -15,7 +15,7 @@ const stateLabel: Record<SolarWidgetState, string> = {
 
 const stateStyle: Record<SolarWidgetState, string> = {
   loading: "border-slate-500/30 bg-slate-500/10 text-slate-300",
-  fresh: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+  fresh: "border-slate-400/20 bg-slate-400/5 text-slate-300",
   refreshing: "border-cyan-400/30 bg-cyan-400/10 text-cyan-300",
   stale: "border-amber-400/30 bg-amber-400/10 text-amber-200",
   partial: "border-amber-400/30 bg-amber-400/10 text-amber-200",
@@ -36,6 +36,8 @@ export interface WidgetShellProps {
   eyebrow?: string;
   state: SolarWidgetState;
   observedAt?: string | null;
+  timestampLabel?: "Observed" | "Issued" | "Oldest input" | "Checked";
+  compact?: boolean;
   provider?: string;
   sourceUrl?: string;
   hasData?: boolean;
@@ -54,6 +56,8 @@ export function WidgetShell({
   eyebrow,
   state,
   observedAt,
+  timestampLabel = "Observed",
+  compact = false,
   provider,
   sourceUrl,
   hasData = true,
@@ -84,30 +88,30 @@ export function WidgetShell({
 
   return (
     <section
-      className={`group flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] shadow-lg shadow-black/10 ${className}`}
+      className={`group flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] ${className}`}
       aria-label={title}
     >
-      <header className="flex items-start justify-between gap-3 border-b border-white/[0.07] px-4 py-3.5 sm:px-5">
+      <header className={`flex flex-wrap items-start justify-between gap-2 px-4 py-3 ${compact ? "" : "border-b border-white/[0.07] sm:px-5"}`}>
         <div className="min-w-0">
           {eyebrow && (
             <p
-              className="mb-1 truncate text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-500"
+              className="mb-1 truncate text-xs font-semibold uppercase tracking-[0.12em] text-slate-400"
               title={eyebrow}
             >
               {eyebrow}
             </p>
           )}
-          <h2 className="truncate text-sm font-semibold text-slate-100 sm:text-base" title={title}>
+          <h2 className="text-sm font-semibold text-slate-100 sm:text-base" title={title}>
             {title}
           </h2>
-          <div className="mt-1 flex items-center gap-x-2 overflow-hidden whitespace-nowrap text-xs text-slate-500">
+          <div className="mt-1 flex items-center flex-wrap gap-x-2 text-xs text-slate-400">
             {age !== null && (
               <time
                 className="shrink-0"
                 dateTime={observedAt ?? undefined}
                 title={new Date(parsed).toISOString()}
               >
-                Observed {formatAge(age)}
+                {timestampLabel} {formatAge(age)}
               </time>
             )}
             {provider && sourceUrl ? (
@@ -115,7 +119,7 @@ export function WidgetShell({
                 href={sourceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="min-w-0 truncate rounded text-slate-500 underline decoration-white/20 underline-offset-2 hover:text-slate-300"
+                className="min-w-0 truncate rounded text-slate-400 underline decoration-white/20 underline-offset-2 hover:text-slate-300"
                 title={provider}
               >
                 {provider}
@@ -127,7 +131,7 @@ export function WidgetShell({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-[0.65rem] font-bold uppercase tracking-wider ${stateStyle[state]}`}
+            className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-bold uppercase tracking-wider ${stateStyle[state]}`}
             role="status"
             aria-live="polite"
           >
@@ -151,7 +155,7 @@ export function WidgetShell({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 p-4 sm:p-5">
+      <div className={`min-h-0 flex-1 ${compact ? "px-4 pb-4" : "p-4 sm:p-5"}`}>
         {showFallback ? (
           <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/10 px-5 text-center">
             {state === "loading" ? (
@@ -161,7 +165,7 @@ export function WidgetShell({
             ) : (
               <>
                 <p className="text-sm font-medium text-slate-200">{message ?? stateLabel[state]}</p>
-                <p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">
+                <p className="mt-1 max-w-xs text-xs leading-5 text-slate-400">
                   No usable last-good observation is available for this product.
                 </p>
                 {onRetry && (

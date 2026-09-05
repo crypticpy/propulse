@@ -1,10 +1,13 @@
+import { useSolarHandoff } from "@/hooks/useSolarHandoff";
+import { solarWizardMode } from "@/lib/solar/handoff";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
 /**
  * useDXWizardSession — shared state + recommendation pipeline for desktop
  * and mobile DX Wizard surfaces.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { physicsAntennaGainDbi } from "@/lib/station/stationPhysics";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -57,7 +60,11 @@ function getRadioLabel(radio: RadioEquipment, nickname?: string) {
 }
 
 export function useDXWizardSession() {
-  const station = useUserStore((s) => s.station);
+  const solarHandoff = useSolarHandoff();
+  const location = useLocation();
+  const baseStation = useUserStore((s) => s.station);
+  const stationContext = useStationCastContext();
+  const station = useMemo(() => baseStation && stationContext.location ? { ...baseStation, ...stationContext.location } : baseStation, [baseStation, stationContext.location]);
   const preferences = useUserStore((s) => s.preferences);
   const activeUserRadio = useUserStore((s) => {
     const id = s.preferences.activeRadioId;
@@ -78,17 +85,17 @@ export function useDXWizardSession() {
   const catEnabled = useRigStore((s) => s.catEnabled);
   const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
   const setPendingMode = useRigStore((s) => s.setPendingMode);
-  const contestContext = useContestContext();
+  const contestContext = useContestContext(solarHandoff?.at);
   const stationGain = useActiveStationGain();
   const chainPerf = useChainPerformance();
   const bandVerdicts = useBandVerdicts();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [targetQuery, setTargetQuery] = useState("");
+  const [targetQuery, setTargetQuery] = useState(solarHandoff?.target?.grid ?? "");
   const [targetError, setTargetError] = useState<string | null>(null);
   const [targetResolving, setTargetResolving] = useState(false);
-  const [target, setTarget] = useState<ResolvedTarget | null>(null);
+  const [target, setTarget] = useState<ResolvedTarget | null>(() => solarHandoff?.target ? { ...solarHandoff.target, label: solarHandoff.target.name ?? solarHandoff.target.grid, source: "coords" } : null);
 
   const [callsignInput, setCallsignInput] = useState("");
   const [callsignLoading, setCallsignLoading] = useState(false);
@@ -97,7 +104,7 @@ export function useDXWizardSession() {
   const [showRecentDropdown, setShowRecentDropdown] = useState(false);
   const recentDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [mode, setMode] = useState<WizardMode>("FT8");
+  const [mode, setMode] = useState<WizardMode>(solarHandoff ? solarWizardMode(solarHandoff.mode) : "FT8");
   const [pathMode, setPathMode] = useState<WizardPathMode>("short");
   const [optimizeFor, setOptimizeFor] =
     useState<WizardOptimizeFor>("propagation");
@@ -155,6 +162,8 @@ export function useDXWizardSession() {
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
+
+    if (solarHandoff) return;
 
     const deep = parseWizardDeepLink(searchParams);
     if (deep.mode) setMode(deep.mode);
@@ -215,9 +224,9 @@ export function useDXWizardSession() {
     const current = searchParams.toString();
     const upcoming = next.toString();
     if (current !== upcoming) {
-      setSearchParams(next, { replace: true });
+      setSearchParams(next, { replace: true, state: location.state });
     }
-  }, [target, mode, pathMode, searchParams, setSearchParams]);
+  }, [target, mode, pathMode, searchParams, setSearchParams, location.state]);
 
   const {
     data: kIndexData,
@@ -368,9 +377,9 @@ export function useDXWizardSession() {
     () => ({
       activeContests: contestContext.activeContests,
       isContestWeekend: contestContext.isContestWeekend,
-      currentHourUtc: new Date().getUTCHours(),
+      currentHourUtc: (solarHandoff?.at ? new Date(solarHandoff.at) : new Date()).getUTCHours(),
     }),
-    [contestContext.activeContests, contestContext.isContestWeekend],
+    [contestContext.activeContests, contestContext.isContestWeekend, solarHandoff?.at],
   );
 
   const recommendation = useMemo(() => {
@@ -382,6 +391,7 @@ export function useDXWizardSession() {
       callsign: station.callsign,
     };
     const shared = {
+      date: solarHandoff?.at ? new Date(solarHandoff.at) : undefined,
       station: stationInput,
       target,
       mode,
@@ -421,6 +431,7 @@ export function useDXWizardSession() {
       antennaGainDbi: shackBand.antennaGainDbi,
     });
   }, [
+    solarHandoff?.at,
     baseAntennaGainDbi,
     congestionContext,
     currentKp,
@@ -442,7 +453,7 @@ export function useDXWizardSession() {
     recommendation?.antennaGainDbi ?? baseAntennaGainDbi;
 
   const realityCheck = useMemo(() => {
-    if (!recommendation || recommendation.type !== "ok") return null;
+    if (solarHandoff?.at || !recommendation || recommendation.type !== "ok") return null;
     const band = recommendation.best.band;
     const ladder =
       bandVerdicts.bands.find(
@@ -458,7 +469,7 @@ export function useDXWizardSession() {
       ...check,
       detail: `${check.detail} Live scope: ${bandVerdicts.scope.label}.`,
     };
-  }, [bandVerdicts.bands, bandVerdicts.scope.label, recommendation]);
+  }, [bandVerdicts.bands, bandVerdicts.scope.label, recommendation, solarHandoff?.at]);
 
   const shackSummary = useMemo(() => {
     const name = chainPerf.chain?.name;
@@ -488,6 +499,7 @@ export function useDXWizardSession() {
         ? Number.parseFloat(recommendation.best.frequency)
         : undefined;
     return buildPathSummary({
+      date: solarHandoff?.at ? new Date(solarHandoff.at) : undefined,
       homeLat: station.lat,
       homeLon: station.lon,
       targetLat: target.lat,
@@ -501,18 +513,19 @@ export function useDXWizardSession() {
           ? bestFreqMHz
           : undefined,
     });
-  }, [currentKp, currentSfi, mode, pathMode, recommendation, station, target]);
+  }, [currentKp, currentSfi, mode, pathMode, recommendation, station, target, solarHandoff?.at]);
 
   const nextWindow = useMemo(() => {
     if (!station || !target) return null;
     return computeNextWindow({
+      now: solarHandoff?.at ? new Date(solarHandoff.at) : undefined,
       station: { lat: station.lat, lon: station.lon },
       target,
       currentKp,
       currentSfi,
       mode,
     });
-  }, [currentKp, currentSfi, mode, station, target]);
+  }, [currentKp, currentSfi, mode, station, target, solarHandoff?.at]);
 
   const tips = useMemo(() => getModeTips(mode), [mode]);
 
@@ -625,6 +638,7 @@ export function useDXWizardSession() {
     refetchWizardData,
 
     // target
+    solarHandoff,
     targetQuery,
     setTargetQuery,
     targetError,

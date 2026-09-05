@@ -1,5 +1,6 @@
 import type { SolarResource, SolarWidgetState } from "./contracts";
 import type { KpPoint } from "./dataTypes";
+import { parseUtcInstant } from "./normalization";
 
 export function latestByTime<T>(
   values: readonly T[] | null | undefined,
@@ -10,8 +11,8 @@ export function latestByTime<T>(
   let latestTime = -Infinity;
   for (const value of values ?? []) {
     if (!predicate(value)) continue;
-    const parsed = Date.parse(timestamp(value));
-    if (Number.isFinite(parsed) && parsed > latestTime) {
+    const parsed = parseUtcInstant(timestamp(value));
+    if (parsed !== null && parsed > latestTime) {
       latest = value;
       latestTime = parsed;
     }

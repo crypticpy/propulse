@@ -8,7 +8,18 @@
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { flatHomeRegion } from "@/lib/hamclock/displayLayout";
 import { FlatMufRaster } from "./lib/flatMufRaster";
-import { useRef, useEffect, useCallback, useState, useMemo } from "react";
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useState,
+  useMemo,
+} from "react";
+import {
+  drawFlatTerminator as drawTerminator,
+  nightLightIntensity,
+} from "./lib/flatMapIllumination";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
@@ -166,6 +177,7 @@ import { getSpotLayerPolicy } from "@/lib/map/spotLayerPolicy";
 import { findTopmostLabelIndex } from "@/lib/map/labelHitTesting";
 import {
   recordFlatMapLayerPaint,
+  recordFlatMapCamera,
   subscribeFlatMapDiagnostics,
 } from "@/lib/map/flatMapDiagnostics";
 import { FlatMapDiagnosticsOverlay } from "./FlatMapDiagnosticsOverlay";
@@ -274,15 +286,11 @@ function beginFlatMapCanvasFrame(
   if (retainedBackground) {
     // Copy device pixels before installing the CSS/map transform. Scientific
     // multiply/saturation passes must blend against imagery, not transparency.
-    context.drawImage(
-      retainedBackground,
-      0,
-      0,
-      canvas.width,
-      canvas.height,
-    );
+    context.drawImage(retainedBackground, 0, 0, canvas.width, canvas.height);
   }
   context.save();
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
   context.scale(devicePixelRatio, devicePixelRatio);
   context.translate(zoom.offsetX, zoom.offsetY);
   context.scale(zoom.scale, zoom.scale);
@@ -435,6 +443,22 @@ function drawGrid(
  * (DPR scaling, zoom) and would produce incorrect results on HiDPI displays.
  */
 function drawNightSide(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  width: number,
+  height: number,
+  variant: "satellite" | "standard",
+  opacity = 1,
+) {
+  // Illumination is a smooth geographic field. Its cache must not grow or
+  // regenerate when a sidebar changes the viewport's pixel dimensions.
+  ctx.save();
+  ctx.scale(width / 2048, height / 1024);
+  drawNightSideRaster(ctx, date, 2048, 1024, variant, opacity);
+  ctx.restore();
+}
+
+function drawNightSideRaster(
   ctx: CanvasRenderingContext2D,
   date: Date,
   width: number,
@@ -711,77 +735,6 @@ function drawNightSide(
     ctx.drawImage(blueCanvas, 0, 0, width, height);
     ctx.restore();
   }
-}
-
-/**
- * Draw terminator line
- *
- * The terminator is the line where the sun angle is exactly 90°.
- * Formula derived from: 0 = sin(lat)*sin(subsolarLat) + cos(lat)*cos(subsolarLat)*cos(Δlon)
- * Solving for lat: lat = atan(-cos(Δlon) / tan(subsolarLat))
- */
-function drawTerminator(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  width: number,
-  height: number,
-  highViz = false,
-  dashed = false,
-) {
-  const subsolar = getSubsolarPoint(date);
-
-  ctx.save();
-  ctx.strokeStyle = COLORS.terminator;
-  ctx.lineWidth = highViz ? 2.5 : 1.5;
-  ctx.shadowColor = COLORS.terminator;
-  ctx.shadowBlur = highViz ? 2 : 1;
-  if (dashed) ctx.setLineDash([8, 4]);
-
-  ctx.beginPath();
-
-  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
-  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
-
-  // Handle equinox edge case (subsolar lat near 0)
-  const tanSubsolarLat = Math.tan(subsolarLatRad);
-  const isNearEquinox = Math.abs(tanSubsolarLat) < 0.001;
-
-  // Draw terminator by finding 90° points from subsolar
-  for (let lon = -180; lon <= 180; lon += 1) {
-    const lonRad = lon * (Math.PI / 180);
-    const deltaLon = lonRad - subsolarLonRad;
-
-    let lat: number;
-    if (isNearEquinox) {
-      // Near equinox: terminator runs north-south at 90° from subsolar longitude
-      // Just draw a vertical line offset by 90° from subsolar point
-      const offset = subsolar.lon + 90;
-      const normalizedOffset = ((offset + 180) % 360) - 180;
-      lat =
-        Math.abs(lon - normalizedOffset) < 1 ||
-        Math.abs(lon - normalizedOffset + 360) < 1
-          ? 0
-          : deltaLon > 0
-            ? 90
-            : -90;
-    } else {
-      // Normal formula: lat = atan(-cos(deltaLon) / tan(subsolarLat))
-      lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
-    }
-
-    const { x, y } = latLonToCanvas(lat, lon, width, height);
-
-    if (lon === -180) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  }
-
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-  if (dashed) ctx.setLineDash([]);
-  ctx.restore();
 }
 
 /**
@@ -2089,12 +2042,7 @@ interface PlacedLabel {
   spot: ResolvedSpot;
   /** Which side the connector line anchors from */
   anchorSide:
-    | "above"
-    | "below"
-    | "right"
-    | "left"
-    | "above-right"
-    | "above-left";
+    "above" | "below" | "right" | "left" | "above-right" | "above-left";
   /** DX endpoint canvas position */
   spotX: number;
   spotY: number;
@@ -2488,6 +2436,20 @@ function drawNightLights(
   width: number,
   height: number,
 ) {
+  // Preserve all native night-texture detail without recomputing an enlarged
+  // light mask for every viewport size. Pan and zoom only resample the cache.
+  ctx.save();
+  ctx.scale(width / 4096, height / 2048);
+  drawNightLightsRaster(ctx, date, 4096, 2048);
+  ctx.restore();
+}
+
+function drawNightLightsRaster(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  width: number,
+  height: number,
+) {
   // Ensure texture is loaded (triggers async load on first call)
   const nightTexture = ensureNightTextureLoaded();
   if (!nightTexture) {
@@ -2579,7 +2541,7 @@ function drawNightLights(
       const texR = texPixels[idx];
       const texG = texPixels[idx + 1];
       const texB = texPixels[idx + 2];
-      const lightBrightness = Math.max(texR, texG, texB) / 255;
+      const lightBrightness = nightLightIntensity(texR, texG, texB);
 
       // Skip very dark pixels (no city lights here)
       if (lightBrightness < 0.02) {
@@ -3339,6 +3301,7 @@ function drawSatellites(
 import type { FlatMapZoomState } from "@/types/map";
 import {
   centeredOffsets,
+  flatMapMinimumScale,
   clampMapOffsets,
   computeFlatMapLayout,
   preservedCenterOffsets,
@@ -3354,17 +3317,30 @@ export function FlatMapView({
 }: FlatMapViewProps) {
   const mufRasterRef = useRef<FlatMufRaster | null>(null);
   const observatory = useMapStore((s) => s.observatoryMode);
-  const observatoryCameraRef = useRef<{ zoom: FlatMapZoomState; layout: FlatMapLayout } | null>(null);
+  const observatoryCameraRef = useRef<{
+    zoom: FlatMapZoomState;
+    layout: FlatMapLayout;
+  } | null>(null);
   const homeRequest = useHamClockDisplayStore((s) => s.homeRequest);
   const appliedHomeRef = useRef(0);
   const layoutMode = useMapStore((s) => s.layoutMode);
-  const homeRegion = useMemo(() => homeRequest ? flatHomeRegion(homeRequest) : null, [homeRequest]);
-  const datelineOverview = layoutMode === "hamclock" && homeRegion?.longitudeSpan === 360;
+  const homeRegion = useMemo(
+    () => (homeRequest ? flatHomeRegion(homeRequest) : null),
+    [homeRequest],
+  );
+  const datelineOverview =
+    layoutMode === "hamclock" && homeRegion?.longitudeSpan === 360;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const scienceCanvasRef = useRef<HTMLCanvasElement>(null);
   const glowCanvasRef = useRef<HTMLCanvasElement>(null);
   const mapSurfaceRef = useRef<HTMLDivElement>(null);
+  const navigationSurfaceRef = useRef<HTMLDivElement>(null);
+  const navigationBackgroundRef = useRef<HTMLCanvasElement>(null);
+  const navigationSnapshotRef = useRef<HTMLCanvasElement>(null);
+  const navigationWorldRef = useRef<HTMLCanvasElement | null>(null);
+  const navigationZoomRef = useRef<FlatMapZoomState | null>(null);
+  const navigationInteractionRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [activationPillPlacements, setActivationPillPlacements] = useState<
     ActivationPillScreenPlacement[]
@@ -3394,6 +3370,7 @@ export function FlatMapView({
   });
   const displaySize = layout.map;
   const viewportSize = layout.viewport;
+  const minimumScale = flatMapMinimumScale(layout);
   const [zoom, setZoom] = useState<FlatMapZoomState>({
     scale: 1,
     offsetX: 0,
@@ -3402,8 +3379,7 @@ export function FlatMapView({
   const [animationNavigationActive, setAnimationNavigationActive] =
     useState(false);
   const [gestureNavigationActive, setGestureNavigationActive] = useState(false);
-  const navigationActive =
-    animationNavigationActive || gestureNavigationActive;
+  const navigationActive = animationNavigationActive || gestureNavigationActive;
   // Zoom animation ref for smooth transitions
   const zoomAnimationRef = useRef<ZoomAnimation | null>(null);
   const zoomRafRef = useRef<number>(0);
@@ -3449,9 +3425,7 @@ export function FlatMapView({
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const target = useMapStore((s) => s.target);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
-  const hiResTexturesEnabled = useSettingsStore(
-    (s) => s.globeHiResTextures,
-  );
+  const hiResTexturesEnabled = useSettingsStore((s) => s.globeHiResTextures);
   const themeId = useThemeStore((s) => s.themeId);
   const qualitySettings = useResolvedDisplayQuality(displayQuality);
   const mapImage = useFlatMapBaseImage(
@@ -3481,10 +3455,7 @@ export function FlatMapView({
   );
   const tileProvider = useMemo(
     () =>
-      selectAvailableTileProvider(
-        requestedTileProvider,
-        failedTileProviderIds,
-      ),
+      selectAvailableTileProvider(requestedTileProvider, failedTileProviderIds),
     [failedTileProviderIds, requestedTileProvider],
   );
 
@@ -3494,14 +3465,15 @@ export function FlatMapView({
     if (mapStyle === "standard" || !tileProvider) {
       return;
     }
-    let tileFrame = 0;
+    let tileTimer: ReturnType<typeof setTimeout> | undefined;
     const layer = createFlatTileLayer(
       tileProvider,
       () => {
-        if (!tileFrame) tileFrame = requestAnimationFrame(() => {
-          tileFrame = 0;
-          setTileEpoch((epoch) => epoch + 1);
-        });
+        if (!tileTimer)
+          tileTimer = setTimeout(() => {
+            tileTimer = undefined;
+            setTileEpoch((epoch) => epoch + 1);
+          }, 100);
       },
       {
         maxCachedTiles: qualitySettings.flatTileCacheSize,
@@ -3519,7 +3491,7 @@ export function FlatMapView({
     );
     tileLayerRef.current = layer;
     return () => {
-      cancelAnimationFrame(tileFrame);
+      if (tileTimer) clearTimeout(tileTimer);
       layer.dispose();
       tileLayerRef.current = null;
     };
@@ -3600,12 +3572,8 @@ export function FlatMapView({
 
   // Shared hazard boundary keeps layer-to-request gating identical in every
   // projection while each renderer retains its own draw implementation.
-  const {
-    earthquakeData,
-    weatherAlerts,
-    lightningStrikes,
-    fireHotspots,
-  } = useMapHazardData(layers);
+  const { earthquakeData, weatherAlerts, lightningStrikes, fireHotspots } =
+    useMapHazardData(layers);
   const { spots: wsprSpots } = useWsprSpots(layers.wspr);
 
   // QSO overlay data — hooks only compute when layer is enabled
@@ -3648,19 +3616,15 @@ export function FlatMapView({
 
   // Fetch and resolve the shared live feed, then apply this canvas renderer's
   // draw cap. Source merging and disabled-state behavior live in one hook.
-  const {
-    spots,
-    resolvedSpots,
-    allResolvedSpots,
-    activationSpots,
-  } = useResolvedMapSpots({
-    grid: station?.grid,
-    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
-    activationsEnabled: layers.activations,
-    maxSpots: displayDensity,
-    sources: spotSourceFilters,
-    spotFilters,
-  });
+  const { spots, resolvedSpots, allResolvedSpots, activationSpots } =
+    useResolvedMapSpots({
+      grid: station?.grid,
+      enabled: layers.spots || layers.spotTraces || layers.gridActivity,
+      activationsEnabled: layers.activations,
+      maxSpots: displayDensity,
+      sources: spotSourceFilters,
+      spotFilters,
+    });
   const gridActivityResolution = gridActivityResolutionForView(
     "flat",
     zoom.scale,
@@ -3893,9 +3857,7 @@ export function FlatMapView({
       const renderer = glowRendererRef.current;
       const now = Date.now();
       const effectsVisible =
-        layers.spots ||
-        layers.spotTraces ||
-        layers.gridActivity;
+        layers.spots || layers.spotTraces || layers.gridActivity;
       if (effectsVisible) {
         renderer.draw(
           context,
@@ -3907,9 +3869,7 @@ export function FlatMapView({
       context.restore();
       recordFlatMapLayerPaint("effects");
 
-      const delay = effectsVisible
-        ? renderer.getNextAnimationDelay(now)
-        : null;
+      const delay = effectsVisible ? renderer.getNextAnimationDelay(now) : null;
       if (delay === 0) {
         glowRafRef.current = requestAnimationFrame(paint);
       } else if (delay !== null) {
@@ -4020,7 +3980,13 @@ export function FlatMapView({
       }
       return collectGridSpots(grid, allSpots, spots, resolvedSpots).spots;
     },
-    [allSpots, gridActivity.cellsByGrid, layers.gridActivity, resolvedSpots, spots],
+    [
+      allSpots,
+      gridActivity.cellsByGrid,
+      layers.gridActivity,
+      resolvedSpots,
+      spots,
+    ],
   );
 
   // Handle map click - show flyout
@@ -4525,6 +4491,60 @@ export function FlatMapView({
     [layout],
   );
 
+  // A gesture transforms retained bitmaps on the compositor. Do not run the
+  // tile warp, lighting blend passes, React tree and label layout every RAF.
+  // The small world backplate fills newly exposed edges while zooming out.
+  const previewNavigation = useCallback((next: FlatMapZoomState) => {
+    const starting = navigationZoomRef.current === null;
+    navigationZoomRef.current = next;
+    navigationInteractionRef.current = true;
+    const surface = navigationSurfaceRef.current;
+    const background = navigationBackgroundRef.current;
+    const snapshot = navigationSnapshotRef.current;
+    if (!surface || !background || !snapshot) return;
+    if (starting) {
+      const science = scienceCanvasRef.current;
+      if (science) {
+        if (
+          snapshot.width !== science.width ||
+          snapshot.height !== science.height
+        ) {
+          snapshot.width = science.width;
+          snapshot.height = science.height;
+        }
+        const ctx = snapshot.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, snapshot.width, snapshot.height);
+          for (const layer of surface.querySelectorAll("canvas")) {
+            if (layer.hidden || !layer.width || !layer.height) continue;
+            ctx.globalCompositeOperation =
+              layer.style.mixBlendMode === "plus-lighter"
+                ? "lighter"
+                : "source-over";
+            ctx.drawImage(layer, 0, 0, snapshot.width, snapshot.height);
+          }
+        }
+      }
+    }
+    const committed = zoomRef.current;
+    const ratio = next.scale / committed.scale;
+    surface.style.transformOrigin = "0 0";
+    surface.style.transform = `translate3d(${next.offsetX - committed.offsetX * ratio}px, ${next.offsetY - committed.offsetY * ratio}px, 0) scale(${ratio})`;
+    // Composite the transparent effects once. Moving a single texture avoids
+    // repeatedly blending six UHD canvases, including additive grid effects.
+    surface.style.opacity = "0";
+    snapshot.style.display = "block";
+    snapshot.style.transformOrigin = "0 0";
+    snapshot.style.willChange = "transform";
+    snapshot.style.transform = surface.style.transform;
+    const world = navigationWorldRef.current;
+    if (world) {
+      background.style.display = "block";
+      background.style.transformOrigin = "0 0";
+      background.style.transform = `translate3d(${next.offsetX}px, ${next.offsetY}px, 0) scale(${next.scale})`;
+    }
+  }, []);
+
   // Smooth zoom animation loop driven by requestAnimationFrame
   const runZoomAnimation = useCallback(() => {
     const anim = zoomAnimationRef.current;
@@ -4545,19 +4565,21 @@ export function FlatMapView({
 
     const clamped = clampOffsets(currentScale, currentOffsetX, currentOffsetY);
 
-    setZoom({
+    const next = {
       scale: currentScale,
       offsetX: clamped.offsetX,
       offsetY: clamped.offsetY,
-    });
+    };
+    previewNavigation(next);
 
     if (t < 1) {
       zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
     } else {
       zoomAnimationRef.current = null;
+      setZoom(next);
       setAnimationNavigationActive(false);
     }
-  }, [clampOffsets]);
+  }, [clampOffsets, previewNavigation]);
 
   // Handle scroll wheel zoom with smooth 300ms animation
   const handleWheel = useCallback(
@@ -4568,7 +4590,7 @@ export function FlatMapView({
         return;
       }
 
-      const rect = canvas.getBoundingClientRect();
+      const rect = mapSurfaceRef.current!.getBoundingClientRect();
 
       // Mouse position relative to canvas (in display coordinates)
       const mouseX = e.clientX - rect.left;
@@ -4625,9 +4647,10 @@ export function FlatMapView({
       }
 
       const targetScale = Math.max(
-        1,
+        minimumScale,
         Math.min(MAX_ZOOM_SCALE, baseScale * delta),
       );
+      if (!currentAnim && targetScale === baseScale) return;
 
       // Calculate new offset to zoom toward mouse position
       const scaleFactor = targetScale / baseScale;
@@ -4652,7 +4675,7 @@ export function FlatMapView({
 
       zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
     },
-    [clampOffsets, runZoomAnimation],
+    [clampOffsets, runZoomAnimation, minimumScale],
   );
 
   // Attach to the shared map surface so zoom keeps working when an accessible
@@ -4694,25 +4717,41 @@ export function FlatMapView({
         fillContainer && !datelineOverview,
         datelineOverview ? 2 : mapAspectRatio,
       );
-      const z = zoomRef.current;
-      const camera = lastLayout && fillContainer && !datelineOverview
-        ? preserveFlatMapCamera(lastLayout, next, z)
-        : { scale: z.scale, ...(lastLayout
-          ? preservedCenterOffsets(lastLayout, next, z)
-          : centeredOffsets(next, z.scale)) };
-      const clamped = clampMapOffsets(next, camera.scale, camera.offsetX, camera.offsetY);
-
       const layoutChanged =
         !lastLayout ||
         lastLayout.map.width !== next.map.width ||
         lastLayout.map.height !== next.map.height ||
         lastLayout.viewport.width !== next.viewport.width ||
         lastLayout.viewport.height !== next.viewport.height;
+      if (!layoutChanged) return;
+      const z = navigationZoomRef.current ?? zoomRef.current;
+      cancelAnimationFrame(zoomRafRef.current);
+      zoomAnimationRef.current = null;
+      setAnimationNavigationActive(false);
+      const camera =
+        lastLayout && fillContainer && !datelineOverview
+          ? preserveFlatMapCamera(lastLayout, next, z)
+          : {
+              scale: z.scale,
+              ...(lastLayout
+                ? preservedCenterOffsets(lastLayout, next, z)
+                : centeredOffsets(next, z.scale)),
+            };
+      const clamped = clampMapOffsets(
+        next,
+        camera.scale,
+        camera.offsetX,
+        camera.offsetY,
+      );
+
       lastLayout = next;
-      if (layoutChanged) {
-        setLayout(next);
-      }
-      if (camera.scale !== z.scale || clamped.offsetX !== z.offsetX || clamped.offsetY !== z.offsetY) {
+      setLayout(next);
+      if (
+        navigationZoomRef.current ||
+        camera.scale !== z.scale ||
+        clamped.offsetX !== z.offsetX ||
+        clamped.offsetY !== z.offsetY
+      ) {
         const nextZoom = { scale: camera.scale, ...clamped };
         zoomRef.current = nextZoom;
         setZoom(nextZoom);
@@ -4739,37 +4778,94 @@ export function FlatMapView({
   useEffect(() => {
     if (layoutMode !== "hamclock") return;
     if (observatory && !observatoryCameraRef.current) {
-      observatoryCameraRef.current = { zoom: { ...zoomRef.current }, layout };
-      const next = { scale: 1, ...centeredOffsets(layout, 1) };
+      observatoryCameraRef.current = {
+        zoom: { ...(navigationZoomRef.current ?? zoomRef.current) },
+        layout,
+      };
+      cancelAnimationFrame(zoomRafRef.current);
+      zoomAnimationRef.current = null;
+      setAnimationNavigationActive(false);
+      const next = {
+        scale: minimumScale,
+        ...centeredOffsets(layout, minimumScale),
+      };
       zoomRef.current = next;
       setZoom(next);
     } else if (!observatory && observatoryCameraRef.current) {
+      cancelAnimationFrame(zoomRafRef.current);
+      zoomAnimationRef.current = null;
+      setAnimationNavigationActive(false);
       const saved = observatoryCameraRef.current;
       const next = preserveFlatMapCamera(saved.layout, layout, saved.zoom);
       observatoryCameraRef.current = null;
       zoomRef.current = next;
       setZoom(next);
     }
-  }, [observatory, layoutMode, layout]);
+  }, [observatory, layoutMode, layout, minimumScale]);
 
   useEffect(() => {
-    if (layoutMode !== "hamclock" || !homeRequest || appliedHomeRef.current === homeRequest.revision) return;
+    if (
+      layoutMode !== "hamclock" ||
+      !homeRequest ||
+      appliedHomeRef.current === homeRequest.revision
+    )
+      return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect || !homeRegion) return;
-    const expected = computeFlatMapLayout(rect.width, rect.height, fillContainer && !datelineOverview, datelineOverview ? 2 : mapAspectRatio);
-    if (Math.abs(expected.viewport.width - viewportSize.width) > 1 || Math.abs(expected.viewport.height - viewportSize.height) > 1) return;
+    const expected = computeFlatMapLayout(
+      rect.width,
+      rect.height,
+      fillContainer && !datelineOverview,
+      datelineOverview ? 2 : mapAspectRatio,
+    );
+    if (
+      Math.abs(expected.viewport.width - viewportSize.width) > 1 ||
+      Math.abs(expected.viewport.height - viewportSize.height) > 1
+    )
+      return;
     appliedHomeRef.current = homeRequest.revision;
-    const scale = Math.max(1, Math.min(MAX_ZOOM_SCALE,
-      viewportSize.width / (displaySize.width * homeRegion.longitudeSpan / 360),
-      viewportSize.height / (displaySize.height * homeRegion.latitudeSpan / 180)));
-    const pos = latLonToCanvas(homeRegion.lat, homeRegion.lon, displaySize.width, displaySize.height);
+    const scale = Math.max(
+      minimumScale,
+      Math.min(
+        MAX_ZOOM_SCALE,
+        viewportSize.width /
+          ((displaySize.width * homeRegion.longitudeSpan) / 360),
+        viewportSize.height /
+          ((displaySize.height * homeRegion.latitudeSpan) / 180),
+      ),
+    );
+    const pos = latLonToCanvas(
+      homeRegion.lat,
+      homeRegion.lon,
+      displaySize.width,
+      displaySize.height,
+    );
     cancelAnimationFrame(zoomRafRef.current);
     zoomAnimationRef.current = null;
-    const next = { scale, ...clampMapOffsets(layout, scale,
-      viewportSize.width / 2 - pos.x * scale, viewportSize.height / 2 - pos.y * scale) };
+    setAnimationNavigationActive(false);
+    const next = {
+      scale,
+      ...clampMapOffsets(
+        layout,
+        scale,
+        viewportSize.width / 2 - pos.x * scale,
+        viewportSize.height / 2 - pos.y * scale,
+      ),
+    };
     zoomRef.current = next;
     setZoom(next);
-  }, [homeRequest, homeRegion, datelineOverview, fillContainer, mapAspectRatio, layoutMode, layout, displaySize, viewportSize]);
+  }, [
+    homeRequest,
+    homeRegion,
+    datelineOverview,
+    fillContainer,
+    mapAspectRatio,
+    layoutMode,
+    layout,
+    displaySize,
+    viewportSize,
+    minimumScale,
+  ]);
 
   // Smooth pan-to-preset animation (500ms ease-out)
   // When activePresetId changes, animate from current zoom to the preset view
@@ -5002,8 +5098,8 @@ export function FlatMapView({
             : [];
       for (const cell of cells) {
         const centerPoint = latLonToCanvas(cell.lat, cell.lon, rw, rh);
-        const width = cell.widthDeg / 360 * rw;
-        const height = cell.heightDeg / 180 * rh;
+        const width = (cell.widthDeg / 360) * rw;
+        const height = (cell.heightDeg / 180) * rh;
         oCtx.save();
         oCtx.globalAlpha = cell.opacity ?? 0.45;
         oCtx.fillStyle = cell.color;
@@ -5113,45 +5209,52 @@ export function FlatMapView({
   // Touch gesture handling: single-finger pan + two-finger pinch-zoom
   const handleGesturePan = useCallback(
     (deltaX: number, deltaY: number) => {
-      setZoom((prev) => {
-        const clamped = clampOffsets(
-          prev.scale,
-          prev.offsetX + deltaX,
-          prev.offsetY + deltaY,
-        );
-        return { ...prev, offsetX: clamped.offsetX, offsetY: clamped.offsetY };
-      });
+      const prev = navigationZoomRef.current ?? zoomRef.current;
+      const clamped = clampOffsets(
+        prev.scale,
+        prev.offsetX + deltaX,
+        prev.offsetY + deltaY,
+      );
+      previewNavigation({ ...prev, ...clamped });
     },
-    [clampOffsets],
+    [clampOffsets, previewNavigation],
   );
 
   const handleGesturePinchZoom = useCallback(
     (scaleDelta: number, centerX: number, centerY: number) => {
-      setZoom((prev) => {
-        const newScale = Math.max(
-          1,
-          Math.min(MAX_ZOOM_SCALE, prev.scale * scaleDelta),
-        );
-        // Zoom toward the pinch center point
-        const factor = newScale / prev.scale;
-        const newOffsetX = centerX - factor * (centerX - prev.offsetX);
-        const newOffsetY = centerY - factor * (centerY - prev.offsetY);
-        const clamped = clampOffsets(newScale, newOffsetX, newOffsetY);
-        return {
-          scale: newScale,
-          offsetX: clamped.offsetX,
-          offsetY: clamped.offsetY,
-        };
+      const prev = navigationZoomRef.current ?? zoomRef.current;
+      const newScale = Math.max(
+        minimumScale,
+        Math.min(MAX_ZOOM_SCALE, prev.scale * scaleDelta),
+      );
+      // Zoom toward the pinch center point
+      const factor = newScale / prev.scale;
+      const newOffsetX = centerX - factor * (centerX - prev.offsetX);
+      const newOffsetY = centerY - factor * (centerY - prev.offsetY);
+      const clamped = clampOffsets(newScale, newOffsetX, newOffsetY);
+      previewNavigation({
+        scale: newScale,
+        offsetX: clamped.offsetX,
+        offsetY: clamped.offsetY,
       });
     },
-    [clampOffsets],
+    [clampOffsets, minimumScale, previewNavigation],
   );
 
-  const { isGesturing } = useFlatMapGestures({
+  useFlatMapGestures({
     canvasRef,
+    coordinateSurfaceRef: mapSurfaceRef,
     onPan: handleGesturePan,
     onPinchZoom: handleGesturePinchZoom,
-    onActiveChange: setGestureNavigationActive,
+    onActiveChange: (active) => {
+      if (active) navigationInteractionRef.current = true;
+      cancelAnimationFrame(zoomRafRef.current);
+      zoomAnimationRef.current = null;
+      setAnimationNavigationActive(false);
+      setGestureNavigationActive(active);
+      if (!active && navigationZoomRef.current)
+        setZoom({ ...navigationZoomRef.current });
+    },
     enabled: true,
   });
 
@@ -5167,13 +5270,14 @@ export function FlatMapView({
     onLocationHover: handleMapHover,
     onHoverEnd: handleHoverEnd,
     holdDurationMs,
-    isGesturing,
+    isGesturing: navigationInteractionRef,
   });
 
   // Retained base imagery and XYZ tiles. Spot, hover, grid-effect, and science
   // updates never enter this dependency set, so they cannot repaint or request
   // basemap tiles. Navigation is the only continuous invalidator.
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (navigationActive) return;
     const canvas = baseCanvasRef.current;
     if (!canvas) return;
     const context = beginFlatMapCanvasFrame(
@@ -5207,6 +5311,8 @@ export function FlatMapView({
         offsetY: zoom.offsetY,
         renderWidth: displaySize.width,
         renderHeight: displaySize.height,
+        viewportWidth: viewportSize.width,
+        viewportHeight: viewportSize.height,
         devicePixelRatio: qualitySettings.renderDevicePixelRatio,
         navigationActive,
       });
@@ -5220,6 +5326,13 @@ export function FlatMapView({
 
     context.restore();
     recordFlatMapLayerPaint("base");
+    recordFlatMapCamera({
+      mapWidth: displaySize.width,
+      mapHeight: displaySize.height,
+      viewportWidth: viewportSize.width,
+      viewportHeight: viewportSize.height,
+      ...zoom,
+    });
   }, [
     displaySize,
     viewportSize,
@@ -5238,7 +5351,8 @@ export function FlatMapView({
   // Retained propagation/scientific surface. It tracks the comparatively slow
   // environmental and cartographic inputs but remains independent from live
   // spots, selection, hover, and the active-grid animation clock.
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (navigationActive) return;
     const canvas = scienceCanvasRef.current;
     if (!canvas) return;
     const context = beginFlatMapCanvasFrame(
@@ -5268,7 +5382,18 @@ export function FlatMapView({
 
     if (layers.muf && currentSFI) {
       mufRasterRef.current ??= new FlatMufRaster();
-      drawMUF(context, mufRasterRef.current.get(currentSFI, displayTime, renderWidth, renderHeight), layoutMode === "hamclock" ? 0.22 : 0.45, renderWidth, renderHeight);
+      drawMUF(
+        context,
+        mufRasterRef.current.get(
+          currentSFI,
+          displayTime,
+          renderWidth,
+          renderHeight,
+        ),
+        layoutMode === "hamclock" ? 0.22 : 0.45,
+        renderWidth,
+        renderHeight,
+      );
     }
 
     if (layers.terminator) {
@@ -5287,6 +5412,7 @@ export function FlatMapView({
         renderHeight,
         highViz,
         isStandard,
+        zoom.scale,
       );
     }
 
@@ -5420,7 +5546,8 @@ export function FlatMapView({
   ]);
 
   // Live interaction surface: reports, paths, endpoints, labels, and markers.
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (navigationActive) return;
     // A redraw starts with no interactive labels. Repopulate only after their
     // visible pills are painted so hidden/disabled labels cannot be selected.
     placedLabelsRef.current = [];
@@ -5814,6 +5941,7 @@ export function FlatMapView({
     pins,
     hoveredPinData,
     hoveredSpotData,
+    navigationActive,
     zoom,
     displaySize,
     viewportSize,
@@ -5838,6 +5966,99 @@ export function FlatMapView({
     loggedQsoData,
     qualitySettings.renderDevicePixelRatio,
   ]);
+
+  // Low-cost, geographically aligned backdrop for edges uncovered by a gesture.
+  // The settled viewport retains full-resolution tiles and all scientific layers.
+  useEffect(() => {
+    if (mapStyle !== "standard" && !mapImage) return;
+    const width = 2048;
+    const height = 1024;
+    const world = document.createElement("canvas");
+    world.width = width;
+    world.height = height;
+    const ctx = world.getContext("2d");
+    if (!ctx) return;
+    const standard = mapStyle === "standard";
+    ctx.drawImage(
+      standard ? getStandardMapCanvas(width, height, themeId) : mapImage!,
+      0,
+      0,
+      width,
+      height,
+    );
+    const savedNight = nightOverlayCache;
+    const savedLights = nightLightsCache;
+    // These helpers also serve the full-size scientific surface; a small
+    // navigation backplate must not evict that surface's minute-level caches.
+    if (layers.muf && currentSFI) {
+      const muf = new FlatMufRaster();
+      drawMUF(
+        ctx,
+        muf.get(currentSFI, displayTime, width, height),
+        layoutMode === "hamclock" ? 0.22 : 0.45,
+        width,
+        height,
+      );
+    }
+    if (layers.terminator) {
+      drawNightSide(
+        ctx,
+        displayTime,
+        width,
+        height,
+        standard ? "standard" : "satellite",
+        nightDarkness,
+      );
+      drawTerminator(ctx, displayTime, width, height, highViz, standard);
+    }
+    if (!standard && layers.nightLights)
+      drawNightLights(ctx, displayTime, width, height);
+    nightOverlayCache = savedNight;
+    nightLightsCache = savedLights;
+    navigationWorldRef.current = world;
+    const background = navigationBackgroundRef.current;
+    if (background) {
+      background.width = width;
+      background.height = height;
+      background.getContext("2d")?.drawImage(world, 0, 0);
+    }
+    return () => {
+      if (navigationWorldRef.current === world)
+        navigationWorldRef.current = null;
+      world.width = 0;
+      world.height = 0;
+    };
+  }, [
+    mapImage,
+    mapStyle,
+    themeId,
+    displayTime,
+    currentSFI,
+    nightDarkness,
+    highViz,
+    layoutMode,
+    layers.muf,
+    layers.terminator,
+    layers.nightLights,
+  ]);
+
+  // Runs after the three retained surfaces have painted the committed camera,
+  // before the browser displays it. No stale bitmap flashes at gesture end.
+  useLayoutEffect(() => {
+    navigationZoomRef.current = null;
+    navigationInteractionRef.current = false;
+    const surface = navigationSurfaceRef.current;
+    if (surface) {
+      surface.style.transform = "";
+      surface.style.opacity = "";
+    }
+    if (navigationBackgroundRef.current)
+      navigationBackgroundRef.current.style.display = "none";
+    if (navigationSnapshotRef.current) {
+      navigationSnapshotRef.current.style.display = "none";
+      navigationSnapshotRef.current.style.willChange = "";
+    }
+  }, [zoom, viewportSize]);
 
   // Compute bearing and distance from user's home QTH to hovered point
   const hoverBearingDistance = useMemo(() => {
@@ -5866,7 +6087,9 @@ export function FlatMapView({
       ref={containerRef}
       className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
         fillContainer
-          ? datelineOverview ? "flex items-center justify-center" : ""
+          ? datelineOverview
+            ? "flex items-center justify-center"
+            : ""
           : "min-h-[400px] rounded-xl flex items-center justify-center"
       }`}
     >
@@ -5883,92 +6106,115 @@ export function FlatMapView({
         className="relative flex-shrink-0"
         style={{ width: viewportSize.width, height: viewportSize.height }}
       >
-        {/* Retained base imagery + exact visible XYZ tiles. */}
         <canvas
-          ref={baseCanvasRef}
-          className="absolute inset-0 pointer-events-none"
+          ref={navigationBackgroundRef}
           aria-hidden="true"
-          style={{ width: viewportSize.width, height: viewportSize.height }}
-        />
-        {/* Retained slow propagation, illumination, borders, and labels. */}
-        <canvas
-          ref={scienceCanvasRef}
           className="absolute inset-0 pointer-events-none"
+          style={{
+            display: "none",
+            width: displaySize.width,
+            height: displaySize.height,
+          }}
+        />
+        <canvas
+          ref={navigationSnapshotRef}
           aria-hidden="true"
-          style={{ width: viewportSize.width, height: viewportSize.height }}
-        />
-        {/* Animated grid activity remains below selectable live spot content. */}
-        <canvas
-          ref={glowCanvasRef}
-          className="absolute inset-0 pointer-events-none"
-          aria-hidden="true"
-          style={{
-            width: viewportSize.width,
-            height: viewportSize.height,
-            // The renderer paints additive light into a transparent retained
-            // surface. Preserve that operation when the browser composites
-            // this separate canvas over imagery; normal source-over can
-            // darken underlying channels despite the internal `lighter` pass.
-            mixBlendMode: "plus-lighter",
-          }}
-        />
-        <canvas
-          ref={canvasRef}
-          className={`absolute inset-0 ${
-            hoveredPinData ? "cursor-pointer" : "cursor-crosshair"
-          }`}
-          aria-label="Interactive propagation map - click to select target location"
-          role="img"
-          style={{
-            width: viewportSize.width,
-            height: viewportSize.height,
-            imageRendering: "auto",
-            touchAction: "none",
-          }}
-        />
-        {/* Renderer-agnostic overlay canvas (contest overlays, etc.) */}
-        <canvas
-          ref={contestOverlayCanvasRef}
           className="absolute inset-0 pointer-events-none"
           style={{
+            display: "none",
             width: viewportSize.width,
             height: viewportSize.height,
           }}
         />
-        {/* Spot highlight overlay canvas (animates at 60fps independently) */}
-        <canvas
-          ref={highlightCanvasRef}
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            width: viewportSize.width,
-            height: viewportSize.height,
-          }}
-        />
-        {/* FT8 Decode overlay — enriched decode markers + great-circle arcs */}
-        {layers.ft8Spotter && (
-          <Ft8DecodeLayerFlat
-            decodes={ft8EnrichedDecodes}
-            myLat={station?.lat}
-            myLon={station?.lon}
-            width={displaySize.width}
-            height={displaySize.height}
-            viewportWidth={viewportSize.width}
-            viewportHeight={viewportSize.height}
-            devicePixelRatio={qualitySettings.renderDevicePixelRatio}
-            offsetX={zoom.offsetX}
-            offsetY={zoom.offsetY}
-            scale={zoom.scale}
+        <div ref={navigationSurfaceRef} className="absolute inset-0">
+          {/* Retained base imagery + exact visible XYZ tiles. */}
+          <canvas
+            ref={baseCanvasRef}
+            hidden
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{ width: viewportSize.width, height: viewportSize.height }}
           />
-        )}
-        {layers.activations && (
-          <ActivationPillButtons
-            placements={activationPillPlacements}
-            onSpotHover={handleSpotHover}
-            onSpotHoverEnd={scheduleSpotHoverDismiss}
-            onSpotSelect={handleMapSpotSelect}
+          {/* Retained slow propagation, illumination, borders, and labels. */}
+          <canvas
+            ref={scienceCanvasRef}
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{ width: viewportSize.width, height: viewportSize.height }}
           />
-        )}
-        {import.meta.env.DEV && <FlatMapDiagnosticsOverlay />}
+          {/* Animated grid activity remains below selectable live spot content. */}
+          <canvas
+            ref={glowCanvasRef}
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              width: viewportSize.width,
+              height: viewportSize.height,
+              // The renderer paints additive light into a transparent retained
+              // surface. Preserve that operation when the browser composites
+              // this separate canvas over imagery; normal source-over can
+              // darken underlying channels despite the internal `lighter` pass.
+              mixBlendMode: "plus-lighter",
+            }}
+          />
+          <canvas
+            ref={canvasRef}
+            className={`absolute inset-0 ${
+              hoveredPinData ? "cursor-pointer" : "cursor-crosshair"
+            }`}
+            aria-label="Interactive propagation map - click to select target location"
+            role="img"
+            style={{
+              width: viewportSize.width,
+              height: viewportSize.height,
+              imageRendering: "auto",
+              touchAction: "none",
+            }}
+          />
+          {/* Renderer-agnostic overlay canvas (contest overlays, etc.) */}
+          <canvas
+            ref={contestOverlayCanvasRef}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              width: viewportSize.width,
+              height: viewportSize.height,
+            }}
+          />
+          {/* Spot highlight overlay canvas (animates at 60fps independently) */}
+          <canvas
+            ref={highlightCanvasRef}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              width: viewportSize.width,
+              height: viewportSize.height,
+            }}
+          />
+          {/* FT8 Decode overlay — enriched decode markers + great-circle arcs */}
+          {layers.ft8Spotter && (
+            <Ft8DecodeLayerFlat
+              decodes={ft8EnrichedDecodes}
+              myLat={station?.lat}
+              myLon={station?.lon}
+              width={displaySize.width}
+              height={displaySize.height}
+              viewportWidth={viewportSize.width}
+              viewportHeight={viewportSize.height}
+              devicePixelRatio={qualitySettings.renderDevicePixelRatio}
+              offsetX={zoom.offsetX}
+              offsetY={zoom.offsetY}
+              scale={zoom.scale}
+            />
+          )}
+          {layers.activations && (
+            <ActivationPillButtons
+              placements={activationPillPlacements}
+              onSpotHover={handleSpotHover}
+              onSpotHoverEnd={scheduleSpotHoverDismiss}
+              onSpotSelect={handleMapSpotSelect}
+            />
+          )}
+          {import.meta.env.DEV && <FlatMapDiagnosticsOverlay />}
+        </div>
       </div>
 
       {/* Aspect ratio slider — only in letterbox mode, hidden in lite mode
@@ -6080,9 +6326,7 @@ export function FlatMapView({
       )}
 
       {/* Canonical propagation preview for every visible tag and endpoint. */}
-      {hoveredSpotData &&
-        !selectedMapSpotData &&
-        !selectedGridCollection && (
+      {hoveredSpotData && !selectedMapSpotData && !selectedGridCollection && (
         <SpotHoverPreview
           visible
           position={hoveredSpotData.screenPos}
@@ -6091,10 +6335,7 @@ export function FlatMapView({
           onInteractStart={cancelSpotHoverDismiss}
           onInteractEnd={() => scheduleSpotHoverDismiss()}
           onActivate={() =>
-            handleMapSpotSelect(
-              hoveredSpotData.spot,
-              hoveredSpotData.screenPos,
-            )
+            handleMapSpotSelect(hoveredSpotData.spot, hoveredSpotData.screenPos)
           }
         />
       )}

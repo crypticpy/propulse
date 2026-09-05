@@ -3,7 +3,10 @@ import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useFlatMapClickHandler } from "./FlatMapClickHandler";
 
-function Harness({ onQuickClick, onDoubleClick }: {
+function Harness({
+  onQuickClick,
+  onDoubleClick,
+}: {
   onQuickClick: (
     position: { x: number; y: number },
     lat: number,
@@ -24,8 +27,15 @@ function Harness({ onQuickClick, onDoubleClick }: {
 
 function mockBounds(canvas: HTMLCanvasElement) {
   vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
-    x: 0, y: 0, top: 0, left: 0, right: 200, bottom: 100,
-    width: 200, height: 100, toJSON: () => ({}),
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: 200,
+    bottom: 100,
+    width: 200,
+    height: 100,
+    toJSON: () => ({}),
   });
 }
 
@@ -35,6 +45,35 @@ afterEach(() => {
 });
 
 describe("useFlatMapClickHandler overlay click ownership", () => {
+  it("ignores letterbox margins and suppresses selection during a visual camera gesture", () => {
+    const onQuickClick = vi.fn(() => true);
+    const navigating = { current: false };
+    function LetterboxHarness() {
+      const canvasRef = useRef<HTMLCanvasElement>(null);
+      useFlatMapClickHandler({
+        canvasRef,
+        zoom: { scale: 0.5, offsetX: 50, offsetY: 25 },
+        displaySize: { width: 200, height: 100 },
+        onQuickClick,
+        isGesturing: navigating,
+      });
+      return <canvas ref={canvasRef} data-testid="letterbox" />;
+    }
+    const { getByTestId } = render(<LetterboxHarness />);
+    const canvas = getByTestId("letterbox") as HTMLCanvasElement;
+    mockBounds(canvas);
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(document, { clientX: 10, clientY: 10 });
+    expect(onQuickClick).not.toHaveBeenCalled();
+    navigating.current = true;
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 50 });
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 50 });
+    expect(onQuickClick).not.toHaveBeenCalled();
+    navigating.current = false;
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 50 });
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 50 });
+    expect(onQuickClick).toHaveBeenCalledWith({ x: 100, y: 50 }, 0, 0);
+  });
   it("does not promote consumed label clicks into a surface double-click", () => {
     vi.useFakeTimers();
     vi.spyOn(console, "debug").mockImplementation(() => undefined);
@@ -51,12 +90,7 @@ describe("useFlatMapClickHandler overlay click ownership", () => {
       vi.advanceTimersByTime(80);
     }
     expect(onQuickClick).toHaveBeenCalledTimes(2);
-    expect(onQuickClick).toHaveBeenNthCalledWith(
-      1,
-      { x: 80, y: 40 },
-      18,
-      -36,
-    );
+    expect(onQuickClick).toHaveBeenNthCalledWith(1, { x: 80, y: 40 }, 18, -36);
     expect(onDoubleClick).not.toHaveBeenCalled();
   });
 
@@ -105,11 +139,7 @@ describe("useFlatMapClickHandler overlay click ownership", () => {
     fireEvent.pointerUp(document, { clientX: 80, clientY: 40 });
 
     expect(onQuickClick).toHaveBeenCalledOnce();
-    expect(onQuickClick).toHaveBeenCalledWith(
-      { x: 80, y: 40 },
-      18,
-      -36,
-    );
+    expect(onQuickClick).toHaveBeenCalledWith({ x: 80, y: 40 }, 18, -36);
     expect(onDoubleClick).not.toHaveBeenCalled();
   });
 });

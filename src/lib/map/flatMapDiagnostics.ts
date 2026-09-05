@@ -11,6 +11,23 @@ export interface FlatMapDiagnosticsSnapshot {
   paints: Record<FlatMapRetainedLayer, number>;
   tiles: FlatMapTileRangeSnapshot | null;
   debugTileBounds: boolean;
+  camera: FlatMapCameraSnapshot | null;
+}
+
+export interface FlatMapCameraSnapshot {
+  mapWidth: number;
+  mapHeight: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+let camera: FlatMapCameraSnapshot | null = null;
+
+export function recordFlatMapCamera(snapshot: FlatMapCameraSnapshot): void {
+  if (import.meta.env.DEV) camera = snapshot;
 }
 
 const paints: Record<FlatMapRetainedLayer, number> = {
@@ -63,6 +80,7 @@ export function getFlatMapDiagnosticsSnapshot(): FlatMapDiagnosticsSnapshot {
         }
       : null,
     debugTileBounds,
+    camera: camera ? { ...camera } : null,
   };
 }
 

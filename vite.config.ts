@@ -1247,7 +1247,7 @@ export default defineConfig(({ mode }) => {
             {
               // Cache public data APIs only — exclude credential-forwarding endpoints
               urlPattern:
-                /^https:\/\/.*\/api\/(?!solar\/|log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
+                /^https:\/\/.*\/api\/(?!solar\/|tiles\/|log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
               handler: "NetworkFirst",
               options: {
                 cacheName: "api-cache",

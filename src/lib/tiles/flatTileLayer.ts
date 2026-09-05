@@ -21,6 +21,8 @@ export interface FlatTileViewState {
   offsetY: number;
   renderWidth: number;
   renderHeight: number;
+  viewportWidth?: number;
+  viewportHeight?: number;
   devicePixelRatio: number;
   /** Suppresses the idle prefetch ring while the operator pans or zooms. */
   navigationActive?: boolean;
@@ -55,11 +57,12 @@ interface TileEntry {
   y: number;
   controller?: AbortController;
   objectUrl?: string;
+  projected?: HTMLCanvasElement;
 }
 
 const DEFAULT_MAX_CACHED_TILES = 320;
-/** The static 4096px base image is ~z4 quality; tiles only add detail beyond it. */
-const MIN_DRAW_ZOOM = 5;
+/** Compare source pixels, since 256px and 512px providers use different zooms. */
+const BASE_WORLD_PIXELS = 4096;
 /** How many coarser zoom levels to paint beneath the exact level while it loads. */
 const FALLBACK_ZOOM_STEPS = 2;
 const MERCATOR_MAX_LAT = 85.05112878;
@@ -99,13 +102,19 @@ export function getFlatTileWindow(
   const { scale, offsetX, offsetY, renderWidth, renderHeight } = view;
   const worldDevicePx = renderWidth * scale * view.devicePixelRatio;
   const idealZoom =
-    Math.round(Math.log2(worldDevicePx / provider.tileSize)) + tileZoomBias;
-  if (idealZoom < MIN_DRAW_ZOOM) return null;
+    Math.ceil(Math.log2(worldDevicePx / provider.tileSize)) + tileZoomBias;
+  if (worldDevicePx <= BASE_WORLD_PIXELS && tileZoomBias <= 0) return null;
 
   const left = Math.max(0, -offsetX / scale);
-  const right = Math.min(renderWidth, (renderWidth - offsetX) / scale);
+  const right = Math.min(
+    renderWidth,
+    ((view.viewportWidth ?? renderWidth) - offsetX) / scale,
+  );
   const top = Math.max(0, -offsetY / scale);
-  const bottom = Math.min(renderHeight, (renderHeight - offsetY) / scale);
+  const bottom = Math.min(
+    renderHeight,
+    ((view.viewportHeight ?? renderHeight) - offsetY) / scale,
+  );
   if (right <= left || bottom <= top) return null;
 
   const lonLeft = (left / renderWidth) * 360 - 180;
@@ -151,8 +160,7 @@ export function createFlatTileLayer(
   // Insertion-ordered Map doubles as the LRU: hits re-insert, evictions pop
   // from the front, skipping in-flight requests.
   const cache = new Map<string, TileEntry>();
-  const maxCachedTiles =
-    options.maxCachedTiles ?? DEFAULT_MAX_CACHED_TILES;
+  const maxCachedTiles = options.maxCachedTiles ?? DEFAULT_MAX_CACHED_TILES;
   const tileZoomBias = options.tileZoomBias ?? 0;
   const maxConcurrentRequests = Math.max(
     1,
@@ -190,6 +198,11 @@ export function createFlatTileLayer(
     entry.img.onload = null;
     entry.img.onerror = null;
     if (wasLoading) entry.img.src = "";
+    if (entry.projected) {
+      entry.projected.width = 0;
+      entry.projected.height = 0;
+      entry.projected = undefined;
+    }
     if (entry.objectUrl) {
       URL.revokeObjectURL(entry.objectUrl);
       entry.objectUrl = undefined;
@@ -268,7 +281,8 @@ export function createFlatTileLayer(
 
     if (provider.authentication === "bearer") {
       void loadAuthenticatedTile(entry, tileUrl).catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (disposed || entry.status !== "loading") return;
         markError(entry);
       });
@@ -313,43 +327,75 @@ export function createFlatTileLayer(
 
   function drawTile(
     ctx: CanvasRenderingContext2D,
-    img: HTMLImageElement,
+    entry: TileEntry,
     z: number,
     x: number,
     y: number,
     view: FlatTileViewState,
   ): void {
     const { renderWidth, renderHeight, scale } = view;
+    const { img } = entry;
     const n = 1 << z;
     const destX = (x / n) * renderWidth;
     const destW = renderWidth / n;
     const srcW = img.naturalWidth || provider.tileSize;
     const srcH = img.naturalHeight || provider.tileSize;
-    // More strips at low zoom, where one tile spans a large latitude range
-    // and the Mercator→equirectangular warp is strongest.
-    const strips = z <= 3 ? 32 : z <= 5 ? 16 : z <= 7 ? 8 : 4;
-    // Half a CSS px of overlap hides antialiasing seams between strips.
-    const overlap = 0.5 / scale;
-    for (let i = 0; i < strips; i++) {
-      const latTop = mercatorNormYToLat((y + i / strips) / n);
-      const latBottom = mercatorNormYToLat((y + (i + 1) / strips) / n);
-      const destY = ((90 - latTop) / 180) * renderHeight;
-      const destH = ((latTop - latBottom) / 180) * renderHeight;
-      ctx.drawImage(
-        img,
-        0,
-        (i / strips) * srcH,
-        srcW,
-        srcH / strips,
-        destX,
-        destY,
-        destW,
-        destH + overlap,
+    const north = mercatorNormYToLat(y / n);
+    const south = mercatorNormYToLat((y + 1) / n);
+    const destY = ((90 - north) / 180) * renderHeight;
+    const destH = ((north - south) / 180) * renderHeight;
+    // Warp once per cached tile, at its source resolution. Repainting a view
+    // then takes one blit per tile instead of 4–32 strip draws on every frame.
+    if (!entry.projected) {
+      const projected = document.createElement("canvas");
+      projected.width = srcW;
+      projected.height = Math.max(
+        1,
+        Math.ceil((srcW * (north - south) * n) / 360),
       );
+      const projection = projected.getContext("2d");
+      if (projection) {
+        projection.imageSmoothingEnabled = true;
+        projection.imageSmoothingQuality = "high";
+        const strips = z <= 3 ? 64 : z <= 5 ? 32 : z <= 7 ? 16 : 8;
+        for (let i = 0; i < strips; i++) {
+          const top = mercatorNormYToLat((y + i / strips) / n);
+          const bottom = mercatorNormYToLat((y + (i + 1) / strips) / n);
+          const py = ((north - top) / (north - south)) * projected.height;
+          const ph = ((top - bottom) / (north - south)) * projected.height;
+          projection.drawImage(
+            img,
+            0,
+            (i / strips) * srcH,
+            srcW,
+            srcH / strips,
+            0,
+            py,
+            projected.width,
+            ph + 0.5,
+          );
+        }
+        entry.projected = projected;
+      }
     }
+    const surface = entry.projected ?? img;
+    ctx.drawImage(
+      surface,
+      0,
+      0,
+      entry.projected?.width ?? srcW,
+      entry.projected?.height ?? srcH,
+      destX,
+      destY,
+      destW + 0.25 / scale,
+      destH + 0.25 / scale,
+    );
   }
 
-  function draw(ctx: CanvasRenderingContext2D, view: FlatTileViewState): boolean {
+  function draw(
+    ctx: CanvasRenderingContext2D,
+    view: FlatTileViewState,
+  ): boolean {
     if (disposed) {
       return false;
     }
@@ -396,7 +442,11 @@ export function createFlatTileLayer(
     // upscaled imagery instead of holes while the exact level loads.
     const retainedRequestKeys = new Set<string>();
     let drewProviderTile = false;
-    for (let level = Math.max(2, z - FALLBACK_ZOOM_STEPS); level <= z; level++) {
+    for (
+      let level = Math.max(2, z - FALLBACK_ZOOM_STEPS);
+      level <= z;
+      level++
+    ) {
       const n = 1 << level;
       const xStart =
         level === z
@@ -428,15 +478,14 @@ export function createFlatTileLayer(
               const tileLatTop = mercatorNormYToLat(ty / n);
               const tileLatBottom = mercatorNormYToLat((ty + 1) / n);
               const tileTop = ((90 - tileLatTop) / 180) * renderHeight;
-              const tileBottom =
-                ((90 - tileLatBottom) / 180) * renderHeight;
+              const tileBottom = ((90 - tileLatBottom) / 180) * renderHeight;
               const intersectsVisibleViewport =
                 tileLeft < right &&
                 tileRight > left &&
                 tileTop < bottom &&
                 tileBottom > top;
               if (intersectsVisibleViewport) {
-                drawTile(ctx, entry.img, level, tx, ty, view);
+                drawTile(ctx, entry, level, tx, ty, view);
                 drewProviderTile = true;
                 if (shouldDrawFlatMapTileBounds() && level === z) {
                   ctx.save();
@@ -469,6 +518,30 @@ export function createFlatTileLayer(
         releaseEntry(entry);
         cache.delete(key);
       }
+    }
+
+    if (viewChanged) {
+      // Fill the actual view before spending its request slots on the idle ring.
+      // Center-first also avoids a slow scan from the northwestern corner.
+      const centerX = (visible.xStart + visible.xEnd) / 2;
+      const centerY = (visible.yStart + visible.yEnd) / 2;
+      const priority = (key: string) => {
+        const entry = cache.get(key)!;
+        const offscreen =
+          entry.x < visible.xStart ||
+          entry.x > visible.xEnd ||
+          entry.y < visible.yStart ||
+          entry.y > visible.yEnd;
+        return (
+          (offscreen ? 1e9 : 0) +
+          (entry.x - centerX) ** 2 +
+          (entry.y - centerY) ** 2
+        );
+      };
+      requestQueue = [...new Set(requestQueue)].filter(
+        (key) => cache.get(key)?.status === "queued",
+      );
+      requestQueue.sort((a, b) => priority(a) - priority(b));
     }
 
     if ((viewChanged || view.navigationActive) && settleTimer) {

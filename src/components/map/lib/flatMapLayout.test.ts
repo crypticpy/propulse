@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   centeredOffsets,
+  flatMapMinimumScale,
   clampMapOffsets,
   computeFlatMapLayout,
   preservedCenterOffsets,
@@ -86,6 +87,27 @@ describe("preserveFlatMapCamera", () => {
 });
 
 describe("clampMapOffsets", () => {
+  it("fits Japan, Australia and both world edges at minimum zoom on a 4K HamClock viewport", () => {
+    const layout = computeFlatMapLayout(3270, 2094, true, 2);
+    const scale = flatMapMinimumScale(layout);
+    expect(scale).toBeLessThan(1);
+    const offsets = clampMapOffsets(layout, scale, -9000, 9000);
+    for (const [lat, lon] of [
+      [35.7, 139.7],
+      [-33.9, 151.2],
+      [90, -180],
+      [-90, 180],
+    ]) {
+      const x =
+        offsets.offsetX + ((lon + 180) / 360) * layout.map.width * scale;
+      const y =
+        offsets.offsetY + ((90 - lat) / 180) * layout.map.height * scale;
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(layout.viewport.width);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(layout.viewport.height);
+    }
+  });
   it("matches the classic -(scale-1)×size bound when map equals viewport", () => {
     const layout = computeFlatMapLayout(1000, 500, false, 2);
     expect(clampMapOffsets(layout, 1, -50, 50)).toEqual({

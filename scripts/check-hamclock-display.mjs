@@ -414,6 +414,90 @@ try {
   await page.setViewportSize({ width: 3840, height: 2160 });
   await page.waitForTimeout(1000);
   await page.screenshot({ path: "tmp/hamclock-check/functional-4k.png" });
+  const camera = () =>
+    page.evaluate(() => window.__propulseFlatMapDiagnostics.snapshot().camera);
+  await page.getByRole("button", { name: "Home region", exact: true }).click();
+  await page.waitForTimeout(1000);
+  const homeCamera = await camera();
+  const onScreen = (view, lat, lon) => {
+    const x = view.offsetX + ((lon + 180) / 360) * view.mapWidth * view.scale;
+    const y = view.offsetY + ((90 - lat) / 180) * view.mapHeight * view.scale;
+    return (
+      x >= -1 &&
+      x <= view.viewportWidth + 1 &&
+      y >= -1 &&
+      y <= view.viewportHeight + 1
+    );
+  };
+  for (const [lat, lon] of [
+    [39.74, -104.99],
+    [-34.6, -58.4],
+    [51.5, 0],
+    [-34, 18.4],
+    [31.8, 35.2],
+  ]) {
+    expect(onScreen(homeCamera, lat, lon)).toBe(true);
+  }
+  check(
+    "4K home framing includes the Americas, Europe, Africa and western Middle East",
+  );
+  await page.screenshot({ path: "tmp/hamclock-check/home-context-4k.png" });
+  const mapCanvas = page.locator(
+    '[data-hamclock-root] main canvas[role="img"]',
+  );
+  const bounds = await mapCanvas.boundingBox();
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await page.evaluate(() => window.__propulseFlatMapDiagnostics.reset());
+  // A sustained gesture must reuse its retained image, not rerasterize UHD
+  // illumination at every wheel event. Timing itself varies across machines.
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.wheel(0, -100);
+    await page.waitForTimeout(30);
+  }
+  await page.waitForTimeout(700);
+  for (let i = 0; i < 30; i++) {
+    await page.mouse.wheel(0, 100);
+    await page.waitForTimeout(30);
+  }
+  await expect
+    .poll(
+      async () => {
+        const view = await camera();
+        return Math.abs(
+          view.scale -
+            Math.min(
+              view.viewportWidth / view.mapWidth,
+              view.viewportHeight / view.mapHeight,
+            ),
+        );
+      },
+      { timeout: 10000 },
+    )
+    .toBeLessThan(0.001);
+  const worldCamera = await camera();
+  for (const [lat, lon] of [
+    [90, -180],
+    [-90, 180],
+    [35.7, 139.7],
+    [-33.9, 151.2],
+  ]) {
+    expect(onScreen(worldCamera, lat, lon)).toBe(true);
+  }
+  const gesturePaints = await page.evaluate(
+    () => window.__propulseFlatMapDiagnostics.snapshot().paints,
+  );
+  expect(gesturePaints.base).toBeLessThan(20);
+  expect(gesturePaints.science).toBeLessThan(20);
+  result.fidelity = { homeCamera, worldCamera, gesturePaints };
+  check(
+    "World zoom-out includes Japan and Australia; gestures reuse retained imagery",
+  );
+  await page.screenshot({ path: "tmp/hamclock-check/world-context-4k.png" });
+  await page.getByRole("button", { name: "Home region", exact: true }).click();
+  await page.waitForTimeout(700);
   await page.getByRole("button", { name: "3D globe", exact: true }).click();
   await page.waitForTimeout(3500);
   await page.screenshot({ path: "tmp/hamclock-check/functional-globe.png" });

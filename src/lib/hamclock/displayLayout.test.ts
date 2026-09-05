@@ -23,9 +23,18 @@ it("reserves map space on constrained displays and grows panels on roomy display
 
 it("frames the US region and fits globe distance to the available aspect ratio", () => {
   const region = hamClockHomeRegion(38.5, -92.5);
-  expect(region.lon).toBe(-98);
-  expect(region.longitudeSpan).toBeGreaterThan(59);
-  expect(globeRegionDistance(region, 45, 0.8)).toBeGreaterThan(
+  // Denver, Buenos Aires, London, Cape Town, and the western Middle East.
+  for (const [lat, lon] of [
+    [39.74, -104.99],
+    [-34.6, -58.4],
+    [51.5, 0],
+    [-34, 18.4],
+    [31.8, 35.2],
+  ]) {
+    expect(Math.abs(lon - region.lon)).toBeLessThan(region.longitudeSpan / 2);
+    expect(Math.abs(lat - region.lat)).toBeLessThan(region.latitudeSpan / 2);
+  }
+  expect(globeRegionDistance(region, 45, 0.8)).toBeGreaterThanOrEqual(
     globeRegionDistance(region, 45, 1.8),
   );
   expect(hamClockHomeRegion(51, 0).lon).toBe(0);

@@ -27,17 +27,18 @@ export function hamClockPanelWidths(
   return { info: Math.round(info * fit), spots: Math.round(spots * fit) };
 }
 
-/** Regional context around the station, with a comfortable continental-US fit. */
+/** Operating context: home plus the neighboring intercontinental paths. */
 export function hamClockHomeRegion(lat: number, lon: number): HomeRegion {
   if (lat >= 24 && lat <= 50 && lon >= -125 && lon <= -66) {
-    return { lat: 39, lon: -98, latitudeSpan: 42, longitudeSpan: 74 };
+    // Americas → Atlantic → Europe/Africa, reaching the western Middle East.
+    return { lat: 10, lon: -40, latitudeSpan: 140, longitudeSpan: 220 };
   }
   // Large continents need a regional window, not an entire-continent fit.
   return {
     lat: Math.max(-55, Math.min(55, lat)),
     lon,
-    latitudeSpan: 65,
-    longitudeSpan: 105,
+    latitudeSpan: 110,
+    longitudeSpan: 180,
   };
 }
 

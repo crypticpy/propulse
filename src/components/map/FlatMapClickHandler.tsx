@@ -365,6 +365,13 @@ export function useFlatMapClickHandler(
     }
 
     function handlePointerMove(event: PointerEvent | MouseEvent): void {
+      if (isGesturingRef.current?.current) {
+        cancelHold();
+        if (hoverTimer) clearTimeout(hoverTimer);
+        hoverTimer = null;
+        onHoverEndRef.current?.();
+        return;
+      }
       // Handle gesture state detection during active gesture
       if (
         startPos &&

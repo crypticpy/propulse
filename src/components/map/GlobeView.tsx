@@ -29,6 +29,8 @@ import {
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { GlobeDepthDome } from "./GlobeDepthDome";
+import { GlobeUnavailable } from "./GlobeUnavailable";
+import { probeWebGLSupport } from "@/lib/webgl/webglSupport";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
 import { GlobePerformanceDiagnostics } from "./GlobePerformanceDiagnostics";
@@ -1997,6 +1999,16 @@ export function GlobeView({
   const tileLabelsEnabled = useMapStore(
     (state) => state.layers.labels && state.labelOptions.tileLabels,
   );
+  // WebGL preflight — probed once lazily so a disabled GPU process never
+  // reaches Three.js context creation. `attempt` is bumped on retry and
+  // doubles as the GlobeErrorBoundary key to force a remount after a
+  // runtime (post-mount) failure.
+  const [webgl, setWebgl] = useState(() => probeWebGLSupport());
+  const [attempt, setAttempt] = useState(0);
+  const retryWebGL = useCallback(() => {
+    setWebgl(probeWebGLSupport());
+    setAttempt((prev) => prev + 1);
+  }, []);
   const [tileFallbackActive, setTileFallbackActive] = useState(false);
   const [cloudImageryStatus, setCloudImageryStatus] =
     useState<CloudImageryStatus>("loading");
@@ -2570,56 +2582,60 @@ export function GlobeView({
 
   return (
     <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none">
-      <GlobeErrorBoundary
-        fallback={
-          <div className="w-full h-full flex items-center justify-center bg-deep-space text-gray-500">
-            <div className="text-center">
-              <p>3D globe unavailable</p>
-              <p className="text-sm mt-1">
-                Try switching to Flat or Azimuthal view
-              </p>
-            </div>
-          </div>
-        }
-      >
-        <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
-          {import.meta.env.DEV && (
-            <GlobePerformanceDiagnostics
-              settleDelayMs={qualitySettings.settleDelayMs}
+      {webgl.supported ? (
+        <GlobeErrorBoundary
+          key={attempt}
+          fallback={
+            <GlobeUnavailable
+              reason={webgl.reason ?? undefined}
+              onRetry={retryWebGL}
             />
-          )}
-          <PerspectiveCamera
-            makeDefault
-            position={[0, 0, 2.5 / zoom]}
-            fov={45}
-            near={0.01}
-            far={200}
-          />
-          <Suspense fallback={<GlobeLoader />}>
-            <GlobeScene
-              displayTime={displayTime}
-              onLocationClick={handleGlobeClick}
-              onDoubleClick={handleDoubleClick}
-              onQuickClick={handleGlobeQuickClick}
-              onLocationHover={handleGlobeHover}
-              onHoverEnd={handleHoverEnd}
-              onPinHover={handlePinHover}
-              onPinLeave={handlePinLeave}
-              onTargetHover={handleTargetHover}
-              onTargetHoverEnd={handleTargetHoverEnd}
-              onSpotHover={handleSpotHover}
-              onSpotHoverEnd={handleSpotHoverEnd}
-              onSpotSelect={handleMapSpotSelect}
-              onClusterClick={handleClusterClick}
-              onAlertClick={handleAlertClick}
-              onFireClick={handleFireClick}
-              onRadarAnimState={setRadarAnimState}
-              onTileFallbackChange={setTileFallbackActive}
-              onCloudImageryStatusChange={setCloudImageryStatus}
+          }
+        >
+          <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
+            {import.meta.env.DEV && (
+              <GlobePerformanceDiagnostics
+                settleDelayMs={qualitySettings.settleDelayMs}
+              />
+            )}
+            <PerspectiveCamera
+              makeDefault
+              position={[0, 0, 2.5 / zoom]}
+              fov={45}
+              near={0.01}
+              far={200}
             />
-          </Suspense>
-        </Canvas>
-      </GlobeErrorBoundary>
+            <Suspense fallback={<GlobeLoader />}>
+              <GlobeScene
+                displayTime={displayTime}
+                onLocationClick={handleGlobeClick}
+                onDoubleClick={handleDoubleClick}
+                onQuickClick={handleGlobeQuickClick}
+                onLocationHover={handleGlobeHover}
+                onHoverEnd={handleHoverEnd}
+                onPinHover={handlePinHover}
+                onPinLeave={handlePinLeave}
+                onTargetHover={handleTargetHover}
+                onTargetHoverEnd={handleTargetHoverEnd}
+                onSpotHover={handleSpotHover}
+                onSpotHoverEnd={handleSpotHoverEnd}
+                onSpotSelect={handleMapSpotSelect}
+                onClusterClick={handleClusterClick}
+                onAlertClick={handleAlertClick}
+                onFireClick={handleFireClick}
+                onRadarAnimState={setRadarAnimState}
+                onTileFallbackChange={setTileFallbackActive}
+                onCloudImageryStatusChange={setCloudImageryStatus}
+              />
+            </Suspense>
+          </Canvas>
+        </GlobeErrorBoundary>
+      ) : (
+        <GlobeUnavailable
+          reason={webgl.reason ?? undefined}
+          onRetry={retryWebGL}
+        />
+      )}
 
       {/* Map-owned DOM portal. Drei Html labels reserve z-index values through
           9000 while hovered/selected, so this sibling stacking layer must sit

@@ -86,7 +86,7 @@ describe("station workbench W01 contracts", () => {
     ["cross-owner snapshot", (a: ReturnType<typeof createHfFixture>) => { a.revisions[0].equipment[0].ownerId = "someone-else"; }],
     ["duplicate instance", (a: ReturnType<typeof createHfFixture>) => { a.inventory.push(structuredClone(a.inventory[0])); }],
     ["ancestry cycle", (a: ReturnType<typeof createHfFixture>) => { a.revisions[0].parentRevisionId = a.revisions[0].id; }],
-    ["non-cable instance", (a: ReturnType<typeof createHfFixture>) => { a.revisions[0].connections[0].cableInstanceId = "radio"; }],
+    ["non-cable instance", (a: ReturnType<typeof createHfFixture>) => { a.revisions[0].cableRuns[0].baseCableInstanceId = "radio"; }],
   ])("rejects %s corruption", (_name, corrupt) => {
     const archive = createHfFixture();
     corrupt(archive);

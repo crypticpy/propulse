@@ -100,7 +100,7 @@ The W11/W12 evidence must include:
 1. Equivalent command results from canvas and list for simple HF, portable/receive-only, shared gear, switched antennas, explicit inline runs, unknown/custom gear and unsupported branches.
 2. Insert/reconnect/delete/undo parity, rejected and stale edits, and unchanged operating selection after inspect, move, reopen or layout changes.
 3. Mouse, actual touch, keyboard-only and screen-reader task evidence; 320-pixel reflow, browser/text zoom, dark/light/custom themes, reduced motion and monochrome status legibility. Automation supplements manual checks.
-4. Measured pan/drag/select/reconnect behavior for ordinary fixtures and a deterministic stress fixture of 100 equipment references / 200 connections, recording browser/device, timing and failures. These counts are test inputs, not a advertised supported-size claim.
+4. Measured pan/drag/select/reconnect behavior for ordinary fixtures and a deterministic stress fixture of 100 equipment references / 200 connections, recording browser/device, timing and failures. These counts are test inputs, not an advertised supported-size claim.
 5. Layout reopen and cross-view invariants, useful failure fallback, safe export/public projection, and no lost pre-existing feature from the preservation inventory.
 6. Repository-required lint, tests, build and bundle checks on the integrated revision, with screenshots from an owned isolated browser session.
 

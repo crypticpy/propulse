@@ -22,8 +22,7 @@ function equipment(id: string, label: string, portIds: string[]): EquipmentInsta
 
 const cable = (id: string, fromInstanceId: string, fromPortId: string, toInstanceId: string, toPortId: string): SetupRevision["connections"][number] => ({
   id, signal: "rf", from: { instanceId: fromInstanceId, portId: fromPortId },
-  to: { instanceId: toInstanceId, portId: toPortId }, cableInstanceId: "feedline", label: id,
-  lengthMeters: unknownQuantity(),
+  to: { instanceId: toInstanceId, portId: toPortId }, runId: null, label: id,
 });
 const connectionHop = (connectionId: string) => ({ kind: "connection" as const, connectionId, reverse: false });
 
@@ -53,7 +52,8 @@ export function createHfFixture(): WorkbenchArchive {
     id: "home-r1", ownerId: FIXTURE_OWNER, setupId: "home-hf", parentRevisionId: null,
     createdAt: FIXTURE_DATE, equipment: structuredClone(inventory), models: [structuredClone(model)],
     evidence: [structuredClone(declared)], location: structuredClone(location),
-    connections: [cable("main-coax", "radio", "antenna", "antenna", "feed")],
+    connections: [{ ...cable("main-coax", "radio", "antenna", "antenna", "feed"), runId: "main-run" }],
+    cableRuns: [{ id: "main-run", label: "Main coax run", signal: "rf", baseCableInstanceId: "feedline", lengthMeters: unknownQuantity(), connections: [{ connectionId: "main-coax", reverse: false }], inlineItems: [], legacy: [] }],
     routes: [{ id: "main", name: "Home HF", purpose: "transmit", hops: [connectionHop("main-coax")], analysis: { state: "candidate" } }],
     settings: { frequencyHz: known(14_200_000, "Hz"), requestedPowerWatts: known(100, "W"), mode: "SSB" }, notes: "Synthetic HF route",
   };
@@ -107,10 +107,11 @@ export function createSwitchedFixture(): WorkbenchArchive {
   const revision = archive.revisions[0];
   revision.equipment.push(structuredClone(selector), structuredClone(second));
   revision.connections = [
-    cable("radio-switch", "radio", "antenna", "switch", "common"),
-    { ...cable("switch-a", "switch", "a", "antenna", "feed"), cableInstanceId: null },
-    { ...cable("switch-b", "switch", "b", "antenna-b", "feed"), cableInstanceId: null },
+    { ...cable("radio-switch", "radio", "antenna", "switch", "common"), runId: "main-run" },
+    cable("switch-a", "switch", "a", "antenna", "feed"),
+    cable("switch-b", "switch", "b", "antenna-b", "feed"),
   ];
+  revision.cableRuns[0].connections = [{ connectionId: "radio-switch", reverse: false }];
   revision.routes[0].hops = [connectionHop("radio-switch"), { kind: "internal", instanceId: "switch", internalPathId: "select-a", reverse: false }, connectionHop("switch-a")];
   return workbenchArchiveSchema.parse(archive);
 }
@@ -132,9 +133,11 @@ export function createInlineAndLayersFixture(): WorkbenchArchive {
   const revision = archive.revisions[0];
   revision.equipment.push(...structuredClone([adapter, supply, audio, controller, bond]));
   revision.connections = [
-    cable("before-adapter", "radio", "antenna", "adapter", "in"),
-    { ...cable("after-adapter", "adapter", "out", "antenna", "feed"), cableInstanceId: null },
+    { ...cable("before-adapter", "radio", "antenna", "adapter", "in"), runId: "main-run" },
+    { ...cable("after-adapter", "adapter", "out", "antenna", "feed"), runId: "main-run" },
   ];
+  revision.cableRuns[0].connections = [{ connectionId: "before-adapter", reverse: false }, { connectionId: "after-adapter", reverse: false }];
+  revision.cableRuns[0].inlineItems = [{ instanceId: "adapter", internalPathId: "through", reverse: false }];
   revision.routes[0].hops = [connectionHop("before-adapter"), { kind: "internal", instanceId: "adapter", internalPathId: "through", reverse: false }, connectionHop("after-adapter")];
   for (const item of [supply, audio, controller, bond]) {
     const port = { ...structuredClone(item.ports[0]), id: `${item.id}-input` };
@@ -142,7 +145,7 @@ export function createInlineAndLayersFixture(): WorkbenchArchive {
     revision.equipment[0].ports.push(port);
     revision.connections.push({
       ...cable(`${item.id}-documentation`, item.id, item.ports[0].id, "radio", port.id),
-      signal: port.signal, cableInstanceId: null,
+      signal: port.signal,
     });
   }
   const unwired = equipment("spare-accessory", "Unwired station accessory", []);
@@ -173,7 +176,7 @@ export function createUnsupportedBranchFixture(): WorkbenchArchive {
   second.kind = "antenna";
   archive.inventory.push(second);
   archive.revisions[0].equipment.push(structuredClone(second));
-  archive.revisions[0].connections.push({ ...cable("unknown-branch", "radio", "antenna", "branch-antenna", "feed"), cableInstanceId: null });
+  archive.revisions[0].connections.push(cable("unknown-branch", "radio", "antenna", "branch-antenna", "feed"));
   archive.revisions[0].routes[0].analysis = { state: "documentation-only", reasons: ["Multiple connections on one RF port; no modeled splitter or selected switch path"] };
   archive.operating = null;
   return workbenchArchiveSchema.parse(archive);
@@ -196,9 +199,42 @@ export function createExperimentFixture(): WorkbenchArchive {
   return workbenchArchiveSchema.parse(archive);
 }
 
+/** Two stable insertion targets; the second has a preserved ordered adapter/choke assembly. */
+export function createMultipleCableRunsFixture(): WorkbenchArchive {
+  const archive = createSwitchedFixture();
+  const adapter = equipment("run-adapter", "Adapter on antenna A run", ["in", "out"]);
+  const choke = equipment("run-choke", "Choke after adapter", ["in", "out"]);
+  for (const item of [adapter, choke]) {
+    item.kind = "inline";
+    item.internalPaths = [{ id: "through", fromPortId: "in", toPortId: "out", signal: "rf" }];
+  }
+  const secondCable = equipment("antenna-cable", "Antenna A coax", []);
+  secondCable.kind = "cable";
+  archive.inventory.push(adapter, choke, secondCable);
+  const revision = archive.revisions[0];
+  revision.equipment.push(...structuredClone([adapter, choke, secondCable]));
+  revision.connections = [revision.connections[0], revision.connections[2],
+    { ...cable("a-before", "switch", "a", "run-adapter", "in"), runId: "legacy-run-a" },
+    { ...cable("a-middle", "run-adapter", "out", "run-choke", "in"), runId: "legacy-run-a" },
+    { ...cable("a-after", "run-choke", "out", "antenna", "feed"), runId: "legacy-run-a" },
+  ];
+  revision.cableRuns.push({
+    id: "legacy-run-a", label: "Antenna A assembly", signal: "rf", baseCableInstanceId: "antenna-cable", lengthMeters: known(12.192, "m"),
+    connections: ["a-before", "a-middle", "a-after"].map((connectionId) => ({ connectionId, reverse: false })),
+    inlineItems: [adapter, choke].map((item) => ({ instanceId: item.id, internalPathId: "through", reverse: false })),
+    legacy: [{ kind: "feedline-run", sourceId: "legacy-run-a", sourceVersion: 24, payload: { id: "legacy-run-a", feedlineId: "antenna-cable", inlineComponentIds: ["run-adapter", "run-choke"], originalLengthFeet: 40 } }],
+  });
+  revision.routes[0].hops = [
+    revision.routes[0].hops[0], revision.routes[0].hops[1], connectionHop("a-before"),
+    { kind: "internal", instanceId: "run-adapter", internalPathId: "through", reverse: false }, connectionHop("a-middle"),
+    { kind: "internal", instanceId: "run-choke", internalPathId: "through", reverse: false }, connectionHop("a-after"),
+  ];
+  return workbenchArchiveSchema.parse(archive);
+}
+
 export const workbenchFixtureFactories = {
   hf: createHfFixture, portableShared: createPortableSharedFixture, receiveOnly: createReceiveOnlyFixture,
   switched: createSwitchedFixture, inlineAndLayers: createInlineAndLayersFixture,
   unknownLegacy: createUnknownLegacyFixture, unsupportedBranch: createUnsupportedBranchFixture,
-  experiment: createExperimentFixture,
+  experiment: createExperimentFixture, multipleCableRuns: createMultipleCableRunsFixture,
 };

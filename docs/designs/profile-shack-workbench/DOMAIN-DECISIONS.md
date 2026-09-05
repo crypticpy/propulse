@@ -44,7 +44,7 @@ Migration and W08 introduce a compatibility adapter for every current consumer l
 
 ## 3. Quantities and evidence
 
-Canonical quantities use explicit units: Hz for frequency, W for power, m for length/height, dB for loss, dBi for gain, degrees for angle, ohm for impedance, V/A for supply, and dimensionless ratio for SWR. Conversion occurs at the legacy adapter and display boundary, not repeatedly in stored values. Preserve the original numeric value/unit in import provenance. A feet-based input round-trip must not accumulate rounding. Engine MHz/kHz interfaces receive explicit conversions.
+Canonical quantities use explicit units: Hz for frequency, W for power, m for length/height, dB for loss and relative/system gain, dBi for antenna gain, degrees for angle, ohm for impedance, V/A for supply, and dimensionless ratio for SWR. Conversion occurs at the legacy adapter and display boundary, not repeatedly in stored values. Preserve the original numeric value/unit in import provenance. A feet-based input round-trip must not accumulate rounding. Engine MHz/kHz interfaces receive explicit conversions.
 
 Unknown uses an explicit unknown record/reason; it is never a fabricated zero, 1:1 SWR, generic 100 W, PL-259 connector or confirmed compatibility. Zero may be valid for a known loss/gain/height and must survive. Non-finite values and wrong units are invalid. Physical quantity validation is separate from schema/reference validation and calculation support. A receive-only setup may omit transmit power; it cannot claim transmit capability from missing data.
 

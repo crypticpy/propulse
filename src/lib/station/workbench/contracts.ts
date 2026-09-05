@@ -31,7 +31,7 @@ export const evidenceSchema = z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("equipment"), instanceId: id, description: id }).strict(),
     ]),
     reading: z.object({ value: finite, unit: id }).strict(),
-    quantityKind: z.enum(["swr", "gain", "loss", "rf-power", "other"]),
+    quantityKind: z.enum(["swr", "antenna-gain", "relative-gain", "loss", "rf-power", "other"]),
     context: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("rf"), frequencyHz: finite.positive() }).strict(),
       z.object({ kind: z.literal("not-applicable"), reason: id }).strict(),
@@ -70,7 +70,7 @@ export const equipmentModelSchema = z.object({
 
 /** Private recovery envelope, never a public projection field. JSON values are retained verbatim. */
 export const legacyRecordSchema = z.object({
-  kind: z.enum(["radio", "antenna", "feedline", "inline", "accessory", "chain", "preset", "profile", "location"]),
+  kind: z.enum(["radio", "antenna", "feedline", "feedline-run", "inline", "accessory", "chain", "preset", "profile", "location"]),
   sourceId: id, sourceVersion: z.number().int().nonnegative(), payload: z.record(jsonValue),
 }).strict();
 
@@ -103,8 +103,17 @@ export const setupSchema = z.object({
 
 export const connectionSchema = z.object({
   id, signal, from: endpoint, to: endpoint,
-  /** The actual physical cable, when known. Inline devices have their own ports/nodes. */
-  cableInstanceId: id.nullable(), label: id, lengthMeters: quantitySchema,
+  /** The run owns its base cable and length once, even when inline gear splits its edges. */
+  runId: id.nullable(), label: id,
+}).strict();
+
+export const cableRunSchema = z.object({
+  id, label: id, signal, baseCableInstanceId: id.nullable(),
+  /** Base cable length only (legacy feedline length); inline pigtails keep their own length. */
+  lengthMeters: quantitySchema,
+  connections: z.array(z.object({ connectionId: id, reverse: z.boolean() }).strict()).min(1),
+  inlineItems: z.array(z.object({ instanceId: id, internalPathId: id, reverse: z.boolean() }).strict()),
+  legacy: z.array(legacyRecordSchema),
 }).strict();
 
 const routeHopSchema = z.discriminatedUnion("kind", [
@@ -127,7 +136,7 @@ export const setupRevisionSchema = z.object({
   /** Resolved inputs are copied at revision creation. Later shared edits cannot rewrite them. */
   equipment: z.array(equipmentInstanceSchema), models: z.array(equipmentModelSchema),
   evidence: z.array(evidenceSchema), location: locationSchema.nullable(),
-  connections: z.array(connectionSchema), routes: z.array(routeIntentSchema),
+  connections: z.array(connectionSchema), cableRuns: z.array(cableRunSchema), routes: z.array(routeIntentSchema),
   settings: z.object({ frequencyHz: quantitySchema, requestedPowerWatts: quantitySchema, mode: z.string().nullable() }).strict(),
   notes: z.string(),
 }).strict();
@@ -156,7 +165,7 @@ export const operatingSelectionSchema = z.object({
 /** Output contract only. W05 must authorize audience and media before constructing this value. */
 export const publishedProfileSchema = z.object({
   id, ownerId: id, publicationVersion: z.number().int().positive(),
-  audience: z.enum(["visitor", "friend"]), displayName: id, biography: z.string(),
+  audience: z.enum(["owner", "visitor", "friend"]), displayName: id, biography: z.string(),
   featuredSetup: z.object({ title: id, equipmentLabels: z.array(id), description: z.string() }).strict().nullable(),
   regionLabel: z.string().nullable(), publicMediaIds: z.array(id),
   modules: z.array(z.object({ id, kind: z.enum(["identity", "interests", "station", "activity", "projects", "qsl"]), title: id, text: z.string() }).strict()),
@@ -164,7 +173,7 @@ export const publishedProfileSchema = z.object({
 
 /** Private reviewed source lineage. Public DTOs deliberately omit working setup/revision IDs. */
 export const publicationSourceSchema = z.object({
-  id, ownerId: id, setupId: id, revisionId: id, audience: z.enum(["visitor", "friend"]),
+  id, ownerId: id, setupId: id, revisionId: id, audience: z.enum(["owner", "visitor", "friend"]),
   publicationVersion: z.number().int().positive(), reviewedAt: instant,
 }).strict();
 
@@ -211,12 +220,13 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
   unique(archive.layouts, "layout");
   unique(archive.experiments, "experiment");
   unique(archive.publications, "publication source");
-  const checkFacts = (facts: Record<string, Quantity>, available: Map<string, Evidence>) => {
+  const checkFacts = (facts: Record<string, Quantity>, available: Map<string, Evidence>, subject?: { instanceId: string; portId?: string }) => {
     Object.values(facts).forEach((fact) => {
       if (fact.state === "known" && !available.has(fact.evidenceId)) issue(`Missing evidence: ${fact.evidenceId}`);
       if (fact.state === "known") {
         const source = available.get(fact.evidenceId);
         if (source?.kind === "measurement" && (source.reading.value !== fact.value || source.reading.unit !== fact.unit)) issue(`Fact differs from measured reading: ${fact.evidenceId}`);
+        if (source?.kind === "measurement" && (!subject || source.point.instanceId !== subject.instanceId || (subject.portId !== undefined && (source.point.kind !== "port" || source.point.portId !== subject.portId)))) issue(`Measurement belongs to a different subject: ${fact.evidenceId}`);
       }
     });
   };
@@ -226,8 +236,8 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     if (item.modelId !== null && availableModels.has(item.modelId) && availableModels.get(item.modelId)?.kind !== item.kind) issue(`Model kind mismatch: ${item.id}`);
     const ports = unique(item.ports, "port");
     unique(item.internalPaths, "internal path");
-    checkFacts(item.facts, available);
-    item.ports.forEach((port) => checkFacts(port.ratings, available));
+    checkFacts(item.facts, available, { instanceId: item.id });
+    item.ports.forEach((port) => checkFacts(port.ratings, available, { instanceId: item.id, portId: port.id }));
     item.internalPaths.forEach((path) => {
       const from = ports.get(path.fromPortId);
       const to = ports.get(path.toPortId);
@@ -244,7 +254,7 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     }
     if (row.kind === "measurement" && row.quantityKind !== "other" && row.context.kind !== "rf") issue(`RF measurement requires frequency: ${row.id}`);
     if (row.kind === "measurement") {
-      const unit = { swr: "ratio", gain: "dBi", loss: "dB", "rf-power": "W", other: row.reading.unit }[row.quantityKind];
+      const unit = { swr: "ratio", "antenna-gain": "dBi", "relative-gain": "dB", loss: "dB", "rf-power": "W", other: row.reading.unit }[row.quantityKind];
       if (row.reading.unit !== unit) issue(`Wrong measurement unit: ${row.id}`);
       if (row.quantityKind === "swr" && row.reading.value < 1) issue(`Invalid measured SWR: ${row.id}`);
       if (row.quantityKind === "rf-power" && row.reading.value < 0) issue(`Invalid measured power: ${row.id}`);
@@ -295,6 +305,7 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     if (revision.settings.frequencyHz.state === "known" && (revision.settings.frequencyHz.unit !== "Hz" || revision.settings.frequencyHz.value <= 0)) issue("Frequency must be positive Hz");
     if (revision.settings.requestedPowerWatts.state === "known" && (revision.settings.requestedPowerWatts.unit !== "W" || revision.settings.requestedPowerWatts.value < 0)) issue("Requested power must be nonnegative W");
     const connections = unique(revision.connections, "connection");
+    const cableRuns = unique(revision.cableRuns, "cable run");
     unique(revision.routes, "route");
     const portAt = (point: Endpoint) => equipment.get(point.instanceId)?.ports.find((port) => port.id === point.portId);
     revision.connections.forEach((connection) => {
@@ -302,9 +313,40 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
       const to = portAt(connection.to);
       if (!from || !to || sameEndpoint(connection.from, connection.to)) issue(`Invalid connection endpoint: ${connection.id}`);
       if ([from, to].some((port) => port && port.signal !== "unknown" && port.signal !== connection.signal)) issue(`Connection signal mismatch: ${connection.id}`);
-      if (connection.cableInstanceId !== null && equipment.get(connection.cableInstanceId)?.kind !== "cable") issue(`Missing or non-cable snapshot: ${connection.id}`);
-      checkFacts({ length: connection.lengthMeters }, pinnedEvidence);
-      if (connection.lengthMeters.state === "known" && (connection.lengthMeters.unit !== "m" || connection.lengthMeters.value < 0)) issue("Cable length must be nonnegative meters");
+      if (connection.runId !== null && !cableRuns.get(connection.runId)?.connections.some((segment) => segment.connectionId === connection.id)) issue(`Invalid connection run reference: ${connection.id}`);
+    });
+    revision.cableRuns.forEach((run) => {
+      if (run.baseCableInstanceId !== null && equipment.get(run.baseCableInstanceId)?.kind !== "cable") issue(`Missing or non-cable run base: ${run.id}`);
+      checkFacts({ length: run.lengthMeters }, pinnedEvidence, run.baseCableInstanceId === null ? undefined : { instanceId: run.baseCableInstanceId });
+      if (run.lengthMeters.state === "known" && (run.lengthMeters.unit !== "m" || run.lengthMeters.value < 0)) issue("Cable run length must be nonnegative meters");
+      if (run.connections.length !== run.inlineItems.length + 1) issue(`Cable run requires one connection around each inline item: ${run.id}`);
+      const seenConnections = new Set<string>();
+      const seenInline = new Set<string>();
+      let previous: Endpoint | undefined;
+      run.connections.forEach((segment, index) => {
+        if (seenConnections.has(segment.connectionId)) issue(`Repeated cable run connection: ${run.id}`);
+        seenConnections.add(segment.connectionId);
+        const connection = connections.get(segment.connectionId);
+        if (!connection || connection.runId !== run.id) { issue(`Invalid cable run connection: ${run.id}`); return; }
+        if (connection.signal !== run.signal) issue(`Cable run signal mismatch: ${run.id}`);
+        const from = segment.reverse ? connection.to : connection.from;
+        const to = segment.reverse ? connection.from : connection.to;
+        if (previous && !sameEndpoint(previous, from)) issue(`Disconnected cable run: ${run.id}`);
+        previous = to;
+        const inline = run.inlineItems[index];
+        if (inline) {
+          if (seenInline.has(inline.instanceId)) issue(`Repeated cable run inline item: ${run.id}`);
+          seenInline.add(inline.instanceId);
+          const item = equipment.get(inline.instanceId);
+          const path = item?.internalPaths.find((candidate) => candidate.id === inline.internalPathId);
+          if (item?.kind !== "inline" || !path) { issue(`Invalid cable run inline item: ${run.id}`); return; }
+          if (path.signal !== run.signal) issue(`Cable run inline signal mismatch: ${run.id}`);
+          const input = { instanceId: item.id, portId: inline.reverse ? path.toPortId : path.fromPortId };
+          const output = { instanceId: item.id, portId: inline.reverse ? path.fromPortId : path.toPortId };
+          if (!sameEndpoint(to, input)) issue(`Incorrect cable run inline order: ${run.id}`);
+          previous = output;
+        }
+      });
     });
     revision.routes.forEach((route) => {
       let previous: Endpoint | undefined;
@@ -314,7 +356,7 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
         let from: Endpoint | undefined;
         let to: Endpoint | undefined;
         let hopSignal: string | undefined;
-        const key = hop.kind === "connection" ? `c:${hop.connectionId}` : `i:${hop.instanceId}:${hop.internalPathId}`;
+        const key = JSON.stringify(hop.kind === "connection" ? ["connection", hop.connectionId] : ["internal", hop.instanceId, hop.internalPathId]);
         if (usedHops.has(key)) issue(`Repeated route hop: ${route.id}`);
         usedHops.add(key);
         if (hop.kind === "connection") {
@@ -327,7 +369,7 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
             to = { instanceId: hop.instanceId, portId: path.toPortId };
             hopSignal = path.signal;
             if (path.exclusiveGroupId) {
-              const group = `${hop.instanceId}:${path.exclusiveGroupId}`;
+              const group = JSON.stringify([hop.instanceId, path.exclusiveGroupId]);
               if (selectedGroups.has(group) && route.analysis.state === "candidate") issue(`Exclusive route conflict: ${route.id}`);
               selectedGroups.add(group);
             }
@@ -337,7 +379,12 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
         if (hop.reverse) [from, to] = [to, from];
         if (previous && !sameEndpoint(previous, from)) issue(`Disconnected route: ${route.id}`);
         if (hopSignal !== "rf") issue(`Non-RF route hop: ${route.id}`);
-        if (route.analysis.state === "candidate" && [from, to].some((point) => revision.connections.filter((connection) => sameEndpoint(connection.from, point) || sameEndpoint(connection.to, point)).length > 1)) issue(`Unmodeled RF branch: ${route.id}`);
+        if (route.analysis.state === "candidate" && [from, to].some((point) => {
+          const externalCount = revision.connections.filter((connection) => sameEndpoint(connection.from, point) || sameEndpoint(connection.to, point)).length;
+          const paths = equipment.get(point.instanceId)?.internalPaths.filter((path) => path.fromPortId === point.portId || path.toPortId === point.portId) ?? [];
+          const internalChoices = new Set(paths.map((path) => JSON.stringify(path.exclusiveGroupId ? ["group", path.exclusiveGroupId] : ["path", path.id])));
+          return externalCount > 1 || internalChoices.size > 1;
+        })) issue(`Unmodeled RF branch: ${route.id}`);
         previous = to;
       });
     });
@@ -359,7 +406,7 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     owned(experiment);
     const baseline = revisions.get(experiment.baselineRevisionId);
     const candidate = revisions.get(experiment.candidateRevisionId);
-    if (!baseline || !candidate || baseline.id === candidate.id) issue(`Invalid experiment revisions: ${experiment.id}`);
+    if (!baseline || !candidate || baseline.id === candidate.id || baseline.setupId !== candidate.setupId) issue(`Invalid experiment revisions: ${experiment.id}`);
     experiment.assumptions.forEach((assumption) => {
       if (!candidate?.equipment.some((item) => item.id === assumption.instanceId)) issue(`Missing experiment equipment: ${assumption.instanceId}`);
     });

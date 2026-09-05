@@ -46,7 +46,11 @@ export function AtmosGlobeView() {
           </div>
         }
       >
-        <GlobeView displayTime={displayTime} hideRadarScrubber />
+        <GlobeView
+          displayTime={displayTime}
+          hideRadarScrubber
+          onUseFlatMap={() => useAtmosStore.getState().setViewMode("2d")}
+        />
       </Suspense>
 
       {/* Weather-specific overlays */}

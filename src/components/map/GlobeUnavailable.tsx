@@ -1,5 +1,3 @@
-import { useMapStore } from "@/stores/mapStore";
-
 const REASON_MESSAGES: Record<string, string> = {
   "no-context":
     "Your browser could not start WebGL — GPU acceleration may be disabled or the graphics process crashed.",
@@ -15,14 +13,19 @@ const DEFAULT_MESSAGE =
 interface GlobeUnavailableProps {
   reason?: string;
   onRetry: () => void;
+  /** Host-provided action for the "Use flat map" button. */
+  onUseFlatMap: () => void;
 }
 
 /**
  * Rendered in place of the R3F Canvas when a WebGL preflight check fails,
  * so a disabled GPU process never reaches Three.js context creation.
  */
-export function GlobeUnavailable({ reason, onRetry }: GlobeUnavailableProps) {
-  const setViewMode = useMapStore((s) => s.setViewMode);
+export function GlobeUnavailable({
+  reason,
+  onRetry,
+  onUseFlatMap,
+}: GlobeUnavailableProps) {
   const message =
     (reason && REASON_MESSAGES[reason]) ?? DEFAULT_MESSAGE;
 
@@ -39,7 +42,7 @@ export function GlobeUnavailable({ reason, onRetry }: GlobeUnavailableProps) {
         <div className="flex gap-3 justify-center mt-4">
           <button
             type="button"
-            onClick={() => setViewMode("flat")}
+            onClick={onUseFlatMap}
             className="rounded-lg border border-plasma-orange/30 bg-plasma-orange/10 px-3 py-1.5 text-sm text-plasma-orange transition-colors hover:bg-plasma-orange/20"
           >
             Use flat map

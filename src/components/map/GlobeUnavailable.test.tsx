@@ -1,16 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useMapStore } from "@/stores/mapStore";
+import { describe, expect, it, vi } from "vitest";
 import { GlobeUnavailable } from "./GlobeUnavailable";
 
 describe("GlobeUnavailable", () => {
-  beforeEach(() => {
-    useMapStore.setState({ viewMode: "globe" });
-  });
-
   it("renders a heading and explanation", () => {
-    render(<GlobeUnavailable onRetry={() => {}} />);
+    render(<GlobeUnavailable onRetry={() => {}} onUseFlatMap={() => {}} />);
 
     expect(screen.getByText("3D globe unavailable")).toBeTruthy();
     expect(
@@ -18,19 +13,20 @@ describe("GlobeUnavailable", () => {
     ).toBeTruthy();
   });
 
-  it("switches to the flat map view", async () => {
+  it("calls onUseFlatMap when Use flat map is clicked", async () => {
     const user = userEvent.setup();
-    render(<GlobeUnavailable onRetry={() => {}} />);
+    const onUseFlatMap = vi.fn();
+    render(<GlobeUnavailable onRetry={() => {}} onUseFlatMap={onUseFlatMap} />);
 
     await user.click(screen.getByRole("button", { name: "Use flat map" }));
 
-    expect(useMapStore.getState().viewMode).toBe("flat");
+    expect(onUseFlatMap).toHaveBeenCalledOnce();
   });
 
   it("calls onRetry when Try again is clicked", async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
-    render(<GlobeUnavailable onRetry={onRetry} />);
+    render(<GlobeUnavailable onRetry={onRetry} onUseFlatMap={() => {}} />);
 
     await user.click(screen.getByRole("button", { name: "Try again" }));
 

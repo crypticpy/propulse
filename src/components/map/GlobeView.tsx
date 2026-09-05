@@ -230,6 +230,8 @@ interface GlobeViewProps {
   hideRadarScrubber?: boolean;
   /** Hide the local size panel when the host docks it with other controls */
   hideSizeSliders?: boolean;
+  /** Host override for the fallback's "Use flat map" action (defaults to switching the map store to flat) */
+  onUseFlatMap?: () => void;
 }
 
 interface ErrorBoundaryState {
@@ -1963,6 +1965,7 @@ export function GlobeView({
   onLocationClick,
   hideRadarScrubber,
   hideSizeSliders = false,
+  onUseFlatMap,
 }: GlobeViewProps) {
   const scopedLayers = useScopedMapLayers();
   const { policy: operationalPolicy } = useMapOperationalContext();
@@ -2009,6 +2012,10 @@ export function GlobeView({
     setWebgl(probeWebGLSupport());
     setAttempt((prev) => prev + 1);
   }, []);
+  const useFlatMap = useCallback(() => {
+    if (onUseFlatMap) onUseFlatMap();
+    else useMapStore.getState().setViewMode("flat");
+  }, [onUseFlatMap]);
   const [tileFallbackActive, setTileFallbackActive] = useState(false);
   const [cloudImageryStatus, setCloudImageryStatus] =
     useState<CloudImageryStatus>("loading");
@@ -2589,6 +2596,7 @@ export function GlobeView({
             <GlobeUnavailable
               reason={webgl.reason ?? undefined}
               onRetry={retryWebGL}
+              onUseFlatMap={useFlatMap}
             />
           }
         >
@@ -2634,6 +2642,7 @@ export function GlobeView({
         <GlobeUnavailable
           reason={webgl.reason ?? undefined}
           onRetry={retryWebGL}
+          onUseFlatMap={useFlatMap}
         />
       )}
 

@@ -111,6 +111,19 @@ audience cannot use from a couch or with a remote.
 - Do: `ForecastMatrixTile` shows the next four hours; `ForecastReport` shows all 24.
 - Don't: `overflow-y-auto` inside a tile (the retired `BandConditionsPanel` pattern).
 
+**Hero text must fit its container.** The hero size is `clamp()`ed on the vh
+token, the tile is a size container (`container-type: inline-size`) so long
+values scale in `cqw`, and `HamClockTile` picks a size class from the string
+length: short (≤ 4 chars) `--hc-t-hero-lg`, medium (≤ 8) `--hc-t-hero`, long
+`--hc-t-hero-long`. A value that still overflows after layout is measured and
+shrunk one step. Every tile test asserts the class for its longest real value.
+
+**Why:** at wall scale "NO MAPPED ALERTS" is wider than the rail, and clipped
+text on a TV reads as broken.
+
+- Do: `heroSizeClass("NO MAPPED ALERTS")` returning the long class, and a test that asserts it.
+- Don't: `overflow: hidden`, `text-overflow: ellipsis`, or a smaller hard-coded size on one tile. Clipping is a bug; hiding it is not a fix.
+
 ## 6. Data formatting
 
 - Temperatures and speeds go through `resolveUnits`, `formatTemperature` and `formatSpeed` in `src/lib/hamclock/units.ts`. The operator's unit choice is read from `hamclockDisplayStore.units`.
@@ -148,7 +161,7 @@ Built on `WallReport` (`wall/reports/WallReport.tsx`), which wraps
 
 Any widget with options gets a gear that opens a centered configuration dialog
 on the report shell (`WallReport`). Spec: `docs/designs/hamclock-wall-spec.md`
-section 12.
+section 13.
 
 **Row anatomy:** category chip (tone colour) · name · one-line description ·
 status line (`— · NOT YET FETCHED` or `UPDATED hh:mm · n ago`) · big `ON` /
@@ -214,3 +227,5 @@ and are validated through `schema` on read. Widgets that already own a store
 - Adding a fourth line to a tile because the data is interesting. Put it in the report.
 - Dropdowns or native selects in a configuration dialog. Use segmented buttons.
 - Saving a user-entered URL without a server-side verify.
+- Hiding clipped hero text with `overflow: hidden` or an ellipsis.
+- Placing the same tile on both rails of a page.

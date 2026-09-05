@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 16        | 3       | 30          | 0        | 49      |
-| **Grand Total**                         | **280**   | **10**  | **38**      | **1**    | **329** |
+| HamClock Wall (2026-09-05)              | 16        | 3       | 35          | 0        | 54      |
+| **Grand Total**                         | **280**   | **10**  | **43**      | **1**    | **334** |
 
-**Delivery rate: 85% delivered, 3% partial, 12% not started**
+**Delivery rate: 84% delivered, 3% partial, 13% not started**
 
 ---
 
@@ -617,7 +617,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 ## 13. HamClock Wall (2026-09-05)
 
-_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-49). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171._
+_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-54). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171._
 
 ### Delivered (16)
 
@@ -648,7 +648,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-49).
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only                                                               |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists                                                                 |
 
-### Not Started (30)
+### Not Started (35)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -682,6 +682,11 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-49).
 | HW-47 | Monitored regions and RIM scores as a report                     |                                                      |
 | HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
 | HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
+| HW-50 | Duplicate guard: store validation and picker grey-out            | Owner bug: duplicate panels                          |
+| HW-51 | Hero text fit: clamp, container units, length classes, tests     | Owner bug: text clips                                |
+| HW-52 | Use presets: five shipped, user-saved                            | Spec section 7                                       |
+| HW-53 | No radio dependency: station tiles degrade to a neutral state    | Spec section 7                                       |
+| HW-54 | Both rails follow the page; de-duplicated shipped pages          | Owner: right rail locked                             |
 
 ---
 

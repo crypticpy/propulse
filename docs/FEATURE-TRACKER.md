@@ -617,7 +617,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 ## 13. HamClock Wall (2026-09-05)
 
-_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171._
+_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
 
 ### Delivered (15)
 

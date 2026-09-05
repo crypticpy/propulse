@@ -504,6 +504,8 @@ A batch is not done until the register says so.
 
 Work is tracked on the GitHub Project **ProPulse Delivery**
 (<https://github.com/users/crypticpy/projects/4>), one item per batch issue.
+The umbrella checklist is issue #213; batch issues are #197 to #212 and are
+linked from each heading in section 24.
 
 | Field        | Values                                                                                                            |
 | ------------ | ----------------------------------------------------------------------------------------------------------------- |
@@ -529,7 +531,7 @@ tiles (B8), charts, pin and table (B9), config dialogs (B10, B11), earth
 events (B12), and weather consolidation (B13 to B16). `§` references point to
 `docs/guides/hamclock-tile-system.md`.
 
-### B1 — Header parity and layers clamp
+### B1 — Header parity and layers clamp (#197)
 
 - **Covers:** HW-22, HW-23
 - **Intent:** At desk there is no way back to wall without opening a menu, and the layers popover renders off screen. Put mode, WALL | DESK, projection and SETTINGS in one fixed header slot at both densities and clamp the popover to the viewport.
@@ -561,7 +563,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): header parity and layers clamp [B1: HW-22, HW-23]`, branch `feat/hamclock-b1-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B2 — Text fit, duplicate guard, rails follow page
+### B2 — Text fit, duplicate guard, rails follow page (#198)
 
 - **Covers:** HW-50, HW-51, HW-54
 - **Intent:** Hero text clips outside tiles, the same tile appears on both rails, and the right rail is locked to band activity. Make hero text always fit, reject duplicate tiles per page in the store, and recompose the shipped pages so both rails change with the page.
@@ -596,7 +598,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): text fit, duplicate guard, rails follow page [B2: HW-50, HW-51, HW-54]`, branch `feat/hamclock-b2-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B3 — Lightning bolt glyph
+### B3 — Lightning bolt glyph (#199)
 
 - **Covers:** HW-32
 - **Intent:** Lightning renders as white bloom dots. Replace the additive spheres with a classic bolt glyph in 3D and a symbol icon in 2D, with a single modest pulse on fresh strikes.
@@ -625,7 +627,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): lightning bolt glyph [B3: HW-32]`, branch `feat/hamclock-b3-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B4 — User-selected rails, presets, no radio dependency
+### B4 — User-selected rails, presets, no radio dependency (#200)
 
 - **Covers:** HW-27, HW-52, HW-53
 - **Intent:** Operators need to choose what each rail shows, pick a shipped use preset such as Living room, and use the wall with no callsign set. Add the rail layout model, presets and the Pages & Tiles picker, and make station-dependent tiles degrade to a neutral state.
@@ -660,7 +662,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): user-selected rails, presets, no radio dependency [B4: HW-27, HW-52, HW-53]`, branch `feat/hamclock-b4-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B5 — Settings panel shell
+### B5 — Settings panel shell (#201)
 
 - **Covers:** HW-26
 - **Intent:** Header popouts are hover-fragile and off screen. Replace them with one centered settings dialog with tabs Display, Pages & Tiles, Layers, Map, Theme, Kiosk, none of which scroll.
@@ -692,7 +694,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): settings panel shell [B5: HW-26]`, branch `feat/hamclock-b5-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B6 — Layer registry, Layers tab, Map style chooser
+### B6 — Layer registry, Layers tab, Map style chooser (#202)
 
 - **Covers:** HW-21, HW-39, HW-55
 - **Intent:** Layers are described differently in the popover, the help page and the status line. Build one registry with provenance text that feeds all three, render the Layers tab from it, and add the map style chooser on the Map tab.
@@ -726,7 +728,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): layer registry, layers tab, map style chooser [B6: HW-21, HW-39, HW-55]`, branch `feat/hamclock-b6-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B7 — Auto-page
+### B7 — Auto-page (#203)
 
 - **Covers:** HW-20
 - **Intent:** The wall should run itself. Rotate both rails through the pages on a dwell timer, pause on any interaction, resume after quiet, and expose AUTO by the pager and in settings.
@@ -757,7 +759,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): auto-page [B7: HW-20]`, branch `feat/hamclock-b7-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B8 — Desk on wall tiles and desk cleanup
+### B8 — Desk on wall tiles and desk cleanup (#204)
 
 - **Covers:** HW-24, HW-25
 - **Intent:** Desk still shows the legacy accordion sidebar with a DE STATION block and duplicate weather. Render the wall tiles at desk scale with opaque rails, remove the sidebar, and add a DX TARGET tile.
@@ -791,7 +793,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): desk on wall tiles and desk cleanup [B8: HW-24, HW-25]`, branch `feat/hamclock-b8-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B9 — Trend charts, report pin, Best Band table, forecast horizons
+### B9 — Trend charts, report pin, Best Band table, forecast horizons (#205)
 
 - **Covers:** HW-11, HW-17, HW-29, HW-30, HW-31
 - **Intent:** Reports have no trend charts, cannot be pinned, and the band report is a list. Make the solar chart components read theme tokens and add one chart per report, add the pin, replace the band report with the ranked table, and surface FutureCast horizons when the runtime activates them.
@@ -828,7 +830,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): trend charts, report pin, best band table, forecast horizons [B9: HW-11, HW-17, HW-29, HW-30, HW-31]`, branch `feat/hamclock-b9-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B10 — Widget config contract and news feeds dialog
+### B10 — Widget config contract and news feeds dialog (#206)
 
 - **Covers:** HW-36, HW-37
 - **Intent:** Widgets need a uniform way to be configured, and the news ticker already has feeds and preferences with no wall UI. Add the `config` contract to the tile registry, a per-tile config store, the dialog shell, and the news feeds panel with server-side verify.
@@ -863,7 +865,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): widget config contract and news feeds dialog [B10: HW-36, HW-37]`, branch `feat/hamclock-b10-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B11 — Remaining config dialogs, world clocks, alerts area
+### B11 — Remaining config dialogs, world clocks, alerts area (#207)
 
 - **Covers:** HW-18, HW-28, HW-38
 - **Intent:** With the contract in place, give the cluster, weather, band list, world clocks and alerts widgets their panels, add the clocks row to the header, and let alerts be scoped to an area.
@@ -894,7 +896,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): remaining config dialogs, world clocks, alerts area [B11: HW-18, HW-28, HW-38]`, branch `feat/hamclock-b11-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B12 — Earth events and taxonomy v2
+### B12 — Earth events and taxonomy v2 (#208)
 
 - **Covers:** HW-33, HW-34, HW-35
 - **Intent:** Add earthquakes and volcanoes as tiles and reports, then recompose the pages into the six-page taxonomy including the new tiles.
@@ -924,7 +926,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): earth events and taxonomy v2 [B12: HW-33, HW-34, HW-35]`, branch `feat/hamclock-b12-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B13 — Weather page, report and config
+### B13 — Weather page, report and config (#209)
 
 - **Covers:** HW-40, HW-41, HW-44
 - **Intent:** Weather becomes a first-class page in the wall. Build the local-now, hourly, 7-day, tides, radar and lightning tiles, the Weather report with trend charts and a 7-day strip, and the weather config dialog.
@@ -955,7 +957,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): weather page, report and config [B13: HW-40, HW-41, HW-44]`, branch `feat/hamclock-b13-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B14 — Radar and lightning reports, weather layers category
+### B14 — Radar and lightning reports, weather layers category (#210)
 
 - **Covers:** HW-42, HW-43, HW-45
 - **Intent:** Radar and lightning deserve their own interactive reports, and weather layers belong under the Layers tab. Reuse the AtmosPulse scrubbers inside reports and add the Weather category to the registry.
@@ -982,7 +984,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): radar and lightning reports, weather layers category [B14: HW-42, HW-43, HW-45]`, branch `feat/hamclock-b14-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B15 — AtmosPulse layers on the map
+### B15 — AtmosPulse layers on the map (#211)
 
 - **Covers:** HW-46
 - **Intent:** Every layer AtmosPulse renders in 2D must render on the main map in 2D and 3D from the registry. Port them in two groups if the file count demands it.
@@ -1008,7 +1010,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): atmospulse layers on the map [B15: HW-46]`, branch `feat/hamclock-b15-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B16 — Regions, EmComm, `/atmos` retirement
+### B16 — Regions, EmComm, `/atmos` retirement (#212)
 
 - **Covers:** HW-47, HW-48, HW-49
 - **Intent:** Finish parity: monitored regions and RIM scores become a report, EmComm forms open from the Emcomm tile, and `/atmos` redirects or aliases per D7.

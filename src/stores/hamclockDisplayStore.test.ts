@@ -1,5 +1,8 @@
-import { beforeEach, expect, it } from "vitest";
-import { useHamClockDisplayStore as display } from "./hamclockDisplayStore";
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  assertUniqueTilesPerPage,
+  useHamClockDisplayStore as display,
+} from "./hamclockDisplayStore";
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -128,6 +131,20 @@ it("rejects invalid persisted wall options", async () => {
   });
 });
 
+it("reconciles a persisted session with diverged rail pages onto the left value", async () => {
+  sessionStorage.setItem(
+    "propulse-hamclock-display",
+    JSON.stringify({
+      version: 3,
+      state: { pageIndex: { left: 2, right: 4 } },
+    }),
+  );
+  await display.persist.rehydrate();
+  // Both rails follow one page: a stale session from before paging was
+  // synchronized collapses onto `left` rather than keeping the split.
+  expect(display.getState().pageIndex).toEqual({ left: 2, right: 2 });
+});
+
 it("keeps an explicit desk choice made after the wall default shipped", async () => {
   sessionStorage.setItem(
     "propulse-hamclock-display",
@@ -137,23 +154,25 @@ it("keeps an explicit desk choice made after the wall default shipped", async ()
   expect(display.getState().density).toBe("desk");
 });
 
-it("wraps stepPage in both directions and keeps rails independent", () => {
+it("wraps stepPage in both directions with both rails always synchronized", () => {
   display.getState().stepPage("right", 1, 5);
-  display.getState().stepPage("right", 1, 5);
-  expect(display.getState().pageIndex).toEqual({ left: 0, right: 2 });
-
-  display.getState().stepPage("left", -1, 5);
-  expect(display.getState().pageIndex).toEqual({ left: 4, right: 2 });
+  expect(display.getState().pageIndex).toEqual({ left: 1, right: 1 });
 
   display.getState().stepPage("left", 1, 5);
-  expect(display.getState().pageIndex.left).toBe(0);
+  expect(display.getState().pageIndex).toEqual({ left: 2, right: 2 });
 
-  display.getState().setPage("right", 4);
+  display.getState().stepPage("left", -1, 5);
+  expect(display.getState().pageIndex).toEqual({ left: 1, right: 1 });
+
+  // The `side` argument no longer selects a rail — both `setPage` and
+  // `stepPage` always write the one shared page to both keys, regardless of
+  // which side was passed.
+  display.getState().setPage("left", 4);
   display.getState().stepPage("right", 1, 5);
-  expect(display.getState().pageIndex.right).toBe(0);
+  expect(display.getState().pageIndex).toEqual({ left: 0, right: 0 });
 
   display.getState().stepPage("right", 1, 0);
-  expect(display.getState().pageIndex.right).toBe(0);
+  expect(display.getState().pageIndex).toEqual({ left: 0, right: 0 });
 });
 
 it("persists density, theme, units and page indexes", () => {
@@ -168,6 +187,42 @@ it("persists density, theme, units and page indexes", () => {
     density: "desk",
     theme: "brass",
     units: "metric",
-    pageIndex: { left: 3, right: 0 },
+    pageIndex: { left: 3, right: 3 },
+  });
+});
+
+describe("assertUniqueTilesPerPage", () => {
+  it("accepts a layout with no repeated tile ids", () => {
+    expect(() =>
+      assertUniqueTilesPerPage([
+        { left: ["cluster", "bandActivity"], right: ["bestBand", "moon"] },
+        { left: ["sun"], right: ["muf", "reliability"] },
+      ]),
+    ).not.toThrow();
+  });
+
+  it("rejects a tile repeated within one rail", () => {
+    expect(() =>
+      assertUniqueTilesPerPage([
+        { left: ["cluster", "cluster"], right: ["bestBand"] },
+      ]),
+    ).toThrow(/page 0/);
+  });
+
+  it("rejects a tile placed on both rails of the same page", () => {
+    expect(() =>
+      assertUniqueTilesPerPage([
+        { left: ["bandActivity"], right: ["bandActivity"] },
+      ]),
+    ).toThrow(/bandActivity/);
+  });
+
+  it("allows the same tile to reappear on a different page", () => {
+    expect(() =>
+      assertUniqueTilesPerPage([
+        { left: ["bandActivity"], right: [] },
+        { left: [], right: ["bandActivity"] },
+      ]),
+    ).not.toThrow();
   });
 });

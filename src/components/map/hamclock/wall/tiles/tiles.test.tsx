@@ -2,11 +2,13 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import SunCalc from "suncalc";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TileHero } from "../HamClockTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { GreyLineTile } from "./GreyLineTile";
 import { MoonTile } from "./MoonTile";
 import { RecentContactsTile } from "./RecentContactsTile";
+import { SdrScopeTile } from "./SdrScopeTile";
 import { SolarWindTile } from "./SolarWindTile";
 import { SpaceWxTile } from "./SpaceWxTile";
 import { SunTile } from "./SunTile";
@@ -170,10 +172,25 @@ describe("BandActivityTile", () => {
 
 describe("GreyLineTile", () => {
   it("names the half of the day and counts down to the next crossing", () => {
-    draw(<GreyLineTile />);
+    const { container } = draw(<GreyLineTile />);
     // 13:14Z is mid-morning in Austin, so the next crossing is sunset.
     expect(screen.getByText("DAY")).toBeTruthy();
     expect(screen.getByText(/SUNSET IN/)).toBeTruthy();
+    // "DAY" is a short (≤ 4 char) hero, so it gets the biggest token.
+    expect(
+      container.querySelector(".hc-hero.hc-hero--short"),
+    ).toBeTruthy();
+  });
+
+  it("names the dark half of the day at the medium hero band", () => {
+    // 06:00Z is 01:00 in Austin — deep night, well outside the twilight
+    // window either side, so the hero is "NIGHT" rather than "GREY LINE".
+    vi.setSystemTime(new Date("2026-09-05T06:00:00Z"));
+    const { container } = draw(<GreyLineTile />);
+    expect(screen.getByText("NIGHT")).toBeTruthy();
+    expect(
+      container.querySelector(".hc-hero.hc-hero--medium"),
+    ).toBeTruthy();
   });
 
   it("asks for a QTH when none is configured", () => {
@@ -183,6 +200,99 @@ describe("GreyLineTile", () => {
     expect(
       screen.getByText("Set your QTH to track the terminator"),
     ).toBeTruthy();
+  });
+});
+
+describe("SdrScopeTile", () => {
+  it("names the missing receiver at the long hero band", () => {
+    // No bridge connection is the default store state — nothing to mock.
+    const { container } = draw(<SdrScopeTile />);
+    expect(screen.getByText("NO RECEIVER")).toBeTruthy();
+    // "NO RECEIVER" is 11 chars, past the medium band's 8-char ceiling.
+    expect(
+      container.querySelector(".hc-hero.hc-hero--long"),
+    ).toBeTruthy();
+  });
+});
+
+describe("TileHero hero length bands", () => {
+  it.each([
+    ["HOT", "hc-hero--short"],
+    ["DAY", "hc-hero--short"],
+    ["NIGHT", "hc-hero--medium"],
+    ["MARGINAL", "hc-hero--medium"],
+    ["GREY LINE", "hc-hero--long"],
+    ["NO MAPPED ALERTS", "hc-hero--long"],
+  ] as const)("sizes %s as %s", (text, className) => {
+    const { container } = render(<TileHero>{text}</TileHero>);
+    expect(container.querySelector(`.hc-hero.${className}`)).toBeTruthy();
+  });
+
+  it("lets an explicit `large` win over the automatic band for a long string", () => {
+    const { container } = render(
+      <TileHero large>{"NO MAPPED ALERTS"}</TileHero>,
+    );
+    expect(container.querySelector(".hc-hero.hc-hero--lg")).toBeTruthy();
+    expect(container.querySelector(".hc-hero--long")).toBeNull();
+  });
+});
+
+describe("TileHero measure-and-shrink fallback", () => {
+  const scrollWidthDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "scrollWidth",
+  );
+  const clientWidthDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "clientWidth",
+  );
+  const originalResizeObserver = globalThis.ResizeObserver;
+
+  afterEach(() => {
+    if (scrollWidthDescriptor) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollWidth",
+        scrollWidthDescriptor,
+      );
+    }
+    if (clientWidthDescriptor) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "clientWidth",
+        clientWidthDescriptor,
+      );
+    }
+    globalThis.ResizeObserver = originalResizeObserver;
+  });
+
+  it("shrinks --hc-hero-fit to the 0.6 floor when the class band still overflows", () => {
+    // jsdom has no ResizeObserver; a no-op stub is enough to unlock the
+    // fit() call HamClockTile already runs unconditionally on mount.
+    class StubResizeObserver {
+      observe() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver =
+      StubResizeObserver as unknown as typeof ResizeObserver;
+
+    // A fixed overflow (scrollWidth always wider than clientWidth) drives
+    // the shrink loop straight to its floor in one measure pass.
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+      configurable: true,
+      get: () => 400,
+    });
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      get: () => 200,
+    });
+
+    const { container } = render(<TileHero>{"NO MAPPED ALERTS"}</TileHero>);
+    const hero = container.querySelector<HTMLDivElement>(".hc-hero")!;
+    const fit = Number(hero.style.getPropertyValue("--hc-hero-fit"));
+
+    expect(fit).toBeLessThanOrEqual(0.9);
+    expect(fit).toBeCloseTo(0.6);
   });
 });
 

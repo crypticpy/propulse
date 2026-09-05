@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, type ReactNode } from "react";
 import { DXNewsTicker } from "@/components/map/DXNewsTicker";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { ensureHamClockThemeFont } from "@/lib/hamclock/themeFonts";
@@ -49,15 +49,24 @@ interface HamClockWallProps {
 /**
  * Wall density: a full-bleed map with two translucent tile rails, a callsign
  * header with dual clocks, the existing DX news ticker, and a footer carrying
- * one pager per rail. The WALL/DESK switch lives in the header (alongside
+ * a pager control at each end. Both rails and both pagers share the one page
+ * index — pick the page from either side of the screen and the whole wall
+ * turns to it together. The WALL/DESK switch lives in the header (alongside
  * mode, projection and settings, in the fixed slot the desk header also
  * uses — B1/HW-22), not the footer, so there is exactly one control for it.
  */
 export function HamClockWall({ children }: HamClockWallProps) {
-  const pageIndex = useHamClockDisplayStore((s) => s.pageIndex);
+  // Both rails follow one page (wall spec §4/§5): `left` is the canonical
+  // index the store keeps `right` mirrored to, so the wall only ever reads
+  // one number.
+  const page = useHamClockDisplayStore((s) => s.pageIndex.left);
   const stepPage = useHamClockDisplayStore((s) => s.stepPage);
   const theme = useHamClockDisplayStore((s) => s.theme);
   const pageCount = HAMCLOCK_WALL_PAGES.length;
+  const onStep = useCallback(
+    (delta: number) => stepPage("left", delta, pageCount),
+    [stepPage, pageCount],
+  );
 
   // The serif themes' faces are fetched the first time a wall runs one, so
   // the default look never pays for fonts it does not use.
@@ -70,12 +79,13 @@ export function HamClockWall({ children }: HamClockWallProps) {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       if (shouldIgnoreKey(event)) return;
       event.preventDefault();
-      const delta = event.key === "ArrowRight" ? 1 : -1;
-      stepPage(event.shiftKey ? "left" : "right", delta, pageCount);
+      // One shared page, so either arrow key steps the whole wall regardless
+      // of which rail the operator is thinking of.
+      onStep(event.key === "ArrowRight" ? 1 : -1);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [stepPage, pageCount]);
+  }, [onStep]);
 
   return (
     <div className="hc-wall">
@@ -83,32 +93,16 @@ export function HamClockWall({ children }: HamClockWallProps) {
 
       <div className="hc-stage">
         {children}
-        <HamClockRail
-          side="left"
-          pageIndex={pageIndex.left}
-          label="Left tile rail"
-        />
-        <HamClockRail
-          side="right"
-          pageIndex={pageIndex.right}
-          label="Right tile rail"
-        />
+        <HamClockRail side="left" pageIndex={page} label="Left tile rail" />
+        <HamClockRail side="right" pageIndex={page} label="Right tile rail" />
       </div>
 
       <DXNewsTicker className="rounded-none" />
 
       <footer className="hc-ftr">
-        <HamClockPager
-          side="left"
-          pageIndex={pageIndex.left}
-          onStep={(delta) => stepPage("left", delta, pageCount)}
-        />
+        <HamClockPager pageIndex={page} onStep={onStep} />
         <WallStatus />
-        <HamClockPager
-          side="right"
-          pageIndex={pageIndex.right}
-          onStep={(delta) => stepPage("right", delta, pageCount)}
-        />
+        <HamClockPager pageIndex={page} onStep={onStep} />
       </footer>
     </div>
   );

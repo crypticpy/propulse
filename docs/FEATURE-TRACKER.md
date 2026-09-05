@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 19        | 4       | 32          | 0        | 55      |
-| **Grand Total**                         | **283**   | **11**  | **40**      | **1**    | **335** |
+| HamClock Wall (2026-09-05)              | 22        | 4       | 29          | 0        | 55      |
+| **Grand Total**                         | **286**   | **11**  | **37**      | **1**    | **335** |
 
-**Delivery rate: 84% delivered, 3% partial, 12% not started**
+**Delivery rate: 85% delivered, 3% partial, 11% not started**
 
 ---
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
 
-### Delivered (19)
+### Delivered (22)
 
 | ID    | Feature                                                      | Notes                                       |
 | ----- | ------------------------------------------------------------ | ------------------------------------------- |
@@ -642,6 +642,9 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-23 | Layers popover viewport clamp and trigger move               | PR #216                                     |
 | HW-26 | Centered settings panel with tabs                            | PR (B5)                                     |
 | HW-32 | Lightning bolt glyph (2D and 3D)                             | PR #217, `src/lib/map/lightningGlyph.ts`    |
+| HW-50 | Duplicate guard: store validation and picker grey-out        | PR #218, `assertUniqueTilesPerPage`         |
+| HW-51 | Hero text fit: clamp, container units, length classes, tests | PR #218, `HamClockTile.tsx`, `tokens.ts`    |
+| HW-54 | Both rails follow the page; de-duplicated shipped pages      | PR #218, `hamclockDisplayStore.ts`          |
 
 ### Partial (4)
 
@@ -652,7 +655,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
 | HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
 
-### Not Started (32)
+### Not Started (29)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -682,11 +685,8 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-47 | Monitored regions and RIM scores as a report                     |                                                      |
 | HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
 | HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
-| HW-50 | Duplicate guard: store validation and picker grey-out            | Owner bug: duplicate panels                          |
-| HW-51 | Hero text fit: clamp, container units, length classes, tests     | Owner bug: text clips                                |
 | HW-52 | Use presets: five shipped, user-saved                            | Spec section 7                                       |
 | HW-53 | No radio dependency: station tiles degrade to a neutral state    | Spec section 7                                       |
-| HW-54 | Both rails follow the page; de-duplicated shipped pages          | Owner: right rail locked                             |
 | HW-55 | Persist a tile provider id in `mapStore`                         | Esri / Mapbox and OSM / CARTO selectable; B6         |
 
 ---

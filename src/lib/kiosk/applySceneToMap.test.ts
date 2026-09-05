@@ -192,10 +192,12 @@ describe("applySceneToMap", () => {
       },
     });
 
+    // Both rails follow one page, so a pin is one index: leftPage is
+    // canonical when a scene still sets both.
     expect(useHamClockDisplayStore.getState()).toMatchObject({
       density: "wall",
       theme: "brass",
-      pageIndex: { left: 1, right: 2 },
+      pageIndex: { left: 1, right: 1 },
     });
 
     // Any scene that does not pin the wall returns the operator's own setup,
@@ -205,7 +207,7 @@ describe("applySceneToMap", () => {
     expect(useHamClockDisplayStore.getState()).toMatchObject({
       density: "desk",
       theme: "classic",
-      pageIndex: { left: 4, right: 0 },
+      pageIndex: { left: 4, right: 4 },
     });
   });
 
@@ -230,7 +232,7 @@ describe("applySceneToMap", () => {
 
     expect(useHamClockDisplayStore.getState()).toMatchObject({
       theme: "pulse",
-      pageIndex: { left: 0, right: 3 },
+      pageIndex: { left: 3, right: 3 },
     });
     // Nothing is pinned any more, so a second restore changes nothing.
     useHamClockDisplayStore.getState().setPage("right", 1);
@@ -268,8 +270,31 @@ describe("applySceneToMap", () => {
     expect(useHamClockDisplayStore.getState()).toMatchObject({
       density: "desk",
       theme: "classic",
-      pageIndex: { left: 4, right: 0 },
+      pageIndex: { left: 4, right: 4 },
     });
     expect(sessionStorage.getItem("propulse-hamclock-prepin")).toBeNull();
+  });
+
+  it("restores from the left page of a legacy pre-sync split snapshot", () => {
+    // A snapshot written before paging was synchronized (HW-54) could have
+    // `left` and `right` diverge. `left` is canonical, so restoring must use
+    // it alone rather than letting a second `setPage("right", …)` call clobber
+    // it back to the stale `right` value.
+    sessionStorage.setItem(
+      "propulse-hamclock-prepin",
+      JSON.stringify({
+        density: "wall",
+        theme: "pulse",
+        pageIndex: { left: 4, right: 0 },
+      }),
+    );
+
+    restoreHamClockDisplay();
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "wall",
+      theme: "pulse",
+      pageIndex: { left: 4, right: 4 },
+    });
   });
 });

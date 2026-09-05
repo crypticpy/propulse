@@ -525,6 +525,13 @@ export interface MapState {
 
   /** Hide other traces and keep only the targeted path (ephemeral). */
   isolateTargetPath: boolean;
+  /**
+   * `layers.rayPath` value to restore once isolate ends, remembered so
+   * isolate doesn't permanently turn the Ray Path layer on. `null` when
+   * isolate isn't active (or hasn't forced the layer on). Ephemeral —
+   * never persisted.
+   */
+  rayPathBeforeIsolate: boolean | null;
   setIsolateTargetPath: (isolate: boolean) => void;
   toggleIsolateTargetPath: () => void;
 
@@ -1279,6 +1286,7 @@ const initialState = {
   justLogged: null as LoggedMarker | null,
   pathMode: "short" as PathMode,
   isolateTargetPath: false,
+  rayPathBeforeIsolate: null as boolean | null,
   panelStates: loadPanelStates(),
   mapStyle: loadMapStyle(),
   // One preserves the carefully tuned existing treatment in every renderer.
@@ -1340,6 +1348,27 @@ const initialState = {
   nvisOpacity: loadStoredNumber(NVIS_OPACITY_KEY, 0.35, 0.1, 0.8),
 };
 
+/**
+ * Turn isolate-target-path off and undo the Ray Path layer force-on from
+ * `setIsolateTargetPath(true)`, restoring `layers.rayPath` to whatever it was
+ * before isolate started (only writes `layers` when that value actually
+ * changed). Shared by `setIsolateTargetPath(false)` and `setTarget(null)`,
+ * which both end isolate.
+ */
+function endIsolateTargetPath(
+  state: Pick<MapState, "rayPathBeforeIsolate" | "layers">,
+): Partial<MapState> {
+  const restore = state.rayPathBeforeIsolate;
+  const needsRestore = restore !== null && state.layers.rayPath !== restore;
+  return {
+    isolateTargetPath: false,
+    rayPathBeforeIsolate: null,
+    layers: needsRestore
+      ? { ...state.layers, rayPath: restore }
+      : state.layers,
+  };
+}
+
 export const useMapStore = create<MapState>((set, get) => ({
   ...initialState,
 
@@ -1396,7 +1425,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     set((state) => {
       // If target is null, just clear it without affecting recent targets
       if (!target) {
-        return { target: null, isolateTargetPath: false };
+        return { target: null, ...endIsolateTargetPath(state) };
       }
 
       // Add to recent targets (avoiding duplicates by lat/lon)
@@ -1855,11 +1884,17 @@ export const useMapStore = create<MapState>((set, get) => ({
   setIsolateTargetPath: (isolate) =>
     set((state) => {
       if (!isolate) {
-        return { isolateTargetPath: false };
+        return endIsolateTargetPath(state);
+      }
+      // Already isolating — leave the remembered pre-isolate rayPath value
+      // alone so a repeat "isolate on" call can't clobber it.
+      if (state.isolateTargetPath) {
+        return { isolateTargetPath: true, pathMode: "both" as PathMode };
       }
       return {
         isolateTargetPath: true,
         pathMode: "both" as PathMode,
+        rayPathBeforeIsolate: state.layers.rayPath,
         layers: state.layers.rayPath
           ? state.layers
           : { ...state.layers, rayPath: true },

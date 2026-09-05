@@ -5681,7 +5681,7 @@ export function FlatMapView({
     if (
       layers.labels &&
       labelOptions.maidenheadGrid &&
-      layers.spots &&
+      spotLayerPolicy.labelsInteractive &&
       resolvedSpots.length > 0
     ) {
       drawSpotGridHighlights(
@@ -5712,7 +5712,11 @@ export function FlatMapView({
     }
 
     // Draw callsign labels at DX spot positions (after arcs, before markers)
-    if (showCallsignLabels && layers.spots && resolvedSpots.length > 0) {
+    if (
+      showCallsignLabels &&
+      spotLayerPolicy.labelsInteractive &&
+      resolvedSpots.length > 0
+    ) {
       placedLabelsRef.current = drawCallsignLabels(
         ctx,
         resolvedSpots,
@@ -5773,7 +5777,7 @@ export function FlatMapView({
     if (
       showCallsignLabels &&
       showSpotterLabels &&
-      layers.spots &&
+      spotLayerPolicy.labelsInteractive &&
       resolvedSpots.length > 0
     ) {
       drawSpotterLabels(

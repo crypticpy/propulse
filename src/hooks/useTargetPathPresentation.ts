@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useKIndex } from "@/hooks/useSolarData";
 import { useActiveFrequency } from "@/hooks/useActiveBandMode";
@@ -59,7 +59,7 @@ export function useTargetPathPresentation(displayTime: Date) {
   const hasTarget = Boolean(station && target);
   const hideOtherPaths = shouldHideOtherPaths(isolateTargetPath, hasTarget);
   const showRayPath = hasTarget && (scopedLayers.rayPath || isolateTargetPath);
-  const modes = pathModesToRender(pathMode);
+  const modes = useMemo(() => pathModesToRender(pathMode), [pathMode]);
   const needsShort = pathMode === "short" || pathMode === "both";
   const needsLong = pathMode === "long" || pathMode === "both";
   const frequencyMHz = resolveTraceFrequencyMHz(
@@ -123,20 +123,47 @@ export function useTargetPathPresentation(displayTime: Date) {
     kp,
   ]);
 
-  const resultFor = (leg: PathLeg): RayTraceResult | null =>
-    leg === "short" ? shortResult : longResult;
+  const resultFor = useCallback(
+    (leg: PathLeg): RayTraceResult | null =>
+      leg === "short" ? shortResult : longResult,
+    [shortResult, longResult],
+  );
 
-  return {
-    pathMode,
-    modes,
-    isolateTargetPath,
-    hideOtherPaths,
-    showRayPath,
-    frequencyMHz,
-    shortResult,
-    longResult,
-    shortBounces: bounceMarkersFromResult(shortResult),
-    longBounces: bounceMarkersFromResult(longResult),
-    resultFor,
-  };
+  const shortBounces = useMemo(
+    () => bounceMarkersFromResult(shortResult),
+    [shortResult],
+  );
+  const longBounces = useMemo(
+    () => bounceMarkersFromResult(longResult),
+    [longResult],
+  );
+
+  return useMemo(
+    () => ({
+      pathMode,
+      modes,
+      isolateTargetPath,
+      hideOtherPaths,
+      showRayPath,
+      frequencyMHz,
+      shortResult,
+      longResult,
+      shortBounces,
+      longBounces,
+      resultFor,
+    }),
+    [
+      pathMode,
+      modes,
+      isolateTargetPath,
+      hideOtherPaths,
+      showRayPath,
+      frequencyMHz,
+      shortResult,
+      longResult,
+      shortBounces,
+      longBounces,
+      resultFor,
+    ],
+  );
 }

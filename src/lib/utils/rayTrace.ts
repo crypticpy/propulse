@@ -23,12 +23,14 @@ import {
   obliqueIncidenceAngle,
 } from "./ionosphere";
 import { getGeomagneticLatitude } from "./geomagnetic";
+import { getLongPathPoints } from "./path";
 
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 const EARTH_RADIUS_KM = 6371;
+const EARTH_CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM;
 const TYPICAL_F2_HOP_KM = 3000;
-const MAX_HOPS = 7;
+const MAX_HOPS = 12;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +46,8 @@ export interface RayTraceInput {
   sfi: number;
   kp: number;
   txPowerWatts?: number;
+  /** Great-circle direction to trace. Defaults to the short path. */
+  pathMode?: "short" | "long";
 }
 
 export interface ReflectionPoint {
@@ -75,6 +79,8 @@ export interface RayTraceResult {
   summary: string;
   terrainTypes?: TerrainType[];
   terrainLoss?: number;
+  pathMode: "short" | "long";
+  totalDistanceKm: number;
 }
 
 export type PathViability =
@@ -256,6 +262,16 @@ function scoreHop(
 // Public API
 // ---------------------------------------------------------------------------
 
+function samplePathFraction(
+  points: Array<{ lat: number; lon: number }>,
+  fraction: number,
+): { lat: number; lon: number } {
+  if (points.length === 0) return { lat: 0, lon: 0 };
+  const idx = Math.round(fraction * (points.length - 1));
+  const clamped = Math.max(0, Math.min(points.length - 1, idx));
+  return { lat: points[clamped].lat, lon: points[clamped].lon };
+}
+
 /**
  * Calculate equally-spaced ionospheric reflection points along a great-circle path.
  */
@@ -266,13 +282,28 @@ export function calculateReflectionPoints(
   endLon: number,
   numHops: number,
   date: Date,
+  pathMode: "short" | "long" = "short",
 ): ReflectionPoint[] {
-  const totalDistanceKm = haversineDistance(startLat, startLon, endLat, endLon);
+  const shortKm = haversineDistance(startLat, startLon, endLat, endLon);
+  const totalDistanceKm =
+    pathMode === "long" ? EARTH_CIRCUMFERENCE_KM - shortKm : shortKm;
   const points: ReflectionPoint[] = [];
+  const longPathPoints =
+    pathMode === "long"
+      ? getLongPathPoints(
+          startLat,
+          startLon,
+          endLat,
+          endLon,
+          Math.max(numHops * 20, 40),
+        )
+      : null;
 
   for (let i = 0; i < numHops; i++) {
     const fraction = (2 * i + 1) / (2 * numHops);
-    const { lat, lon } = slerp(startLat, startLon, endLat, endLon, fraction);
+    const { lat, lon } = longPathPoints
+      ? samplePathFraction(longPathPoints, fraction)
+      : slerp(startLat, startLon, endLat, endLon, fraction);
     const zenith = calculateZenithAngle(lat, lon, date);
 
     points.push({
@@ -342,10 +373,21 @@ export function evaluateHopQuality(
  * Perform a complete multi-hop ray-trace along a great-circle path.
  */
 export function traceRayPath(params: RayTraceInput): RayTraceResult {
-  const { startLat, startLon, endLat, endLon, frequencyMHz, date, sfi, kp } =
-    params;
+  const {
+    startLat,
+    startLon,
+    endLat,
+    endLon,
+    frequencyMHz,
+    date,
+    sfi,
+    kp,
+    pathMode = "short",
+  } = params;
 
-  const totalDistanceKm = haversineDistance(startLat, startLon, endLat, endLon);
+  const shortKm = haversineDistance(startLat, startLon, endLat, endLon);
+  const totalDistanceKm =
+    pathMode === "long" ? EARTH_CIRCUMFERENCE_KM - shortKm : shortKm;
   const numHops = Math.max(
     1,
     Math.min(MAX_HOPS, Math.ceil(totalDistanceKm / TYPICAL_F2_HOP_KM)),
@@ -359,6 +401,7 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     endLon,
     numHops,
     date,
+    pathMode,
   );
 
   const hops: HopQuality[] = reflectionPoints.map((rp) => {
@@ -390,12 +433,24 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
   const fspl = freeSpacePathLoss(frequencyMHz, totalDistanceKm);
   const polarisationLossDb = 1.5;
 
-  // Classify terrain at each ground-bounce point (between hops)
+  const longPathPoints =
+    pathMode === "long"
+      ? getLongPathPoints(
+          startLat,
+          startLon,
+          endLat,
+          endLon,
+          Math.max(numHops * 10, 20),
+        )
+      : null;
   const bouncePoints: Array<{ lat: number; lon: number }> = [];
   for (let i = 1; i < numHops; i++) {
     const fraction = i / numHops;
-    const pt = slerp(startLat, startLon, endLat, endLon, fraction);
-    bouncePoints.push(pt);
+    bouncePoints.push(
+      longPathPoints
+        ? samplePathFraction(longPathPoints, fraction)
+        : slerp(startLat, startLon, endLat, endLon, fraction),
+    );
   }
   const terrainTypes = bouncePoints.map((p) => classifyTerrain(p.lat, p.lon));
   const terrainLoss =
@@ -435,8 +490,9 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     ? `all ${hopWord} viable`
     : `hop ${limitingHop + 1} exceeds MUF`;
 
+  const pathLabel = pathMode === "long" ? "long-path" : "short-path";
   const summary =
-    `${numHops}-hop path, ${freqStr} MHz, score ${overallScore}/100 (${viability}) -- ` +
+    `${numHops}-hop ${pathLabel}, ${freqStr} MHz, score ${overallScore}/100 (${viability}) -- ` +
     `${viableStr}, ${absStr} dB total absorption`;
 
   return {
@@ -449,6 +505,8 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     summary,
     terrainTypes,
     terrainLoss,
+    pathMode,
+    totalDistanceKm,
   };
 }
 

@@ -91,7 +91,6 @@ import {
   gridActivityResolutionForView,
 } from "@/lib/map/gridActivityModel";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
-import { traceRayPath } from "@/lib/utils/rayTrace";
 import { SpotHighlight } from "./SpotHighlight";
 import { SelectedSpotArc } from "./SelectedSpotArc";
 import { LoggedPulse } from "./LoggedPulse";
@@ -157,6 +156,8 @@ import {
   getMinimumGlobeDistance,
 } from "@/lib/map/globeNavigation";
 import { qthCameraPosition } from "./lib/globeCoords";
+import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
+import { pathEmphasis } from "@/lib/map/targetPathPresentation";
 import { useKIndex } from "@/hooks/useSolarData";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
@@ -1125,7 +1126,6 @@ const GlobeScene = React.memo(function GlobeScene({
   const layers = useScopedMapLayers();
   const target = useMapStore((s) => s.target);
   const selectedSpot = useDXStore((s) => s.selectedSpot);
-  const pathMode = useMapStore((s) => s.pathMode);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const rotation = useMapStore((s) => s.rotation);
@@ -1352,23 +1352,7 @@ const GlobeScene = React.memo(function GlobeScene({
     return last?.kp_index ?? 2;
   }, [kIndexData.data]);
 
-  const rayTraceResult = useMemo(() => {
-    if (!layers.rayPath || !station || !target || !currentSFI) return null;
-    try {
-      return traceRayPath({
-        startLat: station.lat,
-        startLon: station.lon,
-        endLat: target.lat,
-        endLon: target.lon,
-        frequencyMHz: 14.074,
-        date: displayTime,
-        sfi: currentSFI,
-        kp: currentKp,
-      });
-    } catch {
-      return null;
-    }
-  }, [layers.rayPath, station, target, currentSFI, currentKp, displayTime]);
+  const pathPresentation = useTargetPathPresentation(displayTime);
 
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
@@ -1792,7 +1776,8 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* One projected layout coordinates live endpoints, DX/spotter labels,
             activation labels, and their shared aggregate beacons. */}
-        {(layers.spots || layers.activations || layers.spotTraces) && (
+        {(layers.spots || layers.activations || layers.spotTraces) &&
+          !pathPresentation.hideOtherPaths && (
           <SpotActivityLayout3D
             showLiveSpots={layers.spots}
             showSpotTraces={layers.spotTraces}
@@ -1817,10 +1802,11 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
 
         {/* FT8 Spotter — burst traces, grid heatmap, cycle radar */}
-        {layers.ft8Spotter && <Ft8SpotterOverlay station={station} />}
+        {layers.ft8Spotter && !pathPresentation.hideOtherPaths && (
+          <Ft8SpotterOverlay station={station} />
+        )}
 
-        {/* FT8 Decode Layer — instanced markers + great-circle arcs for enriched decodes */}
-        {layers.ft8Spotter && (
+        {layers.ft8Spotter && !pathPresentation.hideOtherPaths && (
           <Ft8DecodeLayer3D
             decodes={ft8EnrichedDecodes}
             myLat={station?.lat}
@@ -1829,12 +1815,13 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
 
         {/* Persistent grid activity overlay — density-colored steady glow */}
-        {layers.gridActivity && (
+        {layers.gridActivity && !pathPresentation.hideOtherPaths && (
           <GridPersistOverlay cells={gridActivity.cells} />
         )}
 
-        {/* Preserve transient arrival pulses when persistent activity is off. */}
-        {!layers.gridActivity && (layers.spots || layers.spotTraces) && (
+        {!layers.gridActivity &&
+          (layers.spots || layers.spotTraces) &&
+          !pathPresentation.hideOtherPaths && (
           <GridGlowOverlay spots={arrivalGlows} />
         )}
 
@@ -1926,37 +1913,49 @@ const GlobeScene = React.memo(function GlobeScene({
 
             {/* Path arc between home and target — ray path (bounces) or flat arc */}
             {station &&
-              ((layers.rayPath || (uiPrefs.bandHeightArcs ?? true)) &&
-              rayTraceResult ? (
-                <RayPathArc
-                  result={rayTraceResult}
-                  startLat={station.lat}
-                  startLon={station.lon}
-                  endLat={target.lat}
-                  endLon={target.lon}
-                  pathMode={pathMode}
-                  showIonosphereHighlights={layers.ionosphere}
-                  displayTime={displayTime}
-                />
-              ) : (
-                <PathArc
-                  startLat={station.lat}
-                  startLon={station.lon}
-                  endLat={target.lat}
-                  endLon={target.lon}
-                  color={
-                    pathDifficulty
-                      ? getDifficultyColor(pathDifficulty)
-                      : "#ff6b35"
-                  }
-                  pathMode={pathMode}
-                />
-              ))}
+              pathPresentation.modes.map((mode) => {
+                const result = pathPresentation.resultFor(mode);
+                const emphasis = pathEmphasis(pathPresentation.pathMode, mode);
+                if (pathPresentation.showRayPath && result) {
+                  return (
+                    <RayPathArc
+                      key={mode}
+                      result={result}
+                      startLat={station.lat}
+                      startLon={station.lon}
+                      endLat={target.lat}
+                      endLon={target.lon}
+                      pathMode={mode}
+                      emphasis={emphasis}
+                      showIonosphereHighlights={
+                        layers.ionosphere || pathPresentation.isolateTargetPath
+                      }
+                      displayTime={displayTime}
+                    />
+                  );
+                }
+                return (
+                  <PathArc
+                    key={mode}
+                    startLat={station.lat}
+                    startLon={station.lon}
+                    endLat={target.lat}
+                    endLon={target.lon}
+                    color={
+                      pathDifficulty
+                        ? getDifficultyColor(pathDifficulty)
+                        : "#ff6b35"
+                    }
+                    pathMode={mode}
+                  />
+                );
+              })}
           </>
         )}
 
         {/* Highlighted arc for DX cluster selected spot */}
-        {!selectedSpotMatchesTarget && <SelectedSpotArc />}
+        {!selectedSpotMatchesTarget &&
+          !pathPresentation.hideOtherPaths && <SelectedSpotArc />}
 
         {/* Momentary pulse where a QSO was just logged (WSJT-X or manual) */}
         <LoggedPulse />

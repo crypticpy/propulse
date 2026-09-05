@@ -14,7 +14,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useDXStore } from "@/stores/dxStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics, getPathPoints } from "@/lib/utils/path";
+import { getPathMetrics, getPathPoints, getLongPathPoints } from "@/lib/utils/path";
 import {
   azimuthalProject,
   azimuthalUnproject,
@@ -88,6 +88,9 @@ import {
   type AzimuthalSpotPillScreenPlacement,
 } from "@/lib/map/azimuthalSpotPillPlacement";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
+import type { BounceMarker } from "@/lib/map/targetPathPresentation";
+import { pathEmphasis } from "@/lib/map/targetPathPresentation";
 import { useScopedMapLayers } from "@/hooks/useMapOperationalContext";
 import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
@@ -407,6 +410,92 @@ function drawHomeMarker(ctx: CanvasRenderingContext2D, callsign?: string) {
   }
 }
 
+function drawAzimuthalPathLeg(
+  ctx: CanvasRenderingContext2D,
+  centerLat: number,
+  centerLon: number,
+  targetLat: number,
+  targetLon: number,
+  color: string,
+  pathMode: "short" | "long",
+  bounceMarkers: BounceMarker[],
+  alpha: number,
+) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = pathMode === "long" ? 1.8 : 2.5;
+  ctx.lineCap = "round";
+  ctx.setLineDash(pathMode === "long" ? [8, 7] : [10, 6]);
+
+  if (pathMode === "short") {
+    const projected = azimuthalProject(
+      targetLat,
+      targetLon,
+      centerLat,
+      centerLon,
+    );
+    const { x, y } = projToCanvas(projected);
+    ctx.beginPath();
+    ctx.moveTo(CENTER, CENTER);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  } else {
+    const points = getLongPathPoints(
+      centerLat,
+      centerLon,
+      targetLat,
+      targetLon,
+      160,
+    );
+    ctx.beginPath();
+    let drawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    for (const point of points) {
+      const proj = azimuthalProject(point.lat, point.lon, centerLat, centerLon);
+      const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
+      if (dist > 1) {
+        drawing = false;
+        continue;
+      }
+      const canvasPt = projToCanvas(proj);
+      if (
+        drawing &&
+        Math.hypot(canvasPt.x - lastX, canvasPt.y - lastY) > RADIUS
+      ) {
+        drawing = false;
+      }
+      if (!drawing) {
+        ctx.moveTo(canvasPt.x, canvasPt.y);
+        drawing = true;
+      } else {
+        ctx.lineTo(canvasPt.x, canvasPt.y);
+      }
+      lastX = canvasPt.x;
+      lastY = canvasPt.y;
+    }
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+  for (const marker of bounceMarkers) {
+    const proj = azimuthalProject(marker.lat, marker.lon, centerLat, centerLon);
+    const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
+    if (dist > 1) continue;
+    const { x, y } = projToCanvas(proj);
+    ctx.globalAlpha = Math.min(1, alpha + 0.3);
+    ctx.fillStyle = marker.color;
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.45)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /**
  * Draw target marker and path
  */
@@ -419,7 +508,26 @@ function drawTargetAndPath(
   targetLabel?: string,
   markerColor: string = COLORS.targetMarker,
   difficulty?: DifficultyLevel,
+  legs: Array<{
+    mode: "short" | "long";
+    markers: BounceMarker[];
+    alpha: number;
+  }> = [{ mode: "short", markers: [], alpha: 1 }],
 ) {
+  for (const leg of legs) {
+    drawAzimuthalPathLeg(
+      ctx,
+      centerLat,
+      centerLon,
+      targetLat,
+      targetLon,
+      markerColor,
+      leg.mode,
+      leg.markers,
+      leg.alpha,
+    );
+  }
+
   const projected = azimuthalProject(
     targetLat,
     targetLon,
@@ -427,22 +535,6 @@ function drawTargetAndPath(
     centerLon,
   );
   const { x, y } = projToCanvas(projected);
-
-  // Draw the path (straight line from center - this is the key feature!)
-  // Path color matches the marker (difficulty-based)
-  ctx.strokeStyle = markerColor;
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = "round";
-  ctx.setLineDash([10, 6]);
-
-  ctx.beginPath();
-  ctx.moveTo(CENTER, CENTER);
-  ctx.lineTo(x, y);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-
-  // Draw target marker
   // Outer glow
   ctx.fillStyle = markerColor + "40";
   ctx.beginPath();
@@ -1661,6 +1753,7 @@ export function AzimuthalView({
     glowRendererRef.current.persistEdges = false;
   }, []);
   const target = useMapStore((s) => s.target);
+  const pathPresentation = useTargetPathPresentation(displayTime);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const displayDensity = useMapStore((s) => s.displayDensity);
@@ -2595,6 +2688,7 @@ export function AzimuthalView({
 
     // Draw grid glow pulses (before spot arcs, after bearing labels)
     if (
+      !pathPresentation.hideOtherPaths &&
       (layers.spots || layers.spotTraces || layers.gridActivity) &&
       (layers.gridActivity || glowRendererRef.current.hasActiveGlows())
     ) {
@@ -2611,7 +2705,7 @@ export function AzimuthalView({
 
     // Background routes belong only to Spot Traces and are capped for this
     // compressed projection. Destination controls remain visible separately.
-    if (layers.spotTraces && backgroundTraceSpots.length > 0) {
+    if (layers.spotTraces && !pathPresentation.hideOtherPaths && backgroundTraceSpots.length > 0) {
       drawSpotArcs(
         ctx,
         [...backgroundTraceSpots],
@@ -2625,7 +2719,7 @@ export function AzimuthalView({
 
     // Keep a small number of canonical callsign tags in Live Spots mode so
     // hover/details parity survives without recreating the old label flood.
-    if (layers.spots && showSpotCallsignLabels) {
+    if (layers.spots && !pathPresentation.hideOtherPaths && showSpotCallsignLabels) {
       const placements = drawSpotCallsignPills(
         ctx,
         labeledAzimuthalSpots,
@@ -2724,7 +2818,11 @@ export function AzimuthalView({
     }
 
     // Highlighted arc for selected DX cluster spot
-    if (resolvedSelectedSpot && !selectedSpotMatchesTarget) {
+    if (
+      resolvedSelectedSpot &&
+      !selectedSpotMatchesTarget &&
+      !pathPresentation.hideOtherPaths
+    ) {
       drawSelectedSpotArc(ctx, resolvedSelectedSpot, center.lat, center.lon);
     }
 
@@ -2744,6 +2842,17 @@ export function AzimuthalView({
         targetAnnotation.label,
         targetMarkerColor,
         targetAnnotation.difficulty,
+        pathPresentation.modes.map((mode) => ({
+          mode,
+          markers:
+            mode === "short"
+              ? pathPresentation.shortBounces
+              : pathPresentation.longBounces,
+          alpha:
+            pathEmphasis(pathPresentation.pathMode, mode) === "secondary"
+              ? 0.45
+              : 1,
+        })),
       );
     }
 
@@ -2766,6 +2875,7 @@ export function AzimuthalView({
     selectedSpotHasVisibleTag,
     targetMarkerColor,
     pathDifficulty,
+    pathPresentation,
     zoom,
     spotColorMode,
     spotDotScale,
@@ -2831,7 +2941,7 @@ export function AzimuthalView({
           height: displaySize,
         }}
       />
-      {center && layers.activations && (
+      {center && layers.activations && !pathPresentation.hideOtherPaths && (
         <div
           className="pointer-events-none absolute"
           style={{ width: displaySize, height: displaySize, zIndex: 4 }}
@@ -2844,7 +2954,9 @@ export function AzimuthalView({
           />
         </div>
       )}
-      {center && (layers.spots || layers.spotTraces) && (
+      {center &&
+        (layers.spots || layers.spotTraces) &&
+        !pathPresentation.hideOtherPaths && (
         <div
           className="pointer-events-none absolute"
           style={{ width: displaySize, height: displaySize, zIndex: 1 }}
@@ -2857,7 +2969,9 @@ export function AzimuthalView({
           />
         </div>
       )}
-      {center && (layers.spots || layers.spotTraces) && (
+      {center &&
+        (layers.spots || layers.spotTraces) &&
+        !pathPresentation.hideOtherPaths && (
         <div
           className="pointer-events-none absolute"
           style={{ width: displaySize, height: displaySize, zIndex: 2 }}
@@ -2868,7 +2982,10 @@ export function AzimuthalView({
           />
         </div>
       )}
-      {center && layers.spots && showSpotCallsignLabels && (
+      {center &&
+        layers.spots &&
+        showSpotCallsignLabels &&
+        !pathPresentation.hideOtherPaths && (
         <div
           className="pointer-events-none absolute"
           style={{ width: displaySize, height: displaySize, zIndex: 3 }}

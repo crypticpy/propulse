@@ -757,7 +757,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             key: "rayPath",
             label: "Ray Path",
             title:
-              "Multi-hop skip path showing how signals bounce between Earth and ionosphere",
+              "Modeled multi-hop skip path for the selected target, including short-path and long-path ionospheric bounces",
             getValue: () => layers.rayPath,
             onToggle: () => toggleLayer("rayPath"),
           },

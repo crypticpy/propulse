@@ -26,7 +26,7 @@ export function HomeSession({ now, isMobile }: { now: number; isMobile: boolean 
     <div className="mt-2 flex items-center justify-between gap-3"><Link to="/log" className="inline-flex min-h-11 items-center text-sm text-cyan-200">Open logbook →</Link><button type="button" onClick={() => void log.refresh()} disabled={log.loading} className="min-h-11 rounded-lg px-2 text-xs text-slate-400 hover:bg-white/5 disabled:opacity-50">Refresh log</button></div>
     <div className="mt-3 border-t border-white/10 pt-4"><div className="flex items-center justify-between gap-2"><h3 className="text-xs uppercase tracking-widest text-slate-400">{activeContests.length ? "On the calendar now" : "Coming next"}</h3><span className="text-xs text-slate-500">Scheduled</span></div>
       {events.length ? events.map(event => <div key={event.id} className="mt-3"><p className="text-sm text-white">{event.name}</p><p className="mt-1 text-xs leading-5 text-slate-400">{event.modes.join(" / ")} · {activeContests.length ? "Ends" : "Starts"} {new Date(activeContests.length ? event.endUtc : event.startUtc).toLocaleString(undefined, { timeZone: "UTC", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} UTC</p></div>) : <p className="mt-3 text-sm text-slate-400">No upcoming contests in the available calendar.</p>}
-      <Link to="/contest" className="mt-2 inline-flex min-h-11 items-center text-sm text-cyan-200">{session ? "Resume contest session" : "Explore contests"} →</Link>
+      <Link to={session ? "/contest" : "/contests"} className="mt-2 inline-flex min-h-11 items-center text-sm text-cyan-200">{session ? "Resume contest session" : "Explore contests"} →</Link>
     </div>
   </section>;
 }

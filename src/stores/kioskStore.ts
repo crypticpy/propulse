@@ -186,6 +186,29 @@ export function kioskSceneSupportsLiveClouds(
   );
 }
 
+/**
+ * The HamClock pin the active kiosk scene is applying right now, if any
+ * (wall spec §5: "Kiosk scenes ... pin a page ... and suspend auto-page
+ * while active"). Mirrors the same route/layoutMode check
+ * `applySceneToMap.ts` uses to decide whether a scene's pin takes effect, so
+ * `useWallAutoPage` can read one derived value instead of a second copy of
+ * this state living in the store.
+ */
+export function activeKioskHamClockPin(state: {
+  active: boolean;
+  activeSceneId: string | null;
+  scenes: readonly KioskScene[];
+}): KioskSceneHamClockConfig | undefined {
+  if (!state.active || !state.activeSceneId) return undefined;
+  const scene = state.scenes.find(
+    (candidate) =>
+      candidate.id === state.activeSceneId && candidate.enabled !== false,
+  );
+  if (!scene || scene.map?.layoutMode !== "hamclock") return undefined;
+  if (!getKioskRouteCapabilities(scene.route).mapConfig) return undefined;
+  return scene.map.hamclock;
+}
+
 const MIN_INTERVAL_SEC = 15;
 const MAX_INTERVAL_SEC = 3600;
 const MIN_AUTO_ROTATE_SPEED_SEC = 60;

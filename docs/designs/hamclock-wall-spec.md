@@ -432,12 +432,12 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-17 | Forecast horizon                                                                            | Partial     | PR #169                               | 24 h, not 3 days: the wall's reliability grid is built from the two-day physics reliability forecast; FutureCast model horizons are not wired into the wall yet (`wall/tiles/ForecastMatrixTile.tsx`; horizons gated by `src/lib/propagation/runtimeActivation.ts`) |
 | HW-18 | Weather alerts coverage                                                                     | Partial     | PR #169                               | nationwide feed, mapped geometry only                                                                                                                                                                                                                               |
 | HW-19 | SDR decodes tile                                                                            | Partial     | PR #169                               | idle until a shared receiver exists                                                                                                                                                                                                                                 |
-| HW-20 | Auto-page dwell mode                                                                        | Not started |                                       | today only kiosk scenes rotate pages                                                                                                                                                                                                                                |
-| HW-21 | Layer registry with provenance text                                                         | Not started |                                       | feeds settings, help, status line                                                                                                                                                                                                                                   |
+| HW-20 | Auto-page dwell mode                                                                        | Delivered   | PR #236                               | today only kiosk scenes rotate pages                                                                                                                                                                                                                                |
+| HW-21 | Layer registry with provenance text                                                         | Delivered   | PR #222                               | feeds settings, help; no distinct wall status line component exists to feed (see B6 report)                                                                                                                                                                         |
 | HW-22 | Header parity: WALL/DESK toggle and reduced top rail                                        | Delivered   | PR #216                               | mode · WALL \| DESK · projection · Display in one fixed slot at both densities; owner bug (no way back to wall from desk) closed                                                                                                                                    |
 | HW-23 | Layers popover viewport clamp and trigger move (interim)                                    | Delivered   | PR #216                               | `LayersPopover` clamps to the viewport on open and resize; owner bug (menu renders off screen) closed                                                                                                                                                               |
-| HW-24 | Desk on wall tiles, paged, scale token                                                      | Delivered   | PR #TBD                               | retires accordion sidebar; `--hc-scale` (desk 0.72) in `hamclock-wall.css`, `HamClockView.tsx` renders `HamClockWall` at both densities                                                                                                                             |
-| HW-25 | Desk cleanup: DE station block, duplicate weather, DX target                                | Delivered   | PR #TBD                               | `HamClockSidebar.tsx`/`HamClockLocationConditions.tsx` deleted; `DxTargetTile`/`DxTargetReport` added to the "spots" page                                                                                                                                           |
+| HW-24 | Desk on wall tiles, paged, scale token                                                      | Delivered   | PR #238                               | retires accordion sidebar; `--hc-scale` (desk 0.72) in `hamclock-wall.css`, `HamClockView.tsx` renders `HamClockWall` at both densities                                                                                                                             |
+| HW-25 | Desk cleanup: DE station block, duplicate weather, DX target                                | Delivered   | PR #238                               | `HamClockSidebar.tsx`/`HamClockLocationConditions.tsx` deleted; `DxTargetTile`/`DxTargetReport` added to the "spots" page                                                                                                                                           |
 | HW-26 | Centered settings panel with tabs                                                           | Delivered   | PR #221                               | replaces all header popouts                                                                                                                                                                                                                                         |
 | HW-27 | User-selected rails (Pages & Tiles tab, `railLayout`)                                       | Delivered   | PR #234                               |                                                                                                                                                                                                                                                                     |
 | HW-28 | World clocks bar                                                                            | Not started |                                       | open decision D1                                                                                                                                                                                                                                                    |
@@ -451,7 +451,7 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-36 | Widget config contract and `hamclockWidgetConfigStore`                                      | Not started |                                       | section 13                                                                                                                                                                                                                                                          |
 | HW-37 | News feeds config dialog (first configurable widget)                                        | Not started |                                       | over `feedStore`; verify-before-save via `api/feeds/rss.ts`                                                                                                                                                                                                         |
 | HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts                                 | Not started |                                       | one PR per widget                                                                                                                                                                                                                                                   |
-| HW-39 | Map style chooser on the Map tab                                                            | Not started |                                       | section 14                                                                                                                                                                                                                                                          |
+| HW-39 | Map style chooser on the Map tab                                                            | Delivered   | PR #222                               | section 14                                                                                                                                                                                                                                                          |
 | HW-40 | Weather page with seven weather tiles                                                       | Not started |                                       | section 17                                                                                                                                                                                                                                                          |
 | HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details                            | Not started |                                       | section 17                                                                                                                                                                                                                                                          |
 | HW-42 | Radar report with 2D and 3D scrubber                                                        | Not started |                                       | reuse `RadarScrubber2D` / `RadarScrubber3D`                                                                                                                                                                                                                         |
@@ -467,9 +467,27 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-52 | Use presets: five shipped, user-saved                                                       | Delivered   | PR #234                               | section 7                                                                                                                                                                                                                                                           |
 | HW-53 | No radio dependency: station tiles degrade to a neutral state                               | Delivered   | PR #234                               | section 7                                                                                                                                                                                                                                                           |
 | HW-54 | Both rails follow the page; remove fixed band-activity slot; de-duplicated shipped pages    | Delivered   | PR #218                               | owner: right rail locked                                                                                                                                                                                                                                            |
-| HW-55 | Persist a tile provider id in `mapStore` so Esri / Mapbox and OSM / CARTO become selectable | Not started |                                       | migration derives it from `mapStyle` + tier; section 14                                                                                                                                                                                                             |
+| HW-55 | Persist a tile provider id in `mapStore` so Esri / Mapbox and OSM / CARTO become selectable | Delivered   | PR #222                               | migration derives it from `mapStyle` + tier; section 14                                                                                                                                                                                                             |
+| HW-56 | `EngineComparisonStrip`: physics / nowcast / observed on every model-backed report          | Not started |                                       | section 26.1; also added to the Best band report                                                                                                                                                                                                                    |
+| HW-57 | MUF report: ionosphere facts, hop table, usable-window chart                                | Not started |                                       | section 26.2                                                                                                                                                                                                                                                        |
+| HW-58 | Reliability report: SNR, confidence, station inputs, three-engine chart                     | Not started |                                       | section 26.3                                                                                                                                                                                                                                                        |
+| HW-59 | Propagation forecast report: 48 h band chart, matrix tab, FutureCast horizons tab           | Not started |                                       | section 26.4                                                                                                                                                                                                                                                        |
+| HW-60 | Solar report: SFI, SSN, flux forecast, cycle 25 chart                                       | Not started |                                       | section 26.5                                                                                                                                                                                                                                                        |
+| HW-61 | X-ray and flares report: flux curve with B/C/M/X, latest flare, D-RAP, probabilities        | Not started |                                       | section 26.6                                                                                                                                                                                                                                                        |
+| HW-62 | Solar wind and geomagnetic report: Bz / speed / density, Kp, Dst, aurora, CMEs, protons     | Not started |                                       | section 26.7                                                                                                                                                                                                                                                        |
+| HW-63 | Sun report: rise / noon / set, twilights, elevation curve, day-length trend                 | Not started |                                       | section 26.8                                                                                                                                                                                                                                                        |
+| HW-64 | Grey line report: per-band 160/80/40 tiers, windows, target overlap                         | Not started |                                       | section 26.9                                                                                                                                                                                                                                                        |
+| HW-65 | EME computation module `src/lib/utils/eme.ts`                                               | Not started |                                       | new: path loss, declination and sky noise, mutual window, Doppler                                                                                                                                                                                                   |
+| HW-66 | Moon and EME report                                                                         | Not started |                                       | section 26.10; depends on HW-65                                                                                                                                                                                                                                     |
+| HW-67 | Open-Meteo fetch extended to hourly and 7-day                                               | Not started |                                       | `src/lib/api/openMeteo.ts`; return shape stays a superset                                                                                                                                                                                                           |
+| HW-68 | Alerts report: severity, area, expiry, map link, 24 h count chart                           | Not started |                                       | section 26.12                                                                                                                                                                                                                                                       |
+| HW-69 | Radio Impact Model tile                                                                     | Not started |                                       | new wall tile over `computeRIM` / `useRIM`; section 26.13                                                                                                                                                                                                           |
+| HW-70 | Band activity report: per-band counts over time, mode split, top DX                         | Not started |                                       | section 26.14                                                                                                                                                                                                                                                       |
+| HW-71 | Recent contacts report: log statistics and 30-day chart                                     | Not started |                                       | section 26.15                                                                                                                                                                                                                                                       |
+| HW-72 | DX cluster modal adopts the report chrome, pin and footer                                   | Not started |                                       | section 26.16; chrome only, no new data                                                                                                                                                                                                                             |
+| HW-73 | Model track: weather-derived features in NowCast                                            | Not started |                                       | section 26.17; backlog, after every panel is live                                                                                                                                                                                                                   |
 
-Totals: 27 delivered, 4 partial, 24 not started.
+Totals: 31 delivered, 4 partial, 38 not started.
 
 ## 22. Open decisions
 
@@ -521,6 +539,7 @@ linked from each heading in section 24.
 - Claiming = set Agent, assign yourself, move the item to **Claimed**. Move it to **In progress** when the branch exists.
 - Opening the PR moves the item to **In review**. Merging moves it to **Done**.
 - B1 to B3 are P1 bug and Workstream HamClock Wall; B4 to B12 are P2 core, HamClock Wall; B13 to B16 are P3 expansion, Weather (AtmosPulse fold-in).
+- B17 to B21 and B24 are P2 core, Workstream HamClock Wall; B22 and B23 are P3 expansion, Weather (AtmosPulse fold-in); B25 is P3 expansion, Workstream Forecast engine. Issues #225–#233 (B17–B25) are on the board as Backlog until B9 merges.
 
 ## 24. Development breakdown
 
@@ -528,8 +547,20 @@ Each batch is one PR of at most 15 files and one self-contained brief. Batches
 ship in this order: the production bug list first (B1 to B3), then rails
 unlock and presets (B4), the settings panel (B5, B6), auto-page (B7), desk on
 tiles (B8), charts, pin and table (B9), config dialogs (B10, B11), earth
-events (B12), and weather consolidation (B13 to B16). `§` references point to
+events (B12), and weather consolidation (B13 to B16). B17 to B25 build the
+dedicated reports of section 26. `§` references point to
 `docs/guides/hamclock-tile-system.md`.
+
+**Order of delivery.** B1 → B2 → B3 → B4 → B5 → B6 → B7 → B8 → **B9** → B10 →
+B11 → B12 → B13 → B14 → B15 → B16, then the dedicated reports:
+
+1. **B9 first.** Chart primitives, the report pin, the footer contract and the Best band table are the foundation every dedicated report builds on. No report batch starts before B9 merges.
+2. **B17** — the engine strip lands with the first report that needs it. B18, B19, B20, B21 and B24 all import it, so nothing in that set starts before B17 merges.
+3. **B18, B19, B20, B21** — independent of each other and may run in parallel; they touch disjoint report files.
+4. **B22** — after B13 (which keeps the weather page, tiles and config) and after B17. The fetch extension inside B22 is a prerequisite of the weather report in the same batch.
+5. **B23** — after B22 (shared weather inputs) and after B16's region work is out of its way.
+6. **B24** — after B17.
+7. **B25** — last. It is the model track and does not start until every panel above is live, because until then a model change cannot be told apart from a display change.
 
 ### B1 — Header parity and layers clamp (#197)
 
@@ -933,24 +964,23 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): earth events and taxonomy v2 [B12: HW-33, HW-34, HW-35]`, branch `feat/hamclock-b12-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B13 — Weather page, report and config (#209)
+### B13 — Weather page, tiles and config (#209)
 
-- **Covers:** HW-40, HW-41, HW-44
-- **Intent:** Weather becomes a first-class page in the wall. Build the local-now, hourly, 7-day, tides, radar and lightning tiles, the Weather report with trend charts and a 7-day strip, and the weather config dialog.
+- **Covers:** HW-40, HW-44
+- **Intent:** Weather becomes a first-class page in the wall. Build the local-now, hourly, 7-day, tides, radar and lightning tiles and the weather config dialog. The dedicated Weather report (HW-41) moved to B22, where it ships with the Open-Meteo fetch extension it depends on.
 - **In scope:**
   - Tiles: local now (existing `WeatherTile` upgraded), hourly, 7-day, tides where coastal, radar status, lightning status
-  - Weather report: hero, temperature / wind / pressure 24 h charts, 7-day strip, pointer-over details
   - `WeatherConfig` panel: location, units override, radar cadence, alert area link
 - **Out of scope:**
+  - The dedicated Weather report and the Open-Meteo hourly / 7-day fetch (B22)
   - Radar and lightning reports (B14)
   - AtmosPulse layer ports (B15)
 - **Files to touch:**
   - `wall/tiles/WeatherTile.tsx` and new weather tiles
-  - `wall/reports/WeatherReport.tsx`
   - new `wall/config/WeatherConfig.tsx`
-  - `src/hooks/useLocalWeather.ts`, `src/lib/api/openMeteo.ts` (extend, keep signatures)
+  - `src/hooks/useLocalWeather.ts` (wiring only)
   - `wall/pages.ts`, `wall/presets.ts`
-- **Do not touch:** `src/components/atmos/*`, `wall/settings/*`
+- **Do not touch:** `src/components/atmos/*`, `wall/settings/*`, `wall/reports/WeatherReport.tsx`, `src/lib/api/openMeteo.ts`
 - **Style guide rules that apply:** §1 Tile anatomy (one graphic in place of the sub line, never both); §7 Reports; §6 Data formatting (`formatTemperature`, `formatSpeed`)
 - **Already available:**
   - `useLocalWeather`, `src/lib/api/openMeteo.ts`, `src/lib/api/weather.ts`
@@ -959,9 +989,9 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall src/hooks/useLocalWeather.test.ts`
 - **Acceptance:**
   - [ ] The Weather page shows current conditions, hourly, 7-day, radar and lightning as tiles.
-  - [ ] The weather report shows trend charts and a 7-day strip, and hovering a point shows its details.
+  - [ ] Tiles that have no hourly or daily data yet show a named waiting state, not a blank.
   - [ ] Weather location and units can be changed from the tile's gear.
-- **PR:** ≤ 15 files, title `feat(hamclock): weather page, report and config [B13: HW-40, HW-41, HW-44]`, branch `feat/hamclock-b13-<slug>`
+- **PR:** ≤ 15 files, title `feat(hamclock): weather page, tiles and config [B13: HW-40, HW-44]`, branch `feat/hamclock-b13-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
 ### B14 — Radar and lightning reports, weather layers category (#210)
@@ -1017,33 +1047,352 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **PR:** ≤ 15 files, title `feat(hamclock): atmospulse layers on the map [B15: HW-46]`, branch `feat/hamclock-b15-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
-### B16 — Regions, EmComm, `/atmos` retirement (#212)
+### B16 — EmComm and `/atmos` retirement (#212)
 
-- **Covers:** HW-47, HW-48, HW-49
-- **Intent:** Finish parity: monitored regions and RIM scores become a report, EmComm forms open from the Emcomm tile, and `/atmos` redirects or aliases per D7.
+- **Covers:** HW-48, HW-49
+- **Intent:** Finish parity: EmComm forms open from the Emcomm tile and `/atmos` redirects or aliases per D7. Monitored regions and RIM scores (HW-47) moved to B23, where they ship with the RIM tile.
 - **In scope:**
-  - `RegionsReport` from the alerts tile wrapping `MonitoredRegionManager` and the RIM cards
   - Emcomm report gains ICS-213, SitRep and activation entry points
-  - `/atmos` route change in `App.tsx`; register rows HW-40 to HW-49 flipped to Delivered
+  - `/atmos` route change in `App.tsx`; register rows HW-48 and HW-49 flipped to Delivered
 - **Out of scope:**
+  - Monitored regions and RIM (B23)
   - Deleting `src/components/atmos/*` (a later cleanup once nothing imports it)
 - **Files to touch:**
-  - new `wall/reports/RegionsReport.tsx`
   - `wall/reports/EmcommReport.tsx`
   - `src/components/atmos/emcomm/*` (props only)
   - `src/App.tsx`, `src/pages/AtmosPulse.tsx`
 - **Do not touch:** `src/components/atmos/layers/*`, `wall/settings/*`
 - **Style guide rules that apply:** §7 Reports; §13 What not to do
 - **Already available:**
-  - `useRIM`, `MonitoredRegionManager`, `RegionRIMCard`, `RIMScoreCard`
   - `src/components/atmos/emcomm/*`
 - **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall/reports src/App.test.tsx`
 - **Acceptance:**
-  - [ ] Monitored regions and their RIM scores are reachable from the alerts tile.
   - [ ] ICS-213, SitRep and activation open from the Emcomm tile.
   - [ ] Visiting /atmos lands on the map Weather page (or the alias, per D7).
-- **PR:** ≤ 15 files, title `feat(hamclock): regions, emcomm, `/atmos` retirement [B16: HW-47, HW-48, HW-49]`, branch `feat/hamclock-b16-<slug>`
+- **PR:** ≤ 15 files, title `feat(hamclock): emcomm and /atmos retirement [B16: HW-48, HW-49]`, branch `feat/hamclock-b16-<slug>`
 - **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B17 — Engine comparison strip and MUF report (#225)
+
+- **Covers:** HW-56, HW-57
+- **Intent:** The three-engine comparison is the product's core claim and nothing on the wall shows it. Build `EngineComparisonStrip` once, prove it on the MUF report, and retrofit it onto the Best band report that B9 delivered. The MUF tile currently opens the shared Forecast report; give it the ionosphere detail the engine already computes and never surfaces.
+- **In scope:**
+  - `EngineComparisonStrip` per section 26.1: three columns, agreement tone computed from the readings, `MODEL OFF` / `NO SPOTS` for unavailable engines, `stale` tone from `formatAge`
+  - A pure `compareEngines()` helper that turns physics / nowcast / observed readings into the agree / split / disagree verdict and its one-line reason, unit tested on its own
+  - `MufReport` per section 26.2: `PATH` and `HOPS` tabs, fact columns, usable-window chart, hop rows that flash the reflection point on the map
+  - 24 h MUF-at-QTH series sampled from the existing point function
+  - Strip added above the Best band ranked table with the leading band as `subject`
+- **Out of scope:**
+  - Any other report (B18 to B24)
+  - Changing the physics engine, the model client or the gating in `runtimeActivation.ts`
+- **Files to touch:**
+  - new `src/lib/hamclock/engineComparison.ts` and `engineComparison.test.ts`
+  - new `wall/reports/EngineComparisonStrip.tsx`
+  - new `wall/reports/MufReport.tsx`
+  - `wall/reports/BestBandReport.tsx`, `wall/reports/reports.test.tsx`
+  - `wall/tiles/MufTile.tsx`, `wall/tiles/index.ts`
+  - `src/lib/api/muf.ts`, `src/hooks/useMUFData.ts` (add the hourly series, keep existing signatures)
+  - `src/styles/hamclock-wall-report.css`
+- **Do not touch:** `src/lib/utils/ionosphere.ts`, `rayTrace.ts`, `signal.ts`, `src/lib/propagation/*`
+- **Style guide rules that apply:** §7 Reports (anatomy, 90 vw × 88 vh, second tab instead of scrolling, `sr-only` table twin, focus return); §3 Tone tokens; §6 Data formatting (one format per column, `reportFooter`); §2 Type scale for the strip's value class
+- **Already available:**
+  - `getIonosphericParameters`, `calculateDLayerAbsorption`, `calculateLUF`, `calculateFOT`, `describeConditions` (`src/lib/utils/ionosphere.ts`)
+  - multi-hop ray trace with per-hop absorption, elevation, path loss and limiting hop (`src/lib/utils/rayTrace.ts`)
+  - `useCurrentSFI`, `generateMUFGrid`, `getMUFAtLocation`
+  - `useBandVerdicts`, `useBandLadder` for the observed column; `modelClient` for the nowcast column
+  - `SolarSeriesChart` and the report pin from B9
+- **Verification:** `npm run verify` and `npx vitest run src/lib/hamclock/engineComparison.test.ts src/components/map/hamclock/wall/reports`
+- **Acceptance:**
+  - [ ] The MUF tile opens a MUF report, not the shared forecast report.
+  - [ ] The strip shows three columns and states AGREE, SPLIT or DISAGREE with a reason, computed from the readings.
+  - [ ] An engine with no data reads `MODEL OFF` or `NO SPOTS`; no engine ever borrows another engine's number.
+  - [ ] The `HOPS` tab lists each hop and selecting one marks the reflection point on the map.
+  - [ ] The Best band report carries the strip above its table.
+- **PR:** ≤ 15 files, title `feat(hamclock): engine comparison strip and MUF report [B17: HW-56, HW-57]`, branch `feat/hamclock-b17-<slug>`
+- **Do not:** name, imply or add VOACAP anywhere; add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B18 — Reliability and propagation forecast reports (#226)
+
+- **Covers:** HW-58, HW-59
+- **Intent:** The reliability engine computes an SNR, a confidence and a status per cell and the wall shows only a coloured dot. The forecast matrix shows a 24 h grid with no time axis and no model horizons. Give both their own report and put the three engines on one chart.
+- **In scope:**
+  - `ReliabilityReport` per section 26.3: `NOW` and `BY HOUR` tabs, SNR / confidence / mode-threshold facts, station inputs (power, antenna gain, noise environment), the two-line-plus-bars chart
+  - `PropagationForecastReport` per section 26.4: `MATRIX` and `HORIZONS` tabs, a 48 h band-score chart with a now marker, per-horizon rows carrying core and personalized probability, confidence, top factors and OOD flags spelled out in words
+  - Both reports carry `EngineComparisonStrip`
+  - Horizons that `runtimeActivation` has not enabled render as `MODEL OFF` rows with the reason, never as an empty tab
+- **Out of scope:**
+  - Enabling FutureCast horizons or changing `capabilityAccess` gating
+  - Any change to the reliability maths
+- **Files to touch:**
+  - new `wall/reports/ReliabilityReport.tsx` and `wall/reports/PropagationForecastReport.tsx`
+  - `wall/reports/reports.test.tsx`
+  - `wall/tiles/ReliabilityTile.tsx`, `wall/tiles/ForecastMatrixTile.tsx`, `wall/tiles/index.ts`
+  - `wall/tiles/useWallReliability.ts` (expose the full cell, not just the score)
+  - `src/hooks/useNowCastBandPredictions.ts` (surface `topFactors`, `oodFlags`, `dataFreshness`; no fetch change)
+  - `src/styles/hamclock-wall-report.css`
+- **Do not touch:** `src/lib/hamclock/reliabilityForecast.ts` internals, `src/lib/propagation/runtimeActivation.ts`, `capabilityAccess.ts`, `wall/reports/EngineComparisonStrip.tsx`
+- **Style guide rules that apply:** §7 Reports (`sr-only` twin for both grids); §6 Data formatting (SNR signed, confidence integer, `reportFooter` from the feed being shown); §3 Tone tokens
+- **Already available:**
+  - `buildReliabilityForecast` cells with `score`, `snrEstimate`, `confidence`, `status` and `MODE_PARAMETERS` (`src/lib/hamclock/reliabilityForecast.ts`)
+  - station power, antenna gain pattern and noise environment inputs in `useWallReliability.ts`
+  - `modelClient` fields `core_probability`, `personalized_probability`, `confidence`, `ood_flags`, `top_factors`, `model_version`, `data_freshness`
+  - `EngineComparisonStrip` and `compareEngines` from B17
+- **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall`
+- **Acceptance:**
+  - [ ] The reliability report shows the SNR estimate, its mode threshold and the station inputs that produced it.
+  - [ ] The reliability chart shows physics, nowcast and observed on one time axis.
+  - [ ] The forecast report has a time axis and a now marker; the matrix keeps its `sr-only` table.
+  - [ ] Every FutureCast horizon appears, either with values or with `MODEL OFF` and a reason.
+- **PR:** ≤ 15 files, title `feat(hamclock): reliability and propagation forecast reports [B18: HW-58, HW-59]`, branch `feat/hamclock-b18-<slug>`
+- **Do not:** name, imply or add VOACAP anywhere; add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B19 — Solar, X-ray and solar wind reports (#227)
+
+- **Covers:** HW-60, HW-61, HW-62
+- **Intent:** Three tiles share one Solar report today and half the space-weather data the app already fetches never reaches the wall. Split the shared report into three dedicated ones and surface the flare events, D-RAP absorption, probabilities, Dst, proton flux, aurora oval and CMEs that `SolarPulse` already reads. The shared Solar report is retired when the third one lands, because nothing points at it any more.
+- **In scope:**
+  - `SolarReport` rewritten per section 26.5: `NOW` and `CYCLE` tabs, flux forecast tail, cycle 25 chart
+  - `XrayReport` per section 26.6: `FLUX`, `ABSORPTION`, `PROBABILITIES` tabs, log-axis flux chart with B / C / M / X threshold rules, latest classified flare, D-RAP, C/M/X and proton probabilities
+  - `SolarWindReport` per section 26.7: `WIND`, `GEOMAGNETIC`, `EVENTS` tabs, Bz zero rule, Kp and Dst, aurora oval reach, CME list
+  - A log-scale option on `SolarSeriesChart` (prop only, token colours)
+  - Map links that toggle the existing D-RAP and aurora layers behind the dialog
+- **Out of scope:**
+  - The engine comparison strip; these reports show observations, not our prediction
+  - Any new upstream provider; the feed work below stays on NOAA / NASA products the app already proxies
+- **Files to touch:**
+  - `wall/reports/SolarReport.tsx`, new `wall/reports/XrayReport.tsx`, new `wall/reports/SolarWindReport.tsx`
+  - `wall/reports/reports.test.tsx`
+  - `wall/tiles/SpaceWxTile.tsx`, `wall/tiles/XrayTile.tsx`, `wall/tiles/SolarWindTile.tsx`, `wall/tiles/index.ts`
+  - `src/hooks/useSolarExpanded.ts`, `src/hooks/useSolarData.ts`
+  - `src/lib/solar/selectors.ts`
+  - `src/components/solar/SolarSeriesChart.tsx`
+  - `src/styles/hamclock-wall-report.css`
+  - `src/lib/solar/sourcePolicies.ts` and `api/solar/*` for the three horizons the reports promise and the current products do not carry: the 27-day flux forecast (`noaa-flux-forecast` is a three-day product today), a 24 h X-ray curve (`noaa-xray` reads the six-hour endpoint), and 24 h of Bz / speed / density (the wind policies keep ≤ 90 magnetometer rows and one plasma summary). Extend retention and point at the 1-day products; if that pushes the batch past 15 files, ship the feed work first as `B19a` (`feat(solar): report horizons for the wall`) and the reports as `B19b`.
+- **Do not touch:** `src/pages/SolarPulse.tsx` (it must keep rendering identically from the same resources)
+- **Style guide rules that apply:** §7 Reports (one chart per tab, `sr-only` twin for the probability grid); §6 Data formatting (empty states name the gap: `NO FLARES ABOVE B`, `NONE MAPPED`, never `ALL CLEAR`); §3 Tone tokens for the R / S / G scales
+- **Already available:**
+  - resources `noaa-protons`, `noaa-dst`, `noaa-drap`, `noaa-probabilities`, `noaa-sunspots`, `noaa-flux-forecast`
+  - `useProtonFlux`, `useDstIndex`, `useSunspots`, `useProbabilities`
+  - aurora OVATION products in `src/lib/solar/mediaProducts.ts`; CME analyses from NASA DONKI
+  - `SolarCycleContext` for the cycle position
+- **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall/reports src/components/solar src/hooks/useSolarData.test.ts`
+- **Acceptance:**
+  - [ ] X-ray, Solar wind and Space Wx each open their own report; the shared Solar report has no remaining callers.
+  - [ ] The X-ray chart is log scale with labelled B / C / M / X rules and marks the last flare.
+  - [ ] Dst, proton flux, flare probabilities, D-RAP and CMEs are visible on the wall for the first time.
+  - [ ] Aurora and D-RAP map links toggle the existing layers behind the dialog.
+- **PR:** ≤ 15 files, title `feat(hamclock): solar, x-ray and solar wind reports [B19: HW-60, HW-61, HW-62]`, branch `feat/hamclock-b19-<slug>`
+- **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B20 — Sun and grey line reports (#228)
+
+- **Covers:** HW-63, HW-64
+- **Intent:** Sun and Grey line both open the shared Sun & Moon report. Give the sun its own elevation curve, twilights and day-length trend, and give the grey line the per-band tiers and target overlap that `greyline.ts` can already reason about but never shows.
+- **In scope:**
+  - `SunReport` per section 26.8: rise / noon / set in local and UTC, civil, nautical and astronomical twilights, day-length delta vs yesterday, 24 h elevation curve with shaded twilight bands, polar day and night states
+  - `GreyLineReport` per section 26.9: window start and end, state and countdown, 160 / 80 / 40 m tiers, mutual overlap window with the DX target, 24 h intensity chart, terminator map link
+  - New computations: hourly sun elevation and zenith sampling, twilight instants, day-length delta, hourly grey-line intensity, mutual overlap between the QTH and target terminator windows
+  - The shared Sun & Moon report stays wired to the Moon tile until B21 retires it
+- **Out of scope:**
+  - Anything moon or EME (B21)
+  - Terminator rendering changes on the map
+- **Files to touch:**
+  - new `wall/reports/SunReport.tsx` and `wall/reports/GreyLineReport.tsx`
+  - `wall/reports/SunMoonReport.tsx` (unwire the sun and grey-line tiles only)
+  - `wall/reports/reports.test.tsx`
+  - `wall/tiles/SunTile.tsx`, `wall/tiles/GreyLineTile.tsx`, `wall/tiles/index.ts`
+  - new `src/lib/hamclock/sunCurve.ts` and `sunCurve.test.ts`
+  - `src/lib/utils/greyline.ts` and `greyline.test.ts` (add the hourly intensity sampler and the overlap window)
+  - `src/styles/hamclock-wall-report.css`
+- **Do not touch:** `src/lib/utils/ionosphere.ts`, `src/lib/utils/moon.ts`, terminator layers
+- **Style guide rules that apply:** §6 Data formatting (`formatClock` shows local and UTC together, `formatCountdown` for the window); §7 Reports; §1 Tile anatomy for the tile sub lines that change
+- **Already available:**
+  - sunrise, sunset, solar noon and day length in `SunMoonReport.tsx`
+  - solar zenith and local solar hour in `src/lib/utils/ionosphere.ts:520,545`
+  - `getGreylineVisualParams`, `isGreylineActiveForBand`, tiers normal / enhanced / peak (`src/lib/utils/greyline.ts`)
+  - `useActiveLocation` and the DX target from the map store
+- **Verification:** `npm run verify` and `npx vitest run src/lib/hamclock/sunCurve.test.ts src/lib/utils/greyline.test.ts src/components/map/hamclock/wall/reports`
+- **Acceptance:**
+  - [ ] The Sun tile opens a sun report with an elevation curve and three twilight bands.
+  - [ ] Day length shows a signed change against yesterday.
+  - [ ] Polar day and night render `SUN DOES NOT SET` / `SUN DOES NOT RISE` with the next transition, and the curve still draws.
+  - [ ] The grey line report shows a tier per low band and, when a target is set, the mutual overlap window.
+- **PR:** ≤ 15 files, title `feat(hamclock): sun and grey line reports [B20: HW-63, HW-64]`, branch `feat/hamclock-b20-<slug>`
+- **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B21 — EME module and Moon report (#229)
+
+- **Covers:** HW-65, HW-66
+- **Intent:** The moon is currently a phase glyph. EME operators need the numbers that decide whether tonight is worth setting up for, and none of them exist in the app. Build one tested module and one EME-grade report on top of it.
+- **In scope:**
+  - New `src/lib/utils/eme.ts`: Earth-Moon path loss at 2 m / 70 cm / 23 cm from the topocentric range, degradation in dB against perigee, moon declination with the high / low declination word, sky-noise temperature including the galactic-plane penalty, Doppler shift from the topocentric range rate, and the mutual visibility window between the QTH and a target grid
+  - `MoonReport` per section 26.10: `MOON` and `EME` tabs, band selector as segmented big buttons, 24 h elevation chart and a 28-day degradation chart with perigee and apogee labelled, sub-lunar point map link
+  - Retire `SunMoonReport` once the Moon tile is rewired, since B20 already moved the sun and grey-line tiles off it
+- **Out of scope:**
+  - Satellite Doppler (`src/lib/utils/doppler.ts` is a different geometry and is not reused or modified)
+  - Antenna modelling, elevation rotator control, or any bridge work
+- **Files to touch:**
+  - new `src/lib/utils/eme.ts` and `eme.test.ts`
+  - `src/lib/utils/moon.ts` and `moon.test.ts` (export the topocentric range rate and declination; no behaviour change)
+  - new `wall/reports/MoonReport.tsx`
+  - `wall/reports/SunMoonReport.tsx` (delete once unreferenced), `wall/reports/reports.test.tsx`
+  - `wall/tiles/MoonTile.tsx`, `wall/tiles/index.ts`
+  - `src/styles/hamclock-wall-report.css`
+- **Do not touch:** `src/lib/utils/doppler.ts`, satellite pages, `src/lib/utils/greyline.ts`
+- **Style guide rules that apply:** §7 Reports (band selector is segmented big buttons inside the report, not a dropdown); §5 Spacing and hit targets (≥ 44 px); §6 Data formatting (dB signed, Hz integer, distances unit-resolved)
+- **Already available:**
+  - `getMoonConditions`, `getMoonSnapshot`, `getSublunarPoint`, topocentric distance (`src/lib/utils/moon.ts`)
+  - `useActiveLocation` and the DX target grid
+  - `HamClockButton` segmented controls in `wall/controls/`
+  - `SolarSeriesChart` from B9
+- **Verification:** `npm run verify` and `npx vitest run src/lib/utils/eme.test.ts src/lib/utils/moon.test.ts src/components/map/hamclock/wall/reports`
+- **Acceptance:**
+  - [ ] `eme.ts` has unit tests covering path loss at perigee and apogee, the declination word, sky noise on and off the galactic plane, Doppler sign on approach and recession, and an overlap window that is correctly empty when the two stations never see the moon together.
+  - [ ] The Moon tile opens the EME report; the shared Sun & Moon report is gone and nothing imports it.
+  - [ ] Changing the band changes path loss, Doppler and sky noise.
+  - [ ] With no target grid the mutual window reads `NO TARGET SET`, never a computed window.
+- **PR:** ≤ 15 files, title `feat(hamclock): EME module and moon report [B21: HW-65, HW-66]`, branch `feat/hamclock-b21-<slug>`
+- **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B22 — Weather fetch extension, weather report, alerts report (#230)
+
+- **Covers:** HW-67, HW-41, HW-68
+- **Intent:** `fetchLocalWeather` asks Open-Meteo for one day and current conditions only, so the hourly and 7-day tiles B13 places have nothing to show and the weather report cannot have a chart. Extend the fetch, then build the Weather report and give alerts their own report instead of a list inside the tile.
+- **In scope:**
+  - `fetchLocalWeather` extended to `forecast_days=7` with an `hourly` block (temperature_2m, precipitation_probability, wind_speed_10m, pressure_msl) and a daily block (temperature_2m_max/min, weather_code, precipitation_sum). The returned shape stays a superset of today's so existing callers compile unchanged.
+  - `WeatherReport` per section 26.11: `NOW`, `HOURLY`, `7-DAY` tabs, a fixed readout row under each chart instead of a cursor-following tooltip
+  - `AlertsReport` per section 26.12: alert list on the left, selected alert on the right, 24 h count chart, `SHOW ON MAP` for alerts with geometry
+  - Wire the B13 hourly and 7-day tiles to the extended payload
+- **Out of scope:**
+  - Radar and lightning reports (B14)
+  - Alert area scoping and severity floor, which HW-18 delivers in B11
+  - Any weather input to the propagation model (B25)
+- **Files to touch:**
+  - `src/lib/api/openMeteo.ts` and its test
+  - `src/hooks/useLocalWeather.ts` and its test
+  - `wall/reports/WeatherReport.tsx`, new `wall/reports/AlertsReport.tsx`, `wall/reports/reports.test.tsx`
+  - `wall/tiles/WeatherTile.tsx` and the B13 hourly / 7-day tiles (wiring only)
+  - `wall/tiles/AlertsTile.tsx`, `wall/tiles/index.ts`
+  - `src/lib/api/weather.ts` `WeatherAlert` and its parser: keep `effective`, `expires`, `sender`, `urgency`, `certainty` and `areaDesc` from the NWS payload (the parser drops them today)
+  - new `src/lib/weather/alertHistory.ts` and test: a rolling 24 h store of alert snapshots (id, severity, effective, expires) persisted in `localStorage`, appended on every fetch so expired alerts stay in the chart; a cold client shows `COLLECTING SINCE hh:mm UTC` over the hours it has not seen
+  - `src/lib/utils/alertMatcher.ts` matches DX spots, not NWS alerts — leave it alone
+  - `src/styles/hamclock-wall-report.css`
+- **Do not touch:** `src/components/atmos/*`, `wall/config/WeatherConfig.tsx`, `wall/settings/*`
+- **Style guide rules that apply:** §6 Data formatting (`resolveUnits`, `formatTemperature`, `formatSpeed`, `reportFooter` from the observation time added in B9); §7 Reports; empty states name the gap (`NO MAPPED ALERTS`, never `ALL CLEAR`)
+- **Already available:**
+  - `fetchLocalWeather`, `useLocalWeather`, `src/lib/api/weather.ts`
+  - the observation timestamp on `LocalWeatherData` from B9
+  - the active alerts feed behind `AlertsTile.tsx` and `src/lib/utils/alertMatcher.ts`
+  - `SolarSeriesChart` and the report pin from B9
+- **Verification:** `npm run verify` and `npx vitest run src/lib/api/openMeteo.test.ts src/hooks/useLocalWeather.test.ts src/components/map/hamclock/wall`
+- **Acceptance:**
+  - [ ] One Open-Meteo request returns current, hourly and 7-day data and existing callers are unchanged.
+  - [ ] The weather report has three tabs, each with its own chart and a fixed readout row.
+  - [ ] The alerts report shows severity, urgency, certainty, area and expiry for the selected alert and frames it on the map when it has geometry.
+  - [ ] With no alerts the report reads `NO MAPPED ALERTS` and names the covered area.
+- **PR:** ≤ 15 files, title `feat(hamclock): weather fetch extension, weather and alerts reports [B22: HW-67, HW-41, HW-68]`, branch `feat/hamclock-b22-<slug>`
+- **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B23 — Radio Impact Model tile and report (#231)
+
+- **Covers:** HW-69, HW-47
+- **Intent:** `computeRIM` already turns lightning, flooding, NVIS viability, repeater health and ducting into a composite and four sub-scores, and none of it is on the wall. Make it a tile and a report, and fold the monitored regions in as the report's second tab. HW-47 moves here from B16.
+- **In scope:**
+  - `RimTile`: composite as the hero, worst sub-score as the sub line, placed on the Weather page and available to any rail
+  - `RimReport` per section 26.13: `SCORE` and `REGIONS` tabs, four sub-scores with a one-sentence explanation each, the input facts, a 12 h composite chart, region re-scoping, lightning and river-gauge map links
+  - A rolling 12 h composite series retained in `useRIM` (no new feed)
+  - A missing input excludes its sub-score from the composite and labels the composite `PARTIAL` with the missing inputs named; defaults are never substituted
+- **Out of scope:**
+  - EmComm forms and activation (B16, HW-48)
+  - New weather feeds; B22 already extended the only fetch that needed it
+- **Files to touch:**
+  - new `wall/tiles/RimTile.tsx`
+  - new `wall/reports/RimReport.tsx`
+  - `wall/tiles/index.ts`, `wall/tiles/tiles.test.tsx`, `wall/reports/reports.test.tsx`
+  - `wall/pages.ts`, `wall/presets.ts`
+  - `src/hooks/useRIM.ts` and its test (rolling series and per-sub-score availability)
+  - `src/lib/atmos/rim.ts` and `rim.test.ts`: `computeRIM` drops a sub-score whose `dataAvailable` is false and renormalises the remaining weights instead of scoring a fallback value; it returns the reason for each sub-score and the list of excluded inputs. This is a scoring change and is covered by tests for every combination of one and two missing inputs; `AtmosPulse` consumers see the same composite when all inputs are present.
+  - `src/components/atmos/MonitoredRegionManager.tsx` (props only)
+  - `src/styles/hamclock-wall-report.css`
+- **Do not touch:** `src/components/atmos/layers/*`, `src/pages/AtmosPulse.tsx`, `wall/settings/*`
+- **Style guide rules that apply:** §1 Tile anatomy (one hero, one sub line); §7 Reports; §6 Data formatting (scores to one decimal, `NO DATA` names the gap)
+- **Already available:**
+  - `computeRIM` and `useRIM` with the composite and four sub-scores
+  - `analyzeNVIS` (`src/lib/utils/nvis.ts`), `useLightning`, `useRiverGauges`, `useRepeaters`, `useDuctingForecast`, `useTEC`
+  - `MonitoredRegionManager`, `RegionRIMCard`, `RIMScoreCard`
+  - `SolarSeriesChart` from B9
+- **Verification:** `npm run verify` and `npx vitest run src/hooks/useRIM.test.ts src/components/map/hamclock/wall`
+- **Acceptance:**
+  - [ ] A RIM tile exists on the Weather page and opens the RIM report.
+  - [ ] Each sub-score explains itself in one sentence naming the inputs that moved it.
+  - [ ] A missing input marks the composite `PARTIAL` and names what is missing; no sub-score is defaulted.
+  - [ ] Monitored regions are reachable from the report and selecting one re-scopes it.
+- **PR:** ≤ 15 files, title `feat(hamclock): radio impact model tile and report [B23: HW-69, HW-47]`, branch `feat/hamclock-b23-<slug>`
+- **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B24 — Band activity, recent contacts and cluster chrome (#232)
+
+- **Covers:** HW-70, HW-71, HW-72
+- **Intent:** Band activity is the observed engine's own page and deserves history and a mode split; recent contacts has a tile and no report; and the DX cluster modal predates the report chrome. Finish the activity side of the wall.
+- **In scope:**
+  - `BandActivityReport` per section 26.14: `BANDS` and `TOP DX` tabs, stacked 6 h per-band chart, mode split, furthest spot, contributing feeds named, band rows that set the map's band focus
+  - `RecentContactsReport` per section 26.15: today / week / month counts, unique DXCC, best DX, top band and mode, 30-day daily chart coloured by dominant band, selecting a day refills the facts
+  - `ClusterDetailPopover` gains the `WallReport` shell, the pin, focus return and the standard footer. Chrome only: no layout change, no new data, no engine strip.
+  - 6 h per-band history from a new `api/spots/band-history` edge route over the durable `band_hourly_stats` aggregate in Supabase (the only spot history that survives the 2 h `spot_history` window), plus a client-side 10-minute rolling store of the live counts for the most recent hour; 30-day log aggregation as a new computation over `logStore`
+- **Out of scope:**
+  - Cluster filters and the cluster config dialog (B11)
+  - Editing QSOs from the wall
+- **Files to touch:**
+  - `wall/reports/BandActivityReport.tsx`, new `wall/reports/RecentContactsReport.tsx`, `wall/reports/reports.test.tsx`
+  - `wall/tiles/BandActivityTile.tsx`, `wall/tiles/RecentContactsTile.tsx`, `wall/tiles/ClusterTile.tsx`, `wall/tiles/index.ts`
+  - `src/components/map/ClusterDetailPopover.tsx` and `ClusterDetailPopover.test.tsx`
+  - `src/lib/hamclock/recentContacts.ts` and `recentContacts.test.ts`
+  - `src/lib/utils/bandActivity.ts` and `bandActivity.test.ts`
+  - new `api/spots/band-history.ts` (+ handler test under `api/_lib/handlers/`) reading `band_hourly_stats`, and new `src/hooks/useBandHistory.ts`
+  - `src/styles/hamclock-wall-report.css`
+- **Do not touch:** `src/hooks/useBandVerdicts.ts` internals, `src/stores/dxStore.ts`, `src/lib/db/logStore`, the collector
+- **Style guide rules that apply:** §7 Reports (`sr-only` twin for the top-DX list); §6 Data formatting (integers for counts, distances unit-resolved, `reportFooter` per feed); §3 Tone tokens for band colours
+- **Already available:**
+  - `useBandVerdicts`, `useBandLadder`, `src/components/map/bandHealthPresentation.ts`
+  - `src/lib/utils/bandActivity.ts`, `modeNormalize.ts`
+  - `src/lib/hamclock/recentContacts.ts`, `src/lib/db/logStore`, `dxccStore`
+  - `WallReport`, `reportFooter` and the pin from B9
+- **Verification:** `npm run verify` and `npx vitest run src/lib/hamclock/recentContacts.test.ts src/lib/utils/bandActivity.test.ts src/components/map/hamclock/wall src/components/map/ClusterDetailPopover.test.tsx`
+- **Acceptance:**
+  - [ ] Band activity shows 6 h of per-band history, the mode split and which feeds contributed.
+  - [ ] With no spots the report names the window and still lists the feeds, one of which reads `WAITING`.
+  - [ ] Recent contacts opens a report with a 30-day chart; an empty log reads `NO CONTACTS LOGGED`.
+  - [ ] The cluster modal has the report title bar, pin, footer and focus return, and its content is otherwise unchanged.
+- **PR:** ≤ 15 files, title `feat(hamclock): band activity, recent contacts and cluster chrome [B24: HW-70, HW-71, HW-72]`, branch `feat/hamclock-b24-<slug>`
+- **Do not:** add flyouts or side panels; open anything on hover; put a scroll region inside a tile, rail, report or settings tab; hard-code colours, hex values or Tailwind colour classes; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
+
+### B25 — Model track: weather features in NowCast (backlog, #233)
+
+- **Covers:** HW-73
+- **Intent:** Terrestrial weather is an input the propagation model does not have. `operationalWeather.ts` and `ml/service/operational_weather.py` are **space** weather and are not this. This batch adds weather-derived features to NowCast. It starts only after every panel above is live, because until the wall is stable a model change cannot be told apart from a display change.
+- **In scope:**
+  - Candidate features: precipitation and lightning density near the path (rain scatter and QRN), surface pressure gradient and the ducting index for VHF/UHF, soil moisture as a ground-conductivity proxy for NVIS
+  - A feature-contract version bump so `modelClient` rejects a serving version that does not carry the new columns
+  - Offline evaluation against the held-out set before the model is promoted: no promotion without a measured improvement
+  - Serving-side ingestion of the weather source on Railway, with the same freshness and OOD handling the existing operational inputs use
+- **Out of scope:**
+  - Any wall or report change; the reports read whatever the model returns
+  - Live WSPR ingestion of any kind (decommissioned 2026-07-21, see `CLAUDE.md`)
+  - Scheduling anything on the M5
+- **Files to touch:** scoped when the batch starts. Expected: `ml/src/` feature builders, `ml/service/` serving, `src/lib/propagation/coreFeatureBuilder.ts`, `src/lib/propagation/modelClient.ts`, and one plan document under `ml/`. Wall files are explicitly not in this batch.
+- **Do not touch:** `src/components/map/hamclock/wall/*`, any report, any tile
+- **Style guide rules that apply:** none directly; the model returns values the existing reports already render, including `MODEL OFF` when a contract mismatch is detected
+- **Already available:**
+  - `src/lib/propagation/coreFeatureBuilder.ts`, `operationalWeather.ts` (space weather) as the pattern for freshness and source ages
+  - `modelClient` `feature_contract` and `model_version` fields
+  - the Open-Meteo hourly and daily payload from B22 as a client-side reference for what the serving side must ingest
+- **Verification:** offline evaluation report plus `npm run verify` and `npx vitest run src/lib/propagation`
+- **Acceptance:**
+  - [ ] The feature contract is versioned and a mismatched serving version reports `MODEL OFF` rather than a silent wrong answer.
+  - [ ] The retrained model beats the current one on the held-out set, with the numbers recorded in the plan document.
+  - [ ] No wall file changed in this PR.
+- **PR:** ≤ 15 files, title `feat(propagation): weather features in NowCast [B25: HW-73]`, branch `feat/prop-b25-<slug>`
+- **Do not:** name, imply or add VOACAP anywhere; rebuild live WSPR ingestion; schedule work on the M5; relax bundle budgets, lint rules or thresholds; force push. Work in a worktree branched from `origin/main`.
 
 ## 25. Coverage check
 
@@ -1093,13 +1442,13 @@ is outside this plan.
 | HW-38 | B11                      |
 | HW-39 | B6                       |
 | HW-40 | B13                      |
-| HW-41 | B13                      |
+| HW-41 | B22                      |
 | HW-42 | B14                      |
 | HW-43 | B14                      |
 | HW-44 | B13                      |
 | HW-45 | B14                      |
 | HW-46 | B15                      |
-| HW-47 | B16                      |
+| HW-47 | B23                      |
 | HW-48 | B16                      |
 | HW-49 | B16                      |
 | HW-50 | B2                       |
@@ -1108,3 +1457,314 @@ is outside this plan.
 | HW-53 | B4                       |
 | HW-54 | B2                       |
 | HW-55 | B6                       |
+| HW-56 | B17                      |
+| HW-57 | B17                      |
+| HW-58 | B18                      |
+| HW-59 | B18                      |
+| HW-60 | B19                      |
+| HW-61 | B19                      |
+| HW-62 | B19                      |
+| HW-63 | B20                      |
+| HW-64 | B20                      |
+| HW-65 | B21                      |
+| HW-66 | B21                      |
+| HW-67 | B22                      |
+| HW-68 | B22                      |
+| HW-69 | B23                      |
+| HW-70 | B24                      |
+| HW-71 | B24                      |
+| HW-72 | B24                      |
+| HW-73 | B25                      |
+
+## 26. Dedicated reports
+
+Every tile opens a report built for that tile. The six shared reports shipped in
+PR #170 (Solar, Sun & Moon, Weather, Forecast, Emcomm, Band activity) stay wired
+as fallbacks: a tile keeps its shared report until its dedicated report lands,
+and the shared report is retired only when nothing points at it any more.
+
+### 26.0 The three-engine rule
+
+Anywhere our propagation model appears — MUF, Reliability, the forecast matrix,
+Best band now — the report shows all three engines side by side and makes that
+comparison the headline. This is the product's core claim: nobody else puts
+physics, a trained model and live observation next to each other and lets the
+operator see where they disagree.
+
+- **PHYSICS** — our simplified physics model in the spirit of ITU-R P.533: calibrated Chapman / CCIR layer heuristics, a secant-law oblique MUF and a multi-hop ray trace (`src/lib/utils/ionosphere.ts`, `rayTrace.ts`, `signal.ts`, `src/lib/hamclock/reliabilityForecast.ts`). It is not a P.533 implementation and the wall must not call it one: column titles and chart sources read `PHYSICS`, and any provenance text says "P.533-style physics model". A full P.533 port would be its own tracked item.
+- **NOWCAST** — the trained NowCast / FutureCast models on Railway (`src/lib/propagation/modelClient.ts`, `src/hooks/useNowCastBandPredictions.ts`).
+- **OBSERVED** — what the air actually shows: RBN / DX cluster / PSKReporter counts and the band-health ladder (`src/hooks/useBandVerdicts.ts`, `src/hooks/useBandLadder.ts`).
+
+VOACAP is not implemented, is not planned, and is never shown as a fourth
+column or named as a source. Reports that contrast us with VOACAP in prose are
+wrong; the comparison we make is internal.
+
+### 26.1 Shared component: `EngineComparisonStrip`
+
+One component, reused by every model-backed report, rendered directly under the
+report title and above the fact columns.
+
+```ts
+interface EngineReading {
+  value: string; // display only, already formatted, one format per column
+  comparable:
+    | { kind: "number"; value: number; unit: "MHz" | "dB" | "pct" | "spots" }
+    | { kind: "verdict"; verdict: "closed" | "marginal" | "open" }
+    | { kind: "none" }; // unavailable engines carry no comparable
+  detail?: string; // "SNR +9 dB", "412 spots / 30 min"
+  confidence?: number; // 0-100, rendered as a bar, omitted when unknown
+  updatedAt?: Date; // drives the freshness word ladder
+  state: "ok" | "stale" | "unavailable";
+}
+interface EngineComparisonStripProps {
+  subject: string; // "20 M TO JA", "MUF AT QTH"
+  physics: EngineReading;
+  nowcast: EngineReading;
+  observed: EngineReading;
+}
+```
+
+- Three equal columns titled `PHYSICS` · `NOWCAST` · `OBSERVED`. Each column is value (`--hc-t-hero-long` class rules from section 8), one detail line, one confidence/freshness line.
+- **Agreement tone** is computed by `compareEngines()` from the three `comparable` fields only — never by parsing `value`. Two numbers of the same unit are mapped to a verdict step by the report's own thresholds (MUF: band usable / marginal / closed against the subject band; SNR and probability: the mode's `minSNR` margin and the 40 / 60 % lines); a `verdict` is used as is; `none` takes that engine out of the comparison and the word is computed from the remaining two (or reads `NO COMPARISON` with one). All three within one verdict step → `hc-good` and the word `AGREE`; one outlier → `hc-warn` and `SPLIT`; physics and nowcast on opposite sides of the open/closed line → `hc-bad` and `DISAGREE`. The word sits centred under the three columns with a one-line reason ("model sees an opening physics does not").
+- `unavailable` renders `MODEL OFF` / `NO SPOTS` in `hc-dim-text`. A missing engine never falls back to another engine's number and never renders as zero. FutureCast horizons that `runtimeActivation` has not enabled are `unavailable`, not hidden, so the wall never implies the model was consulted.
+- `stale` keeps the value but tones it `hc-warn` and shows the age. Freshness words come from `formatAge` (`wall/tokens.ts`); the strip never invents a timestamp.
+- The strip is one row at ≥ 1600 px and stays one row below it by dropping the detail lines, never by scrolling.
+- Applied to the **Best band now** report of section 10 as well: the strip sits above the ranked table with `subject` set to the leading band, and the SURPRISE ACTIVITY section becomes the strip's `DISAGREE` case made concrete.
+
+### 26.2 MUF
+
+- **Tabs:** `PATH` · `HOPS`
+- **Hero:** `MUF 30.5 MHz · FOT 25.9 · LUF 4.2 — 20 M IS THE HIGHEST OPEN BAND`
+- **Fact columns:** left — foF2 · MHz · P.533 Chapman; hmF2 · km · layer heights; M(3000)F2 · ratio · CCIR; D-layer absorption · dB · P.533; solar zenith · deg · computed; day/night at midpoint · word · computed. right — FOT · MHz · 0.85 × MUF; LUF · MHz · `calculateLUF`; take-off angle · deg · `hopElevationAngle`; hops · count · ray trace; total path loss · dB · ray trace; limiting hop · index + reason · ray trace.
+- **Chart:** `MUF — 24 H · P.533 AT QTH`, with the FOT and LUF lines drawn as a shaded usable window behind it.
+- **Interactions:** pointer along the chart reads out the hour, MUF, FOT and LUF; the `HOPS` tab is a row per hop (reflection point, day/night, f0F2, absorption, quality 0-100) and selecting a row flashes that reflection point on the map behind the dialog. `EngineComparisonStrip` with `subject: "MUF AT QTH"` — physics MUF, nowcast implied MUF from the highest band above 50 % probability, observed highest band with spots in the last 30 minutes.
+- **Data:**
+  - foF2, f0E, f0F1, hmF2, M(3000)F2, MUF(3000), zenith, geomagnetic latitude — `src/lib/utils/ionosphere.ts` — existing, not surfaced
+  - D-layer absorption, LUF, FOT, `describeConditions` — `src/lib/utils/ionosphere.ts` — existing, not surfaced
+  - per-hop reflection point, elevation, absorption, total path loss, limiting hop, viability — `src/lib/utils/rayTrace.ts` — existing, not surfaced
+  - 24 h MUF history at QTH — `src/hooks/useMUFData.ts` + `src/lib/api/muf.ts` — new computation (sample the existing point function over the hour grid; no new feed)
+- **Empty / stale:** no station set → `SET HOME IN SETTINGS` and the strip renders all three columns `unavailable`. SFI feed stale → physics column `stale` with its age; the chart keeps the last good series and dims the trailing segment.
+
+### 26.3 Reliability
+
+- **Tabs:** `NOW` · `BY HOUR`
+- **Hero:** `20 M TO JA · OPEN · 78% · SNR +9 dB FOR FT8`
+- **Fact columns:** left — band · label · `BAND_ORDER`; status · open/marginal/closed · reliability cell; confidence · 0-100 · reliability cell; SNR estimate · dB · reliability cell; mode threshold · dB · `MODE_PARAMETERS`. right — power · W · station profile; antenna gain · dBi + pattern · station profile; noise environment · word · noise model; path length · km · computed; hops · count · ray trace.
+- **Chart:** `RELIABILITY — 24 H · P.533 + NOWCAST`, two lines (physics score, nowcast probability) with observed spot counts as faint bars behind them. This chart is the three-engine claim in one picture.
+- **Interactions:** pointer reads out the hour and all three values; the `BY HOUR` tab is the hour × band grid with its `sr-only` table twin; selecting a cell sets the hero to that cell. `EngineComparisonStrip` with `subject` set to the current band and target.
+- **Data:**
+  - per-cell score, snrEstimate, confidence, status — `src/lib/hamclock/reliabilityForecast.ts` — existing, only score surfaced
+  - mode thresholds and sigmoid margin — `reliabilityForecast.ts` `MODE_PARAMETERS` — existing, not surfaced
+  - power, antenna gain pattern, noise environment inputs — `wall/tiles/useWallReliability.ts` — existing, not surfaced
+  - core / personalized probability, confidence, ood_flags, top_factors, data_freshness — `src/lib/propagation/modelClient.ts` — existing, desk-only today
+  - observed counts per band — `src/hooks/useBandVerdicts.ts` — existing
+- **Empty / stale:** no target set → the report is QTH-wide and the hero says `NO TARGET — SHOWING QTH`. Model unreachable → nowcast column `MODEL OFF`, physics and observed still render, `DISAGREE` is not claimed.
+
+### 26.4 Propagation forecast
+
+The report behind the forecast matrix tile.
+
+- **Tabs:** `MATRIX` · `HORIZONS`
+- **Hero:** `BEST IN 6 H — 15 M · 71% · MODEL AND PHYSICS AGREE`
+- **Fact columns:** left — leading band now · label · band verdict; leading band at +6 h · label · forecast; MUF now / at +6 h · MHz · P.533; Kp forecast · index · NOAA. right — model profile · `physics` or `nowcast` · `modelClient`; model version · string · `modelClient`; horizons active · list · `runtimeActivation`; data freshness · age · model response.
+- **Chart:** `BAND SCORE — 48 H · P.533 + FUTURECAST`. Time on the x axis, one line per band in `BAND_ORDER`, physics solid and FutureCast dashed at the activated horizons, with a now marker. The 24 h × 2-day dot matrix moves to the `MATRIX` tab and keeps its `sr-only` twin.
+- **Interactions:** pointer on the chart pins an hour and rewrites the fact columns to that hour; the `HORIZONS` tab lists +3 / +6 / +12 / +24 h rows with core and personalized probability, confidence, top factors and any OOD flag spelled out in words. `EngineComparisonStrip` sits above both tabs.
+- **Data:**
+  - 24 h × 2-day band × hour matrix — `wall/tiles/useWallReliability.ts` — existing
+  - FutureCast horizons `[3, 6, 12, 24]` and the activation gate — `src/lib/propagation/runtimeActivation.ts`, `capabilityAccess.ts` — existing, gated off at the data layer
+  - top_factors, assumptions, ood_flags, feature_contract — `src/lib/propagation/modelClient.ts` — existing, not surfaced
+  - fallbackBands / staleInputBands / nowcastBands — `src/hooks/useNowCastBandPredictions.ts` — existing, not surfaced
+- **Empty / stale:** horizons not activated → the `HORIZONS` tab renders one row per horizon with `MODEL OFF` and the reason, never an empty tab. Stale inputs → the affected bands are toned `hc-warn` and named in the strip's reason line.
+
+### 26.5 Solar
+
+- **Tabs:** `NOW` · `CYCLE`
+- **Hero:** `SFI 168 · SSN 121 — RISING, BEST HF IN THREE MONTHS`
+- **Fact columns:** left — SFI · sfu · NOAA SWPC; SFI 27-day forecast · sfu · NOAA flux forecast; SSN · count · SIDC; A-index · index · NOAA. right — cycle 25 position · month + phase · computed; smoothed SSN · count · SIDC; predicted cycle peak · date + value · NOAA; 10.7 cm trend · signed delta · computed.
+- **Chart:** `NOW` tab `SFI — 30 D · NOAA SWPC` with the flux forecast continuing as a dashed tail; `CYCLE` tab `SSN — CYCLE 25 · SIDC / NOAA` monthly with the predicted curve behind the observed one.
+- **Interactions:** pointer reads the day and value on both charts. No map link.
+- **Data:**
+  - SFI, SSN, A-index — `src/hooks/useSolarData.ts` — existing
+  - solar flux forecast — resource `noaa-flux-forecast` (`sourcePolicies.ts`) — existing, never rendered
+  - monthly sunspot history — `noaa-sunspots` / `useSunspots` — existing, latest scalar only today
+  - cycle position — `SolarCycleContext` — existing
+- **Empty / stale:** feed down → hero reads `WAITING` and the chart holds the last series with the gap drawn as a gap, never interpolated.
+
+### 26.6 X-ray and flares
+
+- **Tabs:** `FLUX` · `ABSORPTION` · `PROBABILITIES`
+- **Hero:** `C2.1 — QUIET · LAST FLARE M1.4 AT 09:12 UTC`
+- **Fact columns:** left — current class · letter + scale · GOES; 24 h peak · class + time · GOES; latest classified flare · class, region, start/peak/end · GOES events; R-scale now · R0-R5 · NOAA. right — D-RAP peak absorption · dB + region · NOAA D-RAP; HF blackout area · words · D-RAP; 1-day flare probability · C / M / X percentages · NOAA; proton event probability · percent · NOAA.
+- **Chart:** `FLUX` tab `X-RAY FLUX — 24 H · GOES 0.1-0.8 nm` on a log axis with labelled B / C / M / X threshold rules and flare peaks marked; `ABSORPTION` tab `D-RAP ABSORPTION — 6 H · NOAA` as a max-absorption trace; `PROBABILITIES` tab has no chart, only the three-day probability grid with its `sr-only` twin.
+- **Interactions:** pointer on the flux chart reads the minute and class; selecting a marked flare fills the fact columns with that event; `SHOW ON MAP` on the absorption tab turns on the D-RAP layer behind the dialog.
+- **Data:**
+  - X-ray flux history and thresholds — `SolarPulse.tsx:333` resources — existing, class strip only on the wall
+  - latest classified flare event — `SolarPulse.tsx:291` — existing, not on the wall
+  - D-RAP absorption grid — resource `noaa-drap` — existing, not on the wall
+  - 1-day C/M/X and proton probabilities — resource `noaa-probabilities`, `useSolarData.ts:58` — existing, not on the wall
+- **Empty / stale:** no flare in 24 h → `NO FLARES ABOVE B` (never `ALL CLEAR`). D-RAP unavailable → `NONE MAPPED` and the map link is disabled, not hidden.
+
+### 26.7 Solar wind and geomagnetic
+
+- **Tabs:** `WIND` · `GEOMAGNETIC` · `EVENTS`
+- **Hero:** `Bz -8.4 nT SOUTH · 612 km/s · Kp 5 — STORM CONDITIONS`
+- **Fact columns:** left — Bz · nT + direction word · DSCOVR; Bt · nT · DSCOVR; speed · km/s · DSCOVR; density · p/cm³ · DSCOVR. right — Kp now / 24 h max · index · NOAA; Dst · nT · Kyoto/NOAA; G-scale · G0-G5 · NOAA; proton flux ≥ 10 MeV · pfu · GOES; aurora oval reach · lowest latitude · OVATION.
+- **Chart:** `WIND` tab `Bz AND SPEED — 24 H · DSCOVR` (Bz on the left axis with a zero rule, speed on the right); `GEOMAGNETIC` tab `Kp AND Dst — 3 D · NOAA`; `EVENTS` tab lists CME analyses and proton events with arrival estimates, no chart.
+- **Interactions:** pointer reads the minute across both series; `SHOW AURORA ON MAP` enables the OVATION layer behind the dialog; selecting a CME row shows its speed, half-angle and estimated arrival.
+- **Data:**
+  - Bz, Bt, speed, density history — `SolarPulse.tsx:339,351,354` resources — existing, current values only on the wall
+  - Kp history — existing on the wall; Dst — `useDstIndex` — existing, not on the wall
+  - proton flux ≥ 10 MeV — `useProtonFlux` — existing, not on the wall
+  - aurora oval OVATION + imagery — `src/lib/solar/mediaProducts.ts` — existing, not on the wall
+  - CME analyses — NASA DONKI (`SolarPulse.tsx:308`) — existing, not on the wall
+- **Empty / stale:** DSCOVR gap → the series shows the gap and the hero falls back to Kp alone with `SOLAR WIND WAITING`. No CMEs → `NONE ANALYSED IN 7 DAYS`.
+
+### 26.8 Sun
+
+- **Tabs:** none.
+- **Hero:** `SUNSET 19:42 MDT / 01:42 UTC — 2 H 11 M OF DAYLIGHT LEFT`
+- **Fact columns:** left — sunrise · local + UTC · computed; solar noon · local + UTC · computed; sunset · local + UTC · computed; day length · h m · computed. right — change since yesterday · signed m s · computed; civil twilight · start/end · computed; nautical twilight · start/end · computed; sun elevation now · deg · computed; azimuth now · deg · computed.
+- **Chart:** `SUN ELEVATION — 24 H · COMPUTED AT QTH`, with the horizon at zero, the three twilight bands shaded and a now marker.
+- **Interactions:** pointer reads the time, elevation and azimuth; no map link. The grey-line window is named in one line with a `SEE GREY LINE` link that opens that report.
+- **Data:**
+  - sunrise, sunset, solar noon, day length — existing (`SunMoonReport.tsx`)
+  - solar zenith and local solar hour over the day — `src/lib/utils/ionosphere.ts:520,545` — existing, new computation to sample it hourly for the curve
+  - civil / nautical / astronomical twilight instants — new computation in the sun helper alongside the existing rise/set solver
+  - day-length delta vs yesterday — new computation (one extra solver call)
+- **Empty / stale:** polar day or night → `SUN DOES NOT SET` / `SUN DOES NOT RISE` with the next transition date, and the elevation curve still renders.
+
+### 26.9 Grey line
+
+- **Tabs:** none.
+- **Hero:** `GREY LINE PEAK · 160 M ENHANCED · 22 MIN LEFT`
+- **Fact columns:** left — window start · local + UTC · computed; window end · local + UTC · computed; state · approaching/active/peak/fading · `greyline.ts`; time left · countdown · `formatCountdown`. right — 160 m · tier · `isGreylineActiveForBand`; 80 m · tier · same; 40 m · tier · same; target overlap · yes/no + minutes · new computation; next window · local + UTC · computed.
+- **Chart:** `GREY-LINE INTENSITY — 24 H · COMPUTED AT QTH`, intensity 0-1 over the day with the current window highlighted and the per-band tier steps drawn as three stacked bands.
+- **Interactions:** pointer reads the minute and tier per band; `SHOW TERMINATOR` focuses the map on the terminator behind the dialog; when a DX target is set, the mutual grey-line overlap window is a second highlighted region on the same chart.
+- **Data:**
+  - grey-line window, state, countdown — `src/lib/utils/greyline.ts` — existing
+  - low-band beneficiaries 160/80/40 and tiers normal/enhanced/peak — `greyline.ts:19,50,215` — existing, active/inactive only on the wall
+  - intensity over 24 h — `getGreylineVisualParams` — new computation (sample the existing function hourly)
+  - mutual overlap with the target QTH — new computation in `greyline.ts` (both terminator windows intersected)
+- **Empty / stale:** no window today (high latitude in summer) → `NO GREY LINE TODAY` with the next date. No target → the overlap row reads `NO TARGET SET`.
+
+### 26.10 Moon and EME
+
+EME is the reason this report exists; the moon phase graphic is the garnish, not
+the point. The computations below do not exist anywhere in the app today and
+land as one new module `src/lib/utils/eme.ts` with its own unit tests.
+
+- **Tabs:** `MOON` · `EME`
+- **Hero:** `MOON UP 4 H 12 M · EME DEGRADATION -1.8 dB · WINDOW WITH JA IN 2 H 40 M`
+- **Fact columns:** left (MOON) — phase · name + percent · `moon.ts`; illumination · percent · `moon.ts`; altitude / azimuth · deg · `moon.ts`; moonrise / moonset · local + UTC · `moon.ts`; next full / new · date · `getMoonSnapshot`. right (EME) — distance · km · `moon.ts` topocentric; path loss · dB at the chosen band · new; degradation vs perigee · dB · new; declination · deg + high/low word · new; sky noise · K + word · new; Doppler · Hz at the chosen band · new; mutual window with target · start/end + duration · new.
+- **Chart:** `MOON` tab `MOON ELEVATION — 24 H · COMPUTED AT QTH`; `EME` tab `EME DEGRADATION — 28 D · COMPUTED`, one line combining distance loss and sky noise so the operator can see the good nights of the month at a glance, with a now marker and the perigee and apogee days labelled.
+- **Interactions:** a band selector (2 m / 70 cm / 23 cm) as segmented big buttons changes path loss, Doppler and sky noise; pointer on the 28-day chart reads the date and degradation; `SHOW SUB-LUNAR POINT` marks it on the map behind the dialog.
+- **Data:**
+  - phase, illumination, altitude, azimuth, moonrise / moonset — `src/lib/utils/moon.ts` — existing
+  - topocentric distance, sub-lunar point, next full / new — `moon.ts:30,163,325` — existing, not surfaced
+  - Earth-Moon path loss at band, degradation vs perigee — new computation (`eme.ts`, free-space loss over twice the topocentric range plus reflection efficiency)
+  - moon declination and sky-noise temperature, cold-sky vs galactic-plane penalty — new computation (`eme.ts`)
+  - Doppler shift at band from the topocentric range rate — new computation (`eme.ts`; the satellite `doppler.ts` is a different geometry and is not reused)
+  - mutual visibility window between QTH and target grid — new computation (`eme.ts`, intersection of the two moonrise/moonset windows)
+- **Empty / stale:** moon below the horizon → the hero gives the time to moonrise instead of the up-time and the EME facts stay visible with a `MOON DOWN` tone. No target grid → the mutual window row reads `NO TARGET SET`, never a fabricated window.
+
+### 26.11 Weather
+
+Delivers HW-41, which moves out of B13 into B22 together with the fetch
+extension it depends on.
+
+- **Tabs:** `NOW` · `HOURLY` · `7-DAY`
+- **Hero:** `52 °F · WIND 14 mph NW · RAIN 20% TODAY`
+- **Fact columns:** left — temperature · unit-resolved · Open-Meteo; feels like · unit-resolved · Open-Meteo; wind speed + direction · unit-resolved · Open-Meteo; gusts · unit-resolved · Open-Meteo. right — humidity · percent · Open-Meteo; pressure · hPa / inHg · Open-Meteo; precipitation today · unit-resolved · Open-Meteo; max rain chance today · percent · Open-Meteo; observation time · local + UTC · Open-Meteo.
+- **Chart:** `NOW` tab `TEMPERATURE AND WIND — 24 H · OPEN-METEO`; `HOURLY` tab `HOURLY FORECAST — 48 H · OPEN-METEO` (temperature line, precipitation probability bars); `7-DAY` tab `DAILY HIGH AND LOW — 7 D · OPEN-METEO` with a condition glyph per day.
+- **Interactions:** pointer on any chart reads that hour or day into a details line under the chart (no tooltip that follows the cursor — a fixed readout row). The gear opens the weather config dialog from B13; the alerts count line links to the Alerts report.
+- **Data:**
+  - current temp, wind, humidity, pressure, precipitation — `src/lib/api/openMeteo.ts` `fetchLocalWeather` — existing
+  - hourly and 7-day series — `openMeteo.ts:49-96` — **new fetch**: the request is `forecast_days=1`, current + `precipitation_probability_max` only. Extend it to `forecast_days=7` with an `hourly` block (temperature_2m, precipitation_probability, wind_speed_10m, pressure_msl) and the daily block (temperature_2m_max/min, weather_code, precipitation_sum). Keep the existing return shape as a superset so `WeatherTile` and `useLocalWeather` callers are unchanged.
+  - observation timestamp — added in B9 for the footer — existing after B9
+- **Empty / stale:** no location → `SET HOME IN SETTINGS`. Fetch failure → the last good payload with its real age in the footer and a `hc-warn` tone; never a zero.
+
+### 26.12 Alerts
+
+- **Tabs:** none. The alert list is the left column, the selected alert fills the right.
+- **Hero:** `2 ACTIVE · SEVERE THUNDERSTORM WARNING UNTIL 21:15 MDT`
+- **Fact columns:** left — one row per active alert (severity chip · event name · expiry countdown), at most eight, `+N MORE` as the ninth row. right (selected alert) — severity · Extreme/Severe/Moderate/Minor · NWS; urgency · word · NWS; certainty · word · NWS; area · county / zone list · NWS; effective · local + UTC · NWS; expires · local + UTC + countdown · NWS; sender · office · NWS.
+- **Chart:** `ALERTS IN AREA — 24 H · NWS`, a per-hour count bar coloured by the highest severity in that hour, so a wall viewer sees whether the situation is building or clearing.
+- **Interactions:** selecting a row fills the right column and, if the alert has geometry, `SHOW ON MAP` frames it behind the dialog. Rows are ≥ 44 px and keyboard selectable.
+- **Data:**
+  - active alerts, severity, area, expiry, geometry — existing alerts feed (`AlertsTile.tsx`, `src/lib/utils/alertMatcher.ts`)
+  - alert area scoping (home county / state / radius) and severity floor — delivered by HW-18 in B11 — existing after B11
+  - severity, urgency, certainty, area, effective, expires, sender — `WeatherAlert` after the B22 parser extension (the current type carries none of the timing fields)
+  - 24 h alert count history — `src/lib/weather/alertHistory.ts` rolling snapshot store from B22; the active-only NWS query cannot reconstruct history on its own, so the chart is honest about how much of the 24 h it has actually observed
+- **Empty / stale:** no alerts → `NO MAPPED ALERTS` with the covered area named underneath, never `ALL CLEAR`. Feed stale → the count is kept with its age and the chart's trailing hours are dimmed.
+
+### 26.13 Radio Impact Model
+
+A new wall tile plus its report, and the same report is reachable from the
+weather page. It closes HW-47, which moves out of B16 into B23.
+
+- **Tabs:** `SCORE` · `REGIONS`
+- **Hero:** `RIM 62 · DEGRADED — LIGHTNING AND FLOODING NEAR HOME`
+- **Fact columns:** left — composite · 0-100 + word · `computeRIM`; HF impact · 0-100 · `computeRIM`; VHF/UHF impact · 0-100 · `computeRIM`; infrastructure risk · 0-100 · `computeRIM`; EmComm readiness · 0-100 · `computeRIM`. right — NVIS viability · word + band · `analyzeNVIS`; lightning · strikes / 15 min within radius · `useLightning`; flooding · gauges at or above action stage · `useRiverGauges`; repeaters · operational ratio · `useRepeaters`; tropo ducting · probability word · `useDuctingForecast`.
+- **Chart:** `SCORE` tab `RIM COMPOSITE — 12 H · COMPUTED`, the composite line with the four sub-scores as thin lines behind it; `REGIONS` tab is the monitored-region list with a score per region and no chart.
+- **Interactions:** selecting a sub-score explains it in one sentence with the inputs that moved it; selecting a region re-scopes the whole report to that region; `SHOW LIGHTNING` / `SHOW RIVER GAUGES` toggle those layers behind the dialog. The tile hero is the composite with the worst sub-score as the sub line.
+- **Data:**
+  - composite and four sub-scores — `src/lib/atmos/rim.ts` `computeRIM`, `src/hooks/useRIM.ts` — existing, not on the wall
+  - NVIS viability — `src/lib/utils/nvis.ts` `analyzeNVIS` — existing
+  - lightning strikes — `src/hooks/useLightning.ts` — existing
+  - river gauge flood status — `src/hooks/useRiverGauges.ts` — existing
+  - repeater operational ratio — `useRIM.ts:198-204`, `src/hooks/useRepeaters.ts` — existing
+  - tropo ducting probability, TEC — `src/hooks/useDuctingForecast.ts`, `src/hooks/useTEC.ts` — existing
+  - monitored regions and their RIM cards — `MonitoredRegionManager`, `RegionRIMCard` — existing
+  - 12 h composite history — new computation (retain the rolling series in the hook; no new feed)
+- **Empty / stale:** an input feed missing → that sub-score reads `NO DATA` and is excluded from the composite, with the composite labelled `PARTIAL` and the missing inputs named. The composite is never computed from defaults.
+
+### 26.14 Band activity
+
+This report is the OBSERVED engine's own page, so it carries no comparison
+strip; it is what the strip's third column reads from.
+
+- **Tabs:** `BANDS` · `TOP DX`
+- **Hero:** `20 M LEADS · 412 SPOTS IN 30 MIN · 68 REPORTERS`
+- **Fact columns:** left — leading band · label · `BAND_ORDER`; spots in window · count · spot feeds; unique reporters · count · spot feeds; window · minutes · config. right — CW / SSB / digital split · three counts · mode normalisation; furthest spot · km + call · computed; new band in the last hour · label or `NONE` · computed; feeds contributing · RBN / DX / PSK · source list.
+- **Chart:** `BANDS` tab `SPOTS PER BAND — 6 H · RBN + DX CLUSTER`, stacked per band over time; `TOP DX` tab has no chart, it is the ranked call / band / distance / age list with its `sr-only` twin.
+- **Interactions:** selecting a band row sets the band focus on the map behind the dialog; selecting a top-DX row centres that spot. The gear opens the band-list config from B11.
+- **Data:**
+  - per-band spot counts, reporters, hysteresis states — `src/hooks/useBandVerdicts.ts`, `src/components/map/bandHealthPresentation.ts` — existing
+  - band ladder rows with `updatedAt` — `src/hooks/useBandLadder.ts` — existing
+  - mode split and distance — `src/lib/utils/bandActivity.ts`, `modeNormalize.ts` — existing
+  - 6 h per-band history — `api/spots/band-history` over `band_hourly_stats` (hourly buckets) joined with the client's own 10-minute live counts for the current hour — new in B24; the live spot window is only 2 h and the verdict log records state flips, not counts, so neither can back-fill the chart on a fresh load
+- **Empty / stale:** no spots → `NO SPOTS IN WINDOW` with the window length named, and the feed list still shown so the operator can see which feed is quiet. Cluster disconnected → that feed row reads `WAITING`.
+
+### 26.15 Recent contacts
+
+- **Tabs:** none.
+- **Hero:** `18 QSOS TODAY · LAST W1AW ON 20 M, 12 MIN AGO`
+- **Fact columns:** left — today · count · logbook; this week · count · logbook; this month · count · logbook; unique DXCC this month · count · `dxccStore`. right — best DX this month · km + call · computed; top band · label + count · computed; top mode · label + count · computed; longest gap · h m · computed.
+- **Chart:** `QSOS — 30 D · LOGBOOK`, a daily bar with the current day marked; bars are coloured by the dominant band of that day using the band tokens.
+- **Interactions:** selecting a day fills the fact columns with that day; selecting the last-contact line opens that QSO's location on the map behind the dialog. No editing from the wall.
+- **Data:**
+  - recent contacts and counts — `src/lib/hamclock/recentContacts.ts` — existing
+  - QSO records — `src/lib/db/logStore` — existing
+  - DXCC resolution — `dxccStore` — existing
+  - 30-day daily aggregation and best-DX computation — new computation in `recentContacts.ts`
+- **Empty / stale:** empty log → `NO CONTACTS LOGGED` with a one-line pointer to the logbook, never a zero-filled chart. Not signed in / no local log → `NO LOGBOOK`.
+
+### 26.16 DX cluster
+
+The cluster already has its own detail modal (`ClusterDetailPopover`). It does
+not get a new report. It gets the report chrome only: the `WallReport` shell,
+the pin control, focus return to the tile, and the standard footer
+`DATA: <cluster> · UPDATED hh:mm UTC · <age>` built with `reportFooter`. No
+layout change, no new data, no engine strip.
+
+### 26.17 Weather in the propagation model (backlog)
+
+Weather is an input the model does not have. Once every panel above is live,
+the model track adds weather-derived features to NowCast: precipitation and
+lightning near the path (rain scatter and QRN), surface pressure gradients and
+the ducting index for VHF/UHF, and soil moisture as a ground-conductivity proxy
+for NVIS. This is training and serving work on the Railway model, not wall
+work: new columns in the feature contract, a retrained base model, and a
+`feature_contract` bump so `modelClient` rejects a mismatched serving version.
+It is explicitly last and is not started until the panels are done, because
+until then we cannot tell a model improvement from a display change.

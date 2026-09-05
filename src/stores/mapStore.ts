@@ -20,6 +20,7 @@ import {
 } from "@/lib/hamclock/modePresets";
 import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
+import type { TileProviderId } from "@/lib/tiles/types";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type PathMode = "short" | "long" | "both";
@@ -538,6 +539,14 @@ export interface MapState {
   mapStyle: MapStyle;
   setMapStyle: (style: MapStyle) => void;
 
+  // Tile provider within the current map style (Esri vs Mapbox on
+  // satellite, OSM vs CARTO dark on standard; HW-55, persisted). Read
+  // through `selectTileProvider()`, which falls back to the tier default
+  // when this id does not belong to the current `mapStyle` bucket or
+  // requires Pro on a free tier.
+  tileProviderId: TileProviderId | null;
+  setTileProviderId: (id: TileProviderId | null) => void;
+
   // Relative strength of the renderer-specific night treatment (0..1, persisted)
   nightDarkness: number;
   setNightDarkness: (darkness: number) => void;
@@ -845,6 +854,62 @@ function loadMapStyle(): MapStyle {
 
 function saveMapStyle(style: MapStyle) {
   localStorage.setItem("propulse-map-style", style);
+}
+
+// Tile provider id persistence (HW-55, batch B6). This store predates
+// zustand's `persist` middleware and reads/writes localStorage per field
+// directly (see `loadMapStyle`/`loadLayers` above), so the "version bump and
+// migration" this field needs is a small versioned envelope of its own
+// rather than a `persist` `migrate` callback: `TILE_PROVIDER_SCHEMA_VERSION`
+// gates whether a stored value is trusted. `null` means "no explicit choice
+// — follow the tier rule", the same meaning it has everywhere else this
+// field is read (`selectTileProvider()` falls through to the tier default;
+// `MapTab` derives its selected dot from that effective provider). A
+// version mismatch or no stored value at all (every existing client before
+// this batch) must resolve to that same `null`, not a snapshot of today's
+// tier default baked into state — baking one in would freeze a free
+// reader's provider through a mid-session Pro upgrade instead of letting
+// `selectTileProvider()` react to it immediately.
+const TILE_PROVIDER_LS_KEY = "propulse-tile-provider-id";
+const TILE_PROVIDER_SCHEMA_VERSION = 1;
+
+function loadTileProviderId(): TileProviderId | null {
+  try {
+    const raw = localStorage.getItem(TILE_PROVIDER_LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { version?: number; id?: string };
+      if (
+        parsed.version === TILE_PROVIDER_SCHEMA_VERSION &&
+        typeof parsed.id === "string"
+      ) {
+        return parsed.id as TileProviderId;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/**
+ * Persist (or clear) the tile provider override. Shared by `setTileProviderId`
+ * and the HamClock exit-restore path (B6 fix #5) so both write the identical
+ * versioned envelope — or clear it — instead of the exit path reimplementing
+ * the null-vs-concrete branching inline.
+ */
+function persistTileProviderId(id: TileProviderId | null) {
+  try {
+    if (id) {
+      localStorage.setItem(
+        TILE_PROVIDER_LS_KEY,
+        JSON.stringify({ version: TILE_PROVIDER_SCHEMA_VERSION, id }),
+      );
+    } else {
+      localStorage.removeItem(TILE_PROVIDER_LS_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Shared bounded-number persistence for map appearance controls. */
@@ -1281,6 +1346,7 @@ const initialState = {
   isolateTargetPath: false,
   panelStates: loadPanelStates(),
   mapStyle: loadMapStyle(),
+  tileProviderId: loadTileProviderId(),
   // One preserves the carefully tuned existing treatment in every renderer.
   nightDarkness: loadStoredNumber(NIGHT_DARKNESS_KEY, 1, 0, 1),
   labelOptions: loadLabelOptions(),
@@ -1503,6 +1569,15 @@ export const useMapStore = create<MapState>((set, get) => ({
       return { mapStyle };
     }),
 
+  setTileProviderId: (tileProviderId) =>
+    set(() => {
+      // `null` means "no explicit choice" — clearing the stored override lets
+      // a future load derive fresh from `mapStyle` and tier again, instead of
+      // persisting a concrete id that would misrepresent it as chosen.
+      persistTileProviderId(tileProviderId);
+      return { tileProviderId };
+    }),
+
   setNightDarkness: (value) =>
     set((state) => {
       const nightDarkness = Number.isFinite(value)
@@ -1723,6 +1798,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         layoutMode: priorLayout,
         viewMode: state.viewMode,
         mapStyle: state.mapStyle,
+        tileProviderId: state.tileProviderId,
         layers: { ...state.layers },
         spotFilters: { ...state.spotFilters },
         displayQuality: quality.displayQuality,
@@ -1777,6 +1853,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         const restoreLayout =
           layoutMode === "normal" ? snapshot.layoutMode : layoutMode;
         saveMapStyle(snapshot.mapStyle);
+        persistTileProviderId(snapshot.tileProviderId);
         saveSpotFilters(snapshot.spotFilters);
         quality.setDisplayQuality(snapshot.displayQuality);
         saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
@@ -1788,6 +1865,7 @@ export const useMapStore = create<MapState>((set, get) => ({
           ...(restoreLayout === "lite" && { isDXConsoleExpanded: false }),
           viewMode: snapshot.viewMode,
           mapStyle: snapshot.mapStyle,
+          tileProviderId: snapshot.tileProviderId,
           layers: snapshot.layers,
           spotFilters: snapshot.spotFilters,
           nightDarkness: snapshot.nightDarkness,

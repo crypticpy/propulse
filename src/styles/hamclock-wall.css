@@ -585,6 +585,17 @@
   outline: 0.2vh solid var(--hc-accent);
   outline-offset: 0.2vh;
 }
+/* The footer row is a fixed --hc-footer-h; the shared .hcc-toggle 44 px
+   minimum would overflow it (and .hc-wall clips), so the AUTO toggle keeps
+   the toggle colours but sizes to the row it lives in. */
+.hc-pager-auto {
+  min-height: 0;
+  height: calc(var(--hc-footer-h) - 0.6vh);
+  min-width: max(6vw, 84px);
+  padding: 0 0.8vw;
+  line-height: 1;
+  font-size: 1.3vh;
+}
 
 .hc-status {
   display: flex;

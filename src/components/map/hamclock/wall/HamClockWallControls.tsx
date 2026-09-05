@@ -23,7 +23,12 @@ export function HamClockWallControls() {
   useEffect(() => {
     if (!open) return;
     const dismiss = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as HTMLElement | null;
+      if (container.current?.contains(target)) return;
+      // LayersPopover portals its menu to document.body; a click inside it
+      // belongs to this menu even though it is outside the container.
+      if (target?.closest?.("[data-layers-popover]")) return;
+      setOpen(false);
     };
     document.addEventListener("pointerdown", dismiss);
     return () => document.removeEventListener("pointerdown", dismiss);

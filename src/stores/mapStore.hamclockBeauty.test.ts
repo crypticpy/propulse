@@ -112,3 +112,25 @@ it("keeps HamClock panels and projection in Observatory, restoring filters on fi
     spotFilters: { bands: ["40m"], modes: ["CW"] },
   });
 });
+
+it("clears Observatory on HamClock exit even without an entry snapshot", () => {
+  useHamClockStore.setState({ enterSnapshot: null });
+  useMapStore.setState({
+    layoutMode: "hamclock",
+    viewMode: "flat",
+    autoRotate: false,
+    observatoryMode: false,
+    observatoryPreviousState: null,
+  });
+  useMapStore.getState().enterObservatory();
+  useMapStore.getState().setLayoutMode("normal");
+  expect(useMapStore.getState()).toMatchObject({
+    layoutMode: "normal",
+    observatoryMode: false,
+    observatoryPreviousState: null,
+    autoRotate: false,
+  });
+  useMapStore.getState().enterObservatory();
+  expect(useMapStore.getState().observatoryMode).toBe(true);
+  useMapStore.getState().exitObservatory();
+});

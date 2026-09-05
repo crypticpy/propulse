@@ -1701,6 +1701,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     const leavingHamclock =
       state.layoutMode === "hamclock" && layoutMode !== "hamclock";
 
+    const observatoryExit = leavingHamclock ? {
+      observatoryMode: false,
+      observatoryPreviousState: null,
+      autoRotate: state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
+    } : {};
+
     if (enteringHamclock) {
       const priorLayout: Exclude<LayoutMode, "hamclock"> =
         state.layoutMode === "pro" || state.layoutMode === "lite"
@@ -1768,9 +1774,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         quality.setDisplayQuality(snapshot.displayQuality);
         saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
         set({
-          observatoryMode: false,
-          observatoryPreviousState: null,
-          autoRotate: state.observatoryPreviousState?.autoRotate ?? state.autoRotate,
+          ...observatoryExit,
           layoutMode: restoreLayout,
           isFullscreen: restoreLayout === "pro",
           isLiteMode: restoreLayout === "lite",
@@ -1786,6 +1790,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     }
 
     set({
+      ...observatoryExit,
       layoutMode,
       isFullscreen: layoutMode === "pro",
       isLiteMode: layoutMode === "lite",

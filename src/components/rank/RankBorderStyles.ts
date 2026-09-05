@@ -9,6 +9,8 @@
 import type { CSSProperties } from "react";
 import type { RankTier } from "@/types/rank";
 import { RANK_COLORS, isRankAtLeast } from "@/lib/data/rankConstants";
+// Keyframes + .animate-rank-* utilities ship with the chunks that use them.
+import "@/styles/rank-animations.css";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,0 +1,80 @@
+/*
+ * Operator Rank System animations.
+ *
+ * Route-local stylesheet: imported by RankBorderStyles.ts, which every
+ * rank-styled card (profile, shack equipment) already imports, so Vite emits
+ * it with those lazy chunks instead of the main stylesheet.
+ */
+
+/* ─── Operator Rank System Keyframes ──────────────────────────────────────── */
+
+/* Gradient sweep along card borders (Journeyman+) */
+@keyframes rankGradientSweep {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Legendary golden glow pulse */
+@keyframes rankLegendaryGlow {
+  0%, 100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.15), inset 0 0 15px rgba(255, 215, 0, 0.05); }
+  50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.25), inset 0 0 25px rgba(255, 215, 0, 0.08); }
+}
+
+/* Ethereal chromatic border shift */
+@keyframes rankEtherealShift {
+  0% { border-color: #38BDF8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.15); }
+  25% { border-color: #34D399; box-shadow: 0 0 20px rgba(52, 211, 153, 0.15); }
+  50% { border-color: #A78BFA; box-shadow: 0 0 20px rgba(167, 139, 250, 0.15); }
+  75% { border-color: #F472B6; box-shadow: 0 0 20px rgba(244, 114, 182, 0.15); }
+  100% { border-color: #38BDF8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.15); }
+}
+
+/* Profile frame pulse glow (Expert+) */
+@keyframes rankPulseGlow {
+  0%, 100% { box-shadow: 0 0 8px currentColor; }
+  50% { box-shadow: 0 0 16px currentColor; }
+}
+
+/* Profile golden ring rotation (Master+) */
+@keyframes rankGoldenRing {
+  0% { border-color: #FCD34D; box-shadow: 0 0 12px rgba(252, 211, 77, 0.3); }
+  50% { border-color: #FFD700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
+  100% { border-color: #FCD34D; box-shadow: 0 0 12px rgba(252, 211, 77, 0.3); }
+}
+
+/* Profile chromatic ring (Ethereal) */
+@keyframes rankChromaticRing {
+  0% { border-color: #38BDF8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+  25% { border-color: #A78BFA; box-shadow: 0 0 15px rgba(167, 139, 250, 0.3); }
+  50% { border-color: #F472B6; box-shadow: 0 0 15px rgba(244, 114, 182, 0.3); }
+  75% { border-color: #34D399; box-shadow: 0 0 15px rgba(52, 211, 153, 0.3); }
+  100% { border-color: #38BDF8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+}
+
+/* Utility classes for rank animations */
+.animate-rank-legendary-glow {
+  animation: rankLegendaryGlow 3s ease-in-out infinite;
+}
+.animate-rank-ethereal-shift {
+  animation: rankEtherealShift 12s linear infinite;
+}
+.animate-rank-pulse-glow {
+  animation: rankPulseGlow 3s ease-in-out infinite;
+}
+.animate-rank-golden-ring {
+  animation: rankGoldenRing 4s ease-in-out infinite;
+}
+.animate-rank-chromatic-ring {
+  animation: rankChromaticRing 12s linear infinite;
+}
+
+/* Respect reduced motion for all rank animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-rank-legendary-glow,
+  .animate-rank-ethereal-shift,
+  .animate-rank-pulse-glow,
+  .animate-rank-golden-ring,
+  .animate-rank-chromatic-ring {
+    animation: none !important;
+  }
+}

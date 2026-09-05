@@ -12,8 +12,12 @@ import { useSync } from "@/hooks/useSync";
 import { useAuthStore } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useProfileStore } from "@/stores/profileStore";
-import { WelcomeOverlay } from "@/components/onboarding";
 
+const WelcomeOverlay = lazy(() =>
+  import("@/components/onboarding/WelcomeOverlay").then((m) => ({
+    default: m.WelcomeOverlay,
+  })),
+);
 const RadioSetupWizard = lazy(() =>
   import("@/components/onboarding/RadioSetupWizard").then((m) => ({
     default: m.RadioSetupWizard,
@@ -31,7 +35,11 @@ const RankPersistenceHost = lazy(() =>
 );
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
-import { NetAlertToasts } from "@/components/nets/NetAlertToasts";
+const NetAlertToasts = lazy(() =>
+  import("@/components/nets/NetAlertToasts").then((m) => ({
+    default: m.NetAlertToasts,
+  })),
+);
 import { clearExpiredCache } from "@/lib/utils/idbCache";
 const SpeedInsights = lazy(() =>
   import("@vercel/speed-insights/react").then((m) => ({
@@ -252,7 +260,9 @@ function App() {
         <Suspense fallback={null}>
           <RankPersistenceHost />
         </Suspense>
-        <WelcomeOverlay />
+        <Suspense fallback={null}>
+          <WelcomeOverlay />
+        </Suspense>
         <Suspense fallback={null}>
           <WSJTXAutoLogHost />
         </Suspense>
@@ -365,7 +375,9 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
-        <NetAlertToasts />
+        <Suspense fallback={null}>
+          <NetAlertToasts />
+        </Suspense>
         <Suspense fallback={null}>
           <SpeedInsights />
         </Suspense>

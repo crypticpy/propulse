@@ -1,0 +1,79 @@
+{
+  "status": "owner-approved visual direction; raster concepts are not implemented screens; implementation review tracked in #219",
+  "generation": "built-in ImageGen",
+  "source_commit": "1a70503bdff8a0b37bc071c08aeffeae054262ba",
+  "assets": [
+    {
+      "title": "Public shack showcase",
+      "image": "01-public-shack.png",
+      "prompt": "01-public-shack.prompt.txt",
+      "pixels": [
+        1515,
+        1038
+      ],
+      "sha256": "7b673413fd866ec33aef51dd4d0367e878cacd7791f32de20aca182dd55f2336",
+      "related_issues": [
+        174,
+        189
+      ]
+    },
+    {
+      "title": "Private station workbench",
+      "image": "02-private-workbench.png",
+      "prompt": "02-private-workbench.prompt.txt",
+      "pixels": [
+        1586,
+        992
+      ],
+      "sha256": "c08e5f6ab1fa6f7c66cd120253b651120800520d2684708e98037da2f35f4b43",
+      "related_issues": [
+        174,
+        184,
+        185
+      ]
+    },
+    {
+      "title": "Connection editor",
+      "image": "03-connection-form-v2.png",
+      "prompt": "03-connection-form-v2.prompt.txt",
+      "pixels": [
+        1515,
+        1038
+      ],
+      "sha256": "a819aacbdd0533791e8799e94447f0d9421c7c8e6cf222b601805f7a968fcb55",
+      "related_issues": [
+        184,
+        185,
+        186
+      ]
+    },
+    {
+      "title": "Add equipment",
+      "image": "04-add-gear-form.png",
+      "prompt": "04-add-gear-form.prompt.txt",
+      "pixels": [
+        1547,
+        1016
+      ],
+      "sha256": "5eb79a6fd13aa95b2447253e27fede2d5ef80c94c06999e146935c9f4dd4fc2e",
+      "related_issues": [
+        183,
+        186
+      ]
+    },
+    {
+      "title": "Profile composition studio",
+      "image": "05-profile-studio.png",
+      "prompt": "05-profile-studio.prompt.txt",
+      "pixels": [
+        1586,
+        992
+      ],
+      "sha256": "9d625cb312e9b0571e8c69b6d22b62c675aa2894e90a2a0704434df648efef45",
+      "related_issues": [
+        188,
+        189
+      ]
+    }
+  ]
+}

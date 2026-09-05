@@ -14,6 +14,10 @@ Every issue includes acceptance criteria, prerequisite links, verification, and 
 
 No due dates or capacity commitments have been invented. Scope changes require explicit owner approval linked from the parent, affected issue, and this register; closing a deliverable as not planned is not delivery. Keep all requirement IDs traceable even when a work package is split.
 
+## Design foundation review gate
+
+[Foundation child issue #219](https://github.com/crypticpy/propulse/issues/219) tracks the approved design tokens, reusable component library and working equipment review page under W01. See the [library contracts and browser evidence](../station-ui/README.md). Codex builds this foundation personally; the owner reviews it before broader UI work is distributed to agents. This child does not replace any of the 22 work packages or complete W01's domain contracts. HamClock work remains independently owned.
+
 ## Technical phases
 
 Phases describe prerequisite maturity, not separately marketed feature releases. Independent branches of the graph can proceed in parallel once their own blockers clear; a phase number alone does not imply every issue in the prior phase blocks it.

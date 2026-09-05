@@ -109,21 +109,28 @@ export function HamClockWallControls() {
   }, [open]);
 
   // Closing on Escape returns the caret to the trigger, so a keyboard
-  // operator never loses their place in the header.
+  // operator never loses their place in the header. Attached to document
+  // (not the container node) because LayersPopover portals its menu to
+  // document.body — outside the container's DOM subtree — so a keydown
+  // inside that portal would never reach a container-scoped listener and
+  // would instead bubble straight to the window-level exit handler.
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (!container.current?.contains(document.activeElement)) return;
+      const active = document.activeElement as HTMLElement | null;
+      const withinContainer = !!container.current?.contains(active);
+      const withinLayersPopover = !!active?.closest?.("[data-layers-popover]");
+      if (!withinContainer && !withinLayersPopover) return;
       // The window-level handler exits HamClock entirely; closing a menu is
-      // the closer meaning of Escape while that menu has focus.
+      // the closer meaning of Escape while that menu (or its portalled
+      // content) has focus.
       event.stopPropagation();
       setOpen(false);
       trigger.current?.focus();
     };
-    const node = container.current;
-    node?.addEventListener("keydown", onKeyDown);
-    return () => node?.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
   const handleProjection = (mode: ViewMode) => {

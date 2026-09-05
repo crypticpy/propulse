@@ -6,6 +6,8 @@ import {
   type KioskSceneHamClockConfig,
 } from "@/stores/kioskStore";
 import {
+  HAMCLOCK_DENSITIES,
+  HAMCLOCK_THEMES,
   useHamClockDisplayStore,
   type HamClockDensity,
   type HamClockRailSide,
@@ -28,12 +30,71 @@ interface HamClockDisplaySnapshot {
  */
 let displayBeforePin: HamClockDisplaySnapshot | null = null;
 
+/**
+ * The pin overrides live in the (sessionStorage-persisted) display store, so
+ * a reload while pinned would otherwise keep the overrides while losing this
+ * module-only baseline. Mirror it into sessionStorage so a reload can still
+ * recover the operator's pre-pin display.
+ */
+const PREPIN_STORAGE_KEY = "propulse-hamclock-prepin";
+
+function isValidSnapshot(value: unknown): value is HamClockDisplaySnapshot {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  const pageIndex = candidate.pageIndex;
+  return (
+    HAMCLOCK_DENSITIES.includes(candidate.density as HamClockDensity) &&
+    HAMCLOCK_THEMES.includes(candidate.theme as HamClockTheme) &&
+    typeof pageIndex === "object" &&
+    pageIndex !== null &&
+    typeof (pageIndex as Record<string, unknown>).left === "number" &&
+    typeof (pageIndex as Record<string, unknown>).right === "number"
+  );
+}
+
+function readStoredSnapshot(): HamClockDisplaySnapshot | null {
+  try {
+    const raw = sessionStorage.getItem(PREPIN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isValidSnapshot(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSnapshot(snapshot: HamClockDisplaySnapshot): void {
+  try {
+    sessionStorage.setItem(PREPIN_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Ignore storage failures (e.g. private mode); the module-level
+    // snapshot still covers the common case of restoring within the tab.
+  }
+}
+
+function clearStoredSnapshot(): void {
+  try {
+    sessionStorage.removeItem(PREPIN_STORAGE_KEY);
+  } catch {
+    // Nothing to clean up if storage is unavailable.
+  }
+}
+
+/**
+ * Test-only: simulates a page reload wiping the module-level snapshot while
+ * leaving sessionStorage (and hence the persisted display overrides) intact.
+ */
+export function __resetHamClockPinForTests(): void {
+  displayBeforePin = null;
+}
+
 /** Put the HamClock display back the way the operator left it. Safe to call
  * when nothing was pinned. */
 export function restoreHamClockDisplay(): void {
-  const snapshot = displayBeforePin;
+  const snapshot = displayBeforePin ?? readStoredSnapshot();
   if (!snapshot) return;
   displayBeforePin = null;
+  clearStoredSnapshot();
   const display = useHamClockDisplayStore.getState();
   display.setDensity(snapshot.density);
   display.setTheme(snapshot.theme);
@@ -53,6 +114,7 @@ function applyHamClockPin(pin: KioskSceneHamClockConfig | undefined): void {
       theme: display.theme,
       pageIndex: { ...display.pageIndex },
     };
+    writeStoredSnapshot(displayBeforePin);
   }
   // A pinned page only means something at wall density.
   display.setDensity("wall");

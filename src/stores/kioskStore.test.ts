@@ -371,11 +371,13 @@ describe("kioskStore", () => {
     );
 
     expect(migrated.presentation).toEqual(DEFAULT_PRESENTATION);
+    // v3 still extends a legacy-default payload with the new wall clock
+    // routes, but v6 no longer resurrects a shipped default (like
+    // default-hamclock-weather) that was never in the persisted payload.
     expect(migrated.scenes.map((scene) => scene.id)).toEqual([
       "default-wall",
       "default-clock",
       "default-stopwatch",
-      "default-hamclock-weather",
     ]);
     expect(migrated.rotation).toEqual({ enabled: false, intervalSec: 90 });
     expect(migrated.breakInLevel).toBe("WARNING");
@@ -549,14 +551,16 @@ describe("kioskStore", () => {
     expect(proScene.map?.hamclock).toBeUndefined();
   });
 
-  it("pins the shipped HamClock wall scenes to their pages when migrating v5", () => {
+  it("pins the shipped HamClock wall scenes to their pages when migrating v5 without discarding user edits", () => {
     const migrated = migrateKioskState(
       {
         scenes: [
           {
             id: "default-wall",
-            name: "HamClock Wall",
+            name: "My Custom Wall",
             route: "/map",
+            enabled: false,
+            durationSec: 45,
             map: {
               layoutMode: "hamclock",
               viewMode: "flat",
@@ -576,11 +580,18 @@ describe("kioskStore", () => {
     );
 
     const wall = migrated.scenes.find((scene) => scene.id === "default-wall");
-    const weather = migrated.scenes.find(
-      (scene) => scene.id === "default-hamclock-weather",
-    );
+    // The user's edits (name/enabled/durationSec) survive the pin merge.
+    expect(wall?.name).toBe("My Custom Wall");
+    expect(wall?.enabled).toBe(false);
+    expect(wall?.durationSec).toBe(45);
     expect(wall?.map?.hamclock).toEqual({ leftPage: 0, rightPage: 0 });
-    expect(weather?.map?.hamclock).toEqual({ leftPage: 3, rightPage: 3 });
+
+    // default-hamclock-weather was never in the persisted payload (the user
+    // deleted it) and must not be resurrected by the migration.
+    expect(
+      migrated.scenes.find((scene) => scene.id === "default-hamclock-weather"),
+    ).toBeUndefined();
+
     // A hand-made scene is never rewritten by the refresh.
     expect(migrated.scenes.find((scene) => scene.id === "custom")).toMatchObject(
       { route: "/solar" },

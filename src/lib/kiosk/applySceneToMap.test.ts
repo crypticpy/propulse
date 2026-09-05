@@ -4,7 +4,11 @@ import type { KioskScene } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
-import { applySceneToMap, restoreHamClockDisplay } from "./applySceneToMap";
+import {
+  __resetHamClockPinForTests,
+  applySceneToMap,
+  restoreHamClockDisplay,
+} from "./applySceneToMap";
 
 function mapPresentationState() {
   const map = useMapStore.getState();
@@ -232,5 +236,40 @@ describe("applySceneToMap", () => {
     useHamClockDisplayStore.getState().setPage("right", 1);
     restoreHamClockDisplay();
     expect(useHamClockDisplayStore.getState().pageIndex.right).toBe(1);
+  });
+
+  it("recovers the pre-pin baseline from sessionStorage after a simulated reload", () => {
+    useHamClockDisplayStore.getState().setDensity("desk");
+    useHamClockDisplayStore.getState().setTheme("classic");
+    useHamClockDisplayStore.getState().setPage("left", 4);
+
+    applySceneToMap({
+      id: "wall",
+      name: "Wall",
+      route: "/map",
+      map: {
+        layoutMode: "hamclock",
+        hamclock: { leftPage: 1, rightPage: 2, theme: "brass" },
+      },
+    });
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "wall",
+      theme: "brass",
+    });
+
+    // A reload wipes the module-level snapshot but not sessionStorage, which
+    // still holds both the pin overrides (via the display store's own
+    // persistence) and the pre-pin baseline this module mirrored there.
+    __resetHamClockPinForTests();
+
+    restoreHamClockDisplay();
+
+    expect(useHamClockDisplayStore.getState()).toMatchObject({
+      density: "desk",
+      theme: "classic",
+      pageIndex: { left: 4, right: 0 },
+    });
+    expect(sessionStorage.getItem("propulse-hamclock-prepin")).toBeNull();
   });
 });

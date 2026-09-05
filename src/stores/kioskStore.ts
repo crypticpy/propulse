@@ -618,33 +618,22 @@ export function migrateKioskState(
     const legacy = isRecord(candidate) ? { ...candidate } : {};
     if (Array.isArray(legacy.scenes)) {
       const scenes = legacy.scenes as unknown[];
-      const hasLegacyDefault = scenes.some(
-        (scene) =>
-          isRecord(scene) &&
-          typeof scene.id === "string" &&
-          LEGACY_DEFAULT_SCENE_IDS.has(scene.id),
+      // v6 only teaches existing scenes about their shipped HamClock page
+      // pin — it must never discard a user's own name/enabled/duration/
+      // transition/map edits, and never resurrect a scene the user deleted.
+      const byId = new Map(
+        HAMCLOCK_DEFAULT_SCENES.map((scene) => [scene.id, scene] as const),
       );
-      if (hasLegacyDefault) {
-        const byId = new Map(
-          HAMCLOCK_DEFAULT_SCENES.map((scene) => [scene.id, scene] as const),
-        );
-        const existingIds = new Set(
-          scenes.flatMap((scene) =>
-            isRecord(scene) && typeof scene.id === "string" ? [scene.id] : [],
-          ),
-        );
-        const nextScenes: unknown[] = scenes.map((scene) => {
-          if (!isRecord(scene) || typeof scene.id !== "string") return scene;
-          const refreshed = byId.get(scene.id);
-          return refreshed ? { ...refreshed } : scene;
-        });
-        for (const scene of HAMCLOCK_DEFAULT_SCENES) {
-          if (!existingIds.has(scene.id)) {
-            nextScenes.push({ ...scene });
-          }
-        }
-        legacy.scenes = nextScenes;
-      }
+      legacy.scenes = scenes.map((scene) => {
+        if (!isRecord(scene) || typeof scene.id !== "string") return scene;
+        const template = byId.get(scene.id);
+        const templatePin = template?.map?.hamclock;
+        if (!templatePin || !isRecord(scene.map)) return scene;
+        return {
+          ...scene,
+          map: { ...scene.map, hamclock: templatePin },
+        };
+      });
     }
     candidate = legacy;
   }

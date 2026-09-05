@@ -8,6 +8,7 @@ vi.mock("@/components/map/LayoutModeDropdown", () => ({
   LayoutModeDropdown: () => <button type="button">Display selector</button>,
 }));
 
+import { StrictMode } from "react";
 import {
   act,
   fireEvent,
@@ -18,6 +19,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { useAlertsStore } from "@/stores/alertsStore";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore, type KioskScene } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -130,6 +132,8 @@ describe("KioskChrome", () => {
     });
     useUserStore.setState({ station: null });
     useMapStore.setState({ layoutMode: "pro" });
+    useHamClockDisplayStore.getState().resetDisplay();
+    sessionStorage.clear();
   });
 
   it("re-arms equal-duration scene timers from A to B to C", async () => {
@@ -325,5 +329,37 @@ describe("KioskChrome", () => {
     expect(useKioskStore.getState().active).toBe(false);
     expect(useMapStore.getState().layoutMode).toBe("normal");
     expect(screen.getByLabelText("Current route").textContent).toBe("/map");
+  });
+
+  it("stays pinned to the active HamClock scene after a StrictMode mount replay", async () => {
+    configureWall(
+      [
+        makeScene("wall", "/map", {
+          map: {
+            layoutMode: "hamclock",
+            hamclock: { leftPage: 1, rightPage: 2, theme: "brass" },
+          },
+        }),
+      ],
+      { rotationEnabled: false },
+    );
+
+    // StrictMode replays effect setup -> cleanup -> setup on mount. The
+    // cleanup unpins the HamClock display; the fix re-pins it in the setup
+    // body, so the second setup must leave it pinned rather than restored
+    // to the operator's pre-kiosk display.
+    render(
+      <StrictMode>
+        <WallHarness />
+      </StrictMode>,
+    );
+
+    await waitFor(() => {
+      expect(useHamClockDisplayStore.getState()).toMatchObject({
+        density: "wall",
+        theme: "brass",
+        pageIndex: { left: 1, right: 2 },
+      });
+    });
   });
 });

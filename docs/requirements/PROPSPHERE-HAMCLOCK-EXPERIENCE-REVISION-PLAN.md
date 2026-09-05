@@ -1,7 +1,7 @@
 # PropSphere HamClock Experience Revision Plan
 
-Status: initial revision implemented and browser-verified; physical display/performance review pending  
-Owner: PropSphere  
+Status: initial revision implemented and browser-verified; physical display/performance review pending
+Owner: PropSphere
 Last updated: 2026-09-04
 
 ## Outcome

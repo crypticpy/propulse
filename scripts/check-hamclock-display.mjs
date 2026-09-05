@@ -313,6 +313,23 @@ try {
   await expect
     .poll(async () => (await state()).spotFilters)
     .toEqual({ bands: ["40m"], modes: ["CW"] });
+  await page.evaluate(async () => {
+    const { useMapStore: map } = await import(
+      performance
+        .getEntriesByType("resource")
+        .find((e) => new URL(e.name).pathname === "/src/stores/mapStore.ts")
+        ?.name || "/src/stores/mapStore.ts"
+    );
+    map.getState().setSpotFilters({ bands: ["20m"], modes: ["FT8"] });
+  });
+  await expect(follow).not.toBeChecked();
+  await follow.check();
+  await expect
+    .poll(async () => (await state()).spotFilters)
+    .toEqual({ bands: ["40m"], modes: ["CW"] });
+  check(
+    "Shared manual DX filters stop radio following; re-enabling resumes it",
+  );
   const monitoredSource = await page.evaluate(async () => {
     const { useOperatingStore: o } = await import(
       performance

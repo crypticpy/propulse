@@ -238,6 +238,19 @@ export function HamClockSpotsSidebar({
   const showBandFocus =
     (mode === "bands" || mode === "traffic") && activeTab === "DX";
   const spotsHidden = display.hiddenPanels.includes("spots");
+  const applyingRadioFilter = useRef(false);
+  useEffect(() => {
+    if (!followRadio) return;
+    // A manual choice in either the band chips or the shared DX filters wins.
+    return useMapStore.subscribe((current, previous) => {
+      if (
+        current.spotFilters !== previous.spotFilters &&
+        !applyingRadioFilter.current
+      ) {
+        useHamClockDisplayStore.getState().setFollowRadio(false);
+      }
+    });
+  }, [followRadio]);
   useEffect(() => {
     if (!followRadio || !radio) return;
     const filters = useMapStore.getState().spotFilters;
@@ -247,7 +260,12 @@ export function HamClockSpotsSidebar({
       filters.modes.length !== 1 ||
       filters.modes[0] !== radio.mode
     ) {
-      setSpotFilters({ bands: [radio.band], modes: [radio.mode] });
+      applyingRadioFilter.current = true;
+      try {
+        setSpotFilters({ bands: [radio.band], modes: [radio.mode] });
+      } finally {
+        applyingRadioFilter.current = false;
+      }
     }
   }, [followRadio, radio, setSpotFilters]);
 

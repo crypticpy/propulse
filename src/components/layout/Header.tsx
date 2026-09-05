@@ -30,6 +30,7 @@ interface NavItem {
 }
 
 export interface HeaderProps {
+  publicView?: boolean;
   /** Number of active alerts */
   alertCount?: number;
   /** Number of critical alerts */
@@ -42,6 +43,7 @@ export interface HeaderProps {
  * Header - Main application header with navigation and user info
  */
 export function Header({
+  publicView = false,
   alertCount = 0,
   criticalAlertCount = 0,
   onAlertClick,
@@ -209,13 +211,13 @@ export function Header({
             <div className="flex min-w-0 items-center justify-end gap-2">
               <div className="hidden shrink-0 text-right sm:block">
                 <HeaderClock />
-                <Suspense fallback={<span className="inline-block h-4 w-14" aria-hidden="true" />}>
+                {!publicView && <Suspense fallback={<span className="inline-block h-4 w-14" aria-hidden="true" />}>
                   <QuickLocationControl className="ml-auto" />
-                </Suspense>
+                </Suspense>}
               </div>
 
               {/* Global status and account controls stay in the same place on every route. */}
-              <div className="flex shrink-0 items-center gap-1">
+              {publicView ? <Link to="/profile" className="text-sm text-slate-300 px-3 py-3">Sign in</Link> : <div className="flex shrink-0 items-center gap-1">
                 {/* Alert Indicator */}
                 {alertCount > 0 && (
                   <button
@@ -348,7 +350,7 @@ export function Header({
                     />
                   </svg>
                 </button>
-              </div>
+              </div>}
             </div>
           </div>
         </div>

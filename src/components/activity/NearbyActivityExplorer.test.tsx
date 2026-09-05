@@ -134,3 +134,12 @@ it("uses the setup location override for both feed queries and distance filterin
   // the profile's Texas QTH. This verifies the origin used for filtering too.
   expect(screen.queryByText("K5ABC")).toBeNull();
 });
+
+it("lets guests inspect reports without writing persistent map targets", () => {
+  const onClose = vi.fn();
+  render(<MemoryRouter><NearbyActivityExplorer publicOnly onClose={onClose} /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: /K5ABC/i }));
+  expect(screen.getByText(/heard \/ reported by/i)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /target in propsphere/i })).toBeNull();
+  expect(onClose).not.toHaveBeenCalled();
+});

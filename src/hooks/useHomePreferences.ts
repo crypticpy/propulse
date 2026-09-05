@@ -14,15 +14,15 @@ export function readHomePreferences(value: string | null): Preferences {
   } catch { /* Malformed or unavailable storage keeps the focused default. */ }
   return empty;
 }
-export function useHomePreferences(isMobile: boolean) {
+export function useHomePreferences(isMobile: boolean, guest = false) {
   const [preferences, setPreferences] = useState(() => {
-    try { return readHomePreferences(localStorage.getItem(key)); } catch { return readHomePreferences(null); }
+    try { return readHomePreferences(guest ? null : localStorage.getItem(key)); } catch { return readHomePreferences(null); }
   });
   const device = isMobile ? "mobile" : "desktop";
   const toggle = (id: string) => setPreferences(previous => {
     const active = previous[device];
     const next = { ...previous, [device]: active.includes(id) ? active.filter(item => item !== id) : [...active, id] };
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* Memory preferences remain usable. */ }
+    try { if (!guest) localStorage.setItem(key, JSON.stringify(next)); } catch { /* Memory preferences remain usable. */ }
     return next;
   });
   return { pinned: preferences[device], toggle };

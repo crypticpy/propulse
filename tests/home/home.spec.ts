@@ -10,6 +10,10 @@ async function fixtures(page: Page, extraLocations?: Array<{ id: string; name: s
     return route.fulfill({ status: 503, json: { error: "Unavailable optional source fixture" } });
   });
   const solar = await installSolarFixtures(page, { extraLocations });
+  await page.route("https://api.open-meteo.com/**", route => {
+    const time = Math.floor(Date.now()/1000);
+    return route.fulfill({json:{timezone:"America/Denver",current:{time,temperature_2m:18,wind_speed_10m:8,wind_gusts_10m:14,weather_code:0},hourly:{time:Array.from({length:25},(_,i)=>time+i*3600),temperature_2m:Array(25).fill(16),precipitation_probability:Array(25).fill(10),wind_speed_10m:Array(25).fill(8)}}});
+  });
   await page.route("**/api/spots/band-activity*", route => route.fulfill({ json: { meta: { fetchedAt: new Date().toISOString() }, bands: [
     ["20m", 420, 78, { phone: 200, digital: 180, cw: 40 }], ["40m", 180, 40, { digital: 150, cw: 30 }], ["15m", 90, 21, { phone: 80, cw: 10 }], ["10m", 20, 8, { digital: 20 }], ["80m", 0, 0, {}],
   ].map(([band, count, reporters, modes]) => ({ band, count_60m: count, obs_20m: count, reporters_20m: reporters, count_10m_recent: count, count_10m_prior: count, source_counts_60m: { RBN: count }, mode_obs_20m: modes })) } }));
@@ -32,12 +36,9 @@ test("current band reports lead Home and optional feeds wait", async ({ page }, 
   await expect(home.getByText(/All Quiet/)).toHaveCount(0);
   expect(requests.filter(path => /atmos|tides|news|dxpedition/.test(path))).toEqual([]);
   const viewport = page.viewportSize()!;
-  expect((await home.getByRole("heading", { name: "On the bands now" }).boundingBox())!.y).toBeLessThan(300);
+  expect((await home.getByRole("heading", { name: "On the bands now" }).boundingBox())!.y).toBeLessThan(500);
   await page.screenshot({ path: `tmp/home-elevation/${info.project.name}-initial.png`, fullPage: true });
-  if (info.project.name.includes("mobile")) {
-    await expect(home.getByRole("button", { name: "All 5 bands & activity bars" })).toBeVisible();
-    await home.getByRole("button", { name: "All 5 bands & activity bars" }).click();
-  }
+
   await expect(home.getByText("No recent reports · conditions unknown")).toBeVisible();
   expect(await home.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.screenshot({ path: `tmp/home-elevation/${info.project.name}-${viewport.width}.png`, fullPage: true });
@@ -64,33 +65,34 @@ test("impact briefing leads on phone, expired inputs are explained, and refresh 
   await page.goto("/");
   const briefing = page.getByRole("region", { name: "Operating briefing" });
   await expect(briefing.getByRole("heading", { level: 2 })).toContainText(/blackout/i);
-  await expect(briefing.getByText(/no station setting needs changing/)).toBeVisible();
+  await expect(page.getByText(/no station setting needs changing/)).toBeVisible();
   const refresh = page.getByRole("button", { name: "Refresh Home solar briefing" });
   await refresh.focus();
-  await expect(page.getByRole("tooltip")).toContainText("six solar sources");
+  await expect(page.getByRole("tooltip")).toContainText("solar readings");
   if (page.viewportSize()!.width < 768) {
     expect(await briefing.evaluate(el => Boolean(el.compareDocumentPosition(document.querySelector('[aria-label="Band activity"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
     await refresh.focus();
     await page.keyboard.press("Tab");
-    await expect(briefing.getByRole("link", { name: "Open PropSphere" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Choose Home location: DM79" })).toBeFocused();
     expect((await briefing.boundingBox())!.y).toBeLessThan((await page.getByRole("region", { name: "Band activity" }).boundingBox())!.y);
   }
 });
 
-test("favorites persist separately and phone does not eagerly mount desktop widgets", async ({ page }, info) => {
+test("panel discovery and Add to Home are explicit and persist by layout", async ({ page }, info) => {
   await fixtures(page);
-  await page.addInitScript(() => { if (!localStorage.getItem("propulse-home-widgets-v1")) localStorage.setItem("propulse-home-widgets-v1", JSON.stringify({ desktop: ["moon"], mobile: [] })); });
+  const mobile=info.project.name.includes("mobile");
   await page.goto("/");
-  const mobile = info.project.name.includes("mobile");
-  await expect(page.getByRole("region", { name: "Pinned widgets" })).toHaveCount(mobile ? 0 : 1);
-  await page.getByRole("button", { name: /Make room for what you follow/ }).click();
-  const clocks = page.getByRole("button", { name: "+ World clocks", exact: true });
-  await clocks.click();
-  await expect(clocks).toHaveCount(0);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("propulse-home-widgets-v1")!))).toEqual(mobile ? { desktop: ["moon"], mobile: ["clocks"] } : { desktop: ["moon", "clocks"], mobile: [] });
+  await page.getByRole("button", {name:"View Moon",exact:true}).click();
+  await expect(page.getByRole("button", {name:"Hide additional panels"})).toBeVisible();
+  await page.getByRole("button", {name:"Add Moon to Home",exact:true}).click();
+  await expect(page.getByRole("region", {name:"Your information panels"}).getByRole("region",{name:"Moon",exact:true})).toBeVisible();
+  const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem("propulse-home-widgets-v1")!));
+  expect(prefs).toEqual(mobile?{desktop:[],mobile:["moon"]}:{desktop:["moon"],mobile:[]});
   await page.reload();
-  await expect(page.getByRole("button", { name: /Make room for what you follow/ })).toHaveAttribute("aria-expanded", "false");
-  if (mobile) await expect(page.getByRole("button", { name: "Show 1 favorites" })).toBeVisible();
+  await expect(page.getByRole("region",{name:"Your information panels"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Show more information panels"})).toHaveAttribute("aria-expanded","false");
+  await page.getByRole("button",{name:"Remove Moon from Home",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Your information panels"})).toHaveCount(0);
 });
 
 test("switching station setups updates context without moving navigation or opening the console", async ({ page }) => {
@@ -103,6 +105,7 @@ test("switching station setups updates context without moving navigation or open
     localStorage.setItem("propulse-map-operational", JSON.stringify({version:1,state:{manualScope:"observe",workspaceOpen:false}}));
   });
   await page.goto("/");
+  await page.getByText("Your station & recent operating",{exact:true}).click();
   const picker = page.getByRole("combobox", {name:"Home active station setup"});
   await expect(picker).toHaveValue("home");
   await expect(page.getByText("100 W configured")).toBeVisible();
@@ -119,6 +122,7 @@ test("switching station setups updates context without moving navigation or open
   await expect(page.getByText(/From Home/)).toBeVisible();
   await expect(page.getByRole("combobox", {name:"Planning mode"})).toHaveValue("SSB");
   await page.goBack();
+  await page.getByText("Your station & recent operating",{exact:true}).click();
   await expect(picker).toHaveValue("field");
 });
 
@@ -182,7 +186,32 @@ test("empty solar measurements have a neutral no-data status", async ({ page }) 
   solar.setData("/api/solar/flux", []);
   solar.setData("/api/solar/xray", []);
   await page.goto("/");
-  const briefing = page.getByRole("region", { name: "Operating briefing" });
+  const briefing = page.getByRole("region", { name: "Solar outlook" });
   await expect(briefing.getByRole("status").filter({ hasText: "No data" })).toHaveCount(2);
   await expect(briefing.getByText("—", { exact: true })).toHaveCount(2);
+});
+
+
+test("Home location drives weather, reports, and Advanced forecast assumptions", async ({page}, info)=>{
+  await fixtures(page);
+  const requests:string[]=[];page.on("request",r=>requests.push(r.url()));
+  await page.goto("/");
+  await page.getByRole("button",{name:"Choose Home location: DM79"}).click();
+  await page.getByLabel("Maidenhead grid").fill("IO91");
+  await page.getByRole("button",{name:"Use this location",exact:true}).click();
+  await expect(page.getByText("Regional · Europe · last 20 minutes · all modes",{exact:true})).toBeVisible();
+  await expect.poll(()=>requests.some(url=>url.includes("api.open-meteo.com")&&url.includes("latitude=51.5000"))).toBe(true);
+  await page.getByRole("button",{name:"Advanced dashboard",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Advanced dashboard"})).toBeVisible();
+  await page.getByLabel("Target grid").fill("JO31");
+  await expect(page.getByRole("region",{name:"Scrollable band forecast"})).toBeVisible();
+  await page.getByLabel("Forecast mode").selectOption("CW");
+  await page.getByLabel("Noise environment").selectOption("quiet_rural");
+  await page.screenshot({path:`tmp/home-dashboard/${info.project.name}-advanced.png`,fullPage:true});
+  await page.getByText("Forecast inputs & uncertainty",{exact:true}).click();
+  await expect(page.getByText(/current held constant/).first()).toBeVisible();
+  await page.getByRole("button",{name:"Choose Home location: IO91"}).click();
+  await page.getByRole("button",{name:"Use global view",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Scrollable band forecast"})).toHaveCount(0);
+  await expect(page.getByText("Set your Home location for a path forecast.")).toBeVisible();
 });

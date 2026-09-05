@@ -48,7 +48,7 @@ await context.route("**/api/spots/pskreporter*", (r) =>
       spots: Array.from({ length: 200 }, (_, i) => ({
         senderCallsign: `W${generation++}T${i}`,
         receiverCallsign: "N0TEST",
-        senderLocator: `${i % 2 ? "FN" : "EM"}${i % 10}${Math.floor(i / 10)}`,
+        senderLocator: `${i % 2 ? "FN" : "EM"}${i % 10}${Math.floor(i / 10) % 10}`,
         receiverLocator: "IO91",
         frequency: i % 2 ? 14074000 : 7074000,
         mode: "FT8",
@@ -135,6 +135,8 @@ try {
    r.scene.traverse(o=>{if(o.name.startsWith('ray-path-arc'))rayGroups.push({name:o.name,objects:o.children.length});if(o.name==='animated-spot-traces')traces=o.children.length;});
    return {renderer:gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),subscribers:r.internal.subscribers.length,drawCalls:r.gl.info.render.calls,triangles:r.gl.info.render.triangles,rayGroups,traces,frameMedian:deltas.sort((a,b)=>a-b)[60],frameP95:deltas[114]};
   });
+  if (!isolate && sample.traces === 0) throw new Error("No arriving traces exercised after feed refresh");
+  if (isolate && sample.traces !== 0) throw new Error("Isolate did not remove arriving traces");
   console.log(JSON.stringify({isolate,...sample}));result.checks.push({isolate,...sample});
  }
  for (const viewMode of ["flat", "azimuthal"]) {

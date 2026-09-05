@@ -204,6 +204,34 @@ describe("HamClockWall", () => {
     dialog.remove();
   });
 
+  it("shows one page in the pager and both rails when the layout defines only one (a Living-room-style preset, review pass after B4)", () => {
+    useHamClockDisplayStore.setState({
+      railLayout: {
+        left: [
+          {
+            pageId: "spots",
+            tileIds: ["cluster", "bandActivity", "recentContacts"],
+          },
+        ],
+        right: [
+          {
+            pageId: "spots",
+            tileIds: ["bestBand", "greyLine", "muf", "reliability", "emcomm"],
+          },
+        ],
+      },
+    });
+    renderWall();
+    // Both footer pagers read "1 / 1", not a fixed five with empty rails.
+    expect(screen.getAllByText("1 / 1")).toHaveLength(2);
+    const left = screen.getByRole("complementary", { name: "Left tile rail" });
+    const right = screen.getByRole("complementary", {
+      name: "Right tile rail",
+    });
+    expect(within(left).getByText("DX cluster")).toBeTruthy();
+    expect(within(right).getByText("Best band now")).toBeTruthy();
+  });
+
   it("no longer renders a footer WALL/DESK control — it moved to the header", () => {
     // The header's HamClockDensitySwitch (rendered by the real, unmocked
     // HamClockWallHeader) is the only WALL/DESK toggle now; see

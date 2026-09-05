@@ -1,6 +1,13 @@
-import { HAMCLOCK_WALL_PAGES, wallPageIndex } from "./pages";
+interface WallPagerPage {
+  id: string;
+  title: string;
+}
 
 interface HamClockPagerProps {
+  /** The pages the active `railLayout` actually cycles through
+   * (`wallPages(railLayout)`, in the store) — a preset with one page shows
+   * "1 / 1" here, not a fixed five (review pass after B4). */
+  pages: readonly WallPagerPage[];
   pageIndex: number;
   onStep: (delta: number) => void;
 }
@@ -11,9 +18,13 @@ interface HamClockPagerProps {
  * is one instance of this control at each end of the footer, but they both
  * step the same page.
  */
-export function HamClockPager({ pageIndex, onStep }: HamClockPagerProps) {
-  const index = wallPageIndex(pageIndex);
-  const page = HAMCLOCK_WALL_PAGES[index];
+export function HamClockPager({
+  pages,
+  pageIndex,
+  onStep,
+}: HamClockPagerProps) {
+  const index = Math.min(Math.max(pageIndex, 0), Math.max(pages.length - 1, 0));
+  const page = pages[index];
   return (
     <div className="hc-pager">
       <button
@@ -24,9 +35,9 @@ export function HamClockPager({ pageIndex, onStep }: HamClockPagerProps) {
       >
         ◀
       </button>
-      <b>{page.title.toUpperCase()}</b>
+      <b>{(page?.title ?? "").toUpperCase()}</b>
       <span className="hc-pager-n">
-        {index + 1} / {HAMCLOCK_WALL_PAGES.length}
+        {pages.length > 0 ? index + 1 : 0} / {pages.length}
       </span>
       <button
         type="button"

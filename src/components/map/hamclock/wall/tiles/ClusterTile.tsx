@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { getBandColor } from "@/lib/utils/spotColors";
@@ -47,6 +48,7 @@ function spotDetail(spot: DXSpot): string {
  * own bridge socket and history, so the tile must never open a feed itself.
  */
 export function ClusterTile() {
+  const location = useActiveLocation();
   const allSpots = useDXStore((s) => s.spots);
   const source = useDXStore((s) => s.spotSource);
   const spotFilters = useMapStore((s) => s.spotFilters);
@@ -59,6 +61,17 @@ export function ClusterTile() {
   );
   const rows = spots.slice(0, MAX_ROWS);
   const feed = source === "bridge" ? "BRIDGE" : "CLUSTER";
+
+  // No station/home set (wall spec §7, HW-53): a neutral state. The DX store
+  // is filled by a globally-mounted connection elsewhere on the map, so this
+  // tile never opens its own feed either way — only its rendering is gated.
+  if (!location) {
+    return (
+      <HamClockTile title="DX cluster">
+        <p className="hc-placeholder">SET HOME IN SETTINGS</p>
+      </HamClockTile>
+    );
+  }
 
   return (
     <>

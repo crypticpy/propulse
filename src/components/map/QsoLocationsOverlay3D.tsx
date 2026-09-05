@@ -29,7 +29,7 @@ interface QsoLocationsOverlay3DProps {
 const MARKER_RADIUS = 1.008;
 
 /** Marker sizes, kept within the ~0.004-0.006 point-marker guidance */
-const LOGGED_DOT_SIZE = 0.004;
+const LOGGED_DOT_SIZE = 0.006;
 const CONTEST_DOT_SIZE = 0.005;
 const CONTEST_MULTIPLIER_DOT_SIZE = 0.006;
 
@@ -55,10 +55,12 @@ function QsoDotField({
   dots,
   opacity,
   renderOrder,
+  hollow = false,
 }: {
   dots: QsoDot[];
   opacity: number;
   renderOrder: number;
+  hollow?: boolean;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
 
@@ -93,7 +95,7 @@ function QsoDotField({
       renderOrder={renderOrder}
       frustumCulled={false}
     >
-      <circleGeometry args={[1, DOT_SEGMENTS]} />
+      {hollow ? <ringGeometry args={[0.55, 1, DOT_SEGMENTS]} /> : <circleGeometry args={[1, DOT_SEGMENTS]} />}
       <meshBasicMaterial
         transparent
         opacity={opacity}
@@ -141,7 +143,8 @@ export function QsoLocationsOverlay3D({
           contest QSOs in FlatMapView. */}
       <QsoDotField
         dots={loggedDots}
-        opacity={0.45}
+        hollow
+        opacity={0.9}
         renderOrder={GLOBE_LAYER_ORDER.markers}
       />
       {/* Contest QSOs painted on top -- more opaque, mirrors drawContestQsos. */}

@@ -5,6 +5,9 @@
  * and terminator/greyline overlays.
  */
 
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { flatHomeRegion } from "@/lib/hamclock/displayLayout";
+import { FlatMufRaster } from "./lib/flatMufRaster";
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -18,7 +21,6 @@ import {
 } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
-import { estimateMUF, getMUFColor } from "@/lib/api/muf";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import {
   resolveSpotLocations,
@@ -1479,12 +1481,13 @@ function drawLoggedQsos(
     ctx.lineTo(dx.x, dx.y);
     ctx.stroke();
 
-    // Small DX dot
-    ctx.globalAlpha = 0.5;
+    // Hollow marker distinguishes logged contacts from live spot dots.
+    ctx.globalAlpha = 0.9;
     ctx.beginPath();
-    ctx.arc(dx.x, dx.y, 1.5 / zd, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
+    ctx.arc(dx.x, dx.y, 3.5 / zd, 0, Math.PI * 2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5 / zd;
+    ctx.stroke();
   }
 
   ctx.globalAlpha = 1;
@@ -1497,50 +1500,18 @@ function drawLoggedQsos(
  */
 function drawMUF(
   ctx: CanvasRenderingContext2D,
-  sfi: number,
-  date: Date,
+  raster: HTMLCanvasElement | null,
   opacity: number = 0.45,
   width: number = MAP_WIDTH,
   height: number = MAP_HEIGHT,
 ) {
-  // Create a temporary canvas for the MUF overlay
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext("2d");
-  if (!tempCtx) {
-    return;
-  }
-
-  // Calculate MUF at lower resolution for performance, then scale up
-  const resolution = 10; // degrees
-  const cellWidth = width / (360 / resolution);
-  const cellHeight = height / (180 / resolution);
-
-  for (let lat = 90; lat >= -90; lat -= resolution) {
-    for (let lon = -180; lon < 180; lon += resolution) {
-      // Calculate MUF at center of cell
-      const centerLat = lat - resolution / 2;
-      const centerLon = lon + resolution / 2;
-      const muf = estimateMUF(centerLat, centerLon, sfi, date);
-
-      // Get color for this MUF value
-      const { color } = getMUFColor(muf);
-
-      // Calculate canvas position
-      const { x, y } = latLonToCanvas(lat, lon, width, height);
-
-      // Draw cell with color
-      tempCtx.fillStyle = color;
-      tempCtx.fillRect(x, y, cellWidth + 1, cellHeight + 1);
-    }
-  }
+  if (!raster) return;
 
   // Apply slight blur for smoother appearance
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.filter = "blur(4px)";
-  ctx.drawImage(tempCanvas, 0, 0);
+  ctx.drawImage(raster, 0, 0, width, height);
   ctx.filter = "none";
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -3371,6 +3342,7 @@ import {
   clampMapOffsets,
   computeFlatMapLayout,
   preservedCenterOffsets,
+  preserveFlatMapCamera,
   type FlatMapLayout,
 } from "./lib/flatMapLayout";
 
@@ -3380,6 +3352,14 @@ export function FlatMapView({
   fillContainer = false,
   hideSizeSliders = false,
 }: FlatMapViewProps) {
+  const mufRasterRef = useRef<FlatMufRaster | null>(null);
+  const observatory = useMapStore((s) => s.observatoryMode);
+  const observatoryCameraRef = useRef<{ zoom: FlatMapZoomState; layout: FlatMapLayout } | null>(null);
+  const homeRequest = useHamClockDisplayStore((s) => s.homeRequest);
+  const appliedHomeRef = useRef(0);
+  const layoutMode = useMapStore((s) => s.layoutMode);
+  const homeRegion = useMemo(() => homeRequest ? flatHomeRegion(homeRequest) : null, [homeRequest]);
+  const datelineOverview = layoutMode === "hamclock" && homeRegion?.longitudeSpan === 360;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const scienceCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -3514,9 +3494,15 @@ export function FlatMapView({
     if (mapStyle === "standard" || !tileProvider) {
       return;
     }
+    let tileFrame = 0;
     const layer = createFlatTileLayer(
       tileProvider,
-      () => setTileEpoch((epoch) => epoch + 1),
+      () => {
+        if (!tileFrame) tileFrame = requestAnimationFrame(() => {
+          tileFrame = 0;
+          setTileEpoch((epoch) => epoch + 1);
+        });
+      },
       {
         maxCachedTiles: qualitySettings.flatTileCacheSize,
         tileZoomBias: qualitySettings.tileZoomBias,
@@ -3533,6 +3519,7 @@ export function FlatMapView({
     );
     tileLayerRef.current = layer;
     return () => {
+      cancelAnimationFrame(tileFrame);
       layer.dispose();
       tileLayerRef.current = null;
     };
@@ -4704,19 +4691,16 @@ export function FlatMapView({
       const next = computeFlatMapLayout(
         rect.width,
         rect.height,
-        fillContainer,
-        mapAspectRatio,
+        fillContainer && !datelineOverview,
+        datelineOverview ? 2 : mapAspectRatio,
       );
       const z = zoomRef.current;
-      const wanted = lastLayout
-        ? preservedCenterOffsets(lastLayout, next, z)
-        : centeredOffsets(next, z.scale);
-      const clamped = clampMapOffsets(
-        next,
-        z.scale,
-        wanted.offsetX,
-        wanted.offsetY,
-      );
+      const camera = lastLayout && fillContainer && !datelineOverview
+        ? preserveFlatMapCamera(lastLayout, next, z)
+        : { scale: z.scale, ...(lastLayout
+          ? preservedCenterOffsets(lastLayout, next, z)
+          : centeredOffsets(next, z.scale)) };
+      const clamped = clampMapOffsets(next, camera.scale, camera.offsetX, camera.offsetY);
 
       const layoutChanged =
         !lastLayout ||
@@ -4728,8 +4712,10 @@ export function FlatMapView({
       if (layoutChanged) {
         setLayout(next);
       }
-      if (clamped.offsetX !== z.offsetX || clamped.offsetY !== z.offsetY) {
-        setZoom({ scale: z.scale, ...clamped });
+      if (camera.scale !== z.scale || clamped.offsetX !== z.offsetX || clamped.offsetY !== z.offsetY) {
+        const nextZoom = { scale: camera.scale, ...clamped };
+        zoomRef.current = nextZoom;
+        setZoom(nextZoom);
       }
     };
 
@@ -4748,7 +4734,42 @@ export function FlatMapView({
       cancelAnimationFrame(rafId);
       observer.disconnect();
     };
-  }, [fillContainer, mapAspectRatio]);
+  }, [fillContainer, mapAspectRatio, datelineOverview]);
+
+  useEffect(() => {
+    if (layoutMode !== "hamclock") return;
+    if (observatory && !observatoryCameraRef.current) {
+      observatoryCameraRef.current = { zoom: { ...zoomRef.current }, layout };
+      const next = { scale: 1, ...centeredOffsets(layout, 1) };
+      zoomRef.current = next;
+      setZoom(next);
+    } else if (!observatory && observatoryCameraRef.current) {
+      const saved = observatoryCameraRef.current;
+      const next = preserveFlatMapCamera(saved.layout, layout, saved.zoom);
+      observatoryCameraRef.current = null;
+      zoomRef.current = next;
+      setZoom(next);
+    }
+  }, [observatory, layoutMode, layout]);
+
+  useEffect(() => {
+    if (layoutMode !== "hamclock" || !homeRequest || appliedHomeRef.current === homeRequest.revision) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || !homeRegion) return;
+    const expected = computeFlatMapLayout(rect.width, rect.height, fillContainer && !datelineOverview, datelineOverview ? 2 : mapAspectRatio);
+    if (Math.abs(expected.viewport.width - viewportSize.width) > 1 || Math.abs(expected.viewport.height - viewportSize.height) > 1) return;
+    appliedHomeRef.current = homeRequest.revision;
+    const scale = Math.max(1, Math.min(MAX_ZOOM_SCALE,
+      viewportSize.width / (displaySize.width * homeRegion.longitudeSpan / 360),
+      viewportSize.height / (displaySize.height * homeRegion.latitudeSpan / 180)));
+    const pos = latLonToCanvas(homeRegion.lat, homeRegion.lon, displaySize.width, displaySize.height);
+    cancelAnimationFrame(zoomRafRef.current);
+    zoomAnimationRef.current = null;
+    const next = { scale, ...clampMapOffsets(layout, scale,
+      viewportSize.width / 2 - pos.x * scale, viewportSize.height / 2 - pos.y * scale) };
+    zoomRef.current = next;
+    setZoom(next);
+  }, [homeRequest, homeRegion, datelineOverview, fillContainer, mapAspectRatio, layoutMode, layout, displaySize, viewportSize]);
 
   // Smooth pan-to-preset animation (500ms ease-out)
   // When activePresetId changes, animate from current zoom to the preset view
@@ -5246,7 +5267,8 @@ export function FlatMapView({
     }
 
     if (layers.muf && currentSFI) {
-      drawMUF(context, currentSFI, displayTime, 0.45, renderWidth, renderHeight);
+      mufRasterRef.current ??= new FlatMufRaster();
+      drawMUF(context, mufRasterRef.current.get(currentSFI, displayTime, renderWidth, renderHeight), layoutMode === "hamclock" ? 0.22 : 0.45, renderWidth, renderHeight);
     }
 
     if (layers.terminator) {
@@ -5375,6 +5397,7 @@ export function FlatMapView({
     mapStyle,
     nightDarkness,
     currentSFI,
+    layoutMode,
     auroraData,
     highViz,
     labelOptions,
@@ -5843,7 +5866,7 @@ export function FlatMapView({
       ref={containerRef}
       className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
         fillContainer
-          ? ""
+          ? datelineOverview ? "flex items-center justify-center" : ""
           : "min-h-[400px] rounded-xl flex items-center justify-center"
       }`}
     >

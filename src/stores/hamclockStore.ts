@@ -178,7 +178,7 @@ function normalizePersistedHamClockState(
         : DEFAULT_HAMCLOCK_RELIABILITY.antennaType,
     },
     hamclockMode: VALID_HAMCLOCK_MODES.has(raw.hamclockMode as HamClockMode)
-      ? (raw.hamclockMode as HamClockMode)
+      ? (raw.hamclockMode === "bands" ? "traffic" : raw.hamclockMode as HamClockMode)
       : "traffic",
     preferredViewMode: VALID_VIEW_MODES.has(
       raw.preferredViewMode as HamClockViewMode,

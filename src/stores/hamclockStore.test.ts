@@ -48,3 +48,9 @@ describe("HamClock mode layer presets", () => {
     expect(HAMCLOCK_MODE_LAYERS.weather.lightning).toBe(true);
   });
 });
+
+it("migrates Bands into Activity while retaining the selected bands", () => {
+  expect(
+    migrateHamClockState({ hamclockMode: "bands", bandFocus: ["20m"] }, 4),
+  ).toMatchObject({ hamclockMode: "traffic", bandFocus: ["20m"] });
+});

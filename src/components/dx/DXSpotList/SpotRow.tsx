@@ -104,6 +104,7 @@ function mapSpotModeToRigMode(
  */
 export const SpotRow = memo(function SpotRow({
   spot,
+  compact = false,
   index,
   isSelected,
   isHovered,
@@ -271,7 +272,7 @@ export const SpotRow = memo(function SpotRow({
     const gridCols = showAgeColumn
       ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]"
       : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]";
-    const base = `group grid ${gridCols} gap-1.5 px-2 py-1 cursor-pointer transition-all duration-150`;
+    const base = `group ${compact ? "flex flex-col" : `grid ${gridCols}`} gap-1.5 px-2 py-1 cursor-pointer transition-all duration-150`;
 
     // Q6: Zebra striping for alternating rows (only applies when no other highlight)
     const zebraStripe = index % 2 === 0 ? "bg-white/[0.02]" : "";
@@ -314,6 +315,7 @@ export const SpotRow = memo(function SpotRow({
     isAlertMatch,
     isNeeded,
     showAgeColumn,
+    compact,
     index,
     isHighlighted,
     isFocused,
@@ -386,6 +388,55 @@ export const SpotRow = memo(function SpotRow({
     () => parseSplitFromComment(spot.comment || ""),
     [spot.comment],
   );
+
+  if (compact)
+    return (
+      <div
+        className={rowClasses}
+        style={rowStyle}
+        role="row"
+        id={`spot-row-${spot.id}`}
+        data-spot-id={spot.id}
+        aria-selected={isSelected || isFocused}
+        onClick={handleClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onContextMenu={handleContextMenu}
+      >
+        <div role="cell" className="flex flex-wrap items-center gap-1.5">
+          <span className="font-mono text-sm font-semibold text-white">
+            {spot.dx}
+          </span>
+          {workedBadge}
+          {atnoBadge}
+          <span
+            className="ml-auto font-mono text-xs text-gray-400"
+            title={`${formatTime(spot.time)} UTC`}
+          >
+            {formatSpotAge(spot.time)}
+          </span>
+        </div>
+        <div
+          role="cell"
+          className="flex flex-wrap items-center gap-2 text-xs font-mono"
+        >
+          <span style={{ color: bandHexColor }}>{spot.band}</span>
+          <span className="text-gray-300">{spot.mode}</span>
+          <button
+            onClick={handleFrequencyCopy}
+            className="text-cosmic-cyan"
+            title={`Copy ${spot.frequency.toFixed(1)} kHz`}
+          >
+            {frequencyCopied
+              ? "Copied!"
+              : `${formatFrequency(spot.frequency)} MHz`}
+          </button>
+          {spot.dxGrid && (
+            <span className="ml-auto text-gray-400">{spot.dxGrid}</span>
+          )}
+        </div>
+      </div>
+    );
 
   return (
     <div

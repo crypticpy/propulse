@@ -39,3 +39,9 @@
 ## Configuration & API Notes
 - Local dev proxies some `/api/*` paths to NOAA in `vite.config.ts` (keeps frontend calls consistent).
 - `api/` routes are intended for deployment on Vercel; avoid putting secrets in client code.
+
+## Coordinating local browser testing
+- Read [Local agent testing](docs/guides/LOCAL-AGENT-TESTING.md) before launching or borrowing a server, including login and first-visit setup.
+- Check `npm run dev:session -- status`; start owned sessions with `npm run dev:session -- start --owner <slug> --task <description> --profile local`.
+- Different code changes require separate worktrees. Separate ports alone do not isolate HMR or source edits.
+- Verify the printed URL and `/__propulse_dev_session` identity before testing. Stop only your own session; never kill shared Node/Vite processes broadly.

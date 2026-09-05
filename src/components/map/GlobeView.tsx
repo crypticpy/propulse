@@ -5,6 +5,8 @@
  * Provides camera controls, lighting, and click-to-select functionality.
  */
 
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { globeRegionDistance } from "@/lib/hamclock/displayLayout";
 import React, {
   Component,
   Suspense,
@@ -343,6 +345,10 @@ function latLonToCameraPosition(
 // Conversion: 2.0 × (30 / secondsPerRevolution)
 
 function CameraController() {
+  const homeRequest = useHamClockDisplayStore((s) => s.homeRequest);
+  const layoutMode = useMapStore((s) => s.layoutMode);
+  const appliedHome = useRef(0);
+  const hamclockObservatoryCamera = useRef<THREE.Vector3 | null>(null);
   const controlsRef = useRef<OrbitControlsType>(null);
   const { camera, gl, size } = useThree();
   const { targetPosition, isFocusing } = useSpotFocus();
@@ -872,6 +878,18 @@ function CameraController() {
     animate();
   }, [activePresetId, regionPresets, camera]);
 
+  useEffect(() => {
+    if (layoutMode !== "hamclock") return;
+    if (observatoryMode && !hamclockObservatoryCamera.current) {
+      hamclockObservatoryCamera.current = camera.position.clone();
+    } else if (!observatoryMode && hamclockObservatoryCamera.current) {
+      camera.position.copy(hamclockObservatoryCamera.current);
+      hamclockObservatoryCamera.current = null;
+      camera.lookAt(0, 0, 0);
+      controlsRef.current?.update();
+    }
+  }, [camera, layoutMode, observatoryMode]);
+
   // ─── Observatory mode: animate camera to home station on enter ─────────────
   useEffect(() => {
     const wasObservatory = prevObservatoryModeRef.current;
@@ -898,7 +916,7 @@ function CameraController() {
     }
 
     const startPosition = camera.position.clone();
-    const currentDistance = startPosition.length();
+    const currentDistance = layoutMode === "hamclock" ? 3.5 : startPosition.length();
     const endPosition = latLonToCameraPosition(
       station.lat,
       station.lon,
@@ -936,7 +954,7 @@ function CameraController() {
         observatoryPanRafRef.current = 0;
       }
     };
-  }, [observatoryMode, station, camera]);
+  }, [observatoryMode, station, camera, layoutMode]);
 
   // ─── Initial orientation: center the operator's QTH on mount ───────────────
   // Positions the camera at most once per globe mount. The station can
@@ -993,6 +1011,18 @@ function CameraController() {
       controls?.removeEventListener("start", giveUp);
     };
   }, [camera]);
+
+  useEffect(() => {
+    if (layoutMode !== "hamclock" || !homeRequest || appliedHome.current === homeRequest.revision) return;
+    appliedHome.current = homeRequest.revision;
+    qthStartupDoneRef.current = true;
+    cancelAnimationFrame(presetPanRafRef.current);
+    const distance = globeRegionDistance(homeRequest, (camera as THREE.PerspectiveCamera).fov || 45, size.width / size.height);
+    camera.position.copy(qthCameraPosition(homeRequest.lat, homeRequest.lon, distance, useMapStore.getState().rotation.x));
+    camera.lookAt(0, 0, 0);
+    controlsRef.current?.update();
+  }, [camera, homeRequest, layoutMode, size.width, size.height]);
+
 
   return (
     <OrbitControls
@@ -1087,6 +1117,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onTileFallbackChange,
   onCloudImageryStatusChange,
 }: GlobeSceneProps) {
+  const layoutMode = useMapStore((s) => s.layoutMode);
   const layers = useScopedMapLayers();
   const target = useMapStore((s) => s.target);
   const selectedSpot = useDXStore((s) => s.selectedSpot);
@@ -1589,7 +1620,7 @@ const GlobeScene = React.memo(function GlobeScene({
 
         {/* MUF overlay */}
         {layers.muf && currentSFI && (
-          <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
+          <MUFOverlay date={displayTime} sfi={currentSFI} opacity={layoutMode === "hamclock" ? 0.22 : 0.45} />
         )}
 
         {/* Satellite overlay */}

@@ -40,6 +40,7 @@ export function HamClockBandFocus({
               key={band}
               type="button"
               aria-pressed={active}
+              aria-label={band}
               onClick={() => onToggle(band)}
               className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-plasma-orange ${
                 active

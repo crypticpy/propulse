@@ -2,8 +2,7 @@ import type { HamClockMode } from "@/stores/hamclockStore";
 
 const MODES: Array<{ mode: HamClockMode; label: string; shortLabel: string }> =
   [
-    { mode: "traffic", label: "DX traffic", shortLabel: "Traffic" },
-    { mode: "bands", label: "Band monitoring", shortLabel: "Bands" },
+    { mode: "traffic", label: "DX activity", shortLabel: "Activity" },
     { mode: "satellites", label: "Satellite theater", shortLabel: "Sats" },
     { mode: "weather", label: "Weather & alerts", shortLabel: "Wx" },
   ];
@@ -25,7 +24,7 @@ export function HamClockModeSwitch({
       aria-label="HamClock mode"
     >
       {MODES.map(({ mode, label, shortLabel }) => {
-        const active = value === mode;
+        const active = value === mode || (value === "bands" && mode === "traffic");
         return (
           <button
             key={mode}

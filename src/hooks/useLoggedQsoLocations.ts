@@ -8,6 +8,9 @@
  * Uses React Query for async IndexedDB access with appropriate caching.
  */
 
+import { readHamClockContacts } from "@/lib/hamclock/recentContacts";
+import { useContestStore } from "@/stores/contestStore";
+import { useMapStore } from "@/stores/mapStore";
 import { useQuery } from "@tanstack/react-query";
 import { useProfileStore } from "@/stores/profileStore";
 import { getAllLogEntries } from "@/lib/db/logStore";
@@ -41,12 +44,17 @@ const MAX_DISPLAY_QSOS = 500;
  * Fetch and geocode log entries from IndexedDB.
  * Returns most recent entries first, capped at MAX_DISPLAY_QSOS.
  */
-async function fetchAndGeocodeLogEntries(): Promise<LocatedLogQso[]> {
-  const entries = await getAllLogEntries();
+async function fetchAndGeocodeLogEntries(
+  todayOnly = false,
+  contestId: string | null = null,
+): Promise<LocatedLogQso[]> {
+  const entries = todayOnly
+    ? await readHamClockContacts(contestId)
+    : await getAllLogEntries();
 
   // Sort newest first
   const sorted = entries.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    (a, b) => b.date.localeCompare(a.date) || b.timeOn.localeCompare(a.timeOn),
   );
 
   const located: LocatedLogQso[] = [];
@@ -64,7 +72,7 @@ async function fetchAndGeocodeLogEntries(): Promise<LocatedLogQso[]> {
     }
 
     // Fallback to callsign prefix lookup
-    if (lat === null || lon === null) {
+    if (!todayOnly && (lat === null || lon === null)) {
       const prefix = extractPrefixFromCallsign(entry.callsign);
       const loc = getLocationFromPrefix(prefix);
       if (loc) {
@@ -95,12 +103,19 @@ async function fetchAndGeocodeLogEntries(): Promise<LocatedLogQso[]> {
 export function useLoggedQsoLocations(
   enabled = true,
 ): LogQsoOverlayData | null {
+  const todayOnly = useMapStore((s) => s.layoutMode === "hamclock");
+  const contestId = useContestStore((s) => s.activeSession?.id ?? null);
   const homeLat = useProfileStore((s) => s.station?.lat);
   const homeLon = useProfileStore((s) => s.station?.lon);
 
   const { data: qsos } = useQuery({
-    queryKey: LOG_QSOS_QUERY_KEY,
-    queryFn: fetchAndGeocodeLogEntries,
+    queryKey: [
+      ...LOG_QSOS_QUERY_KEY,
+      todayOnly ? (contestId ?? "today") : "all",
+    ],
+    queryFn: () => fetchAndGeocodeLogEntries(todayOnly, contestId),
+    refetchInterval: todayOnly ? 5000 : false,
+    refetchIntervalInBackground: todayOnly,
     enabled: enabled && homeLat != null && homeLon != null,
     staleTime: 60_000,
     gcTime: 5 * 60_000,

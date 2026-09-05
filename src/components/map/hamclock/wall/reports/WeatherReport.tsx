@@ -112,16 +112,19 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
   const verdict = alertHero
     ? (worst?.severity.toUpperCase() ?? "ACTIVE")
     : focus === "alerts"
-      ? "ALL CLEAR"
+      ? "NONE MAPPED"
       : condition;
   // The NWS alert set is nationwide, so its severity should only colour the
   // hero when that alert set is the thing being shown — a local Open-Meteo
   // reading has nothing to do with an alert active somewhere else in the US.
+  // `useWeatherAlerts` drops alerts without mappable geometry, so an empty
+  // list is not proof nothing is in force — the tone stays neutral rather
+  // than claiming an all-clear the feed cannot support.
   const tone =
     focus === "alerts"
       ? worst
         ? SEVERITY_TONE[worst.severity]
-        : "hc-good"
+        : "hc-dim-text"
       : "hc-info-text";
 
   const facts: WallReportFact[] = [
@@ -207,7 +210,7 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
           {alertError ? (
             <p className="hcr-note">NWS alert feed unreachable. Retrying.</p>
           ) : ranked.length === 0 ? (
-            <p className="hcr-empty hc-good">ALL CLEAR</p>
+            <p className="hcr-empty hc-dim-text">NONE MAPPED</p>
           ) : (
             <div className="hcr-list">
               {ranked.slice(0, MAX_ALERTS).map((alert) => (

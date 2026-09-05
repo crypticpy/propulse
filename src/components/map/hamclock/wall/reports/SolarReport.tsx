@@ -186,8 +186,16 @@ export function SolarReport({ open, onClose, focus }: SolarReportProps) {
   const bz = mag?.bz_gsm ?? null;
   const xrayLabel = xray ? (xrayClass(xray.flux) ?? "—") : "—";
 
+  // The footer/strip timestamp must describe the feed the focused tile is
+  // actually reading, not always the Kp resource — a wind-focused report
+  // timed off Kp can read minutes stale against the plasma/mag data it draws.
   const observedAt =
-    kpQuery.data?.envelope.observedAt ?? xrayQuery.data?.envelope.observedAt;
+    focus === "xray"
+      ? xrayQuery.data?.envelope.observedAt
+      : focus === "wind"
+        ? (plasmaQuery.data?.envelope.observedAt ??
+          magQuery.data?.envelope.observedAt)
+        : kpQuery.data?.envelope.observedAt;
   const now = useMemo(() => {
     const stamp = observedAt ? Date.parse(observedAt) : NaN;
     return Number.isFinite(stamp) ? stamp : Date.now();

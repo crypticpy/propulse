@@ -2,7 +2,7 @@ import { Fragment, useMemo } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useKIndex } from "@/hooks/useSolarData";
-import { useUTCClock } from "@/hooks/useUTCClock";
+import { useMapDisplayTime } from "@/hooks/useUTCClock";
 import { getMUFAtLocation } from "@/lib/api/muf";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useMapStore } from "@/stores/mapStore";
@@ -51,22 +51,28 @@ export interface ForecastReportProps {
  * disagree.
  */
 export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
-  const { status, cells, hour, targetLabel, mode } = useWallReliability();
+  const { status, cells, hour, hourIndex, targetLabel, mode } =
+    useWallReliability();
   const location = useActiveLocation();
   const sfi = useCurrentSFI();
   const kIndexQuery = useKIndex();
   const timeOffset = useMapStore((state) => state.timeOffset);
-  const wallTime = useUTCClock(60_000);
+  const absoluteTime = useMapStore((state) => state.absoluteTime);
+  // Same derivation `useWallReliability` uses, so the MUF instant and the
+  // matrix it sits beside always describe the same moment.
+  const displayTime = useMapDisplayTime(timeOffset, absoluteTime, 60_000);
 
   const kp = kIndexQuery.data?.[kIndexQuery.data.length - 1]?.kp_index ?? null;
 
   const muf = useMemo(() => {
     if (!location || sfi == null) return null;
-    const at = new Date(wallTime.getTime() + timeOffset * 60 * 60 * 1000);
-    return getMUFAtLocation(location.lat, location.lon, sfi, at);
-  }, [location, sfi, wallTime, timeOffset]);
+    return getMUFAtLocation(location.lat, location.lon, sfi, displayTime);
+  }, [location, sfi, displayTime]);
 
-  const best = status === "ready" ? wallBestBand(cells, hour) : null;
+  // `cells` is keyed by absolute `hourIndex` (whole UTC hours since epoch),
+  // not the 0–23 clock hour, so the hero and matrix must look up by that key.
+  const dayStartIndex = hourIndex - hour;
+  const best = status === "ready" ? wallBestBand(cells, hourIndex) : null;
 
   const facts: WallReportFact[] = [
     { label: "MUF", value: muf === null ? "—" : `${muf.toFixed(1)} MHz` },
@@ -156,7 +162,11 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
                   {band}
                 </span>
                 {HOURS.map((column) => {
-                  const score = wallReliabilityScore(cells, band, column);
+                  const score = wallReliabilityScore(
+                    cells,
+                    band,
+                    dayStartIndex + column,
+                  );
                   const dead = score == null || score <= 0;
                   return (
                     <span
@@ -170,12 +180,41 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
               </Fragment>
             ))}
           </div>
-          <p className="sr-only">
-            {WALL_FORECAST_BANDS.map((band) => {
-              const score = wallReliabilityScore(cells, band, hour);
-              return `${band} now ${score == null ? "no data" : `${score} percent`}`;
-            }).join(". ")}
-          </p>
+          {/* The visual matrix above is decorative (`aria-hidden`); this table
+              is the one assistive tech actually reads, so every cell — not
+              just the current hour — needs to be reachable. */}
+          <table className="sr-only">
+            <caption>24 hour reliability by band, UTC</caption>
+            <thead>
+              <tr>
+                <th scope="col">Band</th>
+                {HOURS.map((column) => (
+                  <th key={column} scope="col">
+                    {`${String(column).padStart(2, "0")}Z`}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {WALL_FORECAST_BANDS.map((band) => (
+                <tr key={band}>
+                  <th scope="row">{band}</th>
+                  {HOURS.map((column) => {
+                    const score = wallReliabilityScore(
+                      cells,
+                      band,
+                      dayStartIndex + column,
+                    );
+                    return (
+                      <td key={column}>
+                        {score == null || score <= 0 ? "shut" : `${score}%`}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
         <p className="hcr-note">{IDLE_COPY[status]}</p>

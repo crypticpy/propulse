@@ -121,11 +121,11 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
           </dl>
         </div>
         <div className="hcr-box">
-          <h4>Active alerts · {alerts.length}</h4>
+          <h4>Active alerts · {alerts.length} · mapped only</h4>
           {alertError ? (
             <p className="hcr-note">NWS alert feed unreachable. Retrying.</p>
           ) : ranked.length === 0 ? (
-            <p className="hcr-empty hc-good">ALL CLEAR</p>
+            <p className="hcr-empty hc-dim-text">NO MAPPED ALERTS</p>
           ) : (
             <div className="hcr-list">
               {ranked.slice(0, MAX_ALERTS).map((alert) => (

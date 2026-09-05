@@ -202,6 +202,45 @@ describe("ForecastReport muf focus", () => {
   });
 });
 
+describe("ForecastReport reliability matrix", () => {
+  it("keys the hero and matrix cells by absolute hourIndex, not the clock hour", () => {
+    // `hourIndex` (whole UTC hours since epoch) is deliberately far from
+    // `hour` (0-23) so a lookup that mistakenly uses `hour` as the cache key
+    // finds nothing and this test catches it.
+    const hour = 13;
+    const hourIndex = 500_000;
+    const cells = new Map([
+      [
+        `20m:${hourIndex}`,
+        {
+          band: "20m" as const,
+          hour,
+          score: 82,
+          snrEstimate: 0,
+          confidence: 50,
+          status: "good" as const,
+        },
+      ],
+    ]);
+    mocks.reliability.mockReturnValue({
+      status: "ready",
+      cells,
+      hour,
+      hourIndex,
+      targetLabel: "Tokyo",
+      mode: "SSB",
+    });
+
+    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("82%");
+    const litDots = dialog.querySelectorAll(".hcf-dot:not(.hcf-dot--off)");
+    expect(litDots.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe("SolarReport wind focus", () => {
   it("uses the worse of Bz and wind-speed severity for the wind hero", () => {
     // Bz is northward (good), but the stream is high-speed (bad) — the

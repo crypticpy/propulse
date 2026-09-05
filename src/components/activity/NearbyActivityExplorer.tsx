@@ -21,6 +21,7 @@ import { useMapStore } from "@/stores/mapStore";
 import type { LiveSpot } from "@/types/livespot";
 
 interface NearbyActivityExplorerProps {
+  publicOnly?: boolean;
   /** Home supplies the active setup location; other callers keep their QTH. */
   locationOverride?: { lat: number; lon: number; grid: string } | null;
   className?: string;
@@ -138,6 +139,7 @@ export function NearbyActivityExplorer({
   className = "",
   onClose,
   locationOverride,
+  publicOnly = false,
 }: NearbyActivityExplorerProps) {
   const navigate = useNavigate();
   const defaultLocation = useActiveLocation();
@@ -146,6 +148,7 @@ export function NearbyActivityExplorer({
     grid: activeLocation?.grid,
     enabled: Boolean(activeLocation),
     deduplicate: false,
+    ...(publicOnly ? { sources: ["PSKReporter", "RBN"] as ("PSKReporter" | "RBN")[] } : {}),
   });
   const clusterSpots = useDXStore((state) => state.spots);
   const setTarget = useMapStore((state) => state.setTarget);
@@ -175,9 +178,9 @@ export function NearbyActivityExplorer({
   const combinedSpots = useMemo<LiveSpot[]>(
     () => [
       ...live.spots,
-      ...clusterSpots.map((spot) => ({ ...spot, source: "Cluster" as const })),
+      ...(publicOnly ? [] : clusterSpots).map((spot) => ({ ...spot, source: "Cluster" as const })),
     ],
-    [clusterSpots, live.spots],
+    [clusterSpots, live.spots, publicOnly],
   );
   const results = useMemo(() => {
     if (!activeLocation || (mode === "frequency" && frequencyKHz === null)) {

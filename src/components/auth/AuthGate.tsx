@@ -56,6 +56,9 @@ export function AuthGate({ children }: AuthGateProps) {
     return <AuthLoadingScreen />;
   }
 
+  // Home is a public briefing. Recovery must still reach the password form.
+  if (pathname === "/" && !isRecoveryMode) return <>{children}</>;
+
   // Recovery creates a temporary authenticated session, but the password form
   // must remain visible until updatePassword completes.
   if (isRecoveryMode || !isAuthenticated) {

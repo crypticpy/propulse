@@ -20,11 +20,11 @@ Scope: all three implementation passes in [the elevation plan](../../plans/SOLAR
 
 ## Release verification
 
-The release branch is based on current main (`20b47e34`, after Shack PR #148). It retains the newer shared DX Wizard session and map clock. Solar target/mode/time hydration is applied to that session, including recommendation, path geometry, and opening-window calculations. URL synchronization preserves the router handoff state. Future-time advice does not display a live-band correlation as if it applied to the selected date.
+The release branch started from `20b47e34` (Shack PR #148) and integrates `a347f2cb` (bundle improvements in PR #150). It retains the newer shared DX Wizard session and map clock. Solar target/mode/time hydration is applied to that session, including recommendation, path geometry, and opening-window calculations. URL synchronization preserves the router handoff state. Future-time advice does not display a live-band correlation as if it applied to the selected date.
 
 - `npm run lint`: passed.
 - `npm test -- --reporter=dot --silent`: 248 files, 1,490 tests passed, including Solar, destination, and existing DX Wizard tests. The old local radar test mismatch is absent on current main.
-- `npm run build` and `npm run check:bundles`: passed against the unchanged budgets on main, including a build with the configured public client environment. App entry 805.94/216.60 KiB raw/gzip (850/240 budget); SolarPulse 57.37/16.92 KiB (60/18); precache 17 entries / 2510.60 KiB (17/2700).
+- `npm run build` and `npm run check:bundles`: passed against the unchanged budgets on main, including a build with the configured public client environment. The release remains within the existing app-entry, SolarPulse, stylesheet, and 17-entry PWA precache limits; no budgets were raised.
 - Deterministic Playwright: 18 passed; 4 intentional viewport-specific skips. The isolated managed server ran from this release checkout at 127.0.0.1:5182 and stopped afterward.
 - Browser fixtures use America/Chicago, blocked service workers, large shared text, and reduced motion. Checked 390×844, 834×1194, 1440×1000, and 2560×1440. Provider images and charts were loaded before captures.
 - Cold mobile gates retain six essential feeds, fewer than 250 main descendants, zero charts/tables/images until expanded, 44px buttons, and no horizontal page overflow.

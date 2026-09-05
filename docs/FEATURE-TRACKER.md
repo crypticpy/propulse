@@ -1,7 +1,7 @@
 # Propulse Feature Tracker
 
 > Master reference of all planned features, their delivery status, and remaining gaps.
-> Updated 2026-02-11 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
+> Updated 2026-09-05: added section 13 (HamClock Wall) from `docs/designs/hamclock-wall-spec.md`. Earlier sections last cross-referenced 2026-02-11.
 
 ---
 
@@ -21,9 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| **Grand Total**                         | **264**   | **7**   | **8**       | **1**    | **280** |
+| HamClock Wall (2026-09-05)              | 15        | 4       | 36          | 0        | 55      |
+| **Grand Total**                         | **279**   | **11**  | **44**      | **1**    | **335** |
 
-**Delivery rate: 94% delivered, 3% partial, 3% not started**
+**Delivery rate: 83% delivered, 3% partial, 13% not started**
 
 ---
 
@@ -614,23 +615,101 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 ---
 
+## 13. HamClock Wall (2026-09-05)
+
+_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
+
+### Delivered (15)
+
+| ID    | Feature                                                      | Notes                                       |
+| ----- | ------------------------------------------------------------ | ------------------------------------------- |
+| HW-01 | Wall shell: full-bleed map, header, paged rails, pager       | PR #167, `wall/HamClockWall.tsx`            |
+| HW-02 | Theme token layer and pulse theme                            | PR #167, `src/styles/hamclock-themes.css`   |
+| HW-03 | Display store: density, theme, units, page index, migrations | PR #167, #169, `hamclockDisplayStore` v3    |
+| HW-04 | Unit resolution (auto / imperial / metric)                   | PR #167, `src/lib/hamclock/units.ts`        |
+| HW-05 | Keyboard paging and footer pager                             | PR #167                                     |
+| HW-06 | Sixteen live tiles                                           | PR #169, `wall/tiles/index.ts`              |
+| HW-07 | Wall as default density                                      | PR #169                                     |
+| HW-08 | Page taxonomy v1 (five pages)                                | PR #169, `wall/pages.ts`                    |
+| HW-09 | Report modal shell on `AccessibleDialog`                     | PR #170                                     |
+| HW-10 | Six reports wired to thirteen tiles                          | PR #170                                     |
+| HW-12 | Classic and brass themes, picker, fonts on demand            | PR #171                                     |
+| HW-13 | Wall controls: map content, home region, Escape scoping      | PR #171                                     |
+| HW-14 | Kiosk scene HamClock pinning                                 | PR #171, `src/lib/kiosk/applySceneToMap.ts` |
+| HW-15 | Accessibility baseline: sr-only tables, focus return         | PR #170, #171                               |
+| HW-16 | Style guide for tiles, reports and settings                  | `docs/guides/hamclock-tile-system.md`       |
+
+### Partial (4)
+
+| ID    | Feature                                      | Gap                                                                                                                                                        |
+| ----- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HW-17 | Forecast horizon                             | 24 h from the two-day physics reliability forecast; FutureCast horizons not wired into the wall yet                                                        |
+| HW-18 | Weather alerts coverage                      | Nationwide feed, mapped geometry only                                                                                                                      |
+| HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
+| HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
+
+### Not Started (36)
+
+| ID    | Feature                                                          | Notes                                                |
+| ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
+| HW-20 | Auto-page dwell mode                                             | Only kiosk scenes rotate pages today                 |
+| HW-21 | Layer registry with provenance text                              | Feeds settings, help, status line                    |
+| HW-22 | Header parity: WALL/DESK toggle and reduced top rail             | Production bug: no way back to wall                  |
+| HW-23 | Layers popover viewport clamp and trigger move                   | Production bug: menu off screen                      |
+| HW-24 | Desk on wall tiles, paged, scale token                           | Retires accordion sidebar                            |
+| HW-25 | Desk cleanup: DE station block, duplicate weather, DX target     |                                                      |
+| HW-26 | Centered settings panel with tabs                                | Replaces all header popouts                          |
+| HW-27 | User-selected rails (Pages & Tiles tab)                          | `railLayout` model                                   |
+| HW-28 | World clocks bar                                                 | Open decision D1                                     |
+| HW-29 | Trend charts in reports; chart components read theme tokens      | Reuse solar chart components                         |
+| HW-30 | Report pin                                                       |                                                      |
+| HW-31 | Best Band Now ranked table report                                |                                                      |
+| HW-32 | Lightning bolt glyph (2D and 3D)                                 | Production bug: white bloom dots                     |
+| HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                     |
+| HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                     |
+| HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                       |
+| HW-36 | Widget config contract and `hamclockWidgetConfigStore`           | Segmented choices, no scroll, per-tile persistence   |
+| HW-37 | News feeds config dialog (first configurable widget)             | Over `feedStore`; verify URLs via `api/feeds/rss.ts` |
+| HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts      | One PR per widget                                    |
+| HW-39 | Map style chooser on the settings Map tab                        | Maps `mapStyle` + tile provider + night lights       |
+| HW-40 | Weather page with seven weather tiles                            | Spec section 16                                      |
+| HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details |                                                      |
+| HW-42 | Radar report with 2D and 3D scrubber                             |                                                      |
+| HW-43 | Lightning report                                                 | After HW-32                                          |
+| HW-44 | Weather configuration dialog                                     | HW-36 contract                                       |
+| HW-45 | Weather layers category on the Layers tab                        | HW-21 registry                                       |
+| HW-46 | AtmosPulse 2D layers available in 2D and 3D on the map           | Twelve layers                                        |
+| HW-47 | Monitored regions and RIM scores as a report                     |                                                      |
+| HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
+| HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
+| HW-50 | Duplicate guard: store validation and picker grey-out            | Owner bug: duplicate panels                          |
+| HW-51 | Hero text fit: clamp, container units, length classes, tests     | Owner bug: text clips                                |
+| HW-52 | Use presets: five shipped, user-saved                            | Spec section 7                                       |
+| HW-53 | No radio dependency: station tiles degrade to a neutral state    | Spec section 7                                       |
+| HW-54 | Both rails follow the page; de-duplicated shipped pages          | Owner: right rail locked                             |
+| HW-55 | Persist a tile provider id in `mapStore`                         | Esri / Mapbox and OSM / CARTO selectable; B6         |
+
+---
+
 ## Source Documents Index
 
-| Category     | File                                                           | Description                                |
-| ------------ | -------------------------------------------------------------- | ------------------------------------------ |
-| Requirements | `docs/requirements/2d-map-feature-parity-prd.md`               | 2D map feature parity with 3D globe        |
-| Requirements | `docs/requirements/CONTEST-MODE-PROPSPHERE-INTEGRATION-PRD.md` | Contest mode in PropSphere map context     |
-| Requirements | `docs/requirements/MOBILE-DESIGN-PLAN.md`                      | Mobile-first UI redesign                   |
-| Plans        | `docs/plans/IMPLEMENTATION-PLAN.md`                            | Master 37-feature implementation plan      |
-| Plans        | `docs/plans/IMPLEMENTATION-PLAN-PHASE1.md`                     | Phase 1 foundation (Vite + React + Solar)  |
-| Reviews      | `docs/reviews/UI-REVIEW-2026-02.md`                            | UI review with persona analysis            |
-| Reviews      | `docs/reviews/DX-WIZARD-EXPERT-REVIEW.md`                      | Expert review: 23 features + 14 QoL        |
-| Reviews      | `docs/reviews/CONTEST-MODE-QA.md`                              | Contest mode QA checklist                  |
-| Guides       | `docs/guides/CONTEST-MODE-USER-GUIDE.md`                       | Contest mode user documentation            |
-| Guides       | `docs/guides/CONTEST-BRIDGE-PROTOCOL.md`                       | WebSocket bridge protocol spec             |
-| Internal     | `.claude/plans/prd-qol-and-pwa-features.md`                    | QoL (20 items) + PWA (7 items) PRD         |
-| Internal     | `.claude/plans/deferred-bugs.md`                               | 13 deferred bugs from audit                |
-| Plans        | `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md`               | Location-aware propagation model (3-level) |
-| Plans        | `docs/plans/SPOT-WATCH-PRD.md`                                 | Spot Watch system PRD (4 phases)           |
-| Plans        | `docs/plans/GLOBE-TOOLBAR-MODES-REDESIGN.md`                   | Globe toolbar & modes redesign plan        |
-| Plans        | `docs/plans/OFFLINE-FIRST-QSO-LOGGING.md`                      | Offline-first QSO logging PRD              |
+| Category     | File                                                           | Description                                 |
+| ------------ | -------------------------------------------------------------- | ------------------------------------------- |
+| Requirements | `docs/requirements/2d-map-feature-parity-prd.md`               | 2D map feature parity with 3D globe         |
+| Requirements | `docs/requirements/CONTEST-MODE-PROPSPHERE-INTEGRATION-PRD.md` | Contest mode in PropSphere map context      |
+| Requirements | `docs/requirements/MOBILE-DESIGN-PLAN.md`                      | Mobile-first UI redesign                    |
+| Plans        | `docs/plans/IMPLEMENTATION-PLAN.md`                            | Master 37-feature implementation plan       |
+| Plans        | `docs/plans/IMPLEMENTATION-PLAN-PHASE1.md`                     | Phase 1 foundation (Vite + React + Solar)   |
+| Reviews      | `docs/reviews/UI-REVIEW-2026-02.md`                            | UI review with persona analysis             |
+| Reviews      | `docs/reviews/DX-WIZARD-EXPERT-REVIEW.md`                      | Expert review: 23 features + 14 QoL         |
+| Reviews      | `docs/reviews/CONTEST-MODE-QA.md`                              | Contest mode QA checklist                   |
+| Guides       | `docs/guides/CONTEST-MODE-USER-GUIDE.md`                       | Contest mode user documentation             |
+| Guides       | `docs/guides/CONTEST-BRIDGE-PROTOCOL.md`                       | WebSocket bridge protocol spec              |
+| Internal     | `.claude/plans/prd-qol-and-pwa-features.md`                    | QoL (20 items) + PWA (7 items) PRD          |
+| Internal     | `.claude/plans/deferred-bugs.md`                               | 13 deferred bugs from audit                 |
+| Plans        | `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md`               | Location-aware propagation model (3-level)  |
+| Plans        | `docs/plans/SPOT-WATCH-PRD.md`                                 | Spot Watch system PRD (4 phases)            |
+| Plans        | `docs/plans/GLOBE-TOOLBAR-MODES-REDESIGN.md`                   | Globe toolbar & modes redesign plan         |
+| Plans        | `docs/plans/OFFLINE-FIRST-QSO-LOGGING.md`                      | Offline-first QSO logging PRD               |
+| Designs      | `docs/designs/hamclock-wall-spec.md`                           | HamClock wall/desk spec + feature register  |
+| Guides       | `docs/guides/hamclock-tile-system.md`                          | HamClock tile, report, settings style guide |

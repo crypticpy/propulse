@@ -1,5 +1,5 @@
 {
-  "status": "concepts for review; not implemented or approved as final UI",
+  "status": "owner-approved visual direction; raster concepts are not implemented screens; implementation review tracked in #219",
   "generation": "built-in ImageGen",
   "source_commit": "1a70503bdff8a0b37bc071c08aeffeae054262ba",
   "assets": [

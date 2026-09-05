@@ -183,7 +183,7 @@
 }
 .su-button--primary {
   background: var(--su-accent);
-  border-color: var(--su-accent);
+  border-color: var(--su-accent-edge);
   color: var(--su-on-accent) !important;
   font-weight: 600;
 }
@@ -314,7 +314,7 @@
 }
 .su-switch input:checked {
   background: var(--su-accent);
-  border-color: var(--su-accent);
+  border-color: var(--su-accent-edge);
 }
 .su-switch input:checked::before {
   transform: translateX(1.05rem);
@@ -351,7 +351,7 @@
 .su-choice input:checked + span {
   color: var(--su-on-accent);
   background: var(--su-accent);
-  border-color: var(--su-accent);
+  border-color: var(--su-accent-edge);
 }
 .su-choice input:focus-visible + span {
   outline: 2px solid var(--su-info);
@@ -520,7 +520,7 @@
 }
 .su-nav a[aria-current="page"] {
   color: var(--su-accent-text);
-  border-color: var(--su-accent);
+  border-color: var(--su-accent-edge);
 }
 .su-tabs [role="tablist"] {
   display: flex;
@@ -539,7 +539,7 @@
 }
 .su-tabs [role="tab"][aria-selected="true"] {
   color: var(--su-accent-text);
-  border-color: var(--su-accent);
+  border-color: var(--su-accent-edge);
 }
 .su-tabs [role="tabpanel"] {
   padding-top: 1.5rem;
@@ -652,7 +652,7 @@
   min-width: 0;
 }
 .su-equipment-tile[aria-pressed="true"] {
-  outline: 2px solid var(--su-accent);
+  outline: 2px solid var(--su-accent-edge);
   outline-offset: 1px;
 }
 .su-equipment-tile > svg {

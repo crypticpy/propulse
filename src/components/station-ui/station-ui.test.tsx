@@ -17,6 +17,7 @@ import {
 describe("station design primitives", () => {
   it("keeps text and custom accent labels legible across every theme", () => {
     for (const [theme, palette] of Object.entries(stationPalettes)) {
+      expect(stationContrast(palette.line, palette.panel)).toBeGreaterThanOrEqual(3);
       for (const background of [palette.canvas, palette.panel, palette.input]) {
         for (const foreground of [
           palette.text,

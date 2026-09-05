@@ -14,7 +14,7 @@ export const stationPalettes = {
     input: "#111624",
     text: "#e2e8f0",
     muted: "#a0abba",
-    line: "#556176",
+    line: "#637088",
     info: "#85c4d0",
     success: "#8bdbb0",
     warning: "#f5cf79",
@@ -93,6 +93,7 @@ export function stationTokens(
     ),
     "--su-accent": accent,
     "--su-on-accent": onAccent,
+    "--su-accent-edge": stationContrast(accent, palette.panel) >= 3 ? accent : palette.info,
     // A custom brand color is never assumed to be legible as text on a panel.
     "--su-accent-text":
       stationContrast(accent, palette.panel) >= 4.5 ? accent : palette.info,

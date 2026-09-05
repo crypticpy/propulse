@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 25        | 4       | 26          | 0        | 55      |
-| **Grand Total**                         | **289**   | **11**  | **34**      | **1**    | **335** |
+| HamClock Wall (2026-09-05)              | 26        | 4       | 25          | 0        | 55      |
+| **Grand Total**                         | **290**   | **11**  | **33**      | **1**    | **335** |
 
-**Delivery rate: 86% delivered, 3% partial, 10% not started**
+**Delivery rate: 87% delivered, 3% partial, 10% not started**
 
 ---
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board._
 
-### Delivered (25)
+### Delivered (26)
 
 | ID    | Feature                                                       | Notes                                       |
 | ----- | ------------------------------------------------------------- | ------------------------------------------- |
@@ -648,6 +648,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-27 | User-selected rails (Pages & Tiles tab)                       | PR #234, `railLayout` model                 |
 | HW-52 | Use presets: five shipped, user-saved                         | PR #234, `wall/presets.ts`                  |
 | HW-53 | No radio dependency: station tiles degrade to a neutral state | PR #234, `SET HOME IN SETTINGS`             |
+| HW-20 | Auto-page dwell mode                                          | PR #TBD, `useWallAutoPage.ts`               |
 
 ### Partial (4)
 
@@ -658,11 +659,10 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-11 | Honest empty states and freshness in reports | Empty states shipped (PR #170); the source · updated · age footer is not met on every report (`WeatherReport.tsx` reuses the `updated` slot); closed by B9 |
 | HW-19 | SDR decodes tile                             | Idle until a shared receiver exists                                                                                                                        |
 
-### Not Started (26)
+### Not Started (25)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
-| HW-20 | Auto-page dwell mode                                             | Only kiosk scenes rotate pages today                 |
 | HW-21 | Layer registry with provenance text                              | Feeds settings, help, status line                    |
 | HW-24 | Desk on wall tiles, paged, scale token                           | Retires accordion sidebar                            |
 | HW-25 | Desk cleanup: DE station block, duplicate weather, DX target     |                                                      |

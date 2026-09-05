@@ -79,7 +79,17 @@ export async function installSolarFixtures(page: Page, options: { firstVisit?: b
   let failedDataPath: string | null = null;
   let failDrapImage = false;
   await page.addInitScript((options) => {
-    if (!options.firstVisit) localStorage.setItem("propulse-welcome-seen", "true");
+    if (!options.firstVisit) {
+      localStorage.setItem("propulse-welcome-seen", "true");
+      // Declare the returning operator's location explicitly. Production builds
+      // do not run the developer seed that previously made planner checks pass.
+      const profile = JSON.parse(localStorage.getItem("propulse-profile") ?? "{}");
+      const home = { id: "solar-fixture-home", name: "Home QTH", grid: "DM79", lat: 39.5, lon: -105, type: "home", createdAt: new Date().toISOString() };
+      localStorage.setItem("propulse-profile", JSON.stringify({
+        ...profile,
+        state: { ...profile.state, station: { callsign: "N0TEST", grid: home.grid, lat: home.lat, lon: home.lon, homeLocationId: home.id, activeLocationId: null, savedLocations: [home] } },
+      }));
+    }
     localStorage.setItem("propulse-onboarding-completed", "true");
     localStorage.setItem(
       "propulse-settings",

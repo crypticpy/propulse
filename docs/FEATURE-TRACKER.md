@@ -638,16 +638,16 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-14 | Kiosk scene HamClock pinning                                 | PR #171, `src/lib/kiosk/applySceneToMap.ts`                                                                      |
 | HW-15 | Accessibility baseline: sr-only tables, focus return         | PR #170, #171                                                                                                    |
 | HW-16 | Style guide for tiles, reports and settings                  | `docs/guides/hamclock-tile-system.md`                                                                            |
-| HW-21 | Layer registry with provenance text                          | PR (B6), `src/lib/map/layerRegistry.ts`; feeds settings and help — no distinct wall status line component exists |
+| HW-21 | Layer registry with provenance text                          | PR #222, `src/lib/map/layerRegistry.ts`; feeds settings and help — no distinct wall status line component exists |
 | HW-22 | Header parity: WALL/DESK toggle and reduced top rail         | PR #216                                                                                                          |
 | HW-23 | Layers popover viewport clamp and trigger move               | PR #216                                                                                                          |
 | HW-26 | Centered settings panel with tabs                            | PR #221                                                                                                          |
 | HW-32 | Lightning bolt glyph (2D and 3D)                             | PR #217, `src/lib/map/lightningGlyph.ts`                                                                         |
-| HW-39 | Map style chooser on the settings Map tab                    | PR (B6), `wall/settings/MapTab.tsx`                                                                              |
+| HW-39 | Map style chooser on the settings Map tab                    | PR #222, `wall/settings/MapTab.tsx`                                                                              |
 | HW-50 | Duplicate guard: store validation and picker grey-out        | PR #218, `assertUniqueTilesPerPage`                                                                              |
 | HW-51 | Hero text fit: clamp, container units, length classes, tests | PR #218, `HamClockTile.tsx`, `tokens.ts`                                                                         |
 | HW-54 | Both rails follow the page; de-duplicated shipped pages      | PR #218, `hamclockDisplayStore.ts`                                                                               |
-| HW-55 | Persist a tile provider id in `mapStore`                     | PR (B6), Esri / Mapbox and OSM / CARTO selectable                                                                |
+| HW-55 | Persist a tile provider id in `mapStore`                     | PR #222, Esri / Mapbox and OSM / CARTO selectable                                                                |
 
 ### Partial (4)
 

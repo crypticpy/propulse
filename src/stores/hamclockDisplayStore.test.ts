@@ -83,10 +83,26 @@ it("migrates a v1 session to desk density, pulse theme, auto units and page 0", 
   expect(display.getState()).toMatchObject({
     textSize: "lg",
     hiddenPanels: ["moon"],
-    density: "desk",
+    density: "wall",
     theme: "pulse",
     units: "auto",
     pageIndex: { left: 0, right: 0 },
+  });
+});
+
+it("moves a pre-wall v2 session onto the new wall default", async () => {
+  sessionStorage.setItem(
+    "propulse-hamclock-display",
+    JSON.stringify({
+      version: 2,
+      state: { density: "desk", theme: "brass", units: "metric" },
+    }),
+  );
+  await display.persist.rehydrate();
+  expect(display.getState()).toMatchObject({
+    density: "wall",
+    theme: "brass",
+    units: "metric",
   });
 });
 
@@ -94,7 +110,7 @@ it("rejects invalid persisted wall options", async () => {
   sessionStorage.setItem(
     "propulse-hamclock-display",
     JSON.stringify({
-      version: 2,
+      version: 3,
       state: {
         density: "kiosk",
         theme: "neon",
@@ -105,11 +121,20 @@ it("rejects invalid persisted wall options", async () => {
   );
   await display.persist.rehydrate();
   expect(display.getState()).toMatchObject({
-    density: "desk",
+    density: "wall",
     theme: "pulse",
     units: "auto",
     pageIndex: { left: 0, right: 0 },
   });
+});
+
+it("keeps an explicit desk choice made after the wall default shipped", async () => {
+  sessionStorage.setItem(
+    "propulse-hamclock-display",
+    JSON.stringify({ version: 3, state: { density: "desk" } }),
+  );
+  await display.persist.rehydrate();
+  expect(display.getState().density).toBe("desk");
 });
 
 it("wraps stepPage in both directions and keeps rails independent", () => {

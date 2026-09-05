@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockWall } from "./HamClockWall";
@@ -29,6 +30,22 @@ vi.mock("@/stores/userStore", () => ({
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
     selector({ spotFilters: { bands: [], modes: [] } }),
+}));
+// The solar and logbook tiles are exercised in tiles.test.tsx; here they only
+// need to mount without opening a network or IndexedDB connection.
+vi.mock("@/hooks/useSolarResource", () => ({
+  useSolarResource: () => ({ data: undefined, isError: false, isPending: true }),
+}));
+vi.mock("@/hooks/useLocalWeather", () => ({
+  useLocationWeather: () => ({
+    weather: null,
+    isLoading: true,
+    error: null,
+    hasLocation: true,
+  }),
+}));
+vi.mock("@/lib/hamclock/recentContacts", () => ({
+  readHamClockContacts: vi.fn(async () => []),
 }));
 vi.mock("@/components/map/DXNewsTicker", () => ({
   DXNewsTicker: () => <div data-testid="dx-news-ticker" />,
@@ -66,10 +83,15 @@ describe("HamClockWall", () => {
   });
 
   function renderWall() {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     return render(
-      <HamClockWall>
-        <div data-testid="map-stage" />
-      </HamClockWall>,
+      <QueryClientProvider client={client}>
+        <HamClockWall>
+          <div data-testid="map-stage" />
+        </HamClockWall>
+      </QueryClientProvider>,
     );
   }
 

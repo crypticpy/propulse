@@ -12,6 +12,8 @@ export interface LocalWeatherData {
   weatherCode: number; // WMO weather code
   isDay: boolean;
   precipitation: number; // mm
+  /** Today's maximum chance of precipitation, %; null when not returned. */
+  precipitationProbability: number | null;
   humidity: number; // %
   pressure: number; // hPa
 }
@@ -65,12 +67,16 @@ export async function fetchLocalWeather(
       "surface_pressure",
     ].join(","),
   );
+  // Today's rain chance for the wall weather tile; daily needs a timezone.
+  url.searchParams.set("daily", "precipitation_probability_max");
+  url.searchParams.set("forecast_days", "1");
   url.searchParams.set("timezone", "auto");
 
   const res = await fetch(url.toString(), { signal });
   if (!res.ok) throw new Error(`Open-Meteo error: ${res.status}`);
   const data = await res.json();
   const c = data.current;
+  const rainChance = data.daily?.precipitation_probability_max?.[0];
 
   return {
     timezone: typeof data.timezone === "string" ? data.timezone : undefined,
@@ -80,6 +86,10 @@ export async function fetchLocalWeather(
     weatherCode: c.weather_code,
     isDay: c.is_day === 1,
     precipitation: c.precipitation,
+    precipitationProbability:
+      typeof rainChance === "number" && Number.isFinite(rainChance)
+        ? rainChance
+        : null,
     humidity: c.relative_humidity_2m,
     pressure: c.surface_pressure,
   };

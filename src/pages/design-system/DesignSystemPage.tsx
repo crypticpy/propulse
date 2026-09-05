@@ -1,7 +1,7 @@
 import { useTextScale } from "@/hooks/useTextScale";
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { ArrowRight, Plus, Radio, Settings2 } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { ArrowRight, Plus, Settings2 } from "lucide-react";
 import {
   EquipmentForm,
   type EquipmentFormValues,
@@ -41,7 +41,8 @@ import {
   TextAreaField,
   TextField,
 } from "@/components/station-ui";
-import type { StationDensity } from "@/components/station-ui";
+import { Header } from "@/components/layout/Header";
+import type { StationDensity, StationTextSize } from "@/components/station-ui";
 import type { ThemeId } from "@/lib/themes";
 import "./design-system.css";
 
@@ -50,203 +51,208 @@ export function DesignSystemPage() {
   const { pathname } = useLocation();
   const equipment = pathname === "/design-system/add-equipment";
   const [theme, setTheme] = useState<ThemeId>("dark");
+  const [textSize, setTextSize] = useState<StationTextSize>("standard");
   const [density, setDensity] = useState<StationDensity>("comfortable");
   const [accent, setAccent] = useState("#ff6b35");
   const [examples, setExamples] = useState<EquipmentFormValues[]>([]);
   const [selected, setSelected] = useState<EquipmentFormValues | null>(null);
   return (
-    <StationProvider
-      theme={theme}
-      density={density}
-      accent={accent}
-      className="station-review"
-    >
-      <a href="#review-main" className="review-skip">
-        Skip to content
-      </a>
-      <header className="review-masthead">
-        <Link to="/" className="review-brand">
-          <Radio aria-hidden="true" />
-          <span>
-            Pro<span>Pulse</span>
-          </span>
-        </Link>
-        <Inline>
-          <Badge>Station design library</Badge>
-          <ActionLink
-            href="https://github.com/crypticpy/propulse/issues/219"
-            variant="quiet"
-          >
-            Delivery #219 <ArrowRight aria-hidden="true" size={16} />
-          </ActionLink>
-        </Inline>
-      </header>
-      <div className="review-shell">
-        <section className="review-toolbar" aria-label="Review controls">
-          <SectionNav
-            label="Design review"
-            items={[
-              {
-                href: "/design-system",
-                label: "Primitives",
-                current: !equipment,
-              },
-              {
-                href: "/design-system/add-equipment",
-                label: "Add equipment",
-                current: equipment,
-              },
-            ]}
-          />
-          <div className="review-settings">
-            <SelectField
-              label="Preview theme"
-              value={theme}
-              onChange={(event) => setTheme(event.target.value as ThemeId)}
-            >
-              <option value="dark">Deep space</option>
-              <option value="light">Daylight</option>
-              <option value="high-contrast">High contrast</option>
-              <option value="midnight">Midnight</option>
-            </SelectField>
-            <SelectField
-              label="Density"
-              value={density}
-              onChange={(event) =>
-                setDensity(event.target.value as StationDensity)
-              }
-            >
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-            </SelectField>
-            <SelectField
-              label="Accent"
-              value={accent}
-              onChange={(event) => setAccent(event.target.value)}
-            >
-              <option value="#ff6b35">Plasma</option>
-              <option value="#8b5cf6">Cosmic</option>
-              <option value="#22c55e">Aurora</option>
-              <option value="#3b82f6">Ocean</option>
-            </SelectField>
-          </div>
-        </section>
-        <main
-          id="review-main"
-          className={
-            equipment ? "review-content review-equipment" : "review-content"
-          }
-          tabIndex={-1}
-        >
-          {equipment ? (
-            <Stack>
-              <PageHeader
-                eyebrow="WORKBENCH / MY GEAR"
-                title="Add equipment"
-                description="Start with what you know. Make it yours as you go."
-              />
-              <Notice title="Interactive design review" tone="info">
-                Try the form and save an example. Entries stay in this page
-                session and disappear on reload; nothing is added to your
-                station or published.
-              </Notice>
-              <Surface>
-                <EquipmentForm
-                  onSave={async (values) => {
-                    setExamples((previous) => [...previous, values]);
-                  }}
-                />
-              </Surface>
-              <Section
-                title="Saved examples"
-                description="Inspect the values captured by this form."
-              >
-                {examples.length ? (
-                  <Grid>
-                    {examples.map((example, index) => (
-                      <EquipmentTile
-                        key={index}
-                        opensDialog
-                        name={example.name}
-                        kind={example.kind || "tuner"}
-                        detail={`${example.ports.length} ports · ${example.ownership}`}
-                        onSelect={() => setSelected(example)}
-                      />
-                    ))}
-                  </Grid>
-                ) : (
-                  <EmptyState title="Your first piece of gear starts here">
-                    Save an example above to see the completed form values.
-                  </EmptyState>
-                )}
-              </Section>
-            </Stack>
-          ) : (
-            <Catalog />
-          )}
-        </main>
-        <footer className="review-footer">
-          ProPulse station foundation · v1 · Built for clear decisions, familiar
-          controls and room to grow.
-        </footer>
+    <>
+      <nav aria-label="Skip navigation">
+        <a href="#review-main" className="review-skip">
+          Skip to content
+        </a>
+      </nav>
+      <div className="station-review-header">
+        <Header publicView />
       </div>
-      <Dialog
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected?.name ?? "Saved example"}
-        description="Review data only. No inventory or operating setup has changed."
+      <StationProvider
+        theme={theme}
+        density={density}
+        textSize={textSize}
+        accent={accent}
+        className="station-review"
       >
-        {selected && (
-          <Stack>
-            <KeyValueList
+        <div className="review-shell">
+          <section className="review-toolbar" aria-label="Review controls">
+            <SectionNav
+              label="Design review"
               items={[
-                { label: "Type", value: selected.kind },
-                { label: "Ownership", value: selected.ownership },
                 {
-                  label: "Power rating",
-                  value: selected.powerWatts
-                    ? `${selected.powerWatts} W · User entered`
-                    : "Unknown",
+                  href: "/design-system",
+                  label: "Primitives",
+                  current: !equipment,
                 },
-                { label: "Photo", value: selected.photo?.name ?? "None" },
                 {
-                  label: "Add to draft requested",
-                  value: selected.addToDraft ? "Home HF (example only)" : "No",
+                  href: "/design-system/add-equipment",
+                  label: "Add equipment",
+                  current: equipment,
                 },
-                { label: "Private notes", value: selected.notes || "None" },
               ]}
             />
-            <Table caption="Equipment ports">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Connector</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selected.ports.map((port) => (
-                  <tr key={port.id}>
-                    <td>{port.name}</td>
-                    <td>{port.connector}</td>
+            <div className="review-settings">
+              <SelectField
+                label="Text size"
+                value={textSize}
+                onChange={(event) =>
+                  setTextSize(event.target.value as StationTextSize)
+                }
+              >
+                <option value="standard">Standard</option>
+                <option value="large">Larger</option>
+                <option value="extra-large">Largest</option>
+              </SelectField>
+              <SelectField
+                label="Preview theme"
+                value={theme}
+                onChange={(event) => setTheme(event.target.value as ThemeId)}
+              >
+                <option value="dark">Deep space</option>
+                <option value="light">Daylight</option>
+                <option value="high-contrast">High contrast</option>
+                <option value="midnight">Midnight</option>
+              </SelectField>
+              <SelectField
+                label="Density"
+                value={density}
+                onChange={(event) =>
+                  setDensity(event.target.value as StationDensity)
+                }
+              >
+                <option value="comfortable">Comfortable</option>
+                <option value="compact">Compact</option>
+              </SelectField>
+              <SelectField
+                label="Accent"
+                value={accent}
+                onChange={(event) => setAccent(event.target.value)}
+              >
+                <option value="#ff6b35">Plasma</option>
+                <option value="#8b5cf6">Cosmic</option>
+                <option value="#22c55e">Aurora</option>
+                <option value="#3b82f6">Ocean</option>
+              </SelectField>
+            </div>
+          </section>
+          <main
+            id="review-main"
+            className={
+              equipment ? "review-content review-equipment" : "review-content"
+            }
+            tabIndex={-1}
+          >
+            {equipment ? (
+              <Stack>
+                <PageHeader
+                  eyebrow="WORKBENCH / MY GEAR"
+                  title="Add equipment"
+                  description="Start with what you know. Make it yours as you go."
+                />
+                <Notice title="Interactive design review" tone="info">
+                  Try the form and save an example. Entries stay in this page
+                  session and disappear on reload; nothing is added to your
+                  station or published.
+                </Notice>
+                <Surface>
+                  <EquipmentForm
+                    onSave={async (values) => {
+                      setExamples((previous) => [...previous, values]);
+                    }}
+                  />
+                </Surface>
+                <Section
+                  title="Saved examples"
+                  description="Inspect the values captured by this form."
+                >
+                  {examples.length ? (
+                    <Grid>
+                      {examples.map((example, index) => (
+                        <EquipmentTile
+                          key={index}
+                          opensDialog
+                          name={example.name}
+                          kind={example.kind || "tuner"}
+                          detail={`${example.ports.length} ports · ${example.ownership}`}
+                          onSelect={() => setSelected(example)}
+                        />
+                      ))}
+                    </Grid>
+                  ) : (
+                    <EmptyState title="Your first piece of gear starts here">
+                      Save an example above to see the completed form values.
+                    </EmptyState>
+                  )}
+                </Section>
+              </Stack>
+            ) : (
+              <Catalog />
+            )}
+          </main>
+          <footer className="review-footer">
+            ProPulse station foundation · v1 · Built for clear decisions,
+            familiar controls and room to grow.
+          </footer>
+        </div>
+        <Dialog
+          open={!!selected}
+          onClose={() => setSelected(null)}
+          title={selected?.name ?? "Saved example"}
+          description="Review data only. No inventory or operating setup has changed."
+        >
+          {selected && (
+            <Stack>
+              <KeyValueList
+                items={[
+                  { label: "Type", value: selected.kind },
+                  { label: "Ownership", value: selected.ownership },
+                  {
+                    label: "Power rating",
+                    value: selected.powerWatts
+                      ? `${selected.powerWatts} W · User entered`
+                      : "Unknown",
+                  },
+                  { label: "Photo", value: selected.photo?.name ?? "None" },
+                  {
+                    label: "Add to draft requested",
+                    value: selected.addToDraft
+                      ? "Home HF (example only)"
+                      : "No",
+                  },
+                  { label: "Private notes", value: selected.notes || "None" },
+                ]}
+              />
+              <Table caption="Equipment ports">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Connector</th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setExamples((previous) =>
-                  previous.filter((item) => item !== selected),
-                );
-                setSelected(null);
-              }}
-            >
-              Remove saved example
-            </Button>
-          </Stack>
-        )}
-      </Dialog>
-    </StationProvider>
+                </thead>
+                <tbody>
+                  {selected.ports.map((port) => (
+                    <tr key={port.id}>
+                      <td>{port.name}</td>
+                      <td>{port.connector}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setExamples((previous) =>
+                    previous.filter((item) => item !== selected),
+                  );
+                  setSelected(null);
+                }}
+              >
+                Remove saved example
+              </Button>
+            </Stack>
+          )}
+        </Dialog>
+      </StationProvider>
+    </>
   );
 }
 
@@ -280,8 +286,8 @@ function Catalog() {
             More operating.
           </h2>
           <p>
-            A quiet navy canvas. Clear labels. Orange for the next step. Every
-            control adapts to the way you prefer to work.
+            A softened navy canvas. Clear labels. Orange for the next step.
+            Every control adapts to the way you prefer to work.
           </p>
           <Inline>
             <Badge>44 px comfortable controls</Badge>

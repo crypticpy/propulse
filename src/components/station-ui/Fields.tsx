@@ -8,7 +8,7 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { Check, ImagePlus, X } from "lucide-react";
 import { Button } from "./Actions";
 
 export interface FieldProps {
@@ -103,6 +103,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             <input
               {...props}
               {...control}
+              aria-invalid={error ? true : props["aria-invalid"]}
               ref={ref}
               className={`su-input ${className}`}
             />
@@ -136,6 +137,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
           <select
             {...props}
             {...control}
+            aria-invalid={error ? true : props["aria-invalid"]}
             ref={ref}
             className={`su-select ${className}`}
           >
@@ -170,6 +172,7 @@ export const TextAreaField = forwardRef<
         <textarea
           {...props}
           {...control}
+          aria-invalid={error ? true : props["aria-invalid"]}
           ref={ref}
           className={`su-textarea ${className}`}
         />
@@ -256,7 +259,10 @@ export function ChoiceGroup<T extends string>({
               disabled={option.disabled}
               onChange={() => onChange(option.value)}
             />
-            <span>{option.label}</span>
+            <span>
+              {value === option.value && <Check size={16} aria-hidden="true" />}
+              {option.label}
+            </span>
           </label>
         ))}
       </div>

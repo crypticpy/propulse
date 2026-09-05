@@ -1,7 +1,7 @@
 export { StationProvider } from "./StationProvider";
 export type { StationProviderProps } from "./StationProvider";
 export { stationPalettes, stationTokens, stationContrast } from "./tokens";
-export type { StationDensity, StationTone } from "./tokens";
+export type { StationDensity, StationTone, StationTextSize } from "./tokens";
 export { Button, IconButton, ActionLink } from "./Actions";
 export type { ButtonProps, IconButtonProps } from "./Actions";
 export {

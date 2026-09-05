@@ -2,13 +2,18 @@ import { useMemo, type HTMLAttributes } from "react";
 import { getAccentPreset, getTheme, type ThemeId } from "@/lib/themes";
 import { useThemeStore } from "@/stores/themeStore";
 import { StationThemeContext } from "./context";
-import { stationTokens, type StationDensity } from "./tokens";
+import {
+  stationTokens,
+  type StationDensity,
+  type StationTextSize,
+} from "./tokens";
 import "./station-ui.css";
 
 export interface StationProviderProps extends HTMLAttributes<HTMLDivElement> {
   theme?: ThemeId;
   accent?: string;
   density?: StationDensity;
+  textSize?: StationTextSize;
 }
 
 /** Theme previews stay local. Omit overrides to follow the app's preferences. */
@@ -16,6 +21,7 @@ export function StationProvider({
   theme,
   accent,
   density = "comfortable",
+  textSize = "standard",
   className = "",
   style,
   children,
@@ -35,9 +41,14 @@ export function StationProvider({
     () => ({
       theme: resolvedTheme,
       density,
-      tokens: stationTokens(resolvedTheme, resolvedAccent),
+      tokens: {
+        ...stationTokens(resolvedTheme, resolvedAccent),
+        "--su-text-scale": String(
+          { standard: 1, large: 1.125, "extra-large": 1.25 }[textSize],
+        ),
+      },
     }),
-    [resolvedTheme, resolvedAccent, density],
+    [resolvedTheme, resolvedAccent, density, textSize],
   );
   return (
     <StationThemeContext.Provider value={value}>

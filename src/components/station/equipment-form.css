@@ -23,7 +23,7 @@
   align-items: start;
   gap: 0.75rem;
   color: var(--su-muted);
-  font-size: 0.875rem;
+  font-size: calc(.875rem * var(--su-text-scale));
 }
 .station-ui .equipment-privacy svg {
   flex-shrink: 0;

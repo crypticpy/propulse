@@ -2,28 +2,6 @@
   min-height: 100vh;
   background: var(--su-canvas);
 }
-.station-review .review-masthead {
-  min-height: 76px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem max(1.5rem, calc((100vw - 1240px) / 2));
-  border-bottom: 1px solid var(--su-line);
-  background: var(--su-panel);
-}
-.station-review .review-brand {
-  display: flex;
-  gap: 0.65rem;
-  align-items: center;
-  color: var(--su-text);
-  font: 700 1.5rem var(--font-display, Orbitron, sans-serif);
-  text-decoration: none;
-}
-.station-review .review-brand svg,
-.station-review .review-brand > span > span {
-  color: var(--su-accent-text);
-}
 .station-review .review-shell {
   max-width: 1288px;
   margin: 0 auto;
@@ -95,7 +73,7 @@
   margin-bottom: 0.5rem;
 }
 .station-review .review-swatches code {
-  font: 0.75rem var(--font-mono, monospace);
+  font: calc(0.875rem * var(--su-text-scale)) var(--font-mono, monospace);
   color: var(--su-muted);
 }
 .station-review .review-mono {
@@ -105,19 +83,19 @@
   border-top: 1px solid var(--su-line);
   padding: 1.5rem 0;
   color: var(--su-muted);
-  font-size: 0.8rem;
+  font-size: calc(0.875rem * var(--su-text-scale));
 }
-.station-review .review-skip {
+.review-skip {
   position: fixed;
   top: 0.5rem;
   left: 0.5rem;
   z-index: 1000;
   padding: 0.75rem;
-  background: var(--su-panel);
-  color: var(--su-text);
+  background: var(--theme-deep-space, #141827);
+  color: var(--theme-text-primary, #cad2dc);
   transform: translateY(-200%);
 }
-.station-review .review-skip:focus {
+.review-skip:focus {
   transform: translateY(0);
 }
 @media (max-width: 800px) {
@@ -128,17 +106,10 @@
   .station-review .review-swatches {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
-  .station-review .review-masthead > .su-inline .su-badge {
-    display: none;
-  }
 }
 @media (max-width: 480px) {
   .station-review .review-shell {
     padding: 0 1rem;
-  }
-  .station-review .review-masthead {
-    padding: 1rem;
-    flex-wrap: wrap;
   }
   .station-review .review-settings {
     display: grid;
@@ -151,4 +122,16 @@
   .station-review .review-content {
     padding-top: 1.5rem;
   }
+}
+
+/* Reuse the app masthead; keep its small tagline readable on this review surface. */
+.station-review-header header a > div > p {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  color: color-mix(
+    in srgb,
+    var(--theme-text-primary, #cad2dc) 85%,
+    var(--theme-deep-space, #141827)
+  );
 }

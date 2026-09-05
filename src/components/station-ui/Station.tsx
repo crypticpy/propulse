@@ -3,6 +3,7 @@ import {
   ArrowRight,
   ArrowUp,
   CircleDot,
+  CheckCircle2,
   Pencil,
   Layers,
   TriangleAlert,
@@ -85,6 +86,13 @@ export function EquipmentTile({
       aria-haspopup={opensDialog ? "dialog" : undefined}
     >
       <EquipmentGlyph kind={kind} />
+      {selected && (
+        <CheckCircle2
+          size={18}
+          aria-hidden="true"
+          className="su-selection-mark"
+        />
+      )}
       <span>
         <strong>{name}</strong>
         {detail && <span className="su-hint">{detail}</span>}
@@ -105,7 +113,11 @@ export function PortButton({
 }) {
   return (
     <Button className="su-port" aria-pressed={selected} onClick={onClick}>
-      <CircleDot size={18} aria-hidden="true" />
+      {selected ? (
+        <CheckCircle2 size={18} aria-hidden="true" />
+      ) : (
+        <CircleDot size={18} aria-hidden="true" />
+      )}
       <span>
         {name}
         {detail && <small>{detail}</small>}

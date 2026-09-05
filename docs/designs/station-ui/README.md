@@ -16,11 +16,13 @@ The approved navy/orange visual direction now has a shared React implementation.
 - Modal focus, Escape isolation, background inertness and focus restoration use the existing `AccessibleDialog`. The wrapper carries scoped theme tokens into its portal. Detail views stay centered; fixed side flyouts are prohibited by the repository UX contract.
 - Styles live under the `station-ui` / `su-` namespace. No global palette, legacy component or HamClock change is required.
 
+The [visual-comfort contract](VISUAL-COMFORT.md) defines softer reading palettes, text sizing, redundant selection cues and real-operator validation.
+
 ## Component inventory and contracts
 
 | Group | Exports | Consumer contract |
 |---|---|---|
-| Theme | `StationProvider`, `stationTokens`, `stationPalettes`, `stationContrast` | Wrap each feature boundary. Optional `theme`, `accent`, `density`; omit to follow app preferences. Keep tokens semantic. |
+| Theme | `StationProvider`, `stationTokens`, `stationPalettes`, `stationContrast` | Wrap each feature boundary. Optional `theme`, `accent`, `density`, `textSize`; omit to follow app preferences. Keep tokens semantic. |
 | Actions | `Button`, `IconButton`, `ActionLink` | Button defaults to `type="button"`; explicit `type="submit"` for forms. `pending` disables and announces busy. IconButton requires `label`. Links navigate; buttons act. |
 | Fields | `Field`, `TextField`, `SelectField`, `TextAreaField` | Native attributes and refs are forwarded. `label`, `hint`, `error`, `required` wire accessible descriptions. Field's render prop supports specialized native controls. |
 | Selection | `Checkbox`, `Switch`, `ChoiceGroup` | Controlled or native uncontrolled inputs. ChoiceGroup needs a unique option value; it uses native radio keyboard behavior. |
@@ -68,7 +70,7 @@ npm run dev:session -- start --owner station-design-system --task "Review statio
 PROPULSE_REVIEW_URL=http://127.0.0.1:<allocated-port> node scripts/check-station-design.mjs
 ```
 
-The browser check requires an identity match for the current checkout, owner and local profile. It creates a fresh browser context and writes evidence to `station-review-evidence` inside the system temporary directory (override with `PROPULSE_REVIEW_OUTPUT`). It checks both routes across all four themes with axe, responsive overflow, photo selection/removal, port editing, validation, saves, inspector dialog/Escape, reset cancellation, compact mode, reduced motion and 200% text scaling.
+The browser check requires an identity match for the current checkout, owner and local profile. It creates a fresh browser context and writes evidence to `station-review-evidence` inside the system temporary directory (override with `PROPULSE_REVIEW_OUTPUT`). It checks both routes across all four themes with axe, responsive overflow, photo selection/removal, port editing, validation, saves, inspector dialog/Escape, reset cancellation, compact mode, reduced motion 320 px reflow, larger text, custom text spacing and 200% text scaling.
 
 Unit tests cover token/text contrast including extreme custom accents, native label/error associations, keyboard tab navigation, portal themes/focus restoration, invalid image handling, port operations, validation, save failure and in-flight submission locking. Existing dialog and auth tests remain part of the full suite. Automated checks supplement visual and keyboard inspection; they are not a claim of full screen-reader certification.
 

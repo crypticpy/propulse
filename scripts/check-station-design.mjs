@@ -30,10 +30,24 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   for (const route of ["/design-system", "/design-system/add-equipment"]) {
     await page.goto(`${origin}${route}`);
-    await page.getByRole("heading", { level: 1 }).waitFor();
+    await page.locator("main").getByRole("heading", { level: 1 }).waitFor();
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     for (const theme of ["dark", "light", "high-contrast", "midnight"]) {
       await page.getByLabel("Preview theme").selectOption(theme);
+      if (route === "/design-system") {
+        for (const category of [
+          "States & feedback",
+          "Station objects",
+          "Dialogs & details",
+        ]) {
+          await page.getByRole("tab", { name: category }).click();
+          const stateViolations = await page.evaluate(async () =>
+            (await window.axe.run(document)).violations.map(({ id }) => id),
+          );
+          assert.deepEqual(stateViolations, [], `${theme} / ${category}`);
+        }
+        await page.getByRole("tab", { name: "Controls & forms" }).click();
+      }
       const violations = await page.evaluate(async () =>
         (await window.axe.run(document)).violations.map(({ id, nodes }) => ({
           id,
@@ -114,6 +128,21 @@ try {
     await page.getByRole("textbox", { name: /Name.*required/ }).inputValue(),
     "Homebrew antenna tuner",
   );
+  await page.getByLabel("Text size").selectOption("extra-large");
+  assert.equal(
+    await page
+      .getByRole("textbox", { name: /Name.*required/ })
+      .evaluate((element) => getComputedStyle(element).fontSize),
+    "20px",
+  );
+  await page.setViewportSize({ width: 320, height: 800 });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+    "320px reflow with largest text",
+  );
   await page.getByLabel("Density").selectOption("compact");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.evaluate(() => {
@@ -127,6 +156,40 @@ try {
     false,
     "200% text overflow",
   );
+  await page.addStyleTag({
+    content: `.station-ui * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } .station-ui p { margin-bottom: 2em !important; }`,
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+    "custom text spacing reflow",
+  );
+  await page.goto(`${origin}/design-system`);
+  await page.getByRole("tab", { name: "Station objects" }).click();
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "";
+  });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const visionSession = await context.newCDPSession(page);
+  for (const vision of [
+    "achromatopsia",
+    "deuteranopia",
+    "protanopia",
+    "tritanopia",
+  ]) {
+    await visionSession.send("Emulation.setEmulatedVisionDeficiency", {
+      type: vision,
+    });
+    await page
+      .getByRole("tabpanel")
+      .screenshot({ path: `${output}/selection-${vision}.png` });
+  }
+  await visionSession.send("Emulation.setEmulatedVisionDeficiency", {
+    type: "none",
+  });
+  await visionSession.detach();
   assert.deepEqual(errors, []);
   await fs.writeFile(
     `${output}/results.json`,
@@ -135,7 +198,7 @@ try {
         identity,
         results,
         interactions:
-          "validation, photo add/remove, port add/reorder/remove, save, inspect, Escape, reset cancellation, compact, 200% text, reduced motion",
+          "validation, photo add/remove, port add/reorder/remove, save, inspect, Escape, reset cancellation, compact, largest text, 320px reflow, 200% text, custom text spacing, reduced motion, four color-vision simulations",
         pageErrors: errors,
       },
       null,

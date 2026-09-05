@@ -7,6 +7,8 @@ import {
   StationProvider,
   EquipmentTile,
   TextField,
+  SelectField,
+  TextAreaField,
   Tabs,
   Dialog,
   Button,
@@ -17,6 +19,47 @@ import {
 } from "./index";
 
 describe("station design primitives", () => {
+  it("preserves external invalid states and prioritizes a supplied field error", () => {
+    const { rerender } = render(
+      <StationProvider>
+        <TextField label="External name" aria-invalid />
+        <SelectField label="External connector" aria-invalid="grammar">
+          <option>Unknown</option>
+        </SelectField>
+        <TextAreaField label="External notes" aria-invalid="spelling" />
+      </StationProvider>,
+    );
+    expect(
+      screen
+        .getByRole("textbox", { name: "External name" })
+        .getAttribute("aria-invalid"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByRole("combobox", { name: "External connector" })
+        .getAttribute("aria-invalid"),
+    ).toBe("grammar");
+    expect(
+      screen
+        .getByRole("textbox", { name: "External notes" })
+        .getAttribute("aria-invalid"),
+    ).toBe("spelling");
+    rerender(
+      <StationProvider>
+        <TextField
+          label="External name"
+          aria-invalid={false}
+          error="Name required"
+        />
+      </StationProvider>,
+    );
+    expect(
+      screen
+        .getByRole("textbox", { name: "External name" })
+        .getAttribute("aria-invalid"),
+    ).toBe("true");
+  });
+
   it("follows the app's complete custom-color predicate without changing preferences", () => {
     const original = useThemeStore.getState();
     try {
@@ -75,7 +118,11 @@ describe("station design primitives", () => {
       expect(
         stationContrast(palette.line, palette.panel),
       ).toBeGreaterThanOrEqual(3);
+      expect(palette.text).not.toBe("#ffffff");
       for (const background of [palette.canvas, palette.panel, palette.input]) {
+        expect(
+          stationContrast(palette.text, background),
+        ).toBeGreaterThanOrEqual(7);
         for (const foreground of [
           palette.text,
           palette.muted,
@@ -169,7 +216,7 @@ describe("station design primitives", () => {
     function Example() {
       const [open, setOpen] = useState(false);
       return (
-        <StationProvider theme="light" density="compact">
+        <StationProvider theme="light" density="compact" textSize="large">
           <Button onClick={() => setOpen(true)}>Inspect</Button>
           <Dialog open={open} onClose={() => setOpen(false)} title="Equipment">
             <TextField label="Port name" />
@@ -182,7 +229,8 @@ describe("station design primitives", () => {
     await user.click(screen.getByRole("button", { name: "Inspect" }));
     const dialog = screen.getByRole("dialog");
     expect(dialog.getAttribute("data-station-theme")).toBe("light");
-    expect(dialog.style.getPropertyValue("--su-panel")).toBe("#ffffff");
+    expect(dialog.style.getPropertyValue("--su-text-scale")).toBe("1.125");
+    expect(dialog.style.getPropertyValue("--su-panel")).toBe("#f3f4ef");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(

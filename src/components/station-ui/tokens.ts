@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { ThemeId } from "@/lib/themes";
 
+export type StationTextSize = "standard" | "large" | "extra-large";
 export type StationDensity = "comfortable" | "compact";
 export type StationTone = "neutral" | "info" | "success" | "warning" | "danger";
 export type StationTokenStyle = CSSProperties &
@@ -12,7 +13,7 @@ export const stationPalettes = {
     canvas: "#141827",
     panel: "#191e2e",
     input: "#111624",
-    text: "#e2e8f0",
+    text: "#cad2dc",
     muted: "#a0abba",
     line: "#637088",
     info: "#85c4d0",
@@ -21,11 +22,11 @@ export const stationPalettes = {
     danger: "#fda4af",
   },
   light: {
-    canvas: "#f4f6fa",
-    panel: "#ffffff",
-    input: "#f8fafc",
+    canvas: "#e9ece7",
+    panel: "#f3f4ef",
+    input: "#edf0ea",
     text: "#1e293b",
-    muted: "#526174",
+    muted: "#425168",
     line: "#748297",
     info: "#176477",
     success: "#166534",
@@ -36,7 +37,7 @@ export const stationPalettes = {
     canvas: "#000000",
     panel: "#080808",
     input: "#000000",
-    text: "#ffffff",
+    text: "#e7e5df",
     muted: "#dddddd",
     line: "#aaaaaa",
     info: "#99eeff",
@@ -48,7 +49,7 @@ export const stationPalettes = {
     canvas: "#090b16",
     panel: "#111525",
     input: "#080c17",
-    text: "#e2e8f0",
+    text: "#c4cdd7",
     muted: "#b0b9ca",
     line: "#637088",
     info: "#9fcddb",
@@ -93,7 +94,8 @@ export function stationTokens(
     ),
     "--su-accent": accent,
     "--su-on-accent": onAccent,
-    "--su-accent-edge": stationContrast(accent, palette.panel) >= 3 ? accent : palette.info,
+    "--su-accent-edge":
+      stationContrast(accent, palette.panel) >= 3 ? accent : palette.info,
     // A custom brand color is never assumed to be legible as text on a panel.
     "--su-accent-text":
       stationContrast(accent, palette.panel) >= 4.5 ? accent : palette.info,

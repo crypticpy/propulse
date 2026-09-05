@@ -1,16 +1,13 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useRIM } from "@/hooks/useRIM";
 import type { RIMResult, RIMSubScore } from "@/types/atmos";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
+import { rimGrade } from "../tokens";
 
-/** Same buckets the RIM score card uses, so the two never disagree. */
-function grade(value: number): { word: string; tone: string } {
-  if (value >= 90) return { word: "EXCELLENT", tone: "hc-good" };
-  if (value >= 70) return { word: "GOOD", tone: "hc-good" };
-  if (value >= 50) return { word: "FAIR", tone: "hc-warn" };
-  if (value >= 30) return { word: "DEGRADED", tone: "hc-accent-text" };
-  return { word: "POOR", tone: "hc-bad" };
-}
+// The report is only worth its bytes once an operator opens it.
+const EmcommReport = lazy(() =>
+  import("../reports/EmcommReport").then((m) => ({ default: m.EmcommReport })),
+);
 
 /** Tone class → the tile's top state-bar colour. */
 const TONE_STATE: Record<string, string> = {
@@ -46,6 +43,7 @@ export function EmcommTile({ title = "Emcomm" }: WallTileProps) {
     () => (rimResult ? weakestLink(rimResult) : null),
     [rimResult],
   );
+  const [reportOpen, setReportOpen] = useState(false);
 
   if (!rimResult) {
     return (
@@ -71,31 +69,43 @@ export function EmcommTile({ title = "Emcomm" }: WallTileProps) {
     );
   }
 
-  const { word, tone } = grade(score.value);
+  const { word, tone } = rimGrade(score.value);
 
   return (
-    <HamClockTile
-      title={title}
-      source={`RIM ${Math.round(rimResult.composite)}`}
-      state={TONE_STATE[tone]}
-    >
-      <div className="hc-heroline">
-        <TileHero tone={tone} flush>
-          {Math.round(score.value)}
-        </TileHero>
-        <div className={`hc-verdict hc-glow ${tone}`}>{word}</div>
-      </div>
-      <div className={`hcf-meter ${tone}`}>
-        <i style={{ width: `${Math.max(0, Math.min(100, score.value))}%` }} />
-      </div>
-      <TileSub>
-        <span>
-          {weakest
-            ? `WEAKEST ${weakest.label.toUpperCase()} ${Math.round(weakest.value)}`
-            : "NO SUB-SCORES AVAILABLE"}
-        </span>
-        <span>{TREND_ARROW[score.trend]}</span>
-      </TileSub>
-    </HamClockTile>
+    <>
+      <HamClockTile
+        title={title}
+        source={`RIM ${Math.round(rimResult.composite)}`}
+        state={TONE_STATE[tone]}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`Emcomm readiness ${Math.round(
+          score.value,
+        )}, ${word}. Open the emcomm report`}
+      >
+        <div className="hc-heroline">
+          <TileHero tone={tone} flush>
+            {Math.round(score.value)}
+          </TileHero>
+          <div className={`hc-verdict hc-glow ${tone}`}>{word}</div>
+        </div>
+        <div className={`hcf-meter ${tone}`}>
+          <i style={{ width: `${Math.max(0, Math.min(100, score.value))}%` }} />
+        </div>
+        <TileSub>
+          <span>
+            {weakest
+              ? `WEAKEST ${weakest.label.toUpperCase()} ${Math.round(weakest.value)}`
+              : "NO SUB-SCORES AVAILABLE"}
+          </span>
+          <span>{TREND_ARROW[score.trend]}</span>
+        </TileSub>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <EmcommReport open onClose={() => setReportOpen(false)} />
+        </Suspense>
+      )}
+    </>
   );
 }

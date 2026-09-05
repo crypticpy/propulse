@@ -1,8 +1,14 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useSolarResource } from "@/hooks/useSolarResource";
 import type { XrayPoint } from "@/lib/solar/dataTypes";
 import { latestByTime, xrayClass } from "@/lib/solar/selectors";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
+import { xrayTone } from "../tokens";
+
+// The report is only worth its bytes once an operator opens it.
+const SolarReport = lazy(() =>
+  import("../reports/SolarReport").then((m) => ({ default: m.SolarReport })),
+);
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
@@ -16,18 +22,10 @@ function xrayScalePercent(flux: number): number {
   return Math.min(100, Math.max(0, decades * 100));
 }
 
-/** A and B are background; C is workable; M and X mean daylight absorption. */
-function classTone(letter: string): { tone: string; state: string } {
-  if (letter === "M" || letter === "X") {
-    return { tone: "hc-bad", state: "var(--hc-bad)" };
-  }
-  if (letter === "C") return { tone: "hc-warn", state: "var(--hc-warn)" };
-  return { tone: "hc-good", state: "var(--hc-good)" };
-}
-
 /** GOES long-wavelength X-ray flux: the current class plus the six-hour peak. */
 export function XrayTile() {
   const query = useSolarResource<XrayPoint[]>("noaa-xray");
+  const [reportOpen, setReportOpen] = useState(false);
   const points = query.data?.envelope.data;
 
   const summary = useMemo(() => {
@@ -60,29 +58,43 @@ export function XrayTile() {
 
   const { current, peak } = summary;
   const label = xrayClass(current.flux) ?? "—";
-  const { tone, state } = classTone(label.charAt(0));
+  const { tone, state } = xrayTone(label.charAt(0));
   const peakLabel = xrayClass(peak.flux) ?? "—";
   const peakAt = peak.time_tag.slice(11, 16);
   const satellite = current.satellite ? `GOES-${current.satellite}` : "GOES";
 
   return (
-    <HamClockTile title="X-ray flux" source={satellite} state={state}>
-      <TileHero tone={tone}>{label}</TileHero>
-      <div className="hc-gbar">
-        <i style={{ left: `${xrayScalePercent(current.flux)}%` }} />
-      </div>
-      <div className="hc-ticks" aria-hidden="true">
-        <span>A</span>
-        <span>B</span>
-        <span>C</span>
-        <span>M</span>
-        <span>X</span>
-      </div>
-      <TileSub>
-        <span>
-          6H MAX <b>{peakLabel}</b> {peakAt}Z
-        </span>
-      </TileSub>
-    </HamClockTile>
+    <>
+      <HamClockTile
+        title="X-ray flux"
+        source={satellite}
+        state={state}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`X-ray flux ${label}. Open the solar report`}
+      >
+        <TileHero tone={tone}>{label}</TileHero>
+        <div className="hc-gbar">
+          <i style={{ left: `${xrayScalePercent(current.flux)}%` }} />
+        </div>
+        <div className="hc-ticks" aria-hidden="true">
+          <span>A</span>
+          <span>B</span>
+          <span>C</span>
+          <span>M</span>
+          <span>X</span>
+        </div>
+        <TileSub>
+          <span>
+            6H MAX <b>{peakLabel}</b> {peakAt}Z
+          </span>
+        </TileSub>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <SolarReport open onClose={() => setReportOpen(false)} focus="xray" />
+        </Suspense>
+      )}
+    </>
   );
 }

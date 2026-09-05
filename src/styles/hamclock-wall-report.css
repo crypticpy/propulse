@@ -1,0 +1,365 @@
+/**
+ * HamClock wall reports
+ *
+ * The drill-down a tile opens: one centred glass panel, one huge hero, a few
+ * big facts and a body region. Ported from the approved mock's `.modal` block
+ * (docs/plans.local/hamclock-wall-mock). Same rules as the rest of the wall —
+ * every size derives from the viewport height so 1080p and 4K compose the
+ * same, and every colour comes from a `--hc-*` theme token. Class prefix
+ * `hcr-` keeps this sheet clear of the `hc-`/`hcf-` tile vocabulary.
+ *
+ * The panel is portalled to `document.body`, outside the HamClock subtree, so
+ * it carries its own `data-hamclock-theme` attribute and the theme tokens
+ * resolve on it directly.
+ */
+
+.hcr {
+  position: relative;
+  width: 58vw;
+  height: 72vh;
+  max-width: 100%;
+  max-height: calc(100dvh - 1.5rem);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 1.8vh;
+  padding: 2.6vh 2.4vw;
+  background: var(--hc-panel);
+  border: 1px solid var(--hc-line);
+  border-radius: var(--hc-radius);
+  box-shadow: 0 3vh 9vh rgba(0, 0, 0, 0.7);
+  color: var(--hc-fg);
+  font-family: var(--hc-font-body);
+  overflow: hidden;
+}
+.hcr::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: var(--hcr-state, var(--hc-line));
+  border-radius: var(--hc-radius) var(--hc-radius) 0 0;
+}
+
+/* ---------- head ---------- */
+
+.hcr-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2vw;
+}
+.hcr-title {
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: 1.6vh;
+  letter-spacing: 0.26em;
+  color: var(--hc-dim);
+  text-transform: uppercase;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hcr-close {
+  flex: 0 0 auto;
+  font-family: var(--hc-font-mono);
+  font-size: 1.5vh;
+  letter-spacing: 0.14em;
+  color: var(--hc-dim);
+  background: transparent;
+  border: 0;
+  padding: 0.4vh 0.4vw;
+  cursor: pointer;
+}
+.hcr-close:hover {
+  color: var(--hc-fg);
+}
+.hcr-close:focus-visible {
+  outline: 0.25vh solid var(--hc-accent);
+  outline-offset: 0.2vh;
+}
+
+/* ---------- lead: hero · verdict · facts ---------- */
+
+.hcr-lead {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 2.4vw;
+  align-items: end;
+}
+.hcr-hero {
+  font-family: var(--hc-font-display);
+  font-weight: var(--hc-display-weight);
+  font-size: 9vh;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hcr-verdict {
+  font-family: var(--hc-font-display);
+  font-weight: var(--hc-display-weight);
+  font-size: 6.6vh;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.hcr-unit {
+  margin-left: 0.6vw;
+  font-size: var(--hc-t-mid);
+  letter-spacing: 0.14em;
+  color: var(--hc-dim);
+  text-shadow: none;
+}
+.hcr-facts {
+  font-family: var(--hc-font-mono);
+  font-size: 1.9vh;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  color: var(--hc-dim);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+}
+.hcr-facts div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hcr-facts b {
+  color: var(--hc-fg);
+  font-weight: 600;
+  margin-left: 0.5vw;
+}
+
+/* ---------- body ---------- */
+
+.hcr-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6vh;
+  min-height: 0;
+  overflow: hidden;
+}
+.hcr-cols {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 2vw;
+  min-height: 0;
+}
+.hcr-box {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1.6vh 1.2vw;
+  border: 1px solid var(--hc-line);
+  border-radius: calc(var(--hc-radius) * 1.1);
+}
+.hcr-box h4 {
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: 1.2vh;
+  letter-spacing: 0.24em;
+  color: var(--hc-dim);
+  text-transform: uppercase;
+  margin-bottom: 1.2vh;
+}
+
+/* 24-column hour strip: one bar per hour, tone carried by `color`. */
+.hcr-strip {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 0.3vw;
+  align-items: end;
+  margin-top: auto;
+}
+.hcr-strip i {
+  display: block;
+  height: 6.4vh;
+  border-radius: calc(var(--hc-radius) * 0.5);
+  background: currentColor;
+}
+.hcr-strip i.hcr-strip-off {
+  background: rgba(255, 255, 255, 0.08);
+}
+.hcr-strip i.hcr-strip-now {
+  outline: 0.25vh solid var(--hc-fg);
+  outline-offset: 0.2vh;
+}
+.hcr-strip-x {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  margin-top: 0.6vh;
+  font-family: var(--hc-font-mono);
+  font-size: 1.15vh;
+  color: var(--hc-dim2);
+  text-align: center;
+}
+
+/* Full 24h × band matrix at report size; reuses the tile's dot vocabulary. */
+.hcr-matrix {
+  display: grid;
+  gap: 0.5vh 0.35vw;
+  align-items: center;
+  margin-top: auto;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+}
+.hcr-matrix .hcf-dot {
+  width: 1.9vh;
+  height: 1.9vh;
+}
+.hcr-matrix-band {
+  color: var(--hc-dim);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.hcr-matrix-head {
+  font-family: var(--hc-font-mono);
+  font-size: 1.15vh;
+  color: var(--hc-dim2);
+  text-align: center;
+}
+.hcr-matrix-head--now {
+  color: var(--hc-fg);
+}
+
+/* Report-size band bars: readable from ten feet, unlike the tile bars. */
+.hcr-bars {
+  display: grid;
+  grid-template-columns: 4vw minmax(0, 1fr) 5vw;
+  gap: 1vh 1vw;
+  align-items: center;
+  font-family: var(--hc-font-mono);
+  font-size: 2.1vh;
+}
+.hcr-bars-k {
+  color: var(--hc-dim);
+  letter-spacing: 0.06em;
+}
+.hcr-bars-v {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.hcr-bar {
+  height: 2.2vh;
+  border-radius: calc(var(--hc-radius) * 0.45);
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.hcr-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  box-shadow: 0 0 calc(0.8vh * var(--hc-glow, 0)) currentColor;
+}
+
+/* Label/value pairs at report size: sun times, path inputs. */
+.hcr-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9vh 1vw;
+  align-content: start;
+  font-family: var(--hc-font-mono);
+  font-size: 2.1vh;
+  letter-spacing: 0.06em;
+}
+.hcr-kv dt {
+  color: var(--hc-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hcr-kv dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Glyph beside a value list (moon, weather). */
+.hcr-media {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.4vw;
+  align-items: center;
+  min-height: 0;
+}
+.hcr-media .hc-media-icon {
+  width: 11vh;
+  height: 11vh;
+}
+
+/* Stacked list: alerts, drivers, sub-scores. */
+.hcr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9vh;
+  min-height: 0;
+  overflow: hidden;
+}
+.hcr-item {
+  padding: 0.8vh 1vw;
+  border-left: 0.4vh solid currentColor;
+  border-radius: calc(var(--hc-radius) * 0.7);
+  background: rgb(var(--hc-tone-rgb, 255 255 255) / 0.1);
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-body);
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+.hcr-item b {
+  display: block;
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: 1.9vh;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.hcr-item span {
+  display: block;
+  color: var(--hc-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hcr-empty {
+  margin: auto 0;
+  font-family: var(--hc-font-display);
+  font-weight: var(--hc-display-weight);
+  font-size: var(--hc-t-hero);
+  letter-spacing: 0.06em;
+  color: var(--hc-dim);
+  text-align: center;
+}
+.hcr-note {
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-body);
+  color: var(--hc-dim);
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+}
+
+/* ---------- foot ---------- */
+
+.hcr-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 2vw;
+  font-family: var(--hc-font-mono);
+  font-size: 1.4vh;
+  letter-spacing: 0.12em;
+  color: var(--hc-dim2);
+  text-transform: uppercase;
+}
+.hcr-foot span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useUTCClock } from "@/hooks/useUTCClock";
@@ -6,6 +6,13 @@ import { getMUFAtLocation } from "@/lib/api/muf";
 import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
 import { useMapStore } from "@/stores/mapStore";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
+
+// The report is only worth its bytes once an operator opens it.
+const ForecastReport = lazy(() =>
+  import("../reports/ForecastReport").then((m) => ({
+    default: m.ForecastReport,
+  })),
+);
 
 /** An hour is long enough for the diurnal curve to show a readable slope. */
 const TREND_HOURS = 1;
@@ -50,6 +57,7 @@ export function MufTile({ title = "MUF" }: WallTileProps) {
   const sfi = useCurrentSFI();
   const timeOffset = useMapStore((state) => state.timeOffset);
   const wallTime = useUTCClock(60_000);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const reading = useMemo(() => {
     if (!location || sfi == null) return null;
@@ -86,17 +94,36 @@ export function MufTile({ title = "MUF" }: WallTileProps) {
       : "STEADY";
 
   return (
-    <HamClockTile title={title} source={`3000 KM · SFI ${Math.round(reading.sfi)}`}>
-      <TileHero tone="hc-info-text">
-        {reading.muf.toFixed(1)}
-        <span className="hcf-unit">MHz</span>
-      </TileHero>
-      <TileSub>
-        <span>{trend}</span>
-        <span>
-          TOP BAND <b>{reading.band.toUpperCase()}</b>
-        </span>
-      </TileSub>
-    </HamClockTile>
+    <>
+      <HamClockTile
+        title={title}
+        source={`3000 KM · SFI ${Math.round(reading.sfi)}`}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`MUF ${reading.muf.toFixed(
+          1,
+        )} megahertz. Open the propagation report`}
+      >
+        <TileHero tone="hc-info-text">
+          {reading.muf.toFixed(1)}
+          <span className="hcf-unit">MHz</span>
+        </TileHero>
+        <TileSub>
+          <span>{trend}</span>
+          <span>
+            TOP BAND <b>{reading.band.toUpperCase()}</b>
+          </span>
+        </TileSub>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <ForecastReport
+            open
+            onClose={() => setReportOpen(false)}
+            focus="muf"
+          />
+        </Suspense>
+      )}
+    </>
   );
 }

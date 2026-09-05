@@ -1,9 +1,14 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import SunCalc from "suncalc";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 import { formatClock, formatCountdown } from "../tokens";
+
+// The report is only worth its bytes once an operator opens it.
+const SunMoonReport = lazy(() =>
+  import("../reports/SunMoonReport").then((m) => ({ default: m.SunMoonReport })),
+);
 
 /** A countdown in whole minutes only needs a minute-resolution clock. */
 const TICK_MS = 60_000;
@@ -20,6 +25,7 @@ function valid(value: Date | undefined): Date | null {
 export function SunTile() {
   const location = useActiveLocation();
   const now = useUTCClock(TICK_MS);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const sun = useMemo(() => {
     if (!location) return null;
@@ -74,25 +80,41 @@ export function SunTile() {
   const zone = location?.timezone;
 
   return (
-    <HamClockTile
-      title={title}
-      source="DE · LOCAL"
-      state="var(--hc-accent)"
-    >
-      <div className="hc-media">
-        <div className="hc-sunico" aria-hidden="true" />
-        <div>
-          <TileHero tone="hc-accent-text">{formatCountdown(minutes)}</TileHero>
-          <TileSub>
-            <span>
-              AT <b>{formatClock(sun.next.at, zone)}</b>
-            </span>
-            <span>
-              {formatClock(sun.rise, zone)} / {formatClock(sun.set, zone)}
-            </span>
-          </TileSub>
+    <>
+      <HamClockTile
+        title={title}
+        source="DE · LOCAL"
+        state="var(--hc-accent)"
+        onOpen={() => setReportOpen(true)}
+        openLabel={`${title} in ${formatCountdown(
+          minutes,
+        )}. Open the sun and moon report`}
+      >
+        <div className="hc-media">
+          <div className="hc-sunico" aria-hidden="true" />
+          <div>
+            <TileHero tone="hc-accent-text">{formatCountdown(minutes)}</TileHero>
+            <TileSub>
+              <span>
+                AT <b>{formatClock(sun.next.at, zone)}</b>
+              </span>
+              <span>
+                {formatClock(sun.rise, zone)} / {formatClock(sun.set, zone)}
+              </span>
+            </TileSub>
+          </div>
         </div>
-      </div>
-    </HamClockTile>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <SunMoonReport
+            open
+            onClose={() => setReportOpen(false)}
+            focus="sun"
+          />
+        </Suspense>
+      )}
+    </>
   );
 }

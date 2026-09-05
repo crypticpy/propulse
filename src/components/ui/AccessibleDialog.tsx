@@ -3,6 +3,7 @@ import {
   useEffect,
   useId,
   useRef,
+  type HTMLAttributes,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -29,6 +30,19 @@ export interface AccessibleDialogProps {
   size?: "md" | "lg" | "xl" | "full";
   /** Tailwind z-index class for the portal overlay. */
   zIndexClassName?: string;
+  /**
+   * `bare` drops the built-in header and scroll body so the caller can draw
+   * its own panel (the HamClock wall reports own their whole surface). The
+   * title still ships as a visually hidden heading, so the dialog keeps its
+   * accessible name either way.
+   */
+  chrome?: "default" | "bare";
+  /**
+   * Attributes merged onto the dialog panel before its own: class, style
+   * custom properties, `data-*` theme hooks. The panel's role, ARIA wiring
+   * and tab index are applied afterwards and always win.
+   */
+  panelProps?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>;
 }
 
 const sizes = {
@@ -46,6 +60,8 @@ export function AccessibleDialog({
   children,
   size = "lg",
   zIndexClassName = "z-[500]",
+  chrome = "default",
+  panelProps,
 }: AccessibleDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -148,35 +164,56 @@ export function AccessibleDialog({
         tabIndex={-1}
       />
       <div
+        {...panelProps}
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        className={`relative flex max-h-[calc(100dvh-1.5rem)] w-full ${sizes[size]} flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#090b17]/95 shadow-2xl shadow-black/60`}
+        className={
+          chrome === "bare"
+            ? `relative ${panelProps?.className ?? ""}`
+            : `relative flex max-h-[calc(100dvh-1.5rem)] w-full ${sizes[size]} flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#090b17]/95 shadow-2xl shadow-black/60 ${panelProps?.className ?? ""}`
+        }
       >
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
-          <div className="min-w-0">
-            <h2 id={titleId} className="font-orbitron text-lg font-bold text-white sm:text-xl">
+        {chrome === "bare" ? (
+          <>
+            <h2 id={titleId} className="sr-only">
               {title}
             </h2>
             {description && (
-              <p id={descriptionId} className="mt-1 text-sm leading-6 text-slate-400">
+              <p id={descriptionId} className="sr-only">
                 {description}
               </p>
             )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label="Close dialog"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
+            {children}
+          </>
+        ) : (
+          <>
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+              <div className="min-w-0">
+                <h2 id={titleId} className="font-orbitron text-lg font-bold text-white sm:text-xl">
+                  {title}
+                </h2>
+                {description && (
+                  <p id={descriptionId} className="mt-1 text-sm leading-6 text-slate-400">
+                    {description}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close dialog"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
+          </>
+        )}
       </div>
     </div>,
     document.body,

@@ -1,9 +1,15 @@
+import { lazy, Suspense, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useLocationWeather } from "@/hooks/useLocalWeather";
 import { weatherCodeToDescription } from "@/lib/api/openMeteo";
 import { formatTemperature, resolveUnits } from "@/lib/hamclock/units";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
+
+// The report is only worth its bytes once an operator opens it.
+const WeatherReport = lazy(() =>
+  import("../reports/WeatherReport").then((m) => ({ default: m.WeatherReport })),
+);
 
 const CLOUD_PATH = "M18 50h27a9 9 0 0 0 1-18 12 12 0 0 0-23-3 8 8 0 0 0-5 21z";
 
@@ -145,6 +151,7 @@ export function WeatherTile() {
     location?.lat,
     location?.lon,
   );
+  const [reportOpen, setReportOpen] = useState(false);
 
   if (!weather) {
     return (
@@ -169,31 +176,48 @@ export function WeatherTile() {
   const rain = weather.precipitationProbability;
 
   return (
-    <HamClockTile
-      title="Local weather"
-      source="OPEN-METEO"
-      state="var(--hc-info)"
-    >
-      <div className="hc-media">
-        <WeatherGlyph
-          kind={weatherGlyphKind(weather.weatherCode, weather.isDay)}
-        />
-        <div>
-          <TileHero tone="hc-info-text">
-            {formatTemperature(weather.temperature, resolved)}
-          </TileHero>
-          <TileSub>
-            <span>
-              {weatherCodeToDescription(weather.weatherCode).toUpperCase()}
-            </span>
-            {rain !== null && (
+    <>
+      <HamClockTile
+        title="Local weather"
+        source="OPEN-METEO"
+        state="var(--hc-info)"
+        onOpen={() => setReportOpen(true)}
+        openLabel={`Local weather ${formatTemperature(
+          weather.temperature,
+          resolved,
+        )}. Open the weather report`}
+      >
+        <div className="hc-media">
+          <WeatherGlyph
+            kind={weatherGlyphKind(weather.weatherCode, weather.isDay)}
+          />
+          <div>
+            <TileHero tone="hc-info-text">
+              {formatTemperature(weather.temperature, resolved)}
+            </TileHero>
+            <TileSub>
               <span>
-                RAIN <b>{Math.round(rain)}%</b>
+                {weatherCodeToDescription(weather.weatherCode).toUpperCase()}
               </span>
-            )}
-          </TileSub>
+              {rain !== null && (
+                <span>
+                  RAIN <b>{Math.round(rain)}%</b>
+                </span>
+              )}
+            </TileSub>
+          </div>
         </div>
-      </div>
-    </HamClockTile>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <WeatherReport
+            open
+            onClose={() => setReportOpen(false)}
+            focus="weather"
+          />
+        </Suspense>
+      )}
+    </>
   );
 }

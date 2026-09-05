@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, lazy, Suspense, useMemo, useState } from "react";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
 import {
   useWallReliability,
@@ -10,6 +10,13 @@ import {
   type WallReliabilityStatus,
 } from "./useWallReliability";
 import type { ReliabilityCell } from "@/lib/hamclock/reliabilityForecast";
+
+// The report is only worth its bytes once an operator opens it.
+const ForecastReport = lazy(() =>
+  import("../reports/ForecastReport").then((m) => ({
+    default: m.ForecastReport,
+  })),
+);
 
 /**
  * Columns the matrix shows.
@@ -103,6 +110,7 @@ export function ForecastMatrixTile({
   title = "24h band forecast",
 }: WallTileProps) {
   const { status, cells, hourIndex, targetLabel, mode } = useWallReliability();
+  const [reportOpen, setReportOpen] = useState(false);
 
   const hero = useMemo<Headline | null>(() => {
     if (status !== "ready") return null;
@@ -138,60 +146,74 @@ export function ForecastMatrixTile({
   ).join(". ");
 
   return (
-    <HamClockTile
-      title={title}
-      source={`${mode} · ${targetLabel.toUpperCase()}`}
-      state={hero.verdict === "OPENS" ? "var(--hc-good)" : undefined}
-    >
-      <div className="hc-heroline">
-        <TileHero tone={hero.tone} flush>
-          {hero.band}
-        </TileHero>
-        <div className={`hc-verdict hc-glow ${hero.tone}`}>{hero.verdict}</div>
-      </div>
-      <TileSub>
-        <span>{hero.detail}</span>
-      </TileSub>
-
-      <div
-        className="hcf-matrix"
-        style={{ gridTemplateColumns: `2.8vw repeat(${COLUMNS.length}, 1fr)` }}
-        aria-hidden="true"
+    <>
+      <HamClockTile
+        title={title}
+        source={`${mode} · ${targetLabel.toUpperCase()}`}
+        state={hero.verdict === "OPENS" ? "var(--hc-good)" : undefined}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`${hero.band} ${hero.verdict}. Open the propagation report`}
       >
-        <span className="hcf-matrix-corner" />
-        {COLUMNS.map((column) => (
-          <span
-            key={column.label}
-            className={`hcf-matrix-head${
-              column.offset === 0 ? " hcf-matrix-head--now" : ""
-            }`}
-          >
-            {column.label}
-          </span>
-        ))}
-        {WALL_FORECAST_BANDS.map((band) => (
-          <Fragment key={band}>
-            <span className="hcf-matrix-band">{band}</span>
-            {COLUMNS.map((column) => {
-              const score = wallReliabilityScore(
-                cells,
-                band,
-                hourIndex + column.offset,
-              );
-              const dead = score == null || score <= 0;
-              return (
-                <span
-                  key={column.label}
-                  className={`hcf-dot ${wallScoreTone(score)}${
-                    dead ? " hcf-dot--off" : ""
-                  }`}
-                />
-              );
-            })}
-          </Fragment>
-        ))}
-      </div>
-      <p className="sr-only">{summary}</p>
-    </HamClockTile>
+        <div className="hc-heroline">
+          <TileHero tone={hero.tone} flush>
+            {hero.band}
+          </TileHero>
+          <div className={`hc-verdict hc-glow ${hero.tone}`}>{hero.verdict}</div>
+        </div>
+        <TileSub>
+          <span>{hero.detail}</span>
+        </TileSub>
+
+        <div
+          className="hcf-matrix"
+          style={{ gridTemplateColumns: `2.8vw repeat(${COLUMNS.length}, 1fr)` }}
+          aria-hidden="true"
+        >
+          <span className="hcf-matrix-corner" />
+          {COLUMNS.map((column) => (
+            <span
+              key={column.label}
+              className={`hcf-matrix-head${
+                column.offset === 0 ? " hcf-matrix-head--now" : ""
+              }`}
+            >
+              {column.label}
+            </span>
+          ))}
+          {WALL_FORECAST_BANDS.map((band) => (
+            <Fragment key={band}>
+              <span className="hcf-matrix-band">{band}</span>
+              {COLUMNS.map((column) => {
+                const score = wallReliabilityScore(
+                  cells,
+                  band,
+                  hourIndex + column.offset,
+                );
+                const dead = score == null || score <= 0;
+                return (
+                  <span
+                    key={column.label}
+                    className={`hcf-dot ${wallScoreTone(score)}${
+                      dead ? " hcf-dot--off" : ""
+                    }`}
+                  />
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+        <p className="sr-only">{summary}</p>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <ForecastReport
+            open
+            onClose={() => setReportOpen(false)}
+            focus="forecast"
+          />
+        </Suspense>
+      )}
+    </>
   );
 }

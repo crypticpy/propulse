@@ -160,6 +160,7 @@ export function useDxccStatus(
         let slots = getCachedSlots(resolvedEntity.id);
         if (!slots) {
           slots = await getWorkedDxccSlots(resolvedEntity.id);
+          if (requestId !== requestIdRef.current) return;
           setCachedSlots(resolvedEntity.id, slots);
         }
 
@@ -256,6 +257,7 @@ export function useDxccStatus(
           setLoading(false);
         }
       } catch (err) {
+        if (requestId !== requestIdRef.current) return;
         console.error("[useDxccStatus] lookup failed:", err);
         if (requestId === requestIdRef.current) {
           setStatus(null);
@@ -267,7 +269,12 @@ export function useDxccStatus(
       }
     }, DEBOUNCE_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // The timer may already be awaiting IndexedDB when this lookup is
+      // replaced or unmounted. Invalidate those continuations as well.
+      requestIdRef.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookupKey, contestMode]);
 

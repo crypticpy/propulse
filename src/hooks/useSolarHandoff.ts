@@ -1,7 +1,7 @@
 import { useMapStore } from "@/stores/mapStore";
 import { useOperatingStore } from "@/stores/operatingStore";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { parseSolarHandoff } from "@/lib/solar/handoff";
 
 /** Router state carries operating intent without resetting map display settings. */
@@ -26,12 +26,19 @@ export function useSolarPlanningMode(handoff: ReturnType<typeof parseSolarHandof
 
 export function useApplySolarMapHandoff() {
   const handoff = useSolarHandoff();
+  const location = useLocation();
+  const navigate = useNavigate();
   const applied = useRef<unknown>(null);
   useEffect(() => {
     if (!handoff || applied.current === handoff) return;
     applied.current = handoff;
     applySolarMapHandoff(handoff);
-  }, [handoff]);
+    // Responsive map layouts remount independently. Consume the intent in the
+    // history entry so a later remount cannot overwrite the operator's edits.
+    const state = { ...location.state };
+    delete state.solarHandoff;
+    navigate({ pathname: location.pathname, search: location.search, hash: location.hash }, { replace: true, state });
+  }, [handoff, location, navigate]);
 }
 
 export function applySolarMapHandoff(handoff: NonNullable<ReturnType<typeof parseSolarHandoff>>) {

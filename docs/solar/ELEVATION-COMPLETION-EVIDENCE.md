@@ -23,7 +23,7 @@ Scope: all three implementation passes in [the elevation plan](../../plans/SOLAR
 The release branch started from `20b47e34` (Shack PR #148) and integrates `a347f2cb` (bundle improvements in PR #150). It retains the newer shared DX Wizard session and map clock. Solar target/mode/time hydration is applied to that session, including recommendation, path geometry, and opening-window calculations. URL synchronization preserves the router handoff state. Future-time advice does not display a live-band correlation as if it applied to the selected date.
 
 - `npm run lint`: passed.
-- `npm test -- --reporter=dot --silent`: 248 files, 1,490 tests passed, including Solar, destination, and existing DX Wizard tests. The old local radar test mismatch is absent on current main.
+- `npm test -- --reporter=dot --silent`: 248 files, 1,491 tests passed, including Solar, destination, and existing DX Wizard tests. The old local radar test mismatch is absent on current main.
 - `npm run build` and `npm run check:bundles`: passed against the unchanged budgets on main, including a build with the configured public client environment. The release remains within the existing app-entry, SolarPulse, stylesheet, and 17-entry PWA precache limits; no budgets were raised.
 - Deterministic Playwright: 18 passed; 4 intentional viewport-specific skips. The isolated managed server ran from this release checkout at 127.0.0.1:5182 and stopped afterward.
 - Browser fixtures use America/Chicago, blocked service workers, large shared text, and reduced motion. Checked 390×844, 834×1194, 1440×1000, and 2560×1440. Provider images and charts were loaded before captures.
@@ -43,7 +43,7 @@ Screenshots use deterministic solar envelopes and downloaded NOAA/NASA imagery f
 
 The pre-release production synthetic passed 23/24 checks. The probability product failed the probe's 24-hour freshness check; its retained envelope was still within the existing three-day data policy. The UI now explicitly labels the ended one-day forecast window without changing cache limits.
 
-Review fixes preserve FT4/RTTY in DX Wizard, evaluate contest context at the planning instant, and give both planners an explicit analysis-mode control. Planner mode is seeded from the handoff and remains editable under CAT, WSJT-X, or contest precedence without mutating radio-follow state. Subsequent shared-mode changes are also reflected. Regression tests cover all three precedence cases on both layouts.
+Review fixes preserve FT4/RTTY in DX Wizard, evaluate contest context at the planning instant, and give both planners an explicit analysis-mode control. Planner mode is seeded from the handoff and remains editable under CAT, WSJT-X, or contest precedence without mutating radio-follow state. Subsequent shared-mode changes are also reflected. Regression tests cover all three precedence cases on both layouts. Map handoffs are consumed from their history entry after applying, preserving unrelated router state and subsequent operator edits across responsive remounts; a new handoff entry still applies normally.
 
 The five-second comprehension check remains an unmeasured usability target, not a claimed study result. A newcomer and experienced operator should inspect a quiet and an impact fixture and identify the current concern/geography, what changed, and the next action. Record confusion between data freshness, event severity, and predictions. No human research outcome is asserted here.
 

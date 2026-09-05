@@ -25,12 +25,13 @@ const IDLE_COPY: Record<Exclude<WallReliabilityStatus, "ready">, string> = {
 };
 
 /**
- * Per-band reliability for the current UTC hour of the shared 24-hour matrix.
+ * Per-band reliability for the current UTC hour of the shared matrix.
  * The hero names the band to call and how good it is; the bars underneath show
  * the rest of the stack at a glance.
  */
 export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
-  const { status, cells, hour, targetLabel, mode } = useWallReliability();
+  const { status, cells, hour, hourIndex, targetLabel, mode } =
+    useWallReliability();
   const [reportOpen, setReportOpen] = useState(false);
 
   if (status !== "ready") {
@@ -44,7 +45,7 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
     );
   }
 
-  const best = wallBestBand(cells, hour);
+  const best = wallBestBand(cells, hourIndex);
   const tone = best ? wallScoreTone(best.score) : "hc-dim-text";
 
   return (
@@ -73,7 +74,7 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
 
         <div className="hcf-bars">
           {WALL_FORECAST_BANDS.map((band) => {
-            const score = wallReliabilityScore(cells, band, hour) ?? 0;
+            const score = wallReliabilityScore(cells, band, hourIndex) ?? 0;
             return (
               <Fragment key={band}>
                 <span className="hcf-bars-k">{band}</span>

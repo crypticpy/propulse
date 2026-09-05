@@ -29,10 +29,12 @@ function decodeCall(decode: WsjtxDecode): string {
  * Last decodes from the in-app FT8 decoder.
  *
  * The tile reads `ft8DecoderStore` directly rather than calling
- * `useFt8Decoder`, which would start a second decoder worker and a second
- * `getUserMedia` capture whenever the decoder setting is on. Reading the store
- * is passive, so the wall shows decodes when the SDR console is producing them
- * and a designed idle state when it is not.
+ * `useFt8Decoder`, which would start a decoder worker and a `getUserMedia`
+ * capture from the wall. Nothing on the /map route feeds that store today —
+ * the producer is mounted by the SDR console and resets the store when it
+ * unmounts — so the idle copy says where decoding actually happens instead of
+ * telling the operator to flip a switch that would not reach this tile. The
+ * live branch below stays ready for a shared receiver.
  */
 export function SdrDecodesTile({ title = "Decodes" }: WallTileProps) {
   const decodes = useFt8DecoderStore((state) => state.decodes);
@@ -47,7 +49,7 @@ export function SdrDecodesTile({ title = "Decodes" }: WallTileProps) {
         <p className="hcf-idle">
           {enabled
             ? "Decoder running — waiting for the next 15 s cycle."
-            : "Turn on the FT8 decoder in SDR Console to see decodes."}
+            : "FT8 decoding runs in the SDR console; wall decodes arrive with the shared receiver."}
         </p>
       </HamClockTile>
     );

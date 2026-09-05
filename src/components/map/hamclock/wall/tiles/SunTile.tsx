@@ -75,6 +75,9 @@ export function SunTile() {
 
   const minutes = (sun.next.at.getTime() - now.getTime()) / 60_000;
   const title = sun.next.type === "sunrise" ? "Sunrise" : "Sunset";
+  // The source line says LOCAL, so the clocks have to be the QTH's local time
+  // and not the browser's — those differ whenever you operate away from home.
+  const zone = location?.timezone;
 
   return (
     <>
@@ -93,10 +96,10 @@ export function SunTile() {
             <TileHero tone="hc-accent-text">{formatCountdown(minutes)}</TileHero>
             <TileSub>
               <span>
-                AT <b>{formatClock(sun.next.at)}</b>
+                AT <b>{formatClock(sun.next.at, zone)}</b>
               </span>
               <span>
-                {formatClock(sun.rise)} / {formatClock(sun.set)}
+                {formatClock(sun.rise, zone)} / {formatClock(sun.set, zone)}
               </span>
             </TileSub>
           </div>

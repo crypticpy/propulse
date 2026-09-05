@@ -38,32 +38,41 @@ vi.mock("@/hooks/useActiveLocation", () => ({
 vi.mock("@/hooks/useMUFData", () => ({ useCurrentSFI: mocks.sfi }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
-    selector({ timeOffset: 0 }),
+    selector({ timeOffset: 0, absoluteTime: null }),
 }));
+
+/** Absolute UTC hour index the fixtures treat as "now" (2026-09-05 12Z). */
+const NOW_INDEX = Date.UTC(2026, 8, 5, 12) / 3_600_000;
+/** First hour the fixture matrix covers — 12 h before "now". */
+const FIRST_INDEX = NOW_INDEX - 12;
+/** Two UTC days of cells, the same span the hook now builds. */
+const SPAN_HOURS = 48;
 
 /**
  * A matrix where 20m is open all day and 10m only opens six hours out, so the
- * forecast tile has exactly one opening to find.
+ * forecast tile has exactly one opening to find. Cells are keyed by absolute
+ * UTC hour, matching `useWallReliability`.
  */
 function buildCells(): Map<string, ReliabilityCell> {
   const cells = new Map<string, ReliabilityCell>();
-  const put = (band: string, hour: number, score: number) => {
-    cells.set(`${band}:${hour}`, {
+  const put = (band: string, hourIndex: number, score: number) => {
+    cells.set(`${band}:${hourIndex}`, {
       band: band as ReliabilityCell["band"],
-      hour,
+      hour: ((hourIndex % 24) + 24) % 24,
       score,
       snrEstimate: 0,
       confidence: 50,
       status: "good",
     });
   };
-  for (let hour = 0; hour < 24; hour++) {
-    put("80m", hour, 30);
-    put("40m", hour, 60);
-    put("20m", hour, 88);
-    put("17m", hour, 40);
-    put("15m", hour, 10);
-    put("10m", hour, hour === 18 ? 90 : 10);
+  for (let i = 0; i < SPAN_HOURS; i++) {
+    const hourIndex = FIRST_INDEX + i;
+    put("80m", hourIndex, 30);
+    put("40m", hourIndex, 60);
+    put("20m", hourIndex, 88);
+    put("17m", hourIndex, 40);
+    put("15m", hourIndex, 10);
+    put("10m", hourIndex, hourIndex === NOW_INDEX + 6 ? 90 : 10);
   }
   return cells;
 }
@@ -73,6 +82,7 @@ function reliabilityState(over: Partial<WallReliability> = {}): WallReliability 
     status: "ready",
     cells: buildCells(),
     hour: 12,
+    hourIndex: NOW_INDEX,
     targetLabel: "Tokyo",
     mode: "SSB",
     ...over,
@@ -99,7 +109,11 @@ describe("wall forecast tiles", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
     });
     mocks.sfi.mockReturnValue(140);
-    useSdrStore.setState({ lastFftFrame: null, fftEnabled: false });
+    useSdrStore.setState({
+      lastFftFrame: null,
+      lastFftFrameAt: null,
+      fftEnabled: false,
+    });
     useRadioStore.setState({ connectedDeviceId: null });
     useFt8DecoderStore.setState({
       decodes: [],
@@ -123,10 +137,11 @@ describe("wall forecast tiles", () => {
 
   it("falls back to a steady verdict when nothing opens", () => {
     const cells = buildCells();
-    for (let hour = 0; hour < 24; hour++) {
-      cells.set(`10m:${hour}`, {
+    for (let i = 0; i < SPAN_HOURS; i++) {
+      const hourIndex = FIRST_INDEX + i;
+      cells.set(`10m:${hourIndex}`, {
         band: "10m",
-        hour,
+        hour: ((hourIndex % 24) + 24) % 24,
         score: 10,
         snrEstimate: 0,
         confidence: 50,
@@ -171,6 +186,24 @@ describe("wall forecast tiles", () => {
     expect(screen.getByText(/SFI 140/)).toBeTruthy();
   });
 
+  it("names the highest band the MUF supports, not the legend bucket", () => {
+    // Austin at 18Z on SFI 140 gives a ~19.9 MHz MUF. The MUF colour legend
+    // calls that bucket "14-21 MHz (15m)", but 15m starts at 21.0 MHz, so the
+    // highest band actually supported is 17m.
+    vi.setSystemTime(new Date("2026-09-05T18:00:00Z"));
+    const { unmount } = render(<MufTile />);
+    expect(screen.getByText("19.9")).toBeTruthy();
+    expect(screen.getByText("17M")).toBeTruthy();
+    unmount();
+
+    // Likewise at 06Z: a 8.9 MHz MUF sits in the "7-10 MHz (30m)" bucket, but
+    // 30m starts at 10.1 MHz, so 40m is the top band.
+    vi.setSystemTime(new Date("2026-09-05T06:00:00Z"));
+    render(<MufTile />);
+    expect(screen.getByText("40M")).toBeTruthy();
+    vi.useRealTimers();
+  });
+
   it("asks for an operating location when there is none", () => {
     mocks.location.mockReturnValue(null);
     render(<MufTile />);
@@ -190,9 +223,14 @@ describe("wall emergency tiles", () => {
     mocks.rim.mockReturnValue({ rimResult: null, isLoading: false });
   });
 
-  it("reads ALL CLEAR when no alerts are active", () => {
+  it("reports only what the feed maps rather than sounding an all-clear", () => {
     render(<AlertsTile />);
-    expect(screen.getByText("ALL CLEAR")).toBeTruthy();
+    // Zone-based alerts arrive without geometry and are dropped upstream, so
+    // an empty list cannot be claimed as ALL CLEAR.
+    expect(screen.getByText("NONE")).toBeTruthy();
+    expect(screen.getByText("NO MAPPED NWS ALERTS")).toBeTruthy();
+    expect(screen.getByText("NWS · MAPPED ALERTS ONLY")).toBeTruthy();
+    expect(screen.queryByText("ALL CLEAR")).toBeNull();
   });
 
   it("counts alerts and leads with the worst one", () => {
@@ -293,9 +331,22 @@ describe("wall emergency tiles", () => {
   });
 });
 
+/** A usable FFT frame; only its arrival time varies between tests. */
+const FRAME = {
+  kind: "fft" as const,
+  devIdx: 0,
+  centerHz: 14_074_000,
+  spanHz: 96_000,
+  bins: Float32Array.from({ length: 128 }, (_, i) => -110 + i),
+};
+
 describe("wall SDR tiles", () => {
   beforeEach(() => {
-    useSdrStore.setState({ lastFftFrame: null, fftEnabled: false });
+    useSdrStore.setState({
+      lastFftFrame: null,
+      lastFftFrameAt: null,
+      fftEnabled: false,
+    });
     useRadioStore.setState({ connectedDeviceId: null });
     useFt8DecoderStore.setState({
       decodes: [],
@@ -323,27 +374,54 @@ describe("wall SDR tiles", () => {
   });
 
   it("draws the strip and headlines the centre frequency when frames arrive", () => {
+    useRadioStore.setState({ connectedDeviceId: "dev-1" });
     useSdrStore.setState({
       fftEnabled: true,
-      lastFftFrame: {
-        kind: "fft",
-        devIdx: 0,
-        centerHz: 14_074_000,
-        spanHz: 96_000,
-        bins: Float32Array.from({ length: 128 }, (_, i) => -110 + i),
-      },
+      lastFftFrame: FRAME,
+      lastFftFrameAt: Date.now(),
     });
     render(<SdrScopeTile />);
     expect(screen.getByText("14.074")).toBeTruthy();
     expect(screen.getByText(/SPAN/)).toBeTruthy();
     expect(document.querySelector(".hcf-scope path")).toBeTruthy();
+    expect(screen.getByText("SDR · LIVE")).toBeTruthy();
   });
 
-  it("says the decoder is off rather than showing an empty decode list", () => {
+  it("stops calling a frozen frame live once the stream stalls", () => {
+    useRadioStore.setState({ connectedDeviceId: "dev-1" });
+    useSdrStore.setState({
+      fftEnabled: true,
+      lastFftFrame: FRAME,
+      lastFftFrameAt: Date.now() - 30_000,
+    });
+    render(<SdrScopeTile />);
+    expect(screen.queryByText("SDR · LIVE")).toBeNull();
+    expect(screen.getByText("NO SIGNAL")).toBeTruthy();
+    expect(screen.getByText(/Spectrum stalled/)).toBeTruthy();
+  });
+
+  it("drops back to NO RECEIVER when the radio disconnects mid-stream", () => {
+    useSdrStore.setState({
+      fftEnabled: true,
+      lastFftFrame: FRAME,
+      lastFftFrameAt: Date.now(),
+    });
+    render(<SdrScopeTile />);
+    expect(screen.queryByText("SDR · LIVE")).toBeNull();
+    expect(screen.getByText("NO RECEIVER")).toBeTruthy();
+  });
+
+  it("says where FT8 decoding actually happens rather than promising a toggle", () => {
     render(<SdrDecodesTile />);
     // The hero and the title's source note both read OFF.
     expect(document.querySelector(".hc-hero")?.textContent).toBe("OFF");
-    expect(screen.getByText(/Turn on the FT8 decoder/)).toBeTruthy();
+    // Nothing feeds the decoder store on /map, so the copy must not tell the
+    // operator to flip a switch that would never reach this tile.
+    expect(
+      screen.getByText(
+        "FT8 decoding runs in the SDR console; wall decodes arrive with the shared receiver.",
+      ),
+    ).toBeTruthy();
   });
 
   it("lists the latest decodes with callsign, grid and age", () => {

@@ -54,10 +54,17 @@ export function MoonTile() {
 
   // getMoonConditions deliberately skips the forward phase-event search that
   // getMoonSnapshot performs, which is what makes it safe on a ticking tile.
+  // The QTH zone goes in so rise/set belong to the operator's calendar day,
+  // exactly as HamClockMoonPanel does it.
   const moon = useMemo(
     () =>
       location
-        ? getMoonConditions(now, location.lat, location.lon)
+        ? getMoonConditions(
+            now,
+            location.lat,
+            location.lon,
+            location.timezone,
+          )
         : null,
     [location, now],
   );
@@ -92,9 +99,9 @@ export function MoonTile() {
             <TileHero tone={up ? "hc-info-text" : "hc-dim-text"}>
               {Math.round(moon.illumination * 100)}%
             </TileHero>
-            {/* One context line, so the tile stays a glance rather than a
-                table: altitude while the moon is workable, the next rise while
-                it is not. */}
+            {/* One context line, so the tile stays a glance rather than a table:
+                altitude while the moon is workable, the next rise while it is
+                not. */}
             <TileSub>
               <span>{moon.phaseName.toUpperCase()}</span>
               {up ? (
@@ -103,7 +110,7 @@ export function MoonTile() {
                 </span>
               ) : (
                 <span>
-                  RISE <b>{formatClock(moon.rise)}</b>
+                  RISE <b>{formatClock(moon.rise, location?.timezone)}</b>
                 </span>
               )}
             </TileSub>

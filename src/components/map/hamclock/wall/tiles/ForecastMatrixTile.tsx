@@ -25,8 +25,9 @@ const ForecastReport = lazy(() =>
  * band-condition source this app has is FutureCast, whose horizons top out at
  * 24 hours (`FUTURECAST_HORIZONS_HOURS = [3, 6, 12, 24]`) and which is
  * currently disabled at the data layer. Rather than invent two days of data,
- * the wall samples the real 24-hour physics matrix at four points and names
- * the horizon in its title.
+ * the wall samples the real physics matrix at four points and names the
+ * horizon in its title. The matrix runs 48 hours so every offset below reads a
+ * genuinely future hour even late in the UTC day.
  */
 const COLUMNS = [
   { offset: 0, label: "NOW" },
@@ -71,21 +72,25 @@ interface Headline {
  */
 function findOpening(
   cells: Map<string, ReliabilityCell>,
-  hour: number,
+  hourIndex: number,
 ): Headline | null {
   for (const column of COLUMNS) {
     if (column.offset === 0) continue;
     let pick: WallForecastBand | null = null;
     for (const band of WALL_FORECAST_BANDS) {
-      const now = wallReliabilityScore(cells, band, hour);
-      const later = wallReliabilityScore(cells, band, hour + column.offset);
+      const now = wallReliabilityScore(cells, band, hourIndex);
+      const later = wallReliabilityScore(
+        cells,
+        band,
+        hourIndex + column.offset,
+      );
       if (now == null || later == null) continue;
       if (now >= SHUT || later < OPEN) continue;
       // WALL_FORECAST_BANDS runs low to high, so a later hit outranks.
       pick = band;
     }
     if (pick) {
-      const nowWord = tierWord(wallReliabilityScore(cells, pick, hour));
+      const nowWord = tierWord(wallReliabilityScore(cells, pick, hourIndex));
       return {
         band: pick.toUpperCase(),
         verdict: "OPENS",
@@ -104,21 +109,21 @@ function findOpening(
 export function ForecastMatrixTile({
   title = "24h band forecast",
 }: WallTileProps) {
-  const { status, cells, hour, targetLabel, mode } = useWallReliability();
+  const { status, cells, hourIndex, targetLabel, mode } = useWallReliability();
   const [reportOpen, setReportOpen] = useState(false);
 
   const hero = useMemo<Headline | null>(() => {
     if (status !== "ready") return null;
-    const opening = findOpening(cells, hour);
+    const opening = findOpening(cells, hourIndex);
     if (opening) return opening;
-    const best = wallBestBand(cells, hour);
+    const best = wallBestBand(cells, hourIndex);
     return {
       band: best ? best.band.toUpperCase() : "—",
       verdict: best ? "STEADY" : "SHUT",
       tone: best ? wallScoreTone(best.score) : "hc-dim-text",
       detail: best ? "NO NEW OPENINGS IN 18H" : "NO BAND WORKABLE IN 18H",
     };
-  }, [status, cells, hour]);
+  }, [status, cells, hourIndex]);
 
   if (status !== "ready" || !hero) {
     return (
@@ -135,7 +140,7 @@ export function ForecastMatrixTile({
     COLUMNS.map(
       (column) =>
         `${band} ${column.label} ${tierWord(
-          wallReliabilityScore(cells, band, hour + column.offset),
+          wallReliabilityScore(cells, band, hourIndex + column.offset),
         )}`,
     ).join(", "),
   ).join(". ");
@@ -182,7 +187,7 @@ export function ForecastMatrixTile({
                 const score = wallReliabilityScore(
                   cells,
                   band,
-                  hour + column.offset,
+                  hourIndex + column.offset,
                 );
                 const dead = score == null || score <= 0;
                 return (

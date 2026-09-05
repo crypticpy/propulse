@@ -24,12 +24,19 @@ export function BandActivityTile() {
   const { data, isPending, isError } = useBandActivity(activityScope);
   const [reportOpen, setReportOpen] = useState(false);
 
-  const bars = useMemo(() => {
+  // Bars are capped so the type stays legible, but the totals underneath
+  // describe every active band in the scope — summing the drawn slice would
+  // quietly under-report both the spot count and the band count.
+  const { bars, total, bandCount } = useMemo(() => {
     const entries = [...(data?.values() ?? [])].filter(
       (entry) => entry.count60m > 0,
     );
     entries.sort((a, b) => b.count60m - a.count60m);
-    return entries.slice(0, MAX_BARS);
+    return {
+      bars: entries.slice(0, MAX_BARS),
+      total: entries.reduce((sum, entry) => sum + entry.count60m, 0),
+      bandCount: entries.length,
+    };
   }, [data]);
 
   const source = scope.label.toUpperCase();
@@ -52,7 +59,6 @@ export function BandActivityTile() {
   }
 
   const [top] = bars;
-  const total = bars.reduce((sum, entry) => sum + entry.count60m, 0);
 
   return (
     <>
@@ -87,7 +93,7 @@ export function BandActivityTile() {
         </div>
         <TileSub>
           <span>
-            <b>{total.toLocaleString()}</b> spots · {bars.length} bands
+            <b>{total.toLocaleString()}</b> spots · {bandCount} bands
           </span>
         </TileSub>
       </HamClockTile>

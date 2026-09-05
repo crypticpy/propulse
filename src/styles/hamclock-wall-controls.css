@@ -624,6 +624,162 @@
   color: var(--hc-fg);
 }
 
+/* ---------- Layers tab (B6/HW-21, HW-39) ----------
+ * Two columns halve the vertical depth an eight-row category needs, keeping
+ * every category's rows on screen without scrolling (guide §8's ceiling). */
+.hcc-layers-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 2vw;
+  min-height: 0;
+}
+.hcc-layer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: max(3.4vh, 30px);
+  padding: 0.2vh 0.4vw;
+  font-family: var(--hc-font-mono);
+  font-weight: 700;
+  font-size: var(--hcc-t-caption-sm);
+  letter-spacing: 0.04em;
+  color: var(--hc-dim);
+  background: var(--hc-panel);
+  border: 1px solid var(--hc-line);
+  border-radius: calc(var(--hc-radius) * 0.6);
+}
+
+/* ---------- Map tab: style rows (B6/HW-55) ---------- */
+
+.hcc-map-tab {
+  min-height: 0;
+}
+.hcc-style-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.hcc-style-row {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  width: 100%;
+  min-height: max(6.5vh, 56px);
+  padding: 0.8vh 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--hc-line);
+  cursor: pointer;
+  text-align: left;
+}
+.hcc-style-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.hcc-style-row--static {
+  cursor: default;
+  border-bottom: none;
+}
+.hcc-map-current {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vh;
+  flex: 0 0 auto;
+  align-items: flex-start;
+}
+.hcc-style-row:focus-visible {
+  outline: 0.25vh solid var(--hc-accent);
+  outline-offset: -0.2vh;
+}
+.hcc-style-swatch {
+  flex: 0 0 auto;
+  width: max(4.2vh, 36px);
+  height: max(4.2vh, 36px);
+  border-radius: calc(var(--hc-radius) * 0.6);
+  border: 1px solid var(--hc-line);
+}
+.hcc-style-swatch--esri {
+  background: rgb(var(--hc-good-rgb) / 0.22);
+}
+.hcc-style-swatch--mapbox {
+  background: rgb(var(--hc-accent-rgb) / 0.28);
+}
+.hcc-style-swatch--osm {
+  background: rgb(var(--hc-info-rgb) / 0.22);
+}
+.hcc-style-swatch--dark {
+  background: var(--hc-bg);
+  border-color: var(--hc-dim2);
+}
+.hcc-style-swatch--standard {
+  background: rgb(var(--hc-info-rgb) / 0.14);
+  border-style: dashed;
+}
+.hcc-style-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3vh;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.hcc-style-name {
+  font-family: var(--hc-font-body);
+  font-weight: 600;
+  font-size: var(--hcc-t-body);
+  color: var(--hc-fg);
+}
+.hcc-style-row:disabled .hcc-style-name {
+  color: var(--hc-dim);
+}
+.hcc-style-line {
+  font-family: var(--hc-font-mono);
+  font-size: var(--hcc-t-caption);
+  letter-spacing: 0.04em;
+  color: var(--hc-dim);
+}
+.hcc-style-dot {
+  flex: 0 0 auto;
+  width: max(1.6vh, 14px);
+  height: max(1.6vh, 14px);
+  border-radius: 50%;
+  border: 1px solid var(--hc-line);
+  background: transparent;
+}
+.hcc-style-dot[data-selected="true"] {
+  background: var(--hc-good);
+  border-color: var(--hc-good);
+}
+.hcc-style-select {
+  flex: 0 0 auto;
+  font-family: var(--hc-font-mono);
+  font-weight: 700;
+  font-size: var(--hcc-t-caption);
+  letter-spacing: 0.14em;
+  color: var(--hc-dim);
+}
+.hcc-style-row[data-selected="true"] .hcc-style-select {
+  color: var(--hc-good);
+}
+.hcc-map-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vw;
+  padding-top: 1vh;
+  flex: 0 0 auto;
+}
+.hcc-map-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vh;
+  flex: 0 0 auto;
+}
+.hcc-map-preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6vh 0.6vw;
+}
+
 /* ---------- theme treatments ----------
  * Micro-labels move onto the mono face for classic and brass, the same swap
  * `hamclock-wall.css` already makes for `.hc-mode button` and `.hc-tile-title`

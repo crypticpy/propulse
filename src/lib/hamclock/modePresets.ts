@@ -122,6 +122,10 @@ export interface HamClockEnterSnapshot {
   layoutMode: Exclude<MapState["layoutMode"], "hamclock">;
   viewMode: ViewMode;
   mapStyle: MapState["mapStyle"];
+  /** Tile provider override in effect before entering HamClock (B6 fix #5) —
+   * a style chosen inside HamClock must not leak into or mismatch the prior
+   * session on exit. */
+  tileProviderId: MapState["tileProviderId"];
   layers: MapState["layers"];
   spotFilters: SpotFilters;
   displayQuality: DisplayQuality;

@@ -3474,9 +3474,17 @@ export function FlatMapView({
   }, []);
 
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const tileProviderId = useMapStore((s) => s.tileProviderId);
   const requestedTileProvider = useMemo(
-    () => selectTileProvider("satellite", subscriptionTier),
-    [subscriptionTier],
+    // Flat's standard branch draws `getStandardMapCanvas` rather than a real
+    // tile layer (see the tile-layer effect below, gated on
+    // `mapStyle === "standard"`), so this only ever creates a live tile layer
+    // on the satellite bucket today. Passing the real `mapStyle` instead of a
+    // hardcoded "satellite" keeps the requested provider honest with what the
+    // reader actually chose, rather than always resolving a satellite-bucket
+    // id regardless of style (B6 PR #222 fix #1).
+    () => selectTileProvider(mapStyle, subscriptionTier, tileProviderId),
+    [mapStyle, subscriptionTier, tileProviderId],
   );
   const [failedTileProviderIds, setFailedTileProviderIds] = useState<
     ReadonlySet<string>

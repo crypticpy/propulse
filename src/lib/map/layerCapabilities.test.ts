@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getLayerAvailability,
   normalizeExclusiveLayers,
+  standardBasemapCaveat,
   toggleExclusiveLayer,
 } from "./layerCapabilities";
 
@@ -85,5 +86,23 @@ describe("PropSphere renderer capability matrix", () => {
       muf: true,
       spots: true,
     });
+  });
+});
+
+describe("standardBasemapCaveat (B6 PR #222 fix #1, corrected)", () => {
+  it("has no caveat on globe — the standard bucket renders the chosen provider", () => {
+    expect(standardBasemapCaveat("globe")).toBeUndefined();
+  });
+
+  it("notes that Flat draws its own basemap, ignoring OSM vs CARTO", () => {
+    expect(standardBasemapCaveat("flat")).toBe(
+      "Flat map draws its own standard basemap",
+    );
+  });
+
+  it("notes that Azimuthal draws its own basemap, ignoring OSM vs CARTO", () => {
+    expect(standardBasemapCaveat("azimuthal")).toBe(
+      "Azimuthal draws its own standard basemap",
+    );
   });
 });

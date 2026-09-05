@@ -4,6 +4,63 @@ import { HelpCallout } from "@/components/help/HelpCallout";
 import { HelpDataTable } from "@/components/help/HelpDataTable";
 import { HelpShortcutTable } from "@/components/help/HelpShortcutTable";
 import { HelpFAQ } from "@/components/help/HelpFAQ";
+import {
+  LAYER_CATEGORIES,
+  formatLayerProvenance,
+  layersInCategory,
+  registryCaveat,
+} from "@/lib/map/layerRegistry";
+
+/**
+ * Source/cadence/coverage table for every PropSphere layer (B6/HW-39), read
+ * straight from `LAYER_REGISTRY` — the same registry that feeds the Layers
+ * settings tab — so this page and the tab never describe a layer's
+ * provenance in different words. `HelpDataTable`'s fixed name/source/
+ * endpoint/refresh/cache columns don't fit this shape (one combined
+ * provenance line plus an optional caveat), so this is its own small table
+ * rather than a forced fit.
+ */
+function LayerRegistryTable() {
+  return (
+    <div className="overflow-x-auto my-3 rounded-lg border border-white/5">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-white/10 bg-white/[0.02]">
+            <th className="text-left px-3 py-2 text-gray-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">
+              Layer
+            </th>
+            <th className="text-left px-3 py-2 text-gray-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">
+              Source · Cadence · Coverage
+            </th>
+            <th className="text-left px-3 py-2 text-gray-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">
+              Caveat
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {LAYER_CATEGORIES.flatMap((category) =>
+            layersInCategory(category.id).map((entry) => (
+              <tr
+                key={entry.key}
+                className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
+              >
+                <td className="px-3 py-2 text-gray-200 font-medium whitespace-nowrap">
+                  {entry.name}
+                </td>
+                <td className="px-3 py-2 text-gray-400 font-mono text-xs whitespace-nowrap">
+                  {formatLayerProvenance(entry)}
+                </td>
+                <td className="px-3 py-2 text-gray-500 text-xs">
+                  {registryCaveat(entry) || "-"}
+                </td>
+              </tr>
+            )),
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function PropSphereSection() {
   return (
@@ -364,10 +421,14 @@ export function PropSphereSection() {
       >
         <div className="space-y-5 text-sm text-gray-300 leading-relaxed">
           <p>
-            Toggle layers on and off in the Layers popover. Each layer adds a
-            visual overlay to the map. Here is a detailed reference for every
-            available layer.
+            Toggle layers on and off in the Layers popover, or in the
+            HamClock wall's SETTINGS → Layers tab. Each layer adds a visual
+            overlay to the map. The table below is the full reference for
+            every available layer; the sections that follow it go deeper on
+            the ones most relevant to propagation planning.
           </p>
+
+          <LayerRegistryTable />
 
           {/* Terminator */}
           <div>

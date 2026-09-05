@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { formatLocationTime } from "@/lib/hamclock/locationConditions";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockLocationConditions } from "./HamClockLocationConditions";
 
 const { useLocationWeatherMock } = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ vi.mock("@/hooks/useLocalWeather", () => ({
 describe("HamClockLocationConditions", () => {
   beforeEach(() => {
     useLocationWeatherMock.mockReset();
+    useHamClockDisplayStore.getState().setUnits("metric");
   });
 
   it("formats the coordinate timezone rather than the browser timezone", () => {
@@ -59,6 +61,38 @@ describe("HamClockLocationConditions", () => {
     expect(screen.getByText("28°C")).toBeTruthy();
     expect(screen.getByText(/18 km\/h SW/)).toBeTruthy();
     expect(screen.getByText("RH 64%")).toBeTruthy();
+  });
+
+  it("renders weather in the operator's unit system", () => {
+    useHamClockDisplayStore.getState().setUnits("imperial");
+    useLocationWeatherMock.mockReturnValue({
+      weather: {
+        timezone: "America/Chicago",
+        temperature: 27.6,
+        windSpeed: 18.2,
+        windDirection: 225,
+        weatherCode: 2,
+        isDay: true,
+        precipitation: 0,
+        humidity: 64,
+        pressure: 1012,
+      },
+      isLoading: false,
+      error: null,
+      hasLocation: true,
+    });
+
+    render(
+      <HamClockLocationConditions
+        latitude={41.88}
+        longitude={-87.63}
+        displayTime={new Date("2026-08-31T12:00:00.000Z")}
+        stationLabel="DE"
+      />,
+    );
+
+    expect(screen.getByText("82°F")).toBeTruthy();
+    expect(screen.getByText(/11 mph SW/)).toBeTruthy();
   });
 
   it("keeps local time visible when weather is unavailable", () => {

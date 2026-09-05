@@ -146,3 +146,53 @@ export function reportTone(
   if (toneClass === "hc-accent-text") return "accent";
   return "info";
 }
+
+/**
+ * "5 MIN AGO", "2 H AGO", "JUST NOW", "WAITING" (null) — the wall never
+ * shows raw seconds, because a reader ten feet away cannot use "43s" for
+ * anything. A timestamp more than a minute ahead of `now` is clock skew, not
+ * a real reading, so it reads as "JUST NOW" rather than a negative age. The
+ * unit is chosen *after* rounding, so 59m30s reads "1 H AGO" rather than
+ * "60 MIN AGO", and 23h30m reads "1 D AGO" rather than "24 H AGO".
+ */
+export function formatAge(
+  updatedAt: Date | number | null | undefined,
+  now: Date | number = Date.now(),
+): string {
+  if (updatedAt === null || updatedAt === undefined) return "WAITING";
+  const then = updatedAt instanceof Date ? updatedAt.getTime() : updatedAt;
+  const at = now instanceof Date ? now.getTime() : now;
+  const deltaMs = at - then;
+  if (!Number.isFinite(deltaMs) || deltaMs < -60_000) return "JUST NOW";
+  const seconds = Math.max(0, deltaMs / 1000);
+  if (seconds < 45) return "JUST NOW";
+  const minutes = seconds / 60;
+  const roundedMinutes = Math.round(minutes);
+  if (roundedMinutes < 60) return `${roundedMinutes} MIN AGO`;
+  const hours = minutes / 60;
+  const roundedHours = Math.round(hours);
+  if (roundedHours < 24) return `${roundedHours} H AGO`;
+  const days = hours / 24;
+  return `${Math.round(days)} D AGO`;
+}
+
+/**
+ * The footer pair every report and config dialog uses:
+ * `{ footer: "DATA: NOAA SWPC", updated: "UPDATED 00:10 UTC · 5 MIN AGO" }`.
+ * A missing timestamp reports `updated: "WAITING"` rather than a clock that
+ * never moves.
+ */
+export function reportFooter(
+  source: string,
+  updatedAt: Date | number | null | undefined,
+  now?: Date | number,
+): { footer: string; updated: string } {
+  const footer = `DATA: ${source}`;
+  if (updatedAt === null || updatedAt === undefined) {
+    return { footer, updated: "WAITING" };
+  }
+  const date = updatedAt instanceof Date ? updatedAt : new Date(updatedAt);
+  const clock = formatClock(date, "UTC");
+  const age = formatAge(updatedAt, now);
+  return { footer, updated: `UPDATED ${clock} UTC · ${age}` };
+}

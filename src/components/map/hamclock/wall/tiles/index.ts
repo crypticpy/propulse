@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { RegisteredWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { WallTileProps } from "../HamClockTile";
 import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
@@ -46,6 +47,8 @@ export type TileId =
 export interface WallTile {
   title: string;
   Component: ComponentType<WallTileProps>;
+  /** Set once a tile grows a gear and a configuration dialog (guide §9). No tile registers one yet. */
+  config?: RegisteredWidgetConfig;
 }
 
 export const WALL_TILES: Record<TileId, WallTile> = {

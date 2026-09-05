@@ -684,6 +684,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
 - **Already available:**
   - `AccessibleDialog` (`src/components/ui/AccessibleDialog.tsx`, `chrome="bare"`)
   - `useHamclockDisplayStore`, `useKioskStore`
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall/settings`
 - **Acceptance:**
   - [ ] SETTINGS opens a centered dialog with tabs; the map stays visible around it.
@@ -720,6 +721,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
   - `docs/PROP-SPHERE-LAYER-SOURCE-AUDIT.md` for provenance text
   - `src/lib/tiles/providers.ts` (esri-world, osm, carto-dark, mapbox-satellite)
   - `useMapStore` (`layers`, `toggleLayer`, `mapStyle`, `setMapStyle`, `applyPreset`)
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/lib/map/layerRegistry.test.ts src/components/map/hamclock/wall/settings`
 - **Acceptance:**
   - [ ] Every layer row shows source · cadence · coverage, and the help page shows the same words.
@@ -856,6 +858,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
   - `useFeedStore` (`FeedSource`, `TickerCrawlPreferences`, `addFeed`, `updateFeed`)
   - `useRssFeeds` in `src/hooks/useRssFeed.ts`
   - `api/_lib/rateLimit.ts` for the proxy
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/stores/hamclockWidgetConfigStore.test.ts src/components/map/hamclock/wall/config api/feeds`
 - **Acceptance:**
   - [ ] The news tile gear opens a centered dialog with big-button fetch intervals and max age.
@@ -888,6 +891,7 @@ events (B12), and weather consolidation (B13 to B16). `§` references point to
   - `useWeatherAlerts`, `useLocalWeather`
   - `formatClock` in `wall/tokens.ts`
   - `BAND_ORDER` in `src/lib/data/bandRanges.ts`
+  - `wall/controls/*` primitives and `hamclockWidgetConfigStore` (B0, PR #215)
 - **Verification:** `npm run verify` and `npx vitest run src/components/map/hamclock/wall/config src/hooks/useWeatherAlerts.test.ts src/components/map/hamclock/wall/HamClockWall.test.tsx`
 - **Acceptance:**
   - [ ] I can add up to the configured number of city clocks to the top rail from settings.

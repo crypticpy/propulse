@@ -1,0 +1,924 @@
+{
+  "schema_version": 1,
+  "repository": "crypticpy/propulse",
+  "approved_on": "2026-09-05",
+  "accountable_owner": "crypticpy",
+  "requirements": [
+    "S01",
+    "S02",
+    "S03",
+    "S04",
+    "S05",
+    "S06",
+    "S07",
+    "S08",
+    "S09",
+    "S10",
+    "S11",
+    "S12",
+    "S13",
+    "S14",
+    "S15",
+    "S16",
+    "S17"
+  ],
+  "phases": [
+    {
+      "id": "0",
+      "title": "Contracts and executable fixtures",
+      "exit_gate": "Agree domain boundaries, review representative fixtures, and choose the editor architecture before downstream implementation.",
+      "milestone": {
+        "number": 1,
+        "url": "https://github.com/crypticpy/propulse/milestone/1"
+      }
+    },
+    {
+      "id": "1",
+      "title": "Durable data and access boundaries",
+      "exit_gate": "Typed models, revisioned storage, migration/recovery, provenance, and publication projections pass contract tests.",
+      "milestone": {
+        "number": 2,
+        "url": "https://github.com/crypticpy/propulse/milestone/2"
+      }
+    },
+    {
+      "id": "2",
+      "title": "Graph and operating services",
+      "exit_gate": "Reversible commands, route evaluation, pinned operating selection, and reviewed promotion work without UI coupling.",
+      "milestone": {
+        "number": 3,
+        "url": "https://github.com/crypticpy/propulse/milestone/3"
+      }
+    },
+    {
+      "id": "3",
+      "title": "Workbench integration and accessible editing",
+      "exit_gate": "Inventory, canvas/list editing, guided construction, and evidence-aware results use the same services.",
+      "milestone": {
+        "number": 4,
+        "url": "https://github.com/crypticpy/propulse/milestone/4"
+      }
+    },
+    {
+      "id": "4",
+      "title": "Profile and alternate graph views",
+      "exit_gate": "Profile composition, notebooks, extra layers, export, and rack arrangement reuse established data and permission contracts.",
+      "milestone": {
+        "number": 5,
+        "url": "https://github.com/crypticpy/propulse/milestone/5"
+      }
+    },
+    {
+      "id": "5",
+      "title": "Integrated verification and cutover",
+      "exit_gate": "Real operator validation and integrated data/access/release evidence meet the agreed gates; all S01\u2013S17 remain accounted for.",
+      "milestone": {
+        "number": 6,
+        "url": "https://github.com/crypticpy/propulse/milestone/6"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "W01",
+      "phase": "0",
+      "title": "Define domain contracts and representative station fixtures",
+      "requirements": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S14",
+        "S15",
+        "S16",
+        "S17"
+      ],
+      "depends_on": [],
+      "goal": "Record architecture decisions and executable examples before choosing or integrating a graph editor.",
+      "acceptance": [
+        "Specify model/instance, device port, typed edge/cable run, setup/location, immutable revision, layout, measurement, experiment, operating selection, and published projection ownership.",
+        "Define draft versus in-use transitions including shared gear updates, delete/reference impact, historical QSO behavior, and live telemetry separation; identify all current consumers.",
+        "Fixtures cover simple HF, portable, receive-only, shared gear, switched antennas, inline accessories, unknown specs, custom/homebrew/legacy gear and unsupported branches.",
+        "Evaluate canvas library against keyboard/touch/list parity, controlled commands, layout persistence and license/bundle budget; record decision and rejected tradeoffs.",
+        "Record units, identity stability, validation outcomes, publication audiences, offline/sync conflict policy and migration recovery strategy. Track unresolved decisions as blocking issues, not implicit defaults."
+      ],
+      "verification": "Review ADRs against every approved requirement; run fixture contract checks. No application cutover in this issue.",
+      "issue": {
+        "number": 174,
+        "node_id": "I_kwDORFr4R88AAAABP3dpPQ",
+        "url": "https://github.com/crypticpy/propulse/issues/174"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpU4"
+    },
+    {
+      "id": "W02",
+      "phase": "1",
+      "title": "Implement equipment, ports and provenance contracts",
+      "requirements": [
+        "S08",
+        "S11",
+        "S13",
+        "S14"
+      ],
+      "depends_on": [
+        "W01"
+      ],
+      "goal": "Provide stable physical inventory and typed endpoint/evidence records shared by all setup views.",
+      "acceptance": [
+        "Separate catalog model from physical instance; stable IDs and typed port templates support RF, power, audio, control/data and documented bonding.",
+        "Support unknown/partial/custom/homebrew/legacy specifications and owned, borrowed, planned and retired lifecycle; preserve existing metadata/photos.",
+        "Preserve private serials, receipts, purchase/condition/firmware/maintenance/manual notes and Used in references without exposing them through public types.",
+        "Evidence distinguishes measured, manufacturer, user-declared, estimated and unknown, with frequency, date, point, method/source and units; hypothetical SWR is never a measurement."
+      ],
+      "verification": "Round-trip fixtures, invalid/unknown units and evidence validation, stable reference tests.",
+      "issue": {
+        "number": 175,
+        "node_id": "I_kwDORFr4R88AAAABP3dqNQ",
+        "url": "https://github.com/crypticpy/propulse/issues/175"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVA"
+    },
+    {
+      "id": "W03",
+      "phase": "1",
+      "title": "Implement setup graph, revisions and separate layouts",
+      "requirements": [
+        "S01",
+        "S03",
+        "S05",
+        "S08",
+        "S09",
+        "S15",
+        "S17"
+      ],
+      "depends_on": [
+        "W01",
+        "W02"
+      ],
+      "goal": "Create the canonical topology and immutable revisions that every editor, experiment and operating consumer can share.",
+      "acceptance": [
+        "Stable setup, port and connection IDs represent cable runs and their explicit inline components, equipment references, intended routes, power/band and location.",
+        "Coordinates, grouping and view preferences live separately from electrical connectivity; list/canvas/rack use the same graph.",
+        "Draft edits cannot mutate a reviewed revision or resolved equipment inputs; revision restore creates an explicit recoverable transition.",
+        "Shared instances stay shared; cloning a setup does not silently clone physical gear. Record dangling references and unsupported topology without fabricating connections."
+      ],
+      "verification": "Graph/revision immutability and layout-independence tests including shared instance, branch and duplicate fixtures.",
+      "issue": {
+        "number": 176,
+        "node_id": "I_kwDORFr4R88AAAABP3dqng",
+        "url": "https://github.com/crypticpy/propulse/issues/176"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVE"
+    },
+    {
+      "id": "W04",
+      "phase": "1",
+      "title": "Persist and migrate revisioned station data safely",
+      "requirements": [
+        "S01",
+        "S05",
+        "S08",
+        "S11",
+        "S13",
+        "S15"
+      ],
+      "depends_on": [
+        "W02",
+        "W03"
+      ],
+      "goal": "Make the new contracts durable through local persistence, cloud sync, migrations and recovery.",
+      "acceptance": [
+        "Version serialization, local storage/IndexedDB and backend schema/RLS with owner isolation and idempotent migrations.",
+        "Migrate existing ordered chains, side accessories, metadata, measurements, layouts where available and active selection without inventing unsupported branches.",
+        "Define and test offline edits, concurrent updates, stale revisions, reference deletion, reconnect/retry and transaction failure; no silent last-write overwrite of reviewed selections.",
+        "Provide export/backup and rollback or forward-recovery rehearsal with existing owner/development records. No live users does not authorize discarding existing data."
+      ],
+      "verification": "Migration golden fixtures, two-client sync/conflict tests, authorization tests and documented recovery rehearsal.",
+      "issue": {
+        "number": 177,
+        "node_id": "I_kwDORFr4R88AAAABP3drDw",
+        "url": "https://github.com/crypticpy/propulse/issues/177"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVI"
+    },
+    {
+      "id": "W05",
+      "phase": "1",
+      "title": "Enforce audience projections and media access",
+      "requirements": [
+        "S06",
+        "S12",
+        "S16"
+      ],
+      "depends_on": [
+        "W01",
+        "W02",
+        "W03"
+      ],
+      "goal": "Establish the publication boundary before richer station or profile data can be exposed.",
+      "acceptance": [
+        "Define owner/friend/visitor field allowlists and enforce them server-side, including section visibility, chosen grid precision and featured setup summaries.",
+        "Audit current Friends rendering, row policies, media bucket policy, URL delivery and caches; distinguish established defects from unverified baseline observations.",
+        "Exact location, serials, receipts, purchase/private notes and raw wiring/inventory stay private by default, including nested responses, exports and thumbnails.",
+        "Test visibility changes, revoked friendship, cached responses and previously obtained image URLs against the documented access/expiry contract."
+      ],
+      "verification": "Negative API/RLS/media tests for owner, friend, visitor and signed-out contexts; preserve a sanitized evidence matrix.",
+      "issue": {
+        "number": 178,
+        "node_id": "I_kwDORFr4R88AAAABP3drfA",
+        "url": "https://github.com/crypticpy/propulse/issues/178"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVM"
+    },
+    {
+      "id": "W06",
+      "phase": "2",
+      "title": "Build transactional graph commands and undo/redo",
+      "requirements": [
+        "S02",
+        "S03",
+        "S04",
+        "S08",
+        "S10"
+      ],
+      "depends_on": [
+        "W03",
+        "W04"
+      ],
+      "goal": "Create one mutation service that canvas, list and guided setup call.",
+      "acceptance": [
+        "Commands cover add, remove-from-setup, connect, reconnect, explicit-gap insertion, run-specific inline insertion, reorder, move and auto-layout.",
+        "Honor requested insertion or preview the alternative and reason before commit; never silently pick the first run.",
+        "Undo/redo restores topology and layout consistently; canceled and failed edits are atomic. Define persistence and concurrent-edit boundaries for history.",
+        "Shared inventory deletion is separate from remove-from-setup and shows affected references; expose command results sufficient for focus restoration."
+      ],
+      "verification": "Command sequence/property invariants, failure/undo/redo and exact insertion fixtures; no UI-only mutation paths.",
+      "issue": {
+        "number": 179,
+        "node_id": "I_kwDORFr4R88AAAABP3dsBQ",
+        "url": "https://github.com/crypticpy/propulse/issues/179"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVU"
+    },
+    {
+      "id": "W07",
+      "phase": "2",
+      "title": "Compile selected RF routes into the existing engine",
+      "requirements": [
+        "S06",
+        "S08",
+        "S09",
+        "S13",
+        "S14"
+      ],
+      "depends_on": [
+        "W02",
+        "W03"
+      ],
+      "goal": "Adapt supported graph routes to the canonical station calculation engine without treating every diagram as a valid circuit.",
+      "acceptance": [
+        "Use explicit switch ports and intended selected route; flag exclusive route conflicts without claiming hardware switched.",
+        "Evaluate recorded port role, signal class, connector and relevant ratings; confirmed contradiction, compatible and unknown are distinct.",
+        "Extract supported ordered RF routes for the existing engine; preserve unsupported branches/layers as documentation and show calculation limits.",
+        "Return metric, units, provenance, missing inputs and assumptions; unknown is not zero. Keep gear capability, modeled route, measurements and path/time/conditions estimates separate."
+      ],
+      "verification": "Known-route parity against the existing engine plus switch, inline, cycle/branch, unknown and unsupported layer cases.",
+      "issue": {
+        "number": 180,
+        "node_id": "I_kwDORFr4R88AAAABP3dsdA",
+        "url": "https://github.com/crypticpy/propulse/issues/180"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVc"
+    },
+    {
+      "id": "W08",
+      "phase": "2",
+      "title": "Pin operating context to reviewed setup revisions",
+      "requirements": [
+        "S01",
+        "S05"
+      ],
+      "depends_on": [
+        "W04",
+        "W06",
+        "W07"
+      ],
+      "goal": "Make Use in ProPulse the explicit boundary between editing and the context consumed by other app areas.",
+      "acceptance": [
+        "Inspecting, opening/collapsing, duplicating, moving and editing never change operating selection, even for the setup currently in use.",
+        "Use in ProPulse reviews setup/location, route, band/power, missing inputs and affected app contexts, then pins a reviewed revision and resolved equipment inputs.",
+        "An incomplete draft cannot silently replace a working setup; mark Changes not yet in use until explicit promotion.",
+        "Shared equipment/measurement updates prompt impact review; historical log entries remain intact. Live conditions and real telemetry retain their separate freshness/source behavior."
+      ],
+      "verification": "Integration tests for every operating-context consumer identified in W01, including log snapshots and edits to the in-use setup.",
+      "issue": {
+        "number": 181,
+        "node_id": "I_kwDORFr4R88AAAABP3dtzA",
+        "url": "https://github.com/crypticpy/propulse/issues/181"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVg"
+    },
+    {
+      "id": "W09",
+      "phase": "2",
+      "title": "Implement isolated experiments and reviewed promotion",
+      "requirements": [
+        "S05",
+        "S13",
+        "S15"
+      ],
+      "depends_on": [
+        "W04",
+        "W07",
+        "W08"
+      ],
+      "goal": "Keep what-if overrides separate from physical inventory and make promotion explicit and reviewable.",
+      "acceptance": [
+        "Persist baseline revision and selected overrides without changing inventory or selected operating inputs during preview.",
+        "Save as new setup is the default; shared updates list every affected setup and apply only explicitly selected changes.",
+        "Retain current selected-band preservation and reset behavior; changing a scenario assumption cannot create a measured SWR record.",
+        "Detect stale baselines and concurrent shared changes; require a refreshed impact review before commit and preserve prior revisions."
+      ],
+      "verification": "No-write preview assertions, multi-setup impact and stale-baseline tests, selected-band and provenance regression checks.",
+      "issue": {
+        "number": 182,
+        "node_id": "I_kwDORFr4R88AAAABP3duTA",
+        "url": "https://github.com/crypticpy/propulse/issues/182"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVk"
+    },
+    {
+      "id": "W10",
+      "phase": "3",
+      "title": "Connect practical inventory to the new services",
+      "requirements": [
+        "S03",
+        "S07",
+        "S11"
+      ],
+      "depends_on": [
+        "W02",
+        "W04",
+        "W06"
+      ],
+      "goal": "Provide a useful My gear area and compact shelf without forcing catalog completeness.",
+      "acceptance": [
+        "Create/search/edit custom, homebrew, legacy and catalog gear with partial specs, lifecycle, labels/photos and private metadata.",
+        "Show Used in references and distinguish remove-from-setup from inventory deletion with impact review.",
+        "Offer reuse of physical items across setups; preserve existing metadata and support unit preferences without silently changing stored meaning."
+      ],
+      "verification": "Owner inventory UI checks with representative fixtures, shared-reference edits and failed/offline saves.",
+      "issue": {
+        "number": 183,
+        "node_id": "I_kwDORFr4R88AAAABP3dutQ",
+        "url": "https://github.com/crypticpy/propulse/issues/183"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVs"
+    },
+    {
+      "id": "W11",
+      "phase": "3",
+      "title": "Build the station canvas and connection inspector",
+      "requirements": [
+        "S02",
+        "S04",
+        "S08",
+        "S09"
+      ],
+      "depends_on": [
+        "W06",
+        "W07",
+        "W08",
+        "W10"
+      ],
+      "goal": "Replace nested card/editor modes with a gear shelf, editable canvas and focused inspector.",
+      "acceptance": [
+        "Show persistent Editing and Using in ProPulse states plus pending draft changes; share canonical navigation with Profile, My gear and Experiments.",
+        "Visible Connect to, Insert, From/To ports, cable selection and preview allow radio-to-antenna construction without context menus.",
+        "Selected lines reconnect/inspect; explicit gap and inline-run insertion use the command service. Moving/layout never changes topology.",
+        "Progressive RF detail shows intended switch route, incomplete documentation and compatibility outcomes; support labels/line styles beyond color."
+      ],
+      "verification": "Owned isolated browser session checks for simple and switched fixtures, insertion/undo and selection invariants; screenshots.",
+      "issue": {
+        "number": 184,
+        "node_id": "I_kwDORFr4R88AAAABP3dvBg",
+        "url": "https://github.com/crypticpy/propulse/issues/184"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpVw"
+    },
+    {
+      "id": "W12",
+      "phase": "3",
+      "title": "Deliver full list, keyboard and touch parity",
+      "requirements": [
+        "S03",
+        "S04",
+        "S10"
+      ],
+      "depends_on": [
+        "W06",
+        "W11"
+      ],
+      "goal": "Make every essential editing operation available without dragging or tiny handles.",
+      "acceptance": [
+        "Connections list and canvas support add, connect, reconnect, inspect, reorder, remove and undo through shared commands.",
+        "Provide a non-drag pointer alternative as well as keyboard semantics, visible focus, touch-sized controls and sensible focus restoration after edit/cancel/undo.",
+        "Keep labels, errors and route state understandable with assistive technology, zoom and monochrome; verify accessible theme contrast."
+      ],
+      "verification": "Keyboard-only and click/tap task checks, focused accessibility automation and manual screen-reader/zoom evidence.",
+      "issue": {
+        "number": 185,
+        "node_id": "I_kwDORFr4R88AAAABP3dvWg",
+        "url": "https://github.com/crypticpy/propulse/issues/185"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpV0"
+    },
+    {
+      "id": "W13",
+      "phase": "3",
+      "title": "Add guided construction using the same editor",
+      "requirements": [
+        "S04",
+        "S07",
+        "S10",
+        "S11"
+      ],
+      "depends_on": [
+        "W10",
+        "W11",
+        "W12"
+      ],
+      "goal": "Make a first setup approachable without creating a second model or dead-end wizard.",
+      "acceptance": [
+        "Offer simple HF, portable, receive-only and blank starts: Add radio, Add antenna, Connect, Review.",
+        "Allow unknown specs and custom gear, save incomplete drafts and make missing calculation inputs explicit.",
+        "Finish in the normal workbench with the same IDs, undo commands, revision history and connection list; no re-entry of gear.",
+        "Review before Use in ProPulse; lengths and other units follow operator preference."
+      ],
+      "verification": "Fresh-account fixture flows across all starts with click/tap and keyboard; incomplete and resumed setup cases.",
+      "issue": {
+        "number": 186,
+        "node_id": "I_kwDORFr4R88AAAABP3dvrg",
+        "url": "https://github.com/crypticpy/propulse/issues/186"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpV8"
+    },
+    {
+      "id": "W14",
+      "phase": "3",
+      "title": "Present estimates and measured evidence honestly",
+      "requirements": [
+        "S06",
+        "S13"
+      ],
+      "depends_on": [
+        "W02",
+        "W07",
+        "W09",
+        "W11"
+      ],
+      "goal": "Expose capability and measurement context where operators inspect or compare a station.",
+      "acceptance": [
+        "Label estimated metrics precisely and display band/power/route, assumptions, units, unknowns and unsupported topology limits.",
+        "Provide distinct measured entry with frequency/date/point/method/source and distinguish it from manufacturer/declaration/scenario inputs.",
+        "Do not imply a universal station score, guaranteed contact or electrical validation from diagram completeness; preserve engine warnings.",
+        "Shared measurement changes show affected setups and do not rewrite selected inputs or historical QSOs without the reviewed flow."
+      ],
+      "verification": "UI/engine contract checks for known, unknown, estimated and measured cases; verify illustrative mock values are not hard-coded results.",
+      "issue": {
+        "number": 187,
+        "node_id": "I_kwDORFr4R88AAAABP3dwJQ",
+        "url": "https://github.com/crypticpy/propulse/issues/187"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpWI"
+    },
+    {
+      "id": "W15",
+      "phase": "1",
+      "title": "Define profile modules and customization persistence",
+      "requirements": [
+        "S12"
+      ],
+      "depends_on": [
+        "W01",
+        "W05"
+      ],
+      "goal": "Create typed, audience-aware profile content and preferences before building the composer.",
+      "acceptance": [
+        "Support identity/pronunciation, chosen region/grid precision, languages, optional license and portable/club calls.",
+        "Support bands/modes, frequencies/nets, UTC/local windows, QSL/skeds and optional expiring availability.",
+        "Support station photo/story/constraints, featured setup, interests/projects/build notes, learning and mentoring offered/requested.",
+        "Keep optional computed contacts/history/awards/milestones distinct from editable biography with source/privacy preserved.",
+        "Persist module order/visibility, cover crop, accessible accent/theme/density and reset defaults; private inventory never becomes profile content implicitly."
+      ],
+      "verification": "Schema/default/migration and audience-projection tests for every module and preference, including unknown/empty states.",
+      "issue": {
+        "number": 188,
+        "node_id": "I_kwDORFr4R88AAAABP3dwgg",
+        "url": "https://github.com/crypticpy/propulse/issues/188"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpWM"
+    },
+    {
+      "id": "W16",
+      "phase": "4",
+      "title": "Build profile composition and audience preview",
+      "requirements": [
+        "S06",
+        "S12"
+      ],
+      "depends_on": [
+        "W05",
+        "W14",
+        "W15"
+      ],
+      "goal": "Let operators shape a profile around operating interests, projects and a deliberately chosen station showcase.",
+      "acceptance": [
+        "Edit all W15 modules with visibility/order, featured setup, cover crop, accessible accent, light/dark and density controls.",
+        "Provide Reset layout and Preview as friend/visitor using the real projection contract; no arbitrary CSS required.",
+        "Publish only selected summaries/media, precise estimate labels and optional computed statistics; small/custom stations remain first-class.",
+        "Keep common navigation and theme behavior consistent with the workbench; avoid duplicated mockup navigation."
+      ],
+      "verification": "Owner/friend/visitor browser and API checks including hidden fields/media, customization persistence and reset.",
+      "issue": {
+        "number": 189,
+        "node_id": "I_kwDORFr4R88AAAABP3dxVw",
+        "url": "https://github.com/crypticpy/propulse/issues/189"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpWY"
+    },
+    {
+      "id": "W17",
+      "phase": "4",
+      "title": "Add named comparison notebooks and revision recall",
+      "requirements": [
+        "S05",
+        "S13",
+        "S15"
+      ],
+      "depends_on": [
+        "W09",
+        "W14"
+      ],
+      "goal": "Make experiments durable and understandable across changes to a station.",
+      "acceptance": [
+        "Name alternatives with gear/route overrides and compare at a fixed stated band and input power; show exactly what changed.",
+        "Keep build notes and sourced measurements distinct from assumptions, preserving baseline provenance and dates.",
+        "Restore prior revisions without silently mutating shared physical records or operating selection; expose reviewed promotion."
+      ],
+      "verification": "Saved/reopened comparisons, stale baseline, revision restore and shared-equipment regression scenarios.",
+      "issue": {
+        "number": 190,
+        "node_id": "I_kwDORFr4R88AAAABP3dyWg",
+        "url": "https://github.com/crypticpy/propulse/issues/190"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpWg"
+    },
+    {
+      "id": "W18",
+      "phase": "4",
+      "title": "Add optional typed station documentation layers",
+      "requirements": [
+        "S09",
+        "S14"
+      ],
+      "depends_on": [
+        "W02",
+        "W06",
+        "W07",
+        "W12"
+      ],
+      "goal": "Expand documented connections without cluttering initial RF setup or overstating simulation.",
+      "acceptance": [
+        "Reveal power, audio, control/data and bonding layers with recorded typed endpoints and labels/line styles.",
+        "Ground/bonding symbols represent recorded connections, not synthesized assurances; layouts and visibility do not change topology.",
+        "Mark unsupported analysis explicitly; documentation is not a validated installation or evidence of actual energized/switched hardware.",
+        "Retain list/keyboard/touch parity and unknown compatibility handling in each layer."
+      ],
+      "verification": "Multi-layer fixtures and exports to canonical graph; verify the RF engine never consumes arbitrary non-RF paths.",
+      "issue": {
+        "number": 191,
+        "node_id": "I_kwDORFr4R88AAAABP3dysg",
+        "url": "https://github.com/crypticpy/propulse/issues/191"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpWk"
+    },
+    {
+      "id": "W19",
+      "phase": "4",
+      "title": "Export sanitized diagrams and connection schedules",
+      "requirements": [
+        "S06",
+        "S12",
+        "S13",
+        "S16"
+      ],
+      "depends_on": [
+        "W05",
+        "W12",
+        "W14",
+        "W16",
+        "W18"
+      ],
+      "goal": "Produce useful share/print artifacts through the same audience boundary as profiles.",
+      "acceptance": [
+        "Choose audience and detail explicitly; export selected diagram and connection schedule with readable monochrome labels.",
+        "Include relevant estimate labels, assumptions, measurement provenance, units and revision context.",
+        "Exclude private inventory/location/media and hidden wiring from artifact content and metadata; audience preview matches export.",
+        "Large setups paginate or scale legibly; generic/custom gear is supported."
+      ],
+      "verification": "Rendered export visual QA and content/privacy checks for owner/friend/visitor variants, hidden fields and monochrome output.",
+      "issue": {
+        "number": 192,
+        "node_id": "I_kwDORFr4R88AAAABP3dzDg",
+        "url": "https://github.com/crypticpy/propulse/issues/192"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpWo"
+    },
+    {
+      "id": "W20",
+      "phase": "4",
+      "title": "Add an optional rack and bench arrangement view",
+      "requirements": [
+        "S08",
+        "S10",
+        "S17"
+      ],
+      "depends_on": [
+        "W03",
+        "W06",
+        "W12"
+      ],
+      "goal": "Keep the approved later physical arrangement view visible in scope and implement it on the same graph.",
+      "acceptance": [
+        "Arrange existing gear on a rack/bench with separate saved layout; switching views never changes connectivity, IDs or selected route.",
+        "Generic/custom/homebrew gear works without bespoke imagery or 3D assets.",
+        "Provide accessible move/reorder controls and undo; preserve setup revision and operating-context boundaries.",
+        "Any decision to defer this deliverable requires explicit scope approval recorded on the parent and requirement register; do not close it as delivered."
+      ],
+      "verification": "Cross-view graph invariants and keyboard/touch arrangement checks with custom/shared equipment.",
+      "issue": {
+        "number": 193,
+        "node_id": "I_kwDORFr4R88AAAABP3dzcA",
+        "url": "https://github.com/crypticpy/propulse/issues/193"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpWs"
+    },
+    {
+      "id": "W22",
+      "phase": "5",
+      "title": "Validate workflows with real operators and resolve findings",
+      "requirements": [
+        "S01",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S09",
+        "S10",
+        "S11",
+        "S12",
+        "S15"
+      ],
+      "depends_on": [
+        "W13",
+        "W16",
+        "W17"
+      ],
+      "goal": "Replace simulated-panel hypotheses with observed use before declaring the redesign complete.",
+      "acceptance": [
+        "Recruit six consenting operators spanning station complexity, portable/home/club, modern/legacy gear and input needs; simulated personas are not participants.",
+        "Observe fresh setup, unknown gear, inspect without activation, switched route, cable comparison and private profile publication tasks.",
+        "Target at least 5/6 unaided first setups within three minutes, all distinguish editing/use, no unintended shared writes and correct audience publication; record actual results without inventing evidence.",
+        "File and link each actionable finding, retest blockers and document accepted tradeoffs. If recruitment is unavailable, keep this issue and release gate explicitly blocked."
+      ],
+      "verification": "Sanitized protocol/results and linked findings with retest evidence; avoid publishing participant personal data.",
+      "issue": {
+        "number": 194,
+        "node_id": "I_kwDORFr4R88AAAABP3dzww",
+        "url": "https://github.com/crypticpy/propulse/issues/194"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpW0"
+    },
+    {
+      "id": "W21",
+      "phase": "5",
+      "title": "Verify all requirements and complete the controlled cutover",
+      "requirements": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S14",
+        "S15",
+        "S16",
+        "S17"
+      ],
+      "depends_on": [
+        "W04",
+        "W08",
+        "W13",
+        "W14",
+        "W16",
+        "W17",
+        "W18",
+        "W19",
+        "W20",
+        "W22"
+      ],
+      "goal": "Close delivery only when the full dependency plan has implementation and verification evidence.",
+      "acceptance": [
+        "Attach a requirement-by-requirement S01\u2013S17 evidence matrix with merged PRs, tests, UI/export evidence and remaining scope decisions.",
+        "Rehearse owner/development data migration, two-client/offline recovery, rollback/forward recovery and audience/media boundaries on the integrated build.",
+        "Run repository-required lint/build/tests and isolated UI checks, assess bundle/performance on representative large setups, and resolve all actionable review findings.",
+        "Deploy the verified revision and smoke-test actual deployment, draft/use state, persistence, publication and exports; record URL and commit.",
+        "Retire obsolete chain/editor paths only after consumer parity. No HamClock display changes; coordinate any shared navigation/store work with its agent.",
+        "Do not close the parent or mark phases complete with unresolved criteria, missing participant validation or deferred scope lacking explicit owner approval."
+      ],
+      "verification": "Release evidence comment with exact commit, commands/results, migration/recovery records, deployment smoke checks and approved exceptions if any.",
+      "issue": {
+        "number": 195,
+        "node_id": "I_kwDORFr4R88AAAABP3d0Jg",
+        "url": "https://github.com/crypticpy/propulse/issues/195"
+      },
+      "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpW4"
+    }
+  ],
+  "project": {
+    "id": "PVT_kwHOAsYuns4Bij4S",
+    "number": 3,
+    "title": "ProPulse \u2014 Profile and Station Workbench",
+    "url": "https://github.com/users/crypticpy/projects/3",
+    "visibility": "PRIVATE"
+  },
+  "epic": {
+    "number": 173,
+    "node_id": "I_kwDORFr4R88AAAABP3doPw",
+    "url": "https://github.com/crypticpy/propulse/issues/173",
+    "project_item": "PVTI_lAHOAsYuns4Bij4Szg5lpUg"
+  },
+  "requirement_deliverables": {
+    "S01": [
+      "W08"
+    ],
+    "S02": [
+      "W06",
+      "W11"
+    ],
+    "S03": [
+      "W06"
+    ],
+    "S04": [
+      "W11",
+      "W12",
+      "W13"
+    ],
+    "S05": [
+      "W08",
+      "W09"
+    ],
+    "S06": [
+      "W05",
+      "W07",
+      "W14"
+    ],
+    "S07": [
+      "W13"
+    ],
+    "S08": [
+      "W02",
+      "W03",
+      "W04"
+    ],
+    "S09": [
+      "W07",
+      "W11"
+    ],
+    "S10": [
+      "W12"
+    ],
+    "S11": [
+      "W02",
+      "W10"
+    ],
+    "S12": [
+      "W15",
+      "W16"
+    ],
+    "S13": [
+      "W02",
+      "W14"
+    ],
+    "S14": [
+      "W18"
+    ],
+    "S15": [
+      "W17"
+    ],
+    "S16": [
+      "W19"
+    ],
+    "S17": [
+      "W20"
+    ]
+  },
+  "completion_gate": "W21",
+  "project_fields": {
+    "Status": {
+      "id": "PVTSSF_lAHOAsYuns4Bij4Szhhbebk",
+      "name": "Status",
+      "options": [
+        {
+          "id": "f75ad846",
+          "name": "Todo"
+        },
+        {
+          "id": "47fc9ee4",
+          "name": "In Progress"
+        },
+        {
+          "id": "98236657",
+          "name": "Done"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    },
+    "Technical phase": {
+      "id": "PVTSSF_lAHOAsYuns4Bij4Szhhbfg0",
+      "name": "Technical phase",
+      "options": [
+        {
+          "id": "978486dc",
+          "name": "P0 \u2014 Contracts and executable fixtures"
+        },
+        {
+          "id": "4c7a8dd8",
+          "name": "P1 \u2014 Durable data and access boundaries"
+        },
+        {
+          "id": "9b481193",
+          "name": "P2 \u2014 Graph and operating services"
+        },
+        {
+          "id": "c91728a8",
+          "name": "P3 \u2014 Workbench integration and accessible editing"
+        },
+        {
+          "id": "4b723318",
+          "name": "P4 \u2014 Profile and alternate graph views"
+        },
+        {
+          "id": "8c513d90",
+          "name": "P5 \u2014 Integrated verification and cutover"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    },
+    "Readiness": {
+      "id": "PVTSSF_lAHOAsYuns4Bij4Szhhbfg4",
+      "name": "Readiness",
+      "options": [
+        {
+          "id": "b9456eb7",
+          "name": "Ready"
+        },
+        {
+          "id": "959e8b5f",
+          "name": "Blocked"
+        },
+        {
+          "id": "0309d5fb",
+          "name": "In review"
+        },
+        {
+          "id": "6a18c5f3",
+          "name": "Verified"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    },
+    "Requirements": {
+      "id": "PVTF_lAHOAsYuns4Bij4Szhhbfg8",
+      "name": "Requirements",
+      "type": "ProjectV2Field"
+    }
+  }
+}

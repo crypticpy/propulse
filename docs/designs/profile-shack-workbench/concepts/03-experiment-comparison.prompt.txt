@@ -1,0 +1,15 @@
+Use case: ui-mockup
+Asset type: ProPulse Experiments workbench concept image.
+Create ONE polished realistic desktop app viewport, wide 1600x1000. Graphite #151922 background, warm white text, subtle orange accents and restrained cyan, readable large type. Quiet professional scientific software, not gamer dashboard. No device frame or collage.
+Navigation: "PROPULSE" / "Profile" / "My gear" / "Setups" / "Experiments" selected.
+Title: "Try it before you change it".
+Subtitle: "Experiment: A shorter feedline".
+Baseline selector: "Home HF". Status: "Draft experiment — owned gear unchanged".
+Main content: two clearly connected side-by-side simplified RF paths, titled "Current setup" and "Scenario". Each shows generic radio → cable → wire antenna. Current cable label "30 m", scenario cable "15 m". Use the same small radio and antenna silhouettes on both sides; highlight only the cable difference. Each RF path has visibly continuous connection lines between equipment. Scope dropdown: "20 m • 100 W input".
+Under diagrams: simple comparable horizontal loss-budget bars and a comparison table with these three rows: "Feedline length" with 30 m → 15 m; "Estimated cable loss" with 2.0 dB → 1.0 dB; "Estimated power at antenna" with 63 W → 79 W.
+Nearby visible label: "Illustrative estimate • cable loss only". Small explanatory text: "Hypothetical cable-only calculation. Excludes mismatch and antenna efficiency." These numbers are illustrative hypothetical values, not claims about a real cable or product.
+Lower right inspector: "Assumptions" listing "Same radio and antenna", "Cable model: illustrative", "SWR not measured", with action "Add a measurement".
+Lower left note: "This cable is used in 2 setups. Your inventory has not changed."
+Main orange CTA: "Save as new setup". Secondary: "Review shared changes…". Never show a silent Apply action.
+Small provenance legend: "Measured / Declared / Estimated / Unknown".
+Spacious convincing UI, content legible with minimal copy. No contact-probability gauge, no safe-installation stamp, no decorative ground wiring. Render all requested text accurately. No extra promotional copy.

@@ -188,3 +188,28 @@ export function getLayerAvailability(
 
   return { available: true };
 }
+
+/**
+ * Caveat text for the standard `mapStyle` bucket's built-in row when the
+ * current projection ignores the OSM-vs-CARTO tile-provider choice (B6 PR
+ * #222 fix #1, corrected). Globe renders the chosen provider through
+ * `selectTileProvider()`, so there is nothing to caveat there (`undefined`).
+ * Flat's standard branch instead paints `getStandardMapCanvas`
+ * (`FlatMapView.tsx`), and Azimuthal's standard branch paints a locally
+ * generated texture (`AzimuthalRenderer.ts`) — both still render `mapStyle
+ * "standard"`, just never through the chosen provider, so the style chooser
+ * collapses OSM/CARTO into one enabled "Standard (built-in)" row there and
+ * shows this text as its detail line rather than disabling anything. The
+ * satellite bucket (Esri vs Mapbox) is out of scope here: Flat does render
+ * it via a real tile layer, and whether Azimuthal's bundled Blue Marble
+ * texture ever varies by provider is a separate question this fix does not
+ * investigate.
+ */
+export function standardBasemapCaveat(
+  viewMode: PropSphereViewMode,
+): string | undefined {
+  if (viewMode === "flat") return "Flat map draws its own standard basemap";
+  if (viewMode === "azimuthal")
+    return "Azimuthal draws its own standard basemap";
+  return undefined;
+}

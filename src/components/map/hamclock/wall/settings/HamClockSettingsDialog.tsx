@@ -1,7 +1,8 @@
 import { HamClockDialog, HamClockTabs } from "../controls";
 import { DisplayTab } from "./DisplayTab";
 import { KioskTab } from "./KioskTab";
-import { LayersTab, MapTab } from "./PlaceholderTabs";
+import { LayersTab } from "./LayersTab";
+import { MapTab } from "./MapTab";
 import { PagesTilesTab } from "./PagesTilesTab";
 import { ThemeTab } from "./ThemeTab";
 
@@ -13,10 +14,11 @@ export interface HamClockSettingsDialogProps {
 /**
  * The one centered settings surface for the wall (B5/HW-26), replacing the
  * header's hover-fragile, off-screen-prone popouts (`HamClockDisplaySettings`
- * and the wall controls popout). Layers and Map are placeholders until their
- * registry lands in B6; every other tab is live. Only the active tab's
- * content mounts (`HamClockTabs`), so a tab with heavier dependencies (Kiosk
- * needs a router) never pays its cost until an operator opens it.
+ * and the wall controls popout). Layers (HW-21/HW-39) and Map (HW-55) now
+ * read from the shared layer registry, same as every other tab. Only the
+ * active tab's content mounts (`HamClockTabs`), so a tab with heavier
+ * dependencies (Kiosk needs a router) never pays its cost until an operator
+ * opens it.
  */
 export function HamClockSettingsDialog({
   open,

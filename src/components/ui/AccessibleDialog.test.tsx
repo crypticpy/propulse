@@ -112,6 +112,42 @@ describe("AccessibleDialog", () => {
     expect(closeOuterAfterRerender).toHaveBeenCalledOnce();
   });
 
+  it("skips the close when onEscape returns true, but still consumes the keypress (B6 PR #222 fix #2)", () => {
+    const close = vi.fn();
+    const onEscape = vi.fn(() => true);
+    const pageEscape = vi.fn();
+    document.addEventListener("keydown", pageEscape);
+
+    render(
+      <AccessibleDialog open onClose={close} onEscape={onEscape} title="Guarded">
+        <button type="button">Action</button>
+      </AccessibleDialog>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(onEscape).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    expect(pageEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", pageEscape);
+  });
+
+  it("closes normally when onEscape returns false", () => {
+    const close = vi.fn();
+    const onEscape = vi.fn(() => false);
+
+    render(
+      <AccessibleDialog open onClose={close} onEscape={onEscape} title="Guarded">
+        <button type="button">Action</button>
+      </AccessibleDialog>,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(onEscape).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it("has no automated accessibility violations in its rendered contract", async () => {
     render(
       <AccessibleDialog

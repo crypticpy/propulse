@@ -366,14 +366,15 @@ function CameraController() {
   const autoRotateSpeed = useMapStore((state) => state.autoRotateSpeed);
   const mapStyle = useMapStore((state) => state.mapStyle);
   const subscriptionTier = useProfileStore((state) => state.subscriptionTier);
+  const tileProviderId = useMapStore((state) => state.tileProviderId);
   const prevPresetIdRef = useRef<string | null>(null);
   const presetEffectRanRef = useRef(false);
   const presetPanRafRef = useRef<number>(0);
   const qthStartupDoneRef = useRef(false);
 
   const cameraProvider = useMemo(
-    () => selectTileProvider(mapStyle, subscriptionTier),
-    [mapStyle, subscriptionTier],
+    () => selectTileProvider(mapStyle, subscriptionTier, tileProviderId),
+    [mapStyle, subscriptionTier, tileProviderId],
   );
   const minimumDistance = useMemo(
     () =>
@@ -1140,9 +1141,10 @@ const GlobeScene = React.memo(function GlobeScene({
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const tileProviderId = useMapStore((s) => s.tileProviderId);
   const tileProvider = useMemo(
-    () => selectTileProvider(mapStyle, subscriptionTier),
-    [mapStyle, subscriptionTier],
+    () => selectTileProvider(mapStyle, subscriptionTier, tileProviderId),
+    [mapStyle, subscriptionTier, tileProviderId],
   );
   const [tileFailCount, setTileFailCount] = useState(0);
   const MAX_TILE_RETRIES = 3;
@@ -2025,9 +2027,10 @@ export function GlobeView({
   const station = useUserStore((s) => s.station);
   const opsPosture = useOpsPostureStore((s) => s.posture);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const tileProviderId = useMapStore((s) => s.tileProviderId);
   const tileProvider = useMemo(
-    () => selectTileProvider(mapStyle, subscriptionTier),
-    [mapStyle, subscriptionTier],
+    () => selectTileProvider(mapStyle, subscriptionTier, tileProviderId),
+    [mapStyle, subscriptionTier, tileProviderId],
   );
   const tileLabelsEnabled = useMapStore(
     (state) => state.layers.labels && state.labelOptions.tileLabels,

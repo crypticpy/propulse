@@ -24,6 +24,13 @@ const openDialogStack: symbol[] = [];
 export interface AccessibleDialogProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Runs before Escape closes the dialog. Returning `true` skips the close —
+   * a nested cancelable sub-view (e.g. a settings tab's style chooser) can
+   * use this to make Escape cancel itself instead of closing the whole
+   * dialog. Escape still never reaches page-level handlers either way.
+   */
+  onEscape?: () => boolean;
   title: string;
   description?: string;
   children: ReactNode;
@@ -55,6 +62,7 @@ const sizes = {
 export function AccessibleDialog({
   open,
   onClose,
+  onEscape,
   title,
   description,
   children,
@@ -74,6 +82,8 @@ export function AccessibleDialog({
   // Escape stack and the inert-background snapshot.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === "Escape") {
@@ -88,6 +98,7 @@ export function AccessibleDialog({
       // handler) and stop sibling document listeners from acting on the
       // same keypress after the dialog closes.
       event.stopImmediatePropagation();
+      if (onEscapeRef.current?.()) return;
       onCloseRef.current();
       return;
     }

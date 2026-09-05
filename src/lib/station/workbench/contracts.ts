@@ -1,5 +1,7 @@
 /** W01 executable contracts. No store, hardware, engine, or publication side effects. */
 import { z } from "zod";
+import { equipmentFieldsSchema, equipmentMeasurementKinds, rejectReservedEquipmentKey, type EquipmentFields, type EquipmentKind } from "@/lib/station/workbench/equipment/types";
+import { canonicalEquipmentFactId, EQUIPMENT_FIELD_REGISTRY, validateEquipmentFields, validateEquipmentNumericFacts } from "@/lib/station/workbench/equipment/registry";
 
 const id = z.string().trim().min(1);
 const instant = z.string().datetime({ offset: true });
@@ -10,9 +12,43 @@ const equipmentKind = z.enum(["radio", "antenna", "cable", "inline", "accessory"
 const endpoint = z.object({ instanceId: id, portId: id }).strict();
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-const jsonValue: z.ZodType<JsonValue> = z.lazy(() => z.union([
-  z.null(), z.boolean(), finite, z.string(), z.array(jsonValue), z.record(jsonValue),
-]));
+/** Validate before cloning: Zod object/record parsing drops an own __proto__ property. */
+const jsonValue = z.unknown().transform((input, ctx): JsonValue => {
+  const active = new WeakSet<object>();
+  const valid = (value: unknown): boolean => {
+    if (value === null || typeof value === "boolean" || typeof value === "string") return true;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (typeof value !== "object" || active.has(value)) return false;
+    const array = Array.isArray(value);
+    if (!array && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return false;
+    active.add(value);
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.some((key) => typeof key !== "string")) return false;
+    if (array && keys.length !== value.length + 1) return false;
+    for (const key of keys) {
+      if (array && key === "length") continue;
+      if (typeof key !== "string") return false;
+      if (array && (!/^(0|[1-9]\d*)$/.test(key) || Number(key) >= value.length)) return false;
+      const descriptor = descriptors[key];
+      if (!descriptor.enumerable || !("value" in descriptor) || !valid(descriptor.value)) return false;
+    }
+    active.delete(value);
+    return true;
+  };
+  try {
+    if (valid(input)) return structuredClone(input) as JsonValue;
+  } catch {
+    // Proxies, non-cloneable values and excessive nesting are invalid capture inputs.
+  }
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Legacy payload must contain only finite, acyclic plain JSON values" });
+  return z.NEVER;
+});
+const jsonObject = jsonValue.transform((value, ctx): Record<string, JsonValue> => {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) return value;
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Legacy payload must be a JSON object" });
+  return z.NEVER;
+});
 
 /** Known zero is valid; missing information never coerces to zero. */
 export const quantitySchema = z.discriminatedUnion("state", [
@@ -22,6 +58,7 @@ export const quantitySchema = z.discriminatedUnion("state", [
     evidenceId: id,
   }).strict(),
 ]);
+const numericFactsSchema = z.preprocess(rejectReservedEquipmentKey, z.record(quantitySchema));
 
 export const evidenceSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -31,7 +68,7 @@ export const evidenceSchema = z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("equipment"), instanceId: id, description: id }).strict(),
     ]),
     reading: z.object({ value: finite, unit: id }).strict(),
-    quantityKind: z.enum(["swr", "antenna-gain", "relative-gain", "loss", "rf-power", "other"]),
+    quantityKind: z.enum(equipmentMeasurementKinds),
     context: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("rf"), frequencyHz: finite.positive() }).strict(),
       z.object({ kind: z.literal("not-applicable"), reason: id }).strict(),
@@ -42,50 +79,66 @@ export const evidenceSchema = z.discriminatedUnion("kind", [
     id, ownerId: id, kind: z.enum(["manufacturer", "declared", "estimate"]),
     source: id, recordedAt: instant, notes: z.string().optional(),
   }).strict(),
+  z.object({
+    id, ownerId: id, kind: z.literal("report"), reportType: z.enum(["manufacturer", "independent-test", "unknown"]),
+    source: id, recordedAt: instant,
+    citation: z.object({ name: id, url: z.string().optional(), retrievedAt: z.string().optional(), license: z.string().optional(), notes: z.string().optional() }).strict(),
+    // A report is attributed published/legacy evidence, never a measurement of this instance.
+    measurementContext: z.union([
+      z.object({ state: z.literal("unknown"), reason: id }).strict(),
+      z.object({ state: z.literal("recorded"), observedAt: instant.optional(), frequencyHz: finite.positive().optional(), method: id.optional() }).strict().refine((context) => context.observedAt !== undefined || context.frequencyHz !== undefined || context.method !== undefined, "Recorded context needs at least one actual observation detail"),
+    ]),
+  }).strict(),
 ]);
 
 export const portSchema = z.object({
-  id, label: id, signal,
+  id, label: id, signal, templateId: id.optional(),
   direction: z.enum(["input", "output", "bidirectional", "unknown"]),
   role: z.enum(["source", "load", "through", "switch-common", "switch-throw", "unknown"]),
   connector: z.discriminatedUnion("state", [
     z.object({ state: z.literal("unknown") }).strict(),
     z.object({ state: z.literal("known"), family: id, gender: z.enum(["male", "female", "genderless", "unknown"]) }).strict(),
   ]),
-  ratings: z.record(quantitySchema),
+  ratings: numericFactsSchema,
 }).strict();
 
-const internalPathSchema = z.object({
+export const internalPathSchema = z.object({
   id, fromPortId: id, toPortId: id, signal,
   /** At most one path in this group may occur in a selected route. */
   exclusiveGroupId: id.optional(),
 }).strict();
 
-export const equipmentModelSchema = z.object({
-  id, origin: z.enum(["catalog", "custom", "homebrew", "legacy"]),
-  manufacturer: z.string().optional(), name: id,
-  kind: equipmentKind,
-  portTemplates: z.array(portSchema), specifications: z.record(quantitySchema),
-}).strict();
-
 /** Private recovery envelope, never a public projection field. JSON values are retained verbatim. */
 export const legacyRecordSchema = z.object({
-  kind: z.enum(["radio", "antenna", "feedline", "feedline-run", "inline", "accessory", "chain", "preset", "profile", "location"]),
-  sourceId: id, sourceVersion: z.number().int().nonnegative(), payload: z.record(jsonValue),
+  kind: z.enum(["radio", "radio-model", "antenna", "feedline", "feedline-run", "inline", "accessory", "chain", "preset", "profile", "location", "workbench"]),
+  sourceId: id, sourceVersion: z.number().int().nonnegative(), payload: jsonObject,
+}).strict();
+
+export const equipmentModelSchema = z.object({
+  id, origin: z.enum(["catalog", "custom", "homebrew", "legacy"]),
+  manufacturer: z.string().optional(), name: id, kind: equipmentKind,
+  portTemplates: z.array(portSchema), internalPathTemplates: z.array(internalPathSchema).optional(),
+  specifications: numericFactsSchema, fields: equipmentFieldsSchema.optional(),
+  sourceReportIds: z.array(id).optional(), legacy: z.array(legacyRecordSchema).optional(),
+}).strict();
+
+export const equipmentPrivateMetadataSchema = z.object({
+  serialNumber: z.string().optional(), purchaseDate: z.string().optional(),
+  purchaseLocation: z.string().optional(), firmwareRevision: z.string().optional(),
+  wiringConfiguration: z.string().optional(), notes: z.string().optional(),
+  receiptMediaIds: z.array(id), imageIds: z.array(id),
+  specPreference: z.enum(["global", "factory", "tested"]).optional(),
+  condition: z.string().optional(), maintenanceNotes: z.string().optional(), manualNotes: z.string().optional(),
+  manualMediaIds: z.array(id).optional(), manualUrls: z.array(z.string()).optional(),
+  primaryImageId: id.optional(), galleryImageIds: z.array(id).optional(), legacyPhotoUrls: z.array(z.string()).optional(),
 }).strict();
 
 export const equipmentInstanceSchema = z.object({
   id, ownerId: id, modelId: id.nullable(), label: id, kind: equipmentKind,
   lifecycle: z.enum(["owned", "borrowed", "planned", "retired"]),
-  addedAt: instant, ports: z.array(portSchema), internalPaths: z.array(internalPathSchema),
-  facts: z.record(quantitySchema),
-  privateMetadata: z.object({
-    serialNumber: z.string().optional(), purchaseDate: z.string().optional(),
-    purchaseLocation: z.string().optional(), firmwareRevision: z.string().optional(),
-    wiringConfiguration: z.string().optional(), notes: z.string().optional(),
-    receiptMediaIds: z.array(id), imageIds: z.array(id),
-    specPreference: z.enum(["global", "factory", "tested"]).optional(),
-  }).strict(),
+  addedAt: instant, retiredAt: instant.optional(), ports: z.array(portSchema), internalPaths: z.array(internalPathSchema),
+  facts: numericFactsSchema, fields: equipmentFieldsSchema.optional(),
+  privateMetadata: equipmentPrivateMetadataSchema,
   legacy: z.array(legacyRecordSchema),
 }).strict();
 
@@ -131,18 +184,28 @@ export const routeIntentSchema = z.object({
   ]),
 }).strict();
 
+export const revisionTransitionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("initial") }).strict(),
+  z.object({ kind: z.literal("edit") }).strict(),
+  z.object({ kind: z.literal("clone"), sourceRevisionId: id }).strict(),
+  z.object({ kind: z.literal("restore"), sourceRevisionId: id }).strict(),
+]);
+
 export const setupRevisionSchema = z.object({
   id, ownerId: id, setupId: id, parentRevisionId: id.nullable(), createdAt: instant,
+  transition: revisionTransitionSchema.optional(),
   /** Resolved inputs are copied at revision creation. Later shared edits cannot rewrite them. */
   equipment: z.array(equipmentInstanceSchema), models: z.array(equipmentModelSchema),
   evidence: z.array(evidenceSchema), location: locationSchema.nullable(),
   connections: z.array(connectionSchema), cableRuns: z.array(cableRunSchema), routes: z.array(routeIntentSchema),
-  settings: z.object({ frequencyHz: quantitySchema, requestedPowerWatts: quantitySchema, mode: z.string().nullable() }).strict(),
+  settings: z.object({ frequencyHz: quantitySchema, requestedPowerWatts: quantitySchema, mode: z.string().nullable(), bandId: id.nullable().optional() }).strict(),
   notes: z.string(),
 }).strict();
 
 export const layoutSchema = z.object({
-  id, ownerId: id, setupId: id, revisionId: id, view: z.enum(["diagram", "rack"]),
+  id, ownerId: id, setupId: id, revisionId: id, view: z.enum(["diagram", "rack", "list"]),
+  itemOrder: z.array(id).optional(),
+  preferences: z.object({ showLabels: z.boolean().optional(), showPorts: z.boolean().optional(), showGrid: z.boolean().optional(), snapToGrid: z.boolean().optional() }).strict().optional(),
   positions: z.array(z.object({ instanceId: id, x: finite, y: finite, groupId: id.nullable() }).strict()),
   groups: z.array(z.object({ id, label: id }).strict()),
   viewport: z.object({ x: finite, y: finite, zoom: finite.positive() }).strict(),
@@ -187,6 +250,13 @@ const archiveObjectSchema = z.object({
 }).strict();
 
 export type EquipmentInstance = z.infer<typeof equipmentInstanceSchema>;
+export type EquipmentModel = z.infer<typeof equipmentModelSchema>;
+export type EquipmentPort = z.infer<typeof portSchema>;
+export type EquipmentInternalPath = z.infer<typeof internalPathSchema>;
+export type EquipmentPrivateMetadata = z.infer<typeof equipmentPrivateMetadataSchema>;
+export type Setup = z.infer<typeof setupSchema>;
+export type Layout = z.infer<typeof layoutSchema>;
+export type RevisionTransition = z.infer<typeof revisionTransitionSchema>;
 export type SetupRevision = z.infer<typeof setupRevisionSchema>;
 export type WorkbenchArchive = z.infer<typeof archiveObjectSchema>;
 export type RouteIntent = z.infer<typeof routeIntentSchema>;
@@ -220,7 +290,31 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
   unique(archive.layouts, "layout");
   unique(archive.experiments, "experiment");
   unique(archive.publications, "publication source");
-  const checkFacts = (facts: Record<string, Quantity>, available: Map<string, Evidence>, subject?: { instanceId: string; portId?: string }) => {
+  const checkFields = (fields: EquipmentFields, kind: EquipmentKind, available: Map<string, Evidence>, subject?: { instanceId: string; portId?: string }, portRating = false) => {
+    validateEquipmentFields(fields, kind).forEach((diagnostic) => issue(diagnostic.message, diagnostic.path));
+    Object.entries(fields).forEach(([key, field]) => {
+      if (key.startsWith("port.") && !portRating) issue(`Port field must be attached to a specific port: ${key}`);
+      if (field.state === "unknown") return;
+      const source = available.get(field.evidenceId);
+      if (!source) { issue(`Missing field evidence: ${field.evidenceId}`); return; }
+      if (key.startsWith("radio.testedSpecs.") && (source.kind !== "report" || source.reportType !== "independent-test")) issue(`Tested catalog field requires independently attributed report: ${key}`);
+      if (key.startsWith("radio.receiver.") && source.kind === "report" && source.reportType !== "manufacturer") issue(`Factory receiver field cannot cite a tested report: ${key}`);
+      if (source.kind !== "measurement") return;
+      const definition = EQUIPMENT_FIELD_REGISTRY[key];
+      if (typeof field.value !== "number" || definition?.valueKind !== "number") { issue(`Scalar measurement cannot establish a composite or categorical field: ${key}`); return; }
+      if (!subject || source.point.instanceId !== subject.instanceId || (subject.portId !== undefined && (source.point.kind !== "port" || source.point.portId !== subject.portId))) issue(`Measurement belongs to a different field subject: ${key}`);
+      if (source.reading.value !== field.value || source.reading.unit !== field.unit) issue(`Field differs from measured reading: ${key}`);
+      if (source.quantityKind !== definition.measurementKind) issue(`Measurement quantity kind does not establish ${key}`);
+      if (definition.frequencyDependent && source.context.kind !== "rf") issue(`Field measurement requires RF frequency: ${key}`);
+    });
+  };
+  const checkFacts = (facts: Record<string, Quantity>, available: Map<string, Evidence>, subject?: { instanceId: string; portId?: string }, kind?: EquipmentKind, fields: EquipmentFields = {}, portRating = false) => {
+    if (kind) {
+      validateEquipmentNumericFacts(facts, kind, fields).forEach((diagnostic) => issue(diagnostic.message, diagnostic.path));
+      const normalized: EquipmentFields = {};
+      Object.entries(facts).forEach(([key, fact]) => { normalized[canonicalEquipmentFactId(key, kind, fact.state === "known" ? fact.unit : undefined)] = fact; });
+      checkFields(normalized, kind, available, subject, portRating);
+    }
     Object.values(facts).forEach((fact) => {
       if (fact.state === "known" && !available.has(fact.evidenceId)) issue(`Missing evidence: ${fact.evidenceId}`);
       if (fact.state === "known") {
@@ -232,12 +326,15 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
   };
   const checkInstance = (item: EquipmentInstance, available: Map<string, Evidence>, availableModels = models) => {
     owned(item);
+    if ((item.lifecycle === "retired") !== (item.retiredAt !== undefined)) issue(`Retired lifecycle requires its timestamp and other lifecycles must not have one: ${item.id}`);
+    if (item.retiredAt && Date.parse(item.retiredAt) < Date.parse(item.addedAt)) issue(`Retirement predates inventory addition: ${item.id}`);
     if (item.modelId !== null && !availableModels.has(item.modelId)) issue(`Missing model: ${item.modelId}`);
     if (item.modelId !== null && availableModels.has(item.modelId) && availableModels.get(item.modelId)?.kind !== item.kind) issue(`Model kind mismatch: ${item.id}`);
     const ports = unique(item.ports, "port");
     unique(item.internalPaths, "internal path");
-    checkFacts(item.facts, available, { instanceId: item.id });
-    item.ports.forEach((port) => checkFacts(port.ratings, available, { instanceId: item.id, portId: port.id }));
+    checkFields(item.fields ?? {}, item.kind, available, { instanceId: item.id });
+    checkFacts(item.facts, available, { instanceId: item.id }, item.kind, item.fields);
+    item.ports.forEach((port) => checkFacts(port.ratings, available, { instanceId: item.id, portId: port.id }, item.kind, {}, true));
     item.internalPaths.forEach((path) => {
       const from = ports.get(path.fromPortId);
       const to = ports.get(path.toPortId);
@@ -260,11 +357,24 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
       if (row.quantityKind === "rf-power" && row.reading.value < 0) issue(`Invalid measured power: ${row.id}`);
     }
   });
-  archive.models.forEach((model) => {
+  const checkModel = (model: EquipmentModel, available: Map<string, Evidence>) => {
     unique(model.portTemplates, "model port");
-    checkFacts(model.specifications, evidence);
-    model.portTemplates.forEach((port) => checkFacts(port.ratings, evidence));
-  });
+    unique(model.internalPathTemplates ?? [], "model internal path");
+    model.internalPathTemplates?.forEach((path) => {
+      const from = model.portTemplates.find((port) => port.id === path.fromPortId);
+      const to = model.portTemplates.find((port) => port.id === path.toPortId);
+      if (!from || !to || from.id === to.id) issue(`Invalid model internal path: ${path.id}`);
+      if ([from, to].some((port) => port && port.signal !== "unknown" && port.signal !== path.signal)) issue(`Model internal path signal mismatch: ${path.id}`);
+    });
+    checkFields(model.fields ?? {}, model.kind, available);
+    checkFacts(model.specifications, available, undefined, model.kind, model.fields);
+    model.portTemplates.forEach((port) => checkFacts(port.ratings, available, undefined, model.kind, {}, true));
+    model.sourceReportIds?.forEach((reportId) => {
+      if (available.get(reportId)?.kind !== "report") issue(`Missing model source report: ${reportId}`);
+    });
+    if (new Set(model.sourceReportIds).size !== (model.sourceReportIds?.length ?? 0)) issue(`Duplicate model source report: ${model.id}`);
+  };
+  archive.models.forEach((model) => checkModel(model, evidence));
   archive.inventory.forEach((item) => checkInstance(item, evidence));
   checkEvidence(archive.evidence, inventory);
   archive.locations.forEach(owned);
@@ -277,21 +387,20 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     owned(revision);
     if (!setups.has(revision.setupId)) issue(`Missing setup: ${revision.setupId}`);
     if (revision.parentRevisionId !== null && revisions.get(revision.parentRevisionId)?.setupId !== revision.setupId) issue(`Invalid parent revision: ${revision.id}`);
-    const ancestors = new Set([revision.id]);
-    let ancestorId = revision.parentRevisionId;
-    while (ancestorId) {
-      if (ancestors.has(ancestorId)) { issue(`Revision ancestry cycle: ${revision.id}`); break; }
-      ancestors.add(ancestorId);
-      ancestorId = revisions.get(ancestorId)?.parentRevisionId ?? null;
+    const transition = revision.transition;
+    if (transition) {
+      if ((transition.kind === "initial" || transition.kind === "clone") && revision.parentRevisionId !== null) issue(`Initial or cloned revision cannot have a parent: ${revision.id}`);
+      if ((transition.kind === "edit" || transition.kind === "restore") && revision.parentRevisionId === null) issue(`Edited or restored revision requires a parent: ${revision.id}`);
+      if (transition.kind === "clone" || transition.kind === "restore") {
+        const source = revisions.get(transition.sourceRevisionId);
+        if (!source || source.id === revision.id) issue(`Missing or self transition source: ${revision.id}`);
+        else if (transition.kind === "restore" ? source.setupId !== revision.setupId : source.setupId === revision.setupId) issue(`Invalid transition source setup: ${revision.id}`);
+      }
     }
     const equipment = unique(revision.equipment, "snapshot instance");
     const pinnedEvidence = unique(revision.evidence, "snapshot evidence");
     const pinnedModels = unique(revision.models, "snapshot model");
-    revision.models.forEach((model) => {
-      unique(model.portTemplates, "snapshot model port");
-      checkFacts(model.specifications, pinnedEvidence);
-      model.portTemplates.forEach((port) => checkFacts(port.ratings, pinnedEvidence));
-    });
+    revision.models.forEach((model) => checkModel(model, pinnedEvidence));
     if (revision.location) {
       owned(revision.location);
       if (!locations.has(revision.location.id)) issue(`Missing location identity: ${revision.location.id}`);
@@ -389,10 +498,38 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
       });
     });
   });
+  // Parent and source provenance jointly form history; neither edge may point back into itself.
+  const checkedHistory = new Set<string>();
+  const visitingHistory = new Set<string>();
+  for (const start of archive.revisions) {
+    if (checkedHistory.has(start.id)) continue;
+    const stack: { id: string; exiting: boolean }[] = [{ id: start.id, exiting: false }];
+    while (stack.length) {
+      const frame = stack.pop()!;
+      if (frame.exiting) {
+        visitingHistory.delete(frame.id);
+        checkedHistory.add(frame.id);
+        continue;
+      }
+      if (visitingHistory.has(frame.id)) { issue(`Revision provenance cycle: ${frame.id}`); continue; }
+      if (checkedHistory.has(frame.id)) continue;
+      const revision = revisions.get(frame.id);
+      if (!revision) continue;
+      visitingHistory.add(frame.id);
+      stack.push({ id: frame.id, exiting: true });
+      if (revision.transition?.kind === "clone" || revision.transition?.kind === "restore") stack.push({ id: revision.transition.sourceRevisionId, exiting: false });
+      if (revision.parentRevisionId) stack.push({ id: revision.parentRevisionId, exiting: false });
+    }
+  }
   archive.layouts.forEach((layout) => {
     owned(layout);
     const revision = revisions.get(layout.revisionId);
     if (!revision || revision.setupId !== layout.setupId) issue(`Invalid layout revision: ${layout.id}`);
+    if (layout.itemOrder !== undefined) {
+      const order = new Set(layout.itemOrder);
+      if (order.size !== layout.itemOrder.length || order.size !== revision?.equipment.length
+        || revision.equipment.some((item) => !order.has(item.id))) issue(`Layout order must include every revision item exactly once: ${layout.id}`);
+    }
     const groups = unique(layout.groups, "layout group");
     const positions = new Set<string>();
     layout.positions.forEach((position) => {

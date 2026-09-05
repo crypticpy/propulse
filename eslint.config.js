@@ -39,6 +39,7 @@ export default tseslint.config(
             "getSpotAtPoint",
             "useVirtualList",
             "useVariableHeightVirtualList",
+            "useHamClockDialogEscapeGuard",
             "getSpotAgeInfo",
             "formatSpotAge",
             "getShortAgeLabel",

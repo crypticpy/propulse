@@ -3,10 +3,9 @@ import { useUTCClock } from "@/hooks/useUTCClock";
 import { readHamClockContacts } from "@/lib/hamclock/recentContacts";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useContestStore } from "@/stores/contestStore";
+import { useWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import { HamClockTile } from "../HamClockTile";
-
-/** Four rows is what the tile can show without shrinking the callsign type. */
-const MAX_ROWS = 4;
+import { recentContactsConfig } from "../config/recentContactsConfig";
 
 /** Log entries carry a UTC date and HH:MM, never a full timestamp. */
 function loggedAt(date: string, timeOn: string): number {
@@ -32,8 +31,12 @@ export function RecentContactsTile() {
     refetchInterval: 15_000,
     staleTime: 10_000,
   });
+  const [{ rowCount }] = useWidgetConfig(
+    "recentContacts",
+    recentContactsConfig,
+  );
 
-  const entries = (data ?? []).slice(0, MAX_ROWS);
+  const entries = (data ?? []).slice(0, rowCount);
   const scope = contestId ? "SESSION" : "TODAY";
 
   return (

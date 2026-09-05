@@ -199,7 +199,10 @@ one record without an unsound cast anywhere else. The panel itself calls
 `useWidgetConfig(id, config)` to read and write the persisted value; it
 validates through `schema` on every read and write, in
 `src/stores/hamclockWidgetConfigStore.ts`. Widgets that already own a store
-(`feedStore`, `dxStore`) wrap it instead of copying it.
+(`feedStore`, `dxStore`) wrap it instead of copying it. See
+`wall/config/recentContactsConfig.ts` for the reference: the `WidgetConfig`
+is built exactly once there and consumed as-is by both the tile
+(`useWidgetConfig`) and the tile registry (`registerWidgetConfig`).
 
 - Do: a `Fetch every` row with 15 / 30 / 60 / 120 as four buttons.
 - Don't: a text input for minutes, a native select, or a form that saves an unverified URL.

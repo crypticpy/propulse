@@ -1,10 +1,12 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
 export interface HamClockSegmentedOption<T extends string> {
   value: T;
   label: string;
   detail?: string;
   disabled?: boolean;
+  /** Rendered inside the button before the label, e.g. a theme swatch. */
+  preview?: ReactNode;
 }
 
 export interface HamClockSegmentedProps<T extends string> {
@@ -105,6 +107,11 @@ export function HamClockSegmented<T extends string>({
               onClick={() => onChange(option.value)}
               onKeyDown={handleKeyDown}
             >
+              {option.preview && (
+                <span className="hcc-seg-btn-preview" aria-hidden="true">
+                  {option.preview}
+                </span>
+              )}
               <span className="hcc-seg-btn-label">{option.label}</span>
               {option.detail && (
                 <span className="hcc-seg-btn-detail">{option.detail}</span>

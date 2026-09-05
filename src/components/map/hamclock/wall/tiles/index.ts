@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
+import { registerWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { RegisteredWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { WallTileProps } from "../HamClockTile";
+import { recentContactsConfig } from "../config/recentContactsConfig";
 import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
@@ -47,7 +49,7 @@ export type TileId =
 export interface WallTile {
   title: string;
   Component: ComponentType<WallTileProps>;
-  /** Set once a tile grows a gear and a configuration dialog (guide §9). No tile registers one yet. */
+  /** Set once a tile grows a gear and a configuration dialog (guide §9). `recentContacts` is the reference registration (B5). */
   config?: RegisteredWidgetConfig;
 }
 
@@ -69,5 +71,9 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   emcomm: { title: "Emcomm", Component: EmcommTile },
   sdrScope: { title: "Band scope", Component: SdrScopeTile },
   sdrDecodes: { title: "Decodes", Component: SdrDecodesTile },
-  recentContacts: { title: "Recent contacts", Component: RecentContactsTile },
+  recentContacts: {
+    title: "Recent contacts",
+    Component: RecentContactsTile,
+    config: registerWidgetConfig(recentContactsConfig),
+  },
 };

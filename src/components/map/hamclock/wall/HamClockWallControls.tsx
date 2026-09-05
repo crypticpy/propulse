@@ -1,95 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import { LayersPopover } from "@/components/map/LayersPopover";
-import { useActiveLocation } from "@/hooks/useActiveLocation";
-import {
-  hamClockHomeRegion,
-  hamClockProjectionContent,
-} from "@/lib/hamclock/displayLayout";
-import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { HamClockDensitySwitch } from "../HamClockDensitySwitch";
-import { HamClockDisplaySettings } from "../HamClockDisplaySettings";
 import { HamClockModeSwitch } from "../HamClockModeSwitch";
 import { HamClockProjectionSwitch } from "../HamClockProjectionSwitch";
+import { HamClockButton } from "./controls";
 
-const MAP_CONTENT_OPTIONS = [
-  ["activity", "Activity"],
-  ["contacts", "My contacts"],
-  ["both", "Both"],
-] as const;
-
-/** Activity / My contacts / Both — the same choice the desk header offers,
- * with the same azimuthal restriction, so a wall operator is not sent back to
- * desk density to change what the map plots. */
-function WallMapContent() {
-  const content = useHamClockDisplayStore((s) => s.mapContent);
-  const setMapContent = useHamClockDisplayStore((s) => s.setMapContent);
-  const viewMode = useMapStore((s) => s.viewMode);
-  const effective = hamClockProjectionContent(viewMode, content);
-  return (
-    <div
-      className="flex rounded border border-white/20 p-0.5"
-      role="group"
-      aria-label="Map content"
-    >
-      {MAP_CONTENT_OPTIONS.map(([value, label]) => {
-        const blocked = viewMode === "azimuthal" && value !== "activity";
-        return (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={effective === value}
-            disabled={blocked}
-            title={blocked ? "Map logged contacts in Flat or 3D" : undefined}
-            className={`rounded px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${
-              effective === value
-                ? "bg-signal-green text-void-black"
-                : "text-gray-400 hover:bg-white/10"
-            }`}
-            onClick={() => setMapContent(value)}
-          >
-            {label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Re-frame the map on the operator's own QTH. Observatory mode owns the
- * camera, so it is released first, exactly as the desk header does. */
-function WallHomeRegion() {
-  const location = useActiveLocation();
-  const frameHome = useHamClockDisplayStore((s) => s.frameHome);
-  return (
-    <button
-      type="button"
-      disabled={!location}
-      className="rounded border border-white/20 px-2 py-1 text-xs text-gray-200 hover:bg-white/10 disabled:opacity-40"
-      onClick={() => {
-        if (!location) return;
-        const map = useMapStore.getState();
-        if (map.observatoryMode) map.exitObservatory();
-        frameHome(hamClockHomeRegion(location.lat, location.lon));
-      }}
-    >
-      Home region
-    </button>
-  );
+export interface HamClockWallControlsProps {
+  /** Opens the single `HamClockSettingsDialog` the parent (`HamClockView`)
+   * owns, so density can flip between wall and desk without the dialog's
+   * open state getting stranded on an unmounted copy. */
+  onOpenSettings: () => void;
 }
 
 /**
  * Wall density has no second toolbar row, so the desk header's controls
  * collapse into one anchored overflow cluster at the right end of the
- * header. Mode, density, projection and Display settings stay always
- * visible ahead of the cluster — the same fixed slot and order as the desk
- * header (mode · WALL | DESK · projection · Display, B1/HW-22) — so
- * switching back to desk density, or reaching Display settings, is never a
- * menu away. The CONTROLS trigger now only opens map content, home region
- * and layers; the exit affordance is always visible outside the menu.
+ * header. Mode, density, projection and SETTINGS stay always visible ahead
+ * of the cluster — the same fixed slot and order as the desk header (mode ·
+ * WALL | DESK · projection · SETTINGS, B1/HW-22) — so switching back to desk
+ * density, or reaching settings, is never a menu away. SETTINGS opens the
+ * single centered `HamClockSettingsDialog` the parent owns (B5/HW-26), not a
+ * popout. The Display tab of that dialog now owns map content and home
+ * region, so the CONTROLS trigger only opens Layers — it stays only because
+ * B6 has not yet replaced it with the Layers tab; the exit affordance is
+ * always visible outside the menu.
  */
-export function HamClockWallControls() {
+export function HamClockWallControls({
+  onOpenSettings,
+}: HamClockWallControlsProps) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -98,7 +38,6 @@ export function HamClockWallControls() {
   const setPreferredViewMode = useHamClockStore((s) => s.setPreferredViewMode);
   const viewMode = useMapStore((s) => s.viewMode);
   const setViewMode = useMapStore((s) => s.setViewMode);
-  const showMapContent = hamclockMode === "traffic" || hamclockMode === "bands";
 
   useEffect(() => {
     if (!open) return;
@@ -149,7 +88,7 @@ export function HamClockWallControls() {
       <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
       <HamClockDensitySwitch />
       <HamClockProjectionSwitch value={viewMode} onChange={handleProjection} />
-      <HamClockDisplaySettings />
+      <HamClockButton onClick={onOpenSettings}>SETTINGS</HamClockButton>
       <button
         ref={trigger}
         type="button"
@@ -176,8 +115,6 @@ export function HamClockWallControls() {
           role="group"
           aria-label="HamClock controls"
         >
-          {showMapContent && <WallMapContent />}
-          <WallHomeRegion />
           <LayersPopover />
         </div>
       )}

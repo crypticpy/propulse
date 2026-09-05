@@ -211,6 +211,39 @@ describe("HamClockSegmented", () => {
     fireEvent.keyDown(a, { key: "ArrowRight" });
     expect(onChange).toHaveBeenCalledWith("c");
   });
+
+  it("renders a preview inside the radio button when provided, hidden from its accessible name", () => {
+    render(
+      <HamClockSegmented
+        label="Choice"
+        options={[
+          {
+            value: "a" as Val,
+            label: "A",
+            detail: "Detail",
+            preview: (
+              <span data-testid="a-preview">Preview text nobody should hear</span>
+            ),
+          },
+          { value: "b" as Val, label: "B" },
+        ]}
+        value="a"
+        onChange={vi.fn()}
+      />,
+    );
+    // Findable by its full accessible name (label + detail) — the preview's
+    // own text never joins it, because the wrapper is `aria-hidden`.
+    const a = screen.getByRole("radio", { name: "ADetail" });
+    expect(a.querySelector('[data-testid="a-preview"]')).not.toBeNull();
+    expect(
+      a.querySelector(".hcc-seg-btn-preview")?.getAttribute("aria-hidden"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByRole("radio", { name: "B" })
+        .querySelector(".hcc-seg-btn-preview"),
+    ).toBeNull();
+  });
 });
 
 describe("HamClockTabs", () => {

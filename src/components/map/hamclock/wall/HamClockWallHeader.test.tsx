@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockWallHeader } from "./HamClockWallHeader";
 
@@ -13,7 +13,7 @@ function isBefore(a: Element, b: Element): boolean {
 describe("HamClockWallHeader", () => {
   it("shows DESK in the header without opening a menu, and orders mode, density, projection and the settings trigger consistently (B1/HW-22)", () => {
     useHamClockDisplayStore.getState().setDensity("wall");
-    render(<HamClockWallHeader />);
+    render(<HamClockWallHeader onOpenSettings={vi.fn()} />);
 
     // DESK is directly visible — no CONTROLS click needed. This mirrors the
     // desk-side acceptance check for WALL in HamClockView.test.tsx.

@@ -44,6 +44,9 @@ function WallStatus() {
 interface HamClockWallProps {
   /** The existing map stage, rendered full-bleed under the rails. */
   children: ReactNode;
+  /** Forwarded to `HamClockWallHeader`; opens the single settings dialog
+   * `HamClockView` owns above the density branch. */
+  onOpenSettings: () => void;
 }
 
 /**
@@ -55,7 +58,7 @@ interface HamClockWallProps {
  * mode, projection and settings, in the fixed slot the desk header also
  * uses — B1/HW-22), not the footer, so there is exactly one control for it.
  */
-export function HamClockWall({ children }: HamClockWallProps) {
+export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
   // Both rails follow one page (wall spec §4/§5): `left` is the canonical
   // index the store keeps `right` mirrored to, so the wall only ever reads
   // one number.
@@ -89,7 +92,7 @@ export function HamClockWall({ children }: HamClockWallProps) {
 
   return (
     <div className="hc-wall">
-      <HamClockWallHeader />
+      <HamClockWallHeader onOpenSettings={onOpenSettings} />
 
       <div className="hc-stage">
         {children}

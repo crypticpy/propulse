@@ -223,6 +223,10 @@
   border-radius: calc(var(--hc-radius) * 0.7);
   cursor: pointer;
 }
+.hcc-seg-btn-preview {
+  display: block;
+  width: 100%;
+}
 .hcc-seg-btn-label {
   font-family: var(--hc-font-display);
   font-weight: 700;
@@ -415,6 +419,119 @@
   flex: 0 0 auto;
 }
 
+/* ---------- settings tabs: layout helpers ----------
+ * The generic pieces `DisplayTab`, `PagesTilesTab`, `ThemeTab`, `KioskTab`
+ * and the Layers/Map placeholders share. They compose the row/button
+ * primitives above rather than introducing new interactive controls. */
+
+.hcc-tabgrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6vh;
+  min-height: 0;
+}
+
+/* An action row shaped like `.hcc-row` but ending in a button instead of an
+ * ON/OFF switch — for settings that are a one-shot action (Home region,
+ * Reset), not a persisted boolean. */
+.hcc-action-row {
+  border-bottom: 1px solid var(--hc-line);
+}
+
+.hcc-placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1vh;
+  height: 100%;
+  min-height: 0;
+}
+.hcc-placeholder-title {
+  margin: 0;
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: var(--hcc-t-dialog-title);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hc-fg);
+}
+.hcc-placeholder-body {
+  margin: 0;
+  max-width: 46ch;
+  font-family: var(--hc-font-body);
+  font-size: var(--hcc-t-body);
+  color: var(--hc-dim);
+}
+
+/* ---------- Pages & Tiles (read-only) ---------- */
+
+.hcc-pages-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-flow: column;
+  grid-template-rows: repeat(3, auto);
+  gap: 1.2vh 2vw;
+  min-height: 0;
+}
+.hcc-page-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vh;
+  padding-bottom: 1vh;
+  border-bottom: 1px solid var(--hc-line);
+  min-width: 0;
+}
+.hcc-page-title {
+  margin: 0;
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: var(--hcc-t-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hc-fg);
+}
+.hcc-page-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4vh 0.6vw;
+}
+.hcc-page-rail-label {
+  flex: 0 0 auto;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hcc-t-caption-sm);
+  letter-spacing: 0.14em;
+  color: var(--hc-dim2);
+}
+.hcc-page-tile {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4vw;
+  padding: 0.3vh 0.7vw;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hcc-t-caption);
+  color: var(--hc-dim);
+  background: transparent;
+  border: 1px solid var(--hc-line);
+  border-radius: calc(var(--hc-radius) * 0.6);
+}
+
+/* ---------- Kiosk summary ---------- */
+
+.hcc-kiosk-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2vh;
+}
+.hcc-kiosk-summary {
+  margin: 0;
+  max-width: 60ch;
+  font-family: var(--hc-font-body);
+  font-size: var(--hcc-t-body);
+  color: var(--hc-fg);
+}
+
 /* ---------- theme treatments ----------
  * Micro-labels move onto the mono face for classic and brass, the same swap
  * `hamclock-wall.css` already makes for `.hc-mode button` and `.hc-tile-title`
@@ -430,6 +547,8 @@
 [data-hamclock-theme="classic"] .hcc-dialog-title,
 [data-hamclock-theme="brass"] .hcc-dialog-title,
 [data-hamclock-theme="classic"] .hcc-btn,
-[data-hamclock-theme="brass"] .hcc-btn {
+[data-hamclock-theme="brass"] .hcc-btn,
+[data-hamclock-theme="classic"] .hcc-placeholder-title,
+[data-hamclock-theme="brass"] .hcc-placeholder-title {
   font-family: var(--hc-font-mono);
 }

@@ -44,7 +44,8 @@ import {
   hamClockHomeRegion,
 } from "@/lib/hamclock/displayLayout";
 import { HamClockDensitySwitch } from "./hamclock/HamClockDensitySwitch";
-import { HamClockDisplaySettings } from "./hamclock/HamClockDisplaySettings";
+import { HamClockButton } from "./hamclock/wall/controls";
+import { HamClockSettingsDialog } from "./hamclock/wall/settings/HamClockSettingsDialog";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -644,6 +645,7 @@ export function HamClockView({
       display.textSize === "inherit" ? appSize : display.textSize
     ];
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const activeLocation = useActiveLocation();
   const kiosk = useKioskStore((s) => s.active);
   const homeStarted = useRef(false);
@@ -864,239 +866,269 @@ export function HamClockView({
     </main>
   );
 
+  // Owned here, above the density branch below, so switching density never
+  // strands a stale `settingsOpen` on an unmounted copy of this dialog: wall
+  // and desk each used to own their own state and their own
+  // `HamClockSettingsDialog` mount, so opening SETTINGS at desk and choosing
+  // WALL from the Display tab left the desk dialog's `true` state behind,
+  // which then reopened uninvited the next time density flipped back.
+  const settingsDialog = (
+    <HamClockSettingsDialog
+      open={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+    />
+  );
+
   if (wall) {
     return (
-      <div
-        data-hamclock-root
-        data-hamclock-theme={display.theme}
-        className="fixed inset-0 z-[200] bg-void-black text-white select-none"
-      >
-        <HamClockWall>{mapStage}</HamClockWall>
-      </div>
+      <>
+        <div
+          data-hamclock-root
+          data-hamclock-theme={display.theme}
+          className="fixed inset-0 z-[200] bg-void-black text-white select-none"
+        >
+          <HamClockWall onOpenSettings={() => setSettingsOpen(true)}>
+            {mapStage}
+          </HamClockWall>
+        </div>
+        {settingsDialog}
+      </>
     );
   }
 
   return (
-    <div
-      data-hamclock-root
-      data-hamclock-theme={display.theme}
-      className="fixed inset-0 z-[200] bg-void-black text-white select-none"
-      style={
-        {
-          "--hamclock-scale": textScale,
-          "--hamclock-spacing":
-            display.smartScaling && display.hiddenPanels.length < 4 ? 0.85 : 1,
-          display: "grid",
-          gridTemplateAreas: `"header header header" "left map right" "ticker ticker ticker"`,
-          gridTemplateRows: "auto minmax(0, 1fr) 30px",
-          gridTemplateColumns: `${leftCollapsed ? "0px" : `${leftWidth}px`} minmax(0, 1fr) ${rightCollapsed ? "0px" : `${rightWidth}px`}`,
-        } as CSSProperties
-      }
-    >
-      <header
-        className="hamclock-ui flex flex-wrap items-center justify-between gap-2 px-3 py-1 border-b border-white/10"
-        style={{ gridArea: "header" }}
+    <>
+      <div
+        data-hamclock-root
+        data-hamclock-theme={display.theme}
+        className="fixed inset-0 z-[200] bg-void-black text-white select-none"
+        style={
+          {
+            "--hamclock-scale": textScale,
+            "--hamclock-spacing":
+              display.smartScaling && display.hiddenPanels.length < 4
+                ? 0.85
+                : 1,
+            display: "grid",
+            gridTemplateAreas: `"header header header" "left map right" "ticker ticker ticker"`,
+            gridTemplateRows: "auto minmax(0, 1fr) 30px",
+            gridTemplateColumns: `${leftCollapsed ? "0px" : `${leftWidth}px`} minmax(0, 1fr) ${rightCollapsed ? "0px" : `${rightWidth}px`}`,
+          } as CSSProperties
+        }
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <LayoutModeDropdown className="shrink-0" />
-          <button
-            onClick={toggleLeft}
-            className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
-            aria-label={
-              leftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"
-            }
-            title={leftCollapsed ? "Show left panel" : "Hide left panel"}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="w-3.5 h-3.5"
+        <header
+          className="hamclock-ui flex flex-wrap items-center justify-between gap-2 px-3 py-1 border-b border-white/10"
+          style={{ gridArea: "header" }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <LayoutModeDropdown className="shrink-0" />
+            <button
+              onClick={toggleLeft}
+              className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+              aria-label={
+                leftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"
+              }
+              title={leftCollapsed ? "Show left panel" : "Hide left panel"}
             >
-              {leftCollapsed ? (
-                <path
-                  d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ) : (
-                <path
-                  d="M11 19l-7-7 7-7M19 19l-7-7 7-7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-            </svg>
-          </button>
-          <span className="font-mono text-sm font-bold text-signal-green truncate hidden xl:inline">
-            {station?.callsign || "NO CALL"}
-          </span>
-          {station?.grid && (
-            <span className="font-mono text-xs text-gray-400 hidden xl:inline">
-              {station.grid}
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="w-3.5 h-3.5"
+              >
+                {leftCollapsed ? (
+                  <path
+                    d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : (
+                  <path
+                    d="M11 19l-7-7 7-7M19 19l-7-7 7-7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+              </svg>
+            </button>
+            <span className="font-mono text-sm font-bold text-signal-green truncate hidden xl:inline">
+              {station?.callsign || "NO CALL"}
             </span>
-          )}
-        </div>
+            {station?.grid && (
+              <span className="font-mono text-xs text-gray-400 hidden xl:inline">
+                {station.grid}
+              </span>
+            )}
+          </div>
 
-        <div className="flex items-center gap-3 leading-tight">
-          <HamClockTime />
-        </div>
+          <div className="flex items-center gap-3 leading-tight">
+            <HamClockTime />
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Fixed instrument slot: mode, WALL | DESK, projection and the
-           * settings trigger, in that order — identical to the wall
-           * header's HamClockWallControls cluster (B1/HW-22), so an
-           * operator never has to open a menu to find the way back to
-           * wall density. */}
-          <HamClockModeSwitch value={hamclockMode} onChange={setHamclockMode} />
-          <HamClockDensitySwitch />
-          <HamClockProjectionSwitch
-            value={viewMode}
-            onChange={handleProjectionChange}
-          />
-          <HamClockDisplaySettings />
-          {(hamclockMode === "traffic" || hamclockMode === "bands") && (
-            <div
-              className="flex rounded border border-white/20 p-0.5"
-              role="group"
-              aria-label="Map content"
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Fixed instrument slot: mode, WALL | DESK, projection and the
+             * settings trigger, in that order — identical to the wall
+             * header's HamClockWallControls cluster (B1/HW-22), so an
+             * operator never has to open a menu to find the way back to
+             * wall density. */}
+            <HamClockModeSwitch
+              value={hamclockMode}
+              onChange={setHamclockMode}
+            />
+            <HamClockDensitySwitch />
+            <HamClockProjectionSwitch
+              value={viewMode}
+              onChange={handleProjectionChange}
+            />
+            <HamClockButton onClick={() => setSettingsOpen(true)}>
+              SETTINGS
+            </HamClockButton>
+            {(hamclockMode === "traffic" || hamclockMode === "bands") && (
+              <div
+                className="flex rounded border border-white/20 p-0.5"
+                role="group"
+                aria-label="Map content"
+              >
+                {(
+                  [
+                    ["activity", "Activity"],
+                    ["contacts", "My contacts"],
+                    ["both", "Both"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={mapContent === value}
+                    disabled={viewMode === "azimuthal" && value !== "activity"}
+                    title={
+                      viewMode === "azimuthal" && value !== "activity"
+                        ? "Map logged contacts in Flat or 3D"
+                        : undefined
+                    }
+                    className={`rounded px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed ${mapContent === value ? "bg-signal-green text-void-black" : "text-gray-400 hover:bg-white/10"}`}
+                    onClick={() => display.setMapContent(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <LayersPopover />
+            <button
+              type="button"
+              aria-pressed={observatory}
+              className={`rounded border border-white/20 px-2 py-1 text-xs ${observatory ? "text-signal-green" : "text-gray-300"}`}
+              onClick={() =>
+                observatory
+                  ? useMapStore.getState().exitObservatory()
+                  : useMapStore.getState().enterObservatory()
+              }
             >
-              {(
-                [
-                  ["activity", "Activity"],
-                  ["contacts", "My contacts"],
-                  ["both", "Both"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={mapContent === value}
-                  disabled={viewMode === "azimuthal" && value !== "activity"}
-                  title={
-                    viewMode === "azimuthal" && value !== "activity"
-                      ? "Map logged contacts in Flat or 3D"
-                      : undefined
-                  }
-                  className={`rounded px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed ${mapContent === value ? "bg-signal-green text-void-black" : "text-gray-400 hover:bg-white/10"}`}
-                  onClick={() => display.setMapContent(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-          <LayersPopover />
-          <button
-            type="button"
-            aria-pressed={observatory}
-            className={`rounded border border-white/20 px-2 py-1 text-xs ${observatory ? "text-signal-green" : "text-gray-300"}`}
-            onClick={() =>
-              observatory
-                ? useMapStore.getState().exitObservatory()
-                : useMapStore.getState().enterObservatory()
-            }
-          >
-            Observatory
-          </button>
-          <button
-            type="button"
-            disabled={!activeLocation}
-            className="rounded border border-white/20 px-2 py-1 text-xs text-gray-200 disabled:opacity-40"
-            onClick={() => {
-              if (observatory) useMapStore.getState().exitObservatory();
-              if (activeLocation)
-                display.frameHome(
-                  hamClockHomeRegion(activeLocation.lat, activeLocation.lon),
-                );
-            }}
-          >
-            Home region
-          </button>
-          <button
-            onClick={handleSwapSides}
-            className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="Swap sidebar sides"
-            title="Swap sidebar sides"
-          >
-            <SwapIcon />
-          </button>
-          <SolarPills />
-          <HamClockLayerChips />
-          <WatchStatusPill className="hidden sm:flex" />
-          <button
-            onClick={toggleRight}
-            className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
-            aria-label={
-              rightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"
-            }
-            title={rightCollapsed ? "Show right panel" : "Hide right panel"}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="w-3.5 h-3.5"
+              Observatory
+            </button>
+            <button
+              type="button"
+              disabled={!activeLocation}
+              className="rounded border border-white/20 px-2 py-1 text-xs text-gray-200 disabled:opacity-40"
+              onClick={() => {
+                if (observatory) useMapStore.getState().exitObservatory();
+                if (activeLocation)
+                  display.frameHome(
+                    hamClockHomeRegion(activeLocation.lat, activeLocation.lon),
+                  );
+              }}
             >
-              {rightCollapsed ? (
-                <path
-                  d="M11 19l-7-7 7-7M19 19l-7-7 7-7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ) : (
-                <path
-                  d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-            </svg>
-          </button>
-          <button
-            onClick={() => useMapStore.getState().setLayoutMode("normal")}
-            className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
-            aria-label="Exit HamClock view"
-            title="Exit (Esc)"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-4 h-4"
+              Home region
+            </button>
+            <button
+              onClick={handleSwapSides}
+              className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Swap sidebar sides"
+              title="Swap sidebar sides"
             >
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
+              <SwapIcon />
+            </button>
+            <SolarPills />
+            <HamClockLayerChips />
+            <WatchStatusPill className="hidden sm:flex" />
+            <button
+              onClick={toggleRight}
+              className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+              aria-label={
+                rightCollapsed
+                  ? "Expand right sidebar"
+                  : "Collapse right sidebar"
+              }
+              title={rightCollapsed ? "Show right panel" : "Hide right panel"}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="w-3.5 h-3.5"
+              >
+                {rightCollapsed ? (
+                  <path
+                    d="M11 19l-7-7 7-7M19 19l-7-7 7-7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : (
+                  <path
+                    d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+              </svg>
+            </button>
+            <button
+              onClick={() => useMapStore.getState().setLayoutMode("normal")}
+              className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+              aria-label="Exit HamClock view"
+              title="Exit (Esc)"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="w-4 h-4"
+              >
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <HamClockSidebar
+          side="left"
+          collapsed={leftCollapsed}
+          onToggle={toggleLeft}
+          width={leftWidth}
+        >
+          {leftIsSpots ? spotsSidebar : infoSidebar}
+        </HamClockSidebar>
+
+        {mapStage}
+
+        <HamClockSidebar
+          side="right"
+          collapsed={rightCollapsed}
+          onToggle={toggleRight}
+          width={rightWidth}
+        >
+          {leftIsSpots ? infoSidebar : spotsSidebar}
+        </HamClockSidebar>
+
+        <div className="min-w-0" style={{ gridArea: "ticker" }}>
+          <DXNewsTicker className="rounded-none" />
         </div>
-      </header>
-
-      <HamClockSidebar
-        side="left"
-        collapsed={leftCollapsed}
-        onToggle={toggleLeft}
-        width={leftWidth}
-      >
-        {leftIsSpots ? spotsSidebar : infoSidebar}
-      </HamClockSidebar>
-
-      {mapStage}
-
-      <HamClockSidebar
-        side="right"
-        collapsed={rightCollapsed}
-        onToggle={toggleRight}
-        width={rightWidth}
-      >
-        {leftIsSpots ? infoSidebar : spotsSidebar}
-      </HamClockSidebar>
-
-      <div className="min-w-0" style={{ gridArea: "ticker" }}>
-        <DXNewsTicker className="rounded-none" />
       </div>
-    </div>
+      {settingsDialog}
+    </>
   );
 }
 

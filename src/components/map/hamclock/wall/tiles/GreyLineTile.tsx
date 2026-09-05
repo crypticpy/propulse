@@ -1,9 +1,14 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { getGreylineStatus } from "@/lib/utils/greyline";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 import { formatCountdown } from "../tokens";
+
+// The report is only worth its bytes once an operator opens it.
+const SunMoonReport = lazy(() =>
+  import("../reports/SunMoonReport").then((m) => ({ default: m.SunMoonReport })),
+);
 
 /** Sunrise and sunset move slowly; a minute of resolution is plenty. */
 const TICK_MS = 60_000;
@@ -16,6 +21,7 @@ const TICK_MS = 60_000;
 export function GreyLineTile() {
   const location = useActiveLocation();
   const now = useUTCClock(TICK_MS);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const status = useMemo(
     () =>
@@ -57,18 +63,36 @@ export function GreyLineTile() {
       : formatCountdown(status.minutesToNextEvent);
 
   return (
-    <HamClockTile title="Grey line" source="DE" state={state}>
-      <TileHero tone={tone}>{hero}</TileHero>
-      <TileSub>
-        {countdown ? (
-          <span>
-            {nextLabel} IN <b>{countdown}</b>
-          </span>
-        ) : (
-          <span>No sunrise or sunset at this latitude today</span>
-        )}
-        {status.isActive && <span className="hc-warn">LOW BANDS</span>}
-      </TileSub>
-    </HamClockTile>
+    <>
+      <HamClockTile
+        title="Grey line"
+        source="DE"
+        state={state}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`Grey line: ${hero}. Open the sun and moon report`}
+      >
+        <TileHero tone={tone}>{hero}</TileHero>
+        <TileSub>
+          {countdown ? (
+            <span>
+              {nextLabel} IN <b>{countdown}</b>
+            </span>
+          ) : (
+            <span>No sunrise or sunset at this latitude today</span>
+          )}
+          {status.isActive && <span className="hc-warn">LOW BANDS</span>}
+        </TileSub>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <SunMoonReport
+            open
+            onClose={() => setReportOpen(false)}
+            focus="greyline"
+          />
+        </Suspense>
+      )}
+    </>
   );
 }

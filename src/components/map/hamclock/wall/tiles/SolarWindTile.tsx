@@ -1,3 +1,4 @@
+import { lazy, Suspense, useState } from "react";
 import { useSolarResource } from "@/hooks/useSolarResource";
 import type {
   SolarWindMagPoint,
@@ -5,6 +6,12 @@ import type {
 } from "@/lib/solar/dataTypes";
 import { latestByTime } from "@/lib/solar/selectors";
 import { HamClockTile, TileSub } from "../HamClockTile";
+import { bzTone, windSpeedTone } from "../tokens";
+
+// The report is only worth its bytes once an operator opens it.
+const SolarReport = lazy(() =>
+  import("../reports/SolarReport").then((m) => ({ default: m.SolarReport })),
+);
 
 /** Displayed gauge span: below 250 km/s and above 800 km/s both peg the arc. */
 const SPEED_MIN = 250;
@@ -62,25 +69,12 @@ export function ArcGauge({ fraction, value, label, tone }: ArcGaugeProps) {
   );
 }
 
-/** Fast wind stresses the magnetosphere; slow wind is the quiet baseline. */
-function speedTone(speed: number): string {
-  if (speed >= 600) return "hc-bad";
-  if (speed >= 450) return "hc-warn";
-  return "hc-good";
-}
-
-/** Southward (negative) Bz opens the door to geomagnetic storming. */
-function bzTone(bz: number): string {
-  if (bz <= -10) return "hc-bad";
-  if (bz < 0) return "hc-warn";
-  return "hc-good";
-}
-
 /** ACE/DSCOVR solar wind at L1: bulk speed and the IMF Bz component. */
 export function SolarWindTile() {
   const plasmaQuery =
     useSolarResource<SolarWindPlasmaPoint[]>("swpc-solar-wind-plasma");
   const magQuery = useSolarResource<SolarWindMagPoint[]>("swpc-solar-wind-mag");
+  const [reportOpen, setReportOpen] = useState(false);
 
   const plasma = latestByTime(
     plasmaQuery.data?.envelope.data,
@@ -146,29 +140,45 @@ export function SolarWindTile() {
         : "var(--hc-good)";
 
   return (
-    <HamClockTile title="Solar wind" source="L1" state={state}>
-      <div className="hc-gauges">
-        <ArcGauge
-          fraction={
-            speed === null ? 0 : (speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)
-          }
-          value={speed === null ? "—" : Math.round(speed).toString()}
-          label="KM/S · SPEED"
-          tone={speed === null ? "hc-dim-text" : speedTone(speed)}
-        />
-        <ArcGauge
-          fraction={bz === null ? 0 : (bz + BZ_LIMIT) / (2 * BZ_LIMIT)}
-          value={bz === null ? "—" : `${bz >= 0 ? "+" : ""}${bz.toFixed(1)}`}
-          label="nT · Bz"
-          tone={bz === null ? "hc-dim-text" : bzTone(bz)}
-        />
-      </div>
-      <TileSub>
-        <span>{verdict}</span>
-        {plasma?.density != null && (
-          <span>{plasma.density.toFixed(1)} p/cm³</span>
-        )}
-      </TileSub>
-    </HamClockTile>
+    <>
+      <HamClockTile
+        title="Solar wind"
+        source="L1"
+        state={state}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`Solar wind ${
+          speed === null ? "unknown" : `${Math.round(speed)} kilometres per second`
+        }. Open the solar report`}
+      >
+        <div className="hc-gauges">
+          <ArcGauge
+            fraction={
+              speed === null ? 0 : (speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)
+            }
+            value={speed === null ? "—" : Math.round(speed).toString()}
+            label="KM/S · SPEED"
+            tone={speed === null ? "hc-dim-text" : windSpeedTone(speed)}
+          />
+          <ArcGauge
+            fraction={bz === null ? 0 : (bz + BZ_LIMIT) / (2 * BZ_LIMIT)}
+            value={bz === null ? "—" : `${bz >= 0 ? "+" : ""}${bz.toFixed(1)}`}
+            label="nT · Bz"
+            tone={bz === null ? "hc-dim-text" : bzTone(bz)}
+          />
+        </div>
+        <TileSub>
+          <span>{verdict}</span>
+          {plasma?.density != null && (
+            <span>{plasma.density.toFixed(1)} p/cm³</span>
+          )}
+        </TileSub>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <SolarReport open onClose={() => setReportOpen(false)} focus="wind" />
+        </Suspense>
+      )}
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { lazy, Suspense, useState } from "react";
 import { useSolarResource } from "@/hooks/useSolarResource";
 import type {
   KpPoint,
@@ -6,21 +7,12 @@ import type {
 } from "@/lib/solar/dataTypes";
 import { currentKp, latestByTime } from "@/lib/solar/selectors";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
+import { kpDescriptor, kpTone } from "../tokens";
 
-/** The plain-language name every operator already uses for a Kp band. */
-function kpDescriptor(kp: number): string {
-  if (kp < 2) return "QUIET";
-  if (kp < 3) return "UNSETTLED";
-  if (kp < 4) return "ACTIVE";
-  if (kp < 5) return "MINOR UNREST";
-  return `G${Math.min(5, Math.floor(kp) - 4)} STORM`;
-}
-
-function kpTone(kp: number): { tone: string; state: string } {
-  if (kp >= 5) return { tone: "hc-bad", state: "var(--hc-bad)" };
-  if (kp >= 4) return { tone: "hc-warn", state: "var(--hc-warn)" };
-  return { tone: "hc-good", state: "var(--hc-good)" };
-}
+// The report is only worth its bytes once an operator opens it.
+const SolarReport = lazy(() =>
+  import("../reports/SolarReport").then((m) => ({ default: m.SolarReport })),
+);
 
 function scaleTone(level: number): string {
   if (level >= 3) return "hc-bad";
@@ -53,6 +45,7 @@ export function SpaceWxTile() {
   const kpQuery = useSolarResource<KpPoint[]>("noaa-k-index");
   const scalesQuery = useSolarResource<NoaaScalesProduct>("swpc-scales");
   const fluxQuery = useSolarResource<SolarFluxPoint[]>("noaa-solar-flux");
+  const [reportOpen, setReportOpen] = useState(false);
 
   const kpPoint = currentKp(kpQuery.data?.envelope.data);
   const scales = scalesQuery.data?.envelope.data;
@@ -80,45 +73,61 @@ export function SpaceWxTile() {
   const { tone, state } = kpTone(kp);
 
   return (
-    <HamClockTile title="Space weather" source="NOAA SWPC" state={state}>
-      <div className="hc-gsr">
-        <div>
-          <TileHero tone={tone}>
-            {kp.toFixed(1)}
-            <span className="hc-hero-unit">Kp</span>
-          </TileHero>
-          <TileSub>
-            <span>
-              {kpDescriptor(kp)}
-              {flux ? (
-                <>
-                  {" · SFI "}
-                  <b>{Math.round(flux.flux)}</b>
-                </>
-              ) : null}
-            </span>
-          </TileSub>
-        </div>
-        {scales && (
-          <div className="hc-gsr-scales">
-            <ScaleChip
-              letter="G"
-              level={scales.geomagnetic_storm.scale ?? 0}
-              title="Geomagnetic storm scale"
-            />
-            <ScaleChip
-              letter="S"
-              level={scales.solar_radiation.scale ?? 0}
-              title="Solar radiation storm scale"
-            />
-            <ScaleChip
-              letter="R"
-              level={scales.radio_blackout.scale ?? 0}
-              title="Radio blackout scale"
-            />
+    <>
+      <HamClockTile
+        title="Space weather"
+        source="NOAA SWPC"
+        state={state}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`Space weather: Kp ${kp.toFixed(1)}, ${kpDescriptor(
+          kp,
+        )}. Open the solar report`}
+      >
+        <div className="hc-gsr">
+          <div>
+            <TileHero tone={tone}>
+              {kp.toFixed(1)}
+              <span className="hc-hero-unit">Kp</span>
+            </TileHero>
+            <TileSub>
+              <span>
+                {kpDescriptor(kp)}
+                {flux ? (
+                  <>
+                    {" · SFI "}
+                    <b>{Math.round(flux.flux)}</b>
+                  </>
+                ) : null}
+              </span>
+            </TileSub>
           </div>
-        )}
-      </div>
-    </HamClockTile>
+          {scales && (
+            <div className="hc-gsr-scales">
+              <ScaleChip
+                letter="G"
+                level={scales.geomagnetic_storm.scale ?? 0}
+                title="Geomagnetic storm scale"
+              />
+              <ScaleChip
+                letter="S"
+                level={scales.solar_radiation.scale ?? 0}
+                title="Solar radiation storm scale"
+              />
+              <ScaleChip
+                letter="R"
+                level={scales.radio_blackout.scale ?? 0}
+                title="Radio blackout scale"
+              />
+            </div>
+          )}
+        </div>
+      </HamClockTile>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <SolarReport open onClose={() => setReportOpen(false)} focus="kp" />
+        </Suspense>
+      )}
+    </>
   );
 }

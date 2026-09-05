@@ -34,7 +34,7 @@ export function GreyLineTile() {
       <HamClockTile title="Grey line" source="DE">
         <TileHero tone="hc-dim-text">—</TileHero>
         <TileSub>
-          <span>Set your QTH to track the terminator</span>
+          <span>SET HOME IN SETTINGS</span>
         </TileSub>
       </HamClockTile>
     );

@@ -9,6 +9,7 @@ import {
   HAMCLOCK_DENSITIES,
   HAMCLOCK_THEMES,
   useHamClockDisplayStore,
+  wallPages,
   type HamClockDensity,
   type HamClockRailSide,
   type HamClockTheme,
@@ -123,11 +124,20 @@ function applyHamClockPin(pin: KioskSceneHamClockConfig | undefined): void {
   // A pinned page only means something at wall density.
   display.setDensity("wall");
   if (pin.theme) display.setTheme(pin.theme);
-  // Both rails follow one page (HW-54), so a pin is one index: leftPage is
-  // canonical and rightPage only counts when leftPage is absent. B4 collapses
-  // the two fields into a page id.
-  const page = pin.leftPage ?? pin.rightPage;
-  if (page !== undefined) display.setPage("left", page);
+  // Both rails follow one page (HW-54), so a pin is one page id: leftPage is
+  // canonical and rightPage only counts when leftPage is absent (B4/HW-27).
+  // The id is resolved against `wallPages(railLayout)` — the same derivation
+  // the footer pager and rails use — rather than a fixed page list, so a pin
+  // still lands correctly after the operator reorders their own rails or
+  // switches to a layout with fewer pages; a page the operator removed falls
+  // back to page 0 rather than pinning nothing.
+  const pageId = pin.leftPage ?? pin.rightPage;
+  if (pageId !== undefined) {
+    const index = wallPages(display.railLayout).findIndex(
+      (page) => page.id === pageId,
+    );
+    display.setPage("left", index === -1 ? 0 : index);
+  }
 }
 
 /** Apply only the presentation controls supported by a wall scene's route. */

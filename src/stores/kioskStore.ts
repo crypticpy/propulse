@@ -26,6 +26,10 @@ import {
   HAMCLOCK_THEMES,
   type HamClockTheme,
 } from "@/stores/hamclockDisplayStore";
+import {
+  HAMCLOCK_WALL_PAGES,
+  wallPageIndex,
+} from "@/components/map/hamclock/wall/pages";
 
 /**
  * HamClock wall pinning for one scene.
@@ -37,10 +41,13 @@ import {
  * the rotation leaves HamClock or the wall exits.
  */
 export interface KioskSceneHamClockConfig {
-  /** Index into HAMCLOCK_WALL_PAGES for the left rail. */
-  leftPage?: number;
-  /** Index into HAMCLOCK_WALL_PAGES for the right rail. */
-  rightPage?: number;
+  /**
+   * `HAMCLOCK_WALL_PAGES[].id` for the left rail (B4/HW-27: a page id, not an
+   * index, so a pin survives an operator re-ordering their own rail layout).
+   */
+  leftPage?: string;
+  /** `HAMCLOCK_WALL_PAGES[].id` for the right rail. */
+  rightPage?: string;
   /** HamClock presentation theme (pulse / classic / brass). */
   theme?: HamClockTheme;
 }
@@ -201,7 +208,7 @@ export const DEFAULT_SCENES: KioskScene[] = [
       viewMode: "flat",
       mapStyle: "satellite",
       hamclockMode: "traffic",
-      hamclock: { leftPage: 0, rightPage: 0 },
+      hamclock: { leftPage: "spots", rightPage: "spots" },
     },
   },
   {
@@ -213,7 +220,7 @@ export const DEFAULT_SCENES: KioskScene[] = [
       viewMode: "flat",
       mapStyle: "satellite",
       hamclockMode: "weather",
-      hamclock: { leftPage: 3, rightPage: 3 },
+      hamclock: { leftPage: "weather", rightPage: "weather" },
     },
   },
   {
@@ -342,16 +349,16 @@ function clampAutoRotateSpeed(sec: number): number {
   );
 }
 
-/** The wall clamps a stale page index into range itself, so the boundary only
- * has to reject values that are not page indexes at all. The ceiling is a
- * sanity bound on hand-edited and remote payloads. */
-const MAX_WALL_PAGE_INDEX = 31;
+/** A page id is validated for shape here only — whether it names a page that
+ * still exists is resolved against the *current* `railLayout` at apply time
+ * (`applySceneToMap`, B4/HW-27), the same way a stale `railLayout` page id
+ * resolves. The ceiling is a sanity bound on hand-edited and remote payloads. */
+const MAX_WALL_PAGE_ID_LENGTH = 64;
 
-function sanitizeWallPage(value: unknown): number | undefined {
-  return typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= 0 &&
-    value <= MAX_WALL_PAGE_INDEX
+function sanitizeWallPageId(value: unknown): string | undefined {
+  return typeof value === "string" &&
+    value.trim().length > 0 &&
+    value.length <= MAX_WALL_PAGE_ID_LENGTH
     ? value
     : undefined;
 }
@@ -361,9 +368,9 @@ function sanitizeHamClockConfig(
 ): KioskSceneHamClockConfig | undefined {
   if (!isRecord(value)) return undefined;
   const config: KioskSceneHamClockConfig = {};
-  const leftPage = sanitizeWallPage(value.leftPage);
+  const leftPage = sanitizeWallPageId(value.leftPage);
   if (leftPage !== undefined) config.leftPage = leftPage;
-  const rightPage = sanitizeWallPage(value.rightPage);
+  const rightPage = sanitizeWallPageId(value.rightPage);
   if (rightPage !== undefined) config.rightPage = rightPage;
   if (VALID_HAMCLOCK_THEMES.has(value.theme as HamClockTheme)) {
     config.theme = value.theme as HamClockTheme;
@@ -564,7 +571,10 @@ function normalizePersistedKioskState(value: unknown): PersistedKioskState {
 /**
  * v4 adds scene playback/presentation fields and the dedicated map routes.
  * v5 and v6 refresh the shipped HamClock wall templates for default-derived
- * playlists: v5 introduced them, v6 pins each one to its wall page.
+ * playlists: v5 introduced them, v6 pins each one to its wall page. v7 moves
+ * `leftPage`/`rightPage` from a `HAMCLOCK_WALL_PAGES` index to that page's id
+ * (wall spec §6, B4/HW-27) so a pin survives an operator re-ordering their
+ * own rail layout.
  * Every version still crosses the same strict normalizer, so unsupported
  * fields from old, remote, or hand-edited payloads never reach consumers.
  */
@@ -633,6 +643,28 @@ export function migrateKioskState(
           ...scene,
           map: { ...scene.map, hamclock: templatePin },
         };
+      });
+    }
+    candidate = legacy;
+  }
+  if (version < 7) {
+    const legacy = isRecord(candidate) ? { ...candidate } : {};
+    if (Array.isArray(legacy.scenes)) {
+      legacy.scenes = (legacy.scenes as unknown[]).map((scene) => {
+        if (!isRecord(scene) || !isRecord(scene.map)) return scene;
+        const hamclock = scene.map.hamclock;
+        if (!isRecord(hamclock)) return scene;
+        const next: Record<string, unknown> = { ...hamclock };
+        if (typeof hamclock.leftPage === "number") {
+          next.leftPage = HAMCLOCK_WALL_PAGES[wallPageIndex(hamclock.leftPage)]
+            .id;
+        }
+        if (typeof hamclock.rightPage === "number") {
+          next.rightPage = HAMCLOCK_WALL_PAGES[
+            wallPageIndex(hamclock.rightPage)
+          ].id;
+        }
+        return { ...scene, map: { ...scene.map, hamclock: next } };
       });
     }
     candidate = legacy;
@@ -837,7 +869,7 @@ export const useKioskStore = create<KioskStore>()(
     }),
     {
       name: "propulse-kiosk",
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         scenes: state.scenes,

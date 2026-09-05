@@ -204,11 +204,11 @@ describe("wall forecast tiles", () => {
     vi.useRealTimers();
   });
 
-  it("asks for an operating location when there is none", () => {
+  it("shows the neutral no-home state instead of erroring when there is no station (HW-53)", () => {
     mocks.location.mockReturnValue(null);
     render(<MufTile />);
     expect(screen.getByText("—")).toBeTruthy();
-    expect(screen.getByText(/Set an operating location/)).toBeTruthy();
+    expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
   });
 });
 

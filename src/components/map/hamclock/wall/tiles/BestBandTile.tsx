@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { BandVerdictDetailsDialog } from "@/components/dx/BandVerdictDetailsDialog";
+import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useBandActivity } from "@/hooks/useBandActivity";
 import { useBandLadder } from "@/hooks/useBandLadder";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
@@ -16,6 +17,7 @@ import {
  * evidence dialog as the desk hero — only the presentation changes.
  */
 export function BestBandTile() {
+  const location = useActiveLocation();
   const { bands, ready, scope, activityScope } = useBandVerdicts();
   const { data: activityByBand } = useBandActivity(activityScope);
   const { data: canonicalByKey } = useBandLadder();
@@ -29,6 +31,21 @@ export function BestBandTile() {
       second: top ? selectBestBand(bands.filter((b) => b !== top)) : null,
     };
   }, [bands, ready]);
+
+  // No station/home set (wall spec §7, HW-53): a neutral state, never an
+  // error or a stalled fetch. The band-verdict hooks above are shared,
+  // globally-cached data (not a per-tile fetch), so there is nothing to
+  // suppress — only the tile's own rendering is gated.
+  if (!location) {
+    return (
+      <HamClockTile title="Best band now">
+        <TileHero tone="hc-dim-text">—</TileHero>
+        <TileSub>
+          <span>SET HOME IN SETTINGS</span>
+        </TileSub>
+      </HamClockTile>
+    );
+  }
 
   if (!best) {
     return (

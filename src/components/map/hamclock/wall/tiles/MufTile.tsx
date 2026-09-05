@@ -77,9 +77,7 @@ export function MufTile({ title = "MUF" }: WallTileProps) {
       <HamClockTile title={title}>
         <TileHero tone="hc-dim-text">—</TileHero>
         <p className="hcf-idle">
-          {location
-            ? "Waiting for solar flux…"
-            : "Set an operating location to read your MUF."}
+          {location ? "Waiting for solar flux…" : "SET HOME IN SETTINGS"}
         </p>
       </HamClockTile>
     );

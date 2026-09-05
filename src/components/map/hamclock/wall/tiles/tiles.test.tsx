@@ -3,9 +3,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import SunCalc from "suncalc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
 import { TileHero } from "../HamClockTile";
 import { BandActivityTile } from "./BandActivityTile";
+import { BestBandTile } from "./BestBandTile";
+import { ClusterTile } from "./ClusterTile";
 import { GreyLineTile } from "./GreyLineTile";
+import { WALL_TILES } from "./index";
 import { MoonTile } from "./MoonTile";
 import { RecentContactsTile } from "./RecentContactsTile";
 import { SdrScopeTile } from "./SdrScopeTile";
@@ -18,6 +22,7 @@ import { XrayTile } from "./XrayTile";
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
   activity: vi.fn(),
+  ladder: vi.fn(),
   location: vi.fn(),
   solar: vi.fn(),
   weather: vi.fn(),
@@ -27,6 +32,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
 vi.mock("@/hooks/useBandActivity", () => ({ useBandActivity: mocks.activity }));
+vi.mock("@/hooks/useBandLadder", () => ({ useBandLadder: mocks.ladder }));
 vi.mock("@/hooks/useActiveLocation", () => ({
   useActiveLocation: mocks.location,
 }));
@@ -109,6 +115,7 @@ beforeEach(() => {
     isPending: true,
     isError: false,
   });
+  mocks.ladder.mockReturnValue({ data: undefined, isPending: true, isError: false });
   mocks.location.mockReturnValue(AUSTIN);
   mocks.solar.mockReturnValue(EMPTY);
   mocks.weather.mockReturnValue({
@@ -193,13 +200,28 @@ describe("GreyLineTile", () => {
     ).toBeTruthy();
   });
 
-  it("asks for a QTH when none is configured", () => {
+  it("shows the neutral no-home state instead of erroring when there is no station (HW-53)", () => {
     mocks.location.mockReturnValue(null);
     draw(<GreyLineTile />);
     expect(screen.getByText("—")).toBeTruthy();
-    expect(
-      screen.getByText("Set your QTH to track the terminator"),
-    ).toBeTruthy();
+    expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
+  });
+});
+
+describe("BestBandTile", () => {
+  it("shows the neutral no-home state instead of erroring when there is no station (HW-53)", () => {
+    mocks.location.mockReturnValue(null);
+    draw(<BestBandTile />);
+    expect(screen.getByText("—")).toBeTruthy();
+    expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
+  });
+});
+
+describe("ClusterTile", () => {
+  it("shows the neutral no-home state instead of erroring when there is no station (HW-53)", () => {
+    mocks.location.mockReturnValue(null);
+    draw(<ClusterTile />);
+    expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
   });
 });
 
@@ -565,5 +587,22 @@ describe("RecentContactsTile", () => {
   it("says the log is empty rather than showing a blank tile", async () => {
     draw(<RecentContactsTile />);
     expect(await screen.findByText("No contacts logged today")).toBeTruthy();
+  });
+
+  it("shows the neutral no-home state and never reads the logbook when there is no station (HW-53)", () => {
+    mocks.location.mockReturnValue(null);
+    draw(<RecentContactsTile />);
+    expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
+    expect(mocks.contacts).not.toHaveBeenCalled();
+  });
+});
+
+describe("WALL_TILE_IDS (registry check, review pass after B4)", () => {
+  it("covers exactly the tile ids WALL_TILES registers", () => {
+    // WALL_TILE_IDS is derived from the shipped page catalogue
+    // (`@/lib/hamclock/wallPages`), not hand-copied from `WALL_TILES`, so
+    // this is a completeness check between two independently-built sources,
+    // not a mirror that can silently drift.
+    expect(new Set(WALL_TILE_IDS)).toEqual(new Set(Object.keys(WALL_TILES)));
   });
 });

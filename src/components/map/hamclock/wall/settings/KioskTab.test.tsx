@@ -55,7 +55,7 @@ describe("KioskTab", () => {
           route: "/map",
           map: {
             layoutMode: "hamclock",
-            hamclock: { leftPage: 0, rightPage: 0 },
+            hamclock: { leftPage: "spots", rightPage: "spots" },
           },
         },
       ],
@@ -77,7 +77,7 @@ describe("KioskTab", () => {
           route: "/map",
           map: {
             layoutMode: "hamclock",
-            hamclock: { leftPage: 0, rightPage: 0 },
+            hamclock: { leftPage: "spots", rightPage: "spots" },
           },
         },
       ],
@@ -99,7 +99,7 @@ describe("KioskTab", () => {
           route: "/map",
           map: {
             layoutMode: "hamclock",
-            hamclock: { leftPage: 0, rightPage: 1 },
+            hamclock: { leftPage: "spots", rightPage: "solar" },
           },
         },
       ],
@@ -130,7 +130,7 @@ describe("KioskTab", () => {
           route: "/map",
           map: {
             layoutMode: "hamclock",
-            hamclock: { leftPage: 0, rightPage: 0 },
+            hamclock: { leftPage: "spots", rightPage: "spots" },
           },
         },
       ],

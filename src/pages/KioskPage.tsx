@@ -687,7 +687,7 @@ export function KioskPage() {
                                   const page =
                                     event.target.value === ""
                                       ? undefined
-                                      : Number(event.target.value);
+                                      : event.target.value;
                                   updateScene(scene.id, {
                                     map: {
                                       ...scene.map!,
@@ -695,6 +695,9 @@ export function KioskPage() {
                                       // leftPage is canonical, rightPage is
                                       // written the same so a pre-B4 reader of
                                       // the scene still sees a consistent pin.
+                                      // B4/HW-27: the pin is the page's id,
+                                      // not its index, so it survives the
+                                      // operator reordering their own rails.
                                       hamclock: withWallPin(
                                         scene.map!.hamclock,
                                         { leftPage: page, rightPage: page },
@@ -705,8 +708,8 @@ export function KioskPage() {
                                 className={inputClass}
                               >
                                 <option value="">Keep current</option>
-                                {HAMCLOCK_WALL_PAGES.map((page, index) => (
-                                  <option key={page.id} value={index}>
+                                {HAMCLOCK_WALL_PAGES.map((page) => (
+                                  <option key={page.id} value={page.id}>
                                     {page.title}
                                   </option>
                                 ))}

@@ -120,7 +120,7 @@ try {
   await expect(fallback.locator("[data-globe-unavailable]")).toBeVisible({ timeout: 60000 });
   await fallback.getByRole("button", { name: "Use flat map", exact: true }).click();
   await expect(fallback.locator("[data-globe-unavailable]")).toHaveCount(0);
-  await expect(fallback.locator("canvas").first()).toBeVisible();
+  await expect(fallback.getByRole("img", { name: "Interactive propagation map - click to select target location", exact: true })).toBeVisible({ timeout: 60000 });
   await fallback.getByRole("button", { name: "3D Globe", exact: true }).click();
   await expect(fallback.locator("[data-globe-unavailable]")).toBeVisible();
   await fallback.evaluate(() => { window.__fixtureDisableWebGL = false; });

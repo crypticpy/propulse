@@ -6,6 +6,10 @@ describe("solar operating handoff", () => {
     expect(result?.target).toMatchObject({ lat: 35.68, lon: 139.76, grid: "PM95vq", name: "Tokyo" });
     expect(result?.mode).toBe("CW"); expect(result?.at).toBe("2026-09-05T12:00:00.000Z");
   });
+  it("retains Home provenance and rejects unsupported origins", () => {
+    expect(parseSolarHandoff({ version: 1, mode: "CW", origin: "home" })?.origin).toBe("home");
+    expect(parseSolarHandoff({ version: 1, mode: "CW", origin: "other" })).toBeNull();
+  });
   it("missing station or target does not prevent a live-context handoff", () => {
     expect(parseSolarHandoff({ version: 1, mode: "FT8" })).toEqual({ version: 1, mode: "FT8" });
   });

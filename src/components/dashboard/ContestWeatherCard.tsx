@@ -177,7 +177,7 @@ function ActiveContestRow({ contest }: { contest: ContestCalendarEntry }) {
           <span
             className={`text-[10px] font-medium uppercase tracking-wide ${activity.colorClass}`}
           >
-            {activity.label}
+            Estimated {activity.label.toLowerCase()}
           </span>
         </div>
       </div>
@@ -294,7 +294,7 @@ export function ContestWeatherCard({
           </span>
           {isContestWeekend && (
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30">
-              Live
+              Scheduled now
             </span>
           )}
         </div>

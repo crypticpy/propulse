@@ -111,6 +111,27 @@ export const ALL_PROVIDERS: Record<TileProviderId, TileProviderConfig> = {
   "mapbox-satellite": mapboxSatellite,
 };
 
+/** Which `mapStyle` bucket a provider id belongs to — the map style chooser
+ * (HW-55) can only let a reader pick a provider that actually renders under
+ * the two-value `mapStyle` the renderers already switch on. */
+const SATELLITE_PROVIDER_IDS: ReadonlySet<TileProviderId> = new Set([
+  "esri-world",
+  "mapbox-satellite",
+]);
+const STANDARD_PROVIDER_IDS: ReadonlySet<TileProviderId> = new Set([
+  "osm",
+  "carto-dark",
+]);
+
+function providerMatchesStyle(
+  id: TileProviderId,
+  mapStyle: "satellite" | "standard",
+): boolean {
+  return mapStyle === "satellite"
+    ? SATELLITE_PROVIDER_IDS.has(id)
+    : STANDARD_PROVIDER_IDS.has(id);
+}
+
 /** Build a provider registry for the given subscription tier. */
 export function getProviderRegistry(
   tier: "free" | "pro",
@@ -121,11 +142,26 @@ export function getProviderRegistry(
   };
 }
 
-/** Select the active tile provider based on map style and subscription tier. */
+/**
+ * Select the active tile provider based on map style and subscription tier.
+ * A persisted `tileProviderId` (HW-55, `mapStore`) is honoured first — it is
+ * what makes Esri/Mapbox and OSM/CARTO dark individually selectable instead
+ * of the tier rule always picking the same one member of each style bucket.
+ * It is ignored, falling through to the tier default, when it does not
+ * belong to the requested `mapStyle` bucket (a stale choice from before a
+ * style switch) or requires Pro and the tier is free (a downgrade or a
+ * shared-view recipient without the plan) — both are recoverable
+ * mismatches, not states the map should render broken or blank for.
+ */
 export function selectTileProvider(
   mapStyle: "satellite" | "standard",
   tier: "free" | "pro",
+  tileProviderId?: TileProviderId | null,
 ): TileProviderConfig {
+  if (tileProviderId && providerMatchesStyle(tileProviderId, mapStyle)) {
+    const requested = ALL_PROVIDERS[tileProviderId];
+    if (!requested.requiresPro || tier === "pro") return requested;
+  }
   const registry = getProviderRegistry(tier);
   return mapStyle === "satellite" ? registry.satellite : registry.standard;
 }

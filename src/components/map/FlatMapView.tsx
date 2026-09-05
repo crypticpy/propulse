@@ -3474,9 +3474,10 @@ export function FlatMapView({
   }, []);
 
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const tileProviderId = useMapStore((s) => s.tileProviderId);
   const requestedTileProvider = useMemo(
-    () => selectTileProvider("satellite", subscriptionTier),
-    [subscriptionTier],
+    () => selectTileProvider("satellite", subscriptionTier, tileProviderId),
+    [subscriptionTier, tileProviderId],
   );
   const [failedTileProviderIds, setFailedTileProviderIds] = useState<
     ReadonlySet<string>

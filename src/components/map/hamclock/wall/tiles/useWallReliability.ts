@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { useUTCClock } from "@/hooks/useUTCClock";
+import { useMapDisplayTime } from "@/hooks/useUTCClock";
 import {
   buildReliabilityForecast,
   type ReliabilityCell,
@@ -44,20 +44,26 @@ export type WallReliabilityStatus =
 
 export interface WallReliability {
   status: WallReliabilityStatus;
-  /** Cells keyed `band:hour` for hours 00–23 UTC of the displayed day. */
+  /**
+   * Cells keyed `band:hourIndex` — absolute UTC hours, not 00–23 — covering
+   * the displayed UTC day and the one after it, so a `+18H` column read at 20Z
+   * lands on tomorrow's 14Z instead of wrapping back to this morning.
+   */
   cells: Map<string, ReliabilityCell>;
-  /** UTC hour the wall is showing (display time, so time travel applies). */
+  /** UTC hour 0–23 the wall is showing, for labels like `20Z`. */
   hour: number;
+  /** Whole UTC hours since the epoch for the displayed instant. */
+  hourIndex: number;
   /** Where the path ends, for the context line. */
   targetLabel: string;
   mode: HamClockReliabilityMode;
 }
 
 /**
- * One shared 24-hour physics matrix for every wall tile that needs it.
+ * One shared 48-hour physics matrix for every wall tile that needs it.
  *
  * The forecast page can mount the matrix and the reliability bars in both
- * rails at once, which would otherwise run the enhanced band model 216 times
+ * rails at once, which would otherwise run the enhanced band model 432 times
  * per tile. The inputs are identical across those instances, so a single-entry
  * module cache lets the second through fourth mount reuse the first result.
  * The cache key covers every input, so a change to Kp, SFI, mode, station or
@@ -66,14 +72,25 @@ export interface WallReliability {
 let cacheKey = "";
 let cacheCells: Map<string, ReliabilityCell> | null = null;
 
-function cellKey(band: string, hour: number): string {
-  return `${band}:${hour}`;
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Days of matrix built: the displayed UTC day plus the next one. */
+const FORECAST_DAYS = 2;
+
+/** Whole UTC hours since the epoch — the monotonic key the cells use. */
+export function wallHourIndex(at: Date): number {
+  return Math.floor(at.getTime() / HOUR_MS);
+}
+
+function cellKey(band: string, hourIndex: number): string {
+  return `${band}:${hourIndex}`;
 }
 
 export function useWallReliability(): WallReliability {
   const origin = useActiveLocation();
   const target = useMapStore((state) => state.target);
   const timeOffset = useMapStore((state) => state.timeOffset);
+  const absoluteTime = useMapStore((state) => state.absoluteTime);
   const reliability = useHamClockStore((state) => state.reliability);
   const noiseEnvironment = useSettingsStore((state) => state.noiseEnvironment);
   const activeChain = useActiveChain();
@@ -81,15 +98,14 @@ export function useWallReliability(): WallReliability {
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();
 
-  // A minute is plenty: the matrix is hourly, and a faster clock would only
-  // re-run the memo for nothing.
-  const wallTime = useUTCClock(60_000);
-  const displayTime = useMemo(
-    () => new Date(wallTime.getTime() + timeOffset * 60 * 60 * 1000),
-    [wallTime, timeOffset],
-  );
+  // The same derivation the map itself uses, so a scenario replay or a solar
+  // handoff (which set `absoluteTime`) moves the tiles with the globe rather
+  // than leaving them on the live clock. A minute is plenty: the matrix is
+  // hourly, and a faster clock would only re-run the memo for nothing.
+  const displayTime = useMapDisplayTime(timeOffset, absoluteTime, 60_000);
   const forecastDay = displayTime.toISOString().slice(0, 10);
   const hour = displayTime.getUTCHours();
+  const hourIndex = wallHourIndex(displayTime);
 
   const kp = kIndexQuery.data?.[kIndexQuery.data.length - 1]?.kp_index;
   const sfi = solarFluxQuery.data?.[solarFluxQuery.data.length - 1]?.flux;
@@ -109,7 +125,13 @@ export function useWallReliability(): WallReliability {
   return useMemo<WallReliability>(() => {
     const empty = new Map<string, ReliabilityCell>();
     const targetLabel = target?.name || target?.grid || "DX target";
-    const base = { cells: empty, hour, targetLabel, mode: reliability.mode };
+    const base = {
+      cells: empty,
+      hour,
+      hourIndex,
+      targetLabel,
+      mode: reliability.mode,
+    };
 
     if (!origin) return { ...base, status: "no-station" };
     if (!target) return { ...base, status: "no-target" };
@@ -134,19 +156,26 @@ export function useWallReliability(): WallReliability {
 
     if (key !== cacheKey || !cacheCells) {
       try {
-        const cells = buildReliabilityForecast({
-          origin: { lat: origin.lat, lon: origin.lon },
-          target: { lat: target.lat, lon: target.lon },
-          kp,
-          sfi,
-          baseTime: new Date(`${forecastDay}T00:00:00.000Z`),
-          mode: reliability.mode,
-          powerWatts,
-          antennaType,
-          noiseEnvironment,
-        });
+        const dayZeroMs = Date.parse(`${forecastDay}T00:00:00.000Z`);
         const next = new Map<string, ReliabilityCell>();
-        for (const cell of cells) next.set(cellKey(cell.band, cell.hour), cell);
+        for (let day = 0; day < FORECAST_DAYS; day++) {
+          const baseTime = new Date(dayZeroMs + day * 24 * HOUR_MS);
+          const dayStartIndex = wallHourIndex(baseTime);
+          const cells = buildReliabilityForecast({
+            origin: { lat: origin.lat, lon: origin.lon },
+            target: { lat: target.lat, lon: target.lon },
+            kp,
+            sfi,
+            baseTime,
+            mode: reliability.mode,
+            powerWatts,
+            antennaType,
+            noiseEnvironment,
+          });
+          for (const cell of cells) {
+            next.set(cellKey(cell.band, dayStartIndex + cell.hour), cell);
+          }
+        }
         cacheKey = key;
         cacheCells = next;
       } catch {
@@ -164,6 +193,7 @@ export function useWallReliability(): WallReliability {
     sfi,
     forecastDay,
     hour,
+    hourIndex,
     reliability.mode,
     powerWatts,
     antennaType,
@@ -173,13 +203,17 @@ export function useWallReliability(): WallReliability {
   ]);
 }
 
-/** Score 0–100 for one band at one UTC hour, or `null` when uncomputed. */
+/**
+ * Score 0–100 for one band at one absolute UTC hour, or `null` when that hour
+ * is outside the built window. `hourIndex` is a `wallHourIndex` value, so
+ * adding a column offset to it always reads forward in time.
+ */
 export function wallReliabilityScore(
   cells: Map<string, ReliabilityCell>,
   band: string,
-  hour: number,
+  hourIndex: number,
 ): number | null {
-  return cells.get(cellKey(band, ((hour % 24) + 24) % 24))?.score ?? null;
+  return cells.get(cellKey(band, hourIndex))?.score ?? null;
 }
 
 /** Theme class for a reliability score, matching the desk panel's tiers. */
@@ -191,14 +225,14 @@ export function wallScoreTone(score: number | null): string {
   return "hc-dim-text";
 }
 
-/** Highest-scoring wall band at `hour`, or `null` when nothing is workable. */
+/** Highest-scoring wall band at `hourIndex`, or `null` when nothing works. */
 export function wallBestBand(
   cells: Map<string, ReliabilityCell>,
-  hour: number,
+  hourIndex: number,
 ): { band: WallForecastBand; score: number } | null {
   let best: { band: WallForecastBand; score: number } | null = null;
   for (const band of WALL_FORECAST_BANDS) {
-    const score = wallReliabilityScore(cells, band, hour);
+    const score = wallReliabilityScore(cells, band, hourIndex);
     if (score == null || score <= 0) continue;
     if (!best || score > best.score) best = { band, score };
   }

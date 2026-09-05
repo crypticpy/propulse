@@ -61,6 +61,11 @@ function worstAlert(alerts: WeatherAlert[]): WeatherAlert | null {
  * Active NWS alerts. The upstream feed is the nationwide active-alert set —
  * the same one `useRIM` scores against — so the count is US-wide and the title
  * says so rather than implying it is local.
+ *
+ * `fetchWeatherAlerts` drops any alert it cannot place on the map (zone-based
+ * warnings arrive without geometry), so an empty list is not proof that
+ * nothing is in force. The quiet state therefore reports what was mapped and
+ * stays neutral rather than sounding an all-clear the feed cannot support.
  */
 export function AlertsTile({ title = "Weather alerts" }: WallTileProps) {
   const { alerts, isLoading, error } = useWeatherAlerts();
@@ -86,10 +91,10 @@ export function AlertsTile({ title = "Weather alerts" }: WallTileProps) {
 
   if (!worst) {
     return (
-      <HamClockTile title={title} source="NWS · US" state="var(--hc-good)">
-        <TileHero tone="hc-good">ALL CLEAR</TileHero>
+      <HamClockTile title={title} source="NWS · MAPPED ALERTS ONLY">
+        <TileHero tone="hc-dim-text">NONE</TileHero>
         <TileSub>
-          <span>NO ACTIVE NWS ALERTS</span>
+          <span>NO MAPPED NWS ALERTS</span>
         </TileSub>
       </HamClockTile>
     );

@@ -1,10 +1,17 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRadioStore } from "@/stores/radioStore";
 import { useSdrStore } from "@/stores/sdrStore";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
 
 /** Points drawn across the strip; more is invisible from ten feet. */
 const RESOLUTION = 72;
+
+/**
+ * How old the last frame may be before the strip stops calling itself live.
+ * The daemon pushes several frames a second, so five seconds of silence means
+ * the stream has stopped rather than merely paused.
+ */
+const STALE_MS = 5_000;
 
 /** Build a filled area path from the FFT bins, normalised to the frame. */
 function scopePath(bins: Float32Array): { d: string; peakDb: number } | null {
@@ -44,30 +51,50 @@ function scopePath(bins: Float32Array): { d: string; peakDb: number } | null {
  * radio daemon or touches an AudioContext. Frames only land in the store while
  * something else (today, the SDR console) is running the daemon connection, so
  * the honest default on the map is a designed "no receiver" state.
+ *
+ * `lastFftFrame` survives the stream stopping, so "live" needs three things to
+ * hold at once: a connected receiver, the spectrum switched on, and a frame
+ * that arrived within `STALE_MS`. Otherwise the wall would keep advertising a
+ * frozen trace as `SDR · LIVE` long after the radio went away.
  */
 export function SdrScopeTile({ title = "Band scope" }: WallTileProps) {
   const frame = useSdrStore((state) => state.lastFftFrame);
+  const frameAt = useSdrStore((state) => state.lastFftFrameAt);
   const fftEnabled = useSdrStore((state) => state.fftEnabled);
   const connectedDeviceId = useRadioStore((state) => state.connectedDeviceId);
+  const connected = connectedDeviceId != null;
+
+  // Frames stop arriving silently, so nothing else would re-render this tile
+  // once the stream dies. One slow local timer is enough to age it out.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), STALE_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   const scope = useMemo(
     () => (frame ? scopePath(frame.bins) : null),
     [frame],
   );
 
-  if (!frame || !scope) {
-    const connected = connectedDeviceId != null;
+  const fresh = frameAt != null && now - frameAt <= STALE_MS;
+  const live = connected && fftEnabled && fresh;
+
+  if (!frame || !scope || !live) {
+    const stalled = connected && fftEnabled && frame != null && !fresh;
     return (
       <HamClockTile title={title} source={connected ? "IDLE" : "OFFLINE"}>
         <TileHero tone="hc-dim-text">
           {connected ? "NO SIGNAL" : "NO RECEIVER"}
         </TileHero>
         <p className="hcf-idle">
-          {connected
-            ? fftEnabled
-              ? "Receiver connected — waiting for the first spectrum frame."
-              : "Receiver connected — turn on the spectrum in SDR Console."
-            : "Connect the bridge to see the band scope."}
+          {!connected
+            ? "Connect the bridge to see the band scope."
+            : !fftEnabled
+              ? "Receiver connected — turn on the spectrum in SDR Console."
+              : stalled
+                ? "Spectrum stalled — no frame in the last five seconds."
+                : "Receiver connected — waiting for the first spectrum frame."}
         </p>
       </HamClockTile>
     );

@@ -31,7 +31,11 @@ const RankPersistenceHost = lazy(() =>
 );
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
-import { NetAlertToasts } from "@/components/nets/NetAlertToasts";
+const NetAlertToasts = lazy(() =>
+  import("@/components/nets/NetAlertToasts").then((m) => ({
+    default: m.NetAlertToasts,
+  })),
+);
 import { clearExpiredCache } from "@/lib/utils/idbCache";
 const SpeedInsights = lazy(() =>
   import("@vercel/speed-insights/react").then((m) => ({
@@ -365,7 +369,9 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
-        <NetAlertToasts />
+        <Suspense fallback={null}>
+          <NetAlertToasts />
+        </Suspense>
         <Suspense fallback={null}>
           <SpeedInsights />
         </Suspense>

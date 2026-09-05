@@ -19,7 +19,7 @@ vi.mock("@/components/map/LayersPopover", () => ({
 
 describe("HamClockWallControls", () => {
   it("renders the SETTINGS trigger in the fixed instrument slot, not inside the CONTROLS popout", () => {
-    render(<HamClockWallControls />);
+    render(<HamClockWallControls onOpenSettings={vi.fn()} />);
 
     // Visible before CONTROLS is ever opened — same fixed slot and order as
     // the desk header (mode · WALL | DESK · projection · SETTINGS).
@@ -37,25 +37,43 @@ describe("HamClockWallControls", () => {
     );
   });
 
-  it("opens the centered settings dialog from SETTINGS, not a popout", () => {
-    render(<HamClockWallControls />);
+  it("calls the parent's onOpenSettings instead of owning its own dialog state", () => {
+    const onOpenSettings = vi.fn();
+    render(<HamClockWallControls onOpenSettings={onOpenSettings} />);
+
     fireEvent.click(screen.getByRole("button", { name: "SETTINGS" }));
-    expect(screen.getByRole("dialog")).not.toBeNull();
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Display",
-      "Pages & Tiles",
-      "Layers",
-      "Map",
-      "Theme",
-      "Kiosk",
-    ]);
+
+    // The dialog itself is owned and mounted by the parent (`HamClockView`)
+    // now, above the density branch — this component only asks for it to
+    // open, so a density flip while it is open can never strand a stale
+    // local `true` behind (see `HamClockView.test.tsx`).
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps the CONTROLS popout to Layers only — map content and home region moved to the Display tab", () => {
+    render(<HamClockWallControls onOpenSettings={vi.fn()} />);
+
+    // Before the menu opens, LayersPopover (portalled to document.body by the
+    // mock above) hasn't rendered at all.
+    expect(document.querySelector("[data-layers-popover]")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "CONTROLS" }));
+
+    expect(
+      screen.getByRole("group", { name: "HamClock controls" }),
+    ).not.toBeNull();
+    // Opening the menu mounts LayersPopover — the only thing it opens now.
+    expect(document.querySelector("[data-layers-popover]")).not.toBeNull();
+    expect(screen.queryByRole("group", { name: "Map content" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Home region" })).toBeNull();
   });
 
   it("closes on Escape pressed inside the portalled LayersPopover without exiting HamClock", async () => {
     const windowKeyDown = vi.fn();
     window.addEventListener("keydown", windowKeyDown);
 
-    render(<HamClockWallControls />);
+    render(<HamClockWallControls onOpenSettings={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "CONTROLS" }));
     expect(

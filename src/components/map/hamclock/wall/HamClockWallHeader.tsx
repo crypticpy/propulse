@@ -72,9 +72,17 @@ function WallClocks() {
   );
 }
 
+export interface HamClockWallHeaderProps {
+  /** Forwarded to `HamClockWallControls`; opens the single settings dialog
+   * the wall's parent owns. */
+  onOpenSettings: () => void;
+}
+
 /** Callsign hero, station identity line, dual clocks and the overflow cluster.
  * There is no DE tile at wall density — this header carries it instead. */
-export function HamClockWallHeader() {
+export function HamClockWallHeader({
+  onOpenSettings,
+}: HamClockWallHeaderProps) {
   const station = useUserStore((s) => s.station);
   const location = useActiveLocation();
   const identity = [
@@ -90,7 +98,7 @@ export function HamClockWallHeader() {
         <small>{identity.join(" · ") || "Station not configured"}</small>
       </div>
       <WallClocks />
-      <HamClockWallControls />
+      <HamClockWallControls onOpenSettings={onOpenSettings} />
     </header>
   );
 }

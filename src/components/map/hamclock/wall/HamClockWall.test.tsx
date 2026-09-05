@@ -108,7 +108,7 @@ describe("HamClockWall", () => {
     });
     return render(
       <QueryClientProvider client={client}>
-        <HamClockWall>
+        <HamClockWall onOpenSettings={vi.fn()}>
           <div data-testid="map-stage" />
         </HamClockWall>
       </QueryClientProvider>,

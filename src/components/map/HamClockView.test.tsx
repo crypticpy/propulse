@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
@@ -124,6 +124,12 @@ vi.mock("./hamclock/HamClockMoonPanel", () => ({
 vi.mock("./hamclock/HamClockLocationConditions", () => ({
   HamClockLocationConditions: () => <div />,
 }));
+vi.mock("./hamclock/wall/HamClockWall", () => ({
+  // The wall shell's own tests (`HamClockWall.test.tsx`) cover its internals;
+  // here we only need to prove the settings dialog's state and mount are
+  // shared correctly across the density branch, not re-render live tiles.
+  HamClockWall: () => <div data-testid="wall-shell" />,
+}));
 vi.mock("./DXNewsTicker", () => ({
   DXNewsTicker: () => (
     <div role="marquee" aria-label="Alert crawl">
@@ -175,5 +181,40 @@ describe("HamClockView", () => {
     expect(isBefore(mode, density)).toBe(true);
     expect(isBefore(density, projection)).toBe(true);
     expect(isBefore(projection, settingsTrigger)).toBe(true);
+  });
+
+  it("does not reopen the settings dialog after it was closed, across a density flip (single shared state, B5 fix)", () => {
+    // Regression for the bug where wall and desk each owned their own
+    // `settingsOpen` state and their own `HamClockSettingsDialog` mount:
+    // opening SETTINGS at desk, flipping to wall, closing there, then
+    // flipping back to desk resurrected the stale `true` desk state and
+    // reopened the dialog uninvited.
+    useHamClockDisplayStore.getState().setDensity("desk");
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "SETTINGS" }));
+    expect(screen.getByRole("dialog")).not.toBeNull();
+
+    // Flip to wall density while the dialog is open — the one shared state
+    // means the dialog keeps rendering through the flip instead of
+    // vanishing into an unrelated, freshly-mounted local state.
+    act(() => {
+      useHamClockDisplayStore.getState().setDensity("wall");
+    });
+    expect(screen.getByRole("dialog")).not.toBeNull();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // Flip back to desk: the dialog must stay closed, not resurrect a stale
+    // `true` from an abandoned per-branch state.
+    act(() => {
+      useHamClockDisplayStore.getState().setDensity("desk");
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

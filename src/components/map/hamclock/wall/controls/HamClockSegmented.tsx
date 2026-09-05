@@ -108,7 +108,9 @@ export function HamClockSegmented<T extends string>({
               onKeyDown={handleKeyDown}
             >
               {option.preview && (
-                <span className="hcc-seg-btn-preview">{option.preview}</span>
+                <span className="hcc-seg-btn-preview" aria-hidden="true">
+                  {option.preview}
+                </span>
               )}
               <span className="hcc-seg-btn-label">{option.label}</span>
               {option.detail && (

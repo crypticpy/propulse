@@ -10,9 +10,17 @@ import { HAMCLOCK_WALL_PAGES, wallPageIndex } from "../pages";
  */
 export function KioskTab() {
   const navigate = useNavigate();
+  const active = useKioskStore((s) => s.active);
   const activeSceneId = useKioskStore((s) => s.activeSceneId);
   const scenes = useKioskStore((s) => s.scenes);
-  const scene = scenes.find((candidate) => candidate.id === activeSceneId);
+  const stop = useKioskStore((s) => s.stop);
+  // `stop()` keeps `activeSceneId` around so a paused kiosk can resume where
+  // it left off — that means a stopped kiosk still has a non-null
+  // `activeSceneId`, so the pin summary below must gate on `active` too, or
+  // this reads as "pinning the wall" when kiosk playback isn't even running.
+  const scene = active
+    ? scenes.find((candidate) => candidate.id === activeSceneId)
+    : undefined;
   const pin =
     scene?.map?.layoutMode === "hamclock" ? scene.map.hamclock : undefined;
 
@@ -26,12 +34,17 @@ export function KioskTab() {
         : `"${scene.name}" pins the wall to ${leftTitle} (left) / ${rightTitle} (right).`;
   }
 
+  function openEditor() {
+    // Kiosk playback rotates scenes on its own timer (`KioskChrome`), which
+    // would navigate away from the editor mid-edit if left running.
+    if (active) stop();
+    navigate("/kiosk");
+  }
+
   return (
     <div className="hcc-kiosk-tab">
       <p className="hcc-kiosk-summary">{summary}</p>
-      <HamClockButton onClick={() => navigate("/kiosk")}>
-        OPEN KIOSK EDITOR
-      </HamClockButton>
+      <HamClockButton onClick={openEditor}>OPEN KIOSK EDITOR</HamClockButton>
     </div>
   );
 }

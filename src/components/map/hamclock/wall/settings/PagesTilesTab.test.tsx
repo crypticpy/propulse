@@ -29,8 +29,11 @@ describe("PagesTilesTab", () => {
   it("shows an OPTIONS gear only on tiles that carry a config, and opens that tile's panel", () => {
     render(<PagesTilesTab />);
     // recentContacts is the reference registration (B5); nothing else has one yet.
-    const optionsButtons = screen.getAllByRole("button", { name: "OPTIONS" });
+    // The accessible name is qualified per-tile ("<title> options"), matching
+    // HamClockToggleRow's gear pattern, while the visible label stays OPTIONS.
+    const optionsButtons = screen.getAllByRole("button", { name: /options$/i });
     expect(optionsButtons.length).toBeGreaterThanOrEqual(1);
+    expect(optionsButtons[0].textContent).toBe("OPTIONS");
 
     fireEvent.click(optionsButtons[0]);
     expect(screen.getByText("Rows shown")).toBeTruthy();

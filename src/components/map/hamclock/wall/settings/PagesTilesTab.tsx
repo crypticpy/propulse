@@ -42,7 +42,12 @@ function TileChip({ id }: { id: TileId }) {
       {tile.title}
       {tile.config && (
         <>
-          <HamClockButton onClick={() => setOpen(true)}>OPTIONS</HamClockButton>
+          <HamClockButton
+            aria-label={`${tile.title} options`}
+            onClick={() => setOpen(true)}
+          >
+            OPTIONS
+          </HamClockButton>
           <TileConfigDialog
             tileId={id}
             title={tile.title.toUpperCase()}

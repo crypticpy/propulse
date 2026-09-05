@@ -640,7 +640,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-55).
 | HW-16 | Style guide for tiles, reports and settings                  | `docs/guides/hamclock-tile-system.md`       |
 | HW-22 | Header parity: WALL/DESK toggle and reduced top rail         | PR #216                                     |
 | HW-23 | Layers popover viewport clamp and trigger move               | PR #216                                     |
-| HW-26 | Centered settings panel with tabs                            | PR (B5)                                     |
+| HW-26 | Centered settings panel with tabs                            | PR #221                                     |
 | HW-32 | Lightning bolt glyph (2D and 3D)                             | PR #217, `src/lib/map/lightningGlyph.ts`    |
 | HW-50 | Duplicate guard: store validation and picker grey-out        | PR #218, `assertUniqueTilesPerPage`         |
 | HW-51 | Hero text fit: clamp, container units, length classes, tests | PR #218, `HamClockTile.tsx`, `tokens.ts`    |

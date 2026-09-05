@@ -31,6 +31,25 @@ export const LADDER_WALL_STATE: Record<LadderState, string> = {
 };
 
 /**
+ * Hero string length → the CSS class that picks its font token. A hero read
+ * from ten feet needs a size that matches how much it has to say: a one-word
+ * state ("HOT", "DAY") can run at the biggest size, a typical value ("NIGHT",
+ * "MARGINAL") takes the standard hero size, and a phrase ("NO MAPPED ALERTS",
+ * "NO RECEIVER") needs the smaller long-form token plus the container-query
+ * clamp in `hamclock-wall.css` to have any chance of fitting the rail.
+ *
+ * Bands: short ≤ 4 chars, medium ≤ 8 chars, long everything past that.
+ */
+export function heroSizeClass(
+  text: string,
+): "hc-hero--short" | "hc-hero--medium" | "hc-hero--long" {
+  const length = text.trim().length;
+  if (length <= 4) return "hc-hero--short";
+  if (length <= 8) return "hc-hero--medium";
+  return "hc-hero--long";
+}
+
+/**
  * "2h 14m", "44m" — the wall never shows a bare minute count, because a
  * three-digit number of minutes is not something a reader converts at ten feet.
  */

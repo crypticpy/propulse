@@ -1,3 +1,4 @@
+import { assertUniqueTilesPerPage } from "@/stores/hamclockDisplayStore";
 import type { TileId } from "./tiles";
 
 export interface WallPage {
@@ -11,43 +12,49 @@ export interface WallPage {
 }
 
 /**
- * The rails page independently (mock behaviour), so every page carries a
- * composition for each side: the left column is the tighter summary and the
- * right column carries one more tile, matching the approved mock where the
- * left rail runs four tiles and the right rail runs five.
+ * Both rails follow the active page (wall spec §4): each page defines its
+ * own left set and right set, no rail is fixed to one widget across pages,
+ * and no tile appears twice on the same page. Composition below matches the
+ * spec's page taxonomy table, using only tiles that ship today — tiles
+ * marked _new_ there (Aurora, Watch matches, the weather/news tiles) are
+ * left out until they land.
  */
 export const HAMCLOCK_WALL_PAGES: readonly WallPage[] = [
   {
     id: "spots",
     title: "Spots & Activity",
-    left: ["bestBand", "cluster", "bandActivity", "greyLine"],
-    right: ["bestBand", "cluster", "bandActivity", "recentContacts"],
+    left: ["cluster", "bandActivity", "recentContacts"],
+    right: ["bestBand", "greyLine", "muf", "reliability", "emcomm"],
   },
   {
     id: "solar",
     title: "Solar & Space Wx",
     left: ["xray", "solarWind", "spaceWx", "sun"],
-    right: ["xray", "solarWind", "spaceWx", "sun", "weather"],
+    right: ["moon", "greyLine", "muf", "reliability"],
   },
   {
     id: "forecast",
     title: "Forecast",
-    left: ["forecastMatrix", "muf", "reliability"],
-    right: ["forecastMatrix", "reliability", "muf", "bandActivity"],
+    left: ["bestBand", "muf", "forecastMatrix", "reliability"],
+    right: ["bandActivity", "cluster", "greyLine", "sun", "xray"],
   },
   {
     id: "weather",
     title: "Weather & Emergency",
-    left: ["weather", "alerts", "emcomm"],
-    right: ["weather", "alerts", "emcomm", "moon"],
+    left: ["weather", "alerts"],
+    right: ["emcomm", "moon"],
   },
   {
     id: "sdr",
     title: "SDR",
     left: ["sdrScope", "sdrDecodes"],
-    right: ["sdrScope", "sdrDecodes", "bandActivity"],
+    right: ["bandActivity", "cluster", "bestBand"],
   },
 ];
+
+// Fails at import time (and therefore in tests) if a future edit to the
+// table above reintroduces a duplicate, rather than shipping it silently.
+assertUniqueTilesPerPage(HAMCLOCK_WALL_PAGES);
 
 export type WallRailSide = "left" | "right";
 

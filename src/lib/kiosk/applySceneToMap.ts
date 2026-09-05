@@ -119,8 +119,11 @@ function applyHamClockPin(pin: KioskSceneHamClockConfig | undefined): void {
   // A pinned page only means something at wall density.
   display.setDensity("wall");
   if (pin.theme) display.setTheme(pin.theme);
-  if (pin.leftPage !== undefined) display.setPage("left", pin.leftPage);
-  if (pin.rightPage !== undefined) display.setPage("right", pin.rightPage);
+  // Both rails follow one page (HW-54), so a pin is one index: leftPage is
+  // canonical and rightPage only counts when leftPage is absent. B4 collapses
+  // the two fields into a page id.
+  const page = pin.leftPage ?? pin.rightPage;
+  if (page !== undefined) display.setPage("left", page);
 }
 
 /** Apply only the presentation controls supported by a wall scene's route. */

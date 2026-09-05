@@ -41,6 +41,22 @@ describe("HAMCLOCK_WALL_PAGES", () => {
       expect(new Set(page.right).size).toBe(page.right.length);
     }
   });
+
+  it("never places the same tile on both rails of a page (one tile, one place)", () => {
+    for (const page of HAMCLOCK_WALL_PAGES) {
+      const combined = [...page.left, ...page.right];
+      expect(new Set(combined).size).toBe(combined.length);
+    }
+  });
+
+  it("changes the right rail's composition from page to page, not just the left", () => {
+    // The shipped bug pinned Band activity to the right rail on most pages;
+    // the fix means the right rail's tile set actually varies by page.
+    const rightSets = HAMCLOCK_WALL_PAGES.map((page) =>
+      [...page.right].sort().join(","),
+    );
+    expect(new Set(rightSets).size).toBeGreaterThan(1);
+  });
 });
 
 describe("wallPageIndex", () => {

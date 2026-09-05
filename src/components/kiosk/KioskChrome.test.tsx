@@ -355,10 +355,12 @@ describe("KioskChrome", () => {
     );
 
     await waitFor(() => {
+      // Both rails follow one page, so a pin is one index: leftPage is
+      // canonical when a scene still sets both.
       expect(useHamClockDisplayStore.getState()).toMatchObject({
         density: "wall",
         theme: "brass",
-        pageIndex: { left: 1, right: 2 },
+        pageIndex: { left: 1, right: 1 },
       });
     });
   });

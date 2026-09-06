@@ -16,8 +16,8 @@ import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import {
   calculateDLayerAbsorption,
-  describeConditions,
   getIonosphericParameters,
+  type IonosphericParameters,
 } from "@/lib/utils/ionosphere";
 import {
   hopElevationAngle,
@@ -49,6 +49,36 @@ const FALLBACK_KP = 2;
 const SFI_STALE_HOURS = 6;
 
 /** Drawing size before the slot has been measured (jsdom, first paint). */
+/** One line under the usable-window chart. `describeConditions` in the
+ * physics lib repeats f0F2 (already in the ionosphere box) and ran to four
+ * lines at 1080p; the wall reads the verdict, MUF(3000) and the highest band
+ * the ladder reaches, and nothing twice. */
+function conditionsLine(ionosphere: IonosphericParameters): string {
+  const side = ionosphere.isDaytime ? "Daytime" : "Nighttime";
+  const quality =
+    ionosphere.f0F2 >= 10
+      ? "EXCELLENT"
+      : ionosphere.f0F2 >= 7
+        ? "GOOD"
+        : ionosphere.f0F2 >= 5
+          ? "FAIR"
+          : "POOR";
+  const muf = ionosphere.muf3000;
+  const highest =
+    muf >= 28
+      ? "10M"
+      : muf >= 21
+        ? "15M"
+        : muf >= 14
+          ? "20M"
+          : muf >= 10
+            ? "30M"
+            : muf >= 7
+              ? "40M"
+              : "80M";
+  return `${side} F2 ${quality} · MUF(3000) ${muf.toFixed(1)} MHz · up to ${highest}`;
+}
+
 const CHART_FALLBACK = { width: 720, height: 220 };
 
 /**
@@ -538,6 +568,9 @@ export function MufReport({ open, onClose }: MufReportProps) {
     );
   }
 
+  // Five rows: geomagnetic latitude is a constant of the QTH, not a
+  // condition, and the sixth row was the one that pushed the PATH tab past
+  // its slot at 1080p (#250).
   const ionosphereBox = (
     <div className="hcr-box">
       <h4>Ionosphere at QTH</h4>
@@ -562,12 +595,6 @@ export function MufReport({ open, onClose }: MufReportProps) {
               }`
             : "—"}
         </dd>
-        <dt>Geomagnetic latitude</dt>
-        <dd>
-          {ionosphere?.geomagneticLatitude != null
-            ? `${ionosphere.geomagneticLatitude.toFixed(1)}°`
-            : "—"}
-        </dd>
       </dl>
     </div>
   );
@@ -589,7 +616,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
         )}
         <p className="hcr-note">
           {ionosphere
-            ? describeConditions(ionosphere)
+            ? conditionsLine(ionosphere)
             : "Waiting for ionosphere inputs…"}
         </p>
       </div>

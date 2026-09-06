@@ -47,6 +47,11 @@ export function extractMode(comment: string): string | null {
     "AM",
     "FM",
     "PHONE",
+    "VOICE",
+    "DV",
+    "DSTAR",
+    "DMR",
+    "C4FM",
   ];
   for (const mode of modes) {
     if (tokens.has(mode)) return mode;

@@ -30,6 +30,14 @@ describe("extractMode", () => {
     expect(extractMode("local FM net")).toBe("FM");
   });
 
+  it("matches DMR", () => {
+    expect(extractMode("DMR talkgroup 91")).toBe("DMR");
+  });
+
+  it("matches C4FM", () => {
+    expect(extractMode("Yaesu C4FM Fusion")).toBe("C4FM");
+  });
+
   it("returns null for an empty comment", () => {
     expect(extractMode("")).toBeNull();
   });

@@ -74,9 +74,12 @@ con.execute(
     SELECT * FROM (
         SELECT
             s.hour_utc, s.band, s.snr,
-            CASE WHEN s.mode = 'CW' THEN 'cw'
-                 WHEN s.mode IN ({DIGITAL}) THEN 'digital'
-                 WHEN s.mode IN ({PHONE}) THEN 'phone'
+            -- PSK*: any PSKn variant (PSK, PSK31, PSK63, PSK125, ...) counts as
+            -- digital, mirroring public.mode_class_of()'s regexp_matches predicate.
+            CASE WHEN upper(s.mode) = 'CW' THEN 'cw'
+                 WHEN upper(s.mode) IN ({DIGITAL})
+                      OR regexp_matches(upper(s.mode), '^PSK[0-9]*$') THEN 'digital'
+                 WHEN upper(s.mode) IN ({PHONE}) THEN 'phone'
             END AS mode_class,
             coalesce(s.tx_field, ct.field) AS tx_field,
             coalesce(s.rx_field, cr.field) AS rx_field
@@ -103,6 +106,21 @@ con.execute(
     """
 )
 log(f"positive cells: {con.execute('SELECT count(*) FROM pos').fetchone()[0]:,}")
+
+# pos summed across all mode classes for a (hour, band, path) key - one row
+# per key, so the join below can never fan out a `cells` row. Used to derive
+# xmode_path_prev1 (activity on the *other* mode class(es)) as
+# total-for-all-classes minus this-cell's-own-class (already available via
+# the p1 join), which reproduces the exact two-class semantics ("the other
+# class's count") now that there are three classes and a plain
+# mode_class != c.mode_class join would match 2 rows and duplicate the cell.
+con.execute(
+    """
+    CREATE TEMP TABLE pos_total AS
+    SELECT hour_utc, band, tx_field, rx_field, sum(spot_count) AS spot_count
+    FROM pos GROUP BY 1, 2, 3, 4
+    """
+)
 
 # ---------------------------------------------------------------- pair universe
 con.execute(
@@ -249,7 +267,7 @@ con.execute(
         c.*,
         coalesce(p1.spot_count, 0) AS path_prev1,
         coalesce(p24.spot_count, 0) AS path_prev24,
-        coalesce(px.spot_count, 0) AS xmode_path_prev1,
+        coalesce(pxt.spot_count, 0) - coalesce(p1.spot_count, 0) AS xmode_path_prev1,
         coalesce(pr.spot_count, 0) AS rev_path_prev1,
         coalesce(tba.n, 0) AS tx_band_prev1,
         coalesce(rba.n, 0) AS rx_band_prev1,
@@ -269,9 +287,9 @@ con.execute(
     LEFT JOIN pos p24 ON p24.hour_utc = c.hour_utc - INTERVAL 24 HOUR
         AND p24.band = c.band AND p24.mode_class = c.mode_class
         AND p24.tx_field = c.tx_field AND p24.rx_field = c.rx_field
-    LEFT JOIN pos px ON px.hour_utc = c.hour_utc - INTERVAL 1 HOUR
-        AND px.band = c.band AND px.mode_class != c.mode_class
-        AND px.tx_field = c.tx_field AND px.rx_field = c.rx_field
+    LEFT JOIN pos_total pxt ON pxt.hour_utc = c.hour_utc - INTERVAL 1 HOUR
+        AND pxt.band = c.band
+        AND pxt.tx_field = c.tx_field AND pxt.rx_field = c.rx_field
     LEFT JOIN pos pr ON pr.hour_utc = c.hour_utc - INTERVAL 1 HOUR
         AND pr.band = c.band AND pr.mode_class = c.mode_class
         AND pr.tx_field = c.rx_field AND pr.rx_field = c.tx_field

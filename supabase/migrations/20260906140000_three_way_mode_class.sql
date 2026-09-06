@@ -17,9 +17,14 @@
 -- compute_path_hourly_stats and compute_region_hourly_stats now call
 -- NULLIF(public.mode_class_of(s.mode), 'unknown') instead of an inline CASE,
 -- so the aggregates and the band-health ladder can never drift again.
--- ml/src/build_dataset_v4.py mirrors this same list for offline training
--- (DuckDB reads flat parquet, so it cannot call this function) and must be
--- kept in sync by hand whenever the mode vocabulary changes here.
+-- The digital branch also treats any PSKn variant (PSK, PSK31, PSK63,
+-- PSK125, ...) as digital via a '^PSK[0-9]*$' regex, not just the three
+-- explicit PSK values, so "PSK*" is genuinely covered rather than a fixed
+-- enumeration.
+-- ml/src/build_dataset_v4.py mirrors this same list (including the PSK*
+-- regex predicate) for offline training (DuckDB reads flat parquet, so it
+-- cannot call this function) and must be kept in sync by hand whenever the
+-- mode vocabulary changes here.
 
 CREATE OR REPLACE FUNCTION public.mode_class_of(mode text)
 RETURNS text
@@ -28,12 +33,15 @@ IMMUTABLE
 AS $$
   -- upper(): dxcluster feeds pass Mode through trim() only, so mixed-case
   -- values arrive here; without folding they'd all read "unknown".
+  -- PSK*: any PSKn variant (PSK, PSK31, PSK63, PSK125, ...) is digital, not
+  -- just the three explicit values below - matched via ~ '^PSK[0-9]*$'.
   SELECT CASE
     WHEN upper(mode) = 'CW' THEN 'cw'
     WHEN upper(mode) IN ('FT8','FT4','FT2','JS8','VARAC','WSPR','RTTY',
                          'FREEDV','PKT','DATA','OLIVIA','JT65','JT9',
                          'MSK144','Q65','FST4','FST4W','DIGITAL','DIG',
-                         'DIGI','PSK','PSK31','PSK63','MFSK') THEN 'digital'
+                         'DIGI','PSK','PSK31','PSK63','MFSK')
+         OR upper(mode) ~ '^PSK[0-9]*$' THEN 'digital'
     WHEN upper(mode) IN ('SSB','USB','LSB','FM','AM','PHONE','VOICE','DV',
                          'DSTAR','DMR','C4FM') THEN 'phone'
     ELSE 'unknown'

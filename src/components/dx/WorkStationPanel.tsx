@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { DXSpot } from "@/types/dxcluster";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
-import { useRigStore } from "@/stores/rigStore";
+import { TuneButton } from "@/components/radio/TuneButton";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { getPathMetrics, formatDistance, formatBearing } from "@/lib/utils/path";
 
@@ -22,10 +22,6 @@ export function WorkStationPanel({
   onSetTarget,
 }: WorkStationPanelProps) {
   const location = useActiveLocation();
-  const catEnabled = useRigStore((s) => s.catEnabled);
-  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
-  const setPendingMode = useRigStore((s) => s.setPendingMode);
-
   const info = useMemo(() => {
     if (!location || !spot.dxLat || !spot.dxLon) return null;
     const metrics = getPathMetrics(
@@ -55,14 +51,6 @@ export function WorkStationPanel({
     }
     return `/dx?${params.toString()}`;
   }, [spot]);
-
-  const handleTune = () => {
-    setPendingFrequency(spot.frequency * 1000);
-    const upper = (spot.mode || "").toUpperCase();
-    const rigMode =
-      upper === "CW" ? "CW" : spot.frequency < 10000 ? "LSB" : "USB";
-    setPendingMode(rigMode);
-  };
 
   return (
     <div className="rounded-xl border border-cosmic-cyan/30 bg-white/[0.05] backdrop-blur-md p-3 space-y-2">
@@ -102,22 +90,14 @@ export function WorkStationPanel({
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Link
           to={wizardHref}
           className="flex-1 px-3 py-1.5 text-xs font-medium text-center bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/40 rounded-lg hover:bg-plasma-orange/30 transition-colors"
         >
           Analyze in DX Wizard
         </Link>
-        {catEnabled && (
-          <button
-            type="button"
-            onClick={handleTune}
-            className="px-3 py-1.5 text-xs font-medium bg-signal-green/20 text-signal-green border border-signal-green/30 rounded-lg hover:bg-signal-green/30 transition-colors"
-          >
-            Tune
-          </button>
-        )}
+        <TuneButton frequencyKHz={spot.frequency} mode={spot.mode} wall={false} />
         {onSetTarget && (
           <button
             type="button"

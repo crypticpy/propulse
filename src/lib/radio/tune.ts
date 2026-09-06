@@ -24,13 +24,14 @@ export function tuneDisabledReason(connection: TuneConnection, frequencyKHz: num
 }
 
 /** Recheck at activation; stage both commands atomically without claiming CAT acknowledgement. */
-export function queueTune(frequencyKHz: number, mode?: string): boolean {
+export function queueTune(frequencyKHz: number, mode?: string | null): boolean {
   const rig = useRigStore.getState();
   if (tuneDisabledReason({ ...rig, bridgeEnabled: useSettingsStore.getState().bridgeEnabled,
     kiosk: useKioskStore.getState().active }, frequencyKHz)) return false;
   useRigStore.setState({
     pendingFrequency: Math.round(frequencyKHz * 1000),
-    pendingMode: mapSpotModeToRigMode(mode, frequencyKHz),
+    // Null explicitly requests frequency only (e.g. an unspecified satellite mode).
+    pendingMode: mode === null ? null : mapSpotModeToRigMode(mode, frequencyKHz),
   });
   return true;
 }

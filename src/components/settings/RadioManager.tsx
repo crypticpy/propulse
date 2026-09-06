@@ -1968,8 +1968,8 @@ export function RadioManager({
                   </div>
                 </div>
 
-                <div>
-                  <p className="su-hint">Bands</p>
+                <fieldset className="min-w-0">
+                  <legend className="su-hint">Bands</legend>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {CUSTOM_BANDS.map((band) => (
                       <Checkbox
@@ -1987,10 +1987,10 @@ export function RadioManager({
                       />
                     ))}
                   </div>
-                </div>
+                </fieldset>
 
-                <div>
-                  <p className="su-hint">Modes</p>
+                <fieldset className="min-w-0">
+                  <legend className="su-hint">Modes</legend>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {CUSTOM_MODES.map((mode) => (
                       <Checkbox
@@ -2008,7 +2008,7 @@ export function RadioManager({
                       />
                     ))}
                   </div>
-                </div>
+                </fieldset>
 
                 <div>
                   <TextField

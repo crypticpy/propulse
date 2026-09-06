@@ -314,8 +314,10 @@ function MapStyleChooser({
  * list — this tab itself just shows the current style at a glance. Night
  * lights and layer presets stay here and apply live with no cancel step;
  * they are plain toggles, not part of the cancelable chooser.
+ * Observatory (#160) is a Map-tab action because the desk header that used
+ * to launch it is gone; entering closes settings so the map is visible.
  */
-export function MapTab() {
+export function MapTab({ onClose }: { onClose?: () => void } = {}) {
   const mapStyle = useMapStore((s) => s.mapStyle);
   const tileProviderId = useMapStore((s) => s.tileProviderId);
   const nightLights = useMapStore((s) => s.layers.nightLights);
@@ -323,6 +325,9 @@ export function MapTab() {
   const viewMode = useMapStore((s) => s.viewMode);
   const activePreset = useMapStore((s) => s.activePreset);
   const applyPreset = useMapStore((s) => s.applyPreset);
+  const observatoryMode = useMapStore((s) => s.observatoryMode);
+  const enterObservatory = useMapStore((s) => s.enterObservatory);
+  const exitObservatory = useMapStore((s) => s.exitObservatory);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const [chooserOpen, setChooserOpen] = useState(false);
 
@@ -395,6 +400,35 @@ export function MapTab() {
               {PRESET_CONFIG[preset].label.toUpperCase()}
             </HamClockButton>
           ))}
+        </div>
+      </div>
+
+      <div className="hcc-row hcc-action-row">
+        <div className="hcc-row-main">
+          <div className="hcc-row-text">
+            <span className="hcc-row-label">Observatory</span>
+            <span className="hcc-row-detail">
+{viewMode === "globe"
+  ? observatoryMode
+    ? "Auto-rotating, zoom only"
+    : "Lean-back auto-rotate; zoom only"
+  : observatoryMode
+    ? "Full-map overview"
+    : "Lean-back full-map overview"}
+            </span>
+          </div>
+          <HamClockButton
+            onClick={() => {
+              if (observatoryMode) {
+                exitObservatory();
+                return;
+              }
+              enterObservatory();
+              onClose?.();
+            }}
+          >
+            {observatoryMode ? "EXIT OBSERVATORY" : "ENTER OBSERVATORY"}
+          </HamClockButton>
         </div>
       </div>
     </div>

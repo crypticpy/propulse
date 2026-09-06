@@ -114,8 +114,8 @@
 
 .hcr-lead {
   display: grid;
-  /* Facts keep at least 22vw so a wide hero/verdict (Sun countdown +
-   * SUNRISE/SUNSET) cannot squeeze the column into ellipsis (#248). */
+  /* Facts shrink from zero so a long polar verdict (SUN DOES NOT SET)
+   * still fits; wrapping on `.hcr-facts div` is what avoids ellipsis. */
   grid-template-columns: auto auto minmax(0, 1fr);
   gap: 2.4vw;
   align-items: end;

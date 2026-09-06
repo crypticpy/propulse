@@ -86,12 +86,19 @@ export function latestFiniteGfzHp60(
   return best == null ? null : { value: best.value, time: best.time };
 }
 
+export function gfzTimestamp(epochMs: number): string {
+  return new Date(Math.floor(epochMs / 1000) * 1000)
+    .toISOString()
+    .replace(/\.\d{3}Z$/, "Z");
+}
+
 export async function collectSolar(db: SupabaseClient): Promise<void> {
   const start = Date.now();
   try {
     // Fetch all nine sources in parallel using Promise.allSettled
-    const hp60EndIso = new Date(start).toISOString();
-    const hp60StartIso = new Date(start - 6 * 60 * 60 * 1000).toISOString();
+    // GFZ only accepts whole-second timestamps; a fractional part is a 500.
+    const hp60EndIso = gfzTimestamp(start);
+    const hp60StartIso = gfzTimestamp(start - 6 * 60 * 60 * 1000);
     const [
       kpResult,
       sfiResult,

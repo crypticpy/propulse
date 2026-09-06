@@ -145,6 +145,9 @@ SOLAR_SCHEMA = pa.schema([
     pa.field("solar_wind_density", pa.float32()),
     pa.field("bx_gsm", pa.float32()),
     pa.field("solar_wind_temperature", pa.float32()),
+    # GFZ Hp60 (#311). Added before any solar_snapshots_v1 manifest was
+    # written, so the v1 schema is extended in place rather than versioned.
+    pa.field("hp60", pa.float32()),
     pa.field("source_observed_at", pa.string(), nullable=False),
     pa.field("source_status", pa.string(), nullable=False),
 ])

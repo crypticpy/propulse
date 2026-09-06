@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   latestActiveBySourceTime,
   latestBySourceTime,
+  gfzTimestamp,
   latestFiniteGfzHp60,
   normalizedSourceTime,
 } from "./solar.js";
@@ -124,5 +125,16 @@ describe("GFZ Hp60 selection", () => {
     expect(latestFiniteGfzHp60({ Hp60: [null], datetime: ["2026-09-06T13:00:00Z"] }, now)).toBeNull();
     expect(latestFiniteGfzHp60(null, now)).toBeNull();
     expect(latestFiniteGfzHp60({}, now)).toBeNull();
+  });
+});
+
+describe("gfzTimestamp", () => {
+  it("emits whole-second UTC timestamps GFZ accepts", () => {
+    expect(gfzTimestamp(Date.parse("2026-09-06T13:07:09.572Z"))).toBe(
+      "2026-09-06T13:07:09Z",
+    );
+    expect(gfzTimestamp(Date.parse("2026-09-06T13:07:09Z"))).toBe(
+      "2026-09-06T13:07:09Z",
+    );
   });
 });

@@ -9,3 +9,6 @@ Validation: 58 targeted tests pass, including old-layout migration/custom preser
 An actual `/map` session seeded with the former version-5 shipped rail received Activations. The browser also pinned SOTA, switched to CANParks and retained UNPIN/pressed state; the stable pin identity fix itself is in PR #415. No page/list overflow was observed in this focused 1080p check. The parent CANParks slice records the full 30 programme/theme/resolution matrix.
 
 Managed local session: owner `hamclock-activation-followup`, id `2ef7c5a6-b39b-4ace-9a32-66851547f208`, port 5181, isolated worktree `.worktrees/hamclock-activation-detail-expiry`. Synthetic data; hardware transports blocked. Production rendering before merge and physical-display acceptance remain pending.
+
+
+Compact sidebar review follow-up (PR #416 comments 3945620024 / 3945629717): the grid now allocates one column per feed and uses narrow padding so all six labels fit at 280/320/384px. Browser geometry checks confirmed a shared row, no tab overflow and End-key focus on CANParks. Local session owner `hamclock-activation-followup`, id `32da24da-d89a-401b-8da5-f18c92732efc`, port 5181; isolated fixture and blocked hardware.

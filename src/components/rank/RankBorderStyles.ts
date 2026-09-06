@@ -12,6 +12,12 @@ import { RANK_COLORS, isRankAtLeast } from "@/lib/data/rankConstants";
 // Keyframes + .animate-rank-* utilities ship with the chunks that use them.
 import "@/styles/rank-animations.css";
 
+export interface RankPresentation {
+  glow: boolean;
+  animatedBadges: boolean;
+}
+const fullPresentation: RankPresentation = { glow: true, animatedBadges: true };
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -33,7 +39,7 @@ function withAlpha(hex: string, alpha: number): string {
  * Returns inline styles for the card's outer border.
  * Progressively more elaborate per rank tier.
  */
-export function getRankBorderStyle(
+function rawgetRankBorderStyle(
   rank: RankTier,
   accentHex: string,
 ): CSSProperties {
@@ -218,22 +224,22 @@ export function getSheenGradient(rank: RankTier, accentHex: string): string {
  * Returns Tailwind utility classes to add to the card wrapper.
  * Higher ranks get elevation, golden accents, and animation class refs.
  */
-export function getRankCardClasses(rank: RankTier): string {
+export function getRankCardClasses(rank: RankTier, effects: RankPresentation = fullPresentation): string {
   const classes: string[] = [];
 
-  if (isRankAtLeast(rank, "expert")) {
+  if (effects.glow && isRankAtLeast(rank, "expert")) {
     classes.push("shadow-lg");
   }
 
-  if (isRankAtLeast(rank, "master")) {
+  if (effects.glow && isRankAtLeast(rank, "master")) {
     classes.push("ring-1 ring-amber-500/10");
   }
 
-  if (rank === "legendary") {
+  if (effects.glow && effects.animatedBadges && rank === "legendary") {
     classes.push("animate-rank-legendary-glow");
   }
 
-  if (rank === "ethereal") {
+  if (effects.glow && effects.animatedBadges && rank === "ethereal") {
     classes.push("animate-rank-ethereal-shift");
   }
 
@@ -248,7 +254,7 @@ export function getRankCardClasses(rank: RankTier): string {
  * Returns inline styles for the profile avatar frame border.
  * Progressively more ornate from Novice through Ethereal.
  */
-export function getProfileFrameStyle(rank: RankTier): CSSProperties {
+function rawgetProfileFrameStyle(rank: RankTier): CSSProperties {
   const color = RANK_COLORS[rank];
 
   switch (rank) {
@@ -331,7 +337,7 @@ export function getProfileFrameStyle(rank: RankTier): CSSProperties {
  * Returns box-shadow glow for the profile card container.
  * Novice/Apprentice have no glow; higher tiers progressively intensify.
  */
-export function getProfileGlowStyle(rank: RankTier): CSSProperties {
+function rawgetProfileGlowStyle(rank: RankTier): CSSProperties {
   const color = RANK_COLORS[rank];
 
   switch (rank) {
@@ -385,7 +391,7 @@ export function getProfileGlowStyle(rank: RankTier): CSSProperties {
  * Apply to a wrapper div so all sub-components inherit rank tinting
  * via CSS variable references without each importing useOperatorRank.
  */
-export function getRankPageVars(rank: RankTier): CSSProperties {
+export function getRankPageVars(rank: RankTier, effects: RankPresentation = fullPresentation): CSSProperties {
   const color = RANK_COLORS[rank];
 
   // Base variables for all tiers
@@ -421,5 +427,17 @@ export function getRankPageVars(rank: RankTier): CSSProperties {
     vars["--rank-glow"] = withAlpha(color, 0.08);
   }
 
+  if (!effects.glow) vars["--rank-glow"] = "transparent";
   return vars as unknown as CSSProperties;
+}
+
+/** Keep earned borders and accents when decorative glow is disabled. */
+export function getRankBorderStyle(rank: RankTier, accentHex: string, effects: RankPresentation = fullPresentation): CSSProperties {
+  return { ...rawgetRankBorderStyle(rank, accentHex), ...(!effects.glow ? { boxShadow: "none" } : {}) };
+}
+export function getProfileFrameStyle(rank: RankTier, effects: RankPresentation = fullPresentation): CSSProperties {
+  return { ...rawgetProfileFrameStyle(rank), ...(!effects.glow ? { boxShadow: "none" } : {}) };
+}
+export function getProfileGlowStyle(rank: RankTier, effects: RankPresentation = fullPresentation): CSSProperties {
+  return effects.glow ? rawgetProfileGlowStyle(rank) : { boxShadow: "none" };
 }

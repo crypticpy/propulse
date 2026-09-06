@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * LegendaryEffects -- Visual effects for Legendary-tier equipment cards.
  *
@@ -69,11 +70,12 @@ export function EnergyBorderOverlay({
   accentHex,
   className = "",
 }: EnergyBorderOverlayProps) {
+  const effects = useVisualEffects();
   useEffect(() => {
     if (enabled) ensureStyles();
   }, [enabled]);
 
-  if (!enabled) return null;
+  if (!enabled || !effects.animatedBadges || !effects.glow) return null;
 
   // Blend the accent with gold for a warm energy tint
   const energyColor = accentHex;
@@ -200,6 +202,7 @@ export function FiligreeCorners({
   accentHex,
   className = "",
 }: FiligreeCornersProps) {
+  const effects = useVisualEffects();
   useEffect(() => {
     if (enabled) ensureStyles();
   }, [enabled]);
@@ -220,8 +223,8 @@ export function FiligreeCorners({
           className={`absolute ${pos.className} legendary-filigree-pulse`}
           style={{
             transform: `scale(${pos.scaleX}, ${pos.scaleY})`,
-            animation: "filigreePulse 4s ease-in-out infinite",
-            filter: `drop-shadow(0 0 3px ${filigreeColor}60)`,
+            animation: effects.animatedBadges && effects.glow ? "filigreePulse 4s ease-in-out infinite" : "none",
+            filter: effects.glow ? `drop-shadow(0 0 3px ${filigreeColor}60)` : "none",
             color: accentHex,
           }}
         >

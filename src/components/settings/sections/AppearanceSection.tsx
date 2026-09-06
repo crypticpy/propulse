@@ -6,6 +6,7 @@
 
 import { useState, useCallback, useEffect, useId } from "react";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
+import { VisualEffectsSettings } from "@/components/settings/VisualEffectsSettings";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -102,6 +103,7 @@ export function AppearanceSection() {
 
   return (
     <div className="space-y-6">
+      <VisualEffectsSettings />
       <div>
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
           Accent Color

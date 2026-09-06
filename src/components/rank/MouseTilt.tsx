@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * MouseTilt -- Perspective tilt wrapper following mouse position.
  *
@@ -38,6 +39,7 @@ export function MouseTilt({
   children,
   className = "",
 }: MouseTiltProps) {
+  const { motion } = useVisualEffects();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
 
@@ -45,44 +47,16 @@ export function MouseTilt({
   const [effectivelyEnabled, setEffectivelyEnabled] = useState(false);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !motion) {
       setEffectivelyEnabled(false);
       return;
     }
-
-    // Check prefers-reduced-motion
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (reducedMotion.matches) {
-      setEffectivelyEnabled(false);
-      return;
-    }
-
-    // Check hover capability (non-hover = touch-only = no tilt)
-    const hoverCapable = window.matchMedia("(hover: hover)");
-    if (!hoverCapable.matches) {
-      setEffectivelyEnabled(false);
-      return;
-    }
-
-    setEffectivelyEnabled(true);
-
-    // Listen for changes (e.g., connecting a mouse to a tablet)
-    const handleReducedMotionChange = (e: MediaQueryListEvent) => {
-      if (e.matches) setEffectivelyEnabled(false);
-    };
-    const handleHoverChange = (e: MediaQueryListEvent) => {
-      if (!e.matches) setEffectivelyEnabled(false);
-      else if (!reducedMotion.matches) setEffectivelyEnabled(true);
-    };
-
-    reducedMotion.addEventListener("change", handleReducedMotionChange);
-    hoverCapable.addEventListener("change", handleHoverChange);
-
-    return () => {
-      reducedMotion.removeEventListener("change", handleReducedMotionChange);
-      hoverCapable.removeEventListener("change", handleHoverChange);
-    };
-  }, [enabled]);
+    const hover = window.matchMedia("(hover: hover)");
+    const update = () => setEffectivelyEnabled(hover.matches);
+    update();
+    hover.addEventListener("change", update);
+    return () => hover.removeEventListener("change", update);
+  }, [enabled, motion]);
 
   // Mouse move handler — sets CSS custom properties directly on the DOM node
   const handleMouseMove = useCallback(
@@ -115,18 +89,15 @@ export function MouseTilt({
     inner.style.setProperty("--tilt-y", "0deg");
   }, []);
 
-  // When not effectively enabled, render children directly
-  if (!effectivelyEnabled) {
-    return <>{children}</>;
-  }
+  const active = enabled && motion && effectivelyEnabled;
 
   return (
     <div
       ref={wrapperRef}
       className={className}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{ perspective: `${perspective}px` }}
+      onMouseMove={active ? handleMouseMove : undefined}
+      onMouseLeave={active ? handleMouseLeave : undefined}
+      style={{ perspective: active ? `${perspective}px` : undefined }}
     >
       <div
         ref={innerRef}
@@ -134,9 +105,9 @@ export function MouseTilt({
           {
             "--tilt-x": "0deg",
             "--tilt-y": "0deg",
-            transform: "rotateX(var(--tilt-y)) rotateY(var(--tilt-x))",
-            willChange: "transform",
-            transition: "transform 150ms ease-out",
+            transform: active ? "rotateX(var(--tilt-y)) rotateY(var(--tilt-x))" : "none",
+            willChange: active ? "transform" : undefined,
+            transition: active ? "transform 150ms ease-out" : "none",
           } as React.CSSProperties
         }
       >

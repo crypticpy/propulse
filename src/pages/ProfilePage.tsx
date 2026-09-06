@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * ProfilePage -- Operator Profile management page.
  *
@@ -98,6 +99,7 @@ function OtherProfileView({
   callsign: string;
   isMobile: boolean;
 }) {
+  const effects = useVisualEffects();
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const requireAuth = useRequireAuth();
   const following = useSocialStore((s) => s.following);
@@ -295,7 +297,7 @@ function OtherProfileView({
 
   // Rank theming
   const profileRank = (profile.operatorRank || "novice") as RankTier;
-  const rankVars = getRankPageVars(profileRank);
+  const rankVars = getRankPageVars(profileRank, effects);
 
   // Panel classes
   const panelClass = "profile-workspace-panel";
@@ -658,6 +660,7 @@ function OtherProfileView({
 // ---- Page component ---------------------------------------------------------
 
 export default function ProfilePage() {
+  const effects = useVisualEffects();
   const { callsign: routeCallsign } = useParams<{ callsign?: string }>();
   const location = useLocation();
   const isViewingOther = !!routeCallsign;
@@ -668,7 +671,7 @@ export default function ProfilePage() {
   const isMobile = useIsMobile();
   const completeness = useProfileCompleteness();
   const { rank, color: rankColor } = useOperatorRank();
-  const rankPageVars = getRankPageVars(rank);
+  const rankPageVars = getRankPageVars(rank, effects);
   const assets = useRankAssets(rank);
 
   // Wave 2 profile fields

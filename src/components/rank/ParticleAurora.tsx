@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * ParticleAurora -- CSS-only particle system for equipment card art zones.
  *
@@ -188,6 +189,8 @@ export function ParticleAurora({
   accentHex,
   className = "",
 }: ParticleAuroraProps) {
+  const effects = useVisualEffects();
+  const active = enabled && effects.particles;
   ensureStyles();
 
   const isMobile = useMemo(() => {
@@ -196,16 +199,16 @@ export function ParticleAurora({
   }, []);
 
   const particles = useMemo(() => {
-    if (!enabled || !isRankAtLeast(rank, "expert")) return [];
+    if (!active || !isRankAtLeast(rank, "expert")) return [];
     return generateParticles(rank, accentHex, isMobile);
-  }, [enabled, rank, accentHex, isMobile]);
+  }, [active, rank, accentHex, isMobile]);
 
   const constellationLines = useMemo(() => {
-    if (!enabled || rank !== "ethereal") return [];
+    if (!active || rank !== "ethereal") return [];
     return generateConstellationLines();
-  }, [enabled, rank]);
+  }, [active, rank]);
 
-  if (!enabled || !isRankAtLeast(rank, "expert") || particles.length === 0) {
+  if (!active || !isRankAtLeast(rank, "expert") || particles.length === 0) {
     return null;
   }
 

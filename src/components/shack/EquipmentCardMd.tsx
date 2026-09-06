@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * EquipmentCardMd — Medium-size equipment card (~180px tall).
  *
@@ -102,7 +103,8 @@ export function EquipmentCardMd({
   const { rank } = useOperatorRank();
   const assets = useRankAssets(rank);
   const accentHex = ACCENT_HEX[equipmentType];
-  const rankBorderStyle = getRankBorderStyle(rank, accentHex);
+  const effects = useVisualEffects();
+  const rankBorderStyle = getRankBorderStyle(rank, accentHex, effects);
   const glowClass = GLOW_SHADOW[equipmentType];
   const hasActions = onEdit || onDelete;
 
@@ -139,12 +141,12 @@ export function EquipmentCardMd({
         "border",
         onClick ? "cursor-pointer" : "",
         "transition-all duration-200",
-        isHovered ? `-translate-y-px ${glowClass}` : "",
-        "active:scale-[0.98]",
+        isHovered ? `${effects.motion ? "-translate-y-px" : ""} ${effects.glow ? glowClass : ""}` : "",
+        effects.motion ? "active:scale-[0.98]" : "",
         isActive
           ? "ring-1 ring-signal-green/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
           : "",
-        getRankCardClasses(rank),
+        getRankCardClasses(rank, effects),
         className ?? "",
       ]
         .filter(Boolean)

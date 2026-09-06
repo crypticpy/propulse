@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import unittest
 from datetime import datetime, timedelta, timezone
 
@@ -7,14 +8,26 @@ import httpx
 
 from operational_weather import (
     PostgrestOperationalWeatherProvider,
+    add_derived_physics_features,
     build_operational_weather,
+    kp_to_ap,
 )
 
 
 ISSUE = datetime(2026, 7, 15, 20, tzinfo=timezone.utc)
 
 
-def row(at: datetime, *, kp: float, bz: float, dst: float) -> dict:
+def row(
+    at: datetime,
+    *,
+    kp: float,
+    bz: float,
+    dst: float,
+    bt: float = 5.0,
+    wind_speed: float = 430.0,
+    temperature: float = 120_000.0,
+    density: float = 4.5,
+) -> dict:
     timestamp = at.isoformat()
     return {
         "captured_at": timestamp,
@@ -23,10 +36,10 @@ def row(at: datetime, *, kp: float, bz: float, dst: float) -> dict:
         "bx_gsm": 1.0,
         "by_gsm": -2.0,
         "bz_gsm": bz,
-        "bt": 5.0,
-        "solar_wind_speed": 430.0,
-        "solar_wind_temperature": 120_000.0,
-        "solar_wind_density": 4.5,
+        "bt": bt,
+        "solar_wind_speed": wind_speed,
+        "solar_wind_temperature": temperature,
+        "solar_wind_density": density,
         "sunspot_number": 110.0,
         "proton_flux_10mev": 0.2,
         "dst_index": dst,
@@ -135,6 +148,176 @@ class OperationalWeatherTests(unittest.TestCase):
         self.assertEqual(len(bounds), 2)
         self.assertTrue(any(value.startswith("lte.") for value in bounds))
         self.assertTrue(any(value.startswith("gte.") for value in bounds))
+
+
+class DerivedPhysicsFeatureTests(unittest.TestCase):
+    """Hand-computed OMNI2 row: Np=5, V=400, T=1e5, Bt=5, Bz=-3, Kp=2.33."""
+
+    def omni_row(self) -> dict[str, float]:
+        return {
+            "wind_speed": 400.0,
+            "density_cm3": 5.0,
+            "temperature_k": 1e5,
+            "bt": 5.0,
+            "bz_gsm": -3.0,
+            "kp": 2.33,
+        }
+
+    def test_flow_pressure_matches_omni_formula(self) -> None:
+        values = self.omni_row()
+        add_derived_physics_features(values)
+        self.assertAlmostEqual(values["flow_pressure"], 1.6, places=9)
+
+    def test_electric_field_matches_omni_formula(self) -> None:
+        values = self.omni_row()
+        add_derived_physics_features(values)
+        self.assertAlmostEqual(values["electric_field"], 1.2, places=9)
+
+    def test_plasma_beta_matches_omni_formula(self) -> None:
+        values = self.omni_row()
+        add_derived_physics_features(values)
+        self.assertAlmostEqual(values["plasma_beta"], 1.9, places=9)
+
+    def test_alfven_mach_matches_omni_formula(self) -> None:
+        values = self.omni_row()
+        add_derived_physics_features(values)
+        self.assertAlmostEqual(values["alfven_mach"], 8.94427190999916, places=9)
+
+    def test_magnetosonic_mach_matches_omni_formula(self) -> None:
+        values = self.omni_row()
+        add_derived_physics_features(values)
+        self.assertAlmostEqual(values["magnetosonic_mach"], 5.503151456571707, places=9)
+
+    def test_ap_matches_kp_conversion_table(self) -> None:
+        values = self.omni_row()
+        add_derived_physics_features(values)
+        self.assertEqual(values["ap"], 9.0)
+
+    def test_kp_to_ap_table_boundaries(self) -> None:
+        self.assertEqual(kp_to_ap(0.0), 0.0)
+        self.assertEqual(kp_to_ap(2.0), 7.0)
+        self.assertEqual(kp_to_ap(2.67), 12.0)
+        self.assertEqual(kp_to_ap(9.0), 400.0)
+        # The table is undefined outside 0..9: never clamp a bad Kp onto a
+        # trusted quiet/storm value.
+        self.assertIsNone(kp_to_ap(-1.0))
+        self.assertIsNone(kp_to_ap(9.01))
+        self.assertIsNone(kp_to_ap(15.0))
+        self.assertIsNone(kp_to_ap(math.nan))
+        self.assertIsNone(kp_to_ap(math.inf))
+
+    def test_out_of_range_kp_leaves_ap_absent(self) -> None:
+        for kp in (-0.5, 12.0, 1e300):
+            values = self.omni_row()
+            values["kp"] = kp
+            add_derived_physics_features(values)
+            self.assertNotIn("ap", values)
+
+    def test_nonpositive_temperature_leaves_feature_absent(self) -> None:
+        # A negative upstream sentinel must not reach sqrt() or produce a
+        # nonphysical plasma_beta.
+        for temperature in (0.0, -1.0, -999999.0):
+            values = self.omni_row()
+            values["temperature_k"] = temperature
+            add_derived_physics_features(values)
+            self.assertNotIn("plasma_beta", values)
+            self.assertNotIn("magnetosonic_mach", values)
+            self.assertIn("flow_pressure", values)
+            self.assertIn("alfven_mach", values)
+
+    def test_nonpositive_wind_speed_leaves_feature_absent(self) -> None:
+        for wind_speed in (0.0, -400.0):
+            values = self.omni_row()
+            values["wind_speed"] = wind_speed
+            add_derived_physics_features(values)
+            self.assertNotIn("flow_pressure", values)
+            self.assertNotIn("electric_field", values)
+            self.assertNotIn("alfven_mach", values)
+            self.assertNotIn("magnetosonic_mach", values)
+            self.assertIn("plasma_beta", values)
+
+    def test_negative_field_magnitude_leaves_feature_absent(self) -> None:
+        values = self.omni_row()
+        values["bt"] = -5.0
+        add_derived_physics_features(values)
+        self.assertNotIn("plasma_beta", values)
+        self.assertNotIn("alfven_mach", values)
+        self.assertNotIn("magnetosonic_mach", values)
+
+    def test_missing_input_leaves_derived_feature_absent(self) -> None:
+        values = self.omni_row()
+        del values["density_cm3"]
+        add_derived_physics_features(values)
+        self.assertNotIn("flow_pressure", values)
+        self.assertNotIn("plasma_beta", values)
+        self.assertNotIn("alfven_mach", values)
+        self.assertNotIn("magnetosonic_mach", values)
+        # electric_field and ap do not depend on density_cm3.
+        self.assertIn("electric_field", values)
+        self.assertIn("ap", values)
+
+    def test_zero_field_magnitude_leaves_feature_absent(self) -> None:
+        values = self.omni_row()
+        values["bt"] = 0.0
+        add_derived_physics_features(values)
+        self.assertNotIn("plasma_beta", values)
+        self.assertNotIn("alfven_mach", values)
+        self.assertNotIn("magnetosonic_mach", values)
+        # flow_pressure, electric_field, and ap do not depend on bt.
+        self.assertIn("flow_pressure", values)
+        self.assertIn("electric_field", values)
+        self.assertIn("ap", values)
+
+    def test_nonpositive_density_leaves_feature_absent(self) -> None:
+        for density in (0.0, -1.0):
+            values = self.omni_row()
+            values["density_cm3"] = density
+            add_derived_physics_features(values)
+            self.assertNotIn("flow_pressure", values)
+            self.assertNotIn("plasma_beta", values)
+            self.assertNotIn("alfven_mach", values)
+            self.assertNotIn("magnetosonic_mach", values)
+
+    def test_no_derived_value_is_nan_inf_or_a_fabricated_zero(self) -> None:
+        values = self.omni_row()
+        values["bt"] = 0.0
+        values["density_cm3"] = 0.0
+        add_derived_physics_features(values)
+        for name in (
+            "flow_pressure",
+            "electric_field",
+            "plasma_beta",
+            "alfven_mach",
+            "magnetosonic_mach",
+        ):
+            self.assertTrue(name not in values or math.isfinite(values[name]))
+
+    def test_build_operational_weather_restores_derived_physics_features(self) -> None:
+        rows = [
+            row(
+                ISSUE,
+                kp=2.33,
+                bz=-3.0,
+                dst=-20.0,
+                bt=5.0,
+                wind_speed=400.0,
+                temperature=1e5,
+                density=5.0,
+            )
+        ]
+
+        result = build_operational_weather(rows, ISSUE)
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertAlmostEqual(result.values["flow_pressure"], 1.6, places=9)
+        self.assertAlmostEqual(result.values["electric_field"], 1.2, places=9)
+        self.assertAlmostEqual(result.values["plasma_beta"], 1.9, places=9)
+        self.assertAlmostEqual(result.values["alfven_mach"], 8.94427190999916, places=9)
+        self.assertAlmostEqual(
+            result.values["magnetosonic_mach"], 5.503151456571707, places=9
+        )
+        self.assertEqual(result.values["ap"], 9.0)
 
 
 if __name__ == "__main__":

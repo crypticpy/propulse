@@ -613,7 +613,9 @@ export function adaptXrayFlares(
     if (!row) return [];
     const maxClass = String(row.max_class ?? "");
     const maxTimestamp = parseUtcInstant(row.max_time);
-    if (!/^[ABCMX]\d/i.test(maxClass) || maxTimestamp === null) return [];
+    if (!/^[ABCMX]\d(?:\.\d)?$/i.test(maxClass) || maxTimestamp === null) {
+      return [];
+    }
     // NOAA uses region 0 (and sometimes an empty value) for "unassigned".
     const region = toFiniteNumber(row.region);
     return [

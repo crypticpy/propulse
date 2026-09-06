@@ -266,6 +266,12 @@ describe("solar provider adapters", () => {
     expect(result.observedAt).toBe("2026-07-15T18:14:00.000Z");
 
     expect(adaptXrayFlares([]).data).toEqual([]);
+    expect(
+      adaptXrayFlares([
+        rows[0],
+        { ...rows[1], max_class: "C1garbage" },
+      ]).data.map((flare) => flare.maxClass),
+    ).toEqual(["C1.5"]);
     expect(() => adaptXrayFlares([{ ...rows[0], max_class: "" }])).toThrow(
       /no usable/i,
     );

@@ -1,4 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SolarReport } from "./SolarReport";
@@ -173,6 +179,16 @@ describe("SolarReport", () => {
     );
   });
 
+  it("shows FRAME UNAVAILABLE instead of a broken image when a frame fails to load", async () => {
+    render(<SolarReport open onClose={vi.fn()} />);
+
+    fireEvent.error(await screen.findByAltText(/AIA 193/i));
+
+    expect(screen.getByText("FRAME UNAVAILABLE")).toBeTruthy();
+    expect(screen.queryByAltText(/AIA 193/i)).toBeNull();
+    expect(screen.getByAltText(/HMI/i)).toBeTruthy();
+  });
+
   it("centers the map on the sub-solar point and closes when SHOW SUB-SOLAR POINT is clicked", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -202,12 +218,31 @@ describe("XrayReport", () => {
         },
       ]),
     );
+    mocks.solar.mockImplementation((sourceId: string) =>
+      sourceId === "swpc-xray-flares-7d" ? envelope([]) : EMPTY_RESOURCE,
+    );
 
     render(<XrayReport open onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog");
     expect(dialog.querySelector(".hcr-hero")?.textContent).toContain("A");
     expect(screen.getByText("NO FLARES ABOVE B IN 24H")).toBeTruthy();
+  });
+
+  it("does not call a quiet day while the flare feed is loading or has failed", () => {
+    render(<XrayReport open onClose={vi.fn()} />);
+    expect(screen.getByText("LOADING FLARES")).toBeTruthy();
+    expect(screen.queryByText("NO FLARES ABOVE B IN 24H")).toBeNull();
+    cleanup();
+
+    mocks.solar.mockImplementation((sourceId: string) =>
+      sourceId === "swpc-xray-flares-7d"
+        ? { data: undefined, isError: true, isPending: false }
+        : EMPTY_RESOURCE,
+    );
+    render(<XrayReport open onClose={vi.fn()} />);
+    expect(screen.getByText("FLARE LIST UNAVAILABLE")).toBeTruthy();
+    expect(screen.queryByText("NO FLARES ABOVE B IN 24H")).toBeNull();
   });
 
   it("marks the latest classified flare on the FLUX chart when it falls in the 24h window", () => {

@@ -93,6 +93,13 @@ export function XrayReport({
     const cutoff = Date.now() - FLARE_WINDOW_MS;
     return all.filter((flare) => Date.parse(flare.maxTime) >= cutoff);
   }, [flaresQuery.data]);
+  // An empty list is only an all-clear once the feed has actually answered;
+  // while it loads or after it fails there is no verdict to give.
+  const flareFeed: "ready" | "loading" | "error" = flaresQuery.data
+    ? "ready"
+    : flaresQuery.isError
+      ? "error"
+      : "loading";
   const [flareListRef, visibleFlares] = useVisibleRows<HTMLDivElement>(
     flares24h.length,
   );
@@ -155,7 +162,9 @@ export function XrayReport({
             content: (
               <>
                 <div className="hcr-chart">
-                  <p className="hcr-chart-title">X-RAY FLUX — 24 H · GOES · LOG SCALE</p>
+                  <p className="hcr-chart-title">
+                    X-RAY FLUX — 24 H · GOES · LOG SCALE
+                  </p>
                   <WallSeriesChart
                     label="X-RAY FLUX — 24 H · GOES · LOG SCALE"
                     points={(points ?? []).map((point) => ({
@@ -170,7 +179,12 @@ export function XrayReport({
                     thresholds={XRAY_THRESHOLDS}
                     markers={
                       flare
-                        ? [{ timestamp: flare.max_time, label: flare.max_class }]
+                        ? [
+                            {
+                              timestamp: flare.max_time,
+                              label: flare.max_class,
+                            },
+                          ]
                         : []
                     }
                   />
@@ -182,7 +196,13 @@ export function XrayReport({
                       ? ` · top ${visibleFlares} of ${flares24h.length}`
                       : ""}
                   </h4>
-                  {flares24h.length === 0 ? (
+                  {flareFeed !== "ready" ? (
+                    <p className="hcr-empty">
+                      {flareFeed === "error"
+                        ? "FLARE LIST UNAVAILABLE"
+                        : "LOADING FLARES"}
+                    </p>
+                  ) : flares24h.length === 0 ? (
                     <p className="hcr-empty">NO FLARES ABOVE B IN 24H</p>
                   ) : (
                     <div className="hcr-list" ref={flareListRef}>
@@ -247,10 +267,7 @@ export function XrayReport({
                 <h4>NOAA 1-day flare probability</h4>
                 {probabilityRows.length > 0 ? (
                   <>
-                    <div
-                      className="hcr-list hcr-list--row"
-                      aria-hidden="true"
-                    >
+                    <div className="hcr-list hcr-list--row" aria-hidden="true">
                       {probabilityRows.map((row) => (
                         <div key={row.key} className="hcr-item hc-info-text">
                           <b>{Math.round(row.percent)}%</b>

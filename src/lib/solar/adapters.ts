@@ -241,31 +241,45 @@ export function adaptXray(
     (value) => record(value)?.energy,
     ["0.1-0.8nm", "0.1 – 0.8 nm"],
   );
-  const points = selected.flatMap((value): XrayPoint[] => {
+  // GOES publishes electron-contaminated minutes as `flux: 0` with the
+  // contamination flag set (NOAA currently spells it `electron_contaminaton`;
+  // the correct spelling is accepted too in case the feed is fixed). A zero
+  // is not a measurement, so those samples are dropped from the series, but
+  // they still prove the feed is alive: `observedAt` follows the newest
+  // sample the satellite reported so a long contamination episode does not
+  // hard-expire an otherwise valid 24-hour series.
+  const points: XrayPoint[] = [];
+  const feed: { time_tag: string }[] = [];
+  for (const value of selected) {
     const row = record(value);
     const flux = toFiniteNumber(row?.flux);
-    // GOES publishes electron-contaminated minutes as `flux: 0` with the
-    // contamination flag set (NOAA currently spells it `electron_contaminaton`;
-    // the correct spelling is accepted too in case the feed is fixed). A zero
-    // is not a measurement, so the sample is dropped and the series keeps its
-    // last valid reading.
-    if (!row || flux === null || flux <= 0) return [];
-    if (row.electron_contaminaton === true || row.electron_contamination === true) {
-      return [];
-    }
-    return [{
-      time_tag: String(row.time_tag ?? ""),
+    if (!row || flux === null || flux < 0) continue;
+    const time_tag = String(row.time_tag ?? "");
+    feed.push({ time_tag });
+    const contaminated =
+      row.electron_contaminaton === true || row.electron_contamination === true;
+    if (flux <= 0 || contaminated) continue;
+    points.push({
+      time_tag,
       flux,
       energy: "0.1-0.8nm",
       satellite: toFiniteNumber(row.satellite),
-    }];
-  });
+    });
+  }
   const data = normalizeTimeSeries(points, {
     timestamp: (point) => point.time_tag,
     maxRows,
     windowMs,
   });
-  return { data, observedAt: latestTimestamp(data, (point) => point.time_tag) };
+  const newest = normalizeTimeSeries(feed, {
+    timestamp: (point) => point.time_tag,
+    maxRows: 1,
+  });
+  const observedAt = latestTimestamp(
+    [...data, ...newest],
+    (point) => point.time_tag,
+  );
+  return { data, observedAt };
 }
 
 export function adaptProtons(

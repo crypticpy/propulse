@@ -159,7 +159,9 @@ describe("solar provider adapters", () => {
     const result = adaptXray([...dualXray, ...contaminated]);
     expect(result.data).toHaveLength(2);
     expect(result.data.at(-1)?.flux).toBe(4e-7);
-    expect(result.observedAt).toBe("2026-07-15T18:44:00.000Z");
+    // The feed is still alive, so freshness follows the newest sample the
+    // satellite reported rather than the last one that was usable.
+    expect(result.observedAt).toBe("2026-07-15T19:00:00.000Z");
   });
 
   it("filters the exact GOES long X-ray channel", () => {

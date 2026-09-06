@@ -692,6 +692,18 @@ function compileChain(
     }
     const condition = knownText(cable, model, "feedline.condition") as FeedlineCondition | undefined;
     const connectorCount = knownNumber(cable, model, "feedline.connectorCount");
+    if (bound?.kind === "cable" && connectorCount !== undefined) {
+      // Count cable terminations once, not both sides of each physical joint.
+      // Explicit "none" means no connector; unknown families still cannot
+      // establish a supported loss calculation through the checks above.
+      const physicalCount = [bound.fromPortId, bound.toPortId].filter((portId) => {
+        const connector = cable.ports.find((port) => port.id === portId)!.connector;
+        return connector.state === "known" && normalizeConnectorFamily(connector.family) !== "none";
+      }).length;
+      if (connectorCount < physicalCount) {
+        limits.push(finding("contradicted", "cable-connector-count-mismatch", `Cable ${cable.label} declares ${connectorCount} modeled connectors but its bound ends record ${physicalCount}; connector losses would be omitted`, [], { instanceId: cable.id }));
+      }
+    }
     if (!feedlineType) missing.push(finding("unknown", "unknown-feedline-type", `Base cable ${cable.label} has no feedline type`, [], { instanceId: cable.id }));
     if (!connectorType) missing.push(finding("unknown", "unknown-feedline-connector", `Base cable ${cable.label} has no connector type`, [], { instanceId: cable.id }));
     if (!condition) missing.push(finding("unknown", "unknown-feedline-condition", `Base cable ${cable.label} has no condition; the engine requires one and this adapter will not invent it`, [], { instanceId: cable.id }));

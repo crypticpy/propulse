@@ -968,3 +968,50 @@ describe("unsupported pinned bands and explicit WSPR capability", () => {
     expect(unknown.metrics).toEqual(unsupported.metrics);
   });
 });
+
+
+describe("bound cable connector counts", () => {
+  const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+
+  it.each([createKnownSimpleFixture, createKnownReceiveFixture])("requires the count to cover both declared cable ends in either direction", (fixture) => {
+    const archive = fixture();
+    const cable = archive.revisions[0].equipment.find((item) => item.id === "feedline")!;
+    for (const count of [0, 1]) {
+      cable.fields!["feedline.connectorCount"] = { state: "known", value: count, unit: "count", evidenceId: "declared" };
+      const result = compileSelectedRoute(archive, request);
+      expect(result.status).toBe("unsupported");
+      expect(result.calculationLimits.some((item) => item.code === "cable-connector-count-mismatch" && item.instanceId === cable.id)).toBe(true);
+      expect(result.modeledRoute.engine).toBeNull();
+      expect(result.metrics).toEqual([]);
+    }
+    cable.fields!["feedline.connectorCount"] = { state: "known", value: 2, unit: "count", evidenceId: "declared" };
+    const supported = compileSelectedRoute(archive, request);
+    expect(supported.status).toBe("compiled");
+    cable.fields!["feedline.connectorCount"] = { state: "known", value: 3, unit: "count", evidenceId: "declared" };
+    const additional = compileSelectedRoute(archive, request);
+    expect(additional.status).toBe("compiled");
+    expect(additional.modeledRoute.engine!.bands[0].feedlineLossDb).toBeGreaterThan(supported.modeledRoute.engine!.bands[0].feedlineLossDb);
+    cable.fields!["feedline.connectorCount"] = { state: "unknown", reason: "Assembly count unverified" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.missingInputs.some((item) => item.code === "unknown-connector-count")).toBe(true);
+  });
+
+  it("preserves known zero for explicitly connector-free terminations but not unknown ones", () => {
+    const archive = createKnownSimpleFixture();
+    const revision = archive.revisions[0];
+    const cable = revision.equipment.find((item) => item.id === "feedline")!;
+    cable.fields!["feedline.connectorCount"] = { state: "known", value: 0, unit: "count", evidenceId: "declared" };
+    cable.fields!["feedline.connectorType"] = { state: "known", value: "none", evidenceId: "declared" };
+    for (const item of revision.equipment.filter((item) => ["radio", "antenna", "feedline"].includes(item.id))) {
+      for (const port of item.ports) port.connector = { state: "known", family: "none", gender: "genderless" };
+    }
+    const supported = compileSelectedRoute(archive, request);
+    expect(supported.status).toBe("compiled");
+    expect(supported.calculationLimits.some((item) => item.code === "cable-connector-count-mismatch")).toBe(false);
+    for (const port of cable.ports) port.connector = { state: "unknown" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.metrics).toEqual([]);
+  });
+});

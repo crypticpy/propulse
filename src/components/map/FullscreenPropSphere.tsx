@@ -273,7 +273,14 @@ export function FullscreenPropSphere({
       if (offset === 0) continue;
       for (const memberId of group.panelIds) {
         const entry = proPanelLayout[memberId];
-        if (entry) updateProPanelLayout(memberId, { y: entry.y + offset });
+        if (entry) {
+          updateProPanelLayout(memberId, {
+            x: entry.x,
+            y: entry.y + offset,
+            width: entry.width,
+            height: entry.height,
+          });
+        }
       }
     }
   }, [dockGroups, panelMinTop, proPanelLayout, updateProPanelLayout]);

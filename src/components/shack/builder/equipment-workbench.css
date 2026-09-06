@@ -1,0 +1,131 @@
+/* Equipment editing only. All colors inherit the approved station theme. */
+.equipment-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.75rem;
+}
+.equipment-type-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 0.65rem;
+  padding: 1.1rem;
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-control);
+  color: var(--su-text);
+  background: var(--su-input);
+  min-width: 0;
+}
+.equipment-type-choice:not(:disabled):hover {
+  border-color: var(--su-accent-edge);
+  background: color-mix(in srgb, var(--su-accent) 8%, var(--su-panel));
+}
+.equipment-type-choice:disabled {
+  opacity: 0.7;
+}
+.equipment-type-choice svg {
+  color: var(--su-accent-text);
+}
+.equipment-picker-list {
+  display: grid;
+  gap: 0.75rem;
+}
+.equipment-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-control);
+}
+.equipment-picker-row h3 {
+  overflow-wrap: anywhere;
+}
+.equipment-picker-row > button {
+  flex-shrink: 0;
+}
+.equipment-picker-empty {
+  display: grid;
+  justify-items: start;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+.equipment-category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.equipment-drawer-items {
+  max-height: 28rem;
+  overflow-y: auto;
+  padding: 0.25rem;
+}
+.equipment-drawer-items .grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.75rem;
+}
+.equipment-drawer-items [draggable] {
+  min-height: 5rem;
+  border-color: var(--su-line);
+  background: var(--su-panel);
+  color: var(--su-text);
+  padding: 1rem;
+}
+.equipment-drawer-items [draggable]:hover {
+  background: color-mix(in srgb, var(--su-accent) 8%, var(--su-panel));
+  border-color: var(--su-accent-edge);
+}
+.equipment-drawer-items :is(.text-xs, .text-sm, .text-\[10px\]),
+.equipment-node-details :is(.text-xs, .text-\[10px\], .text-\[11px\]) {
+  font-size: calc(0.875rem * var(--su-text-scale));
+  line-height: 1.6;
+}
+.equipment-drawer-items [class*="text-gray-"],
+.equipment-node-details [class*="text-gray-"] {
+  color: var(--su-muted);
+}
+.equipment-drawer-items :is(.font-medium, .font-semibold),
+.equipment-node-details :is(dd, .font-bold, .font-medium) {
+  color: var(--su-text);
+}
+.equipment-node-details {
+  display: grid;
+  gap: 1.25rem;
+}
+.equipment-node-details dl {
+  display: grid;
+  gap: 1.1rem;
+}
+.equipment-node-details dt {
+  color: var(--su-muted);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.equipment-node-details button {
+  min-height: var(--su-control-height);
+  color: var(--su-text);
+  border-color: var(--su-line);
+  background: var(--su-panel);
+}
+.equipment-node-details button:hover {
+  background: color-mix(in srgb, var(--su-accent) 8%, var(--su-panel));
+}
+@media (max-width: 480px) {
+  .equipment-picker-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.equipment-node-details .text-signal-green {
+  color: var(--su-success);
+}
+.equipment-node-details .text-alert-red {
+  color: var(--su-danger);
+}
+.equipment-node-details
+  :is(.text-plasma-orange, .text-nebula-blue, .text-feedline-teal) {
+  color: var(--su-info);
+}

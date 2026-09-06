@@ -7,6 +7,12 @@
 
 import type { AccessoryCategory } from "@/types/shack";
 import { ALL_BANDS } from "@/types/user";
+import {
+  Button,
+  Checkbox,
+  TextField,
+  SelectField,
+} from "@/components/station-ui";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
@@ -80,16 +86,6 @@ interface AccessoryCategoryFieldsProps<
   setForm: (updater: (prev: F) => F) => void;
 }
 
-// ─── Shared input classes ────────────────────────────────────────────────────
-
-const INPUT_CLASS =
-  "w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none";
-
-const BAND_BTN_ACTIVE =
-  "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50";
-const BAND_BTN_INACTIVE =
-  "bg-white/5 text-gray-400 border border-white/10 hover:text-gray-200 hover:bg-white/10";
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
@@ -101,43 +97,39 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
     case "amplifier":
       return (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Max Power (watts)
-              </label>
-              <input
+              <TextField
+                label="Max Power (watts)"
                 inputMode="decimal"
                 value={form.maxPowerWatts}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, maxPowerWatts: e.target.value }))
                 }
-                className={INPUT_CLASS}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Gain (dB)
-              </label>
-              <input
+              <TextField
+                label="Gain (dB)"
                 inputMode="decimal"
                 value={form.gainDb}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, gainDb: e.target.value }))
                 }
-                className={INPUT_CLASS}
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Bands (optional)
-            </label>
-            <div className="flex flex-wrap gap-2">
+            <p className="su-hint">Bands (optional)</p>
+            <div
+              className="su-inline"
+              role="group"
+              aria-label="Supported bands"
+            >
               {ALL_BANDS.map((band) => {
                 const selected = form.bands.has(band);
                 return (
-                  <button
+                  <Button
                     key={band}
                     type="button"
                     onClick={() =>
@@ -148,12 +140,11 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                         return { ...p, bands: next };
                       })
                     }
-                    className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                      selected ? BAND_BTN_ACTIVE : BAND_BTN_INACTIVE
-                    }`}
+                    aria-pressed={selected}
+                    variant={selected ? "primary" : "secondary"}
                   >
                     {band}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -163,12 +154,10 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
 
     case "tuner":
       return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Type
-            </label>
-            <select
+            <SelectField
+              label="Type"
               value={form.tunerType}
               onChange={(e) =>
                 setForm((p) => ({
@@ -176,30 +165,24 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                   tunerType: e.target.value as "manual" | "automatic",
                 }))
               }
-              className={INPUT_CLASS}
             >
               <option value="manual">Manual</option>
               <option value="automatic">Automatic</option>
-            </select>
+            </SelectField>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Max Power (watts)
-            </label>
-            <input
+            <TextField
+              label="Max Power (watts)"
               inputMode="decimal"
               value={form.tunerMaxPower}
               onChange={(e) =>
                 setForm((p) => ({ ...p, tunerMaxPower: e.target.value }))
               }
-              className={INPUT_CLASS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Insertion Loss (dB, optional)
-            </label>
-            <input
+            <TextField
+              label="Insertion Loss (dB, optional)"
               inputMode="decimal"
               value={form.tunerInsertionLoss}
               onChange={(e) =>
@@ -209,7 +192,6 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                 }))
               }
               placeholder="e.g., 0.5"
-              className={INPUT_CLASS}
             />
           </div>
         </div>
@@ -218,12 +200,10 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
     case "filter":
       return (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Filter Type
-              </label>
-              <select
+              <SelectField
+                label="Filter Type"
                 value={form.filterType}
                 onChange={(e) =>
                   setForm((p) => ({
@@ -235,20 +215,17 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                       | "notch",
                   }))
                 }
-                className={INPUT_CLASS}
               >
                 {Object.entries(FILTER_TYPE_LABELS).map(([val, label]) => (
                   <option key={val} value={val}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </SelectField>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Insertion Loss (dB)
-              </label>
-              <input
+              <TextField
+                label="Insertion Loss (dB)"
                 inputMode="decimal"
                 value={form.filterInsertionLoss}
                 onChange={(e) =>
@@ -257,19 +234,20 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                     filterInsertionLoss: e.target.value,
                   }))
                 }
-                className={INPUT_CLASS}
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Bands (optional)
-            </label>
-            <div className="flex flex-wrap gap-2">
+            <p className="su-hint">Bands (optional)</p>
+            <div
+              className="su-inline"
+              role="group"
+              aria-label="Supported bands"
+            >
               {ALL_BANDS.map((band) => {
                 const selected = form.filterBands.has(band);
                 return (
-                  <button
+                  <Button
                     key={band}
                     type="button"
                     onClick={() =>
@@ -280,12 +258,11 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                         return { ...p, filterBands: next };
                       })
                     }
-                    className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                      selected ? BAND_BTN_ACTIVE : BAND_BTN_INACTIVE
-                    }`}
+                    aria-pressed={selected}
+                    variant={selected ? "primary" : "secondary"}
                   >
                     {band}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -295,25 +272,20 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
 
     case "switch":
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Ports
-            </label>
-            <input
+            <TextField
+              label="Ports"
               inputMode="numeric"
               value={form.ports}
               onChange={(e) =>
                 setForm((p) => ({ ...p, ports: e.target.value }))
               }
-              className={INPUT_CLASS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Insertion Loss (dB)
-            </label>
-            <input
+            <TextField
+              label="Insertion Loss (dB)"
               inputMode="decimal"
               value={form.switchInsertionLoss}
               onChange={(e) =>
@@ -322,7 +294,6 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                   switchInsertionLoss: e.target.value,
                 }))
               }
-              className={INPUT_CLASS}
             />
           </div>
         </div>
@@ -330,31 +301,25 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
 
     case "power_supply":
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Voltage Output (V)
-            </label>
-            <input
+            <TextField
+              label="Voltage Output (V)"
               inputMode="decimal"
               value={form.voltageOutput}
               onChange={(e) =>
                 setForm((p) => ({ ...p, voltageOutput: e.target.value }))
               }
-              className={INPUT_CLASS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Max Current (amps)
-            </label>
-            <input
+            <TextField
+              label="Max Current (amps)"
               inputMode="decimal"
               value={form.maxCurrentAmps}
               onChange={(e) =>
                 setForm((p) => ({ ...p, maxCurrentAmps: e.target.value }))
               }
-              className={INPUT_CLASS}
             />
           </div>
         </div>
@@ -362,12 +327,10 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
 
     case "grounding":
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Ground Type
-            </label>
-            <select
+            <SelectField
+              label="Ground Type"
               value={form.groundType}
               onChange={(e) =>
                 setForm((p) => ({
@@ -375,29 +338,25 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                   groundType: e.target.value as typeof form.groundType,
                 }))
               }
-              className={INPUT_CLASS}
             >
               {Object.entries(GROUND_TYPE_LABELS).map(([val, label]) => (
                 <option key={val} value={val}>
                   {label}
                 </option>
               ))}
-            </select>
+            </SelectField>
           </div>
           {(form.groundType === "radial_system" ||
             form.groundType === "counterpoise") && (
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Radial Count
-              </label>
-              <input
+              <TextField
+                label="Radial Count"
                 inputMode="numeric"
                 value={form.radialCount}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, radialCount: e.target.value }))
                 }
                 placeholder="e.g., 32"
-                className={INPUT_CLASS}
               />
             </div>
           )}
@@ -408,10 +367,8 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Rotator Type
-            </label>
-            <select
+            <SelectField
+              label="Rotator Type"
               value={form.rotatorType}
               onChange={(e) =>
                 setForm((p) => ({
@@ -419,25 +376,21 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                   rotatorType: e.target.value as typeof form.rotatorType,
                 }))
               }
-              className={INPUT_CLASS}
             >
               <option value="azimuth">Azimuth Only</option>
               <option value="elevation">Elevation Only</option>
               <option value="az_el">Az/El</option>
-            </select>
+            </SelectField>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Speed (degrees/sec, optional)
-            </label>
-            <input
+            <TextField
+              label="Speed (degrees/sec, optional)"
               inputMode="decimal"
               value={form.speedDegPerSec}
               onChange={(e) =>
                 setForm((p) => ({ ...p, speedDegPerSec: e.target.value }))
               }
               placeholder="e.g., 1.5"
-              className={INPUT_CLASS}
             />
           </div>
         </div>
@@ -447,10 +400,8 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Keyer Type
-            </label>
-            <select
+            <SelectField
+              label="Keyer Type"
               value={form.keyerType}
               onChange={(e) =>
                 setForm((p) => ({
@@ -458,40 +409,33 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                   keyerType: e.target.value as typeof form.keyerType,
                 }))
               }
-              className={INPUT_CLASS}
             >
               <option value="paddle">Paddle</option>
               <option value="straight_key">Straight Key</option>
               <option value="bug">Bug</option>
               <option value="electronic_keyer">Electronic Keyer</option>
               <option value="keyboard">Keyboard</option>
-            </select>
+            </SelectField>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Min Speed (WPM)
-              </label>
-              <input
+              <TextField
+                label="Min Speed (WPM)"
                 inputMode="numeric"
                 value={form.speedMin}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, speedMin: e.target.value }))
                 }
-                className={INPUT_CLASS}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Max Speed (WPM)
-              </label>
-              <input
+              <TextField
+                label="Max Speed (WPM)"
                 inputMode="numeric"
                 value={form.speedMax}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, speedMax: e.target.value }))
                 }
-                className={INPUT_CLASS}
               />
             </div>
           </div>
@@ -502,10 +446,8 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              DSP Type
-            </label>
-            <select
+            <SelectField
+              label="DSP Type"
               value={form.dspType}
               onChange={(e) =>
                 setForm((p) => ({
@@ -513,38 +455,35 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
                   dspType: e.target.value as typeof form.dspType,
                 }))
               }
-              className={INPUT_CLASS}
             >
               <option value="external_speaker">External Speaker</option>
               <option value="headphones">Headphones</option>
               <option value="dsp_filter">DSP Filter</option>
               <option value="audio_processor">Audio Processor</option>
               <option value="voice_keyer">Voice Keyer</option>
-            </select>
+            </SelectField>
           </div>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.noiseReduction}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, noiseReduction: e.target.checked }))
-                }
-                className="accent-plasma-orange"
-              />
-              <span className="text-sm text-gray-200">Noise Reduction</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.notchFilter}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, notchFilter: e.target.checked }))
-                }
-                className="accent-plasma-orange"
-              />
-              <span className="text-sm text-gray-200">Notch Filter</span>
-            </label>
+          <div className="su-inline">
+            <Checkbox
+              label="Noise reduction"
+              checked={form.noiseReduction}
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  noiseReduction: event.target.checked,
+                }))
+              }
+            />
+            <Checkbox
+              label="Notch filter"
+              checked={form.notchFilter}
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  notchFilter: event.target.checked,
+                }))
+              }
+            />
           </div>
         </div>
       );

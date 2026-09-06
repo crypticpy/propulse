@@ -172,6 +172,12 @@ function featuredSummary(
   return { title: featured.title, equipmentLabels: labels, description: featured.description };
 }
 
+function grantRank(audience: "owner" | "friend" | "visitor"): number {
+  if (audience === "owner") return 3;
+  if (audience === "friend") return 2;
+  return 1;
+}
+
 function mediaDerivatives(
   intendedIds: string[],
   grants: PublicationAccessContext["mediaGrants"],
@@ -180,24 +186,22 @@ function mediaDerivatives(
   const allowed = new Set<"owner" | "friend" | "visitor">(
     audience === "visitor" ? ["visitor"] : audience === "friend" ? ["visitor", "friend"] : ["visitor", "friend", "owner"],
   );
-  const byAsset = new Map<string, string>();
+  const byAsset = new Map<string, { derivativeId: string; rank: number }>();
   grants.forEach((grant) => {
     if (grant.status !== "current" || !allowed.has(grant.audience)) return;
-    if (!byAsset.has(grant.assetId)) byAsset.set(grant.assetId, grant.derivativeId);
+    const rank = grantRank(grant.audience);
+    const current = byAsset.get(grant.assetId);
+    if (!current || rank > current.rank || (rank === current.rank && grant.derivativeId < current.derivativeId)) {
+      byAsset.set(grant.assetId, { derivativeId: grant.derivativeId, rank });
+    }
   });
+  const seen = new Set<string>();
   return intendedIds.flatMap((assetId) => {
-    const derivativeId = byAsset.get(assetId);
-    return derivativeId ? [derivativeId] : [];
+    const selected = byAsset.get(assetId);
+    if (!selected || seen.has(selected.derivativeId)) return [];
+    seen.add(selected.derivativeId);
+    return [selected.derivativeId];
   });
-}
-
-function outputAudience(
-  viewer: PublicationViewerKind,
-  previewAs: "owner" | "friend" | "visitor" | undefined,
-): "owner" | "friend" | "visitor" {
-  if (viewer === "owner") return previewAs ?? "owner";
-  if (viewer === "friend") return "friend";
-  return "visitor";
 }
 
 /**
@@ -249,7 +253,7 @@ export function evaluatePublicationPolicy(sourceInput: unknown, accessInput: unk
       id: source.publication.id,
       ownerId: source.publication.ownerId,
       publicationVersion: source.publication.publicationVersion,
-      audience: outputAudience(viewer, access.ownerPreviewAs),
+      audience: shapeAudience,
       displayName: source.displayName,
       biography: source.biography,
       featuredSetup: equipmentVisible ? featuredSummary(source.featuredSetup, source.pinnedEquipment) : null,

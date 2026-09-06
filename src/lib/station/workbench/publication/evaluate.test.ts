@@ -326,6 +326,32 @@ describe("evaluatePublicationPolicy", () => {
     expect(visitor.projection.publicMediaIds).toEqual([]);
   });
 
+  it("selects the highest allowed grant audience independently of grant order and de-duplicates derivative IDs", () => {
+    const visitorFirst: PublicationAccessContext["mediaGrants"] = [
+      { assetId: "shack-cover", derivativeId: "visitor-derivative", audience: "visitor", status: "current" },
+      { assetId: "shack-cover", derivativeId: "friend-only-derivative", audience: "friend", status: "current" },
+      { assetId: "extra-cover", derivativeId: "friend-only-derivative", audience: "friend", status: "current" },
+    ];
+    const friendFirst = [visitorFirst[1], visitorFirst[0], visitorFirst[2]];
+    const withVisitorFirst = evaluatePublicationPolicy(
+      source({ intendedMediaAssetIds: ["shack-cover", "extra-cover"] }),
+      access({ mediaGrants: visitorFirst }),
+    );
+    const withFriendFirst = evaluatePublicationPolicy(
+      source({ intendedMediaAssetIds: ["shack-cover", "extra-cover"] }),
+      access({ mediaGrants: friendFirst }),
+    );
+    const visitor = evaluatePublicationPolicy(
+      source({ intendedMediaAssetIds: ["shack-cover", "extra-cover"] }),
+      access({ verifiedAccountId: VISITOR, friendship: { state: "absent" }, mediaGrants: visitorFirst }),
+    );
+    expect(withVisitorFirst.ok && withFriendFirst.ok && visitor.ok).toBe(true);
+    if (!withVisitorFirst.ok || !withFriendFirst.ok || !visitor.ok) return;
+    expect(withVisitorFirst.projection.publicMediaIds).toEqual(["friend-only-derivative"]);
+    expect(withFriendFirst.projection.publicMediaIds).toEqual(["friend-only-derivative"]);
+    expect(visitor.projection.publicMediaIds).toEqual(["visitor-derivative"]);
+  });
+
   it("rejects wrong-account owner preview claims and extra client audience fields", () => {
     const preview = evaluatePublicationPolicy(source(), access({ ownerPreviewAs: "owner" }));
     const extras = evaluatePublicationPolicy(source(), { ...access(), claimedAudience: "owner" } as unknown);

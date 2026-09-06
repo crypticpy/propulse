@@ -20,13 +20,13 @@ Successful results include a private `lineage` object (`sourceId`, `setupId`, `r
 - Missing `sectionVisibility` keys are withheld, not treated as public.
 - Featured setup summaries copy selected equipment **labels** only. Inventory objects cannot be spread into the public featured shape.
 - Public location is the chosen Maidenhead disclosure truncated to field (2), square (4), subsquare (6) or extended (8) characters. Hidden precision publishes no region. Private `pinnedLocation` coordinates, including valid `0,0`, are never copied and never converted into a grid by default.
-- Media output lists **current** grant derivative IDs whose grant audience is allowed for the projected shape. Derivative IDs are opaque references, not URLs. Revoked/absent grants are omitted. The policy does not claim that an already issued URL has been revoked.
+- Media output lists **current** grant derivative IDs whose grant audience is allowed for the projected shape. When several current grants exist for one asset, the highest allowed audience wins, then a stable derivative id. Duplicate derivative IDs are emitted once. Derivative IDs are opaque references, not URLs. Revoked/absent grants are omitted. The policy does not claim that an already issued URL has been revoked.
 - Owner preview uses `ownerPreviewAs` only when `verifiedAccountId` matches the pinned publication owner. The default owner projection is owner-shaped; an explicit visitor/friend preview uses that audience's fields, including denying a visitor preview of a friends-only publication.
 - `pending`, `revoked` and `absent` friendship are visitor, not friend. Signed-out viewers use the visitor field allowlist and `audience: "visitor"` because the W01 output enum has no signed-out member.
 
 ## Covered modules versus future contract extensions
 
-This slice projects the skeletal W01 output: `identity`, `station`, `activity`, `projects`, `qsl` and `interests` module kinds, featured labels, `regionLabel` and `publicMediaIds`.
+This slice can emit the skeletal W01 module kinds. Default section mapping exists only for `identity`, `station` → equipment, and `activity`. `projects`, `qsl` and `interests` stay withheld unless the source supplies an explicit `section`; they are reserved for W15/W16 contract extensions rather than implied public modules. Featured labels, `regionLabel` and `publicMediaIds` are covered.
 
 | Existing profile capability | This package | Future contract |
 | --- | --- | --- |

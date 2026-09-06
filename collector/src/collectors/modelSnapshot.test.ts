@@ -98,8 +98,22 @@ describe("collectModelSnapshot", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
     resetModelSnapshotStateForTests();
   });
+
+  /** referenceBody() with the first prediction's fields overridden. */
+  function referenceBodyWithBadFirstPrediction(
+    band: string,
+    badFields: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const base = referenceBody(band) as {
+      predictions: Array<Record<string, unknown>>;
+    };
+    const predictions = [...base.predictions];
+    predictions[0] = { ...predictions[0], ...badFields };
+    return { ...base, predictions };
+  }
 
   it("writes 10 rows with correct p_open, source, mode_class, and meta shape", async () => {
     vi.stubGlobal(
@@ -369,5 +383,165 @@ describe("collectModelSnapshot", () => {
       expect(headers["Content-Type"]).toBe("application/json");
     }
     expect(seenPaths).toEqual(new Array(10).fill(110));
+  });
+
+  it("clamps valid_time to issue_time when the tick runs after the hour's :30 midpoint", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-09-06T15:47:00Z"));
+    const seenBodies: Array<{ issue_time: string; valid_time: string }> = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as {
+          band: string;
+          issue_time: string;
+          valid_time: string;
+        };
+        seenBodies.push(body);
+        return jsonResponse(referenceBody(body.band));
+      }),
+    );
+
+    const { db } = fakeDb();
+    await collectModelSnapshot(db);
+
+    expect(seenBodies.length).toBeGreaterThan(0);
+    for (const body of seenBodies) {
+      expect(body.valid_time).toBe(body.issue_time);
+    }
+  });
+
+  it("uses the hour's :30 midpoint as valid_time when the tick runs before it", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-09-06T15:10:00Z"));
+    const seenBodies: Array<{ issue_time: string; valid_time: string }> = [];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as {
+          band: string;
+          issue_time: string;
+          valid_time: string;
+        };
+        seenBodies.push(body);
+        return jsonResponse(referenceBody(body.band));
+      }),
+    );
+
+    const { db } = fakeDb();
+    await collectModelSnapshot(db);
+
+    expect(seenBodies.length).toBeGreaterThan(0);
+    for (const body of seenBodies) {
+      expect(body.valid_time).toBe("2026-09-06T15:30:00.000Z");
+      expect(Date.parse(body.valid_time)).toBeGreaterThan(
+        Date.parse(body.issue_time),
+      );
+    }
+  });
+
+  it("rejects a core_probability outside [0, 1]", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { band: string };
+        return jsonResponse(
+          referenceBodyWithBadFirstPrediction(body.band, {
+            core_probability: 1.5,
+          }),
+        );
+      }),
+    );
+    const { db, upserts, healthInserts } = fakeDb();
+
+    await collectModelSnapshot(db);
+
+    expect(upserts).toHaveLength(0);
+    expect(healthInserts[0]?.status).toBe("error");
+    expect(String(healthInserts[0]?.error_message)).toMatch(/malformed or mismatched/);
+  });
+
+  it("rejects a confidence outside [0, 1]", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { band: string };
+        return jsonResponse(
+          referenceBodyWithBadFirstPrediction(body.band, { confidence: -0.1 }),
+        );
+      }),
+    );
+    const { db, upserts, healthInserts } = fakeDb();
+
+    await collectModelSnapshot(db);
+
+    expect(upserts).toHaveLength(0);
+    expect(healthInserts[0]?.status).toBe("error");
+    expect(String(healthInserts[0]?.error_message)).toMatch(/malformed or mismatched/);
+  });
+
+  it("rejects a non-integer missing_feature_count", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { band: string };
+        return jsonResponse(
+          referenceBodyWithBadFirstPrediction(body.band, {
+            missing_feature_count: 2.5,
+          }),
+        );
+      }),
+    );
+    const { db, upserts, healthInserts } = fakeDb();
+
+    await collectModelSnapshot(db);
+
+    expect(upserts).toHaveLength(0);
+    expect(healthInserts[0]?.status).toBe("error");
+    expect(String(healthInserts[0]?.error_message)).toMatch(/malformed or mismatched/);
+  });
+
+  it("rejects a negative missing_feature_count", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { band: string };
+        return jsonResponse(
+          referenceBodyWithBadFirstPrediction(body.band, {
+            missing_feature_count: -1,
+          }),
+        );
+      }),
+    );
+    const { db, upserts, healthInserts } = fakeDb();
+
+    await collectModelSnapshot(db);
+
+    expect(upserts).toHaveLength(0);
+    expect(healthInserts[0]?.status).toBe("error");
+    expect(String(healthInserts[0]?.error_message)).toMatch(/malformed or mismatched/);
+  });
+
+  it("rejects an unknown profile string", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { band: string };
+        return jsonResponse(
+          referenceBodyWithBadFirstPrediction(body.band, {
+            profile: "ensemble",
+          }),
+        );
+      }),
+    );
+    const { db, upserts, healthInserts } = fakeDb();
+
+    await collectModelSnapshot(db);
+
+    expect(upserts).toHaveLength(0);
+    expect(healthInserts[0]?.status).toBe("error");
+    expect(String(healthInserts[0]?.error_message)).toMatch(/malformed or mismatched/);
   });
 });

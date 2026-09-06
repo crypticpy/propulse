@@ -71,6 +71,18 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isUnitInterval(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0 && value <= 1;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return isFiniteNumber(value) && Number.isInteger(value) && value >= 0;
+}
+
+function isKnownProfile(value: unknown): value is "physics" | "nowcast" {
+  return value === "physics" || value === "nowcast";
+}
+
 /**
  * Validate the response against the fixed contract: a JSON object whose
  * predictions array is exactly as long as the request's paths and whose
@@ -109,10 +121,10 @@ function validateReferenceResponse(
       typeof p !== "object" ||
       p.origin_grid4 !== want.origin_grid4 ||
       p.target_grid4 !== want.target_grid4 ||
-      !isFiniteNumber(p.core_probability) ||
-      !isFiniteNumber(p.confidence) ||
-      typeof p.profile !== "string" ||
-      !isFiniteNumber(p.missing_feature_count)
+      !isUnitInterval(p.core_probability) ||
+      !isUnitInterval(p.confidence) ||
+      !isKnownProfile(p.profile) ||
+      !isNonNegativeInteger(p.missing_feature_count)
     ) {
       throw new Error(
         `reference response for ${band} has a malformed or mismatched prediction at index ${i}`,
@@ -298,9 +310,12 @@ export async function collectModelSnapshot(db: SupabaseClient): Promise<void> {
 
   const hourUtc = hourBucketUtc(start);
   const issueTimeIso = new Date(start).toISOString();
-  const validTimeIso = new Date(
-    Date.parse(hourUtc) + VALID_TIME_OFFSET_MS,
-  ).toISOString();
+  // The service requires valid_time >= issue_time. issue_time is "now", but
+  // the scheduler anchors ticks to startup minute, so a tick can land after
+  // the hour's :30 midpoint — clamp valid_time up to issue_time so a
+  // late-in-hour tick never asks about a moment in its own past.
+  const hourMidpointMs = Date.parse(hourUtc) + VALID_TIME_OFFSET_MS;
+  const validTimeIso = new Date(Math.max(hourMidpointMs, start)).toISOString();
   const paths = referencePaths();
 
   try {

@@ -19,9 +19,13 @@ export interface ReferenceHub {
 }
 
 /**
- * 11 hub grids, one per major ham continent bucket (EU gets three — it
- * carries the most HF traffic). Order is deterministic and part of the
- * surface contract: referencePaths() iterates in this order.
+ * 11 hub grids across 6 continent buckets, weighted by HF traffic share:
+ * NA gets three (FN31, EM12, CN87), EU gets three (JO21, JN58, KO85), AS
+ * gets two (MK82, PM95), and SA/AF/OC get one each (GG66/JF96/QF56). These
+ * per-continent counts define the evaluation population weighting — a
+ * continent with more hubs contributes more paths (and more weight) to the
+ * 110-path surface. Order is deterministic and part of the surface
+ * contract: referencePaths() iterates in this order.
  */
 export const REFERENCE_HUBS: readonly ReferenceHub[] = Object.freeze([
   Object.freeze({ grid4: "FN31", continent: "NA" }),

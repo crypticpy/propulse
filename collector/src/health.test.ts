@@ -125,6 +125,31 @@ describe("collector health freshness", () => {
     }
   });
 
+  it("does not count a disabled model-snapshot toward staleness/503", async () => {
+    reportHealth("model-snapshot", "disabled", 0);
+
+    const server = startHealthServer(0);
+    await once(server, "listening");
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/`);
+      const body = (await response.json()) as {
+        lastRuns: Record<string, { status: string }>;
+        degraded_sources?: string[];
+      };
+
+      expect(body.lastRuns["model-snapshot"]?.status).toBe("disabled");
+      // A never-configured job must never be the reason /health 503s —
+      // unlike "warning"/"error" sources it can never report success.
+      expect(body.degraded_sources ?? []).not.toContain("model-snapshot");
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
   it("degrades after two missed scheduled intervals", () => {
     const now = Date.UTC(2026, 6, 19, 16, 30);
 

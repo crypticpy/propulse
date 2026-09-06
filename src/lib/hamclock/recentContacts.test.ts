@@ -28,3 +28,11 @@ it("uses the active contest session across date boundaries", async () => {
   expect(getEntriesByContestId).toHaveBeenCalledWith("session-1");
   expect(getLogEntriesByDate).not.toHaveBeenCalled();
 });
+
+it("uses the query key date when a request runs across UTC midnight", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-09-07T00:00:01Z"));
+  vi.mocked(getLogEntriesByDate).mockResolvedValue([]);
+  await readHamClockContacts(null, "2026-09-06");
+  expect(getLogEntriesByDate).toHaveBeenCalledWith("2026-09-06");
+});

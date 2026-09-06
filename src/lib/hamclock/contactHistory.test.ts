@@ -4,6 +4,7 @@ import { getDB } from "@/lib/db";
 import {
   buildContactHistory,
   contactTime,
+  contactLocation,
   summarizeContacts,
   readHamClockContactHistory,
 } from "./recentContacts";
@@ -28,19 +29,24 @@ const entry = (
 describe("contact history", () => {
   it("reads the month plus chart range through the date index and counts older records separately", async () => {
     const db = await getDB();
-    await db.put("logEntries", entry("archive", "2025-01-01"));
-    await db.put("logEntries", entry("month-start", "2026-08-01"));
-    await db.put("logEntries", entry("month-end", "2026-08-31"));
-    await db.put("logEntries", entry("future", "2026-09-01"));
-    const result = await readHamClockContactHistory("2026-08-31");
-    expect(result.entries.map((e) => e.id)).toEqual([
-      "month-start",
-      "month-end",
-    ]);
-    expect(result.totalCount).toBe(4);
-    await expect(readHamClockContactHistory("2026-02-30")).rejects.toThrow(
-      "Invalid log date",
-    );
+    try {
+      await db.put("logEntries", entry("archive", "2025-01-01"));
+      await db.put("logEntries", entry("month-start", "2026-08-01"));
+      await db.put("logEntries", entry("month-end", "2026-08-31"));
+      await db.put("logEntries", entry("future", "2026-09-01"));
+      const result = await readHamClockContactHistory("2026-08-31");
+      expect(result.entries.map((e) => e.id)).toEqual([
+        "month-start",
+        "month-end",
+      ]);
+      expect(result.totalCount).toBe(4);
+      await expect(readHamClockContactHistory("2026-02-30")).rejects.toThrow(
+        "Invalid log date",
+      );
+    } finally {
+      for (const id of ["archive", "month-start", "month-end", "future"])
+        await db.delete("logEntries", id);
+    }
   });
   it("uses Monday UTC weeks and full calendar months, including the 31st day", () => {
     const result = buildContactHistory(
@@ -115,4 +121,9 @@ describe("contact history", () => {
     expect(result.days.at(-2)?.band).toBe("40m");
     expect(buildContactHistory(contacts.slice(1), now).todayCount).toBe(0);
   });
+});
+
+it("accepts extended locators at the supported parent precision", () => {
+  expect(contactLocation(" PM95ab12 ")).toEqual(contactLocation("PM95ab"));
+  expect(contactLocation("PM95ab123")).toBeNull();
 });

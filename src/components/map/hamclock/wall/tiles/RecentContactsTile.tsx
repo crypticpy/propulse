@@ -35,13 +35,10 @@ export function RecentContactsTile() {
   const location = useActiveLocation();
   const contestId = useContestStore((s) => s.activeSession?.id ?? null);
   const now = useUTCClock(30_000);
+  const today = now.toISOString().slice(0, 10);
   const { data, isPending, error } = useQuery({
-    queryKey: [
-      "hamclock-recent-contacts",
-      contestId,
-      now.toISOString().slice(0, 10),
-    ],
-    queryFn: () => readHamClockContacts(contestId),
+    queryKey: ["hamclock-recent-contacts", contestId, today],
+    queryFn: () => readHamClockContacts(contestId, today),
     refetchInterval: 15_000,
     staleTime: 10_000,
     // No station/home set (wall spec §7, HW-53): don't read the logbook at

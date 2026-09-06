@@ -5,10 +5,13 @@ import { lookupEntity } from "@/lib/data/dxccEntities";
 import { gridToLatLon } from "@/lib/utils/grid";
 import { getDistance } from "@/lib/utils/path";
 
-export async function readHamClockContacts(contestId: string | null) {
+export async function readHamClockContacts(
+  contestId: string | null,
+  today = new Date().toISOString().slice(0, 10),
+) {
   const entries = contestId
     ? await getEntriesByContestId(contestId)
-    : await getLogEntriesByDate(new Date().toISOString().slice(0, 10));
+    : await getLogEntriesByDate(today);
   return entries.sort(
     (a, b) => b.date.localeCompare(a.date) || b.timeOn.localeCompare(a.timeOn),
   );
@@ -30,8 +33,11 @@ export function contactTime(entry: Pick<LogEntry, "date" | "timeOn">): number {
 }
 
 export function contactLocation(grid?: string) {
-  if (!grid || !/^[A-R]{2}\d{2}([A-X]{2})?$/i.test(grid)) return null;
-  return gridToLatLon(grid);
+  const normalized = grid?.trim();
+  if (!normalized || !/^[A-R]{2}\d{2}([A-X]{2}(\d{2})?)?$/i.test(normalized))
+    return null;
+  // Use the supported six-character parent of a valid extended locator.
+  return gridToLatLon(normalized.slice(0, 6));
 }
 
 /** Indexed range covers the full calendar month as well as the rolling chart. */

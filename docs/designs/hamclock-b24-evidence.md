@@ -2,7 +2,7 @@
 
 ## HW-71: Recent Contacts report
 
-Implementation: `feat/hamclock-b24-codex`. Opens from the existing Recent Contacts
+Implementation: [PR #407](https://github.com/crypticpy/propulse/pull/407), `feat/hamclock-b24-codex`. Opens from the existing Recent Contacts
 tile; its list keeps the active-session/today scope, while the report explicitly
 summarizes the local logbook's UTC calendar periods (Monday-start week). The
 30-day chart also includes the complete current month in summary queries, so a
@@ -22,8 +22,8 @@ refreshes retain data with an explicit notice. No application log writer changes
 
 Validation on 2026-09-06:
 
-- Initial full suite: 366 files / 3,209 tests passed; focused follow-up adds indexed
-  range/month-boundary coverage. Final pre-push application gate reruns the suite.
+- Final pre-push full suite: 366 files / 3,210 tests passed, including indexed
+  range/month-boundary coverage.
 - Lint, TypeScript and production build passed. Bundle budgets checked separately.
 - Disposable Chromium, fixture station N0TEST / EM38, sixty synthetic logged QSOs,
   Flat map; 1920×1080 and 3840×2160, DPR 1, Pulse/Classic/Brass. Six combinations

@@ -21,8 +21,8 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 45        | 2       | 26          | 0        | 73      |
-| **Grand Total**                         | **306**   | **9**   | **37**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 45        | 3       | 25          | 0        | 73      |
+| **Grand Total**                         | **306**   | **10**  | **36**      | **1**    | **353** |
 
 **Delivery rate: 87% delivered, 3% partial, 10% not started**
 
@@ -669,14 +669,15 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                 | PR #253, EME module: eme.ts path loss, degradation, Doppler, sky noise, mutual window                                                                                          |
 | HW-66 | Moon and EME report                                           | PR #253, Moon report: MOON/EME tabs, band selector, sub-lunar point                                                                                                            |
 
-### Partial (2)
+### Partial (3)
 
 | ID    | Feature                 | Gap                                   |
 | ----- | ----------------------- | ------------------------------------- |
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
+| HW-71 | Recent contacts report | PR #407: implementation and local checks complete; deployed/physical review pending |
 
-### Not Started (26)
+### Not Started (25)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -703,7 +704,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                  |
 | HW-69 | Radio Impact Model tile                                          | Over `computeRIM` / `useRIM`; B23                    |
 | HW-70 | Band activity report: history, mode split, top DX                | B24                                                  |
-| HW-71 | Recent contacts report: log statistics, 30-day chart             | B24                                                  |
 | HW-72 | DX cluster modal adopts the report chrome, pin and footer        | Chrome only; B24                                     |
 | HW-73 | Model track: weather-derived features in NowCast                 | Backlog, after every panel is live; B25              |
 

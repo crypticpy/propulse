@@ -87,10 +87,11 @@ export function RankBadge({
   const styles = RANK_BADGE_STYLES[rank];
   const icon = RANK_ICONS[rank];
   const label = RANK_LABELS[rank];
+  const tierStyle = getTierInlineStyles(rank, size);
   const inlineStyle = {
-    ...getTierInlineStyles(rank, size),
-    animation: effects.animatedBadges ? getTierInlineStyles(rank, size)?.animation : "none",
-    textShadow: effects.glow ? getTierInlineStyles(rank, size)?.textShadow : "none",
+    ...tierStyle,
+    animation: effects.animatedBadges ? tierStyle?.animation : "none",
+    textShadow: effects.glow ? tierStyle?.textShadow : "none",
   };
 
   // -- Size classes ---------------------------------------------------------

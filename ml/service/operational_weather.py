@@ -44,9 +44,16 @@ DERIVED_WEATHER_FEATURES = (
     "dst_min_6h",
 )
 SOURCE_MAX_AGE_SECONDS = {
-    "kp": 15 * 60,
-    "magnetic_field": 15 * 60,
-    "solar_wind": 15 * 60,
+    # The collector snapshots every 15 min and the NOAA 1-minute Kp/IMF/wind
+    # products arrive ~5 min after observation, while clients bucket their
+    # issue_time to 5 min. A 15-minute window therefore rejected every fast
+    # source for roughly a third of each cycle (the newest snapshot is not yet
+    # visible to the bucketed issue_time and the previous one is already too
+    # old). Training consumed the hourly OMNI value, so 30 min stays well
+    # inside that granularity and covers cadence + latency + bucketing.
+    "kp": 30 * 60,
+    "magnetic_field": 30 * 60,
+    "solar_wind": 30 * 60,
     # GOES 5-minute integral proton flux reaches the collector ~10-13 min
     # after observation and snapshots are taken every 15 min, so a 15-minute
     # window left the feature usable for only a sliver of each cycle. Training

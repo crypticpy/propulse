@@ -100,6 +100,28 @@ class OperationalWeatherTests(unittest.TestCase):
         self.assertEqual(fresh.values["proton_flux_10mev"], 0.2)
         self.assertNotIn("proton_flux_10mev", expired.values)
 
+    def test_fast_sources_survive_snapshot_cadence_plus_bucketing(self) -> None:
+        # Real cadence: the fast sources are observed ~5 min before capture,
+        # snapshots are 15 min apart and clients bucket issue_time to 5 min,
+        # so a request can legitimately see a snapshot captured 19 min ago
+        # whose fast sources were observed 24 min ago.
+        captured = ISSUE - timedelta(minutes=19)
+        snapshot = row(captured, kp=3.0, bz=-2.0, dst=-10.0)
+        for source in ("kp", "magnetic_field", "solar_wind"):
+            snapshot["source_observed_at"][source] = (
+                captured - timedelta(minutes=5)
+            ).isoformat()
+        stale = row(ISSUE - timedelta(minutes=45), kp=3.0, bz=-2.0, dst=-10.0)
+
+        fresh = build_operational_weather([snapshot], ISSUE)
+        expired = build_operational_weather([stale], ISSUE)
+
+        assert fresh is not None and expired is not None
+        self.assertEqual(fresh.values["kp"], 3.0)
+        self.assertEqual(fresh.values["bz_gsm"], -2.0)
+        self.assertNotIn("kp", expired.values)
+        self.assertNotIn("bz_gsm", expired.values)
+
     def test_inactive_realtime_source_is_not_trusted(self) -> None:
         inactive = row(ISSUE, kp=3.0, bz=-30.0, dst=-20.0)
         inactive["source_status"]["magnetic_field"]["active"] = False

@@ -31,6 +31,7 @@ import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
+import { safeDockGroupY } from "@/lib/map/proDockLayout";
 import {
   useMapOperationalContext,
   useScopedMapLayers,
@@ -253,7 +254,9 @@ export function FullscreenPropSphere({
       if (!entry.collapsed) {
         rects[id] = {
           x: entry.x,
-          y: entry.y + (dockOffsets.get(id) ?? Math.max(0, panelMinTop - entry.y)),
+          y: dockOffsets.has(id)
+            ? entry.y + dockOffsets.get(id)!
+            : safeDockGroupY(entry.y, entry.y, panelMinTop),
           width: entry.width,
           height: entry.height,
         };
@@ -276,7 +279,7 @@ export function FullscreenPropSphere({
         if (entry) {
           updateProPanelLayout(memberId, {
             x: entry.x,
-            y: entry.y + offset,
+            y: safeDockGroupY(anchor.y, entry.y, panelMinTop),
             width: entry.width,
             height: entry.height,
           });

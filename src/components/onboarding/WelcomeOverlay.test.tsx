@@ -30,6 +30,7 @@ describe("Welcome overlay", () => {
     expect(welcome()).toBeNull();
     act(() => useAuthStore.setState({ initialized: true, user, session }));
     expect(welcome()).toBeNull();
+    expect(localStorage.getItem("propulse-welcome-seen")).toBe("true");
     expect(document.body.style.overflow).not.toBe("hidden");
   });
 

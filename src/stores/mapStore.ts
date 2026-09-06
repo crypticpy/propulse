@@ -1097,6 +1097,30 @@ function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
       return defaults;
     }
 
+    // Early Pro defaults accidentally persisted percentage-like coordinates as
+    // raw pixels. Reset those layouts instead of stacking panels at the corner.
+    const hasLegacyPositions = Object.values(parsed).some((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return false;
+      }
+      const value = entry as Record<string, unknown>;
+      return (
+        value.collapsed !== true &&
+        typeof value.x === "number" &&
+        typeof value.y === "number" &&
+        typeof value.width === "number" &&
+        value.x >= 0 &&
+        value.y >= 0 &&
+        value.x < 100 &&
+        value.y < 100 &&
+        value.width > 100
+      );
+    });
+    if (hasLegacyPositions) {
+      saveProPanelLayout(defaults);
+      return defaults;
+    }
+
     for (const [id, fallback] of Object.entries(defaults)) {
       const entry = (parsed as Record<string, unknown>)[id];
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
@@ -1243,6 +1267,9 @@ function loadDockGroups(): DockGroup[] {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
         const panelIds = new Set(Object.keys(buildDefaultProPanelLayout()));
+        const viewportWidth =
+          typeof window !== "undefined" ? window.innerWidth : 1920;
+        const maxWidth = Math.max(1, viewportWidth - 4);
         return parsed.filter(
           (group): group is DockGroup =>
             group !== null &&
@@ -1259,7 +1286,17 @@ function loadDockGroups(): DockGroup[] {
             typeof group.sharedWidth === "number" &&
             Number.isFinite(group.sharedWidth) &&
             group.sharedWidth > 0,
-        );
+        ).map((group) => {
+          const sharedWidth = Math.min(group.sharedWidth, maxWidth);
+          return {
+            ...group,
+            sharedX: Math.min(
+              Math.max(0, group.sharedX),
+              Math.max(0, viewportWidth - sharedWidth),
+            ),
+            sharedWidth,
+          };
+        });
       }
     }
   } catch {

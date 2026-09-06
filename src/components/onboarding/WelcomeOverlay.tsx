@@ -589,6 +589,12 @@ export function WelcomeOverlay() {
   const [slide, setSlide] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
 
+  // Account holders have already crossed the welcome step. Persist that fact
+  // even though the overlay is hidden so dependent first-run flows can proceed.
+  useEffect(() => {
+    if (authInitialized && isAuthenticated && welcomeVisible) dismiss();
+  }, [authInitialized, dismiss, isAuthenticated, welcomeVisible]);
+
   const goToSlide = useCallback(
     (next: number) => {
       if (next < 0 || next >= TOTAL_SLIDES || next === slide) return;

@@ -155,17 +155,13 @@ function fitLayoutToViewport(
   maxSize: { width: number; height: number },
   minTop = 0,
 ) {
-  const x =
-    layout.x < 0 || layout.x >= window.innerWidth ? 0 : layout.x;
-  const y =
-    layout.y < 0 || layout.y >= window.innerHeight ? 0 : layout.y;
   const maxWidth = Math.min(
     maxSize.width,
-    Math.max(0, window.innerWidth - x - 4),
+    Math.max(0, window.innerWidth - 4),
   );
   const maxHeight = Math.min(
     maxSize.height,
-    Math.max(0, window.innerHeight - Math.max(minTop, y) - 4),
+    Math.max(0, window.innerHeight - minTop - 4),
   );
   const width = clamp(
     layout.width,
@@ -178,7 +174,7 @@ function fitLayoutToViewport(
     maxHeight,
   );
   return {
-    ...clampPosition(x, y, width, height, minTop),
+    ...clampPosition(layout.x, layout.y, width, height, minTop),
     width,
     height,
   };
@@ -378,7 +374,6 @@ export function FloatingPanel({
         clamped.y,
         layoutRef.current.width,
         layoutRef.current.height,
-        minTop,
       );
 
       const finalPosition = clampPosition(
@@ -386,6 +381,7 @@ export function FloatingPanel({
         snapped?.y ?? clamped.y,
         layoutRef.current.width,
         layoutRef.current.height,
+        minTop,
       );
       const { x: finalX, y: finalY } = finalPosition;
 

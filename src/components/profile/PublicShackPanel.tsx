@@ -85,8 +85,7 @@ export function PublicShackPanel({ equipment, ownerUserId }: PublicShackPanelPro
           actions={<Badge>Shared setup</Badge>}
         >
           <p className="su-hint">
-            A summary shared by this operator. Equipment order does not describe
-            every connection or indicate live hardware state.
+            Equipment and estimated performance shared by this operator.
           </p>
         </Section>
       </Surface>

@@ -4,6 +4,7 @@ import {
   normalizePotaSpots,
   normalizeSotaSpots,
   normalizeWwffSpots,
+  normalizeWwbotaSpots,
 } from "./activationSpots";
 import type { ActivationSpotsResponse } from "../../../src/types/activationSpots";
 
@@ -161,6 +162,7 @@ describe("handleActivationSpots", () => {
           ]),
         )
         .mockRejectedValueOnce(new Error("syndication offline"))
+        .mockResolvedValueOnce(Response.json([]))
         .mockResolvedValueOnce(Response.json([])),
     );
 
@@ -182,6 +184,7 @@ describe("handleActivationSpots", () => {
         count: 0,
       }),
       expect.objectContaining({ program: "WWFF", status: "ok", count: 0 }),
+      expect.objectContaining({ program: "WWBOTA", status: "ok", count: 0 }),
     ]);
   });
 
@@ -205,6 +208,7 @@ describe("handleActivationSpots", () => {
       vi
         .fn()
         .mockResolvedValueOnce(Response.json([{ unexpected: true }]))
+        .mockResolvedValueOnce(Response.json([]))
         .mockResolvedValueOnce(Response.json([]))
         .mockResolvedValueOnce(Response.json([])),
     );
@@ -255,6 +259,37 @@ it("records each provider completion independently and never stamps a failure as
 it("classifies a successful HTTP response without JSON as invalid, not an empty feed", async () => {
   vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(null))));
   const body = await (await handleActivationSpots(new Request("https://propulse.test/api/activation/spots"))).json() as ActivationSpotsResponse;
-  expect(body.sources).toHaveLength(3);
+  expect(body.sources).toHaveLength(4);
   for (const source of body.sources) expect(source).toMatchObject({ status: "invalid", fetchedAt: null, count: 0 });
+});
+
+
+describe("WWBOTA normalization", () => {
+  const reference = { reference: "B/G-0001", name: "Test bunker", lat: 51, long: -1, locator: "IO91AA" };
+  const live = { id: "fixture", call: "n0test", time: "2026-08-31T13:50:00Z", type: "Live", freq: 7.074125, mode: "ft8", references: [reference] };
+
+  it("expands references with precise MHz conversion and independent locations", () => {
+    const rows = normalizeWwbotaSpots([{ ...live, references: [reference, { reference: "B/G-0002", lat: null, long: "" }] }], NOW);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ program: "WWBOTA", callsign: "N0TEST", frequencyKHz: 7074.125, mode: "FT8", latitude: 51, longitude: -1 });
+    expect(rows[1]).not.toHaveProperty("latitude");
+    expect(rows[0].id).not.toBe(rows[1].id);
+  });
+
+  it("applies QRT only to its reference, even without a frequency", () => {
+    const rows = normalizeWwbotaSpots([
+      { ...live, references: [reference, { reference: "B/G-0002" }] },
+      { ...live, type: "QRT", freq: null, time: "2026-08-31T13:55:00Z" },
+    ], NOW);
+    expect(rows.map((row) => row.reference)).toEqual(["B/G-0002"]);
+  });
+
+  it("rejects test, stale, future, invalid-frequency and foreign-reference rows", () => {
+    expect(normalizeWwbotaSpots([
+      { ...live, type: "Test" }, { ...live, freq: null },
+      { ...live, time: "2026-08-31T10:00:00Z" },
+      { ...live, time: "2026-08-31T14:10:00Z" },
+      { ...live, references: [{ reference: "US-0001" }] },
+    ], NOW)).toEqual([]);
+  });
 });

@@ -24,6 +24,7 @@ import { useHamClockStore, type HamClockMode } from "@/stores/hamclockStore";
 import { HamClockBandFocus } from "./HamClockBandFocus";
 import {
   ACTIVATION_PROGRAM_META,
+  ACTIVATION_PROGRAMS,
   type ActivationProgram,
   type ActivationSpot,
   type ActivationSourceStatus,
@@ -31,7 +32,7 @@ import {
 
 type SpotTab = "DX" | ActivationProgram;
 
-const SPOT_TABS: readonly SpotTab[] = ["DX", "POTA", "SOTA", "WWFF"];
+const SPOT_TABS: readonly SpotTab[] = ["DX", ...ACTIVATION_PROGRAMS];
 
 // ---------------------------------------------------------------------------
 // Crosshair SVG (target indicator icon)
@@ -222,6 +223,7 @@ export function HamClockSpotsSidebar({
     POTA: spotsByProgram.POTA.length,
     SOTA: spotsByProgram.SOTA.length,
     WWFF: spotsByProgram.WWFF.length,
+    WWBOTA: spotsByProgram.WWBOTA.length,
   };
   const activeCount = tabCounts[activeTab];
 

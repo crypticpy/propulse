@@ -5,10 +5,16 @@
  */
 
 import { create } from "zustand";
+import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface WSJTXDecode {
+  /** Original WSJT-X instance and bridge-captured dial context, never current-radio inference. */
+  instanceId?: string;
+  dialFrequencyHz?: number;
+  dialMode?: string;
+  offAir?: boolean;
   /** Whether this is a new (not previously seen) decode */
   isNew: boolean;
   /** Milliseconds since midnight UTC */
@@ -34,6 +40,7 @@ export interface WSJTXDecode {
 }
 
 export interface WSJTXStatus {
+  instanceId?: string;
   /** Dial frequency in Hz */
   frequency: number;
   /** Operating mode (e.g., "FT8", "FT4") */
@@ -164,15 +171,10 @@ export const useWSJTXStore = create<WSJTXState>()((set, get) => ({
     }),
 
   // Selectors
-  getDecodesByBand: (_band) => {
-    const { decodes } = get();
-    // Decodes don't inherently carry band info — they carry deltaFrequency
-    // relative to the dial frequency. The band is determined by the WSJT-X status.
-    // Band-level filtering is best done at the UI layer by comparing against the
-    // current status frequency. This selector returns all decodes as a placeholder
-    // for future band-aware filtering when decode-time frequency is tracked.
-    return decodes;
-  },
+  getDecodesByBand: (band) => get().decodes.filter((decode) =>
+    decode.isNew && !decode.offAir && Number.isSafeInteger(decode.dialFrequencyHz) &&
+    decode.dialFrequencyHz! > 0 && bandFromFreq(decode.dialFrequencyHz! / 1000) === band,
+  ),
 
   getDecodesByCQ: () => {
     const { decodes } = get();

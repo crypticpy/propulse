@@ -54,6 +54,28 @@ describe("WallStatus", () => {
     expect(indicator("RIG").dataset.tone).toBe("good");
   });
 
+  it("greens the cluster dot on fresh spots and warns once the newest spot is stale", () => {
+    const spot = {
+      id: "1",
+      spotter: "W1AW",
+      dx: "VK3ABC",
+      frequency: 14074,
+      comment: "",
+      time: new Date(Date.now() - 5 * 60_000),
+    };
+    useDXStore.setState({ spots: [spot] });
+    render(<WallStatus />);
+    expect(indicator("CLUSTER").textContent).toBe("CLUSTER 1 · REST");
+    expect(indicator("CLUSTER").dataset.tone).toBe("good");
+
+    act(() => {
+      useDXStore.setState({
+        spots: [{ ...spot, time: new Date(Date.now() - 45 * 60_000) }],
+      });
+    });
+    expect(indicator("CLUSTER").dataset.tone).toBe("warn");
+  });
+
   it("follows the browser offline event", () => {
     render(<WallStatus />);
     act(() => {

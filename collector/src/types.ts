@@ -55,6 +55,7 @@ export interface PollIntervals {
   verdictLadder: number;
   inferenceMonitor: number;
   modelSnapshot: number;
+  pathRecency: number;
 }
 
 export interface RetentionDays {

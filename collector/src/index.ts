@@ -21,6 +21,7 @@ import { computeBandActivityClimatology } from "./collectors/bandActivityClimato
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { computeRegionHourlyStats } from "./aggregator/regionHourly.js";
+import { computePathRecency } from "./aggregator/pathRecency.js";
 import { runVerdictLadder } from "./collectors/verdictLadder.js";
 import { pruneOldData } from "./aggregator/prune.js";
 import { checkDbSize } from "./aggregator/dbSizeGuard.js";
@@ -33,7 +34,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function runTrackedAggregation(
   db: SupabaseClient,
-  source: "aggregator" | "path-aggregator" | "region-aggregator",
+  source:
+    | "aggregator"
+    | "path-aggregator"
+    | "region-aggregator"
+    | "path-recency",
   fn: () => Promise<number>,
 ): Promise<void> {
   const started = Date.now();
@@ -134,6 +139,15 @@ async function main(): Promise<void> {
     runTrackedAggregation(db, "region-aggregator", () =>
       computeRegionHourlyStats(db, config),
     ),
+  );
+
+  // Field-grain path recency (#297 NowCast N2) — derives
+  // path_recency_hourly from path_hourly_stats. Chains off the path
+  // aggregator's watermark rather than its own clock, so it can never run
+  // ahead of the hour it summarises. The inference service is NOT switched
+  // onto these rows here; that is N4, after the N3 retrain.
+  register("path-recency", pollIntervals.pathRecency, () =>
+    runTrackedAggregation(db, "path-recency", () => computePathRecency(db)),
   );
 
   // Forecast snapshot logger (M4 F1) — records the physics per-band p_open

@@ -25,6 +25,7 @@ const pollIntervals: PollIntervals = {
   verdictLadder: 5 * 60_000,
   inferenceMonitor: 10 * 60_000,
   modelSnapshot: 60 * 60_000,
+  pathRecency: 5 * 60_000,
 };
 
 describe("collector health freshness", () => {
@@ -62,6 +63,7 @@ describe("collector health freshness", () => {
     expect(getSourceStaleMs("verdict-ladder", pollIntervals)).toBe(
       10 * 60_000,
     );
+    expect(getSourceStaleMs("path-recency", pollIntervals)).toBe(10 * 60_000);
   });
 
   it("gives the daily band-climatology task a two-day freshness window", () => {

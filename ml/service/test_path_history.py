@@ -204,6 +204,21 @@ class PathRecencyProviderTests(unittest.TestCase):
                 UnavailablePathHistoryProvider,
             )
 
+    def test_explicit_recency_selection_without_the_trio_fails_closed(self):
+        # An explicit selection must never degrade silently to physics.
+        blank = {name: "" for name in FULL_TRIO_ENVIRONMENT}
+        with patch.dict(
+            "os.environ",
+            {
+                **blank,
+                "PROPULSE_PATH_PROVIDER": "",
+                "PROPULSE_PATH_HISTORY_PROVIDER": "field-recency-v2",
+            },
+            clear=False,
+        ):
+            with self.assertRaises(RuntimeError):
+                path_history_provider_from_environment()
+
     def test_neutral_provider_variable_wins_over_the_legacy_wspr_name(self):
         with patch.dict(
             "os.environ",

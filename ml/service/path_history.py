@@ -396,9 +396,11 @@ def path_history_provider_from_environment() -> PathHistoryProvider:
         "provider": configured_path_provider_identity(),
     }
     configured = [bool(value) for value in values.values()]
-    if not any(configured):
+    if not any(configured) and not override:
         return UnavailablePathHistoryProvider()
     if not all(configured):
+        # An explicit provider selection with an incomplete trio is a
+        # deployment mistake, never a silent fall back to physics.
         raise RuntimeError(
             "feature-store URL, service key, and approved provider must be configured together"
         )

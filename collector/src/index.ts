@@ -16,6 +16,7 @@ import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
 import { collectForecasts } from "./collectors/forecast.js";
 import { collectForecastSnapshot } from "./collectors/forecastSnapshot.js";
+import { collectModelSnapshot } from "./collectors/modelSnapshot.js";
 import { computeBandActivityClimatology } from "./collectors/bandActivityClimatology.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
@@ -144,6 +145,14 @@ async function main(): Promise<void> {
       collectForecastSnapshot(db),
     );
   }
+
+  // Model forecast snapshot logger (#296) — logs the Railway inference
+  // service's per-band p_open over the frozen hub reference surface. Not
+  // gated on any collector source: it skips itself (health "disabled")
+  // until INFERENCE_SERVICE_TOKEN is configured.
+  register("model-snapshot", pollIntervals.modelSnapshot, () =>
+    collectModelSnapshot(db),
+  );
 
   // Fail-closed retention maintenance. Historical deletion additionally
   // requires database controls, sealed manifests, and dataset restore gates.

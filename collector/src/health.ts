@@ -34,6 +34,7 @@ const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
   "region-aggregator": "aggregator",
   "verdict-ladder": "verdictLadder",
   "inference-monitor": "inferenceMonitor",
+  "model-snapshot": "modelSnapshot",
 };
 
 export function getSourceStaleMs(

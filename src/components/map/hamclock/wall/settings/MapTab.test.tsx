@@ -13,8 +13,27 @@ describe("MapTab", () => {
       tileProviderId: "esri-world",
       viewMode: "globe",
       activePreset: null,
+      observatoryMode: false,
+      observatoryPreviousState: null,
       layers: { ...useMapStore.getState().layers, nightLights: false },
     });
+  });
+
+  it("enters Observatory and closes settings so the map is visible", () => {
+    const onClose = vi.fn();
+    render(<MapTab onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "ENTER OBSERVATORY" }));
+    expect(useMapStore.getState().observatoryMode).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("exits Observatory without closing settings", () => {
+    useMapStore.getState().enterObservatory();
+    const onClose = vi.fn();
+    render(<MapTab onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "EXIT OBSERVATORY" }));
+    expect(useMapStore.getState().observatoryMode).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("shows the current style at a glance, not a permanently-live chooser (B6 PR #222 fix #2)", () => {

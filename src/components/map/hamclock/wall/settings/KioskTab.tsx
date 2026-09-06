@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
+import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
 import { pageTitle } from "@/lib/hamclock/wallPages";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
-import { HamClockButton } from "../controls";
+import { HamClockButton, HamClockToggleRow } from "../controls";
 
 /**
- * Read-only: what the active kiosk scene is pinning the wall to, if
- * anything. Editing a scene's pin is kiosk work, not wall-settings work — the
- * one action here hands off to the kiosk editor rather than duplicating it.
+ * Follow radio lives here rather than Display because a third toggle on
+ * Display overflows the non-scrolling panel at 1366×768 (#160). The kiosk
+ * pin summary stays read-only; editing a scene's pin is kiosk work.
  */
 export function KioskTab() {
   const navigate = useNavigate();
@@ -14,6 +16,14 @@ export function KioskTab() {
   const activeSceneId = useKioskStore((s) => s.activeSceneId);
   const scenes = useKioskStore((s) => s.scenes);
   const stop = useKioskStore((s) => s.stop);
+  const followRadio = useHamClockDisplayStore((s) => s.followRadio);
+  const setFollowRadio = useHamClockDisplayStore((s) => s.setFollowRadio);
+  const radio = useOperatingMonitor();
+  const followDetail = radio
+    ? `Locks spots to ${radio.band} ${radio.mode}`
+    : followRadio
+      ? "Paused · no live radio"
+      : "Needs a live CAT or WSJT-X radio";
   // `stop()` keeps `activeSceneId` around so a paused kiosk can resume where
   // it left off — that means a stopped kiosk still has a non-null
   // `activeSceneId`, so the pin summary below must gate on `active` too, or
@@ -42,7 +52,14 @@ export function KioskTab() {
   }
 
   return (
-    <div className="hcc-kiosk-tab">
+    <div className="hcc-tabgrid hcc-kiosk-tab">
+      <HamClockToggleRow
+        label="Follow radio"
+        detail={followDetail}
+        checked={followRadio}
+        disabled={!radio && !followRadio}
+        onChange={setFollowRadio}
+      />
       <p className="hcc-kiosk-summary">{summary}</p>
       <HamClockButton onClick={openEditor}>OPEN KIOSK EDITOR</HamClockButton>
     </div>

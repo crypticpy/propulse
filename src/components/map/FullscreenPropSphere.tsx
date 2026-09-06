@@ -235,6 +235,8 @@ export function FullscreenPropSphere({
     setPanelZOrder((prev) => ({ ...prev, [id]: zCounter.current }));
   }, []);
 
+  const [panelMinTop, setPanelMinTop] = useState(60);
+
   // ── Panel docking ────────────────────────────────────────────
   const panelRects = useMemo<Record<string, PanelRect>>(() => {
     const rects: Record<string, PanelRect> = {};
@@ -242,14 +244,14 @@ export function FullscreenPropSphere({
       if (!entry.collapsed) {
         rects[id] = {
           x: entry.x,
-          y: entry.y,
+          y: Math.max(panelMinTop, entry.y),
           width: entry.width,
           height: entry.height,
         };
       }
     }
     return rects;
-  }, [proPanelLayout]);
+  }, [proPanelLayout, panelMinTop]);
 
   const {
     onDragMove: handleDockDragMove,
@@ -257,7 +259,7 @@ export function FullscreenPropSphere({
     activeSnapTarget,
     onGroupWidthResize,
     getDockGroupWidth,
-  } = usePanelDocking(panelRects);
+  } = usePanelDocking(panelRects, panelMinTop);
 
   // List of collapsed panel IDs and pre-sorted edge groups
   const collapsedPanelIds = useMemo(() => {
@@ -368,6 +370,7 @@ export function FullscreenPropSphere({
 
       {/* ── Unified Toolbar Ribbon ──────────────────────────────── */}
       <ProToolbarRibbon
+        onBottomChange={setPanelMinTop}
         ambientMode={ambientMode}
         showTopBar={showTopBar}
         observatoryMode={observatoryMode}
@@ -386,6 +389,7 @@ export function FullscreenPropSphere({
         {/* Band Conditions — top-left */}
         {!proPanelLayout["band-conditions"]?.collapsed && (
           <FloatingPanel
+            minTop={panelMinTop}
             id="band-conditions"
             title="Band Conditions"
             defaultPosition={{ x: 1, y: 8 }}
@@ -441,6 +445,7 @@ export function FullscreenPropSphere({
         {/* Path Analysis — top-right */}
         {!proPanelLayout["path-analysis"]?.collapsed && (
           <FloatingPanel
+            minTop={panelMinTop}
             id="path-analysis"
             title="Path Analysis"
             defaultPosition={{ x: 80, y: 8 }}
@@ -542,6 +547,7 @@ export function FullscreenPropSphere({
         {/* DX Spots — bottom-center */}
         {showPublicActivity && !proPanelLayout["dx-spots"]?.collapsed && (
           <FloatingPanel
+            minTop={panelMinTop}
             id="dx-spots"
             title="DX Spots"
             defaultPosition={{ x: 20, y: 78 }}
@@ -598,6 +604,7 @@ export function FullscreenPropSphere({
         {/* Recommendations — bottom-left (only when station + target exist) */}
         {station && target && !proPanelLayout["recommendations"]?.collapsed && (
           <FloatingPanel
+            minTop={panelMinTop}
             id="recommendations"
             title="Recommendations"
             defaultPosition={{ x: 1, y: 75 }}
@@ -656,6 +663,7 @@ export function FullscreenPropSphere({
         {/* Satellite tracking — right side (only when satellite layer active) */}
         {layers.satellites && !proPanelLayout["satellites"]?.collapsed && (
           <FloatingPanel
+            minTop={panelMinTop}
             id="satellites"
             title="Satellites"
             defaultPosition={{ x: 80, y: 50 }}
@@ -694,23 +702,25 @@ export function FullscreenPropSphere({
 
       {/* ── Edge-docked minimized panel tabs ─────────────────── */}
       {!ambientMode &&
-        (["left", "right"] as const).map((edge) =>
-          edgeTabGroups[edge].map((panelId, index) => {
-            // 60px clears ribbon; 72px per tab
-            const topOffset = 60 + index * 72;
-            return (
+        (["left", "right"] as const).map((edge) => (
+          <div
+            key={edge}
+            data-panel-dock={edge}
+            className="fixed z-[205] flex flex-col gap-2 overflow-y-auto pointer-events-none"
+            style={{ [edge]: 0, top: panelMinTop + 8, bottom: 8 }}
+          >
+            {edgeTabGroups[edge].map((panelId) => (
               <button
                 key={panelId}
                 onClick={() => toggleProPanelCollapse(panelId)}
                 aria-label={`Expand ${PANEL_LABELS[panelId] ?? panelId} panel`}
-                className={`fixed z-[215] w-8 bg-black/80 backdrop-blur-md border border-white/25 shadow-lg shadow-black/40
+                className={`w-8 shrink-0 bg-black/80 backdrop-blur-md border border-white/25 shadow-lg shadow-black/40
                   hover:bg-white/15 hover:border-cyan-400/40 hover:shadow-cyan-400/20
                   focus-visible:ring-2 focus-visible:ring-cyan-400/50
                   transition-all duration-200 pointer-events-auto
                   flex flex-col items-center gap-2 py-3
                   animate-in slide-in-from-left
                   ${edge === "left" ? "rounded-r-lg border-l-0" : "rounded-l-lg border-r-0"}`}
-                style={{ [edge]: 0, top: topOffset }}
                 title={`Click to expand ${PANEL_LABELS[panelId] ?? panelId}`}
               >
                 <span className="text-cyan-300/70 flex-shrink-0">
@@ -726,9 +736,9 @@ export function FullscreenPropSphere({
                   {PANEL_LABELS[panelId] ?? panelId}
                 </span>
               </button>
-            );
-          }),
-        )}
+            ))}
+          </div>
+        ))}
 
       {/* ── Observatory overlay (replaces ambient overlay when in observatory) */}
       {observatoryMode && ambientMode && !showTopBar && <ObservatoryOverlay />}

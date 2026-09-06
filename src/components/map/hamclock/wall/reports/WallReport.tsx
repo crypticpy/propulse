@@ -40,7 +40,7 @@ export interface WallReportProps {
   title: string;
   tone?: WallReportTone;
   /** The one number worth reading from ten feet. */
-  hero: ReactNode;
+  hero?: ReactNode;
   /** The one word beside it: QUIET, STORM, DAY, ALL CLEAR… */
   verdict?: ReactNode;
   /** Right-hand column of the lead row; `—` values are fine, gaps are not. */
@@ -126,10 +126,9 @@ function PinButton({
 }
 
 /**
- * The wall's drill-down: one centred glass panel with a huge hero, a verdict,
- * a facts column and a body region. Every report on the wall is this shell
- * with different content, so the composition an operator learns on one tile
- * carries to all of them.
+ * The wall's drill-down: one centred panel with shared title, pin and footer.
+ * Reports can supply a hero, verdict and facts above their body, or omit the
+ * hero for an existing body-only view such as the cluster list.
  *
  * Dialog mechanics (Escape, focus trap, focus restore, inert background) come
  * from `AccessibleDialog`, the same primitive `DetailModal` uses — the report
@@ -161,7 +160,7 @@ export function WallReport({
       chrome="bare"
       zIndexClassName="z-[350]"
       panelProps={{
-        className: "hcr",
+        className: hero === undefined ? "hcr hcr--chrome" : "hcr",
         // The panel is portalled outside the HamClock subtree, so it carries
         // the theme attribute itself rather than inheriting it.
         "data-hamclock-theme": theme,
@@ -182,7 +181,7 @@ export function WallReport({
         </button>
       </div>
 
-      <div className="hcr-lead">
+      {hero !== undefined && <div className="hcr-lead">
         <div className="hcr-headline">
           <div className={`hcr-hero hc-glow ${toneClass}`}>{hero}</div>
           <div
@@ -206,7 +205,7 @@ export function WallReport({
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       <div className="hcr-body">{children}</div>
 

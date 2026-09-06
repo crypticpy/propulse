@@ -21,8 +21,9 @@ export function useVisibleRows<T extends HTMLElement>(
   useLayoutEffect(() => {
     if (!el) return;
     const measure = () => {
-      const first = el.firstElementChild as HTMLElement | null;
-      const row = first?.getBoundingClientRect().height ?? 0;
+      // Divider borders can make later rows taller than the first one.
+      const row = Math.max(0, ...Array.from(el.children).map((child) =>
+        (child as HTMLElement).getBoundingClientRect().height));
       const slot = el.clientHeight;
       if (!row || !slot) {
         setCount(total);
@@ -37,7 +38,7 @@ export function useVisibleRows<T extends HTMLElement>(
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [el, total]);
+  }, [el, total, count]);
 
   return [ref, Math.min(count, total)];
 }

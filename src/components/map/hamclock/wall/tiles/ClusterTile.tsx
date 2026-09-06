@@ -1,5 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
-import { DetailModal } from "@/components/ui/DetailModal";
+import { useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
@@ -9,13 +8,7 @@ import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { HamClockTile } from "../HamClockTile";
 
-// The full spot report is the only heavy dependency the wall pulls in; it
-// loads when an operator opens the report rather than with the wall itself.
-const DXSpotList = lazy(() =>
-  import("@/components/dx/DXSpotList/DXSpotList").then((m) => ({
-    default: m.DXSpotList,
-  })),
-);
+import { ClusterReport } from "../reports/ClusterReport";
 
 /** The rail cannot scroll, so render a generous slice and let CSS clip it. */
 const MAX_ROWS = 22;
@@ -115,23 +108,9 @@ export function ClusterTile() {
         </div>
       </HamClockTile>
 
-      <DetailModal
-        isOpen={reportOpen}
-        onClose={() => setReportOpen(false)}
-        title="DX Cluster Report"
-        subtitle={`${spots.length} spots · ${feed}`}
-        size="xl"
-      >
-        <Suspense
-          fallback={
-            <p className="p-4 font-mono text-xs uppercase tracking-widest text-white/40">
-              Loading spots…
-            </p>
-          }
-        >
-          <DXSpotList showFilters maxHeight="60vh" />
-        </Suspense>
-      </DetailModal>
+      {reportOpen && (
+        <ClusterReport open onClose={() => setReportOpen(false)} />
+      )}
     </>
   );
 }

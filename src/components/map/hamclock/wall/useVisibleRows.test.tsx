@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { spotPageWindow } from "@/components/dx/DXSpotList/pageWindow";
 import { useVisibleRows } from "./useVisibleRows";
 
 function List({ total, mounted }: { total: number; mounted: boolean }) {
@@ -62,4 +63,27 @@ describe("useVisibleRows (#250)", () => {
       vi.unstubAllGlobals();
     }
   });
+  it("accounts for divider borders on rows after the first", () => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.dataset.testid === "list" ? 397 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return { height: this.textContent === "row 1" ? 36 : 37 } as DOMRect;
+    });
+    render(<List total={80} mounted />);
+    expect(screen.getByText("visible 10")).toBeTruthy();
+  });
+
+  it("settles on a one-row final page without a render loop", () => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(397);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ height: 36 } as DOMRect);
+    function LastPage() {
+      const [ref, capacity] = useVisibleRows<HTMLDivElement>(71);
+      const { start, end } = spotPageWindow(71, Math.max(1, capacity), 70, -1);
+      return <div ref={ref}>{Array.from({ length: end - start }, (_, i) => <div key={i}>spot {start + i}</div>)}</div>;
+    }
+    render(<LastPage />);
+    expect(screen.getAllByText("spot 70")).toHaveLength(1);
+  });
+
 });

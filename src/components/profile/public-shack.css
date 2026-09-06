@@ -1,0 +1,34 @@
+.public-shack { min-width: 0; }
+.public-shack :is(h2, h3, p, dd) { overflow-wrap: anywhere; }
+.public-shack-nodes {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: .75rem;
+  padding: 0;
+  margin: 0;
+}
+.public-shack-nodes li {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: 1rem;
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-control);
+  background: var(--su-surface);
+  min-width: 0;
+}
+.public-shack-nodes li > div { min-width: 0; }
+.public-shack-nodes svg { width: 3.5rem; flex-shrink: 0; color: var(--su-info); }
+.public-shack-step { color: var(--su-muted); font-variant-numeric: tabular-nums; }
+.public-shack-equipment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.public-shack-detail { min-width: 0; border: 1px solid var(--su-line); border-radius: var(--su-radius-panel); overflow: hidden; background: var(--su-surface); }
+.public-shack-photo { display: grid; place-items: center; height: 13rem; padding: 1rem; background: var(--su-input); border-bottom: 1px solid var(--su-line); }
+.public-shack-photo img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.public-shack-photo svg { width: min(100%, 15rem); max-height: 100%; color: var(--su-muted); }
+.public-shack-detail-body { display: grid; gap: .75rem; padding: 1.25rem; }
+.public-shack .su-key-values > div { gap: 1rem; flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .public-shack-equipment { grid-template-columns: minmax(0, 1fr); }
+  .public-shack-detail-body { padding: 1rem; }
+}

@@ -4,8 +4,9 @@ import { createHfFixture, FIXTURE_DATE, FIXTURE_OWNER } from "@/lib/station/work
 import { stationArchiveIdentities } from "@/lib/station/workbench/storage/state";
 import { prepareStationGeneration, verifyStationGeneration, type StationStageDraft } from "@/lib/station/workbench/storage/staging";
 import { canonicalWorkbenchJson, digestWorkbenchJson } from "@/lib/station/workbench/storage/serialization";
+import * as serialization from "@/lib/station/workbench/storage/serialization";
 import {
-  prepareStationStageChunks, verifyStationStageChunks, stationStageChunksSchema, STATION_STAGE_CHUNK_BYTES,
+  prepareStationStageChunks, verifyStationStageChunks, stationStageChunksSchema, stationStageChunkPlanSchema, stationStageChunkPayloadSchema, STATION_STAGE_CHUNK_BYTES,
   type StationStageChunks,
 } from "@/lib/station/workbench/storage/stageChunks";
 
@@ -56,6 +57,116 @@ beforeEach(() => vi.stubGlobal("crypto", webcrypto));
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("inactive stage canonical byte chunks", () => {
+  it.each(["plan", "payload", "bundle"].flatMap((kind) => ["parse", "safeParse"].flatMap((method) =>
+    ["then", "catch"].map((property) => ({ kind, method, property })))))("guards standalone $kind.$method before outer $property type detection", async ({ kind, method, property }) => {
+    const value = await bundle();
+    const parser = kind === "plan" ? stationStageChunkPlanSchema : kind === "payload" ? stationStageChunkPayloadSchema : stationStageChunksSchema;
+    const input = kind === "plan" ? value.plan : kind === "payload" ? value.payloads[0] : value;
+    const getter = vi.fn(() => () => undefined);
+    if (property === "catch") Object.defineProperty(input, "then", { value: () => undefined, enumerable: true });
+    Object.defineProperty(input, property, { get: getter, enumerable: true });
+    const canonical = vi.spyOn(serialization, "canonicalWorkbenchJson");
+    if (method === "parse") expect(() => parser.parse(input)).toThrow(/metadata fields/);
+    else {
+      const result = parser.safeParse(input);
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues).toEqual([{ code: "custom", path: [], message: "Unexpected or missing stage chunk metadata fields" }]);
+    }
+    expect(getter).not.toHaveBeenCalled();
+    expect(canonical).not.toHaveBeenCalled();
+  });
+  it.each(["then", "catch"])("guards verification before outer %s type detection", async (property) => {
+    const value = await bundle();
+    const getter = vi.fn(() => () => undefined);
+    if (property === "catch") Object.defineProperty(value, "then", { value: () => undefined, enumerable: true });
+    Object.defineProperty(value, property, { get: getter, enumerable: true });
+    const canonical = vi.spyOn(serialization, "canonicalWorkbenchJson");
+    await expect(verifyStationStageChunks(value)).rejects.toThrow(/metadata fields/);
+    expect(getter).not.toHaveBeenCalled();
+    expect(canonical).not.toHaveBeenCalled();
+  });
+  it("freezes standalone parser facades and returns detached typed successes", async () => {
+    const value = await bundle();
+    for (const parser of [stationStageChunkPlanSchema, stationStageChunkPayloadSchema, stationStageChunksSchema]) expect(Object.isFrozen(parser)).toBe(true);
+    const result = stationStageChunksSchema.safeParse(value);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual(value);
+      expect(result.data).not.toBe(value);
+      expect(result.data.plan.chunks).not.toBe(value.plan.chunks);
+    }
+  });
+  it.each(["plan-string", "plan-number", "payload-string", "payload-number", "descriptor-string", "descriptor-number", "stageId"].flatMap((field) =>
+    ["then", "catch"].map((property) => ({ field, property }))))("rejects object-valued $field without invoking $property during schema type detection", async ({ field, property }) => {
+    const value = await bundle();
+    const getter = vi.fn(() => () => undefined);
+    const dangerous = Object.defineProperty(property === "catch" ? { then: () => undefined } : {}, property, { get: getter, enumerable: true });
+    if (field === "plan-string") Object.defineProperty(value.plan, "ownerId", { value: dangerous });
+    if (field === "plan-number") Object.defineProperty(value.plan, "byteLength", { value: dangerous });
+    if (field === "payload-string") Object.defineProperty(value.payloads[0], "bytesBase64", { value: dangerous });
+    if (field === "payload-number") Object.defineProperty(value.payloads[0], "ordinal", { value: dangerous });
+    if (field === "descriptor-string") Object.defineProperty(value.plan.chunks[0], "digest", { value: dangerous });
+    if (field === "descriptor-number") Object.defineProperty(value.plan.chunks[0], "ordinal", { value: dangerous });
+    const canonical = vi.spyOn(serialization, "canonicalWorkbenchJson");
+    if (field === "stageId") await expect(prepareStationStageChunks({ stageId: dangerous, candidate: null })).rejects.toThrow(/primitive/);
+    else await expect(verifyStationStageChunks(value)).rejects.toThrow(/primitive/);
+    expect(canonical).not.toHaveBeenCalled();
+    expect(getter).not.toHaveBeenCalled();
+  });
+  it.each(["payload-count", "chunk-count", "oversized-payload", "short-payload", "aggregate-length", "huge-sparse-payloads", "huge-sparse-chunks"])("rejects %s before canonical serialization or decoding", async (change) => {
+    const value = await bundle();
+    if (change === "payload-count") value.payloads.push({ ...value.payloads[0] });
+    if (change === "chunk-count") value.plan.chunks.push({ ...value.plan.chunks[0] });
+    if (change === "oversized-payload") value.payloads[0].bytesBase64 = "A".repeat(400000);
+    if (change === "short-payload") value.payloads[0].bytesBase64 = "AAAA";
+    if (change === "aggregate-length") value.plan.byteLength += 3;
+    if (change === "huge-sparse-payloads") value.payloads = new Array(0xffff_ffff);
+    if (change === "huge-sparse-chunks") value.plan.chunks = new Array(0xffff_ffff);
+    const canonical = vi.spyOn(serialization, "canonicalWorkbenchJson");
+    const decoder = vi.spyOn(globalThis, "atob");
+    await expect(verifyStationStageChunks(value)).rejects.toThrow();
+    expect(canonical).not.toHaveBeenCalled();
+    expect(decoder).not.toHaveBeenCalled();
+  });
+  it.each(["wrapper-extra", "wrapper-getter", "plan-extra", "plan-getter", "descriptor-getter", "payload-extra", "payload-getter", "array-getter", "hidden-array-field", "symbol-array-field", "custom-prototype", "nested-scalar"])("rejects %s before canonical serialization and getter invocation", async (change) => {
+    const value = await bundle();
+    const getter = vi.fn(() => "untrusted");
+    if (change === "wrapper-extra") Object.defineProperty(value, "extra", { value: { unbounded: "unused" }, enumerable: true });
+    if (change === "wrapper-getter") Object.defineProperty(value, "payloads", { get: getter, enumerable: true });
+    if (change === "plan-extra") Object.defineProperty(value.plan, "extra", { value: true });
+    if (change === "plan-getter") Object.defineProperty(value.plan, "byteLength", { get: getter, enumerable: true });
+    if (change === "descriptor-getter") Object.defineProperty(value.plan.chunks[0], "digest", { get: getter, enumerable: true });
+    if (change === "payload-extra") Object.defineProperty(value.payloads[0], "extra", { value: true });
+    if (change === "payload-getter") Object.defineProperty(value.payloads[0], "bytesBase64", { get: getter, enumerable: true });
+    if (change === "array-getter") Object.defineProperty(value.payloads, "0", { get: getter, enumerable: true });
+    if (change === "hidden-array-field") Object.defineProperty(value.payloads, "extra", { value: true });
+    if (change === "symbol-array-field") Object.defineProperty(value.plan.chunks, Symbol("extra"), { value: true });
+    if (change === "custom-prototype") Object.setPrototypeOf(value.payloads[0], { inherited: true });
+    if (change === "nested-scalar") Object.defineProperty(value.plan, "ownerId", { value: Object.defineProperty({}, "nested", { get: getter, enumerable: true }) });
+    const canonical = vi.spyOn(serialization, "canonicalWorkbenchJson");
+    await expect(verifyStationStageChunks(value)).rejects.toThrow();
+    expect(canonical).not.toHaveBeenCalled();
+    expect(getter).not.toHaveBeenCalled();
+  });
+  it("preflights standalone plan and payload schemas before detachment", async () => {
+    const value = await bundle();
+    value.payloads[0].bytesBase64 = "A".repeat(400000);
+    value.plan.chunks = new Array(0xffff_ffff);
+    const canonical = vi.spyOn(serialization, "canonicalWorkbenchJson");
+    expect(() => stationStageChunkPlanSchema.parse(value.plan)).toThrow();
+    expect(() => stationStageChunkPayloadSchema.parse(value.payloads[0])).toThrow();
+    expect(canonical).not.toHaveBeenCalled();
+  });
+  it("checks both array counts before reading even the first descriptor", async () => {
+    const value = await bundle();
+    const getter = vi.fn(() => null);
+    Object.defineProperty(value.plan.chunks, "0", { get: getter, enumerable: true });
+    value.payloads = [];
+    const canonical = vi.spyOn(serialization, "canonicalWorkbenchJson");
+    await expect(verifyStationStageChunks(value)).rejects.toThrow(/inventory/);
+    expect(getter).not.toHaveBeenCalled();
+    expect(canonical).not.toHaveBeenCalled();
+  });
   it("plans a valid candidate at its exact 128-container boundary without counting the request wrapper", async () => {
     const input = draft();
     const capture = input.manifest.rawCaptures[0];

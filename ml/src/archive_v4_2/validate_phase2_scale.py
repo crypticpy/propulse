@@ -148,7 +148,9 @@ def main() -> None:
     iterations = []
     feature_contracts = []
     reference_features: list[str] | None = None
-    expected_backend = matrix_backend(config, scale)
+    expected_backend = matrix_backend(
+        config, scale, training.get("training_profile", "m5")
+    )
     for candidate in candidate_names:
         folds = training["candidates"].get(candidate, {})
         training_complete &= set(folds) == set(fold_names)

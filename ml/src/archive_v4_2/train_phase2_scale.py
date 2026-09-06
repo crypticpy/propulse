@@ -39,8 +39,17 @@ from phase2_core import (  # noqa: E402
     validate_config,
 )
 from m5_runtime import (  # noqa: E402
+    LINUX_GPU_PROFILE,
+    M5_PROFILE,
+    artifact_path,
     configure_arrow_threads,
+    external_root as profile_external_root,
+    maximum_rss_gb as profile_maximum_rss_gb,
+    profile_settings,
+    resolve_compute_profile,
+    temp_root as profile_temp_root,
     validate_m5_runtime as validate_native_m5_runtime,
+    validate_runtime as validate_native_runtime,
 )
 from train_validation import (  # noqa: E402
     CALIBRATION_SELECTION_PROTOCOL,
@@ -93,8 +102,20 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def verify_artifact(item: dict[str, Any], *, hash_file: bool = True) -> Path:
-    path = ROOT / item["path"]
+def verify_artifact(
+    item: dict[str, Any],
+    *,
+    hash_file: bool = True,
+    config: dict[str, Any] | None = None,
+) -> Path:
+    """Resolve a recorded artifact for the active profile and verify it.
+
+    Without a config the path stays repository-relative, which is what every
+    M5-only caller has always done.
+    """
+    path = artifact_path(str(item["path"]), config, repository_root=ROOT)
+    if not path.is_file():
+        raise Phase2Error(f"artifact is missing: {item['path']} -> {path}")
     if path.stat().st_size != int(item["bytes"]):
         raise Phase2Error(f"artifact size changed: {item['path']}")
     if hash_file and sha256(path) != item["sha256"]:
@@ -103,7 +124,7 @@ def verify_artifact(item: dict[str, Any], *, hash_file: bool = True) -> Path:
 
 
 def ensure_model_root(config: dict[str, Any], scale: int) -> tuple[Path, Path]:
-    model_root = Path(config["compute"]["external_root"]) / "models/archive_v4_2"
+    model_root = profile_external_root(config) / "models/archive_v4_2"
     external = model_root / config["run_id"] / f"{scale // 1_000_000}m"
     external.mkdir(parents=True, exist_ok=True)
     link = ROOT / "ml/models/archive_v4_2"
@@ -144,6 +165,23 @@ def contract_physics_features(config: dict[str, Any]) -> list[str]:
     return physics_features_v2(v4_features())
 
 
+def training_parameters(config: dict[str, Any], profile: str) -> dict[str, Any]:
+    """Fit parameters for a profile.
+
+    Every learning parameter is shared, so the only difference between the M5
+    and the CUDA box is where the trees are fit: the linux_gpu profile adds
+    ``device`` and pins ``tree_method``/``nthread`` from its own contract.
+    """
+    parameters = dict(config["training"]["parameters"])
+    parameters["seed"] = int(config["seed"])
+    if profile == LINUX_GPU_PROFILE:
+        hardware = profile_settings(config, profile)
+        parameters["device"] = str(hardware["device"])
+        parameters["tree_method"] = str(hardware["tree_method"])
+        parameters["nthread"] = int(hardware["threads_per_parallel_fit"])
+    return parameters
+
+
 def train_fold(
     candidate: str,
     fold: str,
@@ -155,21 +193,26 @@ def train_fold(
     repository_models: Path,
     previous: dict[str, Any] | None = None,
     model_stem: str | None = None,
+    profile: str = M5_PROFILE,
+    runtime: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    execution = config["compute"]["apple_silicon"]
-    training_threads = int(config["training"]["parameters"]["nthread"])
-    arrow = configure_arrow_threads(config, parallel_fit=training_threads == int(
-        execution["threads_per_parallel_fit"]
-    ))
+    execution = profile_settings(config, profile)
+    parameters = training_parameters(config, profile)
+    training_threads = int(parameters["nthread"])
+    arrow = configure_arrow_threads(
+        config,
+        parallel_fit=training_threads == int(execution["threads_per_parallel_fit"]),
+        profile=profile,
+    )
     definition = config["candidates"][candidate]
     cohort_item = manifest["cohorts"][candidate][fold]
     early_item = manifest["early_stopping"][fold]
-    cohort_path = verify_artifact(cohort_item)
-    early_path = verify_artifact(early_item)
-    backend = matrix_backend(config, scale)
+    cohort_path = verify_artifact(cohort_item, config=config)
+    early_path = verify_artifact(early_item, config=config)
+    backend = matrix_backend(config, scale, profile)
     external_memory = backend == "external_memory_quantile"
     started = time.monotonic()
-    cache = Path(config["compute"]["temp_root"]) / "xgboost-cache" / f"{scale}"
+    cache = profile_temp_root(config) / "xgboost-cache" / f"{scale}"
     cache.mkdir(parents=True, exist_ok=True)
     train_iterator = ParquetDataIter(
         cohort_path,
@@ -194,8 +237,6 @@ def train_fold(
     )
     train_matrix = matrix_type(train_iterator, max_bin=255)
     early_matrix = matrix_type(early_iterator, max_bin=255, ref=train_matrix)
-    parameters = dict(config["training"]["parameters"])
-    parameters["seed"] = int(config["seed"])
     prior_rounds = int(previous["rounds_completed"]) if previous else 0
     total_rounds = int(config["training"]["num_boost_round"])
     if prior_rounds >= total_rounds:
@@ -204,7 +245,7 @@ def train_fold(
     checkpoint = None
     if previous:
         checkpoint = xgb.Booster()
-        checkpoint.load_model(verify_artifact(previous["model"]))
+        checkpoint.load_model(verify_artifact(previous["model"], config=config))
     model = xgb.train(
         parameters,
         train_matrix,
@@ -271,12 +312,18 @@ def train_fold(
         "features": features,
         "feature_count": len(features),
         "training_mode": backend,
+        "training_profile": profile,
+        "training_backend": str(execution["backend"]),
         "execution": {
             "machine": platform.machine(),
+            "profile": profile,
             "xgboost_threads": training_threads,
+            "device": str(parameters.get("device", "cpu")),
+            "tree_method": str(parameters["tree_method"]),
             **arrow,
             "xgboost_openmp": bool(xgb.build_info().get("USE_OPENMP")),
             "xgboost_cuda": bool(xgb.build_info().get("USE_CUDA")),
+            "runtime": runtime,
         },
         "train_rows": train_rows,
         "early_stopping_rows": early_rows,
@@ -295,7 +342,7 @@ def train_fold(
     }
     if fold == config["final_fold"]:
         calibration_item = manifest["calibration"]
-        calibration_path = verify_artifact(calibration_item)
+        calibration_path = verify_artifact(calibration_item, config=config)
         calibration = load_predictions(
             model,
             best,
@@ -341,6 +388,8 @@ def train_fold_task(task: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
         Path(task["repository_models"]),
         previous=task["previous"],
         model_stem=task.get("model_stem"),
+        profile=str(task.get("profile", M5_PROFILE)),
+        runtime=task.get("runtime"),
     )
     return candidate, fold, result
 
@@ -355,9 +404,11 @@ def fold_needs_training(
     return rounds < ceiling and best >= rounds - patience
 
 
-def parallel_config(config: dict[str, Any], workers: int) -> dict[str, Any]:
+def parallel_config(
+    config: dict[str, Any], workers: int, profile: str = M5_PROFILE
+) -> dict[str, Any]:
     updated = copy.deepcopy(config)
-    hardware = updated["compute"]["apple_silicon"]
+    hardware = profile_settings(updated, profile)
     expected = int(hardware["parallel_fit_workers"])
     if workers != expected:
         raise Phase2Error(
@@ -373,19 +424,34 @@ def validate_m5_runtime(config: dict[str, Any]) -> dict[str, Any]:
     return validate_native_m5_runtime(config, xgboost_module=xgb)
 
 
+def validate_profile_runtime(config: dict[str, Any], profile: str) -> dict[str, Any]:
+    return validate_native_runtime(config, profile, xgboost_module=xgb)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--profile", choices=("m5",), required=True)
+    parser.add_argument("--profile", choices=(M5_PROFILE, LINUX_GPU_PROFILE), required=True)
+    parser.add_argument(
+        "--data-root-override",
+        default=None,
+        help=(
+            "linux_gpu only: external storage root on the training box when it "
+            "differs from the configured linux_gpu external_root."
+        ),
+    )
     parser.add_argument("--scale", type=int, required=True)
     parser.add_argument("--candidate", choices=EXPECTED_CANDIDATES)
     parser.add_argument("--fold", choices=EXPECTED_FOLDS)
     parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
-    del args.profile
+    profile = str(args.profile)
     config = load_json(Path(args.config))
     validate_config(config)
-    runtime = validate_m5_runtime(config)
+    config = resolve_compute_profile(
+        config, profile, data_root_override=args.data_root_override
+    )
+    runtime = validate_profile_runtime(config, profile)
     scale = int(args.scale)
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
@@ -437,6 +503,14 @@ def main() -> None:
     output["hardware_runtime"] = runtime
     output["core_feature_contract"] = contract
     output["training_contract"] = config["training"]
+    output["training_profile"] = profile
+    output["compute_profile"] = config["compute"]["active_profile"]
+    if profile == LINUX_GPU_PROFILE:
+        # backend_benchmark_decision.json is an M5 CPU-backend artifact; the
+        # CUDA profile fits both scales in device memory and never runs it.
+        output["backend_benchmark"] = str(
+            profile_settings(config, profile)["backend_benchmark"]
+        )
     if args.candidate and args.candidate not in candidate_inventory:
         raise Phase2Error(f"candidate did not advance to this scale: {args.candidate}")
     if args.fold and args.fold not in fold_inventory:
@@ -450,9 +524,9 @@ def main() -> None:
             previous = None
             if fold in output["candidates"][candidate]:
                 info = output["candidates"][candidate][fold]
-                verify_artifact(info["model"])
+                verify_artifact(info["model"], config=config)
                 if fold == config["final_fold"]:
-                    verify_artifact(info["calibrator"])
+                    verify_artifact(info["calibrator"], config=config)
                 if not fold_needs_training(info, config):
                     print(f"reuse {candidate} {fold}", flush=True)
                     continue
@@ -475,6 +549,8 @@ def main() -> None:
                     "external_models": str(external_models),
                     "repository_models": str(repository_models),
                     "previous": previous,
+                    "profile": profile,
+                    "runtime": runtime,
                 }
             )
 
@@ -482,7 +558,7 @@ def main() -> None:
     if workers < 1:
         raise Phase2Error("workers must be positive")
     if workers > 1 and len(tasks) > 1:
-        worker_config = parallel_config(config, workers)
+        worker_config = parallel_config(config, workers, profile)
         for task in tasks:
             task["config"] = worker_config
         output["execution_scheduler"] = {
@@ -511,7 +587,7 @@ def main() -> None:
                 ] = conservative_peak
                 output["generated_at"] = utc_now()
                 atomic_write(result_path, output)
-                if conservative_peak > float(config["compute"]["maximum_rss_gb"]):
+                if conservative_peak > profile_maximum_rss_gb(config):
                     raise Phase2Error(
                         "parallel fit RSS upper bound exceeded the configured ceiling"
                     )

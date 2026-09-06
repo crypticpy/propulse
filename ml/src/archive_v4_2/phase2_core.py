@@ -18,10 +18,42 @@ EXPECTED_FOLDS = (
     "F3_2024_07",
 )
 LOCKED_MONTHS = frozenset(("2024-12", "2025-01", "2025-04", "2025-07", "2025-10"))
+#: Execution profiles a config may declare. The canonical constants and the
+#: runtime probes live in ``m5_runtime``; this module only checks the contract.
+KNOWN_PROFILES = {"m5": "apple_silicon", "linux_gpu": "linux_gpu"}
+MATRIX_BACKENDS = frozenset(
+    ("external_memory_quantile", "streamed_in_memory_quantile")
+)
 
 
 class Phase2Error(RuntimeError):
     """Raised before Phase 2 can violate its frozen development contract."""
+
+
+def validate_profiles(config: Mapping[str, Any]) -> tuple[str, ...]:
+    """Check the declared execution profiles and return them.
+
+    A config without ``compute.supported_profiles`` supports exactly its
+    ``required_profile``, which is how every frozen V1 config reads.
+    """
+    compute = config["compute"]
+    required = str(compute["required_profile"])
+    declared = compute.get("supported_profiles")
+    profiles = (
+        tuple(str(value) for value in declared) if declared else (required,)
+    )
+    if required not in profiles:
+        raise Phase2Error(
+            f"supported profiles must include the required profile: {required}"
+        )
+    if len(set(profiles)) != len(profiles):
+        raise Phase2Error("supported profiles contain a duplicate")
+    for profile in profiles:
+        if profile not in KNOWN_PROFILES:
+            raise Phase2Error(f"unknown execution profile: {profile}")
+        if KNOWN_PROFILES[profile] not in compute:
+            raise Phase2Error(f"compute.{KNOWN_PROFILES[profile]} is missing")
+    return profiles
 
 
 def validate_config(config: Mapping[str, Any]) -> None:
@@ -79,6 +111,7 @@ def validate_config(config: Mapping[str, Any]) -> None:
     for month, path in config["source_roots"]["supplemental"].items():
         if month in LOCKED_MONTHS or any(value in str(path) for value in LOCKED_MONTHS):
             raise Phase2Error(f"locked source configured: {month}")
+    validate_profiles(config)
 
 
 def training_months(
@@ -130,18 +163,40 @@ def scale_workset(
     return selected, (str(config["final_fold"]),)
 
 
-def matrix_backend(config: Mapping[str, Any], scale: int) -> str:
+def matrix_backend(
+    config: Mapping[str, Any], scale: int, profile: str = "m5"
+) -> str:
+    """The DMatrix backend a profile fits this scale with.
+
+    The M5 answer is frozen: 20M is external memory and 50M comes from the
+    recorded backend benchmark. The CUDA profile has no benchmark -- both
+    scales quantize into device memory -- so it names both backends directly.
+    """
+    if scale not in (20_000_000, 50_000_000):
+        raise Phase2Error(f"unsupported Phase 2 scale: {scale}")
+    if profile == "linux_gpu":
+        hardware = config["compute"].get("linux_gpu")
+        if not hardware:
+            raise Phase2Error("compute.linux_gpu is missing for the linux_gpu profile")
+        key = (
+            "twenty_million_backend"
+            if scale == 20_000_000
+            else "fifty_million_backend"
+        )
+        backend = str(hardware[key])
+        if backend not in MATRIX_BACKENDS:
+            raise Phase2Error(f"linux_gpu {key} is not a known matrix backend")
+        return backend
+    if profile != "m5":
+        raise Phase2Error(f"unknown execution profile: {profile}")
     if scale == 20_000_000:
         return "external_memory_quantile"
-    if scale != 50_000_000:
-        raise Phase2Error(f"unsupported Phase 2 scale: {scale}")
     backend = str(
         config["compute"]["apple_silicon"]["backend_benchmark"][
             "fifty_million_backend"
         ]
     )
-    allowed = {"external_memory_quantile", "streamed_in_memory_quantile"}
-    if backend not in allowed:
+    if backend not in MATRIX_BACKENDS:
         raise Phase2Error("50M matrix backend is not frozen from the benchmark")
     return backend
 

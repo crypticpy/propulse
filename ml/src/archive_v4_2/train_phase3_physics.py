@@ -32,6 +32,11 @@ for path in (V4, MODULE):
 
 from phase2_core import Phase2Error, validate_config  # noqa: E402
 from feature_contract import CORE_FEATURE_CONTRACT_V2, core_feature_contract  # noqa: E402
+from m5_runtime import (  # noqa: E402
+    LINUX_GPU_PROFILE,
+    M5_PROFILE,
+    resolve_compute_profile,
+)
 from train_phase2_scale import (  # noqa: E402
     atomic_write,
     contract_physics_features,
@@ -39,7 +44,7 @@ from train_phase2_scale import (  # noqa: E402
     load_json,
     train_fold,
     utc_now,
-    validate_m5_runtime,
+    validate_profile_runtime,
 )
 import run_paths  # noqa: E402
 
@@ -65,14 +70,24 @@ def physics_cohort_candidate(config: dict[str, Any]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--profile", choices=("m5",), required=True)
+    parser.add_argument(
+        "--profile", choices=(M5_PROFILE, LINUX_GPU_PROFILE), required=True
+    )
+    parser.add_argument(
+        "--data-root-override",
+        default=None,
+        help=(
+            "linux_gpu only: external storage root on the training box when it "
+            "differs from the configured linux_gpu external_root."
+        ),
+    )
     parser.add_argument(
         "--force",
         action="store_true",
         help="Retrain even when a physics component is already recorded.",
     )
     args = parser.parse_args()
-    del args.profile
+    profile = str(args.profile)
     config = load_json(Path(args.config))
     validate_config(config)
     if core_feature_contract(config) != CORE_FEATURE_CONTRACT_V2:
@@ -80,7 +95,10 @@ def main() -> None:
             "physics retraining is only defined for archive-v4-features-v2; "
             "the V1 chain copies the frozen propagation_v4 physics component"
         )
-    runtime = validate_m5_runtime(config)
+    config = resolve_compute_profile(
+        config, profile, data_root_override=args.data_root_override
+    )
+    runtime = validate_profile_runtime(config, profile)
     candidate = physics_cohort_candidate(config)
     fold = str(config["final_fold"])
     manifest_path = run_paths.cohort_manifest_path(config, PHYSICS_SCALE)
@@ -125,6 +143,8 @@ def main() -> None:
         repository_models,
         previous=None,
         model_stem=f"{PHYSICS_COMPONENT}_{fold}",
+        profile=profile,
+        runtime=runtime,
     )
     result["candidate"] = PHYSICS_COMPONENT
     result["component"] = PHYSICS_COMPONENT
@@ -132,6 +152,8 @@ def main() -> None:
     result["core_feature_contract"] = CORE_FEATURE_CONTRACT_V2
     output["physics"] = result
     output["hardware_runtime"] = runtime
+    output["training_profile"] = profile
+    output["compute_profile"] = config["compute"]["active_profile"]
     output["generated_at"] = utc_now()
     atomic_write(result_path, output)
     print(result_path)

@@ -220,7 +220,9 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
                     column === hour ? " hcr-matrix-head--now" : ""
                   }${isModelHour ? " hcr-matrix-head--model" : ""}`}
                 >
-                  {column % 3 === 0 ? String(column).padStart(2, "0") : ""}
+                  {column % 3 === 0 || column === hour
+                    ? String(column).padStart(2, "0")
+                    : ""}
                 </span>
               );
             })}
@@ -244,7 +246,7 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
                       key={column}
                       className={`hcf-dot ${wallScoreTone(score)}${
                         dead ? " hcf-dot--off" : ""
-                      }`}
+                      }${column === hour ? " hcr-dot--now" : ""}`}
                     />
                   );
                 })}

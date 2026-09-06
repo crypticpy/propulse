@@ -404,6 +404,32 @@ describe("ForecastReport model horizons (HW-17)", () => {
     expect(facts.some((row) => row?.includes("+3H"))).toBe(true);
   });
 
+  it("highlights the whole current-hour column: labelled header pill plus a ring on every band dot", () => {
+    // hour=13 is not a multiple of 3, so without the highlight its label
+    // would be blank; the active hour must always print its own label.
+    mocks.horizonActivated.mockReturnValue(false);
+    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
+
+    const dialog = screen.getByRole("dialog");
+    const heads = dialog.querySelectorAll(".hcr-matrix-head");
+    expect(heads).toHaveLength(24);
+    heads.forEach((head, column) => {
+      expect(head.classList.contains("hcr-matrix-head--now")).toBe(
+        column === 13,
+      );
+    });
+    expect(heads[13].textContent).toBe("13");
+    expect(heads[14].textContent).toBe("");
+
+    // One grid, one band per row of 24 dots: every row rings column 13 only.
+    const dots = dialog.querySelectorAll(".hcr-matrix .hcf-dot");
+    expect(dots.length % 24).toBe(0);
+    expect(dots.length).toBeGreaterThan(0);
+    dots.forEach((dot, index) => {
+      expect(dot.classList.contains("hcr-dot--now")).toBe(index % 24 === 13);
+    });
+  });
+
   it("marks the exact absolute hour column, not one wrapped modulo 24", () => {
     // hour=13, horizon=3 -> column 16. A `% 24` implementation would also
     // land on 16 here (no wrap), so this pins the in-range case precisely.

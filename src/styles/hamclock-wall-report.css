@@ -251,8 +251,18 @@
   color: var(--hc-dim2);
   text-align: center;
 }
+/* The active hour is the one column an operator reads first, so it is
+ * highlighted as a column, not just a brighter label: the header becomes an
+ * accent pill and every dot beneath it carries an accent ring. */
 .hcr-matrix-head--now {
-  color: var(--hc-fg);
+  color: var(--hc-bg);
+  background: var(--hc-accent);
+  border-radius: 0.4vh;
+  font-weight: 700;
+}
+.hcr-matrix .hcf-dot.hcr-dot--now {
+  outline: 0.3vh solid var(--hc-accent);
+  outline-offset: 0.25vh;
 }
 
 /* Report-size band bars: readable from ten feet, unlike the tile bars. */

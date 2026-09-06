@@ -30,6 +30,20 @@ export function latestBySourceTime<T extends TimedRow>(rows: T[]): T | null {
   return latest;
 }
 
+/**
+ * NOAA's RTSW 1-minute feeds interleave rows from every spacecraft they
+ * track (e.g. SOLAR1 active, ACE and IMAP inactive) at the same minute, so
+ * the newest row by time_tag is often an inactive spacecraft's. Prefer the
+ * newest row flagged active; fall back to the newest row of any kind only
+ * when NOAA marks nothing active.
+ */
+export function latestActiveBySourceTime<T extends TimedRow>(
+  rows: T[],
+): T | null {
+  const active = rows.filter((row) => row.active === true);
+  return latestBySourceTime(active.length > 0 ? active : rows);
+}
+
 export function normalizedSourceTime(row: TimedRow | null): string | null {
   if (!row) return null;
   const timestamp = sourceTimestamp(row.time_tag ?? row["time-tag"]);
@@ -100,10 +114,10 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       ? latestBySourceTime(sfiResult.value)
       : null;
     const mag = magResult.status === "fulfilled"
-      ? latestBySourceTime(magResult.value)
+      ? latestActiveBySourceTime(magResult.value)
       : null;
     const windEntry = windResult.status === "fulfilled"
-      ? latestBySourceTime(windResult.value)
+      ? latestActiveBySourceTime(windResult.value)
       : null;
     const kp = kpEntry?.kp_index ?? null;
     const sfi = sfiEntry?.flux ?? null;

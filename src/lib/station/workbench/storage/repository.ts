@@ -263,8 +263,14 @@ async function readDependencies(tx: Transaction, ownerId: string, generationId: 
   if (outbox.length !== operations.length || outbox.some((row) => !operationIds.has(row.operationId))
     || results.some((row) => !operationIds.has(row.operationId))) damaged("Delivery ledger has an orphan or missing operation/outbox receipt");
   const sequences = new Set<number>();
+  const outboxById = new Map(outbox.map((row) => [row.operationId, row]));
+  const resultById = new Map(results.map((row) => [row.operationId, row]));
+  const nodesById = new Map<string, {
+    row: OperationRecord; node: StationDeliveryGraph["operations"][number]; expectedTokens: Set<string>;
+  }>();
+  const producersByToken = new Map<string, string[]>();
   for (const row of operations) {
-    const queue = outbox.find((candidate) => candidate.operationId === row.operationId);
+    const queue = outboxById.get(row.operationId);
     if (!queue || row.ownerId !== ownerId || row.generationId !== generationId
       || queue.ownerId !== ownerId || queue.generationId !== generationId
       || queue.localSequence !== row.localSequence
@@ -274,39 +280,52 @@ async function readDependencies(tx: Transaction, ownerId: string, generationId: 
     const operation = stationOperationSchema.parse(row.operation);
     await replay(tx, row, operation);
     const receiptHeads = row.status === "committed" ? boundReceipt(row).committedHeads : [];
-    const terminalResult = results.find((result) => result.operationId === row.operationId) ?? null;
+    const terminalResult = resultById.get(row.operationId) ?? null;
     // A malformed generation on an owner-global terminal key must not vanish
     // behind the generation index and make the operation appear unsent.
     if (terminalResult === null && await tx.objectStore("deliveryResults").get([ownerId, row.operationId]) !== undefined) {
       damaged("Delivery result scope mismatch");
     }
-    graph.operations.push({ ownerId, generationId, operationId: row.operationId, payloadDigest: row.payloadDigest,
+    const node = { ownerId, generationId, operationId: row.operationId, payloadDigest: row.payloadDigest,
       committedHeads: receiptHeads, localStatus: row.status, dependencyOperationIds: queue.dependencyOperationIds,
-      terminalResult });
+      terminalResult };
+    graph.operations.push(node);
+    const expectedTokens = new Set(operation.expectedHeads.flatMap((head) => head.versionId === null ? [] : [versionKey({ ...head, versionId: head.versionId })]));
+    nodesById.set(row.operationId, { row, node, expectedTokens });
+    for (const head of receiptHeads) {
+      const token = versionKey(head);
+      const producers = producersByToken.get(token) ?? [];
+      producers.push(row.operationId);
+      producersByToken.set(token, producers);
+    }
   }
-  const referencesHead = (operation: StationOperation, prior: StationDeliveryGraph["operations"][number]) => prior.committedHeads.some((head) =>
-    operation.expectedHeads.some((expected) => key(head) === key(expected) && head.versionId === expected.versionId));
   // Bind persisted dependency edges back to the signed head preconditions.
   // Older writers omitted already-acknowledged prerequisites; that omission
   // is safe only while the immutable accepted result is retained and verified.
-  for (const [index, node] of graph.operations.entries()) {
-    const operation = stationOperationSchema.parse(operations[index].operation);
+  // Indexes are local validation aids only: the exact audited snapshot keeps
+  // its original arrays/order, and no stored dependency or receipt is rewritten.
+  for (const { row, node, expectedTokens } of nodesById.values()) {
+    const dependencies = new Set(node.dependencyOperationIds);
     for (const dependencyId of node.dependencyOperationIds) {
-      const dependencyIndex = operations.findIndex((row) => row.operationId === dependencyId);
-      if (dependencyIndex === -1) damaged("Missing delivery dependency");
-      const predecessor = graph.operations[dependencyIndex];
-      if (operations[dependencyIndex].localSequence >= operations[index].localSequence
-        || predecessor.localStatus !== "committed" || !referencesHead(operation, predecessor)) damaged("Delivery dependency does not match an earlier committed head precondition");
+      const predecessor = nodesById.get(dependencyId);
+      if (!predecessor) damaged("Missing delivery dependency");
+      if (predecessor.row.localSequence >= row.localSequence
+        || predecessor.node.localStatus !== "committed"
+        || !predecessor.node.committedHeads.some((head) => expectedTokens.has(versionKey(head)))) damaged("Delivery dependency does not match an earlier committed head precondition");
     }
-    for (const [priorIndex, predecessor] of graph.operations.entries()) {
-      if (operations[priorIndex].localSequence < operations[index].localSequence && predecessor.localStatus === "committed"
-        && referencesHead(operation, predecessor) && !node.dependencyOperationIds.includes(predecessor.operationId)
-        && predecessor.terminalResult?.outcome !== "accepted") damaged("Missing required delivery dependency for a retained head precondition");
+    // Only producers of this operation's signed expected head tokens can be
+    // required prerequisites; unrelated retained history needs no pairwise scan.
+    for (const token of expectedTokens) {
+      for (const operationId of producersByToken.get(token) ?? []) {
+        const predecessor = nodesById.get(operationId)!;
+        if (predecessor.row.localSequence < row.localSequence && !dependencies.has(operationId)
+          && predecessor.node.terminalResult?.outcome !== "accepted") damaged("Missing required delivery dependency for a retained head precondition");
+      }
     }
   }
   const readiness = evaluateStationDeliveryGraph(graph);
   for (const node of readiness) {
-    if (outbox.find((row) => row.operationId === node.operationId)!.state !== deliveryOutboxState(node.status)) damaged("Outbox delivery state disagrees with terminal results and dependency graph");
+    if (outboxById.get(node.operationId)!.state !== deliveryOutboxState(node.status)) damaged("Outbox delivery state disagrees with terminal results and dependency graph");
   }
   return { outbox, operations, results, graph, readiness };
 }
@@ -403,16 +422,18 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
           const sequence = state.localSequence + 1;
           if (!Number.isSafeInteger(sequence)) damaged("Local operation sequence is exhausted");
           const previousOutbox = dependencySnapshot.outbox;
+          const previousById = new Map(dependencySnapshot.operations.map((row) => [row.operationId, row]));
+          const expectedTokens = new Set(operation.expectedHeads.flatMap((head) => head.versionId === null ? [] : [versionKey({ ...head, versionId: head.versionId })]));
           const dependencies: string[] = [];
           for (const pending of previousOutbox.filter((row) => row.generationId === operation.generationId).sort((a, b) => a.localSequence - b.localSequence)) {
-            const previous = dependencySnapshot.operations.find((row) => row.operationId === pending.operationId);
+            const previous = previousById.get(pending.operationId);
             if (!previous || pending.ownerId !== ownerId || previous.ownerId !== ownerId || previous.generationId !== operation.generationId
               || previous.operationId !== pending.operationId || previous.localSequence !== pending.localSequence
               || canonicalWorkbenchJson(previous.operation) !== canonicalWorkbenchJson(pending.operation)) damaged("Outbox operation receipt is missing or inconsistent");
             operationRowSchema.parse(previous);
             if (previous.status !== "committed") continue;
             const receipt = boundReceipt(previous);
-            if (receipt.committedHeads.some((head) => operation.expectedHeads.some((expected) => key(head) === key(expected) && head.versionId === expected.versionId))) dependencies.push(pending.operationId);
+            if (receipt.committedHeads.some((head) => expectedTokens.has(versionKey(head)))) dependencies.push(pending.operationId);
           }
           let result: StationCommitResult;
           let storedResult: unknown;
@@ -447,8 +468,8 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
           await tx.objectStore("operations").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, payloadDigest: operation.payloadDigest, localSequence: sequence,
             status: change.status === "conflict" ? "conflict" : "committed", operation, result: storedResult });
           checkpoint("after-receipt");
-          const blocked = dependencies.some((dependency) => dependencySnapshot.readiness.some((node) => node.operationId === dependency
-            && (node.status === "rejected" || node.status === "blocked" || node.status === "conflicted")));
+          const blockedIds = new Set(dependencySnapshot.readiness.filter((node) => node.status === "rejected" || node.status === "blocked" || node.status === "conflicted").map((node) => node.operationId));
+          const blocked = dependencies.some((dependency) => blockedIds.has(dependency));
           await tx.objectStore("outbox").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, localSequence: sequence,
             state: change.status === "conflict" ? "conflicted" : blocked ? "blocked" : "pending", dependencyOperationIds: dependencies, operation });
           checkpoint("after-outbox");
@@ -497,8 +518,9 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
           if (outcome.status === "recorded") {
             await tx.objectStore("deliveryResults").add(target.terminalResult);
             checkpoint("after-delivery-result");
+            const outboxById = new Map(snapshot.outbox.map((row) => [row.operationId, row]));
             for (const node of readiness) {
-              const row = snapshot.outbox.find((candidate) => candidate.operationId === node.operationId)!;
+              const row = outboxById.get(node.operationId)!;
               const state = deliveryOutboxState(node.status);
               if (row.state === state) continue;
               await tx.objectStore("outbox").put({ ...row, state });

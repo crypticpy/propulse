@@ -1,8 +1,7 @@
 """v4: mode-aware path-hour training table.
 
 Differences vs v3 (build_dataset.py):
- - every cell carries a mode_class dimension (cw | digital); SSB/AM/FM excluded
-   (~25K spots — invisible; the product derives SSB from digital + SNR margin)
+ - every cell carries a mode_class dimension (cw | digital | phone)
  - rx/tx activity conditioning is mode-class-specific (RBN skimmers hear CW,
    PSKReporter monitors hear digital — different receiver networks)
  - cross-mode lag feature: activity on the same path for the *other* mode class
@@ -28,7 +27,8 @@ MIN_PAIR_SPOTS = 300
 DOMINANT_FIELD_FRAC = 0.8
 MAX_CELLS = 30_000_000
 
-DIGITAL = "'FT8','FT4','FT2','JS8','VARAC','WSPR','RTTY','FREEDV','PKT','DATA','OLIVIA','JT65','JT9','MSK144','Q65','FST4','FST4W'"
+DIGITAL = "'FT8','FT4','FT2','JS8','VARAC','WSPR','RTTY','FREEDV','PKT','DATA','OLIVIA','JT65','JT9','MSK144','Q65','FST4','FST4W','DIGITAL','DIG','DIGI','PSK','PSK31','PSK63','MFSK'"
+PHONE = "'USB','LSB','SSB','AM','FM','PHONE','VOICE','DV','DSTAR','DMR','C4FM'"
 
 t0 = time.time()
 con = duckdb.connect()
@@ -76,6 +76,7 @@ con.execute(
             s.hour_utc, s.band, s.snr,
             CASE WHEN s.mode = 'CW' THEN 'cw'
                  WHEN s.mode IN ({DIGITAL}) THEN 'digital'
+                 WHEN s.mode IN ({PHONE}) THEN 'phone'
             END AS mode_class,
             coalesce(s.tx_field, ct.field) AS tx_field,
             coalesce(s.rx_field, cr.field) AS rx_field

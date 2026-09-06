@@ -244,7 +244,15 @@ export function adaptXray(
   const points = selected.flatMap((value): XrayPoint[] => {
     const row = record(value);
     const flux = toFiniteNumber(row?.flux);
-    if (!row || flux === null || flux < 0) return [];
+    // GOES publishes electron-contaminated minutes as `flux: 0` with the
+    // contamination flag set (NOAA currently spells it `electron_contaminaton`;
+    // the correct spelling is accepted too in case the feed is fixed). A zero
+    // is not a measurement, so the sample is dropped and the series keeps its
+    // last valid reading.
+    if (!row || flux === null || flux <= 0) return [];
+    if (row.electron_contaminaton === true || row.electron_contamination === true) {
+      return [];
+    }
     return [{
       time_tag: String(row.time_tag ?? ""),
       flux,

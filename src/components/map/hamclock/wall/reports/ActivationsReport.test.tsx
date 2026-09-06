@@ -54,10 +54,10 @@ it("keeps the pinned report identity when its programme changes", () => {
   }
   render(<QueryClientProvider client={client}><Harness /></QueryClientProvider>);
   fireEvent.click(screen.getByRole("tab", { name: "SOTA" }));
-  fireEvent.click(screen.getByRole("button", { name: "PIN", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "PIN" }));
   expect(screen.getByRole("tab", { name: "SOTA" }).getAttribute("aria-selected")).toBe("true");
   fireEvent.click(screen.getByRole("tab", { name: "WWFF" }));
-  expect(screen.getByRole("button", { name: "UNPIN", exact: true }).getAttribute("aria-pressed")).toBe("true");
-  fireEvent.click(screen.getByRole("button", { name: "UNPIN", exact: true }));
+  expect(screen.getByRole("button", { name: "UNPIN" }).getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "UNPIN" }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });

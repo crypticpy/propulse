@@ -543,7 +543,26 @@ class ServiceTests(unittest.TestCase):
         ))
         configured_body = configured_client.get("/v1/propagation/health").json()
         self.assertEqual(configured_body["path_history_provider"], "approved-fixture")
+        self.assertEqual(configured_body["configured_profile"], "nowcast")
         self.assertEqual(configured_body["serving_profile"], "nowcast")
+
+    def test_health_serving_profile_follows_the_last_served_prediction(self):
+        # A configured provider whose rows are stale serves physics on every
+        # request; /health must say so rather than advertise the configured
+        # (phantom) nowcast profile.
+        stale_client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=FakePathHistoryProvider(age_seconds=7201),
+        ))
+        before = stale_client.get("/v1/propagation/health").json()
+        self.assertEqual(before["configured_profile"], "nowcast")
+        self.assertEqual(before["serving_profile"], "nowcast")
+        stale_client.post("/v1/propagation/path", json=request_payload())
+        after = stale_client.get("/v1/propagation/health").json()
+        self.assertEqual(after["configured_profile"], "nowcast")
+        self.assertEqual(after["serving_profile"], "physics")
+        self.assertEqual(after["served_profile_counts"], {"physics": 1})
 
     def test_unavailable_path_history_provider_skips_the_lookup(self):
         provider = SpyUnavailablePathHistoryProvider()
@@ -598,9 +617,9 @@ class ServiceTests(unittest.TestCase):
         health = client.get("/v1/propagation/health").json()
         self.assertEqual(health["served_profile_counts"], {"physics": 2})
 
-        # serving_profile reflects configuration; served_profile_counts
-        # reflects what predict_many actually returned - a fresh, configured
-        # provider serves nowcast.
+        # configured_profile reflects configuration; serving_profile and
+        # served_profile_counts reflect what predict_many actually returned -
+        # a fresh, configured provider serves nowcast.
         nowcast_client = TestClient(create_app(
             self.registry,
             inference_mode="shadow",
@@ -608,6 +627,7 @@ class ServiceTests(unittest.TestCase):
         ))
         nowcast_client.post("/v1/propagation/path", json=request_payload())
         nowcast_health = nowcast_client.get("/v1/propagation/health").json()
+        self.assertEqual(nowcast_health["serving_profile"], "nowcast")
         self.assertEqual(nowcast_health["served_profile_counts"], {"nowcast": 1})
 
     def test_missing_feature_summary_sorts_caps_and_handles_empty_input(self):

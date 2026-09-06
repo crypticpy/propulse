@@ -1179,11 +1179,19 @@ def create_app(
     missing_feature_counter: Counter[str] = Counter()
     # The profile a request is *expected* to serve, given provider
     # configuration at startup. A configured provider can still fail per
-    # request or return stale rows, so this is not the whole story -
-    # served_profile_counter (below) tracks what predict_many actually
-    # returned, since startup.
-    serving_profile = "physics" if history_provider.name == "unavailable" else "nowcast"
+    # request or return stale rows, so /health reports the profile of the
+    # most recent prediction as serving_profile (falling back to this
+    # expectation before any request has been served) and keeps
+    # served_profile_counter as the rolling tally since startup.
+    configured_profile = (
+        "physics" if history_provider.name == "unavailable" else "nowcast"
+    )
     served_profile_counter: Counter[str] = Counter()
+    last_served_profile: dict[str, str] = {}
+
+    def record_served_profile(profile: str) -> None:
+        served_profile_counter.update([profile])
+        last_served_profile["profile"] = profile
     app = FastAPI(title="Propulse Propagation API", version="1.0.0")
 
     @app.middleware("http")
@@ -1244,7 +1252,10 @@ def create_app(
             "path_history_provider": history_provider.name,
             "path_history_transform_version": history_provider.transform_version,
             "operational_weather_provider": weather_provider.name,
-            "serving_profile": serving_profile,
+            "configured_profile": configured_profile,
+            "serving_profile": last_served_profile.get(
+                "profile", configured_profile
+            ),
             "served_profile_counts": dict(served_profile_counter),
             "missing_feature_counts": [
                 {"feature": name, "count": count}
@@ -1296,7 +1307,7 @@ def create_app(
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
         missing_feature_counter.update(prediction.missing_feature_names)
-        served_profile_counter.update([prediction.profile])
+        record_served_profile(prediction.profile)
         response = prediction_response(verified_request, prediction)
         if research_receipts_enabled:
             stop_counts = beta_stop_counts_for_prediction(
@@ -1406,7 +1417,7 @@ def create_app(
             raise HTTPException(status_code=503, detail=str(error)) from error
         for runtime_prediction in runtime_predictions:
             missing_feature_counter.update(runtime_prediction.missing_feature_names)
-            served_profile_counter.update([runtime_prediction.profile])
+            record_served_profile(runtime_prediction.profile)
         for cell, prediction in zip(cells, runtime_predictions):
             path_request = PathRequest(
                 origin_grid4=request.origin_grid4,

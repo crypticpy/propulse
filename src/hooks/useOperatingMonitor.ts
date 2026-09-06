@@ -15,6 +15,40 @@ const useMonitorStore = create<{ reports: Record<string, RadioReport> }>(
 );
 const STALE_MS = 15_000;
 
+function dropStaleReports(
+  reports: Record<string, RadioReport>,
+  now: number,
+): Record<string, RadioReport> | null {
+  let dropped = false;
+  const next: Record<string, RadioReport> = {};
+  for (const [sender, report] of Object.entries(reports)) {
+    if (now - report.receivedAt < STALE_MS) {
+      next[sender] = report;
+    } else {
+      dropped = true;
+    }
+  }
+  return dropped ? next : null;
+}
+
+function pruneStaleReports(now = Date.now()) {
+  useMonitorStore.setState((s) => {
+    const reports = dropStaleReports(s.reports, now);
+    return reports ? { reports } : s;
+  });
+}
+
+function newestLiveReport(
+  reports: Record<string, RadioReport>,
+  now: number,
+): RadioReport | null {
+  return (
+    Object.values(reports)
+      .filter((report) => report.live && now - report.receivedAt < STALE_MS)
+      .sort((a, b) => b.receivedAt - a.receivedAt)[0] ?? null
+  );
+}
+
 /** Publish observations only. Receiving a report never changes the operating store. */
 export function useOperatingMonitorBridge() {
   useEffect(() => {
@@ -63,13 +97,7 @@ export function useOperatingMonitorBridge() {
     const unsubscribe = useOperatingStore.subscribe(publish);
     const timer = setInterval(() => {
       publish();
-      useMonitorStore.setState((s) => ({
-        reports: Object.fromEntries(
-          Object.entries(s.reports).filter(
-            ([, report]) => Date.now() - report.receivedAt < STALE_MS,
-          ),
-        ),
-      }));
+      pruneStaleReports();
     }, 5000);
     return () => {
       clearInterval(timer);
@@ -92,12 +120,37 @@ export function useOperatingMonitorBridge() {
 }
 
 export function useOperatingMonitor() {
-  return useMonitorStore(
-    (s) =>
-      Object.values(s.reports)
-        .filter(
-          (report) => report.live && Date.now() - report.receivedAt < STALE_MS,
-        )
-        .sort((a, b) => b.receivedAt - a.receivedAt)[0] ?? null,
-  );
+  const radio = useMonitorStore((s) => newestLiveReport(s.reports, Date.now()));
+  // Date.now() in the selector only re-runs on a store write. Schedule a
+  // prune at the live report's stale deadline so Follow radio (and every
+  // other consumer) drops the last band/mode when the radio goes quiet
+  // without another monitor update.
+  useEffect(() => {
+    if (!radio) return;
+    const delay = Math.max(0, radio.receivedAt + STALE_MS - Date.now());
+    const id = window.setTimeout(() => pruneStaleReports(), delay);
+    return () => window.clearTimeout(id);
+  }, [radio]);
+  return radio;
 }
+
+/** Test helper: plant a report without the bridge's 5 s keepalive. */
+export function ingestOperatingMonitorReportForTests(
+  report: Pick<RadioReport, "sender" | "band" | "mode" | "frequency"> &
+    Partial<Pick<RadioReport, "live" | "receivedAt">>,
+) {
+  const next: RadioReport = {
+    live: true,
+    receivedAt: Date.now(),
+    ...report,
+  };
+  useMonitorStore.setState((s) => ({
+    reports: { ...s.reports, [next.sender]: next },
+  }));
+}
+
+export function resetOperatingMonitorForTests() {
+  useMonitorStore.setState({ reports: {} });
+}
+
+export const OPERATING_MONITOR_STALE_MS = STALE_MS;

@@ -53,8 +53,8 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
  * Cut for this shell (see B5 report): text size, the desk accordion's
  * per-panel visibility list and "Reset display" — the panel list alone is
  * eleven `HamClockToggleRow`s, which cannot share a non-scrolling tab with
- * anything else at 1366×768. They do not have a home in the six tabs this
- * batch defines and are left for a later batch to place deliberately.
+ * anything else at 1366×768. Follow radio (#160) is on the Kiosk tab for the
+ * same reason: a third toggle on this tab overflows the panel.
  */
 export function DisplayTab() {
   const density = useHamClockDisplayStore((s) => s.density);

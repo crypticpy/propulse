@@ -42,7 +42,7 @@ export function HamClockSettingsDialog({
             content: <PagesTilesTab />,
           },
           { id: "layers", label: "Layers", content: <LayersTab /> },
-          { id: "map", label: "Map", content: <MapTab /> },
+          { id: "map", label: "Map", content: <MapTab onClose={onClose} /> },
           { id: "theme", label: "Theme", content: <ThemeTab /> },
           { id: "kiosk", label: "Kiosk", content: <KioskTab /> },
         ]}

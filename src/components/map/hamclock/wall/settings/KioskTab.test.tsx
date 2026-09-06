@@ -1,8 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { KioskTab } from "./KioskTab";
+
+vi.mock("@/hooks/useOperatingMonitor", () => ({ useOperatingMonitor: vi.fn() }));
 
 function LocationProbe() {
   const location = useLocation();
@@ -21,6 +25,8 @@ function renderTab() {
 describe("KioskTab", () => {
   beforeEach(() => {
     useKioskStore.setState({ active: false, activeSceneId: null });
+    useHamClockDisplayStore.getState().resetDisplay();
+    vi.mocked(useOperatingMonitor).mockReturnValue(null);
   });
 
   it("says no scene is pinning the wall when kiosk mode is inactive", () => {
@@ -148,5 +154,40 @@ describe("KioskTab", () => {
     renderTab();
     fireEvent.click(screen.getByRole("button", { name: "OPEN KIOSK EDITOR" }));
     expect(stop).not.toHaveBeenCalled();
+  });
+
+  it("keeps Follow radio off and disabled with no live radio", () => {
+    renderTab();
+    const toggle = screen.getByRole("switch", { name: "Follow radio" });
+    expect(toggle.textContent).toBe("OFF");
+    expect((toggle as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Needs a live CAT or WSJT-X radio")).toBeTruthy();
+  });
+
+  it("turns Follow radio on when a live radio is present", () => {
+    vi.mocked(useOperatingMonitor).mockReturnValue({
+      sender: "test",
+      band: "20m",
+      mode: "FT8",
+      frequency: 14.074,
+      live: true,
+      receivedAt: Date.now(),
+    });
+    renderTab();
+    const toggle = screen.getByRole("switch", { name: "Follow radio" });
+    expect(screen.getByText("Locks spots to 20m FT8")).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(useHamClockDisplayStore.getState().followRadio).toBe(true);
+    expect(toggle.textContent).toBe("ON");
+  });
+
+  it("lets the operator turn Follow radio off after the radio drops", () => {
+    useHamClockDisplayStore.setState({ followRadio: true });
+    renderTab();
+    const toggle = screen.getByRole("switch", { name: "Follow radio" });
+    expect((toggle as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText("Paused · no live radio")).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(useHamClockDisplayStore.getState().followRadio).toBe(false);
   });
 });

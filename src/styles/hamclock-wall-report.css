@@ -202,12 +202,13 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
   /* A value that does not fit beside its label drops under it whole: the
-   * row wraps, and the value keeps its full width on that line (only a
-   * value wider than the whole row wraps between its words). `anywhere`
-   * had split "364516 km" and "26.9° HIGH" into fragments when a wide
-   * verdict narrowed the facts column (#267 rendered check). */
+   * row wraps, and the value keeps its full width on that line, so it
+   * breaks between its words only when it is wider than the whole row,
+   * and inside a word only when that word is (a saved target name). With
+   * the row unable to wrap, `anywhere` alone had split "364516 km" and
+   * "26.9° HIGH" into fragments (#267 rendered check). */
   flex: 1 1 auto;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- body ---------- */

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import SunCalc from "suncalc";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useBandActivity } from "@/hooks/useBandActivity";
@@ -26,6 +26,7 @@ import { LADDER_WALL_CLASS, LADDER_WALL_LABEL, reportFooter } from "../tokens";
 import { EngineComparisonStrip } from "./EngineComparisonStrip";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
+import { useVisibleRows } from "../useVisibleRows";
 
 export interface BestBandReportProps {
   open: boolean;
@@ -98,6 +99,7 @@ function BandRow({
   entry,
   rank,
   leader,
+  surprise,
   mufMHz,
   activityFetchedAt,
   onFocus,
@@ -105,6 +107,7 @@ function BandRow({
   entry: BandLadderEntry;
   rank: number;
   leader: boolean;
+  surprise: boolean;
   mufMHz: number | null;
   activityFetchedAt: number | null;
   onFocus: (band: string) => void;
@@ -121,7 +124,13 @@ function BandRow({
       <span className="hcr-bandrow-band" style={{ color: getBandColor(band) }}>
         {band.toUpperCase()}
       </span>
-      <span>{leader ? `LEADING · ${result.inputs.obs20m}/20 MIN` : "—"}</span>
+      <span className={surprise ? "hc-warn" : undefined}>
+        {leader
+          ? `LEADING · ${result.inputs.obs20m}/20 MIN`
+          : surprise
+            ? "SURPRISE"
+            : "—"}
+      </span>
       <span
         className={predictedTone(
           result.evaluation.physicsOpen,
@@ -198,6 +207,11 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   );
   const leader = ranked[0] ?? null;
   const activityFetchedAt = activitySnapshot?.fetchedAt ?? null;
+  // The ranked table is the report's flexible slot: it shows as many rows
+  // as fit under the engine strip and says "TOP n OF m" when that is not
+  // all of them, rather than clipping a row or scrolling (#250 S6).
+  const tableRef = useRef<HTMLDivElement>(null);
+  const visibleRows = useVisibleRows(tableRef, ranked.length);
 
   const nowCastTarget = useMemo(() => {
     if (!ladderTarget) return null;
@@ -368,8 +382,14 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
           now={now}
         />
       )}
-      <div className="hcr-box">
-        <p className="hcr-bandtable-caption">Ranked bands · {scope.label}</p>
+      <div className="hcr-box hcr-box--fill">
+        <p className="hcr-bandtable-caption">
+          Ranked bands · {scope.label}
+          {visibleRows < ranked.length
+            ? ` · top ${visibleRows} of ${ranked.length}`
+            : ""}
+          {surprises.length > 0 ? ` · ${surprises.length} surprise` : ""}
+        </p>
         <div className="hcr-bandtable-head" aria-hidden="true">
           <span>#</span>
           <span>Band</span>
@@ -380,13 +400,14 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
           <span>Score</span>
           <span>2H scope</span>
         </div>
-        <div className="hcr-bandtable">
-          {ranked.map((entry, index) => (
+        <div className="hcr-bandtable" ref={tableRef}>
+          {ranked.slice(0, visibleRows).map((entry, index) => (
             <BandRow
               key={entry.band}
               entry={entry}
               rank={index + 1}
               leader={index === 0}
+              surprise={entry.result.evaluation.surprise}
               mufMHz={muf}
               activityFetchedAt={activityFetchedAt}
               onFocus={handleFocus}
@@ -417,7 +438,9 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
                 <td>
                   {index === 0
                     ? `Leading, ${entry.result.inputs.obs20m} observations in 20 minutes`
-                    : "—"}
+                    : entry.result.evaluation.surprise
+                      ? "Surprise activity, predicted closed"
+                      : "—"}
                 </td>
                 <td>
                   {predictedLabel(
@@ -440,26 +463,6 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
         </table>
       </div>
 
-      {surprises.length > 0 && (
-        <div className="hcr-box">
-          <p className="hcr-bandtable-caption">
-            Surprise activity — predicted closed
-          </p>
-          <div className="hcr-bandtable">
-            {surprises.map((entry) => (
-              <BandRow
-                key={entry.band}
-                entry={entry}
-                rank={ranked.indexOf(entry) + 1}
-                leader={false}
-                mufMHz={muf}
-                activityFetchedAt={activityFetchedAt}
-                onFocus={handleFocus}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </WallReport>
   );
 }

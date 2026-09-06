@@ -148,7 +148,10 @@ describe("SunReport", () => {
     const riseFact = facts.find((row) => row?.startsWith("RISE"));
     expect(riseFact).toBeTruthy();
     expect(riseFact).not.toMatch(/\s\/\s/);
-    expect(facts.some((row) => row?.startsWith("CHANGE"))).toBe(true);
+    // Six facts (#250): the day-length change moved into the Sun times box.
+    expect(facts).toHaveLength(6);
+    expect(facts.some((row) => row?.startsWith("CHANGE"))).toBe(false);
+    expect(within(dialog).getByText("DAY LENGTH CHANGE")).toBeTruthy();
     expect(facts.some((row) => row?.startsWith("ELEV NOW"))).toBe(true);
     expect(facts.some((row) => row?.startsWith("AZ NOW"))).toBe(true);
     // The chart's sr-only twin lists all 24 hourly samples.

@@ -43,8 +43,8 @@ Rows exist only for pairs that were heard, so `heard` is always 1 and
 `recency_rate` is always `1 / exposure`: the magnitude is a per-receiving-field
 inverse-breadth weight, and the genuinely per-pair signal is carried by the
 four availability flags (was the pair present at H-1 / H-2 / H-3 / H-24). A
-busy receiving field dilutes every path into it. `quality_flags` stores
-`digital_heard`, `digital_exposure`, `spots`, and `rx_spots` on every row, so
+busy receiving field dilutes every path into it. The typed columns
+`digital_heard`, `digital_exposure`, `spots`, and `rx_spots` are on every row, so
 a digital-only rate or a spot-share rate can be derived in N3 **without
 re-running this backfill**.
 

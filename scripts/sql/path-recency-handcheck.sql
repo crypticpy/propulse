@@ -74,9 +74,9 @@ SELECT
   recency.heard,
   recency.exposure,
   recency.recency_rate,
-  (recency.quality_flags ->> 'digital_exposure')::int,
-  (recency.quality_flags ->> 'spots')::int,
-  (recency.quality_flags ->> 'rx_spots')::bigint
+  recency.digital_exposure,
+  recency.spots,
+  recency.rx_spots
 FROM public.path_recency_hourly AS recency
 WHERE recency.hour_utc = date_trunc('hour', :'hour'::timestamptz)
   AND recency.band = :'band'

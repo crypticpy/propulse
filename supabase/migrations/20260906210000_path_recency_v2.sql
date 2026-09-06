@@ -46,11 +46,11 @@
 -- inverse-breadth weight, and the genuinely per-pair signal lives in the four
 -- availability flags (was this pair present at H-1 / H-2 / H-3 / H-24). A
 -- busy receiving field dilutes every path into it. If N3 finds that sign
--- unhelpful, quality_flags already carries the raw counts needed to derive a
--- spot-share rate (spots / rx_spots) or a digital-only rate WITHOUT a second
--- 53-day backfill:
---   {"digital_heard": 0|1, "digital_exposure": int, "spots": int,
---    "rx_spots": int}
+-- unhelpful, the typed count columns already carry what is needed to derive
+-- a spot-share rate (spots / rx_spots) or a digital-only rate WITHOUT a
+-- second 53-day backfill: digital_heard, digital_exposure, spots, rx_spots.
+-- (They are plain columns, not a jsonb blob: at ~70k rows/day the blob cost
+-- ~100 bytes per row, twice the size of the source aggregate.)
 --
 -- Only the ten HF bands the model's band one-hot supports are aggregated;
 -- 6m/2m/other rows in path_hourly_stats are skipped (they could never be
@@ -72,9 +72,15 @@ CREATE TABLE IF NOT EXISTS public.path_recency_hourly (
   transform_version text NOT NULL CHECK (length(transform_version) BETWEEN 1 AND 128),
   source_watermark  timestamptz NOT NULL,
   available_at      timestamptz NOT NULL,
-  quality_flags     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  digital_heard     smallint NOT NULL CHECK (digital_heard IN (0, 1)),
+  digital_exposure  integer NOT NULL CHECK (digital_exposure >= 0),
+  spots             integer NOT NULL CHECK (spots >= 0),
+  rx_spots          bigint NOT NULL CHECK (rx_spots >= 0),
   PRIMARY KEY (hour_utc, band, tx_field, rx_field, transform_version),
   CHECK (heard <= exposure),
+  CHECK (digital_heard <= heard),
+  CHECK (digital_exposure <= exposure),
+  CHECK (spots <= rx_spots),
   -- recency_rate is null exactly when the denominator is empty
   CHECK ((exposure = 0) = (recency_rate IS NULL)),
   CHECK (
@@ -103,8 +109,10 @@ COMMENT ON COLUMN public.path_recency_hourly.exposure IS
   'Distinct tx fields heard by any receiver in rx_field on this band-hour (decision D1 option B).';
 COMMENT ON COLUMN public.path_recency_hourly.heard IS
   'One when this tx_field -> rx_field pair had at least one spot in the band-hour (any mode_class). Rows exist only for heard pairs, so this is always 1 today.';
-COMMENT ON COLUMN public.path_recency_hourly.quality_flags IS
-  'digital_heard / digital_exposure repeat the statistic restricted to mode_class = digital; spots / rx_spots are the raw pair and receiving-field spot counts. Kept so a digital-only or spot-share rate can be derived without re-running the 53-day backfill.';
+COMMENT ON COLUMN public.path_recency_hourly.digital_exposure IS
+  'digital_heard / digital_exposure repeat the statistic restricted to mode_class = digital. Kept so a digital-only rate can be derived without re-running the 53-day backfill.';
+COMMENT ON COLUMN public.path_recency_hourly.rx_spots IS
+  'spots / rx_spots are the raw pair and receiving-field spot counts. Kept so a spot-share rate can be derived without re-running the 53-day backfill.';
 
 ALTER TABLE public.path_recency_hourly ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.path_recency_hourly FROM PUBLIC, anon, authenticated;
@@ -185,7 +193,8 @@ BEGIN
   )
   INSERT INTO public.path_recency_hourly (
     hour_utc, band, tx_field, rx_field, heard, exposure, recency_rate,
-    transform_version, source_watermark, available_at, quality_flags
+    transform_version, source_watermark, available_at,
+    digital_heard, digital_exposure, spots, rx_spots
   )
   SELECT
     v_hour,
@@ -198,12 +207,10 @@ BEGIN
     p_transform_version,
     v_hour + interval '1 hour',
     now(),
-    jsonb_build_object(
-      'digital_heard', CASE WHEN pairs.digital_spots > 0 THEN 1 ELSE 0 END,
-      'digital_exposure', receiver_exposure.digital_exposure,
-      'spots', pairs.spots,
-      'rx_spots', receiver_exposure.rx_spots
-    )
+    CASE WHEN pairs.digital_spots > 0 THEN 1 ELSE 0 END,
+    receiver_exposure.digital_exposure,
+    pairs.spots,
+    receiver_exposure.rx_spots
   FROM pairs
   JOIN receiver_exposure
     ON receiver_exposure.band = pairs.band
@@ -238,8 +245,8 @@ GRANT EXECUTE ON FUNCTION public.compute_path_recency_hourly(timestamptz, text)
 --   * One row is always returned per requested target field, so the caller
 --     can keep its "every requested target must come back" verification.
 --   * quality_flags is always empty. The service fails a whole batch closed
---     on ANY flag, so per-cell diagnostics belong in the table's jsonb
---     column, not in this contract.
+--     on ANY flag, so per-cell diagnostics belong in the table's count
+--     columns, not in this contract.
 --   * The table has one producer (the collector), so no provider column is
 --     stored; p_provider is echoed back for contract compatibility with the
 --     service's provider-identity check.

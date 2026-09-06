@@ -2,6 +2,7 @@ import type { DXSpot } from "@/types/dxcluster";
 import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import {
   ACTIVATION_PROGRAM_META,
+  activationProvenance,
   type ActivationProgram,
   type ActivationSpot,
 } from "@/types/activationSpots";
@@ -35,6 +36,7 @@ const ACTIVATION_SOURCE_COLORS: Record<
 > = {
   POTA: { color: "#34d399", bgColor: "rgba(52, 211, 153, 0.16)" },
   SOTA: { color: "#fbbf24", bgColor: "rgba(251, 191, 36, 0.16)" },
+  CANParks: { color: "#fb7185", bgColor: "rgba(251, 113, 133, 0.16)" },
   WWBOTA: { color: "#c084fc", bgColor: "rgba(192, 132, 252, 0.16)" },
   WWFF: { color: "#60a5fa", bgColor: "rgba(96, 165, 250, 0.16)" },
 };
@@ -69,7 +71,7 @@ export function presentActivationSpot(
 ): PresentableSpot {
   const meta = ACTIVATION_PROGRAM_META[spot.program];
   const activationLabel = `${spot.program} ${spot.reference}`;
-  const comments = [activationLabel, spot.referenceName, spot.comments]
+  const comments = [activationLabel, spot.referenceName, activationProvenance(spot), spot.comments]
     .filter(Boolean)
     .join(" · ");
   return {
@@ -91,7 +93,7 @@ export function presentActivationSpot(
       program: spot.program,
       reference: spot.reference,
       referenceName: spot.referenceName,
-      source: meta.source,
+      source: [meta.source, activationProvenance(spot)].filter(Boolean).join(" · "),
       sourceUrl: meta.sourceUrl,
     },
   };

@@ -2,17 +2,17 @@
  * Earth-Moon-Earth (EME) link budget
  *
  * The numbers an EME operator actually plans a night around: two-way path
- * loss and its degradation against the best possible night (perigee), the
- * Moon's declination and the high/low word that goes with it, sky-noise
- * temperature from the Moon's galactic latitude (including the
- * galactic-plane penalty), self-echo Doppler shift, and the mutual moon-up
- * window between the QTH and a DX target (wall spec section 26.10). This is
- * a simplified link-budget model, not the full bistatic radar equation -- it
- * does not need the Moon's physical cross-section, only the geocentric
- * distance `src/lib/utils/moon.ts` already computes (the two-way path is
- * over twice that distance, out and back). Satellite Doppler (`doppler.ts`)
- * is a different geometry (a repeating transponder, not a single
- * reflection) and is not reused here.
+ * loss (the bistatic radar equation, off the Moon's own radar cross-section)
+ * and its degradation against the best possible night (perigee), the Moon's
+ * declination and the high/low word that goes with it, sky-noise temperature
+ * from the Moon's galactic latitude (including the galactic-plane penalty),
+ * self-echo Doppler shift, and the mutual moon-up window between the QTH and
+ * a DX target (wall spec section 26.10). Range is topocentric (`moon.ts`'s
+ * `getMoonTopocentricRangeKm`), not the geocentric distance SunCalc reports
+ * directly -- near the horizon those differ by close to an Earth radius, big
+ * enough to matter across the fourth-power range term below. Satellite
+ * Doppler (`doppler.ts`) is a different geometry (a repeating transponder,
+ * not a single reflection) and is not reused here.
  */
 
 import SunCalc from "suncalc";
@@ -42,36 +42,43 @@ export const EME_BAND_FREQUENCY_MHZ: Record<EmeBand, number> = {
 export const MOON_PERIGEE_KM = 356_500;
 export const MOON_APOGEE_KM = 406_700;
 
+/** Mean lunar radius, km -- paired with `MOON_RADAR_REFLECTIVITY` for the
+ * radar cross-section the bistatic radar equation needs. */
+export const MOON_RADIUS_KM = 1737.4;
+
 /**
  * Fraction of incident power the Moon's regolith reflects back toward
- * Earth, averaged across the visible disc -- the commonly cited ~7% lunar
- * reflection efficiency EME link budgets use in place of a perfect mirror.
+ * Earth, averaged across the visible disc -- the commonly cited ~6.5% lunar
+ * radar reflectivity EME link budgets use in place of a perfect mirror.
  */
-const MOON_REFLECTION_EFFICIENCY = 0.07;
-/** -10*log10(0.07) ≈ 11.5 dB of loss the reflection costs on top of free
- * space, matching the wall spec's cited "~7% / -11.6 dB" approximation. */
-const REFLECTION_LOSS_DB = -10 * Math.log10(MOON_REFLECTION_EFFICIENCY);
-
-/** One-way free-space path loss (dB), 20*log10(4*pi*d*f/c). */
-function freeSpaceLossDb(distanceKm: number, frequencyMHz: number): number {
-  const distanceM = distanceKm * 1000;
-  const frequencyHz = frequencyMHz * 1_000_000;
-  return 20 * Math.log10((4 * Math.PI * distanceM * frequencyHz) / C_M_S);
-}
+export const MOON_RADAR_REFLECTIVITY = 0.065;
 
 /**
- * Two-way Earth-Moon-Earth path loss (dB) at `band` from the Earth-Moon
- * range (geocentric, per `moon.ts`'s `distanceKm` -- see that module's
- * docblock for why the sub-0.2 dB parallax correction isn't worth making):
- * free-space loss over twice the range (out to the Moon and back) plus the
- * loss the Moon's own reflection efficiency costs. Always positive; larger
- * is worse.
+ * The Moon's radar cross-section, m^2: its reflectivity times the area of
+ * its geometric disc (pi * r^2), the standard flat-disc approximation for a
+ * spherical reflector whose radius is tiny next to the Earth-Moon range.
+ */
+export const MOON_RADAR_CROSS_SECTION_M2 =
+  MOON_RADAR_REFLECTIVITY * Math.PI * (MOON_RADIUS_KM * 1000) ** 2;
+
+/**
+ * Two-way Earth-Moon-Earth path loss (dB) at `band` from `rangeKm` (a
+ * topocentric range -- see the module docblock): the bistatic radar
+ * equation, `10*log10((4*pi)^3 * R^4 / (lambda^2 * sigma))`, where `R` is
+ * the range in metres, `lambda` the band's wavelength, and `sigma` the
+ * Moon's radar cross-section. Unlike a simple free-space calculation over
+ * twice the range, reflected power spreads on *both* legs of the round
+ * trip, so loss grows with the range to the fourth power, not the second --
+ * treating the Moon as an inline attenuator instead of a radar target
+ * understates the loss by tens of dB. Always positive; larger is worse.
  */
 export function pathLossDb(rangeKm: number, band: EmeBand): number {
-  return (
-    freeSpaceLossDb(2 * rangeKm, EME_BAND_FREQUENCY_MHZ[band]) +
-    REFLECTION_LOSS_DB
-  );
+  const rangeM = rangeKm * 1000;
+  const frequencyHz = EME_BAND_FREQUENCY_MHZ[band] * 1_000_000;
+  const wavelengthM = C_M_S / frequencyHz;
+  const numerator = (4 * Math.PI) ** 3 * rangeM ** 4;
+  const denominator = wavelengthM ** 2 * MOON_RADAR_CROSS_SECTION_M2;
+  return 10 * Math.log10(numerator / denominator);
 }
 
 /**

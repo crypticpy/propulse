@@ -20,6 +20,7 @@ import {
   getMoonGalacticLatitudeDeg,
   getMoonRangeRateKmS,
   getMoonSnapshot,
+  getMoonTopocentricRangeKm,
   getSublunarPoint,
 } from "@/lib/utils/moon";
 import { useMapStore } from "@/stores/mapStore";
@@ -65,10 +66,60 @@ function dateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
+/** "2 H 10 MIN", "25 MIN" — a duration spelled out uppercase and short, for
+ * the mutual-window fact (finding 5): a wall reader needs "how long is left
+ * or how long the window runs," not just a start/end clock pair. */
+function formatDurationLeft(minutes: number): string {
+  const whole = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(whole / 60);
+  const mins = whole % 60;
+  if (hours === 0) return `${mins} MIN`;
+  return `${hours} H ${mins} MIN`;
+}
+
 function utcMidnight(date: Date): Date {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
   );
+}
+
+/**
+ * The next real moonrise and moonset strictly after `at`, for the hero
+ * countdown. `SunCalc.getMoonTimes` is scoped to one calendar day and can
+ * omit an event entirely (the Moon up or down all day) or return that day's
+ * own event even once it is already in the past -- when a moon-up interval
+ * crosses local midnight, today's `set` can be this morning's already-passed
+ * crossing while the Moon rose again this evening, and the reverse for
+ * `rise` while the Moon is down. Scanning yesterday, today and tomorrow and
+ * keeping only crossings after `at` means the hero always counts down to a
+ * real future event instead of clamping a negative interval to zero.
+ */
+function nextMoonCrossings(
+  at: Date,
+  lat: number,
+  lon: number,
+): { nextRise: Date | null; nextSet: Date | null } {
+  let nextRise: Date | null = null;
+  let nextSet: Date | null = null;
+  for (let dayOffset = -1; dayOffset <= 2; dayOffset++) {
+    const day = new Date(at.getTime() + dayOffset * DAY_MS);
+    const times = SunCalc.getMoonTimes(day, lat, lon, true);
+    if (
+      times.rise instanceof Date &&
+      times.rise.getTime() > at.getTime() &&
+      (!nextRise || times.rise.getTime() < nextRise.getTime())
+    ) {
+      nextRise = times.rise;
+    }
+    if (
+      times.set instanceof Date &&
+      times.set.getTime() > at.getTime() &&
+      (!nextSet || times.set.getTime() < nextSet.getTime())
+    ) {
+      nextSet = times.set;
+    }
+  }
+  return { nextRise, nextSet };
 }
 
 /** One hourly sample of the Moon's elevation, 0-23 UTC on the reference day. */
@@ -240,13 +291,18 @@ interface EmeDaySample {
 }
 
 /**
- * 28 days of EME degradation from `from`, one line combining the distance
- * loss (`degradationDb`) and the sky-noise penalty at `band`: the sky-noise
- * term is expressed in the same dB scale as a signal-to-noise cost, relative
- * to a cold-sky night (galactic latitude 90 -- the galactic pole itself, the
- * one galactic latitude guaranteed to sit outside the near-plane threshold
- * regardless of what that threshold is set to), so it can be subtracted
- * straight from the distance term.
+ * 28 days of EME degradation from `from`'s UTC midnight, one line combining
+ * the distance loss (`degradationDb`) and the sky-noise penalty at `band`:
+ * the sky-noise term is expressed in the same dB scale as a
+ * signal-to-noise cost, relative to a cold-sky night (galactic latitude 90
+ * -- the galactic pole itself, the one galactic latitude guaranteed to sit
+ * outside the near-plane threshold regardless of what that threshold is set
+ * to), so it can be subtracted straight from the distance term. Each day is
+ * evaluated at its own UTC midnight rather than at `from`'s time-of-day (the
+ * report has no per-day transit instant on hand), and uses the topocentric
+ * range (`getMoonTopocentricRangeKm`) rather than the geocentric distance --
+ * see `eme.ts`'s module docblock for why that matters once range is raised
+ * to the fourth power.
  */
 function emeDegradationCurve(
   lat: number,
@@ -255,9 +311,10 @@ function emeDegradationCurve(
   band: EmeBand,
 ): EmeDaySample[] {
   const coldSkyBaselineK = skyNoiseTempK(90, band);
+  const dayStart = utcMidnight(from);
   return Array.from({ length: 28 }, (_, day) => {
-    const at = new Date(from.getTime() + day * DAY_MS);
-    const distanceKm = getMoonConditions(at, lat, lon).distanceKm;
+    const at = new Date(dayStart.getTime() + day * DAY_MS);
+    const distanceKm = getMoonTopocentricRangeKm(at, lat, lon);
     const galacticLatitudeDeg = getMoonGalacticLatitudeDeg(at);
     const skyPenaltyDb =
       10 *
@@ -317,15 +374,17 @@ function EmeDegradationChart({
 
   return (
     <div className="hcr-chart">
-      <p className="hcr-chart-title">EME DEGRADATION — 28 D · COMPUTED</p>
+      <p className="hcr-chart-title">
+        EME DEGRADATION — 28 D · AT UTC MIDNIGHT
+      </p>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-labelledby={`${id}-title`}
       >
         <title id={`${id}-title`}>
-          EME degradation over 28 days, combining distance loss and sky
-          noise, with perigee and apogee marked.
+          EME degradation over 28 days at UTC midnight, combining distance
+          loss and sky noise, with perigee and apogee marked.
         </title>
         <line
           x1={left}
@@ -341,6 +400,23 @@ function EmeDegradationChart({
           stroke="var(--hcr-chart-observed, #44ddff)"
           strokeWidth="2"
         />
+        {curve.map((point, i) => {
+          const next = curve[i + 1]?.at.getTime() ?? end;
+          return (
+            <rect
+              key={point.day}
+              x={x(point.at.getTime())}
+              y={top}
+              width={Math.max(0, x(next) - x(point.at.getTime()))}
+              height={height - top - bottom}
+              fill="transparent"
+            >
+              <title>
+                {dateOnly(point.at)} · {signedDb(point.combinedDb)}
+              </title>
+            </rect>
+          );
+        })}
         {[
           { idx: perigeeIdx, label: "PERIGEE" },
           { idx: apogeeIdx, label: "APOGEE" },
@@ -393,7 +469,8 @@ function EmeDegradationChart({
       </svg>
       <table className="sr-only">
         <caption>
-          EME degradation by day, combining distance loss and sky noise
+          EME degradation by day at UTC midnight, combining distance loss and
+          sky noise
         </caption>
         <thead>
           <tr>
@@ -503,24 +580,38 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
 
   const zone = location.timezone;
   const moonUp = moon.altitude > 0;
-  const minutesUntilSet = moon.set
-    ? (moon.set.getTime() - now.getTime()) / 60_000
+  const { nextRise, nextSet } = nextMoonCrossings(
+    now,
+    location.lat,
+    location.lon,
+  );
+  const minutesUntilNextSet = nextSet
+    ? (nextSet.getTime() - now.getTime()) / 60_000
     : null;
-  const minutesUntilRise = moon.rise
-    ? (moon.rise.getTime() - now.getTime()) / 60_000
+  const minutesUntilNextRise = nextRise
+    ? (nextRise.getTime() - now.getTime()) / 60_000
     : null;
   const hero = moonUp
-    ? minutesUntilSet !== null
-      ? formatCountdown(Math.max(0, minutesUntilSet))
+    ? minutesUntilNextSet !== null
+      ? formatCountdown(minutesUntilNextSet)
       : "—"
-    : minutesUntilRise !== null
-      ? formatCountdown(Math.max(0, minutesUntilRise))
+    : minutesUntilNextRise !== null
+      ? formatCountdown(minutesUntilNextRise)
       : "—";
   const verdict = moonUp ? "MOON UP" : "MOON DOWN";
   const tone: "accent" | "info" = moonUp ? "accent" : "info";
 
-  const pathLoss = pathLossDb(moon.distanceKm, band);
-  const degradation = degradationDb(moon.distanceKm, band);
+  // Topocentric range: the actual slant distance a signal travels, unlike
+  // `moon.distanceKm` (geocentric -- see `moon.ts`'s docblock). Path loss and
+  // degradation both raise range to the fourth power (`eme.ts`), so this
+  // difference is not cosmetic.
+  const topoDistanceKm = getMoonTopocentricRangeKm(
+    now,
+    location.lat,
+    location.lon,
+  );
+  const pathLoss = pathLossDb(topoDistanceKm, band);
+  const degradation = degradationDb(topoDistanceKm, band);
   const declWord = declinationWord(declinationDeg);
   const skyK = skyNoiseTempK(galacticLatitudeDeg, band);
   const skyWord = skyNoiseWord(galacticLatitudeDeg);
@@ -531,8 +622,16 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
     : !mutualWindow
       ? "NONE IN 24 H"
       : mutualWindow.active
-        ? "ACTIVE NOW"
-        : `IN ${formatCountdown((mutualWindow.start.getTime() - now.getTime()) / 60_000)}`;
+        ? `ACTIVE NOW · ENDS ${formatClock(mutualWindow.end, "UTC")} UTC · ${formatDurationLeft(
+            (mutualWindow.end.getTime() - now.getTime()) / 60_000,
+          )} LEFT`
+        : `OPENS ${formatClock(mutualWindow.start, "UTC")} UTC · CLOSES ${formatClock(
+            mutualWindow.end,
+            "UTC",
+          )} UTC · ${formatDurationLeft(
+            (mutualWindow.end.getTime() - mutualWindow.start.getTime()) /
+              60_000,
+          )}`;
 
   const facts: WallReportFact[] = [
     {
@@ -545,7 +644,7 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
     },
     { label: "MOONRISE", value: bothClocks(moon.rise, zone) },
     { label: "MOONSET", value: bothClocks(moon.set, zone) },
-    { label: "DISTANCE", value: `${Math.round(moon.distanceKm)} km` },
+    { label: "DISTANCE", value: `${Math.round(topoDistanceKm)} km` },
     { label: "PATH LOSS", value: `${pathLoss.toFixed(1)} dB` },
     { label: "DEGRADATION", value: signedDb(degradation) },
     { label: "DECLINATION", value: `${declinationDeg.toFixed(1)}° ${declWord}` },

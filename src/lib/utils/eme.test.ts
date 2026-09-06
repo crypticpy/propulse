@@ -31,6 +31,17 @@ describe("pathLossDb", () => {
       pathLossDb(MOON_PERIGEE_KM, "2m"),
     );
   });
+
+  it("matches the bistatic radar equation's reference value at 144 MHz, average Earth-Moon range", () => {
+    // 10*log10((4*pi)^3 * R^4 / (lambda^2 * sigma)) at R = 384 400 km: the
+    // commonly cited ~252 dB two-way EME path loss at 2 m, not the ~204 dB a
+    // simple free-space-over-2R calculation would give.
+    expect(pathLossDb(384_400, "2m")).toBeCloseTo(252.1, 0);
+  });
+
+  it("matches the bistatic radar equation's reference value at 1296 MHz, average Earth-Moon range", () => {
+    expect(pathLossDb(384_400, "23cm")).toBeCloseTo(271.2, 0);
+  });
 });
 
 describe("degradationDb", () => {
@@ -40,6 +51,10 @@ describe("degradationDb", () => {
 
   it("is negative at apogee", () => {
     expect(degradationDb(MOON_APOGEE_KM, "2m")).toBeLessThan(0);
+  });
+
+  it("is about -2.29 dB at apogee (40*log10(perigee/apogee), the fourth-power range term)", () => {
+    expect(degradationDb(MOON_APOGEE_KM, "2m")).toBeCloseTo(-2.29, 1);
   });
 
   it("is the same size at apogee regardless of band (frequency cancels out of the difference)", () => {

@@ -328,6 +328,48 @@ export function getMoonRangeRateKmS(
   return geocentricRateKmS - observerSpeedKmS * lineOfSightEastComponent;
 }
 
+/**
+ * Convert a geocentric Earth-Moon range to the slant range from an observer
+ * at `altitudeDeg` (the Moon's geocentric altitude SunCalc reports -- no
+ * refraction correction needed at this precision) standing on a sphere of
+ * radius `observerRadiusKm`: the law of cosines across the Earth-centre,
+ * observer, Moon triangle, `d = sqrt(R^2 + Re^2 - 2*R*Re*sin(h))`. At the
+ * zenith (h = 90 deg) this collapses to `R - Re`, the closest the Moon can
+ * be to that observer; at the horizon (h = 0 deg) it is `sqrt(R^2 + Re^2)`,
+ * the farthest. The gap between this and the geocentric range itself is at
+ * most `Re`, close to 6371 km -- small next to a quarter-million-km range,
+ * but large enough to matter once EME path loss (`eme.ts`) raises range to
+ * the fourth power.
+ */
+export function topocentricRangeKm(
+  geocentricKm: number,
+  altitudeDeg: number,
+  observerRadiusKm: number = EARTH_RADIUS_KM,
+): number {
+  const altitudeRad = altitudeDeg * DEG_TO_RAD;
+  return Math.sqrt(
+    geocentricKm * geocentricKm +
+      observerRadiusKm * observerRadiusKm -
+      2 * geocentricKm * observerRadiusKm * Math.sin(altitudeRad),
+  );
+}
+
+/**
+ * Topocentric Earth-Moon range, km, at `lat`/`lon` -- the actual slant
+ * distance a signal travels, unlike `getMoonConditions`'s `distanceKm`
+ * (geocentric, per that function's own docblock). `eme.ts`'s path loss and
+ * degradation, and the wall's displayed EME distance, all read this rather
+ * than the geocentric value.
+ */
+export function getMoonTopocentricRangeKm(
+  at: Date,
+  lat: number,
+  lon: number,
+): number {
+  const position = SunCalc.getMoonPosition(at, lat, lon);
+  return topocentricRangeKm(position.distance, position.altitude * RAD_TO_DEG);
+}
+
 function phaseAt(date: Date): number {
   return SunCalc.getMoonIllumination(date).phase;
 }

@@ -7,7 +7,9 @@ import {
   getMoonGalacticLatitudeDeg,
   getMoonRangeRateKmS,
   getMoonSnapshot,
+  getMoonTopocentricRangeKm,
   getSublunarPoint,
+  topocentricRangeKm,
 } from "./moon";
 
 const DEG_TO_RAD = Math.PI / 180;
@@ -323,5 +325,55 @@ describe("getMoonGalacticLatitudeDeg", () => {
     const galacticLatitude = getMoonGalacticLatitudeDeg(at);
     const declination = getMoonDeclinationDeg(at);
     expect(Math.abs(galacticLatitude - declination)).toBeGreaterThan(5);
+  });
+});
+
+describe("topocentricRangeKm", () => {
+  const R = 384_400;
+  const Re = 6371;
+
+  it("is R - Re at the zenith (h = 90 deg): the observer sits Re closer to the Moon's centre than Earth's own centre does", () => {
+    expect(topocentricRangeKm(R, 90, Re)).toBeCloseTo(R - Re, 6);
+  });
+
+  it("is sqrt(R^2 + Re^2) at the horizon (h = 0 deg)", () => {
+    expect(topocentricRangeKm(R, 0, Re)).toBeCloseTo(
+      Math.sqrt(R * R + Re * Re),
+      6,
+    );
+  });
+
+  it("is always at most Re away from the geocentric range, for any altitude", () => {
+    for (let h = -90; h <= 90; h += 10) {
+      expect(Math.abs(topocentricRangeKm(R, h, Re) - R)).toBeLessThanOrEqual(
+        Re + 1e-6,
+      );
+    }
+  });
+});
+
+describe("getMoonTopocentricRangeKm", () => {
+  it("matches the geocentric distance minus the observer's own radius when the Moon sits at the observer's zenith", () => {
+    // The sub-lunar point is, by construction, exactly overhead of itself.
+    const at = new Date("2026-09-05T13:14:00Z");
+    const sub = getSublunarPoint(at);
+    const geocentricKm = getMoonConditions(at, sub.lat, sub.lon).distanceKm;
+    const topoKm = getMoonTopocentricRangeKm(at, sub.lat, sub.lon);
+    expect(topoKm).toBeCloseTo(geocentricKm - 6371, 0);
+  });
+
+  it("differs from the geocentric distance by nearly an Earth radius when the Moon is high overhead", () => {
+    // Verified: Moon altitude ~= 85 deg at Austin, TX at this instant -- near
+    // the observer's zenith, where `topocentricRangeKm`'s correction is
+    // largest (it collapses to `R - Re` exactly at h = 90 deg); it shrinks
+    // toward zero back down at the horizon, the opposite of naive parallax
+    // intuition, because the observer is closest to the Moon's centre when
+    // looking straight up, not when looking along the horizon.
+    const at = new Date("2026-09-05T13:14:00Z");
+    const lat = 30.27;
+    const lon = -97.74;
+    const geocentricKm = getMoonConditions(at, lat, lon).distanceKm;
+    const topoKm = getMoonTopocentricRangeKm(at, lat, lon);
+    expect(Math.abs(topoKm - geocentricKm)).toBeGreaterThan(6000);
   });
 });

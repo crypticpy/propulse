@@ -138,7 +138,7 @@ describe("MoonReport", () => {
     await user.click(within(dialog).getByRole("tab", { name: "EME" }));
 
     const emeTitle = within(dialog).getByText(
-      "EME DEGRADATION — 28 D · COMPUTED",
+      "EME DEGRADATION — 28 D · AT UTC MIDNIGHT",
     );
     expect(emeTitle).toBeTruthy();
     expect(emeTitle.closest(".hcr-chart")).not.toBeNull();
@@ -160,12 +160,14 @@ describe("MoonReport", () => {
   });
 
   it("computes the 28-day EME chart's sky-noise term from galactic latitude, not declination", async () => {
-    // Same instant and QTH as the SKY NOISE fact test above: day 0 of the
-    // EME curve is `now` itself. Combining distance loss with the
-    // galactic-latitude sky penalty gives ~-8.0 dB at 2m; the same formula
-    // fed the Moon's declination instead (the pre-fix behaviour) would give
-    // ~-0.2 dB -- the two are far enough apart that only one can be what's
-    // rendered.
+    // The curve's day-0 sample is pinned to UTC midnight of the render
+    // instant (2026-09-05T00:00:00Z), not `now` itself. At that instant,
+    // combining the bistatic-radar-equation distance loss (topocentric
+    // range) with the galactic-latitude sky penalty at 2m gives ~-8.3 dB;
+    // the same formula fed the Moon's declination instead (the pre-fix
+    // behaviour, which reads "COLD SKY" at this declination and so applies
+    // no penalty) would give ~-0.5 dB -- the two are far enough apart that
+    // only one can be what's rendered.
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     const user = userEvent.setup({ delay: null });
     render(<MoonReport open onClose={vi.fn()} />);
@@ -176,28 +178,43 @@ describe("MoonReport", () => {
       name: /eme degradation/i,
     });
     const rows = within(table).getAllByRole("row");
-    // rows[0] is the header row; rows[1] is day 0 (`now`).
+    // rows[0] is the header row; rows[1] is day 0 (UTC midnight of `now`).
     const firstDataRow = within(rows[1]);
-    expect(firstDataRow.getByText("−8.0 dB")).toBeTruthy();
-    expect(firstDataRow.queryByText("−0.2 dB")).toBeNull();
+    expect(firstDataRow.getByText("−8.3 dB")).toBeTruthy();
+    expect(firstDataRow.queryByText("−0.5 dB")).toBeNull();
   });
 
-  it("changes the EME facts when the band selector changes", async () => {
+  it("changes the EME facts (path loss, Doppler, sky noise) when the band selector changes", async () => {
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     const user = userEvent.setup({ delay: null });
     render(<MoonReport open onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
 
-    const pathLossBefore = factRows(dialog).find((row) =>
-      row?.startsWith("PATH LOSS"),
+    const emeBox = Array.from(dialog.querySelectorAll(".hcr-box")).find((box) =>
+      box.querySelector("h4")?.textContent?.startsWith("EME"),
     );
+    expect(emeBox).toBeTruthy();
+    const emeKv = within(emeBox as HTMLElement);
+
+    const pathLossBefore = emeKv.getByText("PATH LOSS").nextElementSibling
+      ?.textContent;
+    const dopplerBefore = emeKv.getByText("DOPPLER").nextElementSibling
+      ?.textContent;
+    const skyNoiseBefore = emeKv.getByText("SKY NOISE").nextElementSibling
+      ?.textContent;
 
     await user.click(within(dialog).getByRole("radio", { name: /23CM/i }));
 
-    const pathLossAfter = factRows(dialog).find((row) =>
-      row?.startsWith("PATH LOSS"),
-    );
+    const pathLossAfter = emeKv.getByText("PATH LOSS").nextElementSibling
+      ?.textContent;
+    const dopplerAfter = emeKv.getByText("DOPPLER").nextElementSibling
+      ?.textContent;
+    const skyNoiseAfter = emeKv.getByText("SKY NOISE").nextElementSibling
+      ?.textContent;
+
     expect(pathLossAfter).not.toBe(pathLossBefore);
+    expect(dopplerAfter).not.toBe(dopplerBefore);
+    expect(skyNoiseAfter).not.toBe(skyNoiseBefore);
   });
 
   it("draws an sr-only table twin for both charts", async () => {

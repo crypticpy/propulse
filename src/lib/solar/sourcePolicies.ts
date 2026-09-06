@@ -252,8 +252,10 @@ export const SOLAR_SOURCE_POLICIES: Record<
     product: "27-day outlook of 10.7 cm flux, planetary A index, and largest Kp",
     endpoint: "/api/solar/flux-outlook",
     sourceUrl: "https://services.swpc.noaa.gov/text/27-day-outlook.txt",
-    softTtlMs: 12 * HOUR,
-    hardTtlMs: 48 * HOUR,
+    // Issued weekly (normally Monday); freshness spans the publication cycle
+    // while revalidation stays six-hourly to pick up mid-week reissues.
+    softTtlMs: 8 * DAY,
+    hardTtlMs: 14 * DAY,
     refetchMs: 6 * HOUR,
     maxRows: 27,
     maxUpstreamBytes: 64_000,

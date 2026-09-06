@@ -358,3 +358,137 @@ export function getGreylineIntensityColor(
       return "#666666";
   }
 }
+
+/** One hourly sample of the grey-line intensity curve, 0-23 UTC. */
+export interface GreylineHourSample {
+  hour: number;
+  at: Date;
+  level: GreylineIntensity;
+  /** 0-1, taken from `getGreylineVisualParams(level).opacity` so the report
+   * chart and the map's static band never disagree on how strong an hour is. */
+  intensity: number;
+}
+
+function utcMidnight(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+/**
+ * Sample the grey-line intensity once per UTC hour across the day containing
+ * `date`, for the "GREY-LINE INTENSITY — 24 H" report chart (wall spec
+ * section 26.9). Reuses `getGreylineIntensity` and `getGreylineVisualParams`
+ * hourly rather than adding a second physics model.
+ */
+export function getGreylineIntensityCurve(
+  lat: number,
+  lon: number,
+  date: Date,
+): GreylineHourSample[] {
+  const dayStart = utcMidnight(date);
+  return Array.from({ length: 24 }, (_, hour) => {
+    const at = new Date(dayStart.getTime() + hour * 60 * 60 * 1000);
+    const level = getGreylineIntensity(lat, lon, at);
+    return {
+      hour,
+      at,
+      level,
+      intensity: getGreylineVisualParams(level).opacity,
+    };
+  });
+}
+
+/** Minutes either side of a horizon crossing that the low bands lift, same
+ * window `SunMoonReport.tsx` draws for a single station. */
+export const GREYLINE_WINDOW_MINUTES = 30;
+
+interface GreylineCrossingWindow {
+  start: Date;
+  end: Date;
+}
+
+/** Every sunrise/sunset window (crossing time ± `windowMinutes`) across
+ * yesterday, today and tomorrow, so a window that starts just before or
+ * after local midnight is never missed. */
+function greylineWindowsNear(
+  lat: number,
+  lon: number,
+  date: Date,
+  windowMinutes: number,
+): GreylineCrossingWindow[] {
+  const windows: GreylineCrossingWindow[] = [];
+  for (const offsetDays of [-1, 0, 1]) {
+    const day = new Date(date);
+    day.setUTCDate(day.getUTCDate() + offsetDays);
+    const times = SunCalc.getTimes(day, lat, lon);
+    for (const event of [times.sunrise, times.sunset]) {
+      if (event && !isNaN(event.getTime())) {
+        windows.push({
+          start: new Date(event.getTime() - windowMinutes * 60_000),
+          end: new Date(event.getTime() + windowMinutes * 60_000),
+        });
+      }
+    }
+  }
+  return windows;
+}
+
+/** A period when the QTH's and the target's grey-line windows overlap. */
+export interface MutualGreylineWindow {
+  start: Date;
+  end: Date;
+  /** Whether `date` falls inside this window. */
+  active: boolean;
+}
+
+/**
+ * The nearest mutual grey-line window between two stations: a period when
+ * both the QTH's and the target's own ±`windowMinutes` grey-line windows
+ * overlap in UTC. Low-band DX along the path is best worked in this window,
+ * since both ends sit on their own terminator at once. Returns the window
+ * that is active right now, or otherwise the next one to start; null when
+ * the two stations' terminator crossings never coincide within a day either
+ * side of `date` (e.g. one station is in polar day or polar night).
+ */
+export function getMutualGreylineWindow(
+  qthLat: number,
+  qthLon: number,
+  targetLat: number,
+  targetLon: number,
+  date: Date,
+  windowMinutes: number = GREYLINE_WINDOW_MINUTES,
+): MutualGreylineWindow | null {
+  const qthWindows = greylineWindowsNear(qthLat, qthLon, date, windowMinutes);
+  const targetWindows = greylineWindowsNear(
+    targetLat,
+    targetLon,
+    date,
+    windowMinutes,
+  );
+  const now = date.getTime();
+
+  const overlaps: MutualGreylineWindow[] = [];
+  for (const a of qthWindows) {
+    for (const b of targetWindows) {
+      const start = Math.max(a.start.getTime(), b.start.getTime());
+      const end = Math.min(a.end.getTime(), b.end.getTime());
+      if (start < end) {
+        overlaps.push({
+          start: new Date(start),
+          end: new Date(end),
+          active: now >= start && now < end,
+        });
+      }
+    }
+  }
+  if (overlaps.length === 0) return null;
+
+  const active = overlaps.find((overlap) => overlap.active);
+  if (active) return active;
+
+  const upcoming = overlaps
+    .filter((overlap) => overlap.start.getTime() >= now)
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+  return upcoming[0] ?? null;
+}

@@ -6,8 +6,10 @@ import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 import { formatCountdown } from "../tokens";
 
 // The report is only worth its bytes once an operator opens it.
-const SunMoonReport = lazy(() =>
-  import("../reports/SunMoonReport").then((m) => ({ default: m.SunMoonReport })),
+const GreyLineReport = lazy(() =>
+  import("../reports/GreyLineReport").then((m) => ({
+    default: m.GreyLineReport,
+  })),
 );
 
 /** Sunrise and sunset move slowly; a minute of resolution is plenty. */
@@ -55,8 +57,7 @@ export function GreyLineTile() {
       ? "var(--hc-accent)"
       : "var(--hc-info)";
 
-  const nextLabel =
-    status.nextEventType === "sunrise" ? "SUNRISE" : "SUNSET";
+  const nextLabel = status.nextEventType === "sunrise" ? "SUNRISE" : "SUNSET";
   const countdown =
     status.minutesToNextEvent === null
       ? null
@@ -69,7 +70,7 @@ export function GreyLineTile() {
         source="DE"
         state={state}
         onOpen={() => setReportOpen(true)}
-        openLabel={`Grey line: ${hero}. Open the sun and moon report`}
+        openLabel={`Grey line: ${hero}. Open the grey line report`}
       >
         <TileHero tone={tone}>{hero}</TileHero>
         <TileSub>
@@ -86,11 +87,7 @@ export function GreyLineTile() {
 
       {reportOpen && (
         <Suspense fallback={null}>
-          <SunMoonReport
-            open
-            onClose={() => setReportOpen(false)}
-            focus="greyline"
-          />
+          <GreyLineReport open onClose={() => setReportOpen(false)} />
         </Suspense>
       )}
     </>

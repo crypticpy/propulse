@@ -2,12 +2,13 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import SunCalc from "suncalc";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
+import { getNextSunEvent } from "@/lib/hamclock/sunCurve";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 import { formatClock, formatCountdown } from "../tokens";
 
 // The report is only worth its bytes once an operator opens it.
-const SunMoonReport = lazy(() =>
-  import("../reports/SunMoonReport").then((m) => ({ default: m.SunMoonReport })),
+const SunReport = lazy(() =>
+  import("../reports/SunReport").then((m) => ({ default: m.SunReport })),
 );
 
 /** A countdown in whole minutes only needs a minute-resolution clock. */
@@ -30,25 +31,12 @@ export function SunTile() {
   const sun = useMemo(() => {
     if (!location) return null;
     const today = SunCalc.getTimes(now, location.lat, location.lon);
-    const tomorrow = SunCalc.getTimes(
-      new Date(now.getTime() + 86_400_000),
-      location.lat,
-      location.lon,
-    );
     const rise = valid(today.sunrise);
     const set = valid(today.sunset);
-    const upcoming = (
-      [
-        { type: "sunrise" as const, at: rise },
-        { type: "sunset" as const, at: set },
-        { type: "sunrise" as const, at: valid(tomorrow.sunrise) },
-        { type: "sunset" as const, at: valid(tomorrow.sunset) },
-      ].filter((event) => event.at && event.at.getTime() > now.getTime()) as {
-        type: "sunrise" | "sunset";
-        at: Date;
-      }[]
-    ).sort((a, b) => a.at.getTime() - b.at.getTime());
-    return { rise, set, next: upcoming[0] ?? null };
+    // Shared with `SunReport.tsx` so the tile's countdown and the report's
+    // hero can never name a different next event.
+    const next = getNextSunEvent(location.lat, location.lon, now);
+    return { rise, set, next };
   }, [location, now]);
 
   if (!sun) {
@@ -88,12 +76,14 @@ export function SunTile() {
         onOpen={() => setReportOpen(true)}
         openLabel={`${title} in ${formatCountdown(
           minutes,
-        )}. Open the sun and moon report`}
+        )}. Open the sun report`}
       >
         <div className="hc-media">
           <div className="hc-sunico" aria-hidden="true" />
           <div>
-            <TileHero tone="hc-accent-text">{formatCountdown(minutes)}</TileHero>
+            <TileHero tone="hc-accent-text">
+              {formatCountdown(minutes)}
+            </TileHero>
             <TileSub>
               <span>
                 AT <b>{formatClock(sun.next.at, zone)}</b>
@@ -108,11 +98,7 @@ export function SunTile() {
 
       {reportOpen && (
         <Suspense fallback={null}>
-          <SunMoonReport
-            open
-            onClose={() => setReportOpen(false)}
-            focus="sun"
-          />
+          <SunReport open onClose={() => setReportOpen(false)} />
         </Suspense>
       )}
     </>

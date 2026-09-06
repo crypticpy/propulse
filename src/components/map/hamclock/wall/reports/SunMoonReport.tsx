@@ -9,8 +9,14 @@ import { formatClock, formatCountdown, reportFooter } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 
-/** Which tile opened the report; it only chooses the hero. */
-export type SunMoonFocus = "sun" | "greyline" | "moon";
+/**
+ * Kept as a union for now so a future moon-focused caller reads the same as
+ * every other report's `focus` prop; the sun and grey-line values retired
+ * once `SunTile.tsx` and `GreyLineTile.tsx` moved to their own dedicated
+ * `SunReport`/`GreyLineReport` (wall spec section 26.8/26.9). `MoonTile.tsx`
+ * is the only remaining caller.
+ */
+export type SunMoonFocus = "moon";
 
 /** Minutes either side of a horizon crossing that the low bands lift. */
 const GREYLINE_WINDOW_MIN = 30;
@@ -90,11 +96,6 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
 
   const daylight = greyline.nextEventType === "sunset";
   const state = greyline.isActive ? "GREY LINE" : daylight ? "DAY" : "NIGHT";
-  const stateTone = greyline.isActive
-    ? "hc-warn"
-    : daylight
-      ? "hc-accent-text"
-      : "hc-info-text";
 
   const countdown =
     greyline.minutesToNextEvent === null
@@ -119,11 +120,8 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
         )}`;
 
   const moonUp = moon.altitude > 0;
-  const hero =
-    focus === "moon" ? `${Math.round(moon.illumination * 100)}%` : countdown;
-  const verdict = focus === "moon" ? moon.phaseName.toUpperCase() : state;
-  const tone =
-    focus === "moon" ? (moonUp ? "hc-info-text" : "hc-dim-text") : stateTone;
+  const hero = `${Math.round(moon.illumination * 100)}%`;
+  const verdict = moon.phaseName.toUpperCase();
 
   const facts: WallReportFact[] = [
     { label: "SUNRISE", value: formatClock(sun.rise, location.timezone) },
@@ -148,17 +146,7 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
   const DAY_MS = 24 * 60 * 60 * 1000;
   const trendPoints = Array.from({ length: 15 }, (_, i) => {
     const at = new Date(now.getTime() + (i - 7) * DAY_MS);
-    const value =
-      focus === "moon"
-        ? SunCalc.getMoonIllumination(at).fraction * 100
-        : (() => {
-            const times = SunCalc.getTimes(at, location.lat, location.lon);
-            const rise = valid(times.sunrise);
-            const set = valid(times.sunset);
-            return rise && set
-              ? (set.getTime() - rise.getTime()) / (60 * 60 * 1000)
-              : NaN;
-          })();
+    const value = SunCalc.getMoonIllumination(at).fraction * 100;
     return { timestamp: at.toISOString(), value };
   }).filter((point) => Number.isFinite(point.value));
 
@@ -167,13 +155,7 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
       open={open}
       onClose={onClose}
       title={`Sun & moon report · ${location.name || location.grid || "DE"}`}
-      tone={
-        tone === "hc-warn"
-          ? "warn"
-          : tone === "hc-accent-text"
-            ? "accent"
-            : "info"
-      }
+      tone="info"
       hero={hero}
       verdict={verdict}
       facts={facts}
@@ -223,13 +205,9 @@ export function SunMoonReport({ open, onClose, focus }: SunMoonReportProps) {
       </div>
       <div className="hcr-chart">
         <SolarMiniChart
-          label={
-            focus === "moon"
-              ? "MOON ILLUM — 15 D · SUNCALC"
-              : "DAY LENGTH — 15 D · SUNCALC"
-          }
+          label="MOON ILLUM — 15 D · SUNCALC"
           points={trendPoints}
-          unit={focus === "moon" ? "%" : "h"}
+          unit="%"
           maxGapMs={2 * DAY_MS}
         />
       </div>

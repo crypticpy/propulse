@@ -19,6 +19,8 @@ import {
   xrayTone,
 } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
+import { reportFooter } from "../tokens";
+import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 
 /** Which tile opened the report; it only chooses the hero, not the data. */
 export type SolarFocus = "kp" | "xray" | "wind";
@@ -38,7 +40,13 @@ interface StripCell {
  * whole UTC hours and the empty hours stay visibly empty rather than being
  * interpolated into a claim the feed did not make.
  */
-function HourStrip({ cells, caption }: { cells: StripCell[]; caption: string }) {
+function HourStrip({
+  cells,
+  caption,
+}: {
+  cells: StripCell[];
+  caption: string;
+}) {
   return (
     <div className="hcr-box">
       <h4>{caption}</h4>
@@ -62,7 +70,10 @@ function HourStrip({ cells, caption }: { cells: StripCell[]; caption: string }) 
 }
 
 /** Kp of the three-hour window each of the last 24 hours falls in. */
-function kpStrip(points: readonly KpPoint[] | undefined, now: number): StripCell[] {
+function kpStrip(
+  points: readonly KpPoint[] | undefined,
+  now: number,
+): StripCell[] {
   const observed = (points ?? []).filter((point) => point.kind !== "predicted");
   const cells: StripCell[] = [];
   for (let back = 23; back >= 0; back--) {
@@ -93,7 +104,8 @@ function xrayStrip(
   const peaks = new Map<number, number>();
   for (const point of points ?? []) {
     const stamp = Date.parse(point.time_tag);
-    if (!Number.isFinite(stamp) || now - stamp > DAY_MS || stamp > now) continue;
+    if (!Number.isFinite(stamp) || now - stamp > DAY_MS || stamp > now)
+      continue;
     const bucket = Math.floor(stamp / (60 * 60 * 1000));
     peaks.set(bucket, Math.max(peaks.get(bucket) ?? 0, point.flux));
   }
@@ -154,8 +166,9 @@ export function SolarReport({ open, onClose, focus }: SolarReportProps) {
   const scalesQuery = useSolarResource<NoaaScalesProduct>("swpc-scales");
   const fluxQuery = useSolarResource<SolarFluxPoint[]>("noaa-solar-flux");
   const xrayQuery = useSolarResource<XrayPoint[]>("noaa-xray");
-  const plasmaQuery =
-    useSolarResource<SolarWindPlasmaPoint[]>("swpc-solar-wind-plasma");
+  const plasmaQuery = useSolarResource<SolarWindPlasmaPoint[]>(
+    "swpc-solar-wind-plasma",
+  );
   const magQuery = useSolarResource<SolarWindMagPoint[]>("swpc-solar-wind-mag");
   const sunspotQuery = useSunspots();
 
@@ -292,6 +305,53 @@ export function SolarReport({ open, onClose, focus }: SolarReportProps) {
     },
   ];
 
+  const { footer, updated } = reportFooter(
+    "NOAA SWPC · GOES · ACE/DSCOVR AT L1",
+    observedAt ? Date.parse(observedAt) : null,
+  );
+
+  const chart =
+    focus === "xray" ? (
+      <SolarMiniChart
+        label="X-RAY — 24 H · NOAA"
+        points={(xrayQuery.data?.envelope.data ?? []).map((point) => ({
+          timestamp: point.time_tag,
+          value: point.flux,
+        }))}
+        unit="W/m²"
+        logarithmic
+        maxGapMs={300_000}
+      />
+    ) : focus === "wind" ? (
+      <SolarMiniChart
+        label="SOLAR WIND — 24 H · NOAA"
+        points={(plasmaQuery.data?.envelope.data ?? [])
+          .filter((point) => point.speed !== null)
+          .map((point) => ({
+            timestamp: point.time_tag,
+            value: point.speed as number,
+          }))}
+        unit="km/s"
+        maxGapMs={300_000}
+      />
+    ) : (
+      <SolarMiniChart
+        label="KP — 24 H · NOAA"
+        points={(kpQuery.data?.envelope.data ?? [])
+          .filter((point) => point.kind !== "predicted")
+          .map((point) => ({
+            timestamp: point.time_tag,
+            value: point.kp,
+            kind: point.kind,
+          }))}
+        unit="Kp"
+        min={0}
+        max={9}
+        intervalMs={10_800_000}
+        maxGapMs={10_800_000}
+      />
+    );
+
   return (
     <WallReport
       open={open}
@@ -301,8 +361,10 @@ export function SolarReport({ open, onClose, focus }: SolarReportProps) {
       hero={hero}
       verdict={verdict}
       facts={facts}
-      footer="NOAA SWPC · GOES · ACE/DSCOVR AT L1"
-      updated={observedAt ? `READ ${observedAt.slice(11, 16)}Z` : "AWAITING FEED"}
+      footer={footer}
+      updated={updated}
+      pinId={`solar-${focus}`}
+      pinElement={<SolarReport open onClose={onClose} focus={focus} />}
     >
       <div className="hcr-cols">
         <HourStrip
@@ -345,6 +407,7 @@ export function SolarReport({ open, onClose, focus }: SolarReportProps) {
           )}
         </div>
       </div>
+      <div className="hcr-chart">{chart}</div>
     </WallReport>
   );
 }

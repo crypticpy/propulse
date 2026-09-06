@@ -3,8 +3,10 @@ import { useRIM } from "@/hooks/useRIM";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { RIMSubScore } from "@/types/atmos";
-import { reportTone, rimGrade } from "../tokens";
+import { reportTone, reportFooter, rimGrade } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
+import { useHamClockSessionTrend } from "./sessionTrend";
+import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 
 /** Alerts worth drawing before the box runs out of height. */
 const MAX_ALERTS = 4;
@@ -59,8 +61,16 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
       ),
     [alerts],
   );
+  // Called unconditionally (rules-of-hooks): samples null, a no-op, while
+  // the idle branch below is showing.
+  const trend = useHamClockSessionTrend(
+    "emcomm-composite",
+    rimResult?.emcommReadiness.dataAvailable ? rimResult.composite : null,
+    rimResult?.emcommReadiness.dataAvailable ? rimResult.updatedAt : undefined,
+  );
 
   if (!rimResult || !rimResult.emcommReadiness.dataAvailable) {
+    const idle = reportFooter("RIM · SPACE WEATHER + NWS ACTIVE ALERTS", null);
     return (
       <WallReport
         open={open}
@@ -68,7 +78,8 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
         title="Emcomm report · regional readiness"
         hero="—"
         verdict="NO SCORE"
-        footer="RIM · SPACE WEATHER + NWS ACTIVE ALERTS"
+        footer={idle.footer}
+        updated={idle.updated}
       >
         <p className="hcr-note">
           {isLoading
@@ -81,6 +92,10 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
 
   const score = rimResult.emcommReadiness;
   const { word, tone } = rimGrade(score.value);
+  const { footer, updated } = reportFooter(
+    "RIM · SPACE WEATHER + NWS ACTIVE ALERTS",
+    rimResult.updatedAt,
+  );
 
   const facts: WallReportFact[] = [
     { label: "HF BAND", value: subScoreValue(rimResult.hfBand) },
@@ -100,10 +115,10 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
       hero={Math.round(score.value)}
       verdict={word}
       facts={facts}
-      footer="RIM · SPACE WEATHER + NWS ACTIVE ALERTS"
-      updated={`READ ${new Date(rimResult.updatedAt)
-        .toISOString()
-        .slice(11, 16)}Z`}
+      footer={footer}
+      updated={updated}
+      pinId="emcomm"
+      pinElement={<EmcommReport open onClose={onClose} />}
     >
       <div className={`hcr-bar ${tone}`}>
         <i style={{ width: `${Math.max(0, Math.min(100, score.value))}%` }} />
@@ -142,6 +157,16 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
             </div>
           )}
         </div>
+      </div>
+      <div className="hcr-chart">
+        <SolarMiniChart
+          label="RIM COMPOSITE — 2 H · SESSION"
+          points={trend}
+          unit="score"
+          min={0}
+          max={100}
+          maxGapMs={10 * 60 * 1000}
+        />
       </div>
     </WallReport>
   );

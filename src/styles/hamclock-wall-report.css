@@ -81,6 +81,35 @@
   outline-offset: 0.2vh;
 }
 
+/* Spelled-out PIN / UNPIN toggle (HW-30): a pinned report keeps rendering
+ * from the header host while pages and kiosk scenes rotate underneath. */
+.hcr-pin {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 44px;
+  font-family: var(--hc-font-mono);
+  font-size: 1.5vh;
+  letter-spacing: 0.14em;
+  color: var(--hc-dim);
+  background: transparent;
+  border: 1px solid var(--hc-line);
+  border-radius: max(2px, calc(var(--hc-radius) * 0.8));
+  padding: 0.4vh 0.8vw;
+  cursor: pointer;
+}
+.hcr-pin:hover {
+  color: var(--hc-fg);
+}
+.hcr-pin[aria-pressed="true"] {
+  color: var(--hc-fg);
+  border-color: var(--hc-accent);
+  background: rgb(var(--hc-accent-rgb) / 0.16);
+}
+.hcr-pin:focus-visible {
+  outline: 0.25vh solid var(--hc-accent);
+  outline-offset: 0.2vh;
+}
+
 /* ---------- lead: hero · verdict · facts ---------- */
 
 .hcr-lead {
@@ -222,8 +251,18 @@
   color: var(--hc-dim2);
   text-align: center;
 }
+/* The active hour is the one column an operator reads first, so it is
+ * highlighted as a column, not just a brighter label: the header becomes an
+ * accent pill and every dot beneath it carries an accent ring. */
 .hcr-matrix-head--now {
-  color: var(--hc-fg);
+  color: var(--hc-bg);
+  background: var(--hc-accent);
+  border-radius: 0.4vh;
+  font-weight: 700;
+}
+.hcr-matrix .hcf-dot.hcr-dot--now {
+  outline: 0.3vh solid var(--hc-accent);
+  outline-offset: 0.25vh;
 }
 
 /* Report-size band bars: readable from ten feet, unlike the tile bars. */
@@ -362,4 +401,128 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ---------- trend chart (HW-29) ----------
+ * SolarMiniChart / SolarSeriesChart draw every colour through a CSS custom
+ * property with the component's own hex as the fallback. Only a report
+ * carries `[data-hamclock-theme]`, so the /solar page (no such ancestor)
+ * keeps its original hardcoded look untouched; a report recolours the same
+ * chart from the active HamClock theme. flex-shrink is left at its default
+ * so the chart yields height to the lead content on a report that is
+ * already full, per the "never scrolls" rule. */
+[data-hamclock-theme] {
+  --hcr-chart-observed: var(--hc-info);
+  --hcr-chart-estimated: var(--hc-accent);
+  --hcr-chart-predicted: var(--hc-warn);
+  --hcr-chart-axis: var(--hc-line);
+  --hcr-chart-dim: var(--hc-dim2);
+  --hcr-chart-grid: var(--hc-line);
+  --hcr-chart-warn: var(--hc-warn);
+  --hcr-chart-now: var(--hc-fg);
+  --hcr-chart-selected-ring: var(--hc-bg);
+}
+.hcr-chart {
+  flex: 0 1 auto;
+  padding-top: 1vh;
+  border-top: 1px solid var(--hc-line);
+  min-height: 0;
+}
+.hcr-chart-title {
+  font-family: var(--hc-font-mono);
+  font-size: 1.3vh;
+  letter-spacing: 0.14em;
+  color: var(--hc-dim);
+  text-transform: uppercase;
+  margin: 0 0 0.5vh;
+}
+.hcr-chart svg,
+.hcr-chart figure {
+  display: block;
+  width: 100%;
+}
+.hcr-chart figure {
+  margin: 0;
+}
+.hcr-chart svg {
+  height: 9vh;
+}
+
+/* ---------- best band table (HW-31) ---------- */
+
+.hcr-bandtable-head,
+.hcr-bandrow {
+  display: grid;
+  grid-template-columns: 2.5vw 4.5vw minmax(0, 1fr) 7vw 7vw 6vw 5vw 9vw;
+  align-items: center;
+  gap: 0.8vw;
+}
+.hcr-bandtable-head {
+  padding: 0 0.8vw;
+  font-family: var(--hc-font-mono);
+  font-size: 1.1vh;
+  letter-spacing: 0.1em;
+  color: var(--hc-dim2);
+  text-transform: uppercase;
+}
+.hcr-bandtable {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vh;
+  min-height: 0;
+  overflow: hidden;
+}
+.hcr-bandrow {
+  min-height: 44px;
+  padding: 0.5vh 0.8vw;
+  background: transparent;
+  border: 1px solid var(--hc-line);
+  border-radius: max(2px, calc(var(--hc-radius) * 0.7));
+  font-family: var(--hc-font-mono);
+  font-size: 1.5vh;
+  color: var(--hc-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.hcr-bandrow:hover {
+  border-color: var(--hc-accent);
+}
+.hcr-bandrow:focus-visible {
+  outline: 0.25vh solid var(--hc-accent);
+  outline-offset: -0.2vh;
+}
+.hcr-bandrow-band {
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.hcr-bandrow-score {
+  font-weight: 700;
+}
+.hcr-bandtable-caption {
+  font-family: var(--hc-font-mono);
+  font-size: 1.3vh;
+  letter-spacing: 0.1em;
+  color: var(--hc-dim);
+  text-transform: uppercase;
+  margin: 1vh 0 0.4vh;
+}
+.hcr-bandtable-spark {
+  display: block;
+  width: 100%;
+  height: 3.6vh;
+  overflow: hidden;
+}
+.hcr-bandtable-spark figure {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.hcr-bandtable-spark figcaption {
+  display: none;
+}
+.hcr-bandtable-spark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }

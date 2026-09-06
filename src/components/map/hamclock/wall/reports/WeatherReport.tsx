@@ -12,6 +12,9 @@ import {
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { WeatherGlyph, type WeatherGlyphKind } from "../tiles/WeatherTile";
 import { WallReport, type WallReportFact } from "./WallReport";
+import { useHamClockSessionTrend } from "./sessionTrend";
+import { reportFooter } from "../tokens";
+import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 
 /** Which tile opened the report; it only chooses the hero. */
 export type WeatherFocus = "weather" | "alerts";
@@ -127,6 +130,18 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
         : "hc-dim-text"
       : "hc-info-text";
 
+  const trendKey = `weather-temp-${location?.lat ?? "na"},${location?.lon ?? "na"}`;
+  const trend = useHamClockSessionTrend(
+    trendKey,
+    weather ? weather.temperature : null,
+    weather?.observedAt?.getTime(),
+  );
+
+  const { footer, updated } = reportFooter(
+    "OPEN-METEO · NWS ACTIVE ALERTS, US-WIDE",
+    weather?.observedAt,
+  );
+
   const facts: WallReportFact[] = [
     {
       label: "WIND",
@@ -134,7 +149,10 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
         ? `${compass(weather.windDirection)} ${formatSpeed(weather.windSpeed, resolved)}`
         : "—",
     },
-    { label: "HUMIDITY", value: weather ? `${Math.round(weather.humidity)}%` : "—" },
+    {
+      label: "HUMIDITY",
+      value: weather ? `${Math.round(weather.humidity)}%` : "—",
+    },
     {
       label: "PRESSURE",
       value: weather ? `${Math.round(weather.pressure)} hPa` : "—",
@@ -170,15 +188,19 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
       hero={hero}
       verdict={verdict}
       facts={facts}
-      footer="OPEN-METEO AT THE QTH · NWS ACTIVE ALERTS, US-WIDE"
-      updated={weather ? condition : "AWAITING FEED"}
+      footer={footer}
+      updated={updated}
+      pinId={`weather-${focus}`}
+      pinElement={<WeatherReport open onClose={onClose} focus={focus} />}
     >
       <div className="hcr-cols">
         <div className="hcr-box">
           <h4>Now at the QTH</h4>
           {weather ? (
             <div className="hcr-media">
-              <WeatherGlyph kind={glyphKind(weather.weatherCode, weather.isDay)} />
+              <WeatherGlyph
+                kind={glyphKind(weather.weatherCode, weather.isDay)}
+              />
               <dl className="hcr-kv">
                 <dt>TEMPERATURE</dt>
                 <dd>{formatTemperature(weather.temperature, resolved)}</dd>
@@ -227,6 +249,18 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
             </div>
           )}
         </div>
+      </div>
+      <div className="hcr-chart">
+        <SolarMiniChart
+          label="TEMPERATURE — 2 H · SESSION"
+          points={trend.map((point) => ({
+            ...point,
+            value:
+              resolved === "imperial" ? point.value * 1.8 + 32 : point.value,
+          }))}
+          unit={resolved === "imperial" ? "°F" : "°C"}
+          maxGapMs={10 * 60 * 1000}
+        />
       </div>
     </WallReport>
   );

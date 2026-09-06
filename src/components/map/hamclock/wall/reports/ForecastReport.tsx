@@ -14,8 +14,13 @@ import {
   WALL_FORECAST_BANDS,
   type WallReliabilityStatus,
 } from "../tiles/useWallReliability";
-import { reportTone } from "../tokens";
+import { reportTone, reportFooter } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
+import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import {
+  FUTURECAST_HORIZONS_HOURS,
+  propagationFutureCastHorizonIsActivated,
+} from "@/lib/propagation/runtimeActivation";
 
 /** Which tile opened the report; it only chooses the hero. */
 export type ForecastFocus = "forecast" | "reliability" | "muf";
@@ -89,6 +94,26 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
   // idle note, since that half of the report genuinely has nothing to draw.
   const mufReady = focus === "muf" && muf !== null;
 
+  // HW-17: FutureCast model horizons are activated per a signed runtime
+  // manifest (see runtimeActivation.ts); when none are active the matrix and
+  // facts render exactly as before — no new data feed, only an overlay on
+  // the existing physics hours that correspond to an activated offset.
+  const activatedHorizons = FUTURECAST_HORIZONS_HOURS.filter((horizon) =>
+    propagationFutureCastHorizonIsActivated(horizon),
+  );
+  // The matrix only ever displays today's 24 columns (`column` is 0–23), so
+  // marking a horizon here means the absolute hour `hour + horizon` — not
+  // that value wrapped modulo 24 — falls on one of those columns. A horizon
+  // that crosses midnight (e.g. +6H at 20Z → 02Z tomorrow) simply matches no
+  // column, rather than mislabeling today's cell at that wrapped hour; +24H
+  // can therefore never land on the current-hour cell.
+  const isFutureCastColumn = (column: number): boolean =>
+    activatedHorizons.some((horizon) => hour + horizon === column);
+  const idleFooter = reportFooter(
+    "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
+    null,
+  );
+
   if (status !== "ready" && !mufReady) {
     return (
       <WallReport
@@ -98,7 +123,8 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
         hero="—"
         verdict="NO PATH"
         facts={facts}
-        footer="ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL"
+        footer={idleFooter.footer}
+        updated={idleFooter.updated}
       >
         <p className="hcr-note">{IDLE_COPY[status]}</p>
       </WallReport>
@@ -116,7 +142,37 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
       (best?.band.toUpperCase() ?? "—")
     );
   const verdict =
-    status === "ready" ? (best ? `${best.score}%` : "SHUT") : IDLE_VERDICT[status];
+    status === "ready"
+      ? best
+        ? `${best.score}%`
+        : "SHUT"
+      : IDLE_VERDICT[status];
+
+  // The matrix is built from Kp/SFI, so its freshness is the Kp reading's
+  // own observation time — never "now", which would hide a stale or failed
+  // refetch behind a false "just now". react-query defaults `dataUpdatedAt`
+  // to 0 before the first fetch, so treat that as unknown, not epoch.
+  const kpUpdatedAt =
+    kIndexQuery.dataUpdatedAt > 0 ? kIndexQuery.dataUpdatedAt : null;
+  const { footer, updated } = reportFooter(
+    "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
+    status === "ready" ? kpUpdatedAt : null,
+  );
+
+  // 24h MUF trend across the same hours the matrix already covers, at the
+  // report's own QTH/SFI — no new feed, just the existing physics call swept
+  // across the day instead of evaluated once for the hero.
+  const mufChart =
+    location && sfi != null
+      ? HOURS.map((column) => {
+          const at = new Date(displayTime);
+          at.setUTCHours(at.getUTCHours() - hour + column, 0, 0, 0);
+          return {
+            timestamp: at.toISOString(),
+            value: getMUFAtLocation(location.lat, location.lon, sfi, at),
+          };
+        })
+      : [];
 
   return (
     <WallReport
@@ -130,9 +186,21 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
       tone={reportTone(toneClass)}
       hero={hero}
       verdict={verdict}
-      facts={facts}
-      footer="ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL"
-      updated={status === "ready" ? `${String(hour).padStart(2, "0")}Z NOW` : undefined}
+      facts={
+        activatedHorizons.length
+          ? [
+              ...facts,
+              {
+                label: "MODEL",
+                value: `+${activatedHorizons.join("H, +")}H HORIZONS`,
+              },
+            ]
+          : facts
+      }
+      footer={footer}
+      updated={updated}
+      pinId={`forecast-${focus}`}
+      pinElement={<ForecastReport open onClose={onClose} focus={focus} />}
     >
       {status === "ready" ? (
         <div className="hcr-box">
@@ -143,16 +211,21 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
             aria-hidden="true"
           >
             <span />
-            {HOURS.map((column) => (
-              <span
-                key={column}
-                className={`hcr-matrix-head${
-                  column === hour ? " hcr-matrix-head--now" : ""
-                }`}
-              >
-                {column % 3 === 0 ? String(column).padStart(2, "0") : ""}
-              </span>
-            ))}
+            {HOURS.map((column) => {
+              const isModelHour = isFutureCastColumn(column);
+              return (
+                <span
+                  key={column}
+                  className={`hcr-matrix-head${
+                    column === hour ? " hcr-matrix-head--now" : ""
+                  }${isModelHour ? " hcr-matrix-head--model" : ""}`}
+                >
+                  {column % 3 === 0 || column === hour
+                    ? String(column).padStart(2, "0")
+                    : ""}
+                </span>
+              );
+            })}
             {WALL_FORECAST_BANDS.map((band) => (
               <Fragment key={band}>
                 <span
@@ -173,7 +246,7 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
                       key={column}
                       className={`hcf-dot ${wallScoreTone(score)}${
                         dead ? " hcf-dot--off" : ""
-                      }`}
+                      }${column === hour ? " hcr-dot--now" : ""}`}
                     />
                   );
                 })}
@@ -188,11 +261,14 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
             <thead>
               <tr>
                 <th scope="col">Band</th>
-                {HOURS.map((column) => (
-                  <th key={column} scope="col">
-                    {`${String(column).padStart(2, "0")}Z`}
-                  </th>
-                ))}
+                {HOURS.map((column) => {
+                  const isModelHour = isFutureCastColumn(column);
+                  return (
+                    <th key={column} scope="col">
+                      {`${String(column).padStart(2, "0")}Z${isModelHour ? " (model)" : ""}`}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -218,6 +294,16 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
         </div>
       ) : (
         <p className="hcr-note">{IDLE_COPY[status]}</p>
+      )}
+      {mufChart.length > 0 && (
+        <div className="hcr-chart">
+          <SolarMiniChart
+            label="MUF — 24 H · ITU-R P.533"
+            points={mufChart}
+            unit="MHz"
+            maxGapMs={2 * 60 * 60 * 1000}
+          />
+        </div>
       )}
     </WallReport>
   );

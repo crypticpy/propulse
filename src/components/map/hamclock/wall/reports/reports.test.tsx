@@ -23,7 +23,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
-vi.mock("@/hooks/useBandActivity", () => ({ useBandActivity: mocks.activity }));
+vi.mock("@/hooks/useBandActivity", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useBandActivity")>()),
+  useBandActivity: mocks.activity,
+}));
 // Partial mock: the tiles/reports get a scripted matrix, but the pure
 // selectors (`wallBestBand`, `wallReliabilityScore`, `wallScoreTone`) stay
 // real so a test exercises the code that actually picks the hero.
@@ -255,7 +258,12 @@ describe("SolarReport wind focus", () => {
     mocks.solar.mockImplementation((sourceId: string) => {
       if (sourceId === "swpc-solar-wind-plasma") {
         return envelope([
-          { time_tag: "2026-09-05T12:55:00Z", speed: 700, density: 3, temperature: 1 },
+          {
+            time_tag: "2026-09-05T12:55:00Z",
+            speed: 700,
+            density: 3,
+            temperature: 1,
+          },
         ]);
       }
       if (sourceId === "swpc-solar-wind-mag") {
@@ -277,14 +285,21 @@ describe("SolarReport wind focus", () => {
     expect(screen.getByText("HIGH SPEED")).toBeTruthy();
     const dialog = screen.getByRole("dialog");
     expect(dialog.querySelector(".hcr-hero")?.className).toContain("hc-bad");
-    expect(dialog.querySelector(".hcr-hero")?.className).not.toContain("hc-good");
+    expect(dialog.querySelector(".hcr-hero")?.className).not.toContain(
+      "hc-good",
+    );
   });
 
   it("stays good when both Bz and wind speed are quiet", () => {
     mocks.solar.mockImplementation((sourceId: string) => {
       if (sourceId === "swpc-solar-wind-plasma") {
         return envelope([
-          { time_tag: "2026-09-05T12:55:00Z", speed: 350, density: 3, temperature: 1 },
+          {
+            time_tag: "2026-09-05T12:55:00Z",
+            speed: 350,
+            density: 3,
+            temperature: 1,
+          },
         ]);
       }
       if (sourceId === "swpc-solar-wind-mag") {
@@ -359,9 +374,7 @@ describe("WeatherReport focus", () => {
     expect(dialog.querySelector(".hcr-hero")?.className).not.toContain(
       "hc-bad",
     );
-    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe(
-      "CLEAR SKY",
-    );
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("CLEAR SKY");
   });
 
   it("still uses the alert severity tone for the alerts focus", () => {

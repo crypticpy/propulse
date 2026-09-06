@@ -1,8 +1,11 @@
 import { useMemo } from "react";
-import { useBandActivity } from "@/hooks/useBandActivity";
+import { useBandActivity, scopeQueryString } from "@/hooks/useBandActivity";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { WallReport, type WallReportFact } from "./WallReport";
+import { useHamClockSessionTrend } from "./sessionTrend";
+import { reportFooter } from "../tokens";
+import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 
 export interface BandActivityReportProps {
   open: boolean;
@@ -31,6 +34,13 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
   const total = bars.reduce((sum, entry) => sum + entry.count60m, 0);
   const fetchedAt = data?.fetchedAt ?? null;
 
+  const activityScopeKey = `${activityScope.type}${scopeQueryString(activityScope)}`;
+  const trend = useHamClockSessionTrend(
+    `band-activity-${activityScopeKey}`,
+    bars.length > 0 ? total : null,
+    fetchedAt ?? undefined,
+  );
+
   const facts: WallReportFact[] = [
     { label: "TOTAL SPOTS", value: total.toLocaleString() },
     { label: "BANDS OPEN", value: bars.length },
@@ -38,9 +48,15 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
     { label: "SCOPE", value: scope.label.toUpperCase() },
     {
       label: "TOP SHARE",
-      value: top && total > 0 ? `${Math.round((top.count60m / total) * 100)}%` : "—",
+      value:
+        top && total > 0 ? `${Math.round((top.count60m / total) * 100)}%` : "—",
     },
   ];
+
+  const { footer, updated } = reportFooter(
+    "LIVE ACTIVITY FEED · TRAILING 60 MINUTES",
+    fetchedAt,
+  );
 
   return (
     <WallReport
@@ -51,12 +67,10 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
       hero={top ? top.band.toUpperCase() : "—"}
       verdict={top ? top.count60m.toLocaleString() : "QUIET"}
       facts={facts}
-      footer="SPOT COUNTS FROM THE LIVE ACTIVITY FEED · TRAILING 60 MINUTES"
-      updated={
-        fetchedAt
-          ? `READ ${new Date(fetchedAt).toISOString().slice(11, 16)}Z`
-          : "AWAITING FEED"
-      }
+      footer={footer}
+      updated={updated}
+      pinId={`band-activity-${activityScopeKey}`}
+      pinElement={<BandActivityReport open onClose={onClose} />}
     >
       <div className="hcr-box">
         <h4>All bands · spots in the last 60 minutes</h4>
@@ -79,6 +93,14 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
             ))}
           </div>
         )}
+      </div>
+      <div className="hcr-chart">
+        <SolarMiniChart
+          label="TOTAL SPOTS — 2 H · SESSION"
+          points={trend}
+          unit="spots"
+          maxGapMs={10 * 60 * 1000}
+        />
       </div>
     </WallReport>
   );

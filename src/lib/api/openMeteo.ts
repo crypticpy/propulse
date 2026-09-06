@@ -16,6 +16,9 @@ export interface LocalWeatherData {
   precipitationProbability: number | null;
   humidity: number; // %
   pressure: number; // hPa
+  /** UTC instant of the `current` reading, derived from Open-Meteo's local
+   * `current.time` + `utc_offset_seconds`; null if either was unparseable. */
+  observedAt: Date | null;
 }
 
 /** WMO weather code to description */
@@ -78,8 +81,24 @@ export async function fetchLocalWeather(
   const c = data.current;
   const rainChance = data.daily?.precipitation_probability_max?.[0];
 
+  // `current.time` is a local wall-clock string ("YYYY-MM-DDTHH:mm") with no
+  // offset marker because `timezone=auto` was requested; `utc_offset_seconds`
+  // (always present alongside it) is what converts it back to a UTC instant.
+  const utcOffsetSeconds =
+    typeof data.utc_offset_seconds === "number" &&
+    Number.isFinite(data.utc_offset_seconds)
+      ? data.utc_offset_seconds
+      : null;
+  const localTimeMs =
+    typeof c.time === "string" ? Date.parse(`${c.time}:00Z`) : NaN;
+  const observedAt =
+    Number.isFinite(localTimeMs) && utcOffsetSeconds !== null
+      ? new Date(localTimeMs - utcOffsetSeconds * 1000)
+      : null;
+
   return {
     timezone: typeof data.timezone === "string" ? data.timezone : undefined,
+    observedAt,
     temperature: c.temperature_2m,
     windSpeed: c.wind_speed_10m,
     windDirection: c.wind_direction_10m,

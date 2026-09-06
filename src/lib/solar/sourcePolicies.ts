@@ -174,6 +174,10 @@ export const SOLAR_SOURCE_POLICIES: Record<
     requestDeadlineMs: 12_000,
     maxRows: 1_600,
     maxUpstreamBytes: 1_200_000,
+    // `observedAt` is the newest *valid* sample; GOES electron contamination
+    // drops the newest minutes, so a day-long series must stay usable while
+    // the feed keeps answering rather than hard-expiring with its tail.
+    freshnessBasis: "fetchedAt",
     maxBytes: 220_000,
     criticality: "supporting",
     group: "details",

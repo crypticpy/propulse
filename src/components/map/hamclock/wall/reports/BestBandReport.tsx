@@ -3,16 +3,27 @@ import SunCalc from "suncalc";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useBandActivity } from "@/hooks/useBandActivity";
 import { useCurrentSFI } from "@/hooks/useMUFData";
+import { useKIndex } from "@/hooks/useSolarData";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useBandVerdicts, type BandLadderEntry } from "@/hooks/useBandVerdicts";
+import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
 import { getMUFAtLocation } from "@/lib/api/muf";
 import { BAND_RANGES } from "@/lib/data/bandRanges";
 import { getBandColor } from "@/lib/utils/spotColors";
+import { latLonToGrid } from "@/lib/utils/grid";
 import { LADDER_RANK } from "@/lib/verdict/ladder";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useProfileStore } from "@/stores/profileStore";
 import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import type { EngineReading } from "@/lib/hamclock/engineComparison";
+import {
+  ladderStepVerdict,
+  probabilityStepClassifier,
+} from "@/lib/hamclock/engineComparison";
 import { LADDER_WALL_CLASS, LADDER_WALL_LABEL, reportFooter } from "../tokens";
+import { EngineComparisonStrip } from "./EngineComparisonStrip";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
 
@@ -160,6 +171,16 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   const setBandFocus = useHamClockStore((s) => s.setBandFocus);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const setSpotFilters = useMapStore((s) => s.setSpotFilters);
+  // The ladder's own DX target (not the map's arbitrary `target`, which can
+  // point somewhere else entirely) -- "first saved target" is the same
+  // convention useBandVerdicts uses internally to build its "dx" scope.
+  const savedTargets = useProfileStore((s) => s.savedTargets);
+  const ladderTarget = scope.type === "dx" ? (savedTargets[0] ?? null) : null;
+  const reliability = useHamClockStore((s) => s.reliability);
+  const kIndexQuery = useKIndex();
+  const currentKp =
+    kIndexQuery.data?.[kIndexQuery.data.length - 1]?.kp_index ?? null;
+  const stationCast = useStationCastContext();
 
   const muf = useMemo(() => {
     if (!location || sfi == null) return null;
@@ -177,6 +198,104 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   );
   const leader = ranked[0] ?? null;
   const activityFetchedAt = activitySnapshot?.fetchedAt ?? null;
+
+  const nowCastTarget = useMemo(() => {
+    if (!ladderTarget) return null;
+    try {
+      return {
+        grid:
+          ladderTarget.grid ??
+          latLonToGrid(ladderTarget.lat, ladderTarget.lon, 4),
+        lat: ladderTarget.lat,
+        lon: ladderTarget.lon,
+      };
+    } catch {
+      return null;
+    }
+  }, [ladderTarget]);
+  const nowCast = useNowCastBandPredictions({
+    origin: stationCast.location,
+    target: nowCastTarget,
+    weather: {
+      ...(currentKp == null ? {} : { kp: currentKp }),
+      ...(sfi == null ? {} : { f107: sfi }),
+    },
+    mode: reliability.mode,
+    deriveEnvelope: stationCast.deriveEnvelope,
+  });
+
+  const physicsReading: EngineReading = useMemo(() => {
+    if (!leader)
+      return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
+    const pct = Math.round(leader.result.inputs.physicsScore * 100);
+    return {
+      value: `${pct}%`,
+      comparable: { kind: "number", value: pct, unit: "pct" },
+      detail: predictedLabel(
+        leader.result.evaluation.physicsOpen,
+        leader.result.inputs.physicsScore,
+      ),
+      state: "ok",
+    };
+  }, [leader]);
+
+  const nowcastReading: EngineReading = useMemo(() => {
+    // NowCast is a single-path model: with no DX target the ladder's own
+    // scope resolves to, there is no equivalent path to request it for --
+    // never fall back to some other path and compare it anyway.
+    if (scope.type !== "dx") {
+      return {
+        value: "—",
+        comparable: { kind: "none" },
+        state: "unavailable",
+        unavailableReason: `${scope.type.toUpperCase()} SCOPE`,
+      };
+    }
+    if (!ladderTarget) {
+      return {
+        value: "—",
+        comparable: { kind: "none" },
+        state: "unavailable",
+        unavailableReason: "NO DX TARGET",
+      };
+    }
+    if (!leader || !nowCast.available) {
+      return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
+    }
+    const prediction = nowCast.predictions.get(leader.band);
+    if (!prediction) {
+      return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
+    }
+    const pct = Math.round(
+      (nowCast.personalized
+        ? prediction.personalized_probability
+        : prediction.core_probability) * 100,
+    );
+    return {
+      value: `${pct}%`,
+      comparable: { kind: "number", value: pct, unit: "pct" },
+      detail: `${leader.band.toUpperCase()} PATH TO TARGET`,
+      confidence: prediction.confidence * 100,
+      state: nowCast.pending ? "stale" : "ok",
+    };
+  }, [scope.type, ladderTarget, leader, nowCast]);
+
+  const observedReading: EngineReading = useMemo(() => {
+    if (!leader)
+      return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
+    return {
+      value: `${leader.result.inputs.obs20m} OBS/20 MIN`,
+      comparable: {
+        kind: "verdict",
+        verdict: ladderStepVerdict(leader.stable),
+      },
+      detail: `${leader.result.counts?.sourceCounts60m.dxcluster ?? 0}·${
+        leader.result.counts?.sourceCounts60m.rbn ?? 0
+      } DX·RBN`,
+      updatedAt: activityFetchedAt ? new Date(activityFetchedAt) : undefined,
+      state: "ok",
+    };
+  }, [leader, activityFetchedAt]);
 
   const handleFocus = (band: string) => {
     setBandFocus([band]);
@@ -239,6 +358,16 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
       pinId="best-band"
       pinElement={<BestBandReport open onClose={onClose} />}
     >
+      {leader && (
+        <EngineComparisonStrip
+          subject={leader.band.toUpperCase()}
+          physics={physicsReading}
+          nowcast={nowcastReading}
+          observed={observedReading}
+          classify={probabilityStepClassifier()}
+          now={now}
+        />
+      )}
       <div className="hcr-box">
         <p className="hcr-bandtable-caption">Ranked bands · {scope.label}</p>
         <div className="hcr-bandtable-head" aria-hidden="true">

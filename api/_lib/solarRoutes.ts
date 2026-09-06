@@ -4,12 +4,14 @@ import cme from "../solar/cme";
 import drap from "../solar/drap";
 import dst from "../solar/dst";
 import fluxForecast from "../solar/flux-forecast";
+import fluxOutlook from "../solar/flux-outlook";
 import flux from "../solar/flux";
 import frame from "../solar/frame";
 import imageMeta from "../solar/image-meta";
 import image from "../solar/image";
 import kIndex from "../solar/k-index";
 import magnetometer from "../solar/magnetometer";
+import magnetometer24h from "../solar/magnetometer-24h";
 import probabilities from "../solar/probabilities";
 import protons from "../solar/protons";
 import scales from "../solar/scales";
@@ -18,6 +20,7 @@ import windMag from "../solar/wind-mag";
 import windPlasma from "../solar/wind-plasma";
 import xrayLatest from "../solar/xray-latest";
 import xray from "../solar/xray";
+import xray24h from "../solar/xray-24h";
 
 export type EdgeHandler = (request: Request) => Promise<Response>;
 
@@ -29,12 +32,14 @@ export const SOLAR_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/solar/drap": drap,
   "/api/solar/dst": dst,
   "/api/solar/flux-forecast": fluxForecast,
+  "/api/solar/flux-outlook": fluxOutlook,
   "/api/solar/flux": flux,
   "/api/solar/frame": frame,
   "/api/solar/image-meta": imageMeta,
   "/api/solar/image": image,
   "/api/solar/k-index": kIndex,
   "/api/solar/magnetometer": magnetometer,
+  "/api/solar/magnetometer-24h": magnetometer24h,
   "/api/solar/probabilities": probabilities,
   "/api/solar/protons": protons,
   "/api/solar/scales": scales,
@@ -43,4 +48,5 @@ export const SOLAR_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/solar/wind-plasma": windPlasma,
   "/api/solar/xray-latest": xrayLatest,
   "/api/solar/xray": xray,
+  "/api/solar/xray-24h": xray24h,
 };

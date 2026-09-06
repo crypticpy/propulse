@@ -421,6 +421,7 @@
   --hcr-chart-warn: var(--hc-warn);
   --hcr-chart-now: var(--hc-fg);
   --hcr-chart-selected-ring: var(--hc-bg);
+  --hcr-chart-marker: var(--hc-bad);
 }
 .hcr-chart {
   flex: 0 1 auto;
@@ -527,6 +528,174 @@
   height: 100%;
 }
 
+/* ===== B19: solar, x-ray, solar wind reports ===== */
+
+/* `SolarSeriesChart` (reused from /solar, HW-B19) draws taller than the
+ * compact `SolarMiniChart` the 9vh rule above was written for. Reports pass
+ * `chrome="plot"` so the legend, inspector slider and "show values" toggle
+ * are never rendered here in the first place — `overflow: hidden` must not
+ * be relied on to hide them, since a report's tab panel can be shorter than
+ * the full-chrome chart and clipping would leave controls half-visible and
+ * inoperable. Scoped to a report's tab panel only, so the older non-tabbed
+ * reports keep the original mini-chart sizing untouched. */
+.hcc-tabpanel .hcr-chart {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.hcc-tabpanel .hcr-chart svg {
+  height: auto;
+  max-height: 26vh;
+}
+
+/* The WIND tab stacks three plot-only strips (Bz, speed, density) sharing
+ * one time axis instead of one tall chart, so each strip gets a third of
+ * the panel's height rather than the single-chart 26vh cap above. */
+.hcc-tabpanel .hcr-chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vh;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.hcc-tabpanel .hcr-chart-stack .hcr-chart {
+  flex: 1 1 0;
+  padding-top: 0.5vh;
+}
+.hcc-tabpanel .hcr-chart-stack .hcr-chart svg {
+  max-height: 9vh;
+}
+
+/* ===== end B19 ===== */
+/* ===== B17: engine strip + MUF report ===== */
+
+/* Three-engine agreement strip (HW-56): the wall's core claim, shared by
+ * every report that shows a comparable reading. Sits inside its own
+ * `.hcr-box` so it composes with the body's existing gap rhythm. */
+.hcr-enginestrip {
+  gap: 1vh;
+}
+.hcr-enginestrip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1vw;
+}
+.hcr-enginestrip-word {
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: 1.9vh;
+  letter-spacing: 0.14em;
+}
+.hcr-enginestrip-reason {
+  margin: 0;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+  color: var(--hc-dim);
+  letter-spacing: 0.02em;
+}
+.hcr-enginestrip-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2vw;
+}
+.hcr-enginestrip-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3vh;
+  padding: 0.8vh 1vw;
+  border: 1px solid var(--hc-line);
+  border-radius: calc(var(--hc-radius) * 0.7);
+  min-width: 0;
+}
+.hcr-enginestrip-label {
+  margin: 0;
+  font-family: var(--hc-font-mono);
+  font-size: 1.05vh;
+  letter-spacing: 0.14em;
+  color: var(--hc-dim2);
+  text-transform: uppercase;
+}
+.hcr-enginestrip-value {
+  margin: 0;
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: 2.1vh;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hcr-enginestrip-detail,
+.hcr-enginestrip-age {
+  margin: 0;
+  font-family: var(--hc-font-mono);
+  font-size: 1.05vh;
+  color: var(--hc-dim);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hcr-enginestrip-conf {
+  height: 0.9vh;
+}
+
+/* MUF report hop rows (HW-57): same clickable-row vocabulary as the best
+ * band table, at five columns instead of eight. */
+.hcr-hoptable-head,
+.hcr-hoprow {
+  display: grid;
+  grid-template-columns: 2.5vw minmax(0, 1fr) 8vw 8vw 6vw;
+  align-items: center;
+  gap: 0.8vw;
+}
+.hcr-hoptable-head {
+  padding: 0 0.8vw;
+  font-family: var(--hc-font-mono);
+  font-size: 1.1vh;
+  letter-spacing: 0.1em;
+  color: var(--hc-dim2);
+  text-transform: uppercase;
+}
+.hcr-hoprow {
+  min-height: 44px;
+  padding: 0.5vh 0.8vw;
+  background: transparent;
+  border: 1px solid var(--hc-line);
+  border-radius: max(2px, calc(var(--hc-radius) * 0.7));
+  font-family: var(--hc-font-mono);
+  font-size: 1.5vh;
+  color: var(--hc-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.hcr-hoprow:hover {
+  border-color: var(--hc-accent);
+}
+.hcr-hoprow:focus-visible {
+  outline: 0.25vh solid var(--hc-accent);
+  outline-offset: -0.2vh;
+}
+
+@media (max-width: 1599px) {
+  /* The strip stays a single horizontal row at every report width — the
+   * report body is `overflow: hidden` with no scroll, so stacking the three
+   * columns here would clip whatever sits below. Below 1600px there is only
+   * room for the headline value per engine, so the secondary detail/age
+   * lines and the confidence bar are hidden rather than wrapped. */
+  .hcr-enginestrip-detail,
+  .hcr-enginestrip-age,
+  .hcr-enginestrip-conf {
+    display: none;
+  }
+  .hcr-hoptable-head,
+  .hcr-hoprow {
+    grid-template-columns: 2.5vw minmax(0, 1fr) 7vw 7vw 5vw;
+  }
+}
+
+/* ===== end B17 ===== */
 /* ===== B20: sun + grey line reports ===== */
 /* Shared text-link button for a report body: "SEE GREY LINE" (Sun report)
  * and "SHOW TERMINATOR" (Grey line report). Same footprint as `.hcr-pin`

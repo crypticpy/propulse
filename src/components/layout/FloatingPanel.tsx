@@ -22,6 +22,9 @@ interface FloatingPanelProps {
   minSize?: { width: number; height: number }; // default 200x100
   maxSize?: { width: number; height: number }; // default 800x600
 
+  /** Bottom of the toolbar; title bars stay below this viewport coordinate. */
+  minTop?: number;
+
   // State
   collapsed?: boolean;
   onCollapse?: () => void;
@@ -104,6 +107,7 @@ function clampPosition(
   x: number,
   y: number,
   width: number,
+  minTop = 0,
 ): { x: number; y: number } {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -112,7 +116,7 @@ function clampPosition(
     // Keep at least 50% of panel width visible horizontally
     x: clamp(x, -(width * 0.5), vw - width * 0.5),
     // Keep title bar vertically within viewport
-    y: clamp(y, 0, vh - TITLE_BAR_HEIGHT),
+    y: clamp(y, minTop, Math.max(minTop, vh - TITLE_BAR_HEIGHT)),
   };
 }
 
@@ -160,11 +164,11 @@ function getSnapIndicatorStyle(target: {
   };
   switch (target.edge) {
     case "top":
-      return { ...base, left: 0, right: 0, top: target.position, height: 2 };
+      return { ...base, left: 0, right: 0, top: target.position - 2, height: 2 };
     case "bottom":
       return { ...base, left: 0, right: 0, top: target.position, height: 2 };
     case "left":
-      return { ...base, top: 0, bottom: 0, left: target.position, width: 2 };
+      return { ...base, top: 0, bottom: 0, left: target.position - 2, width: 2 };
     case "right":
       return { ...base, top: 0, bottom: 0, left: target.position, width: 2 };
     default:
@@ -183,6 +187,7 @@ export function FloatingPanel({
   defaultSize,
   minSize = DEFAULT_MIN_SIZE,
   maxSize = DEFAULT_MAX_SIZE,
+  minTop = 0,
   collapsed = false,
   onCollapse,
   onLayoutChange,
@@ -217,6 +222,7 @@ export function FloatingPanel({
     rawLayout.x,
     rawLayout.y,
     clampedInitialSize.width,
+    minTop,
   );
   const initialLayout = {
     ...rawLayout,
@@ -276,6 +282,7 @@ export function FloatingPanel({
       persistedX,
       persistedY,
       restoredSize.width,
+      minTop,
     );
     const nextLayout = {
       ...position,
@@ -302,6 +309,7 @@ export function FloatingPanel({
     persistedHeight,
     minSize,
     maxSize,
+    minTop,
   ]);
 
   // ---- Drag handlers ----
@@ -342,7 +350,7 @@ export function FloatingPanel({
       const dy = e.clientY - dragStart.current.pointerY;
       const newX = dragStart.current.panelX + dx;
       const newY = dragStart.current.panelY + dy;
-      const clamped = clampPosition(newX, newY, layoutRef.current.width);
+      const clamped = clampPosition(newX, newY, layoutRef.current.width, minTop);
 
       // Direct DOM update for smoothness (no React re-render)
       const el = panelRef.current;
@@ -372,7 +380,7 @@ export function FloatingPanel({
       // Store in ref for commit on pointer up
       layoutRef.current = { ...layoutRef.current, x: finalX, y: finalY };
     },
-    [id, onDragMove],
+    [id, onDragMove, minTop],
   );
 
   const handleDragPointerUp = useCallback(
@@ -524,7 +532,7 @@ export function FloatingPanel({
         minSize,
         maxSize,
       );
-      const clamped = clampPosition(cur.x, cur.y, resized.width);
+      const clamped = clampPosition(cur.x, cur.y, resized.width, minTop);
       const nextLayout = {
         ...cur,
         ...clamped,
@@ -557,7 +565,7 @@ export function FloatingPanel({
 
     window.addEventListener("resize", handleWindowResize);
     return () => window.removeEventListener("resize", handleWindowResize);
-  }, [id, maxSize, minSize, onLayoutChange, onResizeWidth]);
+  }, [id, maxSize, minSize, minTop, onLayoutChange, onResizeWidth]);
 
   // ---- Focus on pointer down anywhere ----
   const handlePanelPointerDown = useCallback(() => {
@@ -607,7 +615,7 @@ export function FloatingPanel({
             const dy = e.clientY - dragStart.current.pointerY;
             const newX = dragStart.current.panelX + dx;
             const newY = dragStart.current.panelY + dy;
-            const clamped = clampPosition(newX, newY, 120);
+            const clamped = clampPosition(newX, newY, 120, minTop);
             const el = panelRef.current;
             if (el) {
               el.style.left = `${clamped.x}px`;
@@ -649,6 +657,7 @@ export function FloatingPanel({
         </div>
         {snapTarget && (
           <div
+            data-snap-edge={snapTarget.edge}
             className="fixed pointer-events-none z-[9999]"
             style={getSnapIndicatorStyle(snapTarget)}
           />
@@ -772,6 +781,7 @@ export function FloatingPanel({
       {/* Snap indicator overlay */}
       {snapTarget && (
         <div
+          data-snap-edge={snapTarget.edge}
           className="fixed pointer-events-none z-[9999]"
           style={getSnapIndicatorStyle(snapTarget)}
         />

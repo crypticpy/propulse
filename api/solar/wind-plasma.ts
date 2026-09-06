@@ -3,6 +3,8 @@ import { createSolarHandler, fetchSolarUpstream } from "../_lib/solarHandler";
 
 export const config = { runtime: "edge" };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export default createSolarHandler({
   sourceId: "swpc-solar-wind-plasma",
   load: (signal, policy) =>
@@ -11,5 +13,5 @@ export default createSolarHandler({
       accept: "json",
       maxBytes: policy.maxUpstreamBytes,
     }),
-  adapt: (raw, policy) => adaptWindPlasma(raw, policy.maxRows),
+  adapt: (raw, policy) => adaptWindPlasma(raw, policy.maxRows, DAY_MS),
 });

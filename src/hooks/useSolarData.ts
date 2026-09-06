@@ -14,8 +14,10 @@ import type {
   FlareProbabilityForecast,
   KpPoint,
   MagnetometerPoint,
+  SolarFluxOutlookProduct,
   SolarFluxPoint,
   SunspotPoint,
+  XrayPoint,
 } from "@/lib/solar/dataTypes";
 import { SOLAR_QUERY_KEYS } from "@/lib/solar/sourcePolicies";
 
@@ -25,6 +27,9 @@ export const QUERY_KEYS = {
   probabilities: SOLAR_QUERY_KEYS["noaa-probabilities"],
   sunspots: SOLAR_QUERY_KEYS["noaa-sunspots"],
   magnetometer: SOLAR_QUERY_KEYS["noaa-magnetometer"],
+  magnetometer24h: SOLAR_QUERY_KEYS["noaa-magnetometer-24h"],
+  xray24h: SOLAR_QUERY_KEYS["noaa-xray-24h"],
+  fluxOutlook: SOLAR_QUERY_KEYS["noaa-flux-outlook"],
 } as const;
 
 export function useKIndex(enabled = true) {
@@ -79,6 +84,30 @@ export function useMagnetometer(enabled = true) {
   return projectSolarResource(
     useSolarResource<MagnetometerPoint[]>("noaa-magnetometer", enabled),
     (points) => points,
+  );
+}
+
+/** 24-hour IMF Bz/By/Bt retention for the HamClock wall solar-wind report. */
+export function useMagnetometer24h(enabled = true) {
+  return projectSolarResource(
+    useSolarResource<MagnetometerPoint[]>("noaa-magnetometer-24h", enabled),
+    (points) => points,
+  );
+}
+
+/** 24-hour GOES X-ray flux retention for the HamClock wall X-ray report. */
+export function useXray24h(enabled = true) {
+  return projectSolarResource(
+    useSolarResource<XrayPoint[]>("noaa-xray-24h", enabled),
+    (points) => points,
+  );
+}
+
+/** 27-day flux/A-index/Kp outlook used as a predicted tail on the wall solar report. */
+export function useFluxOutlook(enabled = true) {
+  return projectSolarResource(
+    useSolarResource<SolarFluxOutlookProduct>("noaa-flux-outlook", enabled),
+    (product) => product,
   );
 }
 

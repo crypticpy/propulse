@@ -9,7 +9,7 @@
  * into a dropdown, Observatory goes icon-only, station info trims.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { createPortal } from "react-dom";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
@@ -32,6 +32,7 @@ interface ProToolbarRibbonProps {
   onExit: () => void;
   onResetLayout: () => void;
   onOpenPresetManager: () => void;
+  onBottomChange?: (bottom: number) => void;
 }
 
 /* ─── Shared active-color map for presets ─────────────────────── */
@@ -239,6 +240,7 @@ export function ProToolbarRibbon({
   onExit,
   onResetLayout,
   onOpenPresetManager,
+  onBottomChange,
 }: ProToolbarRibbonProps) {
   /* ── Store selectors ─────────────────────────────────────── */
   const proRibbonExpanded = useMapStore((s) => s.proRibbonExpanded);
@@ -256,8 +258,25 @@ export function ProToolbarRibbon({
 
   /* ── Responsive: compact mode via ResizeObserver ──────────── */
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const chromeRef = useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
+
+  // Measure both the expanded masthead and the collapsed mode-switcher row.
+  useLayoutEffect(() => {
+    const el = chromeRef.current;
+    if (!el) return;
+    const measure = () =>
+      onBottomChange?.(Math.ceil(el.getBoundingClientRect().bottom));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [proRibbonExpanded, onBottomChange]);
 
   useEffect(() => {
     const el = toolbarRef.current;
@@ -269,7 +288,7 @@ export function ProToolbarRibbon({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [proRibbonExpanded]);
 
   /* ── Collapsed UTC clock ─────────────────────────────────── */
   const utcClockNow = useUTCClock();
@@ -293,6 +312,8 @@ export function ProToolbarRibbon({
   if (!proRibbonExpanded) {
     return (
       <div
+        ref={chromeRef}
+        data-pro-toolbar
         className={`fixed top-3 left-3 z-[211] flex items-start gap-2 transition-opacity duration-300 ${ambientOpacity}`}
       >
         <button
@@ -333,6 +354,8 @@ export function ProToolbarRibbon({
 
   return (
     <div
+      ref={chromeRef}
+      data-pro-toolbar
       className={`fixed top-0 left-0 right-0 z-[210] pointer-events-none transition-opacity duration-300 ${ambientOpacity}`}
     >
       <div

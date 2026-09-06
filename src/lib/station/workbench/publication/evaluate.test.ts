@@ -5,6 +5,7 @@ import {
   PUBLICATION_POLICY_TRUST_BOUNDARY,
   evaluatePublicationPolicy,
   publicationAccessContextSchema,
+  publicationPolicySourceSchema,
   type PublicationAccessContext,
   type PublicationPolicySource,
 } from "@/lib/station/workbench/publication";
@@ -107,6 +108,95 @@ describe("publication policy trust boundary", () => {
 });
 
 describe("evaluatePublicationPolicy", () => {
+  it.each(["visitor", "friend", "owner"] as const)("rejects contradictory %s media grants in every order", (audience) => {
+    const permutations = [
+      ["current", "revoked"], ["revoked", "current"],
+      ["current", "absent"], ["absent", "current"],
+      ["current", "revoked", "absent"], ["current", "absent", "revoked"],
+      ["revoked", "current", "absent"], ["revoked", "absent", "current"],
+      ["absent", "current", "revoked"], ["absent", "revoked", "current"],
+    ] as const;
+    for (const statuses of permutations) {
+      const context = access({
+        verifiedAccountId: FIXTURE_OWNER,
+        ownerPreviewAs: audience,
+        mediaGrants: statuses.map((status) => ({ assetId: "shack-cover", derivativeId: "conflicted-derivative", audience, status })),
+      });
+      const before = structuredClone(context);
+      expect(publicationAccessContextSchema.safeParse(context).success).toBe(false);
+      const result = evaluatePublicationPolicy(source(), context);
+      expect(result).toEqual({ ok: false, code: "invalid-input", message: "Malformed publication policy input" });
+      expectNoLeaks(result, ["conflicted-derivative", "shack-cover"]);
+      expect(context).toEqual(before);
+    }
+  });
+
+  it("keeps repeated identical grants and distinct grant identities usable", () => {
+    const current = { assetId: "shack-cover", derivativeId: "current-derivative", audience: "friend" as const, status: "current" as const };
+    const grants: PublicationAccessContext["mediaGrants"] = [
+      current, { ...current },
+      { ...current, audience: "visitor", status: "revoked" },
+      { ...current, derivativeId: "previous-derivative", status: "revoked" },
+      { ...current, assetId: "other-asset", status: "absent" },
+    ];
+    for (const mediaGrants of [grants, [...grants].reverse()]) {
+      expect(publicationAccessContextSchema.safeParse(access({ mediaGrants })).success).toBe(true);
+      const result = evaluatePublicationPolicy(source(), access({ mediaGrants }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.projection.publicMediaIds).toEqual(["current-derivative"]);
+    }
+  });
+
+  it.each([
+    ["identity", "identity"], ["station", "equipment"], ["activity", "activity"],
+  ] as const)("rejects contradictory section mappings for %s modules", (kind, fixedSection) => {
+    const sections = ["identity", "stats", "awards", "equipment", "activity", "location"] as const;
+    for (const section of sections.filter((value) => value !== fixedSection)) {
+      const input = source({
+        sectionVisibility: { equipment: "private", activity: "private", stats: "public", awards: "public", location: "public" },
+        modules: [{ id: "conflicting-module", kind, section, title: "PRIVATE-MODULE-TITLE", text: "PRIVATE-MODULE-TEXT" }],
+      });
+      expect(publicationPolicySourceSchema.safeParse(input).success).toBe(false);
+      const result = evaluatePublicationPolicy(input, access({ verifiedAccountId: null, friendship: { state: "absent" } }));
+      expect(result).toEqual({ ok: false, code: "invalid-input", message: "Malformed publication policy input" });
+      expectNoLeaks(result, ["PRIVATE-MODULE-TITLE", "PRIVATE-MODULE-TEXT", "conflicting-module"]);
+    }
+  });
+
+  it("accepts matching fixed sections while enforcing their visibility", () => {
+    const input = source({
+      sectionVisibility: { equipment: "private", activity: "friends" },
+      modules: [
+        { id: "identity", kind: "identity", section: "identity", title: "Operator", text: "Public identity" },
+        { id: "station", kind: "station", section: "equipment", title: "Station", text: "Private station" },
+        { id: "activity", kind: "activity", section: "activity", title: "Activity", text: "Friends activity" },
+      ],
+    });
+    const visitor = evaluatePublicationPolicy(input, access({ verifiedAccountId: null, friendship: { state: "absent" } }));
+    const friend = evaluatePublicationPolicy(input, access());
+    expect(visitor.ok && friend.ok).toBe(true);
+    if (!visitor.ok || !friend.ok) return;
+    expect(visitor.projection.modules.map((module) => module.id)).toEqual(["identity"]);
+    expect(friend.projection.modules.map((module) => module.id)).toEqual(["identity", "activity"]);
+  });
+
+  it.each(["projects", "qsl", "interests"] as const)("preserves explicit section mapping and default withholding for %s", (kind) => {
+    const input = source({
+      sectionVisibility: { awards: "friends" },
+      modules: [
+        { id: "unmapped", kind, title: "Unmapped", text: "Not implicitly public" },
+        { id: "mapped", kind, section: "awards", title: "Mapped", text: "Approved friends module" },
+      ],
+    });
+    const friend = evaluatePublicationPolicy(input, access());
+    const visitor = evaluatePublicationPolicy(input, access({ verifiedAccountId: null, friendship: { state: "absent" } }));
+    expect(friend.ok && visitor.ok).toBe(true);
+    if (!friend.ok || !visitor.ok) return;
+    expect(friend.projection.modules.map((module) => module.id)).toEqual(["mapped"]);
+    expect(visitor.projection.modules).toEqual([]);
+  });
+
   it("projects a friend allowlist without spreading inventory, location or recovery envelopes", () => {
     const result = evaluatePublicationPolicy(source(), access());
     expect(result.ok).toBe(true);

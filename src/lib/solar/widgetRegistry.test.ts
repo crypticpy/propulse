@@ -16,6 +16,19 @@ describe("solar widget registry", () => {
     expect([...declared].sort()).toEqual([...SOLAR_SOURCE_IDS].sort());
   });
 
+  it("keeps wall-only sources out of every visible refresh set", () => {
+    const everything = sourceIdsForVisibleGroups(
+      new Set(["now", "impacts", "forecast", "details"]),
+    );
+    for (const id of [
+      "noaa-xray-24h",
+      "noaa-magnetometer-24h",
+      "noaa-flux-outlook",
+    ]) {
+      expect(everything).not.toContain(id);
+    }
+  });
+
   it("limits the collapsed mobile graph to essential now sources", () => {
     const initial = sourceIdsForVisibleGroups(new Set(["now"]));
     expect(initial).toEqual(

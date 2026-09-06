@@ -1,413 +1,231 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSolarResource } from "@/hooks/useSolarResource";
-import { useSunspots } from "@/hooks/useSolarData";
+import { useFluxOutlook } from "@/hooks/useSolarData";
 import type {
   KpPoint,
-  NoaaScalesProduct,
   SolarFluxPoint,
-  SolarWindMagPoint,
-  SolarWindPlasmaPoint,
-  XrayPoint,
+  SunspotPoint,
 } from "@/lib/solar/dataTypes";
-import { currentKp, latestByTime, xrayClass } from "@/lib/solar/selectors";
 import {
-  bzTone,
-  kpDescriptor,
-  kpTone,
-  reportTone,
-  windSpeedTone,
-  xrayTone,
-} from "../tokens";
-import { WallReport, type WallReportFact } from "./WallReport";
+  currentKp,
+  fluxTrendWithForecastTail,
+  latestByTime,
+} from "@/lib/solar/selectors";
+import {
+  SOLAR_CYCLE_DATA,
+  getSolarCyclePosition,
+  getSolarCycleTrend,
+} from "@/lib/data/historicalPropagation";
+import { SolarSeriesChart } from "@/components/solar/SolarSeriesChart";
+import { HamClockTabs } from "../controls";
 import { reportFooter } from "../tokens";
-import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import { WallReport, type WallReportFact } from "./WallReport";
 
-/** Which tile opened the report; it only chooses the hero, not the data. */
-export type SolarFocus = "kp" | "xray" | "wind";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-interface StripCell {
-  key: string;
-  label: string;
-  tone: string;
-  now: boolean;
+/** Cycle 25's only durable "peak" number: the largest curated monthly SSN. */
+function cycle25PeakSsn(): number | null {
+  const cycle25 = SOLAR_CYCLE_DATA.filter((point) => point.cycle === 25);
+  if (cycle25.length === 0) return null;
+  return Math.max(...cycle25.map((point) => point.ssn));
 }
 
-/**
- * One 24-hour colour strip. Both series the report can draw are irregular —
- * Kp arrives every three hours, X-ray every minute — so each is bucketed into
- * whole UTC hours and the empty hours stay visibly empty rather than being
- * interpolated into a claim the feed did not make.
- */
-function HourStrip({
-  cells,
-  caption,
-}: {
-  cells: StripCell[];
-  caption: string;
-}) {
-  return (
-    <div className="hcr-box">
-      <h4>{caption}</h4>
-      <div className="hcr-strip">
-        {cells.map((cell) => (
-          <i
-            key={cell.key}
-            className={`${cell.tone}${cell.tone === "" ? " hcr-strip-off" : ""}${
-              cell.now ? " hcr-strip-now" : ""
-            }`}
-          />
-        ))}
-      </div>
-      <div className="hcr-strip-x" aria-hidden="true">
-        {cells.map((cell) => (
-          <span key={cell.key}>{cell.label}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Kp of the three-hour window each of the last 24 hours falls in. */
-function kpStrip(
-  points: readonly KpPoint[] | undefined,
-  now: number,
-): StripCell[] {
-  const observed = (points ?? []).filter((point) => point.kind !== "predicted");
-  const cells: StripCell[] = [];
-  for (let back = 23; back >= 0; back--) {
-    const at = now - back * 60 * 60 * 1000;
-    const hour = new Date(at).getUTCHours();
-    let match: KpPoint | null = null;
-    for (const point of observed) {
-      const stamp = Date.parse(point.time_tag);
-      if (!Number.isFinite(stamp) || stamp > at) continue;
-      if (at - stamp > 3 * 60 * 60 * 1000) continue;
-      if (!match || stamp > Date.parse(match.time_tag)) match = point;
-    }
-    cells.push({
-      key: `kp-${back}`,
-      label: hour % 3 === 0 ? String(hour).padStart(2, "0") : "",
-      tone: match ? kpTone(match.kp).tone : "",
-      now: back === 0,
-    });
-  }
-  return cells;
-}
-
-/** Peak X-ray class in each of the last 24 whole UTC hours. */
-function xrayStrip(
-  points: readonly XrayPoint[] | undefined,
-  now: number,
-): StripCell[] {
-  const peaks = new Map<number, number>();
-  for (const point of points ?? []) {
-    const stamp = Date.parse(point.time_tag);
-    if (!Number.isFinite(stamp) || now - stamp > DAY_MS || stamp > now)
-      continue;
-    const bucket = Math.floor(stamp / (60 * 60 * 1000));
-    peaks.set(bucket, Math.max(peaks.get(bucket) ?? 0, point.flux));
-  }
-  const cells: StripCell[] = [];
-  for (let back = 23; back >= 0; back--) {
-    const at = now - back * 60 * 60 * 1000;
-    const flux = peaks.get(Math.floor(at / (60 * 60 * 1000)));
-    const hour = new Date(at).getUTCHours();
-    cells.push({
-      key: `xray-${back}`,
-      label: hour % 3 === 0 ? String(hour).padStart(2, "0") : "",
-      tone: flux ? xrayTone((xrayClass(flux) ?? "A").charAt(0)).tone : "",
-      now: back === 0,
-    });
-  }
-  return cells;
-}
-
-/** Severity rank so the worse of two tones can be picked deterministically. */
-const TONE_RANK: Record<string, number> = {
-  "hc-good": 0,
-  "hc-warn": 1,
-  "hc-bad": 2,
+const CYCLE_PHASE_LABEL: Record<
+  ReturnType<typeof getSolarCyclePosition>["phase"],
+  string
+> = {
+  rising: "RISING",
+  peak: "PEAK",
+  declining: "DECLINING",
 };
-
-/**
- * The worse of two tone classes. Bz and wind speed are independent readings
- * of the same wind hero, so whichever one is angrier should win rather than
- * always deferring to Bz — a northward Bz reads good even at a 700 km/s
- * stream, which would otherwise hide the high-speed tone the tile shows.
- */
-function worseTone(a: string | null, b: string | null): string | null {
-  if (a === null) return b;
-  if (b === null) return a;
-  return TONE_RANK[a] >= TONE_RANK[b] ? a : b;
-}
-
-const SCALE_LABEL = {
-  G: "GEOMAGNETIC STORM",
-  S: "SOLAR RADIATION",
-  R: "RADIO BLACKOUT",
-} as const;
 
 export interface SolarReportProps {
   open: boolean;
   onClose: () => void;
-  focus: SolarFocus;
 }
 
 /**
- * The space-weather drill-down behind the X-ray, solar wind and space weather
- * tiles. One report, three entrances: the tile that opened it picks the hero,
- * and every other number is on the facts column regardless, so an operator
- * never has to open a second report to see the whole sky.
+ * The flux-and-cycle drill-down behind the space-weather tile. X-ray and
+ * solar-wind readings moved to their own dedicated reports (HW-B19); this
+ * report is left with the two numbers that share a timescale — the 10.7 cm
+ * flux trend and where Cycle 25 sits — split across a NOW tab (flux plus its
+ * own 27-day outlook tail) and a CYCLE tab (the curated Cycle 25 reference).
  */
-export function SolarReport({ open, onClose, focus }: SolarReportProps) {
-  const kpQuery = useSolarResource<KpPoint[]>("noaa-k-index");
-  const scalesQuery = useSolarResource<NoaaScalesProduct>("swpc-scales");
-  const fluxQuery = useSolarResource<SolarFluxPoint[]>("noaa-solar-flux");
-  const xrayQuery = useSolarResource<XrayPoint[]>("noaa-xray");
-  const plasmaQuery = useSolarResource<SolarWindPlasmaPoint[]>(
-    "swpc-solar-wind-plasma",
-  );
-  const magQuery = useSolarResource<SolarWindMagPoint[]>("swpc-solar-wind-mag");
-  const sunspotQuery = useSunspots();
+export function SolarReport({ open, onClose }: SolarReportProps) {
+  const [tab, setTab] = useState<"now" | "cycle">("now");
 
-  const kpPoint = currentKp(kpQuery.data?.envelope.data);
-  const scales = scalesQuery.data?.envelope.data;
+  const fluxQuery = useSolarResource<SolarFluxPoint[]>("noaa-solar-flux");
+  const outlookQuery = useFluxOutlook();
+  const sunspotQuery = useSolarResource<SunspotPoint[]>("noaa-sunspots");
+  const kpQuery = useSolarResource<KpPoint[]>("noaa-k-index");
+
   const flux = latestByTime(
     fluxQuery.data?.envelope.data,
     (point) => point.time_tag,
   );
-  const xray = latestByTime(
-    xrayQuery.data?.envelope.data,
-    (point) => point.time_tag,
+  const sunspots = sunspotQuery.data?.envelope.data ?? [];
+  const ssn = sunspots.at(-1)?.ssn ?? null;
+  const kpPoint = currentKp(kpQuery.data?.envelope.data);
+  const aIndex = kpPoint?.a_running ?? null;
+  const outlookTail = outlookQuery.data?.outlook.at(-1)?.predicted_flux ?? null;
+
+  const cyclePosition = useMemo(() => getSolarCyclePosition(), []);
+  const cycle25Latest = useMemo(
+    () => SOLAR_CYCLE_DATA.filter((point) => point.cycle === 25).at(-1) ?? null,
+    [],
   );
-  const plasma = latestByTime(
-    plasmaQuery.data?.envelope.data,
-    (point) => point.time_tag,
-    (point) => point.speed !== null,
-  );
-  const mag = latestByTime(
-    magQuery.data?.envelope.data,
-    (point) => point.time_tag,
-    (point) => point.bz_gsm !== null,
-  );
-  const ssn = sunspotQuery.data?.[sunspotQuery.data.length - 1]?.ssn ?? null;
-
-  const kp = kpPoint?.kp ?? null;
-  const speed = plasma?.speed ?? null;
-  const bz = mag?.bz_gsm ?? null;
-  const xrayLabel = xray ? (xrayClass(xray.flux) ?? "—") : "—";
-
-  // The footer/strip timestamp must describe the feed the focused tile is
-  // actually reading, not always the Kp resource — a wind-focused report
-  // timed off Kp can read minutes stale against the plasma/mag data it draws.
-  const observedAt =
-    focus === "xray"
-      ? xrayQuery.data?.envelope.observedAt
-      : focus === "wind"
-        ? (plasmaQuery.data?.envelope.observedAt ??
-          magQuery.data?.envelope.observedAt)
-        : kpQuery.data?.envelope.observedAt;
-  const now = useMemo(() => {
-    const stamp = observedAt ? Date.parse(observedAt) : NaN;
-    return Number.isFinite(stamp) ? stamp : Date.now();
-  }, [observedAt]);
-
-  const strip = useMemo(
-    () =>
-      focus === "xray"
-        ? xrayStrip(xrayQuery.data?.envelope.data, now)
-        : kpStrip(kpQuery.data?.envelope.data, now),
-    [focus, now, xrayQuery.data, kpQuery.data],
-  );
-
-  const heroTone =
-    focus === "xray"
-      ? xray
-        ? xrayTone(xrayLabel.charAt(0)).tone
-        : "hc-dim-text"
-      : focus === "wind"
-        ? (worseTone(
-            bz !== null ? bzTone(bz) : null,
-            speed !== null ? windSpeedTone(speed) : null,
-          ) ?? "hc-dim-text")
-        : kp !== null
-          ? kpTone(kp).tone
-          : "hc-dim-text";
-
-  const hero =
-    focus === "xray" ? (
-      xrayLabel
-    ) : focus === "wind" ? (
-      speed === null ? (
-        "—"
-      ) : (
-        <>
-          {Math.round(speed)}
-          <span className="hcr-unit">KM/S</span>
-        </>
-      )
-    ) : kp === null ? (
-      "—"
-    ) : (
-      <>
-        {kp.toFixed(1)}
-        <span className="hcr-unit">Kp</span>
-      </>
-    );
-
-  const verdict =
-    focus === "xray"
-      ? xray
-        ? xrayLabel.charAt(0) === "X"
-          ? "MAJOR FLARE"
-          : xrayLabel.charAt(0) === "M"
-            ? "FLARE"
-            : xrayLabel.charAt(0) === "C"
-              ? "ACTIVE SUN"
-              : "QUIET SUN"
-        : "NO DATA"
-      : focus === "wind"
-        ? bz !== null && bz <= -10
-          ? "Bz STORM"
-          : bz !== null && bz < 0
-            ? "Bz SOUTH"
-            : speed !== null && speed >= 600
-              ? "HIGH SPEED"
-              : speed !== null
-                ? "QUIET STREAM"
-                : "NO DATA"
-        : kp === null
-          ? "NO DATA"
-          : kpDescriptor(kp);
+  const cyclePeakSsn = useMemo(() => cycle25PeakSsn(), []);
+  const fluxTrend = useMemo(() => {
+    const recent = (fluxQuery.data?.envelope.data ?? [])
+      .slice(-10)
+      .map((point) => point.flux);
+    return getSolarCycleTrend(recent);
+  }, [fluxQuery.data]);
 
   const facts: WallReportFact[] = [
     { label: "SFI", value: flux ? Math.round(flux.flux) : "—" },
+    {
+      label: "27D FCST",
+      value: outlookTail === null ? "—" : Math.round(outlookTail),
+    },
     { label: "SSN", value: ssn === null ? "—" : Math.round(ssn) },
-    { label: "Kp", value: kp === null ? "—" : kp.toFixed(1) },
+    { label: "A-INDEX", value: aIndex === null ? "—" : Math.round(aIndex) },
+    { label: "PHASE", value: CYCLE_PHASE_LABEL[cyclePosition.phase] },
     {
-      label: "Bz",
-      value: bz === null ? "—" : `${bz >= 0 ? "+" : ""}${bz.toFixed(1)} nT`,
+      label: "CYCLE SSN",
+      value: cycle25Latest ? Math.round(cycle25Latest.ssn) : "—",
     },
-    {
-      label: "WIND",
-      value: speed === null ? "—" : `${Math.round(speed)} km/s`,
-    },
-    { label: "X-RAY", value: xrayLabel },
-    {
-      label: "NOAA",
-      value: scales
-        ? `G${scales.geomagnetic_storm.scale ?? 0} S${
-            scales.solar_radiation.scale ?? 0
-          } R${scales.radio_blackout.scale ?? 0}`
-        : "—",
-    },
+    { label: "PEAK SSN", value: cyclePeakSsn === null ? "—" : cyclePeakSsn },
+    { label: "SFI TREND", value: fluxTrend.toUpperCase() },
   ];
 
+  const observedAt =
+    tab === "cycle"
+      ? sunspotQuery.data?.envelope.observedAt
+      : fluxQuery.data?.envelope.observedAt;
   const { footer, updated } = reportFooter(
-    "NOAA SWPC · GOES · ACE/DSCOVR AT L1",
+    tab === "cycle"
+      ? "NOAA SWPC / SIDC · CURATED CYCLE 25 REFERENCE"
+      : "NOAA SWPC",
     observedAt ? Date.parse(observedAt) : null,
   );
 
-  const chart =
-    focus === "xray" ? (
-      <SolarMiniChart
-        label="X-RAY — 24 H · NOAA"
-        points={(xrayQuery.data?.envelope.data ?? []).map((point) => ({
-          timestamp: point.time_tag,
-          value: point.flux,
-        }))}
-        unit="W/m²"
-        logarithmic
-        maxGapMs={300_000}
-      />
-    ) : focus === "wind" ? (
-      <SolarMiniChart
-        label="SOLAR WIND — 24 H · NOAA"
-        points={(plasmaQuery.data?.envelope.data ?? [])
-          .filter((point) => point.speed !== null)
-          .map((point) => ({
-            timestamp: point.time_tag,
-            value: point.speed as number,
-          }))}
-        unit="km/s"
-        maxGapMs={300_000}
-      />
-    ) : (
-      <SolarMiniChart
-        label="KP — 24 H · NOAA"
-        points={(kpQuery.data?.envelope.data ?? [])
-          .filter((point) => point.kind !== "predicted")
-          .map((point) => ({
-            timestamp: point.time_tag,
-            value: point.kp,
-            kind: point.kind,
-          }))}
-        unit="Kp"
-        min={0}
-        max={9}
-        intervalMs={10_800_000}
-        maxGapMs={10_800_000}
-      />
-    );
+  const nowChartPoints = fluxTrendWithForecastTail(
+    fluxQuery.data?.envelope.data,
+    outlookQuery.data?.outlook,
+  ).map((point) => ({
+    timestamp: point.time_tag,
+    value: point.flux,
+    kind: point.kind,
+  }));
+
+  // `SolarSeriesChart` only draws a clean connected line within a kind for
+  // points that are chronologically contiguous with the same-kind points
+  // around them (the pattern that works for an observed-then-future
+  // forecast tail); two full-range series covering the *same* months would
+  // interleave and fragment both lines. `SOLAR_CYCLE_DATA` has no
+  // predicted/high/low fields of its own — it is a curated *historical*
+  // reference (through early 2026), not a live forward forecast — so rather
+  // than mislabel it "predicted" (the chart's built-in legend text for that
+  // kind reads "Official NOAA prediction"), it is charted as "estimated"
+  // and restricted to months strictly before the earliest live NOAA
+  // sunspot row. That keeps the two series non-overlapping (clean lines on
+  // both) and honestly extends the visible curve back to Cycle 25's start
+  // (Dec 2019) well beyond the live feed's ~3-year retention window.
+  const earliestLiveMonth = sunspots[0]?.time_tag ?? null;
+  const cycle25Reference = SOLAR_CYCLE_DATA.filter(
+    (point) => point.cycle === 25,
+  )
+    .map((point) => ({
+      timestamp: `${point.year}-${String(point.month).padStart(2, "0")}-01T00:00:00Z`,
+      value: point.ssn,
+      monthKey: `${point.year}-${String(point.month).padStart(2, "0")}`,
+    }))
+    .filter(
+      (point) => !earliestLiveMonth || point.monthKey < earliestLiveMonth,
+    )
+    .map(({ timestamp, value }) => ({
+      timestamp,
+      value,
+      kind: "estimated" as const,
+    }));
+  const cycleChartPoints = [
+    ...cycle25Reference,
+    ...sunspots.map((point) => ({
+      timestamp: `${point.time_tag}-01T00:00:00Z`,
+      value: point.ssn,
+      kind: "observed" as const,
+    })),
+  ];
 
   return (
     <WallReport
       open={open}
       onClose={onClose}
-      title="Solar report · space weather"
-      tone={reportTone(heroTone)}
-      hero={hero}
-      verdict={verdict}
+      title="Solar report · flux & cycle"
+      tone="info"
+      hero={
+        flux ? (
+          <>
+            {Math.round(flux.flux)}
+            <span className="hcr-unit">SFU</span>
+          </>
+        ) : (
+          "—"
+        )
+      }
+      verdict={CYCLE_PHASE_LABEL[cyclePosition.phase]}
       facts={facts}
       footer={footer}
       updated={updated}
-      pinId={`solar-${focus}`}
-      pinElement={<SolarReport open onClose={onClose} focus={focus} />}
+      pinId="solar-now"
+      pinElement={<SolarReport open onClose={onClose} />}
     >
-      <div className="hcr-cols">
-        <HourStrip
-          cells={strip}
-          caption={
-            focus === "xray"
-              ? "24h X-ray · hourly peak class"
-              : "24h planetary Kp · observed"
-          }
-        />
-        <div className="hcr-box">
-          <h4>NOAA storm scales</h4>
-          {scales ? (
-            <div className="hcr-list">
-              {(
-                [
-                  ["G", scales.geomagnetic_storm.scale ?? 0],
-                  ["S", scales.solar_radiation.scale ?? 0],
-                  ["R", scales.radio_blackout.scale ?? 0],
-                ] as const
-              ).map(([letter, level]) => (
-                <div
-                  key={letter}
-                  className={`hcr-item ${
-                    level >= 3 ? "hc-bad" : level >= 1 ? "hc-warn" : "hc-good"
-                  }`}
-                >
-                  <b>
-                    {letter}
-                    {level}
-                  </b>
-                  <span>{SCALE_LABEL[letter]}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="hcr-note">
-              NOAA has not published a scale set for this hour.
-            </p>
-          )}
-        </div>
-      </div>
-      <div className="hcr-chart">{chart}</div>
+      <HamClockTabs
+        label="Solar report tabs"
+        active={tab}
+        onChange={(id) => setTab(id as "now" | "cycle")}
+        tabs={[
+          {
+            id: "now",
+            label: "NOW",
+            content: (
+              <div className="hcr-chart">
+                <SolarSeriesChart
+                  label="SFI — 30 D · NOAA SWPC"
+                  points={nowChartPoints}
+                  unit="sfu"
+                  maxGapMs={36 * 3_600_000}
+                  chrome="plot"
+                />
+              </div>
+            ),
+          },
+          {
+            id: "cycle",
+            label: "CYCLE",
+            content: (
+              <div className="hcr-chart">
+                <SolarSeriesChart
+                  label="SSN — CYCLE 25 · SIDC / NOAA"
+                  points={cycleChartPoints}
+                  unit="SSN"
+                  maxGapMs={95 * 86_400_000}
+                  chrome="plot"
+                />
+                <p className="hcr-note">
+                  Curated Cycle 25 reference (dashed) extends the curve back
+                  to Dec 2019 — mean SSN only, no forecast high/low envelope
+                  is published. Live NOAA monthly counts (solid) continue it.
+                  Currently {CYCLE_PHASE_LABEL[cyclePosition.phase]}
+                  {cyclePeakSsn !== null
+                    ? `, provisional peak SSN ${cyclePeakSsn}`
+                    : ""}
+                  .
+                </p>
+              </div>
+            ),
+          },
+        ]}
+      />
     </WallReport>
   );
 }

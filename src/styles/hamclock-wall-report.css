@@ -486,6 +486,13 @@
   font-size: 1.9vh;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  /* One line, like the detail under it: `useVisibleRows` sizes a list
+   * from its first row, so every row must be the same height — a long
+   * event name wrapping in a later row would clip that row while the
+   * caption still counted it (#267 review). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hcr-item span {
   display: block;

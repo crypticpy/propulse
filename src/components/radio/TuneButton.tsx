@@ -1,3 +1,5 @@
+import "@/styles/hamclock-themes.css";
+import "@/styles/hamclock-wall-controls.css";
 import type { MouseEvent } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";

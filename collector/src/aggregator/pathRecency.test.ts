@@ -19,11 +19,32 @@ interface FakeDb {
 
 function fakeDb(
   watermark: string | null,
-  options: { rowsWritten?: number; rpcError?: string } = {},
+  options: {
+    rowsWritten?: number;
+    rpcError?: string;
+    newestStoredHour?: string | null;
+  } = {},
 ): FakeDb {
   const calls: RpcCall[] = [];
   const db = {
     from(table: string) {
+      if (table === "path_recency_hourly") {
+        const stored = options.newestStoredHour ?? null;
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({
+                    data: stored === null ? null : { hour_utc: stored },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
       if (table !== "collector_aggregation_watermarks") {
         throw new Error(`unexpected table ${table}`);
       }
@@ -73,6 +94,37 @@ describe("path recency aggregator", () => {
     expect(calls[0].args.p_transform_version).toBe(
       PATH_RECENCY_TRANSFORM_VERSION,
     );
+  });
+
+  it("fills every hour between the newest stored hour and the watermark", async () => {
+    // Collector outage: path aggregation caught up from 09:00 to 14:00 in
+    // one go. Recency must not skip 10:00-12:00.
+    const { db, calls } = fakeDb("2026-09-06T14:00:00+00:00", {
+      newestStoredHour: "2026-09-06T09:00:00+00:00",
+    });
+
+    await computePathRecency(db);
+
+    expect(calls.map((call) => call.args.p_hour)).toEqual([
+      "2026-09-06T09:00:00.000Z",
+      "2026-09-06T10:00:00.000Z",
+      "2026-09-06T11:00:00.000Z",
+      "2026-09-06T12:00:00.000Z",
+      "2026-09-06T13:00:00.000Z",
+      "2026-09-06T14:00:00.000Z",
+    ]);
+  });
+
+  it("caps a huge gap to one tick's worth of hours", async () => {
+    const { db, calls } = fakeDb("2026-09-06T14:00:00+00:00", {
+      newestStoredHour: "2026-08-01T00:00:00+00:00",
+    });
+
+    await computePathRecency(db);
+
+    expect(calls).toHaveLength(48);
+    expect(calls[0].args.p_hour).toBe("2026-09-04T15:00:00.000Z");
+    expect(calls[47].args.p_hour).toBe("2026-09-06T14:00:00.000Z");
   });
 
   it("skips the recompute when the watermark has not advanced", async () => {

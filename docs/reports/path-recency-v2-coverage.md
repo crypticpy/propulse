@@ -1,19 +1,18 @@
 # Path recency v2 — backfill coverage report
 
-**Template.** Fill every `TBD` from the output of
-`scripts/sql/path-recency-coverage.sql` after the 53-day backfill, then keep
-this file as the acceptance record for issue #297 (NowCast N2).
+Acceptance record for issue #297 (NowCast N2), filled from the output of
+`scripts/sql/path-recency-coverage.sql` after the 53-day backfill.
 
-| Field                | Value                                                    |
-| -------------------- | -------------------------------------------------------- |
-| Run date (UTC)       | TBD                                                      |
-| Migration applied    | `supabase/migrations/20260906210000_path_recency_v2.sql` |
-| Transform version    | `psk-rbn-field-recency-v2`                               |
-| Backfill range (UTC) | TBD `--from` .. TBD `--to`                               |
-| Hours processed      | TBD of TBD                                               |
-| Rows written         | TBD                                                      |
-| Wall clock           | TBD                                                      |
-| Table size on disk   | TBD (section 3)                                          |
+| Field                | Value                                                       |
+| -------------------- | ----------------------------------------------------------- |
+| Run date (UTC)       | 2026-09-06                                                  |
+| Migration applied    | `supabase/migrations/20260906210000_path_recency_v2.sql`    |
+| Transform version    | `psk-rbn-field-recency-v2`                                  |
+| Backfill range (UTC) | 2026-07-16T00:00 .. 2026-09-06T17:00 (script defaults)      |
+| Hours processed      | 1266 of 1266 (12 empty hours before spot data began)        |
+| Rows written         | 3,471,371                                                   |
+| Wall clock           | 183 s                                                       |
+| Table size on disk   | 863 MB incl. indexes, 1254 hours, 2026-07-16T10 .. 09-06T16 |
 
 ## What this data is
 
@@ -61,21 +60,28 @@ hour — what fraction had a readable lag-1 row.
 
 **Target: >= 70%.**
 
-| Band      | Lookups | Lag-1 available | %       |
-| --------- | ------- | --------------- | ------- |
-| ALL BANDS | TBD     | TBD             | **TBD** |
-| 160m      | TBD     | TBD             | TBD     |
-| 80m       | TBD     | TBD             | TBD     |
-| 60m       | TBD     | TBD             | TBD     |
-| 40m       | TBD     | TBD             | TBD     |
-| 30m       | TBD     | TBD             | TBD     |
-| 20m       | TBD     | TBD             | TBD     |
-| 17m       | TBD     | TBD             | TBD     |
-| 15m       | TBD     | TBD             | TBD     |
-| 12m       | TBD     | TBD             | TBD     |
-| 10m       | TBD     | TBD             | TBD     |
+| Band      | Lookups | Lag-1 available | %         |
+| --------- | ------- | --------------- | --------- |
+| ALL BANDS | 3471371 | 1990190         | **57.33** |
+| 160m      | 16737   | 7335            | 43.83     |
+| 80m       | 102949  | 55300           | 53.72     |
+| 60m       | 36530   | 15826           | 43.32     |
+| 40m       | 469511  | 278136          | 59.24     |
+| 30m       | 369753  | 210931          | 57.05     |
+| 20m       | 984094  | 600127          | 60.98     |
+| 17m       | 549492  | 313971          | 57.14     |
+| 15m       | 666685  | 378044          | 56.71     |
+| 12m       | 132094  | 60138           | 45.53     |
+| 10m       | 143526  | 70382           | 49.04     |
 
-Verdict: TBD (pass / fail, and what happens next if it fails).
+Verdict: **FAIL against the 70% target** (57.33% overall; 20m best at 60.98%,
+160m/60m/12m/10m in the 43-49% range). Section 4 is empty and the hand check
+matches, so this is not a pipeline hole: at field grain roughly 57% of the
+pairs heard in an hour were also heard the hour before. The number is the
+statistic's persistence, not missing data. Escalated to the owner on #297
+with the options: accept the flags as-is (absence at H-1 is informative, not
+missing), widen the lag buckets, or lower the gate. No activation until
+decided.
 
 ## Coverage by band x UTC hour x continent
 
@@ -84,19 +90,18 @@ receiving field via `public.continent_for_field`. Note the expected shape:
 sparse night-side rows on the high bands and thin `AN`/`OC` coverage are the
 network, not a bug.
 
-| Continent (rx) | Rows | Bands covered | Weakest UTC hours |
-| -------------- | ---- | ------------- | ----------------- |
-| NA             | TBD  | TBD           | TBD               |
-| EU             | TBD  | TBD           | TBD               |
-| AS             | TBD  | TBD           | TBD               |
-| SA             | TBD  | TBD           | TBD               |
-| AF             | TBD  | TBD           | TBD               |
-| OC             | TBD  | TBD           | TBD               |
-| AN             | TBD  | TBD           | TBD               |
+| Continent (rx) | Rows      | Bands covered | Weakest UTC hours |
+| -------------- | --------- | ------------- | ----------------- |
+| NA             | 1,197,086 | 10            | 08z, 09z, 07z     |
+| EU             | 1,095,772 | 10            | 01z, 02z, 00z     |
+| AS             | 535,162   | 10            | 00z, 23z, 01z     |
+| SA             | 114,104   | 10            | 08z, 07z, 06z     |
+| AF             | 289,028   | 10            | 01z, 00z, 02z     |
+| OC             | 238,779   | 10            | 18z, 19z, 17z     |
+| AN             | 1,440     | 5             | 17z, 18z, 19z     |
 
 Hours present in `path_hourly_stats` but missing from `path_recency_hourly`
-(section 4): TBD — this should be empty; anything listed needs a targeted
-re-run of `scripts/backfill-path-recency.mjs --from ... --to ...`.
+(section 4): **none** (0 rows).
 
 ## Hand check
 
@@ -104,10 +109,13 @@ One hour, one pair, recomputed straight from `path_hourly_stats` with
 `scripts/sql/path-recency-handcheck.sql` and compared to the stored row.
 
 ```text
-psql "$DATABASE_URL" -v hour='TBD' -v band=TBD -v tx=TBD -v rx=TBD \
+psql "$DATABASE_URL" -v hour='2026-09-05T14:00:00+00' -v band=20m -v tx=EM -v rx=FN \
   -f scripts/sql/path-recency-handcheck.sql
 
-TBD (paste the two-row output; hand-computed and stored must match)
+    source     | heard | exposure | recency_rate | digital_exposure | pair_spots | rx_spots
+---------------+-------+----------+--------------+------------------+------------+----------
+ hand-computed |     1 |       32 |      0.03125 |               32 |        254 |      803
+ stored        |     1 |       32 |      0.03125 |               32 |        254 |      803
 ```
 
-Result: TBD.
+Result: exact match.

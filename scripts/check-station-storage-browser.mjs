@@ -23,7 +23,8 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(new URL("/design-system", url).href, { waitUntil: "networkidle" });
+  await page.goto(new URL("/design-system", url).href, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator("main h1").waitFor({ state: "visible", timeout: 60_000 });
   assert.match(await page.locator("main h1").innerText(), /shack/i);
   const result = await page.evaluate(async () => {
     const { createHfFixture } = await import("/src/lib/station/workbench/fixtures.ts");

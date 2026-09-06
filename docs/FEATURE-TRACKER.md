@@ -21,8 +21,8 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 38        | 2       | 33          | 0        | 73      |
-| **Grand Total**                         | **299**   | **9**   | **44**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 40        | 2       | 31          | 0        | 73      |
+| **Grand Total**                         | **301**   | **9**   | **42**      | **1**    | **353** |
 
 **Delivery rate: 85% delivered, 3% partial, 12% not started**
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
 
-### Delivered (38)
+### Delivered (40)
 
 | ID    | Feature                                                       | Notes                                                                                                                                                                          |
 | ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -659,6 +659,8 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-29 | Trend charts in reports; chart components read theme tokens   | PR #239, `SolarMiniChart`/`SolarSeriesChart` read `--hcr-chart-*` under `[data-hamclock-theme]` with unchanged hex fallbacks on `/solar`; `MetricCard` excluded (no sparkline) |
 | HW-30 | Report pin                                                    | PR #239, `WallReport` PIN/UNPIN control + `HamClockPinnedReportHost`, session-only, survives page/scene changes                                                                |
 | HW-31 | Best Band Now ranked table report                             | PR #239, new `wall/reports/BestBandReport.tsx` replacing `BandVerdictDetailsDialog` on `BestBandTile`                                                                          |
+| HW-63 | Sun report: twilights, elevation curve, day-length trend      | PR #243, section 26.8; `SunReport.tsx`, `src/lib/hamclock/sunCurve.ts`; elevation curve with shaded twilights, polar day/night states                                          |
+| HW-64 | Grey line report: per-band tiers, windows, target overlap     | PR #243, section 26.9; `GreyLineReport.tsx`, `getGreylineIntensityCurve` / `getMutualGreylineWindow` in `greyline.ts`; tiers, mutual overlap with the DX target                |
 | HW-56 | `EngineComparisonStrip` on every model-backed report          | PR #246, section 26.1; `EngineComparisonStrip.tsx`, pure `compareEngines()` in `src/lib/hamclock/engineComparison.ts`; on the MUF and Best band reports                        |
 | HW-57 | MUF report: ionosphere facts, hop table, usable window        | PR #246, section 26.2; `MufReport.tsx`, `useMUFHourlySeries`; PATH / HOPS tabs, shaded FOT–LUF usable window, hop rows flash the map                                           |
 
@@ -669,7 +671,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
 
-### Not Started (33)
+### Not Started (31)
 
 | ID    | Feature                                                          | Notes                                                  |
 | ----- | ---------------------------------------------------------------- | ------------------------------------------------------ |
@@ -695,8 +697,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-60 | Solar report: SFI, SSN, flux forecast, cycle 25                  | B19                                                    |
 | HW-61 | X-ray and flares report: B/C/M/X curve, D-RAP, probabilities     | B19                                                    |
 | HW-62 | Solar wind and geomagnetic report: Bz, Kp, Dst, aurora, CMEs     | B19                                                    |
-| HW-63 | Sun report: twilights, elevation curve, day-length trend         | B20                                                    |
-| HW-64 | Grey line report: per-band tiers, windows, target overlap        | B20                                                    |
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                    | New: path loss, sky noise, mutual window, Doppler; B21 |
 | HW-66 | Moon and EME report                                              | B21; depends on HW-65                                  |
 | HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                        |

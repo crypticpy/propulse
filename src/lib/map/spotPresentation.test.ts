@@ -41,6 +41,8 @@ describe("spot presentation", () => {
     expect(formatSpotCopyText(spot)).toContain("KA1VRY · 24.915 MHz");
     expect(mapSpotModeToRigMode("FT8", 24915)).toBe("USB");
     expect(mapSpotModeToRigMode("SSB", 7200)).toBe("LSB");
+    expect(mapSpotModeToRigMode("LSB", 14074)).toBe("LSB");
+    expect(mapSpotModeToRigMode("CWR", 7025)).toBe("CWR");
   });
 
   it.each(["POTA", "SOTA", "WWFF"] as const)(

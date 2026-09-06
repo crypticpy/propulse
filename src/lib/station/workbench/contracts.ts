@@ -111,7 +111,7 @@ export const internalPathSchema = z.object({
 /** Private recovery envelope, never a public projection field. JSON values are retained verbatim. */
 export const legacyRecordSchema = z.object({
   kind: z.enum(["radio", "radio-model", "antenna", "feedline", "feedline-run", "inline", "accessory", "chain", "preset", "profile", "location", "workbench"]),
-  sourceId: id, sourceVersion: z.number().int().nonnegative(), payload: jsonObject,
+  sourceId: id, sourceVersion: z.number().int().nonnegative().safe(), payload: jsonObject,
 }).strict();
 
 export const equipmentModelSchema = z.object({
@@ -158,6 +158,11 @@ export const connectionSchema = z.object({
   id, signal, from: endpoint, to: endpoint,
   /** The run owns its base cable and length once, even when inline gear splits its edges. */
   runId: id.nullable(), label: id,
+  /** Explicit mating interface; a cable run alone does not identify its physical ends. */
+  connectorInterface: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("direct") }).strict(),
+    z.object({ kind: z.literal("cable"), fromPortId: id, toPortId: id, internalPathId: id }).strict(),
+  ]).optional(),
 }).strict();
 
 export const cableRunSchema = z.object({
@@ -227,7 +232,7 @@ export const operatingSelectionSchema = z.object({
 
 /** Output contract only. W05 must authorize audience and media before constructing this value. */
 export const publishedProfileSchema = z.object({
-  id, ownerId: id, publicationVersion: z.number().int().positive(),
+  id, ownerId: id, publicationVersion: z.number().int().positive().safe(),
   audience: z.enum(["owner", "visitor", "friend"]), displayName: id, biography: z.string(),
   featuredSetup: z.object({ title: id, equipmentLabels: z.array(id), description: z.string() }).strict().nullable(),
   regionLabel: z.string().nullable(), publicMediaIds: z.array(id),
@@ -237,7 +242,7 @@ export const publishedProfileSchema = z.object({
 /** Private reviewed source lineage. Public DTOs deliberately omit working setup/revision IDs. */
 export const publicationSourceSchema = z.object({
   id, ownerId: id, setupId: id, revisionId: id, audience: z.enum(["owner", "visitor", "friend"]),
-  publicationVersion: z.number().int().positive(), reviewedAt: instant,
+  publicationVersion: z.number().int().positive().safe(), reviewedAt: instant,
 }).strict();
 
 const archiveObjectSchema = z.object({
@@ -417,15 +422,47 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
     const cableRuns = unique(revision.cableRuns, "cable run");
     unique(revision.routes, "route");
     const portAt = (point: Endpoint) => equipment.get(point.instanceId)?.ports.find((port) => port.id === point.portId);
+    const boundCables = new Set<string>();
+    const boundCableEnds = new Set<string>();
     revision.connections.forEach((connection) => {
       const from = portAt(connection.from);
       const to = portAt(connection.to);
       if (!from || !to || sameEndpoint(connection.from, connection.to)) issue(`Invalid connection endpoint: ${connection.id}`);
       if ([from, to].some((port) => port && port.signal !== "unknown" && port.signal !== connection.signal)) issue(`Connection signal mismatch: ${connection.id}`);
       if (connection.runId !== null && !cableRuns.get(connection.runId)?.connections.some((segment) => segment.connectionId === connection.id)) issue(`Invalid connection run reference: ${connection.id}`);
+      const mating = connection.connectorInterface;
+      if (mating?.kind === "cable") {
+        const run = connection.runId === null ? undefined : cableRuns.get(connection.runId);
+        const cable = run?.baseCableInstanceId ? equipment.get(run.baseCableInstanceId) : undefined;
+        const from = cable?.ports.find((port) => port.id === mating.fromPortId);
+        const to = cable?.ports.find((port) => port.id === mating.toPortId);
+        const path = cable?.internalPaths.find((item) => item.id === mating.internalPathId);
+        if (!cable || cable.kind !== "cable" || connection.from.instanceId === cable.id || connection.to.instanceId === cable.id || !from || !to || from.id === to.id || !path
+          || !((path.fromPortId === from.id && path.toPortId === to.id) || (path.fromPortId === to.id && path.toPortId === from.id))
+          || (path.signal !== "unknown" && path.signal !== connection.signal) || (from.signal !== "unknown" && from.signal !== connection.signal) || (to.signal !== "unknown" && to.signal !== connection.signal)) {
+          issue(`Invalid cable connector interface: ${connection.id}`);
+        }
+        if (cable) {
+          if (boundCables.has(cable.id)) issue(`Physical cable is bound to multiple connections: ${cable.id}`);
+          boundCables.add(cable.id);
+          boundCableEnds.add(JSON.stringify([cable.id, mating.fromPortId]));
+          boundCableEnds.add(JSON.stringify([cable.id, mating.toPortId]));
+        }
+      }
     });
+    revision.connections.forEach((connection) => {
+      if ([connection.from, connection.to].some((point) => boundCableEnds.has(JSON.stringify([point.instanceId, point.portId])))) {
+        issue(`Bound cable termination is also an explicit connection endpoint: ${connection.id}`);
+      }
+    });
+    const runBaseOwners = new Set<string>();
     revision.cableRuns.forEach((run) => {
+      if (run.baseCableInstanceId !== null) {
+        if (runBaseOwners.has(run.baseCableInstanceId)) issue(`Physical cable belongs to multiple runs: ${run.baseCableInstanceId}`);
+        runBaseOwners.add(run.baseCableInstanceId);
+      }
       if (run.baseCableInstanceId !== null && equipment.get(run.baseCableInstanceId)?.kind !== "cable") issue(`Missing or non-cable run base: ${run.id}`);
+      if (run.baseCableInstanceId !== null && run.connections.every((segment) => connections.get(segment.connectionId)?.connectorInterface?.kind === "direct")) issue(`Cable run cannot describe only direct mating interfaces: ${run.id}`);
       checkFacts({ length: run.lengthMeters }, pinnedEvidence, run.baseCableInstanceId === null ? undefined : { instanceId: run.baseCableInstanceId });
       if (run.lengthMeters.state === "known" && (run.lengthMeters.unit !== "m" || run.lengthMeters.value < 0)) issue("Cable run length must be nonnegative meters");
       if (run.connections.length !== run.inlineItems.length + 1) issue(`Cable run requires one connection around each inline item: ${run.id}`);

@@ -111,6 +111,25 @@ function cableCatalog(archive: WorkbenchArchive, lengthMeters = 30.48) {
   if (run) run.lengthMeters = kn(lengthMeters, "m");
 }
 
+/** Explicit synthetic assembly declarations; production code never infers end bindings. */
+function declareFixtureInterfaces(archive: WorkbenchArchive, cableConnectionIds: readonly string[]) {
+  const revision = archive.revisions[0];
+  revision.connections.filter((connection) => connection.runId).forEach((connection) => {
+    connection.connectorInterface = { kind: "direct" };
+  });
+  for (const id of cableConnectionIds) {
+    const connection = revision.connections.find((item) => item.id === id)!;
+    const run = revision.cableRuns.find((item) => item.id === connection.runId)!;
+    const cable = revision.equipment.find((item) => item.id === run.baseCableInstanceId)!;
+    cable.ports = [
+      { id: "near", label: "Near termination", signal: "rf", direction: "bidirectional", role: "through", connector: { state: "known", family: "n_type", gender: "female" }, ratings: {} },
+      { id: "far", label: "Far termination", signal: "rf", direction: "bidirectional", role: "through", connector: { state: "known", family: "n_type", gender: "male" }, ratings: {} },
+    ];
+    cable.internalPaths = [{ id: "cable-through", fromPortId: "near", toPortId: "far", signal: "rf" }];
+    connection.connectorInterface = { kind: "cable", fromPortId: "near", toPortId: "far", internalPathId: "cable-through" };
+  }
+}
+
 function accessoryFields(item: EquipmentInstance, category: string, extra: Record<string, ReturnType<typeof kn> | ReturnType<typeof kt>>) {
   item.kind = "accessory";
   item.fields = { "accessory.category": kt(category), ...extra };
@@ -185,6 +204,7 @@ export function createEngineParityFixture(): WorkbenchArchive {
     { kind: "internal", instanceId: "choke", internalPathId: "through", reverse: false },
     { kind: "connection", connectionId: "choke-antenna", reverse: false },
   ];
+  declareFixtureInterfaces(archive, ["filter-choke"]);
   return workbenchArchiveSchema.parse(archive);
 }
 
@@ -198,13 +218,14 @@ export function createKnownSimpleFixture(): WorkbenchArchive {
   addEvidence(archive, [factoryReport, testedReport, gainMeasurement]);
   archive.revisions[0].settings.bandId = "20m";
   archive.revisions[0].settings.requestedPowerWatts = kn(200, "W");
+  declareFixtureInterfaces(archive, ["main-coax"]);
   return workbenchArchiveSchema.parse(archive);
 }
 
 export function createKnownReceiveFixture(): WorkbenchArchive {
   const archive = createReceiveOnlyFixture();
-  mate(archive.revisions[0].equipment[0], "antenna", "source", "output", "male");
-  mate(archive.revisions[0].equipment[1], "feed", "load", "input", "female");
+  mate(archive.revisions[0].equipment[0], "antenna", "load", "input", "male");
+  mate(archive.revisions[0].equipment[1], "feed", "source", "output", "female");
   radioCatalog(archive);
   archive.revisions[0].equipment[0].fields!["radio.customPowerLimit"] = kn(0, "W");
   archive.revisions[0].equipment[0].facts.powerLimit = kn(0, "W");
@@ -218,6 +239,7 @@ export function createKnownReceiveFixture(): WorkbenchArchive {
   addEvidence(archive, [factoryReport, testedReport, gainMeasurement]);
   archive.revisions[0].settings.bandId = "20m";
   archive.revisions[0].settings.requestedPowerWatts = kn(0, "W");
+  declareFixtureInterfaces(archive, ["main-coax"]);
   return workbenchArchiveSchema.parse(archive);
 }
 
@@ -256,6 +278,7 @@ export function createKnownSwitchFixture(): WorkbenchArchive {
     ],
     analysis: { state: "candidate" },
   });
+  declareFixtureInterfaces(archive, ["radio-switch"]);
   return workbenchArchiveSchema.parse(archive);
 }
 
@@ -351,6 +374,7 @@ export function createKnownInlineRunsFixture(): WorkbenchArchive {
   addEvidence(archive, [factoryReport, testedReport, gainMeasurement]);
   revision.settings.bandId = "20m";
   revision.settings.requestedPowerWatts = kn(75, "W");
+  declareFixtureInterfaces(archive, ["radio-switch", "a-before"]);
   return workbenchArchiveSchema.parse(archive);
 }
 
@@ -382,6 +406,7 @@ export function createKnownLayersFixture(): WorkbenchArchive {
   archive.inventory.push(structuredClone(spareAntenna));
   revision.equipment.push(spareAntenna);
   revision.settings.bandId = "20m";
+  declareFixtureInterfaces(archive, ["before-adapter"]);
   return workbenchArchiveSchema.parse(archive);
 }
 

@@ -21,17 +21,18 @@ import {
   type SetupRevision,
   type WorkbenchArchive,
 } from "@/lib/station/workbench/contracts";
+import { routeCompileBandSchema, routeCompileModeSchema, routeCompileRequestSchema } from "@/lib/station/workbench/analysis/request";
 import { canonicalEquipmentFactId } from "@/lib/station/workbench/equipment/registry";
 import type { EquipmentFieldValue, EquipmentFields } from "@/lib/station/workbench/equipment/types";
 import type { CatalogReceiverSelection, CatalogSource, ReceiverMetric } from "@/lib/station/workbench/equipment/services";
 import { MAX_CHAIN_NODES, SIGNAL_PATH_CATEGORIES, type ChainNode, type StationChain } from "@/types/stationChain";
 import { BAND_CENTER_FREQUENCIES } from "@/lib/data/feedlines";
 import type {
-  AccessoryCategory, FeedlineCondition, FeedlineType, InlineComponent, InlineComponentType,
+  AccessoryCategory, ConnectorType, FeedlineCondition, FeedlineType, InlineComponent, InlineComponentType,
   UserAntenna, UserAntennaType, UserFeedline, UserAccessory,
 } from "@/types/shack";
 import type { AntennaType } from "@/lib/data/antennas";
-import { ANTENNA_TYPE_TO_PATTERN } from "@/types/shack";
+import { ANTENNA_TYPE_TO_PATTERN, CONNECTOR_TYPE_LABELS } from "@/types/shack";
 import type { RadioEquipment, RadioMode, RadioTier, UserRadio } from "@/types/radio";
 import type {
   CompatibilityFinding, CompatibilityVerdict, CompiledCableRun, CompilationStatus, DocumentedLayer,
@@ -142,6 +143,11 @@ function knownText(item: Item, model: Model | undefined, key: string): string | 
   return undefined;
 }
 
+function knownConnector(item: Item, model: Model | undefined, key: string): ConnectorType | undefined {
+  const value = knownText(item, model, key);
+  return value !== undefined && Object.prototype.hasOwnProperty.call(CONNECTOR_TYPE_LABELS, value) ? value as ConnectorType : undefined;
+}
+
 function knownList(item: Item, model: Model | undefined, key: string): string[] | undefined {
   const found = lookupField(item, model, key);
   if (found?.value.state === "known" && Array.isArray(found.value.value)) return found.value.value;
@@ -235,11 +241,24 @@ function walkRoute(revision: Revision, route: Route): { hops: OrientedHop[]; dia
   return { hops, diagnostics, cycle };
 }
 
+/** Only documented connector-family aliases, never equipment-type defaults or gender inference. */
+function normalizeConnectorFamily(family: string): ConnectorType | undefined {
+  const key = family.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases: Record<string, ConnectorType> = {
+    n: "n_type", type_n: "n_type", pl_259: "pl259", so239: "pl259", so_239: "pl259", uhf: "pl259",
+    rp_sma: "sma_rp", reverse_polarity_sma: "sma_rp", "7_16_din": "din_7_16",
+  };
+  if (Object.prototype.hasOwnProperty.call(aliases, key)) return aliases[key];
+  return Object.prototype.hasOwnProperty.call(CONNECTOR_TYPE_LABELS, key) ? key as ConnectorType : undefined;
+}
+
 function mateConnectors(a: Port["connector"], b: Port["connector"]): CompatibilityFinding {
   if (a.state === "unknown" || b.state === "unknown") {
     return finding("unknown", "unknown-connector", "Connected ports have an unknown connector family");
   }
-  if (a.family !== b.family) return finding("contradicted", "connector-family-mismatch", `Connector families ${a.family} and ${b.family} do not match`);
+  const familyA = normalizeConnectorFamily(a.family) ?? a.family;
+  const familyB = normalizeConnectorFamily(b.family) ?? b.family;
+  if (familyA !== familyB) return finding("contradicted", "connector-family-mismatch", `Connector families ${a.family} and ${b.family} do not match`);
   if (a.gender === "unknown" || b.gender === "unknown") return finding("unknown", "unknown-connector-gender", "Connected ports have an unknown connector gender");
   if (a.gender === "genderless" && b.gender === "genderless") return finding("compatible", "connector-compatible", "Genderless connectors of the same family mate");
   if ((a.gender === "male" && b.gender === "female") || (a.gender === "female" && b.gender === "male")) {
@@ -254,9 +273,8 @@ function directionForPurpose(
   if (port.direction === "unknown") return finding("unknown", "unknown-direction", `Port ${port.label} has an unknown direction`, [], { portId: port.id });
   if (port.direction === "bidirectional") return finding("compatible", "direction-compatible", `Port ${port.label} is bidirectional`);
   const alongConnection = hopKind === "connection";
-  const expectOutput = purpose === "transmit"
-    ? (alongConnection ? role === "from" : role === "to")
-    : (alongConnection ? role === "to" : role === "from");
+  // Hops already follow the selected signal flow, including receive reversals.
+  const expectOutput = alongConnection ? role === "from" : role === "to";
   if (expectOutput && port.direction === "output") return finding("compatible", "direction-compatible", `Port ${port.label} faces the selected ${purpose} path`);
   if (!expectOutput && port.direction === "input") return finding("compatible", "direction-compatible", `Port ${port.label} faces the selected ${purpose} path`);
   return finding("contradicted", "direction-mismatch", `Port ${port.label} direction ${port.direction} contradicts ${purpose} ${hopKind} ${role} role`);
@@ -290,8 +308,8 @@ function evaluateRatings(
 ): CompatibilityFinding[] {
   const findings: CompatibilityFinding[] = [];
   for (const port of [from, to]) {
-    if (port.ratings["port.maxPower"] || port.ratings["port.rfPower"]) {
-      const maxPower = ratingNumber(port, "port.maxPower") ?? ratingNumber(port, "port.rfPower");
+    if (port.ratings["port.maxPower"]) {
+      const maxPower = ratingNumber(port, "port.maxPower");
       if (maxPower === undefined) {
         findings.push(finding("unknown", "unknown-rating", `Port ${port.label} power rating is not a known value`, path, { portId: port.id }));
       }
@@ -324,6 +342,20 @@ function evaluateRatings(
   return findings;
 }
 
+function evaluateFilterPassband(item: Item, model: Model | undefined, frequency: Quantity, path: (string | number)[]): CompatibilityFinding[] {
+  const recorded = lookupField(item, model, "accessory.passband");
+  if (!recorded) return [];
+  const value = recorded.value.state === "known" ? recorded.value.value : undefined;
+  if (value === undefined || value === null || typeof value !== "object" || Array.isArray(value)
+    || !("min" in value) || !("max" in value) || typeof value.min !== "number" || typeof value.max !== "number") {
+    return [finding("unknown", "unknown-filter-frequency-range", `Filter ${item.label} has an explicitly unknown passband`, path, { instanceId: item.id })];
+  }
+  if (frequency.state === "unknown") return [finding("unknown", "unknown-filter-frequency", `Operating frequency is unknown for filter ${item.label}`, path, { instanceId: item.id })];
+  const supported = frequency.value >= value.min && frequency.value <= value.max;
+  return [finding(supported ? "compatible" : "contradicted", supported ? "filter-frequency-in-passband" : "filter-frequency-outside-passband",
+    `Frequency ${frequency.value} Hz ${supported ? "is inside" : "is outside"} filter ${item.label} passband ${value.min}–${value.max} Hz`, path, { instanceId: item.id })];
+}
+
 function aggregate(findings: CompatibilityFinding[]): CompatibilityVerdict {
   if (findings.some((item) => item.verdict === "contradicted")) return "contradicted";
   if (findings.some((item) => item.verdict === "unknown")) return "unknown";
@@ -354,11 +386,57 @@ function evaluateHop(
   findings.push(directionForPurpose(toPort, "to", purpose, hop.kind));
   findings.push(roleForPath(fromPort, hop.kind, hop.path));
   findings.push(roleForPath(toPort, hop.kind, hop.path));
-  if (hop.kind === "connection") {
-    const connector = mateConnectors(fromPort.connector, toPort.connector);
-    findings.push({ ...connector, path, instanceId: hop.from.instanceId, connectionId: hop.connection?.id });
+  if (hop.kind === "internal" && hop.instance?.kind === "accessory") {
+    const model = modelOf(revision, hop.instance);
+    if (accessoryCategory(hop.instance, model) === "filter") findings.push(...evaluateFilterPassband(hop.instance, model, frequencyHz, path));
   }
-  findings.push(...evaluateRatings(fromPort, toPort, frequencyHz, path));
+  if (hop.kind === "connection") {
+    const binding = hop.connection?.connectorInterface;
+    if (binding?.kind === "cable") {
+      const run = revision.cableRuns.find((item) => item.id === hop.connection?.runId);
+      const cable = revision.equipment.find((item) => item.id === run?.baseCableInstanceId);
+      const cableFrom = cable?.ports.find((port) => port.id === (hop.reverse ? binding.toPortId : binding.fromPortId));
+      const cableTo = cable?.ports.find((port) => port.id === (hop.reverse ? binding.fromPortId : binding.toPortId));
+      if (!cableFrom || !cableTo) {
+        findings.push(finding("unknown", "unknown-cable-termination", "Explicit cable termination ports are unavailable", path));
+      } else {
+        for (const [equipmentPort, cablePort] of [[fromPort, cableFrom], [toPort, cableTo]]) {
+          findings.push({ ...mateConnectors(equipmentPort.connector, cablePort.connector), path, portId: cablePort.id, instanceId: cable!.id, connectionId: hop.connection?.id });
+          findings.push(...evaluateRatings(equipmentPort, cablePort, frequencyHz, path));
+        }
+        const cablePath = cable!.internalPaths.find((item) => item.id === binding.internalPathId);
+        if ([cableFrom.signal, cableTo.signal, cablePath?.signal].some((signal) => signal !== "rf")) {
+          findings.push(finding("unknown", "unknown-cable-signal", "Bound cable ports and internal path must explicitly support RF", path, { instanceId: cable!.id }));
+        }
+        // Bound cable internals are not ordinary route hops, so the archive's
+        // route branch check cannot see extra paths sharing these terminations.
+        // An explicitly selected exclusive group represents one choice, matching
+        // the normal route semantics; independent RF paths remain branches.
+        const alternatives = cable!.internalPaths.filter((candidate) => candidate.id !== binding.internalPathId
+          && [candidate.fromPortId, candidate.toPortId].some((id) => id === cableFrom.id || id === cableTo.id)
+          && !(cablePath?.exclusiveGroupId && candidate.exclusiveGroupId === cablePath.exclusiveGroupId));
+        if (alternatives.some((candidate) => candidate.signal === "rf")) {
+          findings.push(finding("contradicted", "branched-cable-internals", "Bound cable termination has an additional non-exclusive RF path that the engine cannot represent", path, { instanceId: cable!.id }));
+        } else if (alternatives.some((candidate) => candidate.signal === "unknown")) {
+          findings.push(finding("unknown", "unknown-cable-branch", "An additional cable path sharing a bound termination has an unknown signal; an RF branch cannot be excluded", path, { instanceId: cable!.id }));
+        }
+        findings.push(roleForPath(cableFrom, "internal", cablePath));
+        findings.push(roleForPath(cableTo, "internal", cablePath));
+        findings.push(directionForPurpose(cableFrom, "from", purpose, "internal"));
+        findings.push(directionForPurpose(cableTo, "to", purpose, "internal"));
+        findings.push(...evaluateRatings(cableFrom, cableTo, frequencyHz, path));
+      }
+    } else if (binding?.kind === "direct" || !hop.connection?.runId) {
+      findings.push({ ...mateConnectors(fromPort.connector, toPort.connector), path, instanceId: hop.from.instanceId, connectionId: hop.connection?.id });
+    } else {
+      findings.push(finding("unknown", "unknown-cable-termination", "Cable-run connection has no explicit direct interface or bound cable termination ports", path, { connectionId: hop.connection.id }));
+    }
+  }
+  // Cable-bound equipment ports do not mate with one another; their actual
+  // equipment/cable joints were evaluated above. Unbound run edges stay unknown.
+  if (hop.kind !== "connection" || hop.connection?.connectorInterface?.kind === "direct" || !hop.connection?.runId) {
+    findings.push(...evaluateRatings(fromPort, toPort, frequencyHz, path));
+  }
   return { hopIndex: hop.hopIndex, verdict: aggregate(findings), findings };
 }
 
@@ -387,7 +465,7 @@ function exclusiveSelections(hops: OrientedHop[]): { selections: ExclusiveSelect
 
 function emissionHops(radioId: string, hops: OrientedHop[]): OrientedHop[] {
   return hops[0] && hops[0].from.instanceId !== radioId
-    ? [...hops].reverse().map((hop) => ({ ...hop, from: hop.to, to: hop.from }))
+    ? [...hops].reverse().map((hop) => ({ ...hop, reverse: !hop.reverse, from: hop.to, to: hop.from }))
     : hops;
 }
 
@@ -433,10 +511,46 @@ function evaluateEnginePowerRatings(
       const fromPort = portAt(revision, hop.from);
       const toPort = portAt(revision, hop.to);
       if (!fromPort || !toPort) return;
+      const binding = hop.connection?.connectorInterface;
+      if (binding?.kind === "cable") {
+        const run = revision.cableRuns.find((item) => item.id === hop.connection?.runId)!;
+        const cable = revision.equipment.find((item) => item.id === run.baseCableInstanceId)!;
+        const sameOrientation = hop.from.instanceId === hop.connection!.from.instanceId && hop.from.portId === hop.connection!.from.portId;
+        const stage = chainNodePerformance(chain, band, cable.id).performance;
+        for (const [id, side] of [[sameOrientation ? binding.fromPortId : binding.toPortId, "input"], [sameOrientation ? binding.toPortId : binding.fromPortId, "output"]] as const) {
+          const port = cable.ports.find((item) => item.id === id)!;
+          const maximum = ratingNumber(port, "port.maxPower");
+          if (maximum === undefined) continue;
+          const path = ["hops", hop.hopIndex, "engine", band.band];
+          const power = side === "input" ? stage?.inputPowerWatts : stage?.outputPowerWatts;
+          if (run.inlineItems.length || power === undefined || !Number.isFinite(power)) {
+            findings.push(finding("unknown", "unknown-hop-power", "Engine feedline stage does not isolate this bound cable termination's power", path, { instanceId: cable.id, portId: port.id }));
+          } else {
+            findings.push(finding(power > maximum ? "contradicted" : "compatible", power > maximum ? "power-rating-exceeded" : "power-rating-ok", `Modeled ${power} W at cable port ${port.label} on ${band.band} compared with maximum ${maximum} W`, path, { instanceId: cable.id, portId: port.id }));
+          }
+        }
+      }
       const fromLookup = chainNodePerformance(chain, band, hop.from.instanceId);
       const toLookup = chainNodePerformance(chain, band, hop.to.instanceId);
+      if (hop.kind === "internal" && hop.instance?.kind === "accessory") {
+        const model = modelOf(revision, hop.instance);
+        const category = accessoryCategory(hop.instance, model);
+        const maximum = knownNumber(hop.instance, model, "accessory.maxPowerWatts");
+        // Amplifiers use a maximum OUTPUT cap in the engine. Passive RF gear
+        // instead must tolerate the modeled power arriving at its input.
+        if (category !== "amplifier" && maximum !== undefined) {
+          const power = fromLookup.performance?.inputPowerWatts;
+          const path = ["hops", hop.hopIndex, "engine", band.band];
+          if (power === undefined || !Number.isFinite(power)) {
+            findings.push(finding("unknown", "unknown-accessory-input-power", `Modeled input power is unavailable for ${hop.instance.label}; its ${maximum} W maximum cannot be verified`, path, { instanceId: hop.instance.id }));
+          } else {
+            findings.push(finding(power > maximum ? "contradicted" : "compatible", power > maximum ? "accessory-power-rating-exceeded" : "accessory-power-rating-ok",
+              `Modeled ${power} W arriving at ${hop.instance.label} on ${band.band} compared with its ${maximum} W maximum`, path, { instanceId: hop.instance.id }));
+          }
+        }
+      }
       ([["from", fromPort, fromLookup, hop.from.instanceId], ["to", toPort, toLookup, hop.to.instanceId]] as const).forEach(([side, port, lookup, instanceId]) => {
-        const maxPower = ratingNumber(port, "port.maxPower") ?? ratingNumber(port, "port.rfPower");
+        const maxPower = ratingNumber(port, "port.maxPower");
         if (maxPower === undefined) return;
         const path = ["hops", hop.hopIndex, "engine", band.band];
         if (lookup.inlineWithoutStage) {
@@ -444,7 +558,7 @@ function evaluateEnginePowerRatings(
           return;
         }
         const power = hopPortPower(hop, side, fromLookup.performance, toLookup.performance);
-        if (power === undefined) {
+        if (power === undefined || !Number.isFinite(power)) {
           findings.push(finding("unknown", "unknown-hop-power", `Modeled hop power is unavailable for port ${port.label} on ${band.band}`, path, { portId: port.id, instanceId }));
           return;
         }
@@ -465,7 +579,7 @@ function accessoryCategory(item: Item, model: Model | undefined): AccessoryCateg
 }
 
 function compileChain(
-  revision: Revision, route: Route, hops: OrientedHop[],
+  revision: Revision, route: Route, hops: OrientedHop[], requestedBands: readonly string[],
 ): {
   chain: StationChain | null;
   members: PathMember[];
@@ -502,23 +616,47 @@ function compileChain(
   }
   const radio = uniqueRadios[0];
   const antenna = uniqueAntennas[0];
-  const emission = hops[0] && hops[0].from.instanceId !== radio.id
-    ? [...hops].reverse().map((hop) => ({ ...hop, from: hop.to, to: hop.from }))
-    : hops;
+  const emission = emissionHops(radio.id, hops);
   const nodes: ChainNode[] = [{ type: "radio", radioId: radio.id }];
   const feedlineRuns: StationChain["feedlineRuns"] = [];
   const usedRuns = new Set<string>();
+  const rejectedRuns = new Set<string>();
+  const emittedRunDirections = new Map<string, boolean>();
   const compiledRuns: CompiledCableRun[] = [];
   const accessories: UserAccessory[] = [];
   const inlines: InlineComponent[] = [];
   const feedlines: UserFeedline[] = [];
 
-  const emitRun = (run: DeepReadonly<CableRun>) => {
-    if (usedRuns.has(run.id)) return;
+  const emitRun = (run: DeepReadonly<CableRun>, reverse: boolean, emissionIndex: number) => {
+    if (rejectedRuns.has(run.id)) return;
+    if (usedRuns.has(run.id)) {
+      if (emittedRunDirections.get(run.id) !== reverse) limits.push(finding("contradicted", "inconsistent-run-direction", `Selected route changes direction within cable run ${run.label}`, ["cableRuns"]));
+      return;
+    }
+    const storedHops: Route["hops"][number][] = [];
+    run.connections.forEach((segment, index) => {
+      storedHops.push({ kind: "connection", connectionId: segment.connectionId, reverse: segment.reverse });
+      const inline = run.inlineItems[index];
+      if (inline) storedHops.push({ kind: "internal", instanceId: inline.instanceId, internalPathId: inline.internalPathId, reverse: inline.reverse });
+    });
+    const requiredHops = reverse ? storedHops.reverse().map((hop) => ({ ...hop, reverse: !hop.reverse })) : storedHops;
+    const complete = requiredHops.every((required, offset) => {
+      const selected = emission[emissionIndex + offset];
+      return selected?.kind === required.kind && selected.reverse === required.reverse
+        && (required.kind === "connection" ? selected.connection?.id === required.connectionId
+          : selected.instance?.id === required.instanceId && selected.path?.id === required.internalPathId);
+    });
+    if (!complete) {
+      rejectedRuns.add(run.id);
+      limits.push(finding("contradicted", "incomplete-run-selection", `Cable run ${run.label} requires every connection and internal hop in matching contiguous order; unused cable and inline losses will not be emitted`, ["cableRuns"]));
+      return;
+    }
     usedRuns.add(run.id);
+    emittedRunDirections.set(run.id, reverse);
+    const inlineItems = reverse ? [...run.inlineItems].reverse() : run.inlineItems;
     compiledRuns.push({
       id: run.id, baseCableInstanceId: run.baseCableInstanceId, lengthMeters: run.lengthMeters,
-      inlineInstanceIds: run.inlineItems.map((item) => item.instanceId), countedInEngine: run.lengthMeters.state === "known",
+      inlineInstanceIds: inlineItems.map((item) => item.instanceId), countedInEngine: run.lengthMeters.state === "known",
     });
     if (run.baseCableInstanceId === null || run.lengthMeters.state !== "known") {
       missing.push(finding("unknown", "unknown-run-length", `Cable run ${run.id} is missing a known base-cable length`, ["cableRuns"], { connectionId: run.connections[0]?.connectionId }));
@@ -531,19 +669,68 @@ function compileChain(
     }
     const model = modelOf(revision, cable);
     const feedlineType = knownText(cable, model, "feedline.feedlineType") as FeedlineType | undefined;
-    const connectorType = knownText(cable, model, "feedline.connectorType");
+    const connectorType = knownConnector(cable, model, "feedline.connectorType");
+    const farEndField = lookupField(cable, model, "feedline.connectorTypeFarEnd");
+    const connectorTypeFarEnd = knownConnector(cable, model, "feedline.connectorTypeFarEnd");
+    if (farEndField && connectorTypeFarEnd === undefined) {
+      missing.push(finding("unknown", "unknown-feedline-far-connector", `Base cable ${cable.label} explicitly records an unknown far-end connector; it will not be replaced with the near-end type`, [], { instanceId: cable.id }));
+    } else if (connectorType && connectorTypeFarEnd && connectorType !== connectorTypeFarEnd) {
+      limits.push(finding("contradicted", "mixed-feedline-connectors-not-supported", `Base cable ${cable.label} records ${connectorType}/${connectorTypeFarEnd} ends, but the engine applies the near-end loss to every connector`, [], { instanceId: cable.id }));
+      proposals.push({ code: "engine-feedline-far-connector", message: "Calculate connector losses from both recorded cable ends instead of multiplying the near-end loss by connectorCount.", owner: "coordinator" });
+    }
+    const bound = revision.connections.find((connection) => connection.runId === run.id && connection.connectorInterface?.kind === "cable")?.connectorInterface;
+    if (bound?.kind === "cable" && connectorType) {
+      for (const portId of [bound.fromPortId, bound.toPortId]) {
+        const port = cable.ports.find((candidate) => candidate.id === portId)!;
+        const physicalType = port.connector.state === "known" ? normalizeConnectorFamily(port.connector.family) : undefined;
+        if (physicalType === undefined) {
+          missing.push(finding("unknown", "unmapped-cable-connector-family", `Cable port ${port.label} cannot be mapped to an engine connector type; its loss remains unknown`, [], { instanceId: cable.id, portId }));
+        } else if (physicalType !== connectorType) {
+          limits.push(finding("contradicted", "cable-connector-loss-mismatch", `Cable port ${port.label} records ${physicalType}, but the engine loss input declares ${connectorType}`, [], { instanceId: cable.id, portId }));
+        }
+      }
+    }
     const condition = knownText(cable, model, "feedline.condition") as FeedlineCondition | undefined;
     const connectorCount = knownNumber(cable, model, "feedline.connectorCount");
+    if (bound?.kind === "cable" && connectorCount !== undefined) {
+      // Count cable terminations once, not both sides of each physical joint.
+      // Explicit "none" means no connector; unknown families still cannot
+      // establish a supported loss calculation through the checks above.
+      const physicalCount = [bound.fromPortId, bound.toPortId].filter((portId) => {
+        const connector = cable.ports.find((port) => port.id === portId)!.connector;
+        return connector.state === "known" && normalizeConnectorFamily(connector.family) !== "none";
+      }).length;
+      if (connectorCount < physicalCount) {
+        limits.push(finding("contradicted", "cable-connector-count-mismatch", `Cable ${cable.label} declares ${connectorCount} modeled connectors but its bound ends record ${physicalCount}; connector losses would be omitted`, [], { instanceId: cable.id }));
+      }
+    }
     if (!feedlineType) missing.push(finding("unknown", "unknown-feedline-type", `Base cable ${cable.label} has no feedline type`, [], { instanceId: cable.id }));
     if (!connectorType) missing.push(finding("unknown", "unknown-feedline-connector", `Base cable ${cable.label} has no connector type`, [], { instanceId: cable.id }));
     if (!condition) missing.push(finding("unknown", "unknown-feedline-condition", `Base cable ${cable.label} has no condition; the engine requires one and this adapter will not invent it`, [], { instanceId: cable.id }));
     if (connectorCount === undefined) missing.push(finding("unknown", "unknown-connector-count", `Base cable ${cable.label} has no connector count; unknown is not zero`, [], { instanceId: cable.id }));
-    run.inlineItems.forEach((inlineRef) => {
+    inlineItems.forEach((inlineRef) => {
       const inline = revision.equipment.find((item) => item.id === inlineRef.instanceId);
       if (!inline) return;
       const inlineModel = modelOf(revision, inline);
       const componentType = knownText(inline, inlineModel, "inline.componentType") as InlineComponentType | undefined;
       const insertionLossDb = knownNumber(inline, inlineModel, "inline.insertionLossDb");
+      const bandField = lookupField(inline, inlineModel, "inline.bands");
+      const inlineBands = knownList(inline, inlineModel, "inline.bands");
+      if (bandField && inlineBands === undefined) {
+        missing.push(finding("unknown", "unknown-inline-bands", `Inline device ${inline.label} explicitly records unknown band support`, [], { instanceId: inline.id }));
+      } else if (inlineBands) {
+        for (const band of requestedBands) {
+          if (!inlineBands.includes(band)) limits.push(finding("contradicted", "inline-band-unsupported", `Inline device ${inline.label} does not declare support for requested band ${band}`, [], { instanceId: inline.id }));
+        }
+      }
+      const maximumField = lookupField(inline, inlineModel, "inline.maxPowerWatts");
+      if (maximumField) {
+        const maximum = knownNumber(inline, inlineModel, "inline.maxPowerWatts");
+        missing.push(finding("unknown", maximum === undefined ? "unknown-inline-power-limit" : "unknown-inline-stage-power", maximum === undefined
+          ? `Inline device ${inline.label} has an explicitly unknown maximum power`
+          : `Inline device ${inline.label} records a ${maximum} W maximum, but the engine's combined feedline stage does not isolate its power; the rating cannot be verified`, [], { instanceId: inline.id }));
+        if (maximum !== undefined) proposals.push({ code: "engine-inline-stage-power", message: "Expose per-inline-component power from the canonical engine before comparing recorded inline maximum power limits.", owner: "coordinator" });
+      }
       const pigtailLength = knownNumber(inline, inlineModel, "inline.length");
       if (pigtailLength !== undefined) {
         limits.push(finding("unknown", "pigtail-length-not-in-engine", `Inline ${inline.label} records length ${pigtailLength} m that the engine does not add to base-cable length`, [], { instanceId: inline.id }));
@@ -551,26 +738,26 @@ function compileChain(
       if (insertionLossDb === undefined) missing.push(finding("unknown", "unknown-inline-loss", `Inline ${inline.label} insertion loss is unknown and will not be treated as zero`, [], { instanceId: inline.id }));
       if (!componentType) missing.push(finding("unknown", "unknown-inline-type", `Inline ${inline.label} has no component type`, [], { instanceId: inline.id }));
       if (componentType && insertionLossDb !== undefined) {
-        const connectorFrom = knownText(inline, inlineModel, "inline.connectorFrom");
-        const connectorTo = knownText(inline, inlineModel, "inline.connectorTo");
+        const connectorFrom = knownConnector(inline, inlineModel, "inline.connectorFrom");
+        const connectorTo = knownConnector(inline, inlineModel, "inline.connectorTo");
         if (componentType === "choke") {
           const chokeType = knownText(inline, inlineModel, "inline.chokeType");
           if (!chokeType) missing.push(finding("unknown", "unknown-choke-type", `Choke ${inline.label} has no choke type`, [], { instanceId: inline.id }));
-          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, chokeType: chokeType as "common_mode", addedAt: inline.addedAt });
+          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, chokeType: chokeType as "common_mode", ...(inlineBands ? { bands: inlineBands } : {}), addedAt: inline.addedAt });
         } else if (componentType === "adapter") {
           if (!connectorFrom || !connectorTo) missing.push(finding("unknown", "unknown-inline-connectors", `Adapter ${inline.label} is missing engine connector enums; workbench port connectors are not copied as invented feedline connectors`, [], { instanceId: inline.id }));
-          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, connectorFrom: connectorFrom as "n_type", connectorTo: connectorTo as "n_type", addedAt: inline.addedAt });
+          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, connectorFrom, connectorTo, addedAt: inline.addedAt });
         } else if (componentType === "pigtail") {
           if (!connectorFrom || !connectorTo) missing.push(finding("unknown", "unknown-inline-connectors", `Pigtail ${inline.label} is missing engine connector enums`, [], { instanceId: inline.id }));
           else {
-            inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, connectorFrom: connectorFrom as "n_type", connectorTo: connectorTo as "n_type", lengthInches: 0, addedAt: inline.addedAt });
+            inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, connectorFrom, connectorTo, lengthInches: 0, addedAt: inline.addedAt });
             limits.push(finding("unknown", "pigtail-length-excluded-from-feedline", "Pigtail length is not added to UserFeedline.lengthFeet; engine pigtail.lengthInches is unused for loss and is left at 0 rather than converting workbench meters twice", [], { instanceId: inline.id }));
             proposals.push({ code: "engine-pigtail-length", message: "InlineComponent pigtail.lengthInches is required by the engine type but must not be added to UserFeedline.lengthFeet. Keep run.lengthMeters as the only feedline length input.", owner: "coordinator" });
           }
         } else if (componentType === "balun") {
           const ratio = knownText(inline, inlineModel, "inline.ratio");
           if (!ratio) missing.push(finding("unknown", "unknown-balun-ratio", `Balun ${inline.label} has no ratio`, [], { instanceId: inline.id }));
-          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, ratio: ratio as "1:1", addedAt: inline.addedAt });
+          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, ratio: ratio as "1:1", ...(inlineBands ? { bands: inlineBands } : {}), addedAt: inline.addedAt });
         } else if (componentType === "ferrite") {
           const ferriteType = knownText(inline, inlineModel, "inline.ferriteType");
           const count = knownNumber(inline, inlineModel, "inline.count");
@@ -582,20 +769,29 @@ function compileChain(
     if (feedlineType && connectorType && condition && connectorCount !== undefined && run.lengthMeters.state === "known") {
       feedlines.push({
         id: cable.id, name: cable.label, feedlineType, lengthFeet: run.lengthMeters.value / METERS_PER_FOOT,
-        connectorCount, connectorType: connectorType as UserFeedline["connectorType"], condition, addedAt: cable.addedAt,
+        connectorCount, connectorType, ...(connectorTypeFarEnd ? { connectorTypeFarEnd } : {}), condition, addedAt: cable.addedAt,
       });
-      feedlineRuns.push({ id: run.id, feedlineId: cable.id, inlineComponentIds: run.inlineItems.map((item) => item.instanceId) });
+      feedlineRuns.push({ id: run.id, feedlineId: cable.id, inlineComponentIds: inlineItems.map((item) => item.instanceId) });
       nodes.push({ type: "feedline_run", feedlineRunId: run.id });
     }
   };
 
-  emission.forEach((hop) => {
+  emission.forEach((hop, emissionIndex) => {
     if (hop.kind === "connection" && hop.connection?.runId) {
       const run = revision.cableRuns.find((item) => item.id === hop.connection?.runId);
-      if (run) emitRun(run);
+      const segment = run?.connections.find((item) => item.connectionId === hop.connection?.id);
+      if (run && segment) emitRun(run, hop.reverse !== segment.reverse, emissionIndex);
     }
-    if (hop.kind === "internal" && hop.instance && hop.instance.kind !== "inline") {
-      if (hop.instance.kind === "accessory") {
+    if (hop.kind === "internal" && hop.instance) {
+      if (hop.instance.kind === "inline") {
+        const represented = revision.cableRuns.some((run) => usedRuns.has(run.id) && run.inlineItems.some((item) => item.instanceId === hop.instance!.id
+          && item.internalPathId === hop.path?.id && (item.reverse !== emittedRunDirections.get(run.id)) === hop.reverse));
+        if (!represented) {
+          limits.push(finding("contradicted", "unrepresented-inline-path", `Selected internal path and direction of ${hop.instance.label} do not match the emitted cable run`, [], { instanceId: hop.instance.id }));
+        }
+      } else if (hop.instance.kind !== "accessory") {
+        limits.push(finding("contradicted", "unrepresented-device-path", `Internal path through ${hop.instance.label} cannot be represented by the engine`, [], { instanceId: hop.instance.id }));
+      } else {
         const model = modelOf(revision, hop.instance);
         const category = accessoryCategory(hop.instance, model);
         if (!category) {
@@ -607,13 +803,28 @@ function compileChain(
           return;
         }
         const bands = knownList(hop.instance, model, "accessory.bands");
+        const bandField = lookupField(hop.instance, model, "accessory.bands");
+        if (bandField && bands === undefined) {
+          missing.push(finding("unknown", "unknown-accessory-bands", `Accessory ${hop.instance.label} explicitly records unknown band support`, [], { instanceId: hop.instance.id }));
+        } else if (bands) {
+          for (const band of requestedBands) {
+            if (!bands.includes(band)) limits.push(finding("contradicted", "accessory-band-unsupported", `Accessory ${hop.instance.label} does not declare support for requested band ${band}`, [], { instanceId: hop.instance.id }));
+          }
+        }
+        // Amplifier output caps and tuner required ratings retain their category
+        // checks below. Optional passive ratings must not disappear as undefined.
+        if (category !== "amplifier" && category !== "tuner"
+          && lookupField(hop.instance, model, "accessory.maxPowerWatts")
+          && knownNumber(hop.instance, model, "accessory.maxPowerWatts") === undefined) {
+          missing.push(finding("unknown", "unknown-accessory-power-limit", `Accessory ${hop.instance.label} explicitly records an unknown maximum power`, [], { instanceId: hop.instance.id }));
+        }
         if (category === "amplifier") {
           const gainDb = knownNumber(hop.instance, model, "accessory.gainDb");
           const maxPowerWatts = knownNumber(hop.instance, model, "accessory.maxPowerWatts");
           if (gainDb === undefined) missing.push(finding("unknown", "unknown-amplifier-gain", `Amplifier ${hop.instance.label} gain is unknown and will not be treated as zero`, [], { instanceId: hop.instance.id }));
           if (maxPowerWatts === undefined) missing.push(finding("unknown", "unknown-amplifier-power", `Amplifier ${hop.instance.label} max power is unknown`, [], { instanceId: hop.instance.id }));
           if (gainDb !== undefined && gainDb < 0) {
-            limits.push(finding("unknown", "engine-clamps-negative-amplifier-gain", "stationChainEngine clamps amplifier gain to ≥ 0; signed negative gain cannot be represented as a known engine input", [], { instanceId: hop.instance.id }));
+            limits.push(finding("contradicted", "engine-clamps-negative-amplifier-gain", "stationChainEngine clamps amplifier gain to ≥ 0; signed negative gain cannot be represented as a known engine input", [], { instanceId: hop.instance.id }));
             proposals.push({ code: "engine-signed-amplifier-gain", message: "Allow signed accessory.gainDb through stationChainEngine without clampNonNegative, or accept an explicit unsupported result for negative gain.", owner: "coordinator" });
           }
           if (gainDb !== undefined && maxPowerWatts !== undefined) {
@@ -638,6 +849,19 @@ function compileChain(
             nodes.push({ type: "accessory", accessoryId: hop.instance.id });
           }
         } else if (category === "tuner") {
+          // The current engine consumes constant insertion loss and exposes no
+          // tuner load impedance or SWR-conditioned loss evaluation.
+          for (const field of ["accessory.lossAtSwr", "accessory.matchingRangeOhms"] as const) {
+            const recorded = lookupField(hop.instance, model, field);
+            if (!recorded) continue;
+            const label = field === "accessory.lossAtSwr" ? "SWR-dependent loss" : "matching impedance range";
+            if (recorded.value.state === "unknown") {
+              missing.push(finding("unknown", "unknown-tuner-constraint", `Tuner ${hop.instance.label} explicitly records unknown ${label}`, [], { instanceId: hop.instance.id }));
+            } else {
+              limits.push(finding("contradicted", "unrepresented-tuner-constraint", `Tuner ${hop.instance.label} records ${label} that the constant-loss engine cannot resolve; dependent estimates are withheld`, [], { instanceId: hop.instance.id }));
+            }
+            proposals.push({ code: "engine-tuner-constraints", message: "Expose modeled load impedance and SWR at the tuner, and evaluate recorded matching ranges and conditional losses before issuing a supported estimate.", owner: "coordinator" });
+          }
           const insertionLossDb = knownNumber(hop.instance, model, "accessory.insertionLossDb");
           const tunerType = knownText(hop.instance, model, "accessory.tunerType") as "manual" | "automatic" | undefined;
           const maxPowerWatts = knownNumber(hop.instance, model, "accessory.maxPowerWatts");
@@ -671,7 +895,6 @@ function compileChain(
   if (maxPower === undefined) missing.push(finding("unknown", "unknown-radio-max-power", "Radio maximum power is unknown; the engine will not receive a fabricated 100 W", [], { instanceId: radio.id }));
   if (minPower === undefined) missing.push(finding("unknown", "unknown-radio-min-power", "Radio minimum power is unknown; the engine will not receive a fabricated zero", [], { instanceId: radio.id }));
   if (!bands?.length) missing.push(finding("unknown", "unknown-radio-bands", "Radio bands are unknown; none were inferred from frequency", [], { instanceId: radio.id }));
-  if (!modes?.length) missing.push(finding("unknown", "unknown-radio-modes", "Radio modes are unknown", [], { instanceId: radio.id }));
   if (!tier || !RADIO_TIERS.includes(tier)) missing.push(finding("unknown", "unknown-radio-tier", "Radio tier is unknown; the engine type requires one and this adapter will not invent it", [], { instanceId: radio.id }));
 
   const antennaType = knownText(antenna, antennaModel, "antenna.antennaType") as UserAntennaType | undefined;
@@ -699,8 +922,8 @@ function compileChain(
     proposals.push({ code: "engine-default-swr", message: "stationChainEngine uses DEFAULT_SWR 1.5 when swrByBand is missing. Require explicit SWR or compute loss with an unknown result.", owner: "coordinator" });
   }
   const ferriteLoss = knownNumber(antenna, antennaModel, "antenna.feedpointFerrites.insertionLossDb");
-  if (ferriteLoss !== undefined) {
-    limits.push(finding("unknown", "feedpoint-ferrite-not-in-engine", `Feedpoint ferrite loss ${ferriteLoss} dB is recorded but stationChainEngine does not apply it; W07 will not add it a second time`, [], { instanceId: antenna.id }));
+  if (ferriteLoss !== undefined && ferriteLoss !== 0) {
+    limits.push(finding("contradicted", "feedpoint-ferrite-not-in-engine", `Feedpoint ferrite loss ${ferriteLoss} dB is recorded but stationChainEngine does not apply it; dependent estimates are withheld`, [], { instanceId: antenna.id }));
     proposals.push({ code: "engine-feedpoint-ferrite-loss", message: "Optionally fold recorded antenna.feedpointFerrites.insertionLossDb into the canonical engine once, with provenance, rather than in this adapter.", owner: "coordinator" });
   }
 
@@ -719,8 +942,19 @@ function compileChain(
   }
 
   const resolvedPattern = gainPattern ?? (antennaType ? ANTENNA_TYPE_TO_PATTERN[antennaType] as AntennaType : undefined);
-  const gainDbiOverride = gainMap ?? (scalarGain !== undefined ? Object.fromEntries((antennaBands ?? []).map((band) => [band, scalarGain])) : undefined);
-  const swrByBand = swrMap ?? (scalarSwr !== undefined ? Object.fromEntries((antennaBands ?? []).map((band) => [band, scalarSwr])) : undefined);
+  // A map's existence says nothing about an absent band key. Resolve every
+  // requested band before entering the engine, which otherwise supplies defaults.
+  const resolveBands = (map: Record<string, number> | undefined, scalar: number | undefined, field: string) => {
+    const resolved: Record<string, number> = {};
+    requestedBands.forEach((band) => {
+      const value = map && Object.prototype.hasOwnProperty.call(map, band) ? map[band] : scalar;
+      if (value === undefined) missing.push(finding("unknown", `unknown-antenna-${field}-band`, `Antenna ${field} is not recorded for ${band}; engine defaults will not be substituted`, [], { instanceId: antenna.id }));
+      else resolved[band] = value;
+    });
+    return resolved;
+  };
+  const gainDbiOverride = resolveBands(gainMap, scalarGain, "gain");
+  const swrByBand = resolveBands(swrMap, scalarSwr, "swr");
   const userAntenna: UserAntenna = {
     id: antenna.id, name: antenna.label, antennaType: antennaType!, gainPatternType: resolvedPattern!,
     bands: antennaBands!, heightMeters: heightMeters!, polarization: polarization!, mounting: mounting!,
@@ -738,6 +972,9 @@ function compileChain(
     displayName: knownText(radio, radioModel, "radio.displayName") ?? radio.label,
     receiver: { rmdr: Number.NaN, imdr3: Number.NaN, blockingGain: Number.NaN, sensitivity: Number.NaN },
     maxPower: maxPower!, minPower: minPower!,
+    // The engine does not consume this legacy mode array. Keep its narrower
+    // type safe without dropping canonical WSPR capability from the separate
+    // pinned envelope gate or inventing a capability for unknown lists.
     modes: (modes ?? []).filter((mode): mode is RadioMode => RADIO_MODES.includes(mode as RadioMode)),
     bands: bands!, tier: tier!,
   };
@@ -791,6 +1028,13 @@ function fillReceiver(
     proposals.push({ code: "engine-optional-receiver", message: "Make RadioEquipment.receiver optional, or accept workbench unknown quantities, so chain evaluation can proceed without dummy RMDR/IMDR/sensitivity.", owner: "coordinator" });
     return { ok: false, limits, proposals };
   }
+  const expectedReportType = catalog.selectedSource === "tested" ? "independent-test" : "manufacturer";
+  const attributed = Object.values(catalog.fields).every((field) => field.state === "unknown" || catalog.evidence.some((source) => source.id === field.evidenceId && source.kind === "report" && source.reportType === expectedReportType));
+  if (!attributed) {
+    limits.push(finding("unknown", "receiver-provenance-not-supported", "The engine cannot label this receiver group's declared or modeled evidence accurately; its envelope is withheld while the pinned evidence remains available"));
+    proposals.push({ code: "engine-receiver-provenance", message: "Accept explicit receiver evidence classification instead of inferring manufacturer/test attribution from the receiver object slot.", owner: "coordinator" });
+    return { ok: false, limits, proposals };
+  }
   const prefix = catalog.selectedSource === "tested" ? "testedSpecs" : "receiver";
   const required = REQUIRED_RECEIVER.every((metric) => catalog.fields[metric].state === "known" && typeof catalog.fields[metric].value === "number");
   if (!required) {
@@ -836,7 +1080,11 @@ function metricsFromEngine(result: NonNullable<ReturnType<typeof computeStationC
 }
 
 /** Compile one explicit selected route from pinned revision inputs into the canonical engine. */
-export function compileSelectedRoute(input: unknown, request: RouteCompileRequest): DeepReadonly<RouteCompilation> {
+export function compileSelectedRoute(input: unknown, requestInput: unknown): DeepReadonly<RouteCompilation> {
+  const parsedRequest = routeCompileRequestSchema.safeParse(requestInput);
+  const request: RouteCompileRequest = parsedRequest.success ? parsedRequest.data : { revisionId: "", routeId: "" };
+  let effectiveMode = request.options?.mode ?? null;
+  let effectiveBands = request.options?.bands ?? null;
   const diagnostics: CompatibilityFinding[] = [];
   const empty = (status: CompilationStatus, extra: Partial<RouteCompilation> = {}): DeepReadonly<RouteCompilation> => immutable({
     status, revisionId: request.revisionId, routeId: request.routeId, purpose: null, structuralCandidate: false,
@@ -844,11 +1092,15 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
     exclusiveSelections: [], topology: { chain: extra.topology?.chain ?? null, members: extra.topology?.members ?? [], cableRuns: extra.topology?.cableRuns ?? [], documentedLayers: extra.topology?.documentedLayers ?? [] },
     gearCapability: { radio: {}, antenna: {}, catalogReceiver: null, bibliography: [] },
     modeledRoute: { state: "withheld", reasons: extra.modeledRoute?.reasons ?? diagnostics.map((item) => item.message), engine: null, envelope: null },
-    measurements: [], pathTimeConditions: { bands: request.options?.bands ?? null, targetBearingDeg: request.options?.targetBearingDeg ?? null, takeoffAngleDeg: request.options?.takeoffAngleDeg ?? null, mode: request.options?.mode ?? null, localNoiseFloorDbm: request.options?.localNoiseFloorDbm ?? null },
+    measurements: [], pathTimeConditions: { bands: effectiveBands, targetBearingDeg: request.options?.targetBearingDeg ?? null, takeoffAngleDeg: request.options?.takeoffAngleDeg ?? null, mode: effectiveMode, localNoiseFloorDbm: request.options?.localNoiseFloorDbm ?? null },
     metrics: [], assumptions: [], missingInputs: extra.missingInputs ?? [], calculationLimits: extra.calculationLimits ?? [],
     integrationProposals: extra.integrationProposals ?? [], diagnostics, ...extra,
   } as RouteCompilation);
 
+  if (!parsedRequest.success) {
+    diagnostics.push(finding("contradicted", "invalid-request", parsedRequest.error.message));
+    return empty("invalid");
+  }
   let archive: Archive;
   try {
     archive = parseWorkbenchArchive(input);
@@ -865,6 +1117,17 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
   if (!route) {
     diagnostics.push(finding("contradicted", "missing-route", `Selected route was not found: ${request.routeId}. No radio, antenna or first route was inferred.`, ["routes"]));
     return empty("invalid");
+  }
+  const bandId = request.options?.bands?.length ? request.options.bands : (revision.settings.bandId ? [revision.settings.bandId] : null);
+  const rawMode = request.options?.mode ?? revision.settings.mode ?? null;
+  const parsedMode = routeCompileModeSchema.safeParse(rawMode);
+  const mode = parsedMode.success ? parsedMode.data : rawMode;
+  effectiveMode = mode;
+  effectiveBands = bandId;
+  if (bandId?.some((band) => !routeCompileBandSchema.safeParse(band).success)) {
+    diagnostics.push(finding("contradicted", "unsupported-pinned-band", "The pinned band has no engine center frequency"));
+    // Preserve the selected route and pinned evidence through the context-aware
+    // compatibility withholding below; only the engine calculation is blocked.
   }
   const structuralCandidate = route.analysis.state === "candidate";
   const walk = walkRoute(revision, route);
@@ -920,7 +1183,7 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
   });
 
   if (walk.cycle || exclusives.conflict || route.analysis.state === "documentation-only" || walk.diagnostics.some((item) => item.code === "non-rf-hop")) {
-    const compiled = compileChain(revision, route, walk.hops);
+    const compiled = compileChain(revision, route, walk.hops, bandId ?? []);
     return withhold("unsupported", [
       ...(walk.cycle ? ["Selected route contains a cycle"] : []),
       ...(exclusives.conflict ? ["Exclusive switch paths conflict on the selected route"] : []),
@@ -932,14 +1195,21 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
     });
   }
   if (overall === "contradicted") {
-    const compiled = compileChain(revision, route, walk.hops);
+    const compiled = compileChain(revision, route, walk.hops, bandId ?? []);
     return withhold("unsupported", ["Selected route has contradicted compatibility and is not an engine-supported estimate"], {
       topology: { chain: null, members: compiled.members, cableRuns: compiled.cableRuns, documentedLayers: layers },
       calculationLimits: compiled.limits, missingInputs: compiled.missing, integrationProposals: compiled.proposals,
     });
   }
 
-  const compiled = compileChain(revision, route, walk.hops);
+  const compiled = compileChain(revision, route, walk.hops, bandId ?? []);
+  const blockingLimits = compiled.limits.filter((item) => item.verdict === "contradicted");
+  if (blockingLimits.length) {
+    return withhold("unsupported", blockingLimits.map((item) => item.message), {
+      topology: { chain: null, members: compiled.members, cableRuns: compiled.cableRuns, documentedLayers: layers },
+      missingInputs: compiled.missing, calculationLimits: compiled.limits, integrationProposals: compiled.proposals,
+    });
+  }
   const unknownCompat = overall === "unknown";
   if (unknownCompat) {
     compiled.missing.push(finding("unknown", "unknown-compatibility", "Compatibility is unknown; dependent engine results are withheld rather than assumed valid"));
@@ -958,7 +1228,6 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
   compiled.limits.push(...receiverFill.limits);
   compiled.proposals.push(...receiverFill.proposals);
 
-  const bandId = request.options?.bands?.length ? request.options.bands : (revision.settings.bandId ? [revision.settings.bandId] : null);
   if (!bandId) {
     compiled.missing.push(finding("unknown", "missing-band", "No explicit bandId or compile options.bands was supplied; frequency was not converted into a band"));
     compiled.proposals.push({ code: "explicit-band", message: "W08/callers should pass explicit bands. Do not infer band from frequencyHz.", owner: "coordinator" });
@@ -988,9 +1257,47 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
     ...(request.options?.targetBearingDeg == null ? ["target_bearing_not_supplied"] : []),
     ...(request.options?.localNoiseFloorDbm == null ? ["local_noise_not_measured"] : []),
   ];
-  const engine = computeStationChainPerformance(compiled.chain, compiled.inventory, { ...request.options, bands: bandId });
-  const envelope = receiverFill.ok
-    ? deriveStationFeatureEnvelope(compiled.chain, compiled.inventory, bandId[0], { ...request.options, bands: bandId })
+  const options = { ...request.options, bands: bandId, ...(parsedMode.success ? { mode: parsedMode.data } : {}) };
+  if (!parsedMode.success) compiled.limits.push(finding("unknown", mode ? "unsupported-operating-mode" : "unknown-operating-mode", "No supported mode override or pinned mode is recorded; the path envelope is withheld rather than defaulting to WSPR"));
+  const engine = computeStationChainPerformance(compiled.chain, compiled.inventory, options);
+  const nonfinite = (value: unknown): boolean => typeof value === "number" ? !Number.isFinite(value)
+    : value !== null && typeof value === "object" && Object.values(value).some(nonfinite);
+  if (nonfinite(engine)) {
+    compiled.limits.push(finding("unknown", "nonfinite-engine-result", "The engine produced a nonfinite value; numerical estimates are withheld"));
+    return withhold("incomplete", ["Engine output contains nonfinite values"], {
+      topology: { chain: compiled.chain, members: compiled.members, cableRuns: compiled.cableRuns, documentedLayers: layers },
+      calculationLimits: compiled.limits, integrationProposals: compiled.proposals,
+    });
+  }
+  // An unsupported engine stage may report zero power. That zero cannot
+  // establish a rating pass, and a missing band must not quietly disappear.
+  if (engine.bands.length !== bandId.length || engine.bands.some((band) => !band.supported || band.nodes.some((node) => !node.supported))) {
+    compiled.limits.push(finding("contradicted", "unsupported-engine-band", "The engine cannot evaluate every requested band with supported stages; dependent estimates and power-rating passes are withheld"));
+    return withhold("unsupported", ["One or more requested bands are not supported by the compiled engine route"], {
+      topology: { chain: compiled.chain, members: compiled.members, cableRuns: compiled.cableRuns, documentedLayers: layers },
+      calculationLimits: compiled.limits, integrationProposals: compiled.proposals,
+    });
+  }
+  // Port compatibility must cover the actual calculation frequency as well
+  // as the pinned operating frequency; the engine currently uses band centers.
+  for (const band of engine.bands) {
+    for (const hop of walk.hops) {
+      const actual = evaluateHop(hop, route.purpose, { state: "known", value: band.freqMHz * 1e6, unit: "Hz", evidenceId: "engine-modeled" }, revision);
+      const frequencyFindings = actual.findings.filter((item) => item.code.includes("frequency"));
+      const target = hopCompat.find((item) => item.hopIndex === hop.hopIndex)!;
+      target.findings.push(...frequencyFindings.map((item) => ({ ...item, message: `${band.band} engine frequency: ${item.message}`, path: ["hops", hop.hopIndex, "engine", band.band] })));
+      target.verdict = aggregate(target.findings);
+    }
+  }
+  const supportedRadioModes = radio ? knownList(radio, modelOf(revision, radio), "radio.modes") : undefined;
+  const modeSupported = parsedMode.success && supportedRadioModes?.includes(parsedMode.data) === true;
+  if (parsedMode.success && !modeSupported) {
+    compiled.limits.push(finding(supportedRadioModes === undefined ? "unknown" : "contradicted", supportedRadioModes === undefined ? "unknown-radio-mode-capability" : "unsupported-radio-mode",
+      supportedRadioModes === undefined ? "Pinned radio mode capability is unknown; the mode-dependent envelope is withheld"
+        : `Pinned radio does not declare support for ${parsedMode.data}; the mode-dependent envelope is withheld`, [], { instanceId: radio?.id }));
+  }
+  const envelope = receiverFill.ok && modeSupported
+    ? deriveStationFeatureEnvelope(compiled.chain, compiled.inventory, bandId[0], options)
     : null;
   const hopPowerFindings = evaluateEnginePowerRatings(walk.hops, compiled.chain, engine, revision);
   hopPowerFindings.forEach((item) => {
@@ -1002,10 +1309,10 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
   });
   const ratedOverall = hopCompat.length ? aggregate(hopCompat.flatMap((hop) => hop.findings).concat(diagnostics)) : overall;
   if (ratedOverall === "contradicted" || ratedOverall === "unknown") {
-    return withhold(ratedOverall === "contradicted" ? "unsupported" : "incomplete", hopPowerFindings.filter((item) => item.verdict !== "compatible").map((item) => item.message), {
+    return withhold(ratedOverall === "contradicted" ? "unsupported" : "incomplete", latestFindings().filter((item) => item.verdict !== "compatible").map((item) => item.message), {
       purpose: route.purpose, structuralCandidate,
       topology: { chain: compiled.chain, members: compiled.members, cableRuns: compiled.cableRuns, documentedLayers: layers },
-      missingInputs: ratedOverall === "unknown" ? hopPowerFindings.filter((item) => item.verdict === "unknown") : compiled.missing,
+      missingInputs: ratedOverall === "unknown" ? latestFindings().filter((item) => item.verdict === "unknown") : compiled.missing,
       calculationLimits: compiled.limits, integrationProposals: compiled.proposals,
     });
   }
@@ -1028,7 +1335,7 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
     measurements,
     pathTimeConditions: {
       bands: bandId, targetBearingDeg: request.options?.targetBearingDeg ?? null,
-      takeoffAngleDeg: request.options?.takeoffAngleDeg ?? null, mode: request.options?.mode ?? null,
+      takeoffAngleDeg: request.options?.takeoffAngleDeg ?? null, mode,
       localNoiseFloorDbm: request.options?.localNoiseFloorDbm ?? null,
     },
     metrics: engineMetrics,

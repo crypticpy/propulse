@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 41        | 2       | 30          | 0        | 73      |
-| **Grand Total**                         | **302**   | **9**   | **41**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 43        | 2       | 28          | 0        | 73      |
+| **Grand Total**                         | **304**   | **9**   | **39**      | **1**    | **353** |
 
-**Delivery rate: 86% delivered, 3% partial, 12% not started**
+**Delivery rate: 86% delivered, 3% partial, 11% not started**
 
 ---
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
 
-### Delivered (41)
+### Delivered (43)
 
 | ID    | Feature                                                       | Notes                                                                                                                                                                          |
 | ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -661,6 +661,8 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-31 | Best Band Now ranked table report                             | PR #239, new `wall/reports/BestBandReport.tsx` replacing `BandVerdictDetailsDialog` on `BestBandTile`                                                                          |
 | HW-63 | Sun report: twilights, elevation curve, day-length trend      | PR #243, section 26.8; `SunReport.tsx`, `src/lib/hamclock/sunCurve.ts`; elevation curve with shaded twilights, polar day/night states                                          |
 | HW-64 | Grey line report: per-band tiers, windows, target overlap     | PR #243, section 26.9; `GreyLineReport.tsx`, `getGreylineIntensityCurve` / `getMutualGreylineWindow` in `greyline.ts`; tiers, mutual overlap with the DX target                |
+| HW-56 | `EngineComparisonStrip` on every model-backed report          | PR #246, section 26.1; `EngineComparisonStrip.tsx`, pure `compareEngines()` in `src/lib/hamclock/engineComparison.ts`; on the MUF and Best band reports                        |
+| HW-57 | MUF report: ionosphere facts, hop table, usable window        | PR #246, section 26.2; `MufReport.tsx`, `useMUFHourlySeries`; PATH / HOPS tabs, shaded FOT–LUF usable window, hop rows flash the map                                           |
 | HW-60 | Solar report: SFI, SSN, flux forecast, cycle 25               | PR #247, section 26.5; `SolarReport.tsx` rewritten with NOW / CYCLE tabs, flux trend with the 27-day outlook tail                                                              |
 | HW-61 | X-ray and flares report: B/C/M/X curve, D-RAP, probabilities  | PR #247, section 26.6; `XrayReport.tsx`, FLUX (log axis, B/C/M/X rules, last flare marker) / ABSORPTION (D-RAP) / PROBABILITIES tabs                                           |
 | HW-62 | Solar wind and geomagnetic report: Bz, Kp, Dst, aurora, CMEs  | PR #247, section 26.7; `SolarWindReport.tsx`, WIND / GEOMAGNETIC / EVENTS tabs, Bz zero rule, aurora map link                                                                  |
@@ -672,7 +674,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
 
-### Not Started (30)
+### Not Started (28)
 
 | ID    | Feature                                                          | Notes                                                  |
 | ----- | ---------------------------------------------------------------- | ------------------------------------------------------ |
@@ -693,8 +695,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-47 | Monitored regions and RIM scores as a report                     | Moved from B16 to B23 with the RIM tile                |
 | HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                        |
 | HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                       |
-| HW-56 | `EngineComparisonStrip` on every model-backed report             | Physics / NowCast / Observed; spec 26.1; B17           |
-| HW-57 | MUF report: ionosphere facts, hop table, usable window           | B17                                                    |
 | HW-58 | Reliability report: SNR, confidence, station inputs              | B18                                                    |
 | HW-59 | Propagation forecast report: 48 h chart, FutureCast horizons     | B18                                                    |
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                    | New: path loss, sky noise, mutual window, Doppler; B21 |

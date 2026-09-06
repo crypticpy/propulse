@@ -49,7 +49,7 @@ export const EQUIPMENT_FIELD_REGISTRY: Readonly<Record<string, EquipmentFieldDef
   "radio.maxPower": numeric(radio, "W", "power", { ...nonnegative, measurementKind: "rf-power", frequencyDependent: true }),
   "radio.minPower": numeric(radio, "W", "power", { ...nonnegative, measurementKind: "rf-power", frequencyDependent: true }),
   "radio.customPowerLimit": numeric(radio, "W", "power", { ...nonnegative, measurementKind: "rf-power", frequencyDependent: true }),
-  "radio.modes": value(radio, "text-list", ["CW", "SSB", "AM", "FM", "FT8", "FT4", "RTTY", "PSK31", "JS8", "DATA"]),
+  "radio.modes": value(radio, "text-list", ["CW", "SSB", "AM", "FM", "FT8", "FT4", "RTTY", "PSK31", "JS8", "DATA", "WSPR"]),
   "radio.bands": value(radio, "text-list"),
   "radio.tier": value(radio, "text", ["entry", "midrange", "highend", "flagship"]),
   "radio.releaseYear": numeric(radio, "year", "year", count),

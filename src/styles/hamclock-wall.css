@@ -564,7 +564,7 @@
 .hc-ftr {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1.2vw;
   padding: 0 1.6vw;
   background: var(--hc-bg);
@@ -579,6 +579,7 @@
 .hc-pager {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 1vw;
   min-width: 0;
 }
@@ -621,6 +622,8 @@
 
 .hc-status {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   gap: 1.6vw;
   white-space: nowrap;
   overflow: hidden;

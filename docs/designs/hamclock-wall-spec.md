@@ -65,7 +65,9 @@ HW-24 and HW-25 below: desk becomes the wall tiles at desk scale.
 Pages are data (`src/components/map/hamclock/wall/pages.ts`). The shipped set
 has five pages; the target set has six. Tiles marked _new_ do not exist yet.
 
-Both rails follow the active page. Each page defines a left set and a right set
+Both rails follow the active page. The footer pager (section 5) is the only
+chrome that steps that shared index — one control, bottom-left, not a pair
+mirrored at each end of the footer. Each page defines a left set and a right set
 of different tiles; no rail is fixed to one widget, and no tile appears twice on
 a page. The shipped composition breaks both rules (Best band now on both rails,
 Band activity pinned to the right rail on most pages) and is corrected by HW-54.
@@ -89,7 +91,8 @@ whether desk hides it always.
 - Default dwell is 30 seconds per page. Both rails move together to the same page index.
 - On by default at wall density, off at desk. Persisted in `hamclockDisplayStore` as `autoPage: { enabled, dwellSec }`.
 - Any pointer, key or touch interaction on the rails or header pauses rotation. Rotation resumes after 60 seconds of quiet.
-- An `AUTO` toggle sits beside the pager in the footer and is repeated on the Pages & Tiles settings tab.
+- The footer has one pager, bottom-left. Do not duplicate it on the right. Cluster/model status uses the remaining footer width so it does not jump when the second pager is absent.
+- An `AUTO` toggle sits beside that pager and is repeated on the Pages & Tiles settings tab.
 - A pinned report (section 9) stays open while pages rotate underneath.
 - Kiosk scenes remain the mechanism for custom playlists that mix HamClock pages with other routes. They pin a page via `KioskSceneMapConfig.hamclock` and suspend auto-page while active.
 

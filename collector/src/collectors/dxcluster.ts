@@ -19,13 +19,23 @@ const FRESHNESS_WINDOW_MS = 30 * 60 * 1000;
 // Mode extraction from comment string
 // ---------------------------------------------------------------------------
 
-function extractMode(comment: string): string | null {
+export function extractMode(comment: string): string | null {
   if (!comment) return null;
-  const upper = comment.toUpperCase();
+  // Tokenize on non-alphanumeric characters and match whole tokens only -
+  // a substring check would false-positive "AM" inside "AMAZING" or "FM"
+  // inside a callsign fragment.
+  const tokens = new Set(
+    comment
+      .toUpperCase()
+      .split(/[^A-Z0-9]+/)
+      .filter(Boolean),
+  );
   const modes = [
     "FT8",
     "FT4",
     "CW",
+    "USB",
+    "LSB",
     "SSB",
     "RTTY",
     "PSK31",
@@ -36,9 +46,15 @@ function extractMode(comment: string): string | null {
     "DATA",
     "AM",
     "FM",
+    "PHONE",
+    "VOICE",
+    "DV",
+    "DSTAR",
+    "DMR",
+    "C4FM",
   ];
   for (const mode of modes) {
-    if (upper.includes(mode)) return mode;
+    if (tokens.has(mode)) return mode;
   }
   return null;
 }

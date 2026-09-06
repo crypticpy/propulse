@@ -32,8 +32,10 @@ export async function verifyStationOwner(request: Request): Promise<StationVerif
     const { data, error } = await supabase.auth.getUser(bearer[1]);
     // The SDK only uses its retryable class for network/502–504 failures;
     // other 5xx responses and invalid upstream JSON use different error classes.
+    // Upstream timeout/rate limiting also says nothing about credential validity.
     const status = error?.status;
     if (isAuthRetryableFetchError(error)
+      || status === 408 || status === 429
       || (typeof status === "number" && status >= 500 && status < 600)
       || (isAuthError(error) && error.name === "AuthUnknownError")) {
       return failure(503, "Station authentication is unavailable");

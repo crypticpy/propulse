@@ -90,7 +90,7 @@ describe("station verified owner boundary", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it.each([500, 501, 505, 599])("treats resolved SDK API server failures (status %i) as unavailable", async (status) => {
+  it.each([408, 429, 500, 501, 505, 599])("treats resolved SDK API service failures (status %i) as unavailable", async (status) => {
     mocks.getUser.mockResolvedValue({ data: { user: null },
       error: new AuthApiError(`Upstream secret ${token}`, status, "unexpected_failure"),
     });

@@ -172,14 +172,66 @@ and real operations accept only a signed `continue` decision. A noncontiguous
 read resets the geographic streak. Collection flags remain false in the current
 release.
 
-Endpoints are `/v1/propagation/path`, `/surface`, `/capabilities`, `/models`, and
-`/health`. Production authentication protects every endpoint except `/health`,
-which remains public for the deployment readiness probe and exposes no secret.
-When recent path history is older than two hours, inference selects the physics
-profile and returns an explicit stale-data OOD flag. Missing freshness is stale,
-and negative ages are rejected. If no approved model is
-loaded, prediction endpoints return `503`; the service never fabricates spots
-or probabilities.
+Endpoints are `/v1/propagation/path`, `/surface`, `/reference`, `/capabilities`,
+`/models`, and `/health`. Production authentication protects every endpoint
+except `/health`, which remains public for the deployment readiness probe and
+exposes no secret. When recent path history is older than two hours, inference
+selects the physics profile and returns an explicit stale-data OOD flag.
+Missing freshness is stale, and negative ages are rejected. If no approved
+model is loaded, prediction endpoints return `503`; the service never
+fabricates spots or probabilities.
+
+### `/v1/propagation/reference`
+
+A server-side reference-surface endpoint for the hourly collector scoring job
+(issue #296): it scores a fixed list of origin/target grid4 pairs for one band
+without a browser-built feature payload or station envelope. Request:
+
+```json
+{
+  "issue_time": "2026-09-06T15:00:00+00:00",
+  "valid_time": "2026-09-06T15:30:00+00:00",
+  "band": "20m",
+  "declared_power_watts": 5,
+  "paths": [{ "origin_grid4": "EM12", "target_grid4": "JO21" }]
+}
+```
+
+`paths` accepts 1-512 grid4 pairs (`^[A-R]{2}[0-9]{2}$`, origin != target); an
+unrecognized `band` is a `422`. The service builds the 23 geometry/time
+features (great-circle distance/bearing/midpoint, solar elevation, day/hour
+cyclical encodings, `power_bin_dbm`) itself from `origin_grid4`, `target_grid4`,
+`valid_time`, `band`, and `declared_power_watts` — these are a direct Python
+port of the served model's actual training feature lineage,
+`ml/src/archive_v3/build_features.py` (plus `build_bronze.py` for the grid4
+coordinates and `power_bin_dbm`), kept in `reference_features.py` (pure
+functions, no FastAPI dependency). The client's
+`src/lib/propagation/coreFeatureBuilder.ts` implements the same contract and
+agrees with this module formula for formula — there is no known difference
+between them. Path history and operational weather are then verified and
+applied exactly as `/path` and `/surface` do. The response has no station
+envelope, no personalization, and no research receipt — `core_probability` is
+the raw model output:
+
+```json
+{
+  "model_version": "...",
+  "feature_contract": "reference-surface-v1",
+  "band": "20m",
+  "data_freshness": { "space_weather": 42 },
+  "profile_counts": { "physics": 1 },
+  "predictions": [
+    {
+      "origin_grid4": "EM12",
+      "target_grid4": "JO21",
+      "core_probability": 0.31,
+      "confidence": 0.8,
+      "profile": "physics",
+      "missing_feature_count": 11
+    }
+  ]
+}
+```
 
 The current product feature request intentionally marks path history stale.
 Therefore shadow requests select the packaged physics profile until an

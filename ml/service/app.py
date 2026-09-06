@@ -37,6 +37,10 @@ from path_history import (
     VerifiedPathHistory,
     path_history_provider_from_environment,
 )
+from reference_features import (
+    HF_MODEL_BANDS,
+    build_geometry_time_features,
+)
 from operational_weather import (
     DERIVED_WEATHER_FEATURES,
     RAW_WEATHER_FEATURES,
@@ -58,6 +62,8 @@ V41 = ROOT / "ml/src/archive_v4_1"
 DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS = 7200
 DEFAULT_XGBOOST_PREDICTION_THREADS = 1
 SHADOW_TELEMETRY_SCHEMA_VERSION = "propagation-shadow-v1"
+REFERENCE_FEATURE_CONTRACT = "reference-surface-v1"
+REFERENCE_MAX_PATHS = 512
 RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v2"
 RESEARCH_SUBJECT_SCHEMA_VERSION = "propagation-research-subject-v1"
 CAPABILITIES_SCHEMA_VERSION = "propagation-capabilities-v1"
@@ -243,6 +249,49 @@ class SurfaceRequest(StrictModel):
     def freshness_is_nonnegative(cls, value: dict[str, int]) -> dict[str, int]:
         if any(age < 0 for age in value.values()):
             raise ValueError("data freshness ages must be non-negative")
+        return value
+
+
+class ReferencePathSpec(StrictModel):
+    origin_grid4: str = Field(pattern="^[A-R]{2}[0-9]{2}$")
+    target_grid4: str = Field(pattern="^[A-R]{2}[0-9]{2}$")
+
+    @field_validator("target_grid4")
+    @classmethod
+    def target_differs_from_origin(cls, value: str, info: Any) -> str:
+        origin = info.data.get("origin_grid4")
+        if origin is not None and value == origin:
+            raise ValueError("target_grid4 must differ from origin_grid4")
+        return value
+
+
+class ReferenceRequest(StrictModel):
+    issue_time: datetime
+    valid_time: datetime
+    band: str
+    declared_power_watts: float = Field(gt=0)
+    paths: list[ReferencePathSpec] = Field(min_length=1, max_length=REFERENCE_MAX_PATHS)
+
+    @field_validator("issue_time", "valid_time")
+    @classmethod
+    def timestamps_are_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamps must include a UTC offset")
+        return value
+
+    @field_validator("valid_time")
+    @classmethod
+    def valid_after_issue(cls, value: datetime, info: Any) -> datetime:
+        issue = info.data.get("issue_time")
+        if issue is not None and value < issue:
+            raise ValueError("valid_time must be on or after issue_time")
+        return value
+
+    @field_validator("band")
+    @classmethod
+    def band_is_supported(cls, value: str) -> str:
+        if value not in HF_MODEL_BANDS:
+            raise ValueError(f"unsupported band: {value}")
         return value
 
 
@@ -1483,6 +1532,96 @@ def create_app(
             "band": request.band,
             "mode": request.mode,
             "cells": predictions,
+        }
+
+    @app.post("/v1/propagation/reference")
+    def reference(request: ReferenceRequest) -> dict[str, Any]:
+        if selected_inference_mode == "disabled":
+            raise HTTPException(status_code=503, detail="inference is disabled")
+        cells = [
+            PathFeatures(
+                target_grid4=path.target_grid4,
+                values=build_geometry_time_features(
+                    origin_grid4=path.origin_grid4,
+                    target_grid4=path.target_grid4,
+                    valid_time=request.valid_time,
+                    band=request.band,
+                    declared_power_watts=request.declared_power_watts,
+                ),
+            )
+            for path in request.paths
+        ]
+
+        # apply_verified_path_history looks up one origin at a time; group the
+        # paths by origin_grid4 and stitch the verified cells back into the
+        # original request order. If any origin's lookup fails verification,
+        # the aggregate path_history freshness is left unset so the whole
+        # batch conservatively falls back to the physics profile, matching
+        # the single request-wide stale/fresh decision /surface makes.
+        origin_indices: dict[str, list[int]] = {}
+        for index, path in enumerate(request.paths):
+            origin_indices.setdefault(path.origin_grid4, []).append(index)
+        verified_cells: list[PathFeatures | None] = [None] * len(cells)
+        path_history_ages: list[int] = []
+        for origin_grid4, indices in origin_indices.items():
+            group_cells, group_freshness = apply_verified_path_history(
+                history_provider,
+                issue_time=request.issue_time,
+                band=request.band,
+                origin_grid4=origin_grid4,
+                cells=[cells[index] for index in indices],
+                client_freshness={},
+            )
+            for index, verified_cell in zip(indices, group_cells):
+                verified_cells[index] = verified_cell
+            if "path_history" in group_freshness:
+                path_history_ages.append(group_freshness["path_history"])
+        cells = [cell for cell in verified_cells if cell is not None]
+        freshness: dict[str, int] = {}
+        if path_history_ages and len(path_history_ages) == len(origin_indices):
+            freshness["path_history"] = max(path_history_ages)
+
+        cells, freshness = apply_verified_operational_weather(
+            weather_provider,
+            issue_time=request.issue_time,
+            cells=cells,
+            client_freshness=freshness,
+        )
+
+        stale = path_history_is_stale(runtime, freshness)
+        try:
+            predictions = runtime.predict_many(
+                [cell.values for cell in cells],
+                [request.band] * len(cells),
+                stale,
+            )
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+
+        profile_counts: Counter[str] = Counter()
+        response_predictions = []
+        for path, prediction in zip(request.paths, predictions):
+            missing_feature_counter.update(prediction.missing_feature_names)
+            record_served_profile(prediction.profile)
+            profile_counts.update([prediction.profile])
+            response_predictions.append({
+                "origin_grid4": path.origin_grid4,
+                "target_grid4": path.target_grid4,
+                "core_probability": prediction.probability,
+                "confidence": prediction.confidence,
+                "profile": prediction.profile,
+                "missing_feature_count": len(prediction.missing_feature_names),
+            })
+
+        return {
+            "model_version": predictions[0].model_version,
+            "feature_contract": REFERENCE_FEATURE_CONTRACT,
+            "issue_time": request.issue_time,
+            "valid_time": request.valid_time,
+            "band": request.band,
+            "data_freshness": freshness,
+            "profile_counts": dict(sorted(profile_counts.items())),
+            "predictions": response_predictions,
         }
 
     return app

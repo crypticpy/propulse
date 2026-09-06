@@ -1021,5 +1021,117 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(surface_response.status_code, 503)
 
 
+def reference_payload():
+    return {
+        "issue_time": "2026-09-06T15:00:00+00:00",
+        "valid_time": "2026-09-06T15:30:00+00:00",
+        "band": "20m",
+        "declared_power_watts": 5,
+        "paths": [
+            {"origin_grid4": "EM12", "target_grid4": "JO21"},
+            {"origin_grid4": "EM12", "target_grid4": "FN31"},
+        ],
+    }
+
+
+class ReferenceEndpointTests(unittest.TestCase):
+    def setUp(self):
+        self.registry = FakeRegistry()
+        self.client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
+        ))
+
+    def test_reference_scores_paths_in_order(self):
+        response = self.client.post("/v1/propagation/reference", json=reference_payload())
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["feature_contract"], "reference-surface-v1")
+        self.assertEqual(body["band"], "20m")
+        self.assertEqual(len(body["predictions"]), 2)
+        self.assertEqual(
+            [(item["origin_grid4"], item["target_grid4"]) for item in body["predictions"]],
+            [("EM12", "JO21"), ("EM12", "FN31")],
+        )
+        for item in body["predictions"]:
+            self.assertEqual(item["core_probability"], 0.4)
+            self.assertEqual(item["confidence"], 0.8)
+            self.assertIn("profile", item)
+            self.assertIn("missing_feature_count", item)
+            self.assertNotIn("station", item)
+            self.assertNotIn("personalized_probability", item)
+        self.assertEqual(body["profile_counts"], {"physics": 2})
+        self.assertEqual(self.registry.batch_sizes, [2])
+
+    def test_reference_health_reflects_served_profiles(self):
+        before = self.client.get("/v1/propagation/health").json()["served_profile_counts"]
+        self.assertEqual(before, {})
+        self.client.post("/v1/propagation/reference", json=reference_payload())
+        after = self.client.get("/v1/propagation/health").json()["served_profile_counts"]
+        self.assertEqual(after, {"physics": 2})
+
+    def test_reference_runs_weather_appliers(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=FakeOperationalWeatherProvider(),
+        ))
+        response = client.post("/v1/propagation/reference", json=reference_payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data_freshness"]["space_weather"], 60)
+        self.assertEqual(self.registry.last_values[-1]["kp"], 2.0)
+        self.assertEqual(self.registry.last_values[-1]["kp_missing"], 0)
+        # Every raw-weather-flag pair is present, proving
+        # apply_verified_operational_weather ran over the built cells.
+        self.assertEqual(self.registry.last_values[-1]["f107_missing"], 0)
+
+    def test_reference_requires_service_auth_when_configured(self):
+        token = "service-token-at-least-32-characters-long"
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            service_token=token,
+        ))
+        unauthorized = client.post("/v1/propagation/reference", json=reference_payload())
+        self.assertEqual(unauthorized.status_code, 401)
+        authorized = client.post(
+            "/v1/propagation/reference",
+            json=reference_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(authorized.status_code, 200)
+
+    def test_reference_rejects_unknown_band(self):
+        payload = reference_payload()
+        payload["band"] = "6m"
+        response = self.client.post("/v1/propagation/reference", json=payload)
+        self.assertEqual(response.status_code, 422)
+
+    def test_reference_rejects_self_pair(self):
+        payload = reference_payload()
+        payload["paths"] = [{"origin_grid4": "EM12", "target_grid4": "EM12"}]
+        response = self.client.post("/v1/propagation/reference", json=payload)
+        self.assertEqual(response.status_code, 422)
+
+    def test_reference_rejects_too_many_paths(self):
+        payload = reference_payload()
+        payload["paths"] = [
+            {"origin_grid4": "EM12", "target_grid4": "JO21"}
+        ] * 513
+        response = self.client.post("/v1/propagation/reference", json=payload)
+        self.assertEqual(response.status_code, 422)
+
+    def test_reference_disabled_mode_returns_503(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+        ))
+        response = client.post("/v1/propagation/reference", json=reference_payload())
+        self.assertEqual(response.status_code, 503)
+
+
 if __name__ == "__main__":
     unittest.main()

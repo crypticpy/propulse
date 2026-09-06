@@ -160,7 +160,7 @@ export function XrayReport({
             id: "flux",
             label: "FLUX",
             content: (
-              <>
+              <div className="hcr-cols hcr-cols--fill">
                 <div className="hcr-chart">
                   <p className="hcr-chart-title">
                     X-RAY FLUX — 24 H · GOES · LOG SCALE
@@ -189,7 +189,7 @@ export function XrayReport({
                     }
                   />
                 </div>
-                <div className="hcr-box hcr-flarebox">
+                <div className="hcr-box hcr-box--fill hcr-flarebox">
                   <h4>
                     Flares · 24 h
                     {visibleFlares < flares24h.length
@@ -223,7 +223,7 @@ export function XrayReport({
                     </div>
                   )}
                 </div>
-              </>
+              </div>
             ),
           },
           {

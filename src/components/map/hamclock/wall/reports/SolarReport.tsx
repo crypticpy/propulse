@@ -193,7 +193,21 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
             label: "NOW",
             content: (
               <>
-                <SolarImageryStrip />
+                <SolarImageryStrip
+                  aside={
+                    <button
+                      type="button"
+                      className="hcr-link-button"
+                      onClick={() => {
+                        const subsolar = getSubsolarPoint(new Date());
+                        setCenterLocation(subsolar.lat, subsolar.lon);
+                        onClose();
+                      }}
+                    >
+                      SHOW SUB-SOLAR POINT
+                    </button>
+                  }
+                />
                 <div className="hcr-chart">
                   <p className="hcr-chart-title">SFI — 30 D · NOAA SWPC</p>
                   <WallSeriesChart
@@ -203,17 +217,6 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
                     maxGapMs={36 * 3_600_000}
                   />
                 </div>
-                <button
-                  type="button"
-                  className="hcr-link-button"
-                  onClick={() => {
-                    const subsolar = getSubsolarPoint(new Date());
-                    setCenterLocation(subsolar.lat, subsolar.lon);
-                    onClose();
-                  }}
-                >
-                  SHOW SUB-SOLAR POINT
-                </button>
               </>
             ),
           },

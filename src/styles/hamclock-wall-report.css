@@ -271,9 +271,6 @@
 .hcr-cols--fill > .hcr-box > h4 {
   margin-bottom: 0.8vh;
 }
-.hcr-cols--fill > .hcr-box > .hcr-kv {
-  row-gap: 0.3vh;
-}
 /* A measured list inside a fill row contributes no height of its own, so
  * the row is sized by its neighbour column and the list draws the rows
  * that fit (Weather/Emcomm alerts beside the session chart). */
@@ -409,10 +406,11 @@
 .hcr-bars {
   display: grid;
   grid-template-columns: 4vw minmax(0, 1fr) 5vw;
-  gap: 1vh 1vw;
+  gap: 0.6vh 1vw;
   align-items: center;
   font-family: var(--hc-font-mono);
   font-size: 2.1vh;
+  line-height: 1.2;
 }
 .hcr-bars-k {
   color: var(--hc-dim);
@@ -441,7 +439,7 @@
 .hcr-kv {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.6vh 1vw;
+  gap: 0.3vh 1vw;
   align-content: start;
   font-family: var(--hc-font-mono);
   font-size: 2.1vh;
@@ -963,9 +961,25 @@
 }
 .hcr-imagery-frame {
   display: flex;
+  /* Sized by the strip height, not the image's 512px natural width, so the
+   * two frames sit together on the left with the aside taking the rest. */
+  flex: 0 0 18vh;
+  width: 18vh;
   flex-direction: column;
   gap: 0.4vh;
   min-width: 0;
+}
+/* Spare width to the right of the frames: the sub-solar link lives here
+ * rather than in a row of its own below the chart. */
+.hcr-imagery-aside {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.hcr-imagery-aside > .hcr-link-button {
+  margin-top: 0;
 }
 .hcr-imagery-media {
   position: relative;
@@ -976,7 +990,7 @@
 }
 .hcr-imagery-media img {
   height: 100%;
-  width: auto;
+  width: 100%;
   aspect-ratio: 1;
   display: block;
   object-fit: cover;
@@ -1010,6 +1024,9 @@
   font-family: var(--hc-font-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hcr-imagery-label {
   font-size: 1.2vh;
@@ -1020,11 +1037,16 @@
   color: var(--hc-dim2);
 }
 
-/* The X-ray report's "Flares · 24 h" box sits under the flexible FLUX chart
- * at a fixed height, so a busy window (many flares) never grows the report
- * -- only the whole rows `useVisibleRows` measures inside that cap render. */
+/* The FLUX tab is a fill row: the 24 h chart beside the flare list, so a
+ * busy day shows every whole row `useVisibleRows` can fit in the panel
+ * height instead of one flare squeezed under the chart (#249 check). */
 .hcr-flarebox {
-  max-height: 18vh;
   overflow: hidden;
+}
+/* Flare rows are two short lines (class, time · region); a touch less
+ * padding fits a fourth row beside the chart at 1080p. */
+.hcr-flarebox .hcr-item {
+  padding-top: 0.5vh;
+  padding-bottom: 0.5vh;
 }
 /* ===== end B25 ===== */

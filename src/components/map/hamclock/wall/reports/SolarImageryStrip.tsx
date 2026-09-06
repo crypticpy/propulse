@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRetainedSolarImage } from "@/components/solar/useRetainedSolarImage";
 import {
   SOLAR_IMAGE_PRODUCTS,
@@ -13,7 +13,7 @@ interface FrameSpec {
 }
 
 const FRAMES: readonly FrameSpec[] = [
-  { productId: "aia-193", label: "AIA 193 · CORONAL HOLES" },
+  { productId: "aia-193", label: "AIA 193 · CORONA" },
   { productId: "hmi-magnetogram", label: "HMI · MAGNETOGRAM" },
 ];
 
@@ -118,14 +118,16 @@ function SolarImageFrame({ productId, label }: FrameSpec) {
  * follow-up): the AIA 193 Å coronal-hole frame and the HMI magnetogram side
  * by side, each with its own last-frame timestamp. Sized by height (not
  * width) so the pair sits above the SFI chart without the report ever
- * scrolling.
+ * scrolling. `aside` fills the strip's spare right-hand width (the sub-solar
+ * link) instead of adding a row the tab panel has no room for at 1080p.
  */
-export function SolarImageryStrip() {
+export function SolarImageryStrip({ aside }: { aside?: ReactNode }) {
   return (
     <div className="hcr-imagery-strip">
       {FRAMES.map((frame) => (
         <SolarImageFrame key={frame.productId} {...frame} />
       ))}
+      {aside ? <div className="hcr-imagery-aside">{aside}</div> : null}
     </div>
   );
 }

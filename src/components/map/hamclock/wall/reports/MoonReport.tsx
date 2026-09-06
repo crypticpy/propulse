@@ -737,9 +737,9 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
                       <dd>{bothClocks(nextRise, zone)}</dd>
                       <dt>MOONSET</dt>
                       <dd>{bothClocks(nextSet, zone)}</dd>
-                      <dt>NEXT FULL</dt>
+                      <dt>FULL</dt>
                       <dd>{dateOnly(snapshot.nextFullMoon)}</dd>
-                      <dt>NEXT NEW</dt>
+                      <dt>NEW</dt>
                       <dd>{dateOnly(snapshot.nextNewMoon)}</dd>
                     </dl>
                   </div>

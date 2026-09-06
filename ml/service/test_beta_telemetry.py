@@ -90,6 +90,11 @@ def telemetry_event() -> dict:
             "space_weather_seconds": 120,
         },
         "ood_flag_counts": {},
+        "missing_features": {
+            "first_row_names": [],
+            "first_row_count": 0,
+            "histogram": {},
+        },
         "core_probability_summary": {
             "minimum": 0.4,
             "mean": 0.4,
@@ -204,6 +209,54 @@ class BetaTelemetryTests(unittest.TestCase):
             ),
             {"unsupported_support_events": 1},
         )
+
+    def test_missing_features_block_privacy_boundary(self) -> None:
+        valid = telemetry_event()
+        valid["missing_features"] = {
+            "first_row_names": ["f107", "kp"],
+            "first_row_count": 2,
+            "histogram": {"f107": 1, "kp": 1},
+        }
+        validate_shadow_telemetry_privacy(valid)
+
+        missing_field = telemetry_event()
+        del missing_field["missing_features"]["histogram"]
+        with self.assertRaises(PrivacyBoundaryViolation):
+            validate_shadow_telemetry_privacy(missing_field)
+
+        extra_field = telemetry_event()
+        extra_field["missing_features"]["unexpected"] = 1
+        with self.assertRaises(PrivacyBoundaryViolation):
+            validate_shadow_telemetry_privacy(extra_field)
+
+        unsafe_name = telemetry_event()
+        unsafe_name["missing_features"]["first_row_names"] = ["f107; DROP TABLE"]
+        with self.assertRaises(PrivacyBoundaryViolation):
+            validate_shadow_telemetry_privacy(unsafe_name)
+
+        too_many_names = telemetry_event()
+        too_many_names["missing_features"]["first_row_names"] = [
+            f"feature_{index}" for index in range(65)
+        ]
+        with self.assertRaises(PrivacyBoundaryViolation):
+            validate_shadow_telemetry_privacy(too_many_names)
+
+        too_many_histogram_entries = telemetry_event()
+        too_many_histogram_entries["missing_features"]["histogram"] = {
+            f"feature_{index}": 1 for index in range(65)
+        }
+        with self.assertRaises(PrivacyBoundaryViolation):
+            validate_shadow_telemetry_privacy(too_many_histogram_entries)
+
+        boolean_count = telemetry_event()
+        boolean_count["missing_features"]["histogram"] = {"f107": True}
+        with self.assertRaises(PrivacyBoundaryViolation):
+            validate_shadow_telemetry_privacy(boolean_count)
+
+        negative_count = telemetry_event()
+        negative_count["missing_features"]["histogram"] = {"f107": -1}
+        with self.assertRaises(PrivacyBoundaryViolation):
+            validate_shadow_telemetry_privacy(negative_count)
 
     def test_private_shadow_event_is_counted_before_emission(self) -> None:
         safe = telemetry_event()

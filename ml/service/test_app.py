@@ -30,6 +30,7 @@ from app import (
     build_runtime_capabilities,
     blend_probabilities,
     create_app,
+    missing_feature_summary,
     model_feature_value,
     receipt_contains_raw_private_fields,
     research_receipt_signature,
@@ -55,6 +56,7 @@ class FakeRegistry:
         self.feature_contract = "station-chain-v1"
         self.core_feature_contract = "archive-v4-features-test-v1"
         self.last_values = []
+        self.missing_feature_names: list = []
 
     def predict(self, values, band, stale_history):
         self.last_values.append(dict(values))
@@ -65,6 +67,7 @@ class FakeRegistry:
             profile="physics" if stale_history else "nowcast",
             ood_flags=["recent_network_stale_physics_fallback"] if stale_history else [],
             top_factors=["sun_elev_mid"],
+            missing_feature_names=list(self.missing_feature_names),
         )
 
     def predict_many(self, rows, bands, stale_history):
@@ -121,6 +124,22 @@ class FakePathHistoryProvider:
         }
 
 
+class SpyUnavailablePathHistoryProvider(UnavailablePathHistoryProvider):
+    """Records whether the no-op lookup was ever called."""
+
+    def __init__(self):
+        self.lookups = []
+
+    def lookup(self, *, issue_time, band, origin_grid4, target_grid4s):
+        self.lookups.append((issue_time, band, origin_grid4, list(target_grid4s)))
+        return super().lookup(
+            issue_time=issue_time,
+            band=band,
+            origin_grid4=origin_grid4,
+            target_grid4s=target_grid4s,
+        )
+
+
 class FakeOperationalWeatherProvider:
     name = "solar-snapshots-v1"
 
@@ -135,6 +154,13 @@ class FakeOperationalWeatherProvider:
             source_watermark=issue_time - timedelta(seconds=self.age_seconds),
             available_at=available_at,
         )
+
+
+class RaisingOperationalWeatherProvider:
+    name = "solar-snapshots-v1"
+
+    def lookup(self, *, issue_time):
+        raise RuntimeError("operational-weather lookup failed")
 
 
 class RecordingBetaTelemetrySink:
@@ -499,6 +525,137 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(body["inference_mode"], "shadow")
         self.assertEqual(body["telemetry_schema_version"], "propagation-shadow-v1")
 
+    def test_health_serving_profile_follows_path_history_provider_state(self):
+        unavailable_client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+        ))
+        unavailable_body = unavailable_client.get("/v1/propagation/health").json()
+        self.assertEqual(unavailable_body["path_history_provider"], "unavailable")
+        self.assertEqual(unavailable_body["serving_profile"], "physics")
+        self.assertEqual(unavailable_body["missing_feature_counts"], [])
+
+        configured_client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=FakePathHistoryProvider(),
+        ))
+        configured_body = configured_client.get("/v1/propagation/health").json()
+        self.assertEqual(configured_body["path_history_provider"], "approved-fixture")
+        self.assertEqual(configured_body["configured_profile"], "nowcast")
+        self.assertEqual(configured_body["serving_profile"], "nowcast")
+
+    def test_health_serving_profile_follows_the_last_served_prediction(self):
+        # A configured provider whose rows are stale serves physics on every
+        # request; /health must say so rather than advertise the configured
+        # (phantom) nowcast profile.
+        stale_client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=FakePathHistoryProvider(age_seconds=7201),
+        ))
+        before = stale_client.get("/v1/propagation/health").json()
+        self.assertEqual(before["configured_profile"], "nowcast")
+        self.assertEqual(before["serving_profile"], "nowcast")
+        stale_client.post("/v1/propagation/path", json=request_payload())
+        after = stale_client.get("/v1/propagation/health").json()
+        self.assertEqual(after["configured_profile"], "nowcast")
+        self.assertEqual(after["serving_profile"], "physics")
+        self.assertEqual(after["served_profile_counts"], {"physics": 1})
+
+    def test_unavailable_path_history_provider_skips_the_lookup(self):
+        provider = SpyUnavailablePathHistoryProvider()
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=provider,
+        ))
+        response = client.post("/v1/propagation/path", json=request_payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(provider.lookups, [])
+
+    def test_missing_features_reach_the_shadow_event_and_health_counter(self):
+        self.registry.missing_feature_names = ["f107", "kp"]
+        events = []
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            telemetry_sink=events.append,
+            path_history_provider=UnavailablePathHistoryProvider(),
+        ))
+        response = client.post("/v1/propagation/path", json=request_payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            events[0]["missing_features"],
+            {
+                "first_row_names": ["f107", "kp"],
+                "first_row_count": 2,
+                "histogram": {"f107": 1, "kp": 1},
+            },
+        )
+        health = client.get("/v1/propagation/health").json()
+        self.assertIn({"feature": "f107", "count": 1}, health["missing_feature_counts"])
+        self.assertIn({"feature": "kp", "count": 1}, health["missing_feature_counts"])
+
+    def test_served_profile_counts_reflects_actual_predictions(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+        ))
+        self.assertEqual(
+            client.get("/v1/propagation/health").json()["served_profile_counts"], {}
+        )
+
+        client.post("/v1/propagation/path", json=request_payload())
+        health = client.get("/v1/propagation/health").json()
+        self.assertEqual(health["served_profile_counts"], {"physics": 1})
+
+        # Rolling since startup: a second request accumulates, not resets.
+        client.post("/v1/propagation/path", json=request_payload())
+        health = client.get("/v1/propagation/health").json()
+        self.assertEqual(health["served_profile_counts"], {"physics": 2})
+
+        # configured_profile reflects configuration; serving_profile and
+        # served_profile_counts reflect what predict_many actually returned -
+        # a fresh, configured provider serves nowcast.
+        nowcast_client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=FakePathHistoryProvider(),
+        ))
+        nowcast_client.post("/v1/propagation/path", json=request_payload())
+        nowcast_health = nowcast_client.get("/v1/propagation/health").json()
+        self.assertEqual(nowcast_health["serving_profile"], "nowcast")
+        self.assertEqual(nowcast_health["served_profile_counts"], {"nowcast": 1})
+
+    def test_missing_feature_summary_sorts_caps_and_handles_empty_input(self):
+        self.assertEqual(
+            missing_feature_summary([]),
+            {"first_row_names": [], "first_row_count": 0, "histogram": {}},
+        )
+        predictions = [
+            RuntimePrediction(
+                probability=0.1,
+                confidence=0.5,
+                model_version="v4-test",
+                profile="physics",
+                missing_feature_names=["b", "a"],
+            ),
+            RuntimePrediction(
+                probability=0.1,
+                confidence=0.5,
+                model_version="v4-test",
+                profile="physics",
+                missing_feature_names=["a", "c"],
+            ),
+        ]
+        summary = missing_feature_summary(predictions)
+        self.assertEqual(summary["first_row_names"], ["a", "b"])
+        self.assertEqual(summary["first_row_count"], 2)
+        self.assertEqual(summary["histogram"], {"a": 2, "b": 1, "c": 1})
+
     def test_capabilities_match_the_shared_cross_language_fixture(self):
         activation = RuntimeActivation(frozenset())
         self.assertEqual(
@@ -647,11 +804,35 @@ class ServiceTests(unittest.TestCase):
             ),
         ))
 
-        response = client.post("/v1/propagation/path", json=request_payload())
+        with self.assertLogs("uvicorn.error", level="WARNING") as captured:
+            response = client.post("/v1/propagation/path", json=request_payload())
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("space_weather", response.json()["data_freshness"])
         self.assertEqual(self.registry.last_values[-1]["kp_missing"], 1)
+        self.assertTrue(
+            any("reason=future_available_at" in line for line in captured.output)
+        )
+
+    def test_operational_weather_lookup_failure_logs_exception_class(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=RaisingOperationalWeatherProvider(),
+        ))
+
+        with self.assertLogs("uvicorn.error", level="WARNING") as captured:
+            response = client.post("/v1/propagation/path", json=request_payload())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("space_weather", response.json()["data_freshness"])
+        self.assertTrue(
+            any("reason=lookup_failed" in line for line in captured.output)
+        )
+        self.assertTrue(
+            any("error=RuntimeError" in line for line in captured.output)
+        )
 
     def test_future_or_flagged_server_snapshot_fails_closed(self):
         for provider in (

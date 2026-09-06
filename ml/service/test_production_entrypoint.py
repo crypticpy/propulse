@@ -74,6 +74,59 @@ class ProductionEntrypointTests(unittest.TestCase):
                     with self.assertRaisesRegex(RuntimeError, message):
                         validate_production_environment()
 
+    def test_feature_store_trio_is_optional_when_entirely_unset(self):
+        environment = {
+            **VALID_ENVIRONMENT,
+            "PROPULSE_FEATURE_STORE_URL": "",
+            "PROPULSE_FEATURE_STORE_SERVICE_KEY": "",
+            "PROPULSE_WSPR_PROVIDER": "",
+            "PROPULSE_PATH_TRANSFORM_VERSION": "",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            validate_production_environment()
+
+    def test_partial_feature_store_trio_fails_closed(self):
+        for missing in (
+            "PROPULSE_FEATURE_STORE_URL",
+            "PROPULSE_FEATURE_STORE_SERVICE_KEY",
+            "PROPULSE_WSPR_PROVIDER",
+        ):
+            environment = {**VALID_ENVIRONMENT, missing: ""}
+            with self.subTest(missing=missing):
+                with patch.dict(os.environ, environment, clear=True):
+                    with self.assertRaisesRegex(RuntimeError, "configured together"):
+                        validate_production_environment()
+
+    def test_explicit_unavailable_override_skips_trio_and_transform_checks(self):
+        environment = {
+            **VALID_ENVIRONMENT,
+            "PROPULSE_FEATURE_STORE_URL": "",
+            "PROPULSE_FEATURE_STORE_SERVICE_KEY": "",
+            "PROPULSE_WSPR_PROVIDER": "",
+            "PROPULSE_PATH_TRANSFORM_VERSION": "",
+            "PROPULSE_PATH_HISTORY_PROVIDER": "unavailable",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            validate_production_environment()
+
+    def test_explicit_unavailable_override_wins_even_with_full_trio(self):
+        environment = {
+            **VALID_ENVIRONMENT,
+            "PROPULSE_PATH_TRANSFORM_VERSION": "unapproved",
+            "PROPULSE_PATH_HISTORY_PROVIDER": "unavailable",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            validate_production_environment()
+
+    def test_unrecognized_override_value_is_rejected(self):
+        environment = {
+            **VALID_ENVIRONMENT,
+            "PROPULSE_PATH_HISTORY_PROVIDER": "sometimes",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "unavailable"):
+                validate_production_environment()
+
     def test_rejects_untrusted_data_urls(self):
         environment = {
             **VALID_ENVIRONMENT,

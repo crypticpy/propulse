@@ -62,6 +62,8 @@ RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v2"
 RESEARCH_SUBJECT_SCHEMA_VERSION = "propagation-research-subject-v1"
 CAPABILITIES_SCHEMA_VERSION = "propagation-capabilities-v1"
 RESEARCH_RECEIPT_TTL_SECONDS = 24 * 60 * 60
+MISSING_FEATURE_EVENT_CAP = 64
+MISSING_FEATURE_HEALTH_TOP_N = 20
 RAW_RECEIPT_FORBIDDEN_KEYS = frozenset({
     "amplifiergaindb",
     "antennagaintowardpathdbi",
@@ -251,6 +253,7 @@ class RuntimePrediction(StrictModel):
     profile: str
     ood_flags: list[str] = Field(default_factory=list)
     top_factors: list[str] = Field(default_factory=list)
+    missing_feature_names: list[str] = Field(default_factory=list)
 
 
 class Predictor(Protocol):
@@ -481,6 +484,7 @@ class ModelRegistry:
                 profile=profile,
                 ood_flags=ood_flags,
                 top_factors=item["top_factors"],
+                missing_feature_names=list(missing_features),
             ))
         return output
 
@@ -626,6 +630,12 @@ def verified_path_history(
     origin_grid4: str,
     target_grid4s: list[str],
 ) -> dict[str, VerifiedPathHistory]:
+    if provider.name == "unavailable":
+        # No feature-store provider is configured. This is the expected
+        # steady state when the trio env vars are unset (or explicitly
+        # overridden off): skip the no-op lookup and do not warn per
+        # request. A single startup log line already recorded this.
+        return {}
     try:
         snapshots = provider.lookup(
             issue_time=issue_time,
@@ -700,18 +710,50 @@ def verified_operational_weather(
 ) -> VerifiedOperationalWeather | None:
     try:
         snapshot = provider.lookup(issue_time=issue_time)
-    except RuntimeError:
-        LOGGER.warning("verified operational-weather lookup failed; using missing values")
+    except RuntimeError as error:
+        cause = error.__cause__
+        status_code = getattr(getattr(cause, "response", None), "status_code", None)
+        LOGGER.warning(
+            "verified operational-weather lookup failed; using missing values "
+            "(provider=%s reason=lookup_failed error=%s status=%s)",
+            provider.name,
+            type(cause).__name__ if cause is not None else type(error).__name__,
+            status_code,
+        )
         return None
     if snapshot is None:
         return None
+    if snapshot.provider != provider.name:
+        LOGGER.warning(
+            "verified operational-weather snapshot rejected; using missing values "
+            "(provider=%s reason=provider_mismatch)",
+            provider.name,
+        )
+        return None
+    if snapshot.available_at > issue_time:
+        LOGGER.warning(
+            "verified operational-weather snapshot rejected; using missing values "
+            "(provider=%s reason=future_available_at)",
+            provider.name,
+        )
+        return None
     if (
-        snapshot.provider != provider.name
-        or snapshot.available_at > issue_time
-        or snapshot.source_watermark > issue_time
+        snapshot.source_watermark > issue_time
         or snapshot.source_watermark > snapshot.available_at
-        or snapshot.quality_flags
     ):
+        LOGGER.warning(
+            "verified operational-weather snapshot rejected; using missing values "
+            "(provider=%s reason=watermark_ordering)",
+            provider.name,
+        )
+        return None
+    if snapshot.quality_flags:
+        LOGGER.warning(
+            "verified operational-weather snapshot rejected; using missing values "
+            "(provider=%s reason=quality_flags flags=%s)",
+            provider.name,
+            ",".join(snapshot.quality_flags),
+        )
         return None
     return snapshot
 
@@ -776,6 +818,18 @@ def allowlisted_telemetry_dimension(value: str, allowed: set[str]) -> str:
     return canonical.get(value.strip().lower(), "other")
 
 
+def missing_feature_summary(predictions: list[RuntimePrediction]) -> dict[str, Any]:
+    first_row_missing = predictions[0].missing_feature_names if predictions else []
+    histogram = Counter(
+        name for prediction in predictions for name in prediction.missing_feature_names
+    )
+    return {
+        "first_row_names": sorted(first_row_missing)[:MISSING_FEATURE_EVENT_CAP],
+        "first_row_count": len(first_row_missing),
+        "histogram": dict(sorted(histogram.items())[:MISSING_FEATURE_EVENT_CAP]),
+    }
+
+
 def shadow_telemetry_event(
     request: PathRequest | SurfaceRequest,
     responses: list[dict[str, Any]],
@@ -788,6 +842,7 @@ def shadow_telemetry_event(
     operational_weather_provider: str,
     stale_history: bool,
     latency_ms: float,
+    predictions: list[RuntimePrediction] | None = None,
 ) -> dict[str, Any]:
     profiles = Counter(str(item["profile"]) for item in responses)
     ood_flags = Counter(
@@ -822,6 +877,7 @@ def shadow_telemetry_event(
             ),
         },
         "ood_flag_counts": dict(sorted(ood_flags.items())),
+        "missing_features": missing_feature_summary(predictions or []),
         "core_probability_summary": probability_summary(
             [float(item["core_probability"]) for item in responses]
         ),
@@ -1114,7 +1170,28 @@ def create_app(
         if operational_weather_provider is not None
         else operational_weather_provider_from_environment()
     )
+    if history_provider.name == "unavailable":
+        LOGGER.info(
+            "path-history provider is unavailable at startup; "
+            "serving the physics profile for every request"
+        )
     emit_telemetry = telemetry_sink or log_shadow_telemetry
+    missing_feature_counter: Counter[str] = Counter()
+    # The profile a request is *expected* to serve, given provider
+    # configuration at startup. A configured provider can still fail per
+    # request or return stale rows, so /health reports the profile of the
+    # most recent prediction as serving_profile (falling back to this
+    # expectation before any request has been served) and keeps
+    # served_profile_counter as the rolling tally since startup.
+    configured_profile = (
+        "physics" if history_provider.name == "unavailable" else "nowcast"
+    )
+    served_profile_counter: Counter[str] = Counter()
+    last_served_profile: dict[str, str] = {}
+
+    def record_served_profile(profile: str) -> None:
+        served_profile_counter.update([profile])
+        last_served_profile["profile"] = profile
     app = FastAPI(title="Propulse Propagation API", version="1.0.0")
 
     @app.middleware("http")
@@ -1175,6 +1252,17 @@ def create_app(
             "path_history_provider": history_provider.name,
             "path_history_transform_version": history_provider.transform_version,
             "operational_weather_provider": weather_provider.name,
+            "configured_profile": configured_profile,
+            "serving_profile": last_served_profile.get(
+                "profile", configured_profile
+            ),
+            "served_profile_counts": dict(served_profile_counter),
+            "missing_feature_counts": [
+                {"feature": name, "count": count}
+                for name, count in missing_feature_counter.most_common(
+                    MISSING_FEATURE_HEALTH_TOP_N
+                )
+            ],
         }
 
     @app.get("/v1/propagation/capabilities")
@@ -1218,6 +1306,8 @@ def create_app(
             prediction = runtime.predict(features[0].values, request.band, stale)
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
+        missing_feature_counter.update(prediction.missing_feature_names)
+        record_served_profile(prediction.profile)
         response = prediction_response(verified_request, prediction)
         if research_receipts_enabled:
             stop_counts = beta_stop_counts_for_prediction(
@@ -1271,6 +1361,7 @@ def create_app(
                         operational_weather_provider=weather_provider.name,
                         stale_history=stale,
                         latency_ms=(time.perf_counter() - started) * 1000,
+                        predictions=[prediction],
                     ),
                     sink=emit_telemetry,
                     beta_recorder=selected_beta_telemetry_sink,
@@ -1324,6 +1415,9 @@ def create_app(
                 ]
         except RuntimeError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
+        for runtime_prediction in runtime_predictions:
+            missing_feature_counter.update(runtime_prediction.missing_feature_names)
+            record_served_profile(runtime_prediction.profile)
         for cell, prediction in zip(cells, runtime_predictions):
             path_request = PathRequest(
                 origin_grid4=request.origin_grid4,
@@ -1369,6 +1463,7 @@ def create_app(
                         operational_weather_provider=weather_provider.name,
                         stale_history=stale,
                         latency_ms=(time.perf_counter() - started) * 1000,
+                        predictions=runtime_predictions,
                     ),
                     sink=emit_telemetry,
                     beta_recorder=selected_beta_telemetry_sink,

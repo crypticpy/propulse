@@ -92,7 +92,10 @@ class PathHistoryProvider(Protocol):
 
 class UnavailablePathHistoryProvider:
     name = "unavailable"
-    transform_version = DEFAULT_PATH_TRANSFORM_VERSION
+    # Not DEFAULT_PATH_TRANSFORM_VERSION: that names a real, approved transform
+    # for the (currently dead) RPC-backed provider. Advertising it here would
+    # claim a transform this no-op provider never applies.
+    transform_version = "unavailable"
 
     def lookup(
         self,
@@ -200,6 +203,13 @@ class PostgrestPathHistoryProvider:
 
 
 def path_history_provider_from_environment() -> PathHistoryProvider:
+    override = os.environ.get("PROPULSE_PATH_HISTORY_PROVIDER", "").strip()
+    if override == "unavailable":
+        return UnavailablePathHistoryProvider()
+    if override:
+        raise RuntimeError(
+            "PROPULSE_PATH_HISTORY_PROVIDER must be 'unavailable' when set"
+        )
     values = {
         "base_url": os.environ.get("PROPULSE_FEATURE_STORE_URL", "").strip(),
         "service_key": os.environ.get(

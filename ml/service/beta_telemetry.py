@@ -78,6 +78,7 @@ SHADOW_EVENT_FIELDS = {
     "profile_counts",
     "source_freshness",
     "ood_flag_counts",
+    "missing_features",
     "core_probability_summary",
     "personalized_probability_summary",
     "confidence_summary",
@@ -89,6 +90,8 @@ FRESHNESS_FIELDS = {
     "path_history_stale",
     "space_weather_seconds",
 }
+MISSING_FEATURE_FIELDS = {"first_row_names", "first_row_count", "histogram"}
+MISSING_FEATURE_EVENT_CAP = 64
 SAFE_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$")
 PROHIBITED_TELEMETRY_KEYS = {
     "callsign",
@@ -494,6 +497,43 @@ def validate_shadow_telemetry_privacy(event: Mapping[str, Any]) -> None:
             for key, value in counts.items()
         ):
             raise PrivacyBoundaryViolation("unsafe propagation telemetry counts")
+    missing_features = event.get("missing_features")
+    if (
+        not isinstance(missing_features, Mapping)
+        or set(missing_features) != MISSING_FEATURE_FIELDS
+    ):
+        raise PrivacyBoundaryViolation("unsafe propagation missing-feature telemetry")
+    first_row_names = missing_features.get("first_row_names")
+    if (
+        not isinstance(first_row_names, list)
+        or len(first_row_names) > MISSING_FEATURE_EVENT_CAP
+        or any(
+            not isinstance(name, str) or SAFE_TOKEN.fullmatch(name) is None
+            for name in first_row_names
+        )
+    ):
+        raise PrivacyBoundaryViolation("unsafe propagation missing-feature telemetry")
+    first_row_count = missing_features.get("first_row_count")
+    if (
+        isinstance(first_row_count, bool)
+        or not isinstance(first_row_count, int)
+        or first_row_count < 0
+    ):
+        raise PrivacyBoundaryViolation("unsafe propagation missing-feature telemetry")
+    histogram = missing_features.get("histogram")
+    if (
+        not isinstance(histogram, Mapping)
+        or len(histogram) > MISSING_FEATURE_EVENT_CAP
+        or any(
+            not isinstance(key, str)
+            or SAFE_TOKEN.fullmatch(key) is None
+            or isinstance(value, bool)
+            or not isinstance(value, int)
+            or value < 0
+            for key, value in histogram.items()
+        )
+    ):
+        raise PrivacyBoundaryViolation("unsafe propagation missing-feature telemetry")
 
 
 def emit_shadow_telemetry(

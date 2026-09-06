@@ -249,6 +249,31 @@ quality-clean, and available by issue time.
 > rebuild the live pipeline. (Database teardown: supabase/migrations/
 > 20260721110000, 20260721112000, 20260721120000.)
 
+The feature-store trio above is optional as an all-or-none group. Leave all
+three unset and startup accepts it: the path-history provider resolves to
+`unavailable` and `PROPULSE_PATH_TRANSFORM_VERSION` is not required. Set any
+one of the three and startup requires all three plus the approved transform
+version, exactly as before partial configuration was always rejected. An
+explicit `PROPULSE_PATH_HISTORY_PROVIDER=unavailable` overrides the trio
+either way, forcing the unavailable provider (and skipping the trio and
+transform checks) even when the three variables are still present - this is
+how the dead RPC-backed provider can be turned off on Railway without
+deleting variables first. When the provider is unavailable the service logs
+one line at startup instead of warning on every request, and `/health`
+reports `serving_profile: physics`; once a provider is configured and its
+lookups are current, `/health` reports `serving_profile: nowcast`.
+`configured_profile` is the *expected* profile given how the provider is
+configured; `serving_profile` is the profile of the most recent prediction
+actually served (before any request it equals `configured_profile`), so a
+configured provider that fails or returns stale rows shows up as
+`serving_profile: physics` instead of a phantom nowcast. `/health` also
+exposes `served_profile_counts`, a rolling in-process tally (since process
+start) of the profile each request served, so operators can see the real
+split alongside the
+configured expectation. `/health` also exposes `missing_feature_counts`, a
+rolling in-process tally of which model features arrived as `None`, capped
+to the top 20 names since the process started.
+
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature
 contract; weights must be non-negative and sum to one. Each component is scored

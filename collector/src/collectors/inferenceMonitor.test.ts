@@ -19,6 +19,8 @@ function healthyBody(): Record<string, unknown> {
     service_auth_enabled: true,
     model_version: MODEL,
     profiles: ["nowcast", "physics"],
+    serving_profile: "nowcast",
+    served_profile_counts: { nowcast: 5 },
   };
 }
 
@@ -49,6 +51,8 @@ describe("evaluateInferenceHealth", () => {
     expect(evaluateInferenceHealth(healthyBody(), MODEL)).toEqual({
       healthy: true,
       reason: "",
+      servingProfile: "nowcast",
+      servedProfileCounts: { nowcast: 5 },
     });
   });
 
@@ -58,13 +62,67 @@ describe("evaluateInferenceHealth", () => {
       [{ ...healthyBody(), inference_mode: "live" }, "inference_mode is not shadow"],
       [{ ...healthyBody(), service_auth_enabled: false }, "service auth is not enabled"],
       [{ ...healthyBody(), model_version: "other-model" }, "model identity mismatch"],
-      [{ ...healthyBody(), profiles: ["nowcast"] }, "profiles missing nowcast/physics"],
+      [{ ...healthyBody(), profiles: ["nowcast"] }, "profiles missing physics"],
+      [
+        { ...healthyBody(), serving_profile: "voacap" },
+        "serving_profile is missing or unexpected",
+      ],
+      [
+        (() => {
+          const body = healthyBody();
+          delete body.serving_profile;
+          return body;
+        })(),
+        "serving_profile is missing or unexpected",
+      ],
     ];
     for (const [body, reason] of cases) {
       const verdict = evaluateInferenceHealth(body, MODEL);
       expect(verdict.healthy).toBe(false);
       expect(verdict.reason).toContain(reason);
     }
+  });
+
+  it("reports the physics serving profile as healthy too", () => {
+    const verdict = evaluateInferenceHealth(
+      { ...healthyBody(), serving_profile: "physics" },
+      MODEL,
+    );
+    expect(verdict).toEqual({
+      healthy: true,
+      reason: "",
+      servingProfile: "physics",
+      servedProfileCounts: { nowcast: 5 },
+    });
+  });
+
+  it("accepts a physics-only deployment (nowcast is not required)", () => {
+    const verdict = evaluateInferenceHealth(
+      {
+        ...healthyBody(),
+        profiles: ["physics"],
+        serving_profile: "physics",
+        served_profile_counts: { physics: 3 },
+      },
+      MODEL,
+    );
+    expect(verdict).toEqual({
+      healthy: true,
+      reason: "",
+      servingProfile: "physics",
+      servedProfileCounts: { physics: 3 },
+    });
+  });
+
+  it("treats a missing served_profile_counts as fine (older deploys)", () => {
+    const body = healthyBody();
+    delete body.served_profile_counts;
+    const verdict = evaluateInferenceHealth(body, MODEL);
+    expect(verdict).toEqual({
+      healthy: true,
+      reason: "",
+      servingProfile: "nowcast",
+    });
   });
 
   it("aggregates multiple violations into one reason", () => {
@@ -74,7 +132,7 @@ describe("evaluateInferenceHealth", () => {
     );
     expect(verdict.healthy).toBe(false);
     expect(verdict.reason).toContain("status is not ok");
-    expect(verdict.reason).toContain("profiles missing nowcast/physics");
+    expect(verdict.reason).toContain("profiles missing physics");
   });
 
   it("rejects non-object bodies", () => {

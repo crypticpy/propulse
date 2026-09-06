@@ -42,6 +42,47 @@ def require_https_url(name: str) -> str:
     return value
 
 
+FEATURE_STORE_ENVIRONMENT_NAMES = (
+    "PROPULSE_FEATURE_STORE_URL",
+    "PROPULSE_FEATURE_STORE_SERVICE_KEY",
+    "PROPULSE_WSPR_PROVIDER",
+)
+
+
+def validate_path_history_environment() -> None:
+    """Validate the optional feature-store trio as an all-or-none group.
+
+    An explicit PROPULSE_PATH_HISTORY_PROVIDER=unavailable override forces
+    the unavailable provider (and skips the trio/transform checks below)
+    even when the trio is still present, so the dead provider can be turned
+    off on Railway without deleting variables first.
+    """
+    override = os.environ.get("PROPULSE_PATH_HISTORY_PROVIDER", "").strip()
+    if override and override != "unavailable":
+        raise RuntimeError(
+            "PROPULSE_PATH_HISTORY_PROVIDER must be 'unavailable' when set"
+        )
+    if override == "unavailable":
+        return
+    configured = [
+        bool(os.environ.get(name, "").strip())
+        for name in FEATURE_STORE_ENVIRONMENT_NAMES
+    ]
+    if not any(configured):
+        return
+    if not all(configured):
+        raise RuntimeError(
+            "PROPULSE_FEATURE_STORE_URL, PROPULSE_FEATURE_STORE_SERVICE_KEY, and "
+            "PROPULSE_WSPR_PROVIDER must be configured together"
+        )
+    require_https_url("PROPULSE_FEATURE_STORE_URL")
+    required_environment("PROPULSE_FEATURE_STORE_SERVICE_KEY", 32)
+    required_environment("PROPULSE_WSPR_PROVIDER")
+    transform = required_environment("PROPULSE_PATH_TRANSFORM_VERSION")
+    if transform != DEFAULT_PATH_TRANSFORM_VERSION:
+        raise RuntimeError("PROPULSE_PATH_TRANSFORM_VERSION is not approved")
+
+
 def validate_production_environment() -> None:
     required_environment("PROPULSE_SERVICE_TOKEN", 32)
     origins = required_environment("PROPULSE_ALLOWED_ORIGINS").split(",")
@@ -66,12 +107,7 @@ def validate_production_environment() -> None:
         raise RuntimeError(
             "production PROPULSE_INFERENCE_MODE must be shadow or active"
         )
-    require_https_url("PROPULSE_FEATURE_STORE_URL")
-    required_environment("PROPULSE_FEATURE_STORE_SERVICE_KEY", 32)
-    required_environment("PROPULSE_WSPR_PROVIDER")
-    transform = required_environment("PROPULSE_PATH_TRANSFORM_VERSION")
-    if transform != DEFAULT_PATH_TRANSFORM_VERSION:
-        raise RuntimeError("PROPULSE_PATH_TRANSFORM_VERSION is not approved")
+    validate_path_history_environment()
     require_https_url("PROPULSE_WEATHER_STORE_URL")
     required_environment("PROPULSE_WEATHER_STORE_SERVICE_KEY", 32)
     weather_cache = bounded_integer(

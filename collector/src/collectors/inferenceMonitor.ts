@@ -53,6 +53,8 @@ export const OPEN_AFTER_FAILURES = 3;
 export interface HealthVerdict {
   healthy: boolean;
   reason: string;
+  servingProfile?: string;
+  servedProfileCounts?: Record<string, number>;
 }
 
 /** Validate the health body against the immutable service contract. */
@@ -65,17 +67,38 @@ export function evaluateInferenceHealth(
   }
   const b = body as Record<string, unknown>;
   const profiles = Array.isArray(b.profiles) ? (b.profiles as unknown[]) : [];
+  const servingProfile =
+    typeof b.serving_profile === "string" ? b.serving_profile : undefined;
+  // Older deploys will not have served_profile_counts yet; treat it as
+  // optional telemetry, not part of the pass/fail contract.
+  const servedProfileCounts =
+    b.served_profile_counts &&
+    typeof b.served_profile_counts === "object" &&
+    !Array.isArray(b.served_profile_counts)
+      ? (b.served_profile_counts as Record<string, number>)
+      : undefined;
   const failures: string[] = [];
   if (b.status !== "ok") failures.push("status is not ok");
   if (b.inference_mode !== "shadow") failures.push("inference_mode is not shadow");
   if (b.service_auth_enabled !== true) failures.push("service auth is not enabled");
   if (b.model_version !== expectedModel) failures.push("model identity mismatch");
-  if (!profiles.includes("nowcast") || !profiles.includes("physics")) {
-    failures.push("profiles missing nowcast/physics");
+  // physics is the required fallback profile; nowcast is not guaranteed to be
+  // loaded (e.g. the path-history provider is unavailable), so only require
+  // that whatever the service says it is serving is actually loaded.
+  if (!profiles.includes("physics")) {
+    failures.push("profiles missing physics");
+  }
+  if (!servingProfile || !profiles.includes(servingProfile)) {
+    failures.push("serving_profile is missing or unexpected");
   }
   return failures.length === 0
-    ? { healthy: true, reason: "" }
-    : { healthy: false, reason: failures.join("; ") };
+    ? { healthy: true, reason: "", servingProfile, servedProfileCounts }
+    : {
+        healthy: false,
+        reason: failures.join("; "),
+        servingProfile,
+        servedProfileCounts,
+      };
 }
 
 export type IncidentAction = "open" | "close" | "none";
@@ -244,12 +267,22 @@ export async function runInferenceMonitor(db: SupabaseClient): Promise<void> {
   if (verdict.healthy) {
     reportHealth("inference-monitor", "ok", 0);
     await reportToDb(db, "inference-monitor", "ok", 0, durationMs);
+    log("info", "Inference health check ok", {
+      servingProfile: verdict.servingProfile,
+      ...(verdict.servedProfileCounts
+        ? { servedProfileCounts: verdict.servedProfileCounts }
+        : {}),
+    });
   } else {
     reportHealth("inference-monitor", "error", 0);
     await reportToDb(db, "inference-monitor", "error", 0, durationMs, verdict.reason);
     log("warn", "Inference health check failed", {
       reason: verdict.reason,
       consecutiveFailures,
+      servingProfile: verdict.servingProfile,
+      ...(verdict.servedProfileCounts
+        ? { servedProfileCounts: verdict.servedProfileCounts }
+        : {}),
     });
   }
 }

@@ -15,6 +15,12 @@ from path_history import (
     path_history_provider_from_environment,
 )
 
+FULL_TRIO_ENVIRONMENT = {
+    "PROPULSE_FEATURE_STORE_URL": "https://feature.test",
+    "PROPULSE_FEATURE_STORE_SERVICE_KEY": "service-secret",
+    "PROPULSE_WSPR_PROVIDER": "approved-fixture",
+}
+
 
 ISSUE_TIME = datetime(2026, 7, 16, 1, tzinfo=timezone.utc)
 
@@ -148,6 +154,42 @@ class PathHistoryTests(unittest.TestCase):
         keys["PROPULSE_FEATURE_STORE_URL"] = "https://feature.test"
         with patch.dict("os.environ", keys, clear=False):
             with self.assertRaisesRegex(RuntimeError, "configured together"):
+                path_history_provider_from_environment()
+
+    def test_full_trio_returns_postgrest_provider(self):
+        with patch.dict(
+            "os.environ",
+            {**FULL_TRIO_ENVIRONMENT, "PROPULSE_PATH_HISTORY_PROVIDER": ""},
+            clear=False,
+        ):
+            provider = path_history_provider_from_environment()
+        self.assertIsInstance(provider, PostgrestPathHistoryProvider)
+        self.assertEqual(provider.name, "approved-fixture")
+
+    def test_explicit_unavailable_override_wins_even_with_full_trio(self):
+        with patch.dict(
+            "os.environ",
+            {
+                **FULL_TRIO_ENVIRONMENT,
+                "PROPULSE_PATH_HISTORY_PROVIDER": "unavailable",
+            },
+            clear=False,
+        ):
+            provider = path_history_provider_from_environment()
+        self.assertIsInstance(provider, UnavailablePathHistoryProvider)
+
+    def test_unrecognized_override_value_is_rejected(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "PROPULSE_FEATURE_STORE_URL": "",
+                "PROPULSE_FEATURE_STORE_SERVICE_KEY": "",
+                "PROPULSE_WSPR_PROVIDER": "",
+                "PROPULSE_PATH_HISTORY_PROVIDER": "sometimes",
+            },
+            clear=False,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "unavailable"):
                 path_history_provider_from_environment()
 
 

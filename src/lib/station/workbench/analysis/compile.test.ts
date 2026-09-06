@@ -313,11 +313,19 @@ describe("compileSelectedRoute", () => {
   });
 
   it("labels metrics with each engine result band instead of the request order", () => {
-    const compiled = compileSelectedRoute(createEngineParityFixture(), {
+    const archive = createEngineParityFixture();
+    for (const item of archive.revisions[0].equipment.filter((item) => ["amplifier", "filter"].includes(item.id))) {
+      item.fields!["accessory.bands"] = { state: "known", value: ["40m", "20m"], evidenceId: "declared" };
+    }
+    const compiled = compileSelectedRoute(archive, {
       revisionId: "home-r1", routeId: "main", options: { bands: ["40m", "20m"], targetBearingDeg: 90 },
     });
     expect(compiled.status).toBe("compiled");
-    const golden = computeStationChainPerformance(goldenChain(), goldenInventory(), { bands: ["40m", "20m"], targetBearingDeg: 90 });
+    const inventory = structuredClone(goldenInventory());
+    for (const accessory of inventory.accessories) {
+      if (accessory.category === "amplifier" || accessory.category === "filter") accessory.bands = ["40m", "20m"];
+    }
+    const golden = computeStationChainPerformance(goldenChain(), inventory, { bands: ["40m", "20m"], targetBearingDeg: 90 });
     expect(compiled.modeledRoute.engine?.bands.map((item) => item.band)).toEqual(golden.bands.map((item) => item.band));
     const eirp = compiled.metrics.filter((item) => item.name === "eirp");
     expect(eirp.map((item) => item.sourceId).sort()).toEqual(["20m", "40m"]);
@@ -326,5 +334,233 @@ describe("compileSelectedRoute", () => {
     expect(topEirp?.quantity.state).toBe("known");
     const topValue = topEirp?.quantity.state === "known" ? topEirp.quantity.value : Number.NaN;
     expect(topValue).toBeCloseTo(top.eirpWatts, 10);
+  });
+});
+
+
+describe("coordinator regression coverage", () => {
+  const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+
+  it("does not silently omit an unsupported selected device", () => {
+    const archive = createEngineParityFixture();
+    const device = archive.revisions[0].equipment.find((item) => item.id === "amplifier")!;
+    device.fields = { "accessory.category": { state: "known", value: "power_supply", evidenceId: "declared" } };
+    const result = compileSelectedRoute(archive, request);
+    expect(result.status).toBe("unsupported");
+    expect(result.calculationLimits.some((item) => item.code === "non-rf-accessory-on-route")).toBe(true);
+    expect(result.modeledRoute.engine).toBeNull();
+    expect(result.metrics).toEqual([]);
+    expect(result.topology.members.find((item) => item.instanceId === device.id)?.role).toBe("rf-path");
+  });
+
+  it("withholds signed amplifier gain and unapplied feedpoint loss without withholding known zero", () => {
+    const gainArchive = createEngineParityFixture();
+    gainArchive.revisions[0].equipment.find((item) => item.id === "amplifier")!.fields!["accessory.gainDb"] = { state: "known", value: -3, unit: "dB", evidenceId: "declared" };
+    const negative = compileSelectedRoute(gainArchive, request);
+    expect(negative.status).toBe("unsupported");
+    expect(negative.modeledRoute.engine).toBeNull();
+    expect(negative.metrics).toEqual([]);
+    const archive = createKnownSimpleFixture();
+    const antenna = archive.revisions[0].equipment.find((item) => item.id === "antenna")!;
+    antenna.fields!["antenna.feedpointFerrites.insertionLossDb"] = { state: "known", value: 1, unit: "dB", evidenceId: "declared" };
+    const lossy = compileSelectedRoute(archive, request);
+    expect(lossy.status).toBe("unsupported");
+    expect(lossy.modeledRoute.engine).toBeNull();
+    expect(lossy.calculationLimits.some((item) => item.code === "feedpoint-ferrite-not-in-engine")).toBe(true);
+    antenna.fields!["antenna.feedpointFerrites.insertionLossDb"] = { state: "known", value: 0, unit: "dB", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+  });
+
+  it("resolves each selected antenna band from its map or recorded scalar, never an engine default", () => {
+    const archive = createKnownSimpleFixture();
+    const antenna = archive.revisions[0].equipment.find((item) => item.id === "antenna")!;
+    antenna.facts = {};
+    antenna.fields!["antenna.gainDbiOverride"] = { state: "known", value: { "40m": 6 }, unit: "dBi", evidenceId: "declared" };
+    antenna.fields!["antenna.swrByBand"] = { state: "known", value: { "40m": 1.4 }, unit: "ratio", evidenceId: "declared" };
+    antenna.fields!["antenna.gain"] = { state: "known", value: -2, unit: "dBi", evidenceId: "declared" };
+    antenna.fields!["antenna.swr"] = { state: "known", value: 3, unit: "ratio", evidenceId: "declared" };
+    const scalar = compileSelectedRoute(archive, request);
+    expect(scalar.status).toBe("compiled");
+    expect(scalar.modeledRoute.engine?.bands[0].antennaGainDbi).toBe(-2);
+    const explicit = structuredClone(archive);
+    explicit.revisions[0].equipment.find((item) => item.id === "antenna")!.fields!["antenna.swrByBand"] = { state: "known", value: { "20m": 3 }, unit: "ratio", evidenceId: "declared" };
+    expect(scalar.modeledRoute.engine?.bands[0].feedlineLossDb).toBe(compileSelectedRoute(explicit, request).modeledRoute.engine?.bands[0].feedlineLossDb);
+    antenna.fields!["antenna.gain"] = { state: "unknown", reason: "No scalar gain" };
+    antenna.fields!["antenna.swr"] = { state: "unknown", reason: "No scalar SWR" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.missingInputs.map((item) => item.code)).toEqual(expect.arrayContaining(["unknown-antenna-gain-band", "unknown-antenna-swr-band"]));
+    expect(unknown.metrics).toEqual([]);
+    expect(compileSelectedRoute(archive, { ...request, options: { bands: ["40m"] } }).status).toBe("compiled");
+  });
+
+  it("uses pinned mode unless explicitly overridden and withholds a mode-dependent envelope when absent", () => {
+    const archive = createKnownSimpleFixture();
+    const pinned = compileSelectedRoute(archive, request);
+    expect(pinned.modeledRoute.envelope?.mode).toBe("SSB");
+    expect(pinned.pathTimeConditions.mode).toBe("SSB");
+    const override = compileSelectedRoute(archive, { ...request, options: { bands: ["20m"], mode: "FT8" } });
+    expect(override.modeledRoute.envelope?.mode).toBe("FT8");
+    expect(override.pathTimeConditions.mode).toBe("FT8");
+    archive.revisions[0].settings.mode = null;
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("compiled");
+    expect(unknown.modeledRoute.envelope).toBeNull();
+    expect(unknown.pathTimeConditions.mode).toBeNull();
+    expect(unknown.calculationLimits.some((item) => item.code === "unknown-operating-mode")).toBe(true);
+  });
+
+  it("accepts actual receive input/output directions and rejects a reversed receiving port", () => {
+    const archive = createKnownReceiveFixture();
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    archive.revisions[0].equipment.find((item) => item.id === "radio")!.ports[0].direction = "output";
+    const reversed = compileSelectedRoute(archive, request);
+    expect(reversed.status).toBe("unsupported");
+    expect(reversed.compatibility.findings.some((item) => item.code === "direction-mismatch")).toBe(true);
+  });
+
+  it("keeps declared receiver evidence without relabeling it as a manufacturer claim", () => {
+    const archive = createKnownSimpleFixture();
+    Object.entries(archive.revisions[0].models[0].fields!).forEach(([key, value]) => {
+      if (key.startsWith("radio.receiver.") && value.state === "known") value.evidenceId = "declared";
+    });
+    const declared = compileSelectedRoute(archive, request);
+    expect(declared.status).toBe("compiled");
+    expect(declared.gearCapability.catalogReceiver?.evidence).toEqual([expect.objectContaining({ id: "declared", kind: "declared" })]);
+    expect(declared.modeledRoute.envelope).toBeNull();
+    expect(declared.calculationLimits.some((item) => item.code === "receiver-provenance-not-supported")).toBe(true);
+    const tested = compileSelectedRoute(archive, { ...request, options: { bands: ["20m"], preferTestedSpecs: true } });
+    expect(tested.modeledRoute.envelope?.receiverEvidence).toBe("independent_test");
+  });
+});
+
+
+describe("explicit cable interfaces and engine conditions", () => {
+  const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+  it("mates each equipment jack to its bound cable end, with no inferred ends", () => {
+    const archive = createKnownSimpleFixture();
+    const revision = archive.revisions[0];
+    revision.equipment.find((item) => item.id === "radio")!.ports[0].connector = { state: "known", family: "n_type", gender: "female" };
+    const cable = revision.equipment.find((item) => item.id === "feedline")!;
+    cable.ports.find((port) => port.id === "near")!.connector = { state: "known", family: "n_type", gender: "male" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    delete revision.connections[0].connectorInterface;
+    const unbound = compileSelectedRoute(archive, request);
+    expect(unbound.status).toBe("incomplete");
+    expect(unbound.compatibility.findings.some((item) => item.code === "unknown-cable-termination")).toBe(true);
+    expect(unbound.compatibility.findings.some((item) => item.code === "connector-gender-mismatch")).toBe(false);
+    revision.connections[0].connectorInterface = { kind: "cable", fromPortId: "near", toPortId: "far", internalPathId: "cable-through" };
+    cable.ports.find((port) => port.id === "far")!.connector = { state: "known", family: "bnc", gender: "male" };
+    const mismatch = compileSelectedRoute(archive, request);
+    expect(mismatch.status).toBe("unsupported");
+    expect(mismatch.compatibility.findings.some((item) => item.code === "connector-family-mismatch")).toBe(true);
+  });
+
+  it("checks each requested engine band center against pinned port frequency bounds", () => {
+    const archive = createKnownSimpleFixture();
+    const port = archive.revisions[0].equipment.find((item) => item.id === "antenna")!.ports[0];
+    port.ratings["port.minFrequency"] = { state: "known", value: 14e6, unit: "Hz", evidenceId: "declared" };
+    port.ratings["port.maxFrequency"] = { state: "known", value: 15e6, unit: "Hz", evidenceId: "declared" };
+    const result = compileSelectedRoute(archive, { ...request, options: { bands: ["20m", "40m"] } });
+    expect(result.status).toBe("unsupported");
+    expect(result.modeledRoute.engine).toBeNull();
+    expect(result.compatibility.findings.some((item) => item.verdict === "contradicted" && item.message.startsWith("40m engine frequency"))).toBe(true);
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+  });
+
+  it("does not use an unsupported engine stage's zero as a power-rating pass", () => {
+    const result = compileSelectedRoute(createPostAmpPowerRatingFixture(), { ...request, options: { bands: ["40m"] } });
+    expect(result.status).toBe("unsupported");
+    expect(result.metrics).toEqual([]);
+    expect(result.compatibility.findings.some((item) => item.code === "power-rating-ok")).toBe(false);
+    expect(result.calculationLimits.some((item) => item.code === "unsupported-engine-band")).toBe(true);
+  });
+
+  it("does not turn an RF power reading into a maximum port rating", () => {
+    const archive = createKnownSimpleFixture();
+    const port = archive.revisions[0].equipment.find((item) => item.id === "antenna")!.ports[0];
+    port.ratings["port.rfPower"] = { state: "known", value: 50, unit: "W", evidenceId: "declared" };
+    const reading = compileSelectedRoute(archive, request);
+    expect(reading.status).toBe("compiled");
+    expect(reading.compatibility.findings.some((item) => item.code === "power-rating-ok")).toBe(false);
+    port.ratings["port.maxPower"] = { state: "known", value: 100, unit: "W", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    port.ratings["port.maxPower"] = { state: "unknown", reason: "Not a measured maximum" };
+    expect(compileSelectedRoute(archive, request).status).toBe("incomplete");
+  });
+});
+
+
+describe("validated compiler boundary", () => {
+  const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+  it.each([
+    { bands: "20m" }, { bands: ["20m", "invented"] }, { bands: [] }, { bands: ["not-a-band"] },
+    { targetBearingDeg: Number.NaN }, { takeoffAngleDeg: Infinity }, { localNoiseFloorDbm: -Infinity }, { mode: "bogus" },
+  ])("rejects invalid options without throwing or publishing known nonfinite metrics: %j", (options) => {
+    const result = compileSelectedRoute(createKnownSimpleFixture(), { ...request, options });
+    expect(result.status).toBe("invalid");
+    expect(result.metrics).toEqual([]);
+    expect(result.modeledRoute.engine).toBeNull();
+  });
+
+  it("withholds an unsupported pinned mode while retaining its declaration", () => {
+    const archive = createKnownSimpleFixture();
+    archive.revisions[0].settings.mode = "JS8";
+    const result = compileSelectedRoute(archive, request);
+    expect(result.status).toBe("compiled");
+    expect(result.pathTimeConditions.mode).toBe("JS8");
+    expect(result.modeledRoute.envelope).toBeNull();
+    expect(result.calculationLimits.some((item) => item.code === "unsupported-operating-mode")).toBe(true);
+  });
+
+  it("checks cable-port ratings and does not assume an unknown cable path is RF", () => {
+    const archive = createKnownSimpleFixture();
+    const cable = archive.revisions[0].equipment.find((item) => item.id === "feedline")!;
+    cable.ports[0].ratings["port.maxPower"] = { state: "known", value: 50, unit: "W", evidenceId: "declared" };
+    const exceeded = compileSelectedRoute(archive, request);
+    expect(exceeded.status).toBe("unsupported");
+    expect(exceeded.compatibility.findings.some((item) => item.code === "power-rating-exceeded" && item.instanceId === cable.id)).toBe(true);
+    cable.ports[0].ratings = {};
+    cable.internalPaths[0].signal = "unknown";
+    cable.ports.forEach((port) => { port.signal = "unknown"; });
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.compatibility.findings.some((item) => item.code === "unknown-cable-signal")).toBe(true);
+  });
+
+  it("withholds cable branches hidden behind an end binding and respects an explicitly exclusive choice", () => {
+    const archive = createKnownSimpleFixture();
+    const cable = archive.revisions[0].equipment.find((item) => item.id === "feedline")!;
+    cable.ports.push({ ...structuredClone(cable.ports[1]), id: "branch", label: "Branch termination" });
+    cable.internalPaths.push({ id: "unmodeled-branch", fromPortId: "near", toPortId: "branch", signal: "rf" });
+    const branched = compileSelectedRoute(archive, request);
+    expect(branched.status).toBe("unsupported");
+    expect(branched.compatibility.findings.some((item) => item.code === "branched-cable-internals")).toBe(true);
+    expect(branched.modeledRoute.engine).toBeNull();
+    expect(branched.metrics).toEqual([]);
+    cable.internalPaths.forEach((path) => { path.exclusiveGroupId = "explicit-path-choice"; });
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    cable.internalPaths[1].exclusiveGroupId = "independent-choice";
+    expect(compileSelectedRoute(archive, request).status).toBe("unsupported");
+    cable.ports.find((port) => port.id === "near")!.signal = "unknown";
+    cable.ports.find((port) => port.id === "branch")!.signal = "unknown";
+    cable.internalPaths[1].signal = "unknown";
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.compatibility.findings.some((item) => item.code === "unknown-cable-branch")).toBe(true);
+  });
+
+  it("preserves supported non-N adapter types and withholds unknown or invalid connector enums", () => {
+    const archive = createKnownInlineRunsFixture();
+    const adapter = archive.revisions[0].equipment.find((item) => item.id === "run-adapter")!;
+    adapter.fields!["inline.connectorFrom"] = { state: "known", value: "bnc", evidenceId: "declared" };
+    adapter.fields!["inline.connectorTo"] = { state: "known", value: "sma", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    adapter.fields!["inline.connectorFrom"] = { state: "unknown", reason: "End not documented" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.missingInputs.some((item) => item.code === "unknown-inline-connectors")).toBe(true);
+    adapter.fields!["inline.connectorFrom"] = { state: "known", value: "invented-connector", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("invalid");
   });
 });

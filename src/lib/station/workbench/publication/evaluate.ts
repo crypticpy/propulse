@@ -12,6 +12,9 @@ const sectionLevel = z.enum(["public", "friends", "private"]);
 const gridPrecision = z.enum(["hidden", "field", "square", "subsquare", "extended"]);
 const moduleKind = z.enum(["identity", "interests", "station", "activity", "projects", "qsl"]);
 const moduleSection = z.enum(["identity", "stats", "awards", "equipment", "activity", "location"]);
+const FIXED_MODULE_SECTIONS: Partial<Record<z.infer<typeof moduleKind>, z.infer<typeof moduleSection>>> = {
+  identity: "identity", station: "equipment", activity: "activity",
+};
 const GRID = /^[A-R]{2}([0-9]{2}([A-X]{2}([0-9]{2})?)?)?$/i;
 const PRECISION_LENGTH = { hidden: 0, field: 2, square: 4, subsquare: 6, extended: 8 } as const;
 const mediaRef = z.string().trim().min(1).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -31,7 +34,17 @@ export const publicationAccessContextSchema = z.object({
   publicationVersion: z.number().int().positive().nullable(),
   mediaGrants: z.array(z.object({
     assetId: mediaRef, derivativeId: mediaRef, audience: publicationAudience, status: z.enum(["current", "revoked", "absent"]),
-  }).strict()),
+  }).strict()).superRefine((grants, ctx) => {
+    const statuses = new Map<string, string>();
+    grants.forEach((grant, index) => {
+      const key = JSON.stringify([grant.assetId, grant.derivativeId, grant.audience]);
+      const previous = statuses.get(key);
+      if (previous !== undefined && previous !== grant.status) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Conflicting media grant statuses", path: [index, "status"] });
+      }
+      statuses.set(key, grant.status);
+    });
+  }),
   ownerPreviewAs: publicationAudience.optional(),
 }).strict();
 
@@ -40,7 +53,12 @@ export const publicationPolicySourceSchema = z.object({
   displayName: id,
   biography: z.string(),
   featuredSetup: z.object({ title: id, description: z.string(), instanceIds: z.array(id) }).strict().nullable(),
-  modules: z.array(z.object({ id, kind: moduleKind, title: id, text: z.string(), section: moduleSection.optional() }).strict()),
+  modules: z.array(z.object({ id, kind: moduleKind, title: id, text: z.string(), section: moduleSection.optional() }).strict().superRefine((module, ctx) => {
+    const fixedSection = FIXED_MODULE_SECTIONS[module.kind];
+    if (fixedSection !== undefined && module.section !== undefined && module.section !== fixedSection) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Module section conflicts with its kind", path: ["section"] });
+    }
+  })),
   sectionVisibility: z.object({
     stats: sectionLevel.optional(), awards: sectionLevel.optional(), equipment: sectionLevel.optional(),
     activity: sectionLevel.optional(), location: sectionLevel.optional(),
@@ -135,11 +153,7 @@ function sectionVisible(
 }
 
 function moduleSectionFor(kind: z.infer<typeof moduleKind>, explicit?: z.infer<typeof moduleSection>): z.infer<typeof moduleSection> | null {
-  if (explicit) return explicit;
-  if (kind === "identity") return "identity";
-  if (kind === "station") return "equipment";
-  if (kind === "activity") return "activity";
-  return null;
+  return FIXED_MODULE_SECTIONS[kind] ?? explicit ?? null;
 }
 
 function normalizeDisclosedGrid(disclosure: PublicationPolicySource["locationDisclosure"]): string | null {

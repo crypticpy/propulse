@@ -17,16 +17,24 @@ Compatibility verdicts are `compatible`, `contradicted` or `unknown`. A contradi
 
 ## Engine boundary
 
-When topology and required inputs are known, results come from `computeStationChainPerformance` / `deriveStationFeatureEnvelope`. Gear capability, modeled route numbers, pinned measurements and caller path/time/conditions stay in separate collections. Envelope receiver evidence is omitted when the catalog group is unknown or partial.
+When topology and required inputs are known, results come from `computeStationChainPerformance` / `deriveStationFeatureEnvelope`. Gear capability, modeled route numbers, pinned measurements and caller path/time/conditions stay in separate collections. Envelope receiver evidence is withheld when the catalog group is unknown, partial, or lacks the report attribution that the engine would claim. Declared evidence remains available in pinned gear capability; it never becomes a manufacturer claim. Mode uses the explicit override or the pinned setting. Absent or unsupported pinned modes withhold the mode-dependent envelope; they never default to WSPR.
 
 Known engine limits reported rather than worked around:
 
 - Band-center MHz instead of revision `frequencyHz`
 - Default SWR 1.5 and antenna peak-gain fallback (withheld unless the pin has SWR/gain)
 - Required `RadioEquipment.receiver` / `UserAntenna` enum fields
-- Feedpoint ferrite loss and pigtail meters not applied by the engine
-- Negative amplifier gain clamped by the engine
+- Nonzero feedpoint ferrite loss and negative amplifier gain (dependent numerical estimates withheld because the engine cannot preserve them)
+- Pigtail meters not separately added to the base cable length
 
 ## Verification
 
 Run `npx vitest run src/lib/station/workbench/analysis` plus `npm run lint` and `npm run build`. Passing tests do not complete W08 operating selection, W14 presentation or issue acceptance. Do not re-export this folder from the workbench root until the coordinator integrates it.
+
+## Explicit interfaces and calculation gates
+
+A run-associated connection needs a pinned `connectorInterface`: `direct` means the two equipment ports physically mate; `cable` binds `fromPortId`, `toPortId` and `internalPathId` on the run's base cable. Those IDs correspond to the connection's stored from/to orientation, and reverse route hops swap them. Missing bindings remain unknown. The compiler does not choose cable ends from labels, array order or connector gender. Cable ports/path must explicitly support RF, and their ratings are checked too. Engine stages that combine cable and inline losses cannot establish individual cable-port power; a recorded maximum at such a point remains unresolved.
+
+Receive port directions follow the already oriented signal flow. Only `port.maxPower` establishes a power limit; `port.rfPower` remains a reading. Compatibility covers both the pinned operating frequency and every engine band-center frequency. Unsupported stages/bands and nonfinite output cannot produce known numerical metrics or power-rating passes. Gain/SWR maps resolve each requested band explicitly, using a recorded scalar only for missing keys; absent values withhold dependent results.
+
+`analysis/request.ts` validates caller input without coercing unknown bands, modes, or nonfinite options into defaults. Band labels must exist in the engine table. Explicit mode labels are normalized to supported engine names. `compileSelectedRoute` returns an invalid result for invalid requests instead of throwing from an unchecked options object.

@@ -22,3 +22,22 @@ export function predictionIssueLabels(
     (flag) => FLAG_LABELS[flag] ?? flag.replace(/_/g, " "),
   );
 }
+
+const UNSUPPORTED_REASONS: ReadonlyArray<[code: string, reason: string]> = [
+  ["radio_missing", "chain radio is not in your inventory"],
+  ["antenna_missing", "chain antenna is not in your inventory"],
+  ["accessory_missing", "a chain accessory is not in your inventory"],
+  ["feedline_missing", "chain feedline is not in your inventory"],
+  ["inline_component_missing", "an inline component is not in your inventory"],
+  ["radio_band_unsupported", "radio does not declare this band"],
+  ["antenna_band_unsupported", "antenna does not declare this band"],
+  ["accessory_band_unsupported", "an accessory does not declare this band"],
+];
+
+/** Names the chain part that blocks this band so the operator can fix it. */
+export function unsupportedChainReason(warningCodes: readonly string[]): string {
+  const match = UNSUPPORTED_REASONS.find(([code]) => warningCodes.includes(code));
+  return match
+    ? `Chain unsupported: ${match[1]}`
+    : "Chain unsupported on this band";
+}

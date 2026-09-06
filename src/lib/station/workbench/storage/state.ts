@@ -24,7 +24,7 @@ export interface StationStateSnapshot {
 
 type ChangeResult =
   | { status: "ready"; archive: DeepReadonly<WorkbenchArchive> }
-  | { status: "conflict"; actualHeads: StationHead[]; reason: string };
+  | { status: "conflict"; actualHeads: StationHead[]; reason: string; candidateValidation: { status: "quarantined"; reason: "historical-validation-context-unavailable" } };
 
 const key = (value: { kind: StationEntityKind; id: string }) => JSON.stringify([value.kind, value.id]);
 
@@ -61,40 +61,68 @@ function validateHeads(archive: DeepReadonly<WorkbenchArchive>, heads: readonly 
 }
 
 /** Must run against an archive/head snapshot read inside the write transaction.
- * A stale proposal is returned intact to the repository's conflict ledger; no
- * candidate records become canonical history on this path. */
+ * A stale proposal is retained as an explicitly unvalidated, quarantined
+ * alternative. Expected heads are not a complete historical validation context;
+ * no candidate records become canonical history on this path. */
 export function evaluateStationChange(snapshot: StationStateSnapshot, operationInput: unknown): ChangeResult {
   const operation = stationOperationSchema.parse(operationInput);
   const archive = parseWorkbenchArchive(snapshot.archive);
   if (operation.ownerId !== archive.ownerId) throw new TypeError("Operation owner does not match the repository snapshot");
   const heads = validateHeads(archive, snapshot.heads);
+  // These invariants depend only on the proposal and retained immutable lineage,
+  // not mutable current setup/equipment metadata. Invalid proposals cannot evade
+  // them by including a stale CAS token.
+  const setups = operation.records.filter((record) => record.kind === "setup");
+  const revisions = operation.records.filter((record) => record.kind === "revision");
+  if (operation.tombstones.some((target) => target.kind === "revision")) throw new TypeError("Ordinary operations retain revision history");
+  for (const revision of revisions) {
+    if (archive.revisions.some((stored) => stored.id === revision.id)) throw new TypeError("A retained revision identity cannot be replaced");
+    const transition = revision.body.transition;
+    if (!transition) throw new TypeError("New revisions require an explicit W03 transition");
+    if (!setups.some((setup) => setup.id === revision.body.setupId && setup.body.draftRevisionId === revision.id)) {
+      throw new TypeError("New revision requires the matching setup head advance");
+    }
+    const initial = transition.kind === "initial" || transition.kind === "clone";
+    if (initial !== (revision.body.parentRevisionId === null)) throw new TypeError("Revision transition has an invalid parent requirement");
+    if (revision.body.parentRevisionId !== null
+      && archive.revisions.find((stored) => stored.id === revision.body.parentRevisionId)?.setupId !== revision.body.setupId) {
+      throw new TypeError("Revision parent must reference retained lineage in the same setup");
+    }
+    if (transition.kind === "restore" || transition.kind === "clone") {
+      const source = archive.revisions.find((stored) => stored.id === transition.sourceRevisionId);
+      if (!source || (transition.kind === "restore" ? source.setupId !== revision.body.setupId : source.setupId === revision.body.setupId)) {
+        throw new TypeError("Historical transition source has invalid retained lineage");
+      }
+    }
+  }
+  for (const setup of setups) {
+    const expected = operation.setupDraftPreconditions.find((item) => item.setupId === setup.id)!;
+    if (expected.revisionId !== setup.body.draftRevisionId
+      && !revisions.some((revision) => revision.id === setup.body.draftRevisionId && revision.body.setupId === setup.id)) {
+      throw new TypeError("Changing a draft requires a newly appended revision, not a historical head rewind");
+    }
+  }
+  const candidateValidation = { status: "quarantined", reason: "historical-validation-context-unavailable" } as const;
   const actualHeads = operation.expectedHeads.map((expected) => ({
     kind: expected.kind, id: expected.id, versionId: heads.get(key(expected))?.versionId ?? null,
   }));
   if (actualHeads.some((actual, index) => actual.versionId !== operation.expectedHeads[index].versionId)) {
-    return { status: "conflict", actualHeads, reason: "Storage head changed since this operation was prepared" };
+    return { status: "conflict", actualHeads, candidateValidation, reason: "Storage head changed since this operation was prepared" };
   }
   for (const precondition of operation.setupDraftPreconditions) {
     const actual = archive.setups.find((setup) => setup.id === precondition.setupId)?.draftRevisionId ?? null;
-    if (actual !== precondition.revisionId) return { status: "conflict", actualHeads, reason: "Setup draft changed since this operation was prepared" };
+    if (actual !== precondition.revisionId) return { status: "conflict", actualHeads, candidateValidation, reason: "Setup draft changed since this operation was prepared" };
   }
   // Deletion is an explicit durable version, never a missing row. A stale edit
   // cannot recreate it; resurrection requires a separately reviewed protocol.
   for (const changed of [...operation.nextHeads, ...operation.tombstones]) {
     if (heads.get(key(changed))?.deleted) throw new TypeError("A tombstoned identity cannot be rewritten by an ordinary operation");
   }
-  const setups = operation.records.filter((record) => record.kind === "setup");
-  const revisions = operation.records.filter((record) => record.kind === "revision");
   for (const revision of revisions) {
-    if (archive.revisions.some((stored) => stored.id === revision.id)) throw new TypeError("A retained revision identity cannot be replaced");
-    if (!revision.body.transition) throw new TypeError("New revisions require an explicit W03 transition");
-    const setup = setups.find((setup) => setup.id === revision.body.setupId && setup.body.draftRevisionId === revision.id);
-    if (!setup) {
-      throw new TypeError("New revision requires the matching setup head advance");
-    }
+    const setup = setups.find((setup) => setup.id === revision.body.setupId && setup.body.draftRevisionId === revision.id)!;
     // Replay W03's historical copy semantics at the trusted boundary. Merely
     // naming a restore/clone source cannot authorize altered historical pins.
-    const transition = revision.body.transition;
+    const transition = revision.body.transition!;
     if (transition.kind === "restore" || transition.kind === "clone") {
       const source = archive.revisions.find((item) => item.id === transition.sourceRevisionId);
       if (!source) throw new TypeError("Historical transition source is missing");
@@ -120,7 +148,6 @@ export function evaluateStationChange(snapshot: StationStateSnapshot, operationI
       throw new TypeError("Changing a draft requires a newly appended revision, not a historical head rewind");
     }
   }
-  if (operation.tombstones.some((target) => target.kind === "revision")) throw new TypeError("Ordinary operations retain revision history");
 
   const next = structuredClone(archive) as WorkbenchArchive;
   const replace = <T extends { id: string }>(rows: T[], id: string, body?: T): T[] => {

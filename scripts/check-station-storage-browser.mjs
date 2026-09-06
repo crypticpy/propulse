@@ -35,7 +35,7 @@ try {
     const archive = createHfFixture();
     const ownerId = archive.ownerId;
     const generationId = "synthetic-browser-generation";
-    const dbName = `propulse-station-disposable-${crypto.randomUUID()}`;
+    const dbName = `propulse-station-workbench-test-${crypto.randomUUID()}`;
     const options = { ownerId, dbName };
     const opened = await openStationDatabase(options);
     ensure(opened.status === "ready", "Database did not open");

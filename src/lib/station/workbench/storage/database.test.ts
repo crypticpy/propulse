@@ -163,7 +163,7 @@ describe("station database lifecycle failures", () => {
 
   it("returns blocked without leaving a late upgrade/open capable of changing data", async () => {
     const factory = new IDBFactory();
-    const name = "station-blocked-test";
+    const name = "propulse-station-workbench-test-blocked";
     const blocker = await nativeOpen(factory, name, 1, (db) => db.createObjectStore("retained"));
     const blocked = vi.fn();
     let settleLate!: () => void;
@@ -208,7 +208,7 @@ describe("station database lifecycle failures", () => {
 
   it("retains an unsupported existing v1 schema without repairing or recreating it", async () => {
     const factory = new IDBFactory();
-    const name = "station-existing-test";
+    const name = "propulse-station-workbench-test-existing";
     const original = await nativeOpen(factory, name, 1, (db) => db.createObjectStore("old-data"));
     original.close();
     expect((await openStationDatabase({ ownerId: "owner-a", dbName: name, indexedDB: factory })).status).toBe("recovery-required");
@@ -218,7 +218,8 @@ describe("station database lifecycle failures", () => {
 
   it("never opens legacy application databases, including through the disposable-name option", async () => {
     const factory = new IDBFactory();
-    for (const name of ["propulse-db", "propulse-images"]) {
+    const reservedNames = ["propulse-db", "propulse-images", "propulse-credentials", "propulse-scp", "propulse-api-cache", "propulse-net-session-cache"];
+    for (const name of reservedNames) {
       const legacy = await nativeOpen(factory, name, 1, (db) => db.createObjectStore("original"));
       legacy.close();
       const open = vi.spyOn(factory, "open");
@@ -227,9 +228,89 @@ describe("station database lifecycle failures", () => {
       open.mockRestore();
     }
     await ready(factory);
-    for (const name of ["propulse-db", "propulse-images"]) {
+    for (const name of reservedNames) {
       const legacy = await nativeOpen(factory, name, 1);
       expect([...legacy.objectStoreNames]).toEqual(["original"]);
     }
+  });
+  it.each(["unrelated-new-db", "propulse-station-workbench-test-", "propulse-station-workbench-other", " propulse-station-workbench-test-owner"])("rejects unsafe custom name %s before opening storage", async (dbName) => {
+    const open = vi.fn();
+    expect((await openStationDatabase({ ownerId: "owner-a", dbName, indexedDB: { open } })).status).toBe("unavailable");
+    expect(open).not.toHaveBeenCalled();
+  });
+  it("opens an explicitly named disposable station database", async () => {
+    const factory = new IDBFactory();
+    const dbName = "propulse-station-workbench-test-isolated";
+    const handle = await ready(factory, "owner-a", { dbName });
+    expect(await handle.readAccountPointer()).toEqual({ generationId: null, versionId: "absent" });
+    const tx = handle.transaction("accountMeta", "readonly");
+    expect(tx.db.name).toBe(dbName);
+    await tx.done;
+  });
+});
+
+describe("station write transaction durability", () => {
+  async function observedHandle() {
+    const handle = await ready(new IDBFactory());
+    const tx = handle.transaction("accountMeta", "readonly");
+    const raw = unwrap(tx.db);
+    await tx.done;
+    return { handle, raw, original: raw.transaction.bind(raw) };
+  }
+  it("requests strict durability for writes, including callers asking for relaxed mode", async () => {
+    const { handle, raw } = await observedHandle();
+    const calls = vi.spyOn(raw, "transaction");
+    const read = handle.transaction("accountMeta", "readonly");
+    await read.done;
+    expect(calls).toHaveBeenCalledExactlyOnceWith("accountMeta", "readonly");
+    calls.mockClear();
+    const write = handle.transaction("accountMeta", "readwrite", { durability: "relaxed" });
+    expect(unwrap(write).durability).toBe("strict");
+    await write.store.put({ ownerId: handle.ownerId, key: "local-sequence", value: 1 });
+    await write.done;
+    expect(calls.mock.calls).toEqual([["accountMeta", "readonly", { durability: "strict" }], ["accountMeta", "readwrite", { durability: "strict" }]]);
+    calls.mockClear();
+    const second = handle.transaction("accountMeta", "readwrite");
+    await second.done;
+    expect(calls).toHaveBeenCalledExactlyOnceWith("accountMeta", "readwrite", { durability: "strict" });
+    calls.mockRestore();
+  });
+  it.each(["TypeError", "NotSupportedError", "ignored-options"])("falls back only after a known-valid capability probe reports %s", async (failure) => {
+    const { handle, raw, original } = await observedHandle();
+    const calls = vi.spyOn(raw, "transaction").mockImplementation((stores, mode, options) => {
+      if (options !== undefined) {
+        if (failure === "TypeError") throw new TypeError("Options unsupported");
+        if (failure === "NotSupportedError") throw new DOMException("Options unsupported", "NotSupportedError");
+      }
+      return original(stores, mode);
+    });
+    const write = handle.transaction("accountMeta", "readwrite");
+    await write.store.put({ ownerId: handle.ownerId, key: "local-sequence", value: 2 });
+    await write.done;
+    expect(calls.mock.calls).toEqual([["accountMeta", "readonly", { durability: "strict" }], ["accountMeta", "readwrite"]]);
+    calls.mockClear();
+    const second = handle.transaction("accountMeta", "readwrite");
+    await second.done;
+    expect(calls).toHaveBeenCalledExactlyOnceWith("accountMeta", "readwrite");
+    calls.mockRestore();
+  });
+  it.each(["SecurityError", "InvalidStateError", "QuotaExceededError"])("does not treat probe %s as unsupported durability", async (name) => {
+    const { handle, raw } = await observedHandle();
+    const failure = new DOMException("Storage unavailable", name);
+    const calls = vi.spyOn(raw, "transaction").mockImplementation(() => { throw failure; });
+    expect(() => handle.transaction("accountMeta", "readwrite")).toThrow(expect.objectContaining({ name: failure.name, message: failure.message }));
+    expect(calls).toHaveBeenCalledOnce();
+    calls.mockRestore();
+  });
+  it.each(["TypeError", "NotSupportedError", "QuotaExceededError"])("does not retry an actual write failing with %s after successful detection", async (name) => {
+    const { handle, raw, original } = await observedHandle();
+    const failure = name === "TypeError" ? new TypeError("Invalid write") : new DOMException("Write failed", name);
+    const calls = vi.spyOn(raw, "transaction").mockImplementation((stores, mode, options) => {
+      if (mode === "readwrite") throw failure;
+      return original(stores, mode, options);
+    });
+    expect(() => handle.transaction("accountMeta", "readwrite")).toThrow(expect.objectContaining({ name: failure.name, message: failure.message }));
+    expect(calls.mock.calls).toEqual([["accountMeta", "readonly", { durability: "strict" }], ["accountMeta", "readwrite", { durability: "strict" }]]);
+    calls.mockRestore();
   });
 });

@@ -58,12 +58,16 @@ describe("station transaction state validation", () => {
   });
   it("checks semantic draft expectations separately from storage tokens", async () => {
     const base = snapshot();
+    const historical = structuredClone(base.archive.revisions[0]);
+    historical.id = "stale-semantic-head";
+    base.archive.revisions.push(historical);
+    base.heads.push({ kind: "revision", id: historical.id, versionId: historical.id, deleted: false });
     const draft = editDraft(base);
     draft.setupDraftPreconditions[0].revisionId = "stale-semantic-head";
     const revision = draft.records.find((record) => record.kind === "revision")!;
     if (revision.kind === "revision") revision.body.parentRevisionId = "stale-semantic-head";
     const result = evaluateStationChange(base, await prepareStationOperation(draft));
-    expect(result).toMatchObject({ status: "conflict", reason: expect.stringContaining("Setup draft") });
+    expect(result).toMatchObject({ status: "conflict", candidateValidation: { status: "quarantined", reason: "historical-validation-context-unavailable" }, reason: expect.stringContaining("Setup draft") });
   });
   it("rejects missing or inconsistent repository heads", async () => {
     const base = snapshot();
@@ -79,6 +83,66 @@ describe("station transaction state validation", () => {
     if (revision.kind === "revision") revision.body.connections[0].from.portId = "missing-port";
     const operation = await prepareStationOperation(draft);
     expect(() => evaluateStationChange(base, operation)).toThrow(/connection endpoint/i);
+  });
+  it("quarantines stale dangling-reference alternatives but rejects the same current proposal", async () => {
+    const base = snapshot();
+    const draft = editDraft(base);
+    const revision = draft.records.find((record) => record.kind === "revision")!;
+    if (revision.kind === "revision") revision.body.connections[0].from.portId = "missing-port";
+    const operation = await prepareStationOperation(draft);
+    const concurrent = structuredClone(base);
+    concurrent.heads.find((head) => head.kind === "setup")!.versionId = "concurrent-rename";
+    concurrent.archive.setups[0].name = "Concurrent name";
+    const before = structuredClone(concurrent);
+    expect(evaluateStationChange(concurrent, operation)).toMatchObject({
+      status: "conflict", candidateValidation: { status: "quarantined", reason: "historical-validation-context-unavailable" },
+    });
+    expect(concurrent).toEqual(before);
+    expect(operation.records).toEqual(draft.records);
+    expect(() => evaluateStationChange(base, operation)).toThrow(/connection endpoint/i);
+  });
+  it.each(["missing-transition", "invalid-parent", "missing-parent", "missing-source", "orphan", "revision-deletion"] as const)("rejects %s even with stale CAS", async (invalid) => {
+    const base = snapshot();
+    const draft = editDraft(base);
+    const revision = draft.records.find((record) => record.kind === "revision")!;
+    if (revision.kind !== "revision") throw new Error("Missing fixture revision");
+    if (invalid === "missing-transition") delete revision.body.transition;
+    if (invalid === "invalid-parent") revision.body.transition = { kind: "initial" };
+    if (invalid === "missing-parent") {
+      revision.body.parentRevisionId = "absent-parent";
+      draft.setupDraftPreconditions[0].revisionId = "absent-parent";
+    }
+    if (invalid === "missing-source") revision.body.transition = { kind: "restore", sourceRevisionId: "missing-source" };
+    if (invalid === "orphan") {
+      draft.records = draft.records.filter((record) => record.kind !== "setup");
+      draft.nextHeads = draft.nextHeads.filter((head) => head.kind !== "setup");
+    }
+    if (invalid === "revision-deletion") {
+      const source = base.archive.revisions[0];
+      draft.expectedHeads.push({ kind: "revision", id: source.id, versionId: source.id });
+      draft.tombstones.push({ kind: "revision", id: source.id, expectedVersionId: source.id, versionId: "deleted-revision" });
+    }
+    const operation = await prepareStationOperation(draft);
+    base.heads.find((head) => head.kind === "setup")!.versionId = "stale-token";
+    expect(() => evaluateStationChange(base, operation)).toThrow(/transition|lineage|matching setup|retain revision history/i);
+  });
+  it("retains a valid stale restore after concurrent setup metadata changes", async () => {
+    const base = snapshot();
+    const source = base.archive.revisions[0];
+    const proposal = prepareRevisionRestore(base.archive, { setupId: source.setupId, sourceRevisionId: source.id,
+      revisionId: "next-revision", expectedHead: source.id, createdAt: source.createdAt });
+    const draft = editDraft(base);
+    draft.records = draft.records.map((record) => record.kind === "revision" ? { ...record, body: structuredClone(proposal.revision) }
+      : record.kind === "setup" ? { ...record, body: structuredClone(proposal.setup) } : record) as StationOperationDraft["records"];
+    const operation = await prepareStationOperation(draft);
+    expect(evaluateStationChange(base, operation).status).toBe("ready");
+    base.archive.setups[0].name = "Concurrent renamed setup";
+    base.heads.find((head) => head.kind === "setup")!.versionId = "renamed-token";
+    const before = structuredClone(base);
+    expect(evaluateStationChange(base, operation)).toMatchObject({ status: "conflict",
+      candidateValidation: { status: "quarantined", reason: "historical-validation-context-unavailable" } });
+    expect(base).toEqual(before);
+    expect(operation.records.find((record) => record.kind === "setup")?.body).toEqual(proposal.setup);
   });
   it("requires a new revision to accompany every changed draft head", async () => {
     const base = snapshot();

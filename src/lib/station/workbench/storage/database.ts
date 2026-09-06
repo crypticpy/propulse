@@ -3,6 +3,7 @@ import { unwrap, wrap, type DBSchema, type IDBPDatabase, type StoreNames } from 
 import type { StationEntityKind } from "@/lib/station/workbench/storage/operations";
 
 export const STATION_DATABASE_NAME = "propulse-station-workbench";
+const DISPOSABLE_DATABASE_PREFIX = `${STATION_DATABASE_NAME}-test-`;
 export const STATION_DATABASE_VERSION = 1;
 export const ABSENT_POINTER_VERSION = "absent";
 
@@ -95,7 +96,7 @@ export type StationDatabaseOpenResult =
   | { status: "unavailable" | "blocked" | "recovery-required"; reason: string };
 export interface StationDatabaseOptions {
   ownerId: string;
-  /** Disposable database override; never use a legacy application database name. */
+  /** Disposable overrides must use propulse-station-workbench-test- plus a nonempty suffix. */
   dbName?: string;
   /** Injection keeps availability and blocked-open tests independent of browser globals. */
   indexedDB?: Pick<IDBFactory, "open"> | null;
@@ -133,6 +134,7 @@ function createHandle(raw: IDBDatabase, ownerId: string, onInvalidated: StationD
   const db = wrap(raw) as IDBPDatabase<StationDatabaseSchema>;
   const pending = new Set<IDBTransaction>();
   let closed = false;
+  let strictDurability: boolean | undefined;
   const assertOpen = () => {
     if (closed) throw new StationDatabaseError("closed", "Station database handle is closed");
   };
@@ -155,13 +157,33 @@ function createHandle(raw: IDBDatabase, ownerId: string, onInvalidated: StationD
     close();
     notify(() => onInvalidated?.("terminated"));
   });
+  const track = (native: IDBTransaction) => {
+    pending.add(native);
+    void wrap(native).done.then(() => { pending.delete(native); }, () => { pending.delete(native); });
+  };
+  const supportsStrictDurability = () => {
+    if (strictDurability !== undefined) return strictDurability;
+    try {
+      // Known-valid readonly arguments isolate unsupported options from invalid
+      // caller arguments or a failed write. The probe does not change any data.
+      const probe = raw.transaction("accountMeta", "readonly", { durability: "strict" });
+      track(probe);
+      strictDurability = probe.durability === "strict";
+    } catch (error) {
+      if (!(error instanceof TypeError) && !(error instanceof DOMException && error.name === "NotSupportedError")) throw error;
+      strictDurability = false;
+    }
+    return strictDurability;
+  };
   const transaction = ((...args: Parameters<IDBPDatabase<StationDatabaseSchema>["transaction"]>) => {
     assertOpen();
-    const tx = db.transaction(...args);
+    const tx = args[1] === "readwrite"
+      ? supportsStrictDurability()
+        ? db.transaction(args[0], "readwrite", { ...args[2], durability: "strict" })
+        : db.transaction(args[0], "readwrite")
+      : db.transaction(...args);
     // The wrapped transaction has native abort semantics; keep it only until completion.
-    const native = unwrap(tx);
-    pending.add(native);
-    void tx.done.then(() => { pending.delete(native); }, () => { pending.delete(native); });
+    track(unwrap(tx));
     return tx;
   }) as IDBPDatabase<StationDatabaseSchema>["transaction"];
   return Object.freeze({
@@ -189,7 +211,8 @@ export async function openStationDatabase(options: StationDatabaseOptions): Prom
   const { ownerId, onBlocked, onInvalidated } = options;
   if (!validIdentity(ownerId)) return { status: "unavailable", reason: "A nonempty, unpadded owner identity is required" };
   const name = options.dbName ?? STATION_DATABASE_NAME;
-  if (!validIdentity(name) || name === "propulse-db" || name === "propulse-images") {
+  if (!validIdentity(name) || (name !== STATION_DATABASE_NAME
+    && (!name.startsWith(DISPOSABLE_DATABASE_PREFIX) || name.slice(DISPOSABLE_DATABASE_PREFIX.length).trim().length === 0))) {
     return { status: "unavailable", reason: "A dedicated station database name is required" };
   }
   let factory: Pick<IDBFactory, "open"> | null | undefined;

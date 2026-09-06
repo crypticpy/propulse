@@ -7,9 +7,9 @@ Tracking: [#177](https://github.com/crypticpy/propulse/issues/177), parent #173.
 - A dedicated IndexedDB schema uses owner-first compound keys and an explicit per-account generation pointer. Opening does not initialize a generation or write legacy data.
 - Strict operation envelopes bind owner, generation, operation ID, exact storage expectations, W03 draft preconditions and declared writes. Digests are calculated before opening a write transaction.
 - An atomic save appends immutable versions, advances declared heads/tombstones, stores its exact receipt and pending outbox, and increments the account sequence together. Failure aborts the actual transaction.
-- Stale writes preserve a named alternative, original operation and expected/actual bases; they do not change canonical heads. Reusing an operation ID replays its original outcome or rejects changed content.
+- Stale writes preserve a named quarantined proposal, original operation and expected/actual bases; aggregate validity remains unproven without a complete historical validation context, and the outbox is unsendable; they do not change canonical heads. Reusing an operation ID replays its original outcome or rejects changed content.
 - Full aggregate validation protects owner/reference closure and historical pins. W03 clone/restore content is regenerated from its named source and compared, preventing forged source provenance or a historical head rewind.
-- Incoming record digests and immutable collisions are checked. The write transaction validates complete stored domain/identity metadata synchronously; `readSnapshot` additionally rehashes retained bodies after its readonly transaction completes. No WebCrypto/network work is awaited inside a write transaction.
+- Incoming record digests and fresh version tokens are checked. Retained bodies and queued dependency envelopes are hashed/verified after a readonly snapshot, then bound by exact state comparison inside the write transaction. Concurrent changes trigger a bounded retry; continued contention returns `retry-required`. `readSnapshot` also rehashes retained bodies after its readonly transaction completes. No WebCrypto/network work is awaited inside a write transaction.
 - Generation candidate seals recompute supplied archive, manifest, record and canonical raw-payload digests. They always declare external artifacts unverified and legacy cutover unauthorized. They do not authenticate an owner, fetch a backup, verify actual media bytes or prove legacy source parity.
 
 Top-level archive collections reconstruct in storage identity order. Per-record arrays, private recovery payloads and pinned graph data remain unchanged. Layout ordering comes from the explicit layout records, not the order of IndexedDB rows. An exact original legacy export still requires the retained original backup and source mapping.
@@ -31,6 +31,8 @@ node scripts/check-station-storage-browser.mjs http://127.0.0.1:5181
 ```
 
 The script verifies the managed server identity, checkout and local profile. It creates a disposable Chromium context and a uniquely named synthetic database. Direct fixture seeding is test setup, **not** product activation. It checks a real IndexedDB commit, close/reopen, two-handle conflict, exact replay, forced write-transaction rollback, durable outbox, reviewed-pin preservation and account isolation. It does not use authenticated browser state, personal records, hardware, cloud sync or owner fixture provisioning. The coordinator stops only that script's owned server afterward.
+
+Reserved application database names are rejected before opening. Strict write durability is requested where supported, lifecycle closure propagates without classifying healthy data as damaged, and outbox listings use bounded indexed reads. Conflict receipt tampering and old-version token reuse reject. See [next storage gates](W04-NEXT-STORAGE-GATES.md) for remaining work.
 
 The delivery comment records exact final test counts and CI/deployment evidence. The initial integrated checkpoint passed 133 storage tests and all eight browser checks with no page errors; these results do not replace the final full-repository gates.
 

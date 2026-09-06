@@ -4,17 +4,17 @@ import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createExperimentFixture, FIXTURE_DATE, FIXTURE_OWNER } from "@/lib/station/workbench/fixtures";
 import { type WorkbenchArchive } from "@/lib/station/workbench/contracts";
-import { prepareRevision } from "@/lib/station/workbench/revisions/services";
+import { prepareRevision, prepareRevisionRestore } from "@/lib/station/workbench/revisions/services";
 import { openStationDatabase, type StationDatabaseHandle, type RecordVersionRecord } from "@/lib/station/workbench/storage/database";
 import { prepareStationOperation, type StationEntityKind } from "@/lib/station/workbench/storage/operations";
-import { digestWorkbenchJson } from "@/lib/station/workbench/storage/serialization";
+import { canonicalWorkbenchJson, digestWorkbenchJson } from "@/lib/station/workbench/storage/serialization";
 import { openStationRepository, type StationRepositoryOptions, type StationRepository, type StationCheckpoint } from "@/lib/station/workbench/storage/repository";
 
 const handles: { close(): void }[] = [];
 const generationId = "generation-a";
 const initial = (kind: StationEntityKind, id: string) => kind === "revision" ? id : `initial:${kind}:${id}`;
 beforeEach(() => { vi.stubGlobal("crypto", webcrypto); });
-afterEach(() => { handles.splice(0).forEach((handle) => handle.close()); vi.unstubAllGlobals(); });
+afterEach(() => { handles.splice(0).forEach((handle) => handle.close()); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 async function database(factory: IDBFactory, ownerId = FIXTURE_OWNER) {
   const result = await openStationDatabase({ indexedDB: factory, ownerId });
   if (result.status !== "ready") throw new Error(result.reason);
@@ -164,6 +164,38 @@ describe("internal station repository atomic saves", () => {
     expect((await snapshot(a)).localSequence).toBe(2);
     expect((await a.listOutbox({ generationId, limit: 10 })).find((row) => row.operationId === losingOperation.operationId)?.state).toBe("conflicted");
   });
+  it("quarantines unvalidated stale references without making them canonical or sendable, including replay after reopen", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const original = await rename(archive, "stale-invalid");
+    const { payloadDigest: _digest, ...unsigned } = original;
+    void _digest;
+    const operation = await prepareStationOperation({ ...unsigned,
+      records: unsigned.records.map((record) => record.kind === "setup" ? { ...record, body: { ...record.body, locationId: "missing-location" } } : record),
+    });
+    const initialCounts = await counts(db);
+    await expect(repo.commit(operation)).rejects.toThrow();
+    expect(await counts(db)).toEqual(initialCounts);
+    await repo.commit(await rename(archive));
+    const before = await snapshot(repo);
+    const result = await repo.commit(operation);
+    const validation = { status: "quarantined", reason: "historical-validation-context-unavailable" };
+    expect(result).toMatchObject({ status: "conflict", candidateValidation: validation });
+    const after = await snapshot(repo);
+    expect(after.archive).toEqual(before.archive);
+    expect(after.heads).toEqual(before.heads);
+    const tx = db.transaction(["conflicts", "recordVersions"], "readonly");
+    const conflict = await tx.objectStore("conflicts").get([FIXTURE_OWNER, generationId, operation.operationId]);
+    expect(conflict?.details).toMatchObject({ operation, candidateValidation: validation });
+    expect(await tx.objectStore("recordVersions").get([FIXTURE_OWNER, generationId, "setup", archive.setups[0].id, "stale-invalid"])).toBeUndefined();
+    await tx.done;
+    repo.close();
+    const reopened = await repository(factory);
+    expect(await reopened.commit(operation)).toEqual(result);
+    expect((await reopened.listOutbox({ generationId, limit: 10 })).find((row) => row.operationId === operation.operationId)).toMatchObject({ state: "conflicted", operation });
+  });
   it.each(["different-head", "wrong-deletion-flag", "missing-head"])("rejects %s corruption in replayed and dependency receipts", async (failure) => {
     const factory = new IDBFactory();
     const db = await database(factory);
@@ -272,14 +304,43 @@ describe("internal station repository atomic saves", () => {
     const repo = await repository(factory);
     const old = initial("equipment", spare.id);
     const deletion = await prepareStationOperation({ ...base("delete-spare"), expectedHeads: [{ kind: "equipment", id: spare.id, versionId: old }], tombstones: [{ kind: "equipment", id: spare.id, versionId: "deleted-spare", expectedVersionId: old }] });
-    expect((await repo.commit(deletion)).status).toBe("committed");
+    const deletionResult = await repo.commit(deletion);
+    expect(deletionResult.status).toBe("committed");
+    expect(await repo.commit(deletion)).toEqual({ ...deletionResult, status: "replayed" });
     const resurrection = (expected: string, operationId: string) => prepareStationOperation({ ...base(operationId), expectedHeads: [{ kind: "equipment", id: spare.id, versionId: expected }], records: [{ kind: "equipment", id: spare.id, versionId: operationId, body: spare }], nextHeads: [{ kind: "equipment", id: spare.id, versionId: operationId }] });
+    const beforeReuse = await counts(db);
+    await expect(repo.commit(await resurrection(old, "deleted-spare"))).rejects.toThrow("Immutable storage version collision");
+    const duplicateDeletion = { ...deletion } as Record<string, unknown>;
+    delete duplicateDeletion.payloadDigest;
+    duplicateDeletion.operationId = "duplicate-delete";
+    await expect(repo.commit(await prepareStationOperation(duplicateDeletion))).rejects.toThrow("Tombstone token was already used");
+    expect(await counts(db)).toEqual(beforeReuse);
     expect((await repo.commit(await resurrection(old, "stale-spare"))).status).toBe("conflict");
     await expect(repo.commit(await resurrection("deleted-spare", "explicit-spare"))).rejects.toThrow("tombstoned");
     const saved = await snapshot(repo);
     expect(saved.archive.inventory.some((item) => item.id === spare.id)).toBe(false);
     expect(saved.heads.find((head) => head.id === spare.id)).toMatchObject({ deleted: true, versionId: "deleted-spare" });
     expect(saved.localSequence).toBe(2);
+  });
+  it("rejects reusing a historical live token for a new tombstone", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const location = archive.locations[0];
+    const initialToken = initial("location", location.id);
+    await repo.commit(await prepareStationOperation({ ...base("location-edit"),
+      expectedHeads: [{ kind: "location", id: location.id, versionId: initialToken }],
+      records: [{ kind: "location", id: location.id, versionId: "location-v2", body: { ...location, label: "Renamed home" } }],
+      nextHeads: [{ kind: "location", id: location.id, versionId: "location-v2" }],
+    }));
+    const before = await counts(db);
+    await expect(repo.commit(await prepareStationOperation({ ...base("delete-location"),
+      expectedHeads: [{ kind: "location", id: location.id, versionId: "location-v2" }],
+      tombstones: [{ kind: "location", id: location.id, versionId: initialToken, expectedVersionId: "location-v2" }],
+    }))).rejects.toThrow("Tombstone token collides with a retained body");
+    expect(await counts(db)).toEqual(before);
+    expect((await snapshot(repo)).archive.locations[0].label).toBe("Renamed home");
   });
   it("rejects immutable version collisions without overwriting retained history", async () => {
     const factory = new IDBFactory();
@@ -292,7 +353,30 @@ describe("internal station repository atomic saves", () => {
     expect(await counts(db)).toEqual(before);
     expect((await snapshot(repo)).archive.setups[0].name).toBe("rename-a");
   });
-  it("compares canonical bodies as well as digests when a retained version token collides", async () => {
+  it("rejects v1 to v2 to v1 head rewinds even with an identical historical body and preserves dependency identity", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const first = await rename(archive, "first", initial("setup", archive.setups[0].id), "v1", "First name");
+    const firstResult = await repo.commit(first);
+    await repo.commit(await rename(archive, "second", "v1", "v2", "Second name"));
+    const rewind = await rename(archive, "rewind", "v2", "v1", "First name");
+    expect(rewind.records[0].body).toEqual(first.records[0].body);
+    const before = await counts(db);
+    await expect(repo.commit(rewind)).rejects.toThrow("Immutable storage version collision");
+    expect(await counts(db)).toEqual(before);
+    expect((await snapshot(repo)).heads.find((head) => head.kind === "setup")).toMatchObject({ versionId: "v2" });
+    expect((await snapshot(repo)).archive.setups[0].name).toBe("Second name");
+    expect(await repo.commit(first)).toEqual({ ...firstResult, status: "replayed" });
+    await repo.commit(await rename(archive, "third", "v2", "v3", "Third name"));
+    const outbox = await repo.listOutbox({ generationId, limit: 10 });
+    expect(outbox.map((row) => row.operationId)).toEqual(["first", "second", "third"]);
+    expect(outbox[2].dependencyOperationIds).toEqual(["second"]);
+    expect((await repo.commit(await rename(archive, "stale-after-v1", "v1", "stale-token"))).status).toBe("conflict");
+    expect((await snapshot(repo)).archive.setups[0].name).toBe("Third name");
+  });
+  it("rejects retained tokens even when a stored digest was changed to match the incoming body", async () => {
     const factory = new IDBFactory();
     const db = await database(factory);
     const archive = await seed(db);
@@ -306,9 +390,115 @@ describe("internal station repository atomic saves", () => {
     await tx.store.put({ ...row, payloadDigest: forgedDigest });
     await tx.done;
     const before = await counts(db);
-    await expect(repo.commit(collision)).rejects.toThrow("Immutable storage version collision");
+    await expect(repo.commit(collision)).rejects.toThrow("Stored body digest mismatch");
     expect(await counts(db)).toEqual(before);
     expect((await repo.readSnapshot()).status).toBe("recovery-required");
+  });
+  it.each(["before-audit", "during-audit"])("rejects corrupt retained restore sources %s without committing copies", async (timing) => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const source = archive.revisions[0];
+    const setup = archive.setups.find((item) => item.id === source.setupId)!;
+    const proposal = prepareRevisionRestore(archive, { setupId: setup.id, sourceRevisionId: source.id, revisionId: "restore-copy",
+      expectedHead: setup.draftRevisionId, createdAt: FIXTURE_DATE });
+    const operation = await prepareStationOperation({ ...base("restore-copy"),
+      expectedHeads: [{ kind: "setup", id: setup.id, versionId: initial("setup", setup.id) }, { kind: "revision", id: proposal.revision.id, versionId: null }],
+      records: [{ kind: "setup", id: setup.id, versionId: "restore-setup", body: proposal.setup }, { kind: "revision", id: proposal.revision.id, versionId: proposal.revision.id, body: proposal.revision }],
+      nextHeads: [{ kind: "setup", id: setup.id, versionId: "restore-setup" }, { kind: "revision", id: proposal.revision.id, versionId: proposal.revision.id }],
+      setupDraftPreconditions: [proposal.expectedHead],
+    });
+    const corrupt = async () => {
+      const tx = db.transaction("recordVersions", "readwrite");
+      const row = (await tx.store.get([FIXTURE_OWNER, generationId, "revision", source.id, source.id]))!;
+      row.body = { ...(row.body as object), notes: "Corrupt but schema-valid historical content" };
+      await tx.store.put(row);
+      await tx.done;
+    };
+    let raced = false;
+    if (timing === "before-audit") await corrupt();
+    else {
+      const nativeDigest = crypto.subtle.digest.bind(crypto.subtle);
+      vi.spyOn(crypto.subtle, "digest").mockImplementation(async (algorithm, data) => {
+        const hashed = await nativeDigest(algorithm, data);
+        if (!raced && new TextDecoder().decode(data) === canonicalWorkbenchJson(source)) {
+          raced = true;
+          await corrupt();
+        }
+        return hashed;
+      });
+    }
+    const before = await counts(db);
+    await expect(repo.commit(operation)).rejects.toThrow("Stored body digest mismatch");
+    expect(await counts(db)).toEqual(before);
+    if (timing === "during-audit") expect(raced).toBe(true);
+    expect((await repo.readSnapshot()).status).toBe("recovery-required");
+  });
+  it.each(["conflict-id", "actual-head", "reason", "ledger-reason", "missing-ledger", "paired-target", "base-body"])("rejects replayed conflict %s tampering", async (failure) => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    await repo.commit(await rename(archive));
+    const operation = await rename(archive, "loser");
+    expect((await repo.commit(operation)).status).toBe("conflict");
+    const tx = db.transaction(["operations", "conflicts"], "readwrite");
+    const row = (await tx.objectStore("operations").get([FIXTURE_OWNER, operation.operationId]))!;
+    const result = row.result as { conflictId: string; reason: string; actualHeads: { versionId: string }[] };
+    if (failure === "conflict-id") result.conflictId = "wrong-conflict";
+    if (failure === "actual-head") result.actualHeads[0].versionId = "wrong-base";
+    if (failure === "reason") result.reason = "Altered reason";
+    if (failure === "ledger-reason") {
+      const ledger = (await tx.objectStore("conflicts").get([FIXTURE_OWNER, generationId, operation.operationId]))!;
+      (ledger.details as { reason: string }).reason = "Altered ledger";
+      await tx.objectStore("conflicts").put(ledger);
+    }
+    if (failure === "paired-target" || failure === "base-body") {
+      const ledger = (await tx.objectStore("conflicts").get([FIXTURE_OWNER, generationId, operation.operationId]))!;
+      const details = ledger.details as { actualBases: { id: string; body: { name: string } }[] };
+      if (failure === "paired-target") {
+        (result.actualHeads[0] as unknown as { id: string }).id = "unrelated-setup";
+        details.actualBases[0].id = "unrelated-setup";
+      } else details.actualBases[0].body.name = "Forged recovery base";
+      await tx.objectStore("conflicts").put(ledger);
+    }
+    if (failure === "missing-ledger") await tx.objectStore("conflicts").delete([FIXTURE_OWNER, generationId, operation.operationId]);
+    await tx.objectStore("operations").put(row);
+    await tx.done;
+    const before = await counts(db);
+    await expect(repo.commit(operation)).rejects.toThrow();
+    expect(await counts(db)).toEqual(before);
+  });
+  it("rejects matching altered dependency envelopes whose original digest no longer verifies", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const original = await rename(archive);
+    await repo.commit(original);
+    const tx = db.transaction(["operations", "outbox"], "readwrite");
+    const row = (await tx.objectStore("operations").get([FIXTURE_OWNER, original.operationId]))!;
+    const outbox = (await tx.objectStore("outbox").get([FIXTURE_OWNER, original.operationId]))!;
+    const altered = structuredClone(row.operation) as { records: { body: { name: string } }[] };
+    altered.records[0].body.name = "Tampered retained operation";
+    row.operation = altered;
+    outbox.operation = altered;
+    await tx.objectStore("operations").put(row);
+    await tx.objectStore("outbox").put(outbox);
+    await tx.done;
+    const before = await counts(db);
+    await expect(repo.commit(await rename(archive, "dependent", original.operationId))).rejects.toThrow(/digest/i);
+    expect(await counts(db)).toEqual(before);
+  });
+  it("propagates close during a pending snapshot without diagnosing healthy storage as damaged", async () => {
+    const factory = new IDBFactory();
+    await seed(await database(factory));
+    const repo = await repository(factory);
+    const pending = repo.readSnapshot();
+    repo.close();
+    await expect(pending).rejects.toMatchObject({ code: "closed" });
+    expect((await (await repository(factory)).readSnapshot()).status).toBe("ready");
   });
   it.each(["unknown-kind", "padded-token", "nonboolean-tombstone", "unsafe-sequence", "future-generation"])("fails closed on persisted %s metadata", async (failure) => {
     const factory = new IDBFactory();

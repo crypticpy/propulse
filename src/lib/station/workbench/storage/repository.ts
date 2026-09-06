@@ -15,6 +15,7 @@ import {
   stationEntityKindSchema, verifyStationOperation, stationOperationSchema, type StationOperation, type StationHead, type StationEntityKind,
 } from "@/lib/station/workbench/storage/operations";
 import { evaluateStationChange, stationArchiveIdentities, type StationStoredHead } from "@/lib/station/workbench/storage/state";
+import { readStationOutbox } from "@/lib/station/workbench/storage/outbox";
 import { canonicalWorkbenchJson, digestWorkbenchJson } from "@/lib/station/workbench/storage/serialization";
 
 const id = z.string().min(1).refine((value) => value.trim() === value, "Identity must be unpadded");
@@ -29,6 +30,7 @@ const receiptSchema = z.object({
 const conflictResultSchema = z.object({
   status: z.literal("conflict"), conflictId: id, operationId: id, localSequence: z.number().int().positive().safe(),
   actualHeads: z.array(expectationSchema), reason: z.string(),
+  candidateValidation: z.object({ status: z.literal("quarantined"), reason: z.literal("historical-validation-context-unavailable") }).strict(),
 }).strict();
 const versionSchema = z.object({ ownerId: id, generationId: id, kind, id, versionId: id, payloadDigest: digest, body: z.unknown() }).strict();
 const storedHeadSchema = z.object({ ownerId: id, generationId: id, kind, id, versionId: id, tombstone: z.boolean() }).strict();
@@ -71,7 +73,7 @@ export type StationCommitReceipt = z.infer<typeof receiptSchema>;
 export type StationCommitResult =
   | { status: "committed" | "replayed"; receipt: StationCommitReceipt }
   | z.infer<typeof conflictResultSchema>
-  | { status: "recovery-required"; reason: string };
+  | { status: "recovery-required" | "retry-required"; reason: string };
 export type StationSnapshotResult =
   | { status: "ready"; pointer: AccountPointer; archive: DeepReadonly<WorkbenchArchive>; heads: StationStoredHead[]; localSequence: number }
   | { status: "legacy-active"; pointer: AccountPointer }
@@ -169,7 +171,7 @@ function boundReceipt(rowInput: OperationRecord): StationCommitReceipt {
   return receipt;
 }
 
-function replay(rowInput: OperationRecord, operation: DeepReadonly<StationOperation>): StationCommitResult {
+async function replay(tx: Transaction, rowInput: OperationRecord, operation: DeepReadonly<StationOperation>): Promise<StationCommitResult> {
   const row = operationRowSchema.parse(rowInput);
   if (row.ownerId !== operation.ownerId || row.operationId !== operation.operationId || row.generationId !== operation.generationId
     || row.payloadDigest !== operation.payloadDigest || canonicalWorkbenchJson(row.operation) !== canonicalWorkbenchJson(operation)) {
@@ -177,15 +179,46 @@ function replay(rowInput: OperationRecord, operation: DeepReadonly<StationOperat
   }
   if (row.status === "conflict") {
     const result = conflictResultSchema.parse(row.result);
-    if (result.operationId !== row.operationId || result.localSequence !== row.localSequence) damaged("Conflict receipt binding mismatch");
+    const conflict = await tx.objectStore("conflicts").get([row.ownerId, row.generationId, row.operationId]);
+    const details = z.object({ operation: z.unknown(), reason: z.string(), candidateValidation: conflictResultSchema.shape.candidateValidation,
+      expectedBases: z.array(expectationSchema.extend({ availability: z.enum(["absent", "available", "tombstone", "unavailable"]), body: z.unknown() }).strict()),
+      actualBases: z.array(expectationSchema.extend({ availability: z.enum(["absent", "available", "tombstone", "unavailable"]), body: z.unknown() }).strict()),
+    }).strict().parse(conflict?.details);
+    if (!conflict || conflict.ownerId !== row.ownerId || conflict.generationId !== row.generationId || conflict.conflictId !== row.operationId
+      || conflict.operationId !== row.operationId || conflict.createdAt !== operation.createdAt
+      || result.conflictId !== row.operationId || result.operationId !== row.operationId || result.localSequence !== row.localSequence
+      || canonicalWorkbenchJson(details.operation) !== canonicalWorkbenchJson(operation)
+      || details.reason !== result.reason || canonicalWorkbenchJson(details.candidateValidation) !== canonicalWorkbenchJson(result.candidateValidation)
+      || canonicalWorkbenchJson(details.expectedBases.map(({ kind, id, versionId }) => ({ kind, id, versionId }))) !== canonicalWorkbenchJson(operation.expectedHeads)
+      || canonicalWorkbenchJson(details.actualBases.map(({ kind, id, versionId }) => ({ kind, id, versionId }))) !== canonicalWorkbenchJson(result.actualHeads)) damaged("Conflict receipt binding mismatch");
+    if (result.actualHeads.length !== operation.expectedHeads.length
+      || result.actualHeads.some((head, index) => key(head) !== key(operation.expectedHeads[index]))) damaged("Conflict targets do not match the operation");
+    for (const base of [...details.expectedBases, ...details.actualBases]) {
+      if (base.availability === "available") {
+        if (base.versionId === null || base.body === null) damaged("Available conflict base is incomplete");
+        const retained = await tx.objectStore("recordVersions").get([row.ownerId, row.generationId, base.kind, base.id, base.versionId!]);
+        if (!retained || canonicalWorkbenchJson(retained.body) !== canonicalWorkbenchJson(base.body)) damaged("Conflict base differs from retained version");
+      } else if (base.body !== null || ((base.availability === "absent") !== (base.versionId === null))) {
+        damaged("Conflict base availability is inconsistent");
+      }
+    }
     return result;
   }
   return { status: "replayed", receipt: boundReceipt(rowInput) };
 }
 
-/** Storage-body hashing is outside transactions. Commit checks complete synchronous
- * schema/identity integrity but does not rehash unrelated retained bodies; readSnapshot
- * provides that persisted-body integrity audit. All accepted writes are preverified. */
+async function readDependencies(tx: Transaction, ownerId: string, generationId: string) {
+  const outbox = (await readStationOutbox(tx.objectStore("outbox"), { ownerId, generationId })).map((row) => outboxRowSchema.parse(row));
+  const operations = await Promise.all(outbox.map(async (row) => {
+    const operation = await tx.objectStore("operations").get([ownerId, row.operationId]);
+    if (!operation) damaged("Outbox operation receipt is missing");
+    return operation;
+  }));
+  return { outbox, operations };
+}
+
+/** Hash retained bodies after a readonly snapshot, then compare the exact audited
+ * state inside the write transaction. No WebCrypto awaits occur during writes. */
 function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOptions["testHooks"]): StationRepository {
   const ownerId = db.ownerId;
   const checkpoint = (point: StationCheckpoint) => {
@@ -209,6 +242,10 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
         return immutable({ status: "ready", pointer, archive: state.archive, heads: state.heads, localSequence: state.localSequence });
       } catch (error) {
         await tx.done.catch(() => undefined);
+        // Aborting an in-flight read surfaces AbortError. Probe the bound handle
+        // after settlement so lifecycle invalidation is not reported as corruption.
+        const check = db.transaction("accountMeta", "readonly");
+        await check.done;
         if (error instanceof StationDatabaseError && error.code === "closed") throw error;
         return immutable({ status: "recovery-required", reason: error instanceof Error ? error.message : "Stored station data cannot be read" });
       }
@@ -217,85 +254,116 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
       const operation = await verifyStationOperation(input);
       if (operation.ownerId !== ownerId) throw new TypeError("Operation owner does not match the bound repository");
       const bodyDigests = new Map(await Promise.all(operation.records.map(async (record) => [versionKey(record), await digestWorkbenchJson(record.body)] as const)));
-      const tx = db.transaction<StorageName[], "readwrite">(WRITE_STORES, "readwrite");
-      try {
-        const prior = await tx.objectStore("operations").get([ownerId, operation.operationId]);
-        if (prior) { const result = replay(prior, operation); await tx.done; return immutable(result); }
-        const pointer = await readPointer(tx, ownerId);
-        if (pointer.generationId !== operation.generationId) { await tx.done; return immutable({ status: "recovery-required", reason: "Operation does not target the active generation" }); }
-        const state = await readState(tx, ownerId, pointer);
-        checkpoint("after-reads");
-        for (const record of operation.records) {
-          const stored = state.versions.find((row) => versionKey(row) === versionKey(record));
-          if (stored && (stored.payloadDigest !== bodyDigests.get(versionKey(record)) || canonicalWorkbenchJson(stored.body) !== canonicalWorkbenchJson(record.body))) {
-            throw new TypeError("Immutable storage version collision");
+      // A concurrent writer can advance state while WebCrypto runs. Retry a
+      // bounded number of exact audits; contention is not damaged storage.
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const audit = db.transaction<StorageName[], "readonly">(WRITE_STORES, "readonly");
+        let auditedState: string;
+        try {
+          const prior = await audit.objectStore("operations").get([ownerId, operation.operationId]);
+          if (prior) { const result = await replay(audit, prior, operation); await audit.done; return immutable(result); }
+          const pointer = await readPointer(audit, ownerId);
+          if (pointer.generationId !== operation.generationId) { await audit.done; return immutable({ status: "recovery-required", reason: "Operation does not target the active generation" }); }
+          const state = await readState(audit, ownerId, pointer);
+          const dependencies = await readDependencies(audit, ownerId, operation.generationId);
+          await audit.done;
+          await Promise.all(dependencies.operations.map((row) => verifyStationOperation(row.operation)));
+          if ((await Promise.all(state.versions.map(async (row) => await digestWorkbenchJson(row.body) === row.payloadDigest))).some((valid) => !valid)) damaged("Stored body digest mismatch");
+          auditedState = canonicalWorkbenchJson({ state, dependencies });
+        } catch (error) {
+          await audit.done.catch(() => undefined);
+          throw error;
+        }
+        const tx = db.transaction<StorageName[], "readwrite">(WRITE_STORES, "readwrite");
+        try {
+          const prior = await tx.objectStore("operations").get([ownerId, operation.operationId]);
+          if (prior) { const result = await replay(tx, prior, operation); await tx.done; return immutable(result); }
+          const pointer = await readPointer(tx, ownerId);
+          if (pointer.generationId !== operation.generationId) { await tx.done; return immutable({ status: "recovery-required", reason: "Operation does not target the active generation" }); }
+          const state = await readState(tx, ownerId, pointer);
+          const dependencySnapshot = await readDependencies(tx, ownerId, operation.generationId);
+          if (canonicalWorkbenchJson({ state, dependencies: dependencySnapshot }) !== auditedState) {
+            tx.abort();
+            await tx.done.catch(() => undefined);
+            continue;
           }
-        }
-        for (const tombstone of operation.tombstones) {
-          if (state.versions.some((row) => versionKey(row) === versionKey(tombstone))) throw new TypeError("Tombstone token collides with a retained body");
-        }
-        const change = evaluateStationChange(state, operation);
-        const sequence = state.localSequence + 1;
-        if (!Number.isSafeInteger(sequence)) damaged("Local operation sequence is exhausted");
-        const previousOutbox = (await tx.objectStore("outbox").getAll(prefix(ownerId))).map((row) => outboxRowSchema.parse(row));
-        const dependencies: string[] = [];
-        for (const pending of previousOutbox.filter((row) => row.generationId === operation.generationId && row.state !== "acknowledged").sort((a, b) => a.localSequence - b.localSequence)) {
-          const previous = await tx.objectStore("operations").get([ownerId, pending.operationId]);
-          if (!previous || pending.ownerId !== ownerId || previous.ownerId !== ownerId || previous.generationId !== operation.generationId
-            || previous.operationId !== pending.operationId || previous.localSequence !== pending.localSequence
-            || canonicalWorkbenchJson(previous.operation) !== canonicalWorkbenchJson(pending.operation)) damaged("Outbox operation receipt is missing or inconsistent");
-          operationRowSchema.parse(previous);
-          if (previous.status !== "committed") continue;
-          const receipt = boundReceipt(previous);
-          if (receipt.committedHeads.some((head) => operation.expectedHeads.some((expected) => key(head) === key(expected) && head.versionId === expected.versionId))) dependencies.push(pending.operationId);
-        }
-        let result: StationCommitResult;
-        let storedResult: unknown;
-        if (change.status === "conflict") {
-          const conflictId = operation.operationId;
-          result = { status: "conflict", conflictId, operationId: operation.operationId, localSequence: sequence, actualHeads: change.actualHeads, reason: change.reason };
-          storedResult = result;
-          const bases = (heads: readonly StationHead[]) => heads.map((head) => {
-            const record = head.versionId === null ? undefined : state.versions.find((row) => versionKey(row) === versionKey({ ...head, versionId: head.versionId! }));
-            const deleted = state.heads.some((row) => key(row) === key(head) && row.versionId === head.versionId && row.deleted);
-            return { ...head, availability: head.versionId === null ? "absent" : record ? "available" : deleted ? "tombstone" : "unavailable", body: record?.body ?? null };
-          });
-          await tx.objectStore("conflicts").add({ ownerId, generationId: operation.generationId, conflictId, state: "unresolved", operationId: operation.operationId, createdAt: operation.createdAt, resolutionOperationId: null,
-            details: { operation, reason: change.reason, expectedBases: bases(operation.expectedHeads), actualBases: bases(change.actualHeads) } });
-        } else {
+          checkpoint("after-reads");
           for (const record of operation.records) {
-            if (!state.versions.some((row) => versionKey(row) === versionKey(record))) await tx.objectStore("recordVersions").add({ ownerId, generationId: operation.generationId, ...record, payloadDigest: bodyDigests.get(versionKey(record))! } as RecordVersionRecord);
+            // A fresh operation requires a fresh token even when its body matches
+            // history. Reusing a token would rewind CAS and outbox dependency identity.
+            // Exact operation replay has already returned above this boundary.
+            if (state.versions.some((row) => versionKey(row) === versionKey(record))
+              || state.heads.some((head) => versionKey(head) === versionKey(record))) {
+              throw new TypeError("Immutable storage version collision");
+            }
           }
-          checkpoint("after-versions");
-          const advancedHeads = committedHeads(operation);
-          for (const head of advancedHeads) await tx.objectStore("heads").put({ ownerId, generationId: operation.generationId, kind: head.kind, id: head.id, versionId: head.versionId, tombstone: head.deleted } satisfies HeadRecord);
-          checkpoint("after-heads");
-          const receipt: StationCommitReceipt = { ownerId, generationId: operation.generationId, operationId: operation.operationId, payloadDigest: operation.payloadDigest, localSequence: sequence, committedHeads: advancedHeads };
-          result = { status: "committed", receipt };
-          storedResult = receipt;
+          for (const tombstone of operation.tombstones) {
+            if (state.versions.some((row) => versionKey(row) === versionKey(tombstone))) throw new TypeError("Tombstone token collides with a retained body");
+            if (state.heads.some((head) => versionKey(head) === versionKey(tombstone))) throw new TypeError("Tombstone token was already used");
+          }
+          const change = evaluateStationChange(state, operation);
+          const sequence = state.localSequence + 1;
+          if (!Number.isSafeInteger(sequence)) damaged("Local operation sequence is exhausted");
+          const previousOutbox = dependencySnapshot.outbox;
+          const dependencies: string[] = [];
+          for (const pending of previousOutbox.filter((row) => row.generationId === operation.generationId && row.state !== "acknowledged").sort((a, b) => a.localSequence - b.localSequence)) {
+            const previous = dependencySnapshot.operations.find((row) => row.operationId === pending.operationId);
+            if (!previous || pending.ownerId !== ownerId || previous.ownerId !== ownerId || previous.generationId !== operation.generationId
+              || previous.operationId !== pending.operationId || previous.localSequence !== pending.localSequence
+              || canonicalWorkbenchJson(previous.operation) !== canonicalWorkbenchJson(pending.operation)) damaged("Outbox operation receipt is missing or inconsistent");
+            operationRowSchema.parse(previous);
+            if (previous.status !== "committed") continue;
+            const receipt = boundReceipt(previous);
+            if (receipt.committedHeads.some((head) => operation.expectedHeads.some((expected) => key(head) === key(expected) && head.versionId === expected.versionId))) dependencies.push(pending.operationId);
+          }
+          let result: StationCommitResult;
+          let storedResult: unknown;
+          if (change.status === "conflict") {
+            const conflictId = operation.operationId;
+            result = { status: "conflict", conflictId, operationId: operation.operationId, localSequence: sequence, actualHeads: change.actualHeads, reason: change.reason, candidateValidation: change.candidateValidation };
+            storedResult = result;
+            const bases = (heads: readonly StationHead[]) => heads.map((head) => {
+              const record = head.versionId === null ? undefined : state.versions.find((row) => versionKey(row) === versionKey({ ...head, versionId: head.versionId! }));
+              const deleted = state.heads.some((row) => key(row) === key(head) && row.versionId === head.versionId && row.deleted);
+              return { ...head, availability: head.versionId === null ? "absent" : record ? "available" : deleted ? "tombstone" : "unavailable", body: record?.body ?? null };
+            });
+            await tx.objectStore("conflicts").add({ ownerId, generationId: operation.generationId, conflictId, state: "unresolved", operationId: operation.operationId, createdAt: operation.createdAt, resolutionOperationId: null,
+              details: { operation, reason: change.reason, candidateValidation: change.candidateValidation, expectedBases: bases(operation.expectedHeads), actualBases: bases(change.actualHeads) } });
+          } else {
+            for (const record of operation.records) {
+              await tx.objectStore("recordVersions").add({ ownerId, generationId: operation.generationId, ...record, payloadDigest: bodyDigests.get(versionKey(record))! } as RecordVersionRecord);
+            }
+            checkpoint("after-versions");
+            const advancedHeads = committedHeads(operation);
+            for (const head of advancedHeads) await tx.objectStore("heads").put({ ownerId, generationId: operation.generationId, kind: head.kind, id: head.id, versionId: head.versionId, tombstone: head.deleted } satisfies HeadRecord);
+            checkpoint("after-heads");
+            const receipt: StationCommitReceipt = { ownerId, generationId: operation.generationId, operationId: operation.operationId, payloadDigest: operation.payloadDigest, localSequence: sequence, committedHeads: advancedHeads };
+            result = { status: "committed", receipt };
+            storedResult = receipt;
+          }
+          await tx.objectStore("accountMeta").put({ ownerId, key: "local-sequence", value: sequence });
+          await tx.objectStore("operations").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, payloadDigest: operation.payloadDigest, localSequence: sequence,
+            status: change.status === "conflict" ? "conflict" : "committed", operation, result: storedResult });
+          checkpoint("after-receipt");
+          await tx.objectStore("outbox").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, localSequence: sequence,
+            state: change.status === "conflict" ? "conflicted" : "pending", dependencyOperationIds: dependencies, operation });
+          checkpoint("after-outbox");
+          await tx.done;
+          return immutable(result);
+        } catch (error) {
+          try { tx.abort(); } catch { /* A failed transaction may already be aborted. */ }
+          await tx.done.catch(() => undefined);
+          throw error;
         }
-        await tx.objectStore("accountMeta").put({ ownerId, key: "local-sequence", value: sequence });
-        await tx.objectStore("operations").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, payloadDigest: operation.payloadDigest, localSequence: sequence,
-          status: change.status === "conflict" ? "conflict" : "committed", operation, result: storedResult });
-        checkpoint("after-receipt");
-        await tx.objectStore("outbox").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, localSequence: sequence,
-          state: change.status === "conflict" ? "conflicted" : "pending", dependencyOperationIds: dependencies, operation });
-        checkpoint("after-outbox");
-        await tx.done;
-        return immutable(result);
-      } catch (error) {
-        try { tx.abort(); } catch { /* A failed transaction may already be aborted. */ }
-        await tx.done.catch(() => undefined);
-        throw error;
       }
+      return immutable({ status: "retry-required", reason: "Station changed repeatedly during integrity verification; retry the same operation" });
     },
     async listOutbox(options: { generationId: string; limit: number }): Promise<DeepReadonly<OutboxRecord[]>> {
-      const request = z.object({ generationId: id, limit: z.number().int().positive().safe() }).strict().parse(options);
+      const request = z.object({ generationId: id, limit: z.number().int().positive().max(0xffff_ffff) }).strict().parse(options);
       const tx = db.transaction("outbox", "readonly");
-      const rows = await tx.store.getAll(prefix(ownerId));
+      const rows = await readStationOutbox(tx.store, { ownerId, ...request });
       await tx.done;
-      const selected = rows.map((row) => outboxRowSchema.parse(row)).filter((row) => row.generationId === request.generationId && row.state !== "acknowledged")
-        .sort((a, b) => a.localSequence - b.localSequence || a.operationId.localeCompare(b.operationId)).slice(0, request.limit);
+      const selected = rows.map((row) => outboxRowSchema.parse(row));
       for (const row of selected) {
         const operation = await verifyStationOperation(row.operation);
         if (row.ownerId !== ownerId || operation.ownerId !== ownerId || operation.generationId !== row.generationId || operation.operationId !== row.operationId) damaged("Outbox operation binding mismatch");

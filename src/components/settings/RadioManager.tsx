@@ -7,7 +7,19 @@
  * Uses EquipmentCard for card rendering and EquipmentDetailModal for detail view.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useId } from "react";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  StationProvider,
+  TextField,
+  SelectField,
+  TextAreaField,
+  Section,
+  Badge,
+} from "@/components/station-ui";
+import "./radio-forms.css";
 import {
   useUserStore,
   useUserRadios,
@@ -21,7 +33,6 @@ import {
   hasTestedSpecs,
   getEffectiveReceiverSpecs,
 } from "@/lib/data/radios";
-import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
 import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
@@ -608,6 +619,8 @@ export function RadioManager({
   sectionLabel,
   sectionCount,
 }: RadioManagerProps) {
+  const instanceFormId = useId();
+  const customFormId = useId();
   const {
     addRadio,
     addRadioInstance,
@@ -708,8 +721,9 @@ export function RadioManager({
     );
     return {
       instances: instanceIds.size,
-      presets: stationPresets.filter((preset) => instanceIds.has(preset.radioId))
-        .length,
+      presets: stationPresets.filter((preset) =>
+        instanceIds.has(preset.radioId),
+      ).length,
       chains: stationChains.filter((chain) =>
         chain.nodes.some(
           (node) => node.type === "radio" && instanceIds.has(node.radioId),
@@ -1458,903 +1472,685 @@ export function RadioManager({
           );
         })()}
 
-      {/* Add Radio Modal */}
-      <DetailModal
-        isOpen={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setSearchQuery("");
-          setSelectedManufacturer(null);
-        }}
-        title="Add Radio"
-        subtitle="Add a radio from the database or your custom collection."
-        size="lg"
-        zIndexClassName={modalZIndexClassName ?? "z-[450]"}
-      >
-        <div className="space-y-4">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setSelectedManufacturer(null);
-            }}
-            placeholder="Search radios..."
-            className="w-full px-3 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                       text-white placeholder-gray-500
-                       focus:outline-none focus:border-plasma-orange/50"
-          />
-
-          {!searchQuery && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedManufacturer(null)}
-                className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                  !selectedManufacturer
-                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                    : "bg-nebula-blue text-gray-300 border border-white/10"
-                }`}
-              >
-                All
-              </button>
-              {manufacturers.map((mfr) => (
-                <button
-                  key={mfr}
-                  type="button"
-                  onClick={() => setSelectedManufacturer(mfr)}
-                  className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                    selectedManufacturer === mfr
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10"
-                  }`}
-                >
-                  {mfr}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setSelectedManufacturer("Custom")}
-                className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                  selectedManufacturer === "Custom"
-                    ? "bg-plasma-orange/20 text-plasma-orange border border-dashed border-plasma-orange/50"
-                    : "bg-nebula-blue text-gray-300 border border-dashed border-white/10"
-                }`}
-              >
-                Custom
-              </button>
-            </div>
-          )}
-
-          <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
-            {/* Create New Custom Radio CTA — shown when Custom filter or searching */}
-            {(selectedManufacturer === "Custom" || searchQuery.trim()) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddModal(false);
-                  openNewCustomRadio();
-                }}
-                className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-white/10 hover:border-plasma-orange/30 hover:bg-white/5 transition-colors w-full text-left"
-              >
-                <span className="text-2xl text-gray-500">+</span>
-                <div>
-                  <div className="text-sm font-medium text-gray-200">
-                    Create Custom Radio
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Add a radio not in our database
-                  </div>
-                </div>
-              </button>
-            )}
-
-            {/* Custom radios in results */}
-            {filteredCustomRadios.map((radio) => {
-              const count = instanceCountByEquipment.get(radio.id) ?? 0;
-              return (
-                <div
-                  key={`custom-${radio.id}`}
-                  className="p-3 rounded-lg border transition-colors bg-nebula-blue border-white/10 hover:border-plasma-orange/50 cursor-pointer"
-                  onClick={() => handleAddRadio(radio)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-white font-medium truncate">
-                        {radio.displayName ||
-                          `${radio.manufacturer} ${radio.model}`}
-                      </span>
-                      <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-white/10 text-gray-300 border border-white/10">
-                        Custom
-                      </span>
-                      {count > 0 && (
-                        <span className="text-xs text-gray-500">
-                          ({count} in profile)
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowAddModal(false);
-                          openEditCustomRadio(radio);
-                        }}
-                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                        title="Edit custom radio"
-                      >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteCustomRadio(radio.id);
-                        }}
-                        className="p-1 rounded hover:bg-alert-red/20 text-gray-400 hover:text-alert-red transition-colors"
-                        title="Delete custom radio"
-                      >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                      <span
-                        className="px-1.5 py-0.5 rounded text-xs font-medium"
-                        style={{
-                          backgroundColor: getTierColor(radio.tier) + "20",
-                          color: getTierColor(radio.tier),
-                        }}
-                      >
-                        {getTierLabel(radio.tier)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
-                    <span>{radio.maxPower}W</span>
-                    <span>|</span>
-                    <span>{radio.bands.join(", ")}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {(() => {
-                      const rx = getEffectiveReceiverSpecs(radio, preferTested);
-                      return (
-                        <>
-                          RX Score: {calculateReceiverScore(rx)} | RMDR:{" "}
-                          {rx.rmdr}dB
-                          {" | "}IMD3: {rx.imdr3}dB
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Database radios */}
-            {filteredRadios.map((radio) => {
-              const count = instanceCountByEquipment.get(radio.id) ?? 0;
-              return (
-                <div
-                  key={radio.id}
-                  className="p-3 rounded-lg border transition-colors bg-nebula-blue border-white/10 hover:border-plasma-orange/50 cursor-pointer"
-                  onClick={() => handleAddRadio(radio)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-white font-medium">
-                        {radio.manufacturer} {radio.model}
-                      </span>
-                      {count > 0 && (
-                        <span className="ml-2 text-xs text-gray-500">
-                          ({count} in profile)
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className="px-1.5 py-0.5 rounded text-xs font-medium"
-                      style={{
-                        backgroundColor: getTierColor(radio.tier) + "20",
-                        color: getTierColor(radio.tier),
-                      }}
-                    >
-                      {getTierLabel(radio.tier)}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
-                    <span>{radio.maxPower}W</span>
-                    <span>|</span>
-                    <span>{radio.bands.join(", ")}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {(() => {
-                      const rx = getEffectiveReceiverSpecs(radio, preferTested);
-                      return (
-                        <>
-                          RX Score: {calculateReceiverScore(rx)} | RMDR:{" "}
-                          {rx.rmdr}dB
-                          {" | "}IMD3: {rx.imdr3}dB
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              );
-            })}
-            {filteredRadios.length === 0 &&
-              filteredCustomRadios.length === 0 && (
-                <div className="p-4 text-center text-gray-500 text-sm">
-                  {selectedManufacturer === "Custom"
-                    ? "No custom radios yet. Create one above."
-                    : `No radios found matching "${searchQuery}"`}
-                </div>
-              )}
-          </div>
-        </div>
-      </DetailModal>
-
-      <DetailModal
-        isOpen={instanceModalOpen}
-        onClose={() => {
-          setInstanceModalOpen(false);
-          setEditingInstanceId(null);
-          setInstanceModalError(null);
-        }}
-        title="Radio Instance"
-        subtitle="Edit details for this specific radio you own."
-        size="lg"
-        zIndexClassName={modalZIndexClassName ?? "z-[450]"}
-      >
-        <div className="space-y-5">
-          {instanceModalError && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
-              {instanceModalError}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Nickname (optional)
-              </label>
-              <input
-                value={instanceForm.nickname}
-                onChange={(e) =>
-                  setInstanceForm((prev) => ({
-                    ...prev,
-                    nickname: e.target.value,
-                  }))
-                }
-                placeholder="e.g., Portable, Shack #1"
-                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                TX power limit (W)
-              </label>
-              <input
-                inputMode="decimal"
-                value={instanceForm.customPowerLimit}
-                onChange={(e) =>
-                  setInstanceForm((prev) => ({
-                    ...prev,
-                    customPowerLimit: e.target.value,
-                  }))
-                }
-                placeholder="(optional)"
-                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Purchase date
-              </label>
-              <input
-                type="date"
-                value={instanceForm.purchaseDate}
-                onChange={(e) =>
-                  setInstanceForm((prev) => ({
-                    ...prev,
-                    purchaseDate: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                           text-white focus:outline-none focus:border-plasma-orange/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Purchase location
-              </label>
-              <input
-                value={instanceForm.purchaseLocation}
-                onChange={(e) =>
-                  setInstanceForm((prev) => ({
-                    ...prev,
-                    purchaseLocation: e.target.value,
-                  }))
-                }
-                placeholder="e.g., HRO, Hamvention"
-                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Firmware revision
-              </label>
-              <input
-                value={instanceForm.firmwareRevision}
-                onChange={(e) =>
-                  setInstanceForm((prev) => ({
-                    ...prev,
-                    firmwareRevision: e.target.value,
-                  }))
-                }
-                placeholder="e.g., 1.42"
-                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Receiver specs source
-              </label>
-              <select
-                value={instanceForm.specPreference}
-                onChange={(e) =>
-                  setInstanceForm((prev) => ({
-                    ...prev,
-                    specPreference: e.target.value as
-                      | "global"
-                      | "factory"
-                      | "tested",
-                  }))
-                }
-                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                           text-white focus:outline-none focus:border-plasma-orange/50"
-              >
-                <option value="global">Use global preference</option>
-                <option value="tested">Prefer tested (Sherwood)</option>
-                <option value="factory">Use factory specs</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Wiring configuration
-            </label>
-            <textarea
-              value={instanceForm.wiringConfiguration}
-              onChange={(e) =>
-                setInstanceForm((prev) => ({
-                  ...prev,
-                  wiringConfiguration: e.target.value,
-                }))
-              }
-              rows={3}
-              placeholder="CAT interface, audio chain, PTT, filters, etc."
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Notes
-            </label>
-            <textarea
-              value={instanceForm.notes}
-              onChange={(e) =>
-                setInstanceForm((prev) => ({ ...prev, notes: e.target.value }))
-              }
-              rows={3}
-              placeholder="Maintenance history, mods, quirks..."
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setInstanceModalOpen(false);
-                setEditingInstanceId(null);
+      <StationProvider>
+        {/* Add Radio Modal */}
+        <Dialog
+          open={showAddModal}
+          onClose={() => {
+            setShowAddModal(false);
+            setSearchQuery("");
+            setSelectedManufacturer(null);
+          }}
+          title="Add Radio"
+          description="Add a radio from the database or your custom collection."
+          zIndexClassName={modalZIndexClassName ?? "z-[450]"}
+        >
+          <div className="su-stack radio-catalog-form">
+            <TextField
+              label="Search radio catalog and custom definitions"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setSelectedManufacturer(null);
               }}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={saveInstance}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </DetailModal>
-
-      <DetailModal
-        isOpen={customModalOpen}
-        onClose={() => setCustomModalOpen(false)}
-        title={editingCustomId ? "Edit Custom Radio" : "New Custom Radio"}
-        subtitle="Saved to your profile for use in tools and DX Wizard."
-        size="lg"
-        zIndexClassName={modalZIndexClassName ?? "z-[450]"}
-      >
-        <div className="space-y-6">
-          {customModalError && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
-              {customModalError}
-            </div>
-          )}
-
-          <div className="p-4 rounded-lg border border-white/10 bg-white/5 space-y-3">
-            <div className="text-sm font-semibold text-white">
-              Start from database (optional)
-            </div>
-            <div className="text-xs text-gray-400">
-              Import a base radio from the built-in database, then tweak specs
-              as needed.
-            </div>
-            <input
-              value={customBaseQuery}
-              onChange={(e) => setCustomBaseQuery(e.target.value)}
-              placeholder="Search database (e.g., IC-7300, FT-891, K3S)..."
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              placeholder="Manufacturer, model or custom name"
             />
-            {baseResults.length > 0 && (
-              <div className="space-y-2">
-                {baseResults.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-center justify-between gap-3 p-2 rounded-lg bg-nebula-blue/40 border border-white/10"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white truncate">
-                        {r.manufacturer} {r.model}
-                        {hasTestedSpecs(r) && (
-                          <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
-                            Tested
-                          </span>
+            {!searchQuery && (
+              <SelectField
+                label="Filter by manufacturer"
+                value={selectedManufacturer ?? ""}
+                onChange={(event) =>
+                  setSelectedManufacturer(event.target.value || null)
+                }
+              >
+                <option value="">All manufacturers</option>
+                {manufacturers.map((manufacturer) => (
+                  <option key={manufacturer} value={manufacturer}>
+                    {manufacturer}
+                  </option>
+                ))}
+                <option value="Custom">Your custom definitions</option>
+              </SelectField>
+            )}
+            <Section
+              title="Choose a radio model"
+              description="Add a separate inventory instance for each physical radio you own."
+              actions={
+                <Button
+                  onClick={() => {
+                    setShowAddModal(false);
+                    openNewCustomRadio();
+                  }}
+                >
+                  Create custom definition
+                </Button>
+              }
+            >
+              <div className="su-stack">
+                {[
+                  ...filteredCustomRadios.map((radio) => ({
+                    radio,
+                    custom: true,
+                  })),
+                  ...filteredRadios.map((radio) => ({ radio, custom: false })),
+                ].map(({ radio, custom }) => {
+                  const count = instanceCountByEquipment.get(radio.id) ?? 0;
+                  const rx = getEffectiveReceiverSpecs(radio, preferTested);
+                  const name =
+                    radio.displayName || `${radio.manufacturer} ${radio.model}`;
+                  return (
+                    <article
+                      key={`${custom ? "custom" : "catalog"}-${radio.id}`}
+                      className="radio-catalog-item"
+                    >
+                      <div className="su-inline">
+                        <h3>{name}</h3>
+                        {custom && <Badge>Custom</Badge>}
+                        <Badge>{getTierLabel(radio.tier)}</Badge>
+                      </div>
+                      <p className="su-hint">
+                        {radio.maxPower} W · {radio.bands.join(", ")}
+                      </p>
+                      <p className="su-hint">
+                        RX score {calculateReceiverScore(rx)} · RMDR {rx.rmdr}{" "}
+                        dB · IMD3 {rx.imdr3} dB
+                      </p>
+                      {count > 0 && (
+                        <p className="su-hint">
+                          {count} {count === 1 ? "instance" : "instances"}{" "}
+                          already in your inventory
+                        </p>
+                      )}
+                      <div className="su-inline">
+                        <Button
+                          variant="primary"
+                          aria-label={`Add instance of ${name}`}
+                          onClick={() => handleAddRadio(radio)}
+                        >
+                          Add instance
+                        </Button>
+                        {custom && (
+                          <>
+                            <Button
+                              aria-label={`Edit definition ${name}`}
+                              onClick={() => {
+                                setShowAddModal(false);
+                                openEditCustomRadio(radio);
+                              }}
+                            >
+                              Edit definition
+                            </Button>
+                            <Button
+                              variant="danger"
+                              aria-label={`Delete definition ${name}`}
+                              onClick={() => handleDeleteCustomRadio(radio.id)}
+                            >
+                              Delete definition
+                            </Button>
+                          </>
                         )}
                       </div>
-                      <div className="text-[10px] text-gray-400 truncate">
-                        {r.maxPower}W &bull; Tier: {r.tier} &bull; Bands:{" "}
-                        {r.bands.slice(0, 4).join(", ")}
-                        {r.bands.length > 4 ? "\u2026" : ""}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => importFromDatabase(r, "factory")}
-                        className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
-                      >
-                        Import factory
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!hasTestedSpecs(r)}
-                        onClick={() => importFromDatabase(r, "tested")}
-                        className="text-[10px] px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Import tested
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    </article>
+                  );
+                })}
+                {filteredCustomRadios.length === 0 &&
+                  filteredRadios.length === 0 && (
+                    <p className="su-hint" role="status">
+                      No matching radios. Try another search or create a custom
+                      definition.
+                    </p>
+                  )}
+              </div>
+            </Section>
+          </div>
+        </Dialog>
+
+        <Dialog
+          open={instanceModalOpen}
+          onClose={() => {
+            setInstanceModalOpen(false);
+            setEditingInstanceId(null);
+            setInstanceModalError(null);
+          }}
+          title="Radio Instance"
+          description="This radio is in your inventory. Save details for this specific unit, or close to keep it as it is."
+          zIndexClassName={modalZIndexClassName ?? "z-[450]"}
+          footer={
+            <div className="su-inline">
+              <Button
+                onClick={() => {
+                  setInstanceModalOpen(false);
+                  setEditingInstanceId(null);
+                }}
+              >
+                Cancel changes
+              </Button>
+              <Button variant="primary" type="submit" form={instanceFormId}>
+                Save radio details
+              </Button>
+            </div>
+          }
+        >
+          <form
+            id={instanceFormId}
+            className="su-stack radio-instance-form"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveInstance();
+            }}
+          >
+            {instanceModalError && (
+              <div className="su-field-error" role="alert">
+                {instanceModalError}
               </div>
             )}
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Custom name
-                </label>
-                <input
-                  value={customForm.displayName}
+                <TextField
+                  label="Nickname (optional)"
+                  value={instanceForm.nickname}
                   onChange={(e) =>
-                    setCustomForm((prev) => ({
+                    setInstanceForm((prev) => ({
                       ...prev,
-                      displayName: e.target.value,
+                      nickname: e.target.value,
                     }))
                   }
-                  placeholder="e.g., Portable HF Rig"
-                  className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                             text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+                  placeholder="e.g., Portable, Shack #1"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Manufacturer
-                  </label>
-                  <input
-                    value={customForm.manufacturer}
-                    onChange={(e) =>
-                      setCustomForm((prev) => ({
-                        ...prev,
-                        manufacturer: e.target.value,
-                      }))
-                    }
-                    placeholder="Icom"
-                    className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Model
-                  </label>
-                  <input
-                    value={customForm.model}
-                    onChange={(e) =>
-                      setCustomForm((prev) => ({
-                        ...prev,
-                        model: e.target.value,
-                      }))
-                    }
-                    placeholder="IC-7300"
-                    className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Tier
-                  </label>
-                  <select
-                    value={customForm.tier}
-                    onChange={(e) =>
-                      setCustomForm((prev) => ({
-                        ...prev,
-                        tier: e.target.value as RadioTier,
-                      }))
-                    }
-                    className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-white focus:outline-none focus:border-plasma-orange/50"
-                  >
-                    {CUSTOM_TIERS.map((tier) => (
-                      <option key={tier} value={tier}>
-                        {getTierLabel(tier)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Max W
-                  </label>
-                  <input
-                    inputMode="decimal"
-                    value={customForm.maxPower}
-                    onChange={(e) =>
-                      setCustomForm((prev) => ({
-                        ...prev,
-                        maxPower: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-white focus:outline-none focus:border-plasma-orange/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Min W
-                  </label>
-                  <input
-                    inputMode="decimal"
-                    value={customForm.minPower}
-                    onChange={(e) =>
-                      setCustomForm((prev) => ({
-                        ...prev,
-                        minPower: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-white focus:outline-none focus:border-plasma-orange/50"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Bands
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {CUSTOM_BANDS.map((band) => {
-                    const checked = customForm.bands.has(band);
-                    return (
-                      <label
-                        key={band}
-                        className="flex items-center gap-2 text-xs text-gray-200"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            setCustomForm((prev) => {
-                              const next = new Set(prev.bands);
-                              if (next.has(band)) {
-                                next.delete(band);
-                              } else next.add(band);
-                              return { ...prev, bands: next };
-                            })
-                          }
-                          className="accent-plasma-orange"
-                        />
-                        {band}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Modes
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {CUSTOM_MODES.map((mode) => {
-                    const checked = customForm.modes.has(mode);
-                    return (
-                      <label
-                        key={mode}
-                        className="flex items-center gap-2 text-xs text-gray-200"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            setCustomForm((prev) => {
-                              const next = new Set(prev.modes);
-                              if (next.has(mode)) {
-                                next.delete(mode);
-                              } else next.add(mode);
-                              return { ...prev, modes: next };
-                            })
-                          }
-                          className="accent-plasma-orange"
-                        />
-                        {mode}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Release year (optional)
-                </label>
-                <input
-                  inputMode="numeric"
-                  value={customForm.releaseYear}
+                <TextField
+                  label="TX power limit (W)"
+                  inputMode="decimal"
+                  value={instanceForm.customPowerLimit}
                   onChange={(e) =>
-                    setCustomForm((prev) => ({
+                    setInstanceForm((prev) => ({
                       ...prev,
-                      releaseYear: e.target.value,
+                      customPowerLimit: e.target.value,
                     }))
                   }
-                  placeholder="2019"
-                  className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                             text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+                  placeholder="(optional)"
                 />
+              </div>
+
+              <div>
+                <TextField
+                  label="Purchase date"
+                  type="date"
+                  value={instanceForm.purchaseDate}
+                  onChange={(e) =>
+                    setInstanceForm((prev) => ({
+                      ...prev,
+                      purchaseDate: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div>
+                <TextField
+                  label="Purchase location"
+                  value={instanceForm.purchaseLocation}
+                  onChange={(e) =>
+                    setInstanceForm((prev) => ({
+                      ...prev,
+                      purchaseLocation: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g., HRO, Hamvention"
+                />
+              </div>
+
+              <div>
+                <TextField
+                  label="Firmware revision"
+                  value={instanceForm.firmwareRevision}
+                  onChange={(e) =>
+                    setInstanceForm((prev) => ({
+                      ...prev,
+                      firmwareRevision: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g., 1.42"
+                />
+              </div>
+
+              <div>
+                <SelectField
+                  label="Receiver specs source"
+                  value={instanceForm.specPreference}
+                  onChange={(e) =>
+                    setInstanceForm((prev) => ({
+                      ...prev,
+                      specPreference: e.target.value as
+                        | "global"
+                        | "factory"
+                        | "tested",
+                    }))
+                  }
+                >
+                  <option value="global">Use global preference</option>
+                  <option value="tested">Prefer tested (Sherwood)</option>
+                  <option value="factory">Use factory specs</option>
+                </SelectField>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <div className="text-sm font-semibold text-white mb-2">
-                  Receiver metrics (required)
+            <div>
+              <TextAreaField
+                label="Wiring configuration"
+                value={instanceForm.wiringConfiguration}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    wiringConfiguration: e.target.value,
+                  }))
+                }
+                rows={3}
+                placeholder="CAT interface, audio chain, PTT, filters, etc."
+              />
+            </div>
+
+            <div>
+              <TextAreaField
+                label="Notes"
+                value={instanceForm.notes}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    notes: e.target.value,
+                  }))
+                }
+                rows={3}
+                placeholder="Maintenance history, mods, quirks..."
+              />
+            </div>
+          </form>
+        </Dialog>
+
+        <Dialog
+          open={customModalOpen}
+          onClose={() => setCustomModalOpen(false)}
+          title={editingCustomId ? "Edit Custom Radio" : "New Custom Radio"}
+          description="Saved to your profile for use in tools and DX Wizard."
+          zIndexClassName={modalZIndexClassName ?? "z-[450]"}
+          footer={
+            <div className="su-inline">
+              <Button
+                onClick={() => {
+                  setCustomModalOpen(false);
+                }}
+              >
+                Cancel changes
+              </Button>
+              <Button variant="primary" type="submit" form={customFormId}>
+                Save custom definition
+              </Button>
+            </div>
+          }
+        >
+          <form
+            id={customFormId}
+            className="su-stack radio-custom-form"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveCustomRadio();
+            }}
+          >
+            {customModalError && (
+              <div className="su-field-error" role="alert">
+                {customModalError}
+              </div>
+            )}
+
+            <div className="p-4 rounded-lg border border-white/10 bg-white/5 space-y-3">
+              <div className="text-sm font-semibold text-white">
+                Start from database (optional)
+              </div>
+              <div className="text-xs text-gray-400">
+                Import a base radio from the built-in database, then tweak specs
+                as needed.
+              </div>
+              <TextField
+                label="Search for a reference radio"
+                type="search"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.preventDefault();
+                }}
+                value={customBaseQuery}
+                onChange={(e) => setCustomBaseQuery(e.target.value)}
+                placeholder="Search database (e.g., IC-7300, FT-891, K3S)..."
+              />
+              {baseResults.length > 0 && (
+                <div className="space-y-2">
+                  {baseResults.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between gap-3 p-2 rounded-lg bg-nebula-blue/40 border border-white/10"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white truncate">
+                          {r.manufacturer} {r.model}
+                          {hasTestedSpecs(r) && (
+                            <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
+                              Tested
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-gray-400 truncate">
+                          {r.maxPower}W &bull; Tier: {r.tier} &bull; Bands:{" "}
+                          {r.bands.slice(0, 4).join(", ")}
+                          {r.bands.length > 4 ? "\u2026" : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          type="button"
+                          onClick={() => importFromDatabase(r, "factory")}
+                          aria-label={`Import factory specs from ${r.manufacturer} ${r.model}`}
+                        >
+                          Import factory
+                        </Button>
+                        <Button
+                          type="button"
+                          disabled={!hasTestedSpecs(r)}
+                          onClick={() => importFromDatabase(r, "tested")}
+                          aria-label={`Import tested specs from ${r.manufacturer} ${r.model}`}
+                        >
+                          Import tested
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {(
-                    [
-                      { key: "rmdr", label: "RMDR (dB)" },
-                      { key: "imdr3", label: "IMDR3 (dB)" },
-                      { key: "blockingGain", label: "Blocking (dB)" },
-                      { key: "sensitivity", label: "Sens (\u00B5V)" },
-                    ] as const
-                  ).map((field) => (
-                    <div key={field.key}>
-                      <label className="block text-xs font-medium text-gray-300 mb-1">
-                        {field.label}
-                      </label>
-                      <input
+              )}
+            </div>
+
+            <div className="radio-definition-columns">
+              <div className="space-y-4">
+                <div>
+                  <TextField
+                    label="Custom name"
+                    required
+                    value={customForm.displayName}
+                    onChange={(e) =>
+                      setCustomForm((prev) => ({
+                        ...prev,
+                        displayName: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g., Portable HF Rig"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <TextField
+                      label="Manufacturer"
+                      required
+                      value={customForm.manufacturer}
+                      onChange={(e) =>
+                        setCustomForm((prev) => ({
+                          ...prev,
+                          manufacturer: e.target.value,
+                        }))
+                      }
+                      placeholder="Icom"
+                    />
+                  </div>
+                  <div>
+                    <TextField
+                      label="Model"
+                      required
+                      value={customForm.model}
+                      onChange={(e) =>
+                        setCustomForm((prev) => ({
+                          ...prev,
+                          model: e.target.value,
+                        }))
+                      }
+                      placeholder="IC-7300"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <SelectField
+                      label="Tier"
+                      value={customForm.tier}
+                      onChange={(e) =>
+                        setCustomForm((prev) => ({
+                          ...prev,
+                          tier: e.target.value as RadioTier,
+                        }))
+                      }
+                    >
+                      {CUSTOM_TIERS.map((tier) => (
+                        <option key={tier} value={tier}>
+                          {getTierLabel(tier)}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <div>
+                    <TextField
+                      label="Max W"
+                      required
+                      inputMode="decimal"
+                      value={customForm.maxPower}
+                      onChange={(e) =>
+                        setCustomForm((prev) => ({
+                          ...prev,
+                          maxPower: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <TextField
+                      label="Min W"
+                      required
+                      inputMode="decimal"
+                      value={customForm.minPower}
+                      onChange={(e) =>
+                        setCustomForm((prev) => ({
+                          ...prev,
+                          minPower: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <fieldset className="min-w-0">
+                  <legend className="su-hint">Bands</legend>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {CUSTOM_BANDS.map((band) => (
+                      <Checkbox
+                        key={band}
+                        label={band}
+                        checked={customForm.bands.has(band)}
+                        onChange={() =>
+                          setCustomForm((previous) => {
+                            const next = new Set(previous.bands);
+                            if (next.has(band)) next.delete(band);
+                            else next.add(band);
+                            return { ...previous, bands: next };
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="min-w-0">
+                  <legend className="su-hint">Modes</legend>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {CUSTOM_MODES.map((mode) => (
+                      <Checkbox
+                        key={mode}
+                        label={mode}
+                        checked={customForm.modes.has(mode)}
+                        onChange={() =>
+                          setCustomForm((previous) => {
+                            const next = new Set(previous.modes);
+                            if (next.has(mode)) next.delete(mode);
+                            else next.add(mode);
+                            return { ...previous, modes: next };
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+
+                <div>
+                  <TextField
+                    label="Release year (optional)"
+                    inputMode="numeric"
+                    value={customForm.releaseYear}
+                    onChange={(e) =>
+                      setCustomForm((prev) => ({
+                        ...prev,
+                        releaseYear: e.target.value,
+                      }))
+                    }
+                    placeholder="2019"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="text-sm font-semibold text-white mb-2">
+                    Receiver metrics (required)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(
+                      [
+                        { key: "rmdr", label: "RMDR (dB)" },
+                        { key: "imdr3", label: "IMDR3 (dB)" },
+                        { key: "blockingGain", label: "Blocking (dB)" },
+                        { key: "sensitivity", label: "Sens (\u00B5V)" },
+                      ] as const
+                    ).map((field) => (
+                      <div key={field.key}>
+                        <TextField
+                          label={field.label}
+                          required
+                          inputMode="decimal"
+                          value={customForm.receiver[field.key]}
+                          onChange={(e) =>
+                            setCustomForm((prev) => ({
+                              ...prev,
+                              receiver: {
+                                ...prev.receiver,
+                                [field.key]: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-sm font-semibold text-white mb-2">
+                    Optional RX/TX details
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <TextField
+                        label="Noise floor (dBm)"
                         inputMode="decimal"
-                        value={customForm.receiver[field.key]}
+                        value={customForm.receiver.noiseFloorDbm}
                         onChange={(e) =>
                           setCustomForm((prev) => ({
                             ...prev,
                             receiver: {
                               ...prev.receiver,
-                              [field.key]: e.target.value,
+                              noiseFloorDbm: e.target.value,
                             },
                           }))
                         }
-                        className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                                   text-white focus:outline-none focus:border-plasma-orange/50"
                       />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm font-semibold text-white mb-2">
-                  Optional RX/TX details
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">
-                      Noise floor (dBm)
-                    </label>
-                    <input
-                      inputMode="decimal"
-                      value={customForm.receiver.noiseFloorDbm}
+                    <div>
+                      <TextField
+                        label="IP3 (dBm)"
+                        inputMode="decimal"
+                        value={customForm.receiver.ip3Dbm}
+                        onChange={(e) =>
+                          setCustomForm((prev) => ({
+                            ...prev,
+                            receiver: {
+                              ...prev.receiver,
+                              ip3Dbm: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <TextField
+                        label="TX IMD3 (dB)"
+                        inputMode="decimal"
+                        value={customForm.transmit.imd3Db}
+                        onChange={(e) =>
+                          setCustomForm((prev) => ({
+                            ...prev,
+                            transmit: {
+                              ...prev.transmit,
+                              imd3Db: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <TextField
+                        label="Spurious (dBc)"
+                        inputMode="decimal"
+                        value={customForm.transmit.spuriousDbc}
+                        onChange={(e) =>
+                          setCustomForm((prev) => ({
+                            ...prev,
+                            transmit: {
+                              ...prev.transmit,
+                              spuriousDbc: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <TextAreaField
+                      label="Notes (optional)"
+                      value={customForm.transmit.notes}
                       onChange={(e) =>
                         setCustomForm((prev) => ({
                           ...prev,
-                          receiver: {
-                            ...prev.receiver,
-                            noiseFloorDbm: e.target.value,
-                          },
+                          transmit: { ...prev.transmit, notes: e.target.value },
                         }))
                       }
-                      className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                                 text-white focus:outline-none focus:border-plasma-orange/50"
+                      rows={4}
+                      placeholder="Anything about filters, ALC behavior, settings, etc."
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">
-                      IP3 (dBm)
-                    </label>
-                    <input
-                      inputMode="decimal"
-                      value={customForm.receiver.ip3Dbm}
-                      onChange={(e) =>
-                        setCustomForm((prev) => ({
-                          ...prev,
-                          receiver: {
-                            ...prev.receiver,
-                            ip3Dbm: e.target.value,
-                          },
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                                 text-white focus:outline-none focus:border-plasma-orange/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">
-                      TX IMD3 (dB)
-                    </label>
-                    <input
-                      inputMode="decimal"
-                      value={customForm.transmit.imd3Db}
-                      onChange={(e) =>
-                        setCustomForm((prev) => ({
-                          ...prev,
-                          transmit: {
-                            ...prev.transmit,
-                            imd3Db: e.target.value,
-                          },
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                                 text-white focus:outline-none focus:border-plasma-orange/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1">
-                      Spurious (dBc)
-                    </label>
-                    <input
-                      inputMode="decimal"
-                      value={customForm.transmit.spuriousDbc}
-                      onChange={(e) =>
-                        setCustomForm((prev) => ({
-                          ...prev,
-                          transmit: {
-                            ...prev.transmit,
-                            spuriousDbc: e.target.value,
-                          },
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                                 text-white focus:outline-none focus:border-plasma-orange/50"
-                    />
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
-                    Notes (optional)
-                  </label>
-                  <textarea
-                    value={customForm.transmit.notes}
-                    onChange={(e) =>
-                      setCustomForm((prev) => ({
-                        ...prev,
-                        transmit: { ...prev.transmit, notes: e.target.value },
-                      }))
-                    }
-                    rows={4}
-                    className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-                    placeholder="Anything about filters, ALC behavior, settings, etc."
-                  />
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setCustomModalOpen(false)}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20
-                         transition-colors font-medium text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={saveCustomRadio}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30
-                         transition-colors font-medium text-sm"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </DetailModal>
+          </form>
+        </Dialog>
+      </StationProvider>
 
       <ConfirmDialog
         open={deleteTarget !== null}

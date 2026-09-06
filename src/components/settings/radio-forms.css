@@ -1,0 +1,55 @@
+/* Radio-form scope only: preserve the app header, cards and other tool screens. */
+.su-dialog:has(.radio-custom-form) {
+  width: min(62rem, calc(100vw - 1.5rem));
+}
+.radio-definition-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+.radio-catalog-item {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-control);
+}
+.radio-catalog-item h3 {
+  overflow-wrap: anywhere;
+}
+.radio-custom-form [class*="text-gray-"] {
+  color: var(--su-muted);
+}
+.radio-custom-form .text-white {
+  color: var(--su-text);
+}
+.radio-custom-form [class*="border-white"] {
+  border-color: var(--su-line);
+}
+.radio-custom-form [class*="bg-nebula-blue"] {
+  background: var(--su-input);
+}
+.radio-custom-form :is(.text-xs, .text-\[10px\], .text-\[9px\]) {
+  font-size: calc(0.875rem * var(--su-text-scale));
+  line-height: 1.6;
+}
+.radio-custom-form .text-green-400 {
+  color: var(--su-success);
+}
+.radio-custom-form .su-check label {
+  min-height: var(--su-control-height);
+}
+.radio-custom-form .su-field {
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .radio-definition-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .radio-custom-form .flex.items-center.justify-between {
+    flex-wrap: wrap;
+  }
+  .radio-custom-form .flex-shrink-0 {
+    flex-wrap: wrap;
+  }
+}

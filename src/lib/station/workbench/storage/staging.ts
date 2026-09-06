@@ -9,7 +9,7 @@ const instant = z.string().datetime({ offset: true });
 // Source locators are captured provenance; trimming could change a real artifact
 // name or original identifier. Reject blank locators without normalizing them.
 const locator = z.string().refine((value) => value.trim().length > 0, "Source locator cannot be blank");
-const integer = z.number().int().nonnegative();
+const integer = z.number().int().nonnegative().safe();
 const identity = z.object({ kind: stationEntityKindSchema, id }).strict();
 const version = identity.extend({ versionId: id });
 const path = z.array(z.union([z.string(), integer]));

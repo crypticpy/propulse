@@ -59,6 +59,27 @@ describe("pure generation staging", () => {
     expect(await verifyStationGeneration(candidate)).toEqual(candidate);
   });
 
+  it.each(["source-version", "source-path", "occurrence", "diagnostic-path", "parity-path"])("rejects unsafe %s integers before sealing", async (field) => {
+    const draft = synthetic();
+    const unsafe = Number.MAX_SAFE_INTEGER + 1;
+    if (field === "source-version") draft.manifest.rawCaptures[0].sourceVersion = { state: "known", value: unsafe };
+    if (field === "source-path") draft.manifest.sourceMappings[0].sourcePath = [unsafe];
+    if (field === "occurrence") draft.manifest.sourceMappings[0].occurrence = unsafe;
+    if (field === "diagnostic-path") draft.manifest.sourceMappings[0].diagnostics = [{ code: "fixture", severity: "info", path: [unsafe], message: "Fixture diagnostic" }];
+    if (field === "parity-path") draft.manifest.parityFindings = [{ id: "fixture", sourceCaptureIds: ["raw-shack"], path: [unsafe], code: "fixture", severity: "info", message: "Fixture observation" }];
+    await expect(prepareStationGeneration(draft)).rejects.toThrow();
+  });
+
+  it("preserves distinct safe integer source identities through seal replay", async () => {
+    const draft = synthetic();
+    draft.manifest.rawCaptures[0].sourceVersion = { state: "known", value: Number.MAX_SAFE_INTEGER };
+    draft.manifest.sourceMappings[0].occurrence = Number.MAX_SAFE_INTEGER;
+    draft.manifest.sourceMappings.push({ ...draft.manifest.sourceMappings[0], id: "neighbor", occurrence: Number.MAX_SAFE_INTEGER - 1 });
+    const candidate = await prepareStationGeneration(draft);
+    expect(candidate.manifest.sourceMappings.map((item) => item.occurrence)).toEqual([Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER - 1]);
+    expect(await verifyStationGeneration(candidate)).toEqual(candidate);
+  });
+
   it("rejects a nonempty archive under a new-empty label even with complete version coverage", () => {
     const draft = synthetic();
     draft.manifest.kind = "new-empty";

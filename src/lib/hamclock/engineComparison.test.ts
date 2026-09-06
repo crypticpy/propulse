@@ -142,9 +142,20 @@ describe("bandFrequencyStepClassifier", () => {
     expect(classify(5, "MHz")).toBe("closed");
   });
 
-  it("treats an unknown band as reference zero rather than throwing", () => {
+  it("treats an unknown band as unclassifiable rather than a fabricated zero reference", () => {
     const classify = bandFrequencyStepClassifier("not-a-band");
-    expect(classify(5, "MHz")).toBe("open");
+    expect(classify(5, "MHz")).toBeNull();
+    expect(classify(50, "MHz")).toBeNull();
+  });
+
+  it("excludes an unknown-band reading from the comparison instead of reading it as open", () => {
+    const result = compareEngines(
+      open(20),
+      open(19),
+      open(18),
+      bandFrequencyStepClassifier("not-a-band"),
+    );
+    expect(result.word).toBe("NO COMPARISON");
   });
 
   it("returns marginal for a non-MHz unit", () => {

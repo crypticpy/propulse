@@ -34,6 +34,10 @@ export interface EngineReading {
   /** Drives the freshness word ladder (`formatAge`). */
   updatedAt?: Date;
   state: "ok" | "stale" | "unavailable";
+  /** Overrides the column's default unavailable label (e.g. "MODEL OFF")
+   * with a specific reason -- e.g. "TIME SHIFTED" when the map's time
+   * machine has moved `now` away from what a live engine can answer for. */
+  unavailableReason?: string;
 }
 
 export type EngineCompareWord =
@@ -53,10 +57,16 @@ export interface EngineCompareResult {
  * rule — see `bandFrequencyStepClassifier` and `probabilityStepClassifier`
  * below for the two this batch ships.
  */
+/**
+ * Returns `null` when the reading cannot be classified at all (e.g. a band
+ * classifier asked about a band `BAND_RANGES` has never heard of) — that
+ * reading is then excluded from the comparison exactly like `comparable.kind
+ * === "none"`, never defaulted to a confident verdict.
+ */
 export type EngineStepClassifier = (
   value: number,
   unit: EngineUnit,
-) => EngineVerdict;
+) => EngineVerdict | null;
 
 const STEP_RANK: Record<EngineVerdict, number> = {
   closed: 0,
@@ -209,7 +219,11 @@ export function bandFrequencyStepClassifier(
   marginMHz = 2,
 ): EngineStepClassifier {
   const range = BAND_RANGES[subjectBand];
-  const referenceMHz = range ? range.startKHz / 1000 : 0;
+  // A band `BAND_RANGES` has never heard of has no frequency to classify
+  // against — every reading is excluded from the comparison, never scored
+  // as a confident "open" off a fabricated zero reference.
+  if (!range) return () => null;
+  const referenceMHz = range.startKHz / 1000;
   return (value, unit) => {
     if (unit !== "MHz") return "marginal";
     if (value >= referenceMHz + marginMHz) return "open";

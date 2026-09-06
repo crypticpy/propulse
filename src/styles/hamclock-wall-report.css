@@ -640,8 +640,15 @@
 }
 
 @media (max-width: 1599px) {
-  .hcr-enginestrip-cols {
-    grid-template-columns: 1fr;
+  /* The strip stays a single horizontal row at every report width — the
+   * report body is `overflow: hidden` with no scroll, so stacking the three
+   * columns here would clip whatever sits below. Below 1600px there is only
+   * room for the headline value per engine, so the secondary detail/age
+   * lines and the confidence bar are hidden rather than wrapped. */
+  .hcr-enginestrip-detail,
+  .hcr-enginestrip-age,
+  .hcr-enginestrip-conf {
+    display: none;
   }
   .hcr-hoptable-head,
   .hcr-hoprow {

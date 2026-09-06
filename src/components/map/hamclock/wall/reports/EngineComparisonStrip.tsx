@@ -33,6 +33,14 @@ const UNAVAILABLE_LABEL = {
   observed: "NO SPOTS",
 } as const;
 
+/** `formatAge(undefined, …)` reads "WAITING", which is right for a reading
+ * that is actively waiting on its first update but wrong for a reading that
+ * simply never carries a timestamp (e.g. a live spot count) — that case
+ * reads a plain em dash instead. */
+function ageLabel(reading: EngineReading, now: Date | number): string {
+  return reading.updatedAt == null ? "—" : formatAge(reading.updatedAt, now);
+}
+
 function EngineColumn({
   engine,
   reading,
@@ -44,13 +52,18 @@ function EngineColumn({
 }) {
   const unavailable =
     reading.state === "unavailable" || reading.comparable.kind === "none";
-  const dim = unavailable || reading.state === "stale";
+  // Stale keeps the value legible and warns, rather than dimming it to the
+  // same look as an engine that has nothing to say at all.
+  const stale = !unavailable && reading.state === "stale";
+  const valueTone = unavailable ? "hc-dim-text" : stale ? "hc-warn" : "";
 
   return (
     <div className="hcr-enginestrip-col">
       <p className="hcr-enginestrip-label">{ENGINE_TITLE[engine]}</p>
-      <p className={`hcr-enginestrip-value${dim ? " hc-dim-text" : ""}`}>
-        {unavailable ? UNAVAILABLE_LABEL[engine] : reading.value}
+      <p className={`hcr-enginestrip-value${valueTone ? ` ${valueTone}` : ""}`}>
+        {unavailable
+          ? (reading.unavailableReason ?? UNAVAILABLE_LABEL[engine])
+          : reading.value}
       </p>
       {reading.confidence != null && !unavailable && (
         <span className="hcr-bar hcr-enginestrip-conf">
@@ -64,8 +77,8 @@ function EngineColumn({
       <p className="hcr-enginestrip-detail">
         {unavailable ? "—" : (reading.detail ?? "—")}
       </p>
-      <p className="hcr-enginestrip-age">
-        {unavailable ? "—" : formatAge(reading.updatedAt, now)}
+      <p className={`hcr-enginestrip-age${stale ? " hc-warn" : ""}`}>
+        {unavailable ? "—" : ageLabel(reading, now)}
       </p>
     </div>
   );
@@ -140,10 +153,12 @@ export function EngineComparisonStrip({
               <tr key={engine}>
                 <th scope="row">{ENGINE_TITLE[engine]}</th>
                 <td>
-                  {unavailable ? UNAVAILABLE_LABEL[engine] : reading.value}
+                  {unavailable
+                    ? (reading.unavailableReason ?? UNAVAILABLE_LABEL[engine])
+                    : reading.value}
                 </td>
                 <td>{unavailable ? "—" : (reading.detail ?? "—")}</td>
-                <td>{unavailable ? "—" : formatAge(reading.updatedAt, now)}</td>
+                <td>{unavailable ? "—" : ageLabel(reading, now)}</td>
               </tr>
             );
           })}

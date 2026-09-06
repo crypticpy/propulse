@@ -1,12 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EngineComparisonStrip } from "./EngineComparisonStrip";
 import { bandFrequencyStepClassifier } from "@/lib/hamclock/engineComparison";
 import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import { BestBandReport } from "./BestBandReport";
 import { MufReport } from "./MufReport";
 import { MufTile } from "../tiles/MufTile";
+import { useProfileStore } from "@/stores/profileStore";
 
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
@@ -19,7 +20,9 @@ const mocks = vi.hoisted(() => ({
   stationCast: vi.fn(),
   nowCast: vi.fn(),
   target: vi.fn(),
+  timeOffset: vi.fn(),
   setCenterLocation: vi.fn(),
+  setFlashPoint: vi.fn(),
   reliability: vi.fn(),
   setBandFocus: vi.fn(),
   setSpotFilters: vi.fn(),
@@ -47,9 +50,10 @@ vi.mock("@/hooks/useNowCastBandPredictions", () => ({
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
     selector({
-      timeOffset: 0,
+      timeOffset: mocks.timeOffset(),
       target: mocks.target(),
       setCenterLocation: mocks.setCenterLocation,
+      setFlashPoint: mocks.setFlashPoint,
       spotFilters: { bands: [] },
       setSpotFilters: mocks.setSpotFilters,
     }),
@@ -153,6 +157,7 @@ beforeEach(() => {
   });
   mocks.nowCast.mockReturnValue(NO_NOWCAST);
   mocks.target.mockReturnValue(null);
+  mocks.timeOffset.mockReturnValue(0);
   mocks.reliability.mockReturnValue({
     mode: "FT8",
     powerWatts: 100,
@@ -166,7 +171,7 @@ beforeEach(() => {
   mocks.verdicts.mockReturnValue({
     bands: [],
     ready: true,
-    scope: { id: "regional:NA", label: "North America" },
+    scope: { id: "regional:NA", label: "North America", type: "regional" },
     activityScope: { type: "regional", continent: "NA" },
   });
 });
@@ -272,6 +277,86 @@ describe("MufReport engine strip and hops (HW-57)", () => {
     expect(within(dialog).queryAllByText("NO DATA")).toHaveLength(0);
   });
 
+  it("derives the observed reading from the highest ladder band with recent spots, independent of the physics-implied band", () => {
+    // Physics resolves to 17m for this fixture (see the Austin comment
+    // above). 15m has more recent activity than 17m -- the observed column
+    // must report 15m's activity, not silently fall back to 17m's lower
+    // count just because that happens to be the physics band.
+    mocks.verdicts.mockReturnValue({
+      bands: [
+        bandEntry({
+          band: "17m",
+          stable: "stirring",
+          physicsOpen: true,
+          physicsScore: 0.6,
+          obs20m: 3,
+          reporters20m: 2,
+          surprise: false,
+        }),
+        bandEntry({
+          band: "15m",
+          stable: "verified",
+          physicsOpen: true,
+          physicsScore: 0.7,
+          obs20m: 9,
+          reporters20m: 5,
+          surprise: false,
+        }),
+      ],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getAllByText("9 OBS/20 MIN").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(dialog).queryAllByText("3 OBS/20 MIN")).toHaveLength(0);
+  });
+
+  it("marks NowCast and observed unavailable as TIME SHIFTED when the map's time machine is offset from real time", () => {
+    mocks.timeOffset.mockReturnValue(6);
+    mocks.nowCast.mockReturnValue({
+      ...NO_NOWCAST,
+      available: true,
+      predictions: new Map([
+        [
+          "17m",
+          {
+            core_probability: 0.8,
+            personalized_probability: 0.8,
+            confidence: 0.9,
+          },
+        ],
+      ]),
+    });
+    mocks.verdicts.mockReturnValue({
+      bands: [
+        bandEntry({
+          band: "17m",
+          stable: "verified",
+          physicsOpen: true,
+          physicsScore: 0.8,
+          obs20m: 9,
+          reporters20m: 5,
+          surprise: false,
+        }),
+      ],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+
+    render(<MufReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getAllByText("TIME SHIFTED").length).toBe(4);
+    // The physics reading -- the one actually evaluated at the shifted
+    // instant -- stays live rather than getting swept into "unavailable".
+    expect(within(dialog).queryAllByText("NO DATA")).toHaveLength(0);
+  });
+
   it("prompts for a target instead of rendering an empty HOPS tab", async () => {
     const user = userEvent.setup();
     render(<MufReport open onClose={vi.fn()} />);
@@ -300,6 +385,10 @@ describe("MufReport engine strip and hops (HW-57)", () => {
     const [lat, lon] = mocks.setCenterLocation.mock.calls[0];
     expect(typeof lat).toBe("number");
     expect(typeof lon).toBe("number");
+    // Recentering the camera alone leaves no visible trace of which point
+    // was picked -- the same reflection point must also be flashed.
+    expect(mocks.setFlashPoint).toHaveBeenCalledTimes(1);
+    expect(mocks.setFlashPoint.mock.calls[0]).toEqual([lat, lon]);
   });
 
   it("draws the FOT/LUF usable-window band and carries an sr-only twin with FOT < MUF and LUF < FOT for every sampled hour", () => {
@@ -353,7 +442,7 @@ describe("BestBandReport carries the strip above its table (HW-56)", () => {
         }),
       ],
       ready: true,
-      scope: { id: "regional:NA", label: "North America" },
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
       activityScope: { type: "regional", continent: "NA" },
     });
   });
@@ -372,5 +461,82 @@ describe("BestBandReport carries the strip above its table (HW-56)", () => {
     expect(
       within(strip as HTMLElement).getByText(/Engine comparison · 20M/),
     ).toBeTruthy();
+  });
+});
+
+describe("BestBandReport keeps NowCast on the ladder's own path (finding 7)", () => {
+  const bands = [
+    bandEntry({
+      band: "20m",
+      stable: "verified",
+      physicsOpen: true,
+      physicsScore: 0.8,
+      obs20m: 12,
+      reporters20m: 6,
+      surprise: false,
+    }),
+  ];
+
+  afterEach(() => {
+    useProfileStore.setState({ savedTargets: [] });
+  });
+
+  it("marks NowCast unavailable with the scope's name when the ladder is regional, even with NowCast data available", () => {
+    mocks.verdicts.mockReturnValue({
+      bands,
+      ready: true,
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+    mocks.nowCast.mockReturnValue({
+      ...NO_NOWCAST,
+      available: true,
+      predictions: new Map([
+        [
+          "20m",
+          {
+            core_probability: 0.8,
+            personalized_probability: 0.8,
+            confidence: 0.9,
+          },
+        ],
+      ]),
+    });
+
+    render(<BestBandReport open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getAllByText("REGIONAL SCOPE").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("requests NowCast for the ladder's own DX target, not the map's unrelated target", () => {
+    useProfileStore.setState({
+      savedTargets: [
+        {
+          id: "t1",
+          name: "Tokyo",
+          lat: 35.68,
+          lon: 139.69,
+          grid: "PM95",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    mocks.verdicts.mockReturnValue({
+      bands,
+      ready: true,
+      scope: { id: "dx:EM-PM", label: "DX · EM→PM", type: "dx" },
+      activityScope: { type: "dx", homeField: "EM", targetField: "PM" },
+    });
+    // The map's own target points somewhere else entirely -- the request
+    // must ignore it and use the ladder's own saved DX target instead.
+    mocks.target.mockReturnValue({ lat: -10, lon: -10, grid: "ZZ00" });
+
+    render(<BestBandReport open onClose={vi.fn()} />);
+
+    expect(mocks.nowCast).toHaveBeenCalled();
+    const call = mocks.nowCast.mock.calls[0][0] as { target: unknown };
+    expect(call.target).toEqual({ grid: "PM95", lat: 35.68, lon: 139.69 });
   });
 });

@@ -334,7 +334,7 @@ describe("BestBandReport (HW-31)", () => {
         }),
       ],
       ready: true,
-      scope: { id: "regional:NA", label: "North America" },
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
       activityScope: { type: "regional", continent: "NA" },
     });
   });
@@ -390,7 +390,7 @@ describe("BestBandReport (HW-31)", () => {
         }),
       ],
       ready: true,
-      scope: { id: "regional:NA", label: "North America" },
+      scope: { id: "regional:NA", label: "North America", type: "regional" },
       activityScope: { type: "regional", continent: "NA" },
     });
 

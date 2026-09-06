@@ -15,6 +15,7 @@ import { latLonToGrid } from "@/lib/utils/grid";
 import { LADDER_RANK } from "@/lib/verdict/ladder";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useProfileStore } from "@/stores/profileStore";
 import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import {
@@ -170,7 +171,11 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   const setBandFocus = useHamClockStore((s) => s.setBandFocus);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const setSpotFilters = useMapStore((s) => s.setSpotFilters);
-  const target = useMapStore((s) => s.target);
+  // The ladder's own DX target (not the map's arbitrary `target`, which can
+  // point somewhere else entirely) -- "first saved target" is the same
+  // convention useBandVerdicts uses internally to build its "dx" scope.
+  const savedTargets = useProfileStore((s) => s.savedTargets);
+  const ladderTarget = scope.type === "dx" ? (savedTargets[0] ?? null) : null;
   const reliability = useHamClockStore((s) => s.reliability);
   const kIndexQuery = useKIndex();
   const currentKp =
@@ -195,17 +200,19 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   const activityFetchedAt = activitySnapshot?.fetchedAt ?? null;
 
   const nowCastTarget = useMemo(() => {
-    if (!target) return null;
+    if (!ladderTarget) return null;
     try {
       return {
-        grid: target.grid ?? latLonToGrid(target.lat, target.lon, 4),
-        lat: target.lat,
-        lon: target.lon,
+        grid:
+          ladderTarget.grid ??
+          latLonToGrid(ladderTarget.lat, ladderTarget.lon, 4),
+        lat: ladderTarget.lat,
+        lon: ladderTarget.lon,
       };
     } catch {
       return null;
     }
-  }, [target]);
+  }, [ladderTarget]);
   const nowCast = useNowCastBandPredictions({
     origin: stationCast.location,
     target: nowCastTarget,
@@ -233,6 +240,25 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   }, [leader]);
 
   const nowcastReading: EngineReading = useMemo(() => {
+    // NowCast is a single-path model: with no DX target the ladder's own
+    // scope resolves to, there is no equivalent path to request it for --
+    // never fall back to some other path and compare it anyway.
+    if (scope.type !== "dx") {
+      return {
+        value: "—",
+        comparable: { kind: "none" },
+        state: "unavailable",
+        unavailableReason: `${scope.type.toUpperCase()} SCOPE`,
+      };
+    }
+    if (!ladderTarget) {
+      return {
+        value: "—",
+        comparable: { kind: "none" },
+        state: "unavailable",
+        unavailableReason: "NO DX TARGET",
+      };
+    }
     if (!leader || !nowCast.available) {
       return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
     }
@@ -252,13 +278,13 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
       confidence: prediction.confidence * 100,
       state: nowCast.pending ? "stale" : "ok",
     };
-  }, [leader, nowCast]);
+  }, [scope.type, ladderTarget, leader, nowCast]);
 
   const observedReading: EngineReading = useMemo(() => {
     if (!leader)
       return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
     return {
-      value: `${leader.result.inputs.obs20m} SPOTS`,
+      value: `${leader.result.inputs.obs20m} OBS/20 MIN`,
       comparable: {
         kind: "verdict",
         verdict: ladderStepVerdict(leader.stable),

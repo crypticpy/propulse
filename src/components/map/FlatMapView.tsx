@@ -79,6 +79,7 @@ import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
+import { FLASH_POINT_DURATION_MS, useFlashPoint } from "./hooks/useFlashPoint";
 import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
 import type { BounceMarker } from "@/lib/map/targetPathPresentation";
@@ -1964,6 +1965,42 @@ function drawSpotHighlight(
 }
 
 /**
+ * Draw a single expanding/fading ring at a point flashed out-of-band (e.g. a
+ * report's hop reflection point). Flat-map counterpart to `FlashPulse`
+ * (globe); plasma-orange to stay visually distinct from the spot-highlight
+ * pulse above.
+ */
+function drawFlashPoint(
+  ctx: CanvasRenderingContext2D,
+  lat: number,
+  lon: number,
+  at: number,
+  width: number,
+  height: number,
+) {
+  const { x, y } = latLonToCanvas(lat, lon, width, height);
+  const progress = Math.min(
+    Math.max((Date.now() - at) / FLASH_POINT_DURATION_MS, 0),
+    1,
+  );
+  const radius = 8 + progress * 26;
+  const opacity = 0.85 * (1 - progress);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(255, 176, 0, ${Math.max(0, opacity)})`;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255, 176, 0, ${Math.max(0, 0.85 * (1 - progress * 0.6))})`;
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
  * Highlight Maidenhead grid squares containing active spots.
  * Zoom-adaptive: 4-char squares (2° × 1°) at low zoom, 6-char subsquares (5' × 2.5') at zoom >= 3.
  */
@@ -3554,6 +3591,7 @@ export function FlatMapView({
   const gridLabelDetail = useMapStore((s) => s.gridLabelDetail);
   const centerLocation = useMapStore((s) => s.centerLocation);
   const clearCenterLocation = useMapStore((s) => s.clearCenterLocation);
+  const flashPoint = useFlashPoint();
   const activePresetId = useMapStore((s) => s.activePresetId);
   const regionPresets = useMapStore((s) => s.regionPresets);
   const displayDensity = useMapStore((s) => s.displayDensity);
@@ -5034,9 +5072,11 @@ export function FlatMapView({
   useEffect(() => {
     const focusedDxLat = focusedSpot?.dxLat;
     const focusedDxLon = focusedSpot?.dxLon;
+    const hasFocus = isFocusing && focusedDxLat != null && focusedDxLon != null;
+    const hasFlash = flashPoint != null;
 
-    if (!isFocusing || focusedDxLat == null || focusedDxLon == null) {
-      // Clear overlay canvas when not focusing
+    if (!hasFocus && !hasFlash) {
+      // Clear overlay canvas when neither effect is active
       const hCanvas = highlightCanvasRef.current;
       if (hCanvas) {
         const hCtx = hCanvas.getContext("2d");
@@ -5088,7 +5128,19 @@ export function FlatMapView({
       hCtx.translate(z.offsetX, z.offsetY);
       hCtx.scale(z.scale, z.scale);
 
-      drawSpotHighlight(hCtx, focusedDxLat, focusedDxLon, rw, rh);
+      if (isFocusing && focusedDxLat != null && focusedDxLon != null) {
+        drawSpotHighlight(hCtx, focusedDxLat, focusedDxLon, rw, rh);
+      }
+      if (flashPoint) {
+        drawFlashPoint(
+          hCtx,
+          flashPoint.lat,
+          flashPoint.lon,
+          flashPoint.at,
+          rw,
+          rh,
+        );
+      }
 
       hCtx.restore();
       spotHighlightRafRef.current = requestAnimationFrame(animate);
@@ -5107,6 +5159,7 @@ export function FlatMapView({
     isFocusing,
     focusedSpot?.dxLat,
     focusedSpot?.dxLon,
+    flashPoint,
     displaySize,
     viewportSize,
     qualitySettings.renderDevicePixelRatio,

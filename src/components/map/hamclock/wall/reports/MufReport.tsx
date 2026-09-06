@@ -12,13 +12,18 @@ import {
   topUsableBand,
   type MUFSeriesPoint,
 } from "@/lib/api/muf";
-import { BAND_RANGES } from "@/lib/data/bandRanges";
+import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import {
+  calculateDLayerAbsorption,
   describeConditions,
   getIonosphericParameters,
 } from "@/lib/utils/ionosphere";
-import { traceRayPath, type RayTraceResult } from "@/lib/utils/rayTrace";
+import {
+  hopElevationAngle,
+  traceRayPath,
+  type RayTraceResult,
+} from "@/lib/utils/rayTrace";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -249,6 +254,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
   const timeOffset = useMapStore((s) => s.timeOffset);
   const target = useMapStore((s) => s.target);
   const setCenterLocation = useMapStore((s) => s.setCenterLocation);
+  const setFlashPoint = useMapStore((s) => s.setFlashPoint);
   const reliability = useHamClockStore((s) => s.reliability);
   const kIndexQuery = useKIndex();
   const currentKp =
@@ -316,7 +322,23 @@ export function MufReport({ open, onClose }: MufReportProps) {
     deriveEnvelope: stationCast.deriveEnvelope,
   });
 
-  const observedEntry = ladderBands.find((entry) => entry.band === band);
+  // Derived independently from the physics-implied `band`: the observed
+  // engine reports the highest ladder band that actually has recent spot
+  // activity, so a physics/observed split is never masked by looking up the
+  // physics band's own (possibly zero-activity) ladder entry.
+  const observedEntry = useMemo(() => {
+    if (!ladderReady) return null;
+    let best: (typeof ladderBands)[number] | null = null;
+    for (const bandKey of BAND_ORDER) {
+      const entry = ladderBands.find((e) => e.band === bandKey);
+      if (entry && entry.result.inputs.obs20m > 0) {
+        // BAND_ORDER runs low-to-high, so the last match found is the
+        // highest band with recent activity.
+        best = entry;
+      }
+    }
+    return best;
+  }, [ladderReady, ladderBands]);
 
   const engineSubject = band === "—" ? "HF" : band.toUpperCase();
   const classify = useMemo(
@@ -337,7 +359,20 @@ export function MufReport({ open, onClose }: MufReportProps) {
     };
   }, [muf, limits, at, sfiUpdatedAt, sfiStale]);
 
+  // A live engine cannot answer for a "now" the map's time machine has moved
+  // away from real time -- comparing it against the time-shifted physics
+  // reading would compare two different instants and read a false verdict.
+  const timeShifted = timeOffset !== 0;
+
   const nowcastReading: EngineReading = useMemo(() => {
+    if (timeShifted) {
+      return {
+        value: "—",
+        comparable: { kind: "none" },
+        state: "unavailable",
+        unavailableReason: "TIME SHIFTED",
+      };
+    }
     if (!nowCast.available || nowCast.predictions.size === 0) {
       return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
     }
@@ -356,14 +391,22 @@ export function MufReport({ open, onClose }: MufReportProps) {
       confidence: implied.confidence,
       state: nowCast.pending ? "stale" : "ok",
     };
-  }, [nowCast]);
+  }, [timeShifted, nowCast]);
 
   const observedReading: EngineReading = useMemo(() => {
+    if (timeShifted) {
+      return {
+        value: "—",
+        comparable: { kind: "none" },
+        state: "unavailable",
+        unavailableReason: "TIME SHIFTED",
+      };
+    }
     if (!ladderReady || !observedEntry) {
       return { value: "—", comparable: { kind: "none" }, state: "unavailable" };
     }
     return {
-      value: `${observedEntry.result.inputs.obs20m} SPOTS`,
+      value: `${observedEntry.result.inputs.obs20m} OBS/20 MIN`,
       comparable: {
         kind: "verdict",
         verdict: ladderStepVerdict(observedEntry.stable),
@@ -373,7 +416,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
       } DX·RBN`,
       state: "ok",
     };
-  }, [ladderReady, observedEntry]);
+  }, [timeShifted, ladderReady, observedEntry]);
 
   const rayTrace = useMemo(() => {
     if (!location || !target || muf === null || limits === null) return null;
@@ -388,6 +431,41 @@ export function MufReport({ open, onClose }: MufReportProps) {
       kp: currentKp ?? FALLBACK_KP,
     });
   }, [location, target, muf, limits, at, sfi, currentKp]);
+
+  // QTH-only ionosphere diagnostics (spec §26.2's PATH facts) -- vertical
+  // D-layer absorption at the QTH point, using the same MUF/FOT frequency the
+  // headline reading already uses.
+  const dLayerAbsorptionDb =
+    ionosphere && sfi != null
+      ? calculateDLayerAbsorption(
+          muf ?? limits?.fot ?? 0,
+          ionosphere.zenithAngle,
+          sfi,
+          90,
+        )
+      : null;
+
+  // Path diagnostics need a target and a viable trace; both read "SET
+  // TARGET" / "—" rather than a fabricated number when either is missing.
+  const midpointHop = rayTrace
+    ? rayTrace.hops.reduce((closest, hop) =>
+        Math.abs(hop.reflectionPoint.fractionAlongPath - 0.5) <
+        Math.abs(closest.reflectionPoint.fractionAlongPath - 0.5)
+          ? hop
+          : closest,
+      )
+    : null;
+  const takeoffAngleDeg = rayTrace
+    ? hopElevationAngle(
+        rayTrace.totalDistanceKm / rayTrace.hops.length,
+        rayTrace.hops[0].hmF2,
+      )
+    : null;
+  const limitingHopReason = rayTrace
+    ? rayTrace.isPathViable
+      ? "lowest-quality hop"
+      : "exceeds MUF"
+    : null;
 
   const facts: WallReportFact[] = [
     {
@@ -444,6 +522,52 @@ export function MufReport({ open, onClose }: MufReportProps) {
         <dd>
           {ionosphere ? (ionosphere.isDaytime ? "DAYSIDE" : "NIGHTSIDE") : "—"}
         </dd>
+        <dt>M(3000)F2</dt>
+        <dd>{ionosphere ? ionosphere.m3000F2.toFixed(2) : "—"}</dd>
+        <dt>D-layer absorption</dt>
+        <dd>
+          {dLayerAbsorptionDb == null
+            ? "—"
+            : `${dLayerAbsorptionDb.toFixed(1)} dB`}
+        </dd>
+        <dt>Solar zenith angle</dt>
+        <dd>{ionosphere ? `${ionosphere.zenithAngle.toFixed(1)}°` : "—"}</dd>
+        <dt>Day/night at midpoint</dt>
+        <dd>
+          {!target
+            ? "SET TARGET"
+            : midpointHop
+              ? midpointHop.reflectionPoint.isDaytime
+                ? "DAYSIDE"
+                : "NIGHTSIDE"
+              : "—"}
+        </dd>
+        <dt>Take-off angle</dt>
+        <dd>
+          {!target
+            ? "SET TARGET"
+            : takeoffAngleDeg == null
+              ? "—"
+              : `${takeoffAngleDeg.toFixed(1)}°`}
+        </dd>
+        <dt>Hop count</dt>
+        <dd>{!target ? "SET TARGET" : (rayTrace?.hops.length ?? "—")}</dd>
+        <dt>Total path loss</dt>
+        <dd>
+          {!target
+            ? "SET TARGET"
+            : rayTrace
+              ? `${rayTrace.totalPathLossDb.toFixed(1)} dB`
+              : "—"}
+        </dd>
+        <dt>Limiting hop</dt>
+        <dd>
+          {!target
+            ? "SET TARGET"
+            : rayTrace
+              ? `#${rayTrace.limitingHop + 1} · ${limitingHopReason}`
+              : "—"}
+        </dd>
       </dl>
       <p className="hcr-note">
         {ionosphere
@@ -483,12 +607,15 @@ export function MufReport({ open, onClose }: MufReportProps) {
             key={index}
             type="button"
             className="hcr-hoprow"
-            onClick={() =>
+            onClick={() => {
               setCenterLocation(
                 hop.reflectionPoint.lat,
                 hop.reflectionPoint.lon,
-              )
-            }
+              );
+              // Camera recentering alone leaves no visible trace of which
+              // point was picked — flash a momentary marker there too.
+              setFlashPoint(hop.reflectionPoint.lat, hop.reflectionPoint.lon);
+            }}
           >
             <span>{index + 1}</span>
             <span>

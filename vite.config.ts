@@ -1161,6 +1161,14 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    // CARTO permits direct end-user tile requests, not server-side proxying.
+    // This limited basemap key is intentionally public; no other server keys
+    // are exposed. Keep the existing deployment environment variable name.
+    define: {
+      "import.meta.env.VITE_CARTO_BASEMAPS_API_KEY": JSON.stringify(
+        process.env.CARTO_BASEMAPS_API_KEY ?? "",
+      ),
+    },
     plugins: [
       react(),
       solarDevApi(),

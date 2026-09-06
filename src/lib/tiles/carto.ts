@@ -3,7 +3,9 @@ export type CartoRasterStyle =
   | "dark_only_labels"
   | "light_only_labels";
 
-/** The server supplies the CARTO key and preserves the existing @2x PNG tiles. */
+/** CARTO basemap-only key is intentionally visible in direct browser requests. */
 export function cartoTileUrl(style: CartoRasterStyle): string {
-  return `/api/tiles/carto?style=${style}&z={z}&x={x}&y={y}`;
+  const url = `https://basemaps.cartocdn.com/${style}/{z}/{x}/{y}@2x.png`;
+  const key = import.meta.env.VITE_CARTO_BASEMAPS_API_KEY;
+  return key ? `${url}?key=${encodeURIComponent(key)}` : url;
 }

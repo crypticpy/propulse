@@ -1,6 +1,6 @@
 /**
  * Dark basemap style for MapLibre GL in AtmosPulse
- * Uses CARTO Dark Matter raster tiles through the server-keyed proxy
+ * Uses CARTO Dark Matter raster tiles with the public basemap key
  */
 
 import type { StyleSpecification } from "maplibre-gl";

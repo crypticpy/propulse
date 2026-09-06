@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useSolarResource } from "@/hooks/useSolarResource";
 import { useMagnetometer24h } from "@/hooks/useSolarData";
 import {
@@ -81,7 +81,6 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
   const layers = useMapStore((state) => state.layers);
   const toggleLayer = useMapStore((state) => state.toggleLayer);
   const [windSeries, setWindSeries] = useState<WindSeries>("bz");
-  const eventsRef = useRef<HTMLDivElement>(null);
 
   const plasma = latestByTime(
     plasmaQuery.data?.envelope.data,
@@ -187,8 +186,10 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
   // Proton row + CMEs, newest first; only whole rows that fit the slot
   // render (the report never scrolls).
   const eventRows = 1 + cmeEvents.length;
-  const visibleEvents = useVisibleRows(eventsRef, eventRows);
+  const [eventsRef, visibleEvents] = useVisibleRows<HTMLDivElement>(eventRows);
   const visibleCmes = Math.max(0, visibleEvents - 1);
+  // The feed is normalised oldest-first; the wall shows the newest.
+  const latestCmes = [...cmeEvents].reverse().slice(0, visibleCmes);
 
   const magPoints = (magQuery.data ?? [])
     .filter((point) => point.bz_gsm !== null)
@@ -335,7 +336,7 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                     </span>
                   </div>
                   {cmeEvents.length > 0 ? (
-                    cmeEvents.slice(0, visibleCmes).map((cme, index) => (
+                    latestCmes.map((cme, index) => (
                       <div
                         key={`${cme.time21_5}-${index}`}
                         className="hcr-item hc-accent-text"

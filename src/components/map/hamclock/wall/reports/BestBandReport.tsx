@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import SunCalc from "suncalc";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useBandActivity } from "@/hooks/useBandActivity";
@@ -125,11 +125,12 @@ function BandRow({
         {band.toUpperCase()}
       </span>
       <span className={surprise ? "hc-warn" : undefined}>
-        {leader
-          ? `LEADING · ${result.inputs.obs20m}/20 MIN`
-          : surprise
-            ? "SURPRISE"
-            : "—"}
+        {[
+          leader ? `LEADING · ${result.inputs.obs20m}/20 MIN` : null,
+          surprise ? "SURPRISE" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "—"}
       </span>
       <span
         className={predictedTone(
@@ -210,8 +211,7 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   // The ranked table is the report's flexible slot: it shows as many rows
   // as fit under the engine strip and says "TOP n OF m" when that is not
   // all of them, rather than clipping a row or scrolling (#250 S6).
-  const tableRef = useRef<HTMLDivElement>(null);
-  const visibleRows = useVisibleRows(tableRef, ranked.length);
+  const [tableRef, visibleRows] = useVisibleRows<HTMLDivElement>(ranked.length);
 
   const nowCastTarget = useMemo(() => {
     if (!ladderTarget) return null;
@@ -436,11 +436,16 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
                 <td>{index + 1}</td>
                 <td>{entry.band}</td>
                 <td>
-                  {index === 0
-                    ? `Leading, ${entry.result.inputs.obs20m} observations in 20 minutes`
-                    : entry.result.evaluation.surprise
+                  {[
+                    index === 0
+                      ? `Leading, ${entry.result.inputs.obs20m} observations in 20 minutes`
+                      : null,
+                    entry.result.evaluation.surprise
                       ? "Surprise activity, predicted closed"
-                      : "—"}
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join("; ") || "—"}
                 </td>
                 <td>
                   {predictedLabel(
@@ -462,7 +467,6 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
           </tbody>
         </table>
       </div>
-
     </WallReport>
   );
 }

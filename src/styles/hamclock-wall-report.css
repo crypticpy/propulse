@@ -782,9 +782,15 @@
 .hcr-hoptable-head,
 .hcr-hoprow {
   display: grid;
-  grid-template-columns: 2.5vw minmax(0, 1fr) 8vw 8vw 6vw;
+  /* Sized for the ~31vw HOPS column (#250): fixed tracks and gaps take
+   * ~16vw, leaving the reflection point ~15vw. */
+  grid-template-columns: 2vw minmax(0, 1fr) 5.5vw 5.5vw 3.5vw;
   align-items: center;
-  gap: 0.8vw;
+  gap: 0.6vw;
+}
+/* HOPS: the hop table gets the wider column, the path kv the narrower. */
+.hcr-cols--hops {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
 }
 .hcr-hoptable-head {
   padding: 0 0.8vw;
@@ -824,10 +830,6 @@
   .hcr-enginestrip-age,
   .hcr-enginestrip-conf {
     display: none;
-  }
-  .hcr-hoptable-head,
-  .hcr-hoprow {
-    grid-template-columns: 2.5vw minmax(0, 1fr) 7vw 7vw 5vw;
   }
 }
 

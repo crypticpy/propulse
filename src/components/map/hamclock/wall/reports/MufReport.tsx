@@ -641,7 +641,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
   );
 
   const hopsTab = (
-    <div className="hcr-cols hcr-cols--fill">
+    <div className="hcr-cols hcr-cols--fill hcr-cols--hops">
       {!target ? (
         <p className="hcr-note">Pick a target on the map to trace a path.</p>
       ) : !rayTrace ? (

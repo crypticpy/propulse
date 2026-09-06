@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 
 /**
  * How many uniform rows fit in a list box without clipping one mid-row.
@@ -6,15 +6,19 @@ import { useLayoutEffect, useState, type RefObject } from "react";
  * list renders only the rows its flex slot can hold and says so in its
  * caption. Measures the box and its first row through a `ResizeObserver`;
  * in jsdom (no layout) every row stays visible.
+ *
+ * Returns a callback ref so a list that mounts later — inside a tab panel
+ * that was not the active one at first render — is measured when it
+ * appears, not missed because a ref object was still null.
  */
 export function useVisibleRows<T extends HTMLElement>(
-  ref: RefObject<T | null>,
   total: number,
-): number {
+): [ref: (el: T | null) => void, visible: number] {
+  const [el, setEl] = useState<T | null>(null);
   const [count, setCount] = useState(total);
+  const ref = useCallback((node: T | null) => setEl(node), []);
 
   useLayoutEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const measure = () => {
       const first = el.firstElementChild as HTMLElement | null;
@@ -33,7 +37,7 @@ export function useVisibleRows<T extends HTMLElement>(
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [ref, total]);
+  }, [el, total]);
 
-  return Math.min(count, total);
+  return [ref, Math.min(count, total)];
 }

@@ -130,6 +130,36 @@ def source_is_usable(row: dict[str, Any], source: str) -> bool:
     return not isinstance(status, dict) or status.get("active") is not False
 
 
+def inactive_source_barrier(
+    rows: list[dict[str, Any]],
+    *,
+    source: str,
+    issue_time: datetime,
+) -> datetime | None:
+    """Newest causal snapshot that explicitly marks ``source`` inactive.
+
+    NOAA occasionally flags every magnetometer / plasma spacecraft inactive.
+    The collector still records that snapshot (with ``active: false``), and
+    it invalidates the source from then on: an older *active* row must not be
+    served past it just because it is still inside the age window.
+    """
+
+    barrier: datetime | None = None
+    for row in rows:
+        if source_is_usable(row, source):
+            continue
+        try:
+            received = aware_datetime(str(row["captured_at"]))
+        except (KeyError, ValueError):
+            continue
+        if received > issue_time:
+            continue
+        marker = source_observed_at(row, source) or received
+        if barrier is None or marker > barrier:
+            barrier = marker
+    return barrier
+
+
 def selected_field(
     rows: list[dict[str, Any]],
     *,
@@ -139,6 +169,7 @@ def selected_field(
 ) -> tuple[float, datetime, datetime] | None:
     selected: tuple[float, datetime, datetime] | None = None
     maximum_age = timedelta(seconds=SOURCE_MAX_AGE_SECONDS[source])
+    barrier = inactive_source_barrier(rows, source=source, issue_time=issue_time)
     for row in rows:
         observed = source_observed_at(row, source)
         try:
@@ -153,6 +184,7 @@ def selected_field(
             or issue_time - observed > maximum_age
             or not finite(value)
             or not source_is_usable(row, source)
+            or (barrier is not None and observed < barrier)
         ):
             continue
         candidate = (float(value), observed, received)

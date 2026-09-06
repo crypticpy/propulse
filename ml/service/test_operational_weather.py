@@ -119,8 +119,26 @@ class OperationalWeatherTests(unittest.TestCase):
         assert fresh is not None and expired is not None
         self.assertEqual(fresh.values["kp"], 3.0)
         self.assertEqual(fresh.values["bz_gsm"], -2.0)
+        self.assertEqual(fresh.values["wind_speed"], 430.0)
         self.assertNotIn("kp", expired.values)
         self.assertNotIn("bz_gsm", expired.values)
+        self.assertNotIn("wind_speed", expired.values)
+
+    def test_newer_inactive_snapshot_blocks_older_active_fallback(self) -> None:
+        # NOAA flags every spacecraft inactive at ISSUE-5m; the active row
+        # from ISSUE-20m is inside the 30-minute window but must not be
+        # served past that explicit invalidation.
+        older_active = row(ISSUE - timedelta(minutes=20), kp=3.0, bz=-2.0, dst=-10.0)
+        newer_inactive = row(ISSUE - timedelta(minutes=5), kp=3.0, bz=-30.0, dst=-10.0)
+        newer_inactive["source_status"]["magnetic_field"]["active"] = False
+        newer_inactive["source_status"]["solar_wind"]["active"] = False
+
+        result = build_operational_weather([older_active, newer_inactive], ISSUE)
+
+        assert result is not None
+        self.assertEqual(result.values["kp"], 3.0)
+        self.assertNotIn("bz_gsm", result.values)
+        self.assertNotIn("wind_speed", result.values)
 
     def test_inactive_realtime_source_is_not_trusted(self) -> None:
         inactive = row(ISSUE, kp=3.0, bz=-30.0, dst=-20.0)

@@ -47,6 +47,7 @@ const SOLAR_AFFECTED_FEATURES: Record<SolarSourceId, string[]> = {
   "swpc-scales": ["official NOAA scale snapshot"],
   "swpc-alerts": ["official SWPC bulletins"],
   "swpc-xray-latest": ["latest classified flare"],
+  "swpc-xray-flares-7d": ["HamClock wall X-ray report flare list"],
   "swpc-solar-wind-mag": ["solar-wind detail"],
   "swpc-solar-wind-plasma": ["solar-wind detail"],
 };

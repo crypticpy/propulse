@@ -1,4 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SolarReport } from "./SolarReport";
@@ -16,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   cme: vi.fn(),
   protonFlux: vi.fn(),
   toggleLayer: vi.fn(),
+  setCenterLocation: vi.fn(),
 }));
 
 /** `useSolarResource` hands back the validated envelope, not a bare payload. */
@@ -70,6 +77,7 @@ vi.mock("@/stores/mapStore", () => ({
     selector({
       layers: { aurora: false, drap: false },
       toggleLayer: mocks.toggleLayer,
+      setCenterLocation: mocks.setCenterLocation,
     }),
 }));
 
@@ -85,6 +93,15 @@ beforeEach(() => {
   mocks.dst.mockReturnValue(EMPTY_PROJECTED);
   mocks.cme.mockReturnValue(EMPTY_PROJECTED);
   mocks.protonFlux.mockReturnValue(EMPTY_PROJECTED);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ observedAt: "2026-09-05T12:40:00Z" }),
+      } as Response),
+    ),
+  );
 });
 
 describe("SolarReport", () => {
@@ -151,6 +168,42 @@ describe("SolarReport", () => {
     ).toBeGreaterThan(0);
     expect(dialog.querySelectorAll('[data-kind="observed"]').length).toBe(3);
   });
+
+  it("renders the AIA 193 and HMI magnetogram imagery frames with last-frame captions", async () => {
+    render(<SolarReport open onClose={vi.fn()} />);
+
+    expect(await screen.findByAltText(/AIA 193/i)).toBeTruthy();
+    expect(await screen.findByAltText(/HMI/i)).toBeTruthy();
+    expect(await screen.findAllByText(/LAST FRAME \d{2}:\d{2}Z/)).toHaveLength(
+      2,
+    );
+  });
+
+  it("shows FRAME UNAVAILABLE instead of a broken image when a frame fails to load", async () => {
+    render(<SolarReport open onClose={vi.fn()} />);
+
+    fireEvent.error(await screen.findByAltText(/AIA 193/i));
+
+    expect(screen.getByText("FRAME UNAVAILABLE")).toBeTruthy();
+    expect(screen.queryByAltText(/AIA 193/i)).toBeNull();
+    expect(screen.getByAltText(/HMI/i)).toBeTruthy();
+  });
+
+  it("centers the map on the sub-solar point and closes when SHOW SUB-SOLAR POINT is clicked", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<SolarReport open onClose={onClose} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /SHOW SUB-SOLAR POINT/i }),
+    );
+
+    expect(mocks.setCenterLocation).toHaveBeenCalledTimes(1);
+    const [lat, lon] = mocks.setCenterLocation.mock.calls[0];
+    expect(typeof lat).toBe("number");
+    expect(typeof lon).toBe("number");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("XrayReport", () => {
@@ -165,12 +218,31 @@ describe("XrayReport", () => {
         },
       ]),
     );
+    mocks.solar.mockImplementation((sourceId: string) =>
+      sourceId === "swpc-xray-flares-7d" ? envelope([]) : EMPTY_RESOURCE,
+    );
 
     render(<XrayReport open onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog");
     expect(dialog.querySelector(".hcr-hero")?.textContent).toContain("A");
     expect(screen.getByText("NO FLARES ABOVE B IN 24H")).toBeTruthy();
+  });
+
+  it("does not call a quiet day while the flare feed is loading or has failed", () => {
+    render(<XrayReport open onClose={vi.fn()} />);
+    expect(screen.getByText("LOADING FLARES")).toBeTruthy();
+    expect(screen.queryByText("NO FLARES ABOVE B IN 24H")).toBeNull();
+    cleanup();
+
+    mocks.solar.mockImplementation((sourceId: string) =>
+      sourceId === "swpc-xray-flares-7d"
+        ? { data: undefined, isError: true, isPending: false }
+        : EMPTY_RESOURCE,
+    );
+    render(<XrayReport open onClose={vi.fn()} />);
+    expect(screen.getByText("FLARE LIST UNAVAILABLE")).toBeTruthy();
+    expect(screen.queryByText("NO FLARES ABOVE B IN 24H")).toBeNull();
   });
 
   it("marks the latest classified flare on the FLUX chart when it falls in the 24h window", () => {
@@ -307,6 +379,60 @@ describe("XrayReport", () => {
     );
 
     expect(mocks.toggleLayer).toHaveBeenCalledWith("drap");
+  });
+
+  it("lists 24h flares newest first with region formatting", () => {
+    mocks.solar.mockImplementation((sourceId: string) => {
+      if (sourceId === "swpc-xray-flares-7d") {
+        return envelope([
+          {
+            beginTime: null,
+            maxTime: "2026-09-05T12:14:00.000Z",
+            endTime: null,
+            maxClass: "M1.0",
+            region: null,
+          },
+          {
+            beginTime: null,
+            maxTime: "2026-09-05T08:14:00.000Z",
+            endTime: null,
+            maxClass: "C1.5",
+            region: "4136",
+          },
+        ]);
+      }
+      return EMPTY_RESOURCE;
+    });
+
+    render(<XrayReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("Flares · 24 h")).toBeTruthy();
+    expect(screen.getByText("M1.0")).toBeTruthy();
+    expect(screen.getByText(/12:14Z · —/)).toBeTruthy();
+    expect(screen.getByText("C1.5")).toBeTruthy();
+    expect(screen.getByText(/08:14Z · AR 4136/)).toBeTruthy();
+  });
+
+  it("filters flares outside the 24h window out of the list", () => {
+    mocks.solar.mockImplementation((sourceId: string) => {
+      if (sourceId === "swpc-xray-flares-7d") {
+        return envelope([
+          {
+            beginTime: null,
+            maxTime: "2026-09-03T12:00:00.000Z",
+            endTime: null,
+            maxClass: "M5.0",
+            region: "1111",
+          },
+        ]);
+      }
+      return EMPTY_RESOURCE;
+    });
+
+    render(<XrayReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("NO FLARES ABOVE B IN 24H")).toBeTruthy();
+    expect(screen.queryByText("M5.0")).toBeNull();
   });
 });
 

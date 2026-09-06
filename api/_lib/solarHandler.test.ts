@@ -38,10 +38,34 @@ const DATA_ROUTES = [
   "/api/solar/sunspots",
   "/api/solar/wind-mag",
   "/api/solar/wind-plasma",
+  "/api/solar/xray-flares",
   "/api/solar/xray-latest",
   "/api/solar/xray",
   "/api/solar/xray-24h",
 ] as const;
+
+const xrayFlares7d = [
+  {
+    time_tag: "2026-07-15T18:39:00Z",
+    satellite: 18,
+    current_class: "B3.9",
+    begin_time: "2026-07-15T18:03:00Z",
+    max_time: "2026-07-15T18:14:00Z",
+    max_class: "C1.5",
+    end_time: "2026-07-15T18:24:00Z",
+    region: 4136,
+  },
+  {
+    time_tag: "2026-07-15T20:39:00Z",
+    satellite: 18,
+    current_class: "M1.0",
+    begin_time: "2026-07-15T20:03:00Z",
+    max_time: "2026-07-15T20:14:00Z",
+    max_class: "M1.0",
+    end_time: "2026-07-15T20:24:00Z",
+    region: null,
+  },
+];
 
 function upstreamResponse(input: string | URL | Request): Response {
   const url = String(input instanceof Request ? input.url : input);
@@ -70,6 +94,7 @@ function upstreamResponse(input: string | URL | Request): Response {
   if (url.includes("noaa-scales")) return json(scales);
   if (url.includes("products/alerts")) return json(alerts);
   if (url.includes("xray-flares-latest")) return json(latestXray);
+  if (url.includes("xray-flares-7-day")) return json(xrayFlares7d);
   if (url.includes("solar-wind-mag-field")) return json(windMag);
   if (url.includes("rtsw_wind_1m")) return json(rtswWindPlasma);
   if (url.includes("products/animations")) {

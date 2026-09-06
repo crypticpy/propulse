@@ -20,6 +20,7 @@ export type SolarSourceId =
   | "swpc-scales"
   | "swpc-alerts"
   | "swpc-xray-latest"
+  | "swpc-xray-flares-7d"
   | "swpc-solar-wind-mag"
   | "swpc-solar-wind-plasma";
 

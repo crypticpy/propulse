@@ -588,6 +588,65 @@ export function adaptLatestXray(value: unknown): AdaptedProduct<LatestXrayFlare>
   return { data, observedAt: data.time_tag };
 }
 
+/** One classified GOES X-ray flare from the 7-day flare list. */
+export interface XrayFlareEvent {
+  beginTime: string | null;
+  maxTime: string;
+  endTime: string | null;
+  maxClass: string;
+  region: string | null;
+}
+
+/**
+ * The rolling 7-day GOES flare list behind the X-ray report's "Flares · 24 h"
+ * box. Unlike `adaptLatestXray` (a single current record), an all-quiet week
+ * is a legitimate empty response, not a validation failure — mirrors
+ * `adaptCme`'s empty-feed handling.
+ */
+export function adaptXrayFlares(
+  value: unknown,
+  maxRows = 60,
+): AdaptedProduct<XrayFlareEvent[]> {
+  const rawRows = requireArray(value, "X-ray flares");
+  const events = rawRows.flatMap((value): XrayFlareEvent[] => {
+    const row = record(value);
+    if (!row) return [];
+    const maxClass = String(row.max_class ?? "");
+    const maxTimestamp = parseUtcInstant(row.max_time);
+    if (!/^[ABCMX]\d(?:\.\d)?$/i.test(maxClass) || maxTimestamp === null) {
+      return [];
+    }
+    // NOAA uses region 0 (and sometimes an empty value) for "unassigned".
+    const region = toFiniteNumber(row.region);
+    return [
+      {
+        beginTime:
+          parseUtcInstant(row.begin_time) === null
+            ? null
+            : iso(row.begin_time, "flare begin time"),
+        maxTime: new Date(maxTimestamp).toISOString(),
+        endTime:
+          parseUtcInstant(row.end_time) === null
+            ? null
+            : iso(row.end_time, "flare end time"),
+        maxClass,
+        region: region === null || region === 0 ? null : String(region),
+      },
+    ];
+  });
+  if (events.length === 0 && rawRows.length === 0) {
+    return { data: [], observedAt: new Date().toISOString() };
+  }
+  // `normalizeTimeSeries` sorts oldest-first and keeps the most recent
+  // `maxRows`; the report reads the list newest-first.
+  const data = normalizeTimeSeries(events, {
+    timestamp: (event) => event.maxTime,
+    maxRows,
+    maxFutureMs: 5 * 60_000,
+  }).reverse();
+  return { data, observedAt: latestTimestamp(data, (event) => event.maxTime) };
+}
+
 export function adaptWindMag(
   value: unknown,
   maxRows = 12,

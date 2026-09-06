@@ -27,13 +27,10 @@ from serving_manifest import (  # noqa: E402
     sha256_file,
     validate_serving_manifest,
 )
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
-DEFAULT_RESULT_DIR = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-)
 SOURCE_MANIFEST_NAME = "serving_manifest.json"
 INTERNAL_MANIFEST_NAME = "retrospective_validated_internal_manifest.json"
 RECEIPT_NAME = "retrospective_internal_promotion_receipt.json"
@@ -318,7 +315,7 @@ def promote(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--result-dir", type=Path, default=DEFAULT_RESULT_DIR)
+    parser.add_argument("--result-dir", type=Path)
     parser.add_argument("--bundle-dir", type=Path)
     return parser.parse_args()
 
@@ -329,16 +326,12 @@ def main() -> None:
     if config.get("compute", {}).get("required_profile") != "m5":
         raise RuntimeError("internal promotion requires the M5 compute profile")
     machine = validate_m5_runtime(config)
-    bundle_dir = args.bundle_dir or (
-        Path(config["compute"]["external_root"])
-        / "models/archive_v4_2"
-        / config["run_id"]
-        / "serving"
-    )
+    result_dir = args.result_dir or run_paths.results_dir(config)
+    bundle_dir = args.bundle_dir or run_paths.external_serving_bundle_dir(config)
     generated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     internal_path, receipt_path = promote(
         args.config,
-        args.result_dir,
+        result_dir,
         bundle_dir,
         generated_at=generated_at,
         machine_receipt={

@@ -32,6 +32,7 @@ from phase2_core import (  # noqa: E402
     training_months,
     validate_config,
 )
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -41,14 +42,7 @@ PHASE1_COHORT_NAMES = {
     "A4_recent_cycle": "recent_cycle_pool",
     "A5_recency_weighted": "long_recent_pool",
 }
-PHASE2_20M_EVALUATION = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "evaluation_20m_results.json"
-)
-PHASE2_20M_MANIFEST = (
-    ROOT / "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json"
-)
+PHASE1_EARLY_STOPPING_MONTH = "2024-07"
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -361,9 +355,14 @@ def main() -> None:
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
     phase2_20m_evaluation = (
-        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+        load_json(run_paths.evaluation_20m_path(config))
+        if scale == 50_000_000
+        else None
     )
     candidates, folds = scale_workset(config, scale, phase2_20m_evaluation)
+    regenerate_phase1_samples = bool(
+        config["sampling"].get("regenerate_phase1_samples", False)
+    )
     sources, source_rows = resolve_sources(config)
     external, repository = output_roots(config, scale)
     connection = configure_connection(config)
@@ -402,13 +401,15 @@ def main() -> None:
 
     phase1 = load_json(PHASE1_MANIFEST)
     nested_manifest_path = (
-        PHASE1_MANIFEST if scale == 20_000_000 else PHASE2_20M_MANIFEST
+        PHASE1_MANIFEST
+        if scale == 20_000_000
+        else run_paths.cohort_manifest_path(config, 20_000_000)
     )
     nested_manifest = load_json(nested_manifest_path)
     early_samples: dict[str, dict[str, Any]] = {}
     for fold in folds:
         month = config["rolling_folds"][fold]["early_stopping_month"]
-        if month == "2024-07":
+        if month == PHASE1_EARLY_STOPPING_MONTH and not regenerate_phase1_samples:
             early_samples[fold] = dict(phase1["early_stopping"])
             continue
         path = external / f"sample_early_stopping_{month.replace('-', '_')}_5m.parquet"
@@ -422,7 +423,27 @@ def main() -> None:
             args.force,
         )
         early_samples[fold] = artifact(path, repository / path.name)
-    calibration = dict(phase1["calibration"])
+    if regenerate_phase1_samples:
+        # Rebuild the calibration sample from this run's sources under the
+        # same seed and sampling key, so the selected rows match the frozen
+        # phase-1 sample key-wise while carrying the new feature columns.
+        calibration_month = str(config["calibration_month"])
+        calibration_path = (
+            external
+            / f"sample_calibration_{calibration_month.replace('-', '_')}_5m.parquet"
+        )
+        copy_sample(
+            connection,
+            sources[calibration_month],
+            calibration_path,
+            int(config["sampling"]["calibration_rows"]),
+            seed,
+            oversample,
+            args.force,
+        )
+        calibration = artifact(calibration_path, repository / calibration_path.name)
+    else:
+        calibration = dict(phase1["calibration"])
 
     cohorts: dict[str, dict[str, Any]] = {}
     for candidate in candidates:
@@ -490,9 +511,10 @@ def main() -> None:
         "early_stopping": early_samples,
         "calibration": calibration,
         "phase1_manifest": PHASE1_MANIFEST.relative_to(ROOT).as_posix(),
+        "regenerated_phase1_samples": regenerate_phase1_samples,
         "nested_over_manifest": nested_manifest_path.relative_to(ROOT).as_posix(),
         "selection_source": (
-            PHASE2_20M_EVALUATION.relative_to(ROOT).as_posix()
+            run_paths.evaluation_20m_path(config).relative_to(ROOT).as_posix()
             if scale == 50_000_000
             else None
         ),
@@ -504,11 +526,7 @@ def main() -> None:
         },
         "seconds": time.monotonic() - started,
     }
-    manifest_path = (
-        ROOT
-        / "ml/data/manifests"
-        / f"propagation_v4_2_phase2_{scale // 1_000_000}m_cohorts.json"
-    )
+    manifest_path = run_paths.cohort_manifest_path(config, scale)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = manifest_path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

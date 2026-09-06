@@ -7,23 +7,20 @@ import argparse
 import hashlib
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
+MODULE = Path(__file__).resolve().parent
+if str(MODULE) not in sys.path:
+    sys.path.insert(0, str(MODULE))
+
+import run_paths  # noqa: E402
+
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
-DEFAULT_BENCHMARK = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "prediction_thread_benchmark.json"
-)
-PROTOCOL = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "outcome_protocol_manifest.json"
-)
 
 
 class PinError(RuntimeError):
@@ -74,13 +71,16 @@ def validate_decision(benchmark: dict[str, Any]) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--benchmark", default=str(DEFAULT_BENCHMARK))
+    parser.add_argument("--benchmark")
     args = parser.parse_args()
     config_path = Path(args.config).resolve()
-    benchmark_path = Path(args.benchmark).resolve()
-    if PROTOCOL.exists() and load_json(PROTOCOL).get("candidate_frozen"):
-        raise PinError("prediction execution cannot change after candidate freeze")
     config = load_json(config_path)
+    benchmark_path = Path(
+        args.benchmark or run_paths.prediction_thread_benchmark_path(config)
+    ).resolve()
+    protocol = run_paths.outcome_manifest_path(config)
+    if protocol.exists() and load_json(protocol).get("candidate_frozen"):
+        raise PinError("prediction execution cannot change after candidate freeze")
     benchmark = load_json(benchmark_path)
     selected = validate_decision(benchmark)
     digest = sha256(benchmark_path)

@@ -28,19 +28,10 @@ from phase2_core import (  # noqa: E402
     validate_config,
 )
 from m5_runtime import validate_m5_runtime  # noqa: E402
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
-PHASE2_20M_EVALUATION = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "evaluation_20m_results.json"
-)
-PREDICTION_THREAD_BENCHMARK = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "prediction_thread_benchmark.json"
-)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -92,19 +83,18 @@ def main() -> None:
     validate_config(config)
     runtime = validate_m5_runtime(config)
     scale = int(args.scale)
-    result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
-    manifest_path = (
-        ROOT
-        / "ml/data/manifests"
-        / f"propagation_v4_2_phase2_{scale // 1_000_000}m_cohorts.json"
-    )
-    training_path = result_dir / f"training_{scale // 1_000_000}m_results.json"
-    evaluation_path = result_dir / f"evaluation_{scale // 1_000_000}m_results.json"
+    result_dir = run_paths.results_dir(config)
+    prediction_thread_benchmark = run_paths.prediction_thread_benchmark_path(config)
+    manifest_path = run_paths.cohort_manifest_path(config, scale)
+    training_path = run_paths.training_results_path(config, scale)
+    evaluation_path = run_paths.evaluation_results_path(config, scale)
     manifest = load_json(manifest_path)
     training = load_json(training_path)
     evaluation = load_json(evaluation_path)
     phase2_20m_evaluation = (
-        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+        load_json(run_paths.evaluation_20m_path(config))
+        if scale == 50_000_000
+        else None
     )
     candidate_names, fold_names = scale_workset(
         config, scale, phase2_20m_evaluation
@@ -195,7 +185,7 @@ def main() -> None:
         list(evaluation["evaluation_months"]) == list(config["evaluation_months"]),
         evaluation["evaluation_months"],
     )
-    prediction_benchmark = load_json(PREDICTION_THREAD_BENCHMARK)
+    prediction_benchmark = load_json(prediction_thread_benchmark)
     hardware = config["compute"]["apple_silicon"]
     configured_prediction_threads = int(
         hardware["single_process_prediction_threads"]
@@ -208,7 +198,7 @@ def main() -> None:
         and int(prediction_benchmark["selected_threads"])
         == configured_prediction_threads
         and str(hardware["prediction_thread_benchmark_sha256"])
-        == sha256(PREDICTION_THREAD_BENCHMARK)
+        == sha256(prediction_thread_benchmark)
         and int(evaluation["compute"]["xgboost_prediction_threads"])
         == configured_prediction_threads,
         {

@@ -49,23 +49,26 @@ from phase2_core import (  # noqa: E402
 )
 from train_validation import fit_calibrators, load_predictions  # noqa: E402
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
+from feature_contract import (  # noqa: E402
+    PATH_FEATURES,
+    WSPR_PATH_FEATURES,
+    is_v2,
+)
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 V3_RESULTS = ROOT / "ml/results/archive_v3/archive_v3_eight_month/hf_results.json"
-PHASE0_CONFIG = ROOT / "ml/config/propagation_v4_2.json"
 PHASE1_DIR = ROOT / "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m"
 PHASE1_EVALUATION = PHASE1_DIR / "evaluation_results.json"
 PHASE1_CONDITIONAL = PHASE1_DIR / "conditional_results.json"
+# Retained for the frozen V1 chain: scripts that still import these constants
+# resolve the V1 run explicitly. Config-driven callers use run_paths instead.
 PHASE2_20M_EVALUATION = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "evaluation_20m_results.json"
+    run_paths.RESULTS_ROOT / run_paths.V1_RUN_ID / "evaluation_20m_results.json"
 )
 PREDICTION_THREAD_BENCHMARK = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "prediction_thread_benchmark.json"
+    run_paths.RESULTS_ROOT / run_paths.V1_RUN_ID / "prediction_thread_benchmark.json"
 )
 STAT_SIZE = 7
 CALIBRATION_BINS = 20
@@ -166,6 +169,28 @@ def feature_matrix(columns: dict[str, np.ndarray], features: list[str]) -> np.nd
     return np.column_stack(
         [np.asarray(columns[name], dtype=np.float32) for name in features]
     )
+
+
+def b2_columns(
+    columns: dict[str, np.ndarray], v2: bool = False
+) -> dict[str, np.ndarray]:
+    """Return the column view the frozen V3/B2 baseline must consume.
+
+    Under archive-v4-features-v2 the ``path_success_prev*`` /
+    ``path_prev*_available`` columns carry the new recency-quantile statistic,
+    while B2 was trained on the original grid4 lags. The V2 datasets keep those
+    original lags under a ``wspr_`` prefix, so B2 reads them through this alias
+    and stays a like-for-like baseline. Under V1 the columns are already the
+    grid4 lags and the view is returned unchanged.
+    """
+    if not v2:
+        return columns
+    aliased = dict(columns)
+    for name, source in zip(PATH_FEATURES, WSPR_PATH_FEATURES):
+        if source not in columns:
+            raise Phase2Error(f"v2 evaluation input is missing {source}")
+        aliased[name] = columns[source]
+    return aliased
 
 
 def cached_feature_matrix(
@@ -559,19 +584,18 @@ def main() -> None:
     scale = int(args.scale)
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
-    result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
-    training_path = result_dir / f"training_{scale // 1_000_000}m_results.json"
-    manifest_path = (
-        ROOT
-        / "ml/data/manifests"
-        / f"propagation_v4_2_phase2_{scale // 1_000_000}m_cohorts.json"
-    )
+    v2 = is_v2(config)
+    result_dir = run_paths.results_dir(config)
+    training_path = run_paths.training_results_path(config, scale)
+    manifest_path = run_paths.cohort_manifest_path(config, scale)
     training = load_json(training_path)
     manifest = load_json(manifest_path)
     if training["december_2024_read"] or training["locked_2025_read"]:
         raise Phase2Error("training result reports locked outcome access")
     phase2_20m_evaluation = (
-        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+        load_json(run_paths.evaluation_20m_path(config))
+        if scale == 50_000_000
+        else None
     )
     candidate_names, fold_names = scale_workset(
         config, scale, phase2_20m_evaluation
@@ -588,13 +612,14 @@ def main() -> None:
     v3_result = load_json(V3_RESULTS)
     b2_info = v3_result["profiles"]["nowcast"]
     b2 = load_profile("nowcast", b2_info, ROOT)
+    benchmark_path = run_paths.prediction_thread_benchmark_path(config)
     prediction_threads = selected_prediction_threads(
         config,
-        load_json(PREDICTION_THREAD_BENCHMARK),
-        sha256(PREDICTION_THREAD_BENCHMARK),
+        load_json(benchmark_path),
+        sha256(benchmark_path),
     )
     b2.model.set_param({"nthread": prediction_threads})
-    phase0_inputs = load_json(PHASE0_CONFIG)["diagnosis"]["inputs"]
+    phase0_inputs = run_paths.evaluation_inputs(config)
     evaluation_inputs = {
         month: verify_input(month, phase0_inputs[month], args.verify_input_hashes)
         for month in config["evaluation_months"]
@@ -618,6 +643,8 @@ def main() -> None:
             "best_iteration": int(info["best_iteration"]),
         }
         artifacts[name] = {"model": info["model"], "calibrator": info["calibrator"]}
+    if v2:
+        union_features.extend(WSPR_PATH_FEATURES)
     union_features = list(dict.fromkeys(union_features))
     has_a6 = {
         str(config["conditional_policy"]["left"]),
@@ -683,7 +710,7 @@ def main() -> None:
             }
             labels["month_band"] = np.char.add(np.char.add(labels["month"], "|"), bands)
             grouping = {name: indices(value) for name, value in labels.items()}
-            _, b2_prediction = b2.predict(columns, bands)
+            _, b2_prediction = b2.predict(b2_columns(columns, v2), bands)
             predictions: dict[str, np.ndarray] = {
                 "B2_frozen_v3": b2_prediction.astype(np.float64)
             }
@@ -926,6 +953,12 @@ def main() -> None:
         "run_id": config["run_id"],
         "scale": scale,
         "scope": "observed_2024_phase2_evaluation",
+        "core_feature_contract": training.get("core_feature_contract"),
+        "evaluation_inputs_config": (
+            run_paths.evaluation_inputs_config_path(config)
+            .relative_to(ROOT)
+            .as_posix()
+        ),
         "december_2024_read": False,
         "locked_2025_read": False,
         "evaluation_months": config["evaluation_months"],

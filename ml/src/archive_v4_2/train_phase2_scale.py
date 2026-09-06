@@ -48,15 +48,16 @@ from train_validation import (  # noqa: E402
     peak_rss_gb,
     select_calibrator,
 )
+from feature_contract import (  # noqa: E402
+    core_feature_contract,
+    nowcast_features,
+    physics_features_v2,
+)
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 V4_RESULTS = ROOT / "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json"
-PHASE2_20M_EVALUATION = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "evaluation_20m_results.json"
-)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -124,8 +125,23 @@ def artifact(path: Path, repository_path: Path) -> dict[str, Any]:
 
 
 def v4_features() -> list[str]:
+    """The frozen 91-feature V1 nowcast order (archive-v4-features-v1)."""
     result = load_json(V4_RESULTS)["candidates"]["M2_nowcast"]
     return [str(value) for value in result["features"]]
+
+
+def contract_features(config: dict[str, Any]) -> list[str]:
+    """Nowcast feature order for the contract this config declares."""
+    return nowcast_features(config, v4_features())
+
+
+def contract_physics_features(config: dict[str, Any]) -> list[str]:
+    """Physics feature order (nowcast order minus the path-history lags)."""
+    if core_feature_contract(config) != "archive-v4-features-v2":
+        raise Phase2Error(
+            "physics retraining is only defined for archive-v4-features-v2"
+        )
+    return physics_features_v2(v4_features())
 
 
 def train_fold(
@@ -138,6 +154,7 @@ def train_fold(
     external_models: Path,
     repository_models: Path,
     previous: dict[str, Any] | None = None,
+    model_stem: str | None = None,
 ) -> dict[str, Any]:
     execution = config["compute"]["apple_silicon"]
     training_threads = int(config["training"]["parameters"]["nthread"])
@@ -230,7 +247,8 @@ def train_fold(
             ),
         }
     )
-    model_path = external_models / f"{candidate}_{fold}.json"
+    stem = model_stem or f"{candidate}_{fold}"
+    model_path = external_models / f"{stem}.json"
     model.save_model(model_path)
     train_rows = int(train_matrix.num_row())
     early_rows = int(early_matrix.num_row())
@@ -286,7 +304,7 @@ def train_fold(
             [str(config["calibration_month"])],
         )
         calibrator, comparison = select_calibrator(calibration)
-        calibrator_path = external_models / f"{candidate}_{fold}.joblib"
+        calibrator_path = external_models / f"{stem}.joblib"
         joblib.dump(calibrator, calibrator_path)
         output.update(
             {
@@ -322,6 +340,7 @@ def train_fold_task(task: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
         Path(task["external_models"]),
         Path(task["repository_models"]),
         previous=task["previous"],
+        model_stem=task.get("model_stem"),
     )
     return candidate, fold, result
 
@@ -370,18 +389,16 @@ def main() -> None:
     scale = int(args.scale)
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
-    manifest_path = (
-        ROOT
-        / "ml/data/manifests"
-        / f"propagation_v4_2_phase2_{scale // 1_000_000}m_cohorts.json"
-    )
+    manifest_path = run_paths.cohort_manifest_path(config, scale)
     manifest = load_json(manifest_path)
     if int(manifest["scale"]) != scale:
         raise Phase2Error("cohort manifest scale mismatch")
     if manifest["december_2024_read"] or manifest["locked_2025_read"]:
         raise Phase2Error("cohort manifest reports locked outcome access")
     phase2_20m_evaluation = (
-        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+        load_json(run_paths.evaluation_20m_path(config))
+        if scale == 50_000_000
+        else None
     )
     candidate_inventory, fold_inventory = scale_workset(
         config, scale, phase2_20m_evaluation
@@ -390,11 +407,12 @@ def main() -> None:
         raise Phase2Error("cohort manifest does not match the scale selection")
     if any(tuple(value) != fold_inventory for value in manifest["cohorts"].values()):
         raise Phase2Error("cohort manifest fold inventory does not match the scale")
-    features = v4_features()
+    contract = core_feature_contract(config)
+    features = contract_features(config)
     external_models, repository_models = ensure_model_root(config, scale)
-    result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
+    result_dir = run_paths.results_dir(config)
     result_dir.mkdir(parents=True, exist_ok=True)
-    result_path = result_dir / f"training_{scale // 1_000_000}m_results.json"
+    result_path = run_paths.training_results_path(config, scale)
     if result_path.exists():
         output = load_json(result_path)
     else:
@@ -406,6 +424,7 @@ def main() -> None:
             "scope": "development_only",
             "december_2024_read": False,
             "locked_2025_read": False,
+            "core_feature_contract": contract,
             "training_contract": config["training"],
             "cohort_manifest": manifest_path.relative_to(ROOT).as_posix(),
             "candidates": {},
@@ -416,6 +435,7 @@ def main() -> None:
             },
         }
     output["hardware_runtime"] = runtime
+    output["core_feature_contract"] = contract
     output["training_contract"] = config["training"]
     if args.candidate and args.candidate not in candidate_inventory:
         raise Phase2Error(f"candidate did not advance to this scale: {args.candidate}")

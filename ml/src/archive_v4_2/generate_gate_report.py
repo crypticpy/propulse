@@ -5,15 +5,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
-RUN_ID = "propagation_v4_2_phase2_scale"
-RESULT = ROOT / "ml/results/propagation_v4_2" / RUN_ID
-CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+MODULE = Path(__file__).resolve().parent
+if str(MODULE) not in sys.path:
+    sys.path.insert(0, str(MODULE))
+
+import run_paths  # noqa: E402
+
+DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -217,6 +222,7 @@ def synthetic_result(config: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--result")
     parser.add_argument("--synthetic", action="store_true")
     parser.add_argument("--output-dir", required=True)
@@ -231,7 +237,7 @@ def main() -> None:
     except ValueError as error:
         raise RuntimeError("gate report output must remain under the repository") from error
     output_dir.mkdir(parents=True, exist_ok=True)
-    config = read_json(CONFIG)
+    config = read_json(Path(args.config).resolve())
     if args.synthetic:
         result = synthetic_result(config)
         result_path = output_dir / "synthetic_gate_result.json"

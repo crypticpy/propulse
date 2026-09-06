@@ -30,16 +30,11 @@ from b2_adapter import load_profile  # noqa: E402
 from m5_runtime import configure_arrow_threads, validate_m5_runtime  # noqa: E402
 from phase2_core import Phase2Error, validate_config  # noqa: E402
 from score_phase2_scale import numeric  # noqa: E402
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 V3_RESULTS = ROOT / "ml/results/archive_v3/archive_v3_eight_month/hf_results.json"
-MANIFEST = ROOT / "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json"
-DEFAULT_OUTPUT = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "prediction_thread_benchmark.json"
-)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -92,11 +87,11 @@ def select_fastest_exact(results: list[dict[str, Any]]) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--manifest", default=str(MANIFEST))
+    parser.add_argument("--manifest")
     parser.add_argument("--profile", choices=("m5",), required=True)
     parser.add_argument("--rows", type=int, default=100_000)
     parser.add_argument("--repeats", type=int, default=5)
-    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--output")
     args = parser.parse_args()
     del args.profile
     if args.rows < 10_000 or args.repeats < 5:
@@ -105,7 +100,9 @@ def main() -> None:
     validate_config(config)
     runtime = validate_m5_runtime(config, xgboost_module=xgb)
     arrow = configure_arrow_threads(config, parallel_fit=False)
-    manifest_path = Path(args.manifest)
+    manifest_path = Path(
+        args.manifest or run_paths.cohort_manifest_path(config, 20_000_000)
+    )
     manifest = load_json(manifest_path)
     if manifest["december_2024_read"] or manifest["locked_2025_read"]:
         raise Phase2Error("benchmark manifest reports locked outcome access")

@@ -5,18 +5,26 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 
 ROOT = Path(__file__).resolve().parents[3]
+MODULE = Path(__file__).resolve().parent
+if str(MODULE) not in sys.path:
+    sys.path.insert(0, str(MODULE))
+
+import run_paths  # noqa: E402
+
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+# The frozen V1 outcome manifest. Config-driven callers must resolve their own
+# manifest with `manifest_path_for(config)` so a second run can never write to,
+# or read a freeze state from, the V1 protocol.
 DEFAULT_MANIFEST = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "outcome_protocol_manifest.json"
+    run_paths.RESULTS_ROOT / run_paths.V1_RUN_ID / "outcome_protocol_manifest.json"
 )
 REQUIRED_DECEMBER_FREEZES = {
     "config",
@@ -52,6 +60,16 @@ REQUIRED_DECEMBER_FREEZES = {
 
 class OutcomeProtocolError(RuntimeError):
     """Raised before an action would violate the V4.2 access protocol."""
+
+
+def manifest_path_for(config: Mapping[str, Any]) -> Path:
+    """Outcome-protocol manifest for the run a config declares."""
+    return run_paths.outcome_manifest_path(config)
+
+
+def resolve_manifest(value: str | Path | None, config: Mapping[str, Any]) -> Path:
+    """Resolve a ``--manifest`` argument, defaulting to the config's run."""
+    return Path(value or manifest_path_for(config)).resolve()
 
 
 def utc_now() -> str:

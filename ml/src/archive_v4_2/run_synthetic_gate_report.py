@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 import subprocess
@@ -17,27 +18,30 @@ sys.path.insert(0, str(MODULE))
 
 from outcome_protocol import atomic_write, load_json  # noqa: E402
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
+import run_paths  # noqa: E402
 
 
-CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
-OUTPUT = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "synthetic_gate_dry_run"
-)
+DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 
 
 def main() -> None:
-    config = load_json(CONFIG)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
+    args = parser.parse_args()
+    config_path = Path(args.config).resolve()
+    config = load_json(config_path)
     runtime = validate_m5_runtime(config)
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+    output_dir = run_paths.synthetic_gate_dir(config)
+    output_dir.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
             sys.executable,
             str(MODULE / "generate_gate_report.py"),
+            "--config",
+            str(config_path),
             "--synthetic",
             "--output-dir",
-            str(OUTPUT),
+            str(output_dir),
             "--profile",
             "m5",
         ],
@@ -52,9 +56,9 @@ def main() -> None:
             node,
             "ml/src/archive_v4/package_report.mjs",
             "--input",
-            str(OUTPUT / "REPORT.artifact.json"),
+            str(output_dir / "REPORT.artifact.json"),
             "--output",
-            str(OUTPUT / "REPORT.html"),
+            str(output_dir / "REPORT.html"),
         ],
         cwd=ROOT,
         check=True,
@@ -64,7 +68,7 @@ def main() -> None:
     lines = [value for value in process.stdout.splitlines() if value.strip()]
     receipt = json.loads(lines[-1])
     verification = receipt.get("stages", {}).get("verification")
-    html_path = OUTPUT / "REPORT.html"
+    html_path = output_dir / "REPORT.html"
     html = html_path.read_text(encoding="utf-8")
     checks = {
         "portable_builder_completed": bool(receipt),
@@ -78,6 +82,7 @@ def main() -> None:
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "scope": "synthetic_gate_report_dry_run",
+        "run_id": str(config["run_id"]),
         "synthetic": True,
         "december_2024_read": False,
         "locked_2025_read": False,
@@ -86,7 +91,7 @@ def main() -> None:
         "checks": checks,
         "passed": all(checks.values()),
     }
-    validation_path = OUTPUT / "report_validation.json"
+    validation_path = output_dir / "report_validation.json"
     atomic_write(validation_path, output)
     print(validation_path)
     if not output["passed"]:

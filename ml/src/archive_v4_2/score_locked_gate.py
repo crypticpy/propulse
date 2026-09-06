@@ -34,7 +34,6 @@ from b2_adapter import load_profile  # noqa: E402
 from gate_scoring import decide_archive, decide_december  # noqa: E402
 from m5_runtime import configure_arrow_threads  # noqa: E402
 from outcome_protocol import (  # noqa: E402
-    DEFAULT_MANIFEST,
     OutcomeProtocolError,
     atomic_write,
     load_json,
@@ -45,8 +44,8 @@ from outcome_protocol import (  # noqa: E402
 )
 from score_phase2_scale import (  # noqa: E402
     CALIBRATION_BINS,
-    PREDICTION_THREAD_BENCHMARK,
     STAT_SIZE,
+    b2_columns,
     add_group,
     calibration_result,
     date_labels,
@@ -61,6 +60,8 @@ from score_phase2_scale import (  # noqa: E402
     update_calibration,
 )
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
+from feature_contract import WSPR_PATH_FEATURES, is_v2  # noqa: E402
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -210,16 +211,26 @@ def score(
     config: dict[str, Any],
     bundle_path: Path,
 ) -> tuple[dict[str, Any], int]:
+    benchmark_path = run_paths.prediction_thread_benchmark_path(config)
     prediction_threads = selected_prediction_threads(
         config,
-        load_json(PREDICTION_THREAD_BENCHMARK),
-        file_sha256(PREDICTION_THREAD_BENCHMARK),
+        load_json(benchmark_path),
+        file_sha256(benchmark_path),
     )
+    v2 = is_v2(config)
     candidate = BundlePredictor(bundle_path, prediction_threads)
     v3_results = load_json(V3_RESULTS)
     b2 = load_profile("nowcast", v3_results["profiles"]["nowcast"], ROOT)
     b2.model.set_param({"nthread": prediction_threads})
-    features = list(dict.fromkeys([*candidate.features, *b2.features]))
+    features = list(
+        dict.fromkeys(
+            [
+                *candidate.features,
+                *b2.features,
+                *(WSPR_PATH_FEATURES if v2 else ()),
+            ]
+        )
+    )
     variants = ("candidate", "B2_frozen_v3")
     dimensions = ("month", "day", "week", "band", "distance")
     overall = {name: np.zeros(STAT_SIZE, dtype=np.float64) for name in variants}
@@ -282,7 +293,7 @@ def score(
             predictions = {
                 "candidate": candidate.predict(columns, bands, distance),
             }
-            _, b2_prediction = b2.predict(columns, bands)
+            _, b2_prediction = b2.predict(b2_columns(columns, v2), bands)
             predictions["B2_frozen_v3"] = b2_prediction.astype(np.float64)
             for name, prediction in predictions.items():
                 values = contributions(target, prediction, weight)
@@ -328,7 +339,7 @@ def score(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
+    parser.add_argument("--manifest")
     parser.add_argument("--scope", choices=("december", "archive"), required=True)
     parser.add_argument("--attempt-id", required=True)
     parser.add_argument("--dataset", action="append", default=[], required=True)
@@ -339,8 +350,10 @@ def main() -> None:
     del args.profile
     started = time.monotonic()
     config_path = Path(args.config).resolve()
-    manifest_path = Path(args.manifest).resolve()
     config = load_json(config_path)
+    manifest_path = Path(
+        args.manifest or run_paths.outcome_manifest_path(config)
+    ).resolve()
     runtime = validate_m5_runtime(config)
     arrow = configure_arrow_threads(config, parallel_fit=False)
     manifest = load_json(manifest_path)
@@ -358,14 +371,9 @@ def main() -> None:
     audit_path = repository_path(args.integrity_audit)
     audit = load_json(audit_path)
     inputs = verified_inputs(paths, audit)
-    result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
-    bundle_path = (
-        ROOT
-        / "ml/models/archive_v4_2"
-        / config["run_id"]
-        / "serving/serving_manifest.json"
-    )
-    phase3_path = result_dir / "phase3_candidate_validation.json"
+    result_dir = run_paths.results_dir(config)
+    bundle_path = run_paths.serving_manifest_path(config)
+    phase3_path = run_paths.phase3_validation_path(config)
     phase3 = load_json(phase3_path)
     if not phase3["passed"]:
         raise OutcomeProtocolError("Phase 3 validation no longer passes")

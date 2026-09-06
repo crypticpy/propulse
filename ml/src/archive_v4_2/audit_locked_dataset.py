@@ -21,13 +21,14 @@ MODULE = Path(__file__).resolve().parent
 sys.path.insert(0, str(MODULE))
 
 from outcome_protocol import (  # noqa: E402
-    DEFAULT_MANIFEST,
     OutcomeProtocolError,
     load_json,
+    resolve_manifest,
     resume_scope,
     sha256,
 )
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
+from feature_contract import nowcast_features  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -77,9 +78,10 @@ def parse_parts(values: list[str], expected: list[str]) -> dict[str, Path]:
     return output
 
 
-def required_features() -> list[str]:
+def required_features(config: dict[str, Any]) -> list[str]:
+    """Feature columns the gate dataset must carry under this contract."""
     value = load_json(V4_RESULTS)["candidates"]["M2_nowcast"]
-    return list(map(str, value["features"]))
+    return nowcast_features(config, list(map(str, value["features"])))
 
 
 def dataset_stats(
@@ -108,7 +110,7 @@ def dataset_stats(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
+    parser.add_argument("--manifest")
     parser.add_argument("--scope", choices=("december", "archive"), required=True)
     parser.add_argument("--attempt-id", required=True)
     parser.add_argument("--dataset", action="append", default=[], required=True)
@@ -120,7 +122,8 @@ def main() -> None:
     del args.profile
     config = load_json(Path(args.config))
     runtime = validate_m5_runtime(config)
-    protocol = load_json(Path(args.manifest))
+    manifest_path = resolve_manifest(args.manifest, config)
+    protocol = load_json(manifest_path)
     resume_scope(protocol, args.scope, args.attempt_id)
     months = list(
         map(
@@ -156,7 +159,7 @@ def main() -> None:
         set(opportunity_rows) == set(months),
         sorted(opportunity_rows),
     )
-    features = required_features()
+    features = required_features(config)
     datasets = {}
     con = duckdb.connect()
     con.execute("SET TimeZone='UTC'")

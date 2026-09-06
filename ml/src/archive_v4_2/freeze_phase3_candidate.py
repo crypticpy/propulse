@@ -24,7 +24,6 @@ MODULE = Path(__file__).resolve().parent
 sys.path.insert(0, str(MODULE))
 
 from outcome_protocol import (  # noqa: E402
-    DEFAULT_MANIFEST,
     OutcomeProtocolError,
     artifact,
     atomic_write,
@@ -32,13 +31,14 @@ from outcome_protocol import (  # noqa: E402
     initialize,
     load_json,
     mark_candidate_frozen,
+    resolve_manifest,
 )
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
+from feature_contract import is_v2  # noqa: E402
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
-RUN_ID = "propagation_v4_2_phase2_scale"
-RESULT = ROOT / "ml/results/propagation_v4_2" / RUN_ID
 V3_RESULTS = ROOT / "ml/results/archive_v3/archive_v3_eight_month/hf_results.json"
 
 
@@ -76,28 +76,27 @@ def checked(path: Path, name: str) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
+    parser.add_argument("--manifest")
     parser.add_argument("--profile", choices=("m5",), required=True)
     args = parser.parse_args()
     del args.profile
     config_path = Path(args.config).resolve()
-    manifest_path = Path(args.manifest).resolve()
     config = load_json(config_path)
+    manifest_path = resolve_manifest(args.manifest, config)
+    result = run_paths.results_dir(config)
     runtime = validate_m5_runtime(config)
     v3_results = load_json(V3_RESULTS)
     b2_info = v3_results["profiles"]["nowcast"]
     b2_model_path = ROOT / str(b2_info["model_path"])
     b2_calibrator_path = b2_model_path.with_suffix(".isotonic.joblib")
-    training_path = RESULT / "training_50m_results.json"
-    evaluation_path = RESULT / "evaluation_50m_results.json"
-    validation_path = RESULT / "validation_50m.json"
-    phase2_report_path = RESULT / "REPORT.artifact.json"
-    phase2_html_path = RESULT / "REPORT.html"
-    serving_path = (
-        ROOT / "ml/models/archive_v4_2" / RUN_ID / "serving/serving_manifest.json"
-    )
-    phase3_path = RESULT / "phase3_candidate_validation.json"
-    synthetic_path = RESULT / "synthetic_gate_dry_run/report_validation.json"
+    training_path = run_paths.training_results_path(config, 50_000_000)
+    evaluation_path = run_paths.evaluation_results_path(config, 50_000_000)
+    validation_path = run_paths.validation_results_path(config, 50_000_000)
+    phase2_report_path = result / "REPORT.artifact.json"
+    phase2_html_path = result / "REPORT.html"
+    serving_path = run_paths.serving_manifest_path(config)
+    phase3_path = run_paths.phase3_validation_path(config)
+    synthetic_path = run_paths.synthetic_gate_dir(config) / "report_validation.json"
     evaluation = load_json(evaluation_path)
     if evaluation.get("final_candidate_selection") is None:
         raise OutcomeProtocolError("no 50M candidate is eligible to freeze")
@@ -111,7 +110,7 @@ def main() -> None:
         phase2_report_path,
         phase2_html_path,
         serving_path,
-        RESULT / "prediction_thread_benchmark.json",
+        run_paths.prediction_thread_benchmark_path(config),
         V3_RESULTS,
         b2_model_path,
         b2_calibrator_path,
@@ -119,7 +118,7 @@ def main() -> None:
     missing = [path for path in required_files if not path.is_file()]
     if missing:
         raise FileNotFoundError(missing)
-    source_freeze_path = RESULT / "source_pipeline_freeze.json"
+    source_freeze_path = run_paths.source_freeze_path(config)
     source_freeze = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -129,7 +128,7 @@ def main() -> None:
         "sources": {name: artifact(path) for name, path in SOURCE_FILES.items()},
     }
     atomic_write(source_freeze_path, source_freeze)
-    environment_path = RESULT / "candidate_environment.json"
+    environment_path = result / "candidate_environment.json"
     environment = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -180,12 +179,24 @@ def main() -> None:
         "v3_b2_results": V3_RESULTS,
         "v3_b2_model": b2_model_path,
         "v3_b2_calibrator": b2_calibrator_path,
-        "prediction_thread_benchmark": RESULT / "prediction_thread_benchmark.json",
+        "prediction_thread_benchmark": run_paths.prediction_thread_benchmark_path(
+            config
+        ),
         "gate_report_generator": MODULE / "generate_gate_report.py",
         "gate_report_dry_run_validation": synthetic_path,
         "candidate_environment": environment_path,
         "source_pipeline": source_freeze_path,
     }
+    if is_v2(config):
+        # The V2 contract adds modules the gate chain depends on. They are
+        # frozen only for V2 so the V1 protocol manifest stays untouched.
+        frozen.update(
+            {
+                "feature_contract": MODULE / "feature_contract.py",
+                "run_paths": MODULE / "run_paths.py",
+                "physics_trainer": MODULE / "train_phase3_physics.py",
+            }
+        )
     for name, path in frozen.items():
         freeze_artifact(manifest_path, name, path)
     manifest = mark_candidate_frozen(manifest_path)

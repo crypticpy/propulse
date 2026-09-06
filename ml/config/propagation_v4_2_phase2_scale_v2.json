@@ -1,0 +1,272 @@
+{
+  "run_id": "propagation_v4_2_phase2_scale_v2",
+  "cohort_manifest_prefix": "propagation_v4_2_phase2_v2",
+  "core_feature_contract": "archive-v4-features-v2",
+  "candidate_label": "A7_field_recency_v2",
+  "evaluation_inputs_config": "ml/config/propagation_v4_2_v2.json",
+  "execution_scope": "development",
+  "seed": 20260711,
+  "frozen_outcomes": {
+    "forbidden": [
+      "2024-12",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
+    "evaluation": [
+      "2024-10",
+      "2024-11"
+    ]
+  },
+  "source_roots": {
+    "quarterly": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_v2_hf.parquet",
+    "supplemental": {
+      "2024-02": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_v2_hf.parquet/part-000.parquet",
+      "2024-05": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_v2_hf.parquet/part-001.parquet",
+      "2024-08": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_v2_hf.parquet/part-002.parquet",
+      "2024-11": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_v2_hf.parquet/part-000.parquet"
+    }
+  },
+  "base_training_months": [
+    "2018-01",
+    "2018-04",
+    "2018-07",
+    "2018-10",
+    "2019-01",
+    "2019-04",
+    "2019-07",
+    "2019-10",
+    "2020-01",
+    "2020-04",
+    "2020-07",
+    "2020-10",
+    "2021-01",
+    "2021-04",
+    "2021-07",
+    "2021-10",
+    "2022-01",
+    "2022-04",
+    "2022-07",
+    "2022-10",
+    "2023-01",
+    "2023-04",
+    "2023-07",
+    "2023-10"
+  ],
+  "rolling_folds": {
+    "F1_2024_02": {
+      "early_stopping_month": "2024-02",
+      "recency_reference": "2024-02-01T00:00:00Z",
+      "available_2024_training_months": [
+        "2024-01"
+      ]
+    },
+    "F2_2024_05": {
+      "early_stopping_month": "2024-05",
+      "recency_reference": "2024-05-01T00:00:00Z",
+      "available_2024_training_months": [
+        "2024-01",
+        "2024-02",
+        "2024-04"
+      ]
+    },
+    "F3_2024_07": {
+      "early_stopping_month": "2024-07",
+      "recency_reference": "2024-07-01T00:00:00Z",
+      "available_2024_training_months": [
+        "2024-01",
+        "2024-02",
+        "2024-04",
+        "2024-05"
+      ]
+    }
+  },
+  "final_fold": "F3_2024_07",
+  "calibration_month": "2024-08",
+  "evaluation_months": [
+    "2024-10",
+    "2024-11"
+  ],
+  "candidates": {
+    "A2_long_natural": {
+      "training_family": "long_natural",
+      "features": "v2",
+      "weight": "training_weight"
+    },
+    "A4_recent_cycle": {
+      "training_family": "recent_cycle",
+      "features": "v2",
+      "weight": "training_weight"
+    },
+    "A5_recency_weighted": {
+      "training_family": "long_recent",
+      "features": "v2",
+      "weight": "recency_training_weight"
+    }
+  },
+  "sampling": {
+    "scales": [
+      20000000,
+      50000000
+    ],
+    "early_stopping_rows": 5000000,
+    "calibration_rows": 5000000,
+    "hash_oversample_fraction": 0.002,
+    "recency_half_life_months": 18,
+    "regenerate_phase1_samples": true
+  },
+  "training": {
+    "num_boost_round": 2000,
+    "early_stopping_rounds": 75,
+    "batch_rows": 250000,
+    "capacity_amendment": {
+      "prior_num_boost_round": 1200,
+      "trigger": "A2 rolling folds F1 and F2 completed all 1,200 rounds with best iterations 1,198 and 1,193.",
+      "basis": "Early-stopping validation folds only; October and November evaluation remained unscored.",
+      "continuation": "Continue exact checkpoint boosters under the same parameters and fold-specific validation data.",
+      "maximum_total_boost_round": 2000
+    },
+    "parameters": {
+      "objective": "binary:logistic",
+      "eval_metric": "logloss",
+      "tree_method": "hist",
+      "max_depth": 9,
+      "min_child_weight": 200,
+      "eta": 0.04,
+      "subsample": 0.85,
+      "colsample_bytree": 0.9,
+      "lambda": 8.0,
+      "alpha": 0.25,
+      "max_bin": 255,
+      "nthread": 14
+    }
+  },
+  "conditional_policy": {
+    "name": "A6_recent_recency_blend",
+    "left": "A4_recent_cycle",
+    "right": "A5_recency_weighted",
+    "selection_month": "2024-08",
+    "calibrator_fit_days": [
+      1,
+      20
+    ],
+    "policy_selection_days": [
+      21,
+      31
+    ],
+    "left_weight_grid_step": 0.05,
+    "bootstrap_repetitions": 2000
+  },
+  "advancement": {
+    "maximum_50m_components": 2,
+    "robust_b2_rule": "aggregate and both months below B2 with paired-day upper 95% below zero",
+    "learning_rule": "aggregate and both months improve the same 5M candidate with paired-day upper 95% below zero and aggregate is within 0.25% relative of B2",
+    "maximum_relative_gap_to_b2": 0.0025,
+    "minimum_20m_to_50m_relative_improvement_for_100m": 0.01
+  },
+  "final_selection": {
+    "primary_rule": "lowest evaluation Brier among candidates that beat B2 in aggregate and both months with paired-day upper 95% below zero",
+    "fallback_rule": "lowest evaluation Brier among candidates that improve their own 20M version in aggregate and both months with paired-day upper 95% below zero and remain within 0.25% relative of B2",
+    "tie_break": "candidate identifier ascending",
+    "no_eligible_candidate": "stop before December access"
+  },
+  "phase3": {
+    "parity_tolerance": 1e-12,
+    "rows_per_evaluation_month": 256,
+    "latency_single_repetitions": 50,
+    "latency_batch_rows": 4096,
+    "latency_batch_repetitions": 5,
+    "maximum_single_p95_ms": 50,
+    "maximum_batch_p95_ms": 3000,
+    "maximum_validation_rss_gb": 32,
+    "maximum_bundle_bytes": 268435456,
+    "stale_path_history_seconds": 7200,
+    "serving_xgboost_threads": 1
+  },
+  "phase4": {
+    "gate_months": [
+      "2024-12"
+    ],
+    "batch_rows": 100000,
+    "bootstrap_repetitions": 2000,
+    "minimum_relative_brier_improvement_vs_b2": 0.01,
+    "minimum_qualified_day_opportunities": 1000000,
+    "minimum_qualified_day_win_fraction": 0.75,
+    "minimum_supported_slice_rows": 10000,
+    "minimum_supported_slice_opportunities": 1000000,
+    "maximum_week_relative_brier_regression": 0.02,
+    "maximum_band_relative_brier_regression": 0.02,
+    "short_distance_bins": [
+      "0-500 km",
+      "500-1500 km",
+      "1500-3000 km"
+    ],
+    "maximum_short_path_absolute_brier_regression": 0.0002,
+    "maximum_short_path_relative_brier_regression": 0.01,
+    "maximum_ece_delta_vs_b2": 0.002,
+    "maximum_high_confidence_gap_delta_vs_b2": 0.002
+  },
+  "phase5": {
+    "locked_months": [
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
+    "batch_rows": 100000,
+    "bootstrap_repetitions": 2000,
+    "minimum_aggregate_relative_brier_improvement_vs_b2": 0.01,
+    "minimum_months_with_point_improvement": 3,
+    "minimum_supported_slice_rows": 10000,
+    "minimum_supported_slice_opportunities": 1000000,
+    "maximum_band_relative_brier_regression": 0.03,
+    "maximum_ece_delta_vs_b2": 0.002,
+    "maximum_high_confidence_gap_delta_vs_b2": 0.002
+  },
+  "outcome_protocol": {
+    "prospective_window": [
+      "2026-08-01",
+      "2026-09-30"
+    ],
+    "minimum_free_gb_before_acquisition": 400,
+    "minimum_free_gb_before_scoring": 150,
+    "wspr_archive_url": "https://www.wsprnet.org/archive/wsprspots-{month}.csv.gz",
+    "noaa_swpc_json_url": "https://services.swpc.noaa.gov/json/",
+    "nasa_omni_url": "https://omniweb.gsfc.nasa.gov/html/ow_data.html",
+    "gfz_kp_url": "https://kp.gfz.de/en/data"
+  },
+  "compute": {
+    "required_profile": "m5",
+    "external_root": "/Volumes/Projects/PropulseML",
+    "data_root": "/Volumes/Projects/PropulseML/data/processed/archive_v4_2",
+    "temp_root": "/Volumes/Projects/PropulseML/tmp/propagation_v4_2_phase2_scale_v2",
+    "maximum_rss_gb": 96,
+    "apple_silicon": {
+      "required_machine": "arm64",
+      "physical_cores": 18,
+      "performance_cores": 12,
+      "efficiency_cores": 6,
+      "duckdb_threads": 18,
+      "parallel_fit_workers": 2,
+      "threads_per_parallel_fit": 9,
+      "arrow_io_threads_per_fit": 4,
+      "arrow_io_threads_single_process": 6,
+      "required_power_source": "AC Power",
+      "required_ac_power_mode": 2,
+      "backend": "native_arm64_xgboost_openmp_cpu",
+      "gpu_backend": "unavailable_xgboost_build_has_no_cuda_and_no_metal_backend",
+      "backend_benchmark": {
+        "candidate": "A4_recent_cycle",
+        "fold": "F3_2024_07",
+        "scale": 20000000,
+        "target_scale": 50000000,
+        "fixed_boost_rounds": 50,
+        "minimum_speedup_to_adopt": 1.5,
+        "maximum_parallel_peak_rss_gb": 80,
+        "maximum_validation_logloss_difference": 1e-06,
+        "fifty_million_backend": "streamed_in_memory_quantile"
+      }
+    }
+  }
+}

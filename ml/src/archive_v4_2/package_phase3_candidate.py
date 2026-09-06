@@ -20,6 +20,12 @@ MODULE = Path(__file__).resolve().parent
 sys.path.insert(0, str(MODULE))
 
 from phase2_core import Phase2Error, validate_config  # noqa: E402
+from feature_contract import (  # noqa: E402
+    CORE_FEATURE_CONTRACT_V2,
+    assert_servable,
+    core_feature_contract,
+)
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -28,6 +34,15 @@ V4_RESULTS = (
     / "ml/results/propagation_v4/propagation_v4_multiyear_50m"
     / "development_results.json"
 )
+#: The serving-side path-history contract the V2 recency features require.
+PATH_HISTORY_CONTRACT_V2 = {
+    "provider_kind": "field-recency-v2",
+    "transform_version": "psk-rbn-field-recency-v2",
+    "offline_transform_version": "wspr-field-recency-v2",
+    "statistic": "recency_quantile",
+    "normalisation": "percent_rank_within_band_hour_by_recency_rate",
+    "mode_class_selector": "serving_time",
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -154,6 +169,51 @@ def copied_physics(v4_results: dict[str, Any], bundle: Path) -> dict[str, Any]:
     }
 
 
+def trained_physics(training: dict[str, Any], bundle: Path) -> dict[str, Any]:
+    """Package the physics component trained under this run's contract.
+
+    Under archive-v4-features-v2 the frozen V1 physics booster cannot be
+    reused: it consumes four raw weather channels production cannot serve.
+    `train_phase3_physics.py` retrains M1_physics on the V2 physics order and
+    records it beside the nowcast candidates.
+    """
+    info = training.get("physics")
+    if info is None:
+        raise Phase2Error(
+            "the V2 contract requires a retrained physics component; "
+            "run train_phase3_physics.py before packaging"
+        )
+    model_source = verify_artifact(info["model"])
+    calibrator_source = verify_artifact(info["calibrator"])
+    model_target = bundle / "physics_M1.json"
+    calibrator_target = bundle / "physics_M1.joblib"
+    atomic_copy(model_source, model_target)
+    atomic_copy(calibrator_source, calibrator_target)
+    return {
+        "kind": "single",
+        "component": "M1_physics",
+        "model_path": model_target.name,
+        "model_sha256": sha256(model_target),
+        "calibrator_path": calibrator_target.name,
+        "calibrator_sha256": sha256(calibrator_target),
+        "features": list(map(str, info["features"])),
+        "best_iteration": int(info["best_iteration"]),
+        "calibration_method": str(info["calibration_method"]),
+        "top_factors": [
+            str(row["feature"])
+            for row in info.get("feature_importance_gain", [])[:8]
+        ],
+    }
+
+
+def profile_features(profile: dict[str, Any]) -> list[list[str]]:
+    if profile["kind"] == "single":
+        return [list(map(str, profile["features"]))]
+    return [
+        list(map(str, component["features"])) for component in profile["components"]
+    ]
+
+
 def public_profile(profile: dict[str, Any], prefix: str) -> dict[str, Any]:
     if profile["kind"] == "single":
         return {
@@ -183,10 +243,12 @@ def main() -> None:
     config_path = Path(args.config).resolve()
     config = load_json(config_path)
     validate_config(config)
-    result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
-    training_path = result_dir / "training_50m_results.json"
-    evaluation_path = result_dir / "evaluation_50m_results.json"
-    validation_path = result_dir / "validation_50m.json"
+    contract = core_feature_contract(config)
+    v2 = contract == CORE_FEATURE_CONTRACT_V2
+    result_dir = run_paths.results_dir(config)
+    training_path = run_paths.training_results_path(config, 50_000_000)
+    evaluation_path = run_paths.evaluation_results_path(config, 50_000_000)
+    validation_path = run_paths.validation_results_path(config, 50_000_000)
     training = load_json(training_path)
     evaluation = load_json(evaluation_path)
     validation = load_json(validation_path)
@@ -204,15 +266,8 @@ def main() -> None:
     selected = str(selection["candidate"])
     components = selected_components(evaluation, selected)
     final_fold = str(config["final_fold"])
-    bundle = (
-        Path(config["compute"]["external_root"])
-        / "models/archive_v4_2"
-        / config["run_id"]
-        / "serving"
-    )
-    repository_bundle = (
-        ROOT / "ml/models/archive_v4_2" / config["run_id"] / "serving"
-    )
+    bundle = run_paths.external_serving_bundle_dir(config)
+    repository_bundle = run_paths.serving_bundle_dir(config)
     bundle.mkdir(parents=True, exist_ok=True)
     nowcast_components = [
         copied_component(
@@ -259,7 +314,8 @@ def main() -> None:
         "locked_archive_test_scored": False,
         "prospective_test_scored": False,
         "feature_contract": "station-chain-v1",
-        "core_feature_contract": "archive-v4-features-v1",
+        "core_feature_contract": contract,
+        "candidate_label": str(config.get("candidate_label", selected)),
         "train_cap": 50_000_000,
         "primary_candidate": selected,
         "selection_basis": selection["basis"],
@@ -272,7 +328,11 @@ def main() -> None:
             ),
         },
         "profiles": {
-            "physics": copied_physics(load_json(V4_RESULTS), bundle),
+            "physics": (
+                trained_physics(training, bundle)
+                if v2
+                else copied_physics(load_json(V4_RESULTS), bundle)
+            ),
             "nowcast": nowcast,
         },
         "frozen_inputs": {
@@ -288,6 +348,16 @@ def main() -> None:
             "StationCast remains a deterministic private-at-inference adapter.",
         ],
     }
+    if v2:
+        manifest["path_history_contract"] = dict(PATH_HISTORY_CONTRACT_V2)
+    for profile_name, profile in manifest["profiles"].items():
+        for features in profile_features(profile):
+            try:
+                assert_servable(features)
+            except Exception as error:  # noqa: BLE001 - re-raised as Phase2Error
+                raise Phase2Error(
+                    f"{profile_name} profile is not servable: {error}"
+                ) from error
     bundle_manifest = bundle / "serving_manifest.json"
     atomic_write(bundle_manifest, manifest)
     public_prefix = f"ml/models/archive_v4_2/{config['run_id']}/serving"

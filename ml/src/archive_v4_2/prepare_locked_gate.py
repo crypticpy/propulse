@@ -19,22 +19,18 @@ V3 = ROOT / "ml/src/archive_v3"
 sys.path.insert(0, str(MODULE))
 
 from outcome_protocol import (  # noqa: E402
-    DEFAULT_MANIFEST,
     OutcomeProtocolError,
     atomic_write,
     load_json,
+    resolve_manifest,
     resume_scope,
     sha256,
 )
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
-SOURCE_FREEZE = (
-    ROOT
-    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
-    / "source_pipeline_freeze.json"
-)
 
 
 def scoped_config(
@@ -86,34 +82,130 @@ def run(command: list[str], env: dict[str, str]) -> None:
     subprocess.run(command, cwd=ROOT, env=env, check=True)
 
 
-def verify_source_freeze(path: Path = SOURCE_FREEZE) -> None:
+def source_freeze_checks(path: Path) -> dict[str, str]:
+    """Per-source freeze-hash verdicts, for reporting or enforcement."""
     value = load_json(path)
+    verdicts: dict[str, str] = {}
     for name, item in value["sources"].items():
         source = ROOT / item["path"]
-        if (
-            not source.is_file()
-            or source.stat().st_size != int(item["bytes"])
-            or sha256(source) != str(item["sha256"])
-        ):
-            raise OutcomeProtocolError(f"frozen gate source changed: {name}")
+        if not source.is_file():
+            verdicts[name] = "missing"
+        elif source.stat().st_size != int(item["bytes"]):
+            verdicts[name] = "size changed"
+        elif sha256(source) != str(item["sha256"]):
+            verdicts[name] = "hash changed"
+        else:
+            verdicts[name] = "ok"
+    return verdicts
+
+
+def verify_source_freeze(path: Path) -> None:
+    for name, verdict in source_freeze_checks(path).items():
+        if verdict != "ok":
+            raise OutcomeProtocolError(
+                f"frozen gate source changed: {name} ({verdict})"
+            )
+
+
+def dry_run(
+    config: dict[str, Any],
+    config_path: Path,
+    manifest_path: Path,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Resolve and report every path this stage would touch, writing nothing."""
+    scope = str(args.scope)
+    months = list(
+        map(
+            str,
+            config["phase4"]["gate_months"]
+            if scope == "december"
+            else config["phase5"]["locked_months"],
+        )
+    )
+    scoped = scoped_config(config, scope, months)
+    namespace = str(scoped["archive_namespace"])
+    data_root = ROOT / "ml/data"
+    dataset = (
+        data_root / "processed" / namespace / f"dataset_{scoped['run_id']}_hf.parquet"
+    )
+    result_dir = run_paths.results_dir(config)
+    source_freeze = run_paths.source_freeze_path(config)
+    report: dict[str, Any] = {
+        "dry_run": True,
+        "scope": scope,
+        "run_id": str(config["run_id"]),
+        "months": months,
+        "config": str(config_path),
+        "manifest": str(manifest_path),
+        "manifest_exists": manifest_path.exists(),
+        "gate_run_id": str(scoped["run_id"]),
+        "archive_namespace": namespace,
+        "temp_root": str(config["compute"]["temp_root"]),
+        "data_config": str(
+            data_root / "manifests" / f"{config['run_id']}_{scope}_data_config.json"
+        ),
+        "datasets": {
+            month: str(dataset / f"part-{index:03d}.parquet")
+            for index, month in enumerate(months)
+        },
+        "opportunity_manifest": str(
+            data_root / "manifests" / f"{scoped['run_id']}_hf_opportunities.json"
+        ),
+        "source_manifest": str(
+            data_root / "manifests" / f"{scoped['run_id']}_sources.json"
+        ),
+        "integrity_audit": str(result_dir / f"{scope}_integrity_audit.json"),
+        "output": str(result_dir / f"{scope}_data_preparation.json"),
+        "source_pipeline_freeze": str(source_freeze),
+        "resolved_paths": run_paths.resolved_paths(config),
+    }
+    report["source_freeze_checks"] = (
+        source_freeze_checks(source_freeze)
+        if source_freeze.is_file()
+        else "unavailable: source_pipeline_freeze.json has not been written"
+    )
+    if manifest_path.exists() and args.attempt_id:
+        try:
+            resume_scope(load_json(manifest_path), scope, args.attempt_id)
+            report["resume"] = "would resume"
+        except Exception as error:  # noqa: BLE001 - reported, not raised
+            report["resume"] = f"would refuse: {error}"
+    else:
+        report["resume"] = "not checked: pass --attempt-id to verify resumption"
+    return report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
+    parser.add_argument("--manifest")
     parser.add_argument("--scope", choices=("december", "archive"), required=True)
-    parser.add_argument("--attempt-id", required=True)
+    parser.add_argument("--attempt-id")
     parser.add_argument("--profile", choices=("m5",), required=True)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Print every resolved path and freeze-hash check without "
+            "acquiring data or writing anything."
+        ),
+    )
     args = parser.parse_args()
     del args.profile
     config_path = Path(args.config).resolve()
-    manifest_path = Path(args.manifest).resolve()
     config = load_json(config_path)
+    manifest_path = resolve_manifest(args.manifest, config)
+    source_freeze = run_paths.source_freeze_path(config)
+    if args.dry_run:
+        print(json.dumps(dry_run(config, config_path, manifest_path, args), indent=2))
+        return
+    if not args.attempt_id:
+        parser.error("--attempt-id is required unless --dry-run is given")
     validate_m5_runtime(config)
     manifest = load_json(manifest_path)
     resume_scope(manifest, args.scope, args.attempt_id)
-    verify_source_freeze()
+    verify_source_freeze(source_freeze)
     months = list(
         map(
             str,
@@ -181,7 +273,7 @@ def main() -> None:
         data_root / "manifests" / f"{scoped['run_id']}_hf_opportunities.json"
     )
     source_manifest = data_root / "manifests" / f"{scoped['run_id']}_sources.json"
-    result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
+    result_dir = run_paths.results_dir(config)
     audit_path = result_dir / f"{args.scope}_integrity_audit.json"
     audit_command = [
         python,

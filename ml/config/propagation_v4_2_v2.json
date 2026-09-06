@@ -1,0 +1,65 @@
+{
+  "run_id": "propagation_v4_2_performance_recovery_v2",
+  "seed": 20260712,
+  "diagnosis": {
+    "development_months": [
+      "2024-02",
+      "2024-04",
+      "2024-05",
+      "2024-08"
+    ],
+    "evaluation_months": [
+      "2024-10",
+      "2024-11"
+    ],
+    "forbidden_months": [
+      "2024-12",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
+    "batch_rows": 100000,
+    "bootstrap_repetitions": 2000,
+    "blend_step": 0.05,
+    "router_minimum_month_opportunities": 1000000,
+    "router_minimum_month_positive_mass": 1000,
+    "inputs": {
+      "2024-02": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_v2_hf.parquet/part-000.parquet",
+        "bytes": 7663569702,
+        "sha256": "ada76f4c5458a69ecba75d7fda9243b2641f89c607ec2d0b0af0992078658174"
+      },
+      "2024-04": {
+        "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_v2_hf.parquet/part-025.parquet",
+        "bytes": 8037547065,
+        "sha256": "1dee4f34cc9cb25229b02933989d9237f35ed28e3869aa539469cc35c590b55d"
+      },
+      "2024-05": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_v2_hf.parquet/part-001.parquet",
+        "bytes": 7246667292,
+        "sha256": "79db925133ece3835472a76e0bad6a16c2d59a46318c3b8e4cefff48d2822259"
+      },
+      "2024-08": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_v2_hf.parquet/part-002.parquet",
+        "bytes": 6646192251,
+        "sha256": "148017c9fa13ab7bbf6d53bd90bd9127c4a9abd0a8dafadb01d3ee4680370429"
+      },
+      "2024-10": {
+        "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_v2_hf.parquet/part-027.parquet",
+        "bytes": 7993717113,
+        "sha256": "8a49250e33d6576b0b78c374982c49bd9f15be320d4c7f7da0a606324f430ad2"
+      },
+      "2024-11": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_v2_hf.parquet/part-000.parquet",
+        "bytes": 7753094178,
+        "sha256": "a0645c9ae8c5f37d450125881146bd7340d307da19f22d3c6bc6958b9f8be173"
+      }
+    }
+  },
+  "frozen_candidates": {
+    "v3_results": "ml/results/archive_v3/archive_v3_eight_month/hf_results.json",
+    "v4_results": "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json"
+  },
+  "output": "ml/results/propagation_v4_2/propagation_v4_2_performance_recovery_v2/diagnosis.json"
+}

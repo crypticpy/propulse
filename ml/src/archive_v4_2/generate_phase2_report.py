@@ -17,16 +17,11 @@ sys.path.insert(0, str(MODULE))
 
 from phase2_core import validate_config  # noqa: E402
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
+import run_paths  # noqa: E402
 
 
-RUN_ID = "propagation_v4_2_phase2_scale"
-RESULT = ROOT / "ml/results/propagation_v4_2" / RUN_ID
-CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 PHASE1 = ROOT / "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m"
-BACKEND_DECISION = RESULT / "backend_benchmark_decision.json"
-BACKEND_EXTERNAL = RESULT / "backend_benchmark_external_memory_quantile.json"
-BACKEND_QUANTILE = RESULT / "backend_benchmark_streamed_in_memory_quantile.json"
-PREDICTION_BENCHMARK = RESULT / "prediction_thread_benchmark.json"
 
 
 LABELS = {
@@ -359,27 +354,34 @@ def cohort_rows(path: Path) -> list[dict[str, Any]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--profile", choices=("m5",), required=True)
-    parser.add_argument(
-        "--evaluation-20m", default=str(RESULT / "evaluation_20m_results.json")
-    )
-    parser.add_argument(
-        "--evaluation-50m", default=str(RESULT / "evaluation_50m_results.json")
-    )
+    parser.add_argument("--evaluation-20m")
+    parser.add_argument("--evaluation-50m")
     args = parser.parse_args()
     del args.profile
 
-    config = read_json(CONFIG)
+    config = read_json(Path(args.config).resolve())
     validate_config(config)
     validate_m5_runtime(config)
+    run_id = str(config["run_id"])
+    result = run_paths.results_dir(config)
+    backend_decision_path = result / "backend_benchmark_decision.json"
+    backend_external_path = result / "backend_benchmark_external_memory_quantile.json"
+    backend_quantile_path = result / "backend_benchmark_streamed_in_memory_quantile.json"
+    prediction_benchmark_path = run_paths.prediction_thread_benchmark_path(config)
     phase1_evaluation = read_json(PHASE1 / "evaluation_results.json")
     phase1_conditional = read_json(PHASE1 / "conditional_results.json")
-    evaluation_20_path = Path(args.evaluation_20m).resolve()
-    evaluation_50_path = Path(args.evaluation_50m).resolve()
+    evaluation_20_path = Path(
+        args.evaluation_20m or run_paths.evaluation_results_path(config, 20_000_000)
+    ).resolve()
+    evaluation_50_path = Path(
+        args.evaluation_50m or run_paths.evaluation_results_path(config, 50_000_000)
+    ).resolve()
     evaluation_20 = read_json(evaluation_20_path)
     evaluation_50 = read_json(evaluation_50_path) if evaluation_50_path.exists() else None
-    training_20_path = RESULT / "training_20m_results.json"
-    training_50_path = RESULT / "training_50m_results.json"
+    training_20_path = run_paths.training_results_path(config, 20_000_000)
+    training_50_path = run_paths.training_results_path(config, 50_000_000)
     training_20 = read_json(training_20_path)
     training_50 = read_json(training_50_path) if training_50_path.exists() else None
     scope_values = [
@@ -503,10 +505,10 @@ def main() -> None:
         )
     feature_rows = combined_feature_rows(latest_training, latest, focus)
 
-    backend_external = read_json(BACKEND_EXTERNAL)
-    backend_quantile = read_json(BACKEND_QUANTILE)
-    backend_decision = read_json(BACKEND_DECISION)
-    prediction_benchmark = read_json(PREDICTION_BENCHMARK)
+    backend_external = read_json(backend_external_path)
+    backend_quantile = read_json(backend_quantile_path)
+    backend_decision = read_json(backend_decision_path)
+    prediction_benchmark = read_json(prediction_benchmark_path)
     ensure_open_scope(prediction_benchmark, "prediction thread benchmark")
     backend_rows = []
     for value, label in (
@@ -607,19 +609,19 @@ def main() -> None:
         union_source(
             "backend_combined",
             "M5 training backend benchmark",
-            [BACKEND_DECISION, BACKEND_EXTERNAL, BACKEND_QUANTILE],
+            [backend_decision_path, backend_external_path, backend_quantile_path],
         ),
         source("evaluation20", "20M held-out evaluation", evaluation_20_path),
         source("training20", "20M rolling training", training_20_path),
         source("phase1", "5M Phase 1 evaluation", PHASE1 / "evaluation_results.json"),
         source("conditional", "5M A6 policy evaluation", PHASE1 / "conditional_results.json"),
-        source("backend", "M5 backend benchmark decision", BACKEND_DECISION),
-        source("backend_external", "External-memory backend benchmark", BACKEND_EXTERNAL),
-        source("backend_quantile", "In-memory Quantile benchmark", BACKEND_QUANTILE),
+        source("backend", "M5 backend benchmark decision", backend_decision_path),
+        source("backend_external", "External-memory backend benchmark", backend_external_path),
+        source("backend_quantile", "In-memory Quantile benchmark", backend_quantile_path),
         source(
             "prediction_threads",
             "M5 XGBoost prediction-thread benchmark",
-            PREDICTION_BENCHMARK,
+            prediction_benchmark_path,
         ),
     ]
     if evaluation_50 is not None:
@@ -1007,7 +1009,7 @@ def main() -> None:
         },
         "sources": sources,
     }
-    write_json(RESULT / "REPORT.artifact.json", artifact)
+    write_json(result / "REPORT.artifact.json", artifact)
 
     markdown = f"""# Propagation V4.2 Phase 2: Scale, Transfer, and Efficiency
 
@@ -1073,12 +1075,12 @@ ml/.venv/bin/python ml/src/archive_v4_2/benchmark_prediction_threads.py \\
   --profile m5
 ml/.venv/bin/python ml/src/archive_v4_2/generate_phase2_report.py --profile m5
 node ml/src/archive_v4/package_report.mjs --input \\
-  ml/results/propagation_v4_2/{RUN_ID}/REPORT.artifact.json --output \\
-  ml/results/propagation_v4_2/{RUN_ID}/REPORT.html
+  ml/results/propagation_v4_2/{run_id}/REPORT.artifact.json --output \\
+  ml/results/propagation_v4_2/{run_id}/REPORT.html
 ```
 """
-    (RESULT / "REPORT.md").write_text(markdown, encoding="utf-8")
-    print(RESULT / "REPORT.artifact.json")
+    (result / "REPORT.md").write_text(markdown, encoding="utf-8")
+    print(result / "REPORT.artifact.json")
 
 
 if __name__ == "__main__":

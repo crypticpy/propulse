@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import json
 import math
 import os
@@ -37,13 +38,17 @@ from path_history import (  # noqa: E402
     VerifiedPathHistory,
 )
 from m5_runtime import configure_arrow_threads  # noqa: E402
-from package_phase3_candidate import selected_components  # noqa: E402
+from package_phase3_candidate import (  # noqa: E402
+    PATH_HISTORY_CONTRACT_V2,
+    selected_components,
+)
 from phase2_core import Phase2Error, validate_config  # noqa: E402
+from feature_contract import is_v2  # noqa: E402
+import run_paths  # noqa: E402
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
-PHASE0_CONFIG = ROOT / "ml/config/propagation_v4_2.json"
 RESPONSE_FIELDS = {
     "model_version",
     "feature_contract",
@@ -74,12 +79,32 @@ PRIVATE_KEYS = (
 
 
 class ValidationPathHistoryProvider:
-    name = "phase3-validation-fixture"
-    transform_version = DEFAULT_PATH_TRANSFORM_VERSION
+    """Fixture provider whose identity matches the packaged contract.
 
-    def __init__(self, values: dict[str, float], age_seconds: int) -> None:
+    Under archive-v4-features-v2 the served path-history fields come from the
+    field-recency transform, so the fixture must declare that provider and
+    transform version or the response provenance would not match the bundle.
+    """
+
+    def __init__(
+        self,
+        values: dict[str, float],
+        age_seconds: int,
+        *,
+        v2: bool = False,
+    ) -> None:
         self.values = values
         self.age_seconds = age_seconds
+        self.name = (
+            PATH_HISTORY_CONTRACT_V2["provider_kind"]
+            if v2
+            else "phase3-validation-fixture"
+        )
+        self.transform_version = (
+            PATH_HISTORY_CONTRACT_V2["transform_version"]
+            if v2
+            else DEFAULT_PATH_TRANSFORM_VERSION
+        )
 
     def lookup(
         self, *, issue_time, band, origin_grid4, target_grid4s
@@ -238,12 +263,13 @@ def main() -> None:
     del args.profile
     config = load_json(Path(args.config))
     validate_config(config)
+    v2 = is_v2(config)
     runtime = validate_m5_runtime(config)
     arrow = configure_arrow_threads(config, parallel_fit=False)
     phase3 = config["phase3"]
-    result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
-    training = load_json(result_dir / "training_50m_results.json")
-    evaluation = load_json(result_dir / "evaluation_50m_results.json")
+    result_dir = run_paths.results_dir(config)
+    training = load_json(run_paths.training_results_path(config, 50_000_000))
+    evaluation = load_json(run_paths.evaluation_results_path(config, 50_000_000))
     public_path = result_dir / "phase3_serving_candidate_manifest.json"
     public_manifest = load_json(public_path)
     if any(
@@ -257,21 +283,24 @@ def main() -> None:
         )
     ):
         raise Phase2Error("Phase 3 validation found locked-outcome access")
-    bundle_path = (
-        ROOT
-        / "ml/models/archive_v4_2"
-        / config["run_id"]
-        / "serving/serving_manifest.json"
-    )
+    bundle_path = run_paths.serving_manifest_path(config)
     if os.environ.get("PROPULSE_XGBOOST_THREADS") is not None:
         raise Phase2Error(
             "Phase 3 validation must use the serving manifest thread count"
         )
     load_started = time.perf_counter()
-    registry = ModelRegistry(bundle_path)
+    # The freshly packaged bundle is a schema-2, pre-December candidate that
+    # `validate_serving_manifest` rejects (it pins the V1 core contract and the
+    # released-candidate fields). Skip that release-time check here; the same
+    # bundle is validated strictly at promotion.
+    if "strict" not in inspect.signature(ModelRegistry.__init__).parameters:
+        raise Phase2Error(
+            "ModelRegistry does not accept strict=False; update ml/service"
+        )
+    registry = ModelRegistry(bundle_path, strict=False)
     load_seconds = time.perf_counter() - load_started
     features = registry.profiles["nowcast"]["features"]
-    inputs = load_json(PHASE0_CONFIG)["diagnosis"]["inputs"]
+    inputs = run_paths.evaluation_inputs(config)
     paths = [ROOT / inputs[month]["path"] for month in config["evaluation_months"]]
     rows, bands = sample_rows(
         paths, features, int(phase3["rows_per_evaluation_month"])
@@ -327,13 +356,13 @@ def main() -> None:
     client = TestClient(create_app(
         registry,
         path_history_provider=ValidationPathHistoryProvider(
-            rows[0], stale_after
+            rows[0], stale_after, v2=v2
         ),
     ))
     stale_client = TestClient(create_app(
         registry,
         path_history_provider=ValidationPathHistoryProvider(
-            rows[0], stale_after + 1
+            rows[0], stale_after + 1, v2=v2
         ),
     ))
     unavailable_client = TestClient(create_app(
@@ -441,6 +470,13 @@ def main() -> None:
         "scope": "pre_december_phase3_candidate_validation",
         "december_2024_read": False,
         "locked_2025_read": False,
+        "core_feature_contract": public_manifest.get("core_feature_contract"),
+        "path_history_provider": {
+            "name": ValidationPathHistoryProvider(rows[0], 0, v2=v2).name,
+            "transform_version": ValidationPathHistoryProvider(
+                rows[0], 0, v2=v2
+            ).transform_version,
+        },
         "selected_candidate": selected,
         "bundle_manifest": artifact(bundle_path),
         "public_manifest": artifact(public_path),
@@ -478,7 +514,7 @@ def main() -> None:
         "gates": gates,
         "passed": all(gates.values()),
     }
-    output_path = result_dir / "phase3_candidate_validation.json"
+    output_path = run_paths.phase3_validation_path(config)
     atomic_write(output_path, output)
     print(output_path)
     if not output["passed"]:

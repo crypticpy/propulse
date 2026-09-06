@@ -27,11 +27,12 @@ from m5_runtime import configure_arrow_threads  # noqa: E402
 from phase2_core import Phase2Error, validate_config  # noqa: E402
 from train_phase2_scale import (  # noqa: E402
     load_json,
+    contract_features,
     peak_rss_gb,
     validate_m5_runtime,
-    v4_features,
     verify_artifact,
 )
+import run_paths  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -81,11 +82,7 @@ def main() -> None:
     scale = int(benchmark["scale"])
     candidate = str(benchmark["candidate"])
     fold = str(benchmark["fold"])
-    manifest_path = (
-        ROOT
-        / "ml/data/manifests"
-        / f"propagation_v4_2_phase2_{scale // 1_000_000}m_cohorts.json"
-    )
+    manifest_path = run_paths.cohort_manifest_path(config, scale)
     manifest = load_json(manifest_path)
     if manifest["december_2024_read"] or manifest["locked_2025_read"]:
         raise Phase2Error("backend benchmark cannot access locked outcomes")
@@ -93,7 +90,7 @@ def main() -> None:
     early_item = manifest["early_stopping"][fold]
     cohort_path = verify_artifact(cohort_item)
     early_path = verify_artifact(early_item)
-    features = v4_features()
+    features = contract_features(config)
     batch_rows = int(config["training"]["batch_rows"])
     cache_root = (
         Path(config["compute"]["temp_root"])

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -9,8 +9,8 @@ test("requires explicit disposable confirmation and individual station SQL paths
   assert.throws(() => parseStationPostgresArgs([]), /confirm-disposable/);
   assert.throws(() => parseStationPostgresArgs(["--all-migrations"]), /Unsupported/);
   assert.throws(() => parseStationPostgresArgs(["--confirm-disposable-station-postgres", "--fixture"]), /explicit SQL/);
-  assert.deepEqual(parseStationPostgresArgs(["--confirm-disposable-station-postgres", "--migration", "station-a.sql", "--fixture", "station-b.sql"]).files,
-    [{ kind: "migration", path: "station-a.sql" }, { kind: "fixture", path: "station-b.sql" }]);
+  assert.deepEqual(parseStationPostgresArgs(["--confirm-disposable-station-postgres", "--migration", "station-workbench-a.sql", "--fixture", "station-workbench-b.sql"]).files,
+    [{ kind: "migration", path: "station-workbench-a.sql" }, { kind: "fixture", path: "station-workbench-b.sql" }]);
 });
 
 test("rejects outside-checkout symlinks, directories, unrelated migrations before Docker", async () => {
@@ -18,21 +18,39 @@ test("rejects outside-checkout symlinks, directories, unrelated migrations befor
   try {
     const checkout = join(root, "checkout");
     await mkdir(checkout);
-    await writeFile(join(root, "station-outside.sql"), "select 1;");
-    await symlink(join(root, "station-outside.sql"), join(checkout, "station-link.sql"));
+    await writeFile(join(root, "station-workbench-outside.sql"), "select 1;");
+    await symlink(join(root, "station-workbench-outside.sql"), join(checkout, "station-workbench-link.sql"));
     await writeFile(join(checkout, "legacy.sql"), "select 1;");
-    await mkdir(join(checkout, "station-directory.sql"));
+    await mkdir(join(checkout, "station-workbench-directory.sql"));
     let calls = 0;
-    for (const path of ["station-link.sql", "../station-outside.sql", "legacy.sql", "station-directory.sql"]) {
+    for (const path of ["station-workbench-link.sql", "../station-workbench-outside.sql", "legacy.sql", "station-workbench-directory.sql"]) {
       await assert.rejects(runStationPostgresHarness({ root: checkout, files: [{ kind: "fixture", path }], command: async () => { calls += 1; } }));
     }
     assert.equal(calls, 0);
-    await writeFile(join(checkout, "station-good.sql"), "select '🚀';");
-    assert.deepEqual(await readStationSqlFiles(checkout, [{ kind: "fixture", path: "station-good.sql" }]), [{ kind: "fixture", path: "station-good.sql", sql: "select '🚀';" }]);
+    await writeFile(join(checkout, "station-workbench-good.sql"), "select '🚀';");
+    assert.deepEqual(await readStationSqlFiles(checkout, [{ kind: "fixture", path: "station-workbench-good.sql" }]), [{ kind: "fixture", path: "station-workbench-good.sql", sql: "select '🚀';" }]);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-function fakeDocker({ failCreate = false, failSql = false, signal = false, tamperCleanup = false, completion = "valid" } = {}) {
+test("accepts only delimited workbench SQL names with an optional timestamp", async () => {
+  const root = await mkdtemp(join(tmpdir(), "station-harness-names-"));
+  try {
+    const accepted = ["station_workbench.sql", "station-workbench.sql", "station_workbench_schema.sql",
+      "station-workbench-fixture.sql", "20260905012345_station_workbench_schema.sql", "20260905012345-station-workbench-fixture.sql"];
+    const rejected = ["20260716015000_stationcast_beta_telemetry_utc.sql", "stationcast.sql", "station.sql",
+      "mystation_workbench.sql", "station_workbenchcast.sql", "station-workbenchcast.sql", "station_other.sql",
+      "20260905_station_workbench.sql", "station_workbench.sql.bak"];
+    let calls = 0;
+    for (const path of [...accepted, ...rejected]) await writeFile(join(root, path), "SELECT 1;");
+    for (const path of accepted) assert.equal((await readStationSqlFiles(root, [{ kind: "fixture", path }]))[0].path, path);
+    for (const path of rejected) await assert.rejects(runStationPostgresHarness({ root,
+      files: [{ kind: "migration", path }], command: async () => { calls += 1; },
+    }), /station_workbench or station-workbench/);
+    assert.equal(calls, 0);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+function fakeDocker({ failCreate = false, failSql = false, signal = false, tamperCleanup = false, completion = "valid", noCid = false, inspectFailure, recoverMismatch = false } = {}) {
   const calls = [];
   let metadata;
   const command = async (args, options) => {
@@ -44,11 +62,18 @@ function fakeDocker({ failCreate = false, failSql = false, signal = false, tampe
         network: get("--network"), ports: {}, mounts: [], user: get("--user"), capDrop: [get("--cap-drop")], securityOpt: [get("--security-opt")] };
       assert.equal(get("--pull"), "never");
       for (const prohibited of ["--volume", "-v", "--mount", "--publish", "-p", "--privileged"]) assert.ok(!args.includes(prohibited));
-      await writeFile(get("--cidfile"), metadata.id);
-      if (failCreate) throw new Error("synthetic create client failure");
+      if (!noCid) await writeFile(get("--cidfile"), metadata.id);
+      if (failCreate) throw new Error(failCreate === "timeout" ? "Docker create timed out" : "synthetic create client failure");
       return metadata.id;
     }
     if (args[0] === "inspect") {
+      if (args.at(-1) === metadata.name.slice(1)) {
+        if (inspectFailure === "absent") throw Object.assign(new Error("synthetic absent"), {
+          exitCode: 1, stderr: `Error response from daemon: No such container: ${args.at(-1)}`,
+        });
+        if (inspectFailure) throw inspectFailure;
+        return JSON.stringify(recoverMismatch ? { ...metadata, network: "bridge" } : metadata);
+      }
       assert.equal(args.at(-1), metadata.id);
       return JSON.stringify(metadata);
     }
@@ -69,6 +94,52 @@ function fakeDocker({ failCreate = false, failSql = false, signal = false, tampe
   return { command, calls };
 }
 
+for (const failure of [true, "timeout"]) {
+  test(`recovers a no-CID ambiguous create (${failure === true ? "client failure" : failure}) by exact UUID name, verifies, then removes by ID`, async () => {
+    const fake = fakeDocker({ failCreate: failure, noCid: true });
+    await assert.rejects(runStationPostgresHarness({ root: process.cwd(), command: fake.command, log: () => {} }), /synthetic create client failure|Docker create timed out/);
+    const create = fake.calls[0].args;
+    const name = create[create.indexOf("--name") + 1];
+    assert.match(name, /^propulse-station-postgres-test-[a-f0-9-]{36}$/);
+    assert.deepEqual(fake.calls.map(({ args }) => [args[0], args.at(-1)]), [
+      ["create", create.at(-1)], ["inspect", name], ["inspect", "a".repeat(64)], ["rm", "a".repeat(64)],
+    ]);
+    assert.equal(fake.calls[1].args[2], "container");
+    await assert.rejects(readFile(create[create.indexOf("--cidfile") + 1]), { code: "ENOENT" });
+  });
+}
+
+test("a confirmed absent exact name needs no removal after a no-CID create failure", async () => {
+  const fake = fakeDocker({ failCreate: true, noCid: true, inspectFailure: "absent" });
+  await assert.rejects(runStationPostgresHarness({ root: process.cwd(), command: fake.command, log: () => {} }), /^Error: synthetic create client failure$/);
+  assert.deepEqual(fake.calls.map(({ args }) => args[0]), ["create", "inspect"]);
+  const create = fake.calls[0].args;
+  await assert.rejects(readFile(join(dirname(create[create.indexOf("--cidfile") + 1]), "ownership.json")), { code: "ENOENT" });
+});
+
+for (const scenario of ["inspection failure", "inspection timeout", "unproven absence", "ownership mismatch"]) {
+  test(`retains no-CID ownership diagnostics and refuses cleanup on ${scenario}`, async () => {
+    const inspectFailure = scenario === "inspection failure" ? Object.assign(new Error("daemon unavailable"), { exitCode: 1, stderr: "Cannot connect to daemon" })
+      : scenario === "inspection timeout" ? new Error("Docker inspect timed out")
+      : scenario === "unproven absence" ? Object.assign(new Error("not found elsewhere"), { exitCode: 1, stderr: "Error response from daemon: No such container: unrelated" })
+      : undefined;
+    const fake = fakeDocker({ failCreate: true, noCid: true, inspectFailure, recoverMismatch: scenario === "ownership mismatch" });
+    let scratch;
+    try {
+      await assert.rejects(runStationPostgresHarness({ root: process.cwd(), command: fake.command, log: () => {} }), /cleanup failed; ownership diagnostic retained/);
+      assert.deepEqual(fake.calls.map(({ args }) => args[0]), ["create", "inspect"]);
+      const create = fake.calls[0].args;
+      scratch = dirname(create[create.indexOf("--cidfile") + 1]);
+      const diagnostic = JSON.parse(await readFile(join(scratch, "ownership.json"), "utf8"));
+      assert.equal(diagnostic.name, create[create.indexOf("--name") + 1]);
+      assert.equal(diagnostic.name, `${diagnostic.purpose}-${diagnostic.runId}`);
+      assert.equal(diagnostic.image, STATION_POSTGRES_IMAGE);
+      assert.equal(diagnostic.context, "desktop-linux");
+      assert.equal(diagnostic.id, "");
+    } finally { if (scratch) await rm(scratch, { recursive: true, force: true }); }
+  });
+}
+
 test("refuses container deletion after ownership mismatch and retains CID for diagnosis", async () => {
   const fake = fakeDocker({ failSql: true, tamperCleanup: true });
   try {
@@ -83,12 +154,12 @@ test("refuses container deletion after ownership mismatch and retains CID for di
 test("executes only detached explicit SQL files in supplied order with marker checks", async () => {
   const root = await mkdtemp(join(tmpdir(), "station-harness-selected-"));
   try {
-    await writeFile(join(root, "station-one.sql"), "SELECT 'explicit first';");
-    await writeFile(join(root, "station-two.sql"), "SELECT 'explicit second';");
-    await writeFile(join(root, "station-unselected.sql"), "SELECT 'must not run';");
+    await writeFile(join(root, "station-workbench-one.sql"), "SELECT 'explicit first';");
+    await writeFile(join(root, "station-workbench-two.sql"), "SELECT 'explicit second';");
+    await writeFile(join(root, "station-workbench-unselected.sql"), "SELECT 'must not run';");
     const fake = fakeDocker();
     await runStationPostgresHarness({ root, command: fake.command, log: () => {}, files: [
-      { kind: "migration", path: "station-one.sql" }, { kind: "fixture", path: "station-two.sql" },
+      { kind: "migration", path: "station-workbench-one.sql" }, { kind: "fixture", path: "station-workbench-two.sql" },
     ] });
     const sql = fake.calls.filter(({ options }) => options?.input).map(({ options }) => options.input);
     assert.equal(sql.length, 4); // Bootstrap, smoke, two explicit files with same-session checks.
@@ -102,10 +173,10 @@ test("commits an open selected transaction before its ownership and completion c
   const root = await mkdtemp(join(tmpdir(), "station-harness-transaction-"));
   try {
     const source = "BEGIN; CREATE TABLE station_open_tx(id int);";
-    await writeFile(join(root, "station-open-transaction.sql"), source);
+    await writeFile(join(root, "station-workbench-open-transaction.sql"), source);
     const fake = fakeDocker();
     await runStationPostgresHarness({ root, command: fake.command, log: () => {}, files: [
-      { kind: "migration", path: "station-open-transaction.sql" },
+      { kind: "migration", path: "station-workbench-open-transaction.sql" },
     ] });
     const sql = fake.calls.find(({ options }) => options?.input?.includes(source)).options.input;
     const sourceEnd = sql.indexOf(source) + source.length;
@@ -122,12 +193,12 @@ test("rejects psql controls everywhere, NUL and literal backslashes before Docke
   try {
     let calls = 0;
     for (const sql of [
-      "\\quit 0\nSELECT 1/0;", "\\set ON_ERROR_STOP off\nSELECT 1/0;", "\\i station-hidden.sql",
+      "\\quit 0\nSELECT 1/0;", "\\set ON_ERROR_STOP off\nSELECT 1/0;", "\\i station-workbench-hidden.sql",
       "SELECT 1; \\quit 0\nSELECT 1/0;", "-- heading\n \t\\set\nON_ERROR_STOP off\nSELECT 1/0;",
       "SELECT 'literal \\ slash';", "-- comment with \\quit\nSELECT 1;", "SELECT 1;\0SELECT 1/0;",
     ]) {
-      await writeFile(join(root, "station-control.sql"), sql);
-      await assert.rejects(runStationPostgresHarness({ root, files: [{ kind: "fixture", path: "station-control.sql" }], command: async () => { calls += 1; } }), /pure SQL without backslashes|NUL bytes/);
+      await writeFile(join(root, "station-workbench-control.sql"), sql);
+      await assert.rejects(runStationPostgresHarness({ root, files: [{ kind: "fixture", path: "station-workbench-control.sql" }], command: async () => { calls += 1; } }), /pure SQL without backslashes|NUL bytes/);
     }
     assert.equal(calls, 0);
   } finally { await rm(root, { recursive: true, force: true }); }

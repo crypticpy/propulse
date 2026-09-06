@@ -2,8 +2,10 @@
 /**
  * Owned PostgreSQL-only synthetic test gate; no HTTP/JWT/PostgREST/Storage claim.
  * Usage: node scripts/check-station-postgres.mjs --confirm-disposable-station-postgres
- * Optional explicit files: --migration supabase/migrations/<station-name>.sql
- *                          --fixture supabase/tests/<station-name>.sql
+ * Optional explicit files: --migration supabase/migrations/<timestamp>_station_workbench_<name>.sql
+ *                          --fixture supabase/tests/station-workbench-<name>.sql
+ * Names must start with station_workbench or station-workbench (optional
+ * 14-digit timestamp plus underscore/hyphen); suffixes require a delimiter.
  * Repeated file flags execute in the supplied order. Never replays all migrations.
  * Selected files are trusted pure SQL: no psql meta commands or backslashes,
  * including in comments/literals (use chr(92) when needed). SQL failures stop

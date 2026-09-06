@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -35,7 +35,7 @@ export async function readStationSqlFiles(root, files) {
     const resolved = await realpath(isAbsolute(path) ? path : join(checkout, path));
     const local = relative(checkout, resolved);
     assert.ok(local && !isAbsolute(local) && local !== ".." && !local.startsWith(`..${sep}`), "SQL files must resolve inside this checkout");
-    assert.match(basename(resolved), /station.*\.sql$/i, "Supply a specifically named station SQL file, never the complete migration directory");
+    assert.match(basename(resolved), /^(?:\d{14}[_-])?station(?:_workbench|-workbench)(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i, "Supply a station_workbench or station-workbench SQL file (optional 14-digit timestamp prefix), never another station namespace or the complete migration directory");
     const info = await stat(resolved);
     assert.ok(info.isFile() && info.size <= 16 * 1024 * 1024, "SQL input must be a regular file of at most 16 MiB");
     const sql = await readFile(resolved, "utf8");
@@ -99,7 +99,7 @@ function dockerCommand(args, { input, timeout = 30_000 } = {}) {
     child.on("error", (error) => { failure = error; });
     child.on("close", (code) => {
       clearTimeout(timer);
-      if (failure || code !== 0) reject(failure ?? new Error(`Docker ${args[0]} failed (${code}): ${stderr.trim()}`));
+      if (failure || code !== 0) reject(failure ?? Object.assign(new Error(`Docker ${args[0]} failed (${code}): ${stderr.trim()}`), { exitCode: code, stderr: stderr.trim() }));
       else resolve(stdout.trim());
     });
     child.stdin.end(input);
@@ -117,6 +117,8 @@ export async function runStationPostgresHarness({ root, files = [], log = consol
   const identity = { runId, name: `${PURPOSE}-${runId}`, id: "" };
   const scratch = await mkdtemp(join(tmpdir(), `${PURPOSE}-`));
   const cidfile = join(scratch, "container-id");
+  const diagnostic = join(scratch, "ownership.json");
+  let createAttempted = false;
   let interrupted;
   const onSignal = (signal) => { interrupted ??= new Error(`Interrupted by ${signal}; removing owned test container`); };
   const onInt = () => onSignal("SIGINT");
@@ -124,7 +126,7 @@ export async function runStationPostgresHarness({ root, files = [], log = consol
   process.on("SIGINT", onInt);
   process.on("SIGTERM", onTerm);
   const checkSignal = () => { if (interrupted) throw interrupted; };
-  const verify = async () => verifyStationContainer(JSON.parse(await docker(["inspect", "--format", INSPECT_FORMAT, identity.id])), identity);
+  const verify = async () => verifyStationContainer(JSON.parse(await docker(["inspect", "--type", "container", "--format", INSPECT_FORMAT, identity.id])), identity);
   const sql = async (body) => {
     checkSignal();
     await verify();
@@ -141,7 +143,9 @@ export async function runStationPostgresHarness({ root, files = [], log = consol
   END $$;`;
   let completed = false;
   try {
+    await writeFile(diagnostic, JSON.stringify({ ...identity, context: CONTEXT, image: STATION_POSTGRES_IMAGE, purpose: PURPOSE }));
     checkSignal();
+    createAttempted = true;
     identity.id = await docker(stationContainerCreateArgs(identity, cidfile));
     assert.equal((await readFile(cidfile, "utf8")).trim(), identity.id, "Docker create/cidfile mismatch");
     await verify();
@@ -202,6 +206,28 @@ export async function runStationPostgresHarness({ root, files = [], log = consol
         try { identity.id = (await readFile(cidfile, "utf8")).trim(); }
         catch (error) { if (error.code !== "ENOENT") throw error; }
       }
+      if (!identity.id && createAttempted) {
+        // The daemon may have created the container before the client wrote a
+        // CID. Inspect only this run's exact UUID name; never enumerate others.
+        let metadata;
+        try {
+          metadata = JSON.parse(await docker(["inspect", "--type", "container", "--format", INSPECT_FORMAT, identity.name]));
+        } catch (error) {
+          const notFound = error.exitCode === 1 && [
+            `Error: No such object: ${identity.name}`,
+            `Error response from daemon: No such container: ${identity.name}`,
+          ].includes(error.stderr);
+          // Daemon, permission, timeout and malformed-output errors are not
+          // evidence of absence. Keep the diagnostic rather than claim cleanup.
+          if (!notFound) throw error;
+        }
+        if (metadata !== undefined) {
+          const recovered = { ...identity, id: metadata?.id };
+          verifyStationContainer(metadata, recovered);
+          identity.id = recovered.id;
+          await writeFile(cidfile, identity.id);
+        }
+      }
       if (identity.id) {
         await verify();
         await docker(["rm", "--force", identity.id]);
@@ -209,7 +235,7 @@ export async function runStationPostgresHarness({ root, files = [], log = consol
       }
       await rm(scratch, { recursive: true, force: true });
     } catch (error) {
-      throw new Error(`Owned-container cleanup failed; CID file retained at ${cidfile}: ${error.message}`, { cause: error });
+      throw new Error(`Owned-container cleanup failed; ownership diagnostic retained at ${diagnostic} (CID path ${cidfile}): ${error.message}`, { cause: error });
     } finally {
       process.off("SIGINT", onInt);
       process.off("SIGTERM", onTerm);

@@ -8,7 +8,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from model_bundle import prepare_model_bundle, verify_bundle_directory
-from path_history import DEFAULT_PATH_TRANSFORM_VERSION
+from path_history import (
+    DEFAULT_PATH_RECENCY_TRANSFORM_VERSION,
+    DEFAULT_PATH_TRANSFORM_VERSION,
+    FIELD_RECENCY_PROVIDER_KIND,
+    configured_path_provider_identity,
+)
 
 
 def bounded_integer(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -45,7 +50,10 @@ def require_https_url(name: str) -> str:
 FEATURE_STORE_ENVIRONMENT_NAMES = (
     "PROPULSE_FEATURE_STORE_URL",
     "PROPULSE_FEATURE_STORE_SERVICE_KEY",
-    "PROPULSE_WSPR_PROVIDER",
+    # Provider identity: PROPULSE_PATH_PROVIDER, or the legacy
+    # PROPULSE_WSPR_PROVIDER name, resolved by
+    # path_history.configured_path_provider_identity().
+    "PROPULSE_PATH_PROVIDER",
 )
 
 
@@ -55,31 +63,43 @@ def validate_path_history_environment() -> None:
     An explicit PROPULSE_PATH_HISTORY_PROVIDER=unavailable override forces
     the unavailable provider (and skips the trio/transform checks below)
     even when the trio is still present, so the dead provider can be turned
-    off on Railway without deleting variables first.
+    off on Railway without deleting variables first. That override is the
+    production steady state and #297 does not change it.
+
+    PROPULSE_PATH_HISTORY_PROVIDER=field-recency-v2 selects the #297
+    field-grain recency provider instead; it requires the full trio and the
+    matching approved transform version.
     """
     override = os.environ.get("PROPULSE_PATH_HISTORY_PROVIDER", "").strip()
-    if override and override != "unavailable":
+    if override and override not in {"unavailable", FIELD_RECENCY_PROVIDER_KIND}:
         raise RuntimeError(
-            "PROPULSE_PATH_HISTORY_PROVIDER must be 'unavailable' when set"
+            "PROPULSE_PATH_HISTORY_PROVIDER must be 'unavailable' or "
+            f"'{FIELD_RECENCY_PROVIDER_KIND}' when set"
         )
     if override == "unavailable":
         return
     configured = [
-        bool(os.environ.get(name, "").strip())
-        for name in FEATURE_STORE_ENVIRONMENT_NAMES
+        bool(os.environ.get("PROPULSE_FEATURE_STORE_URL", "").strip()),
+        bool(os.environ.get("PROPULSE_FEATURE_STORE_SERVICE_KEY", "").strip()),
+        bool(configured_path_provider_identity()),
     ]
-    if not any(configured):
+    if not any(configured) and not override:
         return
     if not all(configured):
         raise RuntimeError(
             "PROPULSE_FEATURE_STORE_URL, PROPULSE_FEATURE_STORE_SERVICE_KEY, and "
-            "PROPULSE_WSPR_PROVIDER must be configured together"
+            "PROPULSE_PATH_PROVIDER (or the legacy PROPULSE_WSPR_PROVIDER) "
+            "must be configured together"
         )
     require_https_url("PROPULSE_FEATURE_STORE_URL")
     required_environment("PROPULSE_FEATURE_STORE_SERVICE_KEY", 32)
-    required_environment("PROPULSE_WSPR_PROVIDER")
     transform = required_environment("PROPULSE_PATH_TRANSFORM_VERSION")
-    if transform != DEFAULT_PATH_TRANSFORM_VERSION:
+    approved = (
+        DEFAULT_PATH_RECENCY_TRANSFORM_VERSION
+        if override == FIELD_RECENCY_PROVIDER_KIND
+        else DEFAULT_PATH_TRANSFORM_VERSION
+    )
+    if transform != approved:
         raise RuntimeError("PROPULSE_PATH_TRANSFORM_VERSION is not approved")
 
 

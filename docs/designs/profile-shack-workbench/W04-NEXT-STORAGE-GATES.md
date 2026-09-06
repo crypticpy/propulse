@@ -4,6 +4,8 @@ Tracking: [#177](https://github.com/crypticpy/propulse/issues/177), implementati
 
 ## Delivery acknowledgments and rejected dependencies
 
+The [pure delivery contracts](W04-DELIVERY-CONTRACTS.md) now implement terminal binding/replay and complete supplied-graph readiness. The durable repository and transport work below remains open.
+
 Implement terminal delivery outcomes separately from the permanent local commit receipt. Bind every outcome to the owner, generation, operation ID, payload digest and exact committed-head set, including tombstones. Parsing a response is not server authentication.
 
 An acknowledgment changes delivery state only; a late acknowledgment must not overwrite a later local head, advance a remote cursor or replace the active generation. Identical outcomes replay; altered or contradictory terminal outcomes reject. Preserve the original `commit()` receipt through acknowledgment and recovery.

@@ -49,6 +49,11 @@ function bothClocks(value: Date | null, zone: string | undefined): string {
   return `${formatClock(value, zone)} / ${formatClock(value, "UTC")}Z`;
 }
 
+/** The local clock alone, for a fact whose UTC twin sits in the body. */
+function localClock(value: Date | null, zone: string | undefined): string {
+  return value ? formatClock(value, zone) : "—";
+}
+
 /** "+1.2 dB", "−1.8 dB", "0.0 dB" — dB shown signed with one decimal
  * (section 6). */
 function signedDb(value: number): string {
@@ -671,24 +676,26 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
               60_000,
           )}`;
 
+  // Each fact fits its half of the facts column beside a two-word hero at
+  // 1080p (label + value ≤ ~19 mono characters, #250 rendered check): the
+  // phase name heads the Moon box, rise and set show the local clock here
+  // and both clocks in the box, and the elevation and azimuth are whole
+  // degrees.
   const facts: WallReportFact[] = [
-    {
-      label: "PHASE",
-      value: `${moon.phaseName.toUpperCase()} · ${Math.round(moon.illumination * 100)}%`,
-    },
+    { label: "ILLUM", value: `${Math.round(moon.illumination * 100)}%` },
     {
       label: "ALT / AZ",
-      value: `${moon.altitude.toFixed(1)}° / ${moon.azimuth.toFixed(1)}°`,
+      value: `${Math.round(moon.altitude)}° / ${Math.round(moon.azimuth)}°`,
     },
     // Next crossings, not SunCalc's calendar-day pair: a day without a
     // moonrise otherwise reads "—" while the Moon is plainly due tomorrow.
-    { label: "MOONRISE", value: bothClocks(nextRise, zone) },
-    { label: "MOONSET", value: bothClocks(nextSet, zone) },
-    { label: "DISTANCE", value: `${Math.round(topoDistanceKm)} km` },
+    { label: "RISE", value: localClock(nextRise, zone) },
+    { label: "SET", value: localClock(nextSet, zone) },
     {
-      label: "DECLINATION",
-      value: `${declinationDeg.toFixed(1)}° ${declWord}`,
+      label: "DISTANCE",
+      value: `${Math.round(topoDistanceKm).toLocaleString("en-US")} km`,
     },
+    { label: "DECL", value: `${declinationDeg.toFixed(1)}° ${declWord}` },
   ];
 
   const { footer, updated } = reportFooter(
@@ -720,12 +727,16 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
             content: (
               <div className="hcr-cols hcr-cols--fill">
                 <div className="hcr-box">
-                  <h4>Moon · {moonUp ? "up" : "down"}</h4>
+                  <h4>
+                    {moon.phaseName} · {moonUp ? "up" : "down"}
+                  </h4>
                   <div className="hcr-media">
                     <MoonGlyph phase={moon.phase} />
                     <dl className="hcr-kv">
-                      <dt>ILLUMINATED</dt>
-                      <dd>{Math.round(moon.illumination * 100)}%</dd>
+                      <dt>MOONRISE</dt>
+                      <dd>{bothClocks(nextRise, zone)}</dd>
+                      <dt>MOONSET</dt>
+                      <dd>{bothClocks(nextSet, zone)}</dd>
                       <dt>NEXT FULL</dt>
                       <dd>{dateOnly(snapshot.nextFullMoon)}</dd>
                       <dt>NEXT NEW</dt>

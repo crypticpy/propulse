@@ -103,17 +103,17 @@ function localClock(value: Date | null, zone: string | undefined): string {
   return formatClock(value, zone);
 }
 
-/** "+2M 14S", "−1M 03S" — the signed minutes-and-seconds format section 6
- * calls for on a delta this small; a whole-minute rounding would show "+0M"
- * on most days near the solstices. */
+/** "+2m 14s", "−1m 03s" — the signed minutes-and-seconds format section 6
+ * calls for on a delta this small; a whole-minute rounding would show "+0m"
+ * on most days near the solstices; lower-case units match "12h 52m". */
 function signedMinSec(minutes: number | null): string {
   if (minutes === null) return "—";
-  if (Math.abs(minutes) < 1 / 120) return "±0S";
+  if (Math.abs(minutes) < 1 / 120) return "±0s";
   const sign = minutes > 0 ? "+" : "−";
   const totalSeconds = Math.round(Math.abs(minutes) * 60);
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  return m > 0 ? `${sign}${m}M ${String(s).padStart(2, "0")}S` : `${sign}${s}S`;
+  return m > 0 ? `${sign}${m}m ${String(s).padStart(2, "0")}s` : `${sign}${s}s`;
 }
 
 function twilightRange(window: SunCurve["twilights"][number]): string {
@@ -411,8 +411,8 @@ export function SunReport({ open, onClose }: SunReportProps) {
             <dd>{bothClocks(curve.noon, zone)}</dd>
             <dt>SUNSET</dt>
             <dd>{bothClocks(curve.set, zone)}</dd>
-            <dt>DAY LENGTH CHANGE</dt>
-            <dd>{signedMinSec(curve.dayLengthDeltaMin)} vs yesterday</dd>
+            <dt>VS YESTERDAY</dt>
+            <dd>{signedMinSec(curve.dayLengthDeltaMin)}</dd>
           </dl>
           {(dayState.polarDay || dayState.polarNight) && (
             <p className="hcr-note">

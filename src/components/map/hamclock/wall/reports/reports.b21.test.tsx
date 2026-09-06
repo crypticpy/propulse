@@ -98,12 +98,18 @@ describe("MoonReport", () => {
     expect(verdictText(dialog)).toBe("MOON UP");
     const facts = factRows(dialog);
     expect(facts).toHaveLength(6);
-    expect(facts.some((row) => row?.startsWith("PHASE"))).toBe(true);
+    expect(facts.some((row) => row?.startsWith("ILLUM"))).toBe(true);
     expect(facts.some((row) => row?.startsWith("DISTANCE"))).toBe(true);
-    expect(facts.some((row) => row?.startsWith("DECLINATION"))).toBe(true);
+    expect(facts.some((row) => row?.startsWith("DECL"))).toBe(true);
     // Moonrise/moonset are the next crossings, never a "—" for a calendar
     // day SunCalc leaves blank.
-    expect(facts.find((row) => row?.startsWith("MOONRISE"))).not.toContain("—");
+    expect(facts.find((row) => row?.startsWith("RISE"))).not.toContain("—");
+    // The phase name heads the Moon box; the facts keep the illumination.
+    expect(
+      within(dialog).getByRole("heading", {
+        name: /^(new moon|.*crescent|.*quarter|.*gibbous|full moon) · up$/i,
+      }),
+    ).toBeTruthy();
     const eme = await emeRows(dialog, user);
     expect(eme.some((row) => row.startsWith("PATH LOSS"))).toBe(true);
     expect(eme.some((row) => row.startsWith("DEGRADATION"))).toBe(true);

@@ -476,37 +476,39 @@ export function GreyLineReport({
   const verdict = isNoWindowToday ? "NO GREY LINE TODAY" : stateWord;
 
   const targetOverlapValue = !target
-    ? "NO TARGET SET"
+    ? "NO TARGET"
     : !mutualWindow
       ? "NONE TODAY"
       : mutualWindow.active
-        ? "YES · ACTIVE NOW"
-        : `YES · IN ${formatCountdown((mutualWindow.start.getTime() - now.getTime()) / 60_000)}`;
+        ? "ACTIVE NOW"
+        : `IN ${formatCountdown((mutualWindow.start.getTime() - now.getTime()) / 60_000)}`;
 
   // Six facts (#250): the hero/verdict pair is not repeated, the low-band
   // tiers live in their own box, and the mutual window gets its clocks.
+  // Each fact fits its half of the facts column beside a two-word hero at
+  // 1080p (label + value ≤ ~19 mono characters, #250 rendered check): a
+  // clock pair needs a one-word label, and the mutual window shows its
+  // local span here with both clocks in the DX target box.
   const facts: WallReportFact[] = [
     {
-      label: "WINDOW START",
+      label: "START",
       value: ownWindowForDisplay
         ? bothClocks(ownWindowForDisplay.start, zone)
         : "—",
     },
     {
-      label: "WINDOW END",
+      label: "END",
       value: ownWindowForDisplay
         ? bothClocks(ownWindowForDisplay.end, zone)
         : "—",
     },
-    { label: "NEXT WINDOW", value: nextWindowValue },
-    { label: "TARGET OVERLAP", value: targetOverlapValue },
+    { label: "NEXT", value: nextWindowValue },
+    { label: "OVERLAP", value: targetOverlapValue },
     {
-      label: "MUTUAL START",
-      value: mutualWindow ? bothClocks(mutualWindow.start, zone) : "—",
-    },
-    {
-      label: "MUTUAL END",
-      value: mutualWindow ? bothClocks(mutualWindow.end, zone) : "—",
+      label: "MUTUAL",
+      value: mutualWindow
+        ? `${formatClock(mutualWindow.start, zone)}–${formatClock(mutualWindow.end, zone)}`
+        : "—",
     },
   ];
 
@@ -551,6 +553,14 @@ export function GreyLineReport({
         </div>
         <div className="hcr-box">
           <h4>DX target · terminator</h4>
+          {mutualWindow && (
+            <dl className="hcr-kv">
+              <dt>MUTUAL START</dt>
+              <dd>{bothClocks(mutualWindow.start, zone)}</dd>
+              <dt>MUTUAL END</dt>
+              <dd>{bothClocks(mutualWindow.end, zone)}</dd>
+            </dl>
+          )}
           <p className="hcr-note">
             {target
               ? `Mutual overlap with the DX target: ${targetOverlapValue.toLowerCase()}.`

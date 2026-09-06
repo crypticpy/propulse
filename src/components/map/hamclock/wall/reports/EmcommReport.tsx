@@ -112,7 +112,7 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
           />
         </div>
         <NwsAlertBox
-          title="Active alerts · mapped only"
+          title="NWS alerts · mapped"
           alerts={ranked}
           error={Boolean(alertError)}
           emptyLabel="NO MAPPED ALERTS"

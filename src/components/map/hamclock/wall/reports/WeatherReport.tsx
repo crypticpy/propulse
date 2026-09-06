@@ -216,7 +216,7 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
           </div>
         </div>
         <NwsAlertBox
-          title="Active NWS alerts"
+          title="NWS alerts"
           alerts={ranked}
           error={Boolean(alertError)}
           emptyLabel="NONE MAPPED"

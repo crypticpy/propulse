@@ -314,6 +314,50 @@ quality-clean, and available by issue time.
 > rebuild the live pipeline. (Database teardown: supabase/migrations/
 > 20260721110000, 20260721112000, 20260721120000.)
 
+### Field-grain path recency v2 (#297)
+
+The replacement source for the four recency features is our own PSK Reporter /
+RBN aggregate `path_hourly_stats`, summarised per hour into
+`path_recency_hourly` at 2-character Maidenhead **field** grain by the
+collector's `path-recency` job (migration
+`supabase/migrations/20260906210000_path_recency_v2.sql`). Grid4 grain was
+measured at 1.06 spots per cell-hour — too sparse to be a feature; field grain
+gives about five.
+
+`PostgrestPathRecencyProvider` reads it through the service-role-only
+`lookup_path_recency_lags` RPC. It collapses the caller's grid4 targets to
+their distinct fields, then keys the returned snapshots back by grid4, so
+`app.py` consumes it exactly like the WSPR provider. Per-lag availability
+still means "the row exists AND it was readable at issue time"; the RPC
+returns one row per requested field, and any missing, duplicated, unexpected,
+or acausal row fails the whole batch closed to physics.
+
+These values are a **network-recency statistic, never a WSPR opportunity
+rate**. The spot feed records positives only, so `recency_rate` measures a
+path's presence relative to the receiving field's reach in that band-hour, not
+a probability that the path was open. It is not comparable in level to the
+WSPR-trained feature — the N3 retrain (per-band-hour quantile normalisation)
+is what makes the two commensurable. Do not relabel PSK Reporter, RBN, or DX
+Cluster activity as V4.2 WSPR history.
+
+The provider is built but **not activated**: production keeps
+`PROPULSE_PATH_HISTORY_PROVIDER=unavailable` and the physics profile until N4,
+after the retrain. To select it (staging, or N4):
+
+```bash
+export PROPULSE_PATH_HISTORY_PROVIDER="field-recency-v2"
+export PROPULSE_FEATURE_STORE_URL="https://project.supabase.co"
+export PROPULSE_FEATURE_STORE_SERVICE_KEY="server-only-service-role-key"
+export PROPULSE_PATH_PROVIDER="approved-provider-id"
+export PROPULSE_PATH_TRANSFORM_VERSION="psk-rbn-field-recency-v2"
+```
+
+`PROPULSE_PATH_PROVIDER` is the neutral name for the provider identity;
+`PROPULSE_WSPR_PROVIDER` still works and is used when the neutral variable is
+unset. The approved transform version is checked against the selected
+provider: `wspr-opportunity-duckdb-v1` for the legacy reader,
+`psk-rbn-field-recency-v2` for this one.
+
 The feature-store trio above is optional as an all-or-none group. Leave all
 three unset and startup accepts it: the path-history provider resolves to
 `unavailable` and `PROPULSE_PATH_TRANSFORM_VERSION` is not required. Set any

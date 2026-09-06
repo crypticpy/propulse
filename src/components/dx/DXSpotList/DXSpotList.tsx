@@ -9,6 +9,8 @@
  */
 
 import { useCallback, useMemo, useState, useRef } from "react";
+import { useVisibleRows } from "@/components/map/hamclock/wall/useVisibleRows";
+import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
 import { SpotDetailPanel } from "../SpotDetailPanel";
@@ -54,6 +56,7 @@ const SOURCE_BADGE_STYLES: Record<
  */
 export function DXSpotList({
   compact = false,
+  wallPaging = false,
   maxHeight = "400px",
   showFilters = true,
   showHeader = true,
@@ -205,6 +208,15 @@ export function DXSpotList({
   // --- QoL1: Keyboard-first DX spot navigation ---
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const spotListRef = useRef<HTMLDivElement>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageRowsRef, measuredSize] = useVisibleRows<HTMLDivElement>(watchSortedSpots.length);
+  const pageSize = Math.max(1, measuredSize);
+  const pageCount = Math.max(1, Math.ceil(watchSortedSpots.length / pageSize));
+  const page = Math.min(pageCount - 1, focusedIndex >= 0 ? Math.floor(focusedIndex / pageSize) : pageIndex);
+  const pageStart = wallPaging ? page * pageSize : 0;
+  const visibleSpots = wallPaging ? watchSortedSpots.slice(pageStart, pageStart + pageSize) : watchSortedSpots;
+  const changePage = (next: number) => { setFocusedIndex(-1); setPageIndex(next); };
+
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -303,12 +315,12 @@ export function DXSpotList({
 
   // Scroll focused row into view
   const scrollFocusedIntoView = useCallback((index: number) => {
-    if (index < 0 || !spotListRef.current) return;
+    if (wallPaging || index < 0 || !spotListRef.current) return;
     const rows = spotListRef.current.querySelectorAll(
       '[role="row"]:not(:first-child)',
     );
     rows[index]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, []);
+  }, [wallPaging]);
 
   // Effect: scroll when focused index changes
   const prevFocusedRef = useRef(focusedIndex);
@@ -317,8 +329,79 @@ export function DXSpotList({
     scrollFocusedIntoView(focusedIndex);
   }
 
+  const spotRows = (<>
+        {isLoading && watchSortedSpots.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : watchSortedSpots.length === 0 ? (
+          <div className="flex items-center justify-center py-12 text-gray-400">
+            {profileFilterActive
+              ? "No spots match profile filters"
+              : "No spots match your filters"}
+          </div>
+        ) : (
+          visibleSpots.map((spot, localIndex) => {
+            const index = pageStart + localIndex;
+            const isWatchMatch =
+              watchCriteria !== null && matchedSpotIds.has(spot.id);
+            const isNewMult = newMultSpotIds.has(spot.id);
+            return (
+              <div
+                key={spot.id}
+                className={`relative ${
+                  isNewMult
+                    ? "bg-caution-amber/10 border-l-2 border-caution-amber"
+                    : isWatchMatch
+                      ? "bg-signal-green/10 border-l-2 border-signal-green"
+                      : ""
+                }`}
+              >
+                {isNewMult && (
+                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none uppercase tracking-wider">
+                    NEW MULT
+                  </span>
+                )}
+                <SpotRow
+                  compact={compact}
+                  spot={spot}
+                  index={index}
+                  isSelected={selectedSpot?.id === spot.id}
+                  isHovered={hoveredSpot?.id === spot.id}
+                  isFocused={focusedIndex === index}
+                  workedStatus={
+                    workedStatusMap.get(spot.id) || {
+                      isWorked: false,
+                      workedOnBand: false,
+                      workedBands: [],
+                      isATNO: false,
+                    }
+                  }
+                  isAlertMatch={alertMatchSet.has(spot.id)}
+                  isNeeded={neededStatusMap.get(spot.id) ?? true}
+                  distanceKm={distanceMap.get(spot.id) ?? null}
+                  onSelect={handleSelectSpot}
+                  onHover={setHoveredSpot}
+                  onContextMenu={handleContextMenu}
+                  onGridClick={handleGridFilterChange}
+                  onBandClick={handleBandBadgeClick}
+                  onSetTarget={handleSetTarget}
+                  onWork={handleWorkSpot}
+                  onWatchCallsign={handleWatchCallsign}
+                  onHideSpot={handleHideSpot}
+                  showAgeColumn={spotAgePrefs.showAgeColumn}
+                  ageVisualizationEnabled={spotAgePrefs.enabled}
+                  activeBandFilter={activeBandFilter}
+                  isHighlighted={highlightedSpotId === spot.id}
+                />
+              </div>
+            );
+          })
+        )}
+  </>);
+
   return (
-    <Card className={`h-full flex flex-col ${className}`}>
+    <Card className={`h-full ${wallPaging ? "min-h-0" : ""} flex flex-col ${className}`}>
       {/* Header */}
       {showHeader && (
         <div className="flex items-center justify-between mb-2">
@@ -500,8 +583,8 @@ export function DXSpotList({
             spotListRef as React.MutableRefObject<HTMLDivElement | null>
           ).current = el;
         }}
-        className="flex-1 overflow-y-auto divide-y divide-white/5 focus:outline-none"
-        style={{ maxHeight }}
+        className={wallPaging ? "flex-1 min-h-0 flex flex-col overflow-hidden focus:outline-none" : "flex-1 overflow-y-auto divide-y divide-white/5 focus:outline-none"}
+        style={wallPaging ? undefined : { maxHeight }}
         role="table"
         aria-label="DX Spots"
         tabIndex={0}
@@ -584,74 +667,15 @@ export function DXSpotList({
             </button>
           </div>
         )}
-        {isLoading && watchSortedSpots.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : watchSortedSpots.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-gray-400">
-            {profileFilterActive
-              ? "No spots match profile filters"
-              : "No spots match your filters"}
-          </div>
-        ) : (
-          watchSortedSpots.map((spot, index) => {
-            const isWatchMatch =
-              watchCriteria !== null && matchedSpotIds.has(spot.id);
-            const isNewMult = newMultSpotIds.has(spot.id);
-            return (
-              <div
-                key={spot.id}
-                className={`relative ${
-                  isNewMult
-                    ? "bg-caution-amber/10 border-l-2 border-caution-amber"
-                    : isWatchMatch
-                      ? "bg-signal-green/10 border-l-2 border-signal-green"
-                      : ""
-                }`}
-              >
-                {isNewMult && (
-                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none uppercase tracking-wider">
-                    NEW MULT
-                  </span>
-                )}
-                <SpotRow
-                  compact={compact}
-                  spot={spot}
-                  index={index}
-                  isSelected={selectedSpot?.id === spot.id}
-                  isHovered={hoveredSpot?.id === spot.id}
-                  isFocused={focusedIndex === index}
-                  workedStatus={
-                    workedStatusMap.get(spot.id) || {
-                      isWorked: false,
-                      workedOnBand: false,
-                      workedBands: [],
-                      isATNO: false,
-                    }
-                  }
-                  isAlertMatch={alertMatchSet.has(spot.id)}
-                  isNeeded={neededStatusMap.get(spot.id) ?? true}
-                  distanceKm={distanceMap.get(spot.id) ?? null}
-                  onSelect={handleSelectSpot}
-                  onHover={setHoveredSpot}
-                  onContextMenu={handleContextMenu}
-                  onGridClick={handleGridFilterChange}
-                  onBandClick={handleBandBadgeClick}
-                  onSetTarget={handleSetTarget}
-                  onWork={handleWorkSpot}
-                  onWatchCallsign={handleWatchCallsign}
-                  onHideSpot={handleHideSpot}
-                  showAgeColumn={spotAgePrefs.showAgeColumn}
-                  ageVisualizationEnabled={spotAgePrefs.enabled}
-                  activeBandFilter={activeBandFilter}
-                  isHighlighted={highlightedSpotId === spot.id}
-                />
-              </div>
-            );
-          })
-        )}
+        {wallPaging ? <div ref={pageRowsRef} className="flex-1 min-h-0 overflow-hidden divide-y divide-white/5">{spotRows}</div> : spotRows}
       </div>
+      {wallPaging && (
+        <div className="hcr-cluster-pages">
+          <HamClockButton disabled={page === 0} onClick={() => changePage(page - 1)}>PREVIOUS</HamClockButton>
+          <span aria-live="polite">PAGE {page + 1} / {pageCount} · {watchSortedSpots.length} SPOTS</span>
+          <HamClockButton disabled={page + 1 >= pageCount} onClick={() => changePage(page + 1)}>NEXT</HamClockButton>
+        </div>
+      )}
 
       {/* Spot Detail Panel - shows when a spot is selected */}
       <SpotDetailPanel spot={selectedSpot} />

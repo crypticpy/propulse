@@ -98,6 +98,8 @@ export interface FilterControlsProps {
  * Props for the main DXSpotList component
  */
 export interface DXSpotListProps {
+  /** Fit complete rows into the HamClock report with explicit paging. */
+  wallPaging?: boolean;
   compact?: boolean;
   /** Maximum height of the list container */
   maxHeight?: string;

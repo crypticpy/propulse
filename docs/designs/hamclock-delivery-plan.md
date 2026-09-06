@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | First claim: B24 / #232, activity, contacts, cluster presentation | One active batch; first implementation slice is Recent Contacts |
+| Codex / HamClock operating views | Current implementation: shared tuning / #286; B24 / #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item, preferably B10 / #206 initially | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -39,7 +39,7 @@ weather-first placement in the batch tracker. Preserve actual data dependencies.
 | Order | Work | Readiness / outcome |
 | --- | --- | --- |
 | 0 | Reconcile tracker; continue #250 acceptance review | Keep merged polish fixes. Review the reports touched by each batch and retain a final full matrix; do not mark the epic complete from old screenshots. |
-| 1 | [B24 #232](https://github.com/crypticpy/propulse/issues/232): activity, contacts, cluster | B17 merged in #246. Codex's first claim. Deliver the slices below. |
+| 1 | [B24 #232](https://github.com/crypticpy/propulse/issues/232): activity, contacts, cluster | Implementation in review: #407 contacts, #408 history API, #409 activity, #410 cluster. Acceptance remains pending. |
 | 2 | [#286](https://github.com/crypticpy/propulse/issues/286): shared click-to-tune | Existing rig path first, frequency and mode together, visible target and truthful disabled reasons. Keep AetherSDR/TCI integration pending its adapter. |
 | 3 | [#285](https://github.com/crypticpy/propulse/issues/285): Activations | Start with existing POTA/SOTA contracts; add WWFF/WWBOTA/CanParks in separately verified source slices. Use the shared tuning affordance. Whole issue stays open until all accepted programmes are handled. |
 | 4 | [#287](https://github.com/crypticpy/propulse/issues/287): PSK Reporter and WSJT-X | OF/BY station activity, decode report, CQ emphasis, freshness, disconnected states. Shared tuning and age-window contract are prerequisites for their integrations. |
@@ -59,6 +59,14 @@ owner for offline reference benchmarking; any optional reliability colour choice
 can follow as display work. [B25 #233](https://github.com/crypticpy/propulse/issues/233)
 is deferred model research after the weather inputs and panels are ready. Neither
 is claimed by this display plan.
+
+
+## Delivery progress — 2026-09-06
+
+- B24 is **In review**, not Done. PRs [#407](https://github.com/crypticpy/propulse/pull/407), [#408](https://github.com/crypticpy/propulse/pull/408), [#409](https://github.com/crypticpy/propulse/pull/409), and [#410](https://github.com/crypticpy/propulse/pull/410) hold the implementation and evidence. #409 includes session-only current-hour observations, truthful incomplete-history/source states, and canonical band focus. #410 preserves cluster content while opting into whole-row paging on the wall. Each PR stays within 15 files.
+- The new history/report endpoint and UI pass app checks; Band Activity has 48 fixture display/state combinations. Cluster checks include populated data, expanded filters/details, paging, pin/unpin, and keyboard focus. Maintainer merge, deployed/authenticated, and physical-display acceptance are still pending; these are not inferred from local fixtures.
+- #286 is the sole current implementation claim, branch `feat/hamclock-shared-tune`. Start with the shared guarded frequency+mode action and existing cluster/detail/alert callers; integrate new wall/activation/decode surfaces as their dependencies land. AetherSDR remains dependent on its actual adapter.
+- All later queue entries remain available to contributors according to their live issue/board status. Weather remains last; model and 3D boundaries remain unchanged.
 
 ## First batch: B24 / #232
 
@@ -162,9 +170,11 @@ does not create a circular gate. B25 is last and remains model-owner work.
 8. Open a PR with issue/HW IDs and evidence; set In review. Partial slices use
    `Refs #232`, not `Closes #232`. Update only completed feature-register rows and
    tracker counts with evidence. Follow repository maintainer merge policy.
-9. After merge, update issue/board and release the claim or claim the next Ready
-   item. A paused task records what remains and releases ownership explicitly;
-   newcomers should not have to infer status from an abandoned worktree.
+9. While a reviewable batch awaits maintainer merge or external acceptance, keep
+   it In review and retain its follow-up ownership. The next independent Ready
+   item may become the sole active implementation claim; do not reserve the
+   remaining queue. After merge, reconcile register and board with actual
+   acceptance evidence. A paused task records remaining work and ownership.
 
 ## Initial tracking reconciliation
 

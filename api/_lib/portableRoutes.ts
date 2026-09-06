@@ -63,10 +63,13 @@ import { handleWsprSpots } from "./handlers/wspr";
 // cache is optional with a direct Celestrak/AMSAT fallback.
 import handleSatellitesTle from "../satellites/tle";
 
+import handleCartoTiles from "../tiles/carto";
+
 export type { EdgeHandler };
 
 export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   ...SOLAR_ROUTES,
+  "/api/tiles/carto": handleCartoTiles,
   "/api/activation/pota": handleActivationPota,
   "/api/activation/sota": handleActivationSota,
   "/api/activation/spots": handleActivationSpots,

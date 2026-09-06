@@ -636,8 +636,10 @@ export function PropagationForecastModal({
                   voice — that gap is exactly what the two numbers show
                 </li>
                 <li>
-                  A “Physics” tag means live WSPR history was stale for that
-                  band, so a physics-trained fallback served the estimate
+                  A “Physics profile” tag means recent path history was
+                  unavailable for that band, so the model's physics-trained
+                  profile served the estimate — still a model prediction, at
+                  reduced confidence
                 </li>
               </ul>
             </div>

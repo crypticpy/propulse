@@ -185,7 +185,7 @@ export function reachMapProbabilityColor(probability: number): string {
 
 export function reachMapProfileLabel(profile: string | null): string {
   if (profile === "nowcast") return "NowCast";
-  if (profile === "physics") return "Physics fallback";
+  if (profile === "physics") return "Physics profile";
   if (profile === "mixed") return "Mixed profiles";
   return profile || "Pending";
 }

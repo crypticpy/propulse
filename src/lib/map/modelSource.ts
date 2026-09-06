@@ -11,17 +11,19 @@
  *    base SNR with distance/illumination/Kp adjustments, which powers the 24h
  *    forecast heatmap and stands in for P.533 when it throws; and
  *  - the NowCast/StationCast ML models served from Railway, which power the
- *    NowCast chips and fall back to physics *per band* when their inputs go
- *    stale.
+ *    NowCast chips and serve their physics-trained profile *per band* when
+ *    recent path history is stale or unavailable.
  *
  * The first two share a source tree, which is exactly why they need separate
  * descriptors -- "physics engine" reads as one thing to a user, and only one
- * of the two traces a ray.
+ * of the two traces a ray. The NowCast model's physics profile is a third,
+ * distinct thing again: a learned model on path geometry, sun and
+ * solar-wind features -- not the client-side engine.
  *
  * "Physics" here is a statement about provenance, not quality -- the physics
- * engine is the intended path for the panels that use it. These descriptors
- * exist so a silent per-band fallback is never mistaken for a model
- * prediction.
+ * engine is the intended path for the panels that use it, and the model's
+ * physics profile is still a model prediction, just at reduced confidence.
+ * These descriptors exist so neither is ever mistaken for the other.
  *
  * Rendered by `components/map/ModelSourceBadge.tsx`.
  */
@@ -95,9 +97,9 @@ export type NowCastProvenance = Pick<
 /**
  * Describe where a NowCast panel's numbers actually came from.
  *
- * The model service answers per band, so one panel can legitimately mix ML and
- * physics-fallback bands. This reports the mix rather than claiming whichever
- * engine happened to answer first.
+ * The model service answers per band, so one panel can legitimately mix
+ * NowCast-profile and physics-profile bands. This reports the mix rather
+ * than claiming whichever profile happened to answer first.
  *
  * @param displayedBands - Restrict the counts to the bands the caller actually
  *   renders. The hook requests every model band, but a panel may show only a
@@ -144,12 +146,12 @@ export function describeNowCastSource(
 
   if (mlCount === 0) {
     return {
-      label: "Physics fallback",
+      label: "Physics profile",
       tone: "degraded",
       detail:
         failedCount > 0
-          ? `Every band the NowCast model service answered fell back to the physics engine, and ${failedCount} band${failedCount === 1 ? "" : "s"} returned no prediction at all -- usually because the live spot history behind the model is stale.\nNothing here is a model prediction.`
-          : "The NowCast model service answered, but every band fell back to the physics engine -- usually because the live spot history behind the model is stale.\nThese are physics numbers, not model predictions.",
+          ? `Every band the NowCast model service answered was served by its physics profile, and ${failedCount} band${failedCount === 1 ? "" : "s"} returned no prediction at all -- recent path history is stale or unavailable.\nThese are still model predictions, at reduced confidence.`
+          : "The NowCast model service answered, but every band was served by its physics profile -- recent path history is stale or unavailable.\nThese are model predictions at reduced confidence, not the client physics engine.",
     };
   }
 
@@ -159,7 +161,7 @@ export function describeNowCastSource(
     const parts: string[] = [];
     if (fallbackCount > 0) {
       parts.push(
-        `${fallbackCount} band${fallbackCount === 1 ? "" : "s"} fell back to physics`,
+        `${fallbackCount} band${fallbackCount === 1 ? "" : "s"} served by the physics profile`,
       );
     }
     if (staleCount > 0) {

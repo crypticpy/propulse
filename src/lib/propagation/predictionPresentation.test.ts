@@ -12,7 +12,7 @@ describe("predictionIssueLabels", () => {
       }),
     ).toEqual([
       "Some model inputs are unavailable",
-      "Recent WSPR path history is stale; physics fallback is active",
+      "Recent path history is stale or unavailable; served by the physics profile",
     ]);
   });
 

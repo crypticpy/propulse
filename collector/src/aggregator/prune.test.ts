@@ -30,6 +30,7 @@ function config(
       verdictLadder: 300_000,
       inferenceMonitor: 10 * 60_000,
       modelSnapshot: 60 * 60_000,
+      pathRecency: 300_000,
     },
     retention: { spots: 7, health: 7, solar: 120, tle: 7 },
     archive: {

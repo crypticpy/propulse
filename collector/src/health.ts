@@ -35,6 +35,7 @@ const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
   "verdict-ladder": "verdictLadder",
   "inference-monitor": "inferenceMonitor",
   "model-snapshot": "modelSnapshot",
+  "path-recency": "pathRecency",
 };
 
 export function getSourceStaleMs(

@@ -1,3 +1,4 @@
+import { activationWindowMs } from "@/types/activationSpots";
 import type { ActivationFeedSource, ActivationProgram, ActivationSpot } from "@/types/activationSpots";
 
 export const ACTIVATION_WINDOW_MS = 2 * 60 * 60 * 1000;
@@ -7,7 +8,8 @@ export function currentActivations(spots: readonly ActivationSpot[], now: number
   const latest = new Map<string, ActivationSpot>();
   for (const spot of spots) {
     const time = Date.parse(spot.spottedAt);
-    if ((program && spot.program !== program) || !Number.isFinite(time) || time > now + 5 * 60_000 || now - time > ACTIVATION_WINDOW_MS || !Number.isFinite(spot.frequencyKHz) || spot.frequencyKHz <= 0) continue;
+    if ((program && spot.program !== program) || !Number.isFinite(time) || time > now + 5 * 60_000 || now - time >= activationWindowMs(spot.program) || !Number.isFinite(spot.frequencyKHz) || spot.frequencyKHz <= 0) continue;
+    if (spot.expiresAt && (!Number.isFinite(Date.parse(spot.expiresAt)) || Date.parse(spot.expiresAt) <= now)) continue;
     const key = `${spot.program}:${spot.callsign.toUpperCase()}:${spot.reference.toUpperCase()}`;
     const previous = latest.get(key);
     if (!previous || time > Date.parse(previous.spottedAt)) latest.set(key, spot);

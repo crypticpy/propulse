@@ -5,7 +5,7 @@
  * approval for AI-authored clients, so this handler deliberately uses the
  * documented ParksnPeaks read-only syndication feed instead of contacting
  * SOTA infrastructure. Each provider is bounded, normalized, and degraded
- * independently so one volunteer service cannot blank the other two tabs.
+ * independently so one volunteer service cannot blank the other programmes.
  */
 
 import { applyRateLimit } from "../rateLimit";
@@ -20,6 +20,7 @@ interface SourceDefinition {
   source: string;
   sourceUrl: string;
   feedUrl: string;
+  extractRows?: (payload: unknown) => unknown[] | null;
   matchesRow: (row: unknown) => boolean;
   normalize: (rows: unknown[], nowMs?: number) => ActivationSpot[];
 }
@@ -97,6 +98,21 @@ const SOURCES: readonly SourceDefinition[] = [
       return Boolean(row && typeof row.call === "string" && typeof row.time === "string" && Array.isArray(row.references));
     },
     normalize: normalizeWwbotaSpots,
+  },
+  {
+    program: "CANParks",
+    source: "CANParks",
+    sourceUrl: "https://canparks.ca/spots.html",
+    feedUrl: "https://api.canparks.ca/spots?limit=100&fresh=1",
+    extractRows: (payload) => {
+      const row = objectRow(payload);
+      return row?.ok === true && Array.isArray(row.spots) ? row.spots : null;
+    },
+    matchesRow: (value) => {
+      const row = objectRow(value);
+      return Boolean(row && typeof row.activator_callsign === "string" && typeof row.created_at === "string" && typeof row.reference === "string");
+    },
+    normalize: normalizeCanparksSpots,
   },
 ] as const;
 
@@ -507,6 +523,47 @@ export function normalizeWwbotaSpots(rows: unknown[], nowMs = Date.now()): Activ
   return finishSpots(spots, terminal);
 }
 
+/** CANParks public client contract: kHz, native references, 30-minute expiry. */
+export function normalizeCanparksSpots(rows: unknown[], nowMs = Date.now()): ActivationSpot[] {
+  const spots: ActivationSpot[] = [];
+  const terminal: TerminalActivation[] = [];
+  for (const value of rows) {
+    const row = objectRow(value);
+    if (!row) continue;
+    const callsign = cleanString(row.activator_callsign, 32).toUpperCase();
+    const reference = cleanString(row.reference, 32).toUpperCase();
+    const time = parseSpotTime(row.created_at);
+    const frequency = frequencyKHz(row.frequency_khz, "khz");
+    if (!callsign || !/^(AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT)-\d{4}$/.test(reference) || !time || !isCurrentSpotTime(time, nowMs)) continue;
+    const comments = cleanString(row.comment, 240);
+    if (isTerminalStatus(comments)) {
+      terminal.push({ key: activationKey("CANParks", callsign, reference), spottedAt: time.toISOString() });
+      continue;
+    }
+    if (frequency === null) continue;
+    const explicitExpiry = row.expires_at == null ? null : parseSpotTime(row.expires_at);
+    if (row.expires_at != null && !explicitExpiry) continue;
+    const expiry = Math.min(time.getTime() + 30 * 60_000, explicitExpiry?.getTime() ?? Infinity);
+    if (expiry <= nowMs) continue;
+    const latitude = coordinate(row.latitude, -90, 90);
+    const longitude = coordinate(row.longitude, -180, 180);
+    spots.push({
+      id: `canparks-${cleanString(row.id, 64) || `${callsign}-${reference}-${time.getTime()}`}`,
+      program: "CANParks", callsign, reference,
+      referenceName: cleanString(row.park_name, 160),
+      frequencyKHz: frequency,
+      mode: cleanString(row.mode, 24).toUpperCase() || "UNKNOWN",
+      comments,
+      spotter: cleanString(row.spotter_callsign, 32).toUpperCase(),
+      spottedAt: time.toISOString(), expiresAt: new Date(expiry).toISOString(),
+      originSource: cleanString(row.source, 48) || "unknown",
+      originLabel: cleanString(row.source_label, 80) || cleanString(row.source, 48) || "Unknown source",
+      ...(latitude !== undefined && longitude !== undefined ? { latitude, longitude } : {}),
+    });
+  }
+  return finishSpots(spots, terminal);
+}
+
 class ActivationFeedTooLargeError extends Error {}
 
 async function readCappedJson(response: Response): Promise<unknown> {
@@ -555,7 +612,8 @@ async function fetchSource(definition: SourceDefinition): Promise<SourceResult> 
       },
     });
     if (!response.ok) throw new Error(`upstream ${response.status}`);
-    const payload = await readCappedJson(response);
+    const raw = await readCappedJson(response);
+    const payload = definition.extractRows ? definition.extractRows(raw) : raw;
     if (!Array.isArray(payload)) {
       return sourceResult(definition, "invalid");
     }

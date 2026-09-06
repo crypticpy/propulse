@@ -1,7 +1,7 @@
 /**
  * TiledLabels Component
  *
- * Renders a transparent, theme-matched vector label tile layer
+ * Renders a transparent, theme-matched raster label tile layer
  * on top of the satellite tiles. Provides zoom-dependent city names,
  * roads, and country/state boundaries from OpenStreetMap data.
  *
@@ -9,6 +9,7 @@
  */
 
 import { useContext, useMemo, useEffect } from "react";
+import { cartoTileUrl } from "@/lib/tiles/carto";
 import {
   TilesRenderer as TilesRendererR3F,
   TilesPlugin,
@@ -33,10 +34,8 @@ import { GlobeTileRuntimeController } from "./GlobeTileRuntimeController";
 
 const ALIGN_ROTATION_X = -Math.PI / 2;
 
-const DARK_LABEL_TILE_URL =
-  "https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png";
-const LIGHT_LABEL_TILE_URL =
-  "https://basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png";
+const DARK_LABEL_TILE_URL = cartoTileUrl("dark_only_labels");
+const LIGHT_LABEL_TILE_URL = cartoTileUrl("light_only_labels");
 
 function LabelTileMaterialPolicy() {
   const renderer = useContext(TilesRendererContext);

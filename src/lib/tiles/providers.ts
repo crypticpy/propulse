@@ -1,3 +1,4 @@
+import { cartoTileUrl } from "./carto";
 import type {
   TileProviderConfig,
   TileProviderId,
@@ -73,7 +74,7 @@ const cartoDark: TileProviderConfig = {
   retina: true,
   overzoom: "limited",
   cacheTtlSeconds: 86_400,
-  url: "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+  url: cartoTileUrl("dark_all"),
 };
 
 /** Mapbox Satellite — Pro tier, proxied through edge function. */

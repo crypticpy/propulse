@@ -16,10 +16,16 @@ interface HamClockPagerProps {
 
 /**
  * Footer pager: ◀ TITLE n/N ▶ AUTO. Both rails follow one shared page (wall
- * spec §4/§5), so the pager announces "wall page" rather than a rail side —
- * there is one instance of this control at each end of the footer, but they
- * both step the same page and both toggle the same `autoPage.enabled` flag
- * (HW-20, `useWallAutoPage`).
+ * spec §4/§5), so the pager announces "wall page" rather than a rail side.
+ * It sits once, at the footer's left end (the right end carries the health
+ * strip), and toggles the shared `autoPage.enabled` flag (HW-20,
+ * `useWallAutoPage`).
+ *
+ * The title slot renders every page title stacked in one grid cell with
+ * only the active one visible, so the control is always as wide as its
+ * longest title: the arrows and AUTO toggle never move as the page changes
+ * (owner rule 2026-09-06 — a control that shifts under the pointer is a bad
+ * TV-distance experience).
  */
 export function HamClockPager({
   pages,
@@ -30,7 +36,6 @@ export function HamClockPager({
   const setAutoPage = useHamClockDisplayStore((s) => s.setAutoPage);
   const autoPageEnabled = autoPage.enabled;
   const index = Math.min(Math.max(pageIndex, 0), Math.max(pages.length - 1, 0));
-  const page = pages[index];
   return (
     <div className="hc-pager">
       <button
@@ -41,7 +46,17 @@ export function HamClockPager({
       >
         ◀
       </button>
-      <b>{(page?.title ?? "").toUpperCase()}</b>
+      <b className="hc-pager-title">
+        {pages.map((candidate, i) => (
+          <span
+            key={candidate.id}
+            data-active={i === index ? "true" : "false"}
+            aria-hidden={i === index ? undefined : true}
+          >
+            {candidate.title.toUpperCase()}
+          </span>
+        ))}
+      </b>
       <span className="hc-pager-n">
         {pages.length > 0 ? index + 1 : 0} / {pages.length}
       </span>

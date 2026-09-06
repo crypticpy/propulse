@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { DXNewsTicker } from "@/components/map/DXNewsTicker";
-import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useWallAutoPage } from "@/hooks/useWallAutoPage";
 import { ensureHamClockThemeFont } from "@/lib/hamclock/themeFonts";
-import { useDXStore } from "@/stores/dxStore";
 import { useHamClockDisplayStore, wallPages } from "@/stores/hamclockDisplayStore";
 import { HamClockPager } from "./HamClockPager";
 import { HamClockRail } from "./HamClockRail";
 import { HamClockWallHeader } from "./HamClockWallHeader";
+import { WallStatus } from "./WallStatus";
 
 /** Arrow keys page the rails, but not while the operator is typing or reading
  * a report. */
@@ -18,27 +17,6 @@ function shouldIgnoreKey(event: KeyboardEvent): boolean {
   if (!target) return false;
   if (target.isContentEditable) return true;
   return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
-}
-
-/** Live feed health for the footer. Reads the spot store the cluster hook
- * already fills, so the footer never opens a second feed. The model dot
- * follows the band-verdict engine that drives the Best band hero. */
-function WallStatus() {
-  const count = useDXStore((s) => s.spots.length);
-  const source = useDXStore((s) => s.spotSource);
-  const modelReady = useBandVerdicts().ready;
-  return (
-    <div className="hc-status">
-      <span>
-        <i className={count > 0 ? "" : "hc-status-idle"} />
-        CLUSTER {count} · {source === "bridge" ? "BRIDGE" : "REST"}
-      </span>
-      <span>
-        <i className={modelReady ? "" : "hc-status-idle"} />
-        MODEL {modelReady ? "LIVE" : "WAITING"}
-      </span>
-    </div>
-  );
 }
 
 interface HamClockWallProps {
@@ -52,10 +30,9 @@ interface HamClockWallProps {
 /**
  * The HamClock shell at both densities (wall spec §3, §15, HW-24/HW-25): a
  * full-bleed map with two tile rails, a callsign header with dual clocks,
- * the existing DX news ticker, and a footer carrying a pager control at
- * each end. Both rails and both pagers share the one page index — pick the
- * page from either side of the screen and the whole shell turns to it
- * together. Desk renders the identical tree at `--hc-scale` ~0.72 with
+ * the existing DX news ticker, and a footer with one pager at the left end
+ * and the health strip (`WallStatus`) at the right. Both rails share the one
+ * page index, so the whole shell turns together. Desk renders the identical tree at `--hc-scale` ~0.72 with
  * opaque rails (`data-density`, `hamclock-wall.css`) instead of a second
  * layout, so a batch that adds a tile never has to build it twice. The
  * WALL/DESK switch lives in the header (alongside mode, projection and
@@ -121,7 +98,6 @@ export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
       <footer className="hc-ftr">
         <HamClockPager pages={pages} pageIndex={page} onStep={onStep} />
         <WallStatus />
-        <HamClockPager pages={pages} pageIndex={page} onStep={onStep} />
       </footer>
     </div>
   );

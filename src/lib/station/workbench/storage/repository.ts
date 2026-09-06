@@ -1,4 +1,4 @@
-/** Internal W04 repository. Activation, synchronization acknowledgments and UI integration are separate gates. */
+/** Internal W04 repository. Delivery bookkeeping is local only; activation, authenticated transport and UI integration remain separate gates. */
 import { z } from "zod";
 import type { IDBPTransaction, StoreNames } from "idb";
 import {
@@ -15,6 +15,10 @@ import {
   stationEntityKindSchema, verifyStationOperation, stationOperationSchema, type StationOperation, type StationHead, type StationEntityKind,
 } from "@/lib/station/workbench/storage/operations";
 import { evaluateStationChange, stationArchiveIdentities, type StationStoredHead } from "@/lib/station/workbench/storage/state";
+import {
+  compareStationDeliveryResults, evaluateStationDeliveryGraph, parseStationDeliveryResult, stationDeliveryResultSchema,
+  type StationDeliveryResult, type StationDeliveryGraph, type StationDeliveryReadiness,
+} from "@/lib/station/workbench/storage/delivery";
 import { readStationOutbox } from "@/lib/station/workbench/storage/outbox";
 import { canonicalWorkbenchJson, digestWorkbenchJson } from "@/lib/station/workbench/storage/serialization";
 
@@ -56,7 +60,8 @@ const arrayNames = {
 type StorageName = StoreNames<StationDatabaseSchema>;
 type Transaction = IDBPTransaction<StationDatabaseSchema, StorageName[], "readonly" | "readwrite">;
 const READ_STORES: StorageName[] = ["accountMeta", "generations", "heads", "recordVersions"];
-const WRITE_STORES: StorageName[] = [...READ_STORES, "operations", "outbox", "conflicts"];
+const DELIVERY_STORES: StorageName[] = ["operations", "outbox", "deliveryResults", "conflicts", "recordVersions"];
+const WRITE_STORES: StorageName[] = [...new Set([...READ_STORES, ...DELIVERY_STORES])];
 const key = (item: { kind: StationEntityKind; id: string }) => JSON.stringify([item.kind, item.id]);
 const versionKey = (item: { kind: StationEntityKind; id: string; versionId: string }) => JSON.stringify([item.kind, item.id, item.versionId]);
 const prefix = (...parts: string[]) => IDBKeyRange.bound(parts, [...parts, []]);
@@ -87,7 +92,11 @@ export type StationSnapshotResult =
   | { status: "ready"; pointer: AccountPointer; archive: DeepReadonly<WorkbenchArchive>; heads: StationStoredHead[]; localSequence: number }
   | { status: "legacy-active"; pointer: AccountPointer }
   | { status: "recovery-required"; reason: string };
-export type StationCheckpoint = "after-reads" | "after-versions" | "after-heads" | "after-receipt" | "after-outbox";
+export type StationDeliveryRecordResult =
+  | { status: "recorded" | "replayed"; result: StationDeliveryResult }
+  | { status: "retry-required"; reason: string };
+export type StationCheckpoint = "after-reads" | "after-versions" | "after-heads" | "after-receipt" | "after-outbox"
+  | "after-delivery-result" | "after-delivery-descendant";
 export interface StationRepositoryOptions extends StationDatabaseOptions {
   /** Internal synchronous failure injection; production callers omit it. */
   testHooks?: { checkpoint: (checkpoint: StationCheckpoint) => void };
@@ -96,6 +105,10 @@ export interface StationRepository {
   readonly ownerId: string;
   readSnapshot(): Promise<DeepReadonly<StationSnapshotResult>>;
   commit(operation: unknown): Promise<DeepReadonly<StationCommitResult>>;
+  /** Local bookkeeping only: caller must independently authenticate transport. */
+  recordDeliveryResult(result: unknown): Promise<DeepReadonly<StationDeliveryRecordResult>>;
+  /** A snapshot of readiness, not a sender lease or transport authorization. */
+  readDeliveryReadiness(options: { generationId: string }): Promise<DeepReadonly<StationDeliveryReadiness[]>>;
   listOutbox(options: { generationId: string; limit: number }): Promise<DeepReadonly<OutboxRecord[]>>;
   close(): void;
 }
@@ -222,14 +235,80 @@ async function replay(tx: Transaction, rowInput: OperationRecord, operation: Dee
   return { status: "replayed", receipt: boundReceipt(rowInput) };
 }
 
+function deliveryOutboxState(status: StationDeliveryReadiness["status"]): OutboxRecord["state"] {
+  return status === "acknowledged" ? "acknowledged" : status === "conflicted" ? "conflicted"
+    : status === "rejected" || status === "blocked" ? "blocked" : "pending";
+}
+
+/** Read the complete retained generation, including acknowledged prerequisites.
+ * Queue rows are audited against permanent receipts; no prior dependency list
+ * or envelope is repaired or regenerated. Hashing follows transaction completion. */
 async function readDependencies(tx: Transaction, ownerId: string, generationId: string) {
-  const outbox = (await readStationOutbox(tx.objectStore("outbox"), { ownerId, generationId })).map((row) => outboxRowSchema.parse(row));
-  const operations = await Promise.all(outbox.map(async (row) => {
-    const operation = await tx.objectStore("operations").get([ownerId, row.operationId]);
-    if (!operation) damaged("Outbox operation receipt is missing");
-    return operation;
-  }));
-  return { outbox, operations };
+  const [rawOperations, rawOutbox, rawResults] = await Promise.all([
+    tx.objectStore("operations").index("by-sequence").getAll(prefix(ownerId, generationId)),
+    tx.objectStore("outbox").index("by-state-sequence").getAll(prefix(ownerId, generationId)),
+    tx.objectStore("deliveryResults").index("by-generation").getAll([ownerId, generationId]),
+  ]);
+  const operations = rawOperations.map((row): OperationRecord => {
+    const parsed = operationRowSchema.parse(row);
+    return { ...parsed, operation: parsed.operation, result: parsed.result };
+  });
+  const outbox = rawOutbox.map((row): OutboxRecord => {
+    const parsed = outboxRowSchema.parse(row);
+    return { ...parsed, operation: parsed.operation };
+  });
+  const results = rawResults.map((row) => stationDeliveryResultSchema.parse(row));
+  const graph: StationDeliveryGraph = { ownerId, generationId, operations: [] };
+  const operationIds = new Set(operations.map((row) => row.operationId));
+  if (outbox.length !== operations.length || outbox.some((row) => !operationIds.has(row.operationId))
+    || results.some((row) => !operationIds.has(row.operationId))) damaged("Delivery ledger has an orphan or missing operation/outbox receipt");
+  const sequences = new Set<number>();
+  for (const row of operations) {
+    const queue = outbox.find((candidate) => candidate.operationId === row.operationId);
+    if (!queue || row.ownerId !== ownerId || row.generationId !== generationId
+      || queue.ownerId !== ownerId || queue.generationId !== generationId
+      || queue.localSequence !== row.localSequence
+      || canonicalWorkbenchJson(queue.operation) !== canonicalWorkbenchJson(row.operation)) damaged("Outbox operation receipt binding mismatch");
+    if (sequences.has(row.localSequence)) damaged("Duplicate delivery operation sequence");
+    sequences.add(row.localSequence);
+    const operation = stationOperationSchema.parse(row.operation);
+    await replay(tx, row, operation);
+    const receiptHeads = row.status === "committed" ? boundReceipt(row).committedHeads : [];
+    const terminalResult = results.find((result) => result.operationId === row.operationId) ?? null;
+    // A malformed generation on an owner-global terminal key must not vanish
+    // behind the generation index and make the operation appear unsent.
+    if (terminalResult === null && await tx.objectStore("deliveryResults").get([ownerId, row.operationId]) !== undefined) {
+      damaged("Delivery result scope mismatch");
+    }
+    graph.operations.push({ ownerId, generationId, operationId: row.operationId, payloadDigest: row.payloadDigest,
+      committedHeads: receiptHeads, localStatus: row.status, dependencyOperationIds: queue.dependencyOperationIds,
+      terminalResult });
+  }
+  const referencesHead = (operation: StationOperation, prior: StationDeliveryGraph["operations"][number]) => prior.committedHeads.some((head) =>
+    operation.expectedHeads.some((expected) => key(head) === key(expected) && head.versionId === expected.versionId));
+  // Bind persisted dependency edges back to the signed head preconditions.
+  // Older writers omitted already-acknowledged prerequisites; that omission
+  // is safe only while the immutable accepted result is retained and verified.
+  for (const [index, node] of graph.operations.entries()) {
+    const operation = stationOperationSchema.parse(operations[index].operation);
+    for (const dependencyId of node.dependencyOperationIds) {
+      const dependencyIndex = operations.findIndex((row) => row.operationId === dependencyId);
+      if (dependencyIndex === -1) damaged("Missing delivery dependency");
+      const predecessor = graph.operations[dependencyIndex];
+      if (operations[dependencyIndex].localSequence >= operations[index].localSequence
+        || predecessor.localStatus !== "committed" || !referencesHead(operation, predecessor)) damaged("Delivery dependency does not match an earlier committed head precondition");
+    }
+    for (const [priorIndex, predecessor] of graph.operations.entries()) {
+      if (operations[priorIndex].localSequence < operations[index].localSequence && predecessor.localStatus === "committed"
+        && referencesHead(operation, predecessor) && !node.dependencyOperationIds.includes(predecessor.operationId)
+        && predecessor.terminalResult?.outcome !== "accepted") damaged("Missing required delivery dependency for a retained head precondition");
+    }
+  }
+  const readiness = evaluateStationDeliveryGraph(graph);
+  for (const node of readiness) {
+    if (outbox.find((row) => row.operationId === node.operationId)!.state !== deliveryOutboxState(node.status)) damaged("Outbox delivery state disagrees with terminal results and dependency graph");
+  }
+  return { outbox, operations, results, graph, readiness };
 }
 
 /** Hash retained bodies after a readonly snapshot, then compare the exact audited
@@ -325,7 +404,7 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
           if (!Number.isSafeInteger(sequence)) damaged("Local operation sequence is exhausted");
           const previousOutbox = dependencySnapshot.outbox;
           const dependencies: string[] = [];
-          for (const pending of previousOutbox.filter((row) => row.generationId === operation.generationId && row.state !== "acknowledged").sort((a, b) => a.localSequence - b.localSequence)) {
+          for (const pending of previousOutbox.filter((row) => row.generationId === operation.generationId).sort((a, b) => a.localSequence - b.localSequence)) {
             const previous = dependencySnapshot.operations.find((row) => row.operationId === pending.operationId);
             if (!previous || pending.ownerId !== ownerId || previous.ownerId !== ownerId || previous.generationId !== operation.generationId
               || previous.operationId !== pending.operationId || previous.localSequence !== pending.localSequence
@@ -368,8 +447,10 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
           await tx.objectStore("operations").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, payloadDigest: operation.payloadDigest, localSequence: sequence,
             status: change.status === "conflict" ? "conflict" : "committed", operation, result: storedResult });
           checkpoint("after-receipt");
+          const blocked = dependencies.some((dependency) => dependencySnapshot.readiness.some((node) => node.operationId === dependency
+            && (node.status === "rejected" || node.status === "blocked" || node.status === "conflicted")));
           await tx.objectStore("outbox").add({ ownerId, generationId: operation.generationId, operationId: operation.operationId, localSequence: sequence,
-            state: change.status === "conflict" ? "conflicted" : "pending", dependencyOperationIds: dependencies, operation });
+            state: change.status === "conflict" ? "conflicted" : blocked ? "blocked" : "pending", dependencyOperationIds: dependencies, operation });
           checkpoint("after-outbox");
           await tx.done;
           return immutable(result);
@@ -380,6 +461,75 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
         }
       }
       return immutable({ status: "retry-required", reason: "Station changed repeatedly during integrity verification; retry the same operation" });
+    },
+    async recordDeliveryResult(input: unknown): Promise<DeepReadonly<StationDeliveryRecordResult>> {
+      const incoming = parseStationDeliveryResult(input);
+      if (incoming.ownerId !== ownerId) throw new TypeError("Delivery owner does not match the bound repository");
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const audit = db.transaction<StorageName[], "readonly">(DELIVERY_STORES, "readonly");
+        let audited: string;
+        try {
+          const snapshot = await readDependencies(audit, ownerId, incoming.generationId);
+          await audit.done;
+          await Promise.all(snapshot.operations.map((row) => verifyStationOperation(row.operation)));
+          audited = canonicalWorkbenchJson(snapshot);
+        } catch (error) {
+          await audit.done.catch(() => undefined);
+          throw error;
+        }
+        const tx = db.transaction<StorageName[], "readwrite">(DELIVERY_STORES, "readwrite");
+        try {
+          const snapshot = await readDependencies(tx, ownerId, incoming.generationId);
+          if (canonicalWorkbenchJson(snapshot) !== audited) {
+            tx.abort();
+            await tx.done.catch(() => undefined);
+            continue;
+          }
+          const target = snapshot.graph.operations.find((node) => node.operationId === incoming.operationId);
+          if (!target) throw new TypeError("Delivery operation is missing from the bound generation");
+          if (target.localStatus !== "committed") throw new TypeError("A local conflict cannot receive a terminal delivery result");
+          const { dependencyOperationIds: _dependencies, localStatus: _status, terminalResult: previous, ...binding } = target;
+          void _dependencies; void _status;
+          const outcome = compareStationDeliveryResults(previous, incoming, binding);
+          // Evaluate before writing: an acceptance cannot skip prerequisites.
+          target.terminalResult = stationDeliveryResultSchema.parse(outcome.result);
+          const readiness = evaluateStationDeliveryGraph(snapshot.graph);
+          if (outcome.status === "recorded") {
+            await tx.objectStore("deliveryResults").add(target.terminalResult);
+            checkpoint("after-delivery-result");
+            for (const node of readiness) {
+              const row = snapshot.outbox.find((candidate) => candidate.operationId === node.operationId)!;
+              const state = deliveryOutboxState(node.status);
+              if (row.state === state) continue;
+              await tx.objectStore("outbox").put({ ...row, state });
+              checkpoint("after-delivery-descendant");
+            }
+          }
+          await tx.done;
+          return immutable(outcome);
+        } catch (error) {
+          try { tx.abort(); } catch { /* The request may have already aborted. */ }
+          await tx.done.catch(() => undefined);
+          throw error;
+        }
+      }
+      return immutable({ status: "retry-required", reason: "Delivery graph changed repeatedly during integrity verification; retry the same result" });
+    },
+    async readDeliveryReadiness(options: { generationId: string }): Promise<DeepReadonly<StationDeliveryReadiness[]>> {
+      const request = z.object({ generationId: id }).strict().parse(options);
+      const tx = db.transaction<StorageName[], "readonly">(DELIVERY_STORES, "readonly");
+      try {
+        const snapshot = await readDependencies(tx, ownerId, request.generationId);
+        await tx.done;
+        await Promise.all(snapshot.operations.map((row) => verifyStationOperation(row.operation)));
+        // Check owner-handle lifecycle after hashing without replacing the snapshot.
+        const check = db.transaction("accountMeta", "readonly");
+        await check.done;
+        return immutable(snapshot.readiness);
+      } catch (error) {
+        await tx.done.catch(() => undefined);
+        throw error;
+      }
     },
     async listOutbox(options: { generationId: string; limit: number }): Promise<DeepReadonly<OutboxRecord[]>> {
       const request = z.object({ generationId: id, limit: z.number().int().positive().max(0xffff_ffff) }).strict().parse(options);

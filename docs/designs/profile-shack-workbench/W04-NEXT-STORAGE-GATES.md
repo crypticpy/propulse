@@ -4,7 +4,7 @@ Tracking: [#177](https://github.com/crypticpy/propulse/issues/177), implementati
 
 ## Delivery acknowledgments and rejected dependencies
 
-The [pure delivery contracts](W04-DELIVERY-CONTRACTS.md) now implement terminal binding/replay and complete supplied-graph readiness. The durable repository and transport work below remains open.
+The [pure delivery contracts](W04-DELIVERY-CONTRACTS.md) implement terminal binding/replay and complete supplied-graph readiness. [Durable local delivery](W04-DURABLE-DELIVERY.md) now records outcomes and dependency blocking atomically, preserves receipts and later heads, and audits readiness. Authenticated transport, actual backend outcomes and explicit conflict resolution remain open; the requirements below continue to govern that integration.
 
 Implement terminal delivery outcomes separately from the permanent local commit receipt. Bind every outcome to the owner, generation, operation ID, payload digest and exact committed-head set, including tombstones. Parsing a response is not server authentication.
 

@@ -7,6 +7,7 @@ import { type WorkbenchArchive } from "@/lib/station/workbench/contracts";
 import { prepareRevision, prepareRevisionRestore } from "@/lib/station/workbench/revisions/services";
 import { openStationDatabase, type StationDatabaseHandle, type RecordVersionRecord } from "@/lib/station/workbench/storage/database";
 import { prepareStationOperation, type StationEntityKind } from "@/lib/station/workbench/storage/operations";
+import type { StationDeliveryResult } from "@/lib/station/workbench/storage/delivery";
 import { canonicalWorkbenchJson, digestWorkbenchJson } from "@/lib/station/workbench/storage/serialization";
 import { openStationRepository, type StationRepositoryOptions, type StationRepository, type StationCheckpoint } from "@/lib/station/workbench/storage/repository";
 
@@ -669,5 +670,269 @@ describe("internal station repository atomic saves", () => {
     const before = await counts(db);
     expect((await (await repository(factory)).readSnapshot()).status).toBe("recovery-required");
     expect(await counts(db)).toEqual(before);
+  });
+});
+
+
+async function committed(repo: StationRepository, operation: unknown) {
+  const result = await repo.commit(operation);
+  if (result.status !== "committed" && result.status !== "replayed") throw new Error(JSON.stringify(result));
+  return result.receipt;
+}
+function acceptedDelivery(receipt: Awaited<ReturnType<typeof committed>>): StationDeliveryResult {
+  const { localSequence: _sequence, ...binding } = receipt;
+  void _sequence;
+  return { schemaVersion: 1, ...binding, committedHeads: binding.committedHeads.map((head) => ({ ...head })), outcome: "accepted" };
+}
+function rejectedDelivery(receipt: Awaited<ReturnType<typeof committed>>): StationDeliveryResult {
+  return { schemaVersion: 1, ownerId: receipt.ownerId, generationId: receipt.generationId, operationId: receipt.operationId,
+    payloadDigest: receipt.payloadDigest, outcome: "rejected", reason: { code: "remote-head-conflict", message: "Remote base changed" } };
+}
+async function deliveryRows(db: StationDatabaseHandle) {
+  const tx = db.transaction(["operations", "outbox", "deliveryResults"], "readonly");
+  const [operations, outbox, results] = await Promise.all([
+    tx.objectStore("operations").getAll(), tx.objectStore("outbox").getAll(), tx.objectStore("deliveryResults").getAll(),
+  ]);
+  await tx.done;
+  return { operations, outbox, results };
+}
+async function deliveryFixture() {
+  const factory = new IDBFactory();
+  const db = await database(factory);
+  const archive = await seed(db);
+  const repo = await repository(factory);
+  const a = await committed(repo, await rename(archive, "A"));
+  const b = await committed(repo, await rename(archive, "B", "A"));
+  const c = await committed(repo, await rename(archive, "C", "B"));
+  const d = await committed(repo, await prepareStationOperation(base("D")));
+  return { factory, db, archive, repo, a, b, c, d };
+}
+
+describe("durable local station delivery bookkeeping", () => {
+  it("blocks A→B→C and later E on rejection, leaves D ready, and preserves canonical state and original receipts", async () => {
+    const { factory, db, archive, repo, a, d } = await deliveryFixture();
+    const before = await snapshot(repo);
+    const originals = (await deliveryRows(db)).operations;
+    expect((await repo.readDeliveryReadiness({ generationId })).map((node) => node.status)).toEqual(["ready", "waiting", "waiting", "ready"]);
+    expect((await repo.recordDeliveryResult(rejectedDelivery(a))).status).toBe("recorded");
+    expect(await snapshot(repo)).toEqual(before);
+    expect((await deliveryRows(db)).operations).toEqual(originals);
+    let ready = await repo.readDeliveryReadiness({ generationId });
+    expect(ready.map((node) => node.status)).toEqual(["rejected", "blocked", "blocked", "ready"]);
+    expect(ready[2].blockedByOperationIds).toEqual(["A"]);
+    expect((await repo.listOutbox({ generationId, limit: 10 })).map((row) => row.state)).toEqual(["blocked", "blocked", "blocked", "pending"]);
+    await committed(repo, await rename(archive, "E", "C"));
+    ready = await repo.readDeliveryReadiness({ generationId });
+    expect(ready[4]).toMatchObject({ operationId: "E", status: "blocked", blockedByOperationIds: ["A"] });
+    expect((await repo.listOutbox({ generationId, limit: 10 }))[4]).toMatchObject({ state: "blocked", dependencyOperationIds: ["C"] });
+    await repo.recordDeliveryResult(acceptedDelivery(d));
+    repo.close();
+    const reopened = await repository(factory);
+    expect((await reopened.recordDeliveryResult(rejectedDelivery(a))).status).toBe("replayed");
+    expect((await reopened.readDeliveryReadiness({ generationId })).map((node) => node.status)).toEqual(["rejected", "blocked", "blocked", "acknowledged", "blocked"]);
+    expect((await reopened.listOutbox({ generationId, limit: 10 })).map((row) => row.operationId)).toEqual(["A", "B", "C", "E"]);
+    expect((await snapshot(reopened)).localSequence).toBe(5);
+  });
+
+  it("acknowledges old A after local B without rolling back heads, changing receipts, or omitting acknowledged prerequisites", async () => {
+    const { db, archive, repo, a, b, c } = await deliveryFixture();
+    const before = await snapshot(repo);
+    const originals = (await deliveryRows(db)).operations;
+    await repo.recordDeliveryResult(acceptedDelivery(a));
+    expect(await snapshot(repo)).toEqual(before);
+    expect((await deliveryRows(db)).operations).toEqual(originals);
+    expect((await repo.readDeliveryReadiness({ generationId })).map((node) => node.status)).toEqual(["acknowledged", "ready", "waiting", "ready"]);
+    await expect(repo.recordDeliveryResult(acceptedDelivery(c))).rejects.toThrow(/acknowledged prerequisites/);
+    await repo.recordDeliveryResult(acceptedDelivery(b));
+    await repo.recordDeliveryResult(acceptedDelivery(c));
+    await committed(repo, await rename(archive, "E", "C"));
+    expect((await repo.listOutbox({ generationId, limit: 10 })).find((row) => row.operationId === "E")?.dependencyOperationIds).toEqual(["C"]);
+    expect((await repo.readDeliveryReadiness({ generationId })).find((node) => node.operationId === "E")?.status).toBe("ready");
+    expect(await repo.commit(await rename(archive, "A"))).toEqual({ status: "replayed", receipt: a });
+  });
+
+  it.each(["owner", "generation", "operation", "digest", "head-token", "head-deletion", "missing-head", "extra-head"])("rejects delivery %s mismatch without writes", async (change) => {
+    const { db, repo, a } = await deliveryFixture();
+    const result = acceptedDelivery(a);
+    if (result.outcome !== "accepted") throw new Error("Fixture");
+    if (change === "owner") result.ownerId = "other-owner";
+    if (change === "generation") result.generationId = "other-generation";
+    if (change === "operation") result.operationId = "missing-operation";
+    if (change === "digest") result.payloadDigest = "b".repeat(64);
+    if (change === "head-token") result.committedHeads[0].versionId = "other-token";
+    if (change === "head-deletion") result.committedHeads[0].deleted = true;
+    if (change === "missing-head") result.committedHeads = [];
+    if (change === "extra-head") result.committedHeads.push({ kind: "location", id: "extra", versionId: "extra", deleted: false });
+    const before = await deliveryRows(db);
+    await expect(repo.recordDeliveryResult(result)).rejects.toThrow();
+    expect(await deliveryRows(db)).toEqual(before);
+  });
+
+  it("binds exact tombstones and preserves their original local receipt", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = createExperimentFixture();
+    const spare = { ...structuredClone(archive.inventory[2]), id: "delivery-spare" };
+    archive.inventory.push(spare);
+    await seed(db, archive);
+    const repo = await repository(factory);
+    const operation = await prepareStationOperation({ ...base("delete-delivery-spare"),
+      expectedHeads: [{ kind: "equipment", id: spare.id, versionId: initial("equipment", spare.id) }],
+      tombstones: [{ kind: "equipment", id: spare.id, versionId: "deleted-spare", expectedVersionId: initial("equipment", spare.id) }],
+    });
+    const receipt = await committed(repo, operation);
+    const altered = acceptedDelivery(receipt);
+    if (altered.outcome !== "accepted") throw new Error("Fixture");
+    altered.committedHeads[0].deleted = false;
+    await expect(repo.recordDeliveryResult(altered)).rejects.toThrow(/exact committed heads/);
+    expect((await repo.recordDeliveryResult(acceptedDelivery(receipt))).status).toBe("recorded");
+    expect(await repo.commit(operation)).toEqual({ status: "replayed", receipt });
+  });
+
+  it("replays terminal outcomes after reopen and rejects changed rejection details and contradictory outcomes", async () => {
+    const { factory, db, repo, a } = await deliveryFixture();
+    const original = rejectedDelivery(a);
+    await repo.recordDeliveryResult(original);
+    repo.close();
+    const reopened = await repository(factory);
+    const before = await deliveryRows(db);
+    expect(await reopened.recordDeliveryResult(original)).toEqual({ status: "replayed", result: original });
+    const changed = rejectedDelivery(a);
+    if (changed.outcome !== "rejected") throw new Error("Fixture");
+    changed.reason.message = "New explanation";
+    await expect(reopened.recordDeliveryResult(changed)).rejects.toThrow(/Conflicting terminal/);
+    await expect(reopened.recordDeliveryResult(acceptedDelivery(a))).rejects.toThrow(/Conflicting terminal/);
+    expect(await deliveryRows(db)).toEqual(before);
+  });
+
+  it("accepts correctly bound late old-generation delivery while refusing another account's response", async () => {
+    const { factory, db, archive, repo, a } = await deliveryFixture();
+    await seed(db, archive, "new-generation");
+    const before = await snapshot(repo);
+    await repo.recordDeliveryResult(acceptedDelivery(a));
+    expect(await snapshot(repo)).toEqual(before);
+    expect((await repo.readDeliveryReadiness({ generationId }))[0].status).toBe("acknowledged");
+    expect(await repo.readDeliveryReadiness({ generationId: "new-generation" })).toEqual([]);
+    const other = await repository(factory, { ownerId: "other-owner" });
+    await expect(other.recordDeliveryResult(acceptedDelivery(a))).rejects.toThrow(/owner/);
+    expect(await other.readDeliveryReadiness({ generationId })).toEqual([]);
+  });
+
+  it("never records a server result for a quarantined local conflict", async () => {
+    const { db, archive, repo } = await deliveryFixture();
+    const stale = await rename(archive, "local-conflict");
+    expect((await repo.commit(stale)).status).toBe("conflict");
+    const result: StationDeliveryResult = { schemaVersion: 1, ownerId: FIXTURE_OWNER, generationId, operationId: stale.operationId,
+      payloadDigest: stale.payloadDigest, outcome: "rejected", reason: { code: "remote-rejection", message: "Not sendable" } };
+    const before = await deliveryRows(db);
+    await expect(repo.recordDeliveryResult(result)).rejects.toThrow(/local conflict/);
+    await expect(repo.recordDeliveryResult({ schemaVersion: 1, ownerId: FIXTURE_OWNER, generationId, operationId: stale.operationId,
+      payloadDigest: stale.payloadDigest, outcome: "accepted", committedHeads: [] })).rejects.toThrow(/local conflict/);
+    expect((await repo.readDeliveryReadiness({ generationId })).find((node) => node.operationId === "local-conflict")?.status).toBe("conflicted");
+    expect(await deliveryRows(db)).toEqual(before);
+  });
+
+  it.each(["after-delivery-result", "after-delivery-descendant"] as const)("rolls back terminal and descendant writes at %s", async (point) => {
+    const { factory, db, repo, a } = await deliveryFixture();
+    const before = await deliveryRows(db);
+    const beforeState = await snapshot(repo);
+    let descendants = 0;
+    const failing = await repository(factory, { testHooks: { checkpoint: (at) => {
+      if (at === point && (at !== "after-delivery-descendant" || ++descendants === 2)) throw new Error(`Injected ${point}`);
+    } } });
+    await expect(failing.recordDeliveryResult(rejectedDelivery(a))).rejects.toThrow(`Injected ${point}`);
+    failing.close();
+    const reopened = await repository(factory);
+    expect(await deliveryRows(db)).toEqual(before);
+    expect(await snapshot(reopened)).toEqual(beforeState);
+    expect((await reopened.recordDeliveryResult(rejectedDelivery(a))).status).toBe("recorded");
+  });
+
+  it("serializes duplicate and contradictory outcomes across two handles", async () => {
+    const { factory, db, repo, a, d } = await deliveryFixture();
+    const other = await repository(factory);
+    const repeated = await Promise.all([repo.recordDeliveryResult(acceptedDelivery(a)), other.recordDeliveryResult(acceptedDelivery(a))]);
+    expect(repeated.map((result) => result.status).sort()).toEqual(["recorded", "replayed"]);
+    const competing = await Promise.allSettled([repo.recordDeliveryResult(acceptedDelivery(d)), other.recordDeliveryResult(rejectedDelivery(d))]);
+    expect(competing.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(competing.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect((await deliveryRows(db)).results).toHaveLength(2);
+  });
+
+  it("serializes rejection against a concurrent new dependent so E cannot escape blocking", async () => {
+    const { factory, archive, repo, a } = await deliveryFixture();
+    const other = await repository(factory);
+    const e = await rename(archive, "E", "C");
+    const results = await Promise.all([repo.recordDeliveryResult(rejectedDelivery(a)), other.commit(e)]);
+    expect(results.map((result) => result.status)).toEqual(["recorded", "committed"]);
+    expect((await repo.readDeliveryReadiness({ generationId })).find((node) => node.operationId === "E")).toMatchObject({ operationId: "E", status: "blocked", blockedByOperationIds: ["A"] });
+    expect((await repo.listOutbox({ generationId, limit: 10 })).find((node) => node.operationId === "E")?.state).toBe("blocked");
+  });
+
+  it.each(["missing-edge", "extra-edge", "cycle", "missing-node", "wrong-generation", "forged-state", "tampered-envelope"])("rejects %s ledger corruption without repairing graph rows", async (change) => {
+    const { db, repo, a } = await deliveryFixture();
+    const tx = db.transaction(["operations", "outbox"], "readwrite");
+    const row = (await tx.objectStore("outbox").get([FIXTURE_OWNER, "B"]))!;
+    if (change === "missing-edge") row.dependencyOperationIds = [];
+    if (change === "extra-edge") row.dependencyOperationIds.push("D");
+    if (change === "cycle") row.dependencyOperationIds = ["C"];
+    if (change === "missing-node") row.dependencyOperationIds = ["missing"];
+    if (change === "wrong-generation") row.generationId = "wrong-generation";
+    if (change === "forged-state") row.state = "acknowledged";
+    if (change === "tampered-envelope") {
+      const operationRow = (await tx.objectStore("operations").get([FIXTURE_OWNER, "B"]))!;
+      const altered = structuredClone(row.operation) as { records: { body: { name: string } }[] };
+      altered.records[0].body.name = "Altered while preserving old hash";
+      row.operation = altered;
+      operationRow.operation = altered;
+      await tx.objectStore("operations").put(operationRow);
+    }
+    await tx.objectStore("outbox").put(row);
+    await tx.done;
+    const before = await deliveryRows(db);
+    await expect(repo.readDeliveryReadiness({ generationId })).rejects.toThrow();
+    await expect(repo.recordDeliveryResult(rejectedDelivery(a))).rejects.toThrow();
+    expect(await deliveryRows(db)).toEqual(before);
+  });
+
+  it("does not hide a terminal key with a corrupt generation behind the generation index", async () => {
+    const { db, repo, a } = await deliveryFixture();
+    const tx = db.transaction("deliveryResults", "readwrite");
+    await tx.store.add({ ...acceptedDelivery(a), generationId: "wrong-generation" });
+    await tx.done;
+    const before = await deliveryRows(db);
+    await expect(repo.readDeliveryReadiness({ generationId })).rejects.toThrow(/Delivery result scope mismatch/);
+    await expect(repo.recordDeliveryResult(acceptedDelivery(a))).rejects.toThrow(/Delivery result scope mismatch/);
+    expect(await deliveryRows(db)).toEqual(before);
+  });
+
+  it("rechecks the exact graph after asynchronous hashes instead of repairing a raced dependency", async () => {
+    const { db, repo, a } = await deliveryFixture();
+    const nativeDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let raced = false;
+    vi.spyOn(crypto.subtle, "digest").mockImplementation(async (algorithm, data) => {
+      const hashed = await nativeDigest(algorithm, data);
+      if (!raced) {
+        raced = true;
+        const tx = db.transaction("outbox", "readwrite");
+        const row = (await tx.store.get([FIXTURE_OWNER, "B"]))!;
+        row.dependencyOperationIds = [];
+        await tx.store.put(row);
+        await tx.done;
+      }
+      return hashed;
+    });
+    await expect(repo.recordDeliveryResult(rejectedDelivery(a))).rejects.toThrow(/Missing required delivery dependency/);
+    expect((await deliveryRows(db)).results).toEqual([]);
+    expect(raced).toBe(true);
+  });
+
+  it("aborts delivery when the account-bound handle closes after the terminal write", async () => {
+    const { factory, db, a } = await deliveryFixture();
+    const before = await deliveryRows(db);
+    const repo = await repository(factory, { testHooks: { checkpoint: (at) => { if (at === "after-delivery-result") repo.close(); } } });
+    await expect(repo.recordDeliveryResult(acceptedDelivery(a))).rejects.toThrow();
+    expect(await deliveryRows(db)).toEqual(before);
+    await expect(repo.recordDeliveryResult(acceptedDelivery(a))).rejects.toThrow(/closed/);
   });
 });

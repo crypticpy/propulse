@@ -46,6 +46,8 @@ For A → B → C and independent D, rejection of A yields `rejected`, `blocked`
 
 ## Remaining integration gates
 
+The subsequent [durable local delivery slice](W04-DURABLE-DELIVERY.md) implements repository outcome/readiness integration and the additive v2 store. The pure helpers retain the boundaries described here; transport, sender ownership and backend evidence remain separate.
+
 - Freeze the durable delivery-result representation and any required stored-record/schema upgrade before changing repository storage. Preserve permanent local outcomes and replay receipts.
 - Record terminal outcomes, conflict evidence and transitive blocking atomically; compare verified state inside the transaction. New commits must inherit blocked dependencies, and duplicate/concurrent responses need durable idempotency.
 - Implement authenticated transport/account binding and generation handshake separately. Close/reopen, two-handle races, transaction rollback and account-switch late-response tests remain required.

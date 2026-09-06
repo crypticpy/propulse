@@ -70,7 +70,7 @@ export function XrayTile() {
         source={satellite}
         state={state}
         onOpen={() => setReportOpen(true)}
-        openLabel={`X-ray flux ${label}. Open the solar report`}
+        openLabel={`X-ray flux ${label}. Open the X-ray report`}
       >
         <TileHero tone={tone}>{label}</TileHero>
         <div className="hc-gbar">

@@ -14,7 +14,14 @@ import { currentKp, latestByTime, protonScale } from "@/lib/solar/selectors";
 import { useMapStore } from "@/stores/mapStore";
 import { SolarSeriesChart } from "@/components/solar/SolarSeriesChart";
 import { HamClockButton, HamClockTabs } from "../controls";
-import { bzTone, reportFooter, reportTone, windSpeedTone } from "../tokens";
+import {
+  bzTone,
+  kpDescriptor,
+  kpTone,
+  reportFooter,
+  reportTone,
+  windSpeedTone,
+} from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
 
 /** ±20 nT covers everything short of an extreme storm — same span the tile gauge uses. */
@@ -80,46 +87,75 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
   const scales = scalesQuery.data?.envelope.data;
   const proton = protonQuery.data?.at(-1)?.flux ?? null;
 
-  const heroTone =
-    worseTone(
-      bz !== null ? bzTone(bz) : null,
-      speed !== null ? windSpeedTone(speed) : null,
-    ) ?? "hc-dim-text";
+  // Both L1 feeds can go down together (a single upstream outage) while the
+  // planetary Kp index — derived from ground magnetometers, not L1 — keeps
+  // reporting. Falling all the way to "NO DATA" would hide a live storm
+  // signal the report already has in hand, so Kp stands in for the hero and
+  // verdict in that case, and a note names the actual gap.
+  const l1Down = bz === null && speed === null;
+  const heroTone = l1Down
+    ? kp !== null
+      ? kpTone(kp).tone
+      : "hc-dim-text"
+    : (worseTone(
+        bz !== null ? bzTone(bz) : null,
+        speed !== null ? windSpeedTone(speed) : null,
+      ) ?? "hc-dim-text");
 
-  const hero =
-    speed === null ? (
+  const hero = l1Down ? (
+    kp === null ? (
       "—"
     ) : (
       <>
-        {Math.round(speed)}
-        <span className="hcr-unit">KM/S</span>
+        {kp.toFixed(1)}
+        <span className="hcr-unit">Kp</span>
       </>
-    );
+    )
+  ) : speed === null ? (
+    "—"
+  ) : (
+    <>
+      {Math.round(speed)}
+      <span className="hcr-unit">KM/S</span>
+    </>
+  );
 
-  const verdict =
-    bz !== null && bz <= -10
+  const verdict = l1Down
+    ? kp !== null
+      ? kpDescriptor(kp)
+      : "NO DATA"
+    : bz !== null && bz <= -10
       ? "Bz STORM"
       : bz !== null && bz < 0
         ? "Bz SOUTH"
         : speed !== null && speed >= 600
           ? "HIGH SPEED"
-          : speed !== null
-            ? "QUIET STREAM"
-            : "NO DATA";
+          : "QUIET STREAM";
 
   const facts: WallReportFact[] = [
     {
       label: "Bz",
-      value: bz === null ? "—" : `${bz >= 0 ? "+" : ""}${bz.toFixed(1)} nT`,
+      value: l1Down
+        ? "L1 DOWN"
+        : bz === null
+          ? "—"
+          : `${bz >= 0 ? "+" : ""}${bz.toFixed(1)} nT`,
     },
     {
       label: "SPEED",
-      value: speed === null ? "—" : `${Math.round(speed)} km/s`,
+      value: l1Down
+        ? "L1 DOWN"
+        : speed === null
+          ? "—"
+          : `${Math.round(speed)} km/s`,
     },
     {
       label: "DENSITY",
-      value:
-        plasma?.density == null ? "—" : `${plasma.density.toFixed(1)} p/cm³`,
+      value: l1Down
+        ? "L1 DOWN"
+        : plasma?.density == null
+          ? "—"
+          : `${plasma.density.toFixed(1)} p/cm³`,
     },
     { label: "Kp", value: kp === null ? "—" : kp.toFixed(1) },
     { label: "DST", value: dst === null ? "—" : `${dst} nT` },
@@ -151,6 +187,12 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
       pinId="solar-wind"
       pinElement={<SolarWindReport open onClose={onClose} />}
     >
+      {l1Down && (
+        <p className="hcr-note">
+          L1 WIND FEED DOWN — hero and verdict fall back to the planetary Kp
+          reading.
+        </p>
+      )}
       <HamClockTabs
         label="Solar wind report tabs"
         tabs={[
@@ -158,20 +200,58 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
             id: "wind",
             label: "WIND",
             content: (
-              <div className="hcr-chart">
-                <SolarSeriesChart
-                  label="Bz — 24 H · ACE/DSCOVR AT L1"
-                  points={(magQuery.data ?? [])
-                    .filter((point) => point.bz_gsm !== null)
-                    .map((point) => ({
-                      timestamp: point.time_tag,
-                      value: point.bz_gsm as number,
-                    }))}
-                  unit="nT"
-                  min={-BZ_LIMIT}
-                  max={BZ_LIMIT}
-                  maxGapMs={300_000}
-                />
+              <div className="hcr-chart-stack">
+                <div className="hcr-chart">
+                  <p className="hcr-chart-title">Bz — 24 H · ACE/DSCOVR AT L1</p>
+                  <SolarSeriesChart
+                    label="Bz — 24 H · ACE/DSCOVR AT L1"
+                    points={(magQuery.data ?? [])
+                      .filter((point) => point.bz_gsm !== null)
+                      .map((point) => ({
+                        timestamp: point.time_tag,
+                        value: point.bz_gsm as number,
+                      }))}
+                    unit="nT"
+                    min={-BZ_LIMIT}
+                    max={BZ_LIMIT}
+                    maxGapMs={300_000}
+                    chrome="plot"
+                  />
+                </div>
+                <div className="hcr-chart">
+                  <p className="hcr-chart-title">
+                    Speed — 24 H · ACE/DSCOVR AT L1
+                  </p>
+                  <SolarSeriesChart
+                    label="Solar-wind speed — 24 H · ACE/DSCOVR AT L1"
+                    points={(plasmaQuery.data?.envelope.data ?? [])
+                      .filter((point) => point.speed !== null)
+                      .map((point) => ({
+                        timestamp: point.time_tag,
+                        value: point.speed as number,
+                      }))}
+                    unit="km/s"
+                    maxGapMs={300_000}
+                    chrome="plot"
+                  />
+                </div>
+                <div className="hcr-chart">
+                  <p className="hcr-chart-title">
+                    Density — 24 H · ACE/DSCOVR AT L1
+                  </p>
+                  <SolarSeriesChart
+                    label="Solar-wind density — 24 H · ACE/DSCOVR AT L1"
+                    points={(plasmaQuery.data?.envelope.data ?? [])
+                      .filter((point) => point.density !== null)
+                      .map((point) => ({
+                        timestamp: point.time_tag,
+                        value: point.density as number,
+                      }))}
+                    unit="p/cm³"
+                    maxGapMs={300_000}
+                    chrome="plot"
+                  />
+                </div>
               </div>
             ),
           },
@@ -195,6 +275,7 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                   max={9}
                   intervalMs={10_800_000}
                   maxGapMs={10_800_000}
+                  chrome="plot"
                 />
               </div>
             ),

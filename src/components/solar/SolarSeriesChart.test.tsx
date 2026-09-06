@@ -89,4 +89,16 @@ describe("SolarSeriesChart inspection", () => {
     );
     expect(screen.queryByText("X1.0")).toBeNull();
   });
+
+  it('renders only the plot and an sr-only values table when chrome="plot"', () => {
+    const { container } = render(
+      <SolarSeriesChart points={points} label="Bz" unit="nT" chrome="plot" />,
+    );
+    expect(screen.getByRole("img")).not.toBeNull();
+    expect(screen.queryByRole("slider")).toBeNull();
+    expect(screen.queryByRole("button", { name: /show values/i })).toBeNull();
+    const table = screen.getByRole("table");
+    expect(table).not.toBeNull();
+    expect(container.querySelector(".sr-only table")).not.toBeNull();
+  });
 });

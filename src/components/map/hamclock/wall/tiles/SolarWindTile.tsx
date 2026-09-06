@@ -158,7 +158,7 @@ export function SolarWindTile() {
           speed === null
             ? "unknown"
             : `${Math.round(speed)} kilometres per second`
-        }. Open the solar report`}
+        }. Open the solar wind report`}
       >
         <div className="hc-gauges">
           <ArcGauge

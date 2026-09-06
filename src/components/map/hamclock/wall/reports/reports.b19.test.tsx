@@ -123,6 +123,33 @@ describe("SolarReport", () => {
 
     expect(screen.getByText(/Curated Cycle 25 reference/)).toBeTruthy();
   });
+
+  it("extends the CYCLE chart past the live rows with the curated Cycle 25 reference", async () => {
+    const user = userEvent.setup();
+    mocks.solar.mockImplementation((sourceId: string) => {
+      if (sourceId === "noaa-sunspots") {
+        return envelope([
+          { time_tag: "2026-06", ssn: 150 },
+          { time_tag: "2026-07", ssn: 145 },
+          { time_tag: "2026-08", ssn: 140 },
+        ]);
+      }
+      return EMPTY_RESOURCE;
+    });
+
+    render(<SolarReport open onClose={vi.fn()} />);
+    await user.click(screen.getByRole("tab", { name: "CYCLE" }));
+
+    // 26 curated Cycle 25 rows (Dec 2019 – Jan 2026) plus the 3 live NOAA
+    // rows mocked above — well beyond the 3 live rows alone.
+    const chart = screen.getByRole("img", { name: /SSN — CYCLE 25/ });
+    expect(chart.getAttribute("aria-label")).toContain("29 records");
+    const dialog = screen.getByRole("dialog");
+    expect(
+      dialog.querySelectorAll('[data-kind="estimated"]').length,
+    ).toBeGreaterThan(0);
+    expect(dialog.querySelectorAll('[data-kind="observed"]').length).toBe(3);
+  });
 });
 
 describe("XrayReport", () => {
@@ -359,5 +386,83 @@ describe("SolarWindReport", () => {
     );
 
     expect(mocks.toggleLayer).toHaveBeenCalledWith("aurora");
+  });
+
+  it("renders Bz, speed, and density history strips on the WIND tab", () => {
+    mocks.solar.mockImplementation((sourceId: string) => {
+      if (sourceId === "swpc-solar-wind-plasma") {
+        return envelope([
+          {
+            time_tag: "2026-09-05T11:00:00Z",
+            speed: 420,
+            density: 4.2,
+            temperature: 1,
+          },
+          {
+            time_tag: "2026-09-05T12:00:00Z",
+            speed: 430,
+            density: 4.5,
+            temperature: 1,
+          },
+        ]);
+      }
+      return EMPTY_RESOURCE;
+    });
+    mocks.magnetometer24h.mockReturnValue(
+      projected([
+        { time_tag: "2026-09-05T11:00:00Z", bz_gsm: 1, by_gsm: 0, bt: 1 },
+        { time_tag: "2026-09-05T12:00:00Z", bz_gsm: -2, by_gsm: 0, bt: 2 },
+      ]),
+    );
+
+    // WIND is the default active tab.
+    render(<SolarWindReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("Bz — 24 H · ACE/DSCOVR AT L1")).toBeTruthy();
+    expect(screen.getByText("Speed — 24 H · ACE/DSCOVR AT L1")).toBeTruthy();
+    expect(screen.getByText("Density — 24 H · ACE/DSCOVR AT L1")).toBeTruthy();
+
+    const speedChart = screen.getByRole("img", { name: /Solar-wind speed/ });
+    expect(speedChart.getAttribute("aria-label")).toContain("2 records");
+    const densityChart = screen.getByRole("img", {
+      name: /Solar-wind density/,
+    });
+    expect(densityChart.getAttribute("aria-label")).toContain("2 records");
+  });
+
+  it("falls back to the planetary Kp reading when both L1 feeds are absent", () => {
+    // Both `swpc-solar-wind-plasma` and the magnetometer default to empty in
+    // beforeEach, so this only needs to supply a live Kp reading.
+    mocks.solar.mockImplementation((sourceId: string) => {
+      if (sourceId === "noaa-k-index") {
+        return envelope([
+          {
+            time_tag: "2026-09-05T12:00:00Z",
+            kp: 5.3,
+            kind: "observed",
+            noaa_scale: null,
+            a_running: null,
+          },
+        ]);
+      }
+      return EMPTY_RESOURCE;
+    });
+
+    render(<SolarWindReport open onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-hero")?.textContent).toContain("5.3");
+    expect(screen.getByText("G1 STORM")).toBeTruthy();
+    expect(screen.getByText(/L1 WIND FEED DOWN/)).toBeTruthy();
+    expect(screen.getAllByText("L1 DOWN").length).toBeGreaterThan(0);
+  });
+
+  it("shows NO DATA only when Kp is also absent", () => {
+    // Plasma, magnetometer, and Kp all default to empty in beforeEach.
+    render(<SolarWindReport open onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("—");
+    expect(screen.getByText("NO DATA")).toBeTruthy();
   });
 });

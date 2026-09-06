@@ -530,18 +530,39 @@
 
 /* ===== B19: solar, x-ray, solar wind reports ===== */
 
-/* `SolarSeriesChart` (reused from /solar, HW-B19) carries its own legend,
- * inspector slider and "show values" toggle below its <svg> — taller than
- * the compact `SolarMiniChart` the 9vh rule above was written for. Scoped to
- * a report's tab panel only, so the older non-tabbed reports keep the
- * original mini-chart sizing untouched. */
+/* `SolarSeriesChart` (reused from /solar, HW-B19) draws taller than the
+ * compact `SolarMiniChart` the 9vh rule above was written for. Reports pass
+ * `chrome="plot"` so the legend, inspector slider and "show values" toggle
+ * are never rendered here in the first place — `overflow: hidden` must not
+ * be relied on to hide them, since a report's tab panel can be shorter than
+ * the full-chrome chart and clipping would leave controls half-visible and
+ * inoperable. Scoped to a report's tab panel only, so the older non-tabbed
+ * reports keep the original mini-chart sizing untouched. */
 .hcc-tabpanel .hcr-chart {
   flex: 1 1 auto;
-  overflow: hidden;
+  min-height: 0;
 }
 .hcc-tabpanel .hcr-chart svg {
   height: auto;
   max-height: 26vh;
+}
+
+/* The WIND tab stacks three plot-only strips (Bz, speed, density) sharing
+ * one time axis instead of one tall chart, so each strip gets a third of
+ * the panel's height rather than the single-chart 26vh cap above. */
+.hcc-tabpanel .hcr-chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vh;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.hcc-tabpanel .hcr-chart-stack .hcr-chart {
+  flex: 1 1 0;
+  padding-top: 0.5vh;
+}
+.hcc-tabpanel .hcr-chart-stack .hcr-chart svg {
+  max-height: 9vh;
 }
 
 /* ===== end B19 ===== */

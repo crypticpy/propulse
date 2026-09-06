@@ -117,18 +117,44 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
     kind: point.kind,
   }));
 
-  // The curated Cycle 25 reference and the live monthly SSN cover the same
-  // months, so they cannot share one chart: `SolarSeriesChart` only draws a
-  // clean line within a kind for strictly-later points of the same kind (the
-  // pattern that works for an observed-then-future forecast tail), and two
-  // full-range series interleaved by timestamp would zig-zag rather than
-  // overlay. The reference stays in the facts above; the chart draws only
-  // the live series it can show honestly.
-  const cycleChartPoints = sunspots.map((point) => ({
-    timestamp: `${point.time_tag}-01T00:00:00Z`,
-    value: point.ssn,
-    kind: "observed" as const,
-  }));
+  // `SolarSeriesChart` only draws a clean connected line within a kind for
+  // points that are chronologically contiguous with the same-kind points
+  // around them (the pattern that works for an observed-then-future
+  // forecast tail); two full-range series covering the *same* months would
+  // interleave and fragment both lines. `SOLAR_CYCLE_DATA` has no
+  // predicted/high/low fields of its own — it is a curated *historical*
+  // reference (through early 2026), not a live forward forecast — so rather
+  // than mislabel it "predicted" (the chart's built-in legend text for that
+  // kind reads "Official NOAA prediction"), it is charted as "estimated"
+  // and restricted to months strictly before the earliest live NOAA
+  // sunspot row. That keeps the two series non-overlapping (clean lines on
+  // both) and honestly extends the visible curve back to Cycle 25's start
+  // (Dec 2019) well beyond the live feed's ~3-year retention window.
+  const earliestLiveMonth = sunspots[0]?.time_tag ?? null;
+  const cycle25Reference = SOLAR_CYCLE_DATA.filter(
+    (point) => point.cycle === 25,
+  )
+    .map((point) => ({
+      timestamp: `${point.year}-${String(point.month).padStart(2, "0")}-01T00:00:00Z`,
+      value: point.ssn,
+      monthKey: `${point.year}-${String(point.month).padStart(2, "0")}`,
+    }))
+    .filter(
+      (point) => !earliestLiveMonth || point.monthKey < earliestLiveMonth,
+    )
+    .map(({ timestamp, value }) => ({
+      timestamp,
+      value,
+      kind: "estimated" as const,
+    }));
+  const cycleChartPoints = [
+    ...cycle25Reference,
+    ...sunspots.map((point) => ({
+      timestamp: `${point.time_tag}-01T00:00:00Z`,
+      value: point.ssn,
+      kind: "observed" as const,
+    })),
+  ];
 
   return (
     <WallReport
@@ -168,6 +194,7 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
                   points={nowChartPoints}
                   unit="sfu"
                   maxGapMs={36 * 3_600_000}
+                  chrome="plot"
                 />
               </div>
             ),
@@ -181,11 +208,14 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
                   label="SSN — CYCLE 25 · SIDC / NOAA"
                   points={cycleChartPoints}
                   unit="SSN"
-                  maxGapMs={62 * 86_400_000}
+                  maxGapMs={95 * 86_400_000}
+                  chrome="plot"
                 />
                 <p className="hcr-note">
-                  Curated Cycle 25 reference:{" "}
-                  {CYCLE_PHASE_LABEL[cyclePosition.phase]}
+                  Curated Cycle 25 reference (dashed) extends the curve back
+                  to Dec 2019 — mean SSN only, no forecast high/low envelope
+                  is published. Live NOAA monthly counts (solid) continue it.
+                  Currently {CYCLE_PHASE_LABEL[cyclePosition.phase]}
                   {cyclePeakSsn !== null
                     ? `, provisional peak SSN ${cyclePeakSsn}`
                     : ""}

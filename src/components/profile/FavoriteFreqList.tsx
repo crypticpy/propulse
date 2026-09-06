@@ -4,6 +4,8 @@
  */
 
 import { useState } from "react";
+import { TuneButton } from "@/components/radio/TuneButton";
+import { parseFrequencyKHz } from "@/lib/radio/frequency";
 import type { FavoriteFrequency } from "@/types/social";
 
 interface FavoriteFreqListProps {
@@ -122,7 +124,7 @@ export function FavoriteFreqList({
     <div className="space-y-1.5">
       {/* Frequency list */}
       {freqs.map((f) => (
-        <div key={f.id} className="flex items-center gap-2 group text-xs">
+        <div key={f.id} className="flex flex-wrap items-center gap-2 group text-xs">
           {/* Frequency */}
           <span className="font-mono text-white shrink-0">
             {f.frequency} MHz
@@ -145,6 +147,12 @@ export function FavoriteFreqList({
               <span className="text-gray-400 italic truncate">{f.notes}</span>
             </>
           )}
+
+          <TuneButton
+            frequencyKHz={parseFrequencyKHz(f.frequency)}
+            mode={f.mode && f.mode !== "Other" ? f.mode : null}
+            wall={false}
+          />
 
           {/* Remove button */}
           {editable && onRemove && (

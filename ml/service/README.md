@@ -206,6 +206,18 @@ flux, Dst, F10.7, sunspots, and the Kp/Bz/Dst windows each retain their frozen
 source-specific age rules. Missing or future data remains missing instead of
 falling back to the browser.
 
+Six of the 23 raw OMNI-shaped weather features that training saw are not
+present in the collector snapshot but can be derived from fields that are:
+`flow_pressure`, `electric_field`, `plasma_beta`, `alfven_mach`, and
+`magnetosonic_mach` are reconstructed from `wind_speed`/`density_cm3`/
+`temperature_k`/`bt`/`bz_gsm` using the OMNI2 formulas
+(`operational_weather.add_derived_physics_features`), and `ap` is derived
+from `kp` via the standard Kp→ap conversion table. Each derivation is
+guarded — a missing input, `bt == 0`, or `density_cm3 <= 0` leaves the
+feature absent rather than emitting `NaN`/`Inf` or a fabricated value. Five
+features remain unavailable pending a real-time source: `ae`, `al`, `au`,
+`pcn`, and `hp60`.
+
 Configure the trusted weather path independently of WSPR source authorization:
 
 ```bash

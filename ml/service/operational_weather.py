@@ -150,6 +150,86 @@ def selected_field(
     return selected
 
 
+# OMNI2 low-resolution hourly index -> ap (nT) conversion table, one entry
+# per third-of-a-Kp-step from 0o through 9o. Source: standard Kp<->ap
+# conversion (e.g. https://www.swpc.noaa.gov/content/planetary-k-index and
+# the OMNI2 "ap" column definition at
+# https://omniweb.gsfc.nasa.gov/html/ow_data.html), which is how training
+# (ml/src/archive_v3/build_space_weather.py) read `ap` straight from the
+# OMNI2 file.
+KP_TO_AP = (
+    0, 2, 3, 4, 5, 6, 7, 9, 12, 15, 18, 22, 27, 32, 39, 48, 56, 67, 80, 94,
+    111, 132, 154, 179, 207, 236, 300, 400,
+)
+
+
+def kp_to_ap(kp: float) -> float:
+    """Map a decimal Kp (thirds, e.g. 2.33) to the standard ap index."""
+    index = max(0, min(len(KP_TO_AP) - 1, round(kp * 3)))
+    return float(KP_TO_AP[index])
+
+
+def add_derived_physics_features(values: dict[str, float]) -> None:
+    """Reconstruct OMNI2 plasma-derived features from raw snapshot inputs.
+
+    Training took `flow_pressure`, `electric_field`, `plasma_beta`,
+    `alfven_mach`, `magnetosonic_mach`, and `ap` straight from OMNI2 file
+    columns (ml/src/archive_v3/build_space_weather.py). The collector
+    snapshot only carries the raw solar-wind/IMF/Kp inputs, so they are
+    rebuilt here using OMNI's documented formulas:
+    https://omniweb.gsfc.nasa.gov/html/ow_data.html and
+    https://omniweb.gsfc.nasa.gov/ftpbrowser/bow_derivation.html. Flow
+    pressure uses the alpha-particle-free variant (2e-6 * Np * V^2) because
+    alpha density is not available operationally; OMNI itself falls back to
+    this same formula whenever alpha/proton ratios are missing.
+
+    Every derivation is guarded: a missing input, B (`bt`) == 0, or
+    Np (`density_cm3`) <= 0 leaves the feature absent rather than emitting
+    NaN/Inf or a fabricated 0.0.
+    """
+    wind_speed = values.get("wind_speed")
+    density = values.get("density_cm3")
+    temperature = values.get("temperature_k")
+    bt = values.get("bt")
+    bz = values.get("bz_gsm")
+    kp = values.get("kp")
+
+    has_wind_density = wind_speed is not None and density is not None and density > 0
+    has_field = bt is not None and bt != 0
+
+    if has_wind_density:
+        flow_pressure = 2e-6 * density * wind_speed**2
+        if math.isfinite(flow_pressure):
+            values["flow_pressure"] = flow_pressure
+
+    if wind_speed is not None and bz is not None:
+        electric_field = -wind_speed * bz * 1e-3
+        if math.isfinite(electric_field):
+            values["electric_field"] = electric_field
+
+    if temperature is not None and density is not None and density > 0 and has_field:
+        plasma_beta = ((temperature * 4.16e-5) + 5.34) * density / bt**2
+        if math.isfinite(plasma_beta):
+            values["plasma_beta"] = plasma_beta
+
+    if has_wind_density and has_field:
+        alfven_mach = (wind_speed * math.sqrt(density)) / (20 * bt)
+        if math.isfinite(alfven_mach):
+            values["alfven_mach"] = alfven_mach
+
+        if temperature is not None:
+            alfven_speed = 20 * bt / math.sqrt(density)
+            sound_speed = 0.12 * math.sqrt(temperature + 1.28e5)
+            magnetosonic_speed = math.sqrt(alfven_speed**2 + sound_speed**2)
+            if magnetosonic_speed > 0:
+                magnetosonic_mach = wind_speed / magnetosonic_speed
+                if math.isfinite(magnetosonic_mach):
+                    values["magnetosonic_mach"] = magnetosonic_mach
+
+    if kp is not None:
+        values["ap"] = kp_to_ap(kp)
+
+
 def source_series(
     rows: list[dict[str, Any]],
     *,
@@ -216,6 +296,8 @@ def build_operational_weather(
         values[output] = value
         observed_times[source] = min(observed_times.get(source, observed), observed)
         receipt_times[source] = max(receipt_times.get(source, received), received)
+
+    add_derived_physics_features(values)
 
     kp = source_series(
         rows,

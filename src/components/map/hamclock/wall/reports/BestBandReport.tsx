@@ -79,6 +79,16 @@ function BandSparkline({
     score,
     stamp,
   );
+  // Fewer than two readings would render the mini chart's own "waiting for
+  // more readings" paragraph, which is neither wall-styled nor a fit for a
+  // 3.6vh cell; a dim dash says the same thing at TV distance.
+  if (trend.length < 2) {
+    return (
+      <span className="hcr-bandtable-spark hc-dim-text" aria-hidden="true">
+        —
+      </span>
+    );
+  }
   return (
     <div className="hcr-bandtable-spark">
       <SolarMiniChart
@@ -126,7 +136,7 @@ function BandRow({
       </span>
       <span className={surprise ? "hc-warn" : undefined}>
         {[
-          leader ? `LEADING · ${result.inputs.obs20m}/20 MIN` : null,
+          leader ? `LEADING ${result.inputs.obs20m}/20` : null,
           surprise ? "SURPRISE" : null,
         ]
           .filter(Boolean)

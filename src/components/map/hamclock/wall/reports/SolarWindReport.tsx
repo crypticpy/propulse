@@ -300,8 +300,8 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                 </div>
                 <div className="hcr-cols">
                   <p className="hcr-note">
-                    Aurora imagery only — NOAA does not publish a numeric
-                    oval-reach latitude to fact here.
+                    Aurora reach is imagery only: NOAA publishes no numeric oval
+                    latitude for a fact here.
                   </p>
                   <HamClockButton
                     variant="quiet"

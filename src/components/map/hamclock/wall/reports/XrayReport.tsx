@@ -86,13 +86,13 @@ export function XrayReport({
   const noFlaresAboveB =
     !peak || peakLabel.charAt(0) === "A" || peakLabel.charAt(0) === "B";
 
+  // The hero already reads the current class; a CURRENT fact repeated it.
   const facts: WallReportFact[] = [
-    { label: "CURRENT", value: currentLabel },
     { label: "24H PEAK", value: peakLabel },
     {
-      label: "LATEST FLARE",
+      label: "LAST FLARE",
       value: flare
-        ? `${flare.max_class} @ ${flare.max_time.slice(11, 16)}Z`
+        ? `${flare.max_class} ${flare.max_time.slice(11, 16)}Z`
         : "—",
     },
     {
@@ -209,7 +209,10 @@ export function XrayReport({
                 <h4>NOAA 1-day flare probability</h4>
                 {probabilityRows.length > 0 ? (
                   <>
-                    <div className="hcr-list" aria-hidden="true">
+                    <div
+                      className="hcr-list hcr-list--row"
+                      aria-hidden="true"
+                    >
                       {probabilityRows.map((row) => (
                         <div key={row.key} className="hcr-item hc-info-text">
                           <b>{Math.round(row.percent)}%</b>

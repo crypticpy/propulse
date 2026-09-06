@@ -148,7 +148,10 @@ describe("SunReport", () => {
     const riseFact = facts.find((row) => row?.startsWith("RISE"));
     expect(riseFact).toBeTruthy();
     expect(riseFact).not.toMatch(/\s\/\s/);
-    expect(facts.some((row) => row?.startsWith("CHANGE"))).toBe(true);
+    // Six facts (#250): the day-length change moved into the Sun times box.
+    expect(facts).toHaveLength(6);
+    expect(facts.some((row) => row?.startsWith("CHANGE"))).toBe(false);
+    expect(within(dialog).getByText("DAY LENGTH CHANGE")).toBeTruthy();
     expect(facts.some((row) => row?.startsWith("ELEV NOW"))).toBe(true);
     expect(facts.some((row) => row?.startsWith("AZ NOW"))).toBe(true);
     // The chart's sr-only twin lists all 24 hourly samples.
@@ -277,8 +280,7 @@ describe("GreyLineReport", () => {
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     render(<GreyLineReport open onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    // Both the fact list and the "Low bands" body box show 160M/80M/40M;
-    // scope to the body box's <dt> labels to avoid matching both.
+    // The "Low bands" body box carries the tiers (#250: not in the facts).
     const tierLabels = Array.from(dialog.querySelectorAll(".hcr-kv dt")).map(
       (dt) => dt.textContent,
     );
@@ -325,9 +327,10 @@ describe("GreyLineReport", () => {
     expect(
       facts.some((row) => row?.startsWith("WINDOW START") && row.includes("—")),
     ).toBe(true);
-    expect(
-      facts.some((row) => row?.startsWith("160M") && row.includes("INACTIVE")),
-    ).toBe(true);
+    const tiers = Array.from(dialog.querySelectorAll(".hcr-kv dd")).map(
+      (dd) => dd.textContent,
+    );
+    expect(tiers.every((t) => t?.includes("INACTIVE"))).toBe(true);
   });
 
   it("enables the terminator layer and closes the report from SHOW TERMINATOR", async () => {

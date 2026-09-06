@@ -50,6 +50,22 @@ const TARGET = { lat: 35.68, lon: 139.69, name: "Tokyo", grid: "PM95" };
 
 /** One row of `.hcr-facts`, as rendered: `"LABELvalue"` concatenated with no
  * separator (same query pattern as `reports.b20.test.tsx`). */
+/** Opens the EME tab and returns its box's "LABELvalue" kv rows. */
+async function emeRows(
+  dialog: HTMLElement,
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<string[]> {
+  await user.click(within(dialog).getByRole("tab", { name: "EME" }));
+  const box = Array.from(dialog.querySelectorAll(".hcr-box")).find((el) =>
+    el.querySelector("h4")?.textContent?.startsWith("EME"),
+  );
+  if (!box) throw new Error("EME box not rendered");
+  const dts = Array.from(box.querySelectorAll(".hcr-kv dt"));
+  return dts.map(
+    (dt) => `${dt.textContent}${dt.nextElementSibling?.textContent ?? ""}`,
+  );
+}
+
 function factRows(dialog: HTMLElement): (string | null)[] {
   return Array.from(dialog.querySelectorAll(".hcr-facts > div")).map(
     (row) => row.textContent,
@@ -73,52 +89,64 @@ describe("MoonReport", () => {
     expect(verdictText(screen.getByRole("dialog"))).toBe("NO QTH");
   });
 
-  it("reads MOON UP with the up-time hero and lists the MOON and EME facts", () => {
+  it("reads MOON UP with the up-time hero, six MOON facts and the EME box", async () => {
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
+    const user = userEvent.setup({ delay: null });
     render(<MoonReport open onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
 
     expect(verdictText(dialog)).toBe("MOON UP");
     const facts = factRows(dialog);
+    expect(facts).toHaveLength(6);
     expect(facts.some((row) => row?.startsWith("PHASE"))).toBe(true);
     expect(facts.some((row) => row?.startsWith("DISTANCE"))).toBe(true);
-    expect(facts.some((row) => row?.startsWith("PATH LOSS"))).toBe(true);
-    expect(facts.some((row) => row?.startsWith("DEGRADATION"))).toBe(true);
     expect(facts.some((row) => row?.startsWith("DECLINATION"))).toBe(true);
-    expect(facts.some((row) => row?.startsWith("SKY NOISE"))).toBe(true);
+    // Moonrise/moonset are the next crossings, never a "—" for a calendar
+    // day SunCalc leaves blank.
+    expect(facts.find((row) => row?.startsWith("MOONRISE"))).not.toContain("—");
+    const eme = await emeRows(dialog, user);
+    expect(eme.some((row) => row.startsWith("PATH LOSS"))).toBe(true);
+    expect(eme.some((row) => row.startsWith("DEGRADATION"))).toBe(true);
+    expect(eme.some((row) => row.startsWith("SKY NOISE"))).toBe(true);
   });
 
-  it("reads MOON DOWN with the time-to-moonrise hero when the Moon is below the horizon", () => {
+  it("reads MOON DOWN with the time-to-moonrise hero when the Moon is below the horizon", async () => {
     // Verified: alt ~= -29.9 deg at Austin, TX at this instant.
     vi.setSystemTime(new Date("2026-09-05T02:00:00Z"));
     render(<MoonReport open onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
 
     expect(verdictText(dialog)).toBe("MOON DOWN");
-    // The EME facts stay visible even while the Moon is down.
-    const facts = factRows(dialog);
-    expect(facts.some((row) => row?.startsWith("PATH LOSS"))).toBe(true);
-    expect(facts.some((row) => row?.startsWith("DEGRADATION"))).toBe(true);
+    // The EME box stays available even while the Moon is down.
+    const eme = await emeRows(dialog, userEvent.setup({ delay: null }));
+    expect(eme.some((row) => row.startsWith("PATH LOSS"))).toBe(true);
+    expect(eme.some((row) => row.startsWith("DEGRADATION"))).toBe(true);
   });
 
-  it("reads NO TARGET SET in the mutual window fact when no DX target is chosen", () => {
+  it("reads NO TARGET SET in the mutual window row when no DX target is chosen", async () => {
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     render(<MoonReport open onClose={vi.fn()} />);
-    const facts = factRows(screen.getByRole("dialog"));
+    const eme = await emeRows(
+      screen.getByRole("dialog"),
+      userEvent.setup({ delay: null }),
+    );
     expect(
-      facts.some(
+      eme.some(
         (row) =>
-          row?.startsWith("MUTUAL WINDOW") && row.includes("NO TARGET SET"),
+          row.startsWith("MUTUAL WINDOW") && row.includes("NO TARGET SET"),
       ),
     ).toBe(true);
   });
 
-  it("computes a real mutual window fact once a DX target is chosen", () => {
+  it("computes a real mutual window row once a DX target is chosen", async () => {
     mocks.target.mockReturnValue(TARGET);
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     render(<MoonReport open onClose={vi.fn()} />);
-    const facts = factRows(screen.getByRole("dialog"));
-    const row = facts.find((r) => r?.startsWith("MUTUAL WINDOW"));
+    const eme = await emeRows(
+      screen.getByRole("dialog"),
+      userEvent.setup({ delay: null }),
+    );
+    const row = eme.find((r) => r.startsWith("MUTUAL WINDOW"));
     expect(row).toBeTruthy();
     expect(row).not.toContain("NO TARGET SET");
   });
@@ -144,7 +172,7 @@ describe("MoonReport", () => {
     expect(emeTitle.closest(".hcr-chart")).not.toBeNull();
   });
 
-  it("reads SKY NOISE from the Moon's galactic latitude, not its declination", () => {
+  it("reads SKY NOISE from the Moon's galactic latitude, not its declination", async () => {
     // At this instant the Moon's galactic latitude is ~2.1 deg (near the
     // plane, |b| <= 10) while its declination is ~27.8 deg (which the old
     // declination-based proxy, |dec| >= 18, also called "near plane" -- but
@@ -153,8 +181,11 @@ describe("MoonReport", () => {
     // `galacticLatitudeDeg`). Default band is 2m, so this is unambiguous.
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     render(<MoonReport open onClose={vi.fn()} />);
-    const facts = factRows(screen.getByRole("dialog"));
-    const skyNoiseRow = facts.find((row) => row?.startsWith("SKY NOISE"));
+    const eme = await emeRows(
+      screen.getByRole("dialog"),
+      userEvent.setup({ delay: null }),
+    );
+    const skyNoiseRow = eme.find((row) => row.startsWith("SKY NOISE"));
     expect(skyNoiseRow).toContain("GALACTIC PLANE");
     expect(skyNoiseRow).not.toContain("COLD SKY");
   });
@@ -184,11 +215,12 @@ describe("MoonReport", () => {
     expect(firstDataRow.queryByText("−0.5 dB")).toBeNull();
   });
 
-  it("changes the EME facts (path loss, Doppler, sky noise) when the band selector changes", async () => {
+  it("changes the EME rows (path loss, Doppler, sky noise) when the band selector changes", async () => {
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     const user = userEvent.setup({ delay: null });
     render(<MoonReport open onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("tab", { name: "EME" }));
 
     const emeBox = Array.from(dialog.querySelectorAll(".hcr-box")).find((box) =>
       box.querySelector("h4")?.textContent?.startsWith("EME"),
@@ -196,21 +228,21 @@ describe("MoonReport", () => {
     expect(emeBox).toBeTruthy();
     const emeKv = within(emeBox as HTMLElement);
 
-    const pathLossBefore = emeKv.getByText("PATH LOSS").nextElementSibling
-      ?.textContent;
-    const dopplerBefore = emeKv.getByText("DOPPLER").nextElementSibling
-      ?.textContent;
-    const skyNoiseBefore = emeKv.getByText("SKY NOISE").nextElementSibling
-      ?.textContent;
+    const pathLossBefore =
+      emeKv.getByText("PATH LOSS").nextElementSibling?.textContent;
+    const dopplerBefore =
+      emeKv.getByText("DOPPLER").nextElementSibling?.textContent;
+    const skyNoiseBefore =
+      emeKv.getByText("SKY NOISE").nextElementSibling?.textContent;
 
     await user.click(within(dialog).getByRole("radio", { name: /23CM/i }));
 
-    const pathLossAfter = emeKv.getByText("PATH LOSS").nextElementSibling
-      ?.textContent;
-    const dopplerAfter = emeKv.getByText("DOPPLER").nextElementSibling
-      ?.textContent;
-    const skyNoiseAfter = emeKv.getByText("SKY NOISE").nextElementSibling
-      ?.textContent;
+    const pathLossAfter =
+      emeKv.getByText("PATH LOSS").nextElementSibling?.textContent;
+    const dopplerAfter =
+      emeKv.getByText("DOPPLER").nextElementSibling?.textContent;
+    const skyNoiseAfter =
+      emeKv.getByText("SKY NOISE").nextElementSibling?.textContent;
 
     expect(pathLossAfter).not.toBe(pathLossBefore);
     expect(dopplerAfter).not.toBe(dopplerBefore);

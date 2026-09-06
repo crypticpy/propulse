@@ -3,7 +3,6 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useLocationWeather } from "@/hooks/useLocalWeather";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import { weatherCodeToDescription } from "@/lib/api/openMeteo";
-import type { WeatherAlert } from "@/lib/api/weather";
 import {
   formatSpeed,
   formatTemperature,
@@ -11,6 +10,8 @@ import {
 } from "@/lib/hamclock/units";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { WeatherGlyph, type WeatherGlyphKind } from "../tiles/WeatherTile";
+import { SEVERITY_TONE, rankAlerts } from "./alertSeverity";
+import { NwsAlertBox } from "./NwsAlertBox";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
 import { reportFooter } from "../tokens";
@@ -18,25 +19,6 @@ import { WallSeriesChart } from "./WallSeriesChart";
 
 /** Which tile opened the report; it only chooses the hero. */
 export type WeatherFocus = "weather" | "alerts";
-
-/** Alerts worth drawing at wall size before the box runs out of height. */
-const MAX_ALERTS = 5;
-
-const SEVERITY_RANK: Record<WeatherAlert["severity"], number> = {
-  Extreme: 4,
-  Severe: 3,
-  Moderate: 2,
-  Minor: 1,
-  Unknown: 0,
-};
-
-const SEVERITY_TONE: Record<WeatherAlert["severity"], string> = {
-  Extreme: "hc-bad",
-  Severe: "hc-bad",
-  Moderate: "hc-warn",
-  Minor: "hc-info-text",
-  Unknown: "hc-dim-text",
-};
 
 const COMPASS = [
   "N",
@@ -92,13 +74,7 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
   );
   const { alerts, error: alertError } = useWeatherAlerts();
 
-  const ranked = useMemo(
-    () =>
-      [...alerts].sort(
-        (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity],
-      ),
-    [alerts],
-  );
+  const ranked = useMemo(() => rankAlerts(alerts), [alerts]);
   const worst = ranked[0] ?? null;
 
   const resolved = resolveUnits(units, location?.grid);
@@ -193,74 +169,57 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
       pinId={`weather-${focus}`}
       pinElement={<WeatherReport open onClose={onClose} focus={focus} />}
     >
-      <div className="hcr-cols">
-        <div className="hcr-box">
-          <h4>Now at the QTH</h4>
-          {weather ? (
-            <div className="hcr-media">
-              <WeatherGlyph
-                kind={glyphKind(weather.weatherCode, weather.isDay)}
-              />
-              <dl className="hcr-kv">
-                <dt>TEMPERATURE</dt>
-                <dd>{formatTemperature(weather.temperature, resolved)}</dd>
-                <dt>WIND</dt>
-                <dd>
-                  {compass(weather.windDirection)}{" "}
-                  {formatSpeed(weather.windSpeed, resolved)}
-                </dd>
-                <dt>HUMIDITY</dt>
-                <dd>{Math.round(weather.humidity)}%</dd>
-                <dt>PRESSURE</dt>
-                <dd>{Math.round(weather.pressure)} hPa</dd>
-              </dl>
-            </div>
-          ) : (
-            <p className="hcr-note">
-              {!hasLocation
-                ? "Set your QTH to read local conditions."
-                : error
-                  ? "Open-Meteo is unavailable right now."
-                  : isLoading
-                    ? "Reading local conditions…"
-                    : "No weather published for this location."}
-            </p>
-          )}
+      <div className="hcr-cols hcr-cols--fill">
+        <div className="hcr-stack">
+          <div className="hcr-box">
+            <h4>Now at the QTH</h4>
+            {weather ? (
+              <div className="hcr-media">
+                <WeatherGlyph
+                  kind={glyphKind(weather.weatherCode, weather.isDay)}
+                />
+                <dl className="hcr-kv">
+                  <dt>TEMPERATURE</dt>
+                  <dd>{formatTemperature(weather.temperature, resolved)}</dd>
+                  <dt>SKY</dt>
+                  <dd>{condition}</dd>
+                  <dt>SIDE</dt>
+                  <dd>{weather.isDay ? "DAY" : "NIGHT"}</dd>
+                </dl>
+              </div>
+            ) : (
+              <p className="hcr-note">
+                {!hasLocation
+                  ? "Set your QTH to read local conditions."
+                  : error
+                    ? "Open-Meteo is unavailable right now."
+                    : isLoading
+                      ? "Reading local conditions…"
+                      : "No weather published for this location."}
+              </p>
+            )}
+          </div>
+          <div className="hcr-chart">
+            <p className="hcr-chart-title">TEMPERATURE — 2 H · SESSION</p>
+            <WallSeriesChart
+              label="TEMPERATURE — 2 H · SESSION"
+              points={trend.map((point) => ({
+                ...point,
+                value:
+                  resolved === "imperial"
+                    ? point.value * 1.8 + 32
+                    : point.value,
+              }))}
+              unit={resolved === "imperial" ? "°F" : "°C"}
+              maxGapMs={10 * 60 * 1000}
+            />
+          </div>
         </div>
-        <div className="hcr-box">
-          <h4>Active NWS alerts · {alerts.length}</h4>
-          {alertError ? (
-            <p className="hcr-note">NWS alert feed unreachable. Retrying.</p>
-          ) : ranked.length === 0 ? (
-            <p className="hcr-empty hc-dim-text">NONE MAPPED</p>
-          ) : (
-            <div className="hcr-list">
-              {ranked.slice(0, MAX_ALERTS).map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`hcr-item ${SEVERITY_TONE[alert.severity]}`}
-                >
-                  <b>
-                    {alert.event} · {alert.severity}
-                  </b>
-                  <span>{alert.areaDesc}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="hcr-chart">
-        <p className="hcr-chart-title">TEMPERATURE — 2 H · SESSION</p>
-        <WallSeriesChart
-          label="TEMPERATURE — 2 H · SESSION"
-          points={trend.map((point) => ({
-            ...point,
-            value:
-              resolved === "imperial" ? point.value * 1.8 + 32 : point.value,
-          }))}
-          unit={resolved === "imperial" ? "°F" : "°C"}
-          maxGapMs={10 * 60 * 1000}
+        <NwsAlertBox
+          title="Active NWS alerts"
+          alerts={ranked}
+          error={Boolean(alertError)}
+          emptyLabel="NONE MAPPED"
         />
       </div>
     </WallReport>

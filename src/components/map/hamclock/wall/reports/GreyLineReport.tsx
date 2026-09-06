@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { getNextSunEvent, getSunCurve } from "@/lib/hamclock/sunCurve";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/utils/greyline";
 import { useMapStore } from "@/stores/mapStore";
 import { formatClock, formatCountdown, reportFooter } from "../tokens";
+import { useElementSize } from "../useElementSize";
 import { WallReport, type WallReportFact } from "./WallReport";
 
 const TICK_MS = 60_000;
@@ -100,10 +101,12 @@ function currentOrNextWindow(
  * 24 h grey-line intensity, the current window and (when a DX target is set)
  * the mutual overlap window highlighted, with the three low-band tiers drawn
  * as stacked step rows underneath — this report's own chart, in the same
- * visual language as `SunElevationChart` (300x118 viewBox, `--hc-*` tokens,
+ * visual language as `SunElevationChart` (measured slot, `--hc-*` tokens,
  * mono captions), since neither `SolarMiniChart` nor `SolarSeriesChart` can
  * paint a highlighted band or a tier-step row.
  */
+const CHART_FALLBACK = { width: 720, height: 220 };
+
 function GreylineIntensityChart({
   curve,
   now,
@@ -118,15 +121,24 @@ function GreylineIntensityChart({
   status: GreylineStatus;
 }) {
   const id = useId();
-  const width = 300;
-  const left = 30;
-  const right = 8;
-  const chartTop = 8;
-  const chartBottom = 58;
-  const bandRowHeight = 10;
-  const bandsTop = chartBottom + 8;
-  const bandsBottom = bandsTop + LOW_BANDS.length * bandRowHeight;
-  const height = bandsBottom + 14;
+  const ref = useRef<HTMLElement>(null);
+  const measured = useElementSize(ref);
+  const width = measured.width || CHART_FALLBACK.width;
+  const height = measured.height || CHART_FALLBACK.height;
+  // Drawn 1:1 at the measured slot size, text in vh (the `WallSeriesChart`
+  // contract): the three tier rows take a fixed share under the curve.
+  const vh =
+    typeof window === "undefined"
+      ? CHART_FALLBACK.height / 72
+      : window.innerHeight / 100;
+  const fs = Math.max(11, Math.round(vh * 1.45));
+  const left = Math.round(fs * 3.2);
+  const right = Math.round(fs * 1.2);
+  const chartTop = Math.round(fs * 0.6);
+  const bandRowHeight = Math.round(fs * 1.1);
+  const bandsBottom = height - Math.round(fs * 1.4);
+  const bandsTop = bandsBottom - LOW_BANDS.length * bandRowHeight;
+  const chartBottom = bandsTop - Math.round(fs * 0.6);
 
   const dayStart = curve[0].at.getTime();
   const dayEnd = dayStart + 24 * 60 * 60 * 1000;
@@ -170,116 +182,124 @@ function GreylineIntensityChart({
       <p className="hcr-chart-title">
         GREY-LINE INTENSITY — 24 H · COMPUTED AT QTH
       </p>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-labelledby={`${id}-title`}
-      >
-        <title id={`${id}-title`}>
-          Grey-line intensity over 24 hours UTC, with the current window and the
-          160, 80 and 40 metre tiers marked.
-        </title>
-        {windowRect(mutualWindow, "rgb(var(--hc-accent-rgb) / 0.22)", "mutual")}
-        {windowRect(ownWindow, "rgb(var(--hc-warn-rgb) / 0.22)", "own")}
-        <line
-          x1={left}
-          x2={width - right}
-          y1={chartBottom}
-          y2={chartBottom}
-          stroke="var(--hcr-chart-axis, #94a3b8)"
-          strokeDasharray="4 4"
-        />
-        <path d={area} fill="rgb(var(--hc-warn-rgb) / 0.14)" stroke="none" />
-        <path
-          d={path}
-          fill="none"
-          stroke="var(--hcr-chart-observed, #44ddff)"
-          strokeWidth="2"
-        />
-        {LOW_BANDS.map((band, row) => {
-          const rowY = bandsTop + row * bandRowHeight;
-          return (
-            <g key={band}>
-              <text
-                x={left - 4}
-                y={rowY + bandRowHeight * 0.7}
-                textAnchor="end"
-                fill="var(--hcr-chart-dim, #cbd5e1)"
-                fontSize="8"
-              >
-                {band}
-              </text>
-              {curve.map((sample, i) => {
-                const next = curve[i + 1]?.at.getTime() ?? dayEnd;
-                const active = isGreylineActiveForBand(band, sample.level);
-                return (
-                  <rect
-                    key={sample.hour}
-                    x={x(sample.at.getTime())}
-                    y={rowY}
-                    width={Math.max(0, x(next) - x(sample.at.getTime()))}
-                    height={bandRowHeight - 2}
-                    fill={
-                      active
-                        ? "var(--hc-warn)"
-                        : "var(--hcr-chart-dim, #cbd5e1)"
-                    }
-                    opacity={active ? 0.85 : 0.15}
-                  />
-                );
-              })}
-            </g>
-          );
-        })}
-        {curve.map((sample, i) => {
-          const next = curve[i + 1]?.at.getTime() ?? dayEnd;
-          return (
-            <rect
-              key={`hit-${sample.hour}`}
-              x={x(sample.at.getTime())}
-              y={chartTop}
-              width={Math.max(0, x(next) - x(sample.at.getTime()))}
-              height={bandsBottom - chartTop}
-              fill="transparent"
-            >
-              <title>
-                {formatClock(sample.at, "UTC")}Z — intensity{" "}
-                {sample.intensity.toFixed(2)}, low bands{" "}
-                {isGreylineActiveForBand("40m", sample.level)
-                  ? "ACTIVE"
-                  : "INACTIVE"}
-              </title>
-            </rect>
-          );
-        })}
-        {now.getTime() >= dayStart && now.getTime() <= dayEnd && (
+      <figure className="hcr-plot" ref={ref}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          role="img"
+          aria-labelledby={`${id}-title`}
+          fontFamily="var(--hc-font-mono, monospace)"
+          fontSize={fs}
+        >
+          <title id={`${id}-title`}>
+            Grey-line intensity over 24 hours UTC, with the current window and
+            the 160, 80 and 40 metre tiers marked.
+          </title>
+          {windowRect(
+            mutualWindow,
+            "rgb(var(--hc-accent-rgb) / 0.22)",
+            "mutual",
+          )}
+          {windowRect(ownWindow, "rgb(var(--hc-warn-rgb) / 0.22)", "own")}
           <line
-            x1={x(now.getTime())}
-            x2={x(now.getTime())}
-            y1={chartTop}
-            y2={bandsBottom}
-            stroke="var(--hcr-chart-now, #f8fafc)"
-            strokeDasharray="2 4"
+            x1={left}
+            x2={width - right}
+            y1={chartBottom}
+            y2={chartBottom}
+            stroke="var(--hcr-chart-axis, #94a3b8)"
+            strokeDasharray="4 4"
           />
-        )}
-        <text
-          x={left}
-          y={height - 2}
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          00Z
-        </text>
-        <text
-          x={width - right}
-          y={height - 2}
-          textAnchor="end"
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          24Z
-        </text>
-      </svg>
+          <path d={area} fill="rgb(var(--hc-warn-rgb) / 0.14)" stroke="none" />
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--hcr-chart-observed, #44ddff)"
+            strokeWidth={Math.max(2, fs * 0.16)}
+          />
+          {LOW_BANDS.map((band, row) => {
+            const rowY = bandsTop + row * bandRowHeight;
+            return (
+              <g key={band}>
+                <text
+                  x={left - fs * 0.5}
+                  y={rowY + bandRowHeight * 0.8}
+                  textAnchor="end"
+                  fill="var(--hcr-chart-dim, #cbd5e1)"
+                  fontSize={fs * 0.85}
+                >
+                  {band}
+                </text>
+                {curve.map((sample, i) => {
+                  const next = curve[i + 1]?.at.getTime() ?? dayEnd;
+                  const active = isGreylineActiveForBand(band, sample.level);
+                  return (
+                    <rect
+                      key={sample.hour}
+                      x={x(sample.at.getTime())}
+                      y={rowY}
+                      width={Math.max(0, x(next) - x(sample.at.getTime()))}
+                      height={Math.max(1, bandRowHeight - 2)}
+                      fill={
+                        active
+                          ? "var(--hc-warn)"
+                          : "var(--hcr-chart-dim, #cbd5e1)"
+                      }
+                      opacity={active ? 0.85 : 0.15}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
+          {curve.map((sample, i) => {
+            const next = curve[i + 1]?.at.getTime() ?? dayEnd;
+            return (
+              <rect
+                key={`hit-${sample.hour}`}
+                x={x(sample.at.getTime())}
+                y={chartTop}
+                width={Math.max(0, x(next) - x(sample.at.getTime()))}
+                height={bandsBottom - chartTop}
+                fill="transparent"
+              >
+                <title>
+                  {formatClock(sample.at, "UTC")}Z — intensity{" "}
+                  {sample.intensity.toFixed(2)}, low bands{" "}
+                  {isGreylineActiveForBand("40m", sample.level)
+                    ? "ACTIVE"
+                    : "INACTIVE"}
+                </title>
+              </rect>
+            );
+          })}
+          {now.getTime() >= dayStart && now.getTime() <= dayEnd && (
+            <line
+              x1={x(now.getTime())}
+              x2={x(now.getTime())}
+              y1={chartTop}
+              y2={bandsBottom}
+              stroke="var(--hcr-chart-now, #f8fafc)"
+              strokeDasharray="2 4"
+            />
+          )}
+          <text
+            x={left}
+            y={height - fs * 0.3}
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            00Z
+          </text>
+          <text
+            x={width - right}
+            y={height - fs * 0.3}
+            textAnchor="end"
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            24Z
+          </text>
+        </svg>
+      </figure>
       <table className="sr-only">
         <caption>Grey-line intensity and low-band tiers by UTC hour</caption>
         <thead>
@@ -463,6 +483,8 @@ export function GreyLineReport({
         ? "YES · ACTIVE NOW"
         : `YES · IN ${formatCountdown((mutualWindow.start.getTime() - now.getTime()) / 60_000)}`;
 
+  // Six facts (#250): the hero/verdict pair is not repeated, the low-band
+  // tiers live in their own box, and the mutual window gets its clocks.
   const facts: WallReportFact[] = [
     {
       label: "WINDOW START",
@@ -476,13 +498,16 @@ export function GreyLineReport({
         ? bothClocks(ownWindowForDisplay.end, zone)
         : "—",
     },
-    { label: "STATE", value: verdict },
-    { label: "TIME LEFT", value: hero },
-    { label: "160M", value: bandLabel("160m") },
-    { label: "80M", value: bandLabel("80m") },
-    { label: "40M", value: bandLabel("40m") },
-    { label: "TARGET OVERLAP", value: targetOverlapValue },
     { label: "NEXT WINDOW", value: nextWindowValue },
+    { label: "TARGET OVERLAP", value: targetOverlapValue },
+    {
+      label: "MUTUAL START",
+      value: mutualWindow ? bothClocks(mutualWindow.start, zone) : "—",
+    },
+    {
+      label: "MUTUAL END",
+      value: mutualWindow ? bothClocks(mutualWindow.end, zone) : "—",
+    },
   ];
 
   const { footer, updated } = reportFooter(
@@ -514,29 +539,7 @@ export function GreyLineReport({
       )}
       <div className="hcr-cols">
         <div className="hcr-box">
-          <h4>
-            Window ·{" "}
-            {isNoWindowToday ? "no crossing today" : stateWord.toLowerCase()}
-          </h4>
-          <dl className="hcr-kv">
-            <dt>START</dt>
-            <dd>
-              {ownWindowForDisplay
-                ? bothClocks(ownWindowForDisplay.start, zone)
-                : "—"}
-            </dd>
-            <dt>END</dt>
-            <dd>
-              {ownWindowForDisplay
-                ? bothClocks(ownWindowForDisplay.end, zone)
-                : "—"}
-            </dd>
-            <dt>NEXT WINDOW</dt>
-            <dd>{nextWindowValue}</dd>
-          </dl>
-        </div>
-        <div className="hcr-box">
-          <h4>Low bands</h4>
+          <h4>Low bands · {stateWord.toLowerCase()}</h4>
           <dl className="hcr-kv">
             <dt>160M</dt>
             <dd>{bandLabel("160m")}</dd>
@@ -545,6 +548,9 @@ export function GreyLineReport({
             <dt>40M</dt>
             <dd>{bandLabel("40m")}</dd>
           </dl>
+        </div>
+        <div className="hcr-box">
+          <h4>DX target · terminator</h4>
           <p className="hcr-note">
             {target
               ? `Mutual overlap with the DX target: ${targetOverlapValue.toLowerCase()}.`

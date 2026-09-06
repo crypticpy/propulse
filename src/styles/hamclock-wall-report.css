@@ -123,7 +123,12 @@
  * that `align-items: end` left above a short hero (#250 S3). */
 .hcr-lead {
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(30vw, 1fr);
+  /* The headline takes what its hero and verdict need, up to 28vw, and the
+   * facts get the rest: at 1080p a fixed 30vw facts minimum left the
+   * headline 397px, which forced "8.8 MHz · 40M" and "Bz SOUTH" onto two
+   * and three lines and spent 6–13vh the tab panel below did not have
+   * (#250). Fact values still wrap rather than truncate. */
+  grid-template-columns: fit-content(28vw) minmax(0, 1fr);
   gap: 2.4vw;
   align-items: center;
 }
@@ -149,7 +154,7 @@
   font-size: min(6.6vh, 3.4vw);
   line-height: 1.05;
   letter-spacing: 0.04em;
-  max-width: 18vw;
+  max-width: 28vw;
 }
 .hcr-unit {
   margin-left: 0.6vw;
@@ -245,6 +250,25 @@
 .hcr-cols--fill > .hcr-box > .hcr-chart {
   flex: 1 1 auto;
   min-height: 8vh;
+}
+/* A measured list inside a fill row contributes no height of its own, so
+ * the row is sized by its neighbour column and the list draws the rows
+ * that fit (Weather/Emcomm alerts beside the session chart). */
+.hcr-cols--fill > .hcr-box--fill > .hcr-list {
+  flex: 1 1 0;
+}
+/* One column of a fill row holding a fixed box over a flexible chart. */
+.hcr-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6vh;
+  min-height: 0;
+}
+.hcr-stack > .hcr-box {
+  flex: 0 0 auto;
+}
+.hcr-stack > .hcr-chart {
+  flex: 1 1 auto;
 }
 .hcr-body .hcc-tabpanel {
   display: flex;
@@ -436,6 +460,15 @@
   min-height: 0;
   overflow: hidden;
 }
+/* A short fixed set of items (the four flare-probability classes) reads as
+ * one row of cards instead of a stack that outgrows the tab panel at 1080p
+ * (#250). */
+.hcr-list--row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 1vw;
+}
 .hcr-item {
   padding: 0.8vh 1vw;
   border-left: 0.4vh solid currentColor;
@@ -453,6 +486,13 @@
   font-size: 1.9vh;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  /* One line, like the detail under it: `useVisibleRows` sizes a list
+   * from its first row, so every row must be the same height — a long
+   * event name wrapping in a later row would clip that row while the
+   * caption still counted it (#267 review). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hcr-item span {
   display: block;
@@ -592,9 +632,11 @@
 .hcr-bandtable-head,
 .hcr-bandrow {
   display: grid;
-  /* Fixed tracks total ~39vw so the row fits the report's 53vw content box
-   * with the status column keeping real width for "LEADING · 9/20 MIN". */
-  grid-template-columns: 2vw 4vw minmax(0, 1fr) 6vw 5vw 5vw 4.5vw 8vw;
+  /* Fixed tracks total ~32vw so the row fits the report's 53vw content box
+   * with the status column keeping real width for "LEADING 20/20 · SURPRISE"
+   * on one line — a wrapped status made the first row taller than the rest
+   * and the rows-that-fit count came out one short (#250). */
+  grid-template-columns: 2vw 4vw minmax(0, 1fr) 5.5vw 4vw 4vw 4.5vw 8vw;
   align-items: center;
   gap: 0.6vw;
 }
@@ -695,13 +737,15 @@
  * report that uses it, so it takes the head row plus one card row and no
  * more (~12vh), leaving the body's flexible slot its room. */
 .hcr-enginestrip {
-  gap: 0.9vh;
+  gap: 0.8vh;
+  padding: 1vh 1.2vw;
 }
 .hcr-enginestrip-head {
   display: flex;
   align-items: baseline;
   gap: 1vw;
   min-width: 0;
+  line-height: 1.2;
 }
 .hcr-enginestrip-head .hcr-bandtable-caption {
   margin: 0;
@@ -738,7 +782,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.3vh;
-  padding: 0.7vh 1vw;
+  padding: 0.6vh 1vw;
+  line-height: 1.15;
   border: 1px solid var(--hc-line);
   border-radius: calc(var(--hc-radius) * 0.7);
   min-width: 0;

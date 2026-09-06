@@ -1,4 +1,4 @@
-import { lazy, Suspense, useId, useMemo, useState } from "react";
+import { lazy, Suspense, useId, useMemo, useRef, useState } from "react";
 import SunCalc from "suncalc";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
@@ -9,6 +9,7 @@ import {
   type TwilightPhase,
 } from "@/lib/hamclock/sunCurve";
 import { formatClock, formatCountdown, reportFooter } from "../tokens";
+import { useElementSize } from "../useElementSize";
 import { WallReport, type WallReportFact } from "./WallReport";
 
 // Grey line is a sibling report, not a nested route, so it can share this
@@ -124,18 +125,27 @@ function twilightRange(window: SunCurve["twilights"][number]): string {
  * 24 h elevation curve, horizon at zero, with the three twilight bands
  * shaded and a now marker — the report's own chart, since neither
  * `SolarMiniChart` nor `SolarSeriesChart` can paint a shaded time band. Kept
- * in the same visual language: 300x88 viewBox, `--hcr-chart-*` tokens with
- * hex fallbacks, mono captions. Wrapped in `.hcr-chart` so the SVG is
- * height-capped like every other wall report (#248).
+ * in the same visual language: measured slot drawn 1:1 with vh-sized text
+ * (the `WallSeriesChart` contract), `--hcr-chart-*` tokens with hex
+ * fallbacks, mono captions (#248, #250).
  */
+const CHART_FALLBACK = { width: 720, height: 220 };
+
 function SunElevationChart({ curve, now }: { curve: SunCurve; now: Date }) {
   const id = useId();
-  const width = 300;
-  const height = 88;
-  const left = 28;
-  const right = 8;
-  const top = 10;
-  const bottom = 16;
+  const ref = useRef<HTMLElement>(null);
+  const measured = useElementSize(ref);
+  const width = measured.width || CHART_FALLBACK.width;
+  const height = measured.height || CHART_FALLBACK.height;
+  const vh =
+    typeof window === "undefined"
+      ? CHART_FALLBACK.height / 72
+      : window.innerHeight / 100;
+  const fs = Math.max(11, Math.round(vh * 1.45));
+  const left = Math.round(fs * 3.2);
+  const right = Math.round(fs * 1.2);
+  const top = Math.round(fs * 0.6);
+  const bottom = Math.round(fs * 1.4);
   const dayStart = curve.points[0].at.getTime();
   const dayEnd = dayStart + 24 * 60 * 60 * 1000;
 
@@ -168,95 +178,99 @@ function SunElevationChart({ curve, now }: { curve: SunCurve; now: Date }) {
   return (
     <div className="hcr-chart">
       <p className="hcr-chart-title">SUN ELEVATION — 24 H · COMPUTED AT QTH</p>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-labelledby={`${id}-title`}
-      >
-        <title id={`${id}-title`}>
-          Sun elevation over 24 hours UTC, with civil, nautical and astronomical
-          twilight shaded and the current hour marked.
-        </title>
-        {bands.map((band) => {
-          const bandX = x(clampX(band.start.getTime()));
-          const bandEnd = x(clampX(band.end.getTime()));
-          if (bandEnd <= bandX) return null;
-          return (
-            <rect
-              key={`${band.phase}-${band.edge}`}
-              data-band={`${band.phase}-${band.edge}`}
-              data-start={band.start.toISOString()}
-              data-end={band.end.toISOString()}
-              x={bandX}
-              y={top}
-              width={bandEnd - bandX}
-              height={height - top - bottom}
-              fill={`rgb(var(--hc-info-rgb) / ${bandOpacity[band.phase]})`}
-            />
-          );
-        })}
-        <line
-          x1={left}
-          x2={width - right}
-          y1={y(0)}
-          y2={y(0)}
-          stroke="var(--hcr-chart-axis, #94a3b8)"
-          strokeDasharray="4 4"
-        />
-        <path
-          d={path}
-          fill="none"
-          stroke="var(--hcr-chart-observed, #44ddff)"
-          strokeWidth="2"
-        />
-        {curve.points.map((point, i) => {
-          const next = curve.points[i + 1]?.at.getTime() ?? dayEnd;
-          return (
-            <rect
-              key={point.hour}
-              x={x(point.at.getTime())}
-              y={top}
-              width={Math.max(0, x(next) - x(point.at.getTime()))}
-              height={height - top - bottom}
-              fill="transparent"
-            >
-              <title>
-                {formatClock(point.at, "UTC")}Z —{" "}
-                {Math.round(point.elevationDeg)}
-                {"°"} elevation, {Math.round(point.azimuthDeg)}
-                {"°"} azimuth
-              </title>
-            </rect>
-          );
-        })}
-        {now.getTime() >= dayStart && now.getTime() <= dayEnd && (
+      <figure className="hcr-plot" ref={ref}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          role="img"
+          aria-labelledby={`${id}-title`}
+          fontFamily="var(--hc-font-mono, monospace)"
+          fontSize={fs}
+        >
+          <title id={`${id}-title`}>
+            Sun elevation over 24 hours UTC, with civil, nautical and
+            astronomical twilight shaded and the current hour marked.
+          </title>
+          {bands.map((band) => {
+            const bandX = x(clampX(band.start.getTime()));
+            const bandEnd = x(clampX(band.end.getTime()));
+            if (bandEnd <= bandX) return null;
+            return (
+              <rect
+                key={`${band.phase}-${band.edge}`}
+                data-band={`${band.phase}-${band.edge}`}
+                data-start={band.start.toISOString()}
+                data-end={band.end.toISOString()}
+                x={bandX}
+                y={top}
+                width={bandEnd - bandX}
+                height={height - top - bottom}
+                fill={`rgb(var(--hc-info-rgb) / ${bandOpacity[band.phase]})`}
+              />
+            );
+          })}
           <line
-            x1={x(now.getTime())}
-            x2={x(now.getTime())}
-            y1={top}
-            y2={height - bottom}
-            stroke="var(--hcr-chart-now, #f8fafc)"
-            strokeDasharray="2 4"
+            x1={left}
+            x2={width - right}
+            y1={y(0)}
+            y2={y(0)}
+            stroke="var(--hcr-chart-axis, #94a3b8)"
+            strokeDasharray="4 4"
           />
-        )}
-        <text
-          x={left}
-          y={height - 2}
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          00Z
-        </text>
-        <text
-          x={width - right}
-          y={height - 2}
-          textAnchor="end"
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          24Z
-        </text>
-      </svg>
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--hcr-chart-observed, #44ddff)"
+            strokeWidth={Math.max(2, fs * 0.16)}
+          />
+          {curve.points.map((point, i) => {
+            const next = curve.points[i + 1]?.at.getTime() ?? dayEnd;
+            return (
+              <rect
+                key={point.hour}
+                x={x(point.at.getTime())}
+                y={top}
+                width={Math.max(0, x(next) - x(point.at.getTime()))}
+                height={height - top - bottom}
+                fill="transparent"
+              >
+                <title>
+                  {formatClock(point.at, "UTC")}Z —{" "}
+                  {Math.round(point.elevationDeg)}
+                  {"°"} elevation, {Math.round(point.azimuthDeg)}
+                  {"°"} azimuth
+                </title>
+              </rect>
+            );
+          })}
+          {now.getTime() >= dayStart && now.getTime() <= dayEnd && (
+            <line
+              x1={x(now.getTime())}
+              x2={x(now.getTime())}
+              y1={top}
+              y2={height - bottom}
+              stroke="var(--hcr-chart-now, #f8fafc)"
+              strokeDasharray="2 4"
+            />
+          )}
+          <text
+            x={left}
+            y={height - fs * 0.3}
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            00Z
+          </text>
+          <text
+            x={width - right}
+            y={height - fs * 0.3}
+            textAnchor="end"
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            24Z
+          </text>
+        </svg>
+      </figure>
       <table className="sr-only">
         <caption>Sun elevation and azimuth by UTC hour</caption>
         <thead>
@@ -364,7 +378,6 @@ export function SunReport({ open, onClose }: SunReportProps) {
       value:
         curve.dayLengthMin === null ? "—" : formatCountdown(curve.dayLengthMin),
     },
-    { label: "CHANGE", value: signedMinSec(curve.dayLengthDeltaMin) },
     { label: "ELEV NOW", value: `${Math.round(elevationNow)}°` },
     { label: "AZ NOW", value: `${Math.round(azimuthNow)}°` },
   ];
@@ -398,13 +411,8 @@ export function SunReport({ open, onClose }: SunReportProps) {
             <dd>{bothClocks(curve.noon, zone)}</dd>
             <dt>SUNSET</dt>
             <dd>{bothClocks(curve.set, zone)}</dd>
-            <dt>DAY LENGTH</dt>
-            <dd>
-              {curve.dayLengthMin === null
-                ? "—"
-                : formatCountdown(curve.dayLengthMin)}{" "}
-              ({signedMinSec(curve.dayLengthDeltaMin)})
-            </dd>
+            <dt>DAY LENGTH CHANGE</dt>
+            <dd>{signedMinSec(curve.dayLengthDeltaMin)} vs yesterday</dd>
           </dl>
           {(dayState.polarDay || dayState.polarNight) && (
             <p className="hcr-note">

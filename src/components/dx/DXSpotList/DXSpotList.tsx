@@ -8,7 +8,8 @@
  * This is the main orchestrator component that composes the modular pieces.
  */
 
-import { useCallback, useMemo, useState, useRef } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import { spotPageWindow } from "./pageWindow";
 import { useVisibleRows } from "@/components/map/hamclock/wall/useVisibleRows";
 import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 import { Card, LoadingSpinner } from "@/components/ui";
@@ -208,15 +209,17 @@ export function DXSpotList({
   // --- QoL1: Keyboard-first DX spot navigation ---
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const spotListRef = useRef<HTMLDivElement>(null);
-  const [pageIndex, setPageIndex] = useState(0);
+  const [pageOffset, setPageOffset] = useState(0);
   const [pageRowsRef, measuredSize] = useVisibleRows<HTMLDivElement>(watchSortedSpots.length);
   const pageSize = Math.max(1, measuredSize);
-  const pageCount = Math.max(1, Math.ceil(watchSortedSpots.length / pageSize));
-  const page = Math.min(pageCount - 1, focusedIndex >= 0 ? Math.floor(focusedIndex / pageSize) : pageIndex);
-  const pageStart = wallPaging ? page * pageSize : 0;
-  const visibleSpots = wallPaging ? watchSortedSpots.slice(pageStart, pageStart + pageSize) : watchSortedSpots;
-  const changePage = (next: number) => { setFocusedIndex(-1); setPageIndex(next); };
-
+  const { start: pageStart, end: pageEnd } = wallPaging
+    ? spotPageWindow(watchSortedSpots.length, pageSize, pageOffset, focusedIndex)
+    : { start: 0, end: watchSortedSpots.length };
+  const visibleSpots = wallPaging ? watchSortedSpots.slice(pageStart, pageEnd) : watchSortedSpots;
+  useEffect(() => {
+    if (wallPaging && pageStart !== pageOffset) setPageOffset(pageStart);
+  }, [wallPaging, pageStart, pageOffset]);
+  const changePage = (next: number) => { setFocusedIndex(-1); setPageOffset(next); };
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -226,12 +229,12 @@ export function DXSpotList({
       switch (e.key) {
         case "ArrowDown": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.min(prev + 1, len - 1));
+          setFocusedIndex((prev) => Math.min(prev < 0 && wallPaging ? pageStart : prev + 1, len - 1));
           break;
         }
         case "ArrowUp": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.max(prev - 1, 0));
+          setFocusedIndex((prev) => prev < 0 && wallPaging ? Math.max(pageStart, pageEnd - 1) : Math.max(prev - 1, 0));
           break;
         }
         case "PageDown": {
@@ -305,6 +308,9 @@ export function DXSpotList({
     },
     [
       watchSortedSpots,
+      wallPaging,
+      pageStart,
+      pageEnd,
       focusedIndex,
       handleSelectSpot,
       handleSetTarget,
@@ -671,9 +677,9 @@ export function DXSpotList({
       </div>
       {wallPaging && (
         <div className="hcr-cluster-pages">
-          <HamClockButton disabled={page === 0} onClick={() => changePage(page - 1)}>PREVIOUS</HamClockButton>
-          <span aria-live="polite">PAGE {page + 1} / {pageCount} · {watchSortedSpots.length} SPOTS</span>
-          <HamClockButton disabled={page + 1 >= pageCount} onClick={() => changePage(page + 1)}>NEXT</HamClockButton>
+          <HamClockButton disabled={pageStart === 0} onClick={() => changePage(Math.max(0, pageStart - pageSize))}>PREVIOUS</HamClockButton>
+          <span aria-live="polite">ROWS {watchSortedSpots.length ? pageStart + 1 : 0}–{pageEnd} / {watchSortedSpots.length}</span>
+          <HamClockButton disabled={pageEnd >= watchSortedSpots.length} onClick={() => changePage(pageEnd)}>NEXT</HamClockButton>
         </div>
       )}
 

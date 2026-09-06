@@ -18,7 +18,9 @@ Paging is the minimum navigation adjustment needed to reconcile the spec's chrom
 - Local Chromium, disposable returning-operator context, synthetic N0TEST/EM38, Flat projection, default text size and DPR 1. Fixture DX REST feed: empty and 80 spots. Other background feeds use normal dev paths; no login, sync, bridge service, or hardware was created.
 - Pulse/Classic/Brass at 1920×1080 and 3840×2160: no outer or paged-row overflow, no page errors. Previous/Next, Home/End, Escape/focus return, and pin/unpin pass. Expanded filters plus selected-spot details also fit at 1080p.
 - Lint and production build pass before PR; repository pre-push checks run the full app suite and bundle budgets.
-- Managed session owner `hamclock-b24-cluster`, ID `c5d30285-e819-4b61-9d08-6f41662fa447`, local `http://127.0.0.1:5181/map`, checkout `/Users/crypticpy/Projects/propulse/.worktrees/hamclock-b24-cluster`.
+- Managed session owner `hamclock-b24-cluster`, ID `48abf0ff-db21-4cb6-926c-62730de8db41`, local `http://127.0.0.1:5181/map`, checkout `/Users/crypticpy/Projects/propulse/.worktrees/hamclock-b24-cluster`.
 - Deployed/authenticated and physical-monitor checks remain pending. HW-72 is partial until those are accepted.
 
 [1080p](../images/hamclock-b24/cluster-1080p.png) · [4K](../images/hamclock-b24/cluster-4k.png)
+
+Review follow-up: page ranges are anchored by absolute row offset, so changing row heights cannot change the first unseen row after Next. The footer names the visible ROWS range rather than an unstable page number. ArrowDown/ArrowUp after a page change initialize focus within that range. Added two range regressions and verified Next→ArrowDown in the disposable browser, along with the full prior display matrix.

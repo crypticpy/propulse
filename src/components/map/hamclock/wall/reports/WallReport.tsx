@@ -126,10 +126,9 @@ function PinButton({
 }
 
 /**
- * The wall's drill-down: one centred glass panel with a huge hero, a verdict,
- * a facts column and a body region. Every report on the wall is this shell
- * with different content, so the composition an operator learns on one tile
- * carries to all of them.
+ * The wall's drill-down: one centred panel with shared title, pin and footer.
+ * Reports can supply a hero, verdict and facts above their body, or omit the
+ * hero for an existing body-only view such as the cluster list.
  *
  * Dialog mechanics (Escape, focus trap, focus restore, inert background) come
  * from `AccessibleDialog`, the same primitive `DetailModal` uses — the report

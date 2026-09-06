@@ -10,11 +10,15 @@ import type { MappableActivationSpot } from "@/lib/map/activationMarkers";
 import { ActivationDetailPanel } from "./ActivationDetailPanel";
 
 const mocks = vi.hoisted(() => ({
+  now: Date.parse("2026-08-31T14:00:00Z"),
   lookup: vi.fn(),
   clipboard: vi.fn(),
   activationFeed: vi.fn(),
   callsignIngestion: vi.fn(),
 }));
+
+vi.mock("@/hooks/useUTCClock", () => ({ useUTCClock: () => new Date(mocks.now) }));
+beforeEach(() => { mocks.now = Date.parse("2026-08-31T14:00:00Z"); });
 
 vi.mock("@/hooks/useActiveLocation", () => ({
   useActiveLocation: () => ({
@@ -362,4 +366,22 @@ it.each(["FT8", "UNKNOWN"])("tunes the refreshed activation frequency in %s with
     useSettingsStore.setState(settings);
     useActivationSpotStore.setState({ selectedSpot: selected });
   }
+});
+
+
+it.each(["unavailable", "request-error"])("expires a selected CANParks report during %s without changing radio or draft", (failure) => {
+  const selected = { ...SPOT, program: "CANParks" as const, reference: "QC-0001", originSource: "pota", originLabel: "POTA.app", expiresAt: "2026-08-31T14:00:05Z" };
+  useActivationSpotStore.setState({ selectedSpot: selected });
+  mocks.activationFeed.mockReturnValue({ ...activationFeed([], "unavailable"), error: failure === "request-error" ? new Error("offline") : null });
+  mocks.callsignIngestion.mockReturnValue({ result: null, loading: false, error: null });
+  const draft = useQSOStore.getState().form;
+  const rig = useRigStore.getState();
+  const rendered = render(<MemoryRouter><ActivationDetailPanel /></MemoryRouter>);
+  expect(screen.getByText("Imported · POTA.app")).toBeTruthy();
+  mocks.now += 5000;
+  rendered.rerender(<MemoryRouter><ActivationDetailPanel /></MemoryRouter>);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(useActivationSpotStore.getState().selectedSpot).toBeNull();
+  expect(useQSOStore.getState().form).toBe(draft);
+  expect(useRigStore.getState()).toBe(rig);
 });

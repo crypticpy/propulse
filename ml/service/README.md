@@ -261,10 +261,16 @@ how the dead RPC-backed provider can be turned off on Railway without
 deleting variables first. When the provider is unavailable the service logs
 one line at startup instead of warning on every request, and `/health`
 reports `serving_profile: physics`; once a provider is configured and its
-lookups are current, `/health` reports `serving_profile: nowcast`. `/health`
-also exposes `missing_feature_counts`, a rolling in-process tally of which
-model features arrived as `None`, capped to the top 20 names since the
-process started.
+lookups are current, `/health` reports `serving_profile: nowcast`.
+`serving_profile` is the *expected* profile given how the provider is
+configured, not a per-request guarantee - a configured provider can still
+fail or return stale rows on any given request, which falls back to physics
+for that request alone. `/health` also exposes `served_profile_counts`, a
+rolling in-process tally (since process start) of the profile each request
+actually served, so operators can see the real split alongside the
+configured expectation. `/health` also exposes `missing_feature_counts`, a
+rolling in-process tally of which model features arrived as `None`, capped
+to the top 20 names since the process started.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

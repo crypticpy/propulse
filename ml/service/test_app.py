@@ -579,6 +579,37 @@ class ServiceTests(unittest.TestCase):
         self.assertIn({"feature": "f107", "count": 1}, health["missing_feature_counts"])
         self.assertIn({"feature": "kp", "count": 1}, health["missing_feature_counts"])
 
+    def test_served_profile_counts_reflects_actual_predictions(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+        ))
+        self.assertEqual(
+            client.get("/v1/propagation/health").json()["served_profile_counts"], {}
+        )
+
+        client.post("/v1/propagation/path", json=request_payload())
+        health = client.get("/v1/propagation/health").json()
+        self.assertEqual(health["served_profile_counts"], {"physics": 1})
+
+        # Rolling since startup: a second request accumulates, not resets.
+        client.post("/v1/propagation/path", json=request_payload())
+        health = client.get("/v1/propagation/health").json()
+        self.assertEqual(health["served_profile_counts"], {"physics": 2})
+
+        # serving_profile reflects configuration; served_profile_counts
+        # reflects what predict_many actually returned - a fresh, configured
+        # provider serves nowcast.
+        nowcast_client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=FakePathHistoryProvider(),
+        ))
+        nowcast_client.post("/v1/propagation/path", json=request_payload())
+        nowcast_health = nowcast_client.get("/v1/propagation/health").json()
+        self.assertEqual(nowcast_health["served_profile_counts"], {"nowcast": 1})
+
     def test_missing_feature_summary_sorts_caps_and_handles_empty_input(self):
         self.assertEqual(
             missing_feature_summary([]),
@@ -776,6 +807,9 @@ class ServiceTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("space_weather", response.json()["data_freshness"])
+        self.assertTrue(
+            any("reason=lookup_failed" in line for line in captured.output)
+        )
         self.assertTrue(
             any("error=RuntimeError" in line for line in captured.output)
         )

@@ -92,7 +92,10 @@ class PathHistoryProvider(Protocol):
 
 class UnavailablePathHistoryProvider:
     name = "unavailable"
-    transform_version = DEFAULT_PATH_TRANSFORM_VERSION
+    # Not DEFAULT_PATH_TRANSFORM_VERSION: that names a real, approved transform
+    # for the (currently dead) RPC-backed provider. Advertising it here would
+    # claim a transform this no-op provider never applies.
+    transform_version = "unavailable"
 
     def lookup(
         self,

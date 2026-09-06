@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
 import { verifyStationOwner } from "./stationAuth";
 
 const mocks = vi.hoisted(() => ({ createClient: vi.fn(), getUser: vi.fn() }));
-vi.mock("@supabase/supabase-js", () => ({ createClient: mocks.createClient }));
+vi.mock("@supabase/supabase-js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@supabase/supabase-js")>(),
+  createClient: mocks.createClient,
+}));
 const ownerId = "4d6c508d-c5ab-4a43-a307-26f4f13181be";
 const token = "untrusted.payload.signature";
 const request = (authorization = `Bearer ${token}`) => new Request("https://example.invalid/api/station", {
@@ -74,6 +78,25 @@ describe("station verified owner boundary", () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: ownerId } }, error: { message: `Secret ${token}` } });
     const body = await expectFailure(await verifyStationOwner(request()), 401);
     expect(body).toEqual({ error: "Unauthorized" });
+  });
+
+  it.each([0, 502, 503, 504])("treats resolved SDK retryable failures (status %i) as unavailable without disclosure", async (status) => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: ownerId } },
+      error: new AuthRetryableFetchError(`Upstream secret ${token}`, status),
+    });
+    const body = await expectFailure(await verifyStationOwner(request()), 503);
+    expect(body).toEqual({ error: "Station authentication is unavailable" });
+    expect(mocks.getUser).toHaveBeenCalledExactlyOnceWith(token);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps genuine SDK credential rejection unauthorized without disclosure", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null },
+      error: new AuthApiError(`Invalid secret ${token}`, 401, "bad_jwt"),
+    });
+    const body = await expectFailure(await verifyStationOwner(request()), 401);
+    expect(body).toEqual({ error: "Unauthorized" });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("rejects a missing verified user", async () => {

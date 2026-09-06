@@ -1,98 +1,138 @@
-/**
- * EquipmentSection -- Unified scrollable equipment view that renders all 5
- * equipment managers in vertical sections with headers and counts.
- *
- * Shows a SetupWizard when the shack is empty, or a compact empty-state CTA
- * if the wizard has been dismissed.
- */
-
+/** Real inventory managers, grouped into a readable and navigable gear area. */
 import { useState } from "react";
+import { Boxes, WandSparkles } from "lucide-react";
 import { useShackStore } from "@/stores/shackStore";
 import { RadioManager } from "@/components/settings/RadioManager";
-import { AntennaManager } from "@/components/shack/AntennaManager";
-import { FeedlineManager } from "@/components/shack/FeedlineManager";
-import { AccessoryManager } from "@/components/shack/AccessoryManager";
-import { InlineComponentManager } from "@/components/shack/InlineComponentManager";
+import { AntennaManager } from "./AntennaManager";
+import { FeedlineManager } from "./FeedlineManager";
+import { AccessoryManager } from "./AccessoryManager";
+import { InlineComponentManager } from "./InlineComponentManager";
 import { SetupWizard } from "./SetupWizard";
+import { Button, Notice, Section, Surface } from "@/components/station-ui";
 
-// ---- Component --------------------------------------------------------------
-
-export function EquipmentSection() {
-  const [wizardDismissed, setWizardDismissed] = useState(false);
-
-  const totalCount = useShackStore(
-    (s) =>
-      s.radios.length +
-      s.antennas.length +
-      s.feedlines.length +
-      s.accessories.length +
-      s.inlineComponents.length,
-  );
-
-  // ---- Empty state: show wizard or CTA ----
-  if (totalCount === 0 && !wizardDismissed) {
-    return <SetupWizard onComplete={() => setWizardDismissed(true)} />;
-  }
-
-  if (totalCount === 0 && wizardDismissed) {
+export function EquipmentSection({
+  initialCategory = "all",
+}: {
+  initialCategory?: string;
+}) {
+  const [wizardOpen, setWizardOpen] = useState(() => {
+    const inventory = useShackStore.getState();
     return (
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-8 text-center space-y-4">
-        <div className="mx-auto w-14 h-14 rounded-full bg-plasma-orange/10 flex items-center justify-center">
-          <svg
-            className="w-7 h-7 text-plasma-orange"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-            />
-          </svg>
-        </div>
-        <h3 className="text-lg font-semibold text-gray-200">
-          No Equipment Yet
-        </h3>
-        <p className="text-sm text-gray-400 max-w-md mx-auto">
-          Add radios, antennas, feedlines, and accessories to build out your
-          station.
-        </p>
-        <button
-          type="button"
-          onClick={() => setWizardDismissed(false)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-plasma-orange text-white text-sm font-medium hover:bg-plasma-orange/90 transition-colors min-h-[44px]"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          Start Setup Wizard
-        </button>
-      </div>
+      initialCategory === "all" &&
+      inventory.radios.length +
+        inventory.antennas.length +
+        inventory.feedlines.length +
+        inventory.accessories.length +
+        inventory.inlineComponents.length ===
+        0
     );
-  }
+  });
+  const [category, setCategory] = useState(
+    ["radios", "antennas", "feedlines", "accessories", "inline"].includes(
+      initialCategory,
+    )
+      ? initialCategory
+      : "all",
+  );
+  const radios = useShackStore((s) => s.radios.length);
+  const antennas = useShackStore((s) => s.antennas.length);
+  const feedlines = useShackStore((s) => s.feedlines.length);
+  const accessories = useShackStore((s) => s.accessories.length);
+  const inline = useShackStore((s) => s.inlineComponents.length);
+  const totalCount = radios + antennas + feedlines + accessories + inline;
+  const groups = [
+    { id: "radios", label: "Radios", count: radios, content: <RadioManager /> },
+    {
+      id: "antennas",
+      label: "Antennas",
+      count: antennas,
+      content: <AntennaManager />,
+    },
+    {
+      id: "feedlines",
+      label: "Feedlines",
+      count: feedlines,
+      content: <FeedlineManager />,
+    },
+    {
+      id: "accessories",
+      label: "Accessories",
+      count: accessories,
+      content: <AccessoryManager />,
+    },
+    {
+      id: "inline",
+      label: "Inline components",
+      count: inline,
+      content: <InlineComponentManager />,
+    },
+  ];
 
-  // ---- Populated: render all sections ----
-  // Each manager renders its own section header (label + count + add button),
-  // so EquipmentSection just spaces them vertically.
   return (
-    <div className="space-y-8">
-      <RadioManager />
-      <AntennaManager />
-      <FeedlineManager />
-      <AccessoryManager />
-      <InlineComponentManager />
-    </div>
+    <Section
+      title="My gear"
+      description="Your radios, antennas, cables and the details that make this station yours."
+    >
+      {wizardOpen ? (
+        <Surface className="shack-legacy">
+          <div className="station-shack-section-intro">
+            <div>
+              <p className="su-eyebrow">START WITH YOUR STATION</p>
+              <p className="su-hint">
+                Use guided setup, or add individual items at your own pace.
+              </p>
+            </div>
+            <Button onClick={() => setWizardOpen(false)}>
+              <Boxes size={18} aria-hidden="true" /> Add gear individually
+            </Button>
+          </div>
+          <SetupWizard onComplete={() => setWizardOpen(false)} />
+        </Surface>
+      ) : (
+        <>
+          {totalCount === 0 && (
+            <div className="station-shack-section-intro">
+              <Notice title="Start with any piece of gear">
+                Choose a category below. You can connect equipment later in the
+                workbench.
+              </Notice>
+              <Button onClick={() => setWizardOpen(true)}>
+                <WandSparkles size={18} aria-hidden="true" /> Guided setup
+              </Button>
+            </div>
+          )}
+          <div
+            className="station-gear-filter"
+            role="group"
+            aria-label="Equipment categories"
+          >
+            {[
+              { id: "all", label: "All gear", count: totalCount },
+              ...groups,
+            ].map((group) => (
+              <Button
+                key={group.id}
+                aria-pressed={category === group.id}
+                onClick={() => setCategory(group.id)}
+              >
+                {group.label}{" "}
+                <span className="station-gear-count">{group.count}</span>
+              </Button>
+            ))}
+          </div>
+          <div className="station-gear-sections shack-legacy">
+            {groups.map((group) => (
+              <div
+                key={group.id}
+                hidden={category !== "all" && category !== group.id}
+                className="station-gear-group"
+              >
+                {group.content}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Section>
   );
 }

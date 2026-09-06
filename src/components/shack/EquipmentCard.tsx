@@ -465,6 +465,7 @@ export function EquipmentCard({
         onKeyDown={
           onClick
             ? (e) => {
+                if (e.target !== e.currentTarget) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   onClick();
@@ -476,7 +477,7 @@ export function EquipmentCard({
         onMouseLeave={() => setIsHovered(false)}
         className={[
           // Layout
-          "group relative flex flex-col w-full min-w-0",
+          "equipment-card group relative flex flex-col w-full min-w-0",
           // 3D flip
           "bg-[#0f1420] rounded-xl overflow-hidden",
           // Border (dynamic color set via style)
@@ -546,17 +547,17 @@ export function EquipmentCard({
         />
 
         {/* ── Header Zone ── */}
-        <div className="relative z-[2] px-4 pt-3 pb-2 min-w-0">
+        <div className="equipment-card-heading relative z-[2] px-4 pt-3 pb-2 min-w-0">
           {/* Type label + tier */}
           <div className="flex items-center gap-1">
             <span
-              className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]}`}
+              className={`equipment-card-type text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]}`}
             >
               {resolvedTypeLabel}
             </span>
             {tier && (
               <span
-                className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-60`}
+                className={`equipment-card-type text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-60`}
               >
                 {" "}
                 &middot; {TIER_LABELS[tier]}
@@ -579,7 +580,7 @@ export function EquipmentCard({
           {/* Action buttons — hover only */}
           <div
             className={[
-              "absolute top-2 right-2 flex items-center gap-1",
+              "equipment-card-actions absolute top-2 right-2 flex items-center gap-1",
               hasActions
                 ? "opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                 : "",
@@ -606,49 +607,49 @@ export function EquipmentCard({
                 <path d="M2 8h12M10 4l4 4-4 4" />
               </svg>
             </button>
-              {onEdit && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit();
-                  }}
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
-                  aria-label={`Edit ${title}`}
-                  title="Edit"
-                >
-                  <EditIcon />
-                </button>
-              )}
-              {onDuplicate && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDuplicate();
-                  }}
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
-                  aria-label={`${duplicateLabel} ${title}`}
-                  title={duplicateLabel}
-                >
-                  <DuplicateIcon />
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                  }}
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-alert-red transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
-                  aria-label={`Delete ${title}`}
-                  title="Delete"
-                >
-                  <TrashIcon />
-                </button>
-              )}
-            </div>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                aria-label={`Edit ${title}`}
+                title="Edit"
+              >
+                <EditIcon />
+              </button>
+            )}
+            {onDuplicate && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate();
+                }}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                aria-label={`${duplicateLabel} ${title}`}
+                title={duplicateLabel}
+              >
+                <DuplicateIcon />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-alert-red transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                aria-label={`Delete ${title}`}
+                title="Delete"
+              >
+                <TrashIcon />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Symbol Art Zone (CSS 3D flip) ── */}
@@ -674,111 +675,113 @@ export function EquipmentCard({
                 backfaceVisibility: "hidden",
               }}
             >
-          {flipped ? (
-            <div className="px-2 py-1 w-full space-y-1.5">
-              {displayStats?.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="flex items-center justify-between text-[11px] text-gray-300"
-                >
-                  <span className="text-gray-500">{stat.label}</span>
-                  <span className="font-mono">{stat.value}</span>
-                </div>
-              ))}
-              {qsoCount > 0 && (
-                <p className="text-[11px] font-mono text-plasma-orange">
-                  {qsoCount} QSO{qsoCount === 1 ? "" : "s"} on this piece
-                </p>
-              )}
-              {historyLines.length > 0 && (
-                <ul className="space-y-0.5">
-                  {historyLines.map((line) => (
-                    <li
-                      key={line}
-                      className="text-[10px] text-gray-500 truncate"
+              {flipped ? (
+                <div className="px-2 py-1 w-full space-y-1.5">
+                  {displayStats?.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="flex items-center justify-between text-[11px] text-gray-300"
                     >
-                      {line}
-                    </li>
+                      <span className="text-gray-500">{stat.label}</span>
+                      <span className="font-mono">{stat.value}</span>
+                    </div>
                   ))}
-                </ul>
+                  {qsoCount > 0 && (
+                    <p className="text-[11px] font-mono text-plasma-orange">
+                      {qsoCount} QSO{qsoCount === 1 ? "" : "s"} on this piece
+                    </p>
+                  )}
+                  {historyLines.length > 0 && (
+                    <ul className="space-y-0.5">
+                      {historyLines.map((line) => (
+                        <li
+                          key={line}
+                          className="text-[10px] text-gray-500 truncate"
+                        >
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {(!displayStats || displayStats.length === 0) &&
+                    historyLines.length === 0 &&
+                    qsoCount === 0 && (
+                      <p className="text-[11px] text-gray-500">
+                        No logged history yet
+                      </p>
+                    )}
+                </div>
+              ) : visualization ? (
+                visualization
+              ) : imageUrl ? (
+                <>
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={() => setPhotoFailed(true)}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
+                </>
+              ) : (
+                <>
+                  {/* Rank tier background asset */}
+                  {!visualization && !imageUrl && assets.equipmentCardBg && (
+                    <img
+                      src={assets.equipmentCardBg}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                  )}
+
+                  {/* Type-specific background pattern */}
+                  <div
+                    className={`absolute inset-0 pointer-events-none opacity-[0.05] ${ACCENT_TEXT[equipmentType]}`}
+                  >
+                    <ArtZonePattern type={equipmentType} />
+                  </div>
+
+                  {/* Radial glow behind symbol */}
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle, ${accentHex}18 0%, transparent 65%)`,
+                    }}
+                  />
+
+                  {/* Symbol — responsive */}
+                  <div
+                    className={ACCENT_TEXT[equipmentType]}
+                    style={{ filter: `drop-shadow(0 0 10px ${accentHex}25)` }}
+                  >
+                    <SymbolComponent className="w-16 h-16 sm:w-20 sm:h-20" />
+                  </div>
+                </>
               )}
-              {(!displayStats || displayStats.length === 0) &&
-                historyLines.length === 0 &&
-                qsoCount === 0 && (
-                  <p className="text-[11px] text-gray-500">No logged history yet</p>
-                )}
-            </div>
-          ) : visualization ? (
-            visualization
-          ) : imageUrl ? (
-            <>
-              <img
-                src={imageUrl}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={() => setPhotoFailed(true)}
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
-            </>
-          ) : (
-            <>
-              {/* Rank tier background asset */}
-              {!visualization && !imageUrl && assets.equipmentCardBg && (
-                <img
-                  src={assets.equipmentCardBg}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none"
-                  aria-hidden="true"
-                />
+              {/* Photo count badge */}
+              {galleryImageIds && galleryImageIds.length > 0 && (
+                <div className="absolute bottom-1.5 right-1.5 z-[3] bg-black/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    className="w-2.5 h-2.5 text-white/70"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5.5 2L4 4H2.5A1 1 0 001.5 5v7a1 1 0 001 1h11a1 1 0 001-1V5a1 1 0 00-1-1H12l-1.5-2h-5z"
+                    />
+                    <circle cx={8} cy={8.5} r={2.5} />
+                  </svg>
+                  <span className="text-[10px] font-mono text-white/70">
+                    {1 + galleryImageIds.length}
+                  </span>
+                </div>
               )}
-
-              {/* Type-specific background pattern */}
-              <div
-                className={`absolute inset-0 pointer-events-none opacity-[0.05] ${ACCENT_TEXT[equipmentType]}`}
-              >
-                <ArtZonePattern type={equipmentType} />
-              </div>
-
-              {/* Radial glow behind symbol */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: `radial-gradient(circle, ${accentHex}18 0%, transparent 65%)`,
-                }}
-              />
-
-              {/* Symbol — responsive */}
-              <div
-                className={ACCENT_TEXT[equipmentType]}
-                style={{ filter: `drop-shadow(0 0 10px ${accentHex}25)` }}
-              >
-                <SymbolComponent className="w-16 h-16 sm:w-20 sm:h-20" />
-              </div>
-            </>
-          )}
-          {/* Photo count badge */}
-          {galleryImageIds && galleryImageIds.length > 0 && (
-            <div className="absolute bottom-1.5 right-1.5 z-[3] bg-black/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                className="w-2.5 h-2.5 text-white/70"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5.5 2L4 4H2.5A1 1 0 001.5 5v7a1 1 0 001 1h11a1 1 0 001-1V5a1 1 0 00-1-1H12l-1.5-2h-5z"
-                />
-                <circle cx={8} cy={8.5} r={2.5} />
-              </svg>
-              <span className="text-[10px] font-mono text-white/70">
-                {1 + galleryImageIds.length}
-              </span>
-            </div>
-          )}
             </div>
           </div>
           <ParticleAurora
@@ -851,7 +854,7 @@ export function EquipmentCard({
               return (
                 <span
                   key={`${cap.category}-${cap.label}-${i}`}
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
+                  className={`equipment-card-capability inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
                 >
                   {dotClass && (
                     <span
@@ -873,7 +876,7 @@ export function EquipmentCard({
             {badges?.map((badge, i) => (
               <span
                 key={`${badge.label}-${i}`}
-                className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
+                className={`equipment-card-badge px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
               >
                 {badge.label}
               </span>

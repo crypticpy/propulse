@@ -2,8 +2,8 @@
  * ProfilePage -- Operator Profile management page.
  *
  * Manages callsign, operator name, license, locations, and grid locator.
- * Desktop: sticky sidebar profile card (320px) + tabbed content area.
- * Mobile: compact profile card at top + horizontal tab pills + tab content.
+ * Shared station-ui workspace with an operator identity rail and section navigation.
+ * Existing profile, rank, social, privacy, and logbook components keep their data paths.
  *
  * Also supports viewing another user's profile via /profile/:callsign.
  */
@@ -36,7 +36,6 @@ import {
   QRCodeModal,
   LicenseCard,
   StationIdentityForm,
-  ProfileTabBar,
   ProfileCardDesktop,
   ProfileCardMobile,
   HeroStatsBlock,
@@ -67,6 +66,12 @@ import { isRankAtLeast } from "@/lib/data/rankConstants";
 import { useRankAssets } from "@/hooks/useRankAssets";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { useLogbook } from "@/hooks/useLogbook";
+import { Button, Dialog } from "@/components/station-ui";
+import { Pencil, ShieldCheck } from "lucide-react";
+import {
+  ProfileWorkspaceShell,
+  ProfileWorkspaceSection,
+} from "@/components/profile/ProfileWorkspaceShell";
 
 // ---- Callsign validation ----------------------------------------------------
 
@@ -293,202 +298,227 @@ function OtherProfileView({
   const rankVars = getRankPageVars(profileRank);
 
   // Panel classes
-  const panelClass = isMobile
-    ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
-    : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
+  const panelClass = "profile-workspace-panel";
 
   // ---- Visitor Tab Content ----
 
   const visitorTabContent = (
     <>
       {activeTab === "overview" && (
-        <div className={isMobile ? "space-y-4" : "space-y-8"}>
-          {/* Contact This Station — path analysis, band conditions, schedule overlap */}
-          <ContactThisStation
-            profile={profile}
-            viewerLat={viewerStation?.lat}
-            viewerLon={viewerStation?.lon}
-            viewerGrid={viewerStation?.grid}
-            viewerStats={viewerStats as unknown as Record<string, unknown>}
-            viewerHours={viewerHours}
-          />
-
-          {/* Hero Stats — visitor version from statsCache */}
-          {(!vis || vis.stats !== "private") && profile.statsCache && (
-            <div className={panelClass}>
-              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
-                Station Stats
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {typeof profile.statsCache.totalQSOs === "number" && (
-                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                    <div className="text-lg font-bold text-white font-mono">
-                      {profile.statsCache.totalQSOs.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase">
-                      Total QSOs
-                    </div>
+        <div>
+          <ProfileWorkspaceSection
+            title="Station story"
+            description="Get to know the person behind the callsign."
+          >
+            <div className="profile-workspace-panels">
+              {/* Bio */}
+              {profile.bio && (
+                <div className={panelClass}>
+                  <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+                    About
+                  </h3>
+                  <p className="text-gray-300 text-sm whitespace-pre-wrap">
+                    {profile.bio}
+                  </p>
+                </div>
+              )}
+              {/* Interest Tags — read-only with shared-interest highlighting */}
+              {profile.interests && profile.interests.length > 0 && (
+                <div className={panelClass}>
+                  <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                    Interests
+                  </h3>
+                  <InterestTagDisplay
+                    tags={profile.interests}
+                    viewerTags={viewerInterests}
+                  />
+                </div>
+              )}
+              {/* Social Links */}
+              {(!vis || vis.activity !== "private") &&
+                profile.socialLinks &&
+                profile.socialLinks.length > 0 && (
+                  <div className={panelClass}>
+                    <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+                      Links
+                    </h3>
+                    <ul className="space-y-1">
+                      {profile.socialLinks.map((link, i) => {
+                        const url = link.url?.trim().toLowerCase() ?? "";
+                        const isSafe =
+                          url.startsWith("http://") ||
+                          url.startsWith("https://") ||
+                          url.startsWith("mailto:");
+                        return (
+                          <li key={i}>
+                            {isSafe ? (
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-nebula-blue hover:underline"
+                              >
+                                {link.type}: {link.url}
+                              </a>
+                            ) : (
+                              <span className="text-sm text-gray-400">
+                                {link.type}: {link.url}
+                              </span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 )}
-                {typeof profile.statsCache.uniqueCountries === "number" && (
-                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                    <div className="text-lg font-bold text-white font-mono">
-                      {profile.statsCache.uniqueCountries.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase">
-                      Countries
-                    </div>
-                  </div>
+              {!profile.bio &&
+                !profile.interests?.length &&
+                !profile.socialLinks?.length && (
+                  <p className="su-hint">
+                    This operator hasn’t added a station story yet.
+                  </p>
                 )}
-                {typeof profile.statsCache.uniqueCallsigns === "number" && (
-                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                    <div className="text-lg font-bold text-white font-mono">
-                      {profile.statsCache.uniqueCallsigns.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase">
-                      Unique Calls
-                    </div>
-                  </div>
-                )}
-                {profile.statsCache.qsosByBand &&
-                typeof profile.statsCache.qsosByBand === "object" ? (
-                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                    <div className="text-lg font-bold text-white font-mono">
-                      {
-                        Object.keys(
-                          profile.statsCache.qsosByBand as Record<
-                            string,
-                            unknown
-                          >,
-                        ).length
-                      }
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase">
-                      Bands
-                    </div>
-                  </div>
-                ) : null}
-                {profile.statsCache.qsosByMode &&
-                typeof profile.statsCache.qsosByMode === "object" ? (
-                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                    <div className="text-lg font-bold text-white font-mono">
-                      {
-                        Object.keys(
-                          profile.statsCache.qsosByMode as Record<
-                            string,
-                            unknown
-                          >,
-                        ).length
-                      }
-                    </div>
-                    <div className="text-[10px] text-gray-500 uppercase">
-                      Modes
-                    </div>
-                  </div>
-                ) : null}
-              </div>
             </div>
-          )}
-
-          {/* Interest Tags — read-only with shared-interest highlighting */}
-          {profile.interests && profile.interests.length > 0 && (
-            <div className={panelClass}>
-              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
-                Interests
-              </h3>
-              <InterestTagDisplay
-                tags={profile.interests}
-                viewerTags={viewerInterests}
+          </ProfileWorkspaceSection>
+          <ProfileWorkspaceSection
+            title="On the air"
+            description="Operating preferences and ways your stations might connect."
+          >
+            <div className="profile-workspace-panels">
+              {/* Contact This Station — path analysis, band conditions, schedule overlap */}
+              <ContactThisStation
+                profile={profile}
+                viewerLat={viewerStation?.lat}
+                viewerLon={viewerStation?.lon}
+                viewerGrid={viewerStation?.grid}
+                viewerStats={viewerStats as unknown as Record<string, unknown>}
+                viewerHours={viewerHours}
               />
-            </div>
-          )}
-
-          {/* Where to Find Me — read-only */}
-          {(!vis || vis.location !== "private") && (
-            <div className={panelClass}>
-              <WhereToFindMe
-                hours={profile.operatingHours}
-                qsosByDate={
-                  profile.statsCache?.qsosByDate as
-                    | Record<string, number>
-                    | undefined
-                }
-                favoriteFreqs={profile.favoriteFreqs}
-                skedAvailability={profile.skedAvailability}
-              />
-            </div>
-          )}
-
-          {/* Visitor's Nets */}
-          <div className={panelClass}>
-            <MyNetsSection editable={false} />
-          </div>
-
-          {/* Bio */}
-          {profile.bio && (
-            <div className={panelClass}>
-              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
-                About
-              </h3>
-              <p className="text-gray-300 text-sm whitespace-pre-wrap">
-                {profile.bio}
-              </p>
-            </div>
-          )}
-
-          {/* Social Links */}
-          {(!vis || vis.activity !== "private") &&
-            profile.socialLinks &&
-            profile.socialLinks.length > 0 && (
+              {/* Where to Find Me — read-only */}
+              {(!vis || vis.location !== "private") && (
+                <div className={panelClass}>
+                  <WhereToFindMe
+                    hours={profile.operatingHours}
+                    qsosByDate={
+                      profile.statsCache?.qsosByDate as
+                        | Record<string, number>
+                        | undefined
+                    }
+                    favoriteFreqs={profile.favoriteFreqs}
+                    skedAvailability={profile.skedAvailability}
+                  />
+                </div>
+              )}
+              {/* Visitor's Nets */}
               <div className={panelClass}>
-                <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
-                  Links
-                </h3>
-                <ul className="space-y-1">
-                  {profile.socialLinks.map((link, i) => {
-                    const url = link.url?.trim().toLowerCase() ?? "";
-                    const isSafe =
-                      url.startsWith("http://") ||
-                      url.startsWith("https://") ||
-                      url.startsWith("mailto:");
-                    return (
-                      <li key={i}>
-                        {isSafe ? (
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-nebula-blue hover:underline"
-                          >
-                            {link.type}: {link.url}
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-400">
-                            {link.type}: {link.url}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+                <MyNetsSection editable={false} />
               </div>
-            )}
+            </div>
+          </ProfileWorkspaceSection>
+          {(!vis || vis.stats !== "private") && profile.statsCache && (
+            <ProfileWorkspaceSection
+              title="From the logbook"
+              description="A snapshot of this operator’s activity."
+            >
+              {/* Hero Stats — visitor version from statsCache */}
+              {(!vis || vis.stats !== "private") && profile.statsCache && (
+                <div className={panelClass}>
+                  <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                    Station Stats
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {typeof profile.statsCache.totalQSOs === "number" && (
+                      <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                        <div className="text-lg font-bold text-white font-mono">
+                          {profile.statsCache.totalQSOs.toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase">
+                          Total QSOs
+                        </div>
+                      </div>
+                    )}
+                    {typeof profile.statsCache.uniqueCountries === "number" && (
+                      <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                        <div className="text-lg font-bold text-white font-mono">
+                          {profile.statsCache.uniqueCountries.toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase">
+                          Countries
+                        </div>
+                      </div>
+                    )}
+                    {typeof profile.statsCache.uniqueCallsigns === "number" && (
+                      <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                        <div className="text-lg font-bold text-white font-mono">
+                          {profile.statsCache.uniqueCallsigns.toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase">
+                          Unique Calls
+                        </div>
+                      </div>
+                    )}
+                    {profile.statsCache.qsosByBand &&
+                    typeof profile.statsCache.qsosByBand === "object" ? (
+                      <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                        <div className="text-lg font-bold text-white font-mono">
+                          {
+                            Object.keys(
+                              profile.statsCache.qsosByBand as Record<
+                                string,
+                                unknown
+                              >,
+                            ).length
+                          }
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase">
+                          Bands
+                        </div>
+                      </div>
+                    ) : null}
+                    {profile.statsCache.qsosByMode &&
+                    typeof profile.statsCache.qsosByMode === "object" ? (
+                      <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                        <div className="text-lg font-bold text-white font-mono">
+                          {
+                            Object.keys(
+                              profile.statsCache.qsosByMode as Record<
+                                string,
+                                unknown
+                              >,
+                            ).length
+                          }
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase">
+                          Modes
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </ProfileWorkspaceSection>
+          )}
         </div>
       )}
 
       {activeTab === "shack" && (
-        <div className={panelClass}>
-          {(!vis || vis.equipment !== "private") ? (
-            <PublicShackPanel
-              equipment={profile.statsCache?.equipment}
-              ownerUserId={profile.id}
-            />
-          ) : (
-            <p className="text-gray-500 text-sm italic py-4 text-center">
-              Equipment info is private
-            </p>
-          )}
-        </div>
+        <ProfileWorkspaceSection
+          title="Inside the station"
+          description="Equipment shared by this operator."
+        >
+          <div className={panelClass}>
+            {!vis || vis.equipment !== "private" ? (
+              <PublicShackPanel
+                equipment={profile.statsCache?.equipment}
+                ownerUserId={profile.id}
+              />
+            ) : (
+              <p className="text-gray-500 text-sm italic py-4 text-center">
+                Equipment info is private
+              </p>
+            )}
+          </div>
+        </ProfileWorkspaceSection>
       )}
 
       {activeTab === "stats" && (
@@ -564,49 +594,48 @@ function OtherProfileView({
     </>
   );
 
-  // ---- Desktop Layout ----
-
-  if (!isMobile) {
-    return (
-      <div
-        className="flex gap-8 max-w-[1080px] mx-auto px-6 py-6"
-        style={rankVars}
-      >
-        {/* Sidebar */}
-        <VisitorProfileCard
-          profile={profile}
-          viewerInterests={viewerInterests}
-          isFollowing={isFollowing}
-          onFollow={handleFollow}
-          onUnfollow={() => setShowUnfollowConfirm(true)}
-        />
-
-        {/* Main content area */}
-        <div className="flex-1 min-w-0 max-w-[720px]">
-          <div className="mb-6">
-            <Link
-              to="/profile"
-              className="text-sm text-plasma-orange hover:text-plasma-orange/80 underline"
-            >
-              &larr; Back to My Profile
-            </Link>
+  return (
+    <ProfileWorkspaceShell
+      visitor
+      callsign={profile.callsign || callsign.toUpperCase()}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      style={rankVars}
+      actions={
+        <Button
+          variant={isFollowing ? "secondary" : "primary"}
+          onClick={
+            isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
+          }
+        >
+          {isFollowing ? "Following" : "Follow operator"}
+        </Button>
+      }
+      identity={
+        isMobile ? (
+          <div className="profile-workspace-panel profile-workspace-visitor-card">
+            {profile.avatarUrl && (
+              <img src={profile.avatarUrl} alt={`${profile.callsign} avatar`} />
+            )}
+            <div>
+              <h2>{profile.callsign || "UNKNOWN"}</h2>
+              {profile.operatorName && <p>{profile.operatorName}</p>}
+              {profile.grid && (!vis || vis.location !== "private") && (
+                <p className="su-hint su-mono">{profile.grid}</p>
+              )}
+            </div>
           </div>
-          <ProfileTabBar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            isMobile={false}
-            isVisitor
+        ) : (
+          <VisitorProfileCard
+            profile={profile}
+            viewerInterests={viewerInterests}
+            isFollowing={isFollowing}
+            onFollow={handleFollow}
+            onUnfollow={() => setShowUnfollowConfirm(true)}
           />
-          <div
-            role="tabpanel"
-            id={`profile-tabpanel-${activeTab}`}
-            aria-labelledby={`profile-tab-${activeTab}`}
-            className="mt-4"
-          >
-            {visitorTabContent}
-          </div>
-        </div>
-
+        )
+      }
+      overlays={
         <ConfirmDialog
           open={showUnfollowConfirm}
           title="Unfollow Operator"
@@ -619,89 +648,10 @@ function OtherProfileView({
           }}
           onCancel={() => setShowUnfollowConfirm(false)}
         />
-      </div>
-    );
-  }
-
-  // ---- Mobile Layout ----
-
-  return (
-    <div className="px-4 py-4" style={rankVars}>
-      <div className="mb-4">
-        <Link
-          to="/profile"
-          className="text-sm text-plasma-orange hover:text-plasma-orange/80 underline"
-        >
-          &larr; Back to My Profile
-        </Link>
-      </div>
-
-      {/* Compact mobile profile header */}
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4">
-        <div className="flex items-center gap-3">
-          {profile.avatarUrl && (
-            <img
-              src={profile.avatarUrl}
-              alt={`${profile.callsign} avatar`}
-              className="w-12 h-12 rounded-full object-cover border-2 border-white/10"
-            />
-          )}
-          <div className="flex-1 min-w-0">
-            <h2 className="font-mono text-lg font-bold text-plasma-orange">
-              {profile.callsign || "UNKNOWN"}
-            </h2>
-            {profile.operatorName && (
-              <p className="text-sm text-gray-400">{profile.operatorName}</p>
-            )}
-            {profile.grid && (!vis || vis.location !== "private") && (
-              <p className="text-xs text-gray-500 font-mono">{profile.grid}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={
-              isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
-            }
-            className={`flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
-              isFollowing
-                ? "bg-signal-green/20 text-signal-green border-signal-green/30"
-                : "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
-            }`}
-          >
-            {isFollowing ? "Following" : "Follow"}
-          </button>
-        </div>
-      </div>
-
-      <ProfileTabBar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        isMobile
-        isVisitor
-      />
-
-      <div
-        role="tabpanel"
-        id={`profile-tabpanel-${activeTab}`}
-        aria-labelledby={`profile-tab-${activeTab}`}
-        className="mt-4"
-      >
-        {visitorTabContent}
-      </div>
-
-      <ConfirmDialog
-        open={showUnfollowConfirm}
-        title="Unfollow Operator"
-        message="Are you sure you want to unfollow this operator?"
-        confirmLabel="Unfollow"
-        variant="warning"
-        onConfirm={() => {
-          unfollowUser(profile.id);
-          setShowUnfollowConfirm(false);
-        }}
-        onCancel={() => setShowUnfollowConfirm(false)}
-      />
-    </div>
+      }
+    >
+      {visitorTabContent}
+    </ProfileWorkspaceShell>
   );
 }
 
@@ -912,13 +862,10 @@ export default function ProfilePage() {
   }
 
   // Shared panel class
-  const panelClass = isMobile
-    ? "bg-panel/30 backdrop-blur-sm border rounded-2xl p-4"
-    : "bg-panel/30 backdrop-blur-sm border rounded-2xl p-6";
+  const panelClass = "profile-workspace-panel";
 
   const panelStyle: React.CSSProperties = {
     borderColor: "var(--rank-border, rgba(255,255,255,0.05))",
-    boxShadow: `0 0 30px var(--rank-glow, transparent)`,
   };
 
   // ---- Tab Content (shared between desktop and mobile) ----------------------
@@ -926,108 +873,139 @@ export default function ProfilePage() {
   const tabContent = (
     <>
       {activeTab === "overview" && (
-        <div className={isMobile ? "space-y-4" : "space-y-8"}>
-          {/* Hero Stats — the baseball card front */}
-          <HeroStatsBlock />
-
-          {/* Operating Archetypes — the D&D character sheet */}
-          <ArchetypeRadar />
-
-          {/* Personal Records — scrollable bests */}
-          <PersonalRecords />
-
-          {/* Where to Find Me — editable */}
-          <div className={panelClass} style={panelStyle}>
-            <WhereToFindMe
-              hours={operatingHours}
-              qsosByDate={stats.qsosByDate}
-              favoriteFreqs={favoriteFreqs}
-              skedAvailability={skedAvailability}
-              editable
-              onSkedChange={(a) =>
-                useProfileStore.getState().setSkedAvailability(a)
-              }
-              onFreqAdd={(f) => useProfileStore.getState().addFavoriteFreq(f)}
-              onFreqRemove={(id) =>
-                useProfileStore.getState().removeFavoriteFreq(id)
-              }
-            />
-          </div>
-
-          {/* Interest Tags — editable picker */}
-          <div className={panelClass} style={panelStyle}>
-            <InterestTagPicker
-              selected={interests}
-              onChange={(tags) => useProfileStore.getState().setInterests(tags)}
-            />
-          </div>
-
-          {/* On Air Toggle */}
-          <div className={panelClass} style={panelStyle}>
-            <OnAirToggle
-              status={onAirStatus}
-              onChange={(s) => useProfileStore.getState().setOnAirStatus(s)}
-            />
-          </div>
-
-          {/* My Nets */}
-          <div className={panelClass} style={panelStyle}>
-            <MyNetsSection editable />
-          </div>
-
-          {/* Station Identity — only show form on mobile where sidebar doesn't exist */}
-          {isMobile && (
-            <div className={panelClass} style={panelStyle}>
-              <h3
-                className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4"
-                style={{ color: "var(--rank-text-accent, #9ca3af)" }}
-              >
-                Station Identity
-              </h3>
-              <StationIdentityForm {...formProps} idPrefix="mobile" />
+        <div>
+          <ProfileWorkspaceSection
+            title="Your station story"
+            description="Introduce the operator behind the callsign."
+          >
+            <div className="profile-workspace-panels">
+              {/* Bio */}
+              <div className={panelClass} style={panelStyle}>
+                <BioSection />
+              </div>
+              <div className="profile-workspace-pair">
+                {/* License Card */}
+                <div className={panelClass} style={panelStyle}>
+                  <LicenseCard />
+                </div>{" "}
+                {/* Social Links */}
+                <div className={panelClass} style={panelStyle}>
+                  <SocialLinksSection />
+                </div>
+              </div>
+              {/* Interest Tags — editable picker */}
+              <div className={panelClass} style={panelStyle}>
+                <InterestTagPicker
+                  selected={interests}
+                  onChange={(tags) =>
+                    useProfileStore.getState().setInterests(tags)
+                  }
+                />
+              </div>
+              {/* Station Identity — only show form on mobile where sidebar doesn't exist */}
+              {isMobile && (
+                <div className={panelClass} style={panelStyle}>
+                  <h3
+                    className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4"
+                    style={{ color: "var(--rank-text-accent, #9ca3af)" }}
+                  >
+                    Station Identity
+                  </h3>
+                  <StationIdentityForm {...formProps} idPrefix="mobile" />
+                </div>
+              )}
             </div>
-          )}
-
-          {/* Bio */}
-          <div className={panelClass} style={panelStyle}>
-            <BioSection />
-          </div>
-
-          {/* License Card */}
-          <div className={panelClass} style={panelStyle}>
-            <LicenseCard />
-          </div>
-
-          {/* Social Links */}
-          <div className={panelClass} style={panelStyle}>
-            <SocialLinksSection />
-          </div>
-
-          {/* Equipment Summary (quick preview — full view in My Shack tab) */}
-          <div className={panelClass} style={panelStyle}>
-            <EquipmentSummary />
-            <div className="mt-3 text-right">
-              <Link
-                to="/shack"
-                className="text-sm text-plasma-orange hover:text-plasma-orange/80 transition-colors"
-              >
-                Go to Shack &rarr;
+          </ProfileWorkspaceSection>
+          <ProfileWorkspaceSection
+            title="Built around your station"
+            description="A look at your equipment and the ways you confirm a contact."
+            actions={
+              <Link className="profile-workspace-section-link" to="/shack">
+                Open my shack <span aria-hidden="true">→</span>
               </Link>
+            }
+          >
+            <div className="profile-workspace-pair">
+              {/* Equipment Summary (quick preview — full view in My Shack tab) */}
+              <div className={panelClass} style={panelStyle}>
+                <EquipmentSummary />
+                <div className="mt-3 text-right">
+                  <Link
+                    to="/shack?view=equipment"
+                    className="text-sm text-plasma-orange hover:text-plasma-orange/80 transition-colors"
+                  >
+                    View my gear &rarr;
+                  </Link>
+                </div>
+              </div>{" "}
+              {/* QSL Services */}
+              <div className={panelClass} style={panelStyle}>
+                <QSLSummary />
+              </div>
             </div>
-          </div>
-
-          {/* QSL Services */}
-          <div className={panelClass} style={panelStyle}>
-            <QSLSummary />
-          </div>
+          </ProfileWorkspaceSection>
+          <ProfileWorkspaceSection
+            title="Find you on the air"
+            description="Share your operating interests, preferred frequencies, and schedule."
+          >
+            <div className="profile-workspace-panels">
+              {/* Where to Find Me — editable */}
+              <div className={panelClass} style={panelStyle}>
+                <WhereToFindMe
+                  hours={operatingHours}
+                  qsosByDate={stats.qsosByDate}
+                  favoriteFreqs={favoriteFreqs}
+                  skedAvailability={skedAvailability}
+                  editable
+                  onSkedChange={(a) =>
+                    useProfileStore.getState().setSkedAvailability(a)
+                  }
+                  onFreqAdd={(f) =>
+                    useProfileStore.getState().addFavoriteFreq(f)
+                  }
+                  onFreqRemove={(id) =>
+                    useProfileStore.getState().removeFavoriteFreq(id)
+                  }
+                />
+              </div>{" "}
+              <div className="profile-workspace-pair">
+                {/* On Air Toggle */}
+                <div className={panelClass} style={panelStyle}>
+                  <OnAirToggle
+                    status={onAirStatus}
+                    onChange={(s) =>
+                      useProfileStore.getState().setOnAirStatus(s)
+                    }
+                  />
+                </div>{" "}
+                {/* My Nets */}
+                <div className={panelClass} style={panelStyle}>
+                  <MyNetsSection editable />
+                </div>
+              </div>
+            </div>
+          </ProfileWorkspaceSection>
+          <ProfileWorkspaceSection
+            title="Life in the logbook"
+            description="The contacts, personal bests, and operating habits that make this station yours."
+            actions={
+              <Link className="profile-workspace-section-link" to="/logbook">
+                Open logbook <span aria-hidden="true">→</span>
+              </Link>
+            }
+          >
+            <div className="profile-workspace-panels">
+              {/* Hero Stats — the baseball card front */}
+              <HeroStatsBlock /> {/* Personal Records — scrollable bests */}
+              <PersonalRecords />{" "}
+              {/* Operating Archetypes — the D&D character sheet */}
+              <ArchetypeRadar />
+            </div>
+          </ProfileWorkspaceSection>
         </div>
       )}
 
-      {activeTab === "shack" && (
-        <div className={panelClass} style={panelStyle}>
-          <MyShackTab />
-        </div>
-      )}
+      {activeTab === "shack" && <MyShackTab />}
 
       {activeTab === "awards" && (
         <div className={panelClass} style={panelStyle}>
@@ -1050,99 +1028,44 @@ export default function ProfilePage() {
       )}
 
       {activeTab === "social" && (
-        <div className={isMobile ? "space-y-4" : "space-y-8"}>
-          <div className={panelClass} style={panelStyle}>
-            <FriendList />
-          </div>
-          <div className={panelClass} style={panelStyle}>
-            <ActivityFeed />
-          </div>
-          <div className={panelClass} style={panelStyle}>
-            <VisibilitySettings />
-          </div>
-          <ShareCard />
+        <div>
+          <ProfileWorkspaceSection
+            title="Privacy & sharing"
+            description="Choose what other operators can see, then share your station."
+          >
+            <div className="profile-workspace-panels">
+              <div className={panelClass} style={panelStyle}>
+                <VisibilitySettings />
+              </div>
+              <ShareCard />
+            </div>
+          </ProfileWorkspaceSection>
+          <ProfileWorkspaceSection
+            title="Your radio community"
+            description="The operators you follow and their latest activity."
+          >
+            <div className="profile-workspace-panels">
+              <div className={panelClass} style={panelStyle}>
+                <FriendList />
+              </div>
+              <div className={panelClass} style={panelStyle}>
+                <ActivityFeed />
+              </div>
+            </div>
+          </ProfileWorkspaceSection>
         </div>
       )}
     </>
   );
 
-  // ---- Desktop Layout -------------------------------------------------------
-
-  if (!isMobile) {
-    return (
-      <div
-        className="relative flex gap-8 max-w-[1080px] mx-auto px-6 py-6"
-        style={{
-          ...rankPageVars,
-          ...(isRankAtLeast(rank, "expert")
-            ? {
-                backgroundImage: `radial-gradient(ellipse at 50% 0%, ${rankColor}08, transparent 70%)`,
-              }
-            : {}),
-        }}
-      >
-        {assets.profileBackground && (
-          <div
-            className="absolute inset-0 pointer-events-none opacity-20"
-            style={{
-              backgroundImage: `url(${assets.profileBackground})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center top",
-              maskImage:
-                "linear-gradient(to bottom, black 30%, transparent 100%)",
-              WebkitMaskImage:
-                "linear-gradient(to bottom, black 30%, transparent 100%)",
-            }}
-          />
-        )}
-        <ProfileCardDesktop
-          displayCallsign={displayCallsign}
-          displayName={displayName}
-          displayGrid={displayGrid}
-          activeLocation={activeLocation}
-          completeness={completeness}
-          isEditing={isEditing}
-          setIsEditing={setIsEditing}
-          showQR={() => setShowQR(true)}
-          onCancelEdit={handleCancelEdit}
-          formProps={formProps}
-        />
-
-        {/* Main content area */}
-        <div className="flex-1 min-w-0 max-w-[720px]">
-          <ProfileTabBar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            isMobile={false}
-            rankColor={
-              isRankAtLeast(rank, "journeyman") ? rankColor : undefined
-            }
-          />
-          <div
-            role="tabpanel"
-            id={`profile-tabpanel-${activeTab}`}
-            aria-labelledby={`profile-tab-${activeTab}`}
-            className="mt-4"
-          >
-            {tabContent}
-          </div>
-        </div>
-
-        <QRCodeModal
-          isOpen={showQR}
-          onClose={() => setShowQR(false)}
-          callsign={displayCallsign}
-          grid={displayGrid !== "----" ? displayGrid : undefined}
-        />
-      </div>
-    );
-  }
-
-  // ---- Mobile Layout --------------------------------------------------------
+  const beginEdit = () => setIsEditing(true);
 
   return (
-    <div
-      className="relative px-4 py-4"
+    <ProfileWorkspaceShell
+      callsign={displayCallsign}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      backgroundUrl={assets.profileBackground}
       style={{
         ...rankPageVars,
         ...(isRankAtLeast(rank, "expert")
@@ -1151,52 +1074,67 @@ export default function ProfilePage() {
             }
           : {}),
       }}
+      actions={
+        <>
+          <Button onClick={() => setActiveTab("social")}>
+            <ShieldCheck size={17} aria-hidden="true" /> Privacy &amp; sharing
+          </Button>
+          <Button variant="primary" onClick={beginEdit}>
+            <Pencil size={17} aria-hidden="true" /> Edit identity
+          </Button>
+        </>
+      }
+      identity={
+        isMobile ? (
+          <ProfileCardMobile
+            displayCallsign={displayCallsign}
+            displayName={displayName}
+            displayGrid={displayGrid}
+            completeness={completeness}
+            onShowQR={() => setShowQR(true)}
+            onEdit={beginEdit}
+          />
+        ) : (
+          <ProfileCardDesktop
+            displayCallsign={displayCallsign}
+            displayName={displayName}
+            displayGrid={displayGrid}
+            activeLocation={activeLocation}
+            completeness={completeness}
+            isEditing={isEditing}
+            setIsEditing={setIsEditing}
+            showQR={() => setShowQR(true)}
+            onCancelEdit={handleCancelEdit}
+            formProps={formProps}
+          />
+        )
+      }
+      overlays={
+        <>
+          <QRCodeModal
+            isOpen={showQR}
+            onClose={() => setShowQR(false)}
+            callsign={displayCallsign}
+            grid={displayGrid !== "----" ? displayGrid : undefined}
+          />
+          <Dialog
+            open={isMobile && isEditing}
+            onClose={handleCancelEdit}
+            title="Edit station identity"
+            description="Update your callsign, operator name, and home grid."
+            footer={<Button onClick={handleCancelEdit}>Cancel</Button>}
+          >
+            <div className="profile-workspace-legacy">
+              <StationIdentityForm
+                {...formProps}
+                idPrefix="profile-mobile-dialog"
+              />
+            </div>
+          </Dialog>
+        </>
+      }
     >
-      {assets.profileBackground && (
-        <div
-          className="absolute inset-0 pointer-events-none opacity-20"
-          style={{
-            backgroundImage: `url(${assets.profileBackground})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center top",
-            maskImage:
-              "linear-gradient(to bottom, black 30%, transparent 100%)",
-            WebkitMaskImage:
-              "linear-gradient(to bottom, black 30%, transparent 100%)",
-          }}
-        />
-      )}
-      <ProfileCardMobile
-        displayCallsign={displayCallsign}
-        displayName={displayName}
-        displayGrid={displayGrid}
-        completeness={completeness}
-        onShowQR={() => setShowQR(true)}
-        onEdit={() => setIsEditing(true)}
-      />
-
-      <ProfileTabBar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        isMobile
-        rankColor={isRankAtLeast(rank, "journeyman") ? rankColor : undefined}
-      />
-
-      <div
-        role="tabpanel"
-        id={`profile-tabpanel-${activeTab}`}
-        aria-labelledby={`profile-tab-${activeTab}`}
-        className="mt-4"
-      >
-        {tabContent}
-      </div>
-
-      <QRCodeModal
-        isOpen={showQR}
-        onClose={() => setShowQR(false)}
-        callsign={displayCallsign}
-        grid={displayGrid !== "----" ? displayGrid : undefined}
-      />
-    </div>
+      {tabContent}
+    </ProfileWorkspaceShell>
   );
 }

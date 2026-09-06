@@ -520,7 +520,17 @@
   min-height: 0;
 }
 .hcr-chart-stack .hcr-plot {
-  min-height: 5vh;
+  min-height: 7vh;
+}
+/* Reports that still draw their own fixed-viewBox SVG straight under
+ * `.hcr-chart` (MUF, Sun, Grey line, Moon) until they move to
+ * `WallSeriesChart`: fill the width and let the aspect ratio set the height,
+ * capped so a tall viewBox cannot push the footer out of the report. */
+.hcr-chart > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 26vh;
 }
 
 /* ---------- best band table (HW-31) ---------- */

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { WallSeriesChart } from "./WallSeriesChart";
 
 const day = Date.parse("2026-09-05T00:00:00Z");
@@ -77,5 +77,57 @@ describe("WallSeriesChart (#250 S1)", () => {
     expect(path?.getAttribute("stroke")).toBe(
       "var(--hcr-chart-observed, #44ddff)",
     );
+  });
+});
+
+describe("WallSeriesChart sizing (#250 S1)", () => {
+  it("draws at the measured box size and redraws when the observer fires", () => {
+    const box = { width: 800, height: 300 };
+    const widthGetter = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockImplementation(() => box.width);
+    const heightGetter = vi
+      .spyOn(HTMLElement.prototype, "clientHeight", "get")
+      .mockImplementation(() => box.height);
+    let fire: (() => void) | null = null;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          fire = callback;
+        }
+        observe = observe;
+        disconnect = disconnect;
+      },
+    );
+    try {
+      const { container, unmount } = render(
+        <WallSeriesChart
+          label="SFI"
+          unit="sfu"
+          points={[
+            { timestamp: at(0), value: 150 },
+            { timestamp: at(24), value: 152 },
+          ]}
+        />,
+      );
+      const svg = () => container.querySelector("svg");
+      expect(svg()?.getAttribute("viewBox")).toBe("0 0 800 300");
+      expect(observe).toHaveBeenCalledTimes(1);
+
+      box.width = 1200;
+      box.height = 420;
+      act(() => fire?.());
+      expect(svg()?.getAttribute("viewBox")).toBe("0 0 1200 420");
+
+      unmount();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    } finally {
+      widthGetter.mockRestore();
+      heightGetter.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });

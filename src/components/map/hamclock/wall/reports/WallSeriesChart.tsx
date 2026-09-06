@@ -45,7 +45,10 @@ const number = (value: number) =>
 
 function timeLabel(time: number, spanMs: number) {
   const iso = new Date(time).toISOString();
-  return spanMs <= 48 * HOUR ? `${iso.slice(11, 16)}Z` : iso.slice(5, 10);
+  if (spanMs <= 48 * HOUR) return `${iso.slice(11, 16)}Z`;
+  // Beyond half a year the day is noise and the year is the story (the
+  // cycle chart runs from 2019), so ticks read YYYY-MM.
+  return spanMs > 180 * 24 * HOUR ? iso.slice(0, 7) : iso.slice(5, 10);
 }
 
 /**
@@ -91,10 +94,14 @@ export function WallSeriesChart({
             (scale !== "log" || p.value > 0),
         )
         .sort((a, b) => a.time - b.time)
+        // Interval bars stay when they overlap the domain; point samples are
+        // kept inclusively at the domain start so a reading stamped exactly
+        // at 00:00Z is not dropped.
         .filter(
           (p) =>
             !domain ||
-            (p.time < domain[1] && p.time + (intervalMs ?? 0) > domain[0]),
+            (p.time < domain[1] &&
+              (intervalMs ? p.time + intervalMs > domain[0] : p.time >= domain[0])),
         ),
     [points, scale, domain, intervalMs],
   );
@@ -131,8 +138,11 @@ export function WallSeriesChart({
   const fs = Math.max(11, Math.round(vh * 1.45));
   const left = Math.round(fs * (scale === "log" ? 4.2 : 3.6));
   const right = Math.round(fs * 1.2);
-  const top = Math.round(fs * 1.7);
-  const bottom = Math.round(fs * 2.1);
+  // A short strip (three stacked solar-wind plots) gives up the unit header
+  // and tightens its gutters so the data area never collapses to a sliver.
+  const compact = height < fs * 7;
+  const top = Math.round(fs * (compact ? 0.6 : 1.7));
+  const bottom = Math.round(fs * (compact ? 1.4 : 2.1));
   const plotW = Math.max(1, width - left - right);
   const plotH = Math.max(1, height - top - bottom);
 
@@ -222,15 +232,17 @@ export function WallSeriesChart({
             </text>
           </g>
         ))}
-        <text
-          x={left}
-          y={fs}
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          letterSpacing="0.08em"
-        >
-          {unit}
-          {scale === "log" ? " · LOG" : ""} · UTC
-        </text>
+        {!compact && (
+          <text
+            x={left}
+            y={fs}
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+            letterSpacing="0.08em"
+          >
+            {unit}
+            {scale === "log" ? " · LOG" : ""} · UTC
+          </text>
+        )}
         {low < 0 && high > 0 && scale === "linear" && (
           <line
             data-zero-line="true"

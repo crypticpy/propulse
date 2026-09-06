@@ -25,7 +25,7 @@ Each committed head is `{ kind, id, versionId, deleted }`. Acceptance preserves 
 
 Terminal replay compares the entire parsed outcome using canonical JSON. Object key order is insignificant; array order and rejection reason content are significant. An acknowledgment cannot overwrite an earlier rejection, and changed rejection details cannot replace the first terminal outcome. Transport failure or a retryable network error must not be invented as a terminal server rejection.
 
-No helper mutates its inputs, the original receipt, local heads, account sequence, active generation or sync cursor. A late acknowledgment for A therefore cannot roll a later local B back to A. Durable acknowledgment and permanent receipt replay still require repository integration.
+No helper mutates its inputs, the original receipt, local heads, account sequence, active generation or sync cursor. A late acknowledgment for A therefore cannot roll a later local B back to A. The [durable repository integration](W04-DURABLE-DELIVERY.md) now supplies acknowledgment persistence and permanent receipt replay; these pure helpers themselves perform no writes.
 
 ## Dependency readiness
 
@@ -44,14 +44,17 @@ Rows include immediate `waitingForOperationIds` in declared dependency order and
 
 For A → B → C and independent D, rejection of A yields `rejected`, `blocked`, `blocked`, `ready`. A later E depending on B or C is also blocked. Re-evaluation preserves all supplied envelopes; it does not automatically rebase, rewrite IDs, discard candidates, or resolve conflicts.
 
+## Completed local integration
+
+The [durable local delivery slice](W04-DURABLE-DELIVERY.md) adds the owner-bound v2 result store and repository outcome/readiness APIs. It preserves permanent local receipts, verifies operation/graph integrity, compares the audited state again inside the transaction, records terminal outcomes and transitive blocking atomically, and makes new dependent commits inherit blocking.
+
+Repository tests and the disposable Chromium runner cover close/reopen, late acknowledgments, two-handle races, repeated audit contention, exact terminal replay, retained generation/owner binding and transaction rollback. These establish local storage behavior; they do not authenticate a remote response or authorize a sender.
+
 ## Remaining integration gates
 
-The subsequent [durable local delivery slice](W04-DURABLE-DELIVERY.md) implements repository outcome/readiness integration and the additive v2 store. The pure helpers retain the boundaries described here; transport, sender ownership and backend evidence remain separate.
-
-- Freeze the durable delivery-result representation and any required stored-record/schema upgrade before changing repository storage. Preserve permanent local outcomes and replay receipts.
-- Record terminal outcomes, conflict evidence and transitive blocking atomically; compare verified state inside the transaction. New commits must inherit blocked dependencies, and duplicate/concurrent responses need durable idempotency.
-- Implement authenticated transport/account binding and generation handshake separately. Close/reopen, two-handle races, transaction rollback and account-switch late-response tests remain required.
-- Add repository acknowledgment/readiness integration before using this evaluator to select outgoing work. No network sequence, account sequence or remote cursor advancement is implemented here.
+- Implement authenticated transport, response authority, account binding, generation handshake and sender ownership before selecting outgoing work. Actual login/account-switch late responses remain transport tests; current coverage is owner-bound repository behavior.
+- Define explicit recovery using retained evidence before consuming real server outcomes. Reverting code cannot undo a durable terminal outcome, and contradictory outcomes cannot silently replace it.
+- Implement and verify backend transactions, remote-page application and remote-cursor handling separately. These local APIs do not advance a remote cursor or a network sequence.
 - Keep remote conflict resolution, durable staging and activation under their separate gates in [W04 remaining storage gates](W04-NEXT-STORAGE-GATES.md). No local helper authorizes legacy cutover.
 
 ## Verification

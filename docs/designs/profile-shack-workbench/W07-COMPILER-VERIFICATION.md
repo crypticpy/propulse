@@ -18,6 +18,7 @@ The regression suites are `src/lib/station/workbench/analysis/*.test.ts` and `co
 - Calculations use the canonical engine's band centers, reported separately from the pinned operating frequency; both are checked against recorded bounds.
 - Nonzero feedpoint ferrite loss and negative amplifier gain are unsupported by that engine. The adapter withholds dependent estimates instead of implementing different physics.
 - A combined feedline/inline engine stage cannot prove power at an individual cable termination. A maximum at that point remains unresolved.
+- Ratings apply at each actual equipment/cable mating pair. Recorded inline band support is checked for every requested band, and a recorded inline power maximum remains unresolved without an isolated engine stage. Mixed near/far connector types withhold estimates because the current engine applies the near-end loss to every connector.
 - Missing or incorrectly attributed receiver evidence withholds the path envelope while preserving the original evidence in gear capability.
 - Structurally valid documentation is not a declaration of RF safety, real switching, propagation conditions or hardware activation.
 

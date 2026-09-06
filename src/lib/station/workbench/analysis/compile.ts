@@ -371,6 +371,7 @@ function evaluateHop(
       } else {
         for (const [equipmentPort, cablePort] of [[fromPort, cableFrom], [toPort, cableTo]]) {
           findings.push({ ...mateConnectors(equipmentPort.connector, cablePort.connector), path, portId: cablePort.id, instanceId: cable!.id, connectionId: hop.connection?.id });
+          findings.push(...evaluateRatings(equipmentPort, cablePort, frequencyHz, path));
         }
         const cablePath = cable!.internalPaths.find((item) => item.id === binding.internalPathId);
         if ([cableFrom.signal, cableTo.signal, cablePath?.signal].some((signal) => signal !== "rf")) {
@@ -400,7 +401,11 @@ function evaluateHop(
       findings.push(finding("unknown", "unknown-cable-termination", "Cable-run connection has no explicit direct interface or bound cable termination ports", path, { connectionId: hop.connection.id }));
     }
   }
-  findings.push(...evaluateRatings(fromPort, toPort, frequencyHz, path));
+  // Cable-bound equipment ports do not mate with one another; their actual
+  // equipment/cable joints were evaluated above. Unbound run edges stay unknown.
+  if (hop.kind !== "connection" || hop.connection?.connectorInterface?.kind === "direct" || !hop.connection?.runId) {
+    findings.push(...evaluateRatings(fromPort, toPort, frequencyHz, path));
+  }
   return { hopIndex: hop.hopIndex, verdict: aggregate(findings), findings };
 }
 
@@ -593,6 +598,14 @@ function compileChain(
     const model = modelOf(revision, cable);
     const feedlineType = knownText(cable, model, "feedline.feedlineType") as FeedlineType | undefined;
     const connectorType = knownConnector(cable, model, "feedline.connectorType");
+    const farEndField = lookupField(cable, model, "feedline.connectorTypeFarEnd");
+    const connectorTypeFarEnd = knownConnector(cable, model, "feedline.connectorTypeFarEnd");
+    if (farEndField && connectorTypeFarEnd === undefined) {
+      missing.push(finding("unknown", "unknown-feedline-far-connector", `Base cable ${cable.label} explicitly records an unknown far-end connector; it will not be replaced with the near-end type`, [], { instanceId: cable.id }));
+    } else if (connectorType && connectorTypeFarEnd && connectorType !== connectorTypeFarEnd) {
+      limits.push(finding("contradicted", "mixed-feedline-connectors-not-supported", `Base cable ${cable.label} records ${connectorType}/${connectorTypeFarEnd} ends, but the engine applies the near-end loss to every connector`, [], { instanceId: cable.id }));
+      proposals.push({ code: "engine-feedline-far-connector", message: "Calculate connector losses from both recorded cable ends instead of multiplying the near-end loss by connectorCount.", owner: "coordinator" });
+    }
     const condition = knownText(cable, model, "feedline.condition") as FeedlineCondition | undefined;
     const connectorCount = knownNumber(cable, model, "feedline.connectorCount");
     if (!feedlineType) missing.push(finding("unknown", "unknown-feedline-type", `Base cable ${cable.label} has no feedline type`, [], { instanceId: cable.id }));
@@ -605,6 +618,23 @@ function compileChain(
       const inlineModel = modelOf(revision, inline);
       const componentType = knownText(inline, inlineModel, "inline.componentType") as InlineComponentType | undefined;
       const insertionLossDb = knownNumber(inline, inlineModel, "inline.insertionLossDb");
+      const bandField = lookupField(inline, inlineModel, "inline.bands");
+      const inlineBands = knownList(inline, inlineModel, "inline.bands");
+      if (bandField && inlineBands === undefined) {
+        missing.push(finding("unknown", "unknown-inline-bands", `Inline device ${inline.label} explicitly records unknown band support`, [], { instanceId: inline.id }));
+      } else if (inlineBands) {
+        for (const band of requestedBands) {
+          if (!inlineBands.includes(band)) limits.push(finding("contradicted", "inline-band-unsupported", `Inline device ${inline.label} does not declare support for requested band ${band}`, [], { instanceId: inline.id }));
+        }
+      }
+      const maximumField = lookupField(inline, inlineModel, "inline.maxPowerWatts");
+      if (maximumField) {
+        const maximum = knownNumber(inline, inlineModel, "inline.maxPowerWatts");
+        missing.push(finding("unknown", maximum === undefined ? "unknown-inline-power-limit" : "unknown-inline-stage-power", maximum === undefined
+          ? `Inline device ${inline.label} has an explicitly unknown maximum power`
+          : `Inline device ${inline.label} records a ${maximum} W maximum, but the engine's combined feedline stage does not isolate its power; the rating cannot be verified`, [], { instanceId: inline.id }));
+        if (maximum !== undefined) proposals.push({ code: "engine-inline-stage-power", message: "Expose per-inline-component power from the canonical engine before comparing recorded inline maximum power limits.", owner: "coordinator" });
+      }
       const pigtailLength = knownNumber(inline, inlineModel, "inline.length");
       if (pigtailLength !== undefined) {
         limits.push(finding("unknown", "pigtail-length-not-in-engine", `Inline ${inline.label} records length ${pigtailLength} m that the engine does not add to base-cable length`, [], { instanceId: inline.id }));
@@ -617,7 +647,7 @@ function compileChain(
         if (componentType === "choke") {
           const chokeType = knownText(inline, inlineModel, "inline.chokeType");
           if (!chokeType) missing.push(finding("unknown", "unknown-choke-type", `Choke ${inline.label} has no choke type`, [], { instanceId: inline.id }));
-          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, chokeType: chokeType as "common_mode", addedAt: inline.addedAt });
+          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, chokeType: chokeType as "common_mode", ...(inlineBands ? { bands: inlineBands } : {}), addedAt: inline.addedAt });
         } else if (componentType === "adapter") {
           if (!connectorFrom || !connectorTo) missing.push(finding("unknown", "unknown-inline-connectors", `Adapter ${inline.label} is missing engine connector enums; workbench port connectors are not copied as invented feedline connectors`, [], { instanceId: inline.id }));
           else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, connectorFrom, connectorTo, addedAt: inline.addedAt });
@@ -631,7 +661,7 @@ function compileChain(
         } else if (componentType === "balun") {
           const ratio = knownText(inline, inlineModel, "inline.ratio");
           if (!ratio) missing.push(finding("unknown", "unknown-balun-ratio", `Balun ${inline.label} has no ratio`, [], { instanceId: inline.id }));
-          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, ratio: ratio as "1:1", addedAt: inline.addedAt });
+          else inlines.push({ id: inline.id, name: inline.label, componentType, insertionLossDb, ratio: ratio as "1:1", ...(inlineBands ? { bands: inlineBands } : {}), addedAt: inline.addedAt });
         } else if (componentType === "ferrite") {
           const ferriteType = knownText(inline, inlineModel, "inline.ferriteType");
           const count = knownNumber(inline, inlineModel, "inline.count");
@@ -643,7 +673,7 @@ function compileChain(
     if (feedlineType && connectorType && condition && connectorCount !== undefined && run.lengthMeters.state === "known") {
       feedlines.push({
         id: cable.id, name: cable.label, feedlineType, lengthFeet: run.lengthMeters.value / METERS_PER_FOOT,
-        connectorCount, connectorType, condition, addedAt: cable.addedAt,
+        connectorCount, connectorType, ...(connectorTypeFarEnd ? { connectorTypeFarEnd } : {}), condition, addedAt: cable.addedAt,
       });
       feedlineRuns.push({ id: run.id, feedlineId: cable.id, inlineComponentIds: run.inlineItems.map((item) => item.instanceId) });
       nodes.push({ type: "feedline_run", feedlineRunId: run.id });

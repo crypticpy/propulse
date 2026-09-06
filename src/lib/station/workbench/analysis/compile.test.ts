@@ -564,3 +564,81 @@ describe("validated compiler boundary", () => {
     expect(compileSelectedRoute(archive, request).status).toBe("invalid");
   });
 });
+
+
+describe("PR242 cable and inline constraints", () => {
+  const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+
+  it.each([createKnownSimpleFixture, createKnownReceiveFixture])("compares impedance at each actual equipment/cable joint in either route direction", (fixture) => {
+    const archive = fixture();
+    const revision = archive.revisions[0];
+    const radioPort = revision.equipment.find((item) => item.id === "radio")!.ports[0];
+    const antennaPort = revision.equipment.find((item) => item.id === "antenna")!.ports[0];
+    const cable = revision.equipment.find((item) => item.id === "feedline")!;
+    for (const port of [radioPort, antennaPort]) port.ratings["port.impedance"] = { state: "known", value: 75, unit: "ohm", evidenceId: "declared" };
+    for (const port of cable.ports) port.ratings["port.impedance"] = { state: "known", value: 50, unit: "ohm", evidenceId: "declared" };
+    const mismatched = compileSelectedRoute(archive, request);
+    expect(mismatched.status).toBe("unsupported");
+    expect(mismatched.compatibility.findings.filter((item) => item.code === "impedance-mismatch")).toHaveLength(2);
+    expect(mismatched.metrics).toEqual([]);
+    for (const port of cable.ports) port.ratings["port.impedance"] = { state: "known", value: 75, unit: "ohm", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    cable.ports[0].ratings["port.impedance"] = { state: "unknown", reason: "Cable end not characterized" };
+    expect(compileSelectedRoute(archive, request).status).toBe("incomplete");
+  });
+
+  it("preserves matching/absent far connector behavior and withholds mixed or explicitly unknown ends", () => {
+    const archive = createKnownSimpleFixture();
+    const cable = archive.revisions[0].equipment.find((item) => item.id === "feedline")!;
+    const legacy = compileSelectedRoute(archive, request);
+    expect(legacy.status).toBe("compiled");
+    cable.fields!["feedline.connectorTypeFarEnd"] = { state: "known", value: "n_type", evidenceId: "declared" };
+    const matching = compileSelectedRoute(archive, request);
+    expect(matching.status).toBe("compiled");
+    expect(matching.modeledRoute.engine?.bands[0].feedlineLossDb).toBe(legacy.modeledRoute.engine?.bands[0].feedlineLossDb);
+    cable.fields!["feedline.connectorTypeFarEnd"] = { state: "known", value: "pl259", evidenceId: "declared" };
+    const mixed = compileSelectedRoute(archive, request);
+    expect(mixed.status).toBe("unsupported");
+    expect(mixed.calculationLimits.some((item) => item.code === "mixed-feedline-connectors-not-supported")).toBe(true);
+    expect(mixed.metrics).toEqual([]);
+    cable.fields!["feedline.connectorTypeFarEnd"] = { state: "unknown", reason: "Far end not recorded" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.missingInputs.some((item) => item.code === "unknown-feedline-far-connector")).toBe(true);
+    expect(unknown.modeledRoute.engine).toBeNull();
+  });
+
+  it("enforces each requested band against recorded inline support without inventing constraints for absent fields", () => {
+    const archive = createKnownInlineRunsFixture();
+    const inline = archive.revisions[0].equipment.find((item) => item.id === "run-choke")!;
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    inline.fields!["inline.bands"] = { state: "known", value: ["20m"], evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    const outside = compileSelectedRoute(archive, { ...request, options: { bands: ["20m", "40m"] } });
+    expect(outside.status).toBe("unsupported");
+    expect(outside.calculationLimits.some((item) => item.code === "inline-band-unsupported" && item.message.includes("40m"))).toBe(true);
+    expect(outside.metrics).toEqual([]);
+    inline.fields!["inline.bands"] = { state: "unknown", reason: "Band support not established" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.missingInputs.some((item) => item.code === "unknown-inline-bands")).toBe(true);
+  });
+
+  it("does not compare inline maximum power to requested power or the whole run's combined output", () => {
+    const archive = createKnownInlineRunsFixture();
+    const inline = archive.revisions[0].equipment.find((item) => item.id === "run-adapter")!;
+    for (const maximum of [0, 1, 1000]) {
+      inline.fields!["inline.maxPowerWatts"] = { state: "known", value: maximum, unit: "W", evidenceId: "declared" };
+      const limited = compileSelectedRoute(archive, request);
+      expect(limited.status).toBe("incomplete");
+      expect(limited.missingInputs.some((item) => item.code === "unknown-inline-stage-power" && item.instanceId === inline.id)).toBe(true);
+      expect(limited.modeledRoute.engine).toBeNull();
+      expect(limited.metrics).toEqual([]);
+    }
+    inline.fields!["inline.maxPowerWatts"] = { state: "unknown", reason: "No reliable rating" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.missingInputs.some((item) => item.code === "unknown-inline-power-limit")).toBe(true);
+    delete inline.fields!["inline.maxPowerWatts"];
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+  });
+});

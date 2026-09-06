@@ -48,6 +48,14 @@ A flowchart appearance must still describe radio equipment. A diamond is not aut
 - A listing can be public while its source inventory remains private. Marking an item sold does not delete it or rewrite a historical setup.
 - Proposed upload/count/retention limits and listing expiry are configuration decisions in DELIVERY.md; they are not current platform capabilities.
 
+## Appearance belongs to the user
+
+[Appearance and effects #291](https://github.com/crypticpy/propulse/issues/291) adds eight requirements (SX2:T01–T08), bringing the register to **48 requirements**. Users can choose the ProPulse theme or build a personal theme, independently control decorative flash/level-up effects, and hide rank/achievement modules without losing progress.
+
+My app appearance is a private preference; published profile/shack appearance is a deliberate publication. The visitor’s text size, contrast/color-vision and motion preferences take precedence. Offer Off / Subtle / Full effects, individual switches, a custom-theme preview and Reset to ProPulse. The [text wireframe](FLOWS.md#appearance-and-effects) sketches these controls; the seven generated images predate this addition and do not depict the theme builder.
+
+Source baseline: `src/stores/themeStore.ts` already supports local theme/accent/custom-color persistence and cross-tab updates. `src/components/rank/RankPersistenceHost.tsx` hosts rank celebrations, and existing rank effects include reduced-motion handling. These are reuse points, not evidence of a unified effects switch, public theme publication or account-synced custom-theme library.
+
 ## Existing work stays intact
 
 The controlled React Flow direction is already recorded in [EDITOR-ARCHITECTURE.md](../profile-shack-workbench/EDITOR-ARCHITECTURE.md). This proposal refines its visual and interaction requirements rather than replacing the domain model. Existing equipment specifications, custom/homebrew gear, photos, warnings, route calculations, operating selection, exports, profile/social features and visibility rules remain in the preservation register. HamClock and the shared header implementation remain outside this work.

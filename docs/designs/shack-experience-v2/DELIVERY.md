@@ -25,6 +25,7 @@ Public sales need not wait for advanced RF analysis or every optional station do
 | MediaAttachment / Album | Context, order, caption, alt text, crop/focal point and visibility | Personal, setup, gear, banner and sale uses have independent grants; detaching one use does not delete another |
 | GearListing / ListingRevision | Owner/item link, selected public content, asking terms, availability, timestamps | Public snapshot is an allowlist; stable listing URL; optimistic concurrency and transactional state transitions |
 | ListingProjection / search document | Published available discovery fields | Rebuildable projection, no private inventory columns; withdrawal/sold/expiry invalidate detail/search/cache |
+| AppearancePreferences / DeviceComfortOverride / ThemeDraft / PublishedTheme | Private defaults, device comfort, versioned draft and allowlisted public styling | Device override wins over account sync; visitor comfort wins over author styling; publication does not expose private preferences |
 | Inquiry / report / moderation event | Authorized contact, abuse controls and auditable actions | Idempotent sends and delivery outcomes; private contact not disclosed by default; no payment/order/escrow semantics |
 
 Supabase remains the database/storage platform. Proposed new schema and storage policies belong in migrations with RLS/API/storage tests, not browser-only assertions. Storage keys and renderer types must not become public domain identities.
@@ -60,6 +61,12 @@ Official references checked for this proposal: [named handles](https://reactflow
 5. Inquiry retries, delivery failure, abuse throttling, blocked users, moderator hide/restore and immediate available-index removal after a status change. Make the index repairable and observable.
 6. Actual keyboard, click/tap, touch, screen-reader, text-zoom and four-theme checks plus consenting operators using their own displays. Follow existing W22 protocol; no simulated participant outcomes are claimed.
 
+## Appearance dependency track
+
+[Issue #291](https://github.com/crypticpy/propulse/issues/291) depends on #178 for audience-correct publication and #188 for customization persistence. Establish versioned tokens and preference resolution first, then wire effects controls into existing rank/ambient consumers, then add draft/preview/publication controls through #189. Optional uploaded backgrounds consume #277 once available; local effects controls do not need to wait for galleries or the marketplace. Reuse #185/#194 checks; preserve the separately owned HamClock appearance system.
+
+Resolution is explicit: select personal versus permitted author styling, validate semantic readability, apply viewer comfort overrides, then cap motion by device/OS and user settings. Initialize this before visible paint. Versioned account defaults are private Supabase records; device-specific overrides stay local and remain authoritative. Conflict/fallback/reset behavior needs evidence before publication.
+
 ## Accountability
 
 `coverage.json` maps each requirement to one primary issue; dependencies may be shared. New implementation work starts as Todo/unclaimed, with @crypticpy as accountable coordinator. An implementer must claim file scope, branch and isolated worktree before edits. A proposal/image PR records planning delivery only. Completion requires the issue's full criteria, passing tests, screenshots where relevant, migration/access evidence where relevant, merge and deployment proof. Existing #173 and W01–W22 work remain the parent preservation/cutover contract.
@@ -74,5 +81,6 @@ Official references checked for this proposal: [named handles](https://reactflow
 | [#279](https://github.com/crypticpy/propulse/issues/279) | Profile banner, albums and viewer | [#188](https://github.com/crypticpy/propulse/issues/188), [#277](https://github.com/crypticpy/propulse/issues/277) |
 | [#280](https://github.com/crypticpy/propulse/issues/280) | Owned-gear sale listings | [#175](https://github.com/crypticpy/propulse/issues/175), [#177](https://github.com/crypticpy/propulse/issues/177), [#178](https://github.com/crypticpy/propulse/issues/178), [#277](https://github.com/crypticpy/propulse/issues/277) |
 | [#281](https://github.com/crypticpy/propulse/issues/281) | Directory, contact and moderation | [#280](https://github.com/crypticpy/propulse/issues/280) |
+| [#291](https://github.com/crypticpy/propulse/issues/291) | Effects controls and personal themes | [#178](https://github.com/crypticpy/propulse/issues/178), [#188](https://github.com/crypticpy/propulse/issues/188) |
 
 Canvas refinement remains in #184 and accessible interaction in #185; real-operator review and cutover remain #194/#195. New packages are children of #276, which extends #173. Closed contract prerequisites remain recorded because implementation depends on their delivered contracts. Native GitHub dependencies and Project 3 track readiness; this table and coverage register define requirement ownership.

@@ -13,7 +13,11 @@ Soft text colors, all four themes, text scaling, contrast, keyboard/screen-reade
 
 ## Package verification
 
-- All 40 SX2 requirements have exactly one primary issue; all seven images and exact prompts exist; local Markdown links resolve; the new dependency graph is acyclic.
+- All 48 SX2 requirements have exactly one primary issue; all seven images and exact prompts exist; local Markdown links resolve; the new dependency graph is acyclic.
 - Standalone gallery checked in a disposable Chromium context at 1440×1000 and 390×844: seven images load, enlargement/previous/next/wrap work, Escape restores focus, no horizontal overflow or browser errors. This checks the concept gallery, not the proposed application screens.
 - `npm run lint` and `npm run build` passed against baseline `0b4cf402` plus these documentation artifacts. No app source or database migration changed.
 - An independent agent reviewed requirements, flows, delivery and overview. Its ID-collision and public-photo-credit clarifications were incorporated. Operator studies and production feature verification remain future implementation gates.
+
+## Appearance follow-up
+
+The owner requested optional visual flash/gamification and personal themes after the seven images were generated. SX2:T01–T08 and the text wireframe cover this addition; the image set is unchanged. Existing app theme/custom-accent persistence and reduced-motion rank handling were inspected as reuse points. The earlier independent agent review covered the original 40 requirements; this eight-item extension was reviewed by the coordinating agent. No appearance controls are implemented by this package.

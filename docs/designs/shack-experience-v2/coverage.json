@@ -203,6 +203,46 @@
       "id": "SX2:Q05",
       "primaryIssue": 276,
       "url": "https://github.com/crypticpy/propulse/issues/276"
+    },
+    {
+      "id": "SX2:T01",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
+    },
+    {
+      "id": "SX2:T02",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
+    },
+    {
+      "id": "SX2:T03",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
+    },
+    {
+      "id": "SX2:T04",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
+    },
+    {
+      "id": "SX2:T05",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
+    },
+    {
+      "id": "SX2:T06",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
+    },
+    {
+      "id": "SX2:T07",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
+    },
+    {
+      "id": "SX2:T08",
+      "primaryIssue": 291,
+      "url": "https://github.com/crypticpy/propulse/issues/291"
     }
   ],
   "newWorkPackages": [
@@ -254,6 +294,14 @@
       "issue": 283,
       "blockedBy": [
         277
+      ],
+      "implementationStatus": "Todo; unclaimed"
+    },
+    {
+      "issue": 291,
+      "blockedBy": [
+        178,
+        188
       ],
       "implementationStatus": "Todo; unclaimed"
     }

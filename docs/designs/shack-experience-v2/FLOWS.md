@@ -159,3 +159,38 @@ Contact seller → authenticate if needed → compose an inquiry tied to the lis
 - Personal albums tell the operator's story. Setup photos explain a station. Gear photos document an item. Sale photos support a selected listing.
 - A public listing does not make an entire private shack public.
 - Sold is an availability state, not an instruction to erase inventory or history.
+
+
+## Appearance and effects
+
+```text
+SETTINGS / APPEARANCE & EFFECTS
+[My app appearance]                  [Profile & shack appearance]
+
+Theme        (•) ProPulse  ( ) My saved theme  [+ Create my theme]
+Base         [Choose supported base]          [Follow device light/dark]
+Effects      [Off] [Subtle] [Full]
+Individual   [ ] Level-up celebrations   [ ] Animated badges / frames
+             [ ] Particles / motion     [ ] Decorative glow
+Gamification [ ] Show rank, XP and achievements in my view
+             [ ] Show rank and achievements on my public profile
+Visitors     [ ] Use my appearance on other profiles
+Comfort      Text size / contrast / color vision / reduced motion
+Scope        Account default | Override on this device
+
+CREATE MY THEME — centered editor
+Name         [Evening in the shack]
+Base         [Dark / Light / supported base]
+Accents      [Primary] [Secondary]    Surface / text [Approved choices]
+Cards        Border / corners / comfortable density
+Background   [Choose authorized image] [Remove]
+Preview      [Desktop] [Mobile] [Light] [Dark] [Play sample effect]
+             Identity + gear + signal path + form samples
+             “Your reduced-motion preference keeps this effect static.”
+[Save draft] [Apply to my app] [Preview as visitor] [Publish to profile]
+[Cancel]                                               [Reset to ProPulse]
+```
+
+Draft edits stay private until Publish to profile. Apply to my app changes only personal appearance. Visitor preview shows the chosen public styling resolved through the previewed comfort settings; a small explanation identifies any limited effect. Reduced motion wins over an author's Full setting. Turning effects Off closes an active celebration and stops decorative loops immediately; earned progress and essential task status stay intact. No effect plays merely because a preview page opens.
+
+Changing a public theme does not recolor the global application header or HamClock. Saved themes contain validated semantic values; a corrupted, removed or unsupported theme falls back to a readable ProPulse preset. Existing theme and accent selections are migrated rather than reset.

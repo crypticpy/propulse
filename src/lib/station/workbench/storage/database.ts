@@ -1,10 +1,11 @@
 /** Internal IndexedDB foundation. Repository validation owns every transaction's owner/body checks. */
 import { unwrap, wrap, type DBSchema, type IDBPDatabase, type StoreNames } from "idb";
 import type { StationEntityKind } from "@/lib/station/workbench/storage/operations";
+import type { StationDeliveryResult } from "@/lib/station/workbench/storage/delivery";
 
 export const STATION_DATABASE_NAME = "propulse-station-workbench";
 const DISPOSABLE_DATABASE_PREFIX = `${STATION_DATABASE_NAME}-test-`;
-export const STATION_DATABASE_VERSION = 1;
+export const STATION_DATABASE_VERSION = 2;
 export const ABSENT_POINTER_VERSION = "absent";
 
 export type StationRecordKind = StationEntityKind;
@@ -61,10 +62,13 @@ export interface StationDatabaseSchema extends DBSchema {
   migrationRecords: { key: [string, string, string]; value: MigrationRecord; indexes: { "by-stage": [string, string] } };
   recoveryRecords: { key: [string, string, string]; value: RecoveryRecord; indexes: { "by-generation": [string, string] } };
   mediaRefs: { key: [string, string, string]; value: MediaReferenceRecord; indexes: { "by-generation": [string, string] } };
+  deliveryResults: { key: [string, string]; value: StationDeliveryResult; indexes: { "by-generation": [string, string] } };
 }
 
 type StoreName = StoreNames<StationDatabaseSchema>;
-const STRUCTURE: Record<StoreName, { key: string[]; indexes: Record<string, string[]> }> = {
+type StoreStructure = { key: string[]; indexes: Record<string, string[]> };
+// This is the exact previously supported v1 structure, checked before upgrade.
+const V1_STRUCTURE: Record<Exclude<StoreName, "deliveryResults">, StoreStructure> = {
   accountMeta: { key: ["ownerId", "key"], indexes: {} },
   generations: { key: ["ownerId", "generationId"], indexes: { "by-state": ["ownerId", "state"] } },
   recordVersions: { key: ["ownerId", "generationId", "kind", "id", "versionId"], indexes: { "by-entity": ["ownerId", "generationId", "kind", "id"], "by-kind": ["ownerId", "generationId", "kind"] } },
@@ -75,6 +79,10 @@ const STRUCTURE: Record<StoreName, { key: string[]; indexes: Record<string, stri
   migrationRecords: { key: ["ownerId", "stageId", "chunkId"], indexes: { "by-stage": ["ownerId", "stageId"] } },
   recoveryRecords: { key: ["ownerId", "generationId", "recordId"], indexes: { "by-generation": ["ownerId", "generationId"] } },
   mediaRefs: { key: ["ownerId", "generationId", "mediaId"], indexes: { "by-generation": ["ownerId", "generationId"] } },
+};
+const STRUCTURE: Record<StoreName, StoreStructure> = {
+  ...V1_STRUCTURE,
+  deliveryResults: { key: ["ownerId", "operationId"], indexes: { "by-generation": ["ownerId", "generationId"] } },
 };
 
 export class StationDatabaseError extends Error {
@@ -108,14 +116,14 @@ function validIdentity(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.trim() === value;
 }
 
-function verifyStructure(db: IDBDatabase): boolean {
-  const names = Object.keys(STRUCTURE) as StoreName[];
-  if (db.version !== STATION_DATABASE_VERSION || db.objectStoreNames.length !== names.length
+function verifyStructure(db: IDBDatabase, structure: Record<string, StoreStructure>, upgrade?: IDBTransaction): boolean {
+  const names = Object.keys(structure);
+  if (db.objectStoreNames.length !== names.length
     || names.some((name) => !db.objectStoreNames.contains(name))) return false;
-  const tx = db.transaction(names, "readonly");
+  const tx = upgrade ?? db.transaction(names, "readonly");
   return names.every((name) => {
     const store = tx.objectStore(name);
-    const expected = STRUCTURE[name];
+    const expected = structure[name];
     if (JSON.stringify(store.keyPath) !== JSON.stringify(expected.key) || store.autoIncrement
       || store.indexNames.length !== Object.keys(expected.indexes).length) return false;
     return Object.entries(expected.indexes).every(([indexName, key]) => {
@@ -206,7 +214,8 @@ function createHandle(raw: IDBDatabase, ownerId: string, onInvalidated: StationD
   });
 }
 
-/** Opens only the additive v1 schema. No generation, pointer or legacy record is initialized. */
+/** Creates v2 or upgrades only an intact v1 by adding deliveryResults. Existing
+ * records, generations, pointers and legacy application databases are untouched. */
 export async function openStationDatabase(options: StationDatabaseOptions): Promise<StationDatabaseOpenResult> {
   const { ownerId, onBlocked, onInvalidated } = options;
   if (!validIdentity(ownerId)) return { status: "unavailable", reason: "A nonempty, unpadded owner identity is required" };
@@ -238,13 +247,17 @@ export async function openStationDatabase(options: StationDatabaseOptions): Prom
       notify(onBlocked);
     };
     request.onupgradeneeded = (event) => {
-      if (settled || event.oldVersion !== 0 || event.newVersion !== STATION_DATABASE_VERSION) {
+      if (settled || (event.oldVersion !== 0 && event.oldVersion !== 1) || event.newVersion !== STATION_DATABASE_VERSION) {
         invalidUpgrade = true;
         request.transaction?.abort();
         return;
       }
       try {
-        for (const [storeName, definition] of Object.entries(STRUCTURE)) {
+        if (event.oldVersion === 1 && (!request.transaction || !verifyStructure(request.result, V1_STRUCTURE, request.transaction))) {
+          throw new TypeError("Only an intact station v1 schema can be upgraded");
+        }
+        const additions = event.oldVersion === 0 ? STRUCTURE : { deliveryResults: STRUCTURE.deliveryResults };
+        for (const [storeName, definition] of Object.entries(additions)) {
           const store = request.result.createObjectStore(storeName, { keyPath: definition.key });
           Object.entries(definition.indexes).forEach(([indexName, keyPath]) => store.createIndex(indexName, keyPath));
         }
@@ -260,7 +273,7 @@ export async function openStationDatabase(options: StationDatabaseOptions): Prom
       const db = request.result;
       if (settled) { db.close(); return; }
       try {
-        if (!verifyStructure(db)) {
+        if (db.version !== STATION_DATABASE_VERSION || !verifyStructure(db, STRUCTURE)) {
           db.close();
           finish({ status: "recovery-required", reason: "Station database structure is unsupported or damaged" });
           return;

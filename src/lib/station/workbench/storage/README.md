@@ -6,12 +6,13 @@ This internal package establishes additive storage for [W04 / #177](https://gith
 | --- | --- |
 | `serialization.ts` | Deterministic plain JSON encoding and SHA-256 outside write transactions. |
 | `operations.ts` | Strict typed operation envelopes, complete declared write sets, storage-head expectations, W03 draft preconditions, owner/body identity checks and digest preparation/verification. |
-| `database.ts` | Internal owner-bound IndexedDB connection, ten additive stores, explicit absence pointer and lifecycle/upgrade failure handling. Its transaction bridge is not a UI write API or an authorization boundary. |
+| `database.ts` | Internal owner-bound IndexedDB v2 connection, eleven stores, guarded additive v1 upgrade, explicit absence pointer and lifecycle/upgrade failure handling. Its transaction bridge is not a UI write API or an authorization boundary. |
 | `state.ts` | Synchronous full-state validation inside the repository transaction: storage/semantic conflicts, append-only revision history, W03 clone/restore source preservation, reference-aware deletion and reviewed-selection gates. |
-| `repository.ts` | Atomic local save, permanent replay receipts, conflict alternatives and outbox; full snapshot reads and account/generation fencing. |
+| `repository.ts` | Atomic local save and delivery bookkeeping, permanent replay receipts, conflict alternatives, dependency readiness and outbox; full snapshot reads and account/generation fencing. |
 | `outbox.ts` | Indexed owner/generation/state reads; per-state limits bound materialized rows for audit listings. |
 | `delivery.ts` | Pure terminal-result binding, exact replay comparison and dependency readiness; no durable acknowledgment or transport authority. |
 | `staging.ts` | Pure supplied-archive/manifest validation and derived seals; external artifacts remain unverified and legacy cutover unauthorized. |
+| `stageChunks.ts` | Deterministic canonical candidate byte chunks, strict reassembly and seal verification; no durable staging or activation. |
 
 `serialization.ts` defines the shared canonical JSON encoding and SHA-256 digest helper for future operation envelopes. It sorts object keys by UTF-16 code units, preserves array order and finite JSON scalar values, retains own reserved property names, and reads data descriptors without invoking getters or `toJSON`. JSON.stringify escaping preserves lone UTF-16 surrogate code units before UTF-8 hashing. Negative zero uses JSON's zero representation; no Unicode normalization occurs.
 
@@ -29,6 +30,10 @@ Before each new commit, the repository hashes retained bodies and verifies queue
 
 The [next storage gates](../../../../../docs/designs/profile-shack-workbench/W04-NEXT-STORAGE-GATES.md) record remaining acknowledgment, conflict-resolution, staging and activation dependencies.
 
+[Stage chunk planning](../../../../../docs/designs/profile-shack-workbench/W04-STAGE-CHUNKS.md) preserves the complete verified candidate and its supplied collection order in fixed-size canonical UTF-8 byte chunks. Plan/payload identities, exact inventory, raw-byte digests and canonical reassembly are checked before the candidate seal is verified again. This supplies recoverable candidate bytes; durable chunk writes, materialized record coverage and final sealing remain separate work.
+
 The [delivery contracts](../../../../../docs/designs/profile-shack-workbench/W04-DELIVERY-CONTRACTS.md) define accepted/rejected results separately from permanent local receipts. Accepted heads must match the verified receipt exactly. Complete dependency graphs retain acknowledged prerequisites and block descendants of rejected or locally conflicted operations. Callers must independently verify the supplied local metadata; these pure helpers do not persist outcomes, select a sender lease, authenticate a response or change heads.
+
+[Durable local delivery](../../../../../docs/designs/profile-shack-workbench/W04-DURABLE-DELIVERY.md) binds those outcomes to the repository ledger and atomically updates terminal results and outbox states. Late acknowledgments preserve later canonical edits and original receipts. New commits inherit rejected dependency blocking. Complete graph audits verify operation digests outside write transactions and compare the exact state again inside. `readDeliveryReadiness` supplies an audited snapshot; `listOutbox` remains a bounded audit view. Neither method authorizes a sender or authenticates a response.
 
 Clone operations must declare the mutable source setup head as a read dependency because W03 copies its legacy metadata. Concurrent changes then quarantine the original proposal. Conflict receipts retain the captured base-availability descriptors and bind them to the recovery ledger; an originally unavailable version appearing later does not rewrite the historical receipt. Outbox audit reads bind their envelopes and ordering to permanent operation receipts in the same readonly snapshot before digest verification. Canonical legacy/publication version identities and staging indices require safe integers, including nested pinned records.

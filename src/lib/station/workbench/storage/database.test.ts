@@ -1,9 +1,9 @@
 import "fake-indexeddb/auto";
 import { forceCloseDatabase, IDBFactory } from "fake-indexeddb";
-import { unwrap } from "idb";
+import { unwrap, wrap } from "idb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  ABSENT_POINTER_VERSION, STATION_DATABASE_NAME, openStationDatabase,
+  ABSENT_POINTER_VERSION, STATION_DATABASE_NAME, STATION_DATABASE_VERSION, openStationDatabase,
   type AccountMetaRecord, type StationDatabaseHandle, type StationDatabaseOptions,
 } from "@/lib/station/workbench/storage/database";
 
@@ -33,6 +33,161 @@ function nativeOpen(factory: IDBFactory, name: string, version: number, upgrade?
   });
 }
 
+// Frozen v1 fixture independent of the implementation's v2 structure. Upgrade
+// tests deliberately retain opaque bodies: this boundary upgrades schema, not data.
+const V1_FIXTURE: Record<string, { key: string[]; indexes: Record<string, string[]> }> = {
+  accountMeta: { key: ["ownerId", "key"], indexes: {} },
+  generations: { key: ["ownerId", "generationId"], indexes: { "by-state": ["ownerId", "state"] } },
+  recordVersions: { key: ["ownerId", "generationId", "kind", "id", "versionId"], indexes: { "by-entity": ["ownerId", "generationId", "kind", "id"], "by-kind": ["ownerId", "generationId", "kind"] } },
+  heads: { key: ["ownerId", "generationId", "kind", "id"], indexes: { "by-kind": ["ownerId", "generationId", "kind"] } },
+  operations: { key: ["ownerId", "operationId"], indexes: { "by-sequence": ["ownerId", "generationId", "localSequence"] } },
+  outbox: { key: ["ownerId", "operationId"], indexes: { "by-state-sequence": ["ownerId", "generationId", "state", "localSequence"] } },
+  conflicts: { key: ["ownerId", "generationId", "conflictId"], indexes: { "by-state": ["ownerId", "generationId", "state"] } },
+  migrationRecords: { key: ["ownerId", "stageId", "chunkId"], indexes: { "by-stage": ["ownerId", "stageId"] } },
+  recoveryRecords: { key: ["ownerId", "generationId", "recordId"], indexes: { "by-generation": ["ownerId", "generationId"] } },
+  mediaRefs: { key: ["ownerId", "generationId", "mediaId"], indexes: { "by-generation": ["ownerId", "generationId"] } },
+};
+function createV1Fixture(db: IDBDatabase) {
+  const stores: Record<string, IDBObjectStore> = {};
+  for (const [name, definition] of Object.entries(V1_FIXTURE)) {
+    const store = db.createObjectStore(name, { keyPath: definition.key });
+    stores[name] = store;
+    for (const [index, keyPath] of Object.entries(definition.indexes)) store.createIndex(index, keyPath);
+    for (const ownerId of ["owner-a", "owner-b"]) {
+      const row = { ownerId, generationId: "preserved-generation", key: "active-pointer", versionId: "preserved-v1",
+        kind: "equipment", id: "preserved-id", operationId: "preserved-operation", localSequence: 37,
+        state: name === "outbox" ? "pending" : "unresolved", tombstone: true,
+        conflictId: "conflict", stageId: "stage", chunkId: "chunk", recordId: "recovery", mediaId: "media",
+        payload: JSON.parse('{"__proto__":{"kept":true},"privateNotes":"original","unknown":[0,false,null]}'),
+      };
+      store.add(row);
+    }
+  }
+  return stores;
+}
+async function rawSnapshot(db: IDBDatabase) {
+  const names = [...db.objectStoreNames];
+  const tx = wrap(db.transaction(names, "readonly"));
+  const result = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await tx.objectStore(name).getAll()])));
+  await tx.done;
+  return result;
+}
+
+describe("additive v1 to v2 delivery storage upgrade", () => {
+  it("preserves all ten stores and both owner namespaces, then stores exact terminal results separately", async () => {
+    const factory = new IDBFactory();
+    const v1 = await nativeOpen(factory, STATION_DATABASE_NAME, 1, createV1Fixture);
+    const original = await rawSnapshot(v1);
+    expect(Object.keys(original)).toHaveLength(10);
+    const changed = vi.fn(() => v1.close());
+    v1.addEventListener("versionchange", changed);
+    const handle = await ready(factory);
+    expect(changed).toHaveBeenCalledOnce();
+    const v2 = await nativeOpen(factory, STATION_DATABASE_NAME, 2);
+    expect(v2.version).toBe(2);
+    expect(await rawSnapshot(v2)).toEqual({ ...original, deliveryResults: [] });
+    for (const ownerId of ["owner-a", "owner-b"]) {
+      const tx = handle.transaction("deliveryResults", "readwrite");
+      await tx.store.add({ schemaVersion: 1, ownerId, generationId: "preserved-generation", operationId: "preserved-operation",
+        payloadDigest: "a".repeat(64), outcome: "accepted", committedHeads: [{ kind: "equipment", id: "preserved-id", versionId: "preserved-v1", deleted: true }] });
+      await tx.done;
+    }
+    const read = handle.transaction("deliveryResults", "readonly");
+    const rows = await read.store.index("by-generation").getAll(["owner-a", "preserved-generation"]);
+    await read.done;
+    expect(rows).toEqual([{ schemaVersion: 1, ownerId: "owner-a", generationId: "preserved-generation", operationId: "preserved-operation",
+      payloadDigest: "a".repeat(64), outcome: "accepted", committedHeads: [{ kind: "equipment", id: "preserved-id", versionId: "preserved-v1", deleted: true }] }]);
+    const saved = await rawSnapshot(v2);
+    delete saved.deliveryResults;
+    expect(saved).toEqual(original);
+    await expect(nativeOpen(factory, STATION_DATABASE_NAME, 1)).rejects.toMatchObject({ name: "VersionError" });
+  });
+  it.each(["missing-store", "extra-store", "wrong-index-key", "unique-index", "multi-entry-index"])("rejects %s in v1 before adding a store and retains the original database", async (failure) => {
+    const factory = new IDBFactory();
+    const v1 = await nativeOpen(factory, STATION_DATABASE_NAME, 1, (db) => {
+      const stores = createV1Fixture(db);
+      if (failure === "missing-store") db.deleteObjectStore("mediaRefs");
+      else if (failure === "extra-store") db.createObjectStore("unrecognized");
+      else {
+        stores.outbox.deleteIndex("by-state-sequence");
+        stores.outbox.createIndex("by-state-sequence", failure === "multi-entry-index" ? "ownerId" : failure === "wrong-index-key" ? ["generationId", "ownerId"] : V1_FIXTURE.outbox.indexes["by-state-sequence"],
+          { unique: failure === "unique-index", multiEntry: failure === "multi-entry-index" });
+      }
+    });
+    const original = await rawSnapshot(v1);
+    v1.close();
+    expect((await openStationDatabase({ ownerId: "owner-a", indexedDB: factory })).status).toBe("recovery-required");
+    const retained = await nativeOpen(factory, STATION_DATABASE_NAME, 1);
+    expect(retained.version).toBe(1);
+    expect(retained.objectStoreNames.contains("deliveryResults")).toBe(false);
+    expect(await rawSnapshot(retained)).toEqual(original);
+  });
+  it("rolls back a failed delivery index creation, preserving v1 records for a clean retry", async () => {
+    const factory = new IDBFactory();
+    const v1 = await nativeOpen(factory, STATION_DATABASE_NAME, 1, createV1Fixture);
+    const original = await rawSnapshot(v1);
+    v1.close();
+    const createIndex = IDBObjectStore.prototype.createIndex;
+    const injected = vi.spyOn(IDBObjectStore.prototype, "createIndex").mockImplementation(function (this: IDBObjectStore, name, keyPath, options) {
+      if (this.name === "deliveryResults") throw new DOMException("Injected upgrade failure", "QuotaExceededError");
+      return createIndex.call(this, name, keyPath, options);
+    });
+    try { expect((await openStationDatabase({ ownerId: "owner-a", indexedDB: factory })).status).toBe("recovery-required"); }
+    finally { injected.mockRestore(); }
+    const retained = await nativeOpen(factory, STATION_DATABASE_NAME, 1);
+    expect(await rawSnapshot(retained)).toEqual(original);
+    expect(retained.objectStoreNames.contains("deliveryResults")).toBe(false);
+    retained.close();
+    await ready(factory);
+    expect(await rawSnapshot(await nativeOpen(factory, STATION_DATABASE_NAME, 2))).toEqual({ ...original, deliveryResults: [] });
+  });
+  it("leaves an intact blocked v1 unchanged even after its abandoned upgrade request is unblocked", async () => {
+    const factory = new IDBFactory();
+    const blocker = await nativeOpen(factory, STATION_DATABASE_NAME, 1, createV1Fixture);
+    const original = await rawSnapshot(blocker);
+    let settle!: () => void;
+    const settled = new Promise<void>((resolve) => { settle = resolve; });
+    const injected = { open: (name: string, version?: number) => {
+      const request = factory.open(name, version);
+      request.addEventListener("error", settle);
+      request.addEventListener("success", settle);
+      return request;
+    } };
+    expect((await openStationDatabase({ ownerId: "owner-a", indexedDB: injected })).status).toBe("blocked");
+    blocker.close();
+    await settled;
+    const retained = await nativeOpen(factory, STATION_DATABASE_NAME, 1);
+    expect(await rawSnapshot(retained)).toEqual(original);
+    expect(retained.objectStoreNames.contains("deliveryResults")).toBe(false);
+  });
+  it.each(["missing-store", "wrong-store-key", "wrong-index-key", "unique-index", "extra-index"])("rejects existing v2 %s without repairing data", async (failure) => {
+    const factory = new IDBFactory();
+    const broken = await nativeOpen(factory, STATION_DATABASE_NAME, 2, (db) => {
+      createV1Fixture(db);
+      if (failure === "missing-store") return;
+      const store = db.createObjectStore("deliveryResults", { keyPath: failure === "wrong-store-key" ? ["operationId", "ownerId"] : ["ownerId", "operationId"] });
+      store.createIndex("by-generation", failure === "wrong-index-key" ? ["generationId", "ownerId"] : ["ownerId", "generationId"], { unique: failure === "unique-index" });
+      if (failure === "extra-index") store.createIndex("unexpected", "operationId");
+      store.add({ ownerId: "owner-a", operationId: "original", generationId: "generation", opaqueOutcome: "preserve" });
+    });
+    const original = await rawSnapshot(broken);
+    broken.close();
+    expect((await openStationDatabase({ ownerId: "owner-a", indexedDB: factory })).status).toBe("recovery-required");
+    expect(await rawSnapshot(await nativeOpen(factory, STATION_DATABASE_NAME, 2))).toEqual(original);
+  });
+  it("preserves a populated future database without downgrading or interpreting its records", async () => {
+    const factory = new IDBFactory();
+    const future = await nativeOpen(factory, STATION_DATABASE_NAME, 3, (db) => {
+      createV1Fixture(db);
+      db.createObjectStore("future-format").add({ original: "unknown future metadata" }, "retained");
+    });
+    const original = await rawSnapshot(future);
+    future.close();
+    expect((await openStationDatabase({ ownerId: "owner-a", indexedDB: factory })).status).toBe("recovery-required");
+    expect(await rawSnapshot(await nativeOpen(factory, STATION_DATABASE_NAME, 3))).toEqual(original);
+  });
+});
+
 describe("internal station database schema and owner pointers", () => {
   it("creates only empty additive stores with compound owner-first keys/indexes and an absent pointer", async () => {
     const factory = new IDBFactory();
@@ -43,10 +198,10 @@ describe("internal station database schema and owner pointers", () => {
     expect(pointer.versionId).toBe("absent");
     expect(Object.isFrozen(pointer)).toBe(true);
     expect(Object.isFrozen(handle)).toBe(true);
-    const db = await nativeOpen(factory, STATION_DATABASE_NAME, 1);
+    const db = await nativeOpen(factory, STATION_DATABASE_NAME, STATION_DATABASE_VERSION);
     const names = [...db.objectStoreNames];
     expect(names).toEqual([
-      "accountMeta", "conflicts", "generations", "heads", "mediaRefs", "migrationRecords",
+      "accountMeta", "conflicts", "deliveryResults", "generations", "heads", "mediaRefs", "migrationRecords",
       "operations", "outbox", "recordVersions", "recoveryRecords",
     ]);
     const tx = db.transaction(names, "readonly");
@@ -152,8 +307,8 @@ describe("station database lifecycle failures", () => {
     const invalidated = vi.fn();
     const a = await ready(factory, "owner-a", { onInvalidated: invalidated });
     const b = await ready(factory, "owner-b");
-    const upgraded = await nativeOpen(factory, STATION_DATABASE_NAME, 2);
-    expect(upgraded.version).toBe(2);
+    const upgraded = await nativeOpen(factory, STATION_DATABASE_NAME, STATION_DATABASE_VERSION + 1);
+    expect(upgraded.version).toBe(STATION_DATABASE_VERSION + 1);
     expect(invalidated).toHaveBeenCalledExactlyOnceWith("versionchange");
     await expect(a.readAccountPointer()).rejects.toMatchObject({ code: "closed" });
     expect(() => b.transaction("accountMeta")).toThrow(/closed/);
@@ -169,7 +324,7 @@ describe("station database lifecycle failures", () => {
     let settleLate!: () => void;
     const late = new Promise<void>((resolve) => { settleLate = resolve; });
     // Force a genuine blocked upgrade request through the injected factory.
-    // Production always requests version 1; this also checks rejecting unexpected upgrade versions.
+    // The abandoned request must not perform a late upgrade after returning blocked.
     const injected = { open: () => {
       const request = factory.open(name, 2);
       request.addEventListener("error", () => settleLate());

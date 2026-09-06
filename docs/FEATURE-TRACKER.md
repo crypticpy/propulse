@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 43        | 2       | 28          | 0        | 73      |
-| **Grand Total**                         | **304**   | **9**   | **39**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 45        | 2       | 26          | 0        | 73      |
+| **Grand Total**                         | **306**   | **9**   | **37**      | **1**    | **353** |
 
-**Delivery rate: 86% delivered, 3% partial, 11% not started**
+**Delivery rate: 87% delivered, 3% partial, 10% not started**
 
 ---
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
 
-### Delivered (43)
+### Delivered (45)
 
 | ID    | Feature                                                       | Notes                                                                                                                                                                          |
 | ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -666,6 +666,8 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-60 | Solar report: SFI, SSN, flux forecast, cycle 25               | PR #247, section 26.5; `SolarReport.tsx` rewritten with NOW / CYCLE tabs, flux trend with the 27-day outlook tail                                                              |
 | HW-61 | X-ray and flares report: B/C/M/X curve, D-RAP, probabilities  | PR #247, section 26.6; `XrayReport.tsx`, FLUX (log axis, B/C/M/X rules, last flare marker) / ABSORPTION (D-RAP) / PROBABILITIES tabs                                           |
 | HW-62 | Solar wind and geomagnetic report: Bz, Kp, Dst, aurora, CMEs  | PR #247, section 26.7; `SolarWindReport.tsx`, WIND / GEOMAGNETIC / EVENTS tabs, Bz zero rule, aurora map link                                                                  |
+| HW-65 | EME computation module `src/lib/utils/eme.ts`                 | PR #253, EME module: eme.ts path loss, degradation, Doppler, sky noise, mutual window                                                                                          |
+| HW-66 | Moon and EME report                                           | PR #253, Moon report: MOON/EME tabs, band selector, sub-lunar point                                                                                                            |
 
 ### Partial (2)
 
@@ -674,38 +676,36 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
 
-### Not Started (28)
+### Not Started (26)
 
-| ID    | Feature                                                          | Notes                                                  |
-| ----- | ---------------------------------------------------------------- | ------------------------------------------------------ |
-| HW-28 | World clocks bar                                                 | Open decision D1                                       |
-| HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                       |
-| HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                       |
-| HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                         |
-| HW-36 | Widget config contract and `hamclockWidgetConfigStore`           | Segmented choices, no scroll, per-tile persistence     |
-| HW-37 | News feeds config dialog (first configurable widget)             | Over `feedStore`; verify URLs via `api/feeds/rss.ts`   |
-| HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts      | One PR per widget                                      |
-| HW-40 | Weather page with seven weather tiles                            | Spec section 16                                        |
-| HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details | Moved from B13 to B22 with the fetch extension         |
-| HW-42 | Radar report with 2D and 3D scrubber                             |                                                        |
-| HW-43 | Lightning report                                                 | After HW-32                                            |
-| HW-44 | Weather configuration dialog                                     | HW-36 contract                                         |
-| HW-45 | Weather layers category on the Layers tab                        | HW-21 registry                                         |
-| HW-46 | AtmosPulse 2D layers available in 2D and 3D on the map           | Twelve layers                                          |
-| HW-47 | Monitored regions and RIM scores as a report                     | Moved from B16 to B23 with the RIM tile                |
-| HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                        |
-| HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                       |
-| HW-58 | Reliability report: SNR, confidence, station inputs              | B18                                                    |
-| HW-59 | Propagation forecast report: 48 h chart, FutureCast horizons     | B18                                                    |
-| HW-65 | EME computation module `src/lib/utils/eme.ts`                    | New: path loss, sky noise, mutual window, Doppler; B21 |
-| HW-66 | Moon and EME report                                              | B21; depends on HW-65                                  |
-| HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                        |
-| HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                    |
-| HW-69 | Radio Impact Model tile                                          | Over `computeRIM` / `useRIM`; B23                      |
-| HW-70 | Band activity report: history, mode split, top DX                | B24                                                    |
-| HW-71 | Recent contacts report: log statistics, 30-day chart             | B24                                                    |
-| HW-72 | DX cluster modal adopts the report chrome, pin and footer        | Chrome only; B24                                       |
-| HW-73 | Model track: weather-derived features in NowCast                 | Backlog, after every panel is live; B25                |
+| ID    | Feature                                                          | Notes                                                |
+| ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
+| HW-28 | World clocks bar                                                 | Open decision D1                                     |
+| HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                     |
+| HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                     |
+| HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                       |
+| HW-36 | Widget config contract and `hamclockWidgetConfigStore`           | Segmented choices, no scroll, per-tile persistence   |
+| HW-37 | News feeds config dialog (first configurable widget)             | Over `feedStore`; verify URLs via `api/feeds/rss.ts` |
+| HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts      | One PR per widget                                    |
+| HW-40 | Weather page with seven weather tiles                            | Spec section 16                                      |
+| HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details | Moved from B13 to B22 with the fetch extension       |
+| HW-42 | Radar report with 2D and 3D scrubber                             |                                                      |
+| HW-43 | Lightning report                                                 | After HW-32                                          |
+| HW-44 | Weather configuration dialog                                     | HW-36 contract                                       |
+| HW-45 | Weather layers category on the Layers tab                        | HW-21 registry                                       |
+| HW-46 | AtmosPulse 2D layers available in 2D and 3D on the map           | Twelve layers                                        |
+| HW-47 | Monitored regions and RIM scores as a report                     | Moved from B16 to B23 with the RIM tile              |
+| HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
+| HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
+| HW-58 | Reliability report: SNR, confidence, station inputs              | B18                                                  |
+| HW-59 | Propagation forecast report: 48 h chart, FutureCast horizons     | B18                                                  |
+| HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                      |
+| HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                  |
+| HW-69 | Radio Impact Model tile                                          | Over `computeRIM` / `useRIM`; B23                    |
+| HW-70 | Band activity report: history, mode split, top DX                | B24                                                  |
+| HW-71 | Recent contacts report: log statistics, 30-day chart             | B24                                                  |
+| HW-72 | DX cluster modal adopts the report chrome, pin and footer        | Chrome only; B24                                     |
+| HW-73 | Model track: weather-derived features in NowCast                 | Backlog, after every panel is live; B25              |
 
 ---
 

@@ -779,3 +779,13 @@
   outline-offset: 0.2vh;
 }
 /* ===== end B20 ===== */
+
+/* ===== B21: Moon / EME report ===== */
+/* `.hcr-box` (a `hcr-cols` body box) is a gap-less flex column, so a
+ * `HamClockSegmented` band selector dropped between the box heading and its
+ * `dl.hcr-kv` detail list -- the Moon report's EME box -- needs its own
+ * trailing space rather than sitting flush against the values below it. */
+.hcr-box .hcc-seg-wrap {
+  margin-bottom: 1vh;
+}
+/* ===== end B21 ===== */

@@ -979,8 +979,8 @@ function loadLayoutMode(): LayoutMode {
       saved === "lite" ||
       saved === "hamclock"
     ) {
-      // Don't restore fullscreen modes on page load — start in normal
-      if (saved === "pro" || saved === "hamclock") return "normal";
+      // HamClock requires its entry transition; Pro can restore directly.
+      if (saved === "hamclock") return "normal";
       return saved;
     }
   } catch {
@@ -1092,25 +1092,66 @@ function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
   const defaults = buildDefaultProPanelLayout();
   try {
     const saved = localStorage.getItem(PRO_PANEL_LAYOUT_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Check if saved data has stale tiny-pixel positions from old defaults
-      // (old defaults used percentage-like values 1-80 as raw pixels)
-      const hasStalePositions = Object.values(parsed).some((entry: unknown) => {
-        const e = entry as ProPanelLayoutEntry;
-        return e && !e.collapsed && e.x < 100 && e.y < 100 && e.width > 100;
-      });
-      if (hasStalePositions) {
-        // Reset to fresh computed defaults
-        const fresh = buildDefaultProPanelLayout();
-        saveProPanelLayout(fresh);
-        return fresh;
+    const parsed: unknown = saved ? JSON.parse(saved) : null;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return defaults;
+    }
+
+    // Early Pro defaults accidentally persisted percentage-like coordinates as
+    // raw pixels. Reset those layouts instead of stacking panels at the corner.
+    const hasLegacyPositions = Object.values(parsed).some((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return false;
       }
-      // Merge with defaults so new panels get default positions
-      return { ...defaults, ...parsed };
+      const value = entry as Record<string, unknown>;
+      return (
+        value.collapsed !== true &&
+        typeof value.x === "number" &&
+        typeof value.y === "number" &&
+        typeof value.width === "number" &&
+        value.x >= 0 &&
+        value.y >= 0 &&
+        value.x < 100 &&
+        value.y < 100 &&
+        value.width > 100
+      );
+    });
+    if (hasLegacyPositions) {
+      saveProPanelLayout(defaults);
+      return defaults;
+    }
+
+    for (const [id, fallback] of Object.entries(defaults)) {
+      const entry = (parsed as Record<string, unknown>)[id];
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const value = entry as Record<string, unknown>;
+      const number = (key: "x" | "y" | "width" | "height") =>
+        typeof value[key] === "number" &&
+        Number.isFinite(value[key]) &&
+        ((key !== "width" && key !== "height") || value[key] > 0)
+          ? value[key]
+          : fallback[key];
+
+      defaults[id] = {
+        x: number("x"),
+        y: number("y"),
+        width: number("width"),
+        height: number("height"),
+        collapsed:
+          typeof value.collapsed === "boolean"
+            ? value.collapsed
+            : fallback.collapsed,
+        ...(value.dockedEdge === "left" || value.dockedEdge === "right"
+          ? { dockedEdge: value.dockedEdge }
+          : {}),
+        ...(typeof value.dockedOrder === "number" &&
+        Number.isFinite(value.dockedOrder)
+          ? { dockedOrder: value.dockedOrder }
+          : {}),
+      };
     }
   } catch {
-    // Ignore parse errors
+    // Invalid saved layouts fall back to usable defaults.
   }
   return defaults;
 }
@@ -1224,7 +1265,39 @@ function loadDockGroups(): DockGroup[] {
     const saved = localStorage.getItem(DOCK_GROUPS_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        const panelIds = new Set(Object.keys(buildDefaultProPanelLayout()));
+        const viewportWidth =
+          typeof window !== "undefined" ? window.innerWidth : 1920;
+        const maxWidth = Math.max(1, viewportWidth - 4);
+        return parsed.filter(
+          (group): group is DockGroup =>
+            group !== null &&
+            typeof group === "object" &&
+            typeof group.id === "string" &&
+            group.orientation === "vertical" &&
+            Array.isArray(group.panelIds) &&
+            group.panelIds.length >= 2 &&
+            group.panelIds.every(
+              (id: unknown) => typeof id === "string" && panelIds.has(id),
+            ) &&
+            typeof group.sharedX === "number" &&
+            Number.isFinite(group.sharedX) &&
+            typeof group.sharedWidth === "number" &&
+            Number.isFinite(group.sharedWidth) &&
+            group.sharedWidth > 0,
+        ).map((group) => {
+          const sharedWidth = Math.min(group.sharedWidth, maxWidth);
+          return {
+            ...group,
+            sharedX: Math.min(
+              Math.max(0, group.sharedX),
+              Math.max(0, viewportWidth - sharedWidth),
+            ),
+            sharedWidth,
+          };
+        });
+      }
     }
   } catch {
     // Ignore parse errors
@@ -1323,6 +1396,8 @@ function saveLayers(layers: MapState["layers"]) {
   }
 }
 
+const initialLayoutMode = loadLayoutMode();
+
 const initialState = {
   viewMode: "globe" as ViewMode,
   timeOffset: 0,
@@ -1348,9 +1423,9 @@ const initialState = {
   activeProfile: loadActiveProfile(),
   spotFilters: loadSpotFilters(),
   customProfiles: loadCustomProfiles(),
-  isFullscreen: false,
-  isLiteMode: false,
-  layoutMode: loadLayoutMode(),
+  isFullscreen: initialLayoutMode === "pro",
+  isLiteMode: initialLayoutMode === "lite",
+  layoutMode: initialLayoutMode,
   isDXConsoleExpanded: false,
   interactionMode: "normal" as MapInteractionMode,
   overlayLayers: {} as Record<string, OverlayLayerModel>,
@@ -1764,16 +1839,10 @@ export const useMapStore = create<MapState>((set, get) => ({
     })),
 
   setFullscreen: (isFullscreen) =>
-    set({
-      isFullscreen,
-      layoutMode: isFullscreen ? "pro" : "normal",
-    }),
+    get().setLayoutMode(isFullscreen ? "pro" : "normal"),
 
   toggleFullscreen: () =>
-    set((state) => ({
-      isFullscreen: !state.isFullscreen,
-      layoutMode: !state.isFullscreen ? "pro" : "normal",
-    })),
+    get().setLayoutMode(get().isFullscreen ? "normal" : "pro"),
 
   setLiteMode: (isLiteMode) =>
     set({
@@ -2290,6 +2359,7 @@ export const useMapStore = create<MapState>((set, get) => ({
       // Reset is intentionally computed at click time because Pro mode is
       // often moved between laptop and wall-display viewports in one session.
       const fresh = buildDefaultProPanelLayout();
+      saveDockGroups([]);
       saveProPanelLayout(fresh);
       return { proPanelLayout: fresh, dockGroups: [] };
     }),

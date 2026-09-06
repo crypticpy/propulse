@@ -4,7 +4,7 @@ Tracking: [#177](https://github.com/crypticpy/propulse/issues/177), implementati
 
 ## Delivery acknowledgments and rejected dependencies
 
-The [pure delivery contracts](W04-DELIVERY-CONTRACTS.md) now implement terminal binding/replay and complete supplied-graph readiness. The durable repository and transport work below remains open.
+The [pure delivery contracts](W04-DELIVERY-CONTRACTS.md) implement terminal binding/replay and complete supplied-graph readiness. [Durable local delivery](W04-DURABLE-DELIVERY.md) now records outcomes and dependency blocking atomically, preserves receipts and later heads, and audits readiness. Authenticated transport, actual backend outcomes and explicit conflict resolution remain open; the requirements below continue to govern that integration.
 
 Implement terminal delivery outcomes separately from the permanent local commit receipt. Bind every outcome to the owner, generation, operation ID, payload digest and exact committed-head set, including tombstones. Parsing a response is not server authentication.
 
@@ -21,6 +21,8 @@ A new local operation can bind current local heads while retaining the named sta
 Remote resolution needs a further protocol decision before implementation. After local A→B and server rejection of A, current local heads and server heads differ. The existing `expectedHeads` cannot serve both CAS conditions. Freeze separate digest-bound remote preconditions and retained remote-base evidence before authoring remote resolutions. Never rewrite/re-sign a queued envelope or label a new local commit as successful remote conflict resolution.
 
 ## Durable inactive generation staging
+
+The [pure stage chunk contract](W04-STAGE-CHUNKS.md) now provides deterministic planning and lossless reassembly of the complete verified candidate. Durable chunk/marker storage and materialized-record sealing below remain open.
 
 Verify a detached candidate and derive a deterministic, versioned chunk plan before write transactions. Persist an immutable owner/stage/generation/seal binding and exact chunk inventory. Each chunk and its completion marker must commit together. Retrying exact content resumes the same stage; changed IDs/content reject using both digest and canonical equality.
 
@@ -41,3 +43,7 @@ An isolated synthetic harness can verify the activation transaction without enab
 Generation-to-generation replacement remains outside the current candidate format: it contains one version per live archive identity, not all retained storage versions, tombstones, operation receipts or pending outbox. Those records cannot be stranded by a pointer change.
 
 Real migration additionally requires verified backup bytes, complete raw captures, explicit media dispositions, feature/operating-consumer parity, source-version rechecks and an old-writer barrier. These are delivery gates, not reasons to discard the existing data or silently relax W04 acceptance.
+
+## Backend boundary and verification environment
+
+The [backend foundation](W04-BACKEND-FOUNDATION.md) provides fail-closed verified-owner authentication, lossless canonical TEXT/opaque-ID codecs and a disposable PostgreSQL 17 SQL harness. It enables testing the next owner-scoped transaction slice; no endpoint, production migration, remote authority or activation is implemented by that foundation.

@@ -267,7 +267,7 @@ function Application() {
         <Suspense fallback={null}>
           {personalSession && <RankPersistenceHost />}
         </Suspense>
-        {personalSession && <WelcomeOverlay />}
+        <WelcomeOverlay />
         <Suspense fallback={null}>
           {personalSession && <WSJTXAutoLogHost />}
         </Suspense>

@@ -259,8 +259,8 @@ export function ProToolbarRibbon({
   /* ── Responsive: compact mode via ResizeObserver ──────────── */
   const toolbarRef = useRef<HTMLDivElement>(null);
   const chromeRef = useRef<HTMLDivElement>(null);
-  const [isCompact, setIsCompact] = useState(false);
-  const [isNarrow, setIsNarrow] = useState(false);
+  const [isCompact, setIsCompact] = useState(() => window.innerWidth < 1600);
+  const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1200);
 
   // Measure both the expanded masthead and the collapsed mode-switcher row.
   useLayoutEffect(() => {
@@ -283,12 +283,12 @@ export function ProToolbarRibbon({
     if (!el) return;
     const observer = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width;
-      setIsCompact(w < 1100);
-      setIsNarrow(w < 1000);
+      setIsCompact(w < 1600);
+      setIsNarrow(w < 1200);
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [proRibbonExpanded]);
+  }, []);
 
   /* ── Collapsed UTC clock ─────────────────────────────────── */
   const utcClockNow = useUTCClock();
@@ -360,7 +360,7 @@ export function ProToolbarRibbon({
     >
       <div
         ref={toolbarRef}
-        className="bg-black/60 backdrop-blur-md border-b border-white/20 flex items-center gap-2 px-3 py-2 pointer-events-auto"
+        className="bg-black/60 backdrop-blur-md border-b border-white/20 flex flex-wrap items-center gap-2 px-3 py-2 pointer-events-auto"
       >
         {/* ── 1. Toggle (collapse) button ─────────────────────── */}
         <button

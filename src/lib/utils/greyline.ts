@@ -400,7 +400,7 @@ export function getGreylineIntensityCurve(
 }
 
 /** Minutes either side of a horizon crossing that the low bands lift, same
- * window `SunMoonReport.tsx` draws for a single station. */
+ * window `MoonReport.tsx` draws for a single station. */
 export const GREYLINE_WINDOW_MINUTES = 30;
 
 interface GreylineCrossingWindow {

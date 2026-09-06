@@ -968,6 +968,7 @@
   min-width: 0;
 }
 .hcr-imagery-media {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -980,6 +981,27 @@
   display: block;
   object-fit: cover;
   border: 1px solid var(--hc-line);
+  border-radius: max(2px, calc(var(--hc-radius) * 0.6));
+}
+/* Off-screen probe for the next cadence frame; the visible frame stays. */
+.hcr-imagery-media img.hcr-imagery-probe {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+}
+.hcr-imagery-empty {
+  height: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-family: var(--hc-font-mono);
+  font-size: 1.3vh;
+  letter-spacing: 0.1em;
+  color: var(--hc-dim2);
+  border: 1px dashed var(--hc-line);
   border-radius: max(2px, calc(var(--hc-radius) * 0.6));
 }
 .hcr-imagery-label,

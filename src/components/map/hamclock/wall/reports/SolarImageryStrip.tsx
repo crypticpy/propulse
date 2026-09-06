@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRetainedSolarImage } from "@/components/solar/useRetainedSolarImage";
 import {
   SOLAR_IMAGE_PRODUCTS,
   solarImageMetadataUrl,
@@ -60,14 +61,54 @@ function SolarImageFrame({ productId, label }: FrameSpec) {
   const imageUrl = solarImageUrl(productId);
   const metadataUrl = solarImageMetadataUrl(productId);
   const observedAt = useImageObservedAt(metadataUrl);
+  // The cadence URL advances while a pinned report stays open. Keep the last
+  // decoded frame on screen and test the next one off-screen, so a transient
+  // proxy failure never leaves a broken frame (same flow as SolarImageCard).
+  const retained = useRetainedSolarImage(
+    productId,
+    imageUrl,
+    imageUrl,
+    product.hardTtlSeconds * 1_000,
+  );
+  // The caption must describe the frame on screen, not a candidate that is
+  // still probing, so it only follows the metadata once the candidate shows.
+  const [shownObservedAt, setShownObservedAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (retained.visibleUrl === imageUrl && observedAt !== null) {
+      setShownObservedAt(observedAt);
+    }
+  }, [imageUrl, observedAt, retained.visibleUrl]);
+  const unavailable = !retained.hasLoadedImage && retained.candidateFailed;
 
   return (
     <div className="hcr-imagery-frame">
       <p className="hcr-imagery-label">{label}</p>
       <div className="hcr-imagery-media">
-        <img src={imageUrl} alt={product.alt} />
+        {unavailable ? (
+          <p className="hcr-imagery-empty">FRAME UNAVAILABLE</p>
+        ) : (
+          <img
+            src={retained.visibleUrl ?? undefined}
+            alt={product.alt}
+            onLoad={retained.handleVisibleLoad}
+            onError={retained.handleVisibleError}
+          />
+        )}
+        {retained.probeUrl && (
+          <img
+            key={retained.probeUrl}
+            src={retained.probeUrl}
+            alt=""
+            aria-hidden="true"
+            className="hcr-imagery-probe"
+            onLoad={retained.handleProbeLoad}
+            onError={retained.handleProbeError}
+          />
+        )}
       </div>
-      <p className="hcr-imagery-caption">{frameCaption(observedAt)}</p>
+      <p className="hcr-imagery-caption">
+        {frameCaption(unavailable ? null : shownObservedAt)}
+      </p>
     </div>
   );
 }

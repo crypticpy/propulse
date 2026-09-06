@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * ProfileCard -- Sidebar / mobile header card showing the operator's identity.
  *
@@ -64,8 +65,9 @@ export function ProfileCardDesktop({
 
   const { rank, color: rankColor } = useOperatorRank();
   const assets = useRankAssets(rank);
-  const frameStyle = getProfileFrameStyle(rank);
-  const glowStyle = getProfileGlowStyle(rank);
+  const effects = useVisualEffects();
+  const frameStyle = getProfileFrameStyle(rank, effects);
+  const glowStyle = getProfileGlowStyle(rank, effects);
 
   const stats = useLogbookStats();
   const { totalQSOs, uniqueCountries } = stats;
@@ -102,7 +104,7 @@ export function ProfileCardDesktop({
       <div
         className={[
           "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6",
-          getRankCardClasses(rank),
+          getRankCardClasses(rank, effects),
         ]
           .filter(Boolean)
           .join(" ")}
@@ -129,7 +131,7 @@ export function ProfileCardDesktop({
                   alt=""
                   className={[
                     "w-16 h-16 rounded-full object-cover mx-auto mb-3",
-                    rank === "ethereal"
+                    !effects.animatedBadges || !effects.glow ? "" : rank === "ethereal"
                       ? "animate-rank-chromatic-ring"
                       : isRankAtLeast(rank, "master")
                         ? "animate-rank-golden-ring"
@@ -357,14 +359,15 @@ export function ProfileCardMobile({
 
   const { rank, color: rankColor } = useOperatorRank();
   const assets = useRankAssets(rank);
-  const frameStyle = getProfileFrameStyle(rank);
-  const glowStyle = getProfileGlowStyle(rank);
+  const effects = useVisualEffects();
+  const frameStyle = getProfileFrameStyle(rank, effects);
+  const glowStyle = getProfileGlowStyle(rank, effects);
 
   return (
     <div
       className={[
         "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4",
-        getRankCardClasses(rank),
+        getRankCardClasses(rank, effects),
       ]
         .filter(Boolean)
         .join(" ")}
@@ -391,7 +394,7 @@ export function ProfileCardMobile({
                   alt=""
                   className={[
                     "w-12 h-12 rounded-full object-cover",
-                    rank === "ethereal"
+                    !effects.animatedBadges || !effects.glow ? "" : rank === "ethereal"
                       ? "animate-rank-chromatic-ring"
                       : isRankAtLeast(rank, "master")
                         ? "animate-rank-golden-ring"

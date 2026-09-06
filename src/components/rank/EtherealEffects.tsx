@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * EtherealEffects -- Visual effects for Ethereal-tier equipment cards.
  *
@@ -116,11 +117,12 @@ export function ChromaticBorderOverlay({
   enabled,
   className = "",
 }: ChromaticBorderOverlayProps) {
+  const effects = useVisualEffects();
   useEffect(() => {
     if (enabled) ensureStyles();
   }, [enabled]);
 
-  if (!enabled) return null;
+  if (!enabled || !effects.animatedBadges || !effects.glow) return null;
 
   const [c1, c2, c3, c4] = AURORA_PALETTE;
 
@@ -401,6 +403,7 @@ const RUNE_CORNERS: {
  * through the aurora palette, creating a "living circuit" feel.
  */
 export function RuneCorners({ enabled, className = "" }: RuneCornersProps) {
+  const effects = useVisualEffects();
   useEffect(() => {
     if (enabled) ensureStyles();
   }, [enabled]);
@@ -420,9 +423,8 @@ export function RuneCorners({ enabled, className = "" }: RuneCornersProps) {
             className={`absolute ${corner.className} ethereal-rune-pulse`}
             style={{
               transform: `scale(${corner.scaleX}, ${corner.scaleY})`,
-              animation: `runePulse ${corner.duration}s ease-in-out infinite`,
-              animationDelay: `${i * 0.4}s`,
-              filter: `drop-shadow(0 0 4px ${color}80)`,
+              animation: effects.animatedBadges && effects.glow ? `runePulse ${corner.duration}s ease-in-out ${i * 0.4}s infinite` : "none",
+              filter: effects.glow ? `drop-shadow(0 0 4px ${color}80)` : "none",
             }}
           >
             <corner.Rune color={color} />
@@ -452,11 +454,12 @@ export function DimensionalRift({
   accentHex,
   className = "",
 }: DimensionalRiftProps) {
+  const effects = useVisualEffects();
   useEffect(() => {
     if (enabled) ensureStyles();
   }, [enabled]);
 
-  if (!enabled) return null;
+  if (!enabled || !effects.glow) return null;
 
   const [c1, c2, c3, c4] = AURORA_PALETTE;
 
@@ -465,7 +468,7 @@ export function DimensionalRift({
       className={`absolute inset-0 pointer-events-none z-0 ethereal-dimensional-pulse ${className}`}
       aria-hidden="true"
       style={{
-        animation: "dimensionalPulse 8s ease-in-out infinite",
+        animation: effects.animatedBadges ? "dimensionalPulse 8s ease-in-out infinite" : "none",
       }}
     >
       {/* Dark portal center */}
@@ -531,11 +534,12 @@ export function LivingSymbols({
   children,
   className = "",
 }: LivingSymbolsProps) {
+  const effects = useVisualEffects();
   useEffect(() => {
     if (enabled) ensureStyles();
   }, [enabled]);
 
-  if (!enabled) {
+  if (!enabled || !effects.animatedBadges) {
     return <>{children}</>;
   }
 

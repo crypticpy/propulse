@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * StatCountUp -- Animated count-up component for stat values.
  *
@@ -39,11 +40,6 @@ function parseValue(
   return { num: parseFloat(numStr), suffix, decimals };
 }
 
-function getReducedMotion(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 /** Cubic ease-out: 1 - (1 - t)^3 */
 function easeOut(t: number): number {
   return 1 - Math.pow(1 - t, 3);
@@ -59,6 +55,7 @@ export function StatCountUp({
   duration = 400,
   className = "",
 }: StatCountUpProps) {
+  const { motion } = useVisualEffects();
   const rafRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const [displayValue, setDisplayValue] = useState<string>(value ?? "");
@@ -76,7 +73,7 @@ export function StatCountUp({
     const parsed = parseValue(safeValue);
 
     // No numeric prefix or animation disabled or reduced motion: show final value
-    if (!parsed || !enabled || getReducedMotion()) {
+    if (!parsed || !enabled || !motion) {
       cancelAnimation();
       setDisplayValue(safeValue);
       return;
@@ -121,7 +118,7 @@ export function StatCountUp({
     rafRef.current = requestAnimationFrame(animate);
 
     return cancelAnimation;
-  }, [value, enabled, duration, cancelAnimation]);
+  }, [value, enabled, motion, duration, cancelAnimation]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -130,7 +127,7 @@ export function StatCountUp({
 
   return (
     <span className={className} aria-label={value ?? ""}>
-      {displayValue}
+      {enabled && motion ? displayValue : value}
     </span>
   );
 }

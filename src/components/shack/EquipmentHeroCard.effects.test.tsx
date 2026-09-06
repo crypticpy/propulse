@@ -1,0 +1,30 @@
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useVisualEffectsStore, DEFAULT_VISUAL_EFFECTS } from "@/stores/visualEffectsStore";
+import { EquipmentHeroCard } from "./EquipmentHeroCard";
+vi.mock("@/hooks/useImageUrl", () => ({ useImageUrl: () => ({ url: null }) }));
+vi.mock("@/hooks/useOperatorRank", () => ({ useOperatorRank: () => ({ rank: "ethereal", hasChromaticEffects: true, hasParticles: true, preferences: { enableParticles: true } }) }));
+vi.mock("./EquipmentCard", () => ({ ArtZonePattern: () => <svg />, StatIconSvg: () => <svg /> }));
+beforeEach(() => {
+  useVisualEffectsStore.setState({ ...DEFAULT_VISUAL_EFFECTS, level: "full" });
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("stops each decorative loop at its individual gate while keeping equipment and controls focused", () => {
+  render(<EquipmentHeroCard open title="Portable station radio" subtitle="Operator-owned equipment" onClose={vi.fn()} onEdit={vi.fn()} />);
+  const dialog = screen.getByRole("dialog");
+  const close = screen.getByRole("button", { name: "Close" });
+  close.focus();
+  const animations = (selector: string) => Array.from(dialog.querySelectorAll<HTMLElement>(selector)).map((node) => node.style.animation);
+  expect(animations(".hero-shimmer").every((value) => value.includes("heroShimmer"))).toBe(true);
+  expect(animations(".hero-drift").every((value) => value.includes("heroDrift"))).toBe(true);
+  act(() => useVisualEffectsStore.setState({ animatedBadges: false }));
+  expect(animations(".hero-shimmer")).toEqual(["none", "none"]);
+  act(() => useVisualEffectsStore.setState({ particles: false }));
+  expect(animations(".hero-drift")).toEqual(["none", "none"]);
+  act(() => useVisualEffectsStore.setState({ glow: false }));
+  expect(animations(".hero-pulse")).toEqual(["none"]);
+  expect(screen.getByRole("heading", { name: "Portable station radio" })).toBeTruthy();
+  expect(screen.getByText("Operator-owned equipment")).toBeTruthy();
+  expect(document.activeElement).toBe(close);
+});

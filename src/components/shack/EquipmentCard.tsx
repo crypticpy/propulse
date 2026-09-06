@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * EquipmentCard — Collectible playing-card style equipment display.
  *
@@ -434,10 +435,11 @@ export function EquipmentCard({
   const wearTier =
     qsoCount > 1000 ? "veteran" : qsoCount > 100 ? "seasoned" : "new";
   const assets = useRankAssets(rankState.rank);
-  const rankBorderStyle = getRankBorderStyle(rankState.rank, accentHex);
+  const effects = useVisualEffects();
+  const rankBorderStyle = getRankBorderStyle(rankState.rank, accentHex, effects);
   const sheenOpacity = getSheenOpacity(rankState.rank);
   const sheenGradient = getSheenGradient(rankState.rank, accentHex);
-  const rankClasses = getRankCardClasses(rankState.rank);
+  const rankClasses = getRankCardClasses(rankState.rank, effects);
 
   // Resolve the large centered symbol
   const SymbolComponent = getEquipmentSymbol(equipmentType);
@@ -487,9 +489,9 @@ export function EquipmentCard({
           // Transitions
           "transition-all duration-200",
           // Hover lift + glow
-          isHovered ? `-translate-y-0.5 ${glowClass}` : "",
+          isHovered ? `${effects.motion ? "-translate-y-0.5" : ""} ${effects.glow ? glowClass : ""}` : "",
           // Press feedback
-          "active:scale-95",
+          effects.motion ? "active:scale-95" : "",
           // Active card ring + glow
           isActive
             ? "ring-1 ring-signal-green/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
@@ -539,10 +541,10 @@ export function EquipmentCard({
             backgroundSize: "200% 100%",
             animation:
               isHovered &&
-              !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+              effects.motion
                 ? "cardSheen 1.5s ease-in-out"
                 : "none",
-            opacity: isHovered ? sheenOpacity : 0,
+            opacity: isHovered && effects.motion && effects.glow ? sheenOpacity : 0,
           }}
         />
 
@@ -746,14 +748,14 @@ export function EquipmentCard({
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                      background: `radial-gradient(circle, ${accentHex}18 0%, transparent 65%)`,
+                      background: effects.glow ? `radial-gradient(circle, ${accentHex}18 0%, transparent 65%)` : "none",
                     }}
                   />
 
                   {/* Symbol — responsive */}
                   <div
                     className={ACCENT_TEXT[equipmentType]}
-                    style={{ filter: `drop-shadow(0 0 10px ${accentHex}25)` }}
+                    style={{ filter: effects.glow ? `drop-shadow(0 0 10px ${accentHex}25)` : "none" }}
                   >
                     <SymbolComponent className="w-16 h-16 sm:w-20 sm:h-20" />
                   </div>

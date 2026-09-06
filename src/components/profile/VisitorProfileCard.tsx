@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * VisitorProfileCard -- Read-only sidebar card for viewing another operator's profile.
  *
@@ -67,8 +68,9 @@ export function VisitorProfileCard({
   const rank = resolveRank(profile.operatorRank);
   const rankColor = RANK_COLORS[rank];
   const assets = useRankAssets(rank);
-  const frameStyle = getProfileFrameStyle(rank);
-  const glowStyle = getProfileGlowStyle(rank);
+  const effects = useVisualEffects();
+  const frameStyle = getProfileFrameStyle(rank, effects);
+  const glowStyle = getProfileGlowStyle(rank, effects);
 
   const totalQSOs = (profile.statsCache?.totalQSOs as number) || 0;
   const uniqueCountries = (profile.statsCache?.uniqueCountries as number) || 0;
@@ -87,7 +89,7 @@ export function VisitorProfileCard({
       <div
         className={[
           "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6",
-          getRankCardClasses(rank),
+          getRankCardClasses(rank, effects),
         ]
           .filter(Boolean)
           .join(" ")}
@@ -117,7 +119,7 @@ export function VisitorProfileCard({
                   alt=""
                   className={[
                     "w-16 h-16 rounded-full object-cover mx-auto mb-3",
-                    rank === "ethereal"
+                    !effects.animatedBadges || !effects.glow ? "" : rank === "ethereal"
                       ? "animate-rank-chromatic-ring"
                       : isRankAtLeast(rank, "master")
                         ? "animate-rank-golden-ring"

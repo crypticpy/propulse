@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * RankBadge -- Reusable badge for operator rank tiers.
  *
@@ -80,12 +81,18 @@ export function RankBadge({
   size = "md",
   className = "",
 }: RankBadgeProps) {
+  const effects = useVisualEffects();
   ensureStyles();
 
   const styles = RANK_BADGE_STYLES[rank];
   const icon = RANK_ICONS[rank];
   const label = RANK_LABELS[rank];
-  const inlineStyle = getTierInlineStyles(rank, size);
+  const tierStyle = getTierInlineStyles(rank, size);
+  const inlineStyle = {
+    ...tierStyle,
+    animation: effects.animatedBadges ? tierStyle?.animation : "none",
+    textShadow: effects.glow ? tierStyle?.textShadow : "none",
+  };
 
   // -- Size classes ---------------------------------------------------------
   let sizeClasses: string;

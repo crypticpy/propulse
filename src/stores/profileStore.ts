@@ -695,7 +695,14 @@ export const useProfileStore = create<ProfileStore>()(
         }),
 
       markCelebrationSeen: () =>
-        set({ rankCelebrationSeen: new Date().toISOString() }),
+        set((state) => {
+          // A synced transition may be ahead of this device's clock. Consume
+          // the event itself, so suppressing it survives reload without replay.
+          const timestamps = [state.rankCelebrationSeen, state.operatorRank.rankHistory.at(-1)?.timestamp]
+            .map((value) => value ? Date.parse(value) : Number.NaN)
+            .filter(Number.isFinite);
+          return { rankCelebrationSeen: new Date(Math.max(Date.now(), ...timestamps)).toISOString() };
+        }),
 
       // === QSO Sync ===
 

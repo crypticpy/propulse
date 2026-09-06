@@ -1,3 +1,7 @@
+import { StationProvider } from "@/components/station-ui/StationProvider";
+import { Surface } from "@/components/station-ui/Layout";
+import { Button } from "@/components/station-ui/Actions";
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * RankUpCelebration -- Full-screen celebration overlay for rank-up events.
  *
@@ -107,13 +111,15 @@ export function RankUpCelebration({
   toRank,
   onDismiss,
 }: RankUpCelebrationProps) {
+  const effects = useVisualEffects();
+  const animated = effects.celebrations && effects.motion;
   const rankColor = RANK_COLORS[toRank];
   const rankLabel = RANK_LABELS[toRank];
   const rankTitle = RANK_TITLES[toRank];
   const rankIcon = RANK_ICONS[toRank];
 
   // Generate particles once (stable across re-renders)
-  const particles = useMemo(() => generateParticles(20), []);
+  const particles = useMemo(() => effects.particles && animated ? generateParticles(20) : [], [effects.particles, animated]);
 
   // -- Inject keyframe styles ------------------------------------------------
   useEffect(() => {
@@ -129,27 +135,45 @@ export function RankUpCelebration({
   );
 
   useEffect(() => {
+    if (!animated) return;
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+  }, [handleKeyDown, animated]);
 
   // -- Body scroll lock ------------------------------------------------------
   useEffect(() => {
+    if (!animated) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, []);
+  }, [animated]);
 
   // -- Auto-dismiss timer (4 seconds) ----------------------------------------
   useEffect(() => {
+    if (!animated) return;
     const timer = setTimeout(onDismiss, 4000);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, [onDismiss, animated]);
 
   // -- SSR guard -------------------------------------------------------------
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined" || !effects.celebrations) return null;
+
+  if (!animated) {
+    return createPortal(
+      <StationProvider className="fixed bottom-4 right-4 left-4 sm:left-auto sm:max-w-sm z-[600]">
+        <Surface role="region" aria-label="Rank achievement">
+          <div role="status">
+            <p className="font-semibold">New rank: {rankLabel}</p>
+            <p className="su-hint">{rankTitle}</p>
+          </div>
+          <Button onClick={onDismiss} className="mt-3">Dismiss</Button>
+        </Surface>
+      </StationProvider>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <div
@@ -162,13 +186,13 @@ export function RankUpCelebration({
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
       {/* -- Radial gradient burst -- */}
-      <div
+      {effects.glow && <div
         className="absolute inset-0 pointer-events-none celebration-glow"
         style={{
           background: `radial-gradient(circle at 50% 50%, ${rankColor}33 0%, ${rankColor}0D 40%, transparent 70%)`,
           animation: "celebrationGlow 2s ease-in-out infinite",
         }}
-      />
+      />}
 
       {/* -- Center content -- */}
       <div className="relative z-10 flex flex-col items-center gap-3 pointer-events-none">
@@ -197,7 +221,7 @@ export function RankUpCelebration({
             animation:
               "celebrationEntrance 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
             color: rankColor,
-            filter: `drop-shadow(0 0 12px ${rankColor}80)`,
+            filter: effects.glow ? `drop-shadow(0 0 12px ${rankColor}80)` : "none",
           }}
         >
           {rankIcon}
@@ -214,7 +238,7 @@ export function RankUpCelebration({
             className="text-2xl sm:text-4xl font-bold font-orbitron text-center"
             style={{
               color: rankColor,
-              textShadow: `0 0 20px ${rankColor}60`,
+              textShadow: effects.glow ? `0 0 20px ${rankColor}60` : "none",
             }}
           >
             {rankLabel}

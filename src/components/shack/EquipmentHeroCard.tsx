@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * EquipmentHeroCard — XL-size immersive collectible-card modal.
  *
@@ -333,7 +334,8 @@ export function EquipmentHeroCard({
   const { url: imageUrl } = useImageUrl(displayImageId);
   const accentHex = ACCENT_HEX[equipmentType] ?? ACCENT_HEX.radio;
   const rankState = useOperatorRank();
-  const rankBorderStyle = getRankBorderStyle(rankState.rank, accentHex);
+  const effects = useVisualEffects();
+  const rankBorderStyle = getRankBorderStyle(rankState.rank, accentHex, effects);
 
   // Reset active gallery image when modal closes
   useEffect(() => {
@@ -423,7 +425,7 @@ export function EquipmentHeroCard({
       {/* ── Backdrop ── */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-md hero-backdrop-in"
-        style={{ animation: "heroBackdropIn 200ms ease-out both" }}
+        style={{ animation: effects.motion ? "heroBackdropIn 200ms ease-out both" : "none" }}
         onClick={onClose}
       />
 
@@ -432,7 +434,7 @@ export function EquipmentHeroCard({
         className="hero-entrance relative z-10 w-full max-w-xl max-h-[85vh] flex flex-col"
         style={{
           animation:
-            "heroEntrance 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
+            effects.motion ? "heroEntrance 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both" : "none",
         }}
         role="dialog"
         aria-modal="true"
@@ -447,7 +449,7 @@ export function EquipmentHeroCard({
               ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
               : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
             backgroundSize: "200% 100%",
-            animation: "heroShimmer 3s ease-in-out infinite",
+            animation: effects.animatedBadges ? "heroShimmer 3s ease-in-out infinite" : "none",
           }}
         />
 
@@ -539,7 +541,7 @@ export function EquipmentHeroCard({
                 {/* Animated background pattern */}
                 <div
                   className={`absolute inset-0 pointer-events-none opacity-[0.04] ${ACCENT_TEXT[equipmentType]} hero-drift`}
-                  style={{ animation: "heroDrift 20s ease-in-out infinite" }}
+                  style={{ animation: effects.particles ? "heroDrift 20s ease-in-out infinite" : "none" }}
                 >
                   <ArtZonePattern type={equipmentType} />
                 </div>
@@ -548,7 +550,7 @@ export function EquipmentHeroCard({
                 <div
                   className={`absolute inset-0 pointer-events-none opacity-[0.02] ${ACCENT_TEXT[equipmentType]} hero-drift`}
                   style={{
-                    animation: "heroDrift 28s ease-in-out infinite reverse",
+                    animation: effects.particles ? "heroDrift 28s ease-in-out infinite reverse" : "none",
                     transform: "scale(1.15) rotate(5deg)",
                   }}
                 >
@@ -559,8 +561,8 @@ export function EquipmentHeroCard({
                 <div
                   className="absolute inset-0 pointer-events-none hero-pulse"
                   style={{
-                    background: `radial-gradient(circle at 50% 55%, ${accentHex}25 0%, ${accentHex}08 40%, transparent 70%)`,
-                    animation: "heroPulse 4s ease-in-out infinite",
+                    background: effects.glow ? `radial-gradient(circle at 50% 55%, ${accentHex}25 0%, ${accentHex}08 40%, transparent 70%)` : "none",
+                    animation: effects.motion && effects.glow ? "heroPulse 4s ease-in-out infinite" : "none",
                   }}
                 />
 
@@ -568,7 +570,7 @@ export function EquipmentHeroCard({
                 <div
                   className="absolute inset-0 pointer-events-none"
                   style={{
-                    background: `radial-gradient(circle at 50% 55%, transparent 30%, ${accentHex}06 60%, transparent 80%)`,
+                    background: effects.glow ? `radial-gradient(circle at 50% 55%, transparent 30%, ${accentHex}06 60%, transparent 80%)` : "none",
                   }}
                 />
 
@@ -577,7 +579,7 @@ export function EquipmentHeroCard({
                   <div
                     className={ACCENT_TEXT[equipmentType]}
                     style={{
-                      filter: `drop-shadow(0 0 20px ${accentHex}40)`,
+                      filter: effects.glow ? `drop-shadow(0 0 20px ${accentHex}40)` : "none",
                     }}
                   >
                     <SymbolComponent className="w-24 h-24 sm:w-[140px] sm:h-[140px]" />
@@ -980,7 +982,7 @@ export function EquipmentHeroCard({
               ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
               : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
             backgroundSize: "200% 100%",
-            animation: "heroShimmer 3s ease-in-out infinite 1.5s",
+            animation: effects.animatedBadges ? "heroShimmer 3s ease-in-out infinite 1.5s" : "none",
           }}
         />
       </div>

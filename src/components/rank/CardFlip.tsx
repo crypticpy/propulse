@@ -1,3 +1,4 @@
+import { useVisualEffects } from "@/hooks/useVisualEffects";
 /**
  * CardFlip -- 3D CSS flip wrapper for equipment cards.
  *
@@ -100,6 +101,7 @@ export function CardFlip({
   children,
   className = "",
 }: CardFlipProps) {
+  const { motion } = useVisualEffects();
   const [isFlipped, setIsFlipped] = useState(false);
 
   // Inject styles on mount when enabled
@@ -135,6 +137,7 @@ export function CardFlip({
     >
       <div
         className={`card-flip-inner ${isFlipped ? "card-flip-inner--flipped" : ""}`}
+        style={{ transition: motion ? undefined : "none" }}
       >
         {/* ---- Front face ---- */}
         <div className="card-flip-face" style={{ position: "relative" }}>

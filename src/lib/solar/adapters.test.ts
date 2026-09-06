@@ -148,6 +148,13 @@ describe("solar provider adapters", () => {
         energy: "0.1-0.8nm",
         electron_contaminaton: true,
       },
+      {
+        time_tag: "2026-07-15T19:00:00Z",
+        satellite: 18,
+        flux: 3e-7,
+        energy: "0.1-0.8nm",
+        electron_contamination: true,
+      },
     ];
     const result = adaptXray([...dualXray, ...contaminated]);
     expect(result.data).toHaveLength(2);

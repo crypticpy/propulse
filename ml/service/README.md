@@ -268,8 +268,10 @@ from `kp` via the standard Kp→ap conversion table. Each derivation is
 guarded on its physical domain — a missing input, a non-positive
 `wind_speed`/`bt`/`density_cm3`/`temperature_k`, or a Kp outside 0..9 leaves
 the feature absent rather than emitting `NaN`/`Inf`, a fabricated value, or a
-value computed from an upstream sentinel. Five features remain unavailable
-pending a real-time source: `ae`, `al`, `au`, `pcn`, and `hp60`.
+value computed from an upstream sentinel. `hp60` is fetched by the collector
+from GFZ Potsdam's Hp60 index (CC BY 4.0, https://kp.gfz.de) and stored on
+the snapshot with provenance. Four features remain unavailable pending a
+real-time source: `ae`, `al`, `au`, and `pcn`.
 
 Configure the trusted weather path independently of WSPR source authorization:
 

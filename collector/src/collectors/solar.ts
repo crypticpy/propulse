@@ -50,10 +50,48 @@ export function normalizedSourceTime(row: TimedRow | null): string | null {
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
+interface GfzHp60Response {
+  Hp60?: Array<number | null | undefined>;
+  datetime?: string[];
+  meta?: { source?: string; license?: string };
+}
+
+/**
+ * GFZ's Hp60 feed is hourly; the entry for hour H covers [H, H+1) and is
+ * published shortly after H+1, so not-yet-computed hours arrive as
+ * null/NaN. Pick the latest finite entry whose datetime is <= now.
+ */
+export function latestFiniteGfzHp60(
+  response: GfzHp60Response | null | undefined,
+  now: number,
+): { value: number; time: string } | null {
+  if (
+    !response ||
+    !Array.isArray(response.Hp60) ||
+    !Array.isArray(response.datetime)
+  ) {
+    return null;
+  }
+  let best: { value: number; time: string; timestamp: number } | null = null;
+  const length = Math.min(response.Hp60.length, response.datetime.length);
+  for (let i = 0; i < length; i++) {
+    const value = response.Hp60[i];
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    const timestamp = Date.parse(response.datetime[i]);
+    if (!Number.isFinite(timestamp) || timestamp > now) continue;
+    if (best == null || timestamp > best.timestamp) {
+      best = { value, time: new Date(timestamp).toISOString(), timestamp };
+    }
+  }
+  return best == null ? null : { value: best.value, time: best.time };
+}
+
 export async function collectSolar(db: SupabaseClient): Promise<void> {
   const start = Date.now();
   try {
-    // Fetch all eight sources in parallel using Promise.allSettled
+    // Fetch all nine sources in parallel using Promise.allSettled
+    const hp60EndIso = new Date(start).toISOString();
+    const hp60StartIso = new Date(start - 6 * 60 * 60 * 1000).toISOString();
     const [
       kpResult,
       sfiResult,
@@ -63,6 +101,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       xrayResult,
       protonResult,
       dstResult,
+      hp60Result,
     ] = await Promise.allSettled([
       fetchJson<Array<{ time_tag: string; kp_index: number }>>(
         "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
@@ -104,6 +143,9 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       ),
       fetchJson<Array<{ time_tag: string; dst: number | string }>>(
         "https://services.swpc.noaa.gov/products/kyoto-dst.json",
+      ),
+      fetchJson<GfzHp60Response>(
+        `https://kp.gfz.de/app/json/?start=${encodeURIComponent(hp60StartIso)}&end=${encodeURIComponent(hp60EndIso)}&index=Hp60`,
       ),
     ]);
 
@@ -147,6 +189,15 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       : null;
     const parsedDst = dstEntry == null ? Number.NaN : Number(dstEntry.dst);
     const dstIndex = Number.isFinite(parsedDst) ? parsedDst : null;
+    const hp60Selected =
+      hp60Result.status === "fulfilled"
+        ? latestFiniteGfzHp60(hp60Result.value, start)
+        : null;
+    const hp60 = hp60Selected?.value ?? null;
+    const hp60License =
+      hp60Result.status === "fulfilled"
+        ? (hp60Result.value?.meta?.license ?? null)
+        : null;
 
     const snapshot: SolarSnapshot = {
       captured_at: new Date().toISOString(),
@@ -163,6 +214,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       proton_flux_10mev: protonFlux ?? null,
       dst_index: dstIndex,
       solar_wind_density: solarWindDensity ?? null,
+      hp60,
       source_observed_at: {
         kp: normalizedSourceTime(kpEntry),
         f107: normalizedSourceTime(sfiEntry),
@@ -172,6 +224,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
         xray: normalizedSourceTime(xrayEntry),
         proton_flux_10mev: normalizedSourceTime(protonEntry),
         dst: normalizedSourceTime(dstEntry),
+        hp60: hp60Selected?.time ?? null,
       },
       source_status: {
         magnetic_field: mag == null ? null : {
@@ -183,6 +236,10 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
           active: windEntry.active,
           source: windEntry.source,
           overall_quality: windEntry.overall_quality,
+        },
+        hp60: hp60Selected == null ? null : {
+          source: "GFZ",
+          license: hp60License,
         },
       },
     };
@@ -207,6 +264,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       protons: protonFlux,
       dst: dstIndex,
       windDensity: solarWindDensity,
+      hp60,
       durationMs,
     });
   } catch (err) {

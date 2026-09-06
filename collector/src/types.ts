@@ -34,6 +34,7 @@ export interface SolarSnapshot {
   proton_flux_10mev: number | null;
   dst_index: number | null;
   solar_wind_density: number | null;
+  hp60: number | null;
   source_observed_at: Record<string, string | null>;
   source_status: Record<string, unknown>;
 }

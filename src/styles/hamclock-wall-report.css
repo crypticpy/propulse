@@ -123,12 +123,14 @@
  * that `align-items: end` left above a short hero (#250 S3). */
 .hcr-lead {
   display: grid;
-  /* The headline takes what its hero and verdict need, up to 28vw, and the
-   * facts get the rest: at 1080p a fixed 30vw facts minimum left the
-   * headline 397px, which forced "8.8 MHz · 40M" and "Bz SOUTH" onto two
-   * and three lines and spent 6–13vh the tab panel below did not have
-   * (#250). Fact values still wrap rather than truncate. */
-  grid-template-columns: fit-content(28vw) minmax(0, 1fr);
+  /* The headline takes what its hero and verdict need, up to 22vw, and the
+   * facts get the rest (≥ ~31vw at 16:9): a fixed 30vw facts minimum left
+   * the headline 397px, which forced "8.8 MHz · 40M" and "Bz SOUTH" onto
+   * two and three lines and spent 6–13vh the tab panel below did not have;
+   * a 28vw cap let "MOON DOWN" squeeze the facts to 436px, where their
+   * values broke mid-word (#250). A long verdict shrinks to fit the slot
+   * (`verdictScale`) instead of claiming width from the facts. */
+  grid-template-columns: fit-content(22vw) minmax(0, 1fr);
   gap: 2.4vw;
   align-items: center;
 }
@@ -151,10 +153,10 @@
 .hcr-verdict {
   font-family: var(--hc-font-display);
   font-weight: var(--hc-display-weight);
-  font-size: min(6.6vh, 3.4vw);
+  font-size: calc(min(6.6vh, 3.4vw) * var(--hcr-verdict-scale, 1));
   line-height: 1.05;
   letter-spacing: 0.04em;
-  max-width: 28vw;
+  max-width: 22vw;
 }
 .hcr-unit {
   margin-left: 0.6vw;
@@ -168,7 +170,7 @@
   /* Two columns: six facts are three rows (≈11vh), not six (≈22vh) — the
    * lead was eating a third of the report at 1080p (#250). */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 2vw;
+  column-gap: 1.5vw;
   align-content: start;
   font-family: var(--hc-font-mono);
   font-size: 1.9vh;
@@ -182,9 +184,10 @@
  * across the room. */
 .hcr-facts div {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 1vw;
+  gap: 0 1vw;
   padding: 0.25vh 0;
   border-bottom: 1px solid var(--hc-line);
   white-space: normal;
@@ -198,6 +201,13 @@
   font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  /* A value that does not fit beside its label drops under it whole: the
+   * row wraps, and the value keeps its full width on that line, so it
+   * breaks between its words only when it is wider than the whole row,
+   * and inside a word only when that word is (a saved target name). With
+   * the row unable to wrap, `anywhere` alone had split "364516 km" and
+   * "26.9° HIGH" into fragments (#267 rendered check). */
+  flex: 1 1 auto;
   overflow-wrap: anywhere;
 }
 
@@ -884,6 +894,12 @@
  * and "SHOW TERMINATOR" (Grey line report). Same footprint as `.hcr-pin`
  * (44px minimum hit target) so both stay reachable at TV distance, but laid
  * out as a block so it never gets squeezed inline with body copy. */
+/* A box's action never yields height to a squeezed sibling: a shrunk glyph
+ * row was drawing under the Moon box's button (#267 rendered check). */
+.hcr-box > .hcr-link-button,
+.hcr-box > .hcr-media {
+  flex: 0 0 auto;
+}
 .hcr-link-button {
   display: inline-flex;
   align-items: center;

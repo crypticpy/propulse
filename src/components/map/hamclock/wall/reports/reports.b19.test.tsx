@@ -110,7 +110,8 @@ describe("SolarReport", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(dialog.querySelector(".hcr-hero")?.textContent).toContain("142");
-    expect(screen.getByText("SFI")).toBeTruthy();
+    expect(screen.getByText("SSN")).toBeTruthy();
+    expect(dialog.querySelectorAll(".hcr-facts div")).toHaveLength(6);
     expect(screen.getByRole("tab", { name: "NOW" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "CYCLE" })).toBeTruthy();
   });

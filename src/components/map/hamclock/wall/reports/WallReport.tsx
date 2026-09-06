@@ -7,6 +7,7 @@ import {
 import { create } from "zustand";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { verdictScale } from "../tokens";
 
 /** State colour of a report: drives the top bar, the hero and the verdict. */
 export type WallReportTone = "good" | "warn" | "bad" | "info" | "accent";
@@ -184,7 +185,18 @@ export function WallReport({
       <div className="hcr-lead">
         <div className="hcr-headline">
           <div className={`hcr-hero hc-glow ${toneClass}`}>{hero}</div>
-          <div className={`hcr-verdict hc-glow ${toneClass}`}>{verdict}</div>
+          <div
+            className={`hcr-verdict hc-glow ${toneClass}`}
+            style={
+              typeof verdict === "string" && verdictScale(verdict) < 1
+                ? ({
+                    "--hcr-verdict-scale": verdictScale(verdict),
+                  } as CSSProperties)
+                : undefined
+            }
+          >
+            {verdict}
+          </div>
         </div>
         <div className="hcr-facts">
           {facts?.map((fact) => (

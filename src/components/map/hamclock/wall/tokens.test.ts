@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAge, heroSizeClass, reportFooter } from "./tokens";
+import { formatAge, heroSizeClass, reportFooter, verdictScale } from "./tokens";
 
 const NOW = Date.parse("2026-09-05T13:00:00Z");
 
@@ -116,5 +116,17 @@ describe("heroSizeClass", () => {
   it("trims surrounding whitespace before measuring", () => {
     expect(heroSizeClass("  DAY  ")).toBe("hc-hero--short");
     expect(heroSizeClass(" NO MAPPED ALERTS ")).toBe("hc-hero--long");
+  });
+});
+
+describe("verdictScale", () => {
+  it("leaves a short verdict at full size", () => {
+    expect(verdictScale("HOT")).toBe(1);
+    expect(verdictScale("Bz NORTH")).toBeCloseTo(7 / 8);
+  });
+
+  it("shrinks a long verdict in proportion, never below two thirds", () => {
+    expect(verdictScale("MOON DOWN")).toBeCloseTo(7 / 9);
+    expect(verdictScale("WANING CRESCENT")).toBe(0.66);
   });
 });

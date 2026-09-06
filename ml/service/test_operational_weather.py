@@ -198,9 +198,51 @@ class DerivedPhysicsFeatureTests(unittest.TestCase):
         self.assertEqual(kp_to_ap(2.0), 7.0)
         self.assertEqual(kp_to_ap(2.67), 12.0)
         self.assertEqual(kp_to_ap(9.0), 400.0)
-        # Out-of-range inputs clamp to the nearest table edge.
-        self.assertEqual(kp_to_ap(-1.0), 0.0)
-        self.assertEqual(kp_to_ap(15.0), 400.0)
+        # The table is undefined outside 0..9: never clamp a bad Kp onto a
+        # trusted quiet/storm value.
+        self.assertIsNone(kp_to_ap(-1.0))
+        self.assertIsNone(kp_to_ap(9.01))
+        self.assertIsNone(kp_to_ap(15.0))
+        self.assertIsNone(kp_to_ap(math.nan))
+        self.assertIsNone(kp_to_ap(math.inf))
+
+    def test_out_of_range_kp_leaves_ap_absent(self) -> None:
+        for kp in (-0.5, 12.0, 1e300):
+            values = self.omni_row()
+            values["kp"] = kp
+            add_derived_physics_features(values)
+            self.assertNotIn("ap", values)
+
+    def test_nonpositive_temperature_leaves_feature_absent(self) -> None:
+        # A negative upstream sentinel must not reach sqrt() or produce a
+        # nonphysical plasma_beta.
+        for temperature in (0.0, -1.0, -999999.0):
+            values = self.omni_row()
+            values["temperature_k"] = temperature
+            add_derived_physics_features(values)
+            self.assertNotIn("plasma_beta", values)
+            self.assertNotIn("magnetosonic_mach", values)
+            self.assertIn("flow_pressure", values)
+            self.assertIn("alfven_mach", values)
+
+    def test_nonpositive_wind_speed_leaves_feature_absent(self) -> None:
+        for wind_speed in (0.0, -400.0):
+            values = self.omni_row()
+            values["wind_speed"] = wind_speed
+            add_derived_physics_features(values)
+            self.assertNotIn("flow_pressure", values)
+            self.assertNotIn("electric_field", values)
+            self.assertNotIn("alfven_mach", values)
+            self.assertNotIn("magnetosonic_mach", values)
+            self.assertIn("plasma_beta", values)
+
+    def test_negative_field_magnitude_leaves_feature_absent(self) -> None:
+        values = self.omni_row()
+        values["bt"] = -5.0
+        add_derived_physics_features(values)
+        self.assertNotIn("plasma_beta", values)
+        self.assertNotIn("alfven_mach", values)
+        self.assertNotIn("magnetosonic_mach", values)
 
     def test_missing_input_leaves_derived_feature_absent(self) -> None:
         values = self.omni_row()

@@ -213,10 +213,11 @@ present in the collector snapshot but can be derived from fields that are:
 `temperature_k`/`bt`/`bz_gsm` using the OMNI2 formulas
 (`operational_weather.add_derived_physics_features`), and `ap` is derived
 from `kp` via the standard Kp→ap conversion table. Each derivation is
-guarded — a missing input, `bt == 0`, or `density_cm3 <= 0` leaves the
-feature absent rather than emitting `NaN`/`Inf` or a fabricated value. Five
-features remain unavailable pending a real-time source: `ae`, `al`, `au`,
-`pcn`, and `hp60`.
+guarded on its physical domain — a missing input, a non-positive
+`wind_speed`/`bt`/`density_cm3`/`temperature_k`, or a Kp outside 0..9 leaves
+the feature absent rather than emitting `NaN`/`Inf`, a fabricated value, or a
+value computed from an upstream sentinel. Five features remain unavailable
+pending a real-time source: `ae`, `al`, `au`, `pcn`, and `hp60`.
 
 Configure the trusted weather path independently of WSPR source authorization:
 

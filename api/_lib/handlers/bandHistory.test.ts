@@ -147,3 +147,10 @@ it("keeps the timeout active while reading a stalled body", async () => {
   await vi.advanceTimersByTimeAsync(5001);
   expect((await pending).status).toBe(502);
 });
+
+it("rejects a bodyless success instead of inventing empty history", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null)));
+  const response = await handleSpotsBandHistory(request());
+  expect(response.status).toBe(502);
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+});

@@ -50,7 +50,7 @@ export async function handleSpotsBandHistory(req: Request): Promise<Response> {
         Authorization: `Bearer ${storage.anonKey}`,
       },
     });
-    if (!response.ok) throw new Error("Upstream failure");
+    if (!response.ok || !response.body) throw new Error("Upstream failure");
     const payload = await readBoundedJson(response, 128 * 1024);
     if (!Array.isArray(payload) || payload.length >= LIMIT)
       throw new Error("Invalid or truncated history");

@@ -322,6 +322,11 @@ function GreylineIntensityChart({
 export interface GreyLineReportProps {
   open: boolean;
   onClose: () => void;
+  /** Closes every dialog stacked above the map instead of just this one.
+   * SunReport passes this when it nests GreyLineReport behind "SEE GREY
+   * LINE", so SHOW TERMINATOR reveals the map rather than the Sun report.
+   * Defaults to `onClose` when this report is the top-level dialog. */
+  onCloseAll?: () => void;
 }
 
 /**
@@ -329,10 +334,20 @@ export interface GreyLineReportProps {
  * 26.9): the current window, state and countdown, the 160/80/40 m tiers,
  * the mutual overlap window with the DX target and the 24 h intensity chart.
  */
-export function GreyLineReport({ open, onClose }: GreyLineReportProps) {
+export function GreyLineReport({
+  open,
+  onClose,
+  onCloseAll,
+}: GreyLineReportProps) {
   const location = useActiveLocation();
   const target = useMapStore((s) => s.target);
+  const terminatorEnabled = useMapStore((s) => s.layers.terminator);
+  const toggleLayer = useMapStore((s) => s.toggleLayer);
   const now = useUTCClock(TICK_MS);
+  // SHOW TERMINATOR closes every dialog stacked above the map, not just this
+  // one -- when this report was opened via SunReport's "SEE GREY LINE" link,
+  // `onClose` alone would only close this dialog and reveal the Sun report.
+  const closeToMap = onCloseAll ?? onClose;
 
   const status = useMemo(
     () =>
@@ -373,18 +388,18 @@ export function GreyLineReport({ open, onClose }: GreyLineReportProps) {
         : null,
     [location, target, now],
   );
-  // Only reached at high latitude in the depths of summer or winter, when
-  // neither sunrise nor sunset happens today: the polar search already
-  // built for the sun curve tells the wall when that ends.
-  const polarNextTransition = useMemo(
-    () =>
-      location && status && !status.nextEventTime && !status.lastEventType
-        ? getSunCurve(location.lat, location.lon, now).dayState.nextTransition
-        : null,
-    [location, status, now],
+  // `getGreylineStatus` deliberately folds in yesterday's and tomorrow's
+  // events so the intensity curve stays continuous across midnight; that
+  // means its `nextEventTime`/`lastEventType` can both be non-null from an
+  // adjacent day even when today itself has no sunrise or sunset at all (the
+  // first or last day of a polar season). Whether there is a crossing today
+  // has to come from today's own sun times, not from that aggregate.
+  const sunCurveToday = useMemo(
+    () => (location ? getSunCurve(location.lat, location.lon, now) : null),
+    [location, now],
   );
 
-  if (!location || !status || !intensityCurve) {
+  if (!location || !status || !intensityCurve || !sunCurveToday) {
     const idle = reportFooter("GREYLINE.TS · DE", null);
     return (
       <WallReport
@@ -405,7 +420,21 @@ export function GreyLineReport({ open, onClose }: GreyLineReportProps) {
   }
 
   const zone = location.timezone;
-  const isNoWindowToday = !status.nextEventTime && !status.lastEventType;
+  const isNoWindowToday =
+    sunCurveToday.rise === null && sunCurveToday.set === null;
+  // Once today itself has no crossing, none of the aggregated window/tier
+  // fields below may be shown as if they were today's -- they can still hold
+  // an adjacent day's values.
+  const ownWindowForDisplay = isNoWindowToday ? null : ownWindow;
+  const nextWindowValue = isNoWindowToday
+    ? sunCurveToday.dayState.nextTransition
+      ? sunCurveToday.dayState.nextTransition.toISOString().slice(0, 10)
+      : "—"
+    : nextWindowEvent
+      ? bothClocks(nextWindowEvent.at, zone)
+      : "—";
+  const bandLabel = (band: string) =>
+    isNoWindowToday ? "INACTIVE" : bandTierLabel(band, status);
   const tone: "warn" | "accent" | "info" =
     status.intensity === "peak" || status.intensity === "enhanced"
       ? "warn"
@@ -413,11 +442,11 @@ export function GreyLineReport({ open, onClose }: GreyLineReportProps) {
         ? "accent"
         : "info";
   const stateWord = greylineStateWord(status);
-  const timeLeftMin = ownWindow
-    ? now.getTime() < ownWindow.end.getTime() &&
-      now.getTime() >= ownWindow.start.getTime()
-      ? (ownWindow.end.getTime() - now.getTime()) / 60_000
-      : (ownWindow.start.getTime() - now.getTime()) / 60_000
+  const timeLeftMin = ownWindowForDisplay
+    ? now.getTime() < ownWindowForDisplay.end.getTime() &&
+      now.getTime() >= ownWindowForDisplay.start.getTime()
+      ? (ownWindowForDisplay.end.getTime() - now.getTime()) / 60_000
+      : (ownWindowForDisplay.start.getTime() - now.getTime()) / 60_000
     : null;
 
   const hero = isNoWindowToday
@@ -438,22 +467,23 @@ export function GreyLineReport({ open, onClose }: GreyLineReportProps) {
   const facts: WallReportFact[] = [
     {
       label: "WINDOW START",
-      value: ownWindow ? bothClocks(ownWindow.start, zone) : "—",
+      value: ownWindowForDisplay
+        ? bothClocks(ownWindowForDisplay.start, zone)
+        : "—",
     },
     {
       label: "WINDOW END",
-      value: ownWindow ? bothClocks(ownWindow.end, zone) : "—",
+      value: ownWindowForDisplay
+        ? bothClocks(ownWindowForDisplay.end, zone)
+        : "—",
     },
     { label: "STATE", value: verdict },
     { label: "TIME LEFT", value: hero },
-    { label: "160M", value: bandTierLabel("160m", status) },
-    { label: "80M", value: bandTierLabel("80m", status) },
-    { label: "40M", value: bandTierLabel("40m", status) },
+    { label: "160M", value: bandLabel("160m") },
+    { label: "80M", value: bandLabel("80m") },
+    { label: "40M", value: bandLabel("40m") },
     { label: "TARGET OVERLAP", value: targetOverlapValue },
-    {
-      label: "NEXT WINDOW",
-      value: nextWindowEvent ? bothClocks(nextWindowEvent.at, zone) : "—",
-    },
+    { label: "NEXT WINDOW", value: nextWindowValue },
   ];
 
   const { footer, updated } = reportFooter(
@@ -478,41 +508,57 @@ export function GreyLineReport({ open, onClose }: GreyLineReportProps) {
       {isNoWindowToday && (
         <p className="hcr-note">
           No grey-line crossing at this latitude today
-          {polarNextTransition
-            ? `; the next one is ${polarNextTransition.toISOString().slice(0, 10)}.`
+          {sunCurveToday.dayState.nextTransition
+            ? `; the next one is ${sunCurveToday.dayState.nextTransition.toISOString().slice(0, 10)}.`
             : "."}
         </p>
       )}
       <div className="hcr-cols">
         <div className="hcr-box">
-          <h4>Window · {stateWord.toLowerCase()}</h4>
+          <h4>
+            Window ·{" "}
+            {isNoWindowToday ? "no crossing today" : stateWord.toLowerCase()}
+          </h4>
           <dl className="hcr-kv">
             <dt>START</dt>
-            <dd>{ownWindow ? bothClocks(ownWindow.start, zone) : "—"}</dd>
-            <dt>END</dt>
-            <dd>{ownWindow ? bothClocks(ownWindow.end, zone) : "—"}</dd>
-            <dt>NEXT WINDOW</dt>
             <dd>
-              {nextWindowEvent ? bothClocks(nextWindowEvent.at, zone) : "—"}
+              {ownWindowForDisplay
+                ? bothClocks(ownWindowForDisplay.start, zone)
+                : "—"}
             </dd>
+            <dt>END</dt>
+            <dd>
+              {ownWindowForDisplay
+                ? bothClocks(ownWindowForDisplay.end, zone)
+                : "—"}
+            </dd>
+            <dt>NEXT WINDOW</dt>
+            <dd>{nextWindowValue}</dd>
           </dl>
         </div>
         <div className="hcr-box">
           <h4>Low bands</h4>
           <dl className="hcr-kv">
             <dt>160M</dt>
-            <dd>{bandTierLabel("160m", status)}</dd>
+            <dd>{bandLabel("160m")}</dd>
             <dt>80M</dt>
-            <dd>{bandTierLabel("80m", status)}</dd>
+            <dd>{bandLabel("80m")}</dd>
             <dt>40M</dt>
-            <dd>{bandTierLabel("40m", status)}</dd>
+            <dd>{bandLabel("40m")}</dd>
           </dl>
           <p className="hcr-note">
             {target
               ? `Mutual overlap with the DX target: ${targetOverlapValue.toLowerCase()}.`
               : "Pick a DX target on the map to see the mutual grey-line overlap window."}
           </p>
-          <button type="button" className="hcr-link-button" onClick={onClose}>
+          <button
+            type="button"
+            className="hcr-link-button"
+            onClick={() => {
+              if (!terminatorEnabled) toggleLayer("terminator");
+              closeToMap();
+            }}
+          >
             SHOW TERMINATOR
           </button>
         </div>
@@ -520,7 +566,7 @@ export function GreyLineReport({ open, onClose }: GreyLineReportProps) {
       <GreylineIntensityChart
         curve={intensityCurve}
         now={now}
-        ownWindow={ownWindow}
+        ownWindow={ownWindowForDisplay}
         mutualWindow={mutualWindow}
         status={status}
       />

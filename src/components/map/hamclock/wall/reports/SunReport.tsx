@@ -27,14 +27,67 @@ const TWILIGHT_LABEL: Record<TwilightPhase, string> = {
   astronomical: "Astronomical",
 };
 
-/** Every twilight band's CSS class, narrowest (civil) to widest
- * (astronomical) — the chart paints them in this order so the widest band
- * only shows through at the outer edges. */
-const TWILIGHT_BAND_ORDER: TwilightPhase[] = [
-  "astronomical",
-  "nautical",
-  "civil",
-];
+/** One shaded interval on the elevation chart: a single twilight phase on a
+ * single side of the day (morning, before sunrise, or evening, after
+ * sunset) — never the whole daytime span between them. */
+interface TwilightBand {
+  phase: TwilightPhase;
+  edge: "morning" | "evening";
+  start: Date;
+  end: Date;
+}
+
+function bounded(
+  phase: TwilightPhase,
+  edge: TwilightBand["edge"],
+  start: Date | null,
+  end: Date | null,
+): TwilightBand | null {
+  if (!start || !end || end.getTime() <= start.getTime()) return null;
+  return { phase, edge, start, end };
+}
+
+/**
+ * The six shaded intervals a day can show: each phase's boundary nests
+ * inside the next (`TwilightWindow.start`/`end` in `sunCurve.ts` span dawn to
+ * dusk, i.e. that phase's *entire* daytime-inclusive span), so the actual
+ * twilight band is only the sliver between one phase's boundary and the
+ * next, split into a morning half (ending at the narrower boundary or
+ * sunrise) and an evening half (starting at the narrower boundary or
+ * sunset). A boundary the day doesn't reach (near the poles, one or more
+ * phases can be missing, or the sun may never set at all) simply drops that
+ * band rather than guessing a span for it.
+ */
+function twilightBands(curve: SunCurve): TwilightBand[] {
+  const civil = curve.twilights.find((w) => w.phase === "civil") ?? null;
+  const nautical = curve.twilights.find((w) => w.phase === "nautical") ?? null;
+  const astronomical =
+    curve.twilights.find((w) => w.phase === "astronomical") ?? null;
+
+  return [
+    bounded(
+      "astronomical",
+      "morning",
+      astronomical?.start ?? null,
+      nautical?.start ?? null,
+    ),
+    bounded(
+      "nautical",
+      "morning",
+      nautical?.start ?? null,
+      civil?.start ?? null,
+    ),
+    bounded("civil", "morning", civil?.start ?? null, curve.rise),
+    bounded("civil", "evening", curve.set, civil?.end ?? null),
+    bounded("nautical", "evening", civil?.end ?? null, nautical?.end ?? null),
+    bounded(
+      "astronomical",
+      "evening",
+      nautical?.end ?? null,
+      astronomical?.end ?? null,
+    ),
+  ].filter((band): band is TwilightBand => band !== null);
+}
 
 /** "07:12 / 12:12Z" — local and UTC together, per the style guide's clock
  * rule (section 6): a wall reader must never see one without the other. */
@@ -103,6 +156,7 @@ function SunElevationChart({ curve, now }: { curve: SunCurve; now: Date }) {
   };
 
   const clampX = (t: number) => Math.min(dayEnd, Math.max(dayStart, t));
+  const bands = twilightBands(curve);
 
   return (
     <figure className="mt-4 min-w-0 border-t border-white/10 pt-3">
@@ -119,20 +173,21 @@ function SunElevationChart({ curve, now }: { curve: SunCurve; now: Date }) {
           Sun elevation over 24 hours UTC, with civil, nautical and astronomical
           twilight shaded and the current hour marked.
         </title>
-        {TWILIGHT_BAND_ORDER.map((phase) => {
-          const window = curve.twilights.find((w) => w.phase === phase);
-          if (!window?.start || !window.end) return null;
-          const bandX = x(clampX(window.start.getTime()));
-          const bandEnd = x(clampX(window.end.getTime()));
+        {bands.map((band) => {
+          const bandX = x(clampX(band.start.getTime()));
+          const bandEnd = x(clampX(band.end.getTime()));
           if (bandEnd <= bandX) return null;
           return (
             <rect
-              key={phase}
+              key={`${band.phase}-${band.edge}`}
+              data-band={`${band.phase}-${band.edge}`}
+              data-start={band.start.toISOString()}
+              data-end={band.end.toISOString()}
               x={bandX}
               y={top}
               width={bandEnd - bandX}
               height={height - top - bottom}
-              fill={`rgb(var(--hc-info-rgb) / ${bandOpacity[phase]})`}
+              fill={`rgb(var(--hc-info-rgb) / ${bandOpacity[band.phase]})`}
             />
           );
         })}
@@ -388,7 +443,14 @@ export function SunReport({ open, onClose }: SunReportProps) {
       <SunElevationChart curve={curve} now={now} />
       {greylineOpen && (
         <Suspense fallback={null}>
-          <GreyLineReport open onClose={() => setGreylineOpen(false)} />
+          <GreyLineReport
+            open
+            onClose={() => setGreylineOpen(false)}
+            onCloseAll={() => {
+              setGreylineOpen(false);
+              onClose();
+            }}
+          />
         </Suspense>
       )}
     </WallReport>

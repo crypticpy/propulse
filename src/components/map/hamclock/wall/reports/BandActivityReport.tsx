@@ -1,62 +1,72 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useBandActivity, scopeQueryString } from "@/hooks/useBandActivity";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
-import { getBandColor } from "@/lib/utils/spotColors";
+import { useBandHistory } from "@/hooks/useBandHistory";
+import { useMapStore } from "@/stores/mapStore";
 import { WallReport, type WallReportFact } from "./WallReport";
-import { useHamClockSessionTrend } from "./sessionTrend";
 import { reportFooter } from "../tokens";
-import { WallSeriesChart } from "./WallSeriesChart";
+import { HamClockButton, HamClockTabs } from "../controls";
+import { BandHistoryChart } from "./BandHistoryChart";
+import { BandTopDx } from "./BandTopDx";
 
 export interface BandActivityReportProps {
   open: boolean;
   onClose: () => void;
+  initialGlobalCounts?: boolean;
 }
 
-/**
- * Every band the activity feed can see, not just the six the tile has room
- * for. Counts are the trailing 60 minutes in the scope the Band Health ladder
- * is using, so the report describes exactly the population of spots the rail
- * is scoring.
- */
-export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
-  const { scope, activityScope } = useBandVerdicts();
-  const { data, isPending, isError } = useBandActivity(activityScope);
-
-  const bars = useMemo(() => {
-    const entries = [...(data?.values() ?? [])].filter(
-      (entry) => entry.count60m > 0,
-    );
-    entries.sort((a, b) => b.count60m - a.count60m);
-    return entries;
-  }, [data]);
-
-  const top = bars[0] ?? null;
-  const split = Math.ceil(bars.length / 2);
-  const total = bars.reduce((sum, entry) => sum + entry.count60m, 0);
-  const fetchedAt = data?.fetchedAt ?? null;
-
-  const activityScopeKey = `${activityScope.type}${scopeQueryString(activityScope)}`;
-  const trend = useHamClockSessionTrend(
-    `band-activity-${activityScopeKey}`,
-    bars.length > 0 ? total : null,
-    fetchedAt ?? undefined,
+/** Live counters retain their scope and population; historical counts are global only. */
+export function BandActivityReport({ open, onClose, initialGlobalCounts = false }: BandActivityReportProps) {
+  const { scope: activeScope, activityScope: activeActivityScope } = useBandVerdicts();
+  const [globalCounts, setGlobalCounts] = useState(initialGlobalCounts);
+  const scope = globalCounts ? { label: "Global" } : activeScope;
+  const activityScope = globalCounts ? { type: "global" as const } : activeActivityScope;
+  const { data, isPending, isError } = useBandActivity(activityScope, open);
+  const history = useBandHistory(open && activityScope.type === "global");
+  const bars = useMemo(
+    () =>
+      [...(data?.values() ?? [])]
+        .filter((entry) => entry.count60m > 0)
+        .sort((a, b) => b.count60m - a.count60m),
+    [data],
   );
-
+  const sources = useMemo(() => {
+    const result: Record<string, number> = {
+      pskreporter: 0,
+      rbn: 0,
+      dxcluster: 0,
+    };
+    for (const entry of data?.values() ?? []) {
+      for (const [source, count] of Object.entries(entry.sourceCounts60m ?? {}))
+        result[source] = (result[source] ?? 0) + count;
+    }
+    return Object.entries(result)
+      .map(
+        ([source, count]) =>
+          `${source.toUpperCase()} ${data ? count.toLocaleString() : "WAITING"}`,
+      )
+      .join(" · ");
+  }, [data]);
+  const modeCount = (mode: string) =>
+    [...(data?.values() ?? [])].reduce(
+      (sum, entry) => sum + (entry.modeObs20m?.[mode] ?? 0),
+      0,
+    );
+  const top = bars[0];
+  const total = bars.reduce((sum, entry) => sum + entry.count60m, 0);
+  const current10m = bars.reduce((sum, entry) => sum + entry.count10mRecent, 0);
+  const activityScopeKey = `${activityScope.type}${scopeQueryString(activityScope)}`;
   const facts: WallReportFact[] = [
-    { label: "TOTAL SPOTS", value: total.toLocaleString() },
-    { label: "BANDS OPEN", value: bars.length },
-    { label: "WINDOW", value: "60 MIN" },
-    { label: "SCOPE", value: scope.type.toUpperCase() },
-    {
-      label: "TOP SHARE",
-      value:
-        top && total > 0 ? `${Math.round((top.count60m / total) * 100)}%` : "—",
-    },
+    { label: "SPOTS · 60 MIN", value: data ? total.toLocaleString() : "—" },
+    { label: "ACTIVE BANDS", value: data ? bars.length : "—" },
+    { label: "CW OBS · 20 MIN", value: data ? modeCount("cw") : "—" },
+    { label: "PHONE OBS · 20 MIN", value: data ? modeCount("phone") : "—" },
+    { label: "DIGITAL · 20 MIN", value: data ? modeCount("digital") : "—" },
+    { label: "OTHER OBS · 20 MIN", value: data ? modeCount("unknown") : "—" },
   ];
-
   const { footer, updated } = reportFooter(
-    "LIVE ACTIVITY FEED · TRAILING 60 MINUTES",
-    fetchedAt,
+    "LIVE ACTIVITY · RAW 60 MIN / DEDUPED MODES 20 MIN",
+    data?.fetchedAt,
   );
 
   return (
@@ -66,80 +76,101 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
       title={`Band activity report · ${scope.label}`}
       tone="accent"
       hero={top ? top.band.toUpperCase() : "—"}
-      verdict={top ? top.count60m.toLocaleString() : "QUIET"}
+      verdict={
+        isError ? "FEED OFF" : isPending ? "WAITING" : top ? "LEADS" : "QUIET"
+      }
       facts={facts}
       footer={footer}
       updated={updated}
       pinId={`band-activity-${activityScopeKey}`}
-      pinElement={<BandActivityReport open onClose={onClose} />}
+      pinElement={<BandActivityReport open onClose={onClose} initialGlobalCounts={globalCounts} />}
     >
-      <div className="hcr-box">
-        <h4>All bands · spots in the last 60 minutes</h4>
-        {bars.length === 0 ? (
-          <p className="hcr-note">
-            {isError
-              ? "The activity feed is unavailable right now."
-              : isPending
-                ? "Counting spots…"
-                : "No spots reported in this scope yet."}
-          </p>
-        ) : (
-          // Two equal columns, column-major (busiest bands down the left):
-          // a dozen open bands then take six rows, leaving the session chart
-          // its slot at 1080p (#250).
-          <div className="hcr-cols hcr-cols--even">
-            {[bars.slice(0, split), bars.slice(split)].map(
-              (half, index) =>
-                half.length > 0 && (
-                  <div className="hcr-bars" key={index}>
-                    {half.map((entry) => (
-                      <BandRow
-                        key={entry.band}
-                        entry={entry}
-                        top={top?.count60m ?? 1}
-                      />
-                    ))}
-                  </div>
-                ),
-            )}
-          </div>
-        )}
-      </div>
-      <div className="hcr-chart">
-        <p className="hcr-chart-title">TOTAL SPOTS — 2 H · SESSION</p>
-        <WallSeriesChart
-          label="TOTAL SPOTS — 2 H · SESSION"
-          points={trend}
-          unit="spots"
-          maxGapMs={10 * 60 * 1000}
-        />
-      </div>
+      {activeActivityScope.type !== "global" && (
+        <HamClockButton onClick={() => setGlobalCounts((value) => !value)}>
+          {globalCounts ? `USE ${activeScope.label.toUpperCase()}` : "VIEW GLOBAL COUNTS + HISTORY"}
+        </HamClockButton>
+      )}
+      <HamClockTabs
+        label="Band activity views"
+        tabs={[
+          {
+            id: "bands",
+            label: "BANDS",
+            content: (
+              <>
+                <div className="hcr-band-focus">
+                  {bars.map((entry) => (
+                    <HamClockButton
+                      key={entry.band}
+                      onClick={() => {
+                        const map = useMapStore.getState();
+                        map.setSpotFilters({
+                          ...map.spotFilters,
+                          bands: [entry.band],
+                        });
+                      }}
+                    >
+                      {entry.band.toUpperCase()} ·{" "}
+                      {entry.count60m.toLocaleString()}
+                    </HamClockButton>
+                  ))}
+                </div>
+                <p className="hcr-chart-title">{sources}</p>
+                {bars.length === 0 && (
+                  <p className="hcr-note">
+                    {isError
+                      ? "The activity feed is unavailable right now."
+                      : isPending
+                        ? "Counting spots…"
+                        : "NO SPOTS IN WINDOW · 60 MIN"}
+                  </p>
+                )}
+                <p className="hcr-chart-title">
+                  LIVE · LAST 10 MIN{" "}
+                  {data ? current10m.toLocaleString() : "WAITING"} ·{" "}
+                  {scope.label}
+                </p>
+              </>
+            ),
+          },
+          {
+            id: "history",
+            label: "HISTORY",
+            content: (
+              <>
+                {activityScope.type !== "global" ? (
+                  <p className="hcr-note">
+                    Six-hour history is unavailable for this scope. Global
+                    hourly totals are not substituted for regional or path
+                    observations.
+                  </p>
+                ) : history.data ? (
+                  <>
+                    {history.isError && (
+                      <p className="hcr-note">
+                        History refresh failed; showing the last successful
+                        read.
+                      </p>
+                    )}
+                    <BandHistoryChart snapshot={history.data} />
+                    <p className="hcr-chart-title">
+                      HISTORY THROUGH {history.data.windowEnd.slice(11, 16)}Z ·
+                      READ {history.data.fetchedAt.slice(11, 16)}Z
+                    </p>
+                  </>
+                ) : (
+                  <p className="hcr-note">
+                    {history.isError
+                      ? "BAND HISTORY UNAVAILABLE"
+                      : "READING SIX-HOUR HISTORY"}
+                  </p>
+                )}
+              </>
+            ),
+          },
+          { id: "dx", label: "TOP DX", content: <BandTopDx /> },
+        ]}
+      />
     </WallReport>
-  );
-}
-
-/** One band row: band key, proportional bar, count. */
-function BandRow({
-  entry,
-  top,
-}: {
-  entry: { band: string; count60m: number };
-  top: number;
-}) {
-  return (
-    <>
-      <span className="hcr-bars-k" style={{ color: getBandColor(entry.band) }}>
-        {entry.band}
-      </span>
-      <span className="hcr-bar">
-        <i
-          style={{
-            width: `${Math.max(2, (entry.count60m / top) * 100)}%`,
-            color: getBandColor(entry.band),
-          }}
-        />
-      </span>
-      <span className="hcr-bars-v">{entry.count60m.toLocaleString()}</span>
-    </>
   );
 }

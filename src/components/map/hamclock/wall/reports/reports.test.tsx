@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   target: vi.fn(),
 }));
 
+vi.mock("@/hooks/useBandHistory", () => ({ useBandHistory: () => ({ data: undefined, isError: false }) }));
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
 vi.mock("@/hooks/useBandActivity", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/useBandActivity")>()),
@@ -127,7 +128,7 @@ describe("wall reports", () => {
     expect(dialog.className).toContain("hcr");
     // Hero, verdict and one fact, at report size.
     expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
-    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("470");
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("LEADS");
     // The total also appears in the chart's screen-reader table twin.
     expect(dialog.querySelector(".hcr-facts")?.textContent).toContain("886");
   });

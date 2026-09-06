@@ -949,3 +949,60 @@
   margin-bottom: 1vh;
 }
 /* ===== end B21 ===== */
+
+/* ===== B25: Solar imagery strip + X-ray flare list ===== */
+/* The Solar report's NOW-tab AIA/HMI frame pair: a fixed-height row above
+ * the SFI chart, sized by height (not width) so it never crowds the chart
+ * out of the tab's flexible slot. */
+.hcr-imagery-strip {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1.4vw;
+  height: 22vh;
+  min-height: 0;
+}
+.hcr-imagery-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4vh;
+  min-width: 0;
+}
+.hcr-imagery-media {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+}
+.hcr-imagery-media img {
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1;
+  display: block;
+  object-fit: cover;
+  border: 1px solid var(--hc-line);
+  border-radius: max(2px, calc(var(--hc-radius) * 0.6));
+}
+.hcr-imagery-label,
+.hcr-imagery-caption {
+  flex: 0 0 auto;
+  font-family: var(--hc-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hcr-imagery-label {
+  font-size: 1.2vh;
+  color: var(--hc-dim);
+}
+.hcr-imagery-caption {
+  font-size: 1.1vh;
+  color: var(--hc-dim2);
+}
+
+/* The X-ray report's "Flares · 24 h" box sits under the flexible FLUX chart
+ * at a fixed height, so a busy window (many flares) never grows the report
+ * -- only the whole rows `useVisibleRows` measures inside that cap render. */
+.hcr-flarebox {
+  max-height: 18vh;
+  overflow: hidden;
+}
+/* ===== end B25 ===== */

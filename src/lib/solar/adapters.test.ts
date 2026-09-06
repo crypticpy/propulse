@@ -17,6 +17,7 @@ import {
   adaptWindMag,
   adaptWindPlasma,
   adaptXray,
+  adaptXrayFlares,
 } from "./adapters";
 import {
   alerts,
@@ -231,5 +232,42 @@ describe("solar provider adapters", () => {
     expect(adaptCme([]).data).toEqual([]);
     expect(adaptCme(cme).data[0]?.speed).toBe(650);
     expect(() => adaptCme([{ ...cme[0], latitude: 200 }])).toThrow(/no usable/i);
+  });
+
+  it("sorts flares newest first, resolves an unassigned region to null, and allows a legitimate empty week", () => {
+    const rows = [
+      {
+        time_tag: "2026-07-15T17:39:00Z",
+        current_class: "B3.9",
+        begin_time: "2026-07-15T17:03:00Z",
+        max_time: "2026-07-15T17:14:00Z",
+        max_class: "C1.5",
+        end_time: "2026-07-15T17:24:00Z",
+        region: 4136,
+      },
+      {
+        time_tag: "2026-07-15T18:39:00Z",
+        current_class: "M1.0",
+        begin_time: "2026-07-15T18:03:00Z",
+        max_time: "2026-07-15T18:14:00Z",
+        max_class: "M1.0",
+        end_time: "2026-07-15T18:24:00Z",
+        region: 0,
+      },
+    ];
+
+    const result = adaptXrayFlares(rows);
+    expect(result.data.map((flare) => flare.maxClass)).toEqual([
+      "M1.0",
+      "C1.5",
+    ]);
+    expect(result.data[0]?.region).toBeNull();
+    expect(result.data[1]?.region).toBe("4136");
+    expect(result.observedAt).toBe("2026-07-15T18:14:00.000Z");
+
+    expect(adaptXrayFlares([]).data).toEqual([]);
+    expect(() => adaptXrayFlares([{ ...rows[0], max_class: "" }])).toThrow(
+      /no usable/i,
+    );
   });
 });

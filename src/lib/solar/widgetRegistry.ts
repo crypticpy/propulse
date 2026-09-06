@@ -67,6 +67,7 @@ export const SOLAR_WIDGETS: readonly SolarWidgetDefinition[] = [
   widget({ id: "xray-24h", title: "24-hour X-ray flux", group: "wall", requiredSources: ["noaa-xray-24h"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "xray-24h", detailModal: "none", refresh: "source" }),
   widget({ id: "bz-24h", title: "24-hour IMF Bz", group: "wall", requiredSources: ["noaa-magnetometer-24h"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "bz-24h", detailModal: "none", refresh: "source" }),
   widget({ id: "flux-outlook", title: "27-day solar and geomagnetic outlook", group: "wall", requiredSources: ["noaa-flux-outlook"], desktopPlacement: "secondary", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "flux-outlook", detailModal: "none", refresh: "source" }),
+  widget({ id: "xray-flares-7d", title: "7-day X-ray flare list", group: "wall", requiredSources: ["swpc-xray-flares-7d"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "xray-flares-7d", detailModal: "none", refresh: "source", emptyPolicy: "successful-empty" }),
 ];
 
 export function sourceIdsForVisibleGroups(

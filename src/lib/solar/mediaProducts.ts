@@ -4,7 +4,9 @@ export type SolarImageProductId =
   | "drap-20mhz"
   | "aurora-north"
   | "synoptic-map"
-  | "sunspot-hmi";
+  | "sunspot-hmi"
+  | "aia-193"
+  | "hmi-magnetogram";
 
 export type SolarAnimationProductId = "drap-global" | "aurora-north";
 
@@ -93,6 +95,33 @@ export const SOLAR_IMAGE_PRODUCTS: Record<SolarImageProductId, SolarImageProduct
     provider: "NASA SDO",
     sourceUrl: "https://sdo.gsfc.nasa.gov/data/",
     upstreamUrl: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg",
+    softTtlSeconds: 300,
+    hardTtlSeconds: 86_400,
+    maxBytes: 6_000_000,
+  },
+  "aia-193": {
+    id: "aia-193",
+    title: "SDO AIA 193 Å coronal holes",
+    description:
+      "Latest SDO AIA 193 Å extreme-ultraviolet image showing coronal holes.",
+    alt: "NASA SDO AIA 193 angstrom full solar disk showing coronal holes",
+    provider: "NASA SDO",
+    sourceUrl: "https://sdo.gsfc.nasa.gov/data/",
+    upstreamUrl:
+      "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg",
+    softTtlSeconds: 300,
+    hardTtlSeconds: 86_400,
+    maxBytes: 6_000_000,
+  },
+  "hmi-magnetogram": {
+    id: "hmi-magnetogram",
+    title: "SDO HMI magnetogram",
+    description: "Latest SDO HMI line-of-sight magnetogram of the solar disk.",
+    alt: "NASA SDO HMI full solar disk magnetogram showing magnetic polarity",
+    provider: "NASA SDO",
+    sourceUrl: "https://sdo.gsfc.nasa.gov/data/",
+    upstreamUrl:
+      "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIB.jpg",
     softTtlSeconds: 300,
     hardTtlSeconds: 86_400,
     maxBytes: 6_000_000,

@@ -333,6 +333,26 @@ export const SOLAR_SOURCE_POLICIES: Record<
     group: "impacts",
     freshnessBasis: "fetchedAt",
   }),
+  "swpc-xray-flares-7d": policy({
+    id: "swpc-xray-flares-7d",
+    label: "X-ray flares (7 day)",
+    provider: "NOAA SWPC",
+    product: "7-day GOES X-ray flare list",
+    endpoint: "/api/solar/xray-flares",
+    sourceUrl:
+      "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json",
+    softTtlMs: 5 * MINUTE,
+    hardTtlMs: 30 * MINUTE,
+    refetchMs: 5 * MINUTE,
+    maxRows: 60,
+    maxUpstreamBytes: 512_000,
+    maxBytes: 24_000,
+    criticality: "supporting",
+    group: "details",
+    // A quiet week can leave the newest flare hours old; that is current
+    // data, not a stale feed.
+    freshnessBasis: "fetchedAt",
+  }),
   "swpc-solar-wind-mag": policy({
     id: "swpc-solar-wind-mag",
     label: "Solar-wind magnetic field",
@@ -394,6 +414,7 @@ export const SOLAR_QUERY_KEYS: Record<
   "swpc-scales": ["solar", "v1", "scales"],
   "swpc-alerts": ["solar", "v1", "alerts"],
   "swpc-xray-latest": ["solar", "v1", "xray-latest"],
+  "swpc-xray-flares-7d": ["solar", "v1", "xray-flares-7d"],
   "swpc-solar-wind-mag": ["solar", "v1", "wind-mag"],
   "swpc-solar-wind-plasma": ["solar", "v1", "wind-plasma"],
 };

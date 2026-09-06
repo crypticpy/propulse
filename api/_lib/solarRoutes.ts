@@ -18,6 +18,7 @@ import scales from "../solar/scales";
 import sunspots from "../solar/sunspots";
 import windMag from "../solar/wind-mag";
 import windPlasma from "../solar/wind-plasma";
+import xrayFlares from "../solar/xray-flares";
 import xrayLatest from "../solar/xray-latest";
 import xray from "../solar/xray";
 import xray24h from "../solar/xray-24h";
@@ -46,6 +47,7 @@ export const SOLAR_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/solar/sunspots": sunspots,
   "/api/solar/wind-mag": windMag,
   "/api/solar/wind-plasma": windPlasma,
+  "/api/solar/xray-flares": xrayFlares,
   "/api/solar/xray-latest": xrayLatest,
   "/api/solar/xray": xray,
   "/api/solar/xray-24h": xray24h,

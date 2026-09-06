@@ -16,6 +16,9 @@ import {
   getSolarCyclePosition,
   getSolarCycleTrend,
 } from "@/lib/data/historicalPropagation";
+import { getSubsolarPoint } from "@/lib/utils/sun";
+import { useMapStore } from "@/stores/mapStore";
+import { SolarImageryStrip } from "./SolarImageryStrip";
 import { WallSeriesChart } from "./WallSeriesChart";
 import { HamClockTabs } from "../controls";
 import { reportFooter } from "../tokens";
@@ -51,6 +54,7 @@ export interface SolarReportProps {
  */
 export function SolarReport({ open, onClose }: SolarReportProps) {
   const [tab, setTab] = useState<"now" | "cycle">("now");
+  const setCenterLocation = useMapStore((s) => s.setCenterLocation);
 
   const fluxQuery = useSolarResource<SolarFluxPoint[]>("noaa-solar-flux");
   const outlookQuery = useFluxOutlook();
@@ -188,15 +192,29 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
             id: "now",
             label: "NOW",
             content: (
-              <div className="hcr-chart">
-                <p className="hcr-chart-title">SFI — 30 D · NOAA SWPC</p>
-                <WallSeriesChart
-                  label="SFI — 30 D · NOAA SWPC"
-                  points={nowChartPoints}
-                  unit="sfu"
-                  maxGapMs={36 * 3_600_000}
-                />
-              </div>
+              <>
+                <SolarImageryStrip />
+                <div className="hcr-chart">
+                  <p className="hcr-chart-title">SFI — 30 D · NOAA SWPC</p>
+                  <WallSeriesChart
+                    label="SFI — 30 D · NOAA SWPC"
+                    points={nowChartPoints}
+                    unit="sfu"
+                    maxGapMs={36 * 3_600_000}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="hcr-link-button"
+                  onClick={() => {
+                    const subsolar = getSubsolarPoint(new Date());
+                    setCenterLocation(subsolar.lat, subsolar.lon);
+                    onClose();
+                  }}
+                >
+                  SHOW SUB-SOLAR POINT
+                </button>
+              </>
             ),
           },
           {

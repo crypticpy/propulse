@@ -2,13 +2,17 @@ import { useMemo } from "react";
 import { useSolarResource } from "@/hooks/useSolarResource";
 import { useXray24h, useProbabilities } from "@/hooks/useSolarData";
 import { useDRAPData } from "@/hooks/useSolarExpanded";
+import type { XrayFlareEvent } from "@/lib/solar/adapters";
 import type { LatestXrayFlare, NoaaScalesProduct } from "@/lib/solar/dataTypes";
 import { latestByTime, xrayClass } from "@/lib/solar/selectors";
 import { useMapStore } from "@/stores/mapStore";
+import { useVisibleRows } from "../useVisibleRows";
 import { WallSeriesChart } from "./WallSeriesChart";
 import { HamClockButton, HamClockTabs } from "../controls";
 import { reportFooter, reportTone, xrayTone } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
+
+const FLARE_WINDOW_MS = 24 * 60 * 60_000;
 
 const XRAY_THRESHOLDS = [
   { value: 1e-7, label: "B" },
@@ -51,6 +55,7 @@ export function XrayReport({
   const latestFlareQuery =
     useSolarResource<LatestXrayFlare>("swpc-xray-latest");
   const scalesQuery = useSolarResource<NoaaScalesProduct>("swpc-scales");
+  const flaresQuery = useSolarResource<XrayFlareEvent[]>("swpc-xray-flares-7d");
   const drapQuery = useDRAPData();
   const probabilitiesQuery = useProbabilities();
   const layers = useMapStore((state) => state.layers);
@@ -83,8 +88,14 @@ export function XrayReport({
           ? "ACTIVE SUN"
           : "QUIET SUN";
 
-  const noFlaresAboveB =
-    !peak || peakLabel.charAt(0) === "A" || peakLabel.charAt(0) === "B";
+  const flares24h = useMemo(() => {
+    const all = flaresQuery.data?.envelope.data ?? [];
+    const cutoff = Date.now() - FLARE_WINDOW_MS;
+    return all.filter((flare) => Date.parse(flare.maxTime) >= cutoff);
+  }, [flaresQuery.data]);
+  const [flareListRef, visibleFlares] = useVisibleRows<HTMLDivElement>(
+    flares24h.length,
+  );
 
   // The hero already reads the current class; a CURRENT fact repeated it.
   const facts: WallReportFact[] = [
@@ -142,30 +153,57 @@ export function XrayReport({
             id: "flux",
             label: "FLUX",
             content: (
-              <div className="hcr-chart">
-                <p className="hcr-chart-title">X-RAY FLUX — 24 H · GOES · LOG SCALE</p>
-                <WallSeriesChart
-                  label="X-RAY FLUX — 24 H · GOES · LOG SCALE"
-                  points={(points ?? []).map((point) => ({
-                    timestamp: point.time_tag,
-                    value: point.flux,
-                  }))}
-                  unit="W/m²"
-                  scale="log"
-                  min={1e-8}
-                  max={1e-3}
-                  maxGapMs={300_000}
-                  thresholds={XRAY_THRESHOLDS}
-                  markers={
-                    flare
-                      ? [{ timestamp: flare.max_time, label: flare.max_class }]
-                      : []
-                  }
-                />
-                {noFlaresAboveB && (
-                  <p className="hcr-note">NO FLARES ABOVE B IN 24H</p>
-                )}
-              </div>
+              <>
+                <div className="hcr-chart">
+                  <p className="hcr-chart-title">X-RAY FLUX — 24 H · GOES · LOG SCALE</p>
+                  <WallSeriesChart
+                    label="X-RAY FLUX — 24 H · GOES · LOG SCALE"
+                    points={(points ?? []).map((point) => ({
+                      timestamp: point.time_tag,
+                      value: point.flux,
+                    }))}
+                    unit="W/m²"
+                    scale="log"
+                    min={1e-8}
+                    max={1e-3}
+                    maxGapMs={300_000}
+                    thresholds={XRAY_THRESHOLDS}
+                    markers={
+                      flare
+                        ? [{ timestamp: flare.max_time, label: flare.max_class }]
+                        : []
+                    }
+                  />
+                </div>
+                <div className="hcr-box hcr-flarebox">
+                  <h4>
+                    Flares · 24 h
+                    {visibleFlares < flares24h.length
+                      ? ` · top ${visibleFlares} of ${flares24h.length}`
+                      : ""}
+                  </h4>
+                  {flares24h.length === 0 ? (
+                    <p className="hcr-empty">NO FLARES ABOVE B IN 24H</p>
+                  ) : (
+                    <div className="hcr-list" ref={flareListRef}>
+                      {flares24h.slice(0, visibleFlares).map((flareEvent) => (
+                        <div
+                          key={`${flareEvent.maxTime}-${flareEvent.maxClass}`}
+                          className="hcr-item"
+                        >
+                          <b>{flareEvent.maxClass}</b>
+                          <span>
+                            {flareEvent.maxTime.slice(11, 16)}Z ·{" "}
+                            {flareEvent.region
+                              ? `AR ${flareEvent.region}`
+                              : "—"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
             ),
           },
           {

@@ -62,6 +62,10 @@ SOURCE_MAX_AGE_SECONDS = {
     "dst": 2 * 60 * 60,
     "f107": 2 * 24 * 60 * 60,
     "sunspot_number": 45 * 24 * 60 * 60,
+    # GFZ Hp60 is an hourly index published ~1 h after the hour it covers;
+    # 3 h gives room for publication latency without treating a stale
+    # value as current.
+    "hp60": 3 * 60 * 60,
 }
 FAST_SOURCES = {"kp", "magnetic_field", "solar_wind", "proton_flux_10mev", "dst"}
 FIELD_DEFINITIONS = (
@@ -77,6 +81,7 @@ FIELD_DEFINITIONS = (
     ("sunspot_number", "sunspot_number", "sunspot_number"),
     ("proton_flux_10mev", "proton_flux_10mev", "proton_flux_10mev"),
     ("dst", "dst_index", "dst"),
+    ("hp60", "hp60", "hp60"),
 )
 SNAPSHOT_COLUMNS = (
     "captured_at",
@@ -92,6 +97,7 @@ SNAPSHOT_COLUMNS = (
     "sunspot_number",
     "proton_flux_10mev",
     "dst_index",
+    "hp60",
     "source_observed_at",
     "source_status",
 )

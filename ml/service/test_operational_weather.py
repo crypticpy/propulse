@@ -27,8 +27,13 @@ def row(
     wind_speed: float = 430.0,
     temperature: float = 120_000.0,
     density: float = 4.5,
+    hp60: float | None = 1.333,
+    hp60_observed_at: datetime | None = None,
 ) -> dict:
     timestamp = at.isoformat()
+    hp60_timestamp = (
+        (hp60_observed_at or at).isoformat() if hp60 is not None else None
+    )
     return {
         "captured_at": timestamp,
         "kp_index": kp,
@@ -43,6 +48,7 @@ def row(
         "sunspot_number": 110.0,
         "proton_flux_10mev": 0.2,
         "dst_index": dst,
+        "hp60": hp60,
         "source_observed_at": {
             "kp": timestamp,
             "f107": timestamp,
@@ -51,6 +57,7 @@ def row(
             "sunspot_number": timestamp,
             "proton_flux_10mev": timestamp,
             "dst": timestamp,
+            "hp60": hp60_timestamp,
         },
         "source_status": {
             "magnetic_field": {"active": True},
@@ -184,6 +191,44 @@ class OperationalWeatherTests(unittest.TestCase):
         self.assertEqual(result.values["bx_gsm"], 1.0)
         self.assertEqual(result.values["bz_gsm"], -6.0)
         self.assertEqual(result.available_at, last_receipt)
+
+    def test_hp60_restored_when_within_max_age(self) -> None:
+        snapshot = row(ISSUE, kp=3.0, bz=-2.0, dst=-10.0, hp60=1.667)
+
+        result = build_operational_weather([snapshot], ISSUE)
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result.values["hp60"], 1.667)
+
+    def test_hp60_absent_when_older_than_max_age(self) -> None:
+        # SOURCE_MAX_AGE_SECONDS["hp60"] is 3 hours; an index observed just
+        # past that window must not be trusted as current.
+        snapshot = row(
+            ISSUE,
+            kp=3.0,
+            bz=-2.0,
+            dst=-10.0,
+            hp60=1.667,
+            hp60_observed_at=ISSUE - timedelta(hours=3, minutes=1),
+        )
+
+        result = build_operational_weather([snapshot], ISSUE)
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertNotIn("hp60", result.values)
+
+    def test_hp60_absent_when_column_is_null(self) -> None:
+        # GFZ leaves the hour's Hp60 null until it is computed; the
+        # collector then records the column as null with no observed_at.
+        snapshot = row(ISSUE, kp=3.0, bz=-2.0, dst=-10.0, hp60=None)
+
+        result = build_operational_weather([snapshot], ISSUE)
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertNotIn("hp60", result.values)
 
     def test_postgrest_lookup_is_bounded_and_cached(self) -> None:
         requests = []

@@ -215,12 +215,13 @@ def power_bin_dbm(declared_power_watts: float) -> float:
 
     Mirrors ml/src/archive_v3/build_bronze.py line 66:
     ``round(tx_power_dbm / 5.0) * 5.0`` where dBm = 10*log10(watts*1000).
-    DuckDB's ``round()`` rounds half away from zero (round-half-up for the
-    positive dBm values seen in practice); ``math.floor(x + 0.5)`` matches
-    that instead of Python's round-half-to-even ``round()``.
+    DuckDB's ``round()`` rounds half away from zero on both sides of zero,
+    so the sign is split off and ``math.floor(|x| + 0.5)`` is applied to the
+    magnitude instead of Python's round-half-to-even ``round()``.
     """
     dbm = 10 * math.log10(declared_power_watts * 1000)
-    return math.floor(dbm / 5 + 0.5) * 5
+    bins = dbm / 5
+    return math.copysign(math.floor(abs(bins) + 0.5), bins) * 5
 
 
 def build_geometry_time_features(

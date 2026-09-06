@@ -20,6 +20,7 @@ import joblib
 import numpy as np
 import xgboost as xgb
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -269,7 +270,10 @@ class ReferenceRequest(StrictModel):
     issue_time: datetime
     valid_time: datetime
     band: str
-    declared_power_watts: float = Field(gt=0)
+    # Same finite, bounded contract as the propagation proxy
+    # (api/_lib/propagationProxy.ts): an overflowed JSON number would
+    # otherwise parse as +inf and reach math.floor() as a 500.
+    declared_power_watts: float = Field(gt=0, le=1_000_000, allow_inf_nan=False)
     paths: list[ReferencePathSpec] = Field(min_length=1, max_length=REFERENCE_MAX_PATHS)
 
     @field_validator("issue_time", "valid_time")
@@ -1280,6 +1284,22 @@ def create_app(
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+        # Report only the location, type, and message. FastAPI's default
+        # handler echoes the offending input, which turns a rejected
+        # non-finite number (e.g. an overflowed JSON literal parsed as inf)
+        # into a JSON-encoding failure and a 500 instead of a 422.
+        detail = [
+            {
+                "loc": list(error.get("loc", ())),
+                "type": error.get("type", "value_error"),
+                "msg": error.get("msg", "invalid value"),
+            }
+            for error in exc.errors()
+        ]
+        return JSONResponse(status_code=422, content={"detail": detail})
 
     @app.get("/v1/propagation/health")
     def health() -> dict[str, Any]:

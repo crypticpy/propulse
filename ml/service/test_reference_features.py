@@ -184,6 +184,15 @@ class MiscFeatureTests(unittest.TestCase):
         self.assertAlmostEqual(10 * math.log10(watts * 1000), 32.5, places=9)
         self.assertEqual(power_bin_dbm(watts), 35)
 
+    def test_power_bin_dbm_negative_half_boundary_rounds_away_from_zero(self):
+        # -7.5 dBm sits between the -5 and -10 bins; DuckDB's half-away-from-
+        # zero rounding gives -10, and a naive floor(x + 0.5) would give -5.
+        watts = 10 ** (-7.5 / 10) / 1000
+        self.assertAlmostEqual(10 * math.log10(watts * 1000), -7.5, places=9)
+        self.assertEqual(power_bin_dbm(watts), -10)
+        # An ordinary negative value still rounds to the nearest bin.
+        self.assertEqual(power_bin_dbm(10 ** (-6.0 / 10) / 1000), -5)
+
     def test_band_mhz_uses_the_v3_table(self):
         self.assertEqual(BAND_MHZ["20m"], 14.1)
         self.assertEqual(BAND_MHZ["15m"], 21.1)

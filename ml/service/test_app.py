@@ -1116,6 +1116,21 @@ class ReferenceEndpointTests(unittest.TestCase):
         response = self.client.post("/v1/propagation/reference", json=payload)
         self.assertEqual(response.status_code, 422)
 
+    def test_reference_rejects_non_finite_or_oversized_power(self):
+        # 1e309 overflows to +inf when parsed as a float; without
+        # allow_inf_nan=False it would reach math.floor() as a 500.
+        for raw in ("1e309", "1000001", "0"):
+            body = json.dumps(reference_payload()).replace(
+                '"declared_power_watts": 5', f'"declared_power_watts": {raw}'
+            )
+            self.assertIn(f'"declared_power_watts": {raw}', body)
+            response = self.client.post(
+                "/v1/propagation/reference",
+                content=body,
+                headers={"content-type": "application/json"},
+            )
+            self.assertEqual(response.status_code, 422, raw)
+
     def test_reference_rejects_too_many_paths(self):
         payload = reference_payload()
         payload["paths"] = [

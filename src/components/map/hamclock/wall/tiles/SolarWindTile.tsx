@@ -9,8 +9,10 @@ import { HamClockTile, TileSub } from "../HamClockTile";
 import { bzTone, windSpeedTone } from "../tokens";
 
 // The report is only worth its bytes once an operator opens it.
-const SolarReport = lazy(() =>
-  import("../reports/SolarReport").then((m) => ({ default: m.SolarReport })),
+const SolarWindReport = lazy(() =>
+  import("../reports/SolarWindReport").then((m) => ({
+    default: m.SolarWindReport,
+  })),
 );
 
 /** Displayed gauge span: below 250 km/s and above 800 km/s both peg the arc. */
@@ -71,8 +73,9 @@ export function ArcGauge({ fraction, value, label, tone }: ArcGaugeProps) {
 
 /** ACE/DSCOVR solar wind at L1: bulk speed and the IMF Bz component. */
 export function SolarWindTile() {
-  const plasmaQuery =
-    useSolarResource<SolarWindPlasmaPoint[]>("swpc-solar-wind-plasma");
+  const plasmaQuery = useSolarResource<SolarWindPlasmaPoint[]>(
+    "swpc-solar-wind-plasma",
+  );
   const magQuery = useSolarResource<SolarWindMagPoint[]>("swpc-solar-wind-mag");
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -94,7 +97,12 @@ export function SolarWindTile() {
     return (
       <HamClockTile title="Solar wind" source="L1">
         <div className="hc-gauges">
-          <ArcGauge fraction={0} value="—" label="KM/S · SPEED" tone="hc-dim-text" />
+          <ArcGauge
+            fraction={0}
+            value="—"
+            label="KM/S · SPEED"
+            tone="hc-dim-text"
+          />
           <ArcGauge fraction={0} value="—" label="nT · Bz" tone="hc-dim-text" />
         </div>
         <TileSub>
@@ -147,8 +155,10 @@ export function SolarWindTile() {
         state={state}
         onOpen={() => setReportOpen(true)}
         openLabel={`Solar wind ${
-          speed === null ? "unknown" : `${Math.round(speed)} kilometres per second`
-        }. Open the solar report`}
+          speed === null
+            ? "unknown"
+            : `${Math.round(speed)} kilometres per second`
+        }. Open the solar wind report`}
       >
         <div className="hc-gauges">
           <ArcGauge
@@ -176,7 +186,7 @@ export function SolarWindTile() {
 
       {reportOpen && (
         <Suspense fallback={null}>
-          <SolarReport open onClose={() => setReportOpen(false)} focus="wind" />
+          <SolarWindReport open onClose={() => setReportOpen(false)} />
         </Suspense>
       )}
     </>

@@ -57,4 +57,48 @@ describe("SolarSeriesChart inspection", () => {
     expect(screen.getByText("M")).not.toBeNull();
     expect(container.innerHTML).not.toMatch(/NaN|Infinity/);
   });
+
+  it("draws a labelled marker within range and announces it for screen readers", async () => {
+    const user = userEvent.setup();
+    render(
+      <SolarSeriesChart
+        points={points}
+        label="X-ray flux"
+        unit="W/m²"
+        markers={[{ timestamp: "2026-09-04T12:15:00Z", label: "M2.1" }]}
+      />,
+    );
+    expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
+      "Marker: M2.1 at 2026-09-04T12:15:00.000Z.",
+    );
+    expect(screen.getByText("M2.1")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show values" }));
+    expect(screen.getByText("Marker: M2.1")).not.toBeNull();
+  });
+  it("omits an out-of-range marker from both the chart and its announcement", () => {
+    render(
+      <SolarSeriesChart
+        points={points}
+        label="X-ray flux"
+        unit="W/m²"
+        markers={[{ timestamp: "2026-01-01T00:00:00Z", label: "X1.0" }]}
+      />,
+    );
+    expect(screen.getByRole("img").getAttribute("aria-label")).not.toContain(
+      "Marker:",
+    );
+    expect(screen.queryByText("X1.0")).toBeNull();
+  });
+
+  it('renders only the plot and an sr-only values table when chrome="plot"', () => {
+    const { container } = render(
+      <SolarSeriesChart points={points} label="Bz" unit="nT" chrome="plot" />,
+    );
+    expect(screen.getByRole("img")).not.toBeNull();
+    expect(screen.queryByRole("slider")).toBeNull();
+    expect(screen.queryByRole("button", { name: /show values/i })).toBeNull();
+    const table = screen.getByRole("table");
+    expect(table).not.toBeNull();
+    expect(container.querySelector(".sr-only table")).not.toBeNull();
+  });
 });

@@ -125,7 +125,7 @@ export function SpaceWxTile() {
 
       {reportOpen && (
         <Suspense fallback={null}>
-          <SolarReport open onClose={() => setReportOpen(false)} focus="kp" />
+          <SolarReport open onClose={() => setReportOpen(false)} />
         </Suspense>
       )}
     </>

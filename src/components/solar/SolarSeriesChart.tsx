@@ -6,6 +6,11 @@ export interface SolarChartPoint {
   value: number;
   kind?: "observed" | "estimated" | "predicted";
 }
+/** A single labelled instant to call out on the chart, e.g. the latest classified flare. */
+export interface SolarChartMarker {
+  timestamp: string;
+  label: string;
+}
 export interface SolarSeriesChartProps {
   points: SolarChartPoint[];
   label: string;
@@ -18,6 +23,16 @@ export interface SolarSeriesChartProps {
   maxGapMs?: number;
   thresholds?: Array<{ value: number; label: string }>;
   now?: number;
+  /** Optional labelled instants (e.g. the latest flare); additive — omitting
+   * it leaves the chart identical to before this prop existed. */
+  markers?: SolarChartMarker[];
+  /** `"full"` (default, unchanged /solar behaviour) keeps the legend,
+   * inspector slider and "Show values" toggle. `"plot"` renders only the
+   * SVG plus an always-present `sr-only` values table — for a wall report,
+   * where those TV-distance controls have no room and would otherwise be
+   * clipped rather than removed. Additive: omitting the prop is identical
+   * to before it existed. */
+  chrome?: "full" | "plot";
 }
 const styles = {
   observed: {
@@ -53,7 +68,10 @@ export function SolarSeriesChart({
   maxGapMs = Infinity,
   thresholds = [],
   now = Date.now(),
+  markers = [],
+  chrome = "full",
 }: SolarSeriesChartProps) {
+  const plotOnly = chrome === "plot";
   const id = useId();
   const [selection, setSelection] = useState<number | null>(null);
   const [valuesOpen, setValuesOpen] = useState(false);
@@ -84,6 +102,12 @@ export function SolarSeriesChart({
   const start = Date.parse(sorted[0].timestamp);
   const last = Date.parse(sorted[sorted.length - 1].timestamp);
   const end = Math.max(start + 1, last + (intervalMs ?? 0));
+  const validMarkers = markers
+    .map((m) => ({ ...m, time: parseUtcInstant(m.timestamp) }))
+    .filter(
+      (m): m is SolarChartMarker & { time: number } =>
+        m.time !== null && m.time >= start && m.time <= end,
+    );
   const transform = (n: number) => (scale === "log" ? Math.log10(n) : n);
   let low = min ?? Math.min(...sorted.map((p) => p.value));
   let high = max ?? Math.max(...sorted.map((p) => p.value));
@@ -135,7 +159,7 @@ export function SolarSeriesChart({
           viewBox={`0 0 ${width} ${height}`}
           className="w-full min-w-[32rem]"
           role="img"
-          aria-label={`${label}. ${scale === "log" ? "Logarithmic scale. " : ""}${sorted.length} records from ${new Date(start).toISOString()} to ${new Date(last).toISOString()}.`}
+          aria-label={`${label}. ${scale === "log" ? "Logarithmic scale. " : ""}${sorted.length} records from ${new Date(start).toISOString()} to ${new Date(last).toISOString()}.${validMarkers.map((m) => ` Marker: ${m.label} at ${new Date(m.time).toISOString()}.`).join("")}`}
           onPointerDown={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
             const time =
@@ -310,6 +334,26 @@ export function SolarSeriesChart({
               </text>
             </g>
           )}
+          {validMarkers.map((m) => (
+            <g key={`${m.timestamp}-${m.label}`}>
+              <line
+                x1={x(m.time)}
+                x2={x(m.time)}
+                y1={top}
+                y2={height - bottom}
+                stroke="var(--hcr-chart-marker, #fb7185)"
+                strokeWidth="2"
+              />
+              <text
+                x={Math.min(x(m.time) + 4, width - 48)}
+                y={top + 12}
+                fill="var(--hcr-chart-marker, #fb7185)"
+                fontSize="12"
+              >
+                {m.label}
+              </text>
+            </g>
+          ))}
           <circle
             cx={x(Date.parse(selected.timestamp))}
             cy={y(selected.value)}
@@ -320,67 +364,75 @@ export function SolarSeriesChart({
           />
         </svg>
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-300">
-        {kinds
-          .filter((kind) => sorted.some((p) => (p.kind ?? "observed") === kind))
-          .map((kind) => (
-            <span key={kind}>
-              <span style={{ color: styles[kind].color }} aria-hidden="true">
-                {kind === "observed"
-                  ? "━"
-                  : kind === "estimated"
-                    ? "┄"
-                    : "┅"}{" "}
+      {!plotOnly && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-300">
+          {kinds
+            .filter((kind) =>
+              sorted.some((p) => (p.kind ?? "observed") === kind),
+            )
+            .map((kind) => (
+              <span key={kind}>
+                <span style={{ color: styles[kind].color }} aria-hidden="true">
+                  {kind === "observed"
+                    ? "━"
+                    : kind === "estimated"
+                      ? "┄"
+                      : "┅"}{" "}
+                </span>
+                {styles[kind].label}
               </span>
-              {styles[kind].label}
-            </span>
-          ))}
-      </div>
-      {gaps.length > 0 && (
+            ))}
+        </div>
+      )}
+      {!plotOnly && gaps.length > 0 && (
         <p className="mt-2 text-xs text-amber-200">
           {gaps.length} gap{gaps.length === 1 ? "" : "s"} in coverage;
           disconnected records are not interpolated.
         </p>
       )}
-      <label
-        htmlFor={`${id}-inspect`}
-        className="mt-3 block text-xs text-slate-400"
-      >
-        Inspect {label} — drag or use arrow keys
-      </label>
-      <input
-        id={`${id}-inspect`}
-        type="range"
-        min={0}
-        max={Math.max(0, sorted.length - 1)}
-        step={1}
-        value={selectedIndex}
-        onChange={(e) => setSelection(Number(e.target.value))}
-        aria-valuetext={`${selected.timestamp}: ${number(selected.value)} ${unit}, ${selected.kind ?? "observed"}`}
-        className="h-11 w-full accent-cyan-300"
-      />
-      <output
-        htmlFor={`${id}-inspect`}
-        className="block break-words font-mono text-xs leading-6 text-slate-200"
-        aria-live="polite"
-      >
-        {selected.timestamp}: {number(selected.value)} {unit},{" "}
-        {selected.kind ?? "observed"}
-      </output>
-      <button
-        type="button"
-        onClick={() => setValuesOpen(!valuesOpen)}
-        aria-expanded={valuesOpen}
-        aria-controls={`${id}-values`}
-        className="mt-2 min-h-11 rounded-lg border border-white/10 px-3 text-xs text-cyan-200 hover:bg-white/5"
-      >
-        {valuesOpen ? "Hide" : "Show"} values
-      </button>
-      {valuesOpen && (
+      {!plotOnly && (
+        <>
+          <label
+            htmlFor={`${id}-inspect`}
+            className="mt-3 block text-xs text-slate-400"
+          >
+            Inspect {label} — drag or use arrow keys
+          </label>
+          <input
+            id={`${id}-inspect`}
+            type="range"
+            min={0}
+            max={Math.max(0, sorted.length - 1)}
+            step={1}
+            value={selectedIndex}
+            onChange={(e) => setSelection(Number(e.target.value))}
+            aria-valuetext={`${selected.timestamp}: ${number(selected.value)} ${unit}, ${selected.kind ?? "observed"}`}
+            className="h-11 w-full accent-cyan-300"
+          />
+          <output
+            htmlFor={`${id}-inspect`}
+            className="block break-words font-mono text-xs leading-6 text-slate-200"
+            aria-live="polite"
+          >
+            {selected.timestamp}: {number(selected.value)} {unit},{" "}
+            {selected.kind ?? "observed"}
+          </output>
+          <button
+            type="button"
+            onClick={() => setValuesOpen(!valuesOpen)}
+            aria-expanded={valuesOpen}
+            aria-controls={`${id}-values`}
+            className="mt-2 min-h-11 rounded-lg border border-white/10 px-3 text-xs text-cyan-200 hover:bg-white/5"
+          >
+            {valuesOpen ? "Hide" : "Show"} values
+          </button>
+        </>
+      )}
+      {(plotOnly || valuesOpen) && (
         <div
           id={`${id}-values`}
-          className="mt-2 max-h-64 overflow-auto"
-          tabIndex={0}
+          className={plotOnly ? "sr-only" : "mt-2 max-h-64 overflow-auto"}
+          tabIndex={plotOnly ? -1 : 0}
           role="region"
           aria-label={`${label} values`}
         >
@@ -408,6 +460,16 @@ export function SolarSeriesChart({
                   <td className="p-2">{p.timestamp}</td>
                   <td className="p-2 font-mono">{number(p.value)}</td>
                   <td className="p-2">{p.kind ?? "observed"}</td>
+                </tr>
+              ))}
+              {validMarkers.map((m) => (
+                <tr
+                  key={`marker-${m.timestamp}-${m.label}`}
+                  className="border-t border-white/10"
+                >
+                  <td className="p-2">{new Date(m.time).toISOString()}</td>
+                  <td className="p-2 font-mono">—</td>
+                  <td className="p-2">Marker: {m.label}</td>
                 </tr>
               ))}
             </tbody>

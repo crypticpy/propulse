@@ -93,6 +93,7 @@ import {
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import { SpotHighlight } from "./SpotHighlight";
 import { SelectedSpotArc } from "./SelectedSpotArc";
+import { FlashPulse } from "./FlashPulse";
 import { LoggedPulse } from "./LoggedPulse";
 import { OverlayLayers3D } from "./OverlayLayers3D";
 import { PinMarker } from "./PinMarker";
@@ -1958,6 +1959,10 @@ const GlobeScene = React.memo(function GlobeScene({
         {/* Highlighted arc for DX cluster selected spot */}
         {!selectedSpotMatchesTarget &&
           !pathPresentation.hideOtherPaths && <SelectedSpotArc />}
+        {/* Momentary pulse where a point was flashed out-of-band (e.g. a
+            report's hop reflection point) */}
+        <FlashPulse />
+
 
         {/* Momentary pulse where a QSO was just logged (WSJT-X or manual) */}
         <LoggedPulse />

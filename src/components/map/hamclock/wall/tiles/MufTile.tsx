@@ -2,15 +2,19 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useUTCClock } from "@/hooks/useUTCClock";
-import { getMUFAtLocation } from "@/lib/api/muf";
-import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
+import { getMUFAtLocation, topUsableBand } from "@/lib/api/muf";
 import { useMapStore } from "@/stores/mapStore";
-import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
+import {
+  HamClockTile,
+  TileHero,
+  TileSub,
+  type WallTileProps,
+} from "../HamClockTile";
 
 // The report is only worth its bytes once an operator opens it.
-const ForecastReport = lazy(() =>
-  import("../reports/ForecastReport").then((m) => ({
-    default: m.ForecastReport,
+const MufReport = lazy(() =>
+  import("../reports/MufReport").then((m) => ({
+    default: m.MufReport,
   })),
 );
 
@@ -18,31 +22,6 @@ const ForecastReport = lazy(() =>
 const TREND_HOURS = 1;
 /** Below this the change is noise, not a trend worth an arrow. */
 const TREND_DEADBAND_MHZ = 0.2;
-
-/**
- * Candidate bands for the "top band" line, lowest to highest.
- *
- * 160m is deliberately absent: this MUF is an F2 3000 km estimate, and top
- * band is governed by D-layer absorption rather than by the MUF, so naming it
- * as the highest usable band would be misleading. A MUF under 3.5 MHz
- * therefore reads "—" — no HF band is supported by this path.
- */
-const TOP_BAND_ORDER = BAND_ORDER.filter((band) => band !== "160m");
-
-/**
- * Highest amateur band whose lower edge sits at or below the MUF.
- *
- * `getMUFColor().band` is a legend bucket ("14-21 MHz (15m)"), which names the
- * colour stop rather than the band an operator can actually use, so the tile
- * resolves the band from the band plan instead.
- */
-function topUsableBand(mufMHz: number): string {
-  let top: string | null = null;
-  for (const band of TOP_BAND_ORDER) {
-    if (BAND_RANGES[band].startKHz / 1000 <= mufMHz) top = band;
-  }
-  return top ?? "—";
-}
 
 /**
  * Maximum usable frequency over the operator's own station.
@@ -115,11 +94,7 @@ export function MufTile({ title = "MUF" }: WallTileProps) {
 
       {reportOpen && (
         <Suspense fallback={null}>
-          <ForecastReport
-            open
-            onClose={() => setReportOpen(false)}
-            focus="muf"
-          />
+          <MufReport open onClose={() => setReportOpen(false)} />
         </Suspense>
       )}
     </>

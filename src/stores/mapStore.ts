@@ -264,6 +264,15 @@ export interface CenterLocation {
   timestamp: number; // Used to trigger re-centering even to same location
 }
 
+/** Momentary marker for a point selected out-of-band (e.g. a HamClock report's
+ * hop reflection point) — ephemeral, not persisted, auto-clears a fixed
+ * duration after `at` (see `FLASH_POINT_DURATION_MS` in useFlashPoint.ts). */
+export interface FlashPoint {
+  lat: number;
+  lon: number;
+  at: number;
+}
+
 /** Time scenario for saving favorite times */
 export interface TimeScenario {
   id: string;
@@ -559,6 +568,12 @@ export interface MapState {
   centerLocation: CenterLocation | null;
   setCenterLocation: (lat: number, lon: number) => void;
   clearCenterLocation: () => void;
+
+  // Momentary marker for a point selected out-of-band (e.g. a report's hop
+  // reflection point) — ephemeral, not persisted, auto-clears itself.
+  flashPoint: FlashPoint | null;
+  setFlashPoint: (lat: number, lon: number) => void;
+  clearFlashPoint: () => void;
 
   // Region view presets
   regionPresets: RegionPreset[];
@@ -1351,6 +1366,7 @@ const initialState = {
   nightDarkness: loadStoredNumber(NIGHT_DARKNESS_KEY, 1, 0, 1),
   labelOptions: loadLabelOptions(),
   centerLocation: null as CenterLocation | null,
+  flashPoint: null as FlashPoint | null,
   regionPresets: loadRegionPresets(),
   activePresetId: loadActivePresetId(),
 
@@ -1982,6 +1998,13 @@ export const useMapStore = create<MapState>((set, get) => ({
     }),
 
   clearCenterLocation: () => set({ centerLocation: null }),
+
+  // Momentary marker (e.g. a report's hop reflection point); auto-clears via
+  // useFlashPoint's fixed-duration timer, same pattern as useJustLoggedMarker.
+  setFlashPoint: (lat, lon) =>
+    set({ flashPoint: { lat, lon, at: Date.now() } }),
+
+  clearFlashPoint: () => set({ flashPoint: null }),
 
   // Region view preset actions
   setActivePreset: (id) =>

@@ -7,7 +7,12 @@
 
 import { useMemo } from "react";
 import { useSolarFlux } from "./useSolarData";
-import { generateMUFGrid, type MUFData } from "@/lib/api/muf";
+import {
+  generateMUFGrid,
+  sampleMufSeries,
+  type MUFData,
+  type MUFSeriesPoint,
+} from "@/lib/api/muf";
 
 /**
  * Hook to get MUF grid data based on current SFI and display time
@@ -45,4 +50,22 @@ export function useCurrentSFI(): number | null {
     }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
+}
+
+/**
+ * 24 hourly MUF-at-QTH samples ending at `displayTime`, for the MUF report's
+ * trend chart. `null` location or SFI reports `null` (nothing to sample);
+ * no new feed is added, the existing point function is just swept hourly.
+ */
+export function useMUFHourlySeries(
+  location: { lat: number; lon: number } | null,
+  displayTime: Date,
+  hours = 24,
+): MUFSeriesPoint[] | null {
+  const sfi = useCurrentSFI();
+
+  return useMemo(() => {
+    if (!location || sfi == null) return null;
+    return sampleMufSeries(location.lat, location.lon, sfi, displayTime, hours);
+  }, [location, sfi, displayTime, hours]);
 }

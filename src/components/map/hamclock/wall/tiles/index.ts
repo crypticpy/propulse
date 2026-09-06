@@ -3,6 +3,7 @@ import { registerWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { RegisteredWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { WallTileProps } from "../HamClockTile";
 import { recentContactsConfig } from "../config/recentContactsConfig";
+import { ActivationsTile } from "./ActivationsTile";
 import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
@@ -28,6 +29,7 @@ import { XrayTile } from "./XrayTile";
  * one file plus one line here.
  */
 export type TileId =
+  | "activations"
   | "bestBand"
   | "cluster"
   | "bandActivity"
@@ -56,6 +58,7 @@ export interface WallTile {
 }
 
 export const WALL_TILES: Record<TileId, WallTile> = {
+  activations: { title: "Activations", Component: ActivationsTile },
   bestBand: { title: "Best band now", Component: BestBandTile },
   cluster: { title: "DX cluster", Component: ClusterTile },
   bandActivity: { title: "Band activity", Component: BandActivityTile },

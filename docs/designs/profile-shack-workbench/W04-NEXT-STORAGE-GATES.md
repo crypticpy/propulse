@@ -41,3 +41,7 @@ An isolated synthetic harness can verify the activation transaction without enab
 Generation-to-generation replacement remains outside the current candidate format: it contains one version per live archive identity, not all retained storage versions, tombstones, operation receipts or pending outbox. Those records cannot be stranded by a pointer change.
 
 Real migration additionally requires verified backup bytes, complete raw captures, explicit media dispositions, feature/operating-consumer parity, source-version rechecks and an old-writer barrier. These are delivery gates, not reasons to discard the existing data or silently relax W04 acceptance.
+
+## Backend boundary and verification environment
+
+The [backend foundation](W04-BACKEND-FOUNDATION.md) provides fail-closed verified-owner authentication, lossless canonical TEXT/opaque-ID codecs and a disposable PostgreSQL 17 SQL harness. It enables testing the next owner-scoped transaction slice; no endpoint, production migration, remote authority or activation is implemented by that foundation.

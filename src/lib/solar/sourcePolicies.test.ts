@@ -46,4 +46,16 @@ describe("solar source cadence policies", () => {
       expect(policy.softTtlMs).toBeLessThan(policy.hardTtlMs);
     }
   });
+
+  it("ages the day-long X-ray series by fetch time so a contaminated tail cannot hard-expire it", () => {
+    // `adaptXray` drops GOES electron-contaminated samples, which pulls
+    // `observedAt` back to the last valid minute; a long episode would
+    // otherwise make the whole 24-hour chart unusable while the feed is live.
+    expect(getSolarSourcePolicy("noaa-xray-24h").freshnessBasis).toBe(
+      "fetchedAt",
+    );
+    // The short window that feeds alerts and the briefing still ages by the
+    // measurement itself, so a held reading cannot look current there.
+    expect(getSolarSourcePolicy("noaa-xray").freshnessBasis).toBeUndefined();
+  });
 });

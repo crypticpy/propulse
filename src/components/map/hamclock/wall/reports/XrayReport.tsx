@@ -104,26 +104,9 @@ export function XrayReport({
     flares24h.length,
   );
 
-  // GOES electron contamination drops the newest minutes from the series
-  // while the feed itself stays live; when the hero is more than ten minutes
-  // behind the feed, say which sample it is reading.
-  const currentAt = current ? Date.parse(current.time_tag) : Number.NaN;
-  const lastValidLag =
-    Number.isFinite(currentAt) && xrayQuery.dataUpdatedAt > 0
-      ? xrayQuery.dataUpdatedAt - currentAt
-      : 0;
-
   // The hero already reads the current class; a CURRENT fact repeated it.
   const facts: WallReportFact[] = [
     { label: "24H PEAK", value: peakLabel },
-    ...(current && lastValidLag > 10 * 60_000
-      ? [
-          {
-            label: "LAST VALID",
-            value: `${new Date(currentAt).toISOString().slice(11, 16)}Z`,
-          },
-        ]
-      : []),
     {
       label: "FLARE",
       value: flare

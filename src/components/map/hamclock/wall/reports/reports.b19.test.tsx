@@ -229,27 +229,6 @@ describe("XrayReport", () => {
     expect(screen.getByText("NO FLARES ABOVE B IN 24H")).toBeTruthy();
   });
 
-  it("names the last valid sample only when the hero lags the live feed", () => {
-    const sample = (time_tag: string) => ({
-      time_tag,
-      flux: 3e-7,
-      energy: "0.1-0.8nm",
-      satellite: 18,
-    });
-    // Feed observed at 13:00 but the newest usable sample is an hour older
-    // (electron contamination dropped the tail): say which sample is shown.
-    mocks.xray24h.mockReturnValue(projected([sample("2026-09-05T12:00:00Z")]));
-    render(<XrayReport open onClose={vi.fn()} />);
-    expect(
-      screen.getByText("LAST VALID").closest(".hcr-facts")?.textContent,
-    ).toContain("12:00Z");
-    cleanup();
-
-    mocks.xray24h.mockReturnValue(projected([sample("2026-09-05T12:58:00Z")]));
-    render(<XrayReport open onClose={vi.fn()} />);
-    expect(screen.queryByText("LAST VALID")).toBeNull();
-  });
-
   it("does not call a quiet day while the flare feed is loading or has failed", () => {
     render(<XrayReport open onClose={vi.fn()} />);
     expect(screen.getByText("LOADING FLARES")).toBeTruthy();

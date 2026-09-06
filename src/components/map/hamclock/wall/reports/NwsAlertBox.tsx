@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { useVisibleRows } from "../useVisibleRows";
 import { SEVERITY_TONE } from "./alertSeverity";
@@ -22,8 +21,7 @@ export function NwsAlertBox({
   error,
   emptyLabel,
 }: NwsAlertBoxProps) {
-  const listRef = useRef<HTMLDivElement>(null);
-  const visible = useVisibleRows(listRef, alerts.length);
+  const [listRef, visible] = useVisibleRows<HTMLDivElement>(alerts.length);
   return (
     <div className="hcr-box hcr-box--fill">
       <h4>

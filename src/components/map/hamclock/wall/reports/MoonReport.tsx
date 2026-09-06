@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import SunCalc from "suncalc";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
@@ -28,9 +28,12 @@ import { HamClockSegmented } from "../controls/HamClockSegmented";
 import { HamClockTabs } from "../controls/HamClockTabs";
 import { MoonGlyph } from "../tiles/MoonTile";
 import { formatClock, formatCountdown, reportFooter } from "../tokens";
+import { useElementSize } from "../useElementSize";
 import { WallReport, type WallReportFact } from "./WallReport";
 
 const TICK_MS = 60_000;
+/** Drawing size before the slot has been measured (jsdom, first paint). */
+const CHART_FALLBACK = { width: 720, height: 220 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const BAND_OPTIONS = EME_BANDS.map((band) => ({
@@ -163,12 +166,19 @@ function MoonElevationChart({
   now: Date;
 }) {
   const id = useId();
-  const width = 300;
-  const height = 88;
-  const left = 28;
-  const right = 8;
-  const top = 10;
-  const bottom = 16;
+  const ref = useRef<HTMLElement>(null);
+  const measured = useElementSize(ref);
+  const width = measured.width || CHART_FALLBACK.width;
+  const height = measured.height || CHART_FALLBACK.height;
+  const vh =
+    typeof window === "undefined"
+      ? CHART_FALLBACK.height / 72
+      : window.innerHeight / 100;
+  const fs = Math.max(11, Math.round(vh * 1.45));
+  const left = Math.round(fs * 3.2);
+  const right = Math.round(fs * 1.2);
+  const top = Math.round(fs * 0.6);
+  const bottom = Math.round(fs * 1.4);
   const dayStart = curve[0].at.getTime();
   const dayEnd = dayStart + DAY_MS;
 
@@ -192,75 +202,79 @@ function MoonElevationChart({
   return (
     <div className="hcr-chart">
       <p className="hcr-chart-title">MOON ELEVATION — 24 H · COMPUTED AT QTH</p>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-labelledby={`${id}-title`}
-      >
-        <title id={`${id}-title`}>
-          Moon elevation over 24 hours UTC, with the current hour marked.
-        </title>
-        <line
-          x1={left}
-          x2={width - right}
-          y1={y(0)}
-          y2={y(0)}
-          stroke="var(--hcr-chart-axis, #94a3b8)"
-          strokeDasharray="4 4"
-        />
-        <path
-          d={path}
-          fill="none"
-          stroke="var(--hcr-chart-observed, #44ddff)"
-          strokeWidth="2"
-        />
-        {curve.map((point, i) => {
-          const next = curve[i + 1]?.at.getTime() ?? dayEnd;
-          return (
-            <rect
-              key={point.hour}
-              x={x(point.at.getTime())}
-              y={top}
-              width={Math.max(0, x(next) - x(point.at.getTime()))}
-              height={height - top - bottom}
-              fill="transparent"
-            >
-              <title>
-                {formatClock(point.at, "UTC")}Z —{" "}
-                {Math.round(point.altitudeDeg)}
-                {"°"} elevation
-              </title>
-            </rect>
-          );
-        })}
-        {now.getTime() >= dayStart && now.getTime() <= dayEnd && (
+      <figure className="hcr-plot" ref={ref}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          role="img"
+          aria-labelledby={`${id}-title`}
+          fontFamily="var(--hc-font-mono, monospace)"
+          fontSize={fs}
+        >
+          <title id={`${id}-title`}>
+            Moon elevation over 24 hours UTC, with the current hour marked.
+          </title>
           <line
-            x1={x(now.getTime())}
-            x2={x(now.getTime())}
-            y1={top}
-            y2={height - bottom}
-            stroke="var(--hcr-chart-now, #f8fafc)"
-            strokeDasharray="2 4"
+            x1={left}
+            x2={width - right}
+            y1={y(0)}
+            y2={y(0)}
+            stroke="var(--hcr-chart-axis, #94a3b8)"
+            strokeDasharray="4 4"
           />
-        )}
-        <text
-          x={left}
-          y={height - 2}
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          00Z
-        </text>
-        <text
-          x={width - right}
-          y={height - 2}
-          textAnchor="end"
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          24Z
-        </text>
-      </svg>
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--hcr-chart-observed, #44ddff)"
+            strokeWidth={Math.max(2, fs * 0.16)}
+          />
+          {curve.map((point, i) => {
+            const next = curve[i + 1]?.at.getTime() ?? dayEnd;
+            return (
+              <rect
+                key={point.hour}
+                x={x(point.at.getTime())}
+                y={top}
+                width={Math.max(0, x(next) - x(point.at.getTime()))}
+                height={height - top - bottom}
+                fill="transparent"
+              >
+                <title>
+                  {formatClock(point.at, "UTC")}Z —{" "}
+                  {Math.round(point.altitudeDeg)}
+                  {"°"} elevation
+                </title>
+              </rect>
+            );
+          })}
+          {now.getTime() >= dayStart && now.getTime() <= dayEnd && (
+            <line
+              x1={x(now.getTime())}
+              x2={x(now.getTime())}
+              y1={top}
+              y2={height - bottom}
+              stroke="var(--hcr-chart-now, #f8fafc)"
+              strokeDasharray="2 4"
+            />
+          )}
+          <text
+            x={left}
+            y={height - fs * 0.3}
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            00Z
+          </text>
+          <text
+            x={width - right}
+            y={height - fs * 0.3}
+            textAnchor="end"
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            24Z
+          </text>
+        </svg>
+      </figure>
       <table className="sr-only">
         <caption>Moon elevation by UTC hour</caption>
         <thead>
@@ -340,12 +354,19 @@ function EmeDegradationChart({
   now: Date;
 }) {
   const id = useId();
-  const width = 300;
-  const height = 100;
-  const left = 30;
-  const right = 8;
-  const top = 14;
-  const bottom = 20;
+  const ref = useRef<HTMLElement>(null);
+  const measured = useElementSize(ref);
+  const width = measured.width || CHART_FALLBACK.width;
+  const height = measured.height || CHART_FALLBACK.height;
+  const vh =
+    typeof window === "undefined"
+      ? CHART_FALLBACK.height / 72
+      : window.innerHeight / 100;
+  const fs = Math.max(11, Math.round(vh * 1.45));
+  const left = Math.round(fs * 3.2);
+  const right = Math.round(fs * 1.2);
+  const top = Math.round(fs * 1.6);
+  const bottom = Math.round(fs * 1.4);
   const start = curve[0].at.getTime();
   const end = curve[curve.length - 1].at.getTime() + DAY_MS;
 
@@ -377,96 +398,105 @@ function EmeDegradationChart({
       <p className="hcr-chart-title">
         EME DEGRADATION — 28 D · AT UTC MIDNIGHT
       </p>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-labelledby={`${id}-title`}
-      >
-        <title id={`${id}-title`}>
-          EME degradation over 28 days at UTC midnight, combining distance
-          loss and sky noise, with perigee and apogee marked.
-        </title>
-        <line
-          x1={left}
-          x2={width - right}
-          y1={y(0)}
-          y2={y(0)}
-          stroke="var(--hcr-chart-axis, #94a3b8)"
-          strokeDasharray="4 4"
-        />
-        <path
-          d={path}
-          fill="none"
-          stroke="var(--hcr-chart-observed, #44ddff)"
-          strokeWidth="2"
-        />
-        {curve.map((point, i) => {
-          const next = curve[i + 1]?.at.getTime() ?? end;
-          return (
-            <rect
-              key={point.day}
-              x={x(point.at.getTime())}
-              y={top}
-              width={Math.max(0, x(next) - x(point.at.getTime()))}
-              height={height - top - bottom}
-              fill="transparent"
-            >
-              <title>
-                {dateOnly(point.at)} · {signedDb(point.combinedDb)}
-              </title>
-            </rect>
-          );
-        })}
-        {[
-          { idx: perigeeIdx, label: "PERIGEE" },
-          { idx: apogeeIdx, label: "APOGEE" },
-        ].map(({ idx, label }) => {
-          const point = curve[idx];
-          const px = x(point.at.getTime());
-          const py = y(point.combinedDb);
-          return (
-            <g key={label}>
-              <circle cx={px} cy={py} r="3" fill="var(--hcr-chart-warn, #fbbf24)" />
-              <text
-                x={px}
-                y={Math.max(top - 4, py - 8)}
-                textAnchor="middle"
-                fill="var(--hcr-chart-warn, #fde68a)"
-                fontSize="8"
-              >
-                {label}
-              </text>
-            </g>
-          );
-        })}
-        {now.getTime() >= start && now.getTime() <= end && (
+      <figure className="hcr-plot" ref={ref}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          role="img"
+          aria-labelledby={`${id}-title`}
+          fontFamily="var(--hc-font-mono, monospace)"
+          fontSize={fs}
+        >
+          <title id={`${id}-title`}>
+            EME degradation over 28 days at UTC midnight, combining distance
+            loss and sky noise, with perigee and apogee marked.
+          </title>
           <line
-            x1={x(now.getTime())}
-            x2={x(now.getTime())}
-            y1={top}
-            y2={height - bottom}
-            stroke="var(--hcr-chart-now, #f8fafc)"
-            strokeDasharray="2 4"
+            x1={left}
+            x2={width - right}
+            y1={y(0)}
+            y2={y(0)}
+            stroke="var(--hcr-chart-axis, #94a3b8)"
+            strokeDasharray="4 4"
           />
-        )}
-        <text
-          x={left}
-          y={height - 4}
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          {dateOnly(curve[0].at)}
-        </text>
-        <text
-          x={width - right}
-          y={height - 4}
-          textAnchor="end"
-          fill="var(--hcr-chart-dim, #cbd5e1)"
-          fontSize="9"
-        >
-          {dateOnly(curve[curve.length - 1].at)}
-        </text>
-      </svg>
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--hcr-chart-observed, #44ddff)"
+            strokeWidth={Math.max(2, fs * 0.16)}
+          />
+          {curve.map((point, i) => {
+            const next = curve[i + 1]?.at.getTime() ?? end;
+            return (
+              <rect
+                key={point.day}
+                x={x(point.at.getTime())}
+                y={top}
+                width={Math.max(0, x(next) - x(point.at.getTime()))}
+                height={height - top - bottom}
+                fill="transparent"
+              >
+                <title>
+                  {dateOnly(point.at)} · {signedDb(point.combinedDb)}
+                </title>
+              </rect>
+            );
+          })}
+          {[
+            { idx: perigeeIdx, label: "PERIGEE" },
+            { idx: apogeeIdx, label: "APOGEE" },
+          ].map(({ idx, label }) => {
+            const point = curve[idx];
+            const px = x(point.at.getTime());
+            const py = y(point.combinedDb);
+            return (
+              <g key={label}>
+                <circle
+                  cx={px}
+                  cy={py}
+                  r={Math.max(3, fs * 0.25)}
+                  fill="var(--hcr-chart-warn, #fbbf24)"
+                />
+                <text
+                  x={px}
+                  y={Math.max(fs, py - fs * 0.6)}
+                  textAnchor="middle"
+                  fill="var(--hcr-chart-warn, #fde68a)"
+                  fontSize={fs * 0.85}
+                >
+                  {label}
+                </text>
+              </g>
+            );
+          })}
+          {now.getTime() >= start && now.getTime() <= end && (
+            <line
+              x1={x(now.getTime())}
+              x2={x(now.getTime())}
+              y1={top}
+              y2={height - bottom}
+              stroke="var(--hcr-chart-now, #f8fafc)"
+              strokeDasharray="2 4"
+            />
+          )}
+          <text
+            x={left}
+            y={height - fs * 0.3}
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            {dateOnly(curve[0].at)}
+          </text>
+          <text
+            x={width - right}
+            y={height - fs * 0.3}
+            textAnchor="end"
+            fill="var(--hcr-chart-dim, #cbd5e1)"
+          >
+            {dateOnly(curve[curve.length - 1].at)}
+          </text>
+        </svg>
+      </figure>
       <table className="sr-only">
         <caption>
           EME degradation by day at UTC midnight, combining distance loss and
@@ -546,7 +576,8 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
     [location, target, now],
   );
   const moonCurve = useMemo(
-    () => (location ? moonElevationCurve(location.lat, location.lon, now) : null),
+    () =>
+      location ? moonElevationCurve(location.lat, location.lon, now) : null,
     [location, now],
   );
   const emeCurve = useMemo(
@@ -558,7 +589,14 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
   );
   const sublunarPoint = useMemo(() => getSublunarPoint(now), [now]);
 
-  if (!location || !moon || !snapshot || rangeRateKmS === null || !moonCurve || !emeCurve) {
+  if (
+    !location ||
+    !moon ||
+    !snapshot ||
+    rangeRateKmS === null ||
+    !moonCurve ||
+    !emeCurve
+  ) {
     const idle = reportFooter("MOON.TS · DE", null);
     return (
       <WallReport
@@ -642,14 +680,15 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
       label: "ALT / AZ",
       value: `${moon.altitude.toFixed(1)}° / ${moon.azimuth.toFixed(1)}°`,
     },
-    { label: "MOONRISE", value: bothClocks(moon.rise, zone) },
-    { label: "MOONSET", value: bothClocks(moon.set, zone) },
+    // Next crossings, not SunCalc's calendar-day pair: a day without a
+    // moonrise otherwise reads "—" while the Moon is plainly due tomorrow.
+    { label: "MOONRISE", value: bothClocks(nextRise, zone) },
+    { label: "MOONSET", value: bothClocks(nextSet, zone) },
     { label: "DISTANCE", value: `${Math.round(topoDistanceKm)} km` },
-    { label: "PATH LOSS", value: `${pathLoss.toFixed(1)} dB` },
-    { label: "DEGRADATION", value: signedDb(degradation) },
-    { label: "DECLINATION", value: `${declinationDeg.toFixed(1)}° ${declWord}` },
-    { label: "SKY NOISE", value: `${Math.round(skyK)} K · ${skyWord}` },
-    { label: "MUTUAL WINDOW", value: mutualWindowValue },
+    {
+      label: "DECLINATION",
+      value: `${declinationDeg.toFixed(1)}° ${declWord}`,
+    },
   ];
 
   const { footer, updated } = reportFooter(
@@ -671,54 +710,6 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
       pinId="moon-report"
       pinElement={<MoonReport open onClose={onClose} />}
     >
-      <div className="hcr-cols">
-        <div className="hcr-box">
-          <h4>Moon · {moonUp ? "up" : "down"}</h4>
-          <div className="hcr-media">
-            <MoonGlyph phase={moon.phase} />
-            <dl className="hcr-kv">
-              <dt>ILLUMINATED</dt>
-              <dd>{Math.round(moon.illumination * 100)}%</dd>
-              <dt>NEXT FULL</dt>
-              <dd>{dateOnly(snapshot.nextFullMoon)}</dd>
-              <dt>NEXT NEW</dt>
-              <dd>{dateOnly(snapshot.nextNewMoon)}</dd>
-            </dl>
-          </div>
-          <button
-            type="button"
-            className="hcr-link-button"
-            onClick={() => {
-              setCenterLocation(sublunarPoint.lat, sublunarPoint.lon);
-              onClose();
-            }}
-          >
-            SHOW SUB-LUNAR POINT
-          </button>
-        </div>
-        <div className="hcr-box">
-          <h4>EME · {band.toUpperCase()}</h4>
-          <HamClockSegmented
-            label="Band"
-            hideLabel
-            options={BAND_OPTIONS}
-            value={band}
-            onChange={setBand}
-          />
-          <dl className="hcr-kv">
-            <dt>PATH LOSS</dt>
-            <dd>{pathLoss.toFixed(1)} dB</dd>
-            <dt>DOPPLER</dt>
-            <dd>{signedHz(doppler)}</dd>
-            <dt>SKY NOISE</dt>
-            <dd>
-              {Math.round(skyK)} K · {skyWord}
-            </dd>
-            <dt>MUTUAL WINDOW</dt>
-            <dd>{mutualWindowValue}</dd>
-          </dl>
-        </div>
-      </div>
       <HamClockTabs
         label="Moon report view"
         defaultActive="moon"
@@ -726,12 +717,72 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
           {
             id: "moon",
             label: "MOON",
-            content: <MoonElevationChart curve={moonCurve} now={now} />,
+            content: (
+              <div className="hcr-cols hcr-cols--fill">
+                <div className="hcr-box">
+                  <h4>Moon · {moonUp ? "up" : "down"}</h4>
+                  <div className="hcr-media">
+                    <MoonGlyph phase={moon.phase} />
+                    <dl className="hcr-kv">
+                      <dt>ILLUMINATED</dt>
+                      <dd>{Math.round(moon.illumination * 100)}%</dd>
+                      <dt>NEXT FULL</dt>
+                      <dd>{dateOnly(snapshot.nextFullMoon)}</dd>
+                      <dt>NEXT NEW</dt>
+                      <dd>{dateOnly(snapshot.nextNewMoon)}</dd>
+                    </dl>
+                  </div>
+                  <button
+                    type="button"
+                    className="hcr-link-button"
+                    onClick={() => {
+                      setCenterLocation(sublunarPoint.lat, sublunarPoint.lon);
+                      onClose();
+                    }}
+                  >
+                    SHOW SUB-LUNAR POINT
+                  </button>
+                </div>
+                <div className="hcr-box">
+                  <MoonElevationChart curve={moonCurve} now={now} />
+                </div>
+              </div>
+            ),
           },
           {
             id: "eme",
             label: "EME",
-            content: <EmeDegradationChart curve={emeCurve} now={now} />,
+            content: (
+              <div className="hcr-cols hcr-cols--fill">
+                <div className="hcr-box">
+                  <h4>EME · {band.toUpperCase()}</h4>
+                  <HamClockSegmented
+                    label="Band"
+                    hideLabel
+                    options={BAND_OPTIONS}
+                    value={band}
+                    onChange={setBand}
+                  />
+                  <dl className="hcr-kv">
+                    <dt>PATH LOSS</dt>
+                    <dd>{pathLoss.toFixed(1)} dB</dd>
+                    <dt>DOPPLER</dt>
+                    <dd>{signedHz(doppler)}</dd>
+                    <dt>SKY NOISE</dt>
+                    <dd>
+                      {Math.round(skyK)} K · {skyWord}
+                    </dd>
+                    <dt>DEGRADATION</dt>
+                    <dd>{signedDb(degradation)}</dd>
+                    <dt>MUTUAL WINDOW</dt>
+                    <dd>{mutualWindowValue}</dd>
+                  </dl>
+                </div>
+                <div className="hcr-box">
+                  <EmeDegradationChart curve={emeCurve} now={now} />
+                </div>
+              </div>
+            ),
           },
         ]}
       />

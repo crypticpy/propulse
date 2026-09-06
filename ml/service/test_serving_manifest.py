@@ -3,10 +3,19 @@ from __future__ import annotations
 import copy
 import unittest
 
-from serving_manifest import feature_order_sha256, validate_serving_manifest
+from serving_manifest import (
+    CORE_FEATURE_CONTRACT_V2,
+    feature_order_sha256,
+    validate_serving_manifest,
+)
 
 
 SHA256 = "a" * 64
+VALID_PATH_HISTORY_CONTRACT = {
+    "provider_kind": "field-recency-v2",
+    "transform_version": "psk-rbn-field-recency-v2",
+    "statistic": "quantile",
+}
 
 
 def component(name: str, features: list[str], weight: float | None = None):
@@ -128,6 +137,69 @@ class ServingManifestTests(unittest.TestCase):
         payload = copy.deepcopy(valid_manifest())
         payload["profiles"]["physics"]["model_path"] = "../model.json"
         with self.assertRaisesRegex(RuntimeError, "bundle-local"):
+            validate_serving_manifest(payload)
+
+    def test_accepts_v2_with_valid_path_history_contract(self):
+        payload = valid_manifest()
+        payload["core_feature_contract"] = CORE_FEATURE_CONTRACT_V2
+        payload["path_history_contract"] = dict(VALID_PATH_HISTORY_CONTRACT)
+        validate_serving_manifest(payload)
+
+    def test_v2_without_path_history_contract_is_rejected(self):
+        payload = valid_manifest()
+        payload["core_feature_contract"] = CORE_FEATURE_CONTRACT_V2
+        with self.assertRaisesRegex(RuntimeError, "path_history_contract"):
+            validate_serving_manifest(payload)
+
+    def test_v2_rejects_malformed_path_history_contract(self):
+        for updates, message in (
+            ({"provider_kind": "wspr-live-v1"}, "provider_kind"),
+            ({"transform_version": ""}, "transform_version"),
+            ({"transform_version": 12}, "transform_version"),
+            ({"statistic": "opportunity"}, "statistic"),
+        ):
+            payload = valid_manifest()
+            payload["core_feature_contract"] = CORE_FEATURE_CONTRACT_V2
+            payload["path_history_contract"] = {
+                **VALID_PATH_HISTORY_CONTRACT,
+                **updates,
+            }
+            with self.subTest(updates=updates):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    validate_serving_manifest(payload)
+
+    def test_v2_rejects_forbidden_weather_features_and_missing_flags(self):
+        for feature in ("ae", "al", "au", "pcn", "ae_missing", "pcn_missing"):
+            payload = valid_manifest()
+            payload["core_feature_contract"] = CORE_FEATURE_CONTRACT_V2
+            payload["path_history_contract"] = dict(VALID_PATH_HISTORY_CONTRACT)
+            payload["profiles"]["nowcast"]["features"].append(feature)
+            payload["profiles"]["nowcast"]["feature_order_sha256"] = (
+                feature_order_sha256(payload["profiles"]["nowcast"]["features"])
+            )
+            for component in payload["profiles"]["nowcast"]["components"]:
+                component["features"] = payload["profiles"]["nowcast"]["features"]
+            with self.subTest(feature=feature):
+                with self.assertRaisesRegex(RuntimeError, "forbidden feature"):
+                    validate_serving_manifest(payload)
+
+    def test_v1_manifest_ignores_forbidden_feature_names(self):
+        # archive-v4-features-v1 never carried a path_history_contract
+        # requirement or the forbidden-feature ban; this documents that the
+        # v2 check is not accidentally applied to v1.
+        payload = valid_manifest()
+        payload["profiles"]["nowcast"]["features"].append("ae")
+        payload["profiles"]["nowcast"]["feature_order_sha256"] = (
+            feature_order_sha256(payload["profiles"]["nowcast"]["features"])
+        )
+        for component in payload["profiles"]["nowcast"]["components"]:
+            component["features"] = payload["profiles"]["nowcast"]["features"]
+        validate_serving_manifest(payload)
+
+    def test_rejects_unsupported_core_feature_contract(self):
+        payload = valid_manifest()
+        payload["core_feature_contract"] = "archive-v4-features-v3"
+        with self.assertRaisesRegex(RuntimeError, "core feature contract"):
             validate_serving_manifest(payload)
 
 

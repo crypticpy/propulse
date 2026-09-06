@@ -24,6 +24,8 @@ from typing import Any, Protocol
 
 import httpx
 
+from serving_manifest import CORE_FEATURE_CONTRACT_V2 as ARCHIVE_V4_FEATURES_V2
+
 
 PATH_LAGS = (1, 2, 3, 24)
 DEFAULT_PATH_TRANSFORM_VERSION = "wspr-opportunity-duckdb-v1"
@@ -34,6 +36,12 @@ APPROVED_PATH_TRANSFORM_VERSIONS = (
 )
 # Selects the field-recency provider through PROPULSE_PATH_HISTORY_PROVIDER.
 FIELD_RECENCY_PROVIDER_KIND = "field-recency-v2"
+# lookup_path_recency_lags' p_statistic argument (#306 / N3 retrain): "rate"
+# serves the raw recency_rate (archive-v4-features-v1 default); "quantile"
+# serves recency_quantile, the per-band-hour percent_rank() of that rate
+# that archive-v4-features-v2 models were trained on.
+APPROVED_PATH_RECENCY_STATISTICS = ("rate", "quantile")
+DEFAULT_PATH_RECENCY_STATISTIC = "rate"
 GRID4_PATTERN = re.compile(r"^[A-R]{2}[0-9]{2}$")
 FIELD_PATTERN = re.compile(r"^[A-R]{2}$")
 PROVIDER_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.:-]{0,63}$")
@@ -247,6 +255,11 @@ class PostgrestPathRecencyProvider:
     rate. Causality (a lag counts as available only if its row was readable
     at issue time) is enforced inside the RPC, matching the watermark
     discipline of the dropped WSPR contract.
+
+    ``statistic`` (#306, N3 retrain) selects which column the RPC serves:
+    ``"rate"`` (default) for the raw ``recency_rate``, or ``"quantile"`` for
+    ``recency_quantile``, the per-band-hour ``percent_rank()`` of that rate
+    that ``archive-v4-features-v2`` models were trained on.
     """
 
     def __init__(
@@ -256,6 +269,7 @@ class PostgrestPathRecencyProvider:
         service_key: str,
         provider: str,
         transform_version: str = DEFAULT_PATH_RECENCY_TRANSFORM_VERSION,
+        statistic: str = DEFAULT_PATH_RECENCY_STATISTIC,
         timeout_seconds: float = 5.0,
         client: httpx.Client | None = None,
     ) -> None:
@@ -265,10 +279,16 @@ class PostgrestPathRecencyProvider:
             raise RuntimeError("approved path provider identifier is invalid")
         if not transform_version or len(transform_version) > 128:
             raise RuntimeError("path transform version is invalid")
+        if statistic not in APPROVED_PATH_RECENCY_STATISTICS:
+            raise RuntimeError(
+                "path recency statistic must be one of "
+                + ", ".join(APPROVED_PATH_RECENCY_STATISTICS)
+            )
         self.base_url = base_url.rstrip("/")
         self.service_key = service_key
         self.name = provider
         self.transform_version = transform_version
+        self.statistic = statistic
         self.client = client or httpx.Client(timeout=timeout_seconds)
 
     def lookup(
@@ -304,6 +324,7 @@ class PostgrestPathRecencyProvider:
                     "p_target_fields": target_fields,
                     "p_transform_version": self.transform_version,
                     "p_provider": self.name,
+                    "p_statistic": self.statistic,
                 },
             )
             response.raise_for_status()
@@ -379,6 +400,22 @@ def configured_path_provider_identity() -> str:
     )
 
 
+def configured_path_statistic() -> str:
+    """Approved ``lookup_path_recency_lags`` statistic (#306 / N3 retrain).
+
+    ``rate`` (the default, unset PROPULSE_PATH_RECENCY_STATISTIC) serves the
+    raw ``recency_rate``. ``quantile`` serves ``recency_quantile``, the
+    per-band-hour ``percent_rank()`` of that rate that archive-v4-features-v2
+    models were trained on. Only meaningful for the field-recency-v2
+    provider; ``PostgrestPathRecencyProvider.__init__`` validates the value.
+    """
+
+    return (
+        os.environ.get("PROPULSE_PATH_RECENCY_STATISTIC", "").strip()
+        or DEFAULT_PATH_RECENCY_STATISTIC
+    )
+
+
 def path_history_provider_from_environment() -> PathHistoryProvider:
     override = os.environ.get("PROPULSE_PATH_HISTORY_PROVIDER", "").strip()
     if override == "unavailable":
@@ -411,6 +448,7 @@ def path_history_provider_from_environment() -> PathHistoryProvider:
                 "PROPULSE_PATH_TRANSFORM_VERSION",
                 DEFAULT_PATH_RECENCY_TRANSFORM_VERSION,
             ).strip(),
+            statistic=configured_path_statistic(),
         )
     return PostgrestPathHistoryProvider(
         **values,
@@ -419,3 +457,52 @@ def path_history_provider_from_environment() -> PathHistoryProvider:
             DEFAULT_PATH_TRANSFORM_VERSION,
         ).strip(),
     )
+
+
+def path_history_contract_mismatch(
+    core_feature_contract: str | None,
+    path_history_contract: dict[str, Any] | None,
+    *,
+    provider: PathHistoryProvider,
+) -> str | None:
+    """Fail-closed check (#306 "A7 contract assertion") for service startup.
+
+    Returns ``None`` when the environment-configured ``provider`` satisfies
+    the loaded manifest's ``path_history_contract``, else a human-readable
+    mismatch reason the caller should raise on.
+
+    Only a ``core_feature_contract`` of ``archive-v4-features-v2`` carries a
+    ``path_history_contract`` requirement; any other value (in practice
+    ``archive-v4-features-v1``) always returns ``None`` — v1 models keep
+    reading ``recency_rate`` exactly as before this migration.
+
+    The unavailable provider always satisfies a v2 manifest: the service
+    then serves the physics profile only, which is the same fail-closed
+    behaviour v1 has always had when no provider is configured. Callers
+    should log that state clearly; this function only reports mismatches
+    for a *configured* provider that does not match the manifest.
+    """
+
+    if core_feature_contract != ARCHIVE_V4_FEATURES_V2:
+        return None
+    if provider.name == "unavailable":
+        return None
+    if not isinstance(provider, PostgrestPathRecencyProvider):
+        return (
+            "archive-v4-features-v2 requires the field-recency-v2 "
+            "path-history provider"
+        )
+    contract = path_history_contract or {}
+    if contract.get("provider_kind") != FIELD_RECENCY_PROVIDER_KIND:
+        return "manifest path_history_contract.provider_kind is not field-recency-v2"
+    if provider.transform_version != contract.get("transform_version"):
+        return (
+            "configured path-history transform_version does not match "
+            "manifest path_history_contract.transform_version"
+        )
+    if provider.statistic != contract.get("statistic"):
+        return (
+            "configured path-history statistic does not match manifest "
+            "path_history_contract.statistic"
+        )
+    return None

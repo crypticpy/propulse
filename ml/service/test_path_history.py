@@ -8,12 +8,16 @@ from unittest.mock import patch
 import httpx
 
 from path_history import (
+    ARCHIVE_V4_FEATURES_V2,
+    DEFAULT_PATH_RECENCY_STATISTIC,
     DEFAULT_PATH_RECENCY_TRANSFORM_VERSION,
     DEFAULT_PATH_TRANSFORM_VERSION,
     PostgrestPathHistoryProvider,
     PostgrestPathRecencyProvider,
     UnavailablePathHistoryProvider,
     VerifiedPathHistory,
+    configured_path_statistic,
+    path_history_contract_mismatch,
     path_history_provider_from_environment,
 )
 
@@ -231,6 +235,211 @@ class PathRecencyProviderTests(unittest.TestCase):
         ):
             provider = path_history_provider_from_environment()
         self.assertEqual(provider.name, "collector-recency")
+
+    def test_statistic_defaults_to_rate_and_is_sent_on_the_rpc_body(self):
+        seen: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.update(json.loads(request.content))
+            return httpx.Response(200, json=[recency_row()])
+
+        provider = recency_provider(handler)
+        self.assertEqual(provider.statistic, DEFAULT_PATH_RECENCY_STATISTIC)
+        self.assertEqual(provider.statistic, "rate")
+        provider.lookup(
+            issue_time=ISSUE_TIME,
+            band="20m",
+            origin_grid4="EM10",
+            target_grid4s=["IO91"],
+        )
+        self.assertEqual(seen["p_statistic"], "rate")
+
+    def test_quantile_statistic_is_sent_on_the_rpc_body(self):
+        seen: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.update(json.loads(request.content))
+            return httpx.Response(200, json=[recency_row()])
+
+        provider = PostgrestPathRecencyProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+            statistic="quantile",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+        provider.lookup(
+            issue_time=ISSUE_TIME,
+            band="20m",
+            origin_grid4="EM10",
+            target_grid4s=["IO91"],
+        )
+        self.assertEqual(seen["p_statistic"], "quantile")
+
+    def test_invalid_statistic_is_rejected_at_construction(self):
+        with self.assertRaisesRegex(RuntimeError, "statistic"):
+            PostgrestPathRecencyProvider(
+                base_url="https://feature.test",
+                service_key="service-secret",
+                provider="approved-fixture",
+                statistic="opportunity",
+            )
+
+    def test_configured_path_statistic_reads_the_environment(self):
+        with patch.dict(
+            "os.environ",
+            {"PROPULSE_PATH_RECENCY_STATISTIC": ""},
+            clear=False,
+        ):
+            self.assertEqual(configured_path_statistic(), "rate")
+        with patch.dict(
+            "os.environ",
+            {"PROPULSE_PATH_RECENCY_STATISTIC": "quantile"},
+            clear=False,
+        ):
+            self.assertEqual(configured_path_statistic(), "quantile")
+
+    def test_environment_selects_the_configured_statistic(self):
+        with patch.dict(
+            "os.environ",
+            {
+                **FULL_TRIO_ENVIRONMENT,
+                "PROPULSE_PATH_HISTORY_PROVIDER": "field-recency-v2",
+                "PROPULSE_PATH_RECENCY_STATISTIC": "quantile",
+            },
+            clear=False,
+        ):
+            provider = path_history_provider_from_environment()
+        self.assertIsInstance(provider, PostgrestPathRecencyProvider)
+        self.assertEqual(provider.statistic, "quantile")
+
+    def test_environment_rejects_an_invalid_statistic(self):
+        with patch.dict(
+            "os.environ",
+            {
+                **FULL_TRIO_ENVIRONMENT,
+                "PROPULSE_PATH_HISTORY_PROVIDER": "field-recency-v2",
+                "PROPULSE_PATH_RECENCY_STATISTIC": "opportunity",
+            },
+            clear=False,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "statistic"):
+                path_history_provider_from_environment()
+
+
+class PathHistoryContractMismatchTests(unittest.TestCase):
+    """#306 "A7 contract assertion" fail-closed check for service startup."""
+
+    def matching_provider(self) -> PostgrestPathRecencyProvider:
+        return PostgrestPathRecencyProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+            transform_version="psk-rbn-field-recency-v2",
+            statistic="quantile",
+        )
+
+    def test_v1_contract_never_constrains_the_provider(self):
+        self.assertIsNone(
+            path_history_contract_mismatch(
+                "archive-v4-features-v1",
+                None,
+                provider=UnavailablePathHistoryProvider(),
+            )
+        )
+        self.assertIsNone(
+            path_history_contract_mismatch(
+                "archive-v4-features-v1",
+                None,
+                provider=self.matching_provider(),
+            )
+        )
+
+    def test_v2_accepts_the_unavailable_provider(self):
+        self.assertIsNone(
+            path_history_contract_mismatch(
+                ARCHIVE_V4_FEATURES_V2,
+                None,
+                provider=UnavailablePathHistoryProvider(),
+            )
+        )
+
+    def test_v2_accepts_a_matching_field_recency_provider(self):
+        contract = {
+            "provider_kind": "field-recency-v2",
+            "transform_version": "psk-rbn-field-recency-v2",
+            "statistic": "quantile",
+        }
+        self.assertIsNone(
+            path_history_contract_mismatch(
+                ARCHIVE_V4_FEATURES_V2,
+                contract,
+                provider=self.matching_provider(),
+            )
+        )
+
+    def test_v2_rejects_the_legacy_wspr_provider(self):
+        legacy = PostgrestPathHistoryProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+        )
+        mismatch = path_history_contract_mismatch(
+            ARCHIVE_V4_FEATURES_V2,
+            {
+                "provider_kind": "field-recency-v2",
+                "transform_version": "psk-rbn-field-recency-v2",
+                "statistic": "quantile",
+            },
+            provider=legacy,
+        )
+        self.assertIsNotNone(mismatch)
+
+    def test_v2_rejects_mismatched_transform_version_or_statistic(self):
+        contract = {
+            "provider_kind": "field-recency-v2",
+            "transform_version": "psk-rbn-field-recency-v2",
+            "statistic": "quantile",
+        }
+        for overrides in (
+            {"transform_version": "some-other-transform"},
+            {"statistic": "rate"},
+        ):
+            provider = PostgrestPathRecencyProvider(
+                base_url="https://feature.test",
+                service_key="service-secret",
+                provider="approved-fixture",
+                transform_version=overrides.get(
+                    "transform_version", "psk-rbn-field-recency-v2"
+                ),
+                statistic=overrides.get("statistic", "quantile"),
+            )
+            with self.subTest(overrides=overrides):
+                mismatch = path_history_contract_mismatch(
+                    ARCHIVE_V4_FEATURES_V2,
+                    contract,
+                    provider=provider,
+                )
+                self.assertIsNotNone(mismatch)
+
+    def test_v2_rejects_a_manifest_missing_or_mismatched_provider_kind(self):
+        provider = self.matching_provider()
+        for contract in (
+            None,
+            {},
+            {
+                "provider_kind": "wspr-live-v1",
+                "transform_version": "psk-rbn-field-recency-v2",
+                "statistic": "quantile",
+            },
+        ):
+            with self.subTest(contract=contract):
+                mismatch = path_history_contract_mismatch(
+                    ARCHIVE_V4_FEATURES_V2,
+                    contract,
+                    provider=provider,
+                )
+                self.assertIsNotNone(mismatch)
 
 
 class PathHistoryTests(unittest.TestCase):

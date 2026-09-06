@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import tempfile
 import unittest
 from datetime import timedelta
 from pathlib import Path
@@ -11,7 +12,9 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 from path_history import (
+    ARCHIVE_V4_FEATURES_V2,
     DEFAULT_PATH_TRANSFORM_VERSION,
+    PostgrestPathRecencyProvider,
     UnavailablePathHistoryProvider,
     VerifiedPathHistory,
 )
@@ -22,6 +25,7 @@ from operational_weather import (
 from runtime_activation import RuntimeActivation
 
 from app import (
+    ModelRegistry,
     PathRequest,
     RuntimePrediction,
     StationEnvelope,
@@ -1146,6 +1150,167 @@ class ReferenceEndpointTests(unittest.TestCase):
         ))
         response = client.post("/v1/propagation/reference", json=reference_payload())
         self.assertEqual(response.status_code, 503)
+
+
+def write_minimal_dev_bundle(root: Path) -> Path:
+    """One real xgboost + joblib profile, deliberately missing the fields
+    validate_serving_manifest requires (no schema_version/evidence/etc.) —
+    a stand-in for a schema-2 development bundle."""
+
+    import joblib
+    import xgboost as xgb
+    from sklearn.isotonic import IsotonicRegression
+
+    # app.py inserts ml/src/archive_v4 onto sys.path at import time so
+    # CalibratorBundle round-trips as the "calibration" module the manifest
+    # contract expects (calibrator_class == "calibration.CalibratorBundle").
+    from calibration import CalibratorBundle
+
+    dtrain = xgb.DMatrix(
+        np.array([[1.0], [2.0]], dtype=np.float32),
+        label=np.array([0.0, 1.0], dtype=np.float32),
+    )
+    booster = xgb.train(
+        {"objective": "binary:logistic", "max_depth": 1},
+        dtrain,
+        num_boost_round=1,
+    )
+    model_path = root / "physics.json"
+    booster.save_model(str(model_path))
+
+    isotonic = IsotonicRegression(out_of_bounds="clip")
+    isotonic.fit([0.0, 1.0], [0.0, 1.0])
+    calibrator_path = root / "physics.joblib"
+    joblib.dump(CalibratorBundle(global_model=isotonic), calibrator_path)
+
+    from serving_manifest import sha256_file
+
+    manifest = {
+        "model_version": "dev-bundle",
+        "release_stage": "dev",
+        "feature_contract": "dev-v1",
+        "runtime_policy": {
+            "xgboost_prediction_threads": 1,
+            "path_history_stale_after_seconds": 100,
+        },
+        "profiles": {
+            "physics": {
+                "kind": "single",
+                "component": "dev_physics",
+                "model_path": "physics.json",
+                "calibrator_path": "physics.joblib",
+                "model_sha256": sha256_file(model_path),
+                "calibrator_sha256": sha256_file(calibrator_path),
+                "features": ["band_mhz"],
+                "best_iteration": 0,
+                "model_format": "xgboost_json",
+                "calibrator_class": "calibration.CalibratorBundle",
+                "calibration_method": "dev",
+            },
+        },
+    }
+    manifest_path = root / "dev_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    return manifest_path
+
+
+V2_PATH_HISTORY_CONTRACT = {
+    "provider_kind": "field-recency-v2",
+    "transform_version": "psk-rbn-field-recency-v2",
+    "statistic": "quantile",
+}
+
+
+def v2_registry() -> FakeRegistry:
+    registry = FakeRegistry()
+    registry.core_feature_contract = ARCHIVE_V4_FEATURES_V2
+    registry.path_history_contract = dict(V2_PATH_HISTORY_CONTRACT)
+    return registry
+
+
+class CreateAppPathHistoryContractTests(unittest.TestCase):
+    """#306 "A7 contract assertion": create_app() fails closed at startup
+    when a v2 manifest's path_history_contract does not match the
+    environment-configured path-history provider."""
+
+    def test_v2_manifest_allows_the_unavailable_provider(self):
+        create_app(
+            v2_registry(),
+            path_history_provider=UnavailablePathHistoryProvider(),
+        )
+
+    def test_v2_manifest_allows_a_matching_field_recency_provider(self):
+        provider = PostgrestPathRecencyProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+            transform_version="psk-rbn-field-recency-v2",
+            statistic="quantile",
+        )
+        create_app(v2_registry(), path_history_provider=provider)
+
+    def test_v2_manifest_rejects_a_non_field_recency_provider(self):
+        with self.assertRaisesRegex(RuntimeError, "field-recency-v2"):
+            create_app(
+                v2_registry(),
+                path_history_provider=FakePathHistoryProvider(),
+            )
+
+    def test_v2_manifest_rejects_a_mismatched_transform_version(self):
+        provider = PostgrestPathRecencyProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+            transform_version="some-other-transform",
+            statistic="quantile",
+        )
+        with self.assertRaisesRegex(RuntimeError, "transform_version"):
+            create_app(v2_registry(), path_history_provider=provider)
+
+    def test_v2_manifest_rejects_a_mismatched_statistic(self):
+        provider = PostgrestPathRecencyProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+            transform_version="psk-rbn-field-recency-v2",
+            statistic="rate",
+        )
+        with self.assertRaisesRegex(RuntimeError, "statistic"):
+            create_app(v2_registry(), path_history_provider=provider)
+
+    def test_v1_manifest_is_unconstrained_by_the_provider(self):
+        # The default FakeRegistry core_feature_contract is v1-shaped;
+        # any provider (including a mismatched field-recency one) is fine.
+        provider = PostgrestPathRecencyProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+            transform_version="some-other-transform",
+            statistic="rate",
+        )
+        create_app(FakeRegistry(), path_history_provider=provider)
+
+
+class ModelRegistryStrictModeTests(unittest.TestCase):
+    """strict=False lets development bundles (schema 2) skip the immutable
+    retrospective-bundle contract; the production default stays strict."""
+
+    def test_strict_default_rejects_a_non_conforming_dev_bundle(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_minimal_dev_bundle(Path(temporary))
+            with self.assertRaises(RuntimeError):
+                ModelRegistry(manifest_path)
+
+    def test_strict_false_loads_the_same_dev_bundle(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_minimal_dev_bundle(Path(temporary))
+            registry = ModelRegistry(manifest_path, strict=False)
+        self.assertEqual(registry.version, "dev-bundle")
+        self.assertEqual(registry.core_feature_contract, "dev-v1")
+        self.assertIsNone(registry.path_history_contract)
+        prediction = registry.predict({"band_mhz": 14.0}, "20m", stale_history=False)
+        self.assertGreaterEqual(prediction.probability, 0.0)
+        self.assertLessEqual(prediction.probability, 1.0)
 
 
 if __name__ == "__main__":

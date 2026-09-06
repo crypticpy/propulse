@@ -33,9 +33,11 @@ from beta_telemetry import (
     station_envelope_stop_counts,
 )
 from path_history import (
+    ARCHIVE_V4_FEATURES_V2,
     PATH_LAGS,
     PathHistoryProvider,
     VerifiedPathHistory,
+    path_history_contract_mismatch,
     path_history_provider_from_environment,
 )
 from reference_features import (
@@ -367,15 +369,23 @@ def blend_probabilities(
 
 
 class ModelRegistry:
-    def __init__(self, manifest_path: Path) -> None:
+    def __init__(self, manifest_path: Path, strict: bool = True) -> None:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        validate_serving_manifest(payload)
+        # strict=False skips the immutable-retrospective-bundle contract for
+        # development bundles (schema 2 and earlier); production always
+        # loads with the default strict=True.
+        if strict:
+            validate_serving_manifest(payload)
         self.version = payload["model_version"]
         self.release_stage = payload["release_stage"]
         self.feature_contract = payload["feature_contract"]
         self.core_feature_contract = payload.get(
             "core_feature_contract", self.feature_contract
         )
+        # Only meaningful when core_feature_contract is
+        # archive-v4-features-v2; validate_serving_manifest (strict mode)
+        # already guarantees its shape in that case (#306).
+        self.path_history_contract = payload.get("path_history_contract")
         runtime_policy = payload.get("runtime_policy", {})
         self.path_history_stale_after_seconds = int(
             runtime_policy.get(
@@ -579,6 +589,7 @@ class ModelRegistry:
 class UnavailableRegistry:
     path_history_stale_after_seconds = DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS
     core_feature_contract = "unknown"
+    path_history_contract = None
 
     def predict(self, values: dict[str, float | int | None], band: str, stale_history: bool) -> RuntimePrediction:
         raise RuntimeError("no approved model bundle is loaded")
@@ -1227,6 +1238,31 @@ def create_app(
         LOGGER.info(
             "path-history provider is unavailable at startup; "
             "serving the physics profile for every request"
+        )
+    # #306 "A7 contract assertion": archive-v4-features-v2 manifests bind a
+    # specific path-history provider identity, transform_version, and
+    # statistic (path_history_contract_mismatch handles v1 as a no-op).
+    # Fail closed at startup rather than silently serving quantile-trained
+    # weights against rate-shaped (or absent) recency inputs. The
+    # unavailable provider always satisfies a v2 manifest -- it already
+    # serves physics only -- but that state is logged clearly below.
+    path_history_mismatch = path_history_contract_mismatch(
+        runtime_feature_contract,
+        getattr(runtime, "path_history_contract", None),
+        provider=history_provider,
+    )
+    if path_history_mismatch is not None:
+        raise RuntimeError(
+            f"path-history provider contract mismatch: {path_history_mismatch}"
+        )
+    if (
+        runtime_feature_contract == ARCHIVE_V4_FEATURES_V2
+        and history_provider.name == "unavailable"
+    ):
+        LOGGER.warning(
+            "core_feature_contract=%s but the path-history provider is "
+            "unavailable at startup; serving the physics profile only",
+            runtime_feature_contract,
         )
     emit_telemetry = telemetry_sink or log_shadow_telemetry
     missing_feature_counter: Counter[str] = Counter()

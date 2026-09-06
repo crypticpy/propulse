@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ from production_entrypoint import (
     bounded_integer,
     prepare_bundle_environment,
     uvicorn_arguments,
+    validate_manifest_path_history_contract,
     validate_production_environment,
 )
 
@@ -166,6 +168,132 @@ class ProductionEntrypointTests(unittest.TestCase):
         with patch.dict(os.environ, environment, clear=True):
             with self.assertRaisesRegex(RuntimeError, "between 1 and 64"):
                 prepare_bundle_environment()
+
+
+V2_FIELD_RECENCY_ENVIRONMENT = {
+    "PROPULSE_FEATURE_STORE_URL": "https://feature.test",
+    "PROPULSE_FEATURE_STORE_SERVICE_KEY": "f" * 32,
+    "PROPULSE_PATH_PROVIDER": "approved-fixture",
+    "PROPULSE_PATH_HISTORY_PROVIDER": "field-recency-v2",
+    "PROPULSE_PATH_TRANSFORM_VERSION": "psk-rbn-field-recency-v2",
+    "PROPULSE_PATH_RECENCY_STATISTIC": "quantile",
+}
+
+
+def write_manifest(
+    directory: Path,
+    *,
+    core_feature_contract: str,
+    path_history_contract: dict | None = None,
+) -> Path:
+    manifest: dict = {"core_feature_contract": core_feature_contract}
+    if path_history_contract is not None:
+        manifest["path_history_contract"] = path_history_contract
+    manifest_path = directory / "serving_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    return manifest_path
+
+
+class ManifestPathHistoryContractTests(unittest.TestCase):
+    """#306 "A7 contract assertion" checked by the production entrypoint
+    before uvicorn execs, mirroring app.py's create_app() startup check."""
+
+    def test_v1_manifest_is_unconstrained_regardless_of_environment(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_manifest(
+                Path(temporary), core_feature_contract="archive-v4-features-v1"
+            )
+            with patch.dict(os.environ, {}, clear=True):
+                validate_manifest_path_history_contract(manifest_path)
+
+    def test_v2_manifest_allows_the_unavailable_provider(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_manifest(
+                Path(temporary),
+                core_feature_contract="archive-v4-features-v2",
+                path_history_contract={
+                    "provider_kind": "field-recency-v2",
+                    "transform_version": "psk-rbn-field-recency-v2",
+                    "statistic": "quantile",
+                },
+            )
+            with patch.dict(
+                os.environ,
+                {"PROPULSE_PATH_HISTORY_PROVIDER": "unavailable"},
+                clear=True,
+            ):
+                validate_manifest_path_history_contract(manifest_path)
+
+    def test_v2_manifest_allows_a_matching_field_recency_provider(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_manifest(
+                Path(temporary),
+                core_feature_contract="archive-v4-features-v2",
+                path_history_contract={
+                    "provider_kind": "field-recency-v2",
+                    "transform_version": "psk-rbn-field-recency-v2",
+                    "statistic": "quantile",
+                },
+            )
+            with patch.dict(
+                os.environ, V2_FIELD_RECENCY_ENVIRONMENT, clear=True
+            ):
+                validate_manifest_path_history_contract(manifest_path)
+
+    def test_v2_manifest_rejects_a_mismatched_transform_version(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_manifest(
+                Path(temporary),
+                core_feature_contract="archive-v4-features-v2",
+                path_history_contract={
+                    "provider_kind": "field-recency-v2",
+                    "transform_version": "some-other-transform",
+                    "statistic": "quantile",
+                },
+            )
+            with patch.dict(
+                os.environ, V2_FIELD_RECENCY_ENVIRONMENT, clear=True
+            ):
+                with self.assertRaisesRegex(RuntimeError, "transform_version"):
+                    validate_manifest_path_history_contract(manifest_path)
+
+    def test_v2_manifest_rejects_a_mismatched_statistic(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_manifest(
+                Path(temporary),
+                core_feature_contract="archive-v4-features-v2",
+                path_history_contract={
+                    "provider_kind": "field-recency-v2",
+                    "transform_version": "psk-rbn-field-recency-v2",
+                    "statistic": "rate",
+                },
+            )
+            with patch.dict(
+                os.environ, V2_FIELD_RECENCY_ENVIRONMENT, clear=True
+            ):
+                with self.assertRaisesRegex(RuntimeError, "statistic"):
+                    validate_manifest_path_history_contract(manifest_path)
+
+    def test_v2_manifest_rejects_the_legacy_wspr_provider(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_manifest(
+                Path(temporary),
+                core_feature_contract="archive-v4-features-v2",
+                path_history_contract={
+                    "provider_kind": "field-recency-v2",
+                    "transform_version": "psk-rbn-field-recency-v2",
+                    "statistic": "quantile",
+                },
+            )
+            environment = {
+                "PROPULSE_FEATURE_STORE_URL": "https://feature.test",
+                "PROPULSE_FEATURE_STORE_SERVICE_KEY": "f" * 32,
+                "PROPULSE_WSPR_PROVIDER": "approved-fixture",
+                "PROPULSE_PATH_TRANSFORM_VERSION": "wspr-opportunity-duckdb-v1",
+            }
+            with patch.dict(os.environ, environment, clear=True):
+                with self.assertRaisesRegex(RuntimeError, "field-recency-v2"):
+                    validate_manifest_path_history_contract(manifest_path)
 
 
 if __name__ == "__main__":

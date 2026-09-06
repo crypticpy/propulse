@@ -3,17 +3,24 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 from pathlib import Path
 from urllib.parse import urlparse
 
 from model_bundle import prepare_model_bundle, verify_bundle_directory
 from path_history import (
+    ARCHIVE_V4_FEATURES_V2,
     DEFAULT_PATH_RECENCY_TRANSFORM_VERSION,
     DEFAULT_PATH_TRANSFORM_VERSION,
     FIELD_RECENCY_PROVIDER_KIND,
     configured_path_provider_identity,
+    path_history_contract_mismatch,
+    path_history_provider_from_environment,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 def bounded_integer(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -182,6 +189,41 @@ def prepare_bundle_environment() -> Path:
     return manifest_path
 
 
+def validate_manifest_path_history_contract(manifest_path: Path) -> None:
+    """Fail closed (#306 "A7 contract assertion") before uvicorn execs.
+
+    A manifest with ``core_feature_contract: archive-v4-features-v2`` binds
+    a specific path-history provider identity, transform_version, and
+    statistic in its ``path_history_contract`` block. This mirrors the
+    check ``app.py``'s ``create_app()`` runs at import time, but runs it
+    here first so a misconfiguration is reported by the entrypoint instead
+    of surfacing as a uvicorn import crash after the bundle download.
+
+    The unavailable provider always satisfies a v2 manifest -- the service
+    then serves the physics profile only -- but that state is logged
+    clearly rather than passing silently.
+    """
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    core_feature_contract = manifest.get("core_feature_contract")
+    provider = path_history_provider_from_environment()
+    mismatch = path_history_contract_mismatch(
+        core_feature_contract,
+        manifest.get("path_history_contract"),
+        provider=provider,
+    )
+    if mismatch is not None:
+        raise RuntimeError(f"path-history provider contract mismatch: {mismatch}")
+    if (
+        core_feature_contract == ARCHIVE_V4_FEATURES_V2
+        and provider.name == "unavailable"
+    ):
+        LOGGER.warning(
+            "core_feature_contract=%s but the path-history provider is "
+            "unavailable; serving the physics profile only",
+            core_feature_contract,
+        )
+
+
 def uvicorn_arguments() -> list[str]:
     port = bounded_integer("PORT", 8000, 1, 65535)
     workers = bounded_integer("PROPULSE_UVICORN_WORKERS", 1, 1, 4)
@@ -201,6 +243,7 @@ def uvicorn_arguments() -> list[str]:
 def main() -> None:
     validate_production_environment()
     manifest_path = prepare_bundle_environment()
+    validate_manifest_path_history_contract(manifest_path)
     os.environ["PROPULSE_MODEL_BUNDLE"] = str(manifest_path)
     os.execvp("uvicorn", uvicorn_arguments())
 

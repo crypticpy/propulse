@@ -19,6 +19,30 @@ EXPECTED_PROFILE_COMPONENTS = {
 }
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
+# #297/#306 (N3 retrain): archive-v4-features-v1 models read the raw
+# path_recency_hourly.recency_rate; archive-v4-features-v2 models read the
+# per-band-hour recency_quantile and additionally require a
+# path_history_contract block (validated below) binding the serving
+# provider identity to the manifest.
+CORE_FEATURE_CONTRACT_V1 = "archive-v4-features-v1"
+CORE_FEATURE_CONTRACT_V2 = "archive-v4-features-v2"
+SUPPORTED_CORE_FEATURE_CONTRACTS = (
+    CORE_FEATURE_CONTRACT_V1,
+    CORE_FEATURE_CONTRACT_V2,
+)
+PATH_HISTORY_CONTRACT_PROVIDER_KIND = "field-recency-v2"
+APPROVED_PATH_HISTORY_STATISTICS = ("rate", "quantile")
+# #306 "A7 contract assertion": these SuperMAG/Kyoto-derived weather
+# features (and their *_missing companions) are not sourced by any
+# real-time provider (see operational_weather.py RAW_WEATHER_FEATURES) and
+# must never appear in a v2 model's physics/nowcast feature list.
+FORBIDDEN_V2_FEATURE_BASE_NAMES = ("ae", "al", "au", "pcn")
+FORBIDDEN_V2_FEATURE_NAMES = frozenset(
+    name
+    for base in FORBIDDEN_V2_FEATURE_BASE_NAMES
+    for name in (base, f"{base}_missing")
+)
+
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -110,8 +134,30 @@ def validate_serving_manifest(payload: dict[str, Any]) -> None:
         raise RuntimeError("inconsistent retrospective validation state")
     if payload.get("feature_contract") != "station-chain-v1":
         raise RuntimeError("unexpected station feature contract")
-    if payload.get("core_feature_contract") != "archive-v4-features-v1":
+    core_feature_contract = payload.get("core_feature_contract")
+    if core_feature_contract not in SUPPORTED_CORE_FEATURE_CONTRACTS:
         raise RuntimeError("unexpected core feature contract")
+    if core_feature_contract == CORE_FEATURE_CONTRACT_V2:
+        path_history_contract = payload.get("path_history_contract")
+        if not isinstance(path_history_contract, dict):
+            raise RuntimeError(
+                "archive-v4-features-v2 requires a path_history_contract"
+            )
+        if (
+            path_history_contract.get("provider_kind")
+            != PATH_HISTORY_CONTRACT_PROVIDER_KIND
+        ):
+            raise RuntimeError(
+                "path_history_contract.provider_kind must be field-recency-v2"
+            )
+        transform_version = path_history_contract.get("transform_version")
+        if not isinstance(transform_version, str) or not transform_version:
+            raise RuntimeError("path_history_contract.transform_version is invalid")
+        if (
+            path_history_contract.get("statistic")
+            not in APPROVED_PATH_HISTORY_STATISTICS
+        ):
+            raise RuntimeError("path_history_contract.statistic is invalid")
     if payload.get("primary_candidate") != EXPECTED_PRIMARY_CANDIDATE:
         raise RuntimeError("unexpected internal primary candidate")
     for field in ("run_id", "model_version"):
@@ -167,6 +213,13 @@ def validate_serving_manifest(payload: dict[str, Any]) -> None:
             profile.get("features"),
             f"profiles.{profile_name}.features",
         )
+        if core_feature_contract == CORE_FEATURE_CONTRACT_V2:
+            forbidden = FORBIDDEN_V2_FEATURE_NAMES.intersection(features)
+            if forbidden:
+                raise RuntimeError(
+                    f"forbidden feature in archive-v4-features-v2 profile "
+                    f"{profile_name}: {sorted(forbidden)}"
+                )
         if require_sha256(
             profile.get("feature_order_sha256"),
             f"profiles.{profile_name}.feature_order_sha256",

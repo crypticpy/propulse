@@ -385,6 +385,54 @@ configured expectation. `/health` also exposes `missing_feature_counts`, a
 rolling in-process tally of which model features arrived as `None`, capped
 to the top 20 names since the process started.
 
+#### Per-band-hour quantile statistic (#306, N3 retrain)
+
+`path_recency_hourly.recency_rate` is a per-receiving-field inverse-breadth
+weight (`heard / exposure`, and `heard` is always 1), not comparable in level
+to the WSPR-trained feature. The N3 retrain instead trains on a **per-band-hour
+quantile** of that rate — `percent_rank() OVER (PARTITION BY band, hour_utc
+ORDER BY recency_rate)`, computed over the heard-pair rows of that hour — and
+migration `supabase/migrations/20260906230000_path_recency_quantile.sql` adds
+a `recency_quantile` column that stores exactly that value so production
+serves the same number the retrain trained on, not a live recomputation that
+can drift.
+
+`lookup_path_recency_lags` gained a 7th argument, `p_statistic` (`'rate'` by
+default, or `'quantile'`), and `PostgrestPathRecencyProvider` gained a matching
+`statistic` constructor argument, controlled by:
+
+```bash
+export PROPULSE_PATH_RECENCY_STATISTIC="quantile"   # or "rate" (default)
+```
+
+Only meaningful alongside `PROPULSE_PATH_HISTORY_PROVIDER=field-recency-v2`;
+any other value raises at construction. For `'quantile'`, `path_success_prevN`
+reads `coalesce(recency_quantile, 0)` and a lag counts as available only when
+its row exists, was readable by issue time, **and** `recency_quantile` is not
+null — an hour computed before the migration backfill reads as unavailable,
+never as a fabricated quantile of 0. Re-running
+`node scripts/backfill-path-recency.mjs` recomputes every hour (delete +
+insert) and populates the column. For `'rate'` (the default), behaviour is
+byte-for-byte unchanged from the original #297 contract.
+
+A serving manifest with `core_feature_contract: archive-v4-features-v2` must
+carry a `path_history_contract` object (`provider_kind: "field-recency-v2"`,
+`transform_version`, `statistic`), and must not list `ae`, `al`, `au`, `pcn`,
+or their `*_missing` companions in any profile's `features` — the "A7 contract
+assertion" from #306, enforced by `validate_serving_manifest`. At startup,
+`create_app()` (and the production entrypoint, before it execs uvicorn) fails
+closed unless the configured path-history provider is `field-recency-v2` with
+a matching `transform_version` and `statistic`, or the provider is
+`unavailable` (which is always allowed — the service then serves the physics
+profile only, and logs that clearly). `archive-v4-features-v1` manifests are
+unaffected: they carry no `path_history_contract` and keep reading
+`recency_rate` exactly as before.
+
+`ModelRegistry` also gained a `strict: bool = True` constructor argument;
+`strict=False` skips `validate_serving_manifest` for development bundles
+(schema 2 and earlier). Production always constructs it with the default
+`strict=True`.
+
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature
 contract; weights must be non-negative and sum to one. Each component is scored

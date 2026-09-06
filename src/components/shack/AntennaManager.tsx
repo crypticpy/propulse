@@ -2,11 +2,11 @@
  * AntennaManager — Card-grid CRUD for user antennas.
  *
  * Displays antenna cards with name, type, bands, height, mounting, and polarization.
- * Add/edit via DetailModal form; delete with confirmation.
- * Uses EquipmentCard for display and EquipmentDetailModal for detail view.
+ * Add/edit via the station design system form; delete with confirmation.
+ * Uses EquipmentCard for display and EquipmentHeroCard for detail and gallery.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId } from "react";
 import { useShackStore, useUserAntennas } from "@/stores/shackStore";
 import type {
   UserAntenna,
@@ -19,7 +19,16 @@ import {
   ANTENNA_TYPE_LABELS,
   ANTENNA_TYPE_TO_PATTERN,
 } from "@/types/shack";
-import { DetailModal } from "@/components/ui/DetailModal";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  Section,
+  StationProvider,
+  TextField,
+  SelectField,
+  TextAreaField,
+} from "@/components/station-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
 import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
@@ -322,6 +331,7 @@ export function AntennaManager({
   const antennas = useUserAntennas();
   const { addAntenna, updateAntenna, removeAntenna } = useShackStore();
 
+  const formId = useId();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AntennaForm>(createDefaultForm);
@@ -451,7 +461,7 @@ export function AntennaManager({
 
       {/* Card grid */}
       {antennas.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {antennas.map((a) => (
             <EquipmentCard
               key={a.id}
@@ -546,310 +556,293 @@ export function AntennaManager({
       )}
 
       {/* Add / Edit Modal */}
-      <DetailModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingId(null);
-          setError(null);
-        }}
-        title={editingId ? "Edit Antenna" : "Add Antenna"}
-        subtitle="Configure your antenna details"
-        size="lg"
-      >
-        <div className="space-y-5">
-          {error && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Name
-            </label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              maxLength={100}
-              placeholder="e.g., 20m Yagi on Tower"
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Antenna Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Antenna Type
-              </label>
-              <select
-                value={form.antennaType}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    antennaType: e.target.value as UserAntennaType,
-                  }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+      <StationProvider>
+        <Dialog
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingId(null);
+            setError(null);
+          }}
+          title={editingId ? "Edit antenna" : "Add an antenna"}
+          description="Start with the antenna and its bands, then describe how you have installed it."
+          footer={
+            <div className="su-inline">
+              <Button
+                onClick={() => {
+                  setModalOpen(false);
+                  setEditingId(null);
+                  setError(null);
+                }}
               >
-                {ALL_ANTENNA_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {ANTENNA_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" form={formId}>
+                {editingId ? "Save changes" : "Add antenna"}
+              </Button>
             </div>
-          </div>
+          }
+        >
+          <form
+            id={formId}
+            className="su-stack"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            {error && (
+              <div className="su-field-error" role="alert">
+                {error}
+              </div>
+            )}
 
-          {/* Bands */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Bands
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {ALL_BANDS.map((band) => {
-                const selected = form.bands.has(band);
-                return (
-                  <button
-                    key={band}
-                    type="button"
-                    onClick={() =>
-                      setForm((p) => {
-                        const next = new Set(p.bands);
-                        if (next.has(band)) next.delete(band);
-                        else next.add(band);
-                        return { ...p, bands: next };
-                      })
-                    }
-                    className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                      selected
-                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                        : "bg-white/5 text-gray-400 border border-white/10 hover:text-gray-200 hover:bg-white/10"
-                    }`}
-                  >
-                    {band}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Height */}
+            {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Height (meters)
-              </label>
-              <input
-                inputMode="decimal"
-                value={form.heightMeters}
+              <TextField
+                label="Antenna name"
+                required
+                value={form.name}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, heightMeters: e.target.value }))
+                  setForm((p) => ({ ...p, name: e.target.value }))
                 }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                maxLength={100}
+                placeholder="e.g., 20m Yagi on Tower"
               />
             </div>
 
-            {/* Azimuth */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Azimuth (0-360, optional)
-              </label>
-              <input
-                inputMode="decimal"
-                value={form.azimuthDeg}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, azimuthDeg: e.target.value }))
-                }
-                placeholder="e.g., 45"
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-
-            {/* Rotatable toggle */}
-            <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.isRotatable}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Antenna Type */}
+              <div>
+                <SelectField
+                  label="Antenna Type"
+                  value={form.antennaType}
                   onChange={(e) =>
-                    setForm((p) => ({ ...p, isRotatable: e.target.checked }))
+                    setForm((p) => ({
+                      ...p,
+                      antennaType: e.target.value as UserAntennaType,
+                    }))
                   }
-                  className="accent-plasma-orange"
-                />
-                <span className="text-sm text-gray-200">Rotatable</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Polarization */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Polarization
-              </label>
-              <select
-                value={form.polarization}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    polarization: e.target.value as AntennaPolarization,
-                  }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              >
-                {ALL_POLARIZATIONS.map((pol) => (
-                  <option key={pol} value={pol}>
-                    {POLARIZATION_LABELS[pol]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Mounting */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Mounting
-              </label>
-              <select
-                value={form.mounting}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    mounting: e.target.value as AntennaMounting,
-                  }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              >
-                {ALL_MOUNTINGS.map((m) => (
-                  <option key={m} value={m}>
-                    {MOUNTING_LABELS[m]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Manufacturer
-              </label>
-              <input
-                type="text"
-                value={form.manufacturer}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, manufacturer: e.target.value }))
-                }
-                placeholder="DX Engineering"
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Model
-              </label>
-              <input
-                type="text"
-                value={form.modelNumber}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, modelNumber: e.target.value }))
-                }
-                placeholder="EFHW-8010"
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {form.bands.size > 0 && (
-            <div>
-              <p className="text-sm font-medium text-gray-200 mb-2">
-                SWR and gain override
-              </p>
-              <div className="space-y-2">
-                {Array.from(form.bands).map((band) => (
-                  <div key={band} className="grid grid-cols-3 gap-2 items-center">
-                    <span className="text-xs font-mono text-gray-400">{band}</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      step={0.1}
-                      value={form.swrByBand[band] ?? ""}
-                      onChange={(e) =>
-                        setForm((p) => ({
-                          ...p,
-                          swrByBand: { ...p.swrByBand, [band]: e.target.value },
-                        }))
-                      }
-                      placeholder="SWR"
-                      className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-                    />
-                    <input
-                      type="number"
-                      step={0.1}
-                      value={form.gainDbiOverride[band] ?? ""}
-                      onChange={(e) =>
-                        setForm((p) => ({
-                          ...p,
-                          gainDbiOverride: {
-                            ...p.gainDbiOverride,
-                            [band]: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="dBi"
-                      className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-                    />
-                  </div>
-                ))}
+                >
+                  {ALL_ANTENNA_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {ANTENNA_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </SelectField>
               </div>
             </div>
-          )}
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, notes: e.target.value }))
-              }
-              rows={3}
-              placeholder="Construction notes, SWR observations, etc."
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-            />
-          </div>
+            <fieldset className="su-stack">
+              <legend className="font-semibold">Operating bands</legend>
+              <p className="su-hint">
+                Select every band this antenna supports. You can add SWR and
+                gain values for each band below.
+              </p>
+              <div className="su-inline">
+                {ALL_BANDS.map((band) => (
+                  <Button
+                    key={band}
+                    aria-pressed={form.bands.has(band)}
+                    variant={form.bands.has(band) ? "primary" : "secondary"}
+                    onClick={() =>
+                      setForm((previous) => {
+                        const next = new Set(previous.bands);
+                        if (next.has(band)) next.delete(band);
+                        else next.add(band);
+                        return { ...previous, bands: next };
+                      })
+                    }
+                  >
+                    {band}
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
 
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setModalOpen(false);
-                setEditingId(null);
-                setError(null);
-              }}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
+            <Section
+              title="Installation"
+              description="Describe this antenna's position and mounting in your setup."
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
+              <div className="su-stack">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Height */}
+                  <div>
+                    <TextField
+                      label="Height (meters)"
+                      inputMode="decimal"
+                      value={form.heightMeters}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, heightMeters: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  {/* Azimuth */}
+                  <div>
+                    <TextField
+                      label="Azimuth (0-360, optional)"
+                      inputMode="decimal"
+                      value={form.azimuthDeg}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, azimuthDeg: e.target.value }))
+                      }
+                      placeholder="e.g., 45"
+                    />
+                  </div>
+
+                  <Checkbox
+                    label="This antenna can rotate"
+                    checked={form.isRotatable}
+                    onChange={(event) =>
+                      setForm((previous) => ({
+                        ...previous,
+                        isRotatable: event.target.checked,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Polarization */}
+                  <div>
+                    <SelectField
+                      label="Polarization"
+                      value={form.polarization}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          polarization: e.target.value as AntennaPolarization,
+                        }))
+                      }
+                    >
+                      {ALL_POLARIZATIONS.map((pol) => (
+                        <option key={pol} value={pol}>
+                          {POLARIZATION_LABELS[pol]}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+
+                  {/* Mounting */}
+                  <div>
+                    <SelectField
+                      label="Mounting"
+                      value={form.mounting}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          mounting: e.target.value as AntennaMounting,
+                        }))
+                      }
+                    >
+                      {ALL_MOUNTINGS.map((m) => (
+                        <option key={m} value={m}>
+                          {MOUNTING_LABELS[m]}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                </div>
+              </div>
+            </Section>
+
+            <Section
+              title="Manufacturer and model"
+              description="Optional · Catalog or custom equipment details."
             >
-              {editingId ? "Save Changes" : "Add Antenna"}
-            </button>
-          </div>
-        </div>
-      </DetailModal>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <TextField
+                    label="Manufacturer"
+                    type="text"
+                    value={form.manufacturer}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, manufacturer: e.target.value }))
+                    }
+                    placeholder="DX Engineering"
+                  />
+                </div>
+                <div>
+                  <TextField
+                    label="Model"
+                    type="text"
+                    value={form.modelNumber}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, modelNumber: e.target.value }))
+                    }
+                    placeholder="EFHW-8010"
+                  />
+                </div>
+              </div>
+            </Section>
+
+            {form.bands.size > 0 && (
+              <Section
+                title="SWR and gain by band"
+                description="Optional · Leave a field blank when you do not have a value. Gain is expressed in dBi."
+              >
+                <div className="su-stack">
+                  {Array.from(form.bands).map((band) => (
+                    <div
+                      key={band}
+                      className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                    >
+                      <TextField
+                        label={`${band} SWR`}
+                        type="number"
+                        min={1}
+                        max={10}
+                        step={0.1}
+                        value={form.swrByBand[band] ?? ""}
+                        onChange={(event) =>
+                          setForm((previous) => ({
+                            ...previous,
+                            swrByBand: {
+                              ...previous.swrByBand,
+                              [band]: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      <TextField
+                        label={`${band} gain override`}
+                        suffix="dBi"
+                        type="number"
+                        step={0.1}
+                        value={form.gainDbiOverride[band] ?? ""}
+                        onChange={(event) =>
+                          setForm((previous) => ({
+                            ...previous,
+                            gainDbiOverride: {
+                              ...previous.gainDbiOverride,
+                              [band]: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Notes */}
+            <div>
+              <TextAreaField
+                label="Notes (optional)"
+                value={form.notes}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, notes: e.target.value }))
+                }
+                rows={3}
+                placeholder="Construction notes, SWR observations, etc."
+              />
+            </div>
+          </form>
+        </Dialog>
+      </StationProvider>
 
       <ConfirmDialog
         open={deleteTarget !== null}

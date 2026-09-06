@@ -9,8 +9,9 @@
  *   Antenna     -> name, type, bands, height, gain info
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
+import { Button, Dialog } from "@/components/station-ui";
+import "./equipment-workbench.css";
 import type { StationChain, FeedlineRun } from "@/types/stationChain";
 import {
   ANTENNA_TYPE_LABELS,
@@ -83,28 +84,6 @@ function Badge({
   );
 }
 
-function ActionButton({
-  children,
-  onClick,
-  variant = "default",
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  variant?: "default" | "danger";
-}) {
-  const base =
-    "w-full text-sm font-medium py-2 px-3 rounded-lg border transition-colors";
-  const styles =
-    variant === "danger"
-      ? "bg-alert-red/10 border-alert-red/20 text-alert-red hover:bg-alert-red/20"
-      : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10";
-  return (
-    <button type="button" onClick={onClick} className={`${base} ${styles}`}>
-      {children}
-    </button>
-  );
-}
-
 // ---- Main Component --------------------------------------------------------
 
 export function NodeConfigPanel({
@@ -120,121 +99,71 @@ export function NodeConfigPanel({
   const accessories = useUserAccessories();
   const inlineComponents = useInlineComponents();
 
-  // Close on Escape key
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
-
   const node = chain.nodes[nodeIndex];
   if (!node) return null;
-
-  const panel = (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      {/* Modal */}
-      <div className="relative bg-void-black/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
-          <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">
-            {node.type === "radio"
-              ? "Radio Details"
-              : node.type === "antenna"
-                ? "Antenna Details"
-                : node.type === "feedline_run"
-                  ? "Feedline Details"
-                  : "Accessory Details"}
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
-            aria-label="Close panel"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {node.type === "radio" && (
-            <RadioSection
-              radioId={node.radioId}
-              radios={radios}
-              operatingPower={chain.operatingPowerWatts}
-            />
-          )}
-          {node.type === "accessory" && (
-            <AccessorySection
-              accessoryId={node.accessoryId}
-              accessories={accessories}
-            />
-          )}
-          {node.type === "feedline_run" && (
-            <FeedlineRunSection
-              feedlineRunId={node.feedlineRunId}
-              chain={chain}
-              feedlines={feedlines}
-              inlineComponents={inlineComponents}
-            />
-          )}
-          {node.type === "antenna" && (
-            <AntennaSection antennaId={node.antennaId} antennas={antennas} />
-          )}
-        </div>
-
-        {/* Footer actions */}
-        <div className="px-5 py-3 border-t border-white/10 space-y-2">
+  const label =
+    node.type === "radio"
+      ? "Radio"
+      : node.type === "antenna"
+        ? "Antenna"
+        : node.type === "feedline_run"
+          ? "Feedline"
+          : "Accessory";
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`${label} in this path`}
+      description={`${chain.name} · Position ${nodeIndex + 1}. Review equipment and its connections.`}
+      footer={
+        <div className="su-inline">
           {onSwapEquipment && (
-            <ActionButton onClick={() => onSwapEquipment(nodeIndex)}>
-              {node.type === "radio"
-                ? "Swap Radio"
-                : node.type === "antenna"
-                  ? "Swap Antenna"
-                  : node.type === "feedline_run"
-                    ? "Swap Feedline"
-                    : "Swap Accessory"}
-            </ActionButton>
+            <Button onClick={() => onSwapEquipment(nodeIndex)}>
+              Swap {label.toLowerCase()}
+            </Button>
           )}
           {onRemoveNode && (
-            <ActionButton
-              variant="danger"
-              onClick={() => onRemoveNode(nodeIndex)}
-            >
-              Remove from Chain
-            </ActionButton>
+            <Button variant="danger" onClick={() => onRemoveNode(nodeIndex)}>
+              Remove from path
+            </Button>
           )}
+          <Button variant="primary" onClick={onClose}>
+            Done
+          </Button>
         </div>
+      }
+    >
+      <div className="equipment-node-details">
+        <p className="su-hint">
+          Removing an item from this path keeps it in your equipment inventory.
+        </p>
+        {node.type === "radio" && (
+          <RadioSection
+            radioId={node.radioId}
+            radios={radios}
+            operatingPower={chain.operatingPowerWatts}
+          />
+        )}
+        {node.type === "accessory" && (
+          <AccessorySection
+            accessoryId={node.accessoryId}
+            accessories={accessories}
+          />
+        )}
+        {node.type === "feedline_run" && (
+          <FeedlineRunSection
+            feedlineRunId={node.feedlineRunId}
+            chain={chain}
+            feedlines={feedlines}
+            inlineComponents={inlineComponents}
+          />
+        )}
+        {node.type === "antenna" && (
+          <AntennaSection antennaId={node.antennaId} antennas={antennas} />
+        )}
       </div>
-    </div>
+    </Dialog>
   );
-
-  return createPortal(panel, document.body);
 }
 
 // ---- Radio Section ---------------------------------------------------------

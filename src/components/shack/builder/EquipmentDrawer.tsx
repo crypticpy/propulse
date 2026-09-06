@@ -6,6 +6,9 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { Button, Surface, Section, TextField } from "@/components/station-ui";
+import "./equipment-workbench.css";
 import type { StationChain } from "@/types/stationChain";
 import { isSignalPathCategory } from "@/types/stationChain";
 import {
@@ -100,24 +103,12 @@ function EmptyState({ tab }: { tab: DrawerTab }) {
   return (
     <div className="text-center py-6 px-4 space-y-1.5">
       <p className="text-xs text-gray-500 italic">{EMPTY_SHORT[tab]}</p>
-      <button
-        className="text-plasma-orange hover:text-plasma-orange/80 underline text-xs"
-        onClick={() => {
-          // Navigate to the appropriate inventory tab in ShackPage
-          // The ShackPage hash navigation uses #radios, #antennas, etc.
-          const tabMap: Record<DrawerTab, string> = {
-            radios: "radios",
-            antennas: "antennas",
-            feedlines: "feedlines",
-            accessories: "accessories",
-            shack: "accessories",
-            inline: "inline",
-          };
-          window.location.hash = tabMap[tab];
-        }}
+      <Link
+        className="su-button su-button--secondary"
+        to={`/shack?view=equipment&category=${tab === "shack" ? "accessories" : tab}`}
       >
-        Add in Inventory
-      </button>
+        Add in inventory
+      </Link>
     </div>
   );
 }
@@ -392,72 +383,49 @@ export function EquipmentDrawer({
   }
 
   return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl flex flex-col overflow-hidden">
-      {/* Instructional header */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Your Equipment
-          </h3>
-        </div>
-        <div className="flex items-center gap-1.5 text-gray-500">
-          {/* Upward arrow hint */}
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
+    <Surface className="equipment-drawer">
+      <Section
+        title="Your equipment"
+        description="Drag equipment onto the canvas, or use an Add point in the path."
+        actions={
+          <Link
+            className="su-button su-button--secondary"
+            to={`/shack?view=equipment&category=${activeTab === "shack" ? "accessories" : activeTab}`}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 10l7-7m0 0l7 7m-7-7v18"
-            />
-          </svg>
-          <span className="text-[10px] font-medium">Drag to canvas</span>
-        </div>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex gap-1 px-2 pb-2 pt-1 overflow-x-auto scrollbar-hide">
-        {tabs.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => {
-              setActiveTab(key);
-              setSearchQuery("");
-            }}
-            className={`
-              shrink-0 px-3 py-1.5 rounded-full text-xs font-medium
-              transition-colors duration-150
-              ${
-                activeTab === key
-                  ? "bg-plasma-orange text-white"
-                  : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300"
-              }
-            `}
+            Manage inventory
+          </Link>
+        }
+      >
+        <div className="su-stack">
+          <div
+            className="equipment-category-list"
+            role="group"
+            aria-label="Equipment category"
           >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search filter */}
-      <div className="px-2 pb-1.5">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Filter equipment..."
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 placeholder-gray-500 outline-none focus:border-plasma-orange/40"
-        />
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-2 pt-0 max-h-80">
-        {renderTabContent()}
-      </div>
-    </div>
+            {tabs.map(({ key, label }) => (
+              <Button
+                key={key}
+                aria-pressed={activeTab === key}
+                variant={activeTab === key ? "primary" : "secondary"}
+                onClick={() => {
+                  setActiveTab(key);
+                  setSearchQuery("");
+                }}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <TextField
+            label="Search your equipment"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Name, model or equipment type"
+          />
+          <div className="equipment-drawer-items">{renderTabContent()}</div>
+        </div>
+      </Section>
+    </Surface>
   );
 }

@@ -14,7 +14,17 @@ import {
   useUserRadios,
 } from "@/stores/shackStore";
 import { resolveChainKit } from "@/lib/station/stationIdentity";
-import { EquipmentCardSm } from "@/components/shack/EquipmentCardSm";
+import {
+  EquipmentGlyph,
+  EmptyState,
+  Badge,
+  Section,
+  StationProvider,
+  Surface,
+} from "@/components/station-ui";
+import { EquipmentInventoryRow } from "./EquipmentInventoryRow";
+import { INLINE_COMPONENT_LABELS } from "@/types/shack";
+import "./my-shack-tab.css";
 import type { EquipmentType } from "@/components/shack/equipmentCardTypes";
 import { ANTENNA_TYPE_LABELS } from "@/types/shack";
 import { FEEDLINE_TYPE_LABELS } from "@/types/shack";
@@ -33,6 +43,7 @@ export function MyShackTab({ className }: MyShackTabProps) {
   const antennas = useShackStore((s) => s.antennas);
   const feedlines = useShackStore((s) => s.feedlines);
   const accessories = useShackStore((s) => s.accessories);
+  const inlineComponents = useShackStore((s) => s.inlineComponents);
   const chain = useActiveChain();
   const inventory = useStationInventory();
   const kit = resolveChainKit(chain, inventory);
@@ -41,41 +52,32 @@ export function MyShackTab({ className }: MyShackTabProps) {
     userRadios.length > 0 ||
     antennas.length > 0 ||
     feedlines.length > 0 ||
-    accessories.length > 0;
+    accessories.length > 0 ||
+    inlineComponents.length > 0;
 
   // ── Empty State ──────────────────────────────────────────────────────────
 
   if (!hasEquipment) {
     return (
-      <div className={className}>
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center mb-4">
-            <svg
-              className="w-6 h-6 text-gray-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-          <p className="text-sm text-gray-400 mb-1">No equipment configured</p>
-          <p className="text-xs text-gray-500 mb-4">
-            Add equipment in the Shack Builder to see your station here.
-          </p>
-          <Link
-            to="/shack"
-            className="px-4 py-2 text-xs font-medium rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:border-white/20 transition-colors"
+      <StationProvider className={`profile-shack-inventory ${className ?? ""}`}>
+        <Surface>
+          <EmptyState
+            title="Every station starts somewhere"
+            icon={<EquipmentGlyph kind="radio" width={120} />}
+            action={
+              <Link
+                to="/shack?view=equipment"
+                className="su-button su-button--primary"
+              >
+                Add your first piece of gear
+              </Link>
+            }
           >
-            Open Shack Builder
-          </Link>
-        </div>
-      </div>
+            Catalog radios, homebrew antennas and the cables between them all
+            have a place in your shack.
+          </EmptyState>
+        </Surface>
+      </StationProvider>
     );
   }
 
@@ -175,58 +177,66 @@ export function MyShackTab({ className }: MyShackTabProps) {
     });
   }
 
+  if (inlineComponents.length > 0) {
+    sections.push({
+      key: "inline",
+      label: "Inline components",
+      items: inlineComponents.map((item) => ({
+        id: item.id,
+        title: item.name,
+        subtitle: INLINE_COMPONENT_LABELS[item.componentType],
+        equipmentType: "inline",
+        imageId: item.imageId,
+      })),
+    });
+  }
+
   return (
-    <div className={className}>
-      {kit && (
-        <div className="mb-5 rounded-xl border border-white/10 bg-void/40 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-            Active path
-          </p>
-          <p className="text-sm text-gray-100">
-            {kit.chainName} · {kit.radioLabel} · {kit.antennaLabel}
-            {kit.powerWatts ? ` · ${Math.round(kit.powerWatts)} W` : ""}
-          </p>
+    <StationProvider className={`profile-shack-inventory ${className ?? ""}`}>
+      <Section
+        title="My station"
+        description="The equipment behind your operating story."
+        actions={
+          <Link to="/shack" className="su-button su-button--primary">
+            Open workbench
+          </Link>
+        }
+      >
+        {kit && (
+          <Surface className="profile-shack-path">
+            <Badge tone="info">Using in ProPulse</Badge>
+            <strong>{kit.chainName}</strong>
+            <p className="su-hint">
+              {kit.radioLabel} · {kit.antennaLabel}
+              {kit.powerWatts ? ` · ${Math.round(kit.powerWatts)} W` : ""}
+            </p>
+          </Surface>
+        )}
+        <div className="su-stack">
+          {sections.map((section) => (
+            <section
+              key={section.key}
+              aria-labelledby={`my-shack-${section.key}`}
+            >
+              <div className="profile-shack-group-heading">
+                <h3 id={`my-shack-${section.key}`}>{section.label}</h3>
+                <Badge>{section.items.length}</Badge>
+              </div>
+              <ul className="profile-shack-list">
+                {section.items.map((item) => (
+                  <EquipmentInventoryRow key={item.id} {...item} />
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
-      )}
-
-      {/* Shack Builder link */}
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          My Station
-        </h3>
         <Link
-          to="/shack"
-          className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+          to="/shack?view=equipment"
+          className="su-button su-button--secondary profile-shack-manage"
         >
-          View full station in Shack Builder &rarr;
+          Manage all equipment
         </Link>
-      </div>
-
-      {/* Equipment sections */}
-      <div className="space-y-6">
-        {sections.map((section) => (
-          <div key={section.key}>
-            <h4 className="text-xs text-gray-500 uppercase tracking-wider mb-2">
-              {section.label}
-              <span className="ml-1.5 text-gray-600">
-                ({section.items.length})
-              </span>
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {section.items.map((item) => (
-                <EquipmentCardSm
-                  key={item.id}
-                  title={item.title}
-                  subtitle={item.subtitle}
-                  equipmentType={item.equipmentType}
-                  stats={item.stats}
-                  imageId={item.imageId}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+      </Section>
+    </StationProvider>
   );
 }

@@ -1,0 +1,215 @@
+.station-shack {
+  position: relative;
+  min-height: calc(100vh - 5rem);
+}
+.station-shack-page {
+  position: relative;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 2.5rem clamp(1rem, 3vw, 3rem);
+}
+.station-shack-backdrop {
+  position: absolute;
+  inset: 0;
+  opacity: 0.055;
+  background-size: cover;
+  background-position: center top;
+  pointer-events: none;
+  mask-image: linear-gradient(black, transparent 70%);
+}
+.station-shack-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem 2rem;
+  margin: 2rem 0;
+  padding: 1.25rem 0;
+  border-block: 1px solid color-mix(in srgb, var(--su-line) 35%, transparent);
+}
+.station-shack-summary > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.station-shack-summary svg {
+  color: var(--su-muted);
+}
+.station-shack-summary strong {
+  font-family: var(--su-font-mono);
+}
+.station-shack-operating {
+  margin-left: auto;
+}
+.station-shack .su-tabs > [role="tablist"] {
+  margin-bottom: 2rem;
+}
+.station-shack-section-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.station-gear-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+.station-gear-filter [aria-pressed="true"] {
+  border-color: var(--su-info);
+  background: color-mix(in srgb, var(--su-info) 12%, var(--su-panel));
+  box-shadow: inset 0 -3px var(--su-info);
+}
+.station-gear-count {
+  font-family: var(--su-font-mono);
+  color: var(--su-muted);
+}
+.station-gear-sections {
+  display: grid;
+  gap: 2rem;
+}
+.station-gear-group {
+  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--su-line) 35%, transparent);
+  border-radius: var(--su-radius-panel);
+  background: var(--su-panel);
+  min-width: 0;
+}
+.station-gear-group[hidden] {
+  display: none;
+}
+/* Compatibility boundary while existing feature controls migrate to primitives. */
+.station-shack
+  .shack-legacy
+  :is(.text-white, .text-gray-100, .text-gray-200, .text-gray-300) {
+  color: var(--su-text);
+}
+.station-shack
+  .shack-legacy
+  :is(.text-gray-400, .text-gray-500, .text-gray-600) {
+  color: var(--su-muted);
+}
+.station-shack
+  .shack-legacy
+  :is(.bg-panel\/30, .bg-void\/40, .bg-void\/50, .bg-void, .bg-\[\#0f1420\]) {
+  background-color: var(--su-panel);
+}
+.station-shack .shack-legacy :is(input, select, textarea) {
+  color: var(--su-text);
+  background-color: var(--su-input);
+  border-color: var(--su-line);
+  font-size: max(0.875rem, 1em);
+}
+.station-shack
+  .shack-legacy
+  :is(
+    input:not([type="checkbox"]):not([type="range"]):not([type="radio"]),
+    select
+  ) {
+  min-height: 2.75rem;
+}
+.station-shack .shack-legacy .bg-plasma-orange {
+  color: var(--su-on-accent);
+  background: var(--su-accent);
+}
+.station-shack .shack-legacy .text-plasma-orange {
+  color: var(--su-accent-text);
+}
+.station-shack .shack-legacy :is(.text-\[10px\], .text-\[11px\]) {
+  font-size: 0.8125rem;
+}
+.station-shack .shack-legacy .text-xs {
+  font-size: 0.875rem;
+}
+@media (max-width: 640px) {
+  .station-shack-page {
+    padding-top: 1.5rem;
+  }
+  .station-shack-operating {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .station-shack-summary {
+    gap: 1rem;
+  }
+  .station-gear-group {
+    padding: 1rem;
+  }
+}
+
+/* Keep the actual editor near the page navigation; station counts live above it. */
+.station-shack .station-workbench--embedded {
+  padding: 0;
+}
+.station-shack-page {
+  padding-top: 1.5rem;
+}
+.station-shack-summary {
+  margin-block: 1.25rem;
+  padding-block: 1rem;
+}
+.station-shack .su-tabs > [role="tablist"] {
+  margin-bottom: 1.5rem;
+}
+
+/* Inventory keeps photos, rank details and every action with a calmer reading surface. */
+.station-shack .equipment-card {
+  background-image: none !important;
+  border-width: 1px;
+  box-shadow: none;
+}
+.station-shack .equipment-card-type {
+  color: var(--su-info);
+  opacity: 1;
+  letter-spacing: 0.045em;
+}
+.station-shack .equipment-card-capability,
+.station-shack .equipment-card-badge {
+  color: var(--su-text);
+  background: var(--su-input);
+  border-color: color-mix(in srgb, var(--su-line) 60%, transparent);
+  font-size: 0.8125rem;
+}
+.station-shack .equipment-card .text-signal-green {
+  color: var(--su-success);
+}
+.station-shack .equipment-card .text-feedline-teal {
+  color: var(--su-info);
+}
+.station-shack .equipment-card-heading button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+.station-shack .equipment-card-heading h3 {
+  white-space: normal;
+  padding-right: 2.5rem;
+}
+.station-shack .equipment-card [role="switch"] {
+  min-width: 2.75rem;
+  min-height: 1.75rem;
+  margin-block: 0.5rem;
+  box-shadow: none;
+}
+.station-shack .equipment-card-actions {
+  position: static;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  opacity: 1;
+}
+.station-shack .equipment-card [role="switch"] {
+  width: 3.75rem;
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+}
+.station-shack .equipment-card [role="switch"][aria-checked="true"] {
+  background: var(--su-success);
+}
+.station-shack .equipment-card [role="switch"] > span {
+  top: 0.875rem;
+  left: 0.5rem;
+  background: var(--su-canvas);
+}

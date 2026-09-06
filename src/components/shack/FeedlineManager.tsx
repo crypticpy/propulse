@@ -2,11 +2,11 @@
  * FeedlineManager — Card-grid CRUD for user feedlines with inline loss display.
  *
  * Displays feedline cards with type, length, connectors, condition, and
- * calculated loss at 14.1 MHz (20m center freq). Add/edit via DetailModal.
- * Uses EquipmentCard for display and EquipmentDetailModal for detail view.
+ * calculated loss at 14.1 MHz (20m center freq). Add/edit via the station design system Dialog.
+ * Uses EquipmentCard for display and EquipmentHeroCard for detail view.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId } from "react";
 import { useShackStore, useUserFeedlines } from "@/stores/shackStore";
 import type {
   UserFeedline,
@@ -20,7 +20,15 @@ import {
   calculateTotalFeedlineLoss,
 } from "@/lib/data/feedlines";
 import { FeedlineLossSparkline } from "@/components/shack/FeedlineLossSparkline";
-import { DetailModal } from "@/components/ui/DetailModal";
+import {
+  Button,
+  Dialog,
+  Section,
+  StationProvider,
+  TextField,
+  SelectField,
+  TextAreaField,
+} from "@/components/station-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
 import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
@@ -227,6 +235,7 @@ export function FeedlineManager({
   sectionLabel,
   sectionCount,
 }: FeedlineManagerProps) {
+  const formId = useId();
   const feedlines = useUserFeedlines();
   const { addFeedline, updateFeedline, removeFeedline } = useShackStore();
 
@@ -428,183 +437,164 @@ export function FeedlineManager({
         />
       )}
 
-      {/* Add / Edit Modal */}
-      <DetailModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingId(null);
-          setError(null);
-        }}
-        title={editingId ? "Edit Feedline" : "Add Feedline"}
-        subtitle="Configure your feedline details"
-        size="md"
-      >
-        <div className="space-y-5">
-          {error && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
-              {error}
+      {/* The existing inventory/save flow now uses the station form primitives. */}
+      <StationProvider>
+        <Dialog
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingId(null);
+            setError(null);
+          }}
+          title={editingId ? "Edit feedline" : "Add a feedline"}
+          description="Give this cable a name you recognize, then describe the run and its connectors."
+          footer={
+            <div className="su-inline">
+              <Button
+                onClick={() => {
+                  setModalOpen(false);
+                  setEditingId(null);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" form={formId}>
+                {editingId ? "Save changes" : "Add feedline"}
+              </Button>
             </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Name
-            </label>
-            <input
+          }
+        >
+          <form
+            id={formId}
+            className="su-stack"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            {error && (
+              <p className="su-field-error" role="alert">
+                {error}
+              </p>
+            )}
+            <TextField
+              label="Feedline name"
+              required
               value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              maxLength={100}
-              placeholder="e.g., Main run to tower"
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Feedline Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Type
-              </label>
-              <select
-                value={form.feedlineType}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    feedlineType: e.target.value as FeedlineType,
-                  }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              >
-                {ALL_FEEDLINE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {FEEDLINE_TYPE_NAMES[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Length */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Length (feet)
-              </label>
-              <input
-                inputMode="decimal"
-                value={form.lengthFeet}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, lengthFeet: e.target.value }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Connector Count */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Connector Count (0-10)
-              </label>
-              <input
-                inputMode="numeric"
-                value={form.connectorCount}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, connectorCount: e.target.value }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-
-            {/* Connector Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Connector Type
-              </label>
-              <select
-                value={form.connectorType}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    connectorType: e.target.value as ConnectorType,
-                  }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              >
-                {ALL_CONNECTOR_TYPES.map((c) => (
-                  <option key={c} value={c}>
-                    {CONNECTOR_LABELS[c]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Condition */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Condition
-            </label>
-            <select
-              value={form.condition}
-              onChange={(e) =>
-                setForm((p) => ({
-                  ...p,
-                  condition: e.target.value as FeedlineCondition,
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  name: event.target.value,
                 }))
               }
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-            >
-              {ALL_CONDITIONS.map((c) => (
-                <option key={c} value={c}>
-                  {CONDITION_LABELS[c]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, notes: e.target.value }))
-              }
-              rows={3}
-              placeholder="Installation details, routing notes..."
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+              maxLength={100}
+              placeholder="Main run to the tower"
+              hint="Use a name that distinguishes this physical cable from others in your shack."
             />
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setModalOpen(false);
-                setEditingId(null);
-                setError(null);
-              }}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
+            <Section
+              title="Cable and installation"
+              description="Cable type, length and condition affect signal loss."
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <SelectField
+                  label="Cable type"
+                  value={form.feedlineType}
+                  onChange={(event) =>
+                    setForm((previous) => ({
+                      ...previous,
+                      feedlineType: event.target.value as FeedlineType,
+                    }))
+                  }
+                >
+                  {ALL_FEEDLINE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {FEEDLINE_TYPE_NAMES[type]}
+                    </option>
+                  ))}
+                </SelectField>
+                <TextField
+                  label="Cable length"
+                  suffix="ft"
+                  inputMode="decimal"
+                  value={form.lengthFeet}
+                  onChange={(event) =>
+                    setForm((previous) => ({
+                      ...previous,
+                      lengthFeet: event.target.value,
+                    }))
+                  }
+                  hint="Enter the full length of this cable run in feet."
+                />
+                <SelectField
+                  label="Condition"
+                  value={form.condition}
+                  onChange={(event) =>
+                    setForm((previous) => ({
+                      ...previous,
+                      condition: event.target.value as FeedlineCondition,
+                    }))
+                  }
+                >
+                  {ALL_CONDITIONS.map((condition) => (
+                    <option key={condition} value={condition}>
+                      {CONDITION_LABELS[condition]}
+                    </option>
+                  ))}
+                </SelectField>
+              </div>
+            </Section>
+            <Section
+              title="Connections"
+              description="Include the connectors along this cable run."
             >
-              {editingId ? "Save Changes" : "Add Feedline"}
-            </button>
-          </div>
-        </div>
-      </DetailModal>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <SelectField
+                  label="Connector type"
+                  value={form.connectorType}
+                  onChange={(event) =>
+                    setForm((previous) => ({
+                      ...previous,
+                      connectorType: event.target.value as ConnectorType,
+                    }))
+                  }
+                >
+                  {ALL_CONNECTOR_TYPES.map((connector) => (
+                    <option key={connector} value={connector}>
+                      {CONNECTOR_LABELS[connector]}
+                    </option>
+                  ))}
+                </SelectField>
+                <TextField
+                  label="Number of connectors"
+                  hint="Between 0 and 10."
+                  inputMode="numeric"
+                  value={form.connectorCount}
+                  onChange={(event) =>
+                    setForm((previous) => ({
+                      ...previous,
+                      connectorCount: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </Section>
+            <TextAreaField
+              label="Installation notes"
+              hint="Optional · Routing, weatherproofing or anything to remember next time."
+              value={form.notes}
+              rows={3}
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  notes: event.target.value,
+                }))
+              }
+            />
+          </form>
+        </Dialog>
+      </StationProvider>
 
       <ConfirmDialog
         open={deleteTarget !== null}

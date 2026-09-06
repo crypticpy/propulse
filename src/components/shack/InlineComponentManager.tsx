@@ -2,11 +2,11 @@
  * InlineComponentManager — Card-list CRUD for inline signal chain components
  * (adapters, pigtails, chokes, baluns, ferrites).
  *
- * Uses EquipmentCard for display and EquipmentDetailModal for detail view.
- * Add/edit/duplicate via DetailModal, delete via ConfirmDialog.
+ * Uses EquipmentCard for display and EquipmentHeroCard for detail view.
+ * Add/edit/duplicate via the station design system Dialog, delete via ConfirmDialog.
  */
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { useShackStore, useInlineComponents } from "@/stores/shackStore";
 import type {
   InlineComponent,
@@ -23,7 +23,14 @@ import {
   INLINE_COMPONENT_LABELS,
   CONNECTOR_TYPE_LABELS,
 } from "@/types/shack";
-import { DetailModal } from "@/components/ui/DetailModal";
+import {
+  Button,
+  Dialog,
+  StationProvider,
+  TextField,
+  SelectField,
+  TextAreaField,
+} from "@/components/station-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
 import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
@@ -34,9 +41,6 @@ import type {
 } from "@/components/shack/equipmentCardTypes";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const INPUT_CLASS =
-  "w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none";
 
 const ALL_COMPONENT_TYPES = Object.keys(
   INLINE_COMPONENT_LABELS,
@@ -656,6 +660,7 @@ export function InlineComponentManager({
     duplicateInlineComponent,
   } = useShackStore();
 
+  const formId = useId();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ComponentForm>(createDefaultForm);
@@ -814,7 +819,7 @@ export function InlineComponentManager({
 
       {/* Card grid */}
       {components.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {components.map((c) => (
             <EquipmentCard
               key={c.id}
@@ -894,390 +899,350 @@ export function InlineComponentManager({
       )}
 
       {/* Add / Edit Modal */}
-      <DetailModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingId(null);
-          setError(null);
-        }}
-        title={editingId ? "Edit Inline Component" : "Add Inline Component"}
-        subtitle="Configure your signal chain component"
-        size="md"
-      >
-        <div className="space-y-5">
-          {error && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Name
-            </label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              maxLength={100}
-              placeholder="e.g., PL-259 to N-Type adapter"
-              className={INPUT_CLASS}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Component Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Type
-              </label>
-              <select
-                value={form.componentType}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    componentType: e.target.value as InlineComponentType,
-                  }))
-                }
-                className={INPUT_CLASS}
+      <StationProvider>
+        <Dialog
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingId(null);
+            setError(null);
+          }}
+          title={
+            editingId ? "Edit inline component" : "Add an inline component"
+          }
+          description="Describe the component and its connections. Your type-specific details stay with this physical item."
+          footer={
+            <div className="su-inline">
+              <Button
+                onClick={() => {
+                  setModalOpen(false);
+                  setEditingId(null);
+                  setError(null);
+                }}
               >
-                {ALL_COMPONENT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {INLINE_COMPONENT_LABELS[t]}
-                  </option>
-                ))}
-              </select>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" form={formId}>
+                {editingId ? "Save changes" : "Add component"}
+              </Button>
             </div>
+          }
+        >
+          <form
+            id={formId}
+            className="su-stack"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            {error && (
+              <div className="su-field-error" role="alert">
+                {error}
+              </div>
+            )}
 
-            {/* Insertion Loss */}
+            {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Insertion Loss (dB)
-              </label>
-              <input
-                inputMode="decimal"
-                value={form.insertionLossDb}
+              <TextField
+                label="Component name"
+                required
+                value={form.name}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, insertionLossDb: e.target.value }))
+                  setForm((p) => ({ ...p, name: e.target.value }))
                 }
-                placeholder="0.1"
-                className={INPUT_CLASS}
+                maxLength={100}
+                placeholder="e.g., PL-259 to N-Type adapter"
               />
             </div>
-          </div>
 
-          {/* ── Adapter / Pigtail fields ─────────────────────────────────── */}
-          {(form.componentType === "adapter" ||
-            form.componentType === "pigtail") && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    From Connector
-                  </label>
-                  <select
-                    value={form.fromConnector}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        fromConnector: e.target.value as ConnectorType,
-                      }))
-                    }
-                    className={INPUT_CLASS}
-                  >
-                    {ALL_CONNECTOR_TYPES.map((c) => (
-                      <option key={c} value={c}>
-                        {CONNECTOR_TYPE_LABELS[c]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    To Connector
-                  </label>
-                  <select
-                    value={form.toConnector}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        toConnector: e.target.value as ConnectorType,
-                      }))
-                    }
-                    className={INPUT_CLASS}
-                  >
-                    {ALL_CONNECTOR_TYPES.map((c) => (
-                      <option key={c} value={c}>
-                        {CONNECTOR_TYPE_LABELS[c]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {form.componentType === "pigtail" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Length (inches)
-                  </label>
-                  <input
-                    inputMode="decimal"
-                    value={form.lengthInches}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, lengthInches: e.target.value }))
-                    }
-                    placeholder="12"
-                    className={INPUT_CLASS}
-                  />
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── Choke fields ─────────────────────────────────────────────── */}
-          {form.componentType === "choke" && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Material
-                  </label>
-                  <select
-                    value={form.chokeMaterial}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        chokeMaterial: e.target
-                          .value as ComponentForm["chokeMaterial"],
-                      }))
-                    }
-                    className={INPUT_CLASS}
-                  >
-                    {CHOKE_MATERIALS.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Turns
-                  </label>
-                  <input
-                    inputMode="numeric"
-                    value={form.chokeTurns}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, chokeTurns: e.target.value }))
-                    }
-                    placeholder="6"
-                    className={INPUT_CLASS}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Impedance (ohms)
-                  </label>
-                  <input
-                    inputMode="decimal"
-                    value={form.chokeImpedanceOhms}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        chokeImpedanceOhms: e.target.value,
-                      }))
-                    }
-                    placeholder="5000"
-                    className={INPUT_CLASS}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Frequency Range (MHz)
-                  </label>
-                  <input
-                    value={form.chokeFrequencyRangeMHz}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        chokeFrequencyRangeMHz: e.target.value,
-                      }))
-                    }
-                    placeholder="1.8-30"
-                    className={INPUT_CLASS}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* ── Balun fields ─────────────────────────────────────────────── */}
-          {form.componentType === "balun" && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Ratio
-                  </label>
-                  <select
-                    value={form.balunRatio}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        balunRatio: e.target
-                          .value as ComponentForm["balunRatio"],
-                      }))
-                    }
-                    className={INPUT_CLASS}
-                  >
-                    {BALUN_RATIOS.map((r) => (
-                      <option key={r.value} value={r.value}>
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Balun Type
-                  </label>
-                  <select
-                    value={form.balunType}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        balunType: e.target.value as ComponentForm["balunType"],
-                      }))
-                    }
-                    className={INPUT_CLASS}
-                  >
-                    {BALUN_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Component Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Power Rating (watts)
-                </label>
-                <input
-                  inputMode="decimal"
-                  value={form.balunPowerRatingWatts}
+                <SelectField
+                  label="Type"
+                  value={form.componentType}
                   onChange={(e) =>
                     setForm((p) => ({
                       ...p,
-                      balunPowerRatingWatts: e.target.value,
+                      componentType: e.target.value as InlineComponentType,
                     }))
                   }
-                  placeholder="1500"
-                  className={INPUT_CLASS}
+                >
+                  {ALL_COMPONENT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {INLINE_COMPONENT_LABELS[t]}
+                    </option>
+                  ))}
+                </SelectField>
+              </div>
+
+              {/* Insertion Loss */}
+              <div>
+                <TextField
+                  label="Insertion Loss (dB)"
+                  inputMode="decimal"
+                  value={form.insertionLossDb}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, insertionLossDb: e.target.value }))
+                  }
+                  placeholder="0.1"
                 />
               </div>
-            </>
-          )}
+            </div>
 
-          {/* ── Ferrite fields ───────────────────────────────────────────── */}
-          {form.componentType === "ferrite" && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 className="font-semibold">
+              {INLINE_COMPONENT_LABELS[form.componentType]} details
+            </h3>
+
+            {/* ── Adapter / Pigtail fields ─────────────────────────────────── */}
+            {(form.componentType === "adapter" ||
+              form.componentType === "pigtail") && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <SelectField
+                      label="From Connector"
+                      value={form.fromConnector}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          fromConnector: e.target.value as ConnectorType,
+                        }))
+                      }
+                    >
+                      {ALL_CONNECTOR_TYPES.map((c) => (
+                        <option key={c} value={c}>
+                          {CONNECTOR_TYPE_LABELS[c]}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <div>
+                    <SelectField
+                      label="To Connector"
+                      value={form.toConnector}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          toConnector: e.target.value as ConnectorType,
+                        }))
+                      }
+                    >
+                      {ALL_CONNECTOR_TYPES.map((c) => (
+                        <option key={c} value={c}>
+                          {CONNECTOR_TYPE_LABELS[c]}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                </div>
+
+                {form.componentType === "pigtail" && (
+                  <div>
+                    <TextField
+                      label="Length (inches)"
+                      inputMode="decimal"
+                      value={form.lengthInches}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, lengthInches: e.target.value }))
+                      }
+                      placeholder="12"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Choke fields ─────────────────────────────────────────────── */}
+            {form.componentType === "choke" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <SelectField
+                      label="Material"
+                      value={form.chokeMaterial}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          chokeMaterial: e.target
+                            .value as ComponentForm["chokeMaterial"],
+                        }))
+                      }
+                    >
+                      {CHOKE_MATERIALS.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <div>
+                    <TextField
+                      label="Turns"
+                      inputMode="numeric"
+                      value={form.chokeTurns}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, chokeTurns: e.target.value }))
+                      }
+                      placeholder="6"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <TextField
+                      label="Impedance (ohms)"
+                      inputMode="decimal"
+                      value={form.chokeImpedanceOhms}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          chokeImpedanceOhms: e.target.value,
+                        }))
+                      }
+                      placeholder="5000"
+                    />
+                  </div>
+                  <div>
+                    <TextField
+                      label="Frequency Range (MHz)"
+                      value={form.chokeFrequencyRangeMHz}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          chokeFrequencyRangeMHz: e.target.value,
+                        }))
+                      }
+                      placeholder="1.8-30"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── Balun fields ─────────────────────────────────────────────── */}
+            {form.componentType === "balun" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <SelectField
+                      label="Ratio"
+                      value={form.balunRatio}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          balunRatio: e.target
+                            .value as ComponentForm["balunRatio"],
+                        }))
+                      }
+                    >
+                      {BALUN_RATIOS.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <div>
+                    <SelectField
+                      label="Balun Type"
+                      value={form.balunType}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          balunType: e.target
+                            .value as ComponentForm["balunType"],
+                        }))
+                      }
+                    >
+                      {BALUN_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Material
-                  </label>
-                  <input
-                    value={form.ferriteMaterial}
+                  <TextField
+                    label="Power Rating (watts)"
+                    inputMode="decimal"
+                    value={form.balunPowerRatingWatts}
                     onChange={(e) =>
                       setForm((p) => ({
                         ...p,
-                        ferriteMaterial: e.target.value,
+                        balunPowerRatingWatts: e.target.value,
                       }))
                     }
-                    placeholder="Type 31"
-                    className={INPUT_CLASS}
+                    placeholder="1500"
                   />
+                </div>
+              </>
+            )}
+
+            {/* ── Ferrite fields ───────────────────────────────────────────── */}
+            {form.componentType === "ferrite" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <TextField
+                      label="Material"
+                      value={form.ferriteMaterial}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          ferriteMaterial: e.target.value,
+                        }))
+                      }
+                      placeholder="Type 31"
+                    />
+                  </div>
+                  <div>
+                    <TextField
+                      label="Turns"
+                      inputMode="numeric"
+                      value={form.ferriteTurns}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, ferriteTurns: e.target.value }))
+                      }
+                      placeholder="1"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Turns
-                  </label>
-                  <input
-                    inputMode="numeric"
-                    value={form.ferriteTurns}
+                  <TextField
+                    label="Impedance (ohms)"
+                    inputMode="decimal"
+                    value={form.ferriteImpedanceOhms}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, ferriteTurns: e.target.value }))
+                      setForm((p) => ({
+                        ...p,
+                        ferriteImpedanceOhms: e.target.value,
+                      }))
                     }
-                    placeholder="1"
-                    className={INPUT_CLASS}
+                    placeholder="2500"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Impedance (ohms)
-                </label>
-                <input
-                  inputMode="decimal"
-                  value={form.ferriteImpedanceOhms}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      ferriteImpedanceOhms: e.target.value,
-                    }))
-                  }
-                  placeholder="2500"
-                  className={INPUT_CLASS}
-                />
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, notes: e.target.value }))
-              }
-              rows={3}
-              placeholder="Installation details, performance notes..."
-              className={INPUT_CLASS}
-            />
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setModalOpen(false);
-                setEditingId(null);
-                setError(null);
-              }}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
-            >
-              {editingId ? "Save Changes" : "Add Component"}
-            </button>
-          </div>
-        </div>
-      </DetailModal>
+            {/* Notes */}
+            <div>
+              <TextAreaField
+                label="Notes (optional)"
+                value={form.notes}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, notes: e.target.value }))
+                }
+                rows={3}
+                placeholder="Installation details, performance notes..."
+              />
+            </div>
+          </form>
+        </Dialog>
+      </StationProvider>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

@@ -3,6 +3,26 @@ import { describe, expect, it, vi } from "vitest";
 import { FloatingPanel } from "./FloatingPanel";
 
 describe("FloatingPanel", () => {
+  it("renders the right snap guide inside the viewport", () => {
+    render(
+      <FloatingPanel
+        id="guide"
+        title="Guide"
+        defaultPosition={{ x: 10, y: 10 }}
+        defaultSize={{ width: 240, height: 160 }}
+        snapTarget={{ edge: "right", position: window.innerWidth }}
+      >
+        <div>Guide content</div>
+      </FloatingPanel>,
+    );
+
+    const guide = document.querySelector<HTMLElement>(
+      '[data-snap-edge="right"]',
+    );
+    expect(guide?.style.left).toBe(`${window.innerWidth - 2}px`);
+    expect(guide?.style.width).toBe("2px");
+  });
+
   it("applies externally reset persisted geometry while remaining mounted", () => {
     const onLayoutChange = vi.fn();
     const { rerender } = render(

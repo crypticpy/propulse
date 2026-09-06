@@ -154,6 +154,7 @@ export function FullscreenPropSphere({
   const setFullscreen = useMapStore((s) => s.setFullscreen);
   const target = useMapStore((s) => s.target);
   const proPanelLayout = useMapStore((s) => s.proPanelLayout);
+  const dockGroups = useMapStore((s) => s.dockGroups);
   const updateProPanelLayout = useMapStore((s) => s.updateProPanelLayout);
   const toggleProPanelCollapse = useMapStore((s) => s.toggleProPanelCollapse);
   const resetProPanelLayout = useMapStore((s) => s.resetProPanelLayout);
@@ -240,18 +241,42 @@ export function FullscreenPropSphere({
   // ── Panel docking ────────────────────────────────────────────
   const panelRects = useMemo<Record<string, PanelRect>>(() => {
     const rects: Record<string, PanelRect> = {};
+    const dockOffsets = new Map<string, number>();
+    for (const group of dockGroups) {
+      const anchor = proPanelLayout[group.panelIds[0]];
+      if (!anchor) continue;
+      const offset = Math.max(0, panelMinTop - anchor.y);
+      if (offset === 0) continue;
+      for (const memberId of group.panelIds) dockOffsets.set(memberId, offset);
+    }
     for (const [id, entry] of Object.entries(proPanelLayout)) {
       if (!entry.collapsed) {
         rects[id] = {
           x: entry.x,
-          y: Math.max(panelMinTop, entry.y),
+          y: entry.y + (dockOffsets.get(id) ?? Math.max(0, panelMinTop - entry.y)),
           width: entry.width,
           height: entry.height,
         };
       }
     }
     return rects;
-  }, [proPanelLayout, panelMinTop]);
+  }, [dockGroups, proPanelLayout, panelMinTop]);
+
+  // Persist a translated dock group as one unit when its anchor was saved
+  // above the toolbar. This prevents the derived safe position from making
+  // the group overlap or undock on the next drag.
+  useEffect(() => {
+    for (const group of dockGroups) {
+      const anchor = proPanelLayout[group.panelIds[0]];
+      if (!anchor) continue;
+      const offset = Math.max(0, panelMinTop - anchor.y);
+      if (offset === 0) continue;
+      for (const memberId of group.panelIds) {
+        const entry = proPanelLayout[memberId];
+        if (entry) updateProPanelLayout(memberId, { y: entry.y + offset });
+      }
+    }
+  }, [dockGroups, panelMinTop, proPanelLayout, updateProPanelLayout]);
 
   const {
     onDragMove: handleDockDragMove,
@@ -501,6 +526,7 @@ export function FullscreenPropSphere({
             to stretch across the full top row on wide wall displays. */}
         {!proPanelLayout["propagation-forecast"]?.collapsed && (
           <FloatingPanel
+            minTop={panelMinTop}
             id="propagation-forecast"
             title="24-Hour Propagation Forecast"
             defaultPosition={{ x: 24, y: 6 }}

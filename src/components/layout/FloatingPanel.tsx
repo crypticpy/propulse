@@ -164,13 +164,13 @@ function getSnapIndicatorStyle(target: {
   };
   switch (target.edge) {
     case "top":
-      return { ...base, left: 0, right: 0, top: target.position - 2, height: 2 };
+      return { ...base, left: 0, right: 0, top: target.position, height: 2 };
     case "bottom":
       return { ...base, left: 0, right: 0, top: target.position, height: 2 };
     case "left":
-      return { ...base, top: 0, bottom: 0, left: target.position - 2, width: 2 };
-    case "right":
       return { ...base, top: 0, bottom: 0, left: target.position, width: 2 };
+    case "right":
+      return { ...base, top: 0, bottom: 0, left: target.position - 2, width: 2 };
     default:
       return base;
   }

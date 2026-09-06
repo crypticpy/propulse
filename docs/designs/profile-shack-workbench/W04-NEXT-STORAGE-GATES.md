@@ -22,6 +22,8 @@ Remote resolution needs a further protocol decision before implementation. After
 
 ## Durable inactive generation staging
 
+The [pure stage chunk contract](W04-STAGE-CHUNKS.md) now provides deterministic planning and lossless reassembly of the complete verified candidate. Durable chunk/marker storage and materialized-record sealing below remain open.
+
 Verify a detached candidate and derive a deterministic, versioned chunk plan before write transactions. Persist an immutable owner/stage/generation/seal binding and exact chunk inventory. Each chunk and its completion marker must commit together. Retrying exact content resumes the same stage; changed IDs/content reject using both digest and canonical equality.
 
 After all writes, reread and verify complete durable coverage, hashes, aggregate references and recovery metadata. Compare that exact verified state again inside the final sealing transaction. Missing/extra chunks, forged completion records or changes between verification and sealing prevent sealing. Keep hashing, network and blob awaits outside write transactions.

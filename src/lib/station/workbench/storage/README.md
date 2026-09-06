@@ -12,6 +12,7 @@ This internal package establishes additive storage for [W04 / #177](https://gith
 | `outbox.ts` | Indexed owner/generation/state reads; per-state limits bound materialized rows for audit listings. |
 | `delivery.ts` | Pure terminal-result binding, exact replay comparison and dependency readiness; no durable acknowledgment or transport authority. |
 | `staging.ts` | Pure supplied-archive/manifest validation and derived seals; external artifacts remain unverified and legacy cutover unauthorized. |
+| `stageChunks.ts` | Deterministic canonical candidate byte chunks, strict reassembly and seal verification; no durable staging or activation. |
 
 `serialization.ts` defines the shared canonical JSON encoding and SHA-256 digest helper for future operation envelopes. It sorts object keys by UTF-16 code units, preserves array order and finite JSON scalar values, retains own reserved property names, and reads data descriptors without invoking getters or `toJSON`. JSON.stringify escaping preserves lone UTF-16 surrogate code units before UTF-8 hashing. Negative zero uses JSON's zero representation; no Unicode normalization occurs.
 
@@ -28,6 +29,8 @@ Run `npm test -- src/lib/station/workbench/storage`, scoped ESLint and `npm run 
 Before each new commit, the repository hashes retained bodies and verifies queued operation envelopes after a readonly snapshot. The write transaction rereads and compares that exact state and dependency snapshot before accepting a save. Concurrent changes retry the audit up to three times; continuing contention returns `retry-required`, not corruption. Exact prior-operation replay remains first. Conflict receipts bind their retained ledger, target identities, validation classification and available base bodies.
 
 The [next storage gates](../../../../../docs/designs/profile-shack-workbench/W04-NEXT-STORAGE-GATES.md) record remaining acknowledgment, conflict-resolution, staging and activation dependencies.
+
+[Stage chunk planning](../../../../../docs/designs/profile-shack-workbench/W04-STAGE-CHUNKS.md) preserves the complete verified candidate and its supplied collection order in fixed-size canonical UTF-8 byte chunks. Plan/payload identities, exact inventory, raw-byte digests and canonical reassembly are checked before the candidate seal is verified again. This supplies recoverable candidate bytes; durable chunk writes, materialized record coverage and final sealing remain separate work.
 
 The [delivery contracts](../../../../../docs/designs/profile-shack-workbench/W04-DELIVERY-CONTRACTS.md) define accepted/rejected results separately from permanent local receipts. Accepted heads must match the verified receipt exactly. Complete dependency graphs retain acknowledged prerequisites and block descendants of rejected or locally conflicted operations. Callers must independently verify the supplied local metadata; these pure helpers do not persist outcomes, select a sender lease, authenticate a response or change heads.
 

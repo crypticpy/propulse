@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+import { AuthApiError, AuthRetryableFetchError, AuthUnknownError } from "@supabase/supabase-js";
 import { verifyStationOwner } from "./stationAuth";
 
 const mocks = vi.hoisted(() => ({ createClient: vi.fn(), getUser: vi.fn() }));
@@ -87,6 +87,22 @@ describe("station verified owner boundary", () => {
     const body = await expectFailure(await verifyStationOwner(request()), 503);
     expect(body).toEqual({ error: "Station authentication is unavailable" });
     expect(mocks.getUser).toHaveBeenCalledExactlyOnceWith(token);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([500, 501, 505, 599])("treats resolved SDK API server failures (status %i) as unavailable", async (status) => {
+    mocks.getUser.mockResolvedValue({ data: { user: null },
+      error: new AuthApiError(`Upstream secret ${token}`, status, "unexpected_failure"),
+    });
+    expect(await expectFailure(await verifyStationOwner(request()), 503)).toEqual({ error: "Station authentication is unavailable" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("treats a resolved unknown upstream failure as unavailable without exposing the cause", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null },
+      error: new AuthUnknownError(`Secret ${token}`, new SyntaxError("Invalid upstream JSON")),
+    });
+    expect(await expectFailure(await verifyStationOwner(request()), 503)).toEqual({ error: "Station authentication is unavailable" });
     expect(fetch).not.toHaveBeenCalled();
   });
 

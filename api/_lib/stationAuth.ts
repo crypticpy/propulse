@@ -1,6 +1,6 @@
 /** Future station persistence boundary. This intentionally does not share the
  * optional local-development bypass in auth.ts. No endpoint is enabled here. */
-import { createClient, isAuthRetryableFetchError } from "@supabase/supabase-js";
+import { createClient, isAuthError, isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { z } from "zod";
 
 export interface StationVerifiedOwner { readonly ownerId: string }
@@ -30,8 +30,14 @@ export async function verifyStationOwner(request: Request): Promise<StationVerif
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
     const { data, error } = await supabase.auth.getUser(bearer[1]);
-    // The SDK resolves transient fetch/5xx failures as errors, not only throws.
-    if (isAuthRetryableFetchError(error)) return failure(503, "Station authentication is unavailable");
+    // The SDK only uses its retryable class for network/502–504 failures;
+    // other 5xx responses and invalid upstream JSON use different error classes.
+    const status = error?.status;
+    if (isAuthRetryableFetchError(error)
+      || (typeof status === "number" && status >= 500 && status < 600)
+      || (isAuthError(error) && error.name === "AuthUnknownError")) {
+      return failure(503, "Station authentication is unavailable");
+    }
     const owner = ownerSchema.safeParse(data?.user?.id);
     if (error || !owner.success) return failure(401, "Unauthorized");
     return Object.freeze({ ownerId: owner.data });

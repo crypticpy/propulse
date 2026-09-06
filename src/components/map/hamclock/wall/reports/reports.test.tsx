@@ -369,3 +369,17 @@ describe("DxTargetReport", () => {
     expect(screen.getByText("55%")).toBeTruthy();
   });
 });
+
+
+describe("Band history completeness", () => {
+  it("keeps partial hourly totals out of the numeric peak", async () => {
+    const { BandHistoryChart } = await import("./BandHistoryChart");
+    render(<BandHistoryChart snapshot={{ scope: "global", windowStart: "2026-09-06T14:00:00Z", windowEnd: "2026-09-06T20:00:00Z", fetchedAt: "2026-09-06T20:10:00Z", rows: [{ hour: "2026-09-06T19:00:00.000Z", band: "20m", count: 123, sources: {}, modes: {} }] }} live={{ samples: [], now: Date.parse("2026-09-06T20:10:00Z") }} />);
+    expect(screen.getByText(/PEAK UNKNOWN/)).toBeTruthy();
+    expect(screen.getByText("PARTIAL")).toBeTruthy();
+  });
+  it("does not turn absent contributing source keys into measured zero", () => {
+    render(<BandActivityReport open onClose={vi.fn()} />);
+    expect(screen.getByText(/PSKREPORTER WAITING · RBN WAITING · DXCLUSTER WAITING/)).toBeTruthy();
+  });
+});

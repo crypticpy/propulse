@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { useBandActivity, scopeQueryString } from "@/hooks/useBandActivity";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { useLiveBandHistory } from "@/hooks/useLiveBandHistory";
 import { useBandHistory } from "@/hooks/useBandHistory";
+import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { reportFooter } from "../tokens";
@@ -22,6 +24,7 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false 
   const scope = globalCounts ? { label: "Global" } : activeScope;
   const activityScope = globalCounts ? { type: "global" as const } : activeActivityScope;
   const { data, isPending, isError } = useBandActivity(activityScope, open);
+  const live = useLiveBandHistory(open && activityScope.type === "global" ? data : undefined);
   const history = useBandHistory(open && activityScope.type === "global");
   const bars = useMemo(
     () =>
@@ -31,10 +34,10 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false 
     [data],
   );
   const sources = useMemo(() => {
-    const result: Record<string, number> = {
-      pskreporter: 0,
-      rbn: 0,
-      dxcluster: 0,
+    const result: Record<string, number | undefined> = {
+      pskreporter: undefined,
+      rbn: undefined,
+      dxcluster: undefined,
     };
     for (const entry of data?.values() ?? []) {
       for (const [source, count] of Object.entries(entry.sourceCounts60m ?? {}))
@@ -43,7 +46,7 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false 
     return Object.entries(result)
       .map(
         ([source, count]) =>
-          `${source.toUpperCase()} ${data ? count.toLocaleString() : "WAITING"}`,
+          `${source.toUpperCase()} ${count === undefined ? "WAITING" : count.toLocaleString()}`,
       )
       .join(" · ");
   }, [data]);
@@ -103,6 +106,7 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false 
                     <HamClockButton
                       key={entry.band}
                       onClick={() => {
+                        useHamClockStore.getState().setBandFocus([entry.band]);
                         const map = useMapStore.getState();
                         map.setSpotFilters({
                           ...map.spotFilters,
@@ -144,26 +148,13 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false 
                     hourly totals are not substituted for regional or path
                     observations.
                   </p>
-                ) : history.data ? (
+                ) : (
                   <>
-                    {history.isError && (
-                      <p className="hcr-note">
-                        History refresh failed; showing the last successful
-                        read.
-                      </p>
-                    )}
-                    <BandHistoryChart snapshot={history.data} />
+                    <BandHistoryChart snapshot={history.data} live={live} />
                     <p className="hcr-chart-title">
-                      HISTORY THROUGH {history.data.windowEnd.slice(11, 16)}Z ·
-                      READ {history.data.fetchedAt.slice(11, 16)}Z
+                      {history.isError ? (history.data ? `HISTORY STALE · READ ${history.data.fetchedAt.slice(11, 16)}Z` : "HOURLY HISTORY UNAVAILABLE · LIVE SAMPLES AVAILABLE") : history.data ? `HISTORY THROUGH ${history.data.windowEnd.slice(11, 16)}Z · READ ${history.data.fetchedAt.slice(11, 16)}Z` : "READING COMPLETED HOURS · LIVE SAMPLES AVAILABLE"}
                     </p>
                   </>
-                ) : (
-                  <p className="hcr-note">
-                    {history.isError
-                      ? "BAND HISTORY UNAVAILABLE"
-                      : "READING SIX-HOUR HISTORY"}
-                  </p>
                 )}
               </>
             ),

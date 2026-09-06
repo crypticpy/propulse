@@ -12,6 +12,7 @@ export function Dialog({
   description,
   children,
   footer,
+  zIndexClassName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -19,6 +20,7 @@ export function Dialog({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  zIndexClassName?: string;
 }) {
   const { theme, density, tokens } = useStationTheme();
   return (
@@ -28,6 +30,7 @@ export function Dialog({
       title={title}
       description={description}
       chrome="bare"
+      zIndexClassName={zIndexClassName}
       panelProps={{
         className: "station-ui su-dialog",
         style: tokens,

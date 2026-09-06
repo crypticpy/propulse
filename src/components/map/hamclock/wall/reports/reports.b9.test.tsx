@@ -339,7 +339,7 @@ describe("BestBandReport (HW-31)", () => {
     });
   });
 
-  it("renders bands ranked by ladder state, sets band focus and spot filters on row click, and shows the surprise section only for surprise entries", async () => {
+  it("renders bands ranked by ladder state, sets band focus and spot filters on row click, and marks surprise rows in the ranked table", async () => {
     const user = userEvent.setup();
     render(<BestBandReport open onClose={vi.fn()} />);
 
@@ -359,11 +359,14 @@ describe("BestBandReport (HW-31)", () => {
       expect.objectContaining({ bands: ["17m"] }),
     );
 
-    // Surprise section: only 17m qualifies (stirring+ while physics closed).
+    // Surprise is a status in the ranked row (17m: stirring+ while physics
+    // closed) and a count in the caption, not a second table (#250 S6).
+    expect(rows[1].textContent).toContain("SURPRISE");
+    expect(rows[0].textContent).not.toContain("SURPRISE");
     const captions = Array.from(
       dialog.querySelectorAll(".hcr-bandtable-caption"),
     ).map((el) => el.textContent);
-    expect(captions.some((c) => c?.includes("Surprise activity"))).toBe(true);
+    expect(captions.some((c) => c?.includes("1 surprise"))).toBe(true);
   });
 
   it("prints the numeric rank for every row, not just an em dash below the leader", () => {
@@ -376,7 +379,7 @@ describe("BestBandReport (HW-31)", () => {
     expect(rows[2].querySelector("span")?.textContent).toBe("3");
   });
 
-  it("omits the surprise section when nothing in the ladder is surprising", () => {
+  it("omits the surprise marker when nothing in the ladder is surprising", () => {
     mocks.verdicts.mockReturnValue({
       bands: [
         bandEntry({
@@ -399,7 +402,11 @@ describe("BestBandReport (HW-31)", () => {
     const captions = Array.from(
       dialog.querySelectorAll(".hcr-bandtable-caption"),
     ).map((el) => el.textContent);
-    expect(captions.some((c) => c?.includes("Surprise activity"))).toBe(false);
+    expect(captions.some((c) => c?.includes("surprise"))).toBe(false);
+    const statuses = Array.from(
+      dialog.querySelectorAll(".hcr-bandrow"),
+    ).map((row) => row.textContent);
+    expect(statuses.some((t) => t?.includes("SURPRISE"))).toBe(false);
   });
 });
 

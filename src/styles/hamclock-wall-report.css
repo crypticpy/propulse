@@ -20,6 +20,10 @@
   max-width: 100%;
   max-height: calc(100dvh - 1.5rem);
   display: grid;
+  /* One explicit column: an implicit `auto` column sizes to the widest
+   * child's max-content, which let the best-band table push the whole
+   * report past its own right edge (#250 S6). */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 1.8vh;
   padding: 2.6vh 2.4vw;
@@ -119,7 +123,7 @@
  * that `align-items: end` left above a short hero (#250 S3). */
 .hcr-lead {
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(22vw, 1fr);
+  grid-template-columns: minmax(0, auto) minmax(30vw, 1fr);
   gap: 2.4vw;
   align-items: center;
 }
@@ -155,6 +159,12 @@
   text-shadow: none;
 }
 .hcr-facts {
+  display: grid;
+  /* Two columns: six facts are three rows (≈11vh), not six (≈22vh) — the
+   * lead was eating a third of the report at 1080p (#250). */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 2vw;
+  align-content: start;
   font-family: var(--hc-font-mono);
   font-size: 1.9vh;
   line-height: 1.5;
@@ -174,6 +184,7 @@
   border-bottom: 1px solid var(--hc-line);
   white-space: normal;
 }
+.hcr-facts div:nth-last-child(-n + 2):nth-child(odd),
 .hcr-facts div:last-child {
   border-bottom: 0;
 }
@@ -198,13 +209,42 @@
  * the engine strip and box rows keep their content height, and only the
  * chart / tab panel flexes (#250 S6 — the MUF report's tabs were drawing
  * over a strip that had been shrunk to nothing). */
-.hcr-body > :is(.hcr-note, .hcr-enginestrip, .hcr-cols, .hcr-box, .hcr-kv, .hcc-seg-wrap, .hcr-link-button),
-.hcr-body .hcc-tabpanel > :is(.hcr-note, .hcr-cols, .hcr-box, .hcr-kv, .hcc-seg-wrap, .hcr-link-button) {
+.hcr-body
+  > :is(
+    .hcr-note,
+    .hcr-enginestrip,
+    .hcr-cols,
+    .hcr-box,
+    .hcr-kv,
+    .hcc-seg-wrap,
+    .hcr-link-button
+  ),
+.hcr-body
+  .hcc-tabpanel
+  > :is(
+    .hcr-note,
+    .hcr-cols,
+    .hcr-box,
+    .hcr-kv,
+    .hcc-seg-wrap,
+    .hcr-link-button
+  ) {
   flex: 0 0 auto;
 }
 .hcr-body > .hcc-tabs {
   flex: 1 1 auto;
   min-height: 0;
+}
+/* A two-column row that owns the flexible slot (MUF path/hops): its boxes
+ * stretch to the panel height so a chart column can fill it. */
+.hcr-body > .hcr-cols--fill,
+.hcr-body .hcc-tabpanel > .hcr-cols--fill {
+  flex: 1 1 auto;
+  min-height: 12vh;
+}
+.hcr-cols--fill > .hcr-box > .hcr-chart {
+  flex: 1 1 auto;
+  min-height: 8vh;
 }
 .hcr-body .hcc-tabpanel {
   display: flex;
@@ -214,13 +254,22 @@
 }
 .hcr-cols {
   display: grid;
-  grid-template-columns: 1.25fr 1fr;
+  /* `minmax(0, …)` + `min-width: 0` on the children: a nowrap alert line
+   * or a kv value must never widen its column past its share (Weather and
+   * Emcomm were squeezing the left box to a sliver). */
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   gap: 2vw;
   /* Shared by every report: stay shrinkable so a tall Weather alerts
    * list can share `.hcr-body` with the chart. Sun/Grey-line overlap is
    * prevented by wrapping those SVGs in `.hcr-chart`, not by pinning
    * this row. */
   min-height: 0;
+}
+.hcr-cols > * {
+  min-width: 0;
+}
+.hcr-cols--even {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .hcr-box {
   display: flex;
@@ -345,10 +394,11 @@
 .hcr-kv {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.9vh 1vw;
+  gap: 0.6vh 1vw;
   align-content: start;
   font-family: var(--hc-font-mono);
   font-size: 2.1vh;
+  line-height: 1.25;
   letter-spacing: 0.06em;
 }
 .hcr-kv dt {
@@ -542,9 +592,11 @@
 .hcr-bandtable-head,
 .hcr-bandrow {
   display: grid;
-  grid-template-columns: 2.5vw 4.5vw minmax(0, 1fr) 7vw 7vw 6vw 5vw 9vw;
+  /* Fixed tracks total ~39vw so the row fits the report's 53vw content box
+   * with the status column keeping real width for "LEADING · 9/20 MIN". */
+  grid-template-columns: 2vw 4vw minmax(0, 1fr) 6vw 5vw 5vw 4.5vw 8vw;
   align-items: center;
-  gap: 0.8vw;
+  gap: 0.6vw;
 }
 .hcr-bandtable-head {
   padding: 0 0.8vw;
@@ -560,6 +612,18 @@
   gap: 0.5vh;
   min-height: 0;
   overflow: hidden;
+}
+/* A box that owns the body's flexible slot (ranked bands, alert lists):
+ * it fills what the strip and facts leave, and its list measures that
+ * slot (`useVisibleRows`) to render only whole rows. */
+.hcr-body > .hcr-box--fill,
+.hcr-body .hcc-tabpanel > .hcr-box--fill {
+  flex: 1 1 auto;
+  min-height: 12vh;
+}
+.hcr-box--fill > .hcr-bandtable,
+.hcr-box--fill > .hcr-list {
+  flex: 1 1 auto;
 }
 .hcr-bandrow {
   min-height: 44px;
@@ -627,14 +691,25 @@
 /* Three-engine agreement strip (HW-56): the wall's core claim, shared by
  * every report that shows a comparable reading. Sits inside its own
  * `.hcr-box` so it composes with the body's existing gap rhythm. */
+/* Compact by design: the strip sits above a tab panel or a table in every
+ * report that uses it, so it takes the head row plus one card row and no
+ * more (~12vh), leaving the body's flexible slot its room. */
 .hcr-enginestrip {
-  gap: 1vh;
+  gap: 0.9vh;
 }
 .hcr-enginestrip-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 1vw;
+  min-width: 0;
+}
+.hcr-enginestrip-head .hcr-bandtable-caption {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.hcr-enginestrip-head .hcr-enginestrip-word {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 .hcr-enginestrip-word {
   font-family: var(--hc-font-display);
@@ -648,6 +723,11 @@
   font-size: var(--hc-t-small);
   color: var(--hc-dim);
   letter-spacing: 0.02em;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hcr-enginestrip-cols {
   display: grid;
@@ -658,7 +738,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.3vh;
-  padding: 0.8vh 1vw;
+  padding: 0.7vh 1vw;
   border: 1px solid var(--hc-line);
   border-radius: calc(var(--hc-radius) * 0.7);
   min-width: 0;
@@ -702,9 +782,15 @@
 .hcr-hoptable-head,
 .hcr-hoprow {
   display: grid;
-  grid-template-columns: 2.5vw minmax(0, 1fr) 8vw 8vw 6vw;
+  /* Sized for the ~31vw HOPS column (#250): fixed tracks and gaps take
+   * ~16vw, leaving the reflection point ~15vw. */
+  grid-template-columns: 2vw minmax(0, 1fr) 5.5vw 5.5vw 3.5vw;
   align-items: center;
-  gap: 0.8vw;
+  gap: 0.6vw;
+}
+/* HOPS: the hop table gets the wider column, the path kv the narrower. */
+.hcr-cols--hops {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
 }
 .hcr-hoptable-head {
   padding: 0 0.8vw;
@@ -744,10 +830,6 @@
   .hcr-enginestrip-age,
   .hcr-enginestrip-conf {
     display: none;
-  }
-  .hcr-hoptable-head,
-  .hcr-hoprow {
-    grid-template-columns: 2.5vw minmax(0, 1fr) 7vw 7vw 5vw;
   }
 }
 

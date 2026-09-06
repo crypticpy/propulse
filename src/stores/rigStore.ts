@@ -51,10 +51,14 @@ export interface RigState {
   lastUpdate: number;
 
   // Bridge session
+  /** Whether the bridge WebSocket transport is currently open */
+  bridgeConnected: boolean;
   /** Capabilities advertised by the bridge welcome message (e.g. "rotor") */
   bridgeCapabilities: string[];
   /** Latest rotor status pushed by the bridge, or null when unknown */
   rotorStatus: RotorStatusPayload | null;
+  /** Record the bridge transport state */
+  setBridgeConnected: (connected: boolean) => void;
   /** Replace the advertised bridge capabilities */
   setBridgeCapabilities: (capabilities: string[]) => void;
   /** Store the latest rotor status */
@@ -126,6 +130,7 @@ export const useRigStore = create<RigState>()((set, get) => ({
   lastUpdate: 0,
 
   // Bridge session
+  bridgeConnected: false,
   bridgeCapabilities: [],
   rotorStatus: null,
 
@@ -133,6 +138,8 @@ export const useRigStore = create<RigState>()((set, get) => ({
   pendingFrequency: null,
   pendingMode: null,
   pendingRotorHeading: null,
+
+  setBridgeConnected: (connected) => set({ bridgeConnected: connected }),
 
   setBridgeCapabilities: (capabilities) => set({ bridgeCapabilities: capabilities }),
 

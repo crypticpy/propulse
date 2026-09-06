@@ -90,6 +90,7 @@ whether desk hides it always.
 - On by default at wall density, off at desk. Persisted in `hamclockDisplayStore` as `autoPage: { enabled, dwellSec }`.
 - Any pointer, key or touch interaction on the rails or header pauses rotation. Rotation resumes after 60 seconds of quiet.
 - An `AUTO` toggle sits beside the pager in the footer and is repeated on the Pages & Tiles settings tab.
+- The footer carries one pager, at the left end. Its title slot is sized to the longest page title (every title is stacked in one cell, only the active one visible) so the arrows and `AUTO` never move as the page changes. The right end is the health strip: `NET`, `BRIDGE`, `RIG`, `CLUSTER n · source`, `MODEL`, each a dot (good / warn / idle) and a spelled-out state (`BRIDGE LINKED`, `RIG ATTACHED`, `NET OFFLINE`), reading stores other hooks already fill (owner direction 2026-09-06).
 - A pinned report (section 9) stays open while pages rotate underneath.
 - Kiosk scenes remain the mechanism for custom playlists that mix HamClock pages with other routes. They pin a page via `KioskSceneMapConfig.hamclock` and suspend auto-page while active.
 

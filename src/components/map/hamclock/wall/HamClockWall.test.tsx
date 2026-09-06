@@ -66,6 +66,14 @@ vi.mock("./HamClockWallControls", () => ({
   HamClockWallControls: () => <div data-testid="wall-controls" />,
 }));
 
+/** The title the footer pager currently shows; the others are stacked in
+ * the same cell but hidden so the control keeps its widest width. */
+function activePagerTitle(): string | undefined {
+  return document
+    .querySelector('.hc-pager-title [data-active="true"]')
+    ?.textContent?.trim();
+}
+
 describe("HamClockWall", () => {
   beforeEach(() => {
     sessionStorage.clear();
@@ -150,15 +158,14 @@ describe("HamClockWall", () => {
 
   it("steps the whole wall together with either arrow key (both rails follow one page)", () => {
     renderWall();
-    expect(screen.getAllByText("SPOTS & ACTIVITY")).toHaveLength(2);
+    expect(activePagerTitle()).toBe("SPOTS & ACTIVITY");
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(useHamClockDisplayStore.getState().pageIndex).toEqual({
       left: 1,
       right: 1,
     });
-    // Both footer pagers show the same page — there is only one page.
-    expect(screen.getAllByText("SOLAR & SPACE WX")).toHaveLength(2);
+    expect(activePagerTitle()).toBe("SOLAR & SPACE WX");
 
     // Shift no longer targets a single rail; it still steps the shared page.
     fireEvent.keyDown(window, { key: "ArrowLeft", shiftKey: true });
@@ -166,10 +173,10 @@ describe("HamClockWall", () => {
       left: 0,
       right: 0,
     });
-    expect(screen.getAllByText("SPOTS & ACTIVITY")).toHaveLength(2);
+    expect(activePagerTitle()).toBe("SPOTS & ACTIVITY");
   });
 
-  it("stepping from either pager's arrow moves both rails' tiles together", () => {
+  it("stepping the pager's arrow moves both rails' tiles together", () => {
     renderWall();
     const left = screen.getByRole("complementary", { name: "Left tile rail" });
     const right = screen.getByRole("complementary", {
@@ -178,11 +185,9 @@ describe("HamClockWall", () => {
     expect(within(left).getByText("DX cluster")).toBeTruthy();
     expect(within(right).getByText("Best band now")).toBeTruthy();
 
-    // Both footer pagers announce the same shared wall page (HW-54); either
-    // one's "Next" arrow steps both rails together, so click the first.
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Next wall page" })[0],
-    );
+    // The single footer pager announces the shared wall page (HW-54); its
+    // "Next" arrow steps both rails together.
+    fireEvent.click(screen.getByRole("button", { name: "Next wall page" }));
 
     expect(useHamClockDisplayStore.getState().pageIndex).toEqual({
       left: 1,
@@ -222,8 +227,8 @@ describe("HamClockWall", () => {
       },
     });
     renderWall();
-    // Both footer pagers read "1 / 1", not a fixed five with empty rails.
-    expect(screen.getAllByText("1 / 1")).toHaveLength(2);
+    // The footer pager reads "1 / 1", not a fixed five with empty rails.
+    expect(screen.getByText("1 / 1")).toBeTruthy();
     const left = screen.getByRole("complementary", { name: "Left tile rail" });
     const right = screen.getByRole("complementary", {
       name: "Right tile rail",

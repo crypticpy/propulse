@@ -89,6 +89,7 @@ export function useRigBridgeSync() {
   const clearPendingRotorHeading = useRigStore(
     (s) => s.clearPendingRotorHeading,
   );
+  const setBridgeConnected = useRigStore((s) => s.setBridgeConnected);
   const setBridgeCapabilities = useRigStore((s) => s.setBridgeCapabilities);
   const setRotorStatus = useRigStore((s) => s.setRotorStatus);
   const setConnected = useRigStore((s) => s.setConnected);
@@ -176,6 +177,12 @@ export function useRigBridgeSync() {
     setConnected(false);
     send("rig.disconnect", {});
   }, [bridgeConnected, catConfigured, send, setConnected]);
+
+  // Mirror the transport state so footers and status chips can read it
+  // without opening a second socket.
+  useEffect(() => {
+    setBridgeConnected(bridgeConnected);
+  }, [bridgeConnected, setBridgeConnected]);
 
   // If the WebSocket drops, reflect it in rigStore.
   useEffect(() => {

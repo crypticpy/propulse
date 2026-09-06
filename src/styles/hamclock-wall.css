@@ -590,7 +590,23 @@
   letter-spacing: 0.2em;
   white-space: nowrap;
 }
+/* Every page title occupies the same grid cell; only the active one is
+   visible, so the slot is always as wide as the longest title and the
+   arrows and AUTO toggle never move when the page changes. */
+.hc-pager-title {
+  display: grid;
+  text-align: center;
+}
+.hc-pager-title > span {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.hc-pager-title > span[data-active="true"] {
+  visibility: visible;
+}
 .hc-pager-n {
+  min-width: 5ch;
+  text-align: center;
   color: var(--hc-dim2);
   font-variant-numeric: tabular-nums;
 }
@@ -638,6 +654,10 @@
 .hc-status i.hc-status-idle {
   background: var(--hc-dim2);
   box-shadow: none;
+}
+.hc-status i.hc-status-warn {
+  background: var(--hc-warn);
+  box-shadow: 0 0 calc(0.8vh * var(--hc-glow, 0)) var(--hc-warn);
 }
 
 .hc-mode {

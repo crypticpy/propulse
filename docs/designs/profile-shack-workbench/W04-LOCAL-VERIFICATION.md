@@ -2,6 +2,8 @@
 
 Tracking: [#177](https://github.com/crypticpy/propulse/issues/177), parent #173. This slice implements an internal additive browser repository and pure generation-candidate seals. **W04 remains open.** The application still uses its existing writer; no legacy generation is activated, replaced or deleted by this slice.
 
+This matrix records the initial foundation boundary. The subsequent [durable local delivery slice](W04-DURABLE-DELIVERY.md) adds acknowledgment/rejection recording, dependency blocking, readiness and the additive v2 schema upgrade; its evidence supplements the L02/L06/L07/L08 rows below. Authenticated synchronization and cutover remain incomplete.
+
 ## Implemented boundary
 
 - A dedicated IndexedDB schema uses owner-first compound keys and an explicit per-account generation pointer. Opening does not initialize a generation or write legacy data.

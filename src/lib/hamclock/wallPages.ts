@@ -79,8 +79,8 @@ export const WALL_PAGES: readonly WallPageData[] = [
     id: "spots",
     title: "Spots & Activity",
     shortLabel: "Spots",
-    left: ["cluster", "bandActivity", "activations", "recentContacts", "dxTarget"],
-    right: ["bestBand", "greyLine", "muf", "reliability", "emcomm"],
+    left: ["cluster", "bandActivity", "recentContacts", "dxTarget"],
+    right: ["bestBand", "greyLine", "muf", "reliability", "activations"],
   },
   {
     id: "solar",

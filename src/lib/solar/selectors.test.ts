@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  fluxTrendWithForecastTail,
   generalHfGuidance,
   latestByTime,
   protonScale,
@@ -30,6 +31,66 @@ describe("solar selectors", () => {
     expect(guidance.level).toBe("insufficient");
     expect(guidance.missing).toEqual(["solar flux", "IMF Bz"]);
     expect(guidance.summary).toMatch(/withheld/i);
+  });
+
+  it("appends only outlook points after the last observed flux as a predicted tail", () => {
+    const observed = [
+      {
+        time_tag: "2026-07-14T20:00:00",
+        flux: 100,
+        frequency: 2800 as const,
+        schedule: null,
+      },
+      {
+        time_tag: "2026-07-15T17:00:00",
+        flux: 111,
+        frequency: 2800 as const,
+        schedule: null,
+      },
+    ];
+    const outlook = [
+      {
+        date: "2026-07-15T00:00:00.000Z",
+        predicted_flux: 108,
+        predicted_planetary_a: 5,
+        predicted_kp: 2,
+      },
+      {
+        date: "2026-07-16T00:00:00.000Z",
+        predicted_flux: 105,
+        predicted_planetary_a: 5,
+        predicted_kp: 2,
+      },
+      {
+        date: "2026-07-17T00:00:00.000Z",
+        predicted_flux: 104,
+        predicted_planetary_a: 5,
+        predicted_kp: 2,
+      },
+    ];
+    const trend = fluxTrendWithForecastTail(observed, outlook);
+    expect(trend.map((point) => point.kind)).toEqual([
+      "observed",
+      "observed",
+      "predicted",
+      "predicted",
+    ]);
+    expect(trend.map((point) => point.flux)).toEqual([100, 111, 105, 104]);
+  });
+
+  it("returns only observed points when no outlook data is available", () => {
+    const observed = [
+      {
+        time_tag: "2026-07-15T17:00:00",
+        flux: 111,
+        frequency: 2800 as const,
+        schedule: null,
+      },
+    ];
+    expect(fluxTrendWithForecastTail(observed, undefined)).toEqual([
+      { time_tag: "2026-07-15T17:00:00", flux: 111, kind: "observed" },
+    ]);
+    expect(fluxTrendWithForecastTail(undefined, undefined)).toEqual([]);
   });
 
   it("keeps a hard-expired query distinct from a generic error", () => {

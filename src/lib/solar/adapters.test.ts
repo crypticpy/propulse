@@ -5,6 +5,7 @@ import {
   adaptCme,
   adaptDst,
   adaptFluxForecastText,
+  adaptFluxOutlookText,
   adaptKp,
   adaptLatestXray,
   adaptMagnetometer,
@@ -28,10 +29,13 @@ import {
   magnetometerNewestFirst,
   malformedDrapText,
   malformedForecastText,
+  malformedOutlookText,
   mixedProtons,
   newestFirstFlux,
   newestFirstProbabilities,
+  outlookText,
   reversedKp,
+  rtswWindPlasma,
   scales,
   sunspots,
   windMag,
@@ -97,6 +101,27 @@ describe("solar provider adapters", () => {
     expect(result.data.at(-1)?.bz_gsm).toBe(-4);
     expect(result.data[0].by_gsm).toBe(1);
     expect(result.data.at(-1)?.by_gsm).toBeNull();
+  });
+
+  it("widens the magnetometer window for the 24-hour wall variant without changing the default", () => {
+    const tooOld = { time_tag: "2026-07-14T10:00:00Z", bz_gsm: 9, by_gsm: 2, bt: 4 };
+    const result = adaptMagnetometer(
+      [...magnetometerNewestFirst, tooOld],
+      1_600,
+      24 * 60 * 60_000,
+    );
+    // The 80-minute-old row now survives inside the 24-hour window...
+    expect(result.data).toHaveLength(3);
+    expect(result.data[0].time_tag).toBe("2026-07-15T17:40:00Z");
+    // ...but a row more than 24 hours before the latest sample still does not.
+    expect(result.data.some((point) => point.time_tag === tooOld.time_tag)).toBe(false);
+  });
+
+  it("widens the X-ray window for the 24-hour wall variant without changing the default", () => {
+    const dayOld = { time_tag: "2026-07-14T18:50:00Z", satellite: 18, flux: 2e-7, energy: "0.1-0.8nm" };
+    const result = adaptXray([...dualXray, dayOld], 1_600, 24 * 60 * 60_000);
+    expect(result.data).toHaveLength(3);
+    expect(result.data[0].time_tag).toBe(dayOld.time_tag);
   });
 
   it("filters the exact >=10 MeV proton channel before sorting and bounding", () => {
@@ -180,6 +205,26 @@ describe("solar provider adapters", () => {
     ).toBe(443);
     expect(() => adaptWindMag([["time_tag", "bz_gsm"]])).toThrow(/no usable/i);
     expect(() => adaptWindPlasma([["time_tag", "speed"]])).toThrow(/no usable/i);
+  });
+
+  it("reads the RTSW real-time plasma shape (proton_* fields only) and widens retention for the wall", () => {
+    const result = adaptWindPlasma(rtswWindPlasma, 2_500, 24 * 60 * 60_000);
+    expect(result.data).toHaveLength(2);
+    expect(result.data.at(-1)?.speed).toBe(430);
+    expect(result.data.at(-1)?.density).toBe(6);
+    expect(result.data.at(-1)?.temperature).toBe(110_000);
+  });
+
+  it("parses the 27-day flux outlook and fails visibly on format drift", () => {
+    const result = adaptFluxOutlookText(outlookText);
+    expect(result.data.outlook).toHaveLength(3);
+    expect(result.data.outlook[0]).toMatchObject({
+      predicted_flux: 110,
+      predicted_planetary_a: 12,
+      predicted_kp: 3,
+    });
+    expect(result.observedAt).toBe("2026-07-15T13:12:00.000Z");
+    expect(() => adaptFluxOutlookText(malformedOutlookText)).toThrow(/issue time/);
   });
 
   it("allows a legitimate empty CME analysis window but rejects malformed events", () => {

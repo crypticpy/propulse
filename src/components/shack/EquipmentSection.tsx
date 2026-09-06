@@ -105,7 +105,12 @@ export function EquipmentSection() {
                 Choose a category below. You can connect equipment later in the
                 workbench.
               </Notice>
-              <Button onClick={() => setWizardOpen(true)}>
+              <Button
+                onClick={() => {
+                  setCategory("all");
+                  setWizardOpen(true);
+                }}
+              >
                 <WandSparkles size={18} aria-hidden="true" /> Guided setup
               </Button>
             </div>

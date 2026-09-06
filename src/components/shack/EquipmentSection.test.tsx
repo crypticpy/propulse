@@ -132,4 +132,17 @@ describe("inventory and guided setup navigation", () => {
       screen.queryByRole("heading", { name: "Add Your Radios" }),
     ).toBeNull();
   });
+  it("opens guided setup from a filtered empty inventory and returns to individual gear", async () => {
+    renderInventory("/shack?view=equipment&category=feedlines&keep=yes");
+    fireEvent.click(screen.getByRole("button", { name: "Guided setup" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Add Your Radios" })).toBeTruthy(),
+    );
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/shack?view=equipment&keep=yes",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add gear individually" }));
+    expect(screen.getByText("Feedline editor").closest("[hidden]")).toBeNull();
+    expect(screen.getByText("Antenna editor").closest("[hidden]")).toBeNull();
+  });
 });

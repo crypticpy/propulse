@@ -90,7 +90,7 @@ export function XrayReport({
   const facts: WallReportFact[] = [
     { label: "24H PEAK", value: peakLabel },
     {
-      label: "LAST FLARE",
+      label: "FLARE",
       value: flare
         ? `${flare.max_class} ${flare.max_time.slice(11, 16)}Z`
         : "—",

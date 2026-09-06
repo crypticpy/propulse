@@ -46,7 +46,7 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
     { label: "TOTAL SPOTS", value: total.toLocaleString() },
     { label: "BANDS OPEN", value: bars.length },
     { label: "WINDOW", value: "60 MIN" },
-    { label: "SCOPE", value: scope.label.toUpperCase() },
+    { label: "SCOPE", value: scope.type.toUpperCase() },
     {
       label: "TOP SHARE",
       value:

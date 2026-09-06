@@ -87,7 +87,7 @@ beforeEach(() => {
   mocks.verdicts.mockReturnValue({
     bands: [],
     ready: true,
-    scope: { id: "regional:NA", label: "North America" },
+    scope: { id: "regional:NA", label: "North America", type: "regional" },
     activityScope: { type: "regional", continent: "NA" },
   });
   mocks.activity.mockReturnValue({

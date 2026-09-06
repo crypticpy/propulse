@@ -325,9 +325,12 @@ describe("GreyLineReport", () => {
     expect(
       facts.some((row) => row?.startsWith("START") && row.includes("—")),
     ).toBe(true);
-    const tiers = Array.from(dialog.querySelectorAll(".hcr-kv dd")).map(
-      (dd) => dd.textContent,
-    );
+    const tiers = Array.from(dialog.querySelectorAll(".hcr-kv dd"))
+      .filter((dd) =>
+        /^(160|80|40)M$/.test(dd.previousElementSibling?.textContent ?? ""),
+      )
+      .map((dd) => dd.textContent);
+    expect(tiers).toHaveLength(3);
     expect(tiers.every((t) => t?.includes("INACTIVE"))).toBe(true);
   });
 

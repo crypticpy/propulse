@@ -30,6 +30,12 @@ function bothClocks(value: Date | null, zone: string | undefined): string {
   return `${formatClock(value, zone)} / ${formatClock(value, "UTC")}Z`;
 }
 
+/** Local clock alone, for the facts column; the UTC twin lives in the
+ * Low bands box because a clock pair no longer fits beside the hero. */
+function localClock(value: Date | null, zone: string | undefined): string {
+  return value ? formatClock(value, zone) : "—";
+}
+
 /** ACTIVE/INACTIVE for one band at one intensity — the wall only shows the
  * binary `isGreylineActiveForBand` already returns; it does not invent a
  * per-band tier the model does not compute. */
@@ -450,6 +456,11 @@ export function GreyLineReport({
       ? sunCurveToday.dayState.nextTransition.toISOString().slice(0, 10)
       : "—"
     : nextWindowEvent
+      ? localClock(nextWindowEvent.at, zone)
+      : "—";
+  const nextWindowBothClocks = isNoWindowToday
+    ? nextWindowValue
+    : nextWindowEvent
       ? bothClocks(nextWindowEvent.at, zone)
       : "—";
   const bandLabel = (band: string) =>
@@ -486,21 +497,16 @@ export function GreyLineReport({
   // Six facts (#250): the hero/verdict pair is not repeated, the low-band
   // tiers live in their own box, and the mutual window gets its clocks.
   // Each fact fits its half of the facts column beside a two-word hero at
-  // 1080p (label + value ≤ ~19 mono characters, #250 rendered check): a
-  // clock pair needs a one-word label, and the mutual window shows its
-  // local span here with both clocks in the DX target box.
+  // 1080p (label + value ≤ ~18 mono characters, #250 rendered check): the
+  // clocks here are local only, with the local/UTC pairs in the body boxes.
   const facts: WallReportFact[] = [
     {
       label: "START",
-      value: ownWindowForDisplay
-        ? bothClocks(ownWindowForDisplay.start, zone)
-        : "—",
+      value: localClock(ownWindowForDisplay?.start ?? null, zone),
     },
     {
       label: "END",
-      value: ownWindowForDisplay
-        ? bothClocks(ownWindowForDisplay.end, zone)
-        : "—",
+      value: localClock(ownWindowForDisplay?.end ?? null, zone),
     },
     { label: "NEXT", value: nextWindowValue },
     { label: "OVERLAP", value: targetOverlapValue },
@@ -549,6 +555,12 @@ export function GreyLineReport({
             <dd>{bandLabel("80m")}</dd>
             <dt>40M</dt>
             <dd>{bandLabel("40m")}</dd>
+            <dt>WINDOW START</dt>
+            <dd>{bothClocks(ownWindowForDisplay?.start ?? null, zone)}</dd>
+            <dt>WINDOW END</dt>
+            <dd>{bothClocks(ownWindowForDisplay?.end ?? null, zone)}</dd>
+            <dt>NEXT EVENT</dt>
+            <dd>{nextWindowBothClocks}</dd>
           </dl>
         </div>
         <div className="hcr-box">

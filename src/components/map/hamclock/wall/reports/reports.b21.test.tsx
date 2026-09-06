@@ -99,7 +99,7 @@ describe("MoonReport", () => {
     const facts = factRows(dialog);
     expect(facts).toHaveLength(6);
     expect(facts.some((row) => row?.startsWith("ILLUM"))).toBe(true);
-    expect(facts.some((row) => row?.startsWith("DISTANCE"))).toBe(true);
+    expect(facts.some((row) => row?.startsWith("RANGE"))).toBe(true);
     expect(facts.some((row) => row?.startsWith("DECL"))).toBe(true);
     // Moonrise/moonset are the next crossings, never a "—" for a calendar
     // day SunCalc leaves blank.
@@ -164,7 +164,7 @@ describe("MoonReport", () => {
     const dialog = screen.getByRole("dialog");
 
     const moonTitle = within(dialog).getByText(
-      "MOON ELEVATION — 24 H · COMPUTED AT QTH",
+      "MOON ELEVATION — 24 H · AT QTH",
     );
     expect(moonTitle).toBeTruthy();
     expect(moonTitle.closest(".hcr-chart")).not.toBeNull();

@@ -206,7 +206,7 @@ function MoonElevationChart({
 
   return (
     <div className="hcr-chart">
-      <p className="hcr-chart-title">MOON ELEVATION — 24 H · COMPUTED AT QTH</p>
+      <p className="hcr-chart-title">MOON ELEVATION — 24 H · AT QTH</p>
       <figure className="hcr-plot" ref={ref}>
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -692,7 +692,7 @@ export function MoonReport({ open, onClose }: MoonReportProps) {
     { label: "RISE", value: localClock(nextRise, zone) },
     { label: "SET", value: localClock(nextSet, zone) },
     {
-      label: "DISTANCE",
+      label: "RANGE",
       value: `${Math.round(topoDistanceKm).toLocaleString("en-US")} km`,
     },
     { label: "DECL", value: `${declinationDeg.toFixed(1)}° ${declWord}` },

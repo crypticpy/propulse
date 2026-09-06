@@ -6,6 +6,11 @@ export interface SolarChartPoint {
   value: number;
   kind?: "observed" | "estimated" | "predicted";
 }
+/** A single labelled instant to call out on the chart, e.g. the latest classified flare. */
+export interface SolarChartMarker {
+  timestamp: string;
+  label: string;
+}
 export interface SolarSeriesChartProps {
   points: SolarChartPoint[];
   label: string;
@@ -18,6 +23,9 @@ export interface SolarSeriesChartProps {
   maxGapMs?: number;
   thresholds?: Array<{ value: number; label: string }>;
   now?: number;
+  /** Optional labelled instants (e.g. the latest flare); additive — omitting
+   * it leaves the chart identical to before this prop existed. */
+  markers?: SolarChartMarker[];
 }
 const styles = {
   observed: {
@@ -53,6 +61,7 @@ export function SolarSeriesChart({
   maxGapMs = Infinity,
   thresholds = [],
   now = Date.now(),
+  markers = [],
 }: SolarSeriesChartProps) {
   const id = useId();
   const [selection, setSelection] = useState<number | null>(null);
@@ -84,6 +93,12 @@ export function SolarSeriesChart({
   const start = Date.parse(sorted[0].timestamp);
   const last = Date.parse(sorted[sorted.length - 1].timestamp);
   const end = Math.max(start + 1, last + (intervalMs ?? 0));
+  const validMarkers = markers
+    .map((m) => ({ ...m, time: parseUtcInstant(m.timestamp) }))
+    .filter(
+      (m): m is SolarChartMarker & { time: number } =>
+        m.time !== null && m.time >= start && m.time <= end,
+    );
   const transform = (n: number) => (scale === "log" ? Math.log10(n) : n);
   let low = min ?? Math.min(...sorted.map((p) => p.value));
   let high = max ?? Math.max(...sorted.map((p) => p.value));
@@ -135,7 +150,7 @@ export function SolarSeriesChart({
           viewBox={`0 0 ${width} ${height}`}
           className="w-full min-w-[32rem]"
           role="img"
-          aria-label={`${label}. ${scale === "log" ? "Logarithmic scale. " : ""}${sorted.length} records from ${new Date(start).toISOString()} to ${new Date(last).toISOString()}.`}
+          aria-label={`${label}. ${scale === "log" ? "Logarithmic scale. " : ""}${sorted.length} records from ${new Date(start).toISOString()} to ${new Date(last).toISOString()}.${validMarkers.map((m) => ` Marker: ${m.label} at ${new Date(m.time).toISOString()}.`).join("")}`}
           onPointerDown={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
             const time =
@@ -310,6 +325,26 @@ export function SolarSeriesChart({
               </text>
             </g>
           )}
+          {validMarkers.map((m) => (
+            <g key={`${m.timestamp}-${m.label}`}>
+              <line
+                x1={x(m.time)}
+                x2={x(m.time)}
+                y1={top}
+                y2={height - bottom}
+                stroke="var(--hcr-chart-marker, #fb7185)"
+                strokeWidth="2"
+              />
+              <text
+                x={Math.min(x(m.time) + 4, width - 48)}
+                y={top + 12}
+                fill="var(--hcr-chart-marker, #fb7185)"
+                fontSize="12"
+              >
+                {m.label}
+              </text>
+            </g>
+          ))}
           <circle
             cx={x(Date.parse(selected.timestamp))}
             cy={y(selected.value)}
@@ -408,6 +443,16 @@ export function SolarSeriesChart({
                   <td className="p-2">{p.timestamp}</td>
                   <td className="p-2 font-mono">{number(p.value)}</td>
                   <td className="p-2">{p.kind ?? "observed"}</td>
+                </tr>
+              ))}
+              {validMarkers.map((m) => (
+                <tr
+                  key={`marker-${m.timestamp}-${m.label}`}
+                  className="border-t border-white/10"
+                >
+                  <td className="p-2">{new Date(m.time).toISOString()}</td>
+                  <td className="p-2 font-mono">—</td>
+                  <td className="p-2">Marker: {m.label}</td>
                 </tr>
               ))}
             </tbody>

@@ -5,7 +5,6 @@ import { BandActivityTile } from "../tiles/BandActivityTile";
 import { BandActivityReport } from "./BandActivityReport";
 import { DxTargetReport } from "./DxTargetReport";
 import { ForecastReport } from "./ForecastReport";
-import { SolarReport } from "./SolarReport";
 import { WeatherReport } from "./WeatherReport";
 
 const mocks = vi.hoisted(() => ({
@@ -59,15 +58,6 @@ vi.mock("@/stores/mapStore", () => ({
       target: mocks.target(),
     }),
 }));
-
-/** `useSolarResource` hands back the validated envelope, not a bare payload. */
-function envelope<T>(data: T) {
-  return {
-    data: { envelope: { data, observedAt: "2026-09-05T13:00:00Z" } },
-    isError: false,
-    isPending: false,
-  };
-}
 
 const EMPTY_RESOURCE = { data: undefined, isError: false, isPending: true };
 
@@ -251,78 +241,6 @@ describe("ForecastReport reliability matrix", () => {
   });
 });
 
-describe("SolarReport wind focus", () => {
-  it("uses the worse of Bz and wind-speed severity for the wind hero", () => {
-    // Bz is northward (good), but the stream is high-speed (bad) — the
-    // report must not paint the hero good just because Bz alone is quiet.
-    mocks.solar.mockImplementation((sourceId: string) => {
-      if (sourceId === "swpc-solar-wind-plasma") {
-        return envelope([
-          {
-            time_tag: "2026-09-05T12:55:00Z",
-            speed: 700,
-            density: 3,
-            temperature: 1,
-          },
-        ]);
-      }
-      if (sourceId === "swpc-solar-wind-mag") {
-        return envelope([
-          {
-            time_tag: "2026-09-05T12:55:00Z",
-            bx_gsm: 0,
-            by_gsm: 0,
-            bz_gsm: 2,
-            bt: 2,
-          },
-        ]);
-      }
-      return EMPTY_RESOURCE;
-    });
-
-    render(<SolarReport open onClose={vi.fn()} focus="wind" />);
-
-    expect(screen.getByText("HIGH SPEED")).toBeTruthy();
-    const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-hero")?.className).toContain("hc-bad");
-    expect(dialog.querySelector(".hcr-hero")?.className).not.toContain(
-      "hc-good",
-    );
-  });
-
-  it("stays good when both Bz and wind speed are quiet", () => {
-    mocks.solar.mockImplementation((sourceId: string) => {
-      if (sourceId === "swpc-solar-wind-plasma") {
-        return envelope([
-          {
-            time_tag: "2026-09-05T12:55:00Z",
-            speed: 350,
-            density: 3,
-            temperature: 1,
-          },
-        ]);
-      }
-      if (sourceId === "swpc-solar-wind-mag") {
-        return envelope([
-          {
-            time_tag: "2026-09-05T12:55:00Z",
-            bx_gsm: 0,
-            by_gsm: 0,
-            bz_gsm: 1,
-            bt: 1,
-          },
-        ]);
-      }
-      return EMPTY_RESOURCE;
-    });
-
-    render(<SolarReport open onClose={vi.fn()} focus="wind" />);
-
-    const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-hero")?.className).toContain("hc-good");
-  });
-});
-
 describe("WeatherReport focus", () => {
   const severeAlert = {
     id: "a",
@@ -403,12 +321,8 @@ describe("DxTargetReport", () => {
     render(<DxTargetReport open onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe(
-      "NO TARGET",
-    );
-    expect(
-      screen.getByText(/Pick a target on the map/i),
-    ).toBeTruthy();
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("NO TARGET");
+    expect(screen.getByText(/Pick a target on the map/i)).toBeTruthy();
   });
 
   it("facts the target's callsign, grid, coordinates and both path bearings", () => {

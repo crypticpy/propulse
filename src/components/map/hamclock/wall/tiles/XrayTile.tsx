@@ -6,8 +6,8 @@ import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 import { xrayTone } from "../tokens";
 
 // The report is only worth its bytes once an operator opens it.
-const SolarReport = lazy(() =>
-  import("../reports/SolarReport").then((m) => ({ default: m.SolarReport })),
+const XrayReport = lazy(() =>
+  import("../reports/XrayReport").then((m) => ({ default: m.XrayReport })),
 );
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
@@ -92,7 +92,7 @@ export function XrayTile() {
 
       {reportOpen && (
         <Suspense fallback={null}>
-          <SolarReport open onClose={() => setReportOpen(false)} focus="xray" />
+          <XrayReport open onClose={() => setReportOpen(false)} />
         </Suspense>
       )}
     </>

@@ -29,7 +29,7 @@ export function ActivationsReport({ open, onClose, initialProgram = "POTA" }: {
       { label: "NEWEST", value: spots[0] ? activationAge(spots[0].spottedAt, now) : "—" },
       { label: "BANDS", value: new Set(spots.map((spot) => bandFromFreq(spot.frequencyKHz)).filter(Boolean)).size },
       { label: "MODES", value: new Set(spots.map((spot) => spot.mode).filter(Boolean)).size },
-    ]} footer={footer} updated={updated} pinId={`activations-${program}`}
+    ]} footer={footer} updated={updated} pinId="activations"
     pinElement={<ActivationsReport open onClose={onClose} initialProgram={program} />}>
     <HamClockTabs label="Activation programmes" active={program} onChange={(id) => setProgram(id as ActivationProgram)} tabs={ACTIVATION_PROGRAMS.map((id) => ({
       id, label: id, content: <ActivationRows spots={spots} now={now} loading={feed.isLoading} state={state} />,

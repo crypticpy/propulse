@@ -50,6 +50,20 @@ export function heroSizeClass(
 }
 
 /**
+ * Scale for a report verdict so it fits the headline's 22vw slot on one
+ * line where it can: the display face runs about 0.85em per character with
+ * its tracking, so seven characters fill the slot at full size. Longer
+ * words shrink, but never below two thirds (a 15-character phrase wraps to
+ * two lines at that size rather than getting smaller). Applied through the
+ * `--hcr-verdict-scale` custom property on `.hcr-verdict`.
+ */
+export function verdictScale(text: string): number {
+  const length = text.trim().length;
+  if (length <= 7) return 1;
+  return Math.max(0.66, 7 / length);
+}
+
+/**
  * "2h 14m", "44m" — the wall never shows a bare minute count, because a
  * three-digit number of minutes is not something a reader converts at ten feet.
  */

@@ -80,15 +80,15 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
     return getSolarCycleTrend(recent);
   }, [fluxQuery.data]);
 
+  // Six facts: the hero is the SFI and the verdict is the cycle phase, so
+  // neither repeats here (#250 facts ≤ 6).
   const facts: WallReportFact[] = [
-    { label: "SFI", value: flux ? Math.round(flux.flux) : "—" },
     {
       label: "27D FCST",
       value: outlookTail === null ? "—" : Math.round(outlookTail),
     },
     { label: "SSN", value: ssn === null ? "—" : Math.round(ssn) },
     { label: "A-INDEX", value: aIndex === null ? "—" : Math.round(aIndex) },
-    { label: "PHASE", value: CYCLE_PHASE_LABEL[cyclePosition.phase] },
     {
       label: "CYCLE SSN",
       value: cycle25Latest ? Math.round(cycle25Latest.ssn) : "—",

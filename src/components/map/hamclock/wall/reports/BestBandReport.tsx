@@ -342,7 +342,15 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
       label: "SIDE",
       value: isDaylight === null ? "—" : isDaylight ? "DAYSIDE" : "NIGHTSIDE",
     },
-    { label: "SCOPE", value: scope.label.toUpperCase() },
+    // The continent or path is already in the title and the ranked-table
+    // caption; the fact keeps only the scope type so it stays on one line.
+    {
+      label: "SCOPE",
+      value:
+        scope.type === "dx"
+          ? scope.label.toUpperCase()
+          : scope.type.toUpperCase(),
+    },
     { label: "BANDS RANKED", value: ranked.length },
     { label: "SURPRISE", value: surprises.length },
   ];

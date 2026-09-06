@@ -1037,11 +1037,16 @@
   color: var(--hc-dim2);
 }
 
-/* The X-ray report's "Flares · 24 h" box sits under the flexible FLUX chart
- * at a fixed height, so a busy window (many flares) never grows the report
- * -- only the whole rows `useVisibleRows` measures inside that cap render. */
+/* The FLUX tab is a fill row: the 24 h chart beside the flare list, so a
+ * busy day shows every whole row `useVisibleRows` can fit in the panel
+ * height instead of one flare squeezed under the chart (#249 check). */
 .hcr-flarebox {
-  max-height: 18vh;
   overflow: hidden;
+}
+/* Flare rows are two short lines (class, time · region); a touch less
+ * padding fits a fourth row beside the chart at 1080p. */
+.hcr-flarebox .hcr-item {
+  padding-top: 0.5vh;
+  padding-bottom: 0.5vh;
 }
 /* ===== end B25 ===== */

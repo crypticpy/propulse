@@ -1,5 +1,6 @@
 /** Real inventory managers, grouped into a readable and navigable gear area. */
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Boxes, WandSparkles } from "lucide-react";
 import { useShackStore } from "@/stores/shackStore";
 import { RadioManager } from "@/components/settings/RadioManager";
@@ -10,15 +11,30 @@ import { InlineComponentManager } from "./InlineComponentManager";
 import { SetupWizard } from "./SetupWizard";
 import { Button, Notice, Section, Surface } from "@/components/station-ui";
 
-export function EquipmentSection({
-  initialCategory = "all",
-}: {
-  initialCategory?: string;
-}) {
+export function EquipmentSection() {
+  const [params, setParams] = useSearchParams();
+  const requestedCategory = params.get("category") ?? "all";
+  const category = [
+    "radios",
+    "antennas",
+    "feedlines",
+    "accessories",
+    "inline",
+  ].includes(requestedCategory)
+    ? requestedCategory
+    : "all";
+  const setCategory = (nextCategory: string) =>
+    setParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("view", "equipment");
+      if (nextCategory === "all") next.delete("category");
+      else next.set("category", nextCategory);
+      return next;
+    });
   const [wizardOpen, setWizardOpen] = useState(() => {
     const inventory = useShackStore.getState();
     return (
-      initialCategory === "all" &&
+      category === "all" &&
       inventory.radios.length +
         inventory.antennas.length +
         inventory.feedlines.length +
@@ -27,13 +43,6 @@ export function EquipmentSection({
         0
     );
   });
-  const [category, setCategory] = useState(
-    ["radios", "antennas", "feedlines", "accessories", "inline"].includes(
-      initialCategory,
-    )
-      ? initialCategory
-      : "all",
-  );
   const radios = useShackStore((s) => s.radios.length);
   const antennas = useShackStore((s) => s.antennas.length);
   const feedlines = useShackStore((s) => s.feedlines.length);
@@ -73,7 +82,7 @@ export function EquipmentSection({
       title="My gear"
       description="Your radios, antennas, cables and the details that make this station yours."
     >
-      {wizardOpen ? (
+      {wizardOpen && category === "all" ? (
         <Surface className="shack-legacy">
           <div className="station-shack-section-intro">
             <div>

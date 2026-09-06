@@ -118,12 +118,7 @@ export default function ShackPage() {
             {
               value: "equipment",
               label: "My gear",
-              content: activeView === "equipment" && (
-                <EquipmentSection
-                  key={params.get("category") ?? "all"}
-                  initialCategory={params.get("category") ?? "all"}
-                />
-              ),
+              content: activeView === "equipment" && <EquipmentSection />,
             },
             {
               value: "performance",

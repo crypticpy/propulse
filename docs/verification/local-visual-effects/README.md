@@ -30,7 +30,9 @@ reloads and tab synchronization. No cloud, publication or theme payload changes.
   rank identity, focus preservation and calm/full celebration behavior.
 - Browser: actual `/settings/appearance`, mouse/keyboard controls, reload and
   cross-tab synchronization, OS changes, four theme contrast/accessibility checks,
-  390 px viewport and 200% root text. Disposable local UI contexts; no account,
+  390 px viewport and 200% root text. A real MouseTilt fixture verifies equal
+  grid-row heights, click state and stable focus across Subtle/Off/Full.
+  Disposable local UI contexts; no account,
   public profile publication or cross-device cloud sync is claimed by this check.
 
 Repeat the browser check after reading the local testing guide and starting an

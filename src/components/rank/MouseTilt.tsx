@@ -91,16 +91,19 @@ export function MouseTilt({
 
   const active = enabled && motion && effectivelyEnabled;
 
+  // Stable grid wrappers preserve focus and stretch the card to its parent row
+  // even when tilt is inactive; plain blocks would leave shorter cards unfilled.
   return (
     <div
       ref={wrapperRef}
-      className={className}
+      className={`grid min-w-0 ${className}`}
       onMouseMove={active ? handleMouseMove : undefined}
       onMouseLeave={active ? handleMouseLeave : undefined}
       style={{ perspective: active ? `${perspective}px` : undefined }}
     >
       <div
         ref={innerRef}
+        className="grid min-w-0"
         style={
           {
             "--tilt-x": "0deg",

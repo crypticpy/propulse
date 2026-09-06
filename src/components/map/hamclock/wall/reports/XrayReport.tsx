@@ -5,7 +5,7 @@ import { useDRAPData } from "@/hooks/useSolarExpanded";
 import type { LatestXrayFlare, NoaaScalesProduct } from "@/lib/solar/dataTypes";
 import { latestByTime, xrayClass } from "@/lib/solar/selectors";
 import { useMapStore } from "@/stores/mapStore";
-import { SolarSeriesChart } from "@/components/solar/SolarSeriesChart";
+import { WallSeriesChart } from "./WallSeriesChart";
 import { HamClockButton, HamClockTabs } from "../controls";
 import { reportFooter, reportTone, xrayTone } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
@@ -143,7 +143,8 @@ export function XrayReport({
             label: "FLUX",
             content: (
               <div className="hcr-chart">
-                <SolarSeriesChart
+                <p className="hcr-chart-title">X-RAY FLUX — 24 H · GOES · LOG SCALE</p>
+                <WallSeriesChart
                   label="X-RAY FLUX — 24 H · GOES · LOG SCALE"
                   points={(points ?? []).map((point) => ({
                     timestamp: point.time_tag,

@@ -128,7 +128,8 @@ describe("wall reports", () => {
     // Hero, verdict and one fact, at report size.
     expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
     expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("470");
-    expect(screen.getByText("886")).toBeTruthy();
+    // The total also appears in the chart's screen-reader table twin.
+    expect(dialog.querySelector(".hcr-facts")?.textContent).toContain("886");
   });
 
   it("closes on Escape", () => {

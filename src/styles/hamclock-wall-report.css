@@ -112,16 +112,28 @@
 
 /* ---------- lead: hero · verdict · facts ---------- */
 
+/* Headline (hero + verdict on one baseline) beside the facts column. The
+ * facts column keeps a real minimum width and the headline type is capped
+ * against the viewport width, so a wide hero can never squeeze the facts
+ * into ellipses (#250 S2); centring the two blocks removes the blank band
+ * that `align-items: end` left above a short hero (#250 S3). */
 .hcr-lead {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, auto) minmax(22vw, 1fr);
   gap: 2.4vw;
-  align-items: end;
+  align-items: center;
+}
+.hcr-headline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.6vh 1.6vw;
+  min-width: 0;
 }
 .hcr-hero {
   font-family: var(--hc-font-display);
   font-weight: var(--hc-display-weight);
-  font-size: 9vh;
+  font-size: min(9vh, 4.8vw);
   line-height: 1;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
@@ -130,10 +142,10 @@
 .hcr-verdict {
   font-family: var(--hc-font-display);
   font-weight: var(--hc-display-weight);
-  font-size: 6.6vh;
-  line-height: 1;
+  font-size: min(6.6vh, 3.4vw);
+  line-height: 1.05;
   letter-spacing: 0.04em;
-  white-space: nowrap;
+  max-width: 18vw;
 }
 .hcr-unit {
   margin-left: 0.6vw;
@@ -145,22 +157,32 @@
 .hcr-facts {
   font-family: var(--hc-font-mono);
   font-size: 1.9vh;
-  line-height: 1.7;
+  line-height: 1.5;
   letter-spacing: 0.04em;
   color: var(--hc-dim);
-  text-align: right;
   min-width: 0;
-  overflow: hidden;
 }
+/* Label left, value right, one rule per row: a value never truncates — it
+ * wraps under its label if it must — and the column reads as a table from
+ * across the room. */
 .hcr-facts div {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1vw;
+  padding: 0.25vh 0;
+  border-bottom: 1px solid var(--hc-line);
+  white-space: normal;
+}
+.hcr-facts div:last-child {
+  border-bottom: 0;
 }
 .hcr-facts b {
   color: var(--hc-fg);
   font-weight: 600;
-  margin-left: 0.5vw;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- body ---------- */
@@ -171,6 +193,24 @@
   gap: 1.6vh;
   min-height: 0;
   overflow: hidden;
+}
+/* Fixed-height body children never yield to a chart or a tab panel: notes,
+ * the engine strip and box rows keep their content height, and only the
+ * chart / tab panel flexes (#250 S6 — the MUF report's tabs were drawing
+ * over a strip that had been shrunk to nothing). */
+.hcr-body > :is(.hcr-note, .hcr-enginestrip, .hcr-cols, .hcr-box, .hcr-kv, .hcc-seg-wrap, .hcr-link-button),
+.hcr-body .hcc-tabpanel > :is(.hcr-note, .hcr-cols, .hcr-box, .hcr-kv, .hcc-seg-wrap, .hcr-link-button) {
+  flex: 0 0 auto;
+}
+.hcr-body > .hcc-tabs {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.hcr-body .hcc-tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6vh;
+  min-height: 0;
 }
 .hcr-cols {
   display: grid;
@@ -424,29 +464,63 @@
   --hcr-chart-marker: var(--hc-bad);
 }
 .hcr-chart {
-  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   padding-top: 1vh;
   border-top: 1px solid var(--hc-line);
-  min-height: 0;
+  min-height: 12vh;
 }
 .hcr-chart-title {
+  flex: 0 0 auto;
   font-family: var(--hc-font-mono);
-  font-size: 1.3vh;
+  font-size: 1.5vh;
   letter-spacing: 0.14em;
   color: var(--hc-dim);
   text-transform: uppercase;
   margin: 0 0 0.5vh;
 }
-.hcr-chart svg,
-.hcr-chart figure {
-  display: block;
-  width: 100%;
-}
-.hcr-chart figure {
+/* `WallSeriesChart` measures this box and draws its SVG 1:1 in pixels, so
+ * the plot fills whatever height the body's flex column leaves it (#250 S1).
+ * The SVG is taken out of flow so its own size never feeds back into the
+ * measurement it was drawn from. */
+.hcr-plot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 8vh;
   margin: 0;
 }
-.hcr-chart svg {
-  height: 9vh;
+.hcr-plot svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.hcr-plot--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-body);
+  letter-spacing: 0.08em;
+  color: var(--hc-dim);
+  text-transform: uppercase;
+}
+/* Several plots sharing one slot (solar wind: Bz / speed / density). */
+.hcr-chart-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.5vh;
+}
+.hcr-chart-stack .hcr-chart {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.hcr-chart-stack .hcr-plot {
+  min-height: 5vh;
 }
 
 /* ---------- best band table (HW-31) ---------- */
@@ -530,40 +604,8 @@
 
 /* ===== B19: solar, x-ray, solar wind reports ===== */
 
-/* `SolarSeriesChart` (reused from /solar, HW-B19) draws taller than the
- * compact `SolarMiniChart` the 9vh rule above was written for. Reports pass
- * `chrome="plot"` so the legend, inspector slider and "show values" toggle
- * are never rendered here in the first place — `overflow: hidden` must not
- * be relied on to hide them, since a report's tab panel can be shorter than
- * the full-chrome chart and clipping would leave controls half-visible and
- * inoperable. Scoped to a report's tab panel only, so the older non-tabbed
- * reports keep the original mini-chart sizing untouched. */
-.hcc-tabpanel .hcr-chart {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-.hcc-tabpanel .hcr-chart svg {
-  height: auto;
-  max-height: 26vh;
-}
-
-/* The WIND tab stacks three plot-only strips (Bz, speed, density) sharing
- * one time axis instead of one tall chart, so each strip gets a third of
- * the panel's height rather than the single-chart 26vh cap above. */
-.hcc-tabpanel .hcr-chart-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5vh;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-.hcc-tabpanel .hcr-chart-stack .hcr-chart {
-  flex: 1 1 0;
-  padding-top: 0.5vh;
-}
-.hcc-tabpanel .hcr-chart-stack .hcr-chart svg {
-  max-height: 9vh;
-}
+/* Chart sizing for the tabbed reports lives in the shared `.hcr-chart` /
+ * `.hcr-plot` / `.hcr-chart-stack` rules above (#250 S1). */
 
 /* ===== end B19 ===== */
 /* ===== B17: engine strip + MUF report ===== */

@@ -16,7 +16,7 @@ import {
   getSolarCyclePosition,
   getSolarCycleTrend,
 } from "@/lib/data/historicalPropagation";
-import { SolarSeriesChart } from "@/components/solar/SolarSeriesChart";
+import { WallSeriesChart } from "./WallSeriesChart";
 import { HamClockTabs } from "../controls";
 import { reportFooter } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
@@ -189,12 +189,12 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
             label: "NOW",
             content: (
               <div className="hcr-chart">
-                <SolarSeriesChart
+                <p className="hcr-chart-title">SFI — 30 D · NOAA SWPC</p>
+                <WallSeriesChart
                   label="SFI — 30 D · NOAA SWPC"
                   points={nowChartPoints}
                   unit="sfu"
                   maxGapMs={36 * 3_600_000}
-                  chrome="plot"
                 />
               </div>
             ),
@@ -204,12 +204,12 @@ export function SolarReport({ open, onClose }: SolarReportProps) {
             label: "CYCLE",
             content: (
               <div className="hcr-chart">
-                <SolarSeriesChart
+                <p className="hcr-chart-title">SSN — CYCLE 25 · SIDC / NOAA</p>
+                <WallSeriesChart
                   label="SSN — CYCLE 25 · SIDC / NOAA"
                   points={cycleChartPoints}
                   unit="SSN"
                   maxGapMs={95 * 86_400_000}
-                  chrome="plot"
                 />
                 <p className="hcr-note">
                   Curated Cycle 25 reference (dashed) extends the curve back

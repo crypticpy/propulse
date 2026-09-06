@@ -16,7 +16,7 @@ import {
 } from "../tiles/useWallReliability";
 import { reportTone, reportFooter } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
-import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import { WallSeriesChart } from "./WallSeriesChart";
 import {
   FUTURECAST_HORIZONS_HOURS,
   propagationFutureCastHorizonIsActivated,
@@ -109,9 +109,17 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
   // can therefore never land on the current-hour cell.
   const isFutureCastColumn = (column: number): boolean =>
     activatedHorizons.some((horizon) => hour + horizon === column);
-  const idleFooter = reportFooter(
+  // The matrix is built from Kp/SFI, so its freshness is the Kp reading's
+  // own observation time — never "now", which would hide a stale or failed
+  // refetch behind a false "just now". react-query defaults `dataUpdatedAt`
+  // to 0 before the first fetch, so treat that as unknown, not epoch. The
+  // footer reads the same Kp age whether or not a target is set: the hero
+  // and facts on screen come from that reading either way (#250 S5).
+  const kpUpdatedAt =
+    kIndexQuery.dataUpdatedAt > 0 ? kIndexQuery.dataUpdatedAt : null;
+  const { footer, updated } = reportFooter(
     "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
-    null,
+    kpUpdatedAt,
   );
 
   if (status !== "ready" && !mufReady) {
@@ -123,8 +131,8 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
         hero="—"
         verdict="NO PATH"
         facts={facts}
-        footer={idleFooter.footer}
-        updated={idleFooter.updated}
+        footer={footer}
+        updated={updated}
       >
         <p className="hcr-note">{IDLE_COPY[status]}</p>
       </WallReport>
@@ -147,17 +155,6 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
         ? `${best.score}%`
         : "SHUT"
       : IDLE_VERDICT[status];
-
-  // The matrix is built from Kp/SFI, so its freshness is the Kp reading's
-  // own observation time — never "now", which would hide a stale or failed
-  // refetch behind a false "just now". react-query defaults `dataUpdatedAt`
-  // to 0 before the first fetch, so treat that as unknown, not epoch.
-  const kpUpdatedAt =
-    kIndexQuery.dataUpdatedAt > 0 ? kIndexQuery.dataUpdatedAt : null;
-  const { footer, updated } = reportFooter(
-    "ITU-R P.533 PHYSICS ENGINE · SAME MATRIX AS THE RAIL",
-    status === "ready" ? kpUpdatedAt : null,
-  );
 
   // 24h MUF trend across the same hours the matrix already covers, at the
   // report's own QTH/SFI — no new feed, just the existing physics call swept
@@ -297,7 +294,8 @@ export function ForecastReport({ open, onClose, focus }: ForecastReportProps) {
       )}
       {mufChart.length > 0 && (
         <div className="hcr-chart">
-          <SolarMiniChart
+          <p className="hcr-chart-title">MUF — 24 H · ITU-R P.533</p>
+          <WallSeriesChart
             label="MUF — 24 H · ITU-R P.533"
             points={mufChart}
             unit="MHz"

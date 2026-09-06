@@ -184,8 +184,21 @@ on `WallReport` (`AccessibleDialog` with `chrome="bare"`).
 - **Pin**: a pinned report stays open across auto-page and scene changes until unpinned or closed. Persisted for the session only.
 - **Close**: close button, Escape, or backdrop click. Focus returns to the tile that opened it.
 - The map remains visible around the dialog. The dialog never exceeds 90 vw × 88 vh and never scrolls; content that does not fit gets a second tab inside the report.
-- Charts reuse `SolarMiniChart` and `SolarSeriesChart`, both reading `--hc-*` tokens (HW-29). `MetricCard` was excluded — it has no sparkline to theme.
+- Charts use `WallSeriesChart` (`wall/reports/`), which measures its `.hcr-plot` box and draws 1:1 in pixels through the `--hcr-chart-*` tokens (HW-29, #250). The /solar page keeps `SolarMiniChart` / `SolarSeriesChart`; a report never imports them for a trend chart (the Best-band sparkline is the one exception until its own pass).
 - Reports shipped in #170: Solar, Sun & Moon, Weather, Forecast, Emcomm, Band activity (`src/components/map/hamclock/wall/reports/`).
+
+### 9.1 Report layout contract (#250)
+
+Every report is checked against these rules at 1080p and 4K before it merges. They exist because the first batches all reproduced the same six defects (S1–S6 in #250).
+
+| Rule                                                                                                                                                                                                                                | Where it lives                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| S1 A chart fills its slot. It sits in `.hcr-chart` with a `.hcr-chart-title`, is a `WallSeriesChart` (or an inline SVG that measures its box), never a fixed `viewBox` letterboxed into a strip.                                    | `.hcr-chart` / `.hcr-plot` in `hamclock-wall-report.css`      |
+| S2 No `…` anywhere. Facts wrap under their label; the facts column has a real minimum width; hero and verdict type are capped against `vw`.                                                                                         | `.hcr-lead`, `.hcr-headline`, `.hcr-facts`                    |
+| S3 No blank band. Headline and facts are centred against each other; a report shows at most six facts (the rest go into body boxes).                                                                                                | `.hcr-lead { align-items: center }`, per-report `facts` array |
+| S4 Every caption, axis and legend is a wall token size (`vh`), never a Tailwind `text-xs`. Captions go through `.hcr-chart-title`.                                                                                                  | `WallSeriesChart`, `.hcr-chart-title`                         |
+| S5 The footer age comes from the data's own observation time; `WAITING` appears only when nothing is on screen.                                                                                                                     | `reportFooter(source, observedAt)`                            |
+| S6 Nothing clips silently. Fixed-height body children (`.hcr-note`, `.hcr-enginestrip`, `.hcr-cols`, `.hcr-box`) never shrink; only the chart / tab panel flexes, and content is sized to fit the report height rather than hidden. | `.hcr-body > …` flex rules, per-report content choices        |
 
 ## 10. Best Band Now report
 

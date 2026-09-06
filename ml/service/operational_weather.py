@@ -47,7 +47,11 @@ SOURCE_MAX_AGE_SECONDS = {
     "kp": 15 * 60,
     "magnetic_field": 15 * 60,
     "solar_wind": 15 * 60,
-    "proton_flux_10mev": 15 * 60,
+    # GOES 5-minute integral proton flux reaches the collector ~10-13 min
+    # after observation and snapshots are taken every 15 min, so a 15-minute
+    # window left the feature usable for only a sliver of each cycle. Training
+    # consumed the hourly OMNI value, so an hour matches that granularity.
+    "proton_flux_10mev": 60 * 60,
     "dst": 2 * 60 * 60,
     "f107": 2 * 24 * 60 * 60,
     "sunspot_number": 45 * 24 * 60 * 60,

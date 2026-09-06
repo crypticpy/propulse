@@ -80,6 +80,26 @@ class OperationalWeatherTests(unittest.TestCase):
         self.assertLessEqual(result.available_at, ISSUE)
         self.assertLessEqual(result.source_watermark, ISSUE)
 
+    def test_proton_flux_survives_goes_latency_within_the_hour(self) -> None:
+        # Real cadence: the snapshot is captured ~13 min after the GOES
+        # observation and requests arrive up to 15 min after capture.
+        captured = ISSUE - timedelta(minutes=14)
+        snapshot = row(captured, kp=3.0, bz=-2.0, dst=-10.0)
+        snapshot["source_observed_at"]["proton_flux_10mev"] = (
+            captured - timedelta(minutes=13)
+        ).isoformat()
+        stale = row(ISSUE - timedelta(hours=2), kp=3.0, bz=-2.0, dst=-10.0)
+        stale["source_observed_at"]["proton_flux_10mev"] = (
+            ISSUE - timedelta(minutes=61)
+        ).isoformat()
+
+        fresh = build_operational_weather([snapshot], ISSUE)
+        expired = build_operational_weather([stale], ISSUE)
+
+        assert fresh is not None and expired is not None
+        self.assertEqual(fresh.values["proton_flux_10mev"], 0.2)
+        self.assertNotIn("proton_flux_10mev", expired.values)
+
     def test_inactive_realtime_source_is_not_trusted(self) -> None:
         inactive = row(ISSUE, kp=3.0, bz=-30.0, dst=-20.0)
         inactive["source_status"]["magnetic_field"]["active"] = False

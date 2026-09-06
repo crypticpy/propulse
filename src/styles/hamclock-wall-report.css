@@ -961,9 +961,25 @@
 }
 .hcr-imagery-frame {
   display: flex;
+  /* Sized by the strip height, not the image's 512px natural width, so the
+   * two frames sit together on the left with the aside taking the rest. */
+  flex: 0 0 18vh;
+  width: 18vh;
   flex-direction: column;
   gap: 0.4vh;
   min-width: 0;
+}
+/* Spare width to the right of the frames: the sub-solar link lives here
+ * rather than in a row of its own below the chart. */
+.hcr-imagery-aside {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.hcr-imagery-aside > .hcr-link-button {
+  margin-top: 0;
 }
 .hcr-imagery-media {
   position: relative;
@@ -974,7 +990,7 @@
 }
 .hcr-imagery-media img {
   height: 100%;
-  width: auto;
+  width: 100%;
   aspect-ratio: 1;
   display: block;
   object-fit: cover;
@@ -1008,6 +1024,9 @@
   font-family: var(--hc-font-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hcr-imagery-label {
   font-size: 1.2vh;
